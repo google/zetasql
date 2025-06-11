@@ -339,7 +339,7 @@ class StatementEvaluatorImpl : public StatementEvaluator {
     analyzer_artifacts_.push_back(std::move(analyzer_output));
   }
 
-  absl::Nullable<SimpleCatalog*> catalog_for_temp_objects() const {
+  SimpleCatalog* /*absl_nullable*/ catalog_for_temp_objects() const {
     return catalog_for_temp_objects_;
   }
 
@@ -355,7 +355,7 @@ class StatementEvaluatorImpl : public StatementEvaluator {
 
   // Stores temporary objects created within a SQL script that need to persist
   // for the duration of the script execution.
-  absl::Nullable<SimpleCatalog*> catalog_for_temp_objects_;
+  SimpleCatalog* /*absl_nullable*/ catalog_for_temp_objects_;
 
   // These are used to keep analysis artifacts alive for temp objects created
   // within a script.

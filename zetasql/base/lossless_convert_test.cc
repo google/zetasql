@@ -113,7 +113,7 @@ TEST(LosslessConvertTest, IntDouble) {
   EXPECT_TRUE(
       (Case<double, int64_t>(std::numeric_limits<double>::quiet_NaN(), false)));
 
-  // Make sure nothing funny happens near the int64_t minimum.
+  // Make sure nothing funny happens near the int64 minimum.
   EXPECT_TRUE((Case<double, int64_t>(-9223372036854775808.0, true)));
   EXPECT_TRUE((Case<double, int64_t>(-9223372036854775808.0 - 2048.0, false)));
 }
@@ -142,7 +142,7 @@ TEST(LosslessConvertTest, IntLongDouble) {
   EXPECT_TRUE((Case<long double, int64_t>(
       std::numeric_limits<long double>::quiet_NaN(), false)));
 
-  // Make sure nothing funny happens near the int64_t minimum.
+  // Make sure nothing funny happens near the int64 minimum.
   EXPECT_TRUE((Case<long double, int64_t>(-9223372036854775808.0, true)));
   EXPECT_TRUE(
       (Case<long double, int64_t>(-9223372036854775808.0 - 2048.0, false)));

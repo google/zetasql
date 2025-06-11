@@ -20,10 +20,12 @@
 #include <cstdint>
 #include <iterator>
 #include <memory>
+#include <queue>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "zetasql/common/measure_utils.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
@@ -75,7 +77,7 @@ static bool IsMeasureAggFunction(const ResolvedExpr* expr) {
          function->IsZetaSQLBuiltin();
 }
 
-// Assumes `aggregate_fn` is the builtin function `AGGREGATE(MEASURE<T>) => T`.
+// Assumes `aggregate_fn` is the builtin function `AGG(MEASURE<T>) => T`.
 static absl::StatusOr<ResolvedColumn> GetInvokedMeasureColumn(
     const ResolvedAggregateFunctionCall* aggregate_fn) {
   ZETASQL_RET_CHECK(aggregate_fn != nullptr);
@@ -108,23 +110,32 @@ absl::StatusOr<GrainScanInfo> GrainScanInfo::CreateFromTableScan(
   ZETASQL_RET_CHECK(!row_id_column_indexes.empty());
   // Create the `GrainScanInfo` object, and track columns to project.
   GrainScanInfo grain_scan_info(grain_scan->table()->Name(), column_factory);
-  // Go over columns already projected by the grain scan. If the column is a
-  // measure column that needs to be expanded, track it accordingly. Else, mark
-  // it for projection.
+  // Go over columns already projected by the grain scan and mark them for
+  // projection. If the column is a measure column that needs to be expanded,
+  // track the `measure_expr` accordingly.
   const Table* table = grain_scan->table();
   bool at_least_one_measure_column_to_expand = false;
   for (int idx = 0; idx < grain_scan->column_list_size(); ++idx) {
     const int table_column_index = grain_scan->column_index_list(idx);
     const Column* column = table->GetColumn(table_column_index);
     const ResolvedColumn& resolved_column = grain_scan->column_list(idx);
-    if (measure_expansion_info_map.contains(resolved_column)) {
-      ZETASQL_RET_CHECK(column->HasMeasureExpression());
+    if (measure_expansion_info_map.contains(resolved_column) &&
+        measure_expansion_info_map.at(resolved_column).is_invoked) {
+      // TODO: b/350555383 - Ensure this check is valid for a deserialized
+      // column with measure expression attributes. If necessary, add a
+      // re-resolution step to ensure the resolved expression is populated.
+      ZETASQL_RET_CHECK(column->HasMeasureExpression() &&
+                column->GetExpression()->HasResolvedExpression());
       const ResolvedExpr* measure_expr =
           column->GetExpression()->GetResolvedExpression();
       ZETASQL_RET_CHECK(measure_expr != nullptr);
+      // `measure_expr` is currently on populated for the grain scan measure
+      // column entry in `measure_expansion_info_map`. Measure columns that are
+      // renamed from the grain scan measure column will have their
+      // `measure_expr` entry populated at a later part of the rewrite (in
+      // `PopulateStructColumnInfo`).
       measure_expansion_info_map[resolved_column].measure_expr = measure_expr;
       at_least_one_measure_column_to_expand = true;
-      continue;
     }
     ZETASQL_RETURN_IF_ERROR(grain_scan_info.MarkColumnForProjection(
         column->Name(), grain_scan,
@@ -205,23 +216,17 @@ absl::btree_set<std::string> GrainScanInfo::GetRowIdentityColumnNames() const {
 // information.
 //
 // The 1st phase (`GATHER_MEASURE_INFO`) gathers information about measure
-// columns that need to be expanded, (including any renamed measure columns).
+// columns that need to be expanded, plus any renamed measure columns.
 //
 // The 2nd phase (`CONSTRUCT_GRAIN_SCAN_INFO`) uses information gathered during
 // the 1st phase to identify grain scans that require rewriting, and construct
 // `GrainScanInfo` objects accordingly.
-//
-// Measure columns that directly originate from grain scans are added as keys to
-// `MeasureExpansionInfoMap`, with renamed measure columns populated in the
-// `renamed_measure_columns` field of the corresponding `MeasureExpansionInfo`
-// value.
 class GrainScanFinder : public ResolvedASTVisitor {
  public:
-  static absl::StatusOr<
-      absl::flat_hash_map<const ResolvedTableScan*, GrainScanInfo>>
-  GetGrainScanInfo(const ResolvedNode* input,
-                   MeasureExpansionInfoMap& measure_expansion_info_map,
-                   ColumnFactory& column_factory) {
+  static absl::StatusOr<GrainScanInfoMap> GetGrainScanInfo(
+      const ResolvedNode* input,
+      MeasureExpansionInfoMap& measure_expansion_info_map,
+      ColumnFactory& column_factory) {
     // First, gather information about measure columns that need to be expanded.
     GrainScanFinder grain_scan_finder(input, measure_expansion_info_map,
                                       column_factory);
@@ -238,7 +243,7 @@ class GrainScanFinder : public ResolvedASTVisitor {
     return std::move(grain_scan_finder.grain_scan_info_);
   }
 
-  // Find measure columns invoked via the `AGGREGATE` function and place them in
+  // Find measure columns invoked via the `AGG` function and place them in
   // `invoked_measure_columns_`.
   absl::Status VisitResolvedAggregateScan(
       const ResolvedAggregateScan* node) override {
@@ -294,7 +299,8 @@ class GrainScanFinder : public ResolvedASTVisitor {
   absl::Status VisitResolvedTableScan(const ResolvedTableScan* node) override {
     if (visit_phase_ == VisitPhase::CONSTRUCT_GRAIN_SCAN_INFO) {
       for (const ResolvedColumn& column : node->column_list()) {
-        if (!measure_expansion_info_map_.contains(column)) {
+        if (!measure_expansion_info_map_.contains(column) ||
+            !measure_expansion_info_map_.at(column).is_invoked) {
           continue;
         }
         // `node` is a grain scan for a measure column that needs to be
@@ -330,7 +336,7 @@ class GrainScanFinder : public ResolvedASTVisitor {
 
   // Measure columns propagating through `WithRefScan` are renamed to use new
   // column ids. Given `renamed_measure_column`, this function returns the
-  // original measure column that needs to be expanded.
+  // original measure column that it was renamed from.
   absl::StatusOr<ResolvedColumn> GetOriginalMeasureColumn(
       const ResolvedColumn& renamed_measure_column) {
     if (!renamed_measure_column_to_with_ref_scan_.contains(
@@ -354,40 +360,72 @@ class GrainScanFinder : public ResolvedASTVisitor {
     return with_entry->with_subquery()->column_list(index);
   }
 
-  // Columns in `invoked_measure_columns_` may be renamed measure columns;
-  // `TrackRenamedMeasureColumns` will read each column from this set and
-  // perform a rename chain traversal to find the original measure column that
-  // needs to be expanded.
+  // Measure columns may be renamed by `WithRefScans`. Tracking renamed
+  // measure columns requires performing a rename chain traversal to find the
+  // source column the measure column was originated from.
+  // `measure_expansion_info_map_` is populated with information about both
+  // original and renamed measure columns. Additionally, information is added
+  // to indicate whether a measure column is invoked via the `AGG`
+  // function.
   absl::Status TrackRenamedMeasureColumns() {
     ZETASQL_RET_CHECK(measure_expansion_info_map_.empty());
-    for (const ResolvedColumn& invoked_measure_column :
-         invoked_measure_columns_) {
-      constexpr int kMaxIterations = 10;
-      int depth = 0;
-      std::vector<ResolvedColumn> renamed_measure_columns;
-      ResolvedColumn current_measure_column = invoked_measure_column;
-      while (true) {
-        ZETASQL_ASSIGN_OR_RETURN(ResolvedColumn original_measure_column,
-                         GetOriginalMeasureColumn(current_measure_column));
-        if (original_measure_column == current_measure_column) {
-          std::reverse(renamed_measure_columns.begin(),
-                       renamed_measure_columns.end());
-          ZETASQL_RET_CHECK(measure_expansion_info_map_
-                        .insert({original_measure_column,
-                                 {.renamed_measure_columns =
-                                      std::move(renamed_measure_columns)}})
-                        .second);
-          break;
-        }
-        renamed_measure_columns.push_back(current_measure_column);
-        current_measure_column = original_measure_column;
-        if (++depth > kMaxIterations) {
-          return absl::InvalidArgumentError(absl::StrCat(
-              "Measure column ", invoked_measure_column.DebugString(),
-              " was renamed more than ", kMaxIterations, " times."));
+
+    // Lambda used to populate `measure_expansion_info_map_` with information
+    // about `renamed_measure_columns`.
+    auto populate_measure_expansion_info_map =
+        [this](
+            const absl::flat_hash_set<ResolvedColumn>& renamed_measure_columns,
+            bool measure_columns_are_invoked) -> absl::Status {
+      for (const ResolvedColumn& renamed_measure_column :
+           renamed_measure_columns) {
+        constexpr int kMaxIterations = 10;
+        int depth = 0;
+        ResolvedColumn current_measure_column = renamed_measure_column;
+        while (true) {
+          ZETASQL_ASSIGN_OR_RETURN(ResolvedColumn original_measure_column,
+                           GetOriginalMeasureColumn(current_measure_column));
+          auto original_measure_column_it = measure_expansion_info_map_.insert(
+              {original_measure_column,
+               {.is_invoked = measure_columns_are_invoked}});
+          if (original_measure_column == current_measure_column) {
+            break;
+          }
+          original_measure_column_it.first->second.renamed_measure_columns
+              .insert(current_measure_column);
+          measure_expansion_info_map_.insert(
+              {current_measure_column,
+               {.is_invoked = measure_columns_are_invoked}});
+          current_measure_column = original_measure_column;
+          if (++depth > kMaxIterations) {
+            return absl::InvalidArgumentError(absl::StrCat(
+                "Measure column ", renamed_measure_column.DebugString(),
+                " was renamed more than ", kMaxIterations, " times."));
+          }
         }
       }
+      return absl::OkStatus();
+    };
+
+    // Populate `measure_expansion_info_map_` with information about measure
+    // columns invoked via the `AGG` function. It is important to do this
+    // step before the next step so that `is_invoked` accurately reflects
+    // whether a measure column is directly (or indirectly via a rename)
+    // invoked via the `AGG` function.
+    ZETASQL_RETURN_IF_ERROR(populate_measure_expansion_info_map(
+        invoked_measure_columns_, /*measure_columns_are_invoked=*/true));
+
+    // Populate `measure_expansion_info_map_` with information about renamed
+    // measure columns from WithRefScans. These measure columns may or may not
+    // have been invoked via the `AGG` function. If they were invoked,
+    // then the previous step would have marked the corresponding entry in
+    // `measure_expansion_info_map_` with `is_invoked` set to true.
+    absl::flat_hash_set<ResolvedColumn> renamed_measure_columns;
+    for (const auto& [renamed_measure_column, _] :
+         renamed_measure_column_to_with_ref_scan_) {
+      renamed_measure_columns.insert(renamed_measure_column);
     }
+    ZETASQL_RETURN_IF_ERROR(populate_measure_expansion_info_map(
+        renamed_measure_columns, /*measure_columns_are_invoked=*/false));
     return absl::OkStatus();
   }
 
@@ -399,8 +437,8 @@ class GrainScanFinder : public ResolvedASTVisitor {
   ColumnFactory& column_factory_;
   // The current phase of the visit.
   VisitPhase visit_phase_ = VisitPhase::GATHER_MEASURE_INFO;
-  // The set of measure columns that are invoked in an `AGGREGATE` function
-  // call. Populated during the `GATHER_MEASURE_INFO` phase.
+  // The set of measure columns that are invoked in an `AGG` function call.
+  // Populated during the `GATHER_MEASURE_INFO` phase.
   absl::flat_hash_set<ResolvedColumn> invoked_measure_columns_;
   // `renamed_measure_column_to_with_ref_scan_` and
   // `with_query_name_to_with_entry_` are populated during the
@@ -449,13 +487,13 @@ class GrainScanFinder : public ResolvedASTVisitor {
 
   // A mapping from a grain scan to the `GrainScanInfo` needed to rewrite it.
   // Populated during the `CONSTRUCT_GRAIN_SCAN_INFO` phase.
-  absl::flat_hash_map<const ResolvedTableScan*, GrainScanInfo> grain_scan_info_;
+  GrainScanInfoMap grain_scan_info_;
 };
 
-absl::StatusOr<absl::flat_hash_map<const ResolvedTableScan*, GrainScanInfo>>
-GetGrainScanInfo(const ResolvedNode* input,
-                 MeasureExpansionInfoMap& measure_expansion_info_map,
-                 ColumnFactory& column_factory) {
+absl::StatusOr<GrainScanInfoMap> GetGrainScanInfo(
+    const ResolvedNode* input,
+    MeasureExpansionInfoMap& measure_expansion_info_map,
+    ColumnFactory& column_factory) {
   return GrainScanFinder::GetGrainScanInfo(input, measure_expansion_info_map,
                                            column_factory);
 }
@@ -532,15 +570,37 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> MakeStructExprFromColumnNames(
   return MakeResolvedMakeStruct(struct_type, std::move(struct_field_exprs));
 }
 
+// Wraps the `referenced_columns_struct_expr` and `key_columns_struct_expr`
+// with a STRUCT<referenced_columns STRUCT<...>, key_columns STRUCT<...>.
+static absl::StatusOr<std::unique_ptr<ResolvedMakeStruct>> MakeWrappingStruct(
+    std::unique_ptr<ResolvedExpr> referenced_columns_struct_expr,
+    std::unique_ptr<ResolvedExpr> key_columns_struct_expr,
+    TypeFactory& type_factory) {
+  std::vector<StructField> final_struct_fields;
+  final_struct_fields.push_back(StructField(
+      kReferencedColumnsFieldName, referenced_columns_struct_expr->type()));
+  final_struct_fields.push_back(
+      StructField(kKeyColumnsFieldName, key_columns_struct_expr->type()));
+  const StructType* final_struct_type = nullptr;
+  ZETASQL_RETURN_IF_ERROR(type_factory.MakeStructTypeFromVector(final_struct_fields,
+                                                        &final_struct_type));
+  std::vector<std::unique_ptr<const ResolvedExpr>> final_struct_field_exprs;
+  final_struct_field_exprs.push_back(std::move(referenced_columns_struct_expr));
+  final_struct_field_exprs.push_back(std::move(key_columns_struct_expr));
+  return MakeResolvedMakeStruct(final_struct_type,
+                                std::move(final_struct_field_exprs));
+}
+
 // `MakeAndProjectStructColumn` populates `measure_expansion_info` with a
-// `STRUCT` typed column that will be used to replace the measure column, and
+// `STRUCT` typed column that will projected alongside the measure column, and
 // updates `grain_scan_info` to project the `STRUCT` column and columns needed
 // to construct the `STRUCT` column.
 static absl::Status MakeAndProjectStructColumn(
     const ResolvedColumn& resolved_measure_column,
     MeasureExpansionInfo& measure_expansion_info,
     const ResolvedTableScan* grain_scan, GrainScanInfo& grain_scan_info,
-    TypeFactory& type_factory, IdStringPool& id_string_pool) {
+    TypeFactory& type_factory, IdStringPool& id_string_pool,
+    ColumnFactory& column_factory) {
   const ResolvedExpr* measure_expr = measure_expansion_info.measure_expr;
   ZETASQL_RET_CHECK(measure_expr != nullptr);
   // Step 1: Traverse the measure expression to find referenced columns and
@@ -564,27 +624,16 @@ static absl::Status MakeAndProjectStructColumn(
 
   // Step 4: Construct a `ResolvedMakeStruct` expression wrapping the STRUCT
   // expressions from steps 2 and 3.
-  // TODO: b/350555383 - Consider refactoring into a helper function.
-  const StructType* final_struct_type = nullptr;
-  std::vector<StructField> final_struct_fields;
-  final_struct_fields.push_back(StructField(
-      kReferencedColumnsFieldName, referenced_columns_struct_expr->type()));
-  final_struct_fields.push_back(
-      StructField(kKeyColumnsFieldName, key_columns_struct_expr->type()));
-  ZETASQL_RETURN_IF_ERROR(type_factory.MakeStructTypeFromVector(final_struct_fields,
-                                                        &final_struct_type));
-  std::vector<std::unique_ptr<const ResolvedExpr>> final_struct_field_exprs;
-  final_struct_field_exprs.push_back(std::move(referenced_columns_struct_expr));
-  final_struct_field_exprs.push_back(std::move(key_columns_struct_expr));
-  std::unique_ptr<ResolvedMakeStruct> final_struct_expr =
-      MakeResolvedMakeStruct(final_struct_type,
-                             std::move(final_struct_field_exprs));
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<ResolvedExpr> final_struct_expr,
+      MakeWrappingStruct(std::move(referenced_columns_struct_expr),
+                         std::move(key_columns_struct_expr), type_factory));
 
   // Step 5: Construct a `ResolvedComputedColumn` for the `ResolvedMakeStruct`
   // expression from step 4 and add it to `grain_scan_info`. Also update
   // `measure_expansion_info` with the `STRUCT` column.
   ResolvedColumn final_struct_column = ResolvedColumn(
-      resolved_measure_column.column_id(),
+      column_factory.AllocateColumnId(),
       resolved_measure_column.table_name_id(),
       id_string_pool.Make(
           absl::StrCat("struct_for_measure_", resolved_measure_column.name())),
@@ -595,65 +644,83 @@ static absl::Status MakeAndProjectStructColumn(
   return absl::OkStatus();
 }
 
-// Creates a `MeasureExpansionInfoMap` for the renamed measure columns
-// associated with `measure_expansion_info`.
-static absl::StatusOr<MeasureExpansionInfoMap>
-GetRenamedMeasureExpansionInfoMap(MeasureExpansionInfo& measure_expansion_info,
-                                  GrainScanInfo& grain_scan_info,
-                                  TypeFactory& type_factory,
-                                  IdStringPool& id_string_pool) {
-  MeasureExpansionInfoMap renamed_measure_expansion_info_map;
-  for (const ResolvedColumn& renamed_measure_column :
-       measure_expansion_info.renamed_measure_columns) {
-    ResolvedColumn renamed_struct_column = ResolvedColumn(
-        renamed_measure_column.column_id(),
-        renamed_measure_column.table_name_id(),
-        id_string_pool.Make(
-            absl::StrCat("struct_for_measure_", renamed_measure_column.name())),
-        measure_expansion_info.struct_column.type());
-    MeasureExpansionInfo renamed_measure_expansion_info{
-        .measure_expr = measure_expansion_info.measure_expr,
-        .struct_column = renamed_struct_column,
-    };
-    ZETASQL_RET_CHECK(renamed_measure_expansion_info_map
-                  .insert({renamed_measure_column,
-                           std::move(renamed_measure_expansion_info)})
-                  .second);
-  }
-  return renamed_measure_expansion_info_map;
-}
-
 absl::Status PopulateStructColumnInfo(
-    const ResolvedTableScan* grain_scan, GrainScanInfo& grain_scan_info,
+    GrainScanInfoMap& grain_scan_info_map,
     MeasureExpansionInfoMap& measure_expansion_info_map,
-    TypeFactory& type_factory, IdStringPool& id_string_pool) {
-  std::vector<MeasureExpansionInfoMap> renamed_measure_expansion_info_maps;
-  for (auto& [resolved_measure_column, measure_expansion_info] :
-       measure_expansion_info_map) {
-    // Populate `measure_expansion_info` with a `STRUCT` typed column that will
-    // be used to replace the measure column.
-    ZETASQL_RETURN_IF_ERROR(MakeAndProjectStructColumn(
-        resolved_measure_column, measure_expansion_info, grain_scan,
-        grain_scan_info, type_factory, id_string_pool));
-    // Create a `MeasureExpansionInfoMap` for the renamed measure columns
-    // associated with `measure_expansion_info`.
-    ZETASQL_ASSIGN_OR_RETURN(MeasureExpansionInfoMap renamed_measure_expansion_info_map,
-                     GetRenamedMeasureExpansionInfoMap(
-                         measure_expansion_info, grain_scan_info, type_factory,
-                         id_string_pool));
-    renamed_measure_expansion_info_maps.push_back(
-        std::move(renamed_measure_expansion_info_map));
+    TypeFactory& type_factory, IdStringPool& id_string_pool,
+    ColumnFactory& column_factory) {
+  std::vector<ResolvedColumn> grain_scan_measure_columns_to_expand;
+  for (auto& [grain_scan, grain_scan_info] : grain_scan_info_map) {
+    for (const auto& column_to_project :
+         grain_scan_info.GetAllColumnsToProject()) {
+      // The column being projected is a measure column that needs to be
+      // expanded.
+      if (measure_expansion_info_map.contains(
+              column_to_project.resolved_column) &&
+          measure_expansion_info_map[column_to_project.resolved_column]
+              .is_invoked) {
+        ZETASQL_RETURN_IF_ERROR(MakeAndProjectStructColumn(
+            column_to_project.resolved_column,
+            measure_expansion_info_map[column_to_project.resolved_column],
+            grain_scan, grain_scan_info, type_factory, id_string_pool,
+            column_factory));
+        grain_scan_measure_columns_to_expand.push_back(
+            column_to_project.resolved_column);
+      }
+    }
   }
-  // Merge MeasureExpansionInfoMaps for renamed measure columns into the global
-  // `measure_expansion_info_map`.
-  for (MeasureExpansionInfoMap& renamed_measure_expansion_info_map :
-       renamed_measure_expansion_info_maps) {
-    for (auto& [renamed_measure_column, renamed_measure_expansion_info] :
-         renamed_measure_expansion_info_map) {
-      ZETASQL_RET_CHECK(measure_expansion_info_map
-                    .insert({renamed_measure_column,
-                             std::move(renamed_measure_expansion_info)})
-                    .second);
+
+  // `grain_scan_info_map` is now populated with information needed to project
+  // the STRUCT columns for measure expansion. Measure columns in
+  // `measure_expansion_info_map` that originate from a grain scan now have a
+  // `struct_column` populated. But measure columns in
+  // `measure_expansion_info_map` that are renamed from some grain scan measure
+  // column do not have a `struct_column` populated. Populate `struct_column`
+  // and `measure_expr` for the corresponding renamed measure columns.
+  for (const ResolvedColumn& grain_scan_measure_column_to_expand :
+       grain_scan_measure_columns_to_expand) {
+    ZETASQL_RET_CHECK(measure_expansion_info_map.contains(
+        grain_scan_measure_column_to_expand));
+    MeasureExpansionInfo& measure_expansion_info =
+        measure_expansion_info_map[grain_scan_measure_column_to_expand];
+    ZETASQL_RET_CHECK(measure_expansion_info.struct_column.IsInitialized());
+    ZETASQL_RET_CHECK(measure_expansion_info.measure_expr != nullptr);
+    const ResolvedColumn& struct_column = measure_expansion_info.struct_column;
+
+    std::queue<ResolvedColumn> renamed_measure_columns_to_expand;
+    auto add_columns_to_queue =
+        [&renamed_measure_columns_to_expand](
+            const absl::btree_set<ResolvedColumn>& columns) {
+          for (const ResolvedColumn& column : columns) {
+            renamed_measure_columns_to_expand.push(column);
+          }
+        };
+    add_columns_to_queue(measure_expansion_info.renamed_measure_columns);
+
+    constexpr int kMaxIterations = 100;
+    int num_iterations = 0;
+    while (!renamed_measure_columns_to_expand.empty()) {
+      ZETASQL_RET_CHECK_LT(num_iterations, kMaxIterations);
+      ResolvedColumn renamed_measure_column =
+          renamed_measure_columns_to_expand.front();
+      renamed_measure_columns_to_expand.pop();
+      MeasureExpansionInfo& renamed_measure_expansion_info =
+          measure_expansion_info_map[renamed_measure_column];
+      ZETASQL_RET_CHECK(!renamed_measure_expansion_info.struct_column.IsInitialized());
+
+      ResolvedColumn renamed_struct_column = ResolvedColumn(
+          column_factory.AllocateColumnId(),
+          renamed_measure_column.table_name_id(),
+          id_string_pool.Make(absl::StrCat("struct_for_measure_",
+                                           renamed_measure_column.name())),
+          struct_column.type());
+
+      renamed_measure_expansion_info.struct_column = renamed_struct_column;
+      renamed_measure_expansion_info.measure_expr =
+          measure_expansion_info.measure_expr;
+      add_columns_to_queue(
+          renamed_measure_expansion_info.renamed_measure_columns);
+      num_iterations++;
     }
   }
   return absl::OkStatus();
@@ -672,8 +739,7 @@ class GrainScanRewriter : public ResolvedASTRewriteVisitor {
  public:
   static absl::StatusOr<std::unique_ptr<const ResolvedNode>> RewriteGrainScans(
       std::unique_ptr<const ResolvedNode> input,
-      absl::flat_hash_map<const ResolvedTableScan*, GrainScanInfo>
-          grain_scan_info_map) {
+      GrainScanInfoMap grain_scan_info_map) {
     return GrainScanRewriter(std::move(grain_scan_info_map))
         .VisitAll(std::move(input));
   }
@@ -698,9 +764,7 @@ class GrainScanRewriter : public ResolvedASTRewriteVisitor {
   }
 
  private:
-  explicit GrainScanRewriter(
-      absl::flat_hash_map<const ResolvedTableScan*, GrainScanInfo>
-          grain_scan_info_map)
+  explicit GrainScanRewriter(GrainScanInfoMap grain_scan_info_map)
       : grain_scan_info_map_(std::move(grain_scan_info_map)) {};
   GrainScanRewriter(const GrainScanRewriter&) = delete;
   GrainScanRewriter& operator=(const GrainScanRewriter&) = delete;
@@ -745,8 +809,7 @@ class GrainScanRewriter : public ResolvedASTRewriteVisitor {
                                    std::move(scan));
   }
 
-  absl::flat_hash_map<const ResolvedTableScan*, GrainScanInfo>
-      grain_scan_info_map_;
+  GrainScanInfoMap grain_scan_info_map_;
 };
 
 // `MultiLevelAggregateRewriter` rewrites a measure expression to use
@@ -755,7 +818,7 @@ class GrainScanRewriter : public ResolvedASTRewriteVisitor {
 // functions (e.g. SUM(X) / SUM(Y) + (<scalar_subquery>)), and so the resulting
 // rewritten expression has 2 components to it:
 //
-// 1. A list of constituent aggregate functions that are written to use
+// 1. A list of constituent aggregate functions that are rewritten to use
 //    multi-level aggregation to grain-lock. These aggregate functions need to
 //    be computed by the AggregateScan.
 //
@@ -766,19 +829,6 @@ class GrainScanRewriter : public ResolvedASTRewriteVisitor {
 // constituent aggregate functions. The constituent aggregate functions are
 // themselves rewritten to use multi-level aggregation to grain-lock and avoid
 // overcounting.
-//
-// TODO: b/350555383 - Modify this to avoid traversing subquery subtrees in the
-// measure expression. Measure expressions with subqueries don't need their
-// aggregate functions rewritten to grain-lock; for example, consider this expr:
-//
-//    'SUM(int64_col) + (SELECT AVG(arr.field) FROM UNNEST(array_col) AS arr)'
-//
-// The equivalent rewritten expr should be be:
-//
-//    'SUM(ANY_VALUE(int64_col) GROUP BY <grain_lock_expr>) +
-//     (SELECT AVG(arr.field) FROM UNNEST(array_col) AS arr)'
-//
-// Aggregate functions within the subquery should not require grain-locking.
 class MultiLevelAggregateRewriter : public ResolvedASTRewriteVisitor {
  public:
   MultiLevelAggregateRewriter(const Function* any_value_fn,
@@ -793,11 +843,32 @@ class MultiLevelAggregateRewriter : public ResolvedASTRewriteVisitor {
 
   absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
   RewriteMultiLevelAggregate(std::unique_ptr<const ResolvedExpr> measure_expr) {
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedNode> rewritten_measure_expr,
-                     VisitAll(std::move(measure_expr)));
-    ZETASQL_RET_CHECK(rewritten_measure_expr->Is<ResolvedExpr>());
-    return absl::WrapUnique(
-        rewritten_measure_expr.release()->GetAs<ResolvedExpr>());
+    constituent_aggregate_count_ = 0;
+    constituent_aggregate_list_.clear();
+
+    // Extract constituent aggregates from the measure expression and rewrite
+    // the measure expression to reference the constituent aggregates.
+    std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>
+        temp_constituent_aggregates;
+    ZETASQL_ASSIGN_OR_RETURN(measure_expr,
+                     ExtractTopLevelAggregates(std::move(measure_expr),
+                                               temp_constituent_aggregates,
+                                               column_factory_));
+
+    // Rewrite the constituent aggregates.
+    for (std::unique_ptr<const ResolvedComputedColumnBase>&
+             constituent_aggregate : temp_constituent_aggregates) {
+      ZETASQL_ASSIGN_OR_RETURN(
+          std::unique_ptr<const ResolvedNode> rewritten_constituent_aggregate,
+          VisitAll(std::move(constituent_aggregate)));
+      ZETASQL_RET_CHECK(
+          rewritten_constituent_aggregate->Is<ResolvedComputedColumnBase>());
+      constituent_aggregate_list_.push_back(
+          absl::WrapUnique(rewritten_constituent_aggregate.release()
+                               ->GetAs<ResolvedComputedColumnBase>()));
+    }
+    // Return the measure expression.
+    return measure_expr;
   }
 
   std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>
@@ -806,35 +877,18 @@ class MultiLevelAggregateRewriter : public ResolvedASTRewriteVisitor {
   }
 
  protected:
-  absl::Status PreVisitResolvedAggregateFunctionCall(
-      const ResolvedAggregateFunctionCall& aggregate_function_call) override {
-    // If we're already seen a top-level aggregate function call, then
-    // `aggregate_function_call` is not a top-level aggregate function call.
-    if (top_level_aggregate_function_call_ != nullptr) {
-      return absl::OkStatus();
-    }
-    // `aggregate_function_call` is a top-level aggregate function call.
-    top_level_aggregate_function_call_ = &aggregate_function_call;
-    return absl::OkStatus();
-  }
-
   absl::StatusOr<std::unique_ptr<const ResolvedNode>>
   PostVisitResolvedAggregateFunctionCall(
       std::unique_ptr<const ResolvedAggregateFunctionCall> node) override {
-    const ResolvedAggregateFunctionCall* aggregate_function_call_ptr =
-        node.get();
-    auto reset_top_level_aggregate_function_call =
-        absl::MakeCleanup([this, aggregate_function_call_ptr] {
-          if (IsTopLevelAggregateFunctionCall(aggregate_function_call_ptr)) {
-            top_level_aggregate_function_call_ = nullptr;
-          }
-        });
-
+    // If we are within a subquery, then we don't need to grain-lock the
+    // aggregate function.
+    if (subquery_depth_ > 0) {
+      return node;
+    }
     // We only rewrite aggregate functions that have an empty
     // `group_by_aggregate_list`.
     if (!node->group_by_aggregate_list().empty()) {
-      return ProcessAggregateFunction(std::move(node),
-                                      aggregate_function_call_ptr);
+      return node;
     }
     // TODO: b/350555383 - How do we handle `generic_argument_list` ?
     if (!node->generic_argument_list().empty()) {
@@ -847,8 +901,7 @@ class MultiLevelAggregateRewriter : public ResolvedASTRewriteVisitor {
       // function that only references grouping consts or correlated columns
       // (e.g. SUM(1 GROUP BY e)). We don't need to grain-lock since the
       // aggregate function is guaranteed to see exactly 1 row per group.
-      return ProcessAggregateFunction(std::move(node),
-                                      aggregate_function_call_ptr);
+      return node;
     }
 
     // If here, both `group_by_list` and `group_by_aggregate_list` are empty.
@@ -936,35 +989,23 @@ class MultiLevelAggregateRewriter : public ResolvedASTRewriteVisitor {
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedAggregateFunctionCall>
                          rewritten_aggregate_function,
                      std::move(aggregate_function_call_builder).Build());
-    return ProcessAggregateFunction(std::move(rewritten_aggregate_function),
-                                    aggregate_function_call_ptr);
+    return rewritten_aggregate_function;
+  }
+
+  absl::Status PreVisitResolvedSubqueryExpr(
+      const zetasql::ResolvedSubqueryExpr&) override {
+    subquery_depth_++;
+    return absl::OkStatus();
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>>
+  PostVisitResolvedSubqueryExpr(
+      std::unique_ptr<const ResolvedSubqueryExpr> node) override {
+    subquery_depth_--;
+    return node;
   }
 
  private:
-  bool IsTopLevelAggregateFunctionCall(
-      const ResolvedAggregateFunctionCall* aggregate_function_call) const {
-    return top_level_aggregate_function_call_ == aggregate_function_call;
-  }
-
-  std::unique_ptr<const ResolvedNode> ProcessAggregateFunction(
-      std::unique_ptr<const ResolvedAggregateFunctionCall> aggregate_function,
-      const ResolvedAggregateFunctionCall*
-          original_aggregate_function_call_ptr) {
-    if (!IsTopLevelAggregateFunctionCall(
-            original_aggregate_function_call_ptr)) {
-      return aggregate_function;
-    }
-    ResolvedColumn aggregate_function_column = column_factory_.MakeCol(
-        "$aggregate",
-        absl::StrCat("constituent_aggregate_", constituent_aggregate_count_++),
-        aggregate_function->type());
-    constituent_aggregate_list_.push_back(MakeResolvedComputedColumn(
-        aggregate_function_column, std::move(aggregate_function)));
-    return MakeResolvedColumnRef(
-        constituent_aggregate_list_.back()->column().type(),
-        constituent_aggregate_list_.back()->column(), /*is_correlated=*/false);
-  }
-
   // A pointer to the `ANY_VALUE` function in the catalog used for the rewrite.
   const Function* any_value_fn_ = nullptr;
   // Used to create new columns.
@@ -978,12 +1019,9 @@ class MultiLevelAggregateRewriter : public ResolvedASTRewriteVisitor {
       constituent_aggregate_list_;
   // Used purely for naming constituent aggregate columns.
   uint64_t constituent_aggregate_count_ = 0;
-  // Tracks the current top-level aggregate function call (e.g. track `SUM`
-  // while traversing the expression `SUM(AVG(X) + MIN(Y) GROUP BY Z)`).
-  // Only top-level aggregate function calls need to pushed into
-  // `constituent_aggregate_list_`.
-  const ResolvedAggregateFunctionCall* top_level_aggregate_function_call_ =
-      nullptr;
+  // If `subquery_depth_` > 0, then we are currently within a subquery and
+  // any aggregate functions should not be rewritten to grain-lock.
+  uint64_t subquery_depth_ = 0;
 };
 
 // `StructColumnReferenceRewriter` rewrites a measure expression to reference
@@ -1008,15 +1046,55 @@ class StructColumnReferenceRewriter : public ResolvedASTRewriteVisitor {
   }
 
  protected:
+  absl::Status PreVisitResolvedSubqueryExpr(
+      const zetasql::ResolvedSubqueryExpr&) override {
+    subquery_parameter_info_list_.push_back(SubQueryParameterInfo());
+    return absl::OkStatus();
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>>
+  PostVisitResolvedSubqueryExpr(
+      std::unique_ptr<const ResolvedSubqueryExpr> node) override {
+    ZETASQL_RET_CHECK(!subquery_parameter_info_list_.empty());
+    auto removed_subquery_parameter_info =
+        absl::MakeCleanup([this] { subquery_parameter_info_list_.pop_back(); });
+    if (subquery_parameter_info_list_.back()
+            .add_struct_column_to_parameter_list) {
+      ResolvedSubqueryExprBuilder subquery_expr_builder =
+          ToBuilder(std::move(node));
+      std::unique_ptr<ResolvedColumnRef> struct_column_ref =
+          MakeResolvedColumnRef(
+              struct_column_.type(), struct_column_,
+              /*is_correlated=*/
+              subquery_parameter_info_list_.back().is_correlated);
+      subquery_expr_builder.add_parameter_list(std::move(struct_column_ref));
+      return std::move(subquery_expr_builder).Build();
+    }
+    return node;
+  }
+
   absl::StatusOr<std::unique_ptr<const ResolvedNode>>
   PostVisitResolvedExpressionColumn(
       std::unique_ptr<const ResolvedExpressionColumn> node) override {
+    // If we visit an ExpressionColumn, then we need to augment the parameter
+    // list of any enclosing subqueries to include the struct column.
+    for (int i = 0; i < subquery_parameter_info_list_.size(); ++i) {
+      subquery_parameter_info_list_[i].add_struct_column_to_parameter_list =
+          true;
+      if (i < subquery_parameter_info_list_.size() - 1) {
+        subquery_parameter_info_list_[i].is_correlated = true;
+      }
+    }
+    // Make a column ref to the struct column. If within a subquery, then the
+    // column ref is correlated.
+    //
     // struct_column_ref = ColumnRef(
     //   type=STRUCT<STRUCT<referenced_columns>, STRUCT<key_columns>>
     // )
     std::unique_ptr<ResolvedColumnRef> struct_column_ref =
-        MakeResolvedColumnRef(struct_column_.type(), struct_column_,
-                              /*is_correlated=*/false);
+        MakeResolvedColumnRef(
+            struct_column_.type(), struct_column_,
+            /*is_correlated=*/!subquery_parameter_info_list_.empty());
     // +-GetStructField
     //  +-type=STRUCT<referenced_columns>
     //  +-expr=
@@ -1059,10 +1137,16 @@ class StructColumnReferenceRewriter : public ResolvedASTRewriteVisitor {
   StructColumnReferenceRewriter& operator=(
       const StructColumnReferenceRewriter&) = delete;
 
+  struct SubQueryParameterInfo {
+    bool add_struct_column_to_parameter_list = false;
+    bool is_correlated = false;
+  };
+
   ResolvedColumn struct_column_;
+  std::vector<SubQueryParameterInfo> subquery_parameter_info_list_;
 };
 
-// `MeasuresAggregateFunctionReplacer` replaces `AGGREGATE` function calls with
+// `MeasuresAggregateFunctionReplacer` replaces `AGG` function calls with
 // rewritten measure expression information from `MeasureExpansionInfo`.
 class MeasuresAggregateFunctionReplacer : public ResolvedASTRewriteVisitor {
  public:
@@ -1082,8 +1166,6 @@ class MeasuresAggregateFunctionReplacer : public ResolvedASTRewriteVisitor {
       std::unique_ptr<const ResolvedAggregateScan> node) override {
     // First, rewrite the AggregateScan to compute constituent aggregates the
     // measure expands to.
-    // TODO: b/350555383 - Verify the logic here; are the ResolvedColumn types
-    // correct?
     std::vector<ResolvedColumn> columns_to_project = node->column_list();
     std::vector<std::unique_ptr<const ResolvedComputedColumn>>
         computed_columns_to_project;
@@ -1190,49 +1272,201 @@ class MeasuresAggregateFunctionReplacer : public ResolvedASTRewriteVisitor {
   MeasureExpansionInfoMap& measure_expansion_info_map_;
 };
 
-// `MeasureColumnReplacer` replaces measure columns with their corresponding
-// `STRUCT` typed columns found in `MeasureExpansionInfo`.
-class MeasureColumnReplacer : public ResolvedASTRewriteVisitor {
+// `StructColumnProjector` checks if a scan projects measure columns and adds
+// the corresponding STRUCT typed column for that measure column to the scan's
+// column list. Only certain scan types are checked and rewritten, since it is
+// assumed that measure columns cannot propagate through other scan types.
+class StructColumnProjector : public ResolvedASTRewriteVisitor {
  public:
   static absl::StatusOr<std::unique_ptr<const ResolvedNode>>
-  ReplaceMeasureColumns(std::unique_ptr<const ResolvedNode> input,
-                        MeasureExpansionInfoMap& measure_expansion_info_map) {
-    return MeasureColumnReplacer(measure_expansion_info_map)
+  ProjectMeasureStructColumns(
+      std::unique_ptr<const ResolvedNode> input,
+      const MeasureExpansionInfoMap& measure_expansion_info_map) {
+    return StructColumnProjector(measure_expansion_info_map)
         .VisitAll(std::move(input));
   }
 
  protected:
-  absl::StatusOr<ResolvedColumn> PostVisitResolvedColumn(
-      const ResolvedColumn& column) override {
-    if (!column.type()->IsMeasureType()) {
-      return column;
-    }
-    if (measure_expansion_info_map_.contains(column)) {
-      MeasureExpansionInfo& measure_expansion_info =
-          measure_expansion_info_map_[column];
-      ZETASQL_RET_CHECK(measure_expansion_info.struct_column.IsInitialized());
-      ZETASQL_RET_CHECK(measure_expansion_info.struct_column.type()->IsStruct());
-      return measure_expansion_info.struct_column;
-    }
-    return column;
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>>
+  PostVisitResolvedProjectScan(
+      std::unique_ptr<const ResolvedProjectScan> node) override {
+    ZETASQL_ASSIGN_OR_RETURN(std::vector<ResolvedColumn> column_list,
+                     MaybeAddStructColumnToColumnList(node.get()));
+    return ToBuilder(std::move(node))
+        .set_column_list(std::move(column_list))
+        .Build();
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>>
+  PostVisitResolvedFilterScan(
+      std::unique_ptr<const ResolvedFilterScan> node) override {
+    ZETASQL_ASSIGN_OR_RETURN(std::vector<ResolvedColumn> column_list,
+                     MaybeAddStructColumnToColumnList(node.get()));
+    return ToBuilder(std::move(node))
+        .set_column_list(std::move(column_list))
+        .Build();
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>> PostVisitResolvedWithScan(
+      std::unique_ptr<const ResolvedWithScan> node) override {
+    ZETASQL_ASSIGN_OR_RETURN(std::vector<ResolvedColumn> column_list,
+                     MaybeAddStructColumnToColumnList(node.get()));
+    return ToBuilder(std::move(node))
+        .set_column_list(std::move(column_list))
+        .Build();
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>>
+  PostVisitResolvedWithRefScan(
+      std::unique_ptr<const ResolvedWithRefScan> node) override {
+    ZETASQL_ASSIGN_OR_RETURN(std::vector<ResolvedColumn> column_list,
+                     MaybeAddStructColumnToColumnList(node.get()));
+    return ToBuilder(std::move(node))
+        .set_column_list(std::move(column_list))
+        .Build();
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>> PostVisitResolvedJoinScan(
+      std::unique_ptr<const ResolvedJoinScan> node) override {
+    ZETASQL_ASSIGN_OR_RETURN(std::vector<ResolvedColumn> column_list,
+                     MaybeAddStructColumnToColumnList(node.get()));
+    return ToBuilder(std::move(node))
+        .set_column_list(std::move(column_list))
+        .Build();
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>>
+  PostVisitResolvedArrayScan(
+      std::unique_ptr<const ResolvedArrayScan> node) override {
+    ZETASQL_ASSIGN_OR_RETURN(std::vector<ResolvedColumn> column_list,
+                     MaybeAddStructColumnToColumnList(node.get()));
+    return ToBuilder(std::move(node))
+        .set_column_list(std::move(column_list))
+        .Build();
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>>
+  PostVisitResolvedOrderByScan(
+      std::unique_ptr<const ResolvedOrderByScan> node) override {
+    ZETASQL_ASSIGN_OR_RETURN(std::vector<ResolvedColumn> column_list,
+                     MaybeAddStructColumnToColumnList(node.get()));
+    return ToBuilder(std::move(node))
+        .set_column_list(std::move(column_list))
+        .Build();
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>>
+  PostVisitResolvedLimitOffsetScan(
+      std::unique_ptr<const ResolvedLimitOffsetScan> node) override {
+    ZETASQL_ASSIGN_OR_RETURN(std::vector<ResolvedColumn> column_list,
+                     MaybeAddStructColumnToColumnList(node.get()));
+    return ToBuilder(std::move(node))
+        .set_column_list(std::move(column_list))
+        .Build();
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>>
+  PostVisitResolvedAnalyticScan(
+      std::unique_ptr<const ResolvedAnalyticScan> node) override {
+    ZETASQL_ASSIGN_OR_RETURN(std::vector<ResolvedColumn> column_list,
+                     MaybeAddStructColumnToColumnList(node.get()));
+    return ToBuilder(std::move(node))
+        .set_column_list(std::move(column_list))
+        .Build();
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>>
+  PostVisitResolvedSampleScan(
+      std::unique_ptr<const ResolvedSampleScan> node) override {
+    ZETASQL_ASSIGN_OR_RETURN(std::vector<ResolvedColumn> column_list,
+                     MaybeAddStructColumnToColumnList(node.get()));
+    return ToBuilder(std::move(node))
+        .set_column_list(std::move(column_list))
+        .Build();
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>>
+  PostVisitResolvedPipeIfScan(
+      std::unique_ptr<const ResolvedPipeIfScan> node) override {
+    ZETASQL_ASSIGN_OR_RETURN(std::vector<ResolvedColumn> column_list,
+                     MaybeAddStructColumnToColumnList(node.get()));
+    return ToBuilder(std::move(node))
+        .set_column_list(std::move(column_list))
+        .Build();
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>>
+  PostVisitResolvedStaticDescribeScan(
+      std::unique_ptr<const ResolvedStaticDescribeScan> node) override {
+    ZETASQL_ASSIGN_OR_RETURN(std::vector<ResolvedColumn> column_list,
+                     MaybeAddStructColumnToColumnList(node.get()));
+    return ToBuilder(std::move(node))
+        .set_column_list(std::move(column_list))
+        .Build();
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>> PostVisitResolvedLogScan(
+      std::unique_ptr<const ResolvedLogScan> node) override {
+    ZETASQL_ASSIGN_OR_RETURN(std::vector<ResolvedColumn> column_list,
+                     MaybeAddStructColumnToColumnList(node.get()));
+    return ToBuilder(std::move(node))
+        .set_column_list(std::move(column_list))
+        .Build();
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>>
+  PostVisitResolvedSubpipelineInputScan(
+      std::unique_ptr<const ResolvedSubpipelineInputScan> node) override {
+    ZETASQL_ASSIGN_OR_RETURN(std::vector<ResolvedColumn> column_list,
+                     MaybeAddStructColumnToColumnList(node.get()));
+    return ToBuilder(std::move(node))
+        .set_column_list(std::move(column_list))
+        .Build();
   }
 
  private:
-  explicit MeasureColumnReplacer(
-      MeasureExpansionInfoMap& measure_expansion_info_map)
+  absl::StatusOr<std::vector<ResolvedColumn>> MaybeAddStructColumnToColumnList(
+      const ResolvedScan* scan) {
+    // `final_column_list` is used to ensure that the new columns to project are
+    // added to back of the list. `final_column_list_set` is used to ensure that
+    // we don't add duplicate columns to the final column list.
+    std::vector<ResolvedColumn> final_column_list = scan->column_list();
+    absl::flat_hash_set<ResolvedColumn> final_column_list_set(
+        final_column_list.begin(), final_column_list.end());
+    for (const ResolvedColumn& column : scan->column_list()) {
+      if (!measure_expansion_info_map_.contains(column)) {
+        continue;
+      }
+      ResolvedColumn struct_column =
+          measure_expansion_info_map_.at(column).struct_column;
+      // It is possible that the `struct_column` is not initialized, or that it
+      // is already in the column list. The former happens when the measure
+      // column is not invoked via the AGGREGATE function. The latter happens
+      // when rewriting the ProjectScan added by the GrainScanRewriter.
+      if (!struct_column.IsInitialized() ||
+          final_column_list_set.contains(struct_column)) {
+        continue;
+      }
+      final_column_list.push_back(struct_column);
+      final_column_list_set.insert(struct_column);
+    }
+    return final_column_list;
+  }
+
+  explicit StructColumnProjector(
+      const MeasureExpansionInfoMap& measure_expansion_info_map)
       : measure_expansion_info_map_(measure_expansion_info_map) {};
 
-  MeasureColumnReplacer(const MeasureColumnReplacer&) = delete;
-  MeasureColumnReplacer& operator=(const MeasureColumnReplacer&) = delete;
+  StructColumnProjector(const StructColumnProjector&) = delete;
+  StructColumnProjector& operator=(const StructColumnProjector&) = delete;
 
-  MeasureExpansionInfoMap& measure_expansion_info_map_;
+  const MeasureExpansionInfoMap& measure_expansion_info_map_;
 };
 
 absl::StatusOr<std::unique_ptr<const ResolvedNode>> RewriteMeasures(
     std::unique_ptr<const ResolvedNode> input,
-    absl::flat_hash_map<const ResolvedTableScan*, GrainScanInfo>
-        grain_scan_info_map,
-    const Function* any_value_fn, ColumnFactory& column_factory,
+    GrainScanInfoMap grain_scan_info_map, const Function* any_value_fn,
+    ColumnFactory& column_factory,
     MeasureExpansionInfoMap& measure_expansion_info_map) {
   // Rewrite grain scans to project any additional columns and layer a
   // ProjectScan over them to compute the `STRUCT` typed columns needed for
@@ -1241,11 +1475,13 @@ absl::StatusOr<std::unique_ptr<const ResolvedNode>> RewriteMeasures(
                    GrainScanRewriter::RewriteGrainScans(
                        std::move(input), std::move(grain_scan_info_map)));
 
-  // Replace measure columns with their corresponding `STRUCT` typed columns.
-  ZETASQL_ASSIGN_OR_RETURN(input, MeasureColumnReplacer::ReplaceMeasureColumns(
+  // Grain scans now project the `STRUCT` typed columns. But any other scans
+  // that project measure columns will need to be updated to also project the
+  // `STRUCT` typed columns.
+  ZETASQL_ASSIGN_OR_RETURN(input, StructColumnProjector::ProjectMeasureStructColumns(
                               std::move(input), measure_expansion_info_map));
 
-  // Replace `AGGREGATE` function calls with rewritten measure expressions.
+  // Replace `AGG` function calls with rewritten measure expressions.
   return MeasuresAggregateFunctionReplacer::ReplaceMeasureAggregateFunctions(
       std::move(input), any_value_fn, column_factory,
       measure_expansion_info_map);

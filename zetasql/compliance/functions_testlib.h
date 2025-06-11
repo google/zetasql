@@ -237,6 +237,7 @@ std::vector<FunctionTestCall> GetFunctionTestsToSecondsInterval();
 std::vector<FunctionTestCall> GetFunctionTestsFromProto();
 std::vector<QueryParamsWithResult> GetFunctionTestsFromProto3TimeOfDay();
 std::vector<FunctionTestCall> GetFunctionTestsFromProtoDuration();
+std::vector<FunctionTestCall> GetFunctionTestsToProtoInterval();
 
 std::vector<FunctionTestCall> GetFunctionTestsToProto();
 std::vector<QueryParamsWithResult> GetFunctionTestsToProto3TimeOfDay();
@@ -336,6 +337,7 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonStripNulls();
 std::vector<FunctionTestCall> GetFunctionTestsJsonArrayInsert();
 std::vector<FunctionTestCall> GetFunctionTestsJsonArrayAppend();
 std::vector<FunctionTestCall> GetFunctionTestsJsonKeys();
+std::vector<FunctionTestCall> GetFunctionTestsJsonFlatten();
 
 std::vector<FunctionTestCall> GetFunctionTestsHash();
 std::vector<FunctionTestCall> GetFunctionTestsFarmFingerprint();

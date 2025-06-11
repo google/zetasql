@@ -1,6 +1,6 @@
 # NOTE: CREATE MODEL syntax and tests are derived from those for
 # CREATE VIEW tests, except for the keyword.
-[default language_features=V_1_3_REMOTE_FUNCTION]
+[default language_features=REMOTE_FUNCTION]
 create model t1
 --
 CreateModelStatement [0-15] [create model t1]

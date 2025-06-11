@@ -1189,7 +1189,7 @@ FORMAT(format_string_expression, data_type_expression[, ...])
   by the `%` symbol, and must map to one or more of the remaining arguments.
   In general, this is a one-to-one mapping, except when the `*` specifier is
   present. For example, `%.*i` maps to two arguments&mdash;a length argument
-  and a signed integer argument.  If the number of arguments related to the
+  and a signed integer argument. If the number of arguments related to the
   format specifiers isn't the same as the number of arguments, an error occurs.
 + `data_type_expression`: The value to format as a string. This can be any
   ZetaSQL data type.
@@ -1700,7 +1700,6 @@ format specifiers with the following data types:
     <td><strong>%p</strong></td>
     <td><strong>%P</strong></td>
   </tr>
- 
   <tr>
     <td>PROTO</td>
     <td valign="top">
@@ -1727,8 +1726,6 @@ month: 10
 </pre>
     </td>
   </tr>
- 
- 
   <tr>
     <td>JSON</td>
     <td valign="top">
@@ -1761,10 +1758,7 @@ JSON '
 </pre>
     </td>
   </tr>
- 
 </table>
-
- 
 
 ##### %t and %T behavior 
 <a id="t_and_t_behavior"></a>
@@ -1779,9 +1773,8 @@ padding to width.
 The `%t` specifier is always meant to be a readable form of the value.
 
 The `%T` specifier is always a valid SQL literal of a similar type, such as a
-wider numeric type.
-The literal will not include casts or a type name, except for the special case
-of non-finite floating point values.
+wider numeric type. The literal will not include casts or a type name,
+except for the special case of non-finite floating point values.
 
 The `STRING` is formatted as follows:
 
@@ -1807,7 +1800,7 @@ The `STRING` is formatted as follows:
 
   <tr>
     <td>NUMERIC</td>
-    <td>123.0  <em>(always with .0)</em>
+    <td>123.0  <em>(always with .0)</em></td>
     <td>NUMERIC "123.0"</td>
   </tr>
   <tr>
@@ -1856,29 +1849,21 @@ The `STRING` is formatted as follows:
     <td>EnumName</td>
     <td>"EnumName"</td>
   </tr>
- 
- 
   <tr>
     <td>DATE</td>
     <td>2011-02-03</td>
     <td>DATE "2011-02-03"</td>
   </tr>
- 
- 
   <tr>
     <td>TIMESTAMP</td>
     <td>2011-02-03 04:05:06+00</td>
     <td>TIMESTAMP "2011-02-03 04:05:06+00"</td>
   </tr>
-
- 
   <tr>
     <td>INTERVAL</td>
     <td>1-2 3 4:5:6.789</td>
     <td>INTERVAL "1-2 3 4:5:6.789" YEAR TO SECOND</td>
   </tr>
- 
- 
   <tr>
     <td>PROTO</td>
     <td>
@@ -1889,7 +1874,6 @@ The `STRING` is formatted as follows:
       protocol buffer.
     </td>
   </tr>
- 
   <tr>
     <td>ARRAY</td>
     <td>[value, value, ...]<br/>
@@ -1897,7 +1881,6 @@ The `STRING` is formatted as follows:
     <td>[value, value, ...]<br/>
     where values are formatted with %T</td>
   </tr>
- 
   <tr>
     <td>STRUCT</td>
     <td>(value, value, ...)<br/>
@@ -1909,8 +1892,6 @@ The `STRING` is formatted as follows:
     Zero fields: STRUCT()<br/>
     One field: STRUCT(value)</td>
   </tr>
-  
- 
   <tr>
     <td>JSON</td>
     <td>
@@ -1922,7 +1903,6 @@ The `STRING` is formatted as follows:
       <pre class="lang-sql prettyprint">JSON '{"name":"apple","stock":3}'</pre>
     </td>
   </tr>
- 
 </table>
 
 ##### Error conditions 
@@ -1930,7 +1910,7 @@ The `STRING` is formatted as follows:
 
 If a format specifier is invalid, or isn't compatible with the related
 argument type, or the wrong number or arguments are provided, then an error is
-produced.  For example, the following `<format_string>` expressions are invalid:
+produced. For example, the following `<format_string>` expressions are invalid:
 
 ```zetasql
 FORMAT('%s', 1)
@@ -1972,8 +1952,8 @@ Returns
 `FLOAT` values can be `+/-inf` or `NaN`.
 When an argument has one of those values, the result of the format specifiers
 `%f`, `%F`, `%e`, `%E`, `%g`, `%G`, and `%t` are `inf`, `-inf`, or `nan`
-(or the same in uppercase) as appropriate.  This is consistent with how
-ZetaSQL casts these values to `STRING`.  For `%T`,
+(or the same in uppercase) as appropriate. This is consistent with how
+ZetaSQL casts these values to `STRING`. For `%T`,
 ZetaSQL returns quoted strings for
 `DOUBLE` values that don't have non-string literal
 representations.
@@ -2552,7 +2532,7 @@ SELECT CONCAT('#', LTRIM('   apple   '), '#') AS example
 /*-------------*
  | example     |
  +-------------+
- | #apple #    |
+ | #apple   #  |
  *-------------*/
 ```
 
@@ -3060,7 +3040,7 @@ If `position` is specified, the search starts at this position in
 
 If `occurrence` is specified, the search returns the position of a specific
 instance of `regexp` in `source_value`. If not specified, `occurrence` defaults
-to `1` and returns the position of the first occurrence.  For `occurrence` > 1,
+to `1` and returns the position of the first occurrence. For `occurrence` > 1,
 the function searches for the next, non-overlapping occurrence.
 `occurrence` is of type `INT64` and must be positive.
 

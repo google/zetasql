@@ -17,6 +17,7 @@
 #include "zetasql/public/analyzer_options.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <string>
@@ -24,8 +25,10 @@
 #include <vector>
 
 #include "zetasql/base/arena.h"
+#include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/parser/parser_mode.h"
 #include "zetasql/proto/options.pb.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/id_string.h"
@@ -85,7 +88,7 @@ void AllowedHintsAndOptions::AddAnonymizationOption(absl::string_view name,
 }
 
 void AllowedHintsAndOptions::AddDifferentialPrivacyOption(
-    const std::string& name, const Type* type) {
+    absl::string_view name, const Type* type) {
   ZETASQL_CHECK_OK(AddOptionImpl(differential_privacy_options_lower, name, type,
                          /*allow_alter_array=*/false));
 }
@@ -329,6 +332,17 @@ AnalyzerOptions::AnalyzerOptions(const LanguageOptions& language_options)
 
 AnalyzerOptions::~AnalyzerOptions() = default;
 
+void AnalyzerOptions::set_column_id_sequence_number(
+    zetasql_base::SequenceNumber* sequence) {
+  data_->column_id_sequence_number = sequence;
+}
+
+void AnalyzerOptions::SetSharedColumnIdSequenceNumber(
+    std::shared_ptr<zetasql_base::SequenceNumber> sequence) {
+  set_column_id_sequence_number(sequence.get());
+  data_->shared_column_id_sequence_number = std::move(sequence);
+}
+
 void AnalyzerOptions::CreateDefaultArenasIfNotSet() {
   if (data_->arena == nullptr) {
     data_->arena = std::make_shared<zetasql_base::UnsafeArena>(/*block_size=*/4096);
@@ -429,8 +443,6 @@ absl::Status AnalyzerOptions::Deserialize(
   result->set_parameter_mode(proto.parameter_mode());
   result->set_preserve_column_aliases(proto.preserve_column_aliases());
   result->set_preserve_unnecessary_cast(proto.preserve_unnecessary_cast());
-  result->set_show_function_signature_mismatch_details(
-      proto.show_function_signature_mismatch_details());
   result->set_replace_table_not_found_error_with_tvf_error_if_applicable(
       proto.replace_table_not_found_error_with_tvf_error_if_applicable());
 
@@ -521,8 +533,6 @@ absl::Status AnalyzerOptions::Serialize(FileDescriptorSetMap* map,
   proto->set_parameter_mode(data_->parameter_mode);
   proto->set_preserve_column_aliases(data_->preserve_column_aliases);
   proto->set_preserve_unnecessary_cast(data_->preserve_unnecessary_cast);
-  proto->set_show_function_signature_mismatch_details(
-      data_->show_function_signature_mismatch_details);
   proto->set_replace_table_not_found_error_with_tvf_error_if_applicable(
       data_->replace_table_not_found_error_with_tvf_error_if_applicable);
 
@@ -738,7 +748,10 @@ void AnalyzerOptions::SetDdlPseudoColumns(
 }
 
 ParserOptions AnalyzerOptions::GetParserOptions() const {
-  return ParserOptions(id_string_pool(), arena(), &data_->language_options);
+  return ParserOptions(id_string_pool(), arena(), data_->language_options,
+                       error_message_options(),
+                       parser::MacroExpansionMode::kNone,
+                       /*macro_catalog=*/nullptr);
 }
 
 void AnalyzerOptions::enable_rewrite(ResolvedASTRewrite rewrite, bool enable) {
@@ -817,10 +830,9 @@ absl::Status ValidateAnalyzerOptions(const AnalyzerOptions& options) {
           << "Parameters are disabled and cannot be provided";
       break;
   }
-  if (options.language().LanguageFeatureEnabled(
-          FEATURE_V_1_3_COLLATION_SUPPORT)) {
-    ZETASQL_RET_CHECK(options.language().LanguageFeatureEnabled(
-        FEATURE_V_1_3_ANNOTATION_FRAMEWORK))
+  if (options.language().LanguageFeatureEnabled(FEATURE_COLLATION_SUPPORT)) {
+    ZETASQL_RET_CHECK(
+        options.language().LanguageFeatureEnabled(FEATURE_ANNOTATION_FRAMEWORK))
         << "Invalid analyzer configuration. The COLLATION_SUPPORT language "
            "feature requires the ANNOTATION_FRAMEWORK language feature is also "
            "enabled.";

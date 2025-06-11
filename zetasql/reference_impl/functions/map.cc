@@ -294,13 +294,18 @@ absl::StatusOr<Value> MapKeysOrValuesListFunctionImpl(
   }
 
   if (order_by != OrderBy::kNone) {
+    // Unorderable types should have been rejected during function signature
+    // matching, but we still verify the precondition.
     std::string no_ordering_type;
-    ZETASQL_RET_CHECK(output_type->AsArray()->element_type()->SupportsOrdering(
-        context->GetLanguageOptions(), &no_ordering_type))
+    ZETASQL_RET_CHECK((order_by == OrderBy::kByKey ? map.type()->AsMap()->key_type()
+                                           : map.type()->AsMap()->value_type())
+                  ->SupportsOrdering(context->GetLanguageOptions(),
+                                     &no_ordering_type))
         << no_ordering_type;
-    // MAP is always ordered by key in the reference implementation, so an
-    // additional sort operation is only necessary when ordering by value.
+
     if (order_by == OrderBy::kByValue) {
+      // MAP is always ordered by key in the reference implementation, so an
+      // additional sort operation is only necessary when ordering by value.
       absl::c_sort(result, [](auto& a, auto& b) { return a.LessThan(b); });
     }
   }

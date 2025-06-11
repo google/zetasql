@@ -91,7 +91,11 @@ QueryStmt
 
 select * from TestTable where KitchenSink.int64_val BETWEEN 1 AND 'Z';
 --
-ERROR: No matching signature for operator BETWEEN for argument types: INT64, INT64, STRING. Supported signature: (ANY) BETWEEN (ANY) AND (ANY) [at 1:53]
+ERROR: No matching signature for operator BETWEEN
+  Argument types: INT64, INT64, STRING
+  Signature: (T1) BETWEEN (T1) AND (T1)
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {INT64, INT64, STRING} [at 1:53]
 select * from TestTable where KitchenSink.int64_val BETWEEN 1 AND 'Z';
                                                     ^
 ==
@@ -441,7 +445,11 @@ where KitchenSink.uint64_val BETWEEN CAST(1 as INT64) AND CAST(3 as INT64)
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for operator BETWEEN for argument types: UINT64, INT64, INT64. Supported signature: (ANY) BETWEEN (ANY) AND (ANY) [at 2:30]
+ERROR: No matching signature for operator BETWEEN
+  Argument types: UINT64, INT64, INT64
+  Signature: (T1) BETWEEN (T1) AND (T1)
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {INT64, UINT64} [at 2:30]
 where KitchenSink.uint64_val BETWEEN CAST(1 as INT64) AND CAST(3 as INT64)
                              ^
 --
@@ -485,7 +493,11 @@ where KitchenSink.uint64_val BETWEEN CAST(1 as UINT64) AND CAST(3 as INT64)
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for operator BETWEEN for argument types: UINT64, UINT64, INT64. Supported signature: (ANY) BETWEEN (ANY) AND (ANY) [at 2:30]
+ERROR: No matching signature for operator BETWEEN
+  Argument types: UINT64, UINT64, INT64
+  Signature: (T1) BETWEEN (T1) AND (T1)
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {INT64, UINT64} [at 2:30]
 where KitchenSink.uint64_val BETWEEN CAST(1 as UINT64) AND CAST(3 as INT64)
                              ^
 --
@@ -529,7 +541,11 @@ where KitchenSink.uint64_val BETWEEN CAST(1 as INT64) AND CAST(3 as UINT64)
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for operator BETWEEN for argument types: UINT64, INT64, UINT64. Supported signature: (ANY) BETWEEN (ANY) AND (ANY) [at 2:30]
+ERROR: No matching signature for operator BETWEEN
+  Argument types: UINT64, INT64, UINT64
+  Signature: (T1) BETWEEN (T1) AND (T1)
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {INT64, UINT64} [at 2:30]
 where KitchenSink.uint64_val BETWEEN CAST(1 as INT64) AND CAST(3 as UINT64)
                              ^
 --
@@ -573,7 +589,11 @@ where KitchenSink.int64_val BETWEEN CAST(1 as UINT64) AND CAST(3 as UINT64)
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for operator BETWEEN for argument types: INT64, UINT64, UINT64. Supported signature: (ANY) BETWEEN (ANY) AND (ANY) [at 2:29]
+ERROR: No matching signature for operator BETWEEN
+  Argument types: INT64, UINT64, UINT64
+  Signature: (T1) BETWEEN (T1) AND (T1)
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {INT64, UINT64} [at 2:29]
 where KitchenSink.int64_val BETWEEN CAST(1 as UINT64) AND CAST(3 as UINT64)
                             ^
 --
@@ -617,7 +637,11 @@ where KitchenSink.int64_val BETWEEN CAST(1 as INT64) AND CAST(3 as UINT64)
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for operator BETWEEN for argument types: INT64, INT64, UINT64. Supported signature: (ANY) BETWEEN (ANY) AND (ANY) [at 2:29]
+ERROR: No matching signature for operator BETWEEN
+  Argument types: INT64, INT64, UINT64
+  Signature: (T1) BETWEEN (T1) AND (T1)
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {INT64, UINT64} [at 2:29]
 where KitchenSink.int64_val BETWEEN CAST(1 as INT64) AND CAST(3 as UINT64)
                             ^
 --
@@ -661,7 +685,11 @@ where KitchenSink.int64_val BETWEEN CAST(1 as UINT64) AND CAST(3 as INT64)
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for operator BETWEEN for argument types: INT64, UINT64, INT64. Supported signature: (ANY) BETWEEN (ANY) AND (ANY) [at 2:29]
+ERROR: No matching signature for operator BETWEEN
+  Argument types: INT64, UINT64, INT64
+  Signature: (T1) BETWEEN (T1) AND (T1)
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {INT64, UINT64} [at 2:29]
 where KitchenSink.int64_val BETWEEN CAST(1 as UINT64) AND CAST(3 as INT64)
                             ^
 --

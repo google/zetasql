@@ -52,11 +52,15 @@ class ArrayType : public ListBackedType {
 
   const ArrayType* AsArray() const override { return this; }
 
+  std::vector<const Type*> ComponentTypes() const override {
+    return {element_type_};
+  }
+
   // Helper function to determine deep equality or equivalence for array types.
   static bool EqualsImpl(const ArrayType* type1, const ArrayType* type2,
                          bool equivalent);
 
-  // Arrays support ordering if FEATURE_V_1_3_ARRAY_ORDERING is enabled
+  // Arrays support ordering if FEATURE_ARRAY_ORDERING is enabled
   // and the array's element Type supports ordering.
   bool SupportsOrdering(const LanguageOptions& language_options,
                         std::string* type_description) const override;

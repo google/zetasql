@@ -16,6 +16,7 @@
 
 #include "zetasql/public/value.h"
 
+#include <sys/types.h>
 #include <time.h>
 
 #include <array>
@@ -37,24 +38,14 @@
 #include "google/protobuf/descriptor_database.h"
 #include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/text_format.h"
+#include "zetasql/public/simple_token_list.h"
 #include "zetasql/common/float_margin.h"
-#include "zetasql/compliance/functions_testlib_common.h"
-#include "zetasql/public/builtin_function_options.h"
-#include "zetasql/public/civil_time.h"
-#include "zetasql/public/timestamp_picos_value.h"
-#include "zetasql/public/types/value_equality_check_options.h"
-#include "zetasql/public/uuid_value.h"
-#include "zetasql/testdata/test_proto3.pb.h"
-#include "absl/container/flat_hash_map.h"
-#include "absl/status/status.h"
-#include "absl/strings/str_format.h"
-#include "google/protobuf/io/coded_stream.h"
-#include "google/protobuf/io/zero_copy_stream_impl.h"
-#include "google/protobuf/io/zero_copy_stream_impl_lite.h"
-#include "google/protobuf/wire_format_lite.h"
 #include "zetasql/common/internal_value.h"
 #include "zetasql/common/testing/testing_proto_util.h"
+#include "zetasql/compliance/functions_testlib_common.h"
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/builtin_function_options.h"
+#include "zetasql/public/civil_time.h"
 #include "zetasql/public/evaluator.h"
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/interval_value_test_util.h"
@@ -64,24 +55,38 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/pico_time.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/timestamp_picos_value.h"
 #include "zetasql/public/token_list_util.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/measure_type.h"
+#include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/types/value_equality_check_options.h"
+#include "zetasql/public/uuid_value.h"
+#include "zetasql/testdata/test_proto3.pb.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/algorithm/container.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/hash/hash.h"
 #include "absl/hash/hash_testing.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/civil_time.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
+#include "google/protobuf/io/coded_stream.h"
+#include "google/protobuf/io/zero_copy_stream_impl.h"
+#include "google/protobuf/io/zero_copy_stream_impl_lite.h"
+#include "google/protobuf/wire_format_lite.h"
 #include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/types/value_representations.h"
@@ -189,11 +194,10 @@ static Value TestGetSQL(const Value& value) {
       FEATURE_RANGE_TYPE);
   analyzer_options.mutable_language()->EnableLanguageFeature(FEATURE_GEOGRAPHY);
   analyzer_options.mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_3_EXTENDED_GEOGRAPHY_PARSERS);
+      FEATURE_EXTENDED_GEOGRAPHY_PARSERS);
   analyzer_options.mutable_language()->EnableLanguageFeature(
       FEATURE_NAMED_ARGUMENTS);
-  analyzer_options.mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_4_MAP_TYPE);
+  analyzer_options.mutable_language()->EnableLanguageFeature(FEATURE_MAP_TYPE);
 
   catalog.AddBuiltinFunctions(
       BuiltinFunctionOptions(analyzer_options.language()));
@@ -365,6 +369,18 @@ class ValueTest : public ::testing::Test {
   const ProtoType* GetOtherTestProtoType() {
     zetasql_test__::TestExtraPB test_extra;
     return test_values::MakeProtoType(test_extra.GetDescriptor());
+  }
+
+  const StructType* GetTestStructType(absl::Span<const StructField> fields) {
+    const StructType* struct_type = nullptr;
+    ZETASQL_CHECK_OK(type_factory_.MakeStructType(fields, &struct_type));
+    return struct_type;
+  }
+
+  const MeasureType* GetTestMeasureType(const Type* result_type) {
+    auto measure_type = type_factory_.MakeMeasureType(result_type);
+    ZETASQL_CHECK_OK(measure_type);
+    return measure_type.value()->AsMeasure();
   }
 
   void TestParameterizedValueAfterReleaseOfTypeFactory(
@@ -754,6 +770,35 @@ TEST_F(ValueTest, TimestampFormatting) {
             "2022-09-16 19:43:00+00");
   EXPECT_EQ(ts.GetSQLLiteral(), R"sql(TIMESTAMP "2022-09-16 19:43:00+00")sql");
   EXPECT_EQ(ts.GetSQL(), R"sql(TIMESTAMP "2022-09-16 19:43:00+00")sql");
+}
+
+TEST_F(ValueTest, TimestampWithPicoseconds) {
+  absl::TimeZone pst;
+  ASSERT_TRUE(absl::LoadTimeZone("America/Los_Angeles", &pst));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto pico_time,
+      PicoTime::Create(
+          absl::FromCivil(absl::CivilSecond(2022, 9, 16, 12, 43, 0), pst),
+          999999999999));
+  const Value ts = Value::Timestamp(zetasql::TimestampPicosValue(pico_time));
+  EXPECT_EQ(ts.DebugString(/*verbose=*/true),
+            "Timestamp(2022-09-16 19:43:00.999999999999+00)");
+  EXPECT_EQ(ts.DebugString(), "2022-09-16 19:43:00.999999999999+00");
+  EXPECT_EQ(ts.Format(), "Timestamp(2022-09-16 19:43:00.999999999999+00)");
+  EXPECT_EQ(ts.Format(/*print_top_level_type=*/false),
+            "2022-09-16 19:43:00.999999999999+00");
+  EXPECT_EQ(ts.GetSQLLiteral(),
+            R"sql(TIMESTAMP "2022-09-16 19:43:00.999999999999+00")sql");
+  EXPECT_EQ(ts.GetSQL(),
+            R"sql(TIMESTAMP "2022-09-16 19:43:00.999999999999+00")sql");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto pico_time2,
+      PicoTime::Create(
+          absl::FromCivil(absl::CivilSecond(2022, 9, 16, 12, 43, 0), pst),
+          999999999999));
+  const Value ts2 =
+      Value::Timestamp(zetasql::TimestampPicosValue(pico_time2));
+  EXPECT_EQ(ts, ts2);
 }
 
 TEST_F(ValueTest, TimestampPicos) {
@@ -1817,7 +1862,7 @@ TEST_F(ValueTest, StructNotNull) {
   Value value = Struct({{"a", Value::Int64(1)}, {"b", Value::Int64(2)}});
   TestGetSQL(value);
   EXPECT_FALSE(value.is_null());
-  EXPECT_DEATH(value.int64_value(), "Not an int64_t value");
+  EXPECT_DEATH(value.int64_value(), "Not an int64 value");
   EXPECT_EQ(2, value.num_fields());
   EXPECT_EQ(1, value.field(0).int64_value());
   EXPECT_EQ(2, value.field(1).int64_value());
@@ -1851,7 +1896,7 @@ TEST_F(ValueTest, StructWithNull) {
 TEST_F(ValueTest, StructNull) {
   Value value = TestGetSQL(Value::Null(MakeStructType({{"a", Int64Type()}})));
   EXPECT_TRUE(value.is_null());
-  EXPECT_DEATH(value.int64_value(), "Not an int64_t value");
+  EXPECT_DEATH(value.int64_value(), "Not an int64 value");
   EXPECT_DEATH(value.num_fields(), "Null value");
   EXPECT_DEATH(value.FindFieldByName("junk"), "Null value");
 }
@@ -2021,7 +2066,7 @@ TEST_F(ValueTest, StructWithNoFields) {
 TEST_F(ValueTest, ArrayNotNull) {
   Value value = TestGetSQL(Int64Array({1, 2}));
   EXPECT_FALSE(value.is_null());
-  EXPECT_DEATH(value.int64_value(), "Not an int64_t value");
+  EXPECT_DEATH(value.int64_value(), "Not an int64 value");
   EXPECT_EQ(2, value.num_elements());
   EXPECT_EQ(1, value.element(0).int64_value());
   EXPECT_EQ(2, value.element(1).int64_value());
@@ -2034,7 +2079,7 @@ TEST_F(ValueTest, ArrayNotNull) {
 TEST_F(ValueTest, ArrayNull) {
   Value value = TestGetSQL(Value::Null(MakeArrayType(Int64Type())));
   EXPECT_TRUE(value.is_null());
-  EXPECT_DEATH(value.int64_value(), "Not an int64_t value");
+  EXPECT_DEATH(value.int64_value(), "Not an int64 value");
   EXPECT_DEATH(value.empty(), "Null value");
   EXPECT_DEATH(value.num_elements(), "Null value");
   EXPECT_DEATH(value.element(0), "Null value");
@@ -2214,6 +2259,34 @@ TEST_F(ValueTest, TimestampArray) {
   absl::Time t1 = ParseTimeHm("12:00"), t2 = ParseTimeHm("13:00");
   Value v2 = values::TimestampArray({t1, t2});
   EXPECT_EQ(v1, v2);
+}
+
+TEST_F(ValueTest, DateArray) {
+  Value v1 = TestGetSQL(values::DateArray(
+      {absl::CivilDay(1970, 1, 1), absl::CivilDay(1970, 5, 4)}));
+  EXPECT_EQ(v1.DebugString(), "[1970-01-01, 1970-05-04]");
+  EXPECT_EQ(v1.FullDebugString(), "Array[Date(1970-01-01), Date(1970-05-04)]");
+}
+
+TEST_F(ValueTest, TimestampWithPicosecondsArray) {
+  Value v1 = values::TimestampArray(
+      {*TimestampPicosValue::Create(ParseTimeHm("12:00")),
+       *TimestampPicosValue::Create(ParseTimeHm("13:00"))});
+  EXPECT_EQ(v1.DebugString(),
+            "[1970-01-01 12:00:00+00, 1970-01-01 13:00:00+00]");
+  EXPECT_EQ(v1.FullDebugString(),
+            "Array[Timestamp(1970-01-01 12:00:00+00), "
+            "Timestamp(1970-01-01 13:00:00+00)]");
+  EXPECT_EQ(v1.Format(true),
+            "ARRAY<TIMESTAMP>[\n"
+            "  1970-01-01 12:00:00+00,\n"
+            "  1970-01-01 13:00:00+00\n"
+            "]");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(TimestampPicosValue t1,
+                       TimestampPicosValue::Create(ParseTimeHm("12:00")));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(TimestampPicosValue t2,
+                       TimestampPicosValue::Create(ParseTimeHm("13:00")));
+  EXPECT_EQ(v1, values::TimestampArray({t1, t2}));
 }
 
 TEST_F(ValueTest, TimestampPicosArray) {
@@ -3357,7 +3430,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST(MapPrintingTest, NullAndEmptyMaps) {
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MAP_TYPE);
+  language_options.EnableLanguageFeature(FEATURE_MAP_TYPE);
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* map_type,
                        type_factory()->MakeMapType(type_factory()->get_string(),
@@ -3394,19 +3467,30 @@ TEST(MapPrintingTest, NullAndEmptyMaps) {
 
 TEST(MapPrintingTest, InternalExternalProductModeDiffers) {
   Value map = test_values::Map({
-      {Value::Int64(1), Value::NullDouble()},
-      {Value::Int64(2), Value::Double(std::numeric_limits<double>::infinity())},
+      {Value::Float(1.1), Value::NullDouble()},
+      {Value::Float(2.2),
+       Value::Double(std::numeric_limits<double>::infinity())},
   });
   EXPECT_EQ(
       map.GetSQL(PRODUCT_INTERNAL),
-      R"(MAP_FROM_ARRAY(ARRAY<STRUCT<INT64, DOUBLE>>[(1, CAST(NULL AS DOUBLE)), (2, CAST("inf" AS DOUBLE))]))");
+      R"(MAP_FROM_ARRAY(ARRAY<STRUCT<FLOAT, DOUBLE>>[(CAST(1.1 AS FLOAT), CAST(NULL AS DOUBLE)), (CAST(2.2 AS FLOAT), CAST("inf" AS DOUBLE))]))");
+  EXPECT_EQ(
+      map.GetSQL(PRODUCT_INTERNAL, /*use_external_float32=*/true),
+      R"(MAP_FROM_ARRAY(ARRAY<STRUCT<FLOAT, DOUBLE>>[(CAST(1.1 AS FLOAT), CAST(NULL AS DOUBLE)), (CAST(2.2 AS FLOAT), CAST("inf" AS DOUBLE))]))");
   EXPECT_EQ(
       map.GetSQL(PRODUCT_EXTERNAL),
-      R"(MAP_FROM_ARRAY(ARRAY<STRUCT<INT64, FLOAT64>>[(1, CAST(NULL AS FLOAT64)), (2, CAST("inf" AS FLOAT64))]))");
+      R"(MAP_FROM_ARRAY(ARRAY<STRUCT<FLOAT, FLOAT64>>[(CAST(1.1 AS FLOAT), CAST(NULL AS FLOAT64)), (CAST(2.2 AS FLOAT), CAST("inf" AS FLOAT64))]))");
+  EXPECT_EQ(
+      map.GetSQL(PRODUCT_EXTERNAL, /*use_external_float32=*/true),
+      R"(MAP_FROM_ARRAY(ARRAY<STRUCT<FLOAT32, FLOAT64>>[(CAST(1.1 AS FLOAT32), CAST(NULL AS FLOAT64)), (CAST(2.2 AS FLOAT32), CAST("inf" AS FLOAT64))]))");
   EXPECT_EQ(map.GetSQLLiteral(PRODUCT_INTERNAL),
-            R"(MAP_FROM_ARRAY([(1, NULL), (2, CAST("inf" AS DOUBLE))]))");
+            R"(MAP_FROM_ARRAY([(1.1, NULL), (2.2, CAST("inf" AS DOUBLE))]))");
+  EXPECT_EQ(map.GetSQLLiteral(PRODUCT_INTERNAL, /*use_external_float32=*/true),
+            R"(MAP_FROM_ARRAY([(1.1, NULL), (2.2, CAST("inf" AS DOUBLE))]))");
   EXPECT_EQ(map.GetSQLLiteral(PRODUCT_EXTERNAL),
-            R"(MAP_FROM_ARRAY([(1, NULL), (2, CAST("inf" AS FLOAT64))]))");
+            R"(MAP_FROM_ARRAY([(1.1, NULL), (2.2, CAST("inf" AS FLOAT64))]))");
+  EXPECT_EQ(map.GetSQLLiteral(PRODUCT_EXTERNAL, /*use_external_float32=*/true),
+            R"(MAP_FROM_ARRAY([(1.1, NULL), (2.2, CAST("inf" AS FLOAT64))]))");
 }
 
 TEST_F(ValueTest, InternalEqualsOnDifferentSizedStructs) {
@@ -3470,8 +3554,8 @@ TEST_F(ValueTest, Enum) {
   EXPECT_EQ(2147483647, Value::Enum(enum_type, 2147483647).ToInt64());
   EXPECT_EQ(2147483647.0, Value::Enum(enum_type, 2147483647).ToDouble());
 
-  // Verifies that we correctly cast the int64_t to int32_t (when the value is in
-  // int32_t range without any truncation) before converting it into an enum
+  // Verifies that we correctly cast the int64 to int32 (when the value is in
+  // int32 range without any truncation) before converting it into an enum
   // value.
   EXPECT_EQ(0x2, Value::Enum(enum_type, 0x000000002).enum_value());
   EXPECT_FALSE(Value::Enum(enum_type, 0x100000002).is_valid());
@@ -3993,7 +4077,7 @@ TEST_F(ValueTest, ClassAndProtoSize) {
       << "The size of Value class has changed, please also update the proto "
       << "and serialization code if you added/removed fields in it.";
   // TODO: Add Java serialization test for TIMESTAMP_PICO type.
-  EXPECT_EQ(28, ValueProto::descriptor()->field_count())
+  EXPECT_EQ(29, ValueProto::descriptor()->field_count())
       << "The number of fields in ValueProto has changed, please also update "
       << "the serialization code accordingly.";
   EXPECT_EQ(1, ValueProto::Array::descriptor()->field_count())
@@ -5153,7 +5237,7 @@ TEST_F(ValueTest, ParseInteger) {
   EXPECT_EQ("Int64(4294967296)", TestParseInteger("4294967296"));
   EXPECT_EQ("Int64(-4294967296)", TestParseInteger("-4294967296"));
 
-  // Near std::numeric_limits<int64_t>::max().
+  // Near std::numeric_limits<int64>::max().
   EXPECT_EQ("Int64(9223372036854775807)",
             TestParseInteger("9223372036854775807"));
   EXPECT_EQ("Uint64(9223372036854775808)",
@@ -5165,7 +5249,7 @@ TEST_F(ValueTest, ParseInteger) {
   EXPECT_EQ("Uint64(18446744073709551615)",
             TestParseInteger("0xFFFFFFFFFFFFFFFF"));
 
-  // Near std::numeric_limits<int64_t>::lowest().
+  // Near std::numeric_limits<int64>::lowest().
   EXPECT_EQ("Int64(-9223372036854775807)",
             TestParseInteger("-9223372036854775807"));
   EXPECT_EQ("Int64(-9223372036854775808)",
@@ -5176,7 +5260,7 @@ TEST_F(ValueTest, ParseInteger) {
   // Too many hex digits.
   EXPECT_EQ("ERROR", TestParseInteger("0xFFFFFFFFFFFFFFFABCD"));
 
-  // Near std::numeric_limits<uint64_t>::max().
+  // Near std::numeric_limits<uint64>::max().
   EXPECT_EQ("Uint64(18446744073709551615)",
             TestParseInteger("18446744073709551615"));
   EXPECT_EQ("ERROR", TestParseInteger("18446744073709551616"));
@@ -5311,8 +5395,7 @@ TEST_F(ValueTest, PhysicalByteSize) {
   EXPECT_EQ(sizeof(Value),
             Value::Time(TimeValue::FromPacked64Micros(int64_t{0xD38F1E240}))
                 .physical_byte_size());
-  EXPECT_EQ(sizeof(Value),
-            Value::TimestampFromUnixMicros(1).physical_byte_size());
+  EXPECT_EQ(40, Value::TimestampFromUnixMicros(1).physical_byte_size());
   EXPECT_EQ(sizeof(Value), Value::Uint32(1).physical_byte_size());
   EXPECT_EQ(sizeof(Value), Value::Uint64(1).physical_byte_size());
 
@@ -5349,6 +5432,10 @@ TEST_F(ValueTest, PhysicalByteSize) {
   uint64_t expected_range_size = sizeof(Value) +
                                  sizeof(internal::ValueContentOrderedListRef) +
                                  sizeof(Value::TypedList) + 2 * sizeof(Value);
+  uint64_t expected_timestamp_range_size =
+      expected_range_size + sizeof(internal::TimestampPicosRef) * 2;
+  uint64_t expected_unbounded_timestamp_range_size =
+      expected_range_size + sizeof(internal::TimestampPicosRef);
   const absl::TimeZone utc = absl::UTCTimeZone();
 
   // Bounded ranges.
@@ -5360,7 +5447,7 @@ TEST_F(ValueTest, PhysicalByteSize) {
                   Value::Datetime(
                       DatetimeValue::FromYMDHMSAndNanos(2, 2, 3, 4, 5, 6, 7)))
                 .physical_byte_size());
-  EXPECT_EQ(expected_range_size,
+  EXPECT_EQ(expected_timestamp_range_size,
             Range(Value::Timestamp(absl::FromCivil(
                       absl::CivilSecond(2020, 01, 01, 10, 00, 00), utc)),
                   Value::Timestamp(absl::FromCivil(
@@ -5387,7 +5474,7 @@ TEST_F(ValueTest, PhysicalByteSize) {
                   Value::Datetime(
                       DatetimeValue::FromYMDHMSAndNanos(2, 2, 3, 4, 5, 6, 7)))
                 .physical_byte_size());
-  EXPECT_EQ(expected_range_size,
+  EXPECT_EQ(expected_unbounded_timestamp_range_size,
             Range(Value::UnboundedStartTimestamp(),
                   Value::Timestamp(absl::FromCivil(
                       absl::CivilSecond(2020, 01, 02, 10, 00, 00), utc)))
@@ -5402,7 +5489,7 @@ TEST_F(ValueTest, PhysicalByteSize) {
                       DatetimeValue::FromYMDHMSAndNanos(1, 2, 3, 4, 5, 6, 7)),
                   Value::UnboundedEndDatetime())
                 .physical_byte_size());
-  EXPECT_EQ(expected_range_size,
+  EXPECT_EQ(expected_unbounded_timestamp_range_size,
             Range(Value::Timestamp(absl::FromCivil(
                       absl::CivilSecond(2020, 01, 01, 10, 00, 00), utc)),
                   Value::UnboundedEndTimestamp())

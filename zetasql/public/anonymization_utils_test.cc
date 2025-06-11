@@ -484,7 +484,7 @@ TEST(ComputeAnonymizationUtilsTest, RoundTripKThresholdTests) {
                       ", computed delta: ", delta_value.double_value());
 
       // If the computed delta is 0, then computing k_threshold from this will
-      // result in the maximum int64_t value (9223372036854775807).  Therefore
+      // result in the maximum int64 value (9223372036854775807).  Therefore
       // round tripping will not work.  Note that all remaining input
       // k_threshold values are higher that this one within this loop, which
       // implies that all remaining computed deltas will be 0 as well.

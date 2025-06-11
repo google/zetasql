@@ -16,6 +16,8 @@
 
 #include "zetasql/analyzer/graph_query_resolver.h"
 
+#include <stdbool.h>
+
 #include <cstdint>
 #include <functional>
 #include <iterator>
@@ -37,9 +39,11 @@
 #include "zetasql/analyzer/set_operation_resolver_base.h"
 #include "zetasql/common/graph_element_utils.h"
 #include "zetasql/common/internal_analyzer_output_properties.h"
+#include "zetasql/common/measure_utils.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/options.pb.h"
@@ -67,6 +71,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/substitute.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/stl_util.h"
@@ -268,8 +273,9 @@ class GraphLabelExprResolver {
       label_expr_resolver_;
 };
 
-// Collect multiply declared names of columns in `name_list` in reverse order.
-void CollectReversedMultiplyDeclaredNames(
+// Add names from `name_list` in reverse order, merging multiply-declared
+// names instead of adding them like other names.
+void MergeReversedMultiplyDeclaredNames(
     const NameListPtr& name_list,
     std::vector<IdString>& multiply_declared_variables,
     IdStringHashMapCase<ResolvedColumnList>& variable_declarations,
@@ -394,17 +400,29 @@ absl::Status ValidateTopLevelPathPattern(
 
 absl::Status GraphTableQueryResolver::ValidatePathPattern(
     const ASTGraphPattern* ast_graph_pattern, const NameScope* scope) {
+  IdStringHashMapCase<bool> var_has_cost_map;
   for (const auto* ast_path_pattern : ast_graph_pattern->paths()) {
     ZETASQL_ASSIGN_OR_RETURN(std::vector<const ASTGraphPathBase*> ast_path_bases,
                      CanonicalizePathPattern(*ast_path_pattern));
     ZETASQL_RETURN_IF_ERROR(ValidateTopLevelPathPattern(ast_path_pattern));
+    // Additional validation logic applies if the top level path pattern
+    // has the CHEAPEST search prefix.
+    bool in_cheapest = ast_path_pattern->search_prefix() != nullptr &&
+                       ast_path_pattern->search_prefix()->type() ==
+                           ASTGraphPathSearchPrefix::CHEAPEST;
     ZETASQL_ASSIGN_OR_RETURN(
         auto path_rule_result,
-        ValidatePathPatternInternal(ast_path_pattern, scope, ast_path_bases));
+        ValidatePathPatternInternal(ast_path_pattern, scope, ast_path_bases,
+                                    var_has_cost_map, in_cheapest));
     // Minimum node count must be checked on the entire path.
     if (path_rule_result.min_node_count == 0) {
       return MakeSqlErrorAt(ast_path_pattern)
              << "Minimum node count of path pattern cannot be 0";
+    }
+    if (in_cheapest && !path_rule_result.has_edge_cost) {
+      return MakeSqlErrorAt(ast_path_pattern)
+             << "CHEAPEST search prefix must include at least one edge cost "
+                "expression";
     }
   }
   return absl::OkStatus();
@@ -413,7 +431,8 @@ absl::Status GraphTableQueryResolver::ValidatePathPattern(
 absl::StatusOr<GraphTableQueryResolver::PathInfo>
 GraphTableQueryResolver::ValidatePathPatternInternal(
     const ASTGraphPathPattern* ast_path_pattern, const NameScope* scope,
-    const std::vector<const ASTGraphPathBase*>& ast_path_bases) {
+    const std::vector<const ASTGraphPathBase*>& ast_path_bases,
+    IdStringHashMapCase<bool>& var_has_cost_map, bool in_cheapest) {
   PathInfo path_stats;
 
   for (const auto* ast_path_base : ast_path_bases) {
@@ -429,11 +448,12 @@ GraphTableQueryResolver::ValidatePathPatternInternal(
         ZETASQL_ASSIGN_OR_RETURN(auto subpath_rule_info,
                          ValidatePathPatternInternal(
                              ast_path_base->GetAs<ASTGraphPathPattern>(), scope,
-                             ast_subpath_bases));
+                             ast_subpath_bases, var_has_cost_map, in_cheapest));
 
         path_stats.min_node_count += subpath_rule_info.min_node_count;
         path_stats.min_path_length += subpath_rule_info.min_path_length;
         path_stats.child_is_quantified |= subpath_rule_info.child_is_quantified;
+        path_stats.has_edge_cost |= subpath_rule_info.has_edge_cost;
         break;
       }
       case AST_GRAPH_NODE_PATTERN:
@@ -443,6 +463,32 @@ GraphTableQueryResolver::ValidatePathPatternInternal(
       case AST_GRAPH_EDGE_PATTERN: {
         // Path length for a single edge is 1.
         ++path_stats.min_path_length;
+        // COST <expr> specific validations:
+        const auto* edge_pattern = ast_path_base->GetAs<ASTGraphEdgePattern>();
+        if (edge_pattern->filler() != nullptr &&
+            edge_pattern->filler()->variable_name() != nullptr) {
+          const IdString var_name =
+              edge_pattern->filler()->variable_name()->GetAsIdString();
+          const bool has_edge_cost =
+              edge_pattern->filler()->edge_cost() != nullptr;
+          if (var_has_cost_map.find(var_name) != var_has_cost_map.end() &&
+              var_has_cost_map.at(var_name)) {
+            return MakeSqlErrorAt(edge_pattern)
+                   << "Cannot multiply declare variable that previously "
+                      "defined a cost expression in the same path pattern: "
+                   << var_name;
+          }
+          if (has_edge_cost) {
+            path_stats.has_edge_cost = true;
+            if (var_has_cost_map.find(var_name) != var_has_cost_map.end()) {
+              return MakeSqlErrorAt(edge_pattern)
+                     << "Edge cost expression cannot be redefined for "
+                        "variable: "
+                     << var_name;
+            }
+          }
+          var_has_cost_map.emplace(var_name, has_edge_cost);
+        }
         break;
       }
       default:
@@ -483,6 +529,12 @@ GraphTableQueryResolver::ValidatePathPatternInternal(
     path_stats.min_path_length *= lower_bound;
     path_stats.child_is_quantified = true;
   }
+  if (in_cheapest && IsQuantified(ast_path_pattern) &&
+      !path_stats.has_edge_cost) {
+    return MakeSqlErrorAt(ast_path_pattern)
+           << "Quantified pattern in CHEAPEST must include at least one edge "
+              "cost expression";
+  }
   return path_stats;
 }
 
@@ -490,7 +542,7 @@ absl::Status GraphTableQueryResolver::ResolveGraphTableQuery(
     const ASTGraphTableQuery* graph_table_query, const NameScope* scope,
     std::unique_ptr<const ResolvedScan>* output,
     NameListPtr* output_name_list) {
-  if (!resolver_->language().LanguageFeatureEnabled(FEATURE_V_1_4_SQL_GRAPH)) {
+  if (!resolver_->language().LanguageFeatureEnabled(FEATURE_SQL_GRAPH)) {
     return MakeSqlErrorAt(graph_table_query) << "Graph query is not supported";
   }
   ZETASQL_RET_CHECK(output != nullptr);
@@ -499,6 +551,9 @@ absl::Status GraphTableQueryResolver::ResolveGraphTableQuery(
   ZETASQL_RET_CHECK(graph_table_query->graph_op() != nullptr);
   ZETASQL_ASSIGN_OR_RETURN(auto callback, HandleGraphReference(graph_table_query));
   absl::Cleanup cleanup = [&callback]() { callback(); };
+
+  ZETASQL_RETURN_IF_ERROR(ValidateGraphElementTablesDynamicLabelAndProperties(
+      resolver_->language(), graph_table_query->graph_reference(), *graph_));
 
   auto graph_named_variables = CreateEmptyGraphNameLists(graph_table_query);
   ResolvedColumnList graph_table_columns;
@@ -511,7 +566,7 @@ absl::Status GraphTableQueryResolver::ResolveGraphTableQuery(
     const auto* gql_query =
         graph_table_query->graph_op()->GetAsOrDie<ASTGqlOperatorList>();
     if (!resolver_->language().LanguageFeatureEnabled(
-            FEATURE_V_1_4_SQL_GRAPH_ADVANCED_QUERY)) {
+            FEATURE_SQL_GRAPH_ADVANCED_QUERY)) {
       return MakeSqlErrorAt(gql_query)
              << "Graph query with GQL extension is not supported";
     }
@@ -568,7 +623,7 @@ absl::Status GraphTableQueryResolver::ResolveGraphTableQuery(
     auto graph_table_shape_name_list = std::make_shared<const NameList>();
     if (graph_table_query->graph_table_shape() == nullptr) {
       if (!resolver_->language().LanguageFeatureEnabled(
-              FEATURE_V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT)) {
+              FEATURE_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT)) {
         return MakeSqlErrorAt(graph_table_query)
                << "Graph query without COLUMNS clause is not supported";
       }
@@ -619,6 +674,10 @@ absl::Status GraphTableQueryResolver::ResolveGraphTableQuery(
                    .set_shape_expr_list(std::move(graph_table_column_expr_list))
                    .Build());
 
+  ZETASQL_RETURN_IF_ERROR(EnsureNoMeasuresInNameList(*output_name_list,
+                                             graph_table_query, "graph queries",
+                                             resolver_->product_mode()));
+
   return absl::OkStatus();
 }
 
@@ -664,7 +723,7 @@ absl::Status GraphTableQueryResolver::ResolveGqlGraphPatternQuery(
     std::unique_ptr<const ResolvedScan>* output,
     NameListPtr* output_name_list) {
   if (!resolver_->language().LanguageFeatureEnabled(
-          FEATURE_V_1_4_SQL_GRAPH_ADVANCED_QUERY)) {
+          FEATURE_SQL_GRAPH_ADVANCED_QUERY)) {
     return MakeSqlErrorAt(query) << "GQL subquery is not supported";
   }
   ZETASQL_RET_CHECK_NE(output, nullptr);
@@ -724,7 +783,7 @@ absl::Status GraphTableQueryResolver::ResolveGqlLinearOpsQuery(
     std::unique_ptr<const ResolvedScan>* output,
     NameListPtr* output_name_list) {
   if (!resolver_->language().LanguageFeatureEnabled(
-          FEATURE_V_1_4_SQL_GRAPH_ADVANCED_QUERY)) {
+          FEATURE_SQL_GRAPH_ADVANCED_QUERY)) {
     return MakeSqlErrorAt(query) << "GQL subquery is not supported";
   }
   ZETASQL_RET_CHECK_NE(output, nullptr);
@@ -815,14 +874,17 @@ absl::StatusOr<ElementTableSet> GetTablesSatisfyingLabelExpr(
       "Type parameter must have base class of type GraphElementTable");
   ElementTableSet matching_element_tables;
   for (const GraphElementTable* table : tables) {
+    ZETASQL_ASSIGN_OR_RETURN(const GraphDynamicLabel* dynamic_label,
+                     GetDynamicLabelOfElementTable(*table));
 
     absl::flat_hash_set<const GraphElementLabel*> label_set;
     ZETASQL_RETURN_IF_ERROR(table->GetLabels(label_set));
-    ZETASQL_ASSIGN_OR_RETURN(bool label_expr_satisfied,
+    ZETASQL_ASSIGN_OR_RETURN(auto label_expr_satisfied,
                      ElementLabelsSatisfyResolvedGraphLabelExpr(
                          label_set,
+                         dynamic_label,
                          label_expr));
-    if (label_expr_satisfied) {
+    if (label_expr_satisfied != LabelSatisfyResult::kFalse) {
       matching_element_tables.insert(table);
     }
   }
@@ -853,16 +915,21 @@ absl::StatusOr<ElementTableSet> GetMatchingElementTables(
   }
 }
 
-absl::Status GetPropertySet(
-    const ElementTableSet& element_tables,
-    PropertySet& static_properties
-) {
+absl::Status GetPropertySet(const ElementTableSet& element_tables,
+                            PropertySet& static_properties,
+                            DynamicPropertyMap& dynamic_properties) {
   static_properties.clear();
+  dynamic_properties.clear();
   for (const auto* element_table : element_tables) {
     absl::flat_hash_set<const GraphPropertyDefinition*> properties;
     ZETASQL_RETURN_IF_ERROR(element_table->GetPropertyDefinitions(properties));
     for (const auto* prop : properties) {
       static_properties.insert(&prop->GetDeclaration());
+    }
+    if (element_table->HasDynamicProperties()) {
+      const GraphDynamicProperties* dynamic = nullptr;
+      ZETASQL_RETURN_IF_ERROR(element_table->GetDynamicProperties(dynamic));
+      dynamic_properties.try_emplace(element_table, dynamic);
     }
   }
 
@@ -872,8 +939,7 @@ absl::Status GetPropertySet(
 absl::StatusOr<const GraphElementType*>
 GraphTableQueryResolver::MakeGraphElementType(
     const GraphElementTable::Kind table_kind, const PropertySet& properties,
-    TypeFactory* type_factory
-) {
+    TypeFactory* type_factory, bool is_dynamic) {
   std::vector<GraphElementType::PropertyType> property_types;
   property_types.reserve(properties.size());
   for (const auto* property : properties) {
@@ -888,10 +954,17 @@ GraphTableQueryResolver::MakeGraphElementType(
   const GraphElementType* type = nullptr;
   // TODO: Only use NamePath when it's ready in Spanner, and the
   // SimpleCatalog is improved to support nested name path.
+  if (is_dynamic) {
+    ZETASQL_RETURN_IF_ERROR(type_factory->MakeDynamicGraphElementType(
+        graph_->NamePath().empty() ? std::vector<std::string>{graph_->Name()}
+                                   : graph_->NamePath(),
+        element_kind, property_types, &type));
+  } else {
     ZETASQL_RETURN_IF_ERROR(type_factory->MakeGraphElementType(
         graph_->NamePath().empty() ? std::vector<std::string>{graph_->Name()}
                                    : graph_->NamePath(),
         element_kind, property_types, &type));
+  }
   return type;
 }
 
@@ -912,19 +985,21 @@ GraphTableQueryResolver::ResolveGraphLabelFilter(
         .Build();
   }
 
+  absl::flat_hash_map<const GraphElementTable*, const GraphDynamicLabel*>
+      dynamic_labels;
   // Construct a set of valid static labels. A valid static label contained
   // within a label expression belonging to a node or edge pattern must be
   // exposed by some node table or edge table, respectively.
   absl::flat_hash_set<const GraphElementLabel*> valid_static_labels;
   ZETASQL_RETURN_IF_ERROR(FindAllLabelsApplicableToElementKind(
-      *graph_, element_kind,
-      valid_static_labels
-      ));
+      *graph_, element_kind, valid_static_labels, dynamic_labels));
   return ResolveGraphLabelExpr(
       ast_graph_label_filter->label_expression(), element_kind,
-      valid_static_labels,
-      graph_
-  );
+      valid_static_labels, graph_,
+      /*supports_dynamic_labels=*/
+      resolver_->language().LanguageFeatureEnabled(
+          FEATURE_SQL_GRAPH_DYNAMIC_ELEMENT_TYPE),
+      /*element_table_contains_dynamic_label=*/!dynamic_labels.empty());
 }
 
 absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
@@ -944,6 +1019,42 @@ GraphTableQueryResolver::ResolveWhereClause(
                                allow_horizontal_aggregate, kWhereClause));
   ZETASQL_RETURN_IF_ERROR(resolver_->CoerceExprToBool(ast_where_clause->expression(),
                                               kWhereClause, &output));
+  return output;
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
+GraphTableQueryResolver::ResolveCostExpr(
+    const ASTExpression& ast_edge_cost, const NameScope* input_scope,
+    QueryResolutionInfo* query_resolution_info,
+    const Type* cost_supertype) const {
+  static constexpr char kCostExpr[] = "COST expression";
+
+  auto expr_resolution_info = std::make_unique<ExprResolutionInfo>(
+      query_resolution_info, input_scope,
+      ExprResolutionInfoOptions{.allows_aggregation = false,
+                                .allows_analytic = false,
+                                .allows_horizontal_aggregation = false,
+                                .clause_name = kCostExpr});
+  std::unique_ptr<const ResolvedExpr> output;
+  ZETASQL_RETURN_IF_ERROR(resolver_->ResolveExpr(&ast_edge_cost,
+                                         expr_resolution_info.get(), &output));
+
+  if (cost_supertype != nullptr) {
+    auto make_error_msg = [](absl::string_view target_type_name,
+                             absl::string_view actual_type_name) {
+      return absl::Substitute(
+          "COST expression should return type $0, but returns $1",
+          target_type_name, actual_type_name);
+    };
+    ZETASQL_RETURN_IF_ERROR(resolver_->CoerceExprToType(
+        &ast_edge_cost, {cost_supertype, output->type_annotation_map()},
+        Resolver::CoercionMode::kImplicitCoercion, make_error_msg, &output));
+  }
+  if (output->Is<ResolvedLiteral>() &&
+      output->GetAs<ResolvedLiteral>()->value().is_null()) {
+    return MakeSqlErrorAt(ast_edge_cost)
+           << "COST expression cannot be NULL literal";
+  }
   return output;
 }
 
@@ -1034,7 +1145,8 @@ absl::StatusOr<GraphTableQueryResolver::ResolvedGraphWithNameList<
 GraphTableQueryResolver::ResolveElementPattern(
     const ASTGraphElementPattern& ast_element_pattern,
     const NameScope* input_scope,
-    GraphTableNamedVariables input_graph_name_lists) {
+    GraphTableNamedVariables input_graph_name_lists,
+    const Type* cost_supertype) {
   // Note about quantifiers:
   // Syntactically, only paths or edges may have an attached quantifier.
   // All quantified edges are syntactically transformed into a quantified path
@@ -1083,15 +1195,13 @@ GraphTableQueryResolver::ResolveElementPattern(
       const ElementTableSet matching_element_tables,
       GetMatchingElementTables(*graph_, label_expr.get(), table_kind));
   PropertySet static_properties;
-  ZETASQL_RETURN_IF_ERROR(GetPropertySet(
-      matching_element_tables,
-      static_properties
-      ));
+  DynamicPropertyMap dynamic_properties;
+  ZETASQL_RETURN_IF_ERROR(GetPropertySet(matching_element_tables, static_properties,
+                                 dynamic_properties));
   ZETASQL_ASSIGN_OR_RETURN(const Type* graph_element_type,
                    MakeGraphElementType(
-                       table_kind, static_properties,
-                       resolver_->type_factory_
-                       ));
+                       table_kind, static_properties, resolver_->type_factory_,
+                       /*is_dynamic=*/!dynamic_properties.empty()));
 
   ResolvedColumn element_column(resolver_->AllocateColumnId(),
                                 /*table_name=*/kElementTableName, element_alias,
@@ -1135,9 +1245,34 @@ GraphTableQueryResolver::ResolveElementPattern(
         std::unique_ptr<const ResolvedExpr> property_specification_expr,
         ResolveGraphElementPropertySpecification(
             filler->property_specification(), &element_pattern_scope,
-            resolved_columns.at(0)
-            ));
+            resolved_columns.at(0),
+            /*supports_dynamic_properties=*/
+            resolver_->language().LanguageFeatureEnabled(
+                FEATURE_SQL_GRAPH_DYNAMIC_ELEMENT_TYPE)));
     filter_expr = std::move(property_specification_expr);
+  }
+
+  // Resolve edge cost if present.
+  std::unique_ptr<const ResolvedExpr> edge_cost_expr;
+  if (filler->edge_cost() != nullptr) {
+    if (!resolver_->language().LanguageFeatureEnabled(
+            FEATURE_SQL_GRAPH_CHEAPEST_PATH)) {
+      return MakeSqlErrorAt(filler->edge_cost())
+             << "Cost definition is not supported";
+    }
+    if (ast_element_pattern.node_kind() != AST_GRAPH_EDGE_PATTERN) {
+      return MakeSqlErrorAt(filler->edge_cost())
+             << "Cost definition is only allowed on a graph edge pattern";
+    }
+    ZETASQL_ASSIGN_OR_RETURN(
+        edge_cost_expr,
+        ResolveCostExpr(*filler->edge_cost(), &element_pattern_scope,
+                        /*query_resolution_info=*/nullptr, cost_supertype));
+    ZETASQL_RET_CHECK(edge_cost_expr != nullptr);
+    if (!edge_cost_expr->type()->IsNumerical()) {
+      return MakeSqlErrorAt(filler->edge_cost())
+             << "Cost expression must be a numerical type";
+    }
   }
 
   // Resolve element hints if they're present.
@@ -1149,7 +1284,7 @@ GraphTableQueryResolver::ResolveElementPattern(
 
   std::vector<const GraphElementTable*> element_table_list = {
       matching_element_tables.begin(), matching_element_tables.end()};
-  std::unique_ptr<const ResolvedGraphElementScan> output_scan;
+  std::unique_ptr<ResolvedGraphElementScan> output_scan;
   switch (ast_element_pattern.node_kind()) {
     case AST_GRAPH_NODE_PATTERN: {
       ZETASQL_ASSIGN_OR_RETURN(output_scan, ResolvedGraphNodeScanBuilder()
@@ -1159,7 +1294,7 @@ GraphTableQueryResolver::ResolveElementPattern(
                                         .set_target_element_table_list(
                                             std::move(element_table_list))
                                         .set_hint_list(std::move(element_hints))
-                                        .Build());
+                                        .BuildMutable());
       break;
     }
     case AST_GRAPH_EDGE_PATTERN: {
@@ -1186,17 +1321,19 @@ GraphTableQueryResolver::ResolveElementPattern(
                   GetResolvedEdgeOrientation(ast_edge_pattern->orientation()))
               .set_filter_expr(std::move(filter_expr))
               .set_label_expr(std::move(label_expr))
+              .set_cost_expr(std::move(edge_cost_expr))
               .set_target_element_table_list(std::move(element_table_list))
               .set_hint_list(std::move(element_hints))
               .set_lhs_hint_list(std::move(lhs_hints))
               .set_rhs_hint_list(std::move(rhs_hints))
-              .Build());
+              .BuildMutable());
       break;
     }
     default:
       return MakeSqlErrorAt(&ast_element_pattern)
              << "Unexpected node: " << ast_element_pattern.DebugString();
   }
+  resolver_->MaybeRecordParseLocation(&ast_element_pattern, output_scan.get());
   // Merge the new element's name with the current working graph name lists.
   ZETASQL_ASSIGN_OR_RETURN(auto working_name_lists,
                    CreateGraphNameListsSingletonOnly(&ast_element_pattern,
@@ -1209,6 +1346,39 @@ GraphTableQueryResolver::ResolveElementPattern(
       {.resolved_node = std::move(output_scan),
        .graph_name_lists = std::move(output_graph_name_lists)});
 }
+
+class EdgeCostVisitor : public ResolvedASTVisitor {
+ public:
+  explicit EdgeCostVisitor(InputArgumentTypeSet* cost_types)
+      : cost_types_(cost_types) {}
+
+  static absl::Status GetCostTypes(const ResolvedGraphPathScan* path_scan,
+                                   InputArgumentTypeSet* cost_types) {
+    EdgeCostVisitor visitor = EdgeCostVisitor(cost_types);
+    ZETASQL_RETURN_IF_ERROR(path_scan->Accept(&visitor));
+    return absl::OkStatus();
+  }
+  // Traverse the path / element children only. Ignore the WHERE and COST
+  // clauses since they may contain graph subqueries.
+  absl::Status VisitResolvedGraphPathScan(
+      const zetasql::ResolvedGraphPathScan* node) override {
+    for (const auto& child : node->input_scan_list()) {
+      ZETASQL_RETURN_IF_ERROR(child->Accept(this));
+    }
+    return absl::OkStatus();
+  }
+
+  absl::Status VisitResolvedGraphEdgeScan(
+      const zetasql::ResolvedGraphEdgeScan* node) override {
+    if (node->cost_expr() != nullptr) {
+      cost_types_->Insert(InputArgumentType(node->cost_expr()->type()));
+    }
+    return absl::OkStatus();
+  }
+
+ private:
+  InputArgumentTypeSet* cost_types_;
+};
 
 absl::StatusOr<GraphTableQueryResolver::PathPatternListResult>
 GraphTableQueryResolver::ResolvePathPatternList(
@@ -1233,6 +1403,58 @@ GraphTableQueryResolver::ResolvePathPatternList(
         ResolvePathPattern(*path, input_scope, std::move(child_name_lists),
                            /*create_path_column=*/false,
                            &multiply_decl_forbidden_names_to_err_location));
+
+    InputArgumentTypeSet cost_types;
+    ZETASQL_RETURN_IF_ERROR(EdgeCostVisitor::GetCostTypes(
+        path_result.resolved_node.get(), &cost_types));
+    const Type* cost_supertype = nullptr;
+    if (!cost_types.empty()) {
+      ZETASQL_RETURN_IF_ERROR(
+          resolver_->coercer_.GetCommonSuperType(cost_types, &cost_supertype));
+      if (cost_supertype == nullptr) {
+        return MakeSqlErrorAt(path)
+               << "Edge cost expressions have no valid supertype. Consider "
+                  "adding explicit CASTs to the cost expressions. Found types: "
+               << absl::StrJoin(
+                      cost_types.arguments(), ", ",
+                      [&](std::string* out, const InputArgumentType& arg) {
+                        absl::StrAppend(out, arg.type()->TypeName(
+                                                 resolver_->product_mode()));
+                      });
+      }
+      ZETASQL_RET_CHECK(cost_supertype->IsNumerical())
+          << "Expected a numerical type for the cost supertype, but got: "
+          << cost_supertype->DebugString();
+      // Canonicalize the cost supertype to higher precision type to match the
+      // behavior of aggregate SUM.
+      // The following type widening behavior occurs:
+      // - INT32 -> INT64
+      // - UINT32 -> UINT64
+      // - FLOAT -> DOUBLE
+      // Note that NUMERIC and BIGNUMERIC are unchanged.
+      switch (cost_supertype->kind()) {
+        case TypeKind::TYPE_INT32:
+          cost_supertype = resolver_->type_factory_->get_int64();
+          break;
+        case TypeKind::TYPE_UINT32:
+          cost_supertype = resolver_->type_factory_->get_uint64();
+          break;
+        case TypeKind::TYPE_FLOAT:
+          cost_supertype = resolver_->type_factory_->get_double();
+          break;
+        default:
+          break;
+      }
+      // Second pass resolution, this time passing down the computed cost
+      // supertype to all descendants
+      auto child_name_lists = CreateEmptyGraphNameLists(&ast_graph_pattern);
+      ZETASQL_ASSIGN_OR_RETURN(
+          path_result,
+          ResolvePathPattern(*path, input_scope, std::move(child_name_lists),
+                             /*create_path_column=*/false,
+                             &multiply_decl_forbidden_names_to_err_location,
+                             cost_supertype));
+    }
 
     output_col_list.insert(output_col_list.end(),
                            path_result.resolved_node->column_list().begin(),
@@ -1264,12 +1486,20 @@ GraphTableQueryResolver::ResolveGraphPattern(
   // Names imported from the previous statement cannot be accessed
   // from within the pattern. Names can be accessed in the WHERE clause of
   // MATCH.
+  auto disallowed_list = std::make_shared<NameList>();
+  if (input_graph_name_lists.correlated_name_list != nullptr) {
+    ZETASQL_RET_CHECK_OK(
+        disallowed_list->MergeFrom(*input_graph_name_lists.correlated_name_list,
+                                   input_graph_name_lists.ast_node));
+  }
+  ZETASQL_RET_CHECK_OK(
+      disallowed_list->MergeFrom(*input_graph_name_lists.singleton_name_list,
+                                 input_graph_name_lists.ast_node));
   ZETASQL_ASSIGN_OR_RETURN(
       auto restricted_scope,
       CreateNameScopeWithDisallowList(
           input_scope,
-          {input_graph_name_lists.singleton_name_list.get(),
-           input_graph_name_lists.group_name_list.get()},
+          {disallowed_list.get(), input_graph_name_lists.group_name_list.get()},
           [](const IdString& name) {
             return absl::StrCat(
                 "Name ", ToSingleQuotedStringLiteral(name.ToStringView()),
@@ -1423,7 +1653,7 @@ GraphTableQueryResolver::ResolvePathMode(
       GetResolvedPathMode(ast_path_mode);
   if (path_mode != ResolvedGraphPathMode::PATH_MODE_UNSPECIFIED) {
     if (!resolver_->language().LanguageFeatureEnabled(
-            FEATURE_V_1_4_SQL_GRAPH_PATH_MODE)) {
+            FEATURE_SQL_GRAPH_PATH_MODE)) {
       return MakeSqlErrorAt(ast_path_mode) << "path mode is not supported";
     }
     ZETASQL_ASSIGN_OR_RETURN(
@@ -1437,10 +1667,18 @@ absl::Status GraphTableQueryResolver::GetSearchPrefixPathCountExpr(
     const ASTExpression* ast_search_prefix_path_count,
     const NameScope* input_scope,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) const {
+  if (!resolver_->language().LanguageFeatureEnabled(
+          FEATURE_SQL_GRAPH_PATH_SEARCH_PREFIX_PATH_COUNT)) {
+    return MakeSqlErrorAt(ast_search_prefix_path_count)
+           << "Path search prefix with path count is not supported";
+  }
+
   static constexpr char kSearchPrefix[] = "graph search prefix k";
-  ExprResolutionInfo expr_resolution_info(input_scope, kSearchPrefix);
-  ZETASQL_RETURN_IF_ERROR(resolver_->ResolveExpr(
-      ast_search_prefix_path_count, &expr_resolution_info, resolved_expr_out));
+  auto expr_resolution_info =
+      std::make_unique<ExprResolutionInfo>(input_scope, kSearchPrefix);
+  ZETASQL_RETURN_IF_ERROR(resolver_->ResolveExpr(ast_search_prefix_path_count,
+                                         expr_resolution_info.get(),
+                                         resolved_expr_out));
   ZETASQL_RETURN_IF_ERROR(resolver_->ValidateParameterOrLiteralAndCoerceToInt64IfNeeded(
       kSearchPrefix, ast_search_prefix_path_count, resolved_expr_out));
   return absl::OkStatus();
@@ -1497,6 +1735,24 @@ GraphTableQueryResolver::ResolvePathSearchPrefix(
       // Unimplemented for now.
       return MakeSqlErrorAt(ast_path_search_prefix)
              << "ALL SHORTEST search is unimplemented";
+    case ASTGraphPathSearchPrefix::CHEAPEST:
+      if (!resolver_->language().LanguageFeatureEnabled(
+              FEATURE_SQL_GRAPH_CHEAPEST_PATH)) {
+        return MakeSqlErrorAt(ast_path_search_prefix)
+               << "CHEAPEST search is unimplemented";
+      }
+      return ResolvedGraphPathSearchPrefixBuilder()
+          .set_type(ResolvedGraphPathSearchPrefix::CHEAPEST)
+          .set_path_count(std::move(path_count_expr))
+          .Build();
+    case ASTGraphPathSearchPrefix::ALL_CHEAPEST:
+      if (!resolver_->language().LanguageFeatureEnabled(
+              FEATURE_SQL_GRAPH_CHEAPEST_PATH)) {
+        return MakeSqlErrorAt(ast_path_search_prefix)
+               << "CHEAPEST search is unimplemented";
+      }
+      return MakeSqlErrorAt(ast_path_search_prefix)
+             << "ALL CHEAPEST search is not supported";
     case ASTGraphPathSearchPrefix::PATH_SEARCH_PREFIX_TYPE_UNSPECIFIED:
       ZETASQL_RET_CHECK_FAIL()
           << "The parser should never generate a non-null "
@@ -1586,7 +1842,8 @@ GraphTableQueryResolver::ResolvePathPattern(
     const ASTGraphPathPattern& ast_path_pattern, const NameScope* input_scope,
     GraphTableNamedVariables input_graph_name_lists, bool create_path_column,
     IdStringHashMapCase<const ASTGraphPathPattern* const>*
-        out_multiply_decl_forbidden_names_to_err_location) {
+        out_multiply_decl_forbidden_names_to_err_location,
+    const Type* cost_supertype) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   ZETASQL_ASSIGN_OR_RETURN(std::vector<const ASTGraphPathBase*> ast_path_bases,
                    CanonicalizePathPattern(ast_path_pattern));
@@ -1598,7 +1855,7 @@ GraphTableQueryResolver::ResolvePathPattern(
   if (ast_path_pattern.path_name() != nullptr) {
     create_path_column = true;
     if (!resolver_->language().LanguageFeatureEnabled(
-            FEATURE_V_1_4_SQL_GRAPH_PATH_TYPE)) {
+            FEATURE_SQL_GRAPH_PATH_TYPE)) {
       return MakeSqlErrorAt(ast_path_pattern) << "Paths are not supported";
     }
     if (ast_path_pattern.parenthesized()) {
@@ -1613,9 +1870,10 @@ GraphTableQueryResolver::ResolvePathPattern(
     if (const auto ast_element_pattern =
             ast_path_base->GetAsOrNull<ASTGraphElementPattern>();
         ast_element_pattern != nullptr) {
-      ZETASQL_ASSIGN_OR_RETURN(auto element_result,
-                       ResolveElementPattern(*ast_element_pattern, input_scope,
-                                             std::move(path_name_lists)));
+      ZETASQL_ASSIGN_OR_RETURN(
+          auto element_result,
+          ResolveElementPattern(*ast_element_pattern, input_scope,
+                                std::move(path_name_lists), cost_supertype));
       path_base_scan = std::move(element_result.resolved_node);
       path_name_lists = std::move(element_result.graph_name_lists);
       ZETASQL_RET_CHECK_EQ(path_base_scan->column_list().size(), 1);
@@ -1631,8 +1889,11 @@ GraphTableQueryResolver::ResolvePathPattern(
       }
       ZETASQL_ASSIGN_OR_RETURN(
           auto subpath_result,
-          ResolvePathPattern(*ast_path_pattern, input_scope,
-                             std::move(path_name_lists), create_path_column));
+          ResolvePathPattern(
+              *ast_path_pattern, input_scope, std::move(path_name_lists),
+              create_path_column,
+              /*out_multiply_decl_forbidden_names_to_err_location=*/nullptr,
+              cost_supertype));
       path_base_scan = std::move(subpath_result.resolved_node);
       path_name_lists = std::move(subpath_result.graph_name_lists);
     }
@@ -1688,7 +1949,7 @@ GraphTableQueryResolver::ResolvePathPattern(
   }
 
   if (!resolver_->language().LanguageFeatureEnabled(
-          FEATURE_V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION) &&
+          FEATURE_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION) &&
       IsQuantified(&ast_path_pattern)) {
     return MakeSqlErrorAt(ast_path_pattern)
            << "Graph query with quantifiers is not supported";
@@ -1804,6 +2065,11 @@ GraphTableQueryResolver::ResolvePathPattern(
       break;
     }
   }
+
+  std::unique_ptr<const ResolvedGraphPathCost> path_cost = nullptr;
+  if (cost_supertype != nullptr) {
+    path_cost = MakeResolvedGraphPathCost(cost_supertype);
+  }
   auto builder = ResolvedGraphPathScanBuilder()
                      .set_column_list(path_scan_column_list)
                      .set_input_scan_list(std::move(input_scans))
@@ -1814,7 +2080,8 @@ GraphTableQueryResolver::ResolvePathPattern(
                      .set_quantifier(std::move(resolved_quantifier))
                      .set_group_variable_list(std::move(new_group_variables))
                      .set_path_mode(std::move(resolved_path_mode))
-                     .set_search_prefix(std::move(resolved_search_prefix));
+                     .set_search_prefix(std::move(resolved_search_prefix))
+                     .set_path_cost(std::move(path_cost));
   if (path_column.has_value()) {
     builder.set_path(ResolvedColumnHolderBuilder().set_column(*path_column));
   }
@@ -1825,11 +2092,14 @@ GraphTableQueryResolver::ResolvePathPattern(
 }
 
 std::vector<std::unique_ptr<const ResolvedExpr>>
-GraphTableQueryResolver::BuildColumnRefs(const ResolvedColumnList& columns) {
+GraphTableQueryResolver::BuildColumnRefs(
+    const ResolvedColumnList& columns,
+    const absl::flat_hash_set<ResolvedColumn>& correlated_columns) {
   std::vector<std::unique_ptr<const ResolvedExpr>> column_refs;
   column_refs.reserve(columns.size());
   for (const auto& column : columns) {
-    column_refs.push_back(resolver_->MakeColumnRef(column));
+    column_refs.push_back(resolver_->MakeColumnRef(
+        column, /*is_correlated=*/correlated_columns.contains(column)));
   }
   return column_refs;
 }
@@ -1899,20 +2169,25 @@ GraphTableQueryResolver::ResolveMultiplyDeclaredVariables(
   ZETASQL_ASSIGN_OR_RETURN(
       auto output_graph_name_lists,
       CreateGraphNameLists(&ast_location, singleton_name_list,
-                           std::move(input_graph_name_lists.group_name_list)));
+                           std::move(input_graph_name_lists.group_name_list),
+                           input_graph_name_lists.correlated_name_list));
   if (multiply_declared_variables.empty()) {
     return {{.resolved_node = nullptr,
              .graph_name_lists = std::move(output_graph_name_lists)}};
   }
+
+  ZETASQL_RET_CHECK(input_graph_name_lists.correlated_name_list == nullptr);
+  absl::flat_hash_set<ResolvedColumn> correlated_columns;
 
   // Builds SAME for each group of multiply-declared variables.
   std::vector<std::unique_ptr<const ResolvedExpr>> same_exprs;
   same_exprs.reserve(multiply_declared_variables.size());
   for (const auto& variable : multiply_declared_variables) {
     const ResolvedColumnList& column_list = variable_declarations[variable];
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> same_expr,
-                     MakeEqualElementExpr(ast_location, variable,
-                                          BuildColumnRefs(column_list)));
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<const ResolvedExpr> same_expr,
+        MakeEqualElementExpr(ast_location, variable,
+                             BuildColumnRefs(column_list, correlated_columns)));
     if (forbidden_singleton_names_to_err_location != nullptr &&
         (forbidden_singleton_names_to_err_location->find(variable) !=
          forbidden_singleton_names_to_err_location->end())) {
@@ -1945,8 +2220,11 @@ GraphTableQueryResolver::ResolveMultiplyDeclaredVariables(
 absl::StatusOr<
     GraphTableQueryResolver::ResolvedGraphWithNameList<const ResolvedExpr>>
 GraphTableQueryResolver::ResolveMultiplyDeclaredVariables(
-    const ASTNode& ast_location, const GraphTableNamedVariables& left_name_list,
-    const GraphTableNamedVariables& right_name_list) {
+    const ASTNode& ast_location,
+    const GraphTableNamedVariables& input_name_list,
+    const GraphTableNamedVariables& local_name_list) {
+  ZETASQL_RET_CHECK(local_name_list.correlated_name_list == nullptr);
+
   std::vector<IdString> multiply_declared_variables;
   IdStringHashMapCase<ResolvedColumnList> variable_declarations;
   // For each multiply declared singleton variable in both left and right name
@@ -1960,16 +2238,28 @@ GraphTableQueryResolver::ResolveMultiplyDeclaredVariables(
 
   // Confirm that there are no ambiguous group variables.
   ZETASQL_RET_CHECK_OK(CheckNoAmbiguousNameTarget(ast_location,
-                                          *left_name_list.group_name_list));
+                                          *input_name_list.group_name_list));
   ZETASQL_RET_CHECK_OK(CheckNoAmbiguousNameTarget(ast_location,
-                                          *right_name_list.group_name_list));
+                                          *local_name_list.group_name_list));
 
-  CollectReversedMultiplyDeclaredNames(
-      right_name_list.singleton_name_list, multiply_declared_variables,
-      variable_declarations, reversed_name_list);
-  CollectReversedMultiplyDeclaredNames(
-      left_name_list.singleton_name_list, multiply_declared_variables,
-      variable_declarations, reversed_name_list);
+  if (input_name_list.correlated_name_list != nullptr) {
+    // For correlated names, do not add any names to the output. We only want to
+    // find multiply declared names across the scope to add SAME exprs, so reset
+    // those output list.
+    std::vector<const NamedColumn*> dummy_list;
+
+    MergeReversedMultiplyDeclaredNames(input_name_list.correlated_name_list,
+                                       multiply_declared_variables,
+                                       variable_declarations, dummy_list);
+  }
+
+  MergeReversedMultiplyDeclaredNames(local_name_list.singleton_name_list,
+                                     multiply_declared_variables,
+                                     variable_declarations, reversed_name_list);
+
+  MergeReversedMultiplyDeclaredNames(input_name_list.singleton_name_list,
+                                     multiply_declared_variables,
+                                     variable_declarations, reversed_name_list);
 
   auto name_list = std::make_shared<NameList>();
   // Reverse the namelist to get the normal order. The final namelist also
@@ -1984,16 +2274,16 @@ GraphTableQueryResolver::ResolveMultiplyDeclaredVariables(
   // Merge the group name lists into one list.
   auto final_group_list = std::make_shared<NameList>();
   for (const NamedColumn& group_variable :
-       left_name_list.group_name_list->columns()) {
+       input_name_list.group_name_list->columns()) {
     if (NameTarget unused_name_target;
-        right_name_list.group_name_list->LookupName(group_variable.name(),
+        local_name_list.group_name_list->LookupName(group_variable.name(),
                                                     &unused_name_target)) {
       return MakeSqlErrorAt(ast_location)
              << "Group variable " << group_variable.name()
              << " is multiply declared";
     }
     if (NameTarget unused_name_target;
-        right_name_list.singleton_name_list->LookupName(group_variable.name(),
+        local_name_list.singleton_name_list->LookupName(group_variable.name(),
                                                         &unused_name_target)) {
       return MakeSqlErrorAt(ast_location)
              << "Variable name: " << group_variable.name()
@@ -2001,24 +2291,25 @@ GraphTableQueryResolver::ResolveMultiplyDeclaredVariables(
     }
   }
   for (const NamedColumn& group_variable :
-       right_name_list.group_name_list->columns()) {
+       local_name_list.group_name_list->columns()) {
     if (NameTarget unused_name_target;
-        left_name_list.singleton_name_list->LookupName(group_variable.name(),
-                                                       &unused_name_target)) {
+        input_name_list.singleton_name_list->LookupName(group_variable.name(),
+                                                        &unused_name_target)) {
       return MakeSqlErrorAt(ast_location)
              << "Variable name: " << group_variable.name()
              << " cannot be used in both quantified and unquantified patterns";
     }
   }
-  ZETASQL_RETURN_IF_ERROR(final_group_list->MergeFrom(*left_name_list.group_name_list,
+  ZETASQL_RETURN_IF_ERROR(final_group_list->MergeFrom(*input_name_list.group_name_list,
                                               &ast_location));
-  ZETASQL_RETURN_IF_ERROR(final_group_list->MergeFrom(*right_name_list.group_name_list,
+  ZETASQL_RETURN_IF_ERROR(final_group_list->MergeFrom(*local_name_list.group_name_list,
                                               &ast_location));
   ZETASQL_RET_CHECK_OK(CheckNoAmbiguousNameTarget(ast_location, *final_group_list));
 
   ZETASQL_ASSIGN_OR_RETURN(auto output_graph_name_lists,
                    CreateGraphNameLists(&ast_location, name_list,
-                                        std::move(final_group_list)));
+                                        std::move(final_group_list),
+                                        input_name_list.correlated_name_list));
   if (multiply_declared_variables.empty()) {
     return {{.resolved_node = nullptr,
              .graph_name_lists = std::move(output_graph_name_lists)}};
@@ -2027,6 +2318,15 @@ GraphTableQueryResolver::ResolveMultiplyDeclaredVariables(
   // Builds SAME for each group of multiply-declared variables.
   std::vector<std::unique_ptr<const ResolvedExpr>> same_exprs;
   same_exprs.reserve(multiply_declared_variables.size());
+
+  absl::flat_hash_set<ResolvedColumn> correlated_columns;
+  if (input_name_list.correlated_name_list != nullptr) {
+    for (const ResolvedColumn& column :
+         input_name_list.correlated_name_list->GetResolvedColumns()) {
+      correlated_columns.insert(column);
+    }
+  }
+
   for (const IdString& variable : multiply_declared_variables) {
     const ResolvedColumnList& column_list = variable_declarations[variable];
     std::optional<GraphElementType::ElementKind> kind;
@@ -2042,9 +2342,10 @@ GraphTableQueryResolver::ResolveMultiplyDeclaredVariables(
         kind = col.type()->AsGraphElement()->element_kind();
       }
     }
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> same_expr,
-                     MakeEqualElementExpr(ast_location, variable,
-                                          BuildColumnRefs(column_list)));
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<const ResolvedExpr> same_expr,
+        MakeEqualElementExpr(ast_location, variable,
+                             BuildColumnRefs(column_list, correlated_columns)));
     same_exprs.push_back(std::move(same_expr));
   }
   ResolvedGraphWithNameList<const ResolvedExpr> result;
@@ -2081,7 +2382,7 @@ absl::Status GraphTableQueryResolver::ResolveGraphTableShape(
   }
   for (int i = 0; i < output_column_list->size(); ++i) {
     if (!resolver_->language().LanguageFeatureEnabled(
-            FEATURE_V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT) &&
+            FEATURE_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT) &&
         TypeIsOrContainsGraphElement(output_column_list->at(i).type())) {
       return MakeSqlErrorAt(ast_select_list->columns()[i])
              << "Returning graph-typed column is not supported";
@@ -2096,11 +2397,52 @@ absl::Status GraphTableQueryResolver::ResolveGraphTableShape(
   return absl::OkStatus();
 }
 
+static constexpr absl::string_view kDynamicPropertyEqualityFunctionName =
+    "$dynamic_property_equals";
+
+absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
+GraphTableQueryResolver::ResolveGraphDynamicPropertyEquality(
+    const ASTNode* error_location, const PropertyGraph* graph,
+    const GraphElementType* element_type, absl::string_view property_name,
+    const NameScope* input_scope,
+    std::unique_ptr<const ResolvedExpr> resolved_element_expr,
+    std::unique_ptr<const ResolvedExpr> resolved_property_value_expr) const {
+  static constexpr char kDynamicPropertyEqualityExpr[] =
+      "Dynamic property equality expr";
+  auto expr_resolution_info = std::make_unique<ExprResolutionInfo>(
+      input_scope, kDynamicPropertyEqualityExpr);
+  std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments;
+  resolved_arguments.push_back(std::move(resolved_element_expr));
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<const ResolvedExpr> resolved_property_name_expr,
+      ResolvedLiteralBuilder()
+          .set_type(types::StringType())
+          .set_value(Value::String(property_name))
+          .set_has_explicit_type(true)
+          .Build());
+  resolved_arguments.push_back(std::move(resolved_property_name_expr));
+  resolved_arguments.push_back(std::move(resolved_property_value_expr));
+
+  std::unique_ptr<const ResolvedExpr> dynamic_property_equality;
+  // An internal caller to resolve an internal function call instead of a
+  // user-facing function call.
+  FakeASTNode dummy_ast_node;
+  ZETASQL_RETURN_IF_ERROR(resolver_->ResolveFunctionCallWithResolvedArguments(
+      error_location, {&dummy_ast_node, &dummy_ast_node, &dummy_ast_node},
+      /*match_internal_signatures=*/true, kDynamicPropertyEqualityFunctionName,
+      std::move(resolved_arguments),
+      /*named_arguments=*/{}, expr_resolution_info.get(),
+      &dynamic_property_equality));
+  return dynamic_property_equality;
+}
+
 absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
 GraphTableQueryResolver::ResolveGraphElementPropertySpecification(
     const ASTGraphPropertySpecification* ast_graph_property_specification,
     const NameScope* input_scope,
     const ResolvedColumn& element_column
+    ,
+    bool supports_dynamic_properties
 ) const {
   if (ast_graph_property_specification == nullptr) {
     return nullptr;
@@ -2125,16 +2467,32 @@ GraphTableQueryResolver::ResolveGraphElementPropertySpecification(
 
     // Property value expression.
     static constexpr char kPropertyValueExp[] = "Property value expr";
-    ExprResolutionInfo expr_resolution_info(input_scope, kPropertyValueExp);
+    auto expr_resolution_info =
+        std::make_unique<ExprResolutionInfo>(input_scope, kPropertyValueExp);
     std::unique_ptr<const ResolvedExpr> value_expr;
     ZETASQL_RETURN_IF_ERROR(resolver_->ResolveExpr(property_name_and_value->value(),
-                                           &expr_resolution_info, &value_expr));
+                                           expr_resolution_info.get(),
+                                           &value_expr));
+
+    if (element_type->is_dynamic() &&
+        element_type->FindPropertyType(property_name) == nullptr) {
+      ZETASQL_RET_CHECK(supports_dynamic_properties);
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> resolved_eq_expr,
+                       ResolveGraphDynamicPropertyEquality(
+                           property_name_and_value->property_name(), graph_,
+                           element_type, property_name, input_scope,
+                           resolver_->CopyColumnRef(resolved_column_ref.get()),
+                           std::move(value_expr)));
+      eq_exprs.push_back(std::move(resolved_eq_expr));
+      continue;
+    }
 
     std::unique_ptr<const ResolvedGraphGetElementProperty> get_property_expr;
     ZETASQL_ASSIGN_OR_RETURN(get_property_expr,
                      ResolveGraphGetElementProperty(
                          property_name_and_value->property_name(), graph_,
                          element_type, property_name,
+                         supports_dynamic_properties,
                          resolver_->CopyColumnRef(resolved_column_ref.get())));
 
     std::unique_ptr<const ResolvedExpr> resolved_eq_expr;
@@ -2160,11 +2518,12 @@ absl::Status GraphTableQueryResolver::ResolveSelectColumn(
   static constexpr char kGraphTableShape[] = "graph table shape";
 
   if (ast_select_column->expression()->node_kind() == AST_DOT_STAR) {
-    ExprResolutionInfo expr_resolution_info(input_scope, kGraphTableShape);
+    auto expr_resolution_info =
+        std::make_unique<ExprResolutionInfo>(input_scope, kGraphTableShape);
     std::unique_ptr<const ResolvedExpr> resolved_column_expr;
     ZETASQL_RETURN_IF_ERROR(resolver_->ResolveExpr(
         ast_select_column->expression()->GetAsOrDie<ASTDotStar>()->expr(),
-        &expr_resolution_info, &resolved_column_expr));
+        expr_resolution_info.get(), &resolved_column_expr));
     return AddPropertiesFromElement(
         ast_select_column, std::move(resolved_column_expr), output_name_list,
         output_column_list, expr_list);
@@ -2205,6 +2564,13 @@ absl::Status GraphTableQueryResolver::AddPropertiesFromElement(
            << resolved_element->type()->DebugString();
   }
 
+  if (resolved_element->type()->AsGraphElement()->is_dynamic()) {
+    ZETASQL_RET_CHECK(resolver_->analyzer_options().language().LanguageFeatureEnabled(
+        FEATURE_SQL_GRAPH_DYNAMIC_ELEMENT_TYPE));
+    return MakeSqlErrorAt(ast_location)
+           << "Dot-star is not supported for dynamic graph elements.";
+  }
+
   // Add all properties exposed by graph element to output.
   const absl::Span<const PropertyType> property_types =
       resolved_element->type()->AsGraphElement()->property_types();
@@ -2228,6 +2594,13 @@ absl::Status GraphTableQueryResolver::AddPropertiesFromElement(
                        .set_type(column_type)
                        .set_expr(std::move(resolved_element_copy))
                        .set_property(prop_dcl);
+    if (resolver_->analyzer_options().language().LanguageFeatureEnabled(
+            FEATURE_SQL_GRAPH_DYNAMIC_ELEMENT_TYPE)) {
+      builder.set_property_name(ResolvedLiteralBuilder()
+                                    .set_value(Value::String(prop_dcl->Name()))
+                                    .set_type(types::StringType())
+                                    .set_has_explicit_type(true));
+    }
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedGraphGetElementProperty>
                          get_element_property,
                      std::move(builder).Build());
@@ -2344,9 +2717,10 @@ absl::Status GraphTableQueryResolver::GetQuantifierBoundExpr(
     const ASTExpression* ast_quantifier_bound, const NameScope* input_scope,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) const {
   static constexpr char kGraphQuantifier[] = "graph quantifier";
-  ExprResolutionInfo expr_resolution_info(input_scope, kGraphQuantifier);
+  auto expr_resolution_info =
+      std::make_unique<ExprResolutionInfo>(input_scope, kGraphQuantifier);
   ZETASQL_RETURN_IF_ERROR(resolver_->ResolveExpr(
-      ast_quantifier_bound, &expr_resolution_info, resolved_expr_out));
+      ast_quantifier_bound, expr_resolution_info.get(), resolved_expr_out));
   ZETASQL_RETURN_IF_ERROR(resolver_->ValidateParameterOrLiteralAndCoerceToInt64IfNeeded(
       kGraphQuantifier, ast_quantifier_bound, resolved_expr_out));
   return absl::OkStatus();
@@ -2411,6 +2785,15 @@ GraphTableQueryResolver::ResolveGqlOperator(
     case AST_GQL_FOR: {
       return ResolveGqlFor(*gql_op->GetAsOrDie<ASTGqlFor>(), local_scope.get(),
                            std::move(inputs));
+    }
+    case AST_GQL_INLINE_SUBQUERY_CALL: {
+      return ResolveGqlInlineSubqueryCall(
+          *gql_op->GetAsOrDie<ASTGqlInlineSubqueryCall>(), local_scope.get(),
+          std::move(inputs));
+    }
+    case AST_GQL_NAMED_CALL: {
+      return ResolveGqlNamedCall(*gql_op->GetAsOrDie<ASTGqlNamedCall>(),
+                                 local_scope.get(), std::move(inputs));
     }
     case AST_GQL_RETURN: {
       return ResolveGqlReturn(*gql_op->GetAsOrDie<ASTGqlReturn>(),
@@ -2529,6 +2912,31 @@ GraphTableQueryResolver::GraphSetOperationResolver::ValidateGqlSetOperation(
     }
   }
   return absl::OkStatus();
+}
+
+// Computes the grouping name list for projections like WITH/RETURN. It uses the
+// ResolvedColumn identity to track which of the original output columns in
+// `new_singleton_name_list` originated from the old names tracked in
+// `old_group_name_list`.
+// Note that the same input group name may appear multiple times, e.g.
+//   RETURN group_name AS g1, group_name AS g2, .. etc.
+// It may also disappear and be dropped completely.
+static absl::StatusOr<std::shared_ptr<NameList>> ComputeNewGroupNameList(
+    const NameListPtr& old_group_name_list,
+    const NameListPtr& new_singleton_name_list) {
+  auto new_group_name_list = std::make_shared<NameList>();
+  absl::flat_hash_set<ResolvedColumn> resolved_columns_for_group_names;
+  for (const NamedColumn& column : old_group_name_list->columns()) {
+    resolved_columns_for_group_names.insert(column.column());
+  }
+
+  for (const NamedColumn& column : new_singleton_name_list->columns()) {
+    if (resolved_columns_for_group_names.contains(column.column())) {
+      ZETASQL_RET_CHECK_OK(new_group_name_list->AddColumn(
+          column.name(), column.column(), column.is_explicit()));
+    }
+  }
+  return new_group_name_list;
 }
 
 absl::StatusOr<
@@ -2779,7 +3187,8 @@ GraphTableQueryResolver::ResolveGqlSample(
   ZETASQL_ASSIGN_OR_RETURN(
       auto output_graph_name_lists,
       CreateGraphNameLists(&sample_op, output_name_list->Copy(),
-                           std::move(input.graph_name_lists.group_name_list)));
+                           std::move(input.graph_name_lists.group_name_list),
+                           input.graph_name_lists.correlated_name_list));
   return {{.resolved_node = std::move(input.resolved_node),
            .graph_name_lists = std::move(output_graph_name_lists)}};
 }
@@ -2814,7 +3223,7 @@ GraphTableQueryResolver::ResolveGqlLinearQueryList(
                                          std::move(input_graph_name_lists)}));
 
   if (!resolver_->language().LanguageFeatureEnabled(
-          FEATURE_V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT)) {
+          FEATURE_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT)) {
     const ASTGqlOperator* last_op = gql_ops_list.operators().back();
     if (IsLinearQuery(last_op)) {
       ZETASQL_RETURN_IF_ERROR(CheckReturnNoGraphTypedCols(
@@ -2848,7 +3257,9 @@ absl::Status GraphTableQueryResolver::CheckGqlLinearQuery(
               primitive_ops[i]->Is<ASTGqlFilter>() ||
               primitive_ops[i]->Is<ASTGqlWith>() ||
               primitive_ops[i]->Is<ASTGqlSample>() ||
-              primitive_ops[i]->Is<ASTGqlFor>())
+              primitive_ops[i]->Is<ASTGqlFor>() ||
+              primitive_ops[i]->Is<ASTGqlNamedCall>() ||
+              primitive_ops[i]->Is<ASTGqlInlineSubqueryCall>())
         << "Unexpected op: " << primitive_ops[i]->DebugString();
   }
   // The last op should be a RETURN.
@@ -2906,6 +3317,12 @@ GraphTableQueryResolver::ResolveGqlOperatorList(
     ResolvedGraphWithNameList<const ResolvedScan> inputs) {
   ZETASQL_RET_CHECK(!gql_ops.empty())
       << "GQL linear scan must contain at least one child ASTGqlOperator";
+
+  // Invariant: Incoming correlated name list must be the same across all
+  // operators.
+  std::shared_ptr<const NameList> correlated_name_list =
+      inputs.graph_name_lists.correlated_name_list;
+
   // Output scan list
   std::vector<std::unique_ptr<const ResolvedScan>> scan_list;
   std::unique_ptr<const ResolvedScan> ref_scan;
@@ -2922,16 +3339,21 @@ GraphTableQueryResolver::ResolveGqlOperatorList(
         ref_scan,
         BuildGraphRefScan(op_inputs.graph_name_lists.singleton_name_list));
     op_inputs.resolved_node = std::move(ref_scan);
+    // Measures cannot be propagated through GQL operators for now.
+    ZETASQL_RETURN_IF_ERROR(EnsureNoMeasuresInNameList(
+        op_inputs.graph_name_lists.singleton_name_list, gql_op, "graph queries",
+        resolver_->product_mode()));
+    // Ensure we didn't mistakenly drop the correlated list somewhere.
+    ZETASQL_RET_CHECK(op_inputs.graph_name_lists.correlated_name_list ==
+              correlated_name_list);
   }
   auto linear_builder = ResolvedGraphLinearScanBuilder().set_column_list(
       scan_list.back()->column_list());
   ZETASQL_ASSIGN_OR_RETURN(
       auto linear_scan,
       std::move(linear_builder).set_scan_list(std::move(scan_list)).Build());
-  return absl::StatusOr<
-      ResolvedGraphWithNameList<const ResolvedGraphLinearScan>>(
-      {.resolved_node = std::move(linear_scan),
-       .graph_name_lists = std::move(op_inputs.graph_name_lists)});
+  return {{.resolved_node = std::move(linear_scan),
+           .graph_name_lists = std::move(op_inputs.graph_name_lists)}};
 }
 
 // If we have an OPTIONAL MATCH the new working set is the existing
@@ -3012,19 +3434,35 @@ GraphTableQueryResolver::ResolveExpr(const ASTExpression* expr,
                                      bool allow_analytic,
                                      bool allow_horizontal_aggregate,
                                      const char* const clause_name) const {
-  ExprResolutionInfo expr_resolution_info(
+  auto expr_resolution_info = std::make_unique<ExprResolutionInfo>(
       query_resolution_info, local_scope,
-      {.allows_aggregation = false,
-       .allows_analytic = allow_analytic,
-       .clause_name = clause_name,
-       .allows_horizontal_aggregation =
-           allow_horizontal_aggregate &&
-           resolver_->language().LanguageFeatureEnabled(
-               FEATURE_V_1_4_SQL_GRAPH_ADVANCED_QUERY)});
+      ExprResolutionInfoOptions{
+          .allows_aggregation = false,
+          .allows_analytic = allow_analytic,
+          .allows_horizontal_aggregation =
+              allow_horizontal_aggregate &&
+              resolver_->language().LanguageFeatureEnabled(
+                  FEATURE_SQL_GRAPH_ADVANCED_QUERY),
+          .clause_name = clause_name});
   std::unique_ptr<const ResolvedExpr> resolved_expr;
   ZETASQL_RETURN_IF_ERROR(
-      resolver_->ResolveExpr(expr, &expr_resolution_info, &resolved_expr));
+      resolver_->ResolveExpr(expr, expr_resolution_info.get(), &resolved_expr));
   return resolved_expr;
+}
+
+static absl::Status CheckNameNotInDisallowedList(
+    IdString name, std::shared_ptr<NameList> disallowed_name_list,
+    const ASTNode* location) {
+  if (disallowed_name_list == nullptr) {
+    return absl::OkStatus();
+  }
+  if (NameTarget name_target;
+      disallowed_name_list->LookupName(name, &name_target)) {
+    return MakeSqlErrorAt(location)
+           << "Variable name: " << ToIdentifierLiteral(name)
+           << " already exists";
+  }
+  return absl::OkStatus();
 }
 
 // Takes the input scan and extends it with one column each for the
@@ -3084,6 +3522,10 @@ GraphTableQueryResolver::ResolveGqlLet(
             .set_expr(std::move(resolved_column_expr))
             .Build());
 
+    ZETASQL_RETURN_IF_ERROR(CheckNameNotInDisallowedList(
+        column_name, input_graph_name_lists.correlated_name_list,
+        definition->identifier()));
+
     ZETASQL_RETURN_IF_ERROR(post_let_name_list->AddColumn(column_name, new_column,
                                                   /*is_explicit=*/true));
 
@@ -3102,7 +3544,8 @@ GraphTableQueryResolver::ResolveGqlLet(
   ZETASQL_ASSIGN_OR_RETURN(
       auto output_graph_name_lists,
       CreateGraphNameLists(&let_op, std::move(post_let_name_list),
-                           std::move(input_graph_name_lists.group_name_list)));
+                           std::move(input_graph_name_lists.group_name_list),
+                           input_graph_name_lists.correlated_name_list));
 
   // Report error if the final shape contains ambiguous column names.
   ZETASQL_RETURN_IF_ERROR(CheckNoAmbiguousNameTarget(
@@ -3193,9 +3636,10 @@ GraphTableQueryResolver::ResolveGqlFor(
 
   std::vector<std::unique_ptr<const ResolvedExpr>> resolved_array_expr_list;
   std::unique_ptr<const ResolvedExpr> array_expr;
-  ExprResolutionInfo expr_resolution_info(local_scope, "FOR");
-  ZETASQL_RETURN_IF_ERROR(resolver_->ResolveExpr(for_op.expression(),
-                                         &expr_resolution_info, &array_expr));
+  auto expr_resolution_info =
+      std::make_unique<ExprResolutionInfo>(local_scope, "FOR");
+  ZETASQL_RETURN_IF_ERROR(resolver_->ResolveExpr(
+      for_op.expression(), expr_resolution_info.get(), &array_expr));
   ZETASQL_RET_CHECK(array_expr != nullptr);
   const Type* array_expr_type = array_expr->type();
   ZETASQL_RET_CHECK(array_expr_type != nullptr);
@@ -3220,6 +3664,9 @@ GraphTableQueryResolver::ResolveGqlFor(
   ZETASQL_RETURN_IF_ERROR(post_for_name_list->AddColumn(
       for_op.identifier()->GetAsIdString(), array_element_column,
       /*is_explicit=*/true));
+  ZETASQL_RETURN_IF_ERROR(CheckNameNotInDisallowedList(
+      for_op.identifier()->GetAsIdString(),
+      inputs.graph_name_lists.correlated_name_list, for_op.identifier()));
   resolved_array_expr_list.push_back(std::move(array_expr));
 
   // Resolve WITH OFFSET if present
@@ -3239,13 +3686,20 @@ GraphTableQueryResolver::ResolveGqlFor(
     ZETASQL_RETURN_IF_ERROR(post_for_name_list->AddColumn(
         offset_alias, array_position_column->column(),
         /*is_explicit=*/true));
+
+    ZETASQL_RETURN_IF_ERROR(CheckNameNotInDisallowedList(
+        offset_alias, inputs.graph_name_lists.correlated_name_list,
+        with_offset_alias != nullptr
+            ? with_offset_alias->identifier()->GetAsOrDie<ASTNode>()
+            : for_op.with_offset()));
   }
 
   // Create an output graph namelist by preserving the input group variables.
   ZETASQL_ASSIGN_OR_RETURN(
       auto output_graph_name_lists,
       CreateGraphNameLists(&for_op, std::move(post_for_name_list),
-                           std::move(inputs.graph_name_lists.group_name_list)));
+                           std::move(inputs.graph_name_lists.group_name_list),
+                           inputs.graph_name_lists.correlated_name_list));
 
   // Report error if the final shape contains ambiguous column names.
   ZETASQL_RETURN_IF_ERROR(CheckNoAmbiguousNameTarget(
@@ -3258,6 +3712,383 @@ GraphTableQueryResolver::ResolveGqlFor(
                std::move(array_position_column),
                /*join_expr=*/nullptr, /*is_outer=*/false,
                /*array_zip_mode=*/nullptr),
+           .graph_name_lists = std::move(output_graph_name_lists)}};
+}
+
+absl::StatusOr<
+    GraphTableQueryResolver::ResolvedGraphWithNameList<const ResolvedScan>>
+GraphTableQueryResolver::ResolveGqlInlineSubqueryCall(
+    const ASTGqlInlineSubqueryCall& call_op, const NameScope* local_scope,
+    ResolvedGraphWithNameList<const ResolvedScan> input) {
+  if (!resolver_->language().LanguageFeatureEnabled(FEATURE_SQL_GRAPH_CALL)) {
+    return MakeSqlErrorAt(call_op) << "CALL is not supported";
+  }
+
+  ZETASQL_RET_CHECK(call_op.subquery() != nullptr);
+  ZETASQL_RET_CHECK(call_op.subquery()->query_expr() != nullptr);
+  ZETASQL_RET_CHECK(call_op.subquery()->query_expr()->Is<ASTGqlQuery>());
+  const ASTGqlQuery* gql_query =
+      call_op.subquery()->query_expr()->GetAsOrDie<ASTGqlQuery>();
+  ZETASQL_RET_CHECK(gql_query->graph_table() != nullptr);
+
+  const ASTGraphTableQuery* query = gql_query->graph_table();
+
+  if (query->graph_reference() != nullptr) {
+    return MakeSqlErrorAt(query->graph_reference())
+           << "CALL subquery cannot specify a graph reference";
+  }
+
+  if (call_op.is_partitioning()) {
+    return MakeSqlErrorAt(query) << "CALL PER on a subquery is not supported";
+  }
+
+  ZETASQL_RET_CHECK(query->graph_op() != nullptr);
+  ZETASQL_RET_CHECK(query->graph_op()->Is<ASTGqlOperatorList>());
+
+  const ASTGqlOperatorList* op_list =
+      query->graph_op()->GetAsOrDie<ASTGqlOperatorList>();
+
+  auto [input_scan, input_name_list] = std::move(input);
+  if (call_op.optional() && input_scan->column_list().empty()) {
+    ZETASQL_RET_CHECK_EQ(input_name_list.singleton_name_list->num_columns(), 0);
+    ZETASQL_RET_CHECK_EQ(input_name_list.group_name_list->num_columns(), 0);
+    ZETASQL_RET_CHECK(input_name_list.correlated_name_list == nullptr ||
+              input_name_list.correlated_name_list->num_columns() == 0);
+    return MakeSqlErrorAt(call_op) << "OPTIONAL CALL is not supported on an "
+                                      "input with no columns defined";
+  }
+
+  // Initialize the output column list and NameList with the input
+  // column list and NameList, since the LHS won't change.
+  ResolvedColumnList output_column_list =
+      input_name_list.singleton_name_list->GetResolvedColumns();
+
+  // Isolate the scope into another layer in order to capture correlated
+  // references, which we will need to populate the lateral columns.
+  CorrelatedColumnsSet correlated_columns;
+
+  // If the name capture list is present, restrict the visible names to only
+  // those listed in it.
+  if (call_op.name_capture_list() == nullptr) {
+    return MakeSqlErrorAt(call_op.subquery())
+           << "CALL with a subquery requires a name capture list";
+  }
+
+  // Used mostly for error tracking and placing disallowed targets.
+  auto flattened_name_list = std::make_shared<NameList>();
+
+  for (const ASTIdentifier* name :
+       call_op.name_capture_list()->identifier_list()) {
+    bool is_already_correlated = false;
+    NameTarget target;
+    if (!input_name_list.singleton_name_list->LookupName(name->GetAsIdString(),
+                                                         &target)) {
+      if (input_name_list.correlated_name_list == nullptr) {
+        // This is a top-level CALL query. Its capture list can make outer
+        // column references.
+        CorrelatedColumnsSetList correlated_column_sets;
+        if (!local_scope->LookupName(name->GetAsIdString(), &target,
+                                     &correlated_column_sets)) {
+          return MakeSqlErrorAt(name)
+                 << "Unrecognized name " << name->GetAsStringView();
+        }
+        ZETASQL_RET_CHECK(!correlated_column_sets.empty())
+            << "The name must be correlated, since it's not in the input "
+               "name list.";
+      } else if (!input_name_list.correlated_name_list->LookupName(
+                     name->GetAsIdString(), &target)) {
+        return MakeSqlErrorAt(name)
+               << "Unrecognized name " << name->GetAsStringView();
+      }
+      is_already_correlated = true;
+    }
+
+    if (target.IsAmbiguous()) {
+      return MakeSqlErrorAt(name)
+             << "Ambiguous name: "
+             << ToIdentifierLiteral(name->GetAsStringView());
+    }
+    if (!target.IsColumn()) {
+      return MakeSqlErrorAt(name)
+             << "Not a column: "
+             << ToIdentifierLiteral(name->GetAsStringView());
+    }
+
+    ZETASQL_RETURN_IF_ERROR(flattened_name_list->AddColumn(
+        name->GetAsIdString(), target.column(), target.IsExplicit()));
+
+    // Columns for the multiply-declared variable SAME exprs are not resolved
+    // from some parse AST. Rather, they are constructed directly, so we need
+    // to explicitly call RecordColumnAccess() to ensure they don't get pruned.
+    correlated_columns.insert({target.column(), is_already_correlated});
+    resolver_->RecordColumnAccess(target.column());
+  }
+
+  // Do not pass the previous scope. We captured all the correlated names from
+  // the list, and that's all that should be visible to the subquery.
+  auto filtered_local_scope = std::make_unique<NameScope>(
+      /*previous_scope=*/nullptr, flattened_name_list);
+  CorrelatedColumnsSet dummy_correlated_columns;
+  auto lateral_scope = std::make_unique<NameScope>(filtered_local_scope.get(),
+                                                   &dummy_correlated_columns);
+
+  ZETASQL_ASSIGN_OR_RETURN(auto resolved_subquery_with_names,
+                   ResolveGqlOperatorList(
+                       op_list->operators(), lateral_scope.get(),
+                       {.resolved_node = MakeResolvedSingleRowScan(),
+                        .graph_name_lists = {
+                            .ast_node = query,
+                            .singleton_name_list = std::make_shared<NameList>(),
+                            .group_name_list = std::make_shared<NameList>(),
+                            // Mark the names as correlated for this subquery.
+                            .correlated_name_list = flattened_name_list}}));
+
+  // Ensure we didn't mistakenly drop the correlated list somewhere.
+  ZETASQL_RET_CHECK(
+      resolved_subquery_with_names.graph_name_lists.correlated_name_list ==
+      flattened_name_list);
+
+  for (const ResolvedColumn& column :
+       resolved_subquery_with_names.resolved_node->column_list()) {
+    output_column_list.push_back(column);
+  }
+
+  // Collect the `parameter_list`.
+  std::vector<std::unique_ptr<const ResolvedColumnRef>> lateral_columns;
+  resolver_->FetchCorrelatedSubqueryParameters(correlated_columns,
+                                               &lateral_columns);
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      auto output_name_lists,
+      MergeGraphNameLists(
+          std::move(input_name_list),
+          std::move(resolved_subquery_with_names.graph_name_lists)));
+  // Report error if the final shape contains ambiguous column names.
+  ZETASQL_RETURN_IF_ERROR(CheckNoAmbiguousNameTarget(
+      *call_op.subquery(), *output_name_lists.singleton_name_list));
+
+  ResolvedColumnList subquery_column_list =
+      resolved_subquery_with_names.resolved_node->column_list();
+
+  const PropertyGraph* current_graph =
+      resolver_->GetActivePropertyGraphOrNull();
+  ZETASQL_RET_CHECK(current_graph != nullptr);
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      auto lateral_join,
+      ResolvedGraphCallScanBuilder()
+          .set_column_list(std::move(output_column_list))
+          .set_optional(call_op.optional())
+          .set_parameter_list(std::move(lateral_columns))
+          .set_input_scan(std::move(input_scan))
+          .set_subquery(ResolvedGraphTableScanBuilder()
+                            .set_column_list(std::move(subquery_column_list))
+                            .set_property_graph(current_graph)
+                            .set_input_scan(std::move(
+                                resolved_subquery_with_names.resolved_node)))
+          .Build());
+  return {{.resolved_node = std::move(lateral_join),
+           .graph_name_lists = std::move(output_name_lists)}};
+}
+
+absl::StatusOr<
+    GraphTableQueryResolver::ResolvedGraphWithNameList<const ResolvedScan>>
+GraphTableQueryResolver::ResolveGqlNamedCall(
+    const ASTGqlNamedCall& call_op, const NameScope* local_scope,
+    ResolvedGraphWithNameList<const ResolvedScan> input) {
+  if (!resolver_->language().LanguageFeatureEnabled(FEATURE_SQL_GRAPH_CALL)) {
+    return MakeSqlErrorAt(call_op) << "CALL is not supported";
+  }
+
+  auto& [input_scan, input_graph_name_lists] = input;
+  ZETASQL_RET_CHECK(call_op.tvf_call() != nullptr);
+
+  if (call_op.optional() && input_scan->column_list().empty()) {
+    ZETASQL_RET_CHECK_EQ(input_graph_name_lists.singleton_name_list->num_columns(), 0);
+    ZETASQL_RET_CHECK_EQ(input_graph_name_lists.group_name_list->num_columns(), 0);
+    ZETASQL_RET_CHECK(input_graph_name_lists.correlated_name_list == nullptr ||
+              input_graph_name_lists.correlated_name_list->num_columns() == 0);
+    return MakeSqlErrorAt(call_op) << "OPTIONAL CALL is not supported on an "
+                                      "input with no columns defined";
+  }
+
+  std::unique_ptr<const ResolvedScan> resolved_scan;
+  std::shared_ptr<const NameList> tvf_output_name_list;
+
+  // This is used for the CALL tvf() case, without PER(), in the same way we
+  // handle CALL () {subquery}.
+  std::vector<std::unique_ptr<const ResolvedColumnRef>> lateral_columns;
+
+  if (call_op.is_partitioning()) {
+    ZETASQL_RET_CHECK(call_op.name_capture_list() != nullptr)
+        << "The name list must be available if PER is specified";
+    if (!call_op.name_capture_list()->identifier_list().empty()) {
+      // We only support PER() with an empty list at the moment, and without
+      // OPTIONAL. In the future, this will be a FOR EACH PARTITION BY.
+      return MakeSqlErrorAt(call_op.name_capture_list())
+             << "CALL PER() TVF must have an empty list of arguments";
+    }
+    if (call_op.optional()) {
+      // We cannot currently support this case.
+      return MakeSqlErrorAt(&call_op)
+             << "OPTIONAL on CALL PER() with an empty list is not supported";
+    }
+
+    // The implicit input table must have at least one column.
+    if (input_scan->column_list().empty()) {
+      return MakeSqlErrorAt(call_op)
+             << "The input table to a CALL PER() TVF must have at least one "
+                "column";
+    }
+
+    ZETASQL_RET_CHECK(local_scope->previous_scope() != nullptr)
+        << "The external scope cannot be null";
+    // Disallow names in the current scope, to ensure the TVF does not silently
+    // take an outer name, and instead give a good error message, for example,
+    // within a correlated subquery:
+    //  FROM (.. AS x) ..
+    //  |> EXTEND (SELECT ... FROM GRAPH_TABLE(...
+    //     LET x = 1;        # Shadows an outer column `x`
+    //     CALL PER() tvf(x) # Cannot reference the local `x`, but can reference
+    //                       # the outer `x`.
+    //     ...
+    ZETASQL_ASSIGN_OR_RETURN(
+        auto restricted_scope,
+        CreateNameScopeWithDisallowList(
+            /*external_scope=*/nullptr,  // Hide all previous scopes.
+            {input_graph_name_lists.singleton_name_list.get(),
+             input_graph_name_lists.group_name_list.get()},
+            [](const IdString& name) {
+              return absl::StrCat(
+                  "Name ", ToSingleQuotedStringLiteral(name.ToStringView()),
+                  ", defined in the current scope, cannot be used as a TVF "
+                  "argument in a CALL PER() with an empty list");
+            }));
+
+    // The input scan becomes the first table-typed TVF argument.
+    ResolvedTVFArg table_arg;
+    table_arg.SetScan(std::move(input_scan),
+                      input_graph_name_lists.singleton_name_list,
+                      /*is_pipe_input_table=*/true);
+
+    // CALL PER() with an empty list means the whole table is a single
+    // partition. This special degenerate case of partitioned CALL is simply a
+    // TVF call with the input table as the implicit table argument.
+    ZETASQL_RETURN_IF_ERROR(resolver_->ResolveTVF(
+        call_op.tvf_call(), restricted_scope.get(), &table_arg, &resolved_scan,
+        &tvf_output_name_list));
+
+    for (const ResolvedColumn& column : resolved_scan->column_list()) {
+      // Prevent the TVF columns from being pruned, to avoid the case where they
+      // all get pruned.
+      resolver_->RecordColumnAccess(column);
+    }
+  } else {
+    CorrelatedColumnsSet correlated_columns;
+    auto lateral_scope =
+        std::make_unique<NameScope>(local_scope, &correlated_columns);
+    // Unlike CALL PER(), there is no implicit table argument here.
+    ZETASQL_RETURN_IF_ERROR(resolver_->ResolveTVF(
+        call_op.tvf_call(), lateral_scope.get(), /*pipe_input_arg=*/nullptr,
+        &resolved_scan, &tvf_output_name_list));
+
+    ResolvedColumnList output_column_list = input.resolved_node->column_list();
+    for (const ResolvedColumn& column : resolved_scan->column_list()) {
+      // Prevent the RHS columns from being pruned, to avoid the case where they
+      // all get pruned.
+      resolver_->RecordColumnAccess(column);
+      output_column_list.push_back(column);
+    }
+
+    // Collect the `parameter_list`.
+    std::vector<std::unique_ptr<const ResolvedColumnRef>> lateral_columns;
+    resolver_->FetchCorrelatedSubqueryParameters(correlated_columns,
+                                                 &lateral_columns);
+
+    ZETASQL_ASSIGN_OR_RETURN(resolved_scan,
+                     ResolvedGraphCallScanBuilder()
+                         .set_column_list(std::move(output_column_list))
+                         .set_input_scan(std::move(input_scan))
+                         .set_optional(call_op.optional())
+                         .set_parameter_list(std::move(lateral_columns))
+                         .set_subquery(std::move(resolved_scan))
+                         .Build());
+  }
+
+  // Apply the YIELD clause.
+  if (call_op.yield_clause() != nullptr) {
+    ZETASQL_RET_CHECK(!call_op.yield_clause()->yield_items().empty());
+    auto updated_name_list = std::make_shared<NameList>();
+    for (const ASTExpressionWithOptAlias* yield_item :
+         call_op.yield_clause()->yield_items()) {
+      ZETASQL_RET_CHECK(yield_item->expression() != nullptr);
+      ZETASQL_RET_CHECK(yield_item->expression()->Is<ASTIdentifier>());
+
+      const auto* identifier =
+          yield_item->expression()->GetAsOrNull<ASTIdentifier>();
+      IdString name = identifier->GetAsIdString();
+      NameTarget target;
+      if (!tvf_output_name_list->LookupName(name, &target)) {
+        return MakeSqlErrorAt(identifier)
+               << "Name " << ToIdentifierLiteral(name)
+               << " not found in the TVF output";
+      }
+
+      ZETASQL_RET_CHECK(target.IsColumn());
+
+      const ASTNode* location = identifier;
+      if (yield_item->optional_alias() != nullptr) {
+        name = yield_item->optional_alias()->GetAsIdString();
+        location = yield_item->optional_alias();
+      }
+
+      NameTarget dummy_target;
+      if (updated_name_list->LookupName(name, &dummy_target)) {
+        return MakeSqlErrorAt(location)
+               << "Name " << ToIdentifierLiteral(name)
+               << " is already specified in the TVF output";
+      }
+
+      ZETASQL_RET_CHECK_OK(updated_name_list->AddColumn(name, target.column(),
+                                                target.IsExplicit()));
+    }
+
+    tvf_output_name_list = std::move(updated_name_list);
+  }
+
+  // Ensure the YIELD clause itself does not contain duplicates.
+  IdStringHashSetCase distinct_column_names;
+  for (IdString name : tvf_output_name_list->GetColumnNames()) {
+    if (IsInternalAlias(name)) {
+      return MakeSqlErrorAt(call_op.tvf_call())
+             << "Anonymous column name in CALL PER() TVF output";
+    }
+    if (!distinct_column_names.insert(name).second) {
+      return MakeSqlErrorAt(call_op.tvf_call())
+             << "Duplicate column name in CALL PER() TVF output: "
+             << name.ToStringView();
+    }
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      auto output_graph_name_lists,
+      CreateGraphNameLists(&call_op, std::move(tvf_output_name_list)->Copy(),
+                           /*group_name_list=*/std::make_shared<NameList>(),
+                           input_graph_name_lists.correlated_name_list));
+
+  if (call_op.is_partitioning()) {
+    ZETASQL_RET_CHECK(call_op.name_capture_list() != nullptr);
+    ZETASQL_RET_CHECK(call_op.name_capture_list()->identifier_list().empty());
+  } else {
+    ZETASQL_ASSIGN_OR_RETURN(output_graph_name_lists,
+                     MergeGraphNameLists(input_graph_name_lists,
+                                         std::move(output_graph_name_lists)));
+    // Report error if the final shape contains ambiguous column names.
+    ZETASQL_RETURN_IF_ERROR(CheckNoAmbiguousNameTarget(
+        *call_op.tvf_call(), *output_graph_name_lists.singleton_name_list));
+  }
+
+  return {{.resolved_node = std::move(resolved_scan),
            .graph_name_lists = std::move(output_graph_name_lists)}};
 }
 
@@ -3313,7 +4144,7 @@ GraphTableQueryResolver::ResolveGqlWith(
     const ASTGqlWith& with_op, const NameScope* local_scope,
     ResolvedGraphWithNameList<const ResolvedScan> inputs) {
   if (!resolver_->language().LanguageFeatureEnabled(
-          FEATURE_V_1_4_SQL_GRAPH_RETURN_EXTENSIONS)) {
+          FEATURE_SQL_GRAPH_RETURN_EXTENSIONS)) {
     return MakeSqlErrorAt(with_op) << "WITH is not supported";
   }
   const ASTSelectList* return_item_list = with_op.select()->select_list();
@@ -3334,7 +4165,7 @@ GraphTableQueryResolver::ResolveGqlWith(
     for (const ASTGroupingItem* grouping_item : group_by->grouping_items()) {
       if (grouping_item->rollup() || grouping_item->cube() ||
           grouping_item->grouping_set_list()) {
-        return MakeSqlErrorAt(select)
+        return MakeSqlErrorAt(group_by)
                << "WITH does not support ROLLUP, CUBE, or GROUPING SETS";
       }
     }
@@ -3345,7 +4176,7 @@ GraphTableQueryResolver::ResolveGqlWith(
         return column->expression()->node_kind() == AST_STAR;
       });
   if (has_star && !resolver_->language().LanguageFeatureEnabled(
-                      FEATURE_V_1_4_SQL_GRAPH_RETURN_EXTENSIONS)) {
+                      FEATURE_SQL_GRAPH_RETURN_EXTENSIONS)) {
     ZETASQL_RETURN_IF_ERROR(CheckReturnStarIsStandalone(select->select_list()));
   }
 
@@ -3360,13 +4191,18 @@ GraphTableQueryResolver::ResolveGqlWith(
       &select_after_from_name_list));
 
   auto singleton_name_list = select_after_from_name_list->Copy();
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      auto new_group_name_list,
+      ComputeNewGroupNameList(input_graph_name_lists.group_name_list,
+                              singleton_name_list));
+
   ZETASQL_ASSIGN_OR_RETURN(
       auto output_graph_name_lists,
-      CreateGraphNameLists(&with_op,
-                           /*singleton_name_list=*/
-                           std::move(singleton_name_list),
-                           /*group_name_list=*/
-                           std::move(input_graph_name_lists.group_name_list)));
+      CreateGraphNameLists(&with_op, std::move(singleton_name_list),
+                           std::move(new_group_name_list),
+                           input_graph_name_lists.correlated_name_list));
+
   InternalAnalyzerOutputProperties::MarkTargetSyntax(
       resolver_->analyzer_output_properties_,
       const_cast<ResolvedScan*>(input_scan.get()),
@@ -3398,7 +4234,7 @@ GraphTableQueryResolver::ResolveGqlReturn(
     for (const ASTGroupingItem* grouping_item : group_by->grouping_items()) {
       if (grouping_item->rollup() || grouping_item->cube() ||
           grouping_item->grouping_set_list()) {
-        return MakeSqlErrorAt(select)
+        return MakeSqlErrorAt(group_by)
                << "RETURN does not support ROLLUP, CUBE, or GROUPING SETS";
       }
     }
@@ -3409,7 +4245,7 @@ GraphTableQueryResolver::ResolveGqlReturn(
         return column->expression()->node_kind() == AST_STAR;
       });
   if (has_star && !resolver_->language().LanguageFeatureEnabled(
-                      FEATURE_V_1_4_SQL_GRAPH_RETURN_EXTENSIONS)) {
+                      FEATURE_SQL_GRAPH_RETURN_EXTENSIONS)) {
     ZETASQL_RETURN_IF_ERROR(CheckReturnStarIsStandalone(select->select_list()));
   }
 
@@ -3431,9 +4267,17 @@ GraphTableQueryResolver::ResolveGqlReturn(
                    : nullptr;
   // Note: We MergeFrom() here since we cannot assign/move 'const NameList' to
   // 'NameList'
-  auto working_graph_name_lists = CreateEmptyGraphNameLists(&return_op);
-  ZETASQL_RETURN_IF_ERROR(working_graph_name_lists.singleton_name_list->MergeFrom(
-      *select_after_from_name_list, &return_op));
+  auto singleton_name_list = select_after_from_name_list->Copy();
+  ZETASQL_ASSIGN_OR_RETURN(
+      auto new_group_name_list,
+      ComputeNewGroupNameList(input_graph_name_lists.group_name_list,
+                              singleton_name_list));
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      auto working_graph_name_lists,
+      CreateGraphNameLists(&return_op, std::move(singleton_name_list),
+                           std::move(new_group_name_list),
+                           input_graph_name_lists.correlated_name_list));
 
   ZETASQL_ASSIGN_OR_RETURN(
       auto page_result,
@@ -3446,7 +4290,8 @@ GraphTableQueryResolver::ResolveGqlReturn(
       CreateGraphNameLists(
           &return_op,
           std::move(page_result.graph_name_lists.singleton_name_list),
-          std::move(input_graph_name_lists.group_name_list)));
+          std::move(page_result.graph_name_lists.group_name_list),
+          input_graph_name_lists.correlated_name_list));
 
   // Report error if the final shape contains ambiguous column names.
   ZETASQL_RETURN_IF_ERROR(CheckNoAmbiguousNameTarget(
@@ -3492,8 +4337,7 @@ GraphTableQueryResolver::HandleGraphReference(const ASTNode* query) {
 
 GraphTableNamedVariables GraphTableQueryResolver::CreateEmptyGraphNameLists(
     const ASTNode* node) {
-  GraphTableNamedVariables result = {.ast_node = node};
-  return result;
+  return {.ast_node = node};
 }
 
 absl::StatusOr<GraphTableNamedVariables>
@@ -3508,11 +4352,13 @@ GraphTableQueryResolver::CreateGraphNameListsSingletonOnly(
 absl::StatusOr<GraphTableNamedVariables>
 GraphTableQueryResolver::CreateGraphNameLists(
     const ASTNode* node, std::shared_ptr<NameList> singleton_name_list,
-    std::shared_ptr<NameList> group_name_list) {
+    std::shared_ptr<NameList> group_name_list,
+    std::shared_ptr<NameList> correlated_name_list) {
   GraphTableNamedVariables result = {
       .ast_node = node,
       .singleton_name_list = std::move(singleton_name_list),
-      .group_name_list = std::move(group_name_list)};
+      .group_name_list = std::move(group_name_list),
+      .correlated_name_list = std::move(correlated_name_list)};
   ZETASQL_RETURN_IF_ERROR(ValidateGraphNameLists(result));
   return result;
 }
@@ -3537,7 +4383,7 @@ absl::StatusOr<NameListPtr> GraphTableQueryResolver::GetOutputGroupNameList(
   // pattern is quantified.
   auto output_name_list = std::make_shared<NameList>();
   if (resolver_->language().LanguageFeatureEnabled(
-          FEATURE_V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION)) {
+          FEATURE_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION)) {
     for (const NamedColumn& singleton :
          graph_namelists.singleton_name_list->columns()) {
       const ArrayType* array_type;
@@ -3596,9 +4442,9 @@ GraphTableQueryResolver::MergeGraphNameLists(
   ZETASQL_RETURN_IF_ERROR(final_group_list->MergeFrom(*child_group_name_list,
                                               child_namelist.ast_node));
 
-  return CreateGraphNameLists(parent_namelist.ast_node,
-                              std::move(final_singleton_list),
-                              std::move(final_group_list));
+  return CreateGraphNameLists(
+      parent_namelist.ast_node, std::move(final_singleton_list),
+      std::move(final_group_list), parent_namelist.correlated_name_list);
 }
 
 absl::StatusOr<GraphTableNamedVariables>
@@ -3617,33 +4463,40 @@ GraphTableQueryResolver::MergeGraphNameLists(
 
 absl::Status GraphTableQueryResolver::ValidateGraphNameLists(
     const GraphTableNamedVariables& graph_namelists) {
-  auto node_type = graph_namelists.ast_node;
-  auto& singleton_name_list = graph_namelists.singleton_name_list;
-  auto& group_name_list = graph_namelists.group_name_list;
+  auto ast_node = graph_namelists.ast_node;
+  const auto& singleton_name_list = graph_namelists.singleton_name_list;
+  const auto& group_name_list = graph_namelists.group_name_list;
+
+  for (const auto& singleton_variable : singleton_name_list->columns()) {
+    ZETASQL_RETURN_IF_ERROR(CheckNameNotInDisallowedList(
+        singleton_variable.name(), graph_namelists.correlated_name_list,
+        ast_node));
+  }
+
   for (const auto& group_variable : group_name_list->columns()) {
     // Validate that no duplicate variable in group name list.
     if (NameTarget name_target;
         group_name_list->LookupName(group_variable.name(), &name_target) &&
         name_target.IsAmbiguous()) {
-      return MakeSqlErrorAt(node_type)
+      return MakeSqlErrorAt(ast_node)
              << "Variable name: " << ToIdentifierLiteral(group_variable.name())
              << " is ambiguous group variable in the "
-             << node_type->GetNodeKindString();
+             << ast_node->GetNodeKindString();
     }
 
     if (!resolver_->language().LanguageFeatureEnabled(
-            FEATURE_V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION)) {
+            FEATURE_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION)) {
       // Validate that no variable is in both group and singleton name list when
       // direct access to group variables is not allowed. Otherwise this
       // check will be done while resolving multiply declared variables.
       if (NameTarget name_target; singleton_name_list->LookupName(
               group_variable.name(), &name_target)) {
-        return MakeSqlErrorAt(node_type)
+        return MakeSqlErrorAt(ast_node)
                << "Variable name: "
                << ToIdentifierLiteral(group_variable.name())
                << " cannot be used in both quantified pattern and unquantified "
                   "pattern in the same "
-               << node_type->GetNodeKindString();
+               << ast_node->GetNodeKindString();
       }
     }
   }

@@ -64,12 +64,21 @@ using ::testing::ElementsAreArray;
 using ::testing::HasSubstr;
 using ::testing::IsNan;
 using ::testing::Optional;
+using ::testing::Pointwise;
 using ::zetasql_base::testing::IsOkAndHolds;
 using ::zetasql_base::testing::StatusIs;
 
 MATCHER_P(JsonEq, expected, expected.ToString()) {
   *result_listener << arg.ToString();
   return arg.NormalizedEquals(expected);
+}
+
+MATCHER(JsonEq, "") {
+  JSONValueConstRef actual = std::get<0>(arg);
+  JSONValueConstRef expected = std::get<1>(arg);
+  *result_listener << "where the actual value is " << actual.ToString()
+                   << " and the expected value is " << expected.ToString();
+  return actual.NormalizedEquals(expected);
 }
 
 // Note that the compliance tests below are more exhaustive.
@@ -4434,11 +4443,11 @@ TEST(JsonConversionTest, LaxConvertJsonToBoolArray) {
       R"([0, 0.0, -0.0, 10, -10, 1.1, -1.1, 1.5, 1.1e2])",
       std::vector<std::optional<bool>>{false, false, false, true, true, true,
                                        true, true, true});
-  // int32_t:min, int32_t:max, int64_t:min, int64_t:max
+  // int32:min, int32:max, int64:min, int64:max
   cases.emplace_back(
       R"([-2147483648, 2147483647, -9223372036854775808, 9223372036854775807])",
       std::vector<std::optional<bool>>{true, true, true, true});
-  // uint32_t:max, uint64_t:max, extremely large number
+  // uint32:max, uint64:max, extremely large number
   cases.emplace_back(R"([4294967295, 18446744073709551615, 1e100])",
                      std::vector<std::optional<bool>>{true, true, true});
   // float:lowest, float:min, float:max, double:lowest, double:min, double:max
@@ -4486,14 +4495,14 @@ TEST(JsonConversionTest, LaxConvertJsonToInt64Array) {
   cases.emplace_back(
       R"([0, 0.0, -0.0, 10, -10, 1.1, -1.1, 1.5, 1.1e2])",
       std::vector<std::optional<int64_t>>{0, 0, 0, 10, -10, 1, -1, 2, 110});
-  // int32_t:min, int32_t:max, int64_t:min, int64_t:max
+  // int32:min, int32:max, int64:min, int64:max
   cases.emplace_back(
       R"([-2147483648, 2147483647, -9223372036854775808, 9223372036854775807])",
       std::vector<std::optional<int64_t>>{std::numeric_limits<int32_t>::min(),
                                           std::numeric_limits<int32_t>::max(),
                                           std::numeric_limits<int64_t>::min(),
                                           std::numeric_limits<int64_t>::max()});
-  // uint32_t:max, uint64_t:max, extremely large number
+  // uint32:max, uint64:max, extremely large number
   cases.emplace_back(
       R"([4294967295, 18446744073709551615, 1e100])",
       std::vector<std::optional<int64_t>>{std::numeric_limits<uint32_t>::max(),
@@ -4544,13 +4553,13 @@ TEST(JsonConversionTest, LaxConvertJsonToInt32Array) {
   cases.emplace_back(
       R"([0, 0.0, -0.0, 10, -10, 1.1, -1.1, 1.5, 1.1e2])",
       std::vector<std::optional<int32_t>>{0, 0, 0, 10, -10, 1, -1, 2, 110});
-  // int32_t:min, int32_t:max, int64_t:min, int64_t:max
+  // int32:min, int32:max, int64:min, int64:max
   cases.emplace_back(
       R"([-2147483648, 2147483647, -9223372036854775808, 9223372036854775807])",
       std::vector<std::optional<int32_t>>{std::numeric_limits<int32_t>::min(),
                                           std::numeric_limits<int32_t>::max(),
                                           std::nullopt, std::nullopt});
-  // uint32_t:max, uint64_t:max, extremely large number
+  // uint32:max, uint64:max, extremely large number
   cases.emplace_back(R"([4294967295, 18446744073709551615, 1e100])",
                      std::vector<std::optional<int32_t>>{
                          std::nullopt, std::nullopt, std::nullopt});
@@ -4601,13 +4610,13 @@ TEST(JsonConversionTest, LaxConvertJsonToUint64Array) {
   cases.emplace_back(R"([0, 0.0, -0.0, 10, -10, 1.1, -1.1, 1.5, 1.1e2])",
                      std::vector<std::optional<uint64_t>>{
                          0, 0, 0, 10, std::nullopt, 1, std::nullopt, 2, 110});
-  // int32_t:min, int32_t:max, int64_t:min, int64_t:max
+  // int32:min, int32:max, int64:min, int64:max
   cases.emplace_back(
       R"([-2147483648, 2147483647, -9223372036854775808, 9223372036854775807])",
       std::vector<std::optional<uint64_t>>{
           std::nullopt, std::numeric_limits<int32_t>::max(), std::nullopt,
           std::numeric_limits<int64_t>::max()});
-  // uint32_t:max, uint64_t:max, extremely large number
+  // uint32:max, uint64:max, extremely large number
   cases.emplace_back(R"([4294967295, 18446744073709551615, 1e100])",
                      std::vector<std::optional<uint64_t>>{
                          std::numeric_limits<uint32_t>::max(),
@@ -4659,13 +4668,13 @@ TEST(JsonConversionTest, LaxConvertJsonToUint32Array) {
   cases.emplace_back(R"([0, 0.0, -0.0, 10, -10, 1.1, -1.1, 1.5, 1.1e2])",
                      std::vector<std::optional<uint32_t>>{
                          0, 0, 0, 10, std::nullopt, 1, std::nullopt, 2, 110});
-  // int32_t:min, int32_t:max, int64_t:min, int64_t:max
+  // int32:min, int32:max, int64:min, int64:max
   cases.emplace_back(
       R"([-2147483648, 2147483647, -9223372036854775808, 9223372036854775807])",
       std::vector<std::optional<uint32_t>>{std::nullopt,
                                            std::numeric_limits<int32_t>::max(),
                                            std::nullopt, std::nullopt});
-  // uint32_t:max, uint64_t:max, extremely large number
+  // uint32:max, uint64:max, extremely large number
   cases.emplace_back(
       R"([4294967295, 18446744073709551615, 1e100])",
       std::vector<std::optional<uint32_t>>{std::numeric_limits<uint32_t>::max(),
@@ -4717,14 +4726,14 @@ TEST(JsonConversionTest, LaxConvertJsonToFloat64Array) {
   cases.emplace_back(R"([0, 0.0, -0.0, 10, -10, 1.1, -1.1, 1.5, 1.1e2])",
                      std::vector<std::optional<double>>{0, 0, 0, 10, -10, 1.1,
                                                         -1.1, 1.5, 110});
-  // int32_t:min, int32_t:max, int64_t:min, int64_t:max
+  // int32:min, int32:max, int64:min, int64:max
   cases.emplace_back(
       R"([-2147483648, 2147483647, -9223372036854775808, 9223372036854775807])",
       std::vector<std::optional<double>>{std::numeric_limits<int32_t>::min(),
                                          std::numeric_limits<int32_t>::max(),
                                          std::numeric_limits<int64_t>::min(),
                                          std::numeric_limits<int64_t>::max()});
-  // uint32_t:max, uint64_t:max, extremely large number
+  // uint32:max, uint64:max, extremely large number
   cases.emplace_back(R"([4294967295, 18446744073709551615, 1e100])",
                      std::vector<std::optional<double>>{
                          std::numeric_limits<uint32_t>::max(),
@@ -4776,14 +4785,14 @@ TEST(JsonConversionTest, LaxConvertJsonToFloat32Array) {
   cases.emplace_back(
       R"([0, 0.0, -0.0, 10, -10, 1.1, -1.1, 1.5, 1.1e2])",
       std::vector<std::optional<float>>{0, 0, 0, 10, -10, 1.1, -1.1, 1.5, 110});
-  // int32_t:min, int32_t:max, int64_t:min, int64_t:max
+  // int32:min, int32:max, int64:min, int64:max
   cases.emplace_back(
       R"([-2147483648, 2147483647, -9223372036854775808, 9223372036854775807])",
       std::vector<std::optional<float>>{std::numeric_limits<int32_t>::min(),
                                         std::numeric_limits<int32_t>::max(),
                                         std::numeric_limits<int64_t>::min(),
                                         std::numeric_limits<int64_t>::max()});
-  // uint32_t:max, uint64_t:max, extremely large number
+  // uint32:max, uint64:max, extremely large number
   cases.emplace_back(R"([4294967295, 18446744073709551615, 1e100])",
                      std::vector<std::optional<float>>{
                          std::numeric_limits<uint32_t>::max(),
@@ -4837,13 +4846,13 @@ TEST(JsonConversionTest, LaxConvertJsonToStringArray) {
       R"([0, 0.0, -0.0, 10, -10, 1.1, -1.1, 1.5, 1.1e2])",
       std::vector<std::optional<std::string>>{"0", "0", "0", "10", "-10", "1.1",
                                               "-1.1", "1.5", "110"});
-  // int32_t:min, int32_t:max, int64_t:min, int64_t:max
+  // int32:min, int32:max, int64:min, int64:max
   cases.emplace_back(
       R"([-2147483648, 2147483647, -9223372036854775808, 9223372036854775807])",
       std::vector<std::optional<std::string>>{"-2147483648", "2147483647",
                                               "-9223372036854775808",
                                               "9223372036854775807"});
-  // uint32_t:max, uint64_t:max, extremely large number
+  // uint32:max, uint64:max, extremely large number
   cases.emplace_back(R"([4294967295, 18446744073709551615])",
                      std::vector<std::optional<std::string>>{
                          "4294967295", "18446744073709551615"});
@@ -6986,6 +6995,69 @@ TEST(JsonKeysInvalidTest, Invalid) {
   EXPECT_THAT(JsonKeys(value.GetRef(), {.max_depth = 0}),
               StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("max_depth must be positive")));
+}
+
+class JsonFlattenTest : public ::testing::TestWithParam<
+                            std::pair<std::string, std::vector<std::string>>> {
+ protected:
+  // Create a vector of `JSONValueConstRef`s from a vector of `JSONValue`s.
+  // The original values must outlive the references.
+  static std::vector<JSONValueConstRef> VectorOfRefs(
+      const std::vector<JSONValue>& values) {
+    std::vector<JSONValueConstRef> refs;
+    refs.reserve(values.size());
+    for (const JSONValue& value : values) {
+      refs.push_back(value.GetConstRef());
+    }
+    return refs;
+  }
+
+  JsonFlattenTest() {
+    input_ = JSONValue::ParseJSONString(GetParam().first).value();
+    expected_.reserve(GetParam().second.size());
+    for (absl::string_view s : GetParam().second) {
+      expected_.push_back(JSONValue::ParseJSONString(s).value());
+    }
+  }
+
+  JSONValueConstRef GetJsonInput() const { return input_.GetConstRef(); }
+
+  std::vector<JSONValueConstRef> GetExpected() const {
+    return VectorOfRefs(expected_);
+  }
+
+ private:
+  JSONValue input_;
+  std::vector<JSONValue> expected_;
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    JsonFlattenTestParameterized, JsonFlattenTest,
+    ::testing::Values(
+        std::make_tuple("null", std::vector<std::string>{"null"}),
+        std::make_tuple("[]", std::vector<std::string>{}),
+        std::make_tuple("[[]]", std::vector<std::string>{}),
+        std::make_tuple("10", std::vector<std::string>{"10"}),
+        std::make_tuple(R"({"foo": 10})",
+                        std::vector<std::string>{R"({"foo":10})"}),
+        std::make_tuple("[10, null]", std::vector<std::string>{"10", "null"}),
+        std::make_tuple("[10, 20, 30]",
+                        std::vector<std::string>{"10", "20", "30"}),
+        std::make_tuple(R"([[11, "foo", {"f": 123}], true])",
+                        std::vector<std::string>{R"(11)", R"("foo")",
+                                                 R"({"f":123})", "true"}),
+        std::make_tuple(R"([[[1, 2], 3], 4])",
+                        std::vector<std::string>{"1", "2", "3", "4"}),
+        std::make_tuple(R"([[10, 20], {"foo": [20, 30]}])",
+                        std::vector<std::string>{"10", "20",
+                                                 R"({"foo":[20,30]})"}),
+        std::make_tuple(R"([[[[1, 2], 3], 4], {"a": 10}, ["foo", true]])",
+                        std::vector<std::string>{"1", "2", "3", "4",
+                                                 R"({"a":10})", R"("foo")",
+                                                 "true"})));
+
+TEST_P(JsonFlattenTest, Success) {
+  EXPECT_THAT(JsonFlatten(GetJsonInput()), Pointwise(JsonEq(), GetExpected()));
 }
 
 }  // namespace

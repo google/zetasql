@@ -1,6 +1,4 @@
-[default also_show_signature_mismatch_details]
-
-[language_features={{|V_1_3_DATE_TIME_CONSTRUCTORS}}]
+[language_features={{|DATE_TIME_CONSTRUCTORS}}]
 select date(@test_param_string);
 --
 ALTERNATION GROUP: <empty>
@@ -20,7 +18,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_3_DATE_TIME_CONSTRUCTORS
+ALTERNATION GROUP: DATE_TIME_CONSTRUCTORS
 --
 QueryStmt
 +-output_column_list=
@@ -36,7 +34,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|V_1_3_DATE_TIME_CONSTRUCTORS}}]
+[language_features={{|DATE_TIME_CONSTRUCTORS}}]
 select date("2019-08-01 21:00:00+00");
 --
 QueryStmt
@@ -185,11 +183,6 @@ QueryStmt
 
 select 1 + '1';
 --
-ERROR: No matching signature for operator + for argument types: INT64, STRING. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
-select 1 + '1';
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator +
   Argument types: INT64, STRING
   Signature: INT64 + INT64
@@ -465,11 +458,6 @@ QueryStmt
 # is not valid since we do not know what enum, struct, or proto type it actually is.
 select fn_on_any_enum(NULL)
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_ANY_ENUM for argument types: NULL. Supported signature: FN_ON_ANY_ENUM(ENUM) [at 1:8]
-select fn_on_any_enum(NULL)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_ANY_ENUM
   Argument types: NULL
   Signature: FN_ON_ANY_ENUM(ENUM)
@@ -480,11 +468,6 @@ select fn_on_any_enum(NULL)
 
 select fn_on_any_proto(NULL)
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_ANY_PROTO for argument types: NULL. Supported signature: FN_ON_ANY_PROTO(PROTO) [at 1:8]
-select fn_on_any_proto(NULL)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_ANY_PROTO
   Argument types: NULL
   Signature: FN_ON_ANY_PROTO(PROTO)
@@ -495,11 +478,6 @@ select fn_on_any_proto(NULL)
 
 select fn_on_any_struct(NULL)
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_ANY_STRUCT for argument types: NULL. Supported signature: FN_ON_ANY_STRUCT(STRUCT) [at 1:8]
-select fn_on_any_struct(NULL)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_ANY_STRUCT
   Argument types: NULL
   Signature: FN_ON_ANY_STRUCT(STRUCT)
@@ -625,11 +603,6 @@ select 1 FROM TestTable WHERE KitchenSink.test_enum = NULL;
 
 select 1 FROM TestTable WHERE KitchenSink.test_enum = KitchenSink.string_val;
 --
-ERROR: No matching signature for operator = for argument types: zetasql_test__.TestEnum, STRING. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:31]
-select 1 FROM TestTable WHERE KitchenSink.test_enum = KitchenSink.string_val;
-                              ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: zetasql_test__.TestEnum, STRING
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
@@ -644,11 +617,6 @@ select 1 FROM TestTable WHERE KitchenSink.test_enum = KitchenSink.string_val;
 
 select 1 FROM TestTable WHERE KitchenSink.test_enum = KitchenSink.int64_val;
 --
-ERROR: No matching signature for operator = for argument types: zetasql_test__.TestEnum, INT64. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:31]
-select 1 FROM TestTable WHERE KitchenSink.test_enum = KitchenSink.int64_val;
-                              ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: zetasql_test__.TestEnum, INT64
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
@@ -834,11 +802,6 @@ select if(false,
           CAST("""int64_key_1: 1, int64_key_2: 2""" AS STRING))
 from TestTable
 --
-ERROR: No matching signature for function IF for argument types: BOOL, zetasql_test__.KitchenSinkPB, STRING. Supported signature: IF(BOOL, ANY, ANY) [at 1:8]
-select if(false,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function IF
   Argument types: BOOL, zetasql_test__.KitchenSinkPB, STRING
   Signature: IF(BOOL, T1, T1)
@@ -888,11 +851,6 @@ select if(false,
           KitchenSink.nested_value)
 from TestTable
 --
-ERROR: No matching signature for function IF for argument types: BOOL, zetasql_test__.KitchenSinkPB, zetasql_test__.KitchenSinkPB.Nested. Supported signature: IF(BOOL, ANY, ANY) [at 1:8]
-select if(false,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function IF
   Argument types: BOOL, zetasql_test__.KitchenSinkPB, zetasql_test__.KitchenSinkPB.Nested
   Signature: IF(BOOL, T1, T1)
@@ -908,11 +866,6 @@ select if(false,
           cast(KitchenSink as string))
 from TestTable
 --
-ERROR: No matching signature for function IF for argument types: BOOL, zetasql_test__.KitchenSinkPB, STRING. Supported signature: IF(BOOL, ANY, ANY) [at 1:8]
-select if(false,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function IF
   Argument types: BOOL, zetasql_test__.KitchenSinkPB, STRING
   Signature: IF(BOOL, T1, T1)
@@ -928,11 +881,6 @@ select if(false,
           cast(KitchenSink as bytes))
 from TestTable
 --
-ERROR: No matching signature for function IF for argument types: BOOL, zetasql_test__.KitchenSinkPB, BYTES. Supported signature: IF(BOOL, ANY, ANY) [at 1:8]
-select if(false,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function IF
   Argument types: BOOL, zetasql_test__.KitchenSinkPB, BYTES
   Signature: IF(BOOL, T1, T1)
@@ -1419,11 +1367,6 @@ QueryStmt
 --
 ALTERNATION GROUP: ARRAY<int64>[]
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32 for argument types: ARRAY<INT64>. Supported signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>) [at 1:8]
-select fn_on_int32_array_returns_int32(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32
   Argument types: ARRAY<INT64>
   Signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>)
@@ -1433,11 +1376,6 @@ select fn_on_int32_array_returns_int32(
 --
 ALTERNATION GROUP: ARRAY<string>[]
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32 for argument types: ARRAY<STRING>. Supported signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>) [at 1:8]
-select fn_on_int32_array_returns_int32(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32
   Argument types: ARRAY<STRING>
   Signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>)
@@ -1481,11 +1419,6 @@ QueryStmt
 --
 ALTERNATION GROUP: ARRAY<int32>[]
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT64_ARRAY_RETURNS_INT64 for argument types: ARRAY<INT32>. Supported signature: FN_ON_INT64_ARRAY_RETURNS_INT64(ARRAY<INT64>) [at 1:8]
-select fn_on_int64_array_returns_int64(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT64_ARRAY_RETURNS_INT64
   Argument types: ARRAY<INT32>
   Signature: FN_ON_INT64_ARRAY_RETURNS_INT64(ARRAY<INT64>)
@@ -1495,11 +1428,6 @@ select fn_on_int64_array_returns_int64(
 --
 ALTERNATION GROUP: ARRAY<uint32>[]
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT64_ARRAY_RETURNS_INT64 for argument types: ARRAY<UINT32>. Supported signature: FN_ON_INT64_ARRAY_RETURNS_INT64(ARRAY<INT64>) [at 1:8]
-select fn_on_int64_array_returns_int64(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT64_ARRAY_RETURNS_INT64
   Argument types: ARRAY<UINT32>
   Signature: FN_ON_INT64_ARRAY_RETURNS_INT64(ARRAY<INT64>)
@@ -1711,7 +1639,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|V_1_1_ARRAY_EQUALITY}}]
+[language_features={{|ARRAY_EQUALITY}}]
 select KitchenSink.repeated_int32_val
 from TestTable
 where KitchenSink.repeated_int32_val = []
@@ -1722,7 +1650,7 @@ ERROR: Equality is not defined for arguments of type ARRAY<INT32> [at 3:7]
 where KitchenSink.repeated_int32_val = []
       ^
 --
-ALTERNATION GROUP: V_1_1_ARRAY_EQUALITY
+ALTERNATION GROUP: ARRAY_EQUALITY
 --
 QueryStmt
 +-output_column_list=
@@ -1754,15 +1682,10 @@ QueryStmt
             +-Literal(type=ARRAY<INT32>, value=[])
 ==
 
-[language_features={{|V_1_1_ARRAY_EQUALITY}}]
+[language_features={{|ARRAY_EQUALITY}}]
 select KitchenSink.repeated_int32_val = KitchenSink.repeated_string_val
 from TestTable
 --
-ERROR: No matching signature for operator = for argument types: ARRAY<INT32>, ARRAY<STRING>. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:8]
-select KitchenSink.repeated_int32_val = KitchenSink.repeated_string_val
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: ARRAY<INT32>, ARRAY<STRING>
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
@@ -1775,15 +1698,10 @@ select KitchenSink.repeated_int32_val = KitchenSink.repeated_string_val
        ^
 ==
 
-[language_features={{|V_1_1_ARRAY_EQUALITY}}]
+[language_features={{|ARRAY_EQUALITY}}]
 select KitchenSink.repeated_int32_val = KitchenSink.repeated_int64_val
 from TestTable
 --
-ERROR: No matching signature for operator = for argument types: ARRAY<INT32>, ARRAY<INT64>. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:8]
-select KitchenSink.repeated_int32_val = KitchenSink.repeated_int64_val
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: ARRAY<INT32>, ARRAY<INT64>
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
@@ -1797,16 +1715,10 @@ select KitchenSink.repeated_int32_val = KitchenSink.repeated_int64_val
 ==
 
 # TODO: This should work when implicit array coercion is allowed.
-[language_features={{|V_1_1_ARRAY_EQUALITY}}]
+[language_features={{|ARRAY_EQUALITY}}]
 select KitchenSink.repeated_int32_val = [1,2,3]
 from TestTable
 --
-ERROR: No matching signature for operator = for argument types: ARRAY<INT32>, ARRAY<INT64>. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:8]
-select KitchenSink.repeated_int32_val = [1,2,3]
-       ^
-
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: ARRAY<INT32>, ARRAY<INT64>
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
@@ -1817,10 +1729,11 @@ ERROR: No matching signature for operator = for argument types: ARRAY<INT32>, AR
     Argument 1: Unable to coerce type ARRAY<INT32> to expected type UINT64 [at 1:8]
 select KitchenSink.repeated_int32_val = [1,2,3]
        ^
+
 ==
 
 # TODO: This should work when implicit array coercion is allowed.
-[language_features={{|V_1_1_ARRAY_EQUALITY}}]
+[language_features={{|ARRAY_EQUALITY}}]
 select KitchenSink.repeated_int64_val = [null]
 from TestTable
 --
@@ -1831,7 +1744,7 @@ ERROR: Equality is not defined for arguments of type ARRAY<INT64> [at 1:8]
 select KitchenSink.repeated_int64_val = [null]
        ^
 --
-ALTERNATION GROUP: V_1_1_ARRAY_EQUALITY
+ALTERNATION GROUP: ARRAY_EQUALITY
 --
 QueryStmt
 +-output_column_list=
@@ -1854,15 +1767,10 @@ QueryStmt
 ==
 
 # TODO: This should work when implicit array coercion is allowed.
-[language_features={{|V_1_1_ARRAY_EQUALITY}}]
+[language_features={{|ARRAY_EQUALITY}}]
 select KitchenSink.repeated_string_val = [null]
 from TestTable
 --
-ERROR: No matching signature for operator = for argument types: ARRAY<STRING>, ARRAY<INT64>. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:8]
-select KitchenSink.repeated_string_val = [null]
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: ARRAY<STRING>, ARRAY<INT64>
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
@@ -2750,7 +2658,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
 select fn_on_int32_array_returns_int32(NULL)
 --
 QueryStmt
@@ -2769,7 +2677,7 @@ QueryStmt
 
 # Implicit coercion of non-empty array literals is now supported. (Implicit
 # coercion of empty array literals was always supported.)
-[language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
 select [],
        [1, 2, 3],
        fn_on_int32_array_returns_int32([]),
@@ -2777,11 +2685,6 @@ select [],
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32 for argument types: ARRAY<INT64>. Supported signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>) [at 4:8]
-       fn_on_int32_array_returns_int32([1, 2, 3])
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32
   Argument types: ARRAY<INT64>
   Signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>)
@@ -2789,7 +2692,7 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RET
        fn_on_int32_array_returns_int32([1, 2, 3])
        ^
 --
-ALTERNATION GROUP: V_1_1_CAST_DIFFERENT_ARRAY_TYPES
+ALTERNATION GROUP: CAST_DIFFERENT_ARRAY_TYPES
 --
 QueryStmt
 +-output_column_list=
@@ -2815,16 +2718,11 @@ QueryStmt
 
 # Of course, we don't allow implicit coercion of array literals with elements
 # that are out of range for the destination element type.
-[language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
 select fn_on_int32_array_returns_int32([1152921504606846976])
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32 for argument types: ARRAY<INT64>. Supported signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>) [at 1:8]
-select fn_on_int32_array_returns_int32([1152921504606846976])
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32
   Argument types: ARRAY<INT64>
   Signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>)
@@ -2832,7 +2730,7 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RET
 select fn_on_int32_array_returns_int32([1152921504606846976])
        ^
 --
-ALTERNATION GROUP: V_1_1_CAST_DIFFERENT_ARRAY_TYPES
+ALTERNATION GROUP: CAST_DIFFERENT_ARRAY_TYPES
 --
 ERROR: Could not cast literal [1152921504606846976] to type ARRAY<INT32> [at 1:40]
 select fn_on_int32_array_returns_int32([1152921504606846976])
@@ -2841,16 +2739,11 @@ select fn_on_int32_array_returns_int32([1152921504606846976])
 
 # Due to runtime performance concerns, we don't support implicit coercion of
 # array non-literals.
-[language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
 select fn_on_int32_array_returns_int32(
          {{Int64Array|array_concat(Int64Array, Int64Array)}})
 from ArrayTypes
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32 for argument types: ARRAY<INT64>. Supported signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>) [at 1:8]
-select fn_on_int32_array_returns_int32(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32
   Argument types: ARRAY<INT64>
   Signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>)
@@ -2861,18 +2754,13 @@ select fn_on_int32_array_returns_int32(
 
 # For consistency with general expressions, we don't support implicit coercion
 # of explicitly typed array literals either.
-[language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
 select fn_on_int32_array_returns_int32(ARRAY<INT64>{{[1, 2, 3]|[]}})
 --
 ALTERNATION GROUPS:
     [1, 2, 3]
-    V_1_1_CAST_DIFFERENT_ARRAY_TYPES,[1, 2, 3]
+    CAST_DIFFERENT_ARRAY_TYPES,[1, 2, 3]
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32 for argument types: ARRAY<INT64>. Supported signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>) [at 1:8]
-select fn_on_int32_array_returns_int32(ARRAY<INT64>[1, 2, 3])
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32
   Argument types: ARRAY<INT64>
   Signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>)
@@ -2882,13 +2770,8 @@ select fn_on_int32_array_returns_int32(ARRAY<INT64>[1, 2, 3])
 --
 ALTERNATION GROUPS:
     []
-    V_1_1_CAST_DIFFERENT_ARRAY_TYPES,[]
+    CAST_DIFFERENT_ARRAY_TYPES,[]
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32 for argument types: ARRAY<INT64>. Supported signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>) [at 1:8]
-select fn_on_int32_array_returns_int32(ARRAY<INT64>[])
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32
   Argument types: ARRAY<INT64>
   Signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>)
@@ -2924,16 +2807,11 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE,V_1_4_DISABLE_FLOAT32]
+[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE,DISABLE_FLOAT32]
 [product_mode=external]
 
 SELECT ROUND(NUMERIC "1", 1, 1);
 --
-ERROR: No matching signature for function ROUND for argument types: NUMERIC, INT64, INT64. Supported signatures: ROUND(FLOAT64); ROUND(NUMERIC); ROUND(FLOAT64, INT64); ROUND(NUMERIC, INT64); ROUND(NUMERIC, INT64, ROUNDING_MODE) [at 1:8]
-SELECT ROUND(NUMERIC "1", 1, 1);
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function ROUND
   Argument types: NUMERIC, INT64, INT64
   Signature: ROUND(FLOAT64)
@@ -2955,11 +2833,6 @@ SELECT ROUND(NUMERIC "1", 1, 1);
 
 SELECT ROUND(NUMERIC "1", 1, 1);
 --
-ERROR: No matching signature for function ROUND for argument types: NUMERIC, INT64, INT64. Supported signatures: ROUND(FLOAT); ROUND(FLOAT64); ROUND(NUMERIC); ROUND(FLOAT, INT64); ROUND(FLOAT64, INT64); ROUND(NUMERIC, INT64); ROUND(NUMERIC, INT64, ROUNDING_MODE) [at 1:8]
-SELECT ROUND(NUMERIC "1", 1, 1);
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function ROUND
   Argument types: NUMERIC, INT64, INT64
   Signature: ROUND(FLOAT)
@@ -3042,18 +2915,13 @@ QueryStmt
 --
 ALTERNATION GROUP: external
 --
-ERROR: No matching signature for operator = for argument types: STRUCT<constant_rounding_mode ROUNDING_MODE>, STRUCT<INT64>. Supported signature: ANY = ANY [at 2:8]
-select STRUCT( nested_catalog.constant_rounding_mode) = struct(1)
-       ^
-
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: STRUCT<constant_rounding_mode ROUNDING_MODE>, STRUCT<INT64>
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
       Input types for <T1>: {STRUCT<constant_rounding_mode ROUNDING_MODE>, STRUCT<INT64>} [at 2:8]
 select STRUCT( nested_catalog.constant_rounding_mode) = struct(1)
        ^
+
 ==
 
 [language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
@@ -3091,11 +2959,6 @@ select nested_catalog.constant_rounding_mode in (1, 2)
 # Types are not coercible with each other
 select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE),
 --
-ERROR: No matching signature for operator = for argument types: zetasql.functions.RoundingMode, ROUNDING_MODE. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 2:8]
-select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE),
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: zetasql.functions.RoundingMode, ROUNDING_MODE
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
@@ -3111,11 +2974,6 @@ select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE),
 [language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
 select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE)
 --
-ERROR: No matching signature for operator = for argument types: zetasql.functions.RoundingMode, ROUNDING_MODE. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:8]
-select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: zetasql.functions.RoundingMode, ROUNDING_MODE
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
@@ -3147,16 +3005,11 @@ select 0 = CAST(1 as ROUNDING_MODE)
        ^
 ==
 
-[language_features={{|V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select bytes from SimpleTypes where bytes like '%abc%'
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: STRING LIKE STRING; BYTES LIKE BYTES [at 1:37]
-select bytes from SimpleTypes where bytes like '%abc%'
-                                    ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: STRING LIKE STRING
     Argument 1: Unable to coerce type BYTES to expected type STRING
@@ -3165,7 +3018,7 @@ ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING
 select bytes from SimpleTypes where bytes like '%abc%'
                                     ^
 --
-ALTERNATION GROUP: V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
+ALTERNATION GROUP: IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
 --
 QueryStmt
 +-output_column_list=
@@ -3184,14 +3037,9 @@ QueryStmt
             +-Literal(type=BYTES, value=b"%abc%")
 ==
 
-[language_features=V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
+[language_features=IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
 select bytes from simpletypes where bytes like string;
 --
-ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. Supported signatures: STRING LIKE STRING; BYTES LIKE BYTES [at 1:37]
-select bytes from simpletypes where bytes like string;
-                                    ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING
   Signature: STRING LIKE STRING
     Argument 1: Unable to coerce type BYTES to expected type STRING
@@ -3206,14 +3054,9 @@ select bytes from simpletypes where bytes like string;
 # the language feature is enabled.
 # Ideally, the error message here would be in line with other implicit casts,
 # but we're not able to do this yet.
-[language_features=V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
+[language_features=IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
 select bytes from SimpleTypes where bytes like '%\U0001F4A9%'
 --
-ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: STRING LIKE STRING; BYTES LIKE BYTES [at 1:37]
-select bytes from SimpleTypes where bytes like '%\U0001F4A9%'
-                                    ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: STRING LIKE STRING
     Argument 1: Unable to coerce type BYTES to expected type STRING
@@ -3223,16 +3066,11 @@ select bytes from SimpleTypes where bytes like '%\U0001F4A9%'
                                     ^
 ==
 
-[language_features={{|V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select coalesce(b'abc', 'abc', NULL);
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for function COALESCE for argument types: BYTES, STRING, NULL. Supported signature: COALESCE([ANY, ...]) [at 1:8]
-select coalesce(b'abc', 'abc', NULL);
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function COALESCE
   Argument types: BYTES, STRING, NULL
   Signature: COALESCE([T1, ...])
@@ -3241,7 +3079,7 @@ ERROR: No matching signature for function COALESCE
 select coalesce(b'abc', 'abc', NULL);
        ^
 --
-ALTERNATION GROUP: V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
+ALTERNATION GROUP: IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
 --
 QueryStmt
 +-output_column_list=
@@ -3260,14 +3098,9 @@ QueryStmt
 ==
 
 # coercion doesn't work for random expressions.
-[language_features={{|V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select bytes from SimpleTypes where bytes like CONCAT('a', 'b')
 --
-ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. Supported signatures: STRING LIKE STRING; BYTES LIKE BYTES [at 1:37]
-select bytes from SimpleTypes where bytes like CONCAT('a', 'b')
-                                    ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING
   Signature: STRING LIKE STRING
     Argument 1: Unable to coerce type BYTES to expected type STRING
@@ -3278,14 +3111,9 @@ select bytes from SimpleTypes where bytes like CONCAT('a', 'b')
 ==
 
 # coercion doesn't work for string params.
-[language_features={{|V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select bytes from SimpleTypes where bytes like @test_param_string
 --
-ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. Supported signatures: STRING LIKE STRING; BYTES LIKE BYTES [at 1:37]
-select bytes from SimpleTypes where bytes like @test_param_string
-                                    ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING
   Signature: STRING LIKE STRING
     Argument 1: Unable to coerce type BYTES to expected type STRING
@@ -3295,16 +3123,11 @@ select bytes from SimpleTypes where bytes like @test_param_string
                                     ^
 ==
 
-[language_features={{|V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select fn_on_bytes('foo')
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BYTES for argument types: STRING. Supported signature: FN_ON_BYTES(BYTES) [at 1:8]
-select fn_on_bytes('foo')
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BYTES
   Argument types: STRING
   Signature: FN_ON_BYTES(BYTES)
@@ -3312,7 +3135,7 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BYTES
 select fn_on_bytes('foo')
        ^
 --
-ALTERNATION GROUP: V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
+ALTERNATION GROUP: IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
 --
 QueryStmt
 +-output_column_list=
@@ -3330,7 +3153,7 @@ QueryStmt
 
 # STRING -> BYTES coercion should not affect overloaded functions with matching
 # string signature.
-[language_features={{|V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select fn_overloaded_bytes_and_string('foo');
 --
 QueryStmt
@@ -3347,7 +3170,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select fn_overloaded_bytes_and_string(b'foo');
 --
 QueryStmt
@@ -3364,7 +3187,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select fn_overloaded_bytes_and_date('2020-01-01');
 --
 QueryStmt
@@ -3381,7 +3204,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select fn_overloaded_bytes_and_timestamp('2020-01-01 15:30:00+00');
 --
 QueryStmt
@@ -3398,7 +3221,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_2_CIVIL_TIME{{|,V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=CIVIL_TIME{{|,IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select fn_overloaded_bytes_and_time('12:30:00.45');
 --
 QueryStmt
@@ -3415,7 +3238,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_2_CIVIL_TIME{{|,V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=CIVIL_TIME{{|,IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select fn_overloaded_bytes_and_datetime('2020-01-01 12:30:00.45');
 --
 QueryStmt
@@ -3432,7 +3255,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select fn_overloaded_bytes_and_enum('TESTENUM0');
 --
 QueryStmt
@@ -3449,7 +3272,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select fn_overloaded_bytes_and_proto('int64_key_1: 0 int64_key_2: 1');
 --
 QueryStmt
@@ -3467,7 +3290,7 @@ QueryStmt
 ==
 
 # Coercion doesn't work for maps (yet).
-[language_features=V_1_4_MAP_TYPE]
+[language_features=MAP_TYPE]
 SELECT fn_on_int32_map_returns_int32(MAP_FROM_ARRAY({{ARRAY<STRUCT<INT32, INT32>>[(123, 456)]|[(123, 456)]|[("abc", 456)]}}));
 --
 ALTERNATION GROUP: ARRAY<STRUCT<INT32, INT32>>[(123, 456)]
@@ -3488,11 +3311,6 @@ QueryStmt
 --
 ALTERNATION GROUP: [(123, 456)]
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_MAP_RETURNS_INT32 for argument types: MAP<INT64, INT64>. Supported signature: FN_ON_INT32_MAP_RETURNS_INT32(MAP<INT32, INT32>) [at 1:8]
-SELECT fn_on_int32_map_returns_int32(MAP_FROM_ARRAY([(123, 456)]));
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_MAP_RETURNS_INT32
   Argument types: MAP<INT64, INT64>
   Signature: FN_ON_INT32_MAP_RETURNS_INT32(MAP<INT32, INT32>)
@@ -3502,11 +3320,6 @@ SELECT fn_on_int32_map_returns_int32(MAP_FROM_ARRAY([(123, 456)]));
 --
 ALTERNATION GROUP: [("abc", 456)]
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_MAP_RETURNS_INT32 for argument types: MAP<STRING, INT64>. Supported signature: FN_ON_INT32_MAP_RETURNS_INT32(MAP<INT32, INT32>) [at 1:8]
-SELECT fn_on_int32_map_returns_int32(MAP_FROM_ARRAY([("abc", 456)]));
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_MAP_RETURNS_INT32
   Argument types: MAP<STRING, INT64>
   Signature: FN_ON_INT32_MAP_RETURNS_INT32(MAP<INT32, INT32>)
@@ -3515,16 +3328,11 @@ SELECT fn_on_int32_map_returns_int32(MAP_FROM_ARRAY([("abc", 456)]));
        ^
 ==
 
-[language_features=V_1_4_MAP_TYPE]
+[language_features=MAP_TYPE]
 SELECT fn_on_int64_map_returns_int64(MAP_FROM_ARRAY({{ARRAY<STRUCT<INT32, INT32>>[(123, 456)]|[(123, 456)]|[("abc", 456)]}}));
 --
 ALTERNATION GROUP: ARRAY<STRUCT<INT32, INT32>>[(123, 456)]
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT64_MAP_RETURNS_INT64 for argument types: MAP<INT32, INT32>. Supported signature: FN_ON_INT64_MAP_RETURNS_INT64(MAP<INT64, INT64>) [at 1:8]
-SELECT fn_on_int64_map_returns_int64(MAP_FROM_ARRAY(ARRAY<STRUCT<INT32, INT32...
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT64_MAP_RETURNS_INT64
   Argument types: MAP<INT32, INT32>
   Signature: FN_ON_INT64_MAP_RETURNS_INT64(MAP<INT64, INT64>)
@@ -3550,11 +3358,6 @@ QueryStmt
 --
 ALTERNATION GROUP: [("abc", 456)]
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT64_MAP_RETURNS_INT64 for argument types: MAP<STRING, INT64>. Supported signature: FN_ON_INT64_MAP_RETURNS_INT64(MAP<INT64, INT64>) [at 1:8]
-SELECT fn_on_int64_map_returns_int64(MAP_FROM_ARRAY([("abc", 456)]));
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT64_MAP_RETURNS_INT64
   Argument types: MAP<STRING, INT64>
   Signature: FN_ON_INT64_MAP_RETURNS_INT64(MAP<INT64, INT64>)
@@ -3563,7 +3366,7 @@ SELECT fn_on_int64_map_returns_int64(MAP_FROM_ARRAY([("abc", 456)]));
        ^
 ==
 
-[language_features=V_1_4_MAP_TYPE{{|,V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=MAP_TYPE{{|,IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 SELECT fn_on_bytes_map_returns_bytes(MAP_FROM_ARRAY([(b"abc", b"def")]));
 --
 QueryStmt
@@ -3581,14 +3384,9 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_4_MAP_TYPE{{|,V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=MAP_TYPE{{|,IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 SELECT fn_on_bytes_map_returns_bytes(MAP_FROM_ARRAY([("abc", "def")]));
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BYTES_MAP_RETURNS_BYTES for argument types: MAP<STRING, STRING>. Supported signature: FN_ON_BYTES_MAP_RETURNS_BYTES(MAP<BYTES, BYTES>) [at 1:8]
-SELECT fn_on_bytes_map_returns_bytes(MAP_FROM_ARRAY([("abc", "def")]));
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BYTES_MAP_RETURNS_BYTES
   Argument types: MAP<STRING, STRING>
   Signature: FN_ON_BYTES_MAP_RETURNS_BYTES(MAP<BYTES, BYTES>)
@@ -3597,14 +3395,9 @@ SELECT fn_on_bytes_map_returns_bytes(MAP_FROM_ARRAY([("abc", "def")]));
        ^
 ==
 
-[language_features=V_1_4_MAP_TYPE{{|,V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=MAP_TYPE{{|,IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 SELECT fn_on_bytes_map_returns_bytes(MAP_FROM_ARRAY([(b"abc", "def")]));
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BYTES_MAP_RETURNS_BYTES for argument types: MAP<BYTES, STRING>. Supported signature: FN_ON_BYTES_MAP_RETURNS_BYTES(MAP<BYTES, BYTES>) [at 1:8]
-SELECT fn_on_bytes_map_returns_bytes(MAP_FROM_ARRAY([(b"abc", "def")]));
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BYTES_MAP_RETURNS_BYTES
   Argument types: MAP<BYTES, STRING>
   Signature: FN_ON_BYTES_MAP_RETURNS_BYTES(MAP<BYTES, BYTES>)
@@ -3613,7 +3406,7 @@ SELECT fn_on_bytes_map_returns_bytes(MAP_FROM_ARRAY([(b"abc", "def")]));
        ^
 ==
 
-[language_features=V_1_4_MAP_TYPE]
+[language_features=MAP_TYPE]
 select (case when true then MAP_FROM_ARRAY(ARRAY<STRUCT<INT32, INT32>>[]) else MAP_FROM_ARRAY(ARRAY<STRUCT<INT64, INT64>>[]) end)
 --
 ERROR: No matching signature for operator CASE; all THEN/ELSE arguments must be coercible to a common type but found: MAP<INT32, INT32>, MAP<INT64, INT64>; actual argument types (WHEN THEN) ELSE: (BOOL MAP<INT32, INT32>) MAP<INT64, INT64> [at 1:9]
@@ -3621,14 +3414,9 @@ select (case when true then MAP_FROM_ARRAY(ARRAY<STRUCT<INT32, INT32>>[]) els...
         ^
 ==
 
-[language_features=V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
+[language_features=IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
 select fn_on_bytes("foobar\U0001F4A9");
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BYTES for argument types: STRING. Supported signature: FN_ON_BYTES(BYTES) [at 1:8]
-select fn_on_bytes("foobar\U0001F4A9");
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BYTES
   Argument types: STRING
   Signature: FN_ON_BYTES(BYTES)

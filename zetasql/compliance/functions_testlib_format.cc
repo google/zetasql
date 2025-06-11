@@ -505,7 +505,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
       {"format", {"%p", proto_null}, NullString()},
       {"format", {"%P", proto_null}, NullString()},
       // Protos with fields annotated as datetime and time are always valid
-      // regardless whether FEATURE_V_1_2_CIVIL_TIME is enabled or not, and they
+      // regardless whether FEATURE_CIVIL_TIME is enabled or not, and they
       // will always be formatted as numeric values instead of being interpreted
       // as datetime or time.
       {"format", {"%t", proto_civil_time_value}, civil_time_proto_str},

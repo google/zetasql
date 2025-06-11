@@ -57,6 +57,7 @@
 
 #include "zetasql/common/errors.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/parser/parse_tree_generated.h"
 #include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
@@ -70,10 +71,15 @@ namespace zetasql {
 
 // Returns a ParseLocationPoint pointing at an ASTNode's start location.
 //
-// If <include_leftmost_child>, then for infix operators where the ASTNode's
-// position points at the middle token, this function tries to extract the
-// leftmost position of a child node instead.  For example, for "abc=def",
-// this will point at 'a' rather than '='.
+// If `include_leftmost_child`, then this always gets the leftmost position
+// for the full expression.
+//
+// If `include_leftmost_child` is false, then:
+// (1) For infix operators, this was intended to get the location for the
+//     operator token.  For example, for "abc=def", this should point at '='
+//     rather than 'a'.  But this seems to have never worked.
+// (2) For chained function calls like `(expression).function(...)`, this
+//     points at the function name rather than the start of the expression.
 //
 // If <use_end_location>, then it will use the end location instead of the start
 // location for <ast_node> as well as any child nodes if
@@ -92,6 +98,21 @@ inline ::zetasql_base::StatusBuilder MakeSqlErrorAtNode(const ASTNode* ast_node,
           .ToInternalErrorLocation());
 }
 
+// Returns MakeSqlError() annotated with the error location for <ast_node>
+// itself, by calling GetErrorLocationPoint without `include_leftmost_child`.
+//
+// For chained function calls like `(expression).function(...)`, this
+// gives an error pointing at the function name rather than the start of the
+// expression.
+//
+// Because of the specializations below, MakeSqlErrorAt on ASTFunctionCall
+// will do this automatically.  Calling this function explicitly is necessary
+// when the argument type is a generic `ASTNode*` but the inner location
+// is still needed when that node is a function call.
+inline ::zetasql_base::StatusBuilder MakeSqlErrorAtLocalNode(const ASTNode* ast_node) {
+  return MakeSqlErrorAtNode(ast_node, /*include_leftmost_child=*/false);
+}
+
 // Returns MakeSqlError() annotated with the error location given by the
 // leftmost child of <ast_node>. See GetErrorLocationPoint() for the meaning
 // of "leftmost child".
@@ -106,13 +127,28 @@ inline ::zetasql_base::StatusBuilder MakeSqlErrorAt(const ASTNode& ast_node) {
   return MakeSqlErrorAt(&ast_node);
 }
 
-// Returns MakeSqlError() annotated with the error location for <ast_node>
-// itself. In contrast with MakeSqlErrorAt(), this does not use the error
-// location for the leftmost child. I.e., for infix operators like "a = b" the
-// error location will point at the operator "=", not at the start of the entire
-// expression.
-inline ::zetasql_base::StatusBuilder MakeSqlErrorAtLocalNode(const ASTNode* ast_node) {
-  return MakeSqlErrorAtNode(ast_node, /*include_leftmost_child=*/false);
+// Return an error at `ast_node` if `ast_node` is non-NULL.
+// Use like:
+//   ZETASQL_RETURN_IF_ERROR(MakeSqlErrorIfPresent(ast_node)) << "Message";
+::absl::Status MakeSqlErrorIfPresent(const ASTNode* ast_node);
+
+// Specialize MakeSqlErrorAt for ASTFunctionCall and related types so that
+// those automatically make the error at the LocalNode.
+//
+// If we are generating errors on an ASTFunctionCall, we assume they must be
+// errors about the function call itself, not the whole expression around it.
+// For chained function calls like `(input).function(...)`, the error location
+// should point at the function name, not the input argument.
+inline ::zetasql_base::StatusBuilder MakeSqlErrorAt(const ASTFunctionCall* ast_node) {
+  return MakeSqlErrorAtLocalNode(ast_node);
+}
+inline ::zetasql_base::StatusBuilder MakeSqlErrorAt(
+    const ASTAnalyticFunctionCall* ast_node) {
+  return MakeSqlErrorAtLocalNode(ast_node);
+}
+inline ::zetasql_base::StatusBuilder MakeSqlErrorAt(
+    const ASTFunctionCallWithGroupRows* ast_node) {
+  return MakeSqlErrorAtLocalNode(ast_node);
 }
 
 // Returns a team policy that attaches a parse location to an error status

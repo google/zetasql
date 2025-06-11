@@ -25,9 +25,14 @@ namespace zetasql {
 // Describes the target syntax attached to a resolved AST.
 // This is a side channel used by SQLBuilder to decide which SQL syntax to
 // produce when multiple choices are available.
+//
+// These can be tested in analyzer tests using
+// `sqlbuilder_target_syntax_map_mode` with code in `run_analyzer_test.cc`
+// to apply the option to appropriate nodes.
 enum class SQLBuildTargetSyntax {
-  kGroupByAll,  // Represents GROUP BY ALL produced a
-                // ResolvedAggregateScan.
+  kDefault,                // No syntax override.
+  kGroupByAll,             // Represents GROUP BY ALL produced a
+                           // ResolvedAggregateScan.
   kAnonymousGraphElement,  // Represents a ResolvedGraphElementScan that
                            // was not given a user supplied alias.
   kGqlWith,                // Represents a ResolvedProjectScan produced by
@@ -40,10 +45,12 @@ enum class SQLBuildTargetSyntax {
                                    // in partial form 1 (graph pattern case).
   kGqlExistsSubqueryLinearOps,     // Represents an EXISTS GQL subquery
                                    // in partial form 2 (linear ops case).
+  kChainedFunctionCall,  // Represents a ResolvedFunctionCall that should use
+                         // chained call syntax.
 };
 
 using TargetSyntaxMap =
-    absl::flat_hash_map<ResolvedNode*, SQLBuildTargetSyntax>;
+    absl::flat_hash_map<const ResolvedNode*, SQLBuildTargetSyntax>;
 
 }  // namespace zetasql
 

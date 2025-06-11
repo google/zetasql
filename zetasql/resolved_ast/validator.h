@@ -83,6 +83,8 @@ class Validator {
   absl::Status ValidateStandaloneResolvedExpr(const ResolvedExpr* expr);
 
  private:
+  FRIEND_TEST(ValidatorTest, InvalidDynamicGraphGetElementProperty);
+  FRIEND_TEST(ValidatorTest, CaseInsensitiveDynamicGraphGetElementProperty);
 
   // Validate a statement.
   // `in_multi_stmt` indicates this is a sub-statement inside a
@@ -811,6 +813,14 @@ class Validator {
           absl::string_view, zetasql_base::StringViewCaseHash,
           zetasql_base::StringViewCaseEqual>& all_property_name_set);
 
+  absl::Status ValidateResolvedGraphDynamicLabelSpecification(
+      const ResolvedGraphDynamicLabelSpecification* label_specification,
+      const std::set<ResolvedColumn>& visible_columns);
+
+  absl::Status ValidateResolvedGraphDynamicPropertiesSpecification(
+      const ResolvedGraphDynamicPropertiesSpecification* property_specification,
+      const std::set<ResolvedColumn>& visible_columns);
+
   absl::Status ValidateResolvedGraphTableScan(
       const ResolvedGraphTableScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
@@ -852,6 +862,10 @@ class Validator {
 
   absl::Status ValidateResolvedGraphRefScan(
       const ResolvedGraphRefScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateResolvedGraphCallScan(
+      const ResolvedGraphCallScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
 
   absl::Status ValidateResolvedGraphGetElementProperty(
@@ -981,7 +995,7 @@ class Validator {
                                const ResolvedColumnRef** ref);
 
   // Validates whether <expr> is a literal or a parameter. In either case, it
-  // should be of type int64_t. <context_msg> represents where this validation
+  // should be of type int64. <context_msg> represents where this validation
   // happens.
   absl::Status ValidateArgumentIsInt64(const ResolvedExpr* expr,
                                        bool validate_constant_nonnegative,
@@ -1011,6 +1025,10 @@ class Validator {
   // Validates that the aggregate scan has no multi-level aggregates. Used for
   // Anonymized / Differential Privacy / Aggregation Threshold aggregate scans.
   absl::Status ValidateAggregateScanHasNoMultiLevelAggregates(
+      const ResolvedAggregateScanBase* scan);
+  // Validates that the aggregate scan has no `AGG` function calls. Used for
+  // Anonymized / Differential Privacy / Aggregation Threshold aggregate scans.
+  absl::Status ValidateAggregateScanHasNoAggFunctionCall(
       const ResolvedAggregateScanBase* scan);
 
   // Replacement for ::zetasql_base::InternalErrorBuilder(), which also records the

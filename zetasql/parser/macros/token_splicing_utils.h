@@ -18,7 +18,6 @@
 #define ZETASQL_PARSER_MACROS_TOKEN_SPLICING_UTILS_H_
 
 #include "zetasql/parser/tm_token.h"
-#include "zetasql/parser/token_codes.h"
 #include "zetasql/parser/token_with_location.h"
 #include "absl/strings/string_view.h"
 

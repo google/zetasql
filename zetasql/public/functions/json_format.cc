@@ -33,6 +33,7 @@
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
+#include "zetasql/public/timestamp_picos_value.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/uuid_value.h"
@@ -297,6 +298,21 @@ absl::Status JsonFromTimestamp(absl::Time value, std::string* output,
                                           absl::UTCTimeZone(),
                                           &timestamp_string));
 
+  if (quote_output_string) {
+    JsonFromString(timestamp_string, output);
+  } else {
+    absl::StrAppend(output, timestamp_string);
+  }
+  return absl::OkStatus();
+}
+
+absl::Status JsonFromTimestamp(TimestampPicosValue value, std::string* output,
+                               bool quote_output_string) {
+  TimestampScale scale = NarrowTimestampScaleIfPossible(value.ToPicoTime());
+  std::string timestamp_string;
+  ZETASQL_RETURN_IF_ERROR(FormatTimestampToString(
+      TimestampFormatForScale(scale), value.ToPicoTime(), absl::UTCTimeZone(),
+      &timestamp_string));
   if (quote_output_string) {
     JsonFromString(timestamp_string, output);
   } else {

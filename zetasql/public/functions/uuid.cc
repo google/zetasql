@@ -66,7 +66,7 @@ std::string GenerateUuid(absl::BitGenRef gen) {
   uint64_t low = absl::Uniform<uint64_t>(gen);
   uint64_t high = absl::Uniform<uint64_t>(gen);
 
-  // The byte format for high and low uint64_t used by V4 Uuid for string form
+  // The byte format for high and low uint64 used by V4 Uuid for string form
   // "AAAAAAAA-BBBB-4CCC-yDDD-EEEEEEEEEEEE" is specified as:
   //  low:  4CCCBBBBAAAAAAAA
   //  high: EEEEEEEEEEEEyDDD
@@ -82,7 +82,7 @@ std::string GenerateUuid(absl::BitGenRef gen) {
 UuidValue NewUuid(absl::BitGenRef gen) {
   uint64_t high = absl::Uniform<uint64_t>(gen);
   uint64_t low = absl::Uniform<uint64_t>(gen);
-  // The byte format for high and low uint64_t used by V4 Uuid for string form
+  // The byte format for high and low uint64 used by V4 Uuid for string form
   // "AAAAAAAA-BBBB-4CCC-yDDD-EEEEEEEEEEEE" is specified as:
   //  high: AAAAAAAABBBB4CCC
   //  low: yDDDEEEEEEEEEEEE

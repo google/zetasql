@@ -178,7 +178,7 @@ class AddFilterToTableScan : public ResolvedASTDeepCopyVisitor {
           MakeResolvedColumnRef(types::Int32Type(), input_column, false),
           MakeResolvedLiteral(types::Int32Type(), Value::Int32(threshold_)));
 
-      // We have only twos argument, and the type of both are int32_t.
+      // We have only twos argument, and the type of both are int32.
       FunctionArgumentTypeList argument_type_list = {types::Int32Type(),
                                                      types::Int32Type()};
 
@@ -187,7 +187,7 @@ class AddFilterToTableScan : public ResolvedASTDeepCopyVisitor {
       const FunctionArgumentType fn_result_type(types::BoolType());
 
       // Create the FunctionSignature. Return type is Bool, argument type is
-      // int32_t. There is no context_ptr, so pass nullptr.
+      // int32. There is no context_ptr, so pass nullptr.
       FunctionSignature signature(fn_result_type, argument_type_list, nullptr);
 
       // Create the filter expr.

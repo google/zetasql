@@ -17,6 +17,7 @@
 
 package com.google.zetasql;
 
+import com.google.common.collect.ImmutableList;
 import com.google.zetasql.ZetaSQLOptions.ProductMode;
 import com.google.zetasql.ZetaSQLType.MeasureTypeProto;
 import com.google.zetasql.ZetaSQLType.TypeKind;
@@ -35,6 +36,11 @@ final class MeasureType extends Type {
 
   public Type getResultType() {
     return resultType;
+  }
+
+  @Override
+  public ImmutableList<Type> componentTypes() {
+    return ImmutableList.of(resultType);
   }
 
   @Override

@@ -135,7 +135,7 @@ ARRAY<STRUCT<tz STRING, DATE>>[unknown order:
 ]
 ==
 
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 [name=extract_time_from_timestamp]
 select tz, extract(time from timestamp '2000-01-01 00:00:00' AT TIME ZONE tz) from Timezones
 --
@@ -156,7 +156,7 @@ ARRAY<STRUCT<tz STRING, TIME>>[unknown order:
 ]
 ==
 
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 [name=extract_datetime_from_timestamp]
 select tz, extract(datetime from timestamp '2000-01-01 00:00:00' AT TIME ZONE tz) from Timezones
 --

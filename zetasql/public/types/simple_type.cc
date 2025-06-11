@@ -39,6 +39,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/pico_time.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/timestamp_picos_value.h"
 #include "zetasql/public/type.pb.h"
@@ -76,7 +77,7 @@ namespace zetasql {
 // Note: in addition to their main value content simple types TYPE_TIMESTAMP,
 // TYPE_TIME and TYPE_DATETIME also have extended content stored in
 // ValueContent::simple_type_extended_content_. The C++ type of this extended
-// content is fixed (int32_t).
+// content is fixed (int32).
 using DateValueContentType = int32_t;       // Used with TYPE_DATE.
 using TimestampValueContentType = int64_t;  // Used with TYPE_TIMESTAMP.
 using TimeValueContentType = int32_t;       // Used with TYPE_TIME.
@@ -105,6 +106,8 @@ struct TypeNameInfo {
   std::optional<LanguageFeature> alias_feature;
 };
 
+// TODO: Remove references to TIMESTAMP_PICOS in this file once
+// type annotation and rewriter is implemented.
 const std::map<absl::string_view, TypeNameInfo>& SimpleTypeNameInfoMap() {
   static auto result = new std::map<absl::string_view, TypeNameInfo>{
       {"int32", {TYPE_INT32, true}},
@@ -127,9 +130,9 @@ const std::map<absl::string_view, TypeNameInfo>& SimpleTypeNameInfoMap() {
       {"interval", {TYPE_INTERVAL}},
       {"geography", {TYPE_GEOGRAPHY}},
       {"numeric", {TYPE_NUMERIC}},
-      {"decimal", {TYPE_NUMERIC, false, FEATURE_V_1_3_DECIMAL_ALIAS}},
+      {"decimal", {TYPE_NUMERIC, false, FEATURE_DECIMAL_ALIAS}},
       {"bignumeric", {TYPE_BIGNUMERIC}},
-      {"bigdecimal", {TYPE_BIGNUMERIC, false, FEATURE_V_1_3_DECIMAL_ALIAS}},
+      {"bigdecimal", {TYPE_BIGNUMERIC, false, FEATURE_DECIMAL_ALIAS}},
       {"json", {TYPE_JSON}},
       {"tokenlist", {TYPE_TOKENLIST}},
       {"uuid", {TYPE_UUID}},
@@ -206,19 +209,18 @@ const TypeKindInfo* GetSimpleTypeKindInfo(TypeKind kind) {
     result[TYPE_INT64] = TypeKindInfo::Build();
     result[TYPE_UINT64] = TypeKindInfo::BuildInternalOnly();
     result[TYPE_BOOL] = TypeKindInfo::Build();
-    result[TYPE_FLOAT] = TypeKindInfo::BuildWithDisablingTypeFeature(
-        FEATURE_V_1_4_DISABLE_FLOAT32);
+    result[TYPE_FLOAT] =
+        TypeKindInfo::BuildWithDisablingTypeFeature(FEATURE_DISABLE_FLOAT32);
     result[TYPE_DOUBLE] = TypeKindInfo::Build();
     result[TYPE_BYTES] = TypeKindInfo::Build();
     result[TYPE_STRING] = TypeKindInfo::Build();
     result[TYPE_DATE] = TypeKindInfo::Build();
     result[TYPE_TIMESTAMP] = TypeKindInfo::Build();
     result[TYPE_TIMESTAMP_PICOS] =
-        TypeKindInfo::BuildWithTypeFeature(FEATURE_TIMESTAMP_PICO_TYPE);
-    result[TYPE_TIME] =
-        TypeKindInfo::BuildWithTypeFeature(FEATURE_V_1_2_CIVIL_TIME);
+        TypeKindInfo::BuildWithTypeFeature(FEATURE_TIMESTAMP_PICOS);
+    result[TYPE_TIME] = TypeKindInfo::BuildWithTypeFeature(FEATURE_CIVIL_TIME);
     result[TYPE_DATETIME] =
-        TypeKindInfo::BuildWithTypeFeature(FEATURE_V_1_2_CIVIL_TIME);
+        TypeKindInfo::BuildWithTypeFeature(FEATURE_CIVIL_TIME);
     result[TYPE_INTERVAL] =
         TypeKindInfo::BuildWithTypeFeature(FEATURE_INTERVAL_TYPE);
     result[TYPE_GEOGRAPHY] =
@@ -230,8 +232,7 @@ const TypeKindInfo* GetSimpleTypeKindInfo(TypeKind kind) {
     result[TYPE_JSON] = TypeKindInfo::BuildWithTypeFeature(FEATURE_JSON_TYPE);
     result[TYPE_TOKENLIST] =
         TypeKindInfo::BuildWithTypeFeature(FEATURE_TOKENIZED_SEARCH);
-    result[TYPE_UUID] =
-        TypeKindInfo::BuildWithTypeFeature(FEATURE_V_1_4_UUID_TYPE);
+    result[TYPE_UUID] = TypeKindInfo::BuildWithTypeFeature(FEATURE_UUID_TYPE);
     return result;
   }());
   const int kind_id = static_cast<int>(kind);
@@ -417,6 +418,10 @@ absl::StatusOr<std::string> SimpleType::TypeNameWithModifiers(
             "($0)", type_params.string_type_parameters().max_length());
       }
     }
+    if (type_params.IsTimestampTypeParameters()) {
+      type_param_name = absl::Substitute(
+          "($0)", type_params.timestamp_type_parameters().precision());
+    }
 
     absl::StrAppend(&result_type_name, type_param_name);
   }
@@ -542,6 +547,8 @@ void SimpleType::CopyValueContent(TypeKind kind, const ValueContent& from,
     case TYPE_BIGNUMERIC:
       from.GetAs<internal::BigNumericRef*>()->Ref();
       break;
+    case TYPE_TIMESTAMP:
+    // TODO: Remove support for TYPE_TIMESTAMP_PICOS.
     case TYPE_TIMESTAMP_PICOS:
       from.GetAs<internal::TimestampPicosRef*>()->Ref();
       break;
@@ -584,6 +591,8 @@ void SimpleType::ClearValueContent(TypeKind kind, const ValueContent& value) {
     case TYPE_BIGNUMERIC:
       value.GetAs<internal::BigNumericRef*>()->Unref();
       return;
+    case TYPE_TIMESTAMP:
+    // TODO: Remove support for TYPE_TIMESTAMP_PICOS.
     case TYPE_TIMESTAMP_PICOS:
       value.GetAs<internal::TimestampPicosRef*>()->Unref();
       return;
@@ -620,6 +629,8 @@ uint64_t SimpleType::GetValueContentExternallyAllocatedByteSize(
       return sizeof(internal::NumericRef);
     case TYPE_BIGNUMERIC:
       return sizeof(internal::BigNumericRef);
+    case TYPE_TIMESTAMP:
+    // TODO: Remove support for TYPE_TIMESTAMP_PICOS.
     case TYPE_TIMESTAMP_PICOS:
       return sizeof(internal::TimestampPicosRef);
     case TYPE_JSON:
@@ -686,9 +697,7 @@ absl::HashState SimpleType::HashValueContent(const ValueContent& value,
     case TYPE_DATE:
       return absl::HashState::combine(std::move(state), GetDateValue(value));
     case TYPE_TIMESTAMP:
-      return absl::HashState::combine(std::move(state),
-                                      value.GetAs<TimestampValueContentType>(),
-                                      value.simple_type_extended_content_);
+    // TODO: Remove support for TYPE_TIMESTAMP_PICOS.
     case TYPE_TIMESTAMP_PICOS:
       return absl::HashState::combine(std::move(state),
                                       GetTimestampPicosValue(value).HashCode());
@@ -756,8 +765,7 @@ bool SimpleType::ValueContentEquals(
     case TYPE_DATE:
       return ContentEquals<DateValueContentType>(x, y);
     case TYPE_TIMESTAMP:
-      return ContentEquals<TimestampValueContentType>(x, y) &&
-             x.simple_type_extended_content_ == y.simple_type_extended_content_;
+    // TODO: Remove support for TYPE_TIMESTAMP_PICOS.
     case TYPE_TIMESTAMP_PICOS:
       return ReferencedValueEquals<internal::TimestampPicosRef>(x, y);
     case TYPE_TIME:
@@ -826,10 +834,7 @@ bool SimpleType::ValueContentLess(const ValueContent& x, const ValueContent& y,
     case TYPE_DATE:
       return ContentLess<DateValueContentType>(x, y);
     case TYPE_TIMESTAMP:
-      return ContentLess<TimestampValueContentType>(x, y) ||
-             (ContentEquals<TimestampValueContentType>(x, y) &&
-              x.simple_type_extended_content_ <
-                  y.simple_type_extended_content_);
+    // TODO: Remove support for TYPE_TIMESTAMP_PICOS.
     case TYPE_TIMESTAMP_PICOS:
       return ReferencedValueLess<internal::TimestampPicosRef>(x, y);
     case TYPE_TIME:
@@ -893,17 +898,8 @@ std::string SimpleType::FormatValueContent(
                  ? AddTypePrefix(s, this, options.product_mode)
                  : s;
     }
-    case TYPE_TIMESTAMP: {
-      std::string s;
-      // Failure cannot actually happen in this context since the value
-      // is guaranteed to be valid.
-      ZETASQL_CHECK_OK(functions::ConvertTimestampToString(GetTimestampValue(value),
-                                                   functions::kNanoseconds,
-                                                   "+0" /* timezone */, &s));
-      return options.add_simple_type_prefix()
-                 ? AddTypePrefix(s, this, options.product_mode)
-                 : s;
-    }
+    case TYPE_TIMESTAMP:
+    // TODO: Remove support for TYPE_TIMESTAMP_PICOS.
     case TYPE_TIMESTAMP_PICOS: {
       std::string s;
       // Failure cannot actually happen in this context since the value
@@ -1081,13 +1077,29 @@ absl::Status SimpleType::SerializeValueContent(const ValueContent& value,
       value_proto->set_date_value(GetDateValue(value));
       break;
     case TYPE_TIMESTAMP: {
-      ZETASQL_RETURN_IF_ERROR(zetasql_base::EncodeGoogleApiProto(
-          GetTimestampValue(value), value_proto->mutable_timestamp_value()));
+      const PicoTime pico = GetTimestampPicosValue(value).ToPicoTime();
+      if (pico.SubNanoseconds() > 0) {
+        // Serialize to timestamp picos since we have picosecond precision.
+        auto* timestamp_picos_proto =
+            value_proto->mutable_timestamp_picos_value();
+        auto [seconds, picos] = pico.SecondsAndPicoseconds();
+        timestamp_picos_proto->set_seconds(seconds);
+        timestamp_picos_proto->set_picos(picos);
+      } else {
+        // Serialize to timestamp for backwards compatibility.
+        ZETASQL_RETURN_IF_ERROR(zetasql_base::EncodeGoogleApiProto(
+            pico.ToAbslTime(), value_proto->mutable_timestamp_value()));
+      }
       break;
     }
+    // TODO: Remove support for TYPE_TIMESTAMP_PICOS.
     case TYPE_TIMESTAMP_PICOS: {
-      value_proto->set_timestamp_pico_value(
-          GetTimestampPicosValue(value).SerializeAsProtoBytes());
+      auto* timestamp_picos_proto =
+          value_proto->mutable_timestamp_picos_value();
+      auto [seconds, picos] =
+          GetTimestampPicosValue(value).ToPicoTime().SecondsAndPicoseconds();
+      timestamp_picos_proto->set_seconds(seconds);
+      timestamp_picos_proto->set_picos(picos);
       break;
     }
     case TYPE_DATETIME: {
@@ -1214,31 +1226,41 @@ absl::Status SimpleType::DeserializeValueContent(const ValueProto& value_proto,
       value->set(value_proto.date_value());
       break;
     case TYPE_TIMESTAMP: {
-      if (!value_proto.has_timestamp_value()) {
+      if (value_proto.has_timestamp_value()) {
+        auto time_or =
+            zetasql_base::DecodeGoogleApiProto(value_proto.timestamp_value());
+        if (!time_or.ok()) {
+          return absl::Status(
+              absl::StatusCode::kOutOfRange,
+              absl::StrCat("Invalid value for TIMESTAMP",
+                           value_proto.timestamp_value().DebugString()));
+        }
+        absl::Time t = time_or.value();
+        ZETASQL_ASSIGN_OR_RETURN(PicoTime pico, PicoTime::Create(t));
+        value->set(new internal::TimestampPicosRef(TimestampPicosValue(pico)));
+      } else if (value_proto.has_timestamp_picos_value()) {
+        ZETASQL_ASSIGN_OR_RETURN(
+            PicoTime pico,
+            PicoTime::Create(absl::FromUnixSeconds(
+                                 value_proto.timestamp_picos_value().seconds()),
+                             value_proto.timestamp_picos_value().picos()));
+        value->set(new internal::TimestampPicosRef(TimestampPicosValue(pico)));
+      } else {
         return TypeMismatchError(value_proto);
       }
-
-      auto time_or =
-          zetasql_base::DecodeGoogleApiProto(value_proto.timestamp_value());
-      if (!time_or.ok()) {
-        return absl::Status(
-            absl::StatusCode::kOutOfRange,
-            absl::StrCat("Invalid value for TIMESTAMP",
-                         value_proto.timestamp_value().DebugString()));
-      }
-
-      absl::Time t = time_or.value();
-      ZETASQL_RETURN_IF_ERROR(SetTimestampValue(t, value));
       break;
     }
+    // TODO: Remove support for TYPE_TIMESTAMP_PICOS.
     case TYPE_TIMESTAMP_PICOS: {
-      if (!value_proto.has_timestamp_pico_value()) {
+      if (!value_proto.has_timestamp_picos_value()) {
         return TypeMismatchError(value_proto);
       }
-      ZETASQL_ASSIGN_OR_RETURN(TimestampPicosValue t,
-                       TimestampPicosValue::DeserializeFromProtoBytes(
-                           value_proto.timestamp_pico_value()));
-      value->set(new internal::TimestampPicosRef(t));
+      ZETASQL_ASSIGN_OR_RETURN(
+          PicoTime pico,
+          PicoTime::Create(absl::FromUnixSeconds(
+                               value_proto.timestamp_picos_value().seconds()),
+                           value_proto.timestamp_picos_value().picos()));
+      value->set(new internal::TimestampPicosRef(TimestampPicosValue(pico)));
       break;
     }
     case TYPE_DATETIME: {
@@ -1276,8 +1298,9 @@ absl::Status SimpleType::DeserializeValueContent(const ValueProto& value_proto,
       if (!value_proto.has_tokenlist_value()) {
         return TypeMismatchError(value_proto);
       }
-      value->set(new internal::TokenListRef(
-          tokens::TokenList::FromBytes(value_proto.tokenlist_value())));
+      value->set(
+          new internal::TokenListRef(tokens::TokenList::FromBytesUnvalidated(
+              value_proto.tokenlist_value())));
       break;
     }
     case TYPE_UUID: {
@@ -1370,6 +1393,9 @@ absl::StatusOr<TypeParameters> SimpleType::ValidateAndResolveTypeParameters(
   }
   if (IsNumericType() || IsBigNumericType()) {
     return ResolveNumericBignumericTypeParameters(type_parameter_values, mode);
+  }
+  if (IsTimestamp()) {
+    return ResolveTimestampTypeParameters(type_parameter_values, mode);
   }
   return MakeSqlError() << ShortTypeName(mode)
                         << " does not support type parameters";
@@ -1473,6 +1499,33 @@ SimpleType::ResolveNumericBignumericTypeParameters(
                         << " precision must be an integer or MAX keyword";
 }
 
+static absl::Status MakeTimestampPrecisionError(absl::string_view type_name) {
+  return MakeSqlError() << type_name << " precision must be 0, 3, 6, 9, or 12";
+}
+
+absl::StatusOr<TypeParameters> SimpleType::ResolveTimestampTypeParameters(
+    absl::Span<const TypeParameterValue> type_parameter_values,
+    ProductMode mode) const {
+  if (type_parameter_values.size() != 1) {
+    return MakeSqlError() << ShortTypeName(mode)
+                          << " type can only have one parameter. Found "
+                          << type_parameter_values.size() << " parameters";
+  }
+
+  TimestampTypeParametersProto type_parameters_proto;
+  const TypeParameterValue& param = type_parameter_values[0];
+  if (!param.GetValue().has_int64_value()) {
+    return MakeTimestampPrecisionError(ShortTypeName(mode));
+  }
+  int64_t value = param.GetValue().int64_value();
+  if (value < 0 || value > 12 || value % 3 != 0) {
+    return MakeTimestampPrecisionError(ShortTypeName(mode));
+  }
+
+  type_parameters_proto.set_precision(value);
+  return TypeParameters::MakeTimestampTypeParameters(type_parameters_proto);
+}
+
 absl::Status SimpleType::ValidateResolvedTypeParameters(
     const TypeParameters& type_parameters, ProductMode mode) const {
   if (type_parameters.IsEmpty()) {
@@ -1487,6 +1540,11 @@ absl::Status SimpleType::ValidateResolvedTypeParameters(
     ZETASQL_RET_CHECK(type_parameters.IsNumericTypeParameters());
     return ValidateNumericTypeParameters(
         type_parameters.numeric_type_parameters(), mode);
+  }
+  if (IsTimestamp()) {
+    ZETASQL_RET_CHECK(type_parameters.IsTimestampTypeParameters());
+    return TypeParameters::ValidateTimestampTypeParameters(
+        type_parameters.timestamp_type_parameters());
   }
   ZETASQL_RET_CHECK_FAIL() << ShortTypeName(mode)
                    << " does not support type parameters";

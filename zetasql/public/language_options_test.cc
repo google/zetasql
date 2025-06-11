@@ -28,6 +28,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "re2/re2.h"
 
 namespace zetasql {
 
@@ -120,9 +121,16 @@ TEST(LanguageOptions, GetLanguageFeaturesForVersion) {
         absl::StrCat(version_name.substr(8), "_");
 
     LanguageOptions::LanguageFeatureSet computed_features;
+    int previous_feature = -1;
     for (int i = 0; i < LanguageFeature_descriptor()->value_count(); ++i) {
       const google::protobuf::EnumValueDescriptor* value_desc =
           LanguageFeature_descriptor()->value(i);
+      auto feature = static_cast<LanguageFeature>(value_desc->number());
+      if (feature == previous_feature) {
+        // This is an alias.
+        continue;
+      }
+      previous_feature = feature;
       const LanguageFeatureOptions& options =
           value_desc->options().GetExtension(language_feature_options);
       if (!options.ideally_enabled()) {
@@ -130,27 +138,20 @@ TEST(LanguageOptions, GetLanguageFeaturesForVersion) {
         // features.
         continue;
       }
-      auto feature = static_cast<LanguageFeature>(value_desc->number());
       if (options.in_development()) {
         continue;
       }
       const std::string feature_name = LanguageFeature_Name(feature);
-      if (feature_name.substr(0, 10) == "FEATURE_V_") {
-        const std::string feature_version_suffix =
-            feature_name.substr(10, version_suffix.size());
-        if (feature_version_suffix <= version_suffix) {
-          computed_features.insert(feature);
-        }
+      if (options.has_language_version() &&
+          options.language_version() <= version) {
+        computed_features.insert(feature);
       }
     }
 
     EXPECT_THAT(
         computed_features,
         ContainerEq(LanguageOptions::GetLanguageFeaturesForVersion(version)))
-        << "for version " << LanguageVersion_Name(version)
-        << "; Did you forget to update "
-           "LanguageOptions::GetLanguageFeaturesForVersion after "
-           "adding a new language feature?";
+        << "for version " << LanguageVersion_Name(version);
 
     // Also check that all features included in version X are also included in
     // VERSION_CURRENT.
@@ -203,28 +204,57 @@ TEST(LanguageOptions, LanguageFeaturesVersionTagRangeIntegrity) {
   EXPECT_EQ(num_versions, known_versions.size())
       << "Did you add a version and forget to update language_options_test?";
 
+  // Count expected features for EnableMaximumLanguageFeatures[ForDevelopment].
+  int num_max_features = 0;
+  int num_max_dev_features = 0;
+
+  absl::flat_hash_set<LanguageFeature> seen_features;
+
   for (int i = 0; i < LanguageFeature_descriptor()->value_count(); ++i) {
     const google::protobuf::EnumValueDescriptor* value_desc =
         LanguageFeature_descriptor()->value(i);
     int tag_number = value_desc->number();
     absl::string_view name = value_desc->name();
     LanguageFeature feature = static_cast<LanguageFeature>(tag_number);
+
+    EXPECT_FALSE(seen_features.contains(feature))
+        << "Duplicate tag number " << tag_number << " on feature " << name;
+    seen_features.insert(feature);
+
     const LanguageFeatureOptions& options =
         value_desc->options().GetExtension(language_feature_options);
     const bool ideally_enabled = options.ideally_enabled();
     const bool in_development = options.in_development();
+
+    if (feature != __LanguageFeature__switch_must_have_a_default__) {
+      if (ideally_enabled) {
+        ++num_max_dev_features;
+        if (!in_development) {
+          ++num_max_features;
+        }
+      }
+
+      EXPECT_THAT(name, StartsWith("FEATURE_"));
+      EXPECT_THAT(name, Not(StartsWith("FEATURE_V_")))
+          << "Primary (non-alias) feature names should not include version "
+             "numbers like FEATURE_V_1_x";
+    }
+
     bool found_version = false;
+    LanguageVersion found_version_number = VERSION_CURRENT;
     for (const VersionDetails& version : known_versions) {
       if (tag_number < version.tag_upper_bound &&
           tag_number >= version.tag_lower_bound) {
         EXPECT_TRUE(!found_version);
         found_version = true;
+        found_version_number = version.version_num;
         if (ideally_enabled && !in_development) {
           EXPECT_THAT(version.features, Contains(feature));
         } else {
           EXPECT_THAT(version.features, Not(Contains(feature)));
         }
-        EXPECT_THAT(name, StartsWith(version.feature_name_prefix));
+        EXPECT_EQ(options.language_version(), version.version_num)
+            << "Bad version_num tag on enum " << name;
       } else {
         if (found_version) {
           // Two features were in development when V 1.3 was "frozen".
@@ -243,6 +273,59 @@ TEST(LanguageOptions, LanguageFeaturesVersionTagRangeIntegrity) {
         EXPECT_THAT(name, Not(StartsWith(version.feature_name_prefix)));
       }
     }
+    if (options.has_language_version()) {
+      EXPECT_TRUE(found_version) << "Version not found for " << name;
+      EXPECT_EQ(found_version_number, options.language_version());
+    }
+
+    // Check if we have an alias for this feature.
+    // The alias must immediately follow the primary definition for that tag.
+    if (i + 1 < LanguageFeature_descriptor()->value_count()) {
+      const google::protobuf::EnumValueDescriptor* next_value_desc =
+          LanguageFeature_descriptor()->value(i + 1);
+      int next_tag_number = next_value_desc->number();
+      if (next_tag_number == tag_number) {
+        absl::string_view next_name = next_value_desc->name();
+        EXPECT_THAT(next_name, StartsWith("FEATURE_V_"));
+        EXPECT_TRUE(options.has_language_version())
+            << "Only versioned features should have aliases: " << next_name
+            << " wtih tag " << tag_number;
+        std::string modified_name = std::string(next_name);
+        EXPECT_TRUE(RE2::Replace(&modified_name, "_V_1_[0-9]", ""))
+            << "Enum name " << name << " does not have a version number?";
+        EXPECT_EQ(modified_name, name)
+            << "Expected enum alias " << next_name
+            << " to be a versioned alias of enum " << name << " for tag number "
+            << tag_number;
+        EXPECT_FALSE(
+            next_value_desc->options().HasExtension(language_feature_options))
+            << "Alias enum " << next_name << " with tag " << tag_number
+            << " should not have its own options";
+        EXPECT_TRUE(next_value_desc->options().deprecated())
+            << "Alias enum " << next_name << " with tag " << tag_number
+            << " should be marked deprecated";
+        // Tag 14100 was the highest one with version number in the name when
+        // we stopped putting versions in names.
+        EXPECT_LE(tag_number, 14100)
+            << "Newly added LangaugeFeature enum " << next_name << " with tag "
+            << tag_number << " should not have a versioned alias";
+
+        // Skip over the alias enum entry since it's already checked.
+        ++i;
+      }
+    }
+  }
+
+  {
+    LanguageOptions options;
+    options.EnableMaximumLanguageFeatures();
+    EXPECT_EQ(options.GetEnabledLanguageFeatures().size(), num_max_features);
+  }
+  {
+    LanguageOptions options;
+    options.EnableMaximumLanguageFeaturesForDevelopment();
+    EXPECT_EQ(options.GetEnabledLanguageFeatures().size(),
+              num_max_dev_features);
   }
 }
 
@@ -409,8 +492,7 @@ TEST(LanguageOptions, GetEnabledLanguageFeaturesAsString) {
             options.GetEnabledLanguageFeaturesAsString());
   options.EnableLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
   EXPECT_EQ(
-      "FEATURE_ANALYTIC_FUNCTIONS, FEATURE_TABLESAMPLE, "
-      "FEATURE_V_1_2_CIVIL_TIME",
+      "FEATURE_ANALYTIC_FUNCTIONS, FEATURE_CIVIL_TIME, FEATURE_TABLESAMPLE",
       options.GetEnabledLanguageFeaturesAsString());
 }
 

@@ -42,6 +42,7 @@
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "absl/base/macros.h"
+#include "absl/base/nullability.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -225,12 +226,12 @@ class SimpleCatalog : public EnumerableCatalog {
   void AddCatalog(absl::string_view name, Catalog* catalog)
       ABSL_LOCKS_EXCLUDED(mutex_);
   void AddCatalog(Catalog* catalog) ABSL_LOCKS_EXCLUDED(mutex_);
-  void AddOwnedCatalog(const std::string& name,
+  void AddOwnedCatalog(absl::string_view name,
                        std::unique_ptr<Catalog> catalog);
   // TODO: Cleanup callers and delete
   void AddOwnedCatalog(std::unique_ptr<Catalog> catalog)
       ABSL_LOCKS_EXCLUDED(mutex_);
-  void AddOwnedCatalog(const std::string& name, Catalog* catalog);
+  void AddOwnedCatalog(absl::string_view name, Catalog* catalog);
   void AddOwnedCatalog(Catalog* catalog) ABSL_LOCKS_EXCLUDED(mutex_);
   bool AddOwnedCatalogIfNotPresent(absl::string_view name,
                                    std::unique_ptr<Catalog> catalog)
@@ -241,10 +242,10 @@ class SimpleCatalog : public EnumerableCatalog {
       ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Functions
-  void AddFunction(const std::string& name, const Function* function)
+  void AddFunction(absl::string_view name, const Function* function)
       ABSL_LOCKS_EXCLUDED(mutex_);
   void AddFunction(const Function* function) ABSL_LOCKS_EXCLUDED(mutex_);
-  void AddOwnedFunction(const std::string& name,
+  void AddOwnedFunction(absl::string_view name,
                         std::unique_ptr<const Function> function);
   void AddOwnedFunction(std::unique_ptr<const Function> function)
       ABSL_LOCKS_EXCLUDED(mutex_);
@@ -253,7 +254,7 @@ class SimpleCatalog : public EnumerableCatalog {
                                     std::unique_ptr<Function>* function);
   // Return true if and takes ownership if actually inserted.
   bool AddOwnedFunctionIfNotPresent(std::unique_ptr<Function>* function);
-  void AddOwnedFunction(const std::string& name, const Function* function);
+  void AddOwnedFunction(absl::string_view name, const Function* function);
   void AddOwnedFunction(const Function* function) ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Table Valued Functions
@@ -293,11 +294,11 @@ class SimpleCatalog : public EnumerableCatalog {
   // Constants
   void AddConstant(absl::string_view name, const Constant* constant);
   void AddConstant(const Constant* constant) ABSL_LOCKS_EXCLUDED(mutex_);
-  void AddOwnedConstant(const std::string& name,
+  void AddOwnedConstant(absl::string_view name,
                         std::unique_ptr<const Constant> constant);
   void AddOwnedConstant(std::unique_ptr<const Constant> constant)
       ABSL_LOCKS_EXCLUDED(mutex_);
-  void AddOwnedConstant(const std::string& name, const Constant* constant);
+  void AddOwnedConstant(absl::string_view name, const Constant* constant);
   void AddOwnedConstant(const Constant* constant) ABSL_LOCKS_EXCLUDED(mutex_);
   bool AddOwnedConstantIfNotPresent(std::unique_ptr<const Constant> constant)
       ABSL_LOCKS_EXCLUDED(mutex_);
@@ -1143,7 +1144,7 @@ class SimpleColumn : public Column {
   std::string Name() const override { return name_; }
   std::string FullName() const override { return full_name_; }
   const Type* GetType() const override { return annotated_type_.type; }
-  const AnnotationMap* GetTypeAnnotationMap() const override {
+  const AnnotationMap* /*absl_nullable*/ GetTypeAnnotationMap() const override {
     return annotated_type_.annotation_map;
   }
   AnnotatedType annotated_type() const { return annotated_type_; }

@@ -22,6 +22,7 @@
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <queue>
 #include <string>
 #include <utility>
 #include <vector>
@@ -690,6 +691,27 @@ absl::Status AggregateArg::SetSchemasForEvaluation(
     group_schema_ =
         std::make_unique<const TupleSchema>(group_schema.variables());
   }
+
+  if (!order_by_keys().empty()) {
+    // If any of the order by keys are in the params then they won't affect the
+    // sort order and should be ignored since params are constant in the group.
+    std::vector<std::unique_ptr<KeyArg>> keep;
+    for (std::unique_ptr<KeyArg>& key : order_by_keys_) {
+      ZETASQL_RET_CHECK(key->has_value_expr());
+      ZETASQL_RET_CHECK(key->has_variable());
+      bool in_group_schema = true;
+      for (const TupleSchema* param_schema : params_schemas) {
+        if (param_schema->FindIndexForVariable(key->variable()).has_value()) {
+          in_group_schema = false;
+          break;
+        }
+      }
+      if (in_group_schema) {
+        keep.push_back(std::move(key));
+      }
+    }
+    order_by_keys_ = std::move(keep);
+  }
   return absl::OkStatus();
 }
 
@@ -833,17 +855,27 @@ class LimitAccumulator : public IntermediateAggregateAccumulator {
   int64_t num_rows_accumulated_ = 0;
 };
 
+static std::vector<const KeyArg*> UniquePtrSpanToPtrVector(
+    absl::Span<const std::unique_ptr<KeyArg>> keys) {
+  std::vector<const KeyArg*> ptrs;
+  ptrs.reserve(keys.size());
+  for (int i = 0; i < keys.size(); ++i) {
+    ptrs.push_back(keys[i].get());
+  }
+  return ptrs;
+}
+
 // Accumulator that orders the list of input rows to aggregate.
 class OrderByAccumulator : public IntermediateAggregateAccumulator {
  public:
   OrderByAccumulator(
-      absl::Span<const KeyArg* const> keys,
+      absl::Span<const std::unique_ptr<KeyArg>> keys,
       absl::Span<const int> slots_for_keys,
       absl::Span<const int> slots_for_values,
       absl::Span<const TupleData* const> params,
       std::unique_ptr<IntermediateAggregateAccumulator> accumulator,
       EvaluationContext* context)
-      : keys_(keys.begin(), keys.end()),
+      : keys_(keys),
         slots_for_keys_(slots_for_keys.begin(), slots_for_keys.end()),
         slots_for_values_(slots_for_values.begin(), slots_for_values.end()),
         params_(params.begin(), params.end()),
@@ -872,7 +904,8 @@ class OrderByAccumulator : public IntermediateAggregateAccumulator {
       bool /* inputs_in_defined_order */) override {
     ZETASQL_ASSIGN_OR_RETURN(
         auto tuple_comparator,
-        TupleComparator::Create(keys_, slots_for_keys_, params_, context_));
+        TupleComparator::Create(UniquePtrSpanToPtrVector(keys_),
+                                slots_for_keys_, params_, context_));
     inputs_.Sort(*tuple_comparator, context_->options().always_use_stable_sort);
 
     const bool inputs_in_defined_order = tuple_comparator->IsUniquelyOrdered(
@@ -898,7 +931,7 @@ class OrderByAccumulator : public IntermediateAggregateAccumulator {
   }
 
  private:
-  const std::vector<const KeyArg*> keys_;
+  const absl::Span<const std::unique_ptr<KeyArg>> keys_;
   const std::vector<int> slots_for_keys_;
   const std::vector<int> slots_for_values_;
   const std::vector<const TupleData*> params_;
@@ -1122,6 +1155,7 @@ class HavingExtremalValueAccumulator : public IntermediateAggregateAccumulator {
 
   absl::Status Reset() override {
     extremal_having_value_ = Value::Invalid();
+    status_ = absl::OkStatus();
     return accumulator_->Reset();
   }
 
@@ -1138,7 +1172,10 @@ class HavingExtremalValueAccumulator : public IntermediateAggregateAccumulator {
     }
     const Value& having_value = slot.value();
 
-    // Compute the new extremal having value.
+    // Compute the new extremal having value. If we hit an error in that value
+    // itself, or comparing with the current extremal value, we can't continue
+    // accumulation. So we pass the given `status` and return the error right
+    // away.
     Value new_extremal_having_value;
     if (!extremal_having_value_.is_valid()) {
       new_extremal_having_value = having_value;
@@ -1197,7 +1234,11 @@ class HavingExtremalValueAccumulator : public IntermediateAggregateAccumulator {
     if (reset) {
       extremal_having_value_ = new_extremal_having_value;
       *status = accumulator_->Reset();
-      if (!status->ok()) return false;
+      if (!status->ok()) {
+        return false;
+      }
+      // Discard any error that may have accumulated from prior extremal values.
+      status_ = absl::OkStatus();
     }
 
     // Accumulate if 'having_value' equals 'extremal_having_value_'.  NaN is not
@@ -1212,16 +1253,33 @@ class HavingExtremalValueAccumulator : public IntermediateAggregateAccumulator {
       return false;
     }
     const bool accumulate = (equals_result == Bool(true));
-    if (!accumulate) return true;
+    if (!accumulate) {
+      return true;
+    }
 
     // We can never stop accumulating because we might see another MAX/MIN
-    // later.
+    // later. If there's an error, store the status temporarily, because we
+    // may reset the value later after all, if it turns out this is not the
+    // extremal value.
+    // Note that we pass `status_`, not `status` here. We store the status to
+    // return it at GetFinalResult(), if indeed the current extremal value turns
+    // out to be the final one. Until then, we want to let accumulation continue
+    // anyway.
+
     bool dummy_stop_accumulation;
-    return accumulator_->Accumulate(input_row, value, &dummy_stop_accumulation,
-                                    status);
+    accumulator_->Accumulate(input_row, value, &dummy_stop_accumulation,
+                             &status_);
+
+    return true;
   }
 
   absl::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
+    // Return the pending error if we hit any while accumulating the current
+    // extremal value. We couldn't return it when we first saw it because we
+    // could not know at the time that the extremal value won't change later.
+    if (!status_.ok()) {
+      return status_;
+    }
     return accumulator_->GetFinalResult(inputs_in_defined_order);
   }
 
@@ -1232,6 +1290,7 @@ class HavingExtremalValueAccumulator : public IntermediateAggregateAccumulator {
   Value extremal_having_value_;
   std::unique_ptr<IntermediateAggregateAccumulator> accumulator_;
   EvaluationContext* context_;
+  absl::Status status_;
 };
 
 // Accumulator which runs an inner accumulator on only the subset of rows for
@@ -1507,11 +1566,12 @@ class GroupingAggregateArgAccumulator
 }  // namespace
 
 static absl::Status PopulateSlotsForKeysAndValues(
-    const TupleSchema& schema, absl::Span<const KeyArg* const> order_by_keys,
+    const TupleSchema& schema,
+    absl::Span<const std::unique_ptr<KeyArg>> order_by_keys,
     std::vector<int>* slots_for_keys, std::vector<int>* slots_for_values) {
   // First populate 'slots_for_keys'.
   slots_for_keys->reserve(order_by_keys.size());
-  for (const KeyArg* order_by_key : order_by_keys) {
+  for (const std::unique_ptr<KeyArg>& order_by_key : order_by_keys) {
     const std::optional<int> slot_idx =
         schema.FindIndexForVariable(order_by_key->variable());
     ZETASQL_RET_CHECK(slot_idx.has_value()).EmitStackTrace()
@@ -1752,9 +1812,10 @@ AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
       ZETASQL_RETURN_IF_ERROR(
           PopulateSlotsForKeysAndValues(*agg_fn_input_schema, order_by_keys(),
                                         &slots_for_keys, &slots_for_values));
-      ZETASQL_ASSIGN_OR_RETURN(auto tuple_comparator,
-                       TupleComparator::Create(order_by_keys(), slots_for_keys,
-                                               params, context));
+      ZETASQL_ASSIGN_OR_RETURN(
+          auto tuple_comparator,
+          TupleComparator::Create(UniquePtrSpanToPtrVector(order_by_keys()),
+                                  slots_for_keys, params, context));
       accumulator = std::make_unique<TopNAccumulator>(
           limit_val.int64_value(), std::move(tuple_comparator),
           std::move(accumulator), context);
@@ -1888,7 +1949,7 @@ std::string AggregateArg::DebugInternal(const std::string& indent,
   absl::StrAppend(&result, " := ");
 
   std::vector<std::string> order_keys_strs;
-  for (const KeyArg* order_key : order_by_keys()) {
+  for (const std::unique_ptr<KeyArg>& order_key : order_by_keys()) {
     order_keys_strs.push_back(
         order_key->DebugInternal("" /* indent */, verbose));
   }
@@ -1964,8 +2025,7 @@ AggregateArg::AggregateArg(
       distinct_(distinct),
       having_expr_(std::move(having_expr)),
       having_modifier_kind_(having_modifier_kind),
-      order_by_keys_(ReleaseAllOrderKeys(std::move(order_by_keys))),
-      order_by_keys_deleter_(&order_by_keys_),
+      order_by_keys_(std::move(order_by_keys)),
       limit_(std::move(limit)),
       group_rows_subquery_(std::move(group_rows_subquery)),
       inner_grouping_keys_(std::move(inner_grouping_keys)),
@@ -2450,6 +2510,109 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> RowsForUdaOp::CreateIterator(
 }
 
 // -------------------------------------------------------
+// GrainLockingOp
+// -------------------------------------------------------
+
+std::unique_ptr<GrainLockingOp> GrainLockingOp::Create(
+    VariableId measure_variable) {
+  return absl::WrapUnique(new GrainLockingOp(std::move(measure_variable)));
+}
+
+absl::Status GrainLockingOp::SetSchemasForEvaluation(
+    absl::Span<const TupleSchema* const> params_schemas) {
+  return absl::OkStatus();
+}
+
+absl::StatusOr<std::unique_ptr<TupleIterator>> GrainLockingOp::CreateIterator(
+    absl::Span<const TupleData* const> params, int num_extra_slots,
+    EvaluationContext* context) const {
+  if (context->active_group_rows() == nullptr) {
+    return zetasql_base::OutOfRangeErrorBuilder()
+           << "GrainLockingOp: Cannot read rows from the current context";
+  }
+  ZETASQL_RET_CHECK_EQ(num_extra_slots, 0);
+
+  auto input_iter = std::make_unique<TupleDataDequeIterator>(
+      *context->active_group_rows(), num_extra_slots, CreateOutputSchema(),
+      context);
+  // `grain_locking_keys_set` is used to deduplicate input tuples with the same
+  // grain locking key values.
+  absl::flat_hash_set<TupleDataPtr> grain_locking_keys_set;
+  // `grain_locking_keys_memory` owns the memory referenced by
+  // `grain_locking_keys_set`.
+  std::vector<std::unique_ptr<TupleData>> grain_locking_keys_memory;
+  // `grain_locked_tuples` are the tuples output by this operator.
+  auto grain_locked_tuples =
+      std::make_unique<TupleDataDeque>(context->memory_accountant());
+  for (const TupleData* next_input = input_iter->Next(); next_input != nullptr;
+       next_input = input_iter->Next()) {
+    // Should be only one slot for the measure variable.
+    ZETASQL_RET_CHECK_EQ(next_input->num_slots(), 1);
+    const Value& measure_value = next_input->slot(0).value();
+    // Measure value is NULL. This can only happen if the measure propagated
+    // past an OUTER JOIN, which is currently blocked on implementation support
+    // for aggregate filtering. Once aggregate filtering is supported, we can
+    // remove this restriction and just skip NULL measure values.
+    ZETASQL_RET_CHECK(!measure_value.is_null());
+
+    // Create a TupleData for the grain locking keys.
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::vector<int> grain_locking_indices,
+        InternalValue::GetMeasureGrainLockingIndices(measure_value));
+    auto grain_locking_keys_data =
+        std::make_unique<TupleData>(grain_locking_indices.size());
+    ZETASQL_ASSIGN_OR_RETURN(Value measure_value_as_struct,
+                     InternalValue::GetMeasureAsStructValue(measure_value));
+    for (int i = 0; i < grain_locking_indices.size(); ++i) {
+      grain_locking_keys_data->mutable_slot(i)->SetValue(
+          measure_value_as_struct.field(grain_locking_indices[i]));
+    }
+
+    // Insert the `grain_locking_keys_data` and `measure_value` into the map.
+    auto [_, inserted] = grain_locking_keys_set.emplace(
+        TupleDataPtr(grain_locking_keys_data.get()));
+    grain_locking_keys_memory.push_back(std::move(grain_locking_keys_data));
+
+    // If the grain locking keys are new, add the input tuple to
+    // `grain_locked_tuples`.
+    if (inserted) {
+      absl::Status status;
+      if (!grain_locked_tuples->PushBack(
+              std::make_unique<TupleData>(*next_input), &status)) {
+        return status;
+      }
+    }
+  }
+  ZETASQL_RETURN_IF_ERROR(input_iter->Status());
+
+  // Return an iterator over the grain locked tuples.
+  std::unique_ptr<TupleIterator> grain_locked_tuples_iter =
+      std::make_unique<AggregateTupleIterator>(
+          params, std::move(grain_locked_tuples), std::move(input_iter),
+          CreateOutputSchema(), context);
+  return MaybeReorder(std::move(grain_locked_tuples_iter), context);
+}
+
+// Returns the schema consisting of variables corresponding to the
+// list of argument names passed to the constructor.
+std::unique_ptr<TupleSchema> GrainLockingOp::CreateOutputSchema() const {
+  return std::make_unique<TupleSchema>(
+      std::vector<VariableId>{measure_variable_});
+}
+
+std::string GrainLockingOp::IteratorDebugString() const {
+  return "GrainLocking=TupleIterator(<outer_from_clause>)";
+}
+
+std::string GrainLockingOp::DebugInternal(const std::string& indent,
+                                          bool verbose) const {
+  return absl::StrCat(indent, "GrainLockingOp");
+}
+
+GrainLockingOp::GrainLockingOp(VariableId measure_variable)
+    : measure_variable_(measure_variable) {}
+
+// -------------------------------------------------------
 // GraphPathSearchOp
 // -------------------------------------------------------
 
@@ -2564,7 +2727,7 @@ GraphPathSearchOp::CreateIterator(absl::Span<const TupleData* const> params,
     }
   }
   // The key's memory is owned by the <group_keys_memory> defined below.
-  absl::flat_hash_map<TupleDataPtr, SelectedPathsInPartition>
+  absl::flat_hash_map<TupleDataPtr, std::vector<PathWithCost>>
       group_key_to_selected_path;
   std::vector<std::unique_ptr<TupleData>> group_keys_memory;
   ZETASQL_ASSIGN_OR_RETURN(
@@ -2581,47 +2744,45 @@ GraphPathSearchOp::CreateIterator(absl::Span<const TupleData* const> params,
     }
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TupleData> group_key,
                      BuildHeadAndTailAsGroupKey(next_input));
-    SelectedPathsInPartition* found_selected_path = zetasql_base::FindOrNull(
+    std::vector<PathWithCost>* found_selected_path = zetasql_base::FindOrNull(
         group_key_to_selected_path, TupleDataPtr(group_key.get()));
     if (found_selected_path == nullptr) {
-      // Create a new SelectedPathsInPartition and insert it into the map.
+      // Create a new vector of paths and insert it into the map.
       ZETASQL_ASSIGN_OR_RETURN(const int path_len, GetPathLength(next_input));
       auto copied_path = std::make_unique<TupleData>(next_input->slots());
-      std::vector<std::unique_ptr<TupleData>> copied_path_vector;
-      copied_path_vector.push_back(std::move(copied_path));
-      absl::btree_map<int, std::vector<std::unique_ptr<TupleData>>>
-          path_length_to_paths;
-      path_length_to_paths.emplace(path_len, std::move(copied_path_vector));
-      group_key_to_selected_path.emplace(
-          TupleDataPtr(group_key.get()),
-          SelectedPathsInPartition{std::move(path_length_to_paths),
-                                   /*path_count=*/1,
-                                   /*detected_tie=*/false});
+      std::vector<PathWithCost> all_paths;
+      PathWithCost path_with_cost = {.cost = Value::Int64(path_len),
+                                     .path = std::move(copied_path)};
+      all_paths.push_back(std::move(path_with_cost));
+      group_key_to_selected_path.emplace(TupleDataPtr(group_key.get()),
+                                         std::move(all_paths));
       group_keys_memory.push_back(std::move(group_key));
     } else {
-      ZETASQL_RETURN_IF_ERROR(MaybeUpdateSelectedPath(*found_selected_path, next_input,
-                                              context, path_count_value));
+      ZETASQL_RETURN_IF_ERROR(AddPathWithCost(*found_selected_path, next_input, context,
+                                      path_count_value));
     }
   }
 
   // Build the tuples for return.
   auto tuples = std::make_unique<TupleDataDeque>(context->memory_accountant());
-  for (auto& [unused_key, selected_paths_in_partition] :
+  for (auto& [unused_key, all_paths_in_partition] :
        group_key_to_selected_path) {
-    if (selected_paths_in_partition.detected_tie) {
+    ZETASQL_RETURN_IF_ERROR(MaybeSortPaths(all_paths_in_partition));
+    // TODO: b/407573170 - Move the logic to detect non-determinism to the
+    // iterator's Next() method instead.
+    if (!IsOutputDeterministic(all_paths_in_partition, path_count_value)) {
       context->SetNonDeterministicOutput();
     }
     int64_t num_paths_processed = 0;
-    for (auto& [unused_path_len, paths] :
-         selected_paths_in_partition.path_length_to_paths) {
-      for (auto& path : paths) {
-        path->AddSlots(num_extra_slots);
-        absl::Status status;
-        if (!tuples->PushBack(std::move(path), &status)) {
-          return status;
-        }
-        ++num_paths_processed;
+    while (num_paths_processed < path_count_value &&
+           num_paths_processed < all_paths_in_partition.size()) {
+      auto& path = all_paths_in_partition[num_paths_processed].path;
+      path->AddSlots(num_extra_slots);
+      absl::Status status;
+      if (!tuples->PushBack(std::move(path), &status)) {
+        return status;
       }
+      ++num_paths_processed;
     }
     ZETASQL_RET_CHECK_LE(num_paths_processed, path_count_value);
   }
@@ -2652,39 +2813,31 @@ GraphShortestPathSearchOp::Create(std::unique_ptr<RelationalOp> path_op,
       new GraphShortestPathSearchOp(std::move(path_op), std::move(path_count)));
 }
 
-absl::Status GraphShortestPathSearchOp::MaybeUpdateSelectedPath(
-    GraphPathSearchOp::SelectedPathsInPartition& selected_paths,
-    const TupleData* next_input, EvaluationContext* context,
-    int64_t max_path_count) const {
-  if (selected_paths.path_count >= max_path_count) {
-    int prev_max_len = selected_paths.path_length_to_paths.rbegin()->first;
-    ZETASQL_ASSIGN_OR_RETURN(const int next_input_len, GetPathLength(next_input));
-    if (next_input_len < prev_max_len) {
-      // Push new path only if it is shorter than the current longest path,
-      // then we know it must be in the shortest K.
-      selected_paths.path_length_to_paths[next_input_len].push_back(
-          std::make_unique<TupleData>(next_input->slots()));
-      // Remove one of the current longest paths.
-      ZETASQL_RET_CHECK_GT(selected_paths.path_length_to_paths[prev_max_len].size(), 0);
-      selected_paths.path_length_to_paths[prev_max_len].pop_back();
-      if (selected_paths.path_length_to_paths[prev_max_len].empty()) {
-        selected_paths.path_length_to_paths.erase(prev_max_len);
-        selected_paths.detected_tie = false;
-      } else {
-        selected_paths.detected_tie = true;
-      }
-    } else if (next_input_len == prev_max_len) {
-      // Don't replace the path, but note that we have a tie.
-      selected_paths.detected_tie = true;
-    }
-  } else {
-    ++selected_paths.path_count;
-    ZETASQL_ASSIGN_OR_RETURN(const int next_input_len, GetPathLength(next_input));
-    auto copied_path = std::make_unique<TupleData>(next_input->slots());
-    selected_paths.path_length_to_paths[next_input_len].push_back(
-        std::move(copied_path));
-  }
+absl::Status GraphShortestPathSearchOp::AddPathWithCost(
+    std::vector<PathWithCost>& all_paths, const TupleData* next_input,
+    EvaluationContext* context, int64_t max_path_count) const {
+  ZETASQL_ASSIGN_OR_RETURN(const int next_input_len, GetPathLength(next_input));
+  auto copied_path = std::make_unique<TupleData>(next_input->slots());
+  all_paths.emplace_back(PathWithCost{.cost = Value::Int64(next_input_len),
+                                      .path = std::move(copied_path)});
   return absl::OkStatus();
+}
+
+absl::Status GraphShortestPathSearchOp::MaybeSortPaths(
+    std::vector<PathWithCost>& all_paths) const {
+  // Sort the paths in ascending order of cost.
+  std::stable_sort(all_paths.begin(), all_paths.end());
+  return absl::OkStatus();
+}
+
+bool GraphShortestPathSearchOp::IsOutputDeterministic(
+    std::vector<PathWithCost>& paths, int64_t path_count) const {
+  if (paths.size() <= path_count) {
+    return true;
+  }
+  // SHORTEST k is deterministic if the kth shortest path could be replaced by
+  // the (k+1)th shortest path.
+  return !paths[path_count - 1].cost.Equals(paths[path_count].cost);
 }
 
 std::string GraphShortestPathSearchOp::DebugInternal(const std::string& indent,
@@ -2702,20 +2855,25 @@ absl::StatusOr<std::unique_ptr<GraphPathSearchOp>> GraphAnyPathSearchOp::Create(
       new GraphAnyPathSearchOp(std::move(path_op), std::move(path_count)));
 }
 
-absl::Status GraphAnyPathSearchOp::MaybeUpdateSelectedPath(
-    GraphPathSearchOp::SelectedPathsInPartition& selected_paths,
-    const TupleData* next_input, EvaluationContext* context,
-    int64_t max_path_count) const {
-  if (selected_paths.path_count >= max_path_count) {
-    selected_paths.detected_tie = true;
-  } else {
-    ++selected_paths.path_count;
-    ZETASQL_ASSIGN_OR_RETURN(const int next_input_len, GetPathLength(next_input));
-    auto copied_path = std::make_unique<TupleData>(next_input->slots());
-    selected_paths.path_length_to_paths[next_input_len].push_back(
-        std::move(copied_path));
-  }
+absl::Status GraphAnyPathSearchOp::AddPathWithCost(
+    std::vector<PathWithCost>& all_paths, const TupleData* next_input,
+    EvaluationContext* context, int64_t max_path_count) const {
+  ZETASQL_ASSIGN_OR_RETURN(const int next_input_len, GetPathLength(next_input));
+  auto copied_path = std::make_unique<TupleData>(next_input->slots());
+  all_paths.emplace_back(PathWithCost{.cost = Value::Int64(next_input_len),
+                                      .path = std::move(copied_path)});
   return absl::OkStatus();
+}
+
+absl::Status GraphAnyPathSearchOp::MaybeSortPaths(
+    std::vector<PathWithCost>& all_paths) const {
+  // Do not perform any sorting.
+  return absl::OkStatus();
+}
+
+bool GraphAnyPathSearchOp::IsOutputDeterministic(
+    std::vector<PathWithCost>& paths, int64_t path_count) const {
+  return paths.size() <= path_count;
 }
 
 std::string GraphAnyPathSearchOp::DebugInternal(const std::string& indent,

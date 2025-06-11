@@ -400,6 +400,23 @@ Algebrizer::AlgebrizeGraphTableScan(
       active_conjuncts);
 }
 
+absl::StatusOr<std::unique_ptr<RelationalOp>>
+Algebrizer::AlgebrizeGraphCallScan(
+    const ResolvedGraphCallScan* call_scan,
+    std::vector<FilterConjunctInfo*>* active_conjuncts) {
+  // This is just a CrossApply or OuterApply operation.
+  const ResolvedScan* right_scan = call_scan->subquery();
+  auto right_scan_algebrizer_cb =
+      [this, right_scan](std::vector<FilterConjunctInfo*>* active_conjuncts) {
+        return AlgebrizeScan(right_scan, active_conjuncts);
+      };
+  return AlgebrizeJoinScanInternal(
+      call_scan->optional() ? JoinOp::kOuterApply : JoinOp::kCrossApply,
+      /*join_expr=*/nullptr, call_scan->input_scan(),
+      call_scan->subquery()->column_list(), right_scan_algebrizer_cb,
+      active_conjuncts);
+}
+
 absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeGraphRefScan(
     const ResolvedGraphRefScan* graph_ref_scan) {
   ZETASQL_RET_CHECK(graph_ref_scan != nullptr);
@@ -856,6 +873,19 @@ Algebrizer::AlgebrizeGraphElementScan(
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> relational_op,
                      AlgebrizeGraphElementTableScan(
                          element_variable, element_type, element_table));
+    if (element_table->HasDynamicLabel()) {
+      // For element table that had dynamic label, we will need to have extra
+      // runtime filtering on label expr.
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<DerefExpr> deref,
+                       DerefExpr::Create(element_variable, element_type));
+      ZETASQL_ASSIGN_OR_RETURN(auto is_labeled_predicate,
+                       GraphIsLabeledExpr::Create(std::move(deref),
+                                                  element_scan->label_expr(),
+                                                  /*is_negated=*/false));
+      ZETASQL_ASSIGN_OR_RETURN(relational_op,
+                       FilterOp::Create(std::move(is_labeled_predicate),
+                                        std::move(relational_op)));
+    }
     ZETASQL_ASSIGN_OR_RETURN(union_members.emplace_back(),
                      BuildUnionAllInput(element_variable, element_type,
                                         std::move(relational_op)));
@@ -888,6 +918,30 @@ absl::Status Algebrizer::AlgebrizeExpressionList(
     output_value_list.push_back(std::move(value_expr));
   }
   return absl::OkStatus();
+}
+
+absl::StatusOr<std::unique_ptr<ValueExpr>>
+Algebrizer::AlgebrizeDynamicProperties(const GraphElementType* element_type,
+                                       const ResolvedExpr* resolved_expr) {
+  std::unique_ptr<ValueExpr> dynamic_property_expr;
+  if (element_type->is_dynamic()) {
+    if (resolved_expr != nullptr) {
+      ZETASQL_ASSIGN_OR_RETURN(dynamic_property_expr,
+                       AlgebrizeExpression(resolved_expr));
+    } else {
+      ZETASQL_ASSIGN_OR_RETURN(dynamic_property_expr,
+                       ConstExpr::Create(Value::Json(JSONValue())));
+    }
+  }
+  return dynamic_property_expr;
+}
+
+absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeDynamicLabel(
+    const ResolvedExpr* resolved_expr) {
+  if (resolved_expr == nullptr) {
+    return nullptr;
+  }
+  return AlgebrizeExpression(resolved_expr);
 }
 
 absl::StatusOr<std::unique_ptr<NewGraphElementExpr>>
@@ -933,9 +987,15 @@ Algebrizer::AlgebrizeGraphMakeElement(
 
   const GraphElementType* element_type =
       make_graph_element->type()->AsGraphElement();
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> dynamic_property_expr,
+                   AlgebrizeDynamicProperties(
+                       element_type, make_graph_element->dynamic_properties()));
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> dynamic_label_expr,
+                   AlgebrizeDynamicLabel(make_graph_element->dynamic_labels()));
   return NewGraphElementExpr::Create(
       element_type, make_graph_element->identifier()->element_table(),
       std::move(key), std::move(properties),
+      std::move(dynamic_property_expr), std::move(dynamic_label_expr),
       std::move(src_node_key), std::move(dest_node_key));
 }
 
@@ -945,7 +1005,18 @@ Algebrizer::AlgebrizeGraphGetElementProperty(
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> value,
                    AlgebrizeExpression(get_graph_element_property->expr()));
   std::string property_name;
+  if (get_graph_element_property->property() != nullptr) {
     property_name = get_graph_element_property->property()->Name();
+    if (get_graph_element_property->property_name() != nullptr) {
+      get_graph_element_property->property_name()->MarkFieldsAccessed();
+    }
+  } else {
+    const ResolvedExpr* expr = get_graph_element_property->property_name();
+    ZETASQL_RET_CHECK_NE(expr, nullptr);
+    ZETASQL_RET_CHECK(expr->Is<ResolvedLiteral>());
+    ZETASQL_RET_CHECK(expr->GetAs<ResolvedLiteral>()->type()->IsString());
+    property_name = expr->GetAs<ResolvedLiteral>()->value().string_value();
+  }
   return GraphGetElementPropertyExpr::Create(get_graph_element_property->type(),
                                              property_name, std::move(value));
 }
@@ -1069,10 +1140,30 @@ absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::ComputeGraphElements(
                                          *dest_node_vars));
   }
 
+  const ResolvedExpr* resolved_dynamic_prop_expr = nullptr;
+  if (element_table->HasDynamicProperties()) {
+    const GraphDynamicProperties* dynamic_properties;
+    ZETASQL_RETURN_IF_ERROR(element_table->GetDynamicProperties(dynamic_properties));
+    ZETASQL_ASSIGN_OR_RETURN(resolved_dynamic_prop_expr,
+                     dynamic_properties->GetValueExpression());
+  }
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<ValueExpr> dynamic_property_expr,
+      AlgebrizeDynamicProperties(element_type, resolved_dynamic_prop_expr));
+  const ResolvedExpr* resolved_dynamic_label_expr = nullptr;
+  if (element_table->HasDynamicLabel()) {
+    const GraphDynamicLabel* dynamic_label;
+    ZETASQL_RETURN_IF_ERROR(element_table->GetDynamicLabel(dynamic_label));
+    ZETASQL_ASSIGN_OR_RETURN(resolved_dynamic_label_expr,
+                     dynamic_label->GetValueExpression());
+  }
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> dynamic_label_expr,
+                   AlgebrizeDynamicLabel(resolved_dynamic_label_expr));
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<ValueExpr> make_graph_element_expr,
       NewGraphElementExpr::Create(
           element_type, element_table, std::move(keys), std::move(properties),
+          std::move(dynamic_property_expr), std::move(dynamic_label_expr),
           std::move(src_node_key), std::move(dest_node_key)));
 
   std::vector<std::unique_ptr<ExprArg>> element_projection_arg;
@@ -1124,26 +1215,6 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeArrayAggregate(
         column_to_variable_->AssignNewVariableToColumn(
             computed_column->column()),
         std::move(argument)));
-  }
-  // We recompute the columns referenced in the ORDER BY to force them into
-  // AggregateArg's group schema. We only look at the group schema when
-  // evaluating ORDER BY columns and without this, queries like:
-  //   LET x = 1 LET arr = [1,2,3] LET result = ARRAY_AGG(arr ORDER BY x)
-  // aren't able to find the variable `x`. The group schema that we're passing
-  // to AggregateArg is the element_variable, the variables in expr_list, and
-  // the position_variable (see ArrayAggregateExpr::SetSchemaForEvaluation).
-  absl::flat_hash_set<ResolvedColumn> seen_order_by_columns;
-  for (const std::unique_ptr<const ResolvedOrderByItem>& order_by_item :
-       array_aggregate->aggregate()->order_by_item_list()) {
-    if (seen_order_by_columns.insert(order_by_item->column_ref()->column())
-            .second) {
-      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> order_by_expr,
-                       AlgebrizeExpression(order_by_item->column_ref()));
-      expr_list.push_back(std::make_unique<ExprArg>(
-          column_to_variable_->GetVariableNameFromColumn(
-              order_by_item->column_ref()->column()),
-          std::move(order_by_expr)));
-    }
   }
   std::vector<std::unique_ptr<ValueExpr>> arguments;
   for (const std::unique_ptr<const ResolvedExpr>& argument_expr :

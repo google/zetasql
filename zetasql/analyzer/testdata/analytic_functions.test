@@ -401,7 +401,7 @@ select afn_agg(distinct Int32Array) over () from ComplexTypes
        ^
 ==
 
-[language_features={{ANALYTIC_FUNCTIONS|ANALYTIC_FUNCTIONS,V_1_2_GROUP_BY_STRUCT}}]
+[language_features={{ANALYTIC_FUNCTIONS|ANALYTIC_FUNCTIONS,GROUP_BY_STRUCT}}]
 select afn_agg(distinct TestStruct) over () from ComplexTypes
 --
 ALTERNATION GROUP: ANALYTIC_FUNCTIONS
@@ -410,7 +410,7 @@ ERROR: Analytic aggregate functions with DISTINCT cannot be used with arguments 
 select afn_agg(distinct TestStruct) over () from ComplexTypes
        ^
 --
-ALTERNATION GROUP: ANALYTIC_FUNCTIONS,V_1_2_GROUP_BY_STRUCT
+ALTERNATION GROUP: ANALYTIC_FUNCTIONS,GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -1913,39 +1913,39 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$analytic.$analytic1#21)
 ==
 
-[language_features=ANALYTIC_FUNCTIONS,V_1_1_ORDER_BY_IN_AGGREGATE]
+[language_features=ANALYTIC_FUNCTIONS,ORDER_BY_IN_AGGREGATE]
 select afn_agg(key order by value) over ()
 from KeyValue;
 --
-ERROR: ORDER BY in arguments is not supported on analytic functions [at 1:8]
+ERROR: ORDER BY in arguments is not supported on analytic functions [at 1:20]
 select afn_agg(key order by value) over ()
-       ^
+                   ^
 ==
 
-[language_features=ANALYTIC_FUNCTIONS,V_1_1_LIMIT_IN_AGGREGATE]
+[language_features=ANALYTIC_FUNCTIONS,LIMIT_IN_AGGREGATE]
 select afn_agg(key limit 3) over ()
 from KeyValue;
 --
-ERROR: LIMIT in arguments is not supported on analytic functions [at 1:8]
+ERROR: LIMIT in arguments is not supported on analytic functions [at 1:20]
 select afn_agg(key limit 3) over ()
-       ^
+                   ^
 ==
 
-[language_features=ANALYTIC_FUNCTIONS,V_1_1_HAVING_IN_AGGREGATE]
+[language_features=ANALYTIC_FUNCTIONS,HAVING_IN_AGGREGATE]
 select afn_agg(key having max value) over ()
 from KeyValue;
 --
-ERROR: HAVING modifier is not supported on analytic functions [at 1:8]
+ERROR: HAVING modifier is not supported on analytic functions [at 1:20]
 select afn_agg(key having max value) over ()
-       ^
+                   ^
 ==
 
 # Analytic function with IGNORE NULLS.
-[language_features=ANALYTIC_FUNCTIONS{{,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
+[language_features=ANALYTIC_FUNCTIONS{{,NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
 select afn_null_handling(key ignore nulls) over ()
 from KeyValue;
 --
-ALTERNATION GROUP: ,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC
+ALTERNATION GROUP: ,NULL_HANDLING_MODIFIER_IN_ANALYTIC
 --
 QueryStmt
 +-output_column_list=
@@ -1974,12 +1974,12 @@ select afn_null_handling(key ignore nulls) over ()
 ==
 
 # Analytic function with RESPECT NULLS.
-[language_features=ANALYTIC_FUNCTIONS{{,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
+[language_features=ANALYTIC_FUNCTIONS{{,NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
 
 select afn_null_handling(key respect nulls) over ()
 from KeyValue;
 --
-ALTERNATION GROUP: ,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC
+ALTERNATION GROUP: ,NULL_HANDLING_MODIFIER_IN_ANALYTIC
 --
 QueryStmt
 +-output_column_list=
@@ -2008,7 +2008,7 @@ select afn_null_handling(key respect nulls) over ()
 ==
 
 # Analytic function with DISTINCT and IGNORE NULLS.
-[language_features=ANALYTIC_FUNCTIONS,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC]
+[language_features=ANALYTIC_FUNCTIONS,NULL_HANDLING_MODIFIER_IN_ANALYTIC]
 select afn_null_handling(distinct key ignore nulls) over ()
 from KeyValue;
 --
@@ -2034,7 +2034,7 @@ QueryStmt
 ==
 
 # Analytic function with DISTINCT, multiple arguments and RESPECT NULLS.
-[language_features=ANALYTIC_FUNCTIONS,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC]
+[language_features=ANALYTIC_FUNCTIONS,NULL_HANDLING_MODIFIER_IN_ANALYTIC]
 select afn_null_handling(distinct key, value respect nulls) over ()
 from KeyValue;
 --
@@ -2061,7 +2061,7 @@ QueryStmt
 ==
 
 # Analytic function with IGNORE NULLS and window ORDER BY.
-[language_features=ANALYTIC_FUNCTIONS,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC]
+[language_features=ANALYTIC_FUNCTIONS,NULL_HANDLING_MODIFIER_IN_ANALYTIC]
 select afn_null_handling(key ignore nulls) over (order by value)
 from KeyValue;
 --
@@ -2092,7 +2092,7 @@ QueryStmt
 ==
 
 # Analytic function with multiple arguments RESPECT NULLS and window ORDER BY.
-[language_features=ANALYTIC_FUNCTIONS,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC]
+[language_features=ANALYTIC_FUNCTIONS,NULL_HANDLING_MODIFIER_IN_ANALYTIC]
 select afn_null_handling(key, value respect nulls) over (order by value)
 from KeyValue;
 --
@@ -2124,11 +2124,11 @@ QueryStmt
 ==
 
 # Unsupported analytic function with IGNORE NULLS.
-[language_features=ANALYTIC_FUNCTIONS{{,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
+[language_features=ANALYTIC_FUNCTIONS{{,NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
 select afn_agg(key ignore nulls) over ()
 from KeyValue;
 --
-ALTERNATION GROUP: ,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC
+ALTERNATION GROUP: ,NULL_HANDLING_MODIFIER_IN_ANALYTIC
 --
 ERROR: IGNORE NULLS and RESPECT NULLS are not allowed for analytic function SAMPLE_FUNCTIONS:AFN_AGG [at 1:8]
 select afn_agg(key ignore nulls) over ()
@@ -2142,12 +2142,12 @@ select afn_agg(key ignore nulls) over ()
 ==
 
 # Analytic function with RESPECT NULLS.
-[language_features=ANALYTIC_FUNCTIONS{{,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
+[language_features=ANALYTIC_FUNCTIONS{{,NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
 
 select afn_agg(key respect nulls) over ()
 from KeyValue;
 --
-ALTERNATION GROUP: ,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC
+ALTERNATION GROUP: ,NULL_HANDLING_MODIFIER_IN_ANALYTIC
 --
 ERROR: IGNORE NULLS and RESPECT NULLS are not allowed for analytic function SAMPLE_FUNCTIONS:AFN_AGG [at 1:8]
 select afn_agg(key respect nulls) over ()
@@ -2171,7 +2171,7 @@ select garbage(*) over ()
 ==
 
 # IGNORE/RESPECT NULLS not allowed in analytic COUNT(*)
-[language_features=ANALYTIC_FUNCTIONS,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC]
+[language_features=ANALYTIC_FUNCTIONS,NULL_HANDLING_MODIFIER_IN_ANALYTIC]
 select
   {{count|anon_count}}(* {{ignore|respect}} nulls) over ()
 from KeyValue;
@@ -2305,7 +2305,7 @@ SELECT key, NTILE(3) OVER (ORDER BY value ROWS 2 PRECEDING)
                                           ^
 ==
 
-[language_features=ANALYTIC_FUNCTIONS{{|,V_1_1_ORDER_BY_COLLATE}}]
+[language_features=ANALYTIC_FUNCTIONS{{|,ORDER_BY_COLLATE}}]
 SELECT key, {{DENSE_RANK()|CUME_DIST()|PERCENT_RANK()|RANK()|NTILE(3)}} OVER (ORDER BY value COLLATE 'en_US')
 FROM KeyValue
 --
@@ -2340,7 +2340,7 @@ ERROR: COLLATE is not supported [at 1:43]
 SELECT key, NTILE(3) OVER (ORDER BY value COLLATE 'en_US')
                                           ^
 --
-ALTERNATION GROUP: ,V_1_1_ORDER_BY_COLLATE,DENSE_RANK()
+ALTERNATION GROUP: ,ORDER_BY_COLLATE,DENSE_RANK()
 --
 QueryStmt
 +-output_column_list=
@@ -2367,7 +2367,7 @@ QueryStmt
             +-analytic_function_list=
               +-$analytic1#4 := AnalyticFunctionCall(ZetaSQL:dense_rank() -> INT64)
 --
-ALTERNATION GROUP: ,V_1_1_ORDER_BY_COLLATE,CUME_DIST()
+ALTERNATION GROUP: ,ORDER_BY_COLLATE,CUME_DIST()
 --
 QueryStmt
 +-output_column_list=
@@ -2394,7 +2394,7 @@ QueryStmt
             +-analytic_function_list=
               +-$analytic1#4 := AnalyticFunctionCall(ZetaSQL:cume_dist() -> DOUBLE)
 --
-ALTERNATION GROUP: ,V_1_1_ORDER_BY_COLLATE,PERCENT_RANK()
+ALTERNATION GROUP: ,ORDER_BY_COLLATE,PERCENT_RANK()
 --
 QueryStmt
 +-output_column_list=
@@ -2421,7 +2421,7 @@ QueryStmt
             +-analytic_function_list=
               +-$analytic1#4 := AnalyticFunctionCall(ZetaSQL:percent_rank() -> DOUBLE)
 --
-ALTERNATION GROUP: ,V_1_1_ORDER_BY_COLLATE,RANK()
+ALTERNATION GROUP: ,ORDER_BY_COLLATE,RANK()
 --
 QueryStmt
 +-output_column_list=
@@ -2448,7 +2448,7 @@ QueryStmt
             +-analytic_function_list=
               +-$analytic1#4 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
 --
-ALTERNATION GROUP: ,V_1_1_ORDER_BY_COLLATE,NTILE(3)
+ALTERNATION GROUP: ,ORDER_BY_COLLATE,NTILE(3)
 --
 QueryStmt
 +-output_column_list=
@@ -2683,3 +2683,155 @@ ALTERNATION GROUP: partition
 ERROR: Aggregations of aggregations are not allowed [at 3:53]
 order by count(*) over (partition by s_cnt.cnt, sum(s_cnt.cnt))
                                                     ^
+==
+
+[language_features=ANALYTIC_FUNCTIONS,AGGREGATE_FILTERING]
+select avg(key WHERE key < 10) over ()
+from KeyValue
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(ZetaSQL:avg(INT64) -> DOUBLE)
+                  +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                  +-where_expr=
+                  | +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+                  |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                  |   +-Literal(type=INT64, value=10)
+                  +-window_frame=
+                    +-WindowFrame(frame_unit=ROWS)
+                      +-start_expr=
+                      | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                      +-end_expr=
+                        +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+==
+
+# WHERE expr on analytic function: works for aggregate, but not for others (at
+# least for the moment)
+[language_features=ANALYTIC_FUNCTIONS,AGGREGATE_FILTERING]
+select first_value(sum(key) WHERE length(value) < 10) over (order by value)
+from KeyValue
+group by value
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#6 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#6]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[$groupby.value#5, $aggregate.$agg1#3, $analytic.$analytic1#6]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$groupby.value#5, $aggregate.$agg1#3]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        |   +-group_by_list=
+        |   | +-value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        |   +-aggregate_list=
+        |     +-$agg1#3 :=
+        |       +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |         +-ColumnRef(type=STRING, column=$groupby.value#5)
+            +-analytic_function_list=
+              +-$analytic1#6 :=
+                +-AnalyticFunctionCall(ZetaSQL:first_value(INT64) -> INT64)
+                  +-ColumnRef(type=INT64, column=$aggregate.$agg1#3)
+                  +-where_expr=
+                  | +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+                  |   +-FunctionCall(ZetaSQL:length(STRING) -> INT64)
+                  |   | +-ColumnRef(type=STRING, column=$groupby.value#5)
+                  |   +-Literal(type=INT64, value=10)
+                  +-window_frame=
+                    +-WindowFrame(frame_unit=RANGE)
+                      +-start_expr=
+                      | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                      +-end_expr=
+                        +-WindowFrameExpr(boundary_type=CURRENT ROW)
+==
+
+# ROW_NUMBER(), RANK(), etc should not accept WHERE as the result isn't meaningful
+# Same but with other functions which take no args
+# WHERE expr on analytic function: works for aggregate, but not for others (at
+# least for the moment)
+[language_features=ANALYTIC_FUNCTIONS,AGGREGATE_FILTERING]
+select {{row_number|rank}}(WHERE key < 10) over (ORDER BY value)
+from KeyValue
+--
+ALTERNATION GROUP: row_number
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+                  +-where_expr=
+                    +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+                      +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                      +-Literal(type=INT64, value=10)
+--
+ALTERNATION GROUP: rank
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
+                  +-where_expr=
+                    +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+                      +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                      +-Literal(type=INT64, value=10)

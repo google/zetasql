@@ -30,15 +30,38 @@ namespace zetasql {
 
 class Function;
 class ResolvedExpr;
+class ResolvedGraphGetElementProperty;
 
 // Helper function that is used to determine a type is or contains in its
 // nesting structure a GraphElement or GraphPath type.
 bool TypeIsOrContainsGraphElement(const Type* type);
 
+// Helper function that returns the property name from a get element property
+// node.
+absl::StatusOr<std::string> GetPropertyName(
+    const ResolvedGraphGetElementProperty* node);
+
 // Helper function that merges a list of properties to a JSON value.
+// The JSON value is used to represent dynamic properties of a dynamic graph
+// element.
 absl::StatusOr<JSONValue> MakePropertiesJsonValue(
     absl::Span<Value::Property> properties,
     const LanguageOptions& language_options);
+
+// Returns true if any dynamic property specifications is found.
+// Extracts all conjuncts from `filter_expr` that are either dynamic or static
+// property specifications into `property_specifications`. Place the rest of
+// the conjuncts into `remaining_conjuncts`.
+absl::StatusOr<bool> ContainsDynamicPropertySpecification(
+    const ResolvedExpr* filter_expr,
+    std::vector<const ResolvedExpr*>& property_specifications,
+    std::vector<const ResolvedExpr*>& remaining_conjuncts);
+
+// Returns a vector of property name and value pairs from `exprs`.
+// REQUIRES: each expr in `exprs` can be converted to either dynamic or static
+// property specifications.
+absl::StatusOr<std::vector<std::pair<std::string, const ResolvedExpr*>>>
+ToPropertySpecifications(std::vector<const ResolvedExpr*> exprs);
 
 }  // namespace zetasql
 

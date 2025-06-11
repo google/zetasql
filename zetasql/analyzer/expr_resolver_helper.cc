@@ -306,9 +306,12 @@ ExprResolutionInfo::ExprResolutionInfo(
       column_alias(options.column_alias),
       allows_horizontal_aggregation(
           options.allows_horizontal_aggregation.value_or(false)),
-      horizontal_aggregation_info(options.horizontal_aggregation_info),
-      in_horizontal_aggregation(
-          options.in_horizontal_aggregation.value_or(false)) {
+      horizontal_aggregation_info(),
+      in_horizontal_aggregation(false),
+      in_match_recognize_define(
+          options.in_match_recognize_define.value_or(false)),
+      nearest_enclosing_physical_nav_op(
+          options.nearest_enclosing_physical_nav_op) {
   ABSL_DCHECK(options.name_scope == nullptr)
       << "Pass name_scope in the required argument, not in options";
 }
@@ -355,8 +358,10 @@ ExprResolutionInfo::ExprResolutionInfo(ExprResolutionInfo* parent,
       column_alias(!options.column_alias.empty() ? options.column_alias
                                                  : parent->column_alias),
       ARG_UPDATE_OPT(allows_horizontal_aggregation),
-      ARG_UPDATE(horizontal_aggregation_info),
-      ARG_UPDATE_OPT(in_horizontal_aggregation) {
+      horizontal_aggregation_info(parent->horizontal_aggregation_info),
+      in_horizontal_aggregation(parent->in_horizontal_aggregation),
+      ARG_UPDATE_OPT(in_match_recognize_define),
+      ARG_UPDATE(nearest_enclosing_physical_nav_op) {
   // This constructor can only be used to switch the name scope to the parent's
   // aggregate or analytic scope, not to introduce a new scope,
   // unless allow_new_scopes is set.
@@ -388,8 +393,10 @@ ExprResolutionInfo::ExprResolutionInfo(
       column_alias(!options.column_alias.empty() ? options.column_alias
                                                  : parent->column_alias),
       ARG_UPDATE_OPT(allows_horizontal_aggregation),
-      ARG_UPDATE(horizontal_aggregation_info),
-      ARG_UPDATE_OPT(in_horizontal_aggregation) {
+      horizontal_aggregation_info(parent->horizontal_aggregation_info),
+      in_horizontal_aggregation(parent->in_horizontal_aggregation),
+      ARG_UPDATE_OPT(in_match_recognize_define),
+      ARG_UPDATE(nearest_enclosing_physical_nav_op) {
   // This constructor can only be used to switch the name scope to the parent's
   // aggregate or analytic scope, not to introduce a new scope,
   // unless allow_new_scopes is set.
@@ -410,8 +417,8 @@ ExprResolutionInfo::MakeChildForMultiLevelAggregation(
     const NameScope* post_grouping_name_scope) {
   return absl::WrapUnique(new ExprResolutionInfo(
       parent, new_query_resolution_info,
-      ExprResolutionInfoOptions{.allow_new_scopes = true,
-                                .name_scope = post_grouping_name_scope,
+      ExprResolutionInfoOptions{.name_scope = post_grouping_name_scope,
+                                .allow_new_scopes = true,
                                 .allows_aggregation = true,
                                 .allows_analytic = false,
                                 .use_post_grouping_columns = false,
@@ -437,7 +444,10 @@ ExprResolutionInfo::ExprResolutionInfo(ExprResolutionInfo* parent)
       column_alias(parent->column_alias),
       allows_horizontal_aggregation(parent->allows_horizontal_aggregation),
       horizontal_aggregation_info(parent->horizontal_aggregation_info),
-      in_horizontal_aggregation(parent->in_horizontal_aggregation) {}
+      in_horizontal_aggregation(parent->in_horizontal_aggregation),
+      in_match_recognize_define(parent->in_match_recognize_define),
+      nearest_enclosing_physical_nav_op(
+          parent->nearest_enclosing_physical_nav_op) {}
 
 ExprResolutionInfo::ExprResolutionInfo(
     const NameScope* name_scope_in, const NameScope* aggregate_name_scope_in,
@@ -543,6 +553,12 @@ std::string ExprResolutionInfo::DebugString() const {
                   allows_horizontal_aggregation);
   absl::StrAppend(&debugstring,
                   "\nin_horizontal_aggregation: ", in_horizontal_aggregation);
+  absl::StrAppend(&debugstring,
+                  "\nin_match_recognize_define: ", in_match_recognize_define);
+  absl::StrAppend(&debugstring, "\nnearest_enclosing_physical_nav_op: ",
+                  nearest_enclosing_physical_nav_op
+                      ? nearest_enclosing_physical_nav_op->DebugString()
+                      : "NULL");
   if (horizontal_aggregation_info.has_value()) {
     absl::StrAppend(
         &debugstring,

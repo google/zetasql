@@ -193,7 +193,7 @@ SELECT
 --
 ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{NULL, NULL, false}]
 ==
-[required_features=INTERVAL_TYPE,V_1_1_ARRAY_EQUALITY]
+[required_features=INTERVAL_TYPE,ARRAY_EQUALITY]
 [name=cmp_array]
 SELECT
   [INTERVAL 1 DAY, INTERVAL -2 MINUTE] = [INTERVAL 24 HOUR, INTERVAL -120 SECOND],
@@ -211,7 +211,7 @@ SELECT
 --
 ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{true, NULL, false}]
 ==
-[required_features=INTERVAL_TYPE,V_1_2_CIVIL_TIME]
+[required_features=INTERVAL_TYPE,CIVIL_TIME]
 [name=add_interval]
 SELECT
   DATE '2010-10-10' + INTERVAL '10 20:20:20' DAY TO SECOND,
@@ -232,7 +232,7 @@ ARRAY<STRUCT<DATETIME, DATETIME, DATETIME, DATETIME, TIMESTAMP, TIMESTAMP>>[
   }
 ]
 ==
-[required_features=INTERVAL_TYPE,V_1_2_CIVIL_TIME]
+[required_features=INTERVAL_TYPE,CIVIL_TIME]
 [name=subtract_interval]
 SELECT
   DATE '2010-10-10' - INTERVAL '10 1:1:1' DAY TO SECOND,
@@ -470,7 +470,7 @@ ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<INTERVAL>[unknown order:0-0 1 0:0:0, 0-0 1 0:0:0]}
 ]
 ==
-[required_features=INTERVAL_TYPE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=INTERVAL_TYPE,ORDER_BY_IN_AGGREGATE]
 [name=array_agg_orderby]
 SELECT ARRAY_AGG(value ORDER BY value, id) FROM Intervals
 --

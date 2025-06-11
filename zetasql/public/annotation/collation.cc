@@ -28,6 +28,8 @@
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/collation.h"
+#include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_collation.h"
@@ -110,6 +112,18 @@ absl::Status CollationAnnotation::RejectsCollationOnFunctionArguments(
     }
   }
   return absl::OkStatus();
+}
+
+absl::Status CollationAnnotation::CheckAndPropagateForCast(
+    const ResolvedCast& cast, AnnotationMap* result_annotation_map) {
+  ZETASQL_RET_CHECK(!result_annotation_map->Has<CollationAnnotation>());
+  const Collation& target_collation = cast.type_modifiers().collation();
+  if (target_collation.Empty()) {
+    return absl::OkStatus();
+  }
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AnnotationMap> annotation_map,
+                   target_collation.ToAnnotationMap(cast.type()));
+  return MergeAnnotations(annotation_map.get(), *result_annotation_map);
 }
 
 absl::Status CollationAnnotation::CheckAndPropagateForFunctionCallBase(

@@ -1,5 +1,5 @@
 [default enabled_ast_rewrites=ALL]
-[default language_features=TABLE_VALUED_FUNCTIONS,V_1_4_WITH_EXPRESSION,V_1_1_ORDER_BY_IN_AGGREGATE]
+[default language_features=TABLE_VALUED_FUNCTIONS,WITH_EXPRESSION,ORDER_BY_IN_AGGREGATE]
 [default no_java]
 
 SELECT {{*|a|b}} FROM NullarySelect();
@@ -14,7 +14,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=NullarySelect.[a#1, b#2]
     +-input_scan=
-      +-TVFScan(column_list=NullarySelect.[a#1, b#2], tvf=NullarySelect(() -> TABLE<a INT64, b INT64>), signature=() -> TABLE<a INT64, b INT64>, column_index_list=[0, 1])
+      +-TVFScan(column_list=NullarySelect.[a#1, b#2], tvf=NullarySelect(() -> TABLE<a INT64, b INT64>), signature=() -> TABLE<a INT64, b INT64>, column_index_list=[0, 1], function_call_signature=() -> TABLE<a INT64, b INT64>)
 
 [REWRITTEN AST]
 QueryStmt
@@ -42,7 +42,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=[NullarySelect.a#1]
     +-input_scan=
-      +-TVFScan(column_list=[NullarySelect.a#1], tvf=NullarySelect(() -> TABLE<a INT64, b INT64>), signature=() -> TABLE<a INT64, b INT64>, column_index_list=[0])
+      +-TVFScan(column_list=[NullarySelect.a#1], tvf=NullarySelect(() -> TABLE<a INT64, b INT64>), signature=() -> TABLE<a INT64, b INT64>, column_index_list=[0], function_call_signature=() -> TABLE<a INT64, b INT64>)
 
 [REWRITTEN AST]
 QueryStmt
@@ -69,7 +69,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=[NullarySelect.b#2]
     +-input_scan=
-      +-TVFScan(column_list=[NullarySelect.b#2], tvf=NullarySelect(() -> TABLE<a INT64, b INT64>), signature=() -> TABLE<a INT64, b INT64>, column_index_list=[1])
+      +-TVFScan(column_list=[NullarySelect.b#2], tvf=NullarySelect(() -> TABLE<a INT64, b INT64>), signature=() -> TABLE<a INT64, b INT64>, column_index_list=[1], function_call_signature=() -> TABLE<a INT64, b INT64>)
 
 [REWRITTEN AST]
 QueryStmt
@@ -98,7 +98,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=NullarySelectUnion.[a#1, b#2]
     +-input_scan=
-      +-TVFScan(column_list=NullarySelectUnion.[a#1, b#2], tvf=NullarySelectUnion(() -> TABLE<a INT64, b INT64>), signature=() -> TABLE<a INT64, b INT64>, column_index_list=[0, 1])
+      +-TVFScan(column_list=NullarySelectUnion.[a#1, b#2], tvf=NullarySelectUnion(() -> TABLE<a INT64, b INT64>), signature=() -> TABLE<a INT64, b INT64>, column_index_list=[0, 1], function_call_signature=() -> TABLE<a INT64, b INT64>)
 
 [REWRITTEN AST]
 QueryStmt
@@ -145,7 +145,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=NullarySelectCTE.[a#1, b#2]
     +-input_scan=
-      +-TVFScan(column_list=NullarySelectCTE.[a#1, b#2], tvf=NullarySelectCTE(() -> TABLE<a INT64, b INT64>), signature=() -> TABLE<a INT64, b INT64>, column_index_list=[0, 1])
+      +-TVFScan(column_list=NullarySelectCTE.[a#1, b#2], tvf=NullarySelectCTE(() -> TABLE<a INT64, b INT64>), signature=() -> TABLE<a INT64, b INT64>, column_index_list=[0, 1], function_call_signature=() -> TABLE<a INT64, b INT64>)
 
 [REWRITTEN AST]
 QueryStmt
@@ -186,7 +186,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=NullarySelectFromTvf.[a#1, b#2]
     +-input_scan=
-      +-TVFScan(column_list=NullarySelectFromTvf.[a#1, b#2], tvf=NullarySelectFromTvf(() -> TABLE<a INT64, b INT64>), signature=() -> TABLE<a INT64, b INT64>, column_index_list=[0, 1])
+      +-TVFScan(column_list=NullarySelectFromTvf.[a#1, b#2], tvf=NullarySelectFromTvf(() -> TABLE<a INT64, b INT64>), signature=() -> TABLE<a INT64, b INT64>, column_index_list=[0, 1], function_call_signature=() -> TABLE<a INT64, b INT64>)
 
 [REWRITTEN AST]
 QueryStmt
@@ -218,7 +218,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=[NullarySelectCallingScalarUDF.pi#1]
     +-input_scan=
-      +-TVFScan(column_list=[NullarySelectCallingScalarUDF.pi#1], tvf=NullarySelectCallingScalarUDF(() -> TABLE<pi DOUBLE>), signature=() -> TABLE<pi DOUBLE>, column_index_list=[0])
+      +-TVFScan(column_list=[NullarySelectCallingScalarUDF.pi#1], tvf=NullarySelectCallingScalarUDF(() -> TABLE<pi DOUBLE>), signature=() -> TABLE<pi DOUBLE>, column_index_list=[0], function_call_signature=() -> TABLE<pi DOUBLE>)
 
 [REWRITTEN AST]
 QueryStmt
@@ -245,7 +245,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=[NullarySelectCallingLambdaArgFunction.arr#1]
     +-input_scan=
-      +-TVFScan(column_list=[NullarySelectCallingLambdaArgFunction.arr#1], tvf=NullarySelectCallingLambdaArgFunction(() -> TABLE<arr ARRAY<INT64>>), signature=() -> TABLE<arr ARRAY<INT64>>, column_index_list=[0])
+      +-TVFScan(column_list=[NullarySelectCallingLambdaArgFunction.arr#1], tvf=NullarySelectCallingLambdaArgFunction(() -> TABLE<arr ARRAY<INT64>>), signature=() -> TABLE<arr ARRAY<INT64>>, column_index_list=[0], function_call_signature=() -> TABLE<arr ARRAY<INT64>>)
 
 [REWRITTEN AST]
 QueryStmt
@@ -328,6 +328,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=1)
         +-column_index_list=[0]
+        +-function_call_signature=(INT64 arg0) -> TABLE<arg0 INT64>
 
 [REWRITTEN AST]
 QueryStmt
@@ -388,6 +389,7 @@ QueryStmt
         |   |   +-expr=
         |   |     +-Literal(type=INT64, value=1)
         |   +-column_index_list=[0]
+        |   +-function_call_signature=(INT64 arg0) -> TABLE<arg0 INT64>
         +-right_scan=
           +-TVFScan
             +-column_list=[UnaryScalarArg.arg0#2]
@@ -398,6 +400,7 @@ QueryStmt
             |   +-expr=
             |     +-Literal(type=INT64, value=2)
             +-column_index_list=[0]
+            +-function_call_signature=(INT64 arg0) -> TABLE<arg0 INT64>
 
 [REWRITTEN AST]
 QueryStmt
@@ -490,6 +493,7 @@ QueryStmt
         |         +-Literal(type=DOUBLE, value=100)
         |         +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64 arg0) -> TABLE<ret0 INT64, ret1 INT64>
 
 [REWRITTEN AST]
 QueryStmt
@@ -574,6 +578,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=2)
         +-column_index_list=[0, 1, 2]
+        +-function_call_signature=(INT64 arg0, INT64 arg1) -> TABLE<arg0 INT64, arg1 INT64, ret2 INT64>
 
 [REWRITTEN AST]
 QueryStmt
@@ -671,6 +676,7 @@ QueryStmt
         |   |   +-expr=
         |   |     +-Literal(type=INT64, value=2)
         |   +-column_index_list=[0, 1, 2]
+        |   +-function_call_signature=(INT64 arg0, INT64 arg1) -> TABLE<arg0 INT64, arg1 INT64, ret2 INT64>
         +-right_scan=
           +-TVFScan
             +-column_list=BinaryScalarArg.[arg0#4, arg1#5, ret2#6]
@@ -684,6 +690,7 @@ QueryStmt
             |   +-expr=
             |     +-Literal(type=INT64, value=4)
             +-column_index_list=[0, 1, 2]
+            +-function_call_signature=(INT64 arg0, INT64 arg1) -> TABLE<arg0 INT64, arg1 INT64, ret2 INT64>
 
 [REWRITTEN AST]
 QueryStmt
@@ -832,6 +839,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=1)
         +-column_index_list=[0]
+        +-function_call_signature=(INT64 arg0) -> TABLE<ret0 INT64>
 
 [REWRITTEN AST]
 QueryStmt
@@ -899,6 +907,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=1)
         +-column_index_list=[0]
+        +-function_call_signature=(INT64 arg0) -> TABLE<ret0 INT64>
 
 Rewrite ERROR: generic::unimplemented: SQL defined functions that contain argument references inside embedded WITH clauses are not implemented.
 ==
@@ -932,6 +941,7 @@ QueryStmt
     |             |   +-expr=
     |             |     +-ColumnRef(type=INT64, column=$subquery1.a#1, is_correlated=TRUE)
     |             +-column_index_list=[0]
+    |             +-function_call_signature=(INT64 arg0) -> TABLE<arg0 INT64>
     +-input_scan=
       +-ProjectScan
         +-column_list=[$subquery1.a#1]
@@ -998,6 +1008,7 @@ QueryStmt
         |               |   +-expr=
         |               |     +-ColumnRef(type=INT64, column=$subquery1.a#1, is_correlated=TRUE)
         |               +-column_index_list=[0]
+        |               +-function_call_signature=(INT64 arg0) -> TABLE<arg0 INT64>
         +-element_column_list=[$array.$unnest1#4]
 
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('arg0') references column 'a'.
@@ -1027,6 +1038,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=[$subquery1.a#1]
         +-column_index_list=[0]
+        +-function_call_signature=(TABLE<a INT64> arg0) -> TABLE<a INT64>
 
 [REWRITTEN AST]
 QueryStmt
@@ -1074,6 +1086,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=1)
         +-column_index_list=[0]
+        +-function_call_signature=(INT64 arg0) -> TABLE<arg0 INT64>
 
 [REWRITTEN AST]
 QueryStmt
@@ -1171,6 +1184,7 @@ QueryStmt
     |                 |   +-expr=
     |                 |     +-ColumnRef(type=INT64, column=$with_expr.a#1, is_correlated=TRUE)
     |                 +-column_index_list=[0]
+    |                 +-function_call_signature=(INT64 arg0) -> TABLE<arg0 INT64>
     +-input_scan=
       +-SingleRowScan
 
@@ -1205,6 +1219,7 @@ QueryStmt
         |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 
 [REWRITTEN AST]
@@ -1255,6 +1270,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=$subquery1.[a#1, b#2]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 
 [REWRITTEN AST]
@@ -1307,6 +1323,7 @@ QueryStmt
         |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-column_index_list=[0, 1, 2, 3]
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING, a INT64, b STRING>
 
 
 [REWRITTEN AST]
@@ -1366,6 +1383,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=$subquery1.[a#1, b#2]
         +-column_index_list=[0, 1, 2, 3]
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING, a INT64, b STRING>
 
 
 [REWRITTEN AST]
@@ -1423,6 +1441,7 @@ QueryStmt
         |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 
 [REWRITTEN AST]
@@ -1484,6 +1503,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=$subquery1.[a#1, b#2]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 
 [REWRITTEN AST]
@@ -1544,6 +1564,7 @@ QueryStmt
         |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-column_index_list=[0]
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 
 [REWRITTEN AST]
@@ -1592,6 +1613,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=$subquery1.[a#1, b#2]
         +-column_index_list=[0]
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 
 [REWRITTEN AST]
@@ -1648,6 +1670,7 @@ QueryStmt
         |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-column_index_list=[0]
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 
 [REWRITTEN AST]
@@ -1707,6 +1730,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=$subquery1.[a#1, b#2]
         +-column_index_list=[0]
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 
 [REWRITTEN AST]
@@ -1766,6 +1790,7 @@ QueryStmt
         |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-column_index_list=[1]
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 
 [REWRITTEN AST]
@@ -1814,6 +1839,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=$subquery1.[a#1, b#2]
         +-column_index_list=[1]
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 
 [REWRITTEN AST]
@@ -1870,6 +1896,7 @@ QueryStmt
         |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-column_index_list=[1]
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 
 [REWRITTEN AST]
@@ -1929,6 +1956,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=$subquery1.[a#1, b#2]
         +-column_index_list=[1]
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 
 [REWRITTEN AST]
@@ -2006,6 +2034,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=$subquery1.[c#3, d#4]
         +-column_index_list=[0, 1, 2, 3]
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0, TABLE<c INT64, d STRING> arg1) -> TABLE<a INT64, b STRING, c INT64, d STRING>
 
 [REWRITTEN AST]
 QueryStmt
@@ -2084,6 +2113,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=$subquery2.[c#3, d#4]
         +-column_index_list=[0, 1, 2, 3]
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0, TABLE<c INT64, d STRING> arg1) -> TABLE<a INT64, b STRING, c INT64, d STRING>
 
 [REWRITTEN AST]
 QueryStmt
@@ -2163,6 +2193,7 @@ QueryStmt
         |   | +-TableScan(column_list=abTable.[a#3, b#4], table=abTable, column_index_list=[0, 1])
         |   +-argument_column_list=abTable.[a#3, b#4]
         +-column_index_list=[0, 1, 2, 3]
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0, TABLE<a INT64, b STRING> arg1) -> TABLE<a INT64, b STRING, a INT64, b STRING>
 
 
 [REWRITTEN AST]
@@ -2230,6 +2261,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=$subquery1.[a#3, b#4]
         +-column_index_list=[0, 1, 2, 3]
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0, TABLE<a INT64, b STRING> arg1) -> TABLE<a INT64, b STRING, a INT64, b STRING>
 
 
 [REWRITTEN AST]
@@ -2303,6 +2335,7 @@ QueryStmt
         |   | +-TableScan(column_list=abTable.[a#3, b#4], table=abTable, column_index_list=[0, 1])
         |   +-argument_column_list=abTable.[a#3, b#4]
         +-column_index_list=[0, 1, 2, 3]
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0, TABLE<a INT64, b STRING> arg1) -> TABLE<a INT64, b STRING, a INT64, b STRING>
 
 
 [REWRITTEN AST]
@@ -2382,6 +2415,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=$subquery2.[a#3, b#4]
         +-column_index_list=[0, 1, 2, 3]
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0, TABLE<a INT64, b STRING> arg1) -> TABLE<a INT64, b STRING, a INT64, b STRING>
 
 
 [REWRITTEN AST]
@@ -2461,6 +2495,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="six")
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>
 
 [REWRITTEN AST]
 QueryStmt
@@ -2551,6 +2586,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="six")
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>
 
 [REWRITTEN AST]
 QueryStmt
@@ -2670,6 +2706,7 @@ QueryStmt
     |                 |   +-expr=
     |                 |     +-Literal(type=STRING, value="two")
     |                 +-column_index_list=[0, 1]
+    |                 +-function_call_signature=(INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>
     +-input_scan=
       +-TVFScan
         +-tvf=UnaryAbTableArg((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
@@ -2680,6 +2717,7 @@ QueryStmt
         |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-alias="t"
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 [REWRITTEN AST]
 QueryStmt
@@ -2814,6 +2852,7 @@ QueryStmt
     |                 |   +-expr=
     |                 |     +-ColumnRef(type=STRING, column=UnaryAbTableArg.b#4, is_correlated=TRUE)
     |                 +-column_index_list=[0, 1]
+    |                 +-function_call_signature=(INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>
     +-input_scan=
       +-TVFScan
         +-column_list=[UnaryAbTableArg.b#4]
@@ -2826,6 +2865,7 @@ QueryStmt
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-column_index_list=[1]
         +-alias="t"
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #3 ('y') references column 'b'.
 --
@@ -2878,6 +2918,7 @@ QueryStmt
     |                 |   +-expr=
     |                 |     +-Literal(type=STRING, value="two")
     |                 +-column_index_list=[0, 1]
+    |                 +-function_call_signature=(INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>
     +-input_scan=
       +-TVFScan
         +-tvf=UnaryAbTableArg((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
@@ -2888,6 +2929,7 @@ QueryStmt
         |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-alias="t"
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 [REWRITTEN AST]
 QueryStmt
@@ -3034,6 +3076,7 @@ QueryStmt
     |                 |   +-expr=
     |                 |     +-ColumnRef(type=STRING, column=UnaryAbTableArg.b#4, is_correlated=TRUE)
     |                 +-column_index_list=[0, 1]
+    |                 +-function_call_signature=(INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>
     +-input_scan=
       +-TVFScan
         +-column_list=[UnaryAbTableArg.b#4]
@@ -3046,6 +3089,7 @@ QueryStmt
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-column_index_list=[1]
         +-alias="t"
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #3 ('y') references column 'b'.
 --
@@ -3101,6 +3145,7 @@ QueryStmt
     |                 |   +-expr=
     |                 |     +-Literal(type=STRING, value="two")
     |                 +-column_index_list=[0, 1]
+    |                 +-function_call_signature=(INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>
     +-input_scan=
       +-TVFScan
         +-column_list=[UnaryAbTableArg.a#3]
@@ -3113,6 +3158,7 @@ QueryStmt
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-column_index_list=[0]
         +-alias="t"
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #2 ('arg0') references column 'a'.
 --
@@ -3169,6 +3215,7 @@ QueryStmt
     |                 |   +-expr=
     |                 |     +-ColumnRef(type=STRING, column=UnaryAbTableArg.b#4, is_correlated=TRUE)
     |                 +-column_index_list=[0, 1]
+    |                 +-function_call_signature=(INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>
     +-input_scan=
       +-TVFScan
         +-column_list=UnaryAbTableArg.[a#3, b#4]
@@ -3181,6 +3228,7 @@ QueryStmt
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-column_index_list=[0, 1]
         +-alias="t"
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #2 ('arg0') references column 'a'.
 --
@@ -3230,6 +3278,7 @@ QueryStmt
     |                 |   +-expr=
     |                 |     +-Literal(type=STRING, value="two")
     |                 +-column_index_list=[0, 1]
+    |                 +-function_call_signature=(INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>
     +-input_scan=
       +-TVFScan
         +-column_list=[UnaryAbTableArg.a#3]
@@ -3242,6 +3291,7 @@ QueryStmt
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-column_index_list=[0]
         +-alias="t"
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('x') references column 'a'.
 --
@@ -3292,6 +3342,7 @@ QueryStmt
     |                 |   +-expr=
     |                 |     +-ColumnRef(type=STRING, column=UnaryAbTableArg.b#4, is_correlated=TRUE)
     |                 +-column_index_list=[0, 1]
+    |                 +-function_call_signature=(INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>
     +-input_scan=
       +-TVFScan
         +-column_list=UnaryAbTableArg.[a#3, b#4]
@@ -3304,6 +3355,7 @@ QueryStmt
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-column_index_list=[0, 1]
         +-alias="t"
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('x') references column 'a'.
 --
@@ -3359,6 +3411,7 @@ QueryStmt
     |                 |   +-expr=
     |                 |     +-Literal(type=STRING, value="two")
     |                 +-column_index_list=[0, 1]
+    |                 +-function_call_signature=(INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>
     +-input_scan=
       +-TVFScan
         +-column_list=[UnaryAbTableArg.a#3]
@@ -3371,6 +3424,7 @@ QueryStmt
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-column_index_list=[0]
         +-alias="t"
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('x') references column 'a'.
 --
@@ -3427,6 +3481,7 @@ QueryStmt
     |                 |   +-expr=
     |                 |     +-ColumnRef(type=STRING, column=UnaryAbTableArg.b#4, is_correlated=TRUE)
     |                 +-column_index_list=[0, 1]
+    |                 +-function_call_signature=(INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>
     +-input_scan=
       +-TVFScan
         +-column_list=UnaryAbTableArg.[a#3, b#4]
@@ -3439,6 +3494,7 @@ QueryStmt
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-column_index_list=[0, 1]
         +-alias="t"
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('x') references column 'a'.
 --
@@ -3494,6 +3550,7 @@ QueryStmt
     |                 |   +-expr=
     |                 |     +-Literal(type=STRING, value="two")
     |                 +-column_index_list=[0, 1]
+    |                 +-function_call_signature=(INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>
     +-input_scan=
       +-TVFScan
         +-column_list=[UnaryAbTableArg.a#3]
@@ -3506,6 +3563,7 @@ QueryStmt
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-column_index_list=[0]
         +-alias="t"
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('x') references column 'a'.
 --
@@ -3562,6 +3620,7 @@ QueryStmt
     |                 |   +-expr=
     |                 |     +-ColumnRef(type=STRING, column=UnaryAbTableArg.b#4, is_correlated=TRUE)
     |                 +-column_index_list=[0, 1]
+    |                 +-function_call_signature=(INT64 x, TABLE<a INT64, b STRING> arg0, STRING y) -> TABLE<a INT64, b STRING>
     +-input_scan=
       +-TVFScan
         +-column_list=UnaryAbTableArg.[a#3, b#4]
@@ -3574,6 +3633,7 @@ QueryStmt
         |   +-argument_column_list=abTable.[a#1, b#2]
         +-column_index_list=[0, 1]
         +-alias="t"
+        +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
 
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('x') references column 'a'.
 ==
@@ -3629,6 +3689,7 @@ QueryStmt
     |             |   |     +-SingleRowScan
     |             |   +-argument_column_list=$subquery1.[a#3, b#4]
     |             +-column_index_list=[1]
+    |             +-function_call_signature=(TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>
     +-input_scan=
       +-ProjectScan
         +-column_list=[t.b#1]
@@ -3672,6 +3733,7 @@ QueryStmt
         |               +-aggregate_list=
         |                 +-$agg1#3 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64 a) -> TABLE<Key INT64, Value STRING>
 
 
 [REWRITTEN AST]
@@ -3763,6 +3825,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="arg")
         +-column_index_list=[0, 1, 2]
+        +-function_call_signature=(TABLE<key INT64, value INT64> arg_table, STRING arg_scalar) -> TABLE<c STRING, key INT64, value INT64>
 
 [REWRITTEN AST]
 QueryStmt
@@ -3848,6 +3911,7 @@ QueryStmt
         |   |     +-TableScan(column_list=[abTable.a#1], table=abTable, column_index_list=[0])
         |   +-argument_column_list=[abTable.a#1]
         +-column_index_list=[0]
+        +-function_call_signature=(TABLE<a INT64> arg0) -> TABLE<arr ARRAY<INT64>>
 
 [REWRITTEN AST]
 QueryStmt
@@ -3953,7 +4017,7 @@ QueryStmt
                   +-WithRefScan(column_list=[UnaryTableArgAggregatedWithOrderBy.arr#3], with_query_name="t")
 ==
 
-[language_features=V_1_4_MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS,V_1_4_WITH_EXPRESSION,V_1_1_ORDER_BY_IN_AGGREGATE]
+[language_features=MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS,WITH_EXPRESSION,ORDER_BY_IN_AGGREGATE]
 SELECT *
 FROM tvf_templated_multi_agg_valid_grouping_constants(1);
 --
@@ -3973,6 +4037,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=1)
         +-column_index_list=[0]
+        +-function_call_signature=(INT64) -> ANY TABLE
 
 With Templated SQL TVF signature:
   tvf_templated_multi_agg_valid_grouping_constants(literal INT64) -> TABLE<result INT64>
@@ -4042,7 +4107,7 @@ QueryStmt
                         +-$groupbymod#3 := ColumnRef(type=INT64, column=TwoIntegers.key#2)
 ==
 
-[language_features=V_1_4_MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS,V_1_4_WITH_EXPRESSION,V_1_1_ORDER_BY_IN_AGGREGATE]
+[language_features=MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS,WITH_EXPRESSION,ORDER_BY_IN_AGGREGATE]
 SELECT *
 FROM tvf_templated_multi_agg_invalid_grouping_constants(1);
 --
@@ -4078,6 +4143,7 @@ QueryStmt
         |   | +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
         |   +-argument_column_list=TwoIntegers.[key#1, value#2]
         +-column_index_list=[0]
+        +-function_call_signature=(TABLE<key INT64, value INT64> arg0) -> TABLE<result INT64>
 
 [REWRITTEN AST]
 QueryStmt
@@ -4103,7 +4169,7 @@ QueryStmt
               +-WithRefScan(column_list=arg0.[key#4, value#5], with_query_name="arg0")
 ==
 
-[language_features=V_1_4_MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS]
+[language_features=MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS]
 SELECT *
 FROM TvfMultiAggNullary();
 --
@@ -4114,7 +4180,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=[TvfMultiAggNullary.result#1]
     +-input_scan=
-      +-TVFScan(column_list=[TvfMultiAggNullary.result#1], tvf=TvfMultiAggNullary(() -> TABLE<result INT64>), signature=() -> TABLE<result INT64>, column_index_list=[0])
+      +-TVFScan(column_list=[TvfMultiAggNullary.result#1], tvf=TvfMultiAggNullary(() -> TABLE<result INT64>), signature=() -> TABLE<result INT64>, column_index_list=[0], function_call_signature=() -> TABLE<result INT64>)
 
 [REWRITTEN AST]
 QueryStmt
@@ -4169,7 +4235,7 @@ QueryStmt
                               +-$groupbymod#13 := ColumnRef(type=INT64, column=t.b#5)
 ==
 
-[language_features=V_1_4_MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS,V_1_2_GROUP_BY_STRUCT]
+[language_features=MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS,GROUP_BY_STRUCT]
 SELECT *
 FROM TvfMultiAggGroupingConstantsWithStruct((SELECT STRUCT(STRUCT(1 as b) as a)), 1);
 --
@@ -4198,6 +4264,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=1)
         +-column_index_list=[0]
+        +-function_call_signature=(TABLE<STRUCT<a STRUCT<b INT64>>> arg_table, INT64 int64_arg) -> TABLE<result INT64>
 
 [REWRITTEN AST]
 QueryStmt
@@ -4262,7 +4329,7 @@ QueryStmt
                             +-field_idx=0
 ==
 
-[language_features=V_1_4_MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS,V_1_2_GROUP_BY_STRUCT]
+[language_features=MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS,GROUP_BY_STRUCT]
 SELECT *
 FROM tvf_templated_multi_agg_valid_grouping_constants_with_struct((SELECT STRUCT(1 as b) as a));
 --
@@ -4288,6 +4355,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=[$subquery1.a#1]
         +-column_index_list=[0]
+        +-function_call_signature=(ANY TABLE) -> ANY TABLE
 
 With Templated SQL TVF signature:
   tvf_templated_multi_agg_valid_grouping_constants_with_struct(TABLE<a STRUCT<b INT64>>) -> TABLE<result INT64>
@@ -4354,7 +4422,7 @@ QueryStmt
                         +-$groupbymod#4 := ColumnRef(type=STRUCT<b INT64>, column=arg_table.a#3)
 ==
 
-[language_features=V_1_4_MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS]
+[language_features=MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS]
 SELECT *
 FROM tvf_templated_call_udf_with_multi_agg(TABLE TwoIntegers);
 --
@@ -4375,6 +4443,7 @@ QueryStmt
         |   | +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
         |   +-argument_column_list=TwoIntegers.[key#1, value#2]
         +-column_index_list=[0]
+        +-function_call_signature=(ANY TABLE) -> ANY TABLE
 
 With Templated SQL TVF signature:
   tvf_templated_call_udf_with_multi_agg(TABLE<key INT64, value INT64>) -> TABLE<result INT64>
@@ -4435,7 +4504,7 @@ QueryStmt
               +-SingleRowScan
 ==
 
-[language_features=V_1_4_MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS]
+[language_features=MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS]
 SELECT *
 FROM tvf_templated_call_uda_with_multi_agg(TABLE TwoIntegers);
 --
@@ -4456,6 +4525,7 @@ QueryStmt
         |   | +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
         |   +-argument_column_list=TwoIntegers.[key#1, value#2]
         +-column_index_list=[0]
+        +-function_call_signature=(ANY TABLE) -> ANY TABLE
 
 With Templated SQL TVF signature:
   tvf_templated_call_uda_with_multi_agg(TABLE<key INT64, value INT64>) -> TABLE<result INT64>
@@ -4523,7 +4593,7 @@ QueryStmt
                                 +-ColumnRef(type=INT64, column=$inlined_SumOfValuesForDistinctKey.value#6)
 ==
 
-[language_features=V_1_4_MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS]
+[language_features=MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS]
 SELECT * FROM TvfMultiAggReferencesScannedTable(TABLE TwoIntegers, ((SELECT value FROM TwoIntegers)));
 --
 QueryStmt
@@ -4553,6 +4623,7 @@ QueryStmt
         |           +-input_scan=
         |             +-TableScan(column_list=[TwoIntegers.value#4], table=TwoIntegers, column_index_list=[1])
         +-column_index_list=[0]
+        +-function_call_signature=(TABLE<key INT64, value INT64> arg_table, INT64 arg_scalar) -> TABLE<result DOUBLE>
 
 [REWRITTEN AST]
 QueryStmt
@@ -4646,7 +4717,7 @@ QueryStmt
                             +-ColumnRef(type=INT64, column=TwoIntegers.key#8)
 ==
 
-[language_features=V_1_4_MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS]
+[language_features=MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS]
 SELECT * FROM TvfMultiAggScalarArgGroupingConst(TABLE TwoIntegers, 100);
 --
 QueryStmt
@@ -4669,6 +4740,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=100)
         +-column_index_list=[0]
+        +-function_call_signature=(TABLE<key INT64, value INT64> arg_table, INT64 arg_scalar) -> TABLE<result INT64>
 
 [REWRITTEN AST]
 QueryStmt

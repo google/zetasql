@@ -16,6 +16,20 @@
 
 #include "zetasql/common/internal_value.h"
 
+#include <memory>
+#include <utility>
+#include <vector>
+
+#include "zetasql/public/language_options.h"
+#include "zetasql/public/types/measure_type.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/value_representations.h"
+#include "zetasql/public/value.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
+
 namespace zetasql {
 
 // static
@@ -41,6 +55,50 @@ bool InternalValue::ContainsArrayWithUncertainOrder(const Value& val) {
     }
   }
   return false;
+}
+
+absl::StatusOr<Value> InternalValue::MakeMeasure(
+    const MeasureType* measure_type, Value captured_values_as_struct,
+    std::vector<int> key_indices, const LanguageOptions& language_options) {
+  if (measure_type == nullptr) {
+    return absl::InvalidArgumentError("Measure type cannot be nullptr");
+  }
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<Value::TypedMeasure> typed_measure,
+      Value::TypedMeasure::Create(std::move(captured_values_as_struct),
+                                  std::move(key_indices), language_options));
+  Value measure_value(measure_type, /*is_null=*/false, kPreservesOrder);
+  measure_value.measure_ptr_ =
+      new internal::ValueContentMeasureRef(std::move(typed_measure));
+  return measure_value;
+}
+
+absl::StatusOr<Value> InternalValue::GetMeasureAsStructValue(
+    const Value& measure_value) {
+  if (measure_value.metadata_.type_kind() != TYPE_MEASURE) {
+    return absl::InvalidArgumentError("Not a measure type");
+  }
+  if (measure_value.metadata_.is_null()) {
+    return absl::InvalidArgumentError("Null measure");
+  }
+  ZETASQL_RET_CHECK(measure_value.measure_ptr_->value()->Is<Value::TypedMeasure>());
+  return measure_value.measure_ptr_->value()
+      ->GetAs<Value::TypedMeasure>()
+      ->GetCapturedValuesAsStructValue();
+}
+
+absl::StatusOr<std::vector<int>> InternalValue::GetMeasureGrainLockingIndices(
+    const Value& measure_value) {
+  if (measure_value.metadata_.type_kind() != TYPE_MEASURE) {
+    return absl::InvalidArgumentError("Not a measure type");
+  }
+  if (measure_value.metadata_.is_null()) {
+    return absl::InvalidArgumentError("Null measure");
+  }
+  ZETASQL_RET_CHECK(measure_value.measure_ptr_->value()->Is<Value::TypedMeasure>());
+  return measure_value.measure_ptr_->value()
+      ->GetAs<Value::TypedMeasure>()
+      ->KeyIndices();
 }
 
 }  // namespace zetasql

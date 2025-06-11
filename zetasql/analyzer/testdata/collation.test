@@ -1,4 +1,4 @@
-[default language_features=CREATE_TABLE_AS_SELECT_COLUMN_LIST,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_ORDER_BY_COLLATE,ANALYTIC_FUNCTIONS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT,CREATE_TABLE_FIELD_ANNOTATIONS,PARAMETERIZED_TYPES,NUMERIC_TYPE,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT,V_1_3_ARRAY_ORDERING,TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,V_1_4_COLLATION_IN_EXPLICIT_CAST,V_1_4_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN,V_1_4_GROUPING_SETS,GROUP_BY_ROLLUP,V_1_4_GROUPING_BUILTIN,V_1_4_USE_OPERATION_COLLATION_FOR_NULLIF]
+[default language_features=CREATE_TABLE_AS_SELECT_COLUMN_LIST,ORDER_BY_IN_AGGREGATE,ORDER_BY_COLLATE,ANALYTIC_FUNCTIONS,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,GROUP_BY_ARRAY,GROUP_BY_STRUCT,CREATE_TABLE_FIELD_ANNOTATIONS,PARAMETERIZED_TYPES,NUMERIC_TYPE,NAMED_ARGUMENTS,INLINE_LAMBDA_ARGUMENT,ARRAY_ORDERING,TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,COLLATION_IN_EXPLICIT_CAST,PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN,GROUPING_SETS,GROUP_BY_ROLLUP,GROUPING_BUILTIN,USE_OPERATION_COLLATION_FOR_NULLIF]
 
 # Cast string with collation to string type.
 select cast(string_ci AS STRING),
@@ -55,9 +55,9 @@ QueryStmt
     +-expr_list=
     | +-$col1#5 :=
     |   +-Cast(ARRAY<STRING> -> ARRAY<STRING>)
-    |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
     +-input_scan=
-      +-TableScan(column_list=[CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}]], table=CollatedTable, column_index_list=[3])
+      +-TableScan(column_list=[CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>], table=CollatedTable, column_index_list=[3])
 ==
 
 # Literal replacement test places query parameters which is not allowed to be
@@ -107,7 +107,10 @@ QueryStmt
 # Regression test for b/241009864, invoke collate() with only 1 argument.
 select collate('abc');
 --
-ERROR: Number of arguments does not match for function COLLATE. Supported signature: COLLATE(STRING, STRING) [at 1:8]
+ERROR: No matching signature for function COLLATE
+  Argument types: STRING
+  Signature: COLLATE(STRING, STRING)
+    Signature requires at least 2 arguments, found 1 argument [at 1:8]
 select collate('abc');
        ^
 ==
@@ -168,7 +171,7 @@ select fn_reject_collation(string_ci, 'abc')
 select fn_reject_collation('abc', second_arg => array_with_string_ci)
 from CollatedTable
 --
-ERROR: Collation is not allowed on argument second_arg (["und:ci"]) [at 1:8]
+ERROR: Collation is not allowed on argument second_arg (<"und:ci">) [at 1:8]
 select fn_reject_collation('abc', second_arg => array_with_string_ci)
        ^
 ==
@@ -214,7 +217,7 @@ QueryStmt
           +-WithRefScan(column_list=test.[string_ci#5, string_binary#6, struct_with_string_ci#7, array_with_string_ci#8], with_query_name="test")
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE,V_1_4_COLLATION_IN_WITH_RECURSIVE]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
 with recursive
   t as (select 1 as ind, COLLATE('a', 'und:ci') as string_ci union {{all|distinct}}
   (select ind + 1 as ind, string_ci from t where ind < 3))
@@ -337,7 +340,7 @@ QueryStmt
     +-recursive=TRUE
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE]
 with recursive
   t as (select 1 as ind, COLLATE('a', 'und:ci') as string_ci union {{all|distinct}}
   (select ind + 1 as ind, string_ci from t where ind < 3))
@@ -356,7 +359,7 @@ ERROR: Collation is not supported in recursive queries [at 2:9]
         ^
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE,V_1_4_COLLATION_IN_WITH_RECURSIVE]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
 with recursive
   t as (select 1 as ind, string_ci from CollatedTable union {{all|distinct}}
   (select ind + 1 as ind, concat(string_ci, 'foo') from t where ind < 3))
@@ -480,7 +483,7 @@ QueryStmt
 
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE]
 with recursive
   t as (select 1 as ind, 'a' as string_ci union {{all|distinct}}
   (select ind + 1 as ind, COLLATE('a', 'und:ci') as string_ci from t where ind < 3))
@@ -499,7 +502,7 @@ ERROR: Collation is not supported in recursive queries [at 2:9]
         ^
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE,V_1_4_COLLATION_IN_WITH_RECURSIVE]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
 with recursive
   t as (select 1 as ind, 'a' as string_ci union {{all|distinct}}
   (select ind + 1 as ind, COLLATE('a', 'und:ci') as string_ci from t where ind < 3))
@@ -511,7 +514,7 @@ ERROR: Collation conflict: "null" vs. "{Collation:"und:ci"}"; in column 2 of rec
    ^
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE,V_1_4_COLLATION_IN_WITH_RECURSIVE]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
 with recursive
   t as (select 1 as ind, COLLATE('a', 'binary') as string_binary union {{all|distinct}}
   (select ind + 1 as ind, COLLATE('a', '') as string_ci from t where ind < 3))
@@ -523,7 +526,7 @@ ERROR: Collation conflict: "{Collation:"binary"}" vs. "null"; in column 2 of rec
    ^
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE,V_1_4_COLLATION_IN_WITH_RECURSIVE]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
 WITH RECURSIVE t AS (
   SELECT '1' AS n UNION ALL SELECT collate('2', 'und:ci') AS n UNION ALL SELECT '3' AS n
   UNION ALL SELECT concat(n, '1') FROM t)
@@ -604,7 +607,7 @@ QueryStmt
 ==
 
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE,V_1_4_COLLATION_IN_WITH_RECURSIVE]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
 WITH RECURSIVE t AS (
   SELECT '1' AS n UNION ALL SELECT collate('2', 'und:ci') AS n UNION ALL SELECT '3' AS n
   UNION ALL SELECT collate(n, '') FROM t)
@@ -616,7 +619,7 @@ ERROR: Collation conflict: "{Collation:"und:ci"}" vs. "null"; in column 1 of rec
 
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE,V_1_4_COLLATION_IN_WITH_RECURSIVE]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
 WITH RECURSIVE
   t1 AS (SELECT * FROM t2),
   t2 AS (SELECT * FROM t3 CROSS JOIN t4),
@@ -642,7 +645,7 @@ QueryStmt
     | |         +-column_list=[$array.$unnest1#1{Collation:"und:ci"}]
     | |         +-array_expr_list=
     | |         | +-FunctionCall(ZetaSQL:$make_array(repeated(3) STRING) -> ARRAY<STRING>)
-    | |         |   +-type_annotation_map=[{Collation:"und:ci"}]
+    | |         |   +-type_annotation_map=<{Collation:"und:ci"}>
     | |         |   +-Literal(type=STRING, value="a")
     | |         |   +-Literal(type=STRING, value="A")
     | |         |   +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
@@ -660,7 +663,7 @@ QueryStmt
     | |         +-column_list=[$array.$unnest2#2{Collation:"und:ci"}]
     | |         +-array_expr_list=
     | |         | +-FunctionCall(ZetaSQL:$make_array(repeated(3) STRING) -> ARRAY<STRING>)
-    | |         |   +-type_annotation_map=[{Collation:"und:ci"}]
+    | |         |   +-type_annotation_map=<{Collation:"und:ci"}>
     | |         |   +-Literal(type=STRING, value="a")
     | |         |   +-Literal(type=STRING, value="A")
     | |         |   +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
@@ -695,7 +698,7 @@ QueryStmt
     +-recursive=TRUE
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE,V_1_4_COLLATION_IN_WITH_RECURSIVE]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
 WITH RECURSIVE
   t1 AS (SELECT collate('a', 'und:ci') AS n UNION ALL SELECT concat(n, 'a') FROM t1 WHERE n < 'c')
 SELECT * FROM t1;
@@ -757,7 +760,7 @@ QueryStmt
     +-recursive=TRUE
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE,V_1_4_COLLATION_IN_WITH_RECURSIVE]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
 WITH RECURSIVE
   t1 AS (SELECT * FROM KeyValue),
   KeyValue AS (SELECT * FROM UNNEST(['a', collate('A', 'und:ci')]))
@@ -780,7 +783,7 @@ QueryStmt
     | |         +-column_list=[$array.$unnest1#1{Collation:"und:ci"}]
     | |         +-array_expr_list=
     | |         | +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
-    | |         |   +-type_annotation_map=[{Collation:"und:ci"}]
+    | |         |   +-type_annotation_map=<{Collation:"und:ci"}>
     | |         |   +-Literal(type=STRING, value="a")
     | |         |   +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     | |         |     +-type_annotation_map={Collation:"und:ci"}
@@ -802,7 +805,7 @@ QueryStmt
     +-recursive=TRUE
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE,V_1_4_COLLATION_IN_WITH_RECURSIVE]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
 WITH RECURSIVE
   t1 AS (SELECT collate(key, '') FROM KeyValue),
   KeyValue AS (SELECT key FROM UNNEST(['a', collate('A', 'und:ci')]) as key)
@@ -825,7 +828,7 @@ QueryStmt
     | |         +-column_list=[$array.key#1{Collation:"und:ci"}]
     | |         +-array_expr_list=
     | |         | +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
-    | |         |   +-type_annotation_map=[{Collation:"und:ci"}]
+    | |         |   +-type_annotation_map=<{Collation:"und:ci"}>
     | |         |   +-Literal(type=STRING, value="a")
     | |         |   +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     | |         |     +-type_annotation_map={Collation:"und:ci"}
@@ -852,7 +855,7 @@ QueryStmt
     +-recursive=TRUE
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE,V_1_4_COLLATION_IN_WITH_RECURSIVE]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
 WITH RECURSIVE
   KeyValue AS (SELECT * FROM UNNEST(['a', collate('A', 'und:ci')])),
   t1 AS (SELECT * FROM KeyValue)
@@ -875,7 +878,7 @@ QueryStmt
     | |         +-column_list=[$array.$unnest1#1{Collation:"und:ci"}]
     | |         +-array_expr_list=
     | |         | +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
-    | |         |   +-type_annotation_map=[{Collation:"und:ci"}]
+    | |         |   +-type_annotation_map=<{Collation:"und:ci"}>
     | |         |   +-Literal(type=STRING, value="a")
     | |         |   +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     | |         |     +-type_annotation_map={Collation:"und:ci"}
@@ -897,7 +900,7 @@ QueryStmt
     +-recursive=TRUE
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE,V_1_4_COLLATION_IN_WITH_RECURSIVE,V_1_1_WITH_ON_SUBQUERY]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE,WITH_ON_SUBQUERY]
 # Due to name shadowing, this query is allowed (not a multi-element cycle)
 WITH RECURSIVE
   t1 AS (SELECT * FROM t2),
@@ -951,7 +954,7 @@ QueryStmt
     +-recursive=TRUE
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE,V_1_4_COLLATION_IN_WITH_RECURSIVE,V_1_1_WITH_ON_SUBQUERY]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE,WITH_ON_SUBQUERY]
 # Not a multi-element cycle, due to 't1' being a forward reference in inner,
 # recursive WITH
 WITH RECURSIVE
@@ -1020,7 +1023,7 @@ QueryStmt
     +-recursive=TRUE
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE,V_1_4_COLLATION_IN_WITH_RECURSIVE,V_1_1_WITH_ON_SUBQUERY]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE,WITH_ON_SUBQUERY]
 # Not recursive at all, due to inner t2 shadowing outer t2
 WITH RECURSIVE
   t1 AS (SELECT * FROM t2),
@@ -1076,7 +1079,7 @@ QueryStmt
 ==
 
 # Items in non-recursive term and recursive term have different collation
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE,V_1_4_COLLATION_IN_WITH_RECURSIVE]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
 with recursive
   t as (select 1 as ind, string_ci from CollatedTable union all
   (select ind + 1 as ind, collate(string_ci, 'binary') from t where ind < 3))
@@ -1087,7 +1090,7 @@ ERROR: Collation conflict: "binary" vs. "und:ci"; in column 2, item 2 of recursi
         ^
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE,V_1_4_COLLATION_IN_WITH_RECURSIVE]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
 # Prototype with annotation doesn't propropagte for recursive scan
 with recursive
   t as (select 1 as ind, proto_with_collation from CollatedTableWithProto union all
@@ -1099,7 +1102,7 @@ ERROR: Collation conflict: "{Collation:"und:ci"}" vs. "null"; in column 2 of rec
    ^
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_SUBQUERY]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
 
 # Test propagation of collation through subquery
 select
@@ -1115,7 +1118,7 @@ select
 QueryStmt
 +-output_column_list=
 | +-$query.$col1#25{Collation:"und:ci"} AS `$col1` [STRING]
-| +-$query.$col2#26[{Collation:"und:ci"}] AS `$col2` [ARRAY<STRING>]
+| +-$query.$col2#26<{Collation:"und:ci"}> AS `$col2` [ARRAY<STRING>]
 | +-$query.$col3#27 AS `$col3` [BOOL]
 | +-$query.$col4#28 AS `$col4` [BOOL]
 | +-$query.$col5#29 AS `$col5` [BOOL]
@@ -1137,7 +1140,7 @@ QueryStmt
     | +-$col2#26 :=
     | | +-SubqueryExpr
     | |   +-type=ARRAY<STRING>
-    | |   +-type_annotation_map=[{Collation:"und:ci"}]
+    | |   +-type_annotation_map=<{Collation:"und:ci"}>
     | |   +-subquery_type=ARRAY
     | |   +-subquery=
     | |     +-OrderByScan
@@ -1324,7 +1327,7 @@ QueryStmt
 +-output_column_list=
 | +-$query.$col1#5<_,{Collation:"und:ci"},_> AS `$col1` [STRUCT<STRING, STRING, INT64>]
 | +-$query.$col2#6<{Collation:"und:ci"},{Collation:"binary"}> AS `$col2` [STRUCT<STRING, STRING>]
-| +-$query.$col3#7<{Collation:"und:ci"},[{Collation:"und:ci"}],<_,{Collation:"und:ci"}>> AS `$col3` [STRUCT<STRING, ARRAY<STRING>, STRUCT<a INT32, b STRING>>]
+| +-$query.$col3#7<{Collation:"und:ci"},<{Collation:"und:ci"}>,<_,{Collation:"und:ci"}>> AS `$col3` [STRUCT<STRING, ARRAY<STRING>, STRUCT<a INT32, b STRING>>]
 | +-$query.$col4#8<{Collation:"und:ci"},<{Collation:"und:ci"},<{Collation:"und:ci"},{Collation:"binary"}>>> AS `$col4` [STRUCT<STRING, STRUCT<STRING, STRUCT<STRING, STRING>>>]
 +-query=
   +-ProjectScan
@@ -1348,10 +1351,10 @@ QueryStmt
     | +-$col3#7 :=
     | | +-MakeStruct
     | |   +-type=STRUCT<STRING, ARRAY<STRING>, STRUCT<a INT32, b STRING>>
-    | |   +-type_annotation_map=<{Collation:"und:ci"},[{Collation:"und:ci"}],<_,{Collation:"und:ci"}>>
+    | |   +-type_annotation_map=<{Collation:"und:ci"},<{Collation:"und:ci"}>,<_,{Collation:"und:ci"}>>
     | |   +-field_list=
     | |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
-    | |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    | |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
     | |     +-ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>)
     | +-$col4#8 :=
     |   +-MakeStruct
@@ -1458,7 +1461,7 @@ QueryStmt
 ==
 
 # Test comparing two arrays with the same CI collation succeed
-[language_features=V_1_1_ARRAY_EQUALITY,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[language_features=ARRAY_EQUALITY,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 select array_with_string_ci = [string_ci]
 from CollatedTable
 --
@@ -1471,9 +1474,9 @@ QueryStmt
     +-expr_list=
     | +-$col1#5 :=
     |   +-FunctionCall(ZetaSQL:$equal(ARRAY<STRING>, ARRAY<STRING>) -> BOOL)
-    |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
     |     +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
-    |       +-type_annotation_map=[{Collation:"und:ci"}]
+    |       +-type_annotation_map=<{Collation:"und:ci"}>
     |       +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
     |     +-collation_list=[[und:ci]]
     +-input_scan=
@@ -1615,7 +1618,7 @@ QueryStmt
     | |     +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
     | |     +-Cast(ARRAY<STRING> -> ARRAY<STRING>)
     | |       +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
-    | |         +-type_annotation_map=[{Collation:"und:ci"}]
+    | |         +-type_annotation_map=<{Collation:"und:ci"}>
     | |         +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     | |           +-type_annotation_map={Collation:"und:ci"}
     | |           +-Literal(type=STRING, value="a")
@@ -1666,7 +1669,7 @@ group by string_ci
 QueryStmt
 +-output_column_list=
 | +-$aggregate.$agg1#5{Collation:"binary"} AS `$col1` [STRING]
-| +-$aggregate.$agg2#6[{Collation:"und:ci"}] AS `$col2` [ARRAY<STRING>]
+| +-$aggregate.$agg2#6<{Collation:"und:ci"}> AS `$col2` [ARRAY<STRING>]
 +-query=
   +-ProjectScan
     +-column_list=$aggregate.[$agg1#5, $agg2#6]
@@ -1685,8 +1688,8 @@ QueryStmt
           |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
           +-$agg2#6 :=
             +-AggregateFunctionCall(ZetaSQL:any_value(ARRAY<STRING>) -> ARRAY<STRING>)
-              +-type_annotation_map=[{Collation:"und:ci"}]
-              +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+              +-type_annotation_map=<{Collation:"und:ci"}>
+              +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
 ==
 
 # Default collation propagation through analytic function call
@@ -1697,13 +1700,13 @@ from CollatedTable
 QueryStmt
 +-output_column_list=
 | +-$analytic.$analytic1#7{Collation:"binary"} AS `$col1` [STRING]
-| +-$analytic.$analytic2#8[{Collation:"und:ci"}] AS `$col2` [ARRAY<STRING>]
+| +-$analytic.$analytic2#8<{Collation:"und:ci"}> AS `$col2` [ARRAY<STRING>]
 +-query=
   +-ProjectScan
     +-column_list=$analytic.[$analytic1#7, $analytic2#8]
     +-input_scan=
       +-AnalyticScan
-        +-column_list=[CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}], $analytic.$analytic1#7{Collation:"binary"}, $analytic.$analytic2#8[{Collation:"und:ci"}]]
+        +-column_list=[CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>, $analytic.$analytic1#7{Collation:"binary"}, $analytic.$analytic2#8<{Collation:"und:ci"}>]
         +-input_scan=
         | +-TableScan(column_list=CollatedTable.[string_binary#2, array_with_string_ci#4], table=CollatedTable, column_index_list=[1, 3])
         +-function_group_list=
@@ -1721,8 +1724,8 @@ QueryStmt
               |         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
               +-$analytic2#8 :=
                 +-AnalyticFunctionCall(ZetaSQL:any_value(ARRAY<STRING>) -> ARRAY<STRING>)
-                  +-type_annotation_map=[{Collation:"und:ci"}]
-                  +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+                  +-type_annotation_map=<{Collation:"und:ci"}>
+                  +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
                   +-window_frame=
                     +-WindowFrame(frame_unit=ROWS)
                       +-start_expr=
@@ -1731,7 +1734,7 @@ QueryStmt
                         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
 ==
 
-[language_features=V_1_3_QUALIFY,ANALYTIC_FUNCTIONS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[language_features=QUALIFY,ANALYTIC_FUNCTIONS,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 # Test that collation propagates into the QUALIFY clause.
 select (string_agg(string_binary) over ()) as a
 from CollatedTable
@@ -1789,7 +1792,7 @@ QueryStmt
 +-output_column_list=
 | +-$query.$col1#5{Collation:"und:ci"} AS `$col1` [STRING]
 | +-$query.$col2#6<_,{Collation:"und:ci"}> AS `$col2` [STRUCT<a INT32, b STRING>]
-| +-$query.$col3#7[{Collation:"und:ci"}] AS `$col3` [ARRAY<STRING>]
+| +-$query.$col3#7<{Collation:"und:ci"}> AS `$col3` [ARRAY<STRING>]
 +-query=
   +-ProjectScan
     +-column_list=$query.[$col1#5, $col2#6, $col3#7]
@@ -1808,9 +1811,9 @@ QueryStmt
     | |   +-Literal(type=STRUCT<a INT32, b STRING>, value={a:1, b:"abc"}, has_explicit_type=TRUE)
     | +-$col3#7 :=
     |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
-    |     +-type_annotation_map=[{Collation:"und:ci"}]
+    |     +-type_annotation_map=<{Collation:"und:ci"}>
     |     +-Literal(type=BOOL, value=true)
-    |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
     |     +-Literal(type=ARRAY<STRING>, value=["abc"])
     +-input_scan=
       +-TableScan(column_list=CollatedTable.[string_ci#1, struct_with_string_ci#3, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 2, 3])
@@ -1825,7 +1828,7 @@ FROM CollatedTable
 QueryStmt
 +-output_column_list=
 | +-$query.$col1#8{Collation:"und:ci"} AS `$col1` [STRING]
-| +-$query.$col2#9[{Collation:"und:ci"}] AS `$col2` [ARRAY<STRING>]
+| +-$query.$col2#9<{Collation:"und:ci"}> AS `$col2` [ARRAY<STRING>]
 | +-$query.$col3#10 AS `$col3` [BOOL]
 +-query=
   +-ProjectScan
@@ -1845,10 +1848,10 @@ QueryStmt
     | |           +-ColumnRef(type=STRING, column=$lambda_arg.e#5)
     | +-$col2#9 :=
     | | +-FunctionCall(ZetaSQL:array_filter(ARRAY<STRING> array_to_filter, FUNCTION<STRING->BOOL> condition) -> ARRAY<STRING>)
-    | |   +-type_annotation_map=[{Collation:"und:ci"}]
+    | |   +-type_annotation_map=<{Collation:"und:ci"}>
     | |   +-FunctionArgument
     | |   | +-expr=
-    | |   |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    | |   |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
     | |   +-FunctionArgument
     | |     +-inline_lambda=
     | |       +-InlineLambda
@@ -1861,7 +1864,7 @@ QueryStmt
     |   +-FunctionCall(ZetaSQL:array_includes(ARRAY<STRING> array_to_search, FUNCTION<STRING->BOOL> condition) -> BOOL)
     |     +-FunctionArgument
     |     | +-expr=
-    |     |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    |     |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
     |     +-FunctionArgument
     |       +-inline_lambda=
     |         +-InlineLambda
@@ -1886,19 +1889,19 @@ SELECT ARRAY_TRANSFORM(
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#6[{Collation:"uni:cs"}] AS `$col1` [ARRAY<STRING>]
+| +-$query.$col1#6<{Collation:"uni:cs"}> AS `$col1` [ARRAY<STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#6[{Collation:"uni:cs"}]]
+    +-column_list=[$query.$col1#6<{Collation:"uni:cs"}>]
     +-expr_list=
     | +-$col1#6 :=
     |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<STRUCT<a INT32, b STRING>> array_to_transform, FUNCTION<STRUCT<a INT32, b STRING>->STRING> transformation) -> ARRAY<STRING>)
-    |     +-type_annotation_map=[{Collation:"uni:cs"}]
+    |     +-type_annotation_map=<{Collation:"uni:cs"}>
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-SubqueryExpr
     |     |     +-type=ARRAY<STRUCT<a INT32, b STRING>>
-    |     |     +-type_annotation_map=[<_,{Collation:"und:ci"}>]
+    |     |     +-type_annotation_map=<<_,{Collation:"und:ci"}>>
     |     |     +-subquery_type=ARRAY
     |     |     +-subquery=
     |     |       +-ProjectScan
@@ -1918,7 +1921,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
 
 # All cases with non-default propagation rule.
 select
@@ -1952,8 +1955,8 @@ QueryStmt
 | +-$query.fn_array_at_ordinal#7{Collation:"und:ci"} AS fn_array_at_ordinal [STRING]
 | +-$query.fn_safe_array_at_ordinal#8{Collation:"und:ci"} AS fn_safe_array_at_ordinal [STRING]
 | +-$query.fn_array_to_string#9{Collation:"und:ci"} AS fn_array_to_string [STRING]
-| +-$query.fn_make_array#10[{Collation:"und:ci"}] AS fn_make_array [ARRAY<STRING>]
-| +-$query.fn_split#11[{Collation:"und:ci"}] AS fn_split [ARRAY<STRING>]
+| +-$query.fn_make_array#10<{Collation:"und:ci"}> AS fn_make_array [ARRAY<STRING>]
+| +-$query.fn_split#11<{Collation:"und:ci"}> AS fn_split [ARRAY<STRING>]
 | +-$query.fn_to_json_string#12 AS fn_to_json_string [STRING]
 | +-$query.fn_format#13{Collation:"binary"} AS fn_format [STRING]
 +-query=
@@ -1963,53 +1966,53 @@ QueryStmt
     | +-fn_array_at_offset#5 :=
     | | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
     | |   +-type_annotation_map={Collation:"und:ci"}
-    | |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    | |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
     | |   +-Literal(type=INT64, value=0)
     | +-fn_safe_array_at_offset#6 :=
     | | +-FunctionCall(ZetaSQL:$safe_array_at_offset(ARRAY<STRING>, INT64) -> STRING)
     | |   +-type_annotation_map={Collation:"und:ci"}
-    | |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    | |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
     | |   +-Literal(type=INT64, value=0)
     | +-fn_array_at_ordinal#7 :=
     | | +-FunctionCall(ZetaSQL:$array_at_ordinal(ARRAY<STRING>, INT64) -> STRING)
     | |   +-type_annotation_map={Collation:"und:ci"}
-    | |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    | |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
     | |   +-Literal(type=INT64, value=1)
     | +-fn_safe_array_at_ordinal#8 :=
     | | +-FunctionCall(ZetaSQL:$safe_array_at_ordinal(ARRAY<STRING>, INT64) -> STRING)
     | |   +-type_annotation_map={Collation:"und:ci"}
-    | |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    | |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
     | |   +-Literal(type=INT64, value=1)
     | +-fn_array_to_string#9 :=
     | | +-FunctionCall(ZetaSQL:array_to_string(ARRAY<STRING>, STRING, optional(0) STRING) -> STRING)
     | |   +-type_annotation_map={Collation:"und:ci"}
-    | |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    | |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
     | |   +-Literal(type=STRING, value="")
     | +-fn_make_array#10 :=
     | | +-FunctionCall(ZetaSQL:$make_array(repeated(3) STRING) -> ARRAY<STRING>)
-    | |   +-type_annotation_map=[{Collation:"und:ci"}]
+    | |   +-type_annotation_map=<{Collation:"und:ci"}>
     | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
     | |   +-Literal(type=STRING, value="a")
     | |   +-Literal(type=STRING, value="b")
     | +-fn_split#11 :=
     | | +-FunctionCall(ZetaSQL:split(STRING, optional(0) STRING) -> ARRAY<STRING>)
-    | |   +-type_annotation_map=[{Collation:"und:ci"}]
+    | |   +-type_annotation_map=<{Collation:"und:ci"}>
     | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
     | |   +-collation_list=[und:ci]
     | +-fn_to_json_string#12 :=
     | | +-FunctionCall(ZetaSQL:to_json_string(ARRAY<STRING>, optional(0) BOOL) -> STRING)
-    | |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    | |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
     | +-fn_format#13 :=
     |   +-FunctionCall(ZetaSQL:format(STRING, repeated(1) ARRAY<STRING>, repeated(1) STRUCT<a INT32, b STRING>) -> STRING)
     |     +-type_annotation_map={Collation:"binary"}
     |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
-    |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
     |     +-ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>)
     +-input_scan=
       +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2, struct_with_string_ci#3, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 1, 2, 3])
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
 # Collation is disallowed on the function arguments
 select
   json_extract_array(string_ci),
@@ -2020,18 +2023,21 @@ ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') t
   ^
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
 # Collation is disallowed on the function arguments
 select
   json_extract(string_ci),
 from CollatedTable
 --
-ERROR: Number of arguments does not match for function JSON_EXTRACT. Supported signature: JSON_EXTRACT(STRING, STRING) [at 3:3]
+ERROR: No matching signature for function JSON_EXTRACT
+  Argument types: STRING
+  Signature: JSON_EXTRACT(STRING, STRING)
+    Signature requires at least 2 arguments, found 1 argument [at 3:3]
   json_extract(string_ci),
   ^
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
 # Collation is disallowed on the function arguments
 select
   json_extract_string_array(string_ci),
@@ -2042,7 +2048,7 @@ ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') t
   ^
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
 # Collation is disallowed on the function arguments
 select
   json_extract_scalar(string_ci),
@@ -2053,7 +2059,7 @@ ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') t
   ^
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
 # Collation is disallowed on the function arguments
 select
   json_query_array(string_ci),
@@ -2064,18 +2070,21 @@ ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') t
   ^
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
 # Collation is disallowed on the function arguments
 select
   json_query(string_ci),
 from CollatedTable
 --
-ERROR: Number of arguments does not match for function JSON_QUERY. Supported signature: JSON_QUERY(STRING, STRING) [at 3:3]
+ERROR: No matching signature for function JSON_QUERY
+  Argument types: STRING
+  Signature: JSON_QUERY(STRING, STRING)
+    Signature requires at least 2 arguments, found 1 argument [at 3:3]
   json_query(string_ci),
   ^
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
 # Collation is disallowed on the function arguments
 select
   json_value(string_ci),
@@ -2086,7 +2095,7 @@ ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') t
   ^
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
 # Collation is disallowed on the function arguments
 select
   json_value_array(string_ci),
@@ -2097,7 +2106,7 @@ ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') t
   ^
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
 # Collation is allowed on LIKE operands
 select
   string_ci LIKE 'abc',
@@ -2119,7 +2128,7 @@ QueryStmt
       +-TableScan(column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
 # Different explicit collations are disallowed on LIKE operands
 select
   string_ci LIKE COLLATE('abc', 'binary'),
@@ -2130,7 +2139,7 @@ ERROR: Collation conflict: "binary" vs. "und:ci". Collation on argument 2 ("bina
   ^
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ADDITIONAL_STRING_FUNCTIONS]
 # Collation is disallowed on the function arguments
 select
   translate(string_ci, "a", "b")
@@ -2141,7 +2150,7 @@ ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') t
   ^
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ADDITIONAL_STRING_FUNCTIONS]
 # Collation is disallowed on the function arguments
 select
   initcap(string_ci, "abc")
@@ -2253,11 +2262,11 @@ QueryStmt
     +-column_list=[$array.array_with_string_ci#5{Collation:"und:ci"}]
     +-input_scan=
       +-ArrayScan
-        +-column_list=[CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}], $array.array_with_string_ci#5{Collation:"und:ci"}]
+        +-column_list=[CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>, $array.array_with_string_ci#5{Collation:"und:ci"}]
         +-input_scan=
-        | +-TableScan(column_list=[CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}]], table=CollatedTable, column_index_list=[3])
+        | +-TableScan(column_list=[CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>], table=CollatedTable, column_index_list=[3])
         +-array_expr_list=
-        | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+        | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
         +-element_column_list=[$array.array_with_string_ci#5{Collation:"und:ci"}]
 ==
 
@@ -2275,7 +2284,7 @@ QueryStmt
         +-column_list=[$array.n#1{Collation:"und:ci"}]
         +-array_expr_list=
         | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
-        |   +-type_annotation_map=[{Collation:"und:ci"}]
+        |   +-type_annotation_map=<{Collation:"und:ci"}>
         |   +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
         |     +-type_annotation_map={Collation:"und:ci"}
         |     +-Literal(type=STRING, value="abc")
@@ -2292,12 +2301,12 @@ select concat(string_ci, string_binary)
        ^
 ==
 
-[language_features=V_1_1_ARRAY_EQUALITY,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[language_features=ARRAY_EQUALITY,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 # Throw an error if array arguments have different collation
 select array_with_string_ci = array_agg(distinct string_binary)
 from CollatedTable
 --
-ERROR: Collation conflict: "binary" vs. "und:ci". Collation on argument 2 (["binary"]) in function = is not compatible with other arguments [at 2:8]
+ERROR: Collation conflict: "binary" vs. "und:ci". Collation on argument 2 (<"binary">) in function = is not compatible with other arguments [at 2:8]
 select array_with_string_ci = array_agg(distinct string_binary)
        ^
 ==
@@ -2383,7 +2392,7 @@ QueryStmt
 # <collation_list> set for each of the ResolvedAnalyticFunctionCall.
 # See (broken link).
 # Cases are ordered alphabetically.
-[language_features=NUMERIC_TYPE,ANALYTIC_FUNCTIONS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[language_features=NUMERIC_TYPE,ANALYTIC_FUNCTIONS,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 
 select
   -- PERCENTILE_DISC(<T1>, FLOAT64 /*must_be_non_null*/ NOT AGGREGATE)
@@ -2425,7 +2434,7 @@ QueryStmt
 # <collation_list> set for each of the ResolvedFunctionCall.
 # See (broken link).
 # Cases are ordered alphabetically.
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_IS_DISTINCT,V_1_3_ADDITIONAL_STRING_FUNCTIONS,V_1_3_LIKE_ANY_SOME_ALL]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,IS_DISTINCT,ADDITIONAL_STRING_FUNCTIONS,LIKE_ANY_SOME_ALL]
 
 select
   -- $between
@@ -2480,7 +2489,7 @@ QueryStmt
 | +-$query.$col14#18 AS `$col14` [INT64]
 | +-$query.$col15#19{Collation:"und:ci"} AS `$col15` [STRING]
 | +-$query.$col16#20{Collation:"und:ci"} AS `$col16` [STRING]
-| +-$query.$col17#21[{Collation:"und:ci"}] AS `$col17` [ARRAY<STRING>]
+| +-$query.$col17#21<{Collation:"und:ci"}> AS `$col17` [ARRAY<STRING>]
 | +-$query.$col18#22 AS `$col18` [BOOL]
 | +-$query.$col19#23 AS `$col19` [INT64]
 | +-$query.$col20#24 AS `$col20` [INT64]
@@ -2520,7 +2529,7 @@ QueryStmt
     | +-$col6#10 :=
     | | +-FunctionCall(ZetaSQL:$in_array(STRING, ARRAY<STRING>) -> BOOL)
     | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
-    | |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    | |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
     | |   +-collation_list=[und:ci]
     | +-$col7#11 :=
     | | +-FunctionCall(ZetaSQL:$is_distinct_from(STRING, STRING) -> BOOL)
@@ -2578,7 +2587,7 @@ QueryStmt
     | |   +-collation_list=[und:ci]
     | +-$col17#21 :=
     | | +-FunctionCall(ZetaSQL:split(STRING, optional(0) STRING) -> ARRAY<STRING>)
-    | |   +-type_annotation_map=[{Collation:"und:ci"}]
+    | |   +-type_annotation_map=<{Collation:"und:ci"}>
     | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
     | |   +-collation_list=[und:ci]
     | +-$col18#22 :=
@@ -2599,7 +2608,7 @@ QueryStmt
     | +-$col21#25 :=
     |   +-FunctionCall(ZetaSQL:range_bucket(STRING, ARRAY<STRING>) -> INT64)
     |     +-Literal(type=STRING, value="a")
-    |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
     |     +-collation_list=[und:ci]
     +-input_scan=
       +-TableScan(column_list=CollatedTable.[string_ci#1, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 3])
@@ -2819,7 +2828,7 @@ QueryStmt
     | |   |   +-Literal(type=STRING, value="abc")
     | |   |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
     | |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRUCT<INT64, STRING, STRING>) -> ARRAY<STRUCT<INT64, STRING, STRING>>)
-    | |     +-type_annotation_map=[<_,{Collation:"und:ci"},_>]
+    | |     +-type_annotation_map=<<_,{Collation:"und:ci"},_>>
     | |     +-MakeStruct
     | |     | +-type=STRUCT<INT64, STRING, STRING>
     | |     | +-type_annotation_map=<_,{Collation:"und:ci"},_>
@@ -3009,14 +3018,14 @@ QueryStmt
 ==
 
 # Operation collation is not generated for NULLIF function when
-# FEATURE_V_1_4_USE_OPERATION_COLLATION_FOR_NULLIF is off.
+# FEATURE_USE_OPERATION_COLLATION_FOR_NULLIF is off.
 
 # TODO: enable the unparser once STRUCT<STRING COLLATE '...'> syntax
 # is supported.
 # Coercing struct in scan through internal CAST - with recursive.
 # Column in non-recursive term is casted and has collation.
 [no_run_sqlbuilder]
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_1_ARRAY_EQUALITY]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_EQUALITY]
 select
   nullif(string_ci, 'abc'),
   nullif(array_with_string_ci, ["abc"]),
@@ -3026,7 +3035,7 @@ from CollatedTable
 QueryStmt
 +-output_column_list=
 | +-$query.$col1#5{Collation:"und:ci"} AS `$col1` [STRING]
-| +-$query.$col2#6[{Collation:"und:ci"}] AS `$col2` [ARRAY<STRING>]
+| +-$query.$col2#6<{Collation:"und:ci"}> AS `$col2` [ARRAY<STRING>]
 | +-$query.$col3#7<_,{Collation:"und:ci"},{Collation:"binary"}> AS `$col3` [STRUCT<INT64, STRING, STRING>]
 +-query=
   +-ProjectScan
@@ -3039,8 +3048,8 @@ QueryStmt
     | |   +-Literal(type=STRING, value="abc")
     | +-$col2#6 :=
     | | +-FunctionCall(ZetaSQL:nullif(ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
-    | |   +-type_annotation_map=[{Collation:"und:ci"}]
-    | |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    | |   +-type_annotation_map=<{Collation:"und:ci"}>
+    | |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
     | |   +-Literal(type=ARRAY<STRING>, value=["abc"])
     | +-$col3#7 :=
     |   +-FunctionCall(ZetaSQL:nullif(STRUCT<INT64, STRING, STRING>, STRUCT<INT64, STRING, STRING>) -> STRUCT<INT64, STRING, STRING>)
@@ -3107,26 +3116,26 @@ select nullif(string_ci, string_binary),
        ^
 ==
 
-[language_features=V_1_1_ARRAY_EQUALITY,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_USE_OPERATION_COLLATION_FOR_NULLIF]
+[language_features=ARRAY_EQUALITY,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,USE_OPERATION_COLLATION_FOR_NULLIF]
 # Array arguments with collation of nullif function
 select nullif(array_with_string_ci, ["abc"]),
 from CollatedTable
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#5[{Collation:"und:ci"}] AS `$col1` [ARRAY<STRING>]
+| +-$query.$col1#5<{Collation:"und:ci"}> AS `$col1` [ARRAY<STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#5[{Collation:"und:ci"}]]
+    +-column_list=[$query.$col1#5<{Collation:"und:ci"}>]
     +-expr_list=
     | +-$col1#5 :=
     |   +-FunctionCall(ZetaSQL:nullif(ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
-    |     +-type_annotation_map=[{Collation:"und:ci"}]
-    |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    |     +-type_annotation_map=<{Collation:"und:ci"}>
+    |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
     |     +-Literal(type=ARRAY<STRING>, value=["abc"])
     |     +-collation_list=[[und:ci]]
     +-input_scan=
-      +-TableScan(column_list=[CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}]], table=CollatedTable, column_index_list=[3])
+      +-TableScan(column_list=[CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>], table=CollatedTable, column_index_list=[3])
 ==
 
 [no_run_sqlbuilder]
@@ -3179,8 +3188,8 @@ QueryStmt
 +-output_column_list=
 | +-$aggregate.fn_count#5 AS fn_count [INT64]
 | +-$aggregate.fn_count_distinct#6 AS fn_count_distinct [INT64]
-| +-$aggregate.fn_array_agg#7[{Collation:"und:ci"}] AS fn_array_agg [ARRAY<STRING>]
-| +-$aggregate.fn_array_concat_agg#8[{Collation:"und:ci"}] AS fn_array_concat_agg [ARRAY<STRING>]
+| +-$aggregate.fn_array_agg#7<{Collation:"und:ci"}> AS fn_array_agg [ARRAY<STRING>]
+| +-$aggregate.fn_array_concat_agg#8<{Collation:"und:ci"}> AS fn_array_concat_agg [ARRAY<STRING>]
 +-query=
   +-ProjectScan
     +-column_list=$aggregate.[fn_count#5, fn_count_distinct#6, fn_array_agg#7, fn_array_concat_agg#8]
@@ -3200,14 +3209,14 @@ QueryStmt
           |   +-distinct=TRUE
           +-fn_array_agg#7 :=
           | +-AggregateFunctionCall(ZetaSQL:array_agg(STRING) -> ARRAY<STRING>)
-          |   +-type_annotation_map=[{Collation:"und:ci"}]
+          |   +-type_annotation_map=<{Collation:"und:ci"}>
           |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
           |   +-collation_list=[und:ci]
           |   +-distinct=TRUE
           +-fn_array_concat_agg#8 :=
             +-AggregateFunctionCall(ZetaSQL:array_concat_agg(ARRAY<STRING>) -> ARRAY<STRING>)
-              +-type_annotation_map=[{Collation:"und:ci"}]
-              +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+              +-type_annotation_map=<{Collation:"und:ci"}>
+              +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
               +-collation_list=[[und:ci]]
               +-distinct=TRUE
 ==
@@ -3336,17 +3345,17 @@ from AnnotatedTable
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#7 AS `$col1` [STRING]
-| +-$query.$col2#8 AS `$col2` [BOOL]
+| +-$query.$col1#8 AS `$col1` [STRING]
+| +-$query.$col2#9 AS `$col2` [BOOL]
 +-query=
   +-ProjectScan
-    +-column_list=$query.[$col1#7, $col2#8]
+    +-column_list=$query.[$col1#8, $col2#9]
     +-expr_list=
-    | +-$col1#7 :=
+    | +-$col1#8 :=
     | | +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
     | |   +-ColumnRef(type=STRING, type_annotation_map={SampleAnnotation:0}, column=AnnotatedTable.string#1{SampleAnnotation:0})
     | |   +-ColumnRef(type=STRING, type_annotation_map={SampleAnnotation:0}, column=AnnotatedTable.string#1{SampleAnnotation:0})
-    | +-$col2#8 :=
+    | +-$col2#9 :=
     |   +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
     |     +-ColumnRef(type=STRING, type_annotation_map={SampleAnnotation:0}, column=AnnotatedTable.string#1{SampleAnnotation:0})
     |     +-Literal(type=STRING, value="abc")
@@ -3380,7 +3389,7 @@ QueryStmt
       | +-collation=binary
       +-OrderByItem
         +-column_ref=
-        | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+        | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
         +-collation=[und:ci]
 ==
 
@@ -3901,7 +3910,7 @@ QueryStmt
 | +-$distinct.string_ci#5{Collation:"und:ci"} AS string_ci [STRING]
 | +-$distinct.string_binary#6{Collation:"binary"} AS string_binary [STRING]
 | +-$distinct.struct_with_string_ci#7<_,{Collation:"und:ci"}> AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
-| +-$distinct.array_with_string_ci#8[{Collation:"und:ci"}] AS array_with_string_ci [ARRAY<STRING>]
+| +-$distinct.array_with_string_ci#8<{Collation:"und:ci"}> AS array_with_string_ci [ARRAY<STRING>]
 +-query=
   +-AggregateScan
     +-column_list=$distinct.[string_ci#5, string_binary#6, struct_with_string_ci#7, array_with_string_ci#8]
@@ -3911,7 +3920,7 @@ QueryStmt
     | +-string_ci#5 := ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
     | +-string_binary#6 := ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
     | +-struct_with_string_ci#7 := ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>)
-    | +-array_with_string_ci#8 := ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    | +-array_with_string_ci#8 := ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
     +-collation_list=[und:ci,binary,[_,und:ci],[und:ci]]
 ==
 
@@ -3922,7 +3931,7 @@ QueryStmt
 | +-$groupby.string_ci#5{Collation:"und:ci"} AS string_ci [STRING]
 | +-$groupby.string_binary#6{Collation:"binary"} AS string_binary [STRING]
 | +-$groupby.struct_with_string_ci#7<_,{Collation:"und:ci"}> AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
-| +-$groupby.array_with_string_ci#8[{Collation:"und:ci"}] AS array_with_string_ci [ARRAY<STRING>]
+| +-$groupby.array_with_string_ci#8<{Collation:"und:ci"}> AS array_with_string_ci [ARRAY<STRING>]
 +-query=
   +-ProjectScan
     +-column_list=$groupby.[string_ci#5, string_binary#6, struct_with_string_ci#7, array_with_string_ci#8]
@@ -3935,7 +3944,7 @@ QueryStmt
         | +-string_ci#5 := ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
         | +-string_binary#6 := ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
         | +-struct_with_string_ci#7 := ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>)
-        | +-array_with_string_ci#8 := ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+        | +-array_with_string_ci#8 := ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
         +-collation_list=[und:ci,binary,[_,und:ci],[und:ci]]
 ==
 
@@ -4758,7 +4767,7 @@ from t1 outer join t2 using (col_a)
 ==
 
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=V_1_3_PIVOT,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT{{|,V_1_4_SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=PIVOT,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT{{|,SIMPLIFY_PIVOT_REWRITE}}]
 # PIVOT FOR expression with collation is not supported
 select * FROM (select string_ci, string_binary from CollatedTable)
 PIVOT(string_agg(distinct string_ci) FOR string_binary IN ('Value_1' AS v1, 'Value_2' AS v2));
@@ -4804,7 +4813,7 @@ PIVOT(string_agg(distinct string_ci) FOR string_binary IN ('Value_1' AS v1, '...
 ==
 
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=V_1_3_PIVOT,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[language_features=PIVOT,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 # PIVOT aggregation with collation is not supported
 select * FROM (select string_ci, string_binary, 'abc' value from CollatedTable)
 PIVOT(string_agg(distinct string_ci) FOR value IN ('Value_1' AS v1, 'Value_2' AS v2));
@@ -4855,7 +4864,7 @@ PIVOT(string_agg(distinct string_ci) FOR value IN ('Value_1' AS v1, 'Value_2'...
 
 # PIVOT aggregation with collated arguments is not supported
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=V_1_3_PIVOT,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_IS_DISTINCT]
+[language_features=PIVOT,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,IS_DISTINCT]
 select * FROM (select string_ci, string_binary, 'abc' value from CollatedTable)
 PIVOT(string_agg(string_ci) FOR value IN ('Value_1' AS v1, 'Value_2' AS v2));
 --
@@ -4903,7 +4912,7 @@ PIVOT(string_agg(string_ci) FOR value IN ('Value_1' AS v1, 'Value_2' AS v2));
 
 # PIVOT - pivot value is collated
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=V_1_3_PIVOT,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_IS_DISTINCT{{|,V_1_4_SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=PIVOT,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,IS_DISTINCT{{|,SIMPLIFY_PIVOT_REWRITE}}]
 select * FROM (select string_ci, collate(string_binary, '') as col, 'foo' as value from CollatedTable)
 PIVOT(string_agg(distinct col) FOR value IN (collate('Value_1', 'und:ci') AS v1, 'Value_2' AS v2));
 --
@@ -5049,7 +5058,7 @@ QueryStmt
                           +-SingleRowScan
               +-distinct=TRUE
 --
-ALTERNATION GROUP: ,V_1_4_SIMPLIFY_PIVOT_REWRITE
+ALTERNATION GROUP: ,SIMPLIFY_PIVOT_REWRITE
 --
 QueryStmt
 +-output_column_list=
@@ -5152,7 +5161,7 @@ QueryStmt
 ==
 
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=V_1_3_PIVOT,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT{{|,V_1_4_SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=PIVOT,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT{{|,SIMPLIFY_PIVOT_REWRITE}}]
 # PIVOT - group by collated columns
 select * FROM (select string_ci, collate(string_binary, '') as col, 'foo' as value from CollatedTable)
 PIVOT(string_agg(distinct col) FOR value IN ('Value_1' AS v1, 'Value_2' AS v2));
@@ -5342,7 +5351,7 @@ QueryStmt
 ==
 
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=V_1_3_UNPIVOT,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[language_features=UNPIVOT,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 SELECT *
 FROM CollatedTable
 UNPIVOT
@@ -5355,7 +5364,7 @@ ERROR: Collation "und:ci" in UNPIVOT IN clause is not supported [at 4:25]
 ==
 
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=V_1_3_UNPIVOT,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[language_features=UNPIVOT,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 SELECT *
 FROM (SELECT "abc" regular_value, * FROM CollatedTable)
 UNPIVOT
@@ -5378,7 +5387,7 @@ QueryStmt
         +-column_list=$unpivot.[string_ci#8, string_binary#9, struct_with_string_ci#10, array_with_string_ci#11, value#6, metric#7]
         +-input_scan=
         | +-ProjectScan
-        |   +-column_list=[$subquery1.regular_value#5, CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}]]
+        |   +-column_list=[$subquery1.regular_value#5, CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>]
         |   +-expr_list=
         |   | +-regular_value#5 := Literal(type=STRING, value="abc")
         |   +-input_scan=
@@ -5395,7 +5404,7 @@ QueryStmt
         | +-string_ci#8 := ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
         | +-string_binary#9 := ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
         | +-struct_with_string_ci#10 := ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>)
-        | +-array_with_string_ci#11 := ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+        | +-array_with_string_ci#11 := ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
         +-include_nulls=FALSE
 
 [REWRITTEN AST]
@@ -5417,7 +5426,7 @@ QueryStmt
         | +-string_ci#8 := ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
         | +-string_binary#9 := ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
         | +-struct_with_string_ci#10 := ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>)
-        | +-array_with_string_ci#11 := ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+        | +-array_with_string_ci#11 := ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
         | +-value#6 :=
         | | +-GetStructField
         | |   +-type=STRING
@@ -5432,13 +5441,13 @@ QueryStmt
         |     +-field_idx=1
         +-input_scan=
           +-FilterScan
-            +-column_list=[$subquery1.regular_value#5, CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}], unpivot_array_0.unpivot_unnest#12]
+            +-column_list=[$subquery1.regular_value#5, CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>, unpivot_array_0.unpivot_unnest#12]
             +-input_scan=
             | +-ArrayScan
-            |   +-column_list=[$subquery1.regular_value#5, CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}], unpivot_array_0.unpivot_unnest#12]
+            |   +-column_list=[$subquery1.regular_value#5, CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>, unpivot_array_0.unpivot_unnest#12]
             |   +-input_scan=
             |   | +-ProjectScan
-            |   |   +-column_list=[$subquery1.regular_value#5, CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}]]
+            |   |   +-column_list=[$subquery1.regular_value#5, CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>]
             |   |   +-expr_list=
             |   |   | +-regular_value#5 := Literal(type=STRING, value="abc")
             |   |   +-input_scan=
@@ -5501,12 +5510,12 @@ QueryStmt
 | +-CollatedTable.string_ci#1{Collation:"und:ci"} AS string_ci [STRING]
 | +-CollatedTable.string_binary#2{Collation:"binary"} AS string_binary [STRING]
 | +-CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}> AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
-| +-CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}] AS array_with_string_ci [ARRAY<STRING>]
+| +-CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}> AS array_with_string_ci [ARRAY<STRING>]
 | +-$query.value#7 AS value [STRING]
 | +-$query.metric#8 AS metric [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}], $query.value#7, $query.metric#8]
+    +-column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>, $query.value#7, $query.metric#8]
     +-expr_list=
     | +-value#7 :=
     | | +-GetStructField
@@ -5522,13 +5531,13 @@ QueryStmt
     |     +-field_idx=1
     +-input_scan=
       +-FilterScan
-        +-column_list=[projectscan_7.a_6#5, CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}], $array.a_8#6]
+        +-column_list=[projectscan_7.a_6#5, CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>, $array.a_8#6]
         +-input_scan=
         | +-ArrayScan
-        |   +-column_list=[projectscan_7.a_6#5, CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}], $array.a_8#6]
+        |   +-column_list=[projectscan_7.a_6#5, CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>, $array.a_8#6]
         |   +-input_scan=
         |   | +-ProjectScan
-        |   |   +-column_list=[projectscan_7.a_6#5, CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}]]
+        |   |   +-column_list=[projectscan_7.a_6#5, CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>]
         |   |   +-expr_list=
         |   |   | +-a_6#5 := Literal(type=STRING, value="abc")
         |   |   +-input_scan=
@@ -5591,12 +5600,12 @@ QueryStmt
 | +-CollatedTable.string_ci#1{Collation:"und:ci"} AS string_ci [STRING]
 | +-CollatedTable.string_binary#2{Collation:"binary"} AS string_binary [STRING]
 | +-CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}> AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
-| +-CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}] AS array_with_string_ci [ARRAY<STRING>]
+| +-CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}> AS array_with_string_ci [ARRAY<STRING>]
 | +-$pipe_select.value#7 AS value [STRING]
 | +-$pipe_select.metric#8 AS metric [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}], $pipe_select.value#7, $pipe_select.metric#8]
+    +-column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>, $pipe_select.value#7, $pipe_select.metric#8]
     +-expr_list=
     | +-value#7 :=
     | | +-GetStructField
@@ -5612,13 +5621,13 @@ QueryStmt
     |     +-field_idx=1
     +-input_scan=
       +-FilterScan
-        +-column_list=[$pipe_select.a_6#5, CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}], $array.a_8#6]
+        +-column_list=[$pipe_select.a_6#5, CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>, $array.a_8#6]
         +-input_scan=
         | +-ArrayScan
-        |   +-column_list=[$pipe_select.a_6#5, CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}], $array.a_8#6]
+        |   +-column_list=[$pipe_select.a_6#5, CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>, $array.a_8#6]
         |   +-input_scan=
         |   | +-ProjectScan
-        |   |   +-column_list=[$pipe_select.a_6#5, CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}]]
+        |   |   +-column_list=[$pipe_select.a_6#5, CollatedTable.string_ci#1{Collation:"und:ci"}, CollatedTable.string_binary#2{Collation:"binary"}, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>, CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>]
         |   |   +-expr_list=
         |   |   | +-a_6#5 := Literal(type=STRING, value="abc")
         |   |   +-input_scan=
@@ -5910,7 +5919,7 @@ select 'abc', array_of_struct_ci from ComplexCollatedTable
 QueryStmt
 +-output_column_list=
 | +-$union_all.string_binary#13{Collation:"binary"} AS string_binary [STRING]
-| +-$union_all.$col2#14[<_,{Collation:"und:ci"}>] AS `$col2` [ARRAY<STRUCT<a BOOL, b STRING>>]
+| +-$union_all.$col2#14<<_,{Collation:"und:ci"}>> AS `$col2` [ARRAY<STRUCT<a BOOL, b STRING>>]
 +-query=
   +-SetOperationScan
     +-column_list=$union_all.[string_binary#13, $col2#14]
@@ -5919,11 +5928,11 @@ QueryStmt
       +-SetOperationItem
       | +-scan=
       | | +-ProjectScan
-      | |   +-column_list=[CollatedTable.string_binary#2{Collation:"binary"}, $union_all1.$col2#5[<_,{Collation:"und:ci"}>]]
+      | |   +-column_list=[CollatedTable.string_binary#2{Collation:"binary"}, $union_all1.$col2#5<<_,{Collation:"und:ci"}>>]
       | |   +-expr_list=
       | |   | +-$col2#5 :=
       | |   |   +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a BOOL, b STRING>) -> ARRAY<STRUCT<a BOOL, b STRING>>)
-      | |   |     +-type_annotation_map=[<_,{Collation:"und:ci"}>]
+      | |   |     +-type_annotation_map=<<_,{Collation:"und:ci"}>>
       | |   |     +-MakeStruct
       | |   |       +-type=STRUCT<a BOOL, b STRING>
       | |   |       +-type_annotation_map=<_,{Collation:"und:ci"}>
@@ -5935,16 +5944,16 @@ QueryStmt
       | |   |           +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
       | |   +-input_scan=
       | |     +-TableScan(column_list=[CollatedTable.string_binary#2{Collation:"binary"}], table=CollatedTable, column_index_list=[1])
-      | +-output_column_list=[CollatedTable.string_binary#2{Collation:"binary"}, $union_all1.$col2#5[<_,{Collation:"und:ci"}>]]
+      | +-output_column_list=[CollatedTable.string_binary#2{Collation:"binary"}, $union_all1.$col2#5<<_,{Collation:"und:ci"}>>]
       +-SetOperationItem
         +-scan=
         | +-ProjectScan
-        |   +-column_list=[$union_all2.$col1#12, ComplexCollatedTable.array_of_struct_ci#7[<_,{Collation:"und:ci"}>]]
+        |   +-column_list=[$union_all2.$col1#12, ComplexCollatedTable.array_of_struct_ci#7<<_,{Collation:"und:ci"}>>]
         |   +-expr_list=
         |   | +-$col1#12 := Literal(type=STRING, value="abc")
         |   +-input_scan=
-        |     +-TableScan(column_list=[ComplexCollatedTable.array_of_struct_ci#7[<_,{Collation:"und:ci"}>]], table=ComplexCollatedTable, column_index_list=[1])
-        +-output_column_list=[$union_all2.$col1#12, ComplexCollatedTable.array_of_struct_ci#7[<_,{Collation:"und:ci"}>]]
+        |     +-TableScan(column_list=[ComplexCollatedTable.array_of_struct_ci#7<<_,{Collation:"und:ci"}>>], table=ComplexCollatedTable, column_index_list=[1])
+        +-output_column_list=[$union_all2.$col1#12, ComplexCollatedTable.array_of_struct_ci#7<<_,{Collation:"und:ci"}>>]
 ==
 
 select string_ci, 'abc' from CollatedTable
@@ -6091,7 +6100,7 @@ CreateTableAsSelectStmt
 | | |     +-ColumnAnnotations
 | | |       +-collation_name=
 | | |         +-Literal(type=STRING, value="und:ci")
-| | +-column=t.c#7[{Collation:"und:ci"}]
+| | +-column=t.c#7<{Collation:"und:ci"}>
 | +-ColumnDefinition
 |   +-name="d"
 |   +-type=STRUCT<STRING, STRING, STRING>
@@ -6108,7 +6117,7 @@ CreateTableAsSelectStmt
 +-output_column_list=
 | +-$create_as.a#1 AS a [INT64]
 | +-$create_as.b#2{Collation:"und:ci"} AS b [STRING]
-| +-$create_as.c#3[{Collation:"und:ci"}] AS c [ARRAY<STRING>]
+| +-$create_as.c#3<{Collation:"und:ci"}> AS c [ARRAY<STRING>]
 | +-$create_as.d#4<{Collation:"und:ci"},{Collation:"binary"},_> AS d [STRUCT<STRING, STRING, STRING>]
 +-query=
   +-ProjectScan
@@ -6122,7 +6131,7 @@ CreateTableAsSelectStmt
     | |   +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
     | +-c#3 :=
     | | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
-    | |   +-type_annotation_map=[{Collation:"und:ci"}]
+    | |   +-type_annotation_map=<{Collation:"und:ci"}>
     | |   +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     | |     +-type_annotation_map={Collation:"und:ci"}
     | |     +-Literal(type=STRING, value="abc")
@@ -6160,7 +6169,7 @@ CreateViewStmt
 +-output_column_list=
 | +-$view.a#1 AS a [INT64]
 | +-$view.b#2{Collation:"und:ci"} AS b [STRING]
-| +-$view.c#3[{Collation:"und:ci"}] AS c [ARRAY<STRING>]
+| +-$view.c#3<{Collation:"und:ci"}> AS c [ARRAY<STRING>]
 | +-$view.d#4<{Collation:"und:ci"},{Collation:"binary"},_> AS d [STRUCT<STRING, STRING, STRING>]
 +-query=
 | +-ProjectScan
@@ -6174,7 +6183,7 @@ CreateViewStmt
 |   | |   +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
 |   | +-c#3 :=
 |   | | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
-|   | |   +-type_annotation_map=[{Collation:"und:ci"}]
+|   | |   +-type_annotation_map=<{Collation:"und:ci"}>
 |   | |   +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
 |   | |     +-type_annotation_map={Collation:"und:ci"}
 |   | |     +-Literal(type=STRING, value="abc")
@@ -6215,7 +6224,7 @@ CreateViewStmt
   | |     +-ColumnAnnotations
   | |       +-collation_name=
   | |         +-Literal(type=STRING, value="und:ci")
-  | +-column=t.c#7[{Collation:"und:ci"}]
+  | +-column=t.c#7<{Collation:"und:ci"}>
   +-ColumnDefinition
     +-name="d"
     +-type=STRUCT<STRING, STRING, STRING>
@@ -6273,7 +6282,7 @@ CreateTableAsSelectStmt
 +-output_column_list=
 | +-$create_as.a#5 AS x [INT64]
 | +-$create_as.b#6{Collation:"und:ci"} AS y [STRING]
-| +-$create_as.c#7[{Collation:"und:ci"}] AS z [ARRAY<STRING>]
+| +-$create_as.c#7<{Collation:"und:ci"}> AS z [ARRAY<STRING>]
 | +-$create_as.d#8<{Collation:"und:ci"},{Collation:"binary"},_> AS xx [STRUCT<STRING, STRING, STRING>]
 +-query=
   +-ProjectScan
@@ -6287,7 +6296,7 @@ CreateTableAsSelectStmt
     | |   +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
     | +-c#7 :=
     | | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
-    | |   +-type_annotation_map=[{Collation:"und:ci"}]
+    | |   +-type_annotation_map=<{Collation:"und:ci"}>
     | |   +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     | |     +-type_annotation_map={Collation:"und:ci"}
     | |     +-Literal(type=STRING, value="abc")
@@ -6320,7 +6329,7 @@ CreateViewStmt
 | +-CollatedTable.string_ci#1{Collation:"und:ci"} AS string_ci [STRING]
 | +-CollatedTable.string_binary#2{Collation:"binary"} AS string_binary [STRING]
 | +-CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}> AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
-| +-CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}] AS array_with_string_ci [ARRAY<STRING>]
+| +-CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}> AS array_with_string_ci [ARRAY<STRING>]
 +-query=
 | +-ProjectScan
 |   +-column_list=CollatedTable.[string_ci#1, string_binary#2, struct_with_string_ci#3, array_with_string_ci#4]
@@ -6364,10 +6373,10 @@ CreateViewStmt
     |     +-ColumnAnnotations
     |       +-collation_name=
     |         +-Literal(type=STRING, value="und:ci")
-    +-column=t.array_with_string_ci#8[{Collation:"und:ci"}]
+    +-column=t.array_with_string_ci#8<{Collation:"und:ci"}>
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE]
 # CREATE RECURSIVE VIEW with collation in output columns is not supported.
 create {{materialized|}} recursive view t
 AS (
@@ -6392,7 +6401,7 @@ ERROR: Collation is not supported in recursive queries [at 4:3]
   ^
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE]
 # CREATE RECURSIVE VIEW with collation in output columns is not supported.
 create {{materialized|}} recursive view t
 AS (
@@ -6494,7 +6503,7 @@ CreateMaterializedViewStmt
 | +-CollatedTable.string_ci#1{Collation:"und:ci"} AS string_ci [STRING]
 | +-CollatedTable.string_binary#2{Collation:"binary"} AS string_binary [STRING]
 | +-CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}> AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
-| +-CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}] AS array_with_string_ci [ARRAY<STRING>]
+| +-CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}> AS array_with_string_ci [ARRAY<STRING>]
 +-query=
 | +-ProjectScan
 |   +-column_list=CollatedTable.[string_ci#1, string_binary#2, struct_with_string_ci#3, array_with_string_ci#4]
@@ -6538,7 +6547,7 @@ CreateMaterializedViewStmt
     |     +-ColumnAnnotations
     |       +-collation_name=
     |         +-Literal(type=STRING, value="und:ci")
-    +-column=mv.array_with_string_ci#8[{Collation:"und:ci"}]
+    +-column=mv.array_with_string_ci#8<{Collation:"und:ci"}>
 ==
 
 create table t (a int64, b numeric(20,5) collate 'und:ci');
@@ -6649,7 +6658,7 @@ create table t (a int64, b string collate @test_param_string);
                                           ^
 ==
 
-[language_features=CREATE_TABLE_LIKE,CREATE_TABLE_PARTITION_BY,CREATE_TABLE_CLUSTER_BY,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=CREATE_TABLE_LIKE,CREATE_TABLE_PARTITION_BY,CREATE_TABLE_CLUSTER_BY,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 [create_table_like_not_scanned]
 create table t1 like KeyValue DEFAULT COLLATE 'und:ci' partition by Key cluster by Key options(table_option=1) ;
 --
@@ -7025,15 +7034,15 @@ VALUES([collate('a', 'und:ci')]),
 --
 InsertStmt
 +-table_scan=
-| +-TableScan(column_list=[CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}]], table=CollatedTable, column_index_list=[3])
-+-insert_column_list=[CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}]]
+| +-TableScan(column_list=[CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>], table=CollatedTable, column_index_list=[3])
++-insert_column_list=[CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>]
 +-row_list=
 | +-InsertRow
 | | +-value_list=
 | |   +-DMLValue
 | |     +-value=
 | |       +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
-| |         +-type_annotation_map=[{Collation:"und:ci"}]
+| |         +-type_annotation_map=<{Collation:"und:ci"}>
 | |         +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
 | |           +-type_annotation_map={Collation:"und:ci"}
 | |           +-Literal(type=STRING, value="a")
@@ -7043,9 +7052,9 @@ InsertStmt
 | |   +-DMLValue
 | |     +-value=
 | |       +-Cast(ARRAY<STRING> -> ARRAY<STRING>)
-| |         +-type_annotation_map=[{Collation:"und:ci"}]
+| |         +-type_annotation_map=<{Collation:"und:ci"}>
 | |         +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
-| |           +-type_annotation_map=[{Collation:"binary"}]
+| |           +-type_annotation_map=<{Collation:"binary"}>
 | |           +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
 | |             +-type_annotation_map={Collation:"binary"}
 | |             +-Literal(type=STRING, value="b")
@@ -7056,7 +7065,7 @@ InsertStmt
 |     +-DMLValue
 |       +-value=
 |         +-Cast(ARRAY<STRING> -> ARRAY<STRING>)
-|           +-type_annotation_map=[{Collation:"und:ci"}]
+|           +-type_annotation_map=<{Collation:"und:ci"}>
 |           +-Literal(type=ARRAY<STRING>, value=["c"])
 |           +-type_modifiers=collation:[und:ci]
 +-column_access_list=WRITE
@@ -7068,8 +7077,8 @@ VALUES((1, [STRUCT(true as a, collate('a', 'binary') as b)])),
 --
 InsertStmt
 +-table_scan=
-| +-TableScan(column_list=[ComplexCollatedTable.struct_with_array_of_struct_ci#3<_,[<_,{Collation:"und:ci"}>]>], table=ComplexCollatedTable, column_index_list=[2])
-+-insert_column_list=[ComplexCollatedTable.struct_with_array_of_struct_ci#3<_,[<_,{Collation:"und:ci"}>]>]
+| +-TableScan(column_list=[ComplexCollatedTable.struct_with_array_of_struct_ci#3<_,<<_,{Collation:"und:ci"}>>>], table=ComplexCollatedTable, column_index_list=[2])
++-insert_column_list=[ComplexCollatedTable.struct_with_array_of_struct_ci#3<_,<<_,{Collation:"und:ci"}>>>]
 +-row_list=
 | +-InsertRow
 | | +-value_list=
@@ -7077,13 +7086,13 @@ InsertStmt
 | |     +-value=
 | |       +-MakeStruct
 | |         +-type=STRUCT<a INT32, b ARRAY<STRUCT<a BOOL, b STRING>>>
-| |         +-type_annotation_map=<_,[<_,{Collation:"und:ci"}>]>
+| |         +-type_annotation_map=<_,<<_,{Collation:"und:ci"}>>>
 | |         +-field_list=
 | |           +-Literal(type=INT32, value=1)
 | |           +-Cast(ARRAY<STRUCT<a BOOL, b STRING>> -> ARRAY<STRUCT<a BOOL, b STRING>>)
-| |             +-type_annotation_map=[<_,{Collation:"und:ci"}>]
+| |             +-type_annotation_map=<<_,{Collation:"und:ci"}>>
 | |             +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a BOOL, b STRING>) -> ARRAY<STRUCT<a BOOL, b STRING>>)
-| |               +-type_annotation_map=[<_,{Collation:"binary"}>]
+| |               +-type_annotation_map=<<_,{Collation:"binary"}>>
 | |               +-MakeStruct
 | |                 +-type=STRUCT<a BOOL, b STRING>
 | |                 +-type_annotation_map=<_,{Collation:"binary"}>
@@ -7099,7 +7108,7 @@ InsertStmt
 |     +-DMLValue
 |       +-value=
 |         +-Cast(STRUCT<a INT32, b ARRAY<STRUCT<a BOOL, b STRING>>> -> STRUCT<a INT32, b ARRAY<STRUCT<a BOOL, b STRING>>>)
-|           +-type_annotation_map=<_,[<_,{Collation:"und:ci"}>]>
+|           +-type_annotation_map=<_,<<_,{Collation:"und:ci"}>>>
 |           +-Literal(type=STRUCT<a INT32, b ARRAY<STRUCT<a BOOL, b STRING>>>, value={a:2, b:[{a:false, b:"b"}]})
 |           +-type_modifiers=collation:[_,[[_,und:ci]]]
 +-column_access_list=WRITE
@@ -7165,14 +7174,14 @@ UpdateStmt
   |             +-type_modifiers=collation:und:ci
   +-UpdateItem
     +-target=
-    | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
     +-set_value=
       +-DMLValue
         +-value=
           +-Cast(ARRAY<STRING> -> ARRAY<STRING>)
-            +-type_annotation_map=[{Collation:"und:ci"}]
+            +-type_annotation_map=<{Collation:"und:ci"}>
             +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
-              +-type_annotation_map=[{Collation:"binary"}]
+              +-type_annotation_map=<{Collation:"binary"}>
               +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
                 +-type_annotation_map={Collation:"binary"}
                 +-Literal(type=STRING, value="e")
@@ -7234,35 +7243,35 @@ CreateFunctionStmt
   +-ArgumentRef(type=STRING, name="x")
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,UNNEST_AND_FLATTEN_ARRAYS]
 SELECT FLATTEN([STRUCT(COLLATE('a', 'und:ci') as x, 1 as y)].x);
 --
-ERROR: Collation is not allowed on input array to FLATTEN ([<"und:ci",_>]) [at 1:8]
+ERROR: Collation is not allowed on input array to FLATTEN (<<"und:ci",_>>) [at 1:8]
 SELECT FLATTEN([STRUCT(COLLATE('a', 'und:ci') as x, 1 as y)].x);
        ^
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,UNNEST_AND_FLATTEN_ARRAYS]
 # The path expression is effectively a single array.
 SELECT FLATTEN([COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci')]);
 --
-ERROR: Collation is not allowed on input array to FLATTEN (["und:ci"]) [at 2:8]
+ERROR: Collation is not allowed on input array to FLATTEN (<"und:ci">) [at 2:8]
 SELECT FLATTEN([COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci')]);
        ^
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,UNNEST_AND_FLATTEN_ARRAYS]
 # The path expression is effectively a single array.
 SELECT FLATTEN(STRUCT([COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci')] as x, 1 as y).x);
 --
-ERROR: Collation is not allowed on input array to FLATTEN (["und:ci"]) [at 2:8]
+ERROR: Collation is not allowed on input array to FLATTEN (<"und:ci">) [at 2:8]
 SELECT FLATTEN(STRUCT([COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci')] as x, ...
        ^
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 # Collation in explicit CAST is not supported when flag
-# FEATURE_V_1_4_COLLATION_IN_EXPLICIT_CAST is off.
+# FEATURE_COLLATION_IN_EXPLICIT_CAST is off.
 SELECT
   CAST('a' AS STRING COLLATE 'und:ci')
 FROM CollatedTable
@@ -7306,7 +7315,7 @@ QueryStmt
       +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
 ==
 
-[language_features=V_1_1_CAST_DIFFERENT_ARRAY_TYPES,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_EXPLICIT_CAST]
+[language_features=CAST_DIFFERENT_ARRAY_TYPES,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,COLLATION_IN_EXPLICIT_CAST]
 SELECT
   CAST(['a', 'b'] AS ARRAY<STRING COLLATE 'und:ci'>),
   CAST(array_with_string_ci AS ARRAY<STRING COLLATE 'binary'>),
@@ -7315,28 +7324,28 @@ FROM CollatedTable
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#5[{Collation:"und:ci"}] AS `$col1` [ARRAY<STRING>]
-| +-$query.$col2#6[{Collation:"binary"}] AS `$col2` [ARRAY<STRING>]
-| +-$query.$col3#7[{Collation:"und:ci"}] AS `$col3` [ARRAY<STRING>]
+| +-$query.$col1#5<{Collation:"und:ci"}> AS `$col1` [ARRAY<STRING>]
+| +-$query.$col2#6<{Collation:"binary"}> AS `$col2` [ARRAY<STRING>]
+| +-$query.$col3#7<{Collation:"und:ci"}> AS `$col3` [ARRAY<STRING>]
 +-query=
   +-ProjectScan
     +-column_list=$query.[$col1#5, $col2#6, $col3#7]
     +-expr_list=
     | +-$col1#5 :=
     | | +-Cast(ARRAY<STRING> -> ARRAY<STRING>)
-    | |   +-type_annotation_map=[{Collation:"und:ci"}]
+    | |   +-type_annotation_map=<{Collation:"und:ci"}>
     | |   +-Literal(type=ARRAY<STRING>, value=["a", "b"], has_explicit_type=TRUE)
     | |   +-type_modifiers=collation:[und:ci]
     | +-$col2#6 :=
     | | +-Cast(ARRAY<STRING> -> ARRAY<STRING>)
-    | |   +-type_annotation_map=[{Collation:"binary"}]
-    | |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    | |   +-type_annotation_map=<{Collation:"binary"}>
+    | |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
     | |   +-type_modifiers=collation:[binary]
     | +-$col3#7 :=
     |   +-Cast(ARRAY<STRING> -> ARRAY<STRING>)
-    |     +-type_annotation_map=[{Collation:"und:ci"}]
+    |     +-type_annotation_map=<{Collation:"und:ci"}>
     |     +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
-    |       +-type_annotation_map=[{Collation:"binary"}]
+    |       +-type_annotation_map=<{Collation:"binary"}>
     |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     |       | +-type_annotation_map={Collation:"binary"}
     |       | +-Literal(type=STRING, value="a")
@@ -7344,7 +7353,7 @@ QueryStmt
     |       +-Literal(type=STRING, value="B")
     |     +-type_modifiers=collation:[und:ci]
     +-input_scan=
-      +-TableScan(column_list=[CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}]], table=CollatedTable, column_index_list=[3])
+      +-TableScan(column_list=[CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>], table=CollatedTable, column_index_list=[3])
 ==
 
 SELECT CAST(['a'] AS ARRAY<STRING> COLLATE 'und:ci')
@@ -7449,7 +7458,7 @@ QueryStmt
 | +-$query.$col1#7<{Collation:"binary"},_> AS `$col1` [STRUCT<STRING, STRING>]
 | +-$query.$col2#8<{Collation:"binary"},{Collation:"und:ci"}> AS `$col2` [STRUCT<STRING, STRING>]
 | +-$query.$col3#9<_,<_,{Collation:"binary"}>> AS `$col3` [STRUCT<c INT32, d STRUCT<a INT32, b STRING>>]
-| +-$query.$col4#10<_,[<_,{Collation:"binary"}>]> AS `$col4` [STRUCT<a INT32, b ARRAY<STRUCT<a BOOL, b STRING>>>]
+| +-$query.$col4#10<_,<<_,{Collation:"binary"}>>> AS `$col4` [STRUCT<a INT32, b ARRAY<STRUCT<a BOOL, b STRING>>>]
 +-query=
   +-ProjectScan
     +-column_list=$query.[$col1#7, $col2#8, $col3#9, $col4#10]
@@ -7471,8 +7480,8 @@ QueryStmt
     | |   +-type_modifiers=collation:[_,[_,binary]]
     | +-$col4#10 :=
     |   +-Cast(STRUCT<a INT32, b ARRAY<STRUCT<a BOOL, b STRING>>> -> STRUCT<a INT32, b ARRAY<STRUCT<a BOOL, b STRING>>>)
-    |     +-type_annotation_map=<_,[<_,{Collation:"binary"}>]>
-    |     +-ColumnRef(type=STRUCT<a INT32, b ARRAY<STRUCT<a BOOL, b STRING>>>, type_annotation_map=<_,[<_,{Collation:"und:ci"}>]>, column=ComplexCollatedTable.struct_with_array_of_struct_ci#3<_,[<_,{Collation:"und:ci"}>]>)
+    |     +-type_annotation_map=<_,<<_,{Collation:"binary"}>>>
+    |     +-ColumnRef(type=STRUCT<a INT32, b ARRAY<STRUCT<a BOOL, b STRING>>>, type_annotation_map=<_,<<_,{Collation:"und:ci"}>>>, column=ComplexCollatedTable.struct_with_array_of_struct_ci#3<_,<<_,{Collation:"und:ci"}>>>)
     |     +-type_modifiers=collation:[_,[[_,binary]]]
     +-input_scan=
       +-TableScan(column_list=ComplexCollatedTable.[struct_with_array_of_struct_ci#3, struct_of_struct_ci#4, struct_with_string_ci_binary#5], table=ComplexCollatedTable, column_index_list=[2, 3, 4])
@@ -7486,13 +7495,13 @@ SELECT
 QueryStmt
 +-output_column_list=
 | +-$query.$col1#1{Collation:"und:ci"} AS `$col1` [STRING]
-| +-$query.$col2#2<[{Collation:"und:ci"}],{Collation:"und:ci"}> AS `$col2` [STRUCT<ARRAY<STRING>, STRING>]
+| +-$query.$col2#2<<{Collation:"und:ci"}>,{Collation:"und:ci"}> AS `$col2` [STRUCT<ARRAY<STRING>, STRING>]
 +-query=
   +-ProjectScan
     +-column_list=$query.[$col1#1, $col2#2]
     +-expr_list=
     | +-$col1#1 := Literal(type=STRING, type_annotation_map={Collation:"und:ci"}, value=NULL, has_explicit_type=TRUE)
-    | +-$col2#2 := Literal(type=STRUCT<ARRAY<STRING>, STRING>, type_annotation_map=<[{Collation:"und:ci"}],{Collation:"und:ci"}>, value=NULL, has_explicit_type=TRUE)
+    | +-$col2#2 := Literal(type=STRUCT<ARRAY<STRING>, STRING>, type_annotation_map=<<{Collation:"und:ci"}>,{Collation:"und:ci"}>, value=NULL, has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -7505,17 +7514,17 @@ SELECT CAST([] AS ARRAY<STRING COLLATE 'und:ci'>)
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1[{Collation:"und:ci"}] AS `$col1` [ARRAY<STRING>]
+| +-$query.$col1#1<{Collation:"und:ci"}> AS `$col1` [ARRAY<STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1[{Collation:"und:ci"}]]
+    +-column_list=[$query.$col1#1<{Collation:"und:ci"}>]
     +-expr_list=
-    | +-$col1#1 := Literal(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], value=[], has_explicit_type=TRUE)
+    | +-$col1#1 := Literal(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, value=[], has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
 ==
 
-[language_features=V_1_3_FORMAT_IN_CAST,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_EXPLICIT_CAST]
+[language_features=FORMAT_IN_CAST,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,COLLATION_IN_EXPLICIT_CAST]
 # CAST with <format> and <time_zone> arguments.
 SELECT
   CAST(b'abcd' AS STRING COLLATE 'und:ci' FORMAT 'HEX'),
@@ -7560,11 +7569,11 @@ FROM CollatedTable
 QueryStmt
 +-output_column_list=
 | +-$query.$col1#5{Collation:"und:ci"} AS `$col1` [STRING]
-| +-$query.$col2#6[{Collation:"und:ci"}] AS `$col2` [ARRAY<STRING>]
+| +-$query.$col2#6<{Collation:"und:ci"}> AS `$col2` [ARRAY<STRING>]
 | +-CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}> AS `$col3` [STRUCT<a INT32, b STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#5{Collation:"und:ci"}, $query.$col2#6[{Collation:"und:ci"}], CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>]
+    +-column_list=[$query.$col1#5{Collation:"und:ci"}, $query.$col2#6<{Collation:"und:ci"}>, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>]
     +-expr_list=
     | +-$col1#5 :=
     | | +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
@@ -7573,7 +7582,7 @@ QueryStmt
     | |   +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
     | +-$col2#6 :=
     |   +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
-    |     +-type_annotation_map=[{Collation:"und:ci"}]
+    |     +-type_annotation_map=<{Collation:"und:ci"}>
     |     +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     |       +-type_annotation_map={Collation:"und:ci"}
     |       +-Literal(type=STRING, value="a")
@@ -7585,7 +7594,7 @@ QueryStmt
 # TODO: Move to cast.test once Java implementation of Collation and
 # AnnotationMap is completed.
 # Test format with type parameters and collation on format string
-[language_features=V_1_3_FORMAT_IN_CAST,PARAMETERIZED_TYPES,NUMERIC_TYPE,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_EXPLICIT_CAST]
+[language_features=FORMAT_IN_CAST,PARAMETERIZED_TYPES,NUMERIC_TYPE,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,COLLATION_IN_EXPLICIT_CAST]
 select cast(`string` as bytes format CAST(123 as STRING(MAX) COLLATE 'und:ci')) from SimpleTypes;
 --
 QueryStmt
@@ -7610,7 +7619,7 @@ QueryStmt
 # TODO: Move to cast.test once Java implementation of Collation and
 # AnnotationMap is completed.
 # Test format with type parameters and collation
-[language_features=V_1_3_FORMAT_IN_CAST,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,PARAMETERIZED_TYPES,NUMERIC_TYPE,V_1_4_COLLATION_IN_EXPLICIT_CAST]
+[language_features=FORMAT_IN_CAST,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,PARAMETERIZED_TYPES,NUMERIC_TYPE,COLLATION_IN_EXPLICIT_CAST]
 select cast(b'string' as STRING(10) COLLATE 'und:ci' format 'hex') from SimpleTypes;
 --
 QueryStmt
@@ -7671,24 +7680,24 @@ from CollatedTable
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#5[{Collation:"und:ci"}] AS `$col1` [ARRAY<STRING>]
-| +-$query.$col2#6[{Collation:"binary"}] AS `$col2` [ARRAY<STRING>]
+| +-$query.$col1#5<{Collation:"und:ci"}> AS `$col1` [ARRAY<STRING>]
+| +-$query.$col2#6<{Collation:"binary"}> AS `$col2` [ARRAY<STRING>]
 +-query=
   +-ProjectScan
     +-column_list=$query.[$col1#5, $col2#6]
     +-expr_list=
     | +-$col1#5 :=
     | | +-Cast(ARRAY<STRING> -> ARRAY<STRING>)
-    | |   +-type_annotation_map=[{Collation:"und:ci"}]
+    | |   +-type_annotation_map=<{Collation:"und:ci"}>
     | |   +-Literal(type=ARRAY<STRING>, value=["string"], has_explicit_type=TRUE)
     | |   +-type_modifiers=type_parameters:[(max_length=10)], collation:[und:ci]
     | +-$col2#6 :=
     |   +-Cast(ARRAY<STRING> -> ARRAY<STRING>)
-    |     +-type_annotation_map=[{Collation:"binary"}]
-    |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    |     +-type_annotation_map=<{Collation:"binary"}>
+    |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
     |     +-type_modifiers=type_parameters:[(max_length=5)], collation:[binary]
     +-input_scan=
-      +-TableScan(column_list=[CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}]], table=CollatedTable, column_index_list=[3])
+      +-TableScan(column_list=[CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>], table=CollatedTable, column_index_list=[3])
 ==
 
 # TODO: Move to cast.test once Java implementation of Collation and
@@ -7741,7 +7750,7 @@ QueryStmt
 # The collated column exist in the ResolvedFlatten node. The corresponding
 # ResolvedColumnRef nodes still have the right annotations after rewriting.
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,UNNEST_AND_FLATTEN_ARRAYS]
 SELECT FLATTEN(ARRAY(
   SELECT y
   FROM CollatedTable as x, TestStructValueTable as y
@@ -7875,7 +7884,7 @@ QueryStmt
 
 # The collated column is correlated inside Flatten function.
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,UNNEST_AND_FLATTEN_ARRAYS]
 SELECT FLATTEN(ARRAY(
   SELECT y
   FROM TestStructValueTable y
@@ -8054,7 +8063,7 @@ QueryStmt
     |   +-FunctionCall(ZetaSQL:array_first(ARRAY<STRING> input_array) -> STRING)
     |     +-type_annotation_map={Collation:"und:ci"}
     |     +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
-    |       +-type_annotation_map=[{Collation:"und:ci"}]
+    |       +-type_annotation_map=<{Collation:"und:ci"}>
     |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     |       | +-type_annotation_map={Collation:"und:ci"}
     |       | +-Literal(type=STRING, value="hello")
@@ -8087,26 +8096,26 @@ QueryStmt
     |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(2) BOOL, repeated(2) STRING, STRING) -> STRING)
     |         |     +-type_annotation_map={Collation:"und:ci"}
     |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.input_array#2[{Collation:"und:ci"}])
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$subquery1.input_array#2<{Collation:"und:ci"}>)
     |         |     +-Literal(type=STRING, value=NULL)
     |         |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
     |         |     | +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
-    |         |     | | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.input_array#2[{Collation:"und:ci"}])
+    |         |     | | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$subquery1.input_array#2<{Collation:"und:ci"}>)
     |         |     | +-Literal(type=INT64, value=0)
     |         |     +-Cast(STRING -> STRING)
     |         |     | +-FunctionCall(ZetaSQL:error(STRING) -> STRING)
     |         |     |   +-Literal(type=STRING, value="ARRAY_FIRST cannot get the first element of an empty array")
     |         |     +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
     |         |       +-type_annotation_map={Collation:"und:ci"}
-    |         |       +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.input_array#2[{Collation:"und:ci"}])
+    |         |       +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$subquery1.input_array#2<{Collation:"und:ci"}>)
     |         |       +-Literal(type=INT64, value=0)
     |         +-input_scan=
     |           +-ProjectScan
-    |             +-column_list=[$subquery1.input_array#2[{Collation:"und:ci"}]]
+    |             +-column_list=[$subquery1.input_array#2<{Collation:"und:ci"}>]
     |             +-expr_list=
     |             | +-input_array#2 :=
     |             |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
-    |             |     +-type_annotation_map=[{Collation:"und:ci"}]
+    |             |     +-type_annotation_map=<{Collation:"und:ci"}>
     |             |     +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     |             |     | +-type_annotation_map={Collation:"und:ci"}
     |             |     | +-Literal(type=STRING, value="hello")
@@ -8126,16 +8135,16 @@ SELECT ARRAY_SLICE([collate("hello", "und:ci"), collate("zetasql", "und:ci")], 0
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1[{Collation:"und:ci"}] AS `$col1` [ARRAY<STRING>]
+| +-$query.$col1#1<{Collation:"und:ci"}> AS `$col1` [ARRAY<STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1[{Collation:"und:ci"}]]
+    +-column_list=[$query.$col1#1<{Collation:"und:ci"}>]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(ZetaSQL:array_slice(ARRAY<STRING> array_to_slice, INT64 start_offset, INT64 end_offset) -> ARRAY<STRING>)
-    |     +-type_annotation_map=[{Collation:"und:ci"}]
+    |     +-type_annotation_map=<{Collation:"und:ci"}>
     |     +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
-    |     | +-type_annotation_map=[{Collation:"und:ci"}]
+    |     | +-type_annotation_map=<{Collation:"und:ci"}>
     |     | +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     |     | | +-type_annotation_map={Collation:"und:ci"}
     |     | | +-Literal(type=STRING, value="hello")
@@ -8152,14 +8161,14 @@ QueryStmt
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1[{Collation:"und:ci"}] AS `$col1` [ARRAY<STRING>]
+| +-$query.$col1#1<{Collation:"und:ci"}> AS `$col1` [ARRAY<STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1[{Collation:"und:ci"}]]
+    +-column_list=[$query.$col1#1<{Collation:"und:ci"}>]
     +-expr_list=
     | +-$col1#1 :=
     |   +-Cast(ARRAY<STRING> -> ARRAY<STRING>)
-    |     +-type_annotation_map=[{Collation:"und:ci"}]
+    |     +-type_annotation_map=<{Collation:"und:ci"}>
     |     +-SubqueryExpr
     |       +-type=ARRAY<STRING>
     |       +-subquery_type=SCALAR
@@ -8171,7 +8180,7 @@ QueryStmt
     |           |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(2) BOOL, repeated(2) ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
     |           |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(2) BOOL) -> BOOL)
     |           |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
-    |           |     | | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.array_to_slice#2[{Collation:"und:ci"}])
+    |           |     | | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$subquery1.array_to_slice#2<{Collation:"und:ci"}>)
     |           |     | +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
     |           |     | | +-ColumnRef(type=INT64, column=$subquery1.start_offset#4)
     |           |     | +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
@@ -8179,14 +8188,14 @@ QueryStmt
     |           |     +-Literal(type=ARRAY<STRING>, value=NULL)
     |           |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
     |           |     | +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
-    |           |     | | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.array_to_slice#2[{Collation:"und:ci"}])
+    |           |     | | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$subquery1.array_to_slice#2<{Collation:"und:ci"}>)
     |           |     | +-Literal(type=INT64, value=0)
     |           |     +-Literal(type=ARRAY<STRING>, value=[])
     |           |     +-SubqueryExpr
     |           |       +-type=ARRAY<STRING>
     |           |       +-subquery_type=SCALAR
     |           |       +-parameter_list=
-    |           |       | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.array_to_slice#2[{Collation:"und:ci"}])
+    |           |       | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$subquery1.array_to_slice#2<{Collation:"und:ci"}>)
     |           |       | +-ColumnRef(type=INT64, column=$subquery1.end_offset#3)
     |           |       | +-ColumnRef(type=INT64, column=$subquery1.start_offset#4)
     |           |       +-subquery=
@@ -8196,10 +8205,10 @@ QueryStmt
     |           |           | +-injected#10 :=
     |           |           |   +-SubqueryExpr
     |           |           |     +-type=ARRAY<STRING>
-    |           |           |     +-type_annotation_map=[{Collation:"und:ci"}]
+    |           |           |     +-type_annotation_map=<{Collation:"und:ci"}>
     |           |           |     +-subquery_type=ARRAY
     |           |           |     +-parameter_list=
-    |           |           |     | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.array_to_slice#2[{Collation:"und:ci"}], is_correlated=TRUE)
+    |           |           |     | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$subquery1.array_to_slice#2<{Collation:"und:ci"}>, is_correlated=TRUE)
     |           |           |     | +-ColumnRef(type=INT64, column=$with_expr.start_offset#5)
     |           |           |     | +-ColumnRef(type=INT64, column=$with_expr.end_offset#6)
     |           |           |     +-subquery=
@@ -8213,7 +8222,7 @@ QueryStmt
     |           |           |         |   | +-ArrayScan
     |           |           |         |   |   +-column_list=[$array.e#7{Collation:"und:ci"}, $array_offset.idx#8]
     |           |           |         |   |   +-array_expr_list=
-    |           |           |         |   |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.array_to_slice#2[{Collation:"und:ci"}], is_correlated=TRUE)
+    |           |           |         |   |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$subquery1.array_to_slice#2<{Collation:"und:ci"}>, is_correlated=TRUE)
     |           |           |         |   |   +-element_column_list=[$array.e#7{Collation:"und:ci"}]
     |           |           |         |   |   +-array_offset_column=
     |           |           |         |   |     +-ColumnHolder(column=$array_offset.idx#8)
@@ -8238,7 +8247,7 @@ QueryStmt
     |           |               |     +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
     |           |               |     | +-ColumnRef(type=INT64, column=$subquery1.end_offset#3, is_correlated=TRUE)
     |           |               |     | +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
-    |           |               |     |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.array_to_slice#2[{Collation:"und:ci"}], is_correlated=TRUE)
+    |           |               |     |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$subquery1.array_to_slice#2<{Collation:"und:ci"}>, is_correlated=TRUE)
     |           |               |     +-ColumnRef(type=INT64, column=$subquery1.end_offset#3, is_correlated=TRUE)
     |           |               +-input_scan=
     |           |                 +-ProjectScan
@@ -8252,7 +8261,7 @@ QueryStmt
     |           |                   |     +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
     |           |                   |     | +-ColumnRef(type=INT64, column=$subquery1.start_offset#4, is_correlated=TRUE)
     |           |                   |     | +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
-    |           |                   |     |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.array_to_slice#2[{Collation:"und:ci"}], is_correlated=TRUE)
+    |           |                   |     |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$subquery1.array_to_slice#2<{Collation:"und:ci"}>, is_correlated=TRUE)
     |           |                   |     +-ColumnRef(type=INT64, column=$subquery1.start_offset#4, is_correlated=TRUE)
     |           |                   +-input_scan=
     |           |                     +-SingleRowScan
@@ -8262,7 +8271,7 @@ QueryStmt
     |               +-expr_list=
     |               | +-array_to_slice#2 :=
     |               | | +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
-    |               | |   +-type_annotation_map=[{Collation:"und:ci"}]
+    |               | |   +-type_annotation_map=<{Collation:"und:ci"}>
     |               | |   +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     |               | |   | +-type_annotation_map={Collation:"und:ci"}
     |               | |   | +-Literal(type=STRING, value="hello")
@@ -8312,24 +8321,24 @@ SELECT
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#5[<_,{Collation:"und:ci"}>] AS `$col1` [ARRAY<STRUCT<int32_val INT32, string_val STRING>>]
+| +-$query.$col1#5<<_,{Collation:"und:ci"}>> AS `$col1` [ARRAY<STRUCT<int32_val INT32, string_val STRING>>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#5[<_,{Collation:"und:ci"}>]]
+    +-column_list=[$query.$col1#5<<_,{Collation:"und:ci"}>>]
     +-expr_list=
     | +-$col1#5 :=
     |   +-FunctionCall(ZetaSQL:iferror(ARRAY<STRUCT<int32_val INT32, string_val STRING>>, ARRAY<STRUCT<int32_val INT32, string_val STRING>>) -> ARRAY<STRUCT<int32_val INT32, string_val STRING>>)
-    |     +-type_annotation_map=[<_,{Collation:"und:ci"}>]
+    |     +-type_annotation_map=<<_,{Collation:"und:ci"}>>
     |     +-FunctionCall(ZetaSQL:array_slice(ARRAY<STRUCT<int32_val INT32, string_val STRING>> array_to_slice, INT64 start_offset, INT64 end_offset) -> ARRAY<STRUCT<int32_val INT32, string_val STRING>>)
-    |     | +-type_annotation_map=[<_,{Collation:"und:ci"}>]
+    |     | +-type_annotation_map=<<_,{Collation:"und:ci"}>>
     |     | +-FunctionCall(ZetaSQL:array_concat(ARRAY<STRUCT<int32_val INT32, string_val STRING>>, repeated(1) ARRAY<STRUCT<int32_val INT32, string_val STRING>>) -> ARRAY<STRUCT<int32_val INT32, string_val STRING>>)
-    |     | | +-type_annotation_map=[<_,{Collation:"und:ci"}>]
+    |     | | +-type_annotation_map=<<_,{Collation:"und:ci"}>>
     |     | | +-Literal(type=ARRAY<STRUCT<int32_val INT32, string_val STRING>>, value=[{int32_val:123, string_val:"67MXcza829l0r4Vhravi4Mg5S7uc2P9SJ58ShEg0b35h4lC"}], has_explicit_type=TRUE)
     |     | | +-Cast(ARRAY<STRUCT<a INT32, b STRING>> -> ARRAY<STRUCT<int32_val INT32, string_val STRING>>)
-    |     | |   +-type_annotation_map=[<_,{Collation:"und:ci"}>]
+    |     | |   +-type_annotation_map=<<_,{Collation:"und:ci"}>>
     |     | |   +-SubqueryExpr
     |     | |     +-type=ARRAY<STRUCT<a INT32, b STRING>>
-    |     | |     +-type_annotation_map=[<_,{Collation:"und:ci"}>]
+    |     | |     +-type_annotation_map=<<_,{Collation:"und:ci"}>>
     |     | |     +-subquery_type=ARRAY
     |     | |     +-subquery=
     |     | |       +-ProjectScan
@@ -8350,16 +8359,16 @@ QueryStmt
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#5[<_,{Collation:"und:ci"}>] AS `$col1` [ARRAY<STRUCT<int32_val INT32, string_val STRING>>]
+| +-$query.$col1#5<<_,{Collation:"und:ci"}>> AS `$col1` [ARRAY<STRUCT<int32_val INT32, string_val STRING>>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#5[<_,{Collation:"und:ci"}>]]
+    +-column_list=[$query.$col1#5<<_,{Collation:"und:ci"}>>]
     +-expr_list=
     | +-$col1#5 :=
     |   +-FunctionCall(ZetaSQL:iferror(ARRAY<STRUCT<int32_val INT32, string_val STRING>>, ARRAY<STRUCT<int32_val INT32, string_val STRING>>) -> ARRAY<STRUCT<int32_val INT32, string_val STRING>>)
-    |     +-type_annotation_map=[<_,{Collation:"und:ci"}>]
+    |     +-type_annotation_map=<<_,{Collation:"und:ci"}>>
     |     +-Cast(ARRAY<STRUCT<int32_val INT32, string_val STRING>> -> ARRAY<STRUCT<int32_val INT32, string_val STRING>>)
-    |     | +-type_annotation_map=[<_,{Collation:"und:ci"}>]
+    |     | +-type_annotation_map=<<_,{Collation:"und:ci"}>>
     |     | +-SubqueryExpr
     |     |   +-type=ARRAY<STRUCT<int32_val INT32, string_val STRING>>
     |     |   +-subquery_type=SCALAR
@@ -8371,7 +8380,7 @@ QueryStmt
     |     |       |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(2) BOOL, repeated(2) ARRAY<STRUCT<int32_val INT32, string_val STRING>>, ARRAY<STRUCT<int32_val INT32, string_val STRING>>) -> ARRAY<STRUCT<int32_val INT32, string_val STRING>>)
     |     |       |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(2) BOOL) -> BOOL)
     |     |       |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRUCT<int32_val INT32, string_val STRING>>) -> BOOL)
-    |     |       |     | | +-ColumnRef(type=ARRAY<STRUCT<int32_val INT32, string_val STRING>>, type_annotation_map=[<_,{Collation:"und:ci"}>], column=$subquery1.array_to_slice#6[<_,{Collation:"und:ci"}>])
+    |     |       |     | | +-ColumnRef(type=ARRAY<STRUCT<int32_val INT32, string_val STRING>>, type_annotation_map=<<_,{Collation:"und:ci"}>>, column=$subquery1.array_to_slice#6<<_,{Collation:"und:ci"}>>)
     |     |       |     | +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
     |     |       |     | | +-ColumnRef(type=INT64, column=$subquery1.start_offset#8)
     |     |       |     | +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
@@ -8379,14 +8388,14 @@ QueryStmt
     |     |       |     +-Literal(type=ARRAY<STRUCT<int32_val INT32, string_val STRING>>, value=NULL)
     |     |       |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
     |     |       |     | +-FunctionCall(ZetaSQL:array_length(ARRAY<STRUCT<int32_val INT32, string_val STRING>>) -> INT64)
-    |     |       |     | | +-ColumnRef(type=ARRAY<STRUCT<int32_val INT32, string_val STRING>>, type_annotation_map=[<_,{Collation:"und:ci"}>], column=$subquery1.array_to_slice#6[<_,{Collation:"und:ci"}>])
+    |     |       |     | | +-ColumnRef(type=ARRAY<STRUCT<int32_val INT32, string_val STRING>>, type_annotation_map=<<_,{Collation:"und:ci"}>>, column=$subquery1.array_to_slice#6<<_,{Collation:"und:ci"}>>)
     |     |       |     | +-Literal(type=INT64, value=0)
     |     |       |     +-Literal(type=ARRAY<STRUCT<int32_val INT32, string_val STRING>>, value=[])
     |     |       |     +-SubqueryExpr
     |     |       |       +-type=ARRAY<STRUCT<int32_val INT32, string_val STRING>>
     |     |       |       +-subquery_type=SCALAR
     |     |       |       +-parameter_list=
-    |     |       |       | +-ColumnRef(type=ARRAY<STRUCT<int32_val INT32, string_val STRING>>, type_annotation_map=[<_,{Collation:"und:ci"}>], column=$subquery1.array_to_slice#6[<_,{Collation:"und:ci"}>])
+    |     |       |       | +-ColumnRef(type=ARRAY<STRUCT<int32_val INT32, string_val STRING>>, type_annotation_map=<<_,{Collation:"und:ci"}>>, column=$subquery1.array_to_slice#6<<_,{Collation:"und:ci"}>>)
     |     |       |       | +-ColumnRef(type=INT64, column=$subquery1.end_offset#7)
     |     |       |       | +-ColumnRef(type=INT64, column=$subquery1.start_offset#8)
     |     |       |       +-subquery=
@@ -8396,10 +8405,10 @@ QueryStmt
     |     |       |           | +-injected#14 :=
     |     |       |           |   +-SubqueryExpr
     |     |       |           |     +-type=ARRAY<STRUCT<int32_val INT32, string_val STRING>>
-    |     |       |           |     +-type_annotation_map=[<_,{Collation:"und:ci"}>]
+    |     |       |           |     +-type_annotation_map=<<_,{Collation:"und:ci"}>>
     |     |       |           |     +-subquery_type=ARRAY
     |     |       |           |     +-parameter_list=
-    |     |       |           |     | +-ColumnRef(type=ARRAY<STRUCT<int32_val INT32, string_val STRING>>, type_annotation_map=[<_,{Collation:"und:ci"}>], column=$subquery1.array_to_slice#6[<_,{Collation:"und:ci"}>], is_correlated=TRUE)
+    |     |       |           |     | +-ColumnRef(type=ARRAY<STRUCT<int32_val INT32, string_val STRING>>, type_annotation_map=<<_,{Collation:"und:ci"}>>, column=$subquery1.array_to_slice#6<<_,{Collation:"und:ci"}>>, is_correlated=TRUE)
     |     |       |           |     | +-ColumnRef(type=INT64, column=$with_expr.start_offset#9)
     |     |       |           |     | +-ColumnRef(type=INT64, column=$with_expr.end_offset#10)
     |     |       |           |     +-subquery=
@@ -8413,7 +8422,7 @@ QueryStmt
     |     |       |           |         |   | +-ArrayScan
     |     |       |           |         |   |   +-column_list=[$array.e#11<_,{Collation:"und:ci"}>, $array_offset.idx#12]
     |     |       |           |         |   |   +-array_expr_list=
-    |     |       |           |         |   |   | +-ColumnRef(type=ARRAY<STRUCT<int32_val INT32, string_val STRING>>, type_annotation_map=[<_,{Collation:"und:ci"}>], column=$subquery1.array_to_slice#6[<_,{Collation:"und:ci"}>], is_correlated=TRUE)
+    |     |       |           |         |   |   | +-ColumnRef(type=ARRAY<STRUCT<int32_val INT32, string_val STRING>>, type_annotation_map=<<_,{Collation:"und:ci"}>>, column=$subquery1.array_to_slice#6<<_,{Collation:"und:ci"}>>, is_correlated=TRUE)
     |     |       |           |         |   |   +-element_column_list=[$array.e#11<_,{Collation:"und:ci"}>]
     |     |       |           |         |   |   +-array_offset_column=
     |     |       |           |         |   |     +-ColumnHolder(column=$array_offset.idx#12)
@@ -8438,7 +8447,7 @@ QueryStmt
     |     |       |               |     +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
     |     |       |               |     | +-ColumnRef(type=INT64, column=$subquery1.end_offset#7, is_correlated=TRUE)
     |     |       |               |     | +-FunctionCall(ZetaSQL:array_length(ARRAY<STRUCT<int32_val INT32, string_val STRING>>) -> INT64)
-    |     |       |               |     |   +-ColumnRef(type=ARRAY<STRUCT<int32_val INT32, string_val STRING>>, type_annotation_map=[<_,{Collation:"und:ci"}>], column=$subquery1.array_to_slice#6[<_,{Collation:"und:ci"}>], is_correlated=TRUE)
+    |     |       |               |     |   +-ColumnRef(type=ARRAY<STRUCT<int32_val INT32, string_val STRING>>, type_annotation_map=<<_,{Collation:"und:ci"}>>, column=$subquery1.array_to_slice#6<<_,{Collation:"und:ci"}>>, is_correlated=TRUE)
     |     |       |               |     +-ColumnRef(type=INT64, column=$subquery1.end_offset#7, is_correlated=TRUE)
     |     |       |               +-input_scan=
     |     |       |                 +-ProjectScan
@@ -8452,7 +8461,7 @@ QueryStmt
     |     |       |                   |     +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
     |     |       |                   |     | +-ColumnRef(type=INT64, column=$subquery1.start_offset#8, is_correlated=TRUE)
     |     |       |                   |     | +-FunctionCall(ZetaSQL:array_length(ARRAY<STRUCT<int32_val INT32, string_val STRING>>) -> INT64)
-    |     |       |                   |     |   +-ColumnRef(type=ARRAY<STRUCT<int32_val INT32, string_val STRING>>, type_annotation_map=[<_,{Collation:"und:ci"}>], column=$subquery1.array_to_slice#6[<_,{Collation:"und:ci"}>], is_correlated=TRUE)
+    |     |       |                   |     |   +-ColumnRef(type=ARRAY<STRUCT<int32_val INT32, string_val STRING>>, type_annotation_map=<<_,{Collation:"und:ci"}>>, column=$subquery1.array_to_slice#6<<_,{Collation:"und:ci"}>>, is_correlated=TRUE)
     |     |       |                   |     +-ColumnRef(type=INT64, column=$subquery1.start_offset#8, is_correlated=TRUE)
     |     |       |                   +-input_scan=
     |     |       |                     +-SingleRowScan
@@ -8462,13 +8471,13 @@ QueryStmt
     |     |           +-expr_list=
     |     |           | +-array_to_slice#6 :=
     |     |           | | +-FunctionCall(ZetaSQL:array_concat(ARRAY<STRUCT<int32_val INT32, string_val STRING>>, repeated(1) ARRAY<STRUCT<int32_val INT32, string_val STRING>>) -> ARRAY<STRUCT<int32_val INT32, string_val STRING>>)
-    |     |           | |   +-type_annotation_map=[<_,{Collation:"und:ci"}>]
+    |     |           | |   +-type_annotation_map=<<_,{Collation:"und:ci"}>>
     |     |           | |   +-Literal(type=ARRAY<STRUCT<int32_val INT32, string_val STRING>>, value=[{int32_val:123, string_val:"67MXcza829l0r4Vhravi4Mg5S7uc2P9SJ58ShEg0b35h4lC"}], has_explicit_type=TRUE)
     |     |           | |   +-Cast(ARRAY<STRUCT<a INT32, b STRING>> -> ARRAY<STRUCT<int32_val INT32, string_val STRING>>)
-    |     |           | |     +-type_annotation_map=[<_,{Collation:"und:ci"}>]
+    |     |           | |     +-type_annotation_map=<<_,{Collation:"und:ci"}>>
     |     |           | |     +-SubqueryExpr
     |     |           | |       +-type=ARRAY<STRUCT<a INT32, b STRING>>
-    |     |           | |       +-type_annotation_map=[<_,{Collation:"und:ci"}>]
+    |     |           | |       +-type_annotation_map=<<_,{Collation:"und:ci"}>>
     |     |           | |       +-subquery_type=ARRAY
     |     |           | |       +-subquery=
     |     |           | |         +-ProjectScan
@@ -8492,7 +8501,7 @@ QueryStmt
 # When both ARRAY<STRING> argument and STRING argument have collation attached,
 # verify that the element collation of the first argument and the collation on
 # the second argument are the same, then mark that in collation_list.
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_FIND_FUNCTIONS]
 SELECT ARRAY_OFFSET([collate("hello", "und:ci"), collate("zetasql", "und:ci")], {{"HELLO"|collate("HELLO", "und:ci")}})
 --
 ALTERNATION GROUP: "HELLO"
@@ -8507,7 +8516,7 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(ZetaSQL:array_offset(ARRAY<STRING> input_array, STRING target_element, optional(1) ENUM<ARRAY_FIND_MODE> find_mode) -> INT64)
     |     +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
-    |     | +-type_annotation_map=[{Collation:"und:ci"}]
+    |     | +-type_annotation_map=<{Collation:"und:ci"}>
     |     | +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     |     | | +-type_annotation_map={Collation:"und:ci"}
     |     | | +-Literal(type=STRING, value="hello")
@@ -8534,7 +8543,7 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(ZetaSQL:array_offset(ARRAY<STRING> input_array, STRING target_element, optional(1) ENUM<ARRAY_FIND_MODE> find_mode) -> INT64)
     |     +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
-    |     | +-type_annotation_map=[{Collation:"und:ci"}]
+    |     | +-type_annotation_map=<{Collation:"und:ci"}>
     |     | +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     |     | | +-type_annotation_map={Collation:"und:ci"}
     |     | | +-Literal(type=STRING, value="hello")
@@ -8553,7 +8562,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_FIND_FUNCTIONS]
 SELECT ARRAY_OFFSETS([collate("hello", "und:ci"), collate("zetasql", "und:ci")], "HELLO")
 --
 QueryStmt
@@ -8566,7 +8575,7 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(ZetaSQL:array_offsets(ARRAY<STRING> input_array, STRING target_element) -> ARRAY<INT64>)
     |     +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
-    |     | +-type_annotation_map=[{Collation:"und:ci"}]
+    |     | +-type_annotation_map=<{Collation:"und:ci"}>
     |     | +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     |     | | +-type_annotation_map={Collation:"und:ci"}
     |     | | +-Literal(type=STRING, value="hello")
@@ -8581,7 +8590,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_FIND_FUNCTIONS]
 SELECT ARRAY_FIND([collate("hello", "und:ci"), collate("zetasql", "und:ci")], "HELLO")
 --
 QueryStmt
@@ -8595,7 +8604,7 @@ QueryStmt
     |   +-FunctionCall(ZetaSQL:array_find(ARRAY<STRING> input_array, STRING target_element, optional(1) ENUM<ARRAY_FIND_MODE> find_mode) -> STRING)
     |     +-type_annotation_map={Collation:"und:ci"}
     |     +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
-    |     | +-type_annotation_map=[{Collation:"und:ci"}]
+    |     | +-type_annotation_map=<{Collation:"und:ci"}>
     |     | +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     |     | | +-type_annotation_map={Collation:"und:ci"}
     |     | | +-Literal(type=STRING, value="hello")
@@ -8611,21 +8620,21 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_FIND_FUNCTIONS]
 SELECT ARRAY_FIND_ALL([collate("hello", "und:ci"), collate("zetasql", "und:ci")], "HELLO")
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1[{Collation:"und:ci"}] AS `$col1` [ARRAY<STRING>]
+| +-$query.$col1#1<{Collation:"und:ci"}> AS `$col1` [ARRAY<STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1[{Collation:"und:ci"}]]
+    +-column_list=[$query.$col1#1<{Collation:"und:ci"}>]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(ZetaSQL:array_find_all(ARRAY<STRING> input_array, STRING target_element) -> ARRAY<STRING>)
-    |     +-type_annotation_map=[{Collation:"und:ci"}]
+    |     +-type_annotation_map=<{Collation:"und:ci"}>
     |     +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
-    |     | +-type_annotation_map=[{Collation:"und:ci"}]
+    |     | +-type_annotation_map=<{Collation:"und:ci"}>
     |     | +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     |     | | +-type_annotation_map={Collation:"und:ci"}
     |     | | +-Literal(type=STRING, value="hello")
@@ -8640,7 +8649,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_AGGREGATION_FUNCTIONS]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_AGGREGATION_FUNCTIONS]
 SELECT ARRAY_MIN([collate("hello", "und:ci")])
 --
 QueryStmt
@@ -8654,7 +8663,7 @@ QueryStmt
     |   +-FunctionCall(ZetaSQL:array_min(ARRAY<STRING> input_array) -> STRING)
     |     +-type_annotation_map={Collation:"und:ci"}
     |     +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
-    |       +-type_annotation_map=[{Collation:"und:ci"}]
+    |       +-type_annotation_map=<{Collation:"und:ci"}>
     |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     |         +-type_annotation_map={Collation:"und:ci"}
     |         +-Literal(type=STRING, value="hello")
@@ -8664,7 +8673,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_AGGREGATION_FUNCTIONS]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_AGGREGATION_FUNCTIONS]
 SELECT ARRAY_MAX([collate("hello", "und:ci")])
 --
 QueryStmt
@@ -8678,7 +8687,7 @@ QueryStmt
     |   +-FunctionCall(ZetaSQL:array_max(ARRAY<STRING> input_array) -> STRING)
     |     +-type_annotation_map={Collation:"und:ci"}
     |     +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
-    |       +-type_annotation_map=[{Collation:"und:ci"}]
+    |       +-type_annotation_map=<{Collation:"und:ci"}>
     |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     |         +-type_annotation_map={Collation:"und:ci"}
     |         +-Literal(type=STRING, value="hello")
@@ -8693,7 +8702,7 @@ select * from tvf_templated_select_collated_output_columns_with_collate_function
 QueryStmt
 +-output_column_list=
 | +-tvf_templated_select_collated_output_columns_with_collate_function.col_ci#1{Collation:"und:ci"} AS col_ci [STRING]
-| +-tvf_templated_select_collated_output_columns_with_collate_function.col_array_ci#2[{Collation:"und:ci"}] AS col_array_ci [ARRAY<STRING>]
+| +-tvf_templated_select_collated_output_columns_with_collate_function.col_array_ci#2<{Collation:"und:ci"}> AS col_array_ci [ARRAY<STRING>]
 | +-tvf_templated_select_collated_output_columns_with_collate_function.col_struct_ci#3<{Collation:"und:ci"},_> AS col_struct_ci [STRUCT<STRING, INT64>]
 +-query=
   +-ProjectScan
@@ -8711,6 +8720,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=2)
         +-column_index_list=[0, 1, 2]
+        +-function_call_signature=(STRING, INT64) -> ANY TABLE
 
 With Templated SQL TVF signature:
   tvf_templated_select_collated_output_columns_with_collate_function(literal STRING, literal INT64) -> TABLE<col_ci STRING COLLATE 'und:ci', col_array_ci ARRAY<STRING COLLATE 'und:ci'>, col_struct_ci STRUCT<STRING COLLATE 'und:ci', INT64>>
@@ -8718,7 +8728,7 @@ containing resolved templated query:
 QueryStmt
 +-output_column_list=
 | +-$query.col_ci#1{Collation:"und:ci"} AS col_ci [STRING]
-| +-$query.col_array_ci#2[{Collation:"und:ci"}] AS col_array_ci [ARRAY<STRING>]
+| +-$query.col_array_ci#2<{Collation:"und:ci"}> AS col_array_ci [ARRAY<STRING>]
 | +-$query.col_struct_ci#3<{Collation:"und:ci"},_> AS col_struct_ci [STRUCT<STRING, INT64>]
 +-query=
   +-ProjectScan
@@ -8731,7 +8741,7 @@ QueryStmt
     | |   +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
     | +-col_array_ci#2 :=
     | | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
-    | |   +-type_annotation_map=[{Collation:"und:ci"}]
+    | |   +-type_annotation_map=<{Collation:"und:ci"}>
     | |   +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     | |     +-type_annotation_map={Collation:"und:ci"}
     | |     +-ArgumentRef(type=STRING, name="x")
@@ -8755,7 +8765,7 @@ select * from tvf_templated_select_collated_output_columns_with_collated_column_
 QueryStmt
 +-output_column_list=
 | +-tvf_templated_select_collated_output_columns_with_collated_column_ref.concat_ci#1{Collation:"und:ci"} AS concat_ci [STRING]
-| +-tvf_templated_select_collated_output_columns_with_collated_column_ref.array_with_string_ci#2[{Collation:"und:ci"}] AS array_with_string_ci [ARRAY<STRING>]
+| +-tvf_templated_select_collated_output_columns_with_collated_column_ref.array_with_string_ci#2<{Collation:"und:ci"}> AS array_with_string_ci [ARRAY<STRING>]
 | +-tvf_templated_select_collated_output_columns_with_collated_column_ref.struct_with_string_ci#3<_,{Collation:"und:ci"}> AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
 +-query=
   +-ProjectScan
@@ -8770,6 +8780,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="abc")
         +-column_index_list=[0, 1, 2]
+        +-function_call_signature=(STRING) -> ANY TABLE
 
 With Templated SQL TVF signature:
   tvf_templated_select_collated_output_columns_with_collated_column_ref(literal STRING) -> TABLE<concat_ci STRING COLLATE 'und:ci', array_with_string_ci ARRAY<STRING COLLATE 'und:ci'>, struct_with_string_ci STRUCT<a INT32, b STRING COLLATE 'und:ci'>>
@@ -8777,11 +8788,11 @@ containing resolved templated query:
 QueryStmt
 +-output_column_list=
 | +-$query.concat_ci#5{Collation:"und:ci"} AS concat_ci [STRING]
-| +-CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}] AS array_with_string_ci [ARRAY<STRING>]
+| +-CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}> AS array_with_string_ci [ARRAY<STRING>]
 | +-CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}> AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.concat_ci#5{Collation:"und:ci"}, CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}], CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>]
+    +-column_list=[$query.concat_ci#5{Collation:"und:ci"}, CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>]
     +-expr_list=
     | +-concat_ci#5 :=
     |   +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
@@ -8799,7 +8810,7 @@ select * from tvf_templated_select_collated_output_columns_with_relation_arg(
 QueryStmt
 +-output_column_list=
 | +-tvf_templated_select_collated_output_columns_with_relation_arg.col_ci#2{Collation:"und:ci"} AS col_ci [STRING]
-| +-tvf_templated_select_collated_output_columns_with_relation_arg.col_array_ci#3[{Collation:"und:ci"}] AS col_array_ci [ARRAY<STRING>]
+| +-tvf_templated_select_collated_output_columns_with_relation_arg.col_array_ci#3<{Collation:"und:ci"}> AS col_array_ci [ARRAY<STRING>]
 | +-tvf_templated_select_collated_output_columns_with_relation_arg.col_struct_ci#4<{Collation:"und:ci"},_> AS col_struct_ci [STRUCT<STRING, INT64>]
 +-query=
   +-ProjectScan
@@ -8823,6 +8834,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=2)
         +-column_index_list=[0, 1, 2]
+        +-function_call_signature=(ANY TABLE, INT64) -> ANY TABLE
 
 With Templated SQL TVF signature:
   tvf_templated_select_collated_output_columns_with_relation_arg(TABLE<col_str STRING>, literal INT64) -> TABLE<col_ci STRING COLLATE 'und:ci', col_array_ci ARRAY<STRING COLLATE 'und:ci'>, col_struct_ci STRUCT<STRING COLLATE 'und:ci', INT64>>
@@ -8830,7 +8842,7 @@ containing resolved templated query:
 QueryStmt
 +-output_column_list=
 | +-$query.col_ci#2{Collation:"und:ci"} AS col_ci [STRING]
-| +-$query.col_array_ci#3[{Collation:"und:ci"}] AS col_array_ci [ARRAY<STRING>]
+| +-$query.col_array_ci#3<{Collation:"und:ci"}> AS col_array_ci [ARRAY<STRING>]
 | +-$query.col_struct_ci#4<{Collation:"und:ci"},_> AS col_struct_ci [STRUCT<STRING, INT64>]
 +-query=
   +-ProjectScan
@@ -8843,7 +8855,7 @@ QueryStmt
     | |   +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
     | +-col_array_ci#3 :=
     | | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
-    | |   +-type_annotation_map=[{Collation:"und:ci"}]
+    | |   +-type_annotation_map=<{Collation:"und:ci"}>
     | |   +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     | |     +-type_annotation_map={Collation:"und:ci"}
     | |     +-ColumnRef(type=STRING, column=x.col_str#1)
@@ -8883,6 +8895,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="b")
         +-column_index_list=[0]
+        +-function_call_signature=(STRING, STRING) -> ANY TABLE
 
 With Templated SQL TVF signature:
   tvf_templated_select_collated_output_column_as_value_table(literal STRING, literal STRING) -> TABLE<STRING COLLATE 'und:ci'>
@@ -8956,7 +8969,7 @@ CreateTableFunctionStmt
 |   | |   +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
 |   | +-col_array_ci#2 :=
 |   | | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
-|   | |   +-type_annotation_map=[{Collation:"und:ci"}]
+|   | |   +-type_annotation_map=<{Collation:"und:ci"}>
 |   | |   +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
 |   | |     +-type_annotation_map={Collation:"und:ci"}
 |   | |     +-ArgumentRef(type=STRING, name="x")
@@ -8975,7 +8988,7 @@ CreateTableFunctionStmt
 |     +-SingleRowScan
 +-output_column_list=
   +-$query.col_ci#1{Collation:"und:ci"} AS col_ci [STRING]
-  +-$query.col_array_ci#2[{Collation:"und:ci"}] AS col_array_ci [ARRAY<STRING>]
+  +-$query.col_array_ci#2<{Collation:"und:ci"}> AS col_array_ci [ARRAY<STRING>]
   +-$query.col_struct_ci#3<{Collation:"und:ci"},_> AS col_struct_ci [STRUCT<STRING, INT64>]
 ==
 
@@ -8996,7 +9009,7 @@ CreateTableFunctionStmt
 +-code="select\n    CONCAT(x, string_ci) as concat_ci,\n    array_with_string_ci,\n    struct_with_string_ci\n  from CollatedTable"
 +-query=
 | +-ProjectScan
-|   +-column_list=[$query.concat_ci#5{Collation:"und:ci"}, CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}], CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>]
+|   +-column_list=[$query.concat_ci#5{Collation:"und:ci"}, CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>, CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>]
 |   +-expr_list=
 |   | +-concat_ci#5 :=
 |   |   +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
@@ -9007,7 +9020,7 @@ CreateTableFunctionStmt
 |     +-TableScan(column_list=CollatedTable.[string_ci#1, struct_with_string_ci#3, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 2, 3])
 +-output_column_list=
   +-$query.concat_ci#5{Collation:"und:ci"} AS concat_ci [STRING]
-  +-CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}] AS array_with_string_ci [ARRAY<STRING>]
+  +-CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}> AS array_with_string_ci [ARRAY<STRING>]
   +-CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}> AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
 ==
 
@@ -9037,7 +9050,7 @@ CreateTableFunctionStmt
 |   | |   +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
 |   | +-col_array_ci#3 :=
 |   | | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
-|   | |   +-type_annotation_map=[{Collation:"und:ci"}]
+|   | |   +-type_annotation_map=<{Collation:"und:ci"}>
 |   | |   +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
 |   | |     +-type_annotation_map={Collation:"und:ci"}
 |   | |     +-ColumnRef(type=STRING, column=x.col_str#1)
@@ -9056,7 +9069,7 @@ CreateTableFunctionStmt
 |     +-RelationArgumentScan(column_list=[x.col_str#1], name="x")
 +-output_column_list=
   +-$query.col_ci#2{Collation:"und:ci"} AS col_ci [STRING]
-  +-$query.col_array_ci#3[{Collation:"und:ci"}] AS col_array_ci [ARRAY<STRING>]
+  +-$query.col_array_ci#3<{Collation:"und:ci"}> AS col_array_ci [ARRAY<STRING>]
   +-$query.col_struct_ci#4<{Collation:"und:ci"},_> AS col_struct_ci [STRUCT<STRING, INT64>]
 ==
 
@@ -9090,7 +9103,7 @@ CreateTableFunctionStmt
 |   | |   +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
 |   | +-col_array_ci#3 :=
 |   | | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
-|   | |   +-type_annotation_map=[{Collation:"und:ci"}]
+|   | |   +-type_annotation_map=<{Collation:"und:ci"}>
 |   | |   +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
 |   | |     +-type_annotation_map={Collation:"und:ci"}
 |   | |     +-GetStructField
@@ -9117,7 +9130,7 @@ CreateTableFunctionStmt
 |     +-RelationArgumentScan(column_list=[x.$value_column#1], name="x", is_value_table=TRUE)
 +-output_column_list=
   +-$query.col_ci#2{Collation:"und:ci"} AS col_ci [STRING]
-  +-$query.col_array_ci#3[{Collation:"und:ci"}] AS col_array_ci [ARRAY<STRING>]
+  +-$query.col_array_ci#3<{Collation:"und:ci"}> AS col_array_ci [ARRAY<STRING>]
   +-$query.col_struct_ci#4<{Collation:"und:ci"},_> AS col_struct_ci [STRUCT<STRING, INT64>]
 ==
 
@@ -9181,8 +9194,8 @@ select * from ScalarArgWithCollatedOutputCols('abc')
 QueryStmt
 +-output_column_list=
 | +-ScalarArgWithCollatedOutputCols.col_ci#1{Collation:"und:ci"} AS col_ci [STRING]
-| +-ScalarArgWithCollatedOutputCols.col_array_ci#2[{Collation:"und:ci"}] AS col_array_ci [ARRAY<STRING>]
-| +-ScalarArgWithCollatedOutputCols.col_struct_ci#3<[{Collation:"und:ci"}],_> AS col_struct_ci [STRUCT<ARRAY<STRING>, INT64>]
+| +-ScalarArgWithCollatedOutputCols.col_array_ci#2<{Collation:"und:ci"}> AS col_array_ci [ARRAY<STRING>]
+| +-ScalarArgWithCollatedOutputCols.col_struct_ci#3<<{Collation:"und:ci"}>,_> AS col_struct_ci [STRUCT<ARRAY<STRING>, INT64>]
 +-query=
   +-ProjectScan
     +-column_list=ScalarArgWithCollatedOutputCols.[col_ci#1, col_array_ci#2, col_struct_ci#3]
@@ -9196,6 +9209,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="abc")
         +-column_index_list=[0, 1, 2]
+        +-function_call_signature=(STRING arg0) -> TABLE<col_ci STRING COLLATE 'und:ci', col_array_ci ARRAY<STRING COLLATE 'und:ci'>, col_struct_ci STRUCT<ARRAY<STRING COLLATE 'und:ci'>, INT64>>
 ==
 
 select * from TableArgWithCollatedOutputCols((select 'abc' as a))
@@ -9203,8 +9217,8 @@ select * from TableArgWithCollatedOutputCols((select 'abc' as a))
 QueryStmt
 +-output_column_list=
 | +-TableArgWithCollatedOutputCols.col_ci#2{Collation:"und:ci"} AS col_ci [STRING]
-| +-TableArgWithCollatedOutputCols.col_array_ci#3[{Collation:"und:ci"}] AS col_array_ci [ARRAY<STRING>]
-| +-TableArgWithCollatedOutputCols.col_struct_ci#4<[{Collation:"und:ci"}],_> AS col_struct_ci [STRUCT<ARRAY<STRING>, INT64>]
+| +-TableArgWithCollatedOutputCols.col_array_ci#3<{Collation:"und:ci"}> AS col_array_ci [ARRAY<STRING>]
+| +-TableArgWithCollatedOutputCols.col_struct_ci#4<<{Collation:"und:ci"}>,_> AS col_struct_ci [STRUCT<ARRAY<STRING>, INT64>]
 +-query=
   +-ProjectScan
     +-column_list=TableArgWithCollatedOutputCols.[col_ci#2, col_array_ci#3, col_struct_ci#4]
@@ -9224,6 +9238,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=[$subquery1.a#1]
         +-column_index_list=[0, 1, 2]
+        +-function_call_signature=(TABLE<a STRING> arg0) -> TABLE<col_ci STRING COLLATE 'und:ci', col_array_ci ARRAY<STRING COLLATE 'und:ci'>, col_struct_ci STRUCT<ARRAY<STRING COLLATE 'und:ci'>, INT64>>
 ==
 
 select * from ValueTableArgWithCollatedOutputCols((select as struct 'abc' str_field))
@@ -9231,8 +9246,8 @@ select * from ValueTableArgWithCollatedOutputCols((select as struct 'abc' str_fi
 QueryStmt
 +-output_column_list=
 | +-ValueTableArgWithCollatedOutputCols.col_ci#3{Collation:"und:ci"} AS col_ci [STRING]
-| +-ValueTableArgWithCollatedOutputCols.col_array_ci#4[{Collation:"und:ci"}] AS col_array_ci [ARRAY<STRING>]
-| +-ValueTableArgWithCollatedOutputCols.col_struct_ci#5<[{Collation:"und:ci"}],_> AS col_struct_ci [STRUCT<ARRAY<STRING>, INT64>]
+| +-ValueTableArgWithCollatedOutputCols.col_array_ci#4<{Collation:"und:ci"}> AS col_array_ci [ARRAY<STRING>]
+| +-ValueTableArgWithCollatedOutputCols.col_struct_ci#5<<{Collation:"und:ci"}>,_> AS col_struct_ci [STRUCT<ARRAY<STRING>, INT64>]
 +-query=
   +-ProjectScan
     +-column_list=ValueTableArgWithCollatedOutputCols.[col_ci#3, col_array_ci#4, col_struct_ci#5]
@@ -9261,6 +9276,7 @@ QueryStmt
         |   |         +-SingleRowScan
         |   +-argument_column_list=[$make_struct.$struct#2]
         +-column_index_list=[0, 1, 2]
+        +-function_call_signature=(TABLE<STRUCT<str_field STRING>> arg0) -> TABLE<col_ci STRING COLLATE 'und:ci', col_array_ci ARRAY<STRING COLLATE 'und:ci'>, col_struct_ci STRUCT<ARRAY<STRING COLLATE 'und:ci'>, INT64>>
 ==
 
 select * from ScalarArgWithCollatedOutputValueTableCol('abc')
@@ -9281,6 +9297,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="abc")
         +-column_index_list=[0]
+        +-function_call_signature=(STRING arg0) -> TABLE<STRING COLLATE 'und:ci'>
 ==
 
 select * from tvf_templated_select_any_scalar_arg(COLLATE('abc', 'und:ci'))
@@ -9314,6 +9331,7 @@ QueryStmt
         |       | +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
         |       +-Literal(type=STRING, value="", preserve_in_literal_remover=TRUE)
         +-column_index_list=[0]
+        +-function_call_signature=(STRING) -> ANY TABLE
 
 With Templated SQL TVF signature:
   tvf_templated_select_any_scalar_arg(STRING) -> TABLE<x STRING>
@@ -9332,7 +9350,7 @@ QueryStmt
 
 select * from tvf_templated_select_any_scalar_arg([COLLATE('abc', 'und:ci')])
 --
-ERROR: Collation ["und:ci"] on argument of TVF call is not allowed [at 1:51]
+ERROR: Collation <"und:ci"> on argument of TVF call is not allowed [at 1:51]
 select * from tvf_templated_select_any_scalar_arg([COLLATE('abc', 'und:ci')])
                                                   ^
 ==
@@ -9346,7 +9364,7 @@ select * from tvf_templated_select_any_scalar_arg(STRUCT(COLLATE('abc', 'und:...
 
 select * from tvf_templated_select_relation_arg_using_select_star((select [COLLATE('abc', 'und:ci')] as col_array_ci))
 --
-ERROR: Collation ["und:ci"] on column col_array_ci of argument of TVF call is not allowed [at 1:67]
+ERROR: Collation <"und:ci"> on column col_array_ci of argument of TVF call is not allowed [at 1:67]
 ...tvf_templated_select_relation_arg_using_select_star((select [COLLATE('abc'...
                                                        ^
 ==
@@ -9367,7 +9385,7 @@ select * from ScalarArgsOfCollatableTypes(COLLATE('abc', 'und:ci'), ['abc'], ...
 
 select * from ScalarArgsOfCollatableTypes(arg1=>[COLLATE('abc', 'und:ci')], arg0=>'abc', arg2=>('abc', 1))
 --
-ERROR: Collation ["und:ci"] on argument of TVF call is not allowed [at 1:43]
+ERROR: Collation <"und:ci"> on argument of TVF call is not allowed [at 1:43]
 select * from ScalarArgsOfCollatableTypes(arg1=>[COLLATE('abc', 'und:ci')], a...
                                           ^
 ==
@@ -9404,7 +9422,7 @@ create function myfunc(x STRING) as (COLLATE(x, 'und:ci'));
 # Collation in return type of SQL function body is not allowed.
 create function myfunc(x STRING) as ([COLLATE(x, 'und:ci')]);
 --
-ERROR: Collation ["und:ci"] in return type of user-defined function body is not allowed [at 1:37]
+ERROR: Collation <"und:ci"> in return type of user-defined function body is not allowed [at 1:37]
 create function myfunc(x STRING) as ([COLLATE(x, 'und:ci')]);
                                     ^
 ==
@@ -9453,7 +9471,7 @@ as (COLLATE(x, 'und:ci'));
    ^
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,CREATE_AGGREGATE_FUNCTION]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,CREATE_AGGREGATE_FUNCTION]
 # Collation in return type of SQL function body is not allowed. The function
 # is a SQL aggregate function.
 create aggregate function myfunc(x STRING)
@@ -9479,7 +9497,7 @@ select udf_templated_collate_function_in_array('abc');
 ERROR: Invalid function udf_templated_collate_function_in_array [at 1:8]
 select udf_templated_collate_function_in_array('abc');
        ^
-Collation ["und:ci"] in return type of user-defined function body is not allowed
+Collation <"und:ci"> in return type of user-defined function body is not allowed
 ==
 
 # Collation in return type of templated SQL function body is not allowed.
@@ -9555,10 +9573,10 @@ QueryStmt
       +-TableScan(column_list=[CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>], table=CollatedTable, column_index_list=[2])
 ==
 
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE,V_1_4_COLLATION_IN_WITH_RECURSIVE]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
 # Coercing struct in scan through internal CAST - IN subquery.
 # Left struct type has no collation and the right struct type has collation but
-# the feture FEATURE_V_1_4_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN is
+# the feture FEATURE_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN is
 # off. The collation in the right struct type will be dropped in the CAST.
 SELECT STRUCT<x INT32, y STRING>(1, 'a') IN (SELECT struct_with_string_ci FROM CollatedTable)
 --
@@ -9685,7 +9703,7 @@ QueryStmt
 
 # Coercing struct in scan through internal CAST - IN subquery.
 # The struct being casted has ARRAY field with collation.
-[language_features=V_1_1_ARRAY_EQUALITY,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_EXPLICIT_CAST,V_1_4_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN]
+[language_features=ARRAY_EQUALITY,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,COLLATION_IN_EXPLICIT_CAST,PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN]
 SELECT STRUCT<x INT64, y ARRAY<STRING>>(1, ['a']) IN
 (SELECT (1, [COLLATE('abc', 'und:ci')]))
 --
@@ -9705,25 +9723,25 @@ QueryStmt
     |     +-in_collation=[_,[und:ci]]
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$in_subquery_cast.$col1#3<_,[{Collation:"und:ci"}]>]
+    |         +-column_list=[$in_subquery_cast.$col1#3<_,<{Collation:"und:ci"}>>]
     |         +-expr_list=
     |         | +-$col1#3 :=
     |         |   +-Cast(STRUCT<INT64, ARRAY<STRING>> -> STRUCT<x INT64, y ARRAY<STRING>>)
-    |         |     +-type_annotation_map=<_,[{Collation:"und:ci"}]>
-    |         |     +-ColumnRef(type=STRUCT<INT64, ARRAY<STRING>>, type_annotation_map=<_,[{Collation:"und:ci"}]>, column=$expr_subquery.$col1#1<_,[{Collation:"und:ci"}]>)
+    |         |     +-type_annotation_map=<_,<{Collation:"und:ci"}>>
+    |         |     +-ColumnRef(type=STRUCT<INT64, ARRAY<STRING>>, type_annotation_map=<_,<{Collation:"und:ci"}>>, column=$expr_subquery.$col1#1<_,<{Collation:"und:ci"}>>)
     |         |     +-type_modifiers=collation:[_,[und:ci]]
     |         +-input_scan=
     |           +-ProjectScan
-    |             +-column_list=[$expr_subquery.$col1#1<_,[{Collation:"und:ci"}]>]
+    |             +-column_list=[$expr_subquery.$col1#1<_,<{Collation:"und:ci"}>>]
     |             +-expr_list=
     |             | +-$col1#1 :=
     |             |   +-MakeStruct
     |             |     +-type=STRUCT<INT64, ARRAY<STRING>>
-    |             |     +-type_annotation_map=<_,[{Collation:"und:ci"}]>
+    |             |     +-type_annotation_map=<_,<{Collation:"und:ci"}>>
     |             |     +-field_list=
     |             |       +-Literal(type=INT64, value=1)
     |             |       +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
-    |             |         +-type_annotation_map=[{Collation:"und:ci"}]
+    |             |         +-type_annotation_map=<{Collation:"und:ci"}>
     |             |         +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     |             |           +-type_annotation_map={Collation:"und:ci"}
     |             |           +-Literal(type=STRING, value="abc")
@@ -9917,7 +9935,7 @@ QueryStmt
 ==
 
 [no_run_sqlbuilder]
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE,V_1_4_COLLATION_IN_WITH_RECURSIVE,V_1_4_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE,PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN]
 # TODO: enable the unparser once STRUCT<STRING COLLATE '...'> syntax
 # is supported.
 # Coercing struct in scan through internal CAST - with recursive.
@@ -10027,7 +10045,7 @@ QueryStmt
 ==
 
 [no_run_sqlbuilder]
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE,V_1_4_COLLATION_IN_WITH_RECURSIVE,V_1_4_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE,PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN]
 # TODO: enable the unparser once STRUCT<STRING COLLATE '...'> syntax
 # is supported.
 # Coercing struct in scan through internal CAST - with recursive.
@@ -10167,24 +10185,24 @@ CreateTableAsSelectStmt
 |   |             +-Literal(type=STRING, value="binary")
 |   +-column=t.col_struct#1
 +-output_column_list=
-| +-$create_as_cast.$col1#3<_,{Collation:"und:ci"},[{Collation:"und:ci"}]> AS col_struct [STRUCT<DOUBLE, STRING, ARRAY<STRING>>]
+| +-$create_as_cast.$col1#3<_,{Collation:"und:ci"},<{Collation:"und:ci"}>> AS col_struct [STRUCT<DOUBLE, STRING, ARRAY<STRING>>]
 +-query=
   +-ProjectScan
-    +-column_list=[$create_as_cast.$col1#3<_,{Collation:"und:ci"},[{Collation:"und:ci"}]>]
+    +-column_list=[$create_as_cast.$col1#3<_,{Collation:"und:ci"},<{Collation:"und:ci"}>>]
     +-expr_list=
     | +-$col1#3 :=
     |   +-Cast(STRUCT<INT64, STRING, ARRAY<STRING>> -> STRUCT<DOUBLE, STRING, ARRAY<STRING>>)
-    |     +-type_annotation_map=<_,{Collation:"und:ci"},[{Collation:"und:ci"}]>
-    |     +-ColumnRef(type=STRUCT<INT64, STRING, ARRAY<STRING>>, type_annotation_map=<_,{Collation:"und:ci"},[{Collation:"und:ci"}]>, column=$create_as.$col1#2<_,{Collation:"und:ci"},[{Collation:"und:ci"}]>)
+    |     +-type_annotation_map=<_,{Collation:"und:ci"},<{Collation:"und:ci"}>>
+    |     +-ColumnRef(type=STRUCT<INT64, STRING, ARRAY<STRING>>, type_annotation_map=<_,{Collation:"und:ci"},<{Collation:"und:ci"}>>, column=$create_as.$col1#2<_,{Collation:"und:ci"},<{Collation:"und:ci"}>>)
     |     +-type_modifiers=collation:[_,und:ci,[und:ci]]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[$create_as.$col1#2<_,{Collation:"und:ci"},[{Collation:"und:ci"}]>]
+        +-column_list=[$create_as.$col1#2<_,{Collation:"und:ci"},<{Collation:"und:ci"}>>]
         +-expr_list=
         | +-$col1#2 :=
         |   +-MakeStruct
         |     +-type=STRUCT<INT64, STRING, ARRAY<STRING>>
-        |     +-type_annotation_map=<_,{Collation:"und:ci"},[{Collation:"und:ci"}]>
+        |     +-type_annotation_map=<_,{Collation:"und:ci"},<{Collation:"und:ci"}>>
         |     +-field_list=
         |       +-Literal(type=INT64, value=1)
         |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
@@ -10192,7 +10210,7 @@ CreateTableAsSelectStmt
         |       | +-Literal(type=STRING, value="abc")
         |       | +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
         |       +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
-        |         +-type_annotation_map=[{Collation:"und:ci"}]
+        |         +-type_annotation_map=<{Collation:"und:ci"}>
         |         +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
         |           +-type_annotation_map={Collation:"und:ci"}
         |           +-Literal(type=STRING, value="def")
@@ -10212,25 +10230,25 @@ SELECT (2, COLLATE("def", "binary"), [COLLATE("def", "binary")])
 --
 InsertStmt
 +-table_scan=
-| +-TableScan(column_list=[ComplexCollatedTable.struct_of_double_and_string_ci_and_array_ci#6<_,{Collation:"und:ci"},[{Collation:"und:ci"}]>], table=ComplexCollatedTable, column_index_list=[5])
-+-insert_column_list=[ComplexCollatedTable.struct_of_double_and_string_ci_and_array_ci#6<_,{Collation:"und:ci"},[{Collation:"und:ci"}]>]
+| +-TableScan(column_list=[ComplexCollatedTable.struct_of_double_and_string_ci_and_array_ci#6<_,{Collation:"und:ci"},<{Collation:"und:ci"}>>], table=ComplexCollatedTable, column_index_list=[5])
++-insert_column_list=[ComplexCollatedTable.struct_of_double_and_string_ci_and_array_ci#6<_,{Collation:"und:ci"},<{Collation:"und:ci"}>>]
 +-query=
 | +-ProjectScan
-|   +-column_list=[$insert_cast.$col1#8<_,{Collation:"binary"},[{Collation:"binary"}]>]
+|   +-column_list=[$insert_cast.$col1#8<_,{Collation:"binary"},<{Collation:"binary"}>>]
 |   +-expr_list=
 |   | +-$col1#8 :=
 |   |   +-Cast(STRUCT<INT64, STRING, ARRAY<STRING>> -> STRUCT<a DOUBLE, b STRING, c ARRAY<STRING>>)
-|   |     +-type_annotation_map=<_,{Collation:"binary"},[{Collation:"binary"}]>
-|   |     +-ColumnRef(type=STRUCT<INT64, STRING, ARRAY<STRING>>, type_annotation_map=<_,{Collation:"binary"},[{Collation:"binary"}]>, column=$insert.$col1#7<_,{Collation:"binary"},[{Collation:"binary"}]>)
+|   |     +-type_annotation_map=<_,{Collation:"binary"},<{Collation:"binary"}>>
+|   |     +-ColumnRef(type=STRUCT<INT64, STRING, ARRAY<STRING>>, type_annotation_map=<_,{Collation:"binary"},<{Collation:"binary"}>>, column=$insert.$col1#7<_,{Collation:"binary"},<{Collation:"binary"}>>)
 |   |     +-type_modifiers=collation:[_,binary,[binary]]
 |   +-input_scan=
 |     +-ProjectScan
-|       +-column_list=[$insert.$col1#7<_,{Collation:"binary"},[{Collation:"binary"}]>]
+|       +-column_list=[$insert.$col1#7<_,{Collation:"binary"},<{Collation:"binary"}>>]
 |       +-expr_list=
 |       | +-$col1#7 :=
 |       |   +-MakeStruct
 |       |     +-type=STRUCT<INT64, STRING, ARRAY<STRING>>
-|       |     +-type_annotation_map=<_,{Collation:"binary"},[{Collation:"binary"}]>
+|       |     +-type_annotation_map=<_,{Collation:"binary"},<{Collation:"binary"}>>
 |       |     +-field_list=
 |       |       +-Literal(type=INT64, value=2)
 |       |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
@@ -10238,14 +10256,14 @@ InsertStmt
 |       |       | +-Literal(type=STRING, value="def")
 |       |       | +-Literal(type=STRING, value="binary", preserve_in_literal_remover=TRUE)
 |       |       +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
-|       |         +-type_annotation_map=[{Collation:"binary"}]
+|       |         +-type_annotation_map=<{Collation:"binary"}>
 |       |         +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
 |       |           +-type_annotation_map={Collation:"binary"}
 |       |           +-Literal(type=STRING, value="def")
 |       |           +-Literal(type=STRING, value="binary", preserve_in_literal_remover=TRUE)
 |       +-input_scan=
 |         +-SingleRowScan
-+-query_output_column_list=[$insert_cast.$col1#8<_,{Collation:"binary"},[{Collation:"binary"}]>]
++-query_output_column_list=[$insert_cast.$col1#8<_,{Collation:"binary"},<{Collation:"binary"}>>]
 +-column_access_list=WRITE
 ==
 
@@ -10369,7 +10387,7 @@ QueryStmt
 ==
 
 # Disable GROUPING_SETS, in which case rollup won't go through rewriters, this is the current code path.
-[language_features=V_1_3_COLLATION_SUPPORT,GROUP_BY_ROLLUP,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=COLLATION_SUPPORT,GROUP_BY_ROLLUP,ANNOTATION_FRAMEWORK]
 SELECT COUNT(*), string_ci, string_binary
 FROM CollatedTable
 GROUP BY ROLLUP(string_ci, string_binary, UPPER(string_ci))
@@ -10433,19 +10451,19 @@ QueryStmt
 +-output_column_list=
 | +-$aggregate.$agg1#5 AS `$col1` [INT64]
 | +-$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}> AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
-| +-$groupby.array_with_string_ci#8[{Collation:"und:ci"}] AS array_with_string_ci [ARRAY<STRING>]
+| +-$groupby.array_with_string_ci#8<{Collation:"und:ci"}> AS array_with_string_ci [ARRAY<STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#5, $groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>, $groupby.array_with_string_ci#8[{Collation:"und:ci"}]]
+    +-column_list=[$aggregate.$agg1#5, $groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>, $groupby.array_with_string_ci#8<{Collation:"und:ci"}>]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>, $groupby.array_with_string_ci#8[{Collation:"und:ci"}], $aggregate.$agg1#5]
+        +-column_list=[$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>, $groupby.array_with_string_ci#8<{Collation:"und:ci"}>, $aggregate.$agg1#5]
         +-input_scan=
         | +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2, struct_with_string_ci#3, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 1, 2, 3])
         +-group_by_list=
         | +-struct_with_string_ci#6 := ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>)
         | +-string_ci#7 := ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
-        | +-array_with_string_ci#8 := ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+        | +-array_with_string_ci#8 := ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
         | +-string_binary#9 := ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
         +-collation_list=[[_,und:ci],und:ci,[und:ci],binary]
         +-aggregate_list=
@@ -10466,7 +10484,7 @@ QueryStmt
             +-cube_column_list=
               +-GroupingSetMultiColumn
               | +-column_list=
-              |   +-ColumnRef(type=ARRAY<STRING>, column=$groupby.array_with_string_ci#8[{Collation:"und:ci"}])
+              |   +-ColumnRef(type=ARRAY<STRING>, column=$groupby.array_with_string_ci#8<{Collation:"und:ci"}>)
               +-GroupingSetMultiColumn
                 +-column_list=
                   +-ColumnRef(type=STRING, column=$groupby.string_binary#9{Collation:"binary"})
@@ -10477,19 +10495,19 @@ QueryStmt
 +-output_column_list=
 | +-$aggregate.$agg1#5 AS `$col1` [INT64]
 | +-$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}> AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
-| +-$groupby.array_with_string_ci#8[{Collation:"und:ci"}] AS array_with_string_ci [ARRAY<STRING>]
+| +-$groupby.array_with_string_ci#8<{Collation:"und:ci"}> AS array_with_string_ci [ARRAY<STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#5, $groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>, $groupby.array_with_string_ci#8[{Collation:"und:ci"}]]
+    +-column_list=[$aggregate.$agg1#5, $groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>, $groupby.array_with_string_ci#8<{Collation:"und:ci"}>]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>, $groupby.array_with_string_ci#8[{Collation:"und:ci"}], $aggregate.$agg1#5]
+        +-column_list=[$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>, $groupby.array_with_string_ci#8<{Collation:"und:ci"}>, $aggregate.$agg1#5]
         +-input_scan=
         | +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2, struct_with_string_ci#3, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 1, 2, 3])
         +-group_by_list=
         | +-struct_with_string_ci#6 := ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>)
         | +-string_ci#7 := ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
-        | +-array_with_string_ci#8 := ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+        | +-array_with_string_ci#8 := ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
         | +-string_binary#9 := ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
         +-collation_list=[[_,und:ci],und:ci,[und:ci],binary]
         +-aggregate_list=
@@ -10508,19 +10526,19 @@ QueryStmt
           +-GroupingSet
           +-GroupingSet
           | +-group_by_column_list=
-          |   +-ColumnRef(type=ARRAY<STRING>, column=$groupby.array_with_string_ci#8[{Collation:"und:ci"}])
+          |   +-ColumnRef(type=ARRAY<STRING>, column=$groupby.array_with_string_ci#8<{Collation:"und:ci"}>)
           |   +-ColumnRef(type=STRING, column=$groupby.string_binary#9{Collation:"binary"})
           +-GroupingSet
           | +-group_by_column_list=
           |   +-ColumnRef(type=STRING, column=$groupby.string_binary#9{Collation:"binary"})
           +-GroupingSet
           | +-group_by_column_list=
-          |   +-ColumnRef(type=ARRAY<STRING>, column=$groupby.array_with_string_ci#8[{Collation:"und:ci"}])
+          |   +-ColumnRef(type=ARRAY<STRING>, column=$groupby.array_with_string_ci#8<{Collation:"und:ci"}>)
           +-GroupingSet
 ==
 
 # ORDER BY with collation coming from the table.
-[language_features=V_1_4_MATCH_RECOGNIZE,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[language_features=MATCH_RECOGNIZE,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 select * from CollatedTable MATCH_RECOGNIZE(
   ORDER BY string_ci || string_ci, string_binary || string_binary
   MEASURES min(string_binary) AS x
@@ -10531,13 +10549,13 @@ select * from CollatedTable MATCH_RECOGNIZE(
 --
 QueryStmt
 +-output_column_list=
-| +-$match_recognize.x#11 AS x [STRING]
+| +-$match_recognize.x#11{Collation:"binary"} AS x [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$match_recognize.x#11]
+    +-column_list=[$match_recognize.x#11{Collation:"binary"}]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[$match_recognize.x#11]
+        +-column_list=[$match_recognize.x#11{Collation:"binary"}]
         +-expr_list=
         | +-x#11 := ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=$aggregate.$agg1#10{Collation:"binary"})
         +-input_scan=
@@ -10559,17 +10577,19 @@ QueryStmt
             |   |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
             |   +-input_scan=
             |     +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |     | +-column_ref=
-            |     | | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$orderby.$orderbycol1#5{Collation:"und:ci"})
-            |     | +-collation=und:ci
-            |     +-OrderByItem
-            |       +-column_ref=
-            |       | +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=$orderby.$orderbycol2#6{Collation:"binary"})
-            |       +-collation=binary
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |         | +-column_ref=
+            |         | | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$orderby.$orderbycol1#5{Collation:"und:ci"})
+            |         | +-collation=und:ci
+            |         +-OrderByItem
+            |           +-column_ref=
+            |           | +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=$orderby.$orderbycol2#6{Collation:"binary"})
+            |           +-collation=binary
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -10599,7 +10619,7 @@ QueryStmt
 ==
 
 [show_sqlbuilder_output]
-[language_features=V_1_4_MATCH_RECOGNIZE,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[language_features=MATCH_RECOGNIZE,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,NULLS_FIRST_LAST_IN_ORDER_BY]
 # Partition by with collation and computed exprs.
 # Also notice that partitioning columns are included in the output.
 select * from CollatedTable MATCH_RECOGNIZE(
@@ -10615,13 +10635,13 @@ QueryStmt
 +-output_column_list=
 | +-$partitionby.$partitionbycol1#5{Collation:"und:ci"} AS `$partition_by_col1` [STRING]
 | +-$partitionby.$partitionbycol2#6{Collation:"binary"} AS `$partition_by_col2` [STRING]
-| +-$match_recognize.x#12 AS x [STRING]
+| +-$match_recognize.x#12{Collation:"binary"} AS x [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$partitionby.$partitionbycol1#5{Collation:"und:ci"}, $partitionby.$partitionbycol2#6{Collation:"binary"}, $match_recognize.x#12]
+    +-column_list=[$partitionby.$partitionbycol1#5{Collation:"und:ci"}, $partitionby.$partitionbycol2#6{Collation:"binary"}, $match_recognize.x#12{Collation:"binary"}]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[$partitionby.$partitionbycol1#5{Collation:"und:ci"}, $partitionby.$partitionbycol2#6{Collation:"binary"}, $match_recognize.x#12]
+        +-column_list=[$partitionby.$partitionbycol1#5{Collation:"und:ci"}, $partitionby.$partitionbycol2#6{Collation:"binary"}, $match_recognize.x#12{Collation:"binary"}]
         +-expr_list=
         | +-x#12 := ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=$aggregate.$agg1#11{Collation:"binary"})
         +-input_scan=
@@ -10648,21 +10668,23 @@ QueryStmt
             |   |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
             |   +-input_scan=
             |     +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
-            +-partition_by=
-            | +-WindowPartitioning
-            |   +-partition_by_list=
-            |   | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$partitionby.$partitionbycol1#5{Collation:"und:ci"})
-            |   | +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=$partitionby.$partitionbycol2#6{Collation:"binary"})
-            |   +-collation_list=[und:ci,binary]
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |       | +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=$orderby.$orderbycol1#7{Collation:"binary"})
-            |       +-is_descending=TRUE
-            |       +-null_order=NULLS_FIRST
-            |       +-collation=binary
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-partition_by=
+            |   | +-WindowPartitioning
+            |   |   +-partition_by_list=
+            |   |   | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$partitionby.$partitionbycol1#5{Collation:"und:ci"})
+            |   |   | +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=$partitionby.$partitionbycol2#6{Collation:"binary"})
+            |   |   +-collation_list=[und:ci,binary]
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |           | +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=$orderby.$orderbycol1#7{Collation:"binary"})
+            |           +-is_descending=TRUE
+            |           +-null_order=NULLS_FIRST
+            |           +-collation=binary
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -10756,4 +10778,65 @@ FROM
      matchrecognizescan_10.a_4 AS a_4,
      matchrecognizescan_10.a_5 AS a_5,
      matchrecognizescan_10.a_8 AS x;
+==
+
+# Collation through the MEASURES clause.
+[language_features=MATCH_RECOGNIZE,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ORDER_BY_IN_AGGREGATE]
+SELECT * FROM CollatedTable MATCH_RECOGNIZE(
+  ORDER BY string_binary
+  MEASURES ARRAY_AGG(string_ci) AS arr
+  PATTERN (a)
+  DEFINE a AS string_binary = 'a'
+)
+--
+QueryStmt
++-output_column_list=
+| +-$match_recognize.arr#9<{Collation:"und:ci"}> AS arr [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$match_recognize.arr#9<{Collation:"und:ci"}>]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$match_recognize.arr#9<{Collation:"und:ci"}>]
+        +-expr_list=
+        | +-arr#9 := ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$aggregate.$agg1#8<{Collation:"und:ci"}>)
+        +-input_scan=
+          +-MatchRecognizeScan
+            +-column_list=[$aggregate.$agg1#8<{Collation:"und:ci"}>, $match_recognize.$match_row_number#6]
+            +-input_scan=
+            | +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |           | +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
+            |           +-collation=binary
+            +-pattern_variable_definition_list=
+            | +-MatchRecognizeVariableDefinition
+            |   +-name="a"
+            |   +-predicate=
+            |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+            |       +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
+            |       +-Literal(type=STRING, value="a")
+            |       +-collation_list=[binary]
+            +-pattern=
+            | +-MatchRecognizePatternVariableRef(name="a")
+            +-after_match_skip_mode=END_OF_MATCH
+            +-measure_group_list=
+            | +-MeasureGroup
+            |   +-aggregate_list=
+            |     +-$agg1#8 :=
+            |       +-AggregateFunctionCall(ZetaSQL:array_agg(STRING) -> ARRAY<STRING>)
+            |         +-type_annotation_map=<{Collation:"und:ci"}>
+            |         +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+            |         +-order_by_item_list=
+            |           +-OrderByItem
+            |             +-column_ref=
+            |               +-ColumnRef(type=INT64, column=$match_recognize.$match_row_number#6)
+            +-match_number_column=$match_recognize.$match_number#5
+            +-match_row_number_column=$match_recognize.$match_row_number#6
+            +-classifier_column=$match_recognize.$classifier#7
 ==

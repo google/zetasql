@@ -69,6 +69,13 @@ message DeprecationWarning {
 
     // The pipe WINDOW operator is deprecated.  Use pipe EXTEND instead.
     PIPE_WINDOW = 8;
+
+    // A keyword that will be reserved in the future.
+    RESERVED_KEYWORD = 9;
+
+    // There were conflicting places where function options would be placed in
+    // different sorts of function CREATE statements. Some were deprecated.
+    LEGACY_FUNCTION_OPTIONS_PLACEMENT = 10;
   }
 
   optional Kind kind = 1;

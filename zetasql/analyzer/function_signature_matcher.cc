@@ -44,6 +44,7 @@
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/measure_type.h"
 #include "zetasql/public/types/proto_type.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/base/case.h"
@@ -52,6 +53,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
@@ -306,13 +308,26 @@ class FunctionSignatureMatcher {
       SignatureMatchResult* signature_match_result,
       bool* signature_matches) const;
 
+  // Returns ok if all types in the `type_set` are implicitly coercible to
+  // `inferred_type`. If not, an InvalidArgumentError is returned.
+  //
+  // * `type_set`: the set of types that are being considered for coercion. This
+  //   should be the type set for `kind`.
+  // * `inferred_type`: the type to verify implicit coercion to.
+  // * `kind`: the SignatureArgumentKind for of the `type_set`.
+  // * `error_message_type_name`: stringified type name to use in the error
+  //    message (ex: "ARRAY" or "MAP").
+  absl::Status TypeSetImplicitlyCoercesTo(
+      const SignatureArgumentKindTypeSet& type_set, const Type* inferred_type,
+      const SignatureArgumentKind& kind,
+      absl::string_view error_message_type_name) const;
+
   // Determines the resolved Type related to all of the templated types present
   // in a function signature. <templated_argument_map> must have been populated
   // by CheckArgumentTypesAndCollectTemplatedArguments().
-  bool DetermineResolvedTypesForTemplatedArguments(
+  absl::Status DetermineResolvedTypesForTemplatedArguments(
       const ArgKindToInputTypesMap& templated_argument_map,
-      ArgKindToResolvedTypeMap* resolved_templated_arguments,
-      SignatureMatchResult* signature_match_result) const;
+      ArgKindToResolvedTypeMap* resolved_templated_arguments) const;
 };
 
 FunctionSignatureMatcher::FunctionSignatureMatcher(
@@ -645,25 +660,38 @@ FunctionSignatureMatcher::GetConcreteArguments(
   }
 
 bool SignatureArgumentCountMatches(
-    const FunctionSignature& signature, int input_arguments_size,
-    int* repetitions, int* optionals,
-    SignatureMatchResult* signature_match_result) {
+    const FunctionSignature& signature,
+    absl::Span<const InputArgumentType> input_arguments, int* repetitions,
+    int* optionals, SignatureMatchResult* signature_match_result) {
   const int signature_num_required = signature.NumRequiredArguments();
 
   *repetitions = 0;
   *optionals = 0;
 
+  const int input_arguments_size = input_arguments.size();
   if (signature_num_required == input_arguments_size) {
     // Fast path: exactly the required arguments passed, return early.
     return true;
   }
+
+  absl::string_view argument_size_suffix;
+  if (!input_arguments.empty() &&
+      input_arguments.front().is_chained_function_call_input()) {
+    argument_size_suffix = " (including chained function call input)";
+  }
+  if (!input_arguments.empty() &&
+      input_arguments.front().is_pipe_input_table()) {
+    argument_size_suffix = " (including pipe input table)";
+  }
+
   auto optional_s = [](int num) { return num == 1 ? "" : "s"; };
   if (signature_num_required > input_arguments_size) {
     // Fast path: fewer required arguments provided, return early.
     SET_MISMATCH_ERROR(absl::StrFormat(
-        "Signature requires at least %d argument%s, found %d argument%s",
+        "Signature requires at least %d argument%s, found %d argument%s%s",
         signature_num_required, optional_s(signature_num_required),
-        input_arguments_size, optional_s(input_arguments_size)));
+        input_arguments_size, optional_s(input_arguments_size),
+        argument_size_suffix));
     return false;
   }
 
@@ -690,7 +718,7 @@ bool SignatureArgumentCountMatches(
     SET_MISMATCH_ERROR(absl::StrCat(
         "Signature accepts at most ", sig_arguments_size, " argument",
         optional_s(sig_arguments_size), ", found ", input_arguments_size,
-        " argument", optional_s(input_arguments_size)));
+        " argument", optional_s(input_arguments_size), argument_size_suffix));
     return false;
   }
 
@@ -1308,7 +1336,7 @@ bool FunctionSignatureMatcher::
           // Disallow graph types when the signature does not *explicitly* take
           // graph element types: even if the signature type is ANY.
           (!language_.LanguageFeatureEnabled(
-               FEATURE_V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT) &&
+               FEATURE_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT) &&
            input_type != nullptr && input_type->IsGraphElement()) ||
           // Disallow measure types for templated arguments except
           // ARG_MEASURE_TYPE_ANY_1.
@@ -1466,10 +1494,32 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
   return absl::OkStatus();
 }
 
-bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
+absl::Status FunctionSignatureMatcher::TypeSetImplicitlyCoercesTo(
+    const SignatureArgumentKindTypeSet& type_set, const Type* inferred_type,
+    const SignatureArgumentKind& kind,
+    absl::string_view error_message_type_name) const {
+  ZETASQL_RET_CHECK_EQ(type_set.kind(), SignatureArgumentKindTypeSet::TYPED_ARGUMENTS);
+
+  for (const InputArgumentType& argument :
+       type_set.typed_arguments().arguments()) {
+    SignatureMatchResult unused_result;
+    if (!coercer_.CoercesTo(argument, inferred_type,
+                            /*is_explicit=*/false, &unused_result)) {
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Unable to coerce type %s to inferred %s type %s for "
+          "argument %s",
+          UserFacingName(argument), error_message_type_name,
+          ShortTypeName(inferred_type),
+          FunctionArgumentType::SignatureArgumentKindToString(kind)));
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status
+FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
     const ArgKindToInputTypesMap& templated_argument_map,
-    ArgKindToResolvedTypeMap* resolved_templated_arguments,
-    SignatureMatchResult* signature_match_result) const {
+    ArgKindToResolvedTypeMap* resolved_templated_arguments) const {
   for (const auto& templated_argument_entry : templated_argument_map) {
     const SignatureArgumentKind& kind = templated_argument_entry.first;
 
@@ -1489,10 +1539,9 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
       if (dominant_type == nullptr) {
         ABSL_DLOG(FATAL) << "Dominant type should be set for map key and value in "
                     << "all cases";
-        SET_MISMATCH_ERROR(absl::StrCat(
+        return absl::InvalidArgumentError(absl::StrCat(
             "Unable to determine type for ",
             FunctionArgumentType::SignatureArgumentKindToString(kind)));
-        return false;
       }
 
       for (const InputArgumentType& other_type :
@@ -1500,11 +1549,10 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
         SignatureMatchResult unused_result;
         if (!coercer_.CoercesTo(other_type, dominant_type->type(),
                                 /*is_explicit=*/false, &unused_result)) {
-          SET_MISMATCH_ERROR(absl::StrFormat(
+          return absl::InvalidArgumentError(absl::StrFormat(
               "Unable to coerce type %s to resolved type %s for %s",
               UserFacingName(other_type), ShortTypeName(dominant_type->type()),
               FunctionArgumentType::SignatureArgumentKindToString(kind)));
-          return false;
         }
       }
       (*resolved_templated_arguments)[kind] = dominant_type->type();
@@ -1517,19 +1565,16 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
         // seen and resolved, which is used as a subtype for RANGE, such as DATE
         // This is used for the RANGE constructor function
         const RangeType* range_type;
-        absl::Status status =
-            type_factory_->MakeRangeType(*element_type, &range_type);
-        if (!status.ok()) {
-          return false;
-        }
+        ZETASQL_RETURN_IF_ERROR(
+            type_factory_->MakeRangeType(*element_type, &range_type));
         // Use 'new_range_type'. InsertOrDie() is safe because 'kind' only
         // occurs once in 'templated_argument_map'.
         zetasql_base::InsertOrDie(resolved_templated_arguments, kind, range_type);
       } else {
-        // We cannot tell the type from an untyped NULL and we do not have
-        // RANGE<INT64> as an option to default to like with other cases.
+        // We cannot tell the type from an untyped NULL.
         if (type_set.kind() == SignatureArgumentKindTypeSet::UNTYPED_NULL) {
-          return false;
+          return absl::InvalidArgumentError(
+              "Unable to determine type of RANGE from untyped NULL argument");
         }
         // Resolve ARG_RANGE_TYPE_ANY_1 to TYPE_RANGE
         zetasql_base::InsertOrDie(
@@ -1551,28 +1596,27 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
         } else {
           kv_error_msg_part = "value type was";
         }
-        SET_MISMATCH_ERROR(
+        return absl::InvalidArgumentError(
             absl::StrCat("The map type could not be constructed because the ",
                          kv_error_msg_part, " not determinable"));
-        return false;
       }
 
       std::string no_grouping_type;
       if (!key_type->SupportsGrouping(language_, &no_grouping_type)) {
-        SET_MISMATCH_ERROR(absl::StrCat("Invalid map: ", no_grouping_type,
-                                        " key type is not groupable"));
-        return false;
+        return absl::InvalidArgumentError(absl::StrCat(
+            "Invalid map: ", no_grouping_type, " key type is not groupable"));
       }
 
-      absl::StatusOr<const Type*> map_type_or_status =
-          type_factory_->MakeMapType(key_type, value_type);
-      if (!map_type_or_status.ok()) {
-        SET_MISMATCH_ERROR(absl::StrCat("Unable to coerce map type: ",
-                                        map_type_or_status.status().message()));
-        return false;
+      ZETASQL_ASSIGN_OR_RETURN(const Type* inferred_map_type,
+                       type_factory_->MakeMapType(key_type, value_type));
+
+      // Check that typed input arguments can implicitly coerce to
+      // 'inferred_map_type'
+      if (type_set.kind() == SignatureArgumentKindTypeSet::TYPED_ARGUMENTS) {
+        ZETASQL_RETURN_IF_ERROR(TypeSetImplicitlyCoercesTo(type_set, inferred_map_type,
+                                                   kind, "map"));
       }
-      zetasql_base::InsertOrDie(resolved_templated_arguments, kind,
-                       map_type_or_status.value());
+      zetasql_base::InsertOrDie(resolved_templated_arguments, kind, inferred_map_type);
 
     } else if (kind == ARG_MEASURE_TYPE_ANY_1) {
       if (type_set.typed_arguments().arguments().size() != 1) {
@@ -1580,10 +1624,9 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
         // argument which determines the type of ARG_MEASURE_TYPE_ANY_1.
         ABSL_DLOG(FATAL) << "Expected function to have exactly one argument "
                        "determining the type of ARG_MEASURE_TYPE_ANY_1";
-        SET_MISMATCH_ERROR(absl::StrCat(
+        return absl::InvalidArgumentError(absl::StrCat(
             "Unable to determine type for ",
             FunctionArgumentType::SignatureArgumentKindToString(kind)));
-        return false;
       }
 
       const InputArgumentType* measure_argument_type =
@@ -1598,11 +1641,10 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
             // For a templated proto, enum, or struct type we do not know what
             // the actual type is given just a NULL argument, so we cannot match
             // the signature with all untyped null arguments.
-            SET_MISMATCH_ERROR(absl::StrFormat(
+            return absl::InvalidArgumentError(absl::StrFormat(
                 "Unable to determine type for untyped null for argument kind "
                 "%s",
                 FunctionArgumentType::SignatureArgumentKindToString(kind)));
-            return false;
           }
           // Untyped non-array arguments have type INT64. InsertOrDie() is safe
           // because 'kind' only occurs once in 'templated_argument_map'.
@@ -1614,10 +1656,9 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
               kind == ARG_ENUM_ANY) {
             // An untyped empty array cannot be matched to a templated proto,
             // enum, or struct type.
-            SET_MISMATCH_ERROR(absl::StrFormat(
+            return absl::InvalidArgumentError(absl::StrFormat(
                 "Unexpected untyped empty array for argument type %s",
                 FunctionArgumentType::SignatureArgumentKindToString(kind)));
-            return false;
           }
           // Untyped array arguments have type ARRAY<INT64>. InsertOrDie() is
           // safe because 'kind' only occurs once in 'templated_argument_map'.
@@ -1626,15 +1667,14 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
           break;
         case SignatureArgumentKindTypeSet::TYPED_ARGUMENTS: {
           const Type* common_supertype = nullptr;
-          absl::Status status = coercer_.GetCommonSuperType(
-              type_set.typed_arguments(), &common_supertype);
-          if (!status.ok() || common_supertype == nullptr) {
-            SET_MISMATCH_ERROR(absl::Substitute(
+          ZETASQL_RETURN_IF_ERROR(coercer_.GetCommonSuperType(
+              type_set.typed_arguments(), &common_supertype));
+          if (common_supertype == nullptr) {
+            return absl::InvalidArgumentError(absl::Substitute(
                 "Unable to find common supertype for templated argument $0\n"
                 "  Input types for $0: $1",
                 FunctionArgumentType::SignatureArgumentKindToString(kind),
                 type_set.typed_arguments().ToString()));
-            return false;
           }
           // InsertOrDie() is safe because 'kind' only occurs once in
           // 'templated_argument_map'.
@@ -1655,30 +1695,20 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
 
       if ((*element_type)->IsArray()) {
         // Arrays of arrays are not supported.
-        SET_MISMATCH_ERROR(absl::StrFormat(
+        return absl::InvalidArgumentError(absl::StrFormat(
             "%s is inferred to be array of array, which is not supported",
             FunctionArgumentType::SignatureArgumentKindToString(kind)));
-        return false;
       }
 
       const Type* new_array_type;
-      ZETASQL_CHECK_OK(type_factory_->MakeArrayType(*element_type, &new_array_type));
+      ZETASQL_RETURN_IF_ERROR(
+          type_factory_->MakeArrayType(*element_type, &new_array_type));
 
-      // Check that any input arguments coerce to 'new_array_type'.
+      // Check that typed input arguments can implicitly coerce to
+      // 'new_array_type'
       if (type_set.kind() == SignatureArgumentKindTypeSet::TYPED_ARGUMENTS) {
-        for (const InputArgumentType& argument :
-             type_set.typed_arguments().arguments()) {
-          SignatureMatchResult unused_result;
-          if (!coercer_.CoercesTo(argument, new_array_type,
-                                  /*is_explicit=*/false, &unused_result)) {
-            SET_MISMATCH_ERROR(absl::StrFormat(
-                "Unable to coerce type %s to inferred array type %s for "
-                "argument %s",
-                UserFacingName(argument), ShortTypeName(new_array_type),
-                FunctionArgumentType::SignatureArgumentKindToString(kind)));
-            return false;
-          }
-        }
+        ZETASQL_RETURN_IF_ERROR(TypeSetImplicitlyCoercesTo(type_set, new_array_type,
+                                                   kind, "array"));
       }
       // Use 'new_array_type'. InsertOrDie() is safe because 'kind' only occurs
       // once in 'templated_argument_map'.
@@ -1686,7 +1716,7 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
     }
   }
 
-  return true;
+  return absl::OkStatus();
 }
 
 absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
@@ -1721,9 +1751,8 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
   // into account optional and repeated arguments.  Find x and y such that:
   //   input_arguments.size() = sig.num_required + x*sig.num_repeated + y
   // where 0 < y <= sig.num_optional.
-  if (!SignatureArgumentCountMatches(
-          signature, static_cast<int>(input_arguments.size()), &repetitions,
-          &optionals, signature_match_result)) {
+  if (!SignatureArgumentCountMatches(signature, input_arguments, &repetitions,
+                                     &optionals, signature_match_result)) {
     ZETASQL_RET_CHECK(!signature_match_result->allow_mismatch_message() ||
               !signature_match_result->mismatch_message().empty());
     return false;
@@ -1755,13 +1784,18 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
   // TODO: Need to consider 'allow_argument_coercion_' here.  We do
   // not currently have a function definition that needs this.
   ArgKindToResolvedTypeMap resolved_templated_arguments;
-  if (!DetermineResolvedTypesForTemplatedArguments(
-          templated_argument_map, &resolved_templated_arguments,
-          &local_signature_match_result)) {
-    signature_match_result->UpdateFromResult(local_signature_match_result);
-    ZETASQL_RET_CHECK(!signature_match_result->allow_mismatch_message() ||
-              !signature_match_result->mismatch_message().empty());
-    return false;
+  absl::Status resolved_templated_arguments_match_status =
+      DetermineResolvedTypesForTemplatedArguments(
+          templated_argument_map, &resolved_templated_arguments);
+  if (!resolved_templated_arguments_match_status.ok()) {
+    // If the error is InvalidArgumentError, we can assume that it's user-facing
+    // and can use it to set the mismatch message.
+    if (resolved_templated_arguments_match_status.code() ==
+        absl::StatusCode::kInvalidArgument) {
+      SET_MISMATCH_ERROR(resolved_templated_arguments_match_status.message());
+      return false;
+    }
+    return resolved_templated_arguments_match_status;
   }
 
   // Consistency check to verify that templated array element types and their

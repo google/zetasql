@@ -20,9 +20,13 @@
 #include <stack>
 #include <string>
 
+#include "zetasql/parser/ast_node_factory.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/parse_location.h"
+#include "absl/container/flat_hash_set.h"
+#include "absl/log/log.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
@@ -72,7 +76,7 @@ static bool IsQualifiedJoin(const ASTJoin* join) {
   return true;
 }
 
-// Returns the join node if 'n' is a cross, comma, or natual join. Otherwise,
+// Returns the join node if 'n' is a cross, comma, or natural join. Otherwise,
 // returns nullptr.
 static ASTJoin* GetCrossCommaOrNaturalJoin(ASTNode* n) {
   if (n->node_kind() != AST_JOIN) {
@@ -235,7 +239,7 @@ class JoinErrorTracker {
   // To locate the qualified join node where the error occurs, we will search in
   // the stack for the qualified join nodes that are in the original
   // flattend_join_expression, skipping qualified join nodes that are created in
-  // ProcessFlattenedJoinExpression(). Since there is no way to distingush the
+  // ProcessFlattenedJoinExpression(). Since there is no way to distinguish the
   // original qualified join nodes from newly created qualified join nodes by
   // themselves, we use a hash set created_joins_ to keep track of the newly
   // created qualified join nodes.
@@ -252,10 +256,9 @@ class JoinErrorTracker {
 };
 
 static ASTNode* GenerateError(const JoinErrorTracker& error_tracker,
-                              const BisonParser* parser,
                               std::stack<ASTNode*>* stack,
                               ErrorInfo* error_info) {
-  ParseLocationRange location = stack->top()->GetParseLocationRange();
+  ParseLocationRange location = stack->top()->location();
 
   // We report the error at the first qualified join of the join block, which is
   // the bottomest qualified, not created, join in the stack. Search for this
@@ -280,7 +283,7 @@ static ASTNode* GenerateError(const JoinErrorTracker& error_tracker,
                             ? "INNER"
                             : join->GetSQLForJoinType();
   return MakeSyntaxError(
-      error_info, join->join_location()->GetParseLocationRange(),
+      error_info, join->join_location()->location(),
       absl::StrCat("The number of join conditions is ",
                    error_tracker.join_condition_count(),
                    " but the number of joins that require a join condition is ",
@@ -289,10 +292,9 @@ static ASTNode* GenerateError(const JoinErrorTracker& error_tracker,
 }
 
 ASTNode* ProcessFlattenedJoinExpression(
-    BisonParser* parser, std::stack<ASTNode*>* flattened_join_expression,
-    ErrorInfo* error_info) {
-  ParseLocationRange location =
-      flattened_join_expression->top()->GetParseLocationRange();
+    ASTNodeFactory& node_factory,
+    std::stack<ASTNode*>* flattened_join_expression, ErrorInfo* error_info) {
+  ParseLocationRange location = flattened_join_expression->top()->location();
 
   std::stack<ASTNode*> stack;
   JoinErrorTracker error_tracker;
@@ -305,7 +307,7 @@ ASTNode* ProcessFlattenedJoinExpression(
       // If it's CROSS, COMMA, or NATURAL JOIN, create a new CROSS, COMMA,
       // NATURAL JOIN.
       if (stack.empty()) {
-        return MakeInternalError(error_info, item->GetParseLocationRange(),
+        return MakeInternalError(error_info, item->location(),
                                  "Stack should not be empty");
       }
 
@@ -314,17 +316,17 @@ ASTNode* ProcessFlattenedJoinExpression(
       ASTNode* rhs = flattened_join_expression->top();
       flattened_join_expression->pop();
 
-      ASTLocation* join_location =
-          parser->MakeLocation(join->join_location()->GetParseLocationRange());
+      ASTLocation* join_location = node_factory.CreateASTNode<ASTLocation>(
+          join->join_location()->location());
 
-      ASTJoin* new_join = parser->CreateASTNode<ASTJoin>(
+      ASTJoin* new_join = node_factory.CreateASTNode<ASTJoin>(
           ParseLocationRange(), {lhs, GetJoinHint(join), join_location, rhs});
       new_join->set_join_type(join->join_type());
       new_join->set_join_hint(join->join_hint());
       new_join->set_natural(join->natural());
 
-      new_join->set_start_location(join->GetParseLocationRange().start());
-      new_join->set_end_location(rhs->GetParseLocationRange().end());
+      new_join->set_start_location(join->location().start());
+      new_join->set_end_location(rhs->location().end());
 
       stack.push(new_join);
     } else if (item->node_kind() == AST_ON_CLAUSE ||
@@ -332,7 +334,7 @@ ASTNode* ProcessFlattenedJoinExpression(
       // Create JOIN with on/using clause.
       if (stack.size() < 3) {
         return MakeInternalError(
-            error_info, item->GetParseLocationRange(),
+            error_info, item->location(),
             "Stack should contain at least 3 items at this point");
       }
       error_tracker.increment_join_condition_count();
@@ -344,17 +346,17 @@ ASTNode* ProcessFlattenedJoinExpression(
       ASTNode* lhs = stack.top();
       stack.pop();
 
-      ASTLocation* join_location =
-          parser->MakeLocation(join->join_location()->GetParseLocationRange());
+      ASTLocation* join_location = node_factory.CreateASTNode<ASTLocation>(
+          join->join_location()->location());
 
-      ASTJoin* new_join = parser->CreateASTNode<ASTJoin>(
+      ASTJoin* new_join = node_factory.CreateASTNode<ASTJoin>(
           location, {lhs, GetJoinHint(join), join_location, rhs, item});
       new_join->set_join_type(join->join_type());
       new_join->set_join_hint(join->join_hint());
       new_join->set_natural(join->natural());
 
-      new_join->set_start_location(join->GetParseLocationRange().start());
-      new_join->set_end_location(item->GetParseLocationRange().end());
+      new_join->set_start_location(join->location().start());
+      new_join->set_end_location(item->location().end());
 
       error_tracker.add_created_join(new_join);
       stack.push(new_join);
@@ -380,7 +382,7 @@ ASTNode* ProcessFlattenedJoinExpression(
     //   SELECT * FROM t1 JOIN t2 JOIN t3 JOIN t4 ON cond1 ON cond2;
     //
     // Generate error in this case.
-    return GenerateError(error_tracker, parser, &stack, error_info);
+    return GenerateError(error_tracker, &stack, error_info);
   }
 }
 
@@ -409,8 +411,8 @@ ASTNode* JoinRuleAction(const ParseLocationRange& start_location,
                         ASTJoin::JoinHint join_hint, ASTNode* hint,
                         ASTNode* table_primary,
                         ASTNode* on_or_using_clause_list,
-                        ASTLocation* join_location, BisonParser* parser,
-                        ErrorInfo* error_info) {
+                        ASTLocation* join_location,
+                        ASTNodeFactory& node_factory, ErrorInfo* error_info) {
   auto clause_list =
       on_or_using_clause_list == nullptr
           ? nullptr
@@ -431,7 +433,7 @@ ASTNode* JoinRuleAction(const ParseLocationRange& start_location,
     if (ContainsCommaJoin(lhs)) {
       auto* error_node = clause_list->child(1);
       return MakeSyntaxError(
-          error_info, error_node->GetParseLocationRange(),
+          error_info, error_node->location(),
           absl::StrCat(
               "Unexpected keyword ",
               (error_node->node_kind() == AST_ON_CLAUSE ? "ON" : "USING")));
@@ -445,13 +447,13 @@ ASTNode* JoinRuleAction(const ParseLocationRange& start_location,
     if (clause_count == 1) {
       on_or_using_clause = clause_list->mutable_child(0);
     }
-    join = parser->CreateASTNode<ASTJoin>(
-        start_location, end_location,
+    join = node_factory.CreateASTNode<ASTJoin>(
+        {start_location.start(), end_location.end()},
         {lhs, hint, join_location, table_primary, on_or_using_clause});
     join->set_transformation_needed(IsTransformationNeeded(lhs));
   } else {
-    join = parser->CreateASTNode<ASTJoin>(
-        start_location, end_location,
+    join = node_factory.CreateASTNode<ASTJoin>(
+        {start_location.start(), end_location.end()},
         {lhs, hint, join_location, table_primary, clause_list});
     join->set_transformation_needed(true);
   }
@@ -481,8 +483,7 @@ ASTNode* JoinRuleAction(const ParseLocationRange& start_location,
 
     if (clause_count >= 2) {
       // Consecutive ON/USING clauses are used. Returns the error in this case.
-      return MakeSyntaxError(error_info, error_node->GetParseLocationRange(),
-                             message);
+      return MakeSyntaxError(error_info, error_node->location(), message);
     } else {
       // Does not throw the error to maintain the backward compatibility. Saves
       // the error instead.
@@ -497,7 +498,8 @@ ASTNode* JoinRuleAction(const ParseLocationRange& start_location,
 ASTNode* CommaJoinRuleAction(const ParseLocationRange& start_location,
                              const ParseLocationRange& end_location,
                              ASTNode* lhs, ASTNode* table_primary,
-                             ASTLocation* comma_location, BisonParser* parser,
+                             ASTLocation* comma_location,
+                             ASTNodeFactory& node_factory,
                              ErrorInfo* error_info) {
   if (IsTransformationNeeded(lhs)) {
     return MakeSyntaxError(
@@ -505,20 +507,21 @@ ASTNode* CommaJoinRuleAction(const ParseLocationRange& start_location,
         "Comma join is not allowed after consecutive ON/USING clauses");
   }
 
-  auto* comma_join = parser->CreateASTNode<ASTJoin>(
-      start_location, end_location, {lhs, comma_location, table_primary});
+  auto* comma_join = node_factory.CreateASTNode<ASTJoin>(
+      {start_location.start(), end_location.end()},
+      {lhs, comma_location, table_primary});
   comma_join->set_join_type(ASTJoin::COMMA);
   comma_join->set_contains_comma_join(true);
   return comma_join;
 }
 
-ASTNode* TransformJoinExpression(ASTNode* node, BisonParser* parser,
+ASTNode* TransformJoinExpression(ASTNode* node, ASTNodeFactory& node_factory,
                                  ErrorInfo* error_info) {
   if (!IsTransformationNeeded(node)) return node;
 
   std::stack<ASTNode*> flattened_join_expression = FlattenJoinExpression(node);
-  return ProcessFlattenedJoinExpression(parser, &flattened_join_expression,
-                                        error_info);
+  return ProcessFlattenedJoinExpression(node_factory,
+                                        &flattened_join_expression, error_info);
 }
 
 }  // namespace parser

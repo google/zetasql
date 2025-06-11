@@ -664,14 +664,15 @@ GraphStmtResolver::ResolveGraphPropertyList(
     const ResolvedTableScan& base_table_scan,
     const NameScope* input_scope) const {
   static constexpr char kPropertiesClause[] = "PROPERTIES clause";
-  ExprResolutionInfo expr_resolution_info(input_scope, kPropertiesClause);
+  auto expr_resolution_info =
+      std::make_unique<ExprResolutionInfo>(input_scope, kPropertiesClause);
   std::vector<std::unique_ptr<const ResolvedGraphPropertyDefinition>>
       property_defs;
   property_defs.reserve(properties.size());
   for (const auto& property : properties) {
     std::unique_ptr<const ResolvedExpr> resolved_expr;
     ZETASQL_RETURN_IF_ERROR(resolver_.ResolveExpr(
-        property->expression(), &expr_resolution_info, &resolved_expr));
+        property->expression(), expr_resolution_info.get(), &resolved_expr));
     ZETASQL_RET_CHECK_NE(resolved_expr->type(), nullptr);
     ZETASQL_RETURN_IF_ERROR(ValidatePropertyValueExpr(*resolved_expr))
         .With(LocationOverride(property->expression()));
@@ -929,6 +930,62 @@ GraphStmtResolver::ResolveGraphElementTable(
     label_names.push_back(label->name());
     output_labels.push_back(std::move(label));
   }
+  std::unique_ptr<const ResolvedGraphDynamicLabelSpecification>
+      dynamic_label_spec;
+  if (ast_element_table->dynamic_label() != nullptr) {
+    static constexpr char kDynamicLabelClause[] = "DYNAMIC LABEL clause";
+    const NameScope input_table_name_scope(*table_scan_name_list);
+    auto expr_resolution_info = std::make_unique<ExprResolutionInfo>(
+        &input_table_name_scope, kDynamicLabelClause);
+    std::unique_ptr<const ResolvedExpr> resolved_expr;
+    ZETASQL_RETURN_IF_ERROR(
+        resolver_.ResolveExpr(ast_element_table->dynamic_label()->label(),
+                              expr_resolution_info.get(), &resolved_expr));
+    // TODO: Additionally support ARRAY<STRING> type for dynamic
+    // label.
+    if (!resolved_expr->type()->IsString()) {
+      return MakeSqlErrorAt(ast_element_table->dynamic_label())
+             << kDynamicLabelClause
+             << " must hold expression of type STRING, but was of type "
+             << resolved_expr->type()->TypeName(resolver_.product_mode());
+    }
+    if (!resolved_expr->Is<ResolvedColumnRef>()) {
+      return MakeSqlErrorAt(ast_element_table->dynamic_label())
+             << kDynamicLabelClause << " must hold direct column reference";
+    }
+    ZETASQL_ASSIGN_OR_RETURN(dynamic_label_spec,
+                     ResolvedGraphDynamicLabelSpecificationBuilder()
+                         .set_label_expr(std::move(resolved_expr))
+                         .Build());
+  }
+  std::unique_ptr<const ResolvedGraphDynamicPropertiesSpecification>
+      dynamic_properties_spec;
+  if (ast_element_table->dynamic_properties() != nullptr) {
+    static constexpr char kDynamicPropertiesClause[] =
+        "DYNAMIC PROPERTIES clause";
+    const NameScope input_table_name_scope(*table_scan_name_list);
+    auto expr_resolution_info = std::make_unique<ExprResolutionInfo>(
+        &input_table_name_scope, kDynamicPropertiesClause);
+    std::unique_ptr<const ResolvedExpr> resolved_expr;
+    ZETASQL_RETURN_IF_ERROR(resolver_.ResolveExpr(
+        ast_element_table->dynamic_properties()->properties(),
+        expr_resolution_info.get(), &resolved_expr));
+    if (!resolved_expr->type()->IsJson()) {
+      return MakeSqlErrorAt(ast_element_table->dynamic_properties())
+             << kDynamicPropertiesClause
+             << " must hold expression of type JSON, but was of type "
+             << resolved_expr->type()->TypeName(resolver_.product_mode());
+    }
+    if (!resolved_expr->Is<ResolvedColumnRef>()) {
+      return MakeSqlErrorAt(ast_element_table->dynamic_properties())
+             << kDynamicPropertiesClause
+             << " must hold direct column reference";
+    }
+    ZETASQL_ASSIGN_OR_RETURN(dynamic_properties_spec,
+                     ResolvedGraphDynamicPropertiesSpecificationBuilder()
+                         .set_property_expr(std::move(resolved_expr))
+                         .Build());
+  }
 
   std::unique_ptr<const ResolvedGraphNodeTableReference> source_node_ref,
       dest_node_ref;
@@ -963,6 +1020,8 @@ GraphStmtResolver::ResolveGraphElementTable(
           .set_property_definition_list(std::move(property_defs))
           .set_source_node_reference(std::move(source_node_ref))
           .set_dest_node_reference(std::move(dest_node_ref))
+          .set_dynamic_label(std::move(dynamic_label_spec))
+          .set_dynamic_properties(std::move(dynamic_properties_spec))
           .Build());
   // Validates ResolvedGraphElementTable.
   ZETASQL_RETURN_IF_ERROR(
@@ -992,11 +1051,35 @@ absl::Status GraphStmtResolver::ResolveCreatePropertyGraphStmt(
   std::vector<std::unique_ptr<const ResolvedGraphPropertyDeclaration>>
       property_decls;
 
+  // Check the feature flag once and store its state.
+  const bool dynamic_label_properties_feature_enabled =
+      resolver_.language().LanguageFeatureEnabled(
+          FEATURE_SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL);
+  bool dynamic_labeled_node_exists = false;
+  bool dynamic_labeled_edge_exists = false;
+
   // Resolves node tables.
   ZETASQL_RET_CHECK(ast_stmt->node_table_list() != nullptr);
   StringViewHashMapCase<const ResolvedGraphElementTable*> node_table_map;
   for (const auto* ast_node_table :
        ast_stmt->node_table_list()->element_tables()) {
+    if (ast_node_table->dynamic_label() != nullptr) {
+      if (!dynamic_label_properties_feature_enabled) {
+        return MakeSqlErrorAt(ast_node_table->dynamic_label())
+               << "Dynamic label is not supported";
+      }
+      if (dynamic_labeled_node_exists) {
+        return MakeSqlErrorAt(ast_node_table->dynamic_label())
+               << "Only one node table can be assigned a dynamic label";
+      }
+      dynamic_labeled_node_exists = true;
+    }
+    if (ast_node_table->dynamic_properties() != nullptr) {
+      if (!dynamic_label_properties_feature_enabled) {
+        return MakeSqlErrorAt(ast_node_table->dynamic_properties())
+               << "Dynamic properties are not supported";
+      }
+    }
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<const ResolvedGraphElementTable> node_table,
         ResolveGraphElementTable(ast_node_table, GraphElementTable::Kind::kNode,
@@ -1009,12 +1092,67 @@ absl::Status GraphStmtResolver::ResolveCreatePropertyGraphStmt(
   if (ast_stmt->edge_table_list() != nullptr) {
     for (const auto* ast_edge_table :
          ast_stmt->edge_table_list()->element_tables()) {
+      if (ast_edge_table->dynamic_label() != nullptr) {
+        if (!dynamic_label_properties_feature_enabled) {
+          return MakeSqlErrorAt(ast_edge_table->dynamic_label())
+                 << "Dynamic label is not supported";
+        }
+        if (dynamic_labeled_edge_exists) {
+          return MakeSqlErrorAt(ast_edge_table->dynamic_label())
+                 << "Only one edge table can be assigned a dynamic label";
+        }
+        dynamic_labeled_edge_exists = true;
+      }
+      if (ast_edge_table->dynamic_properties() != nullptr) {
+        if (!dynamic_label_properties_feature_enabled) {
+          return MakeSqlErrorAt(ast_edge_table->dynamic_properties())
+                 << "Dynamic properties are not supported";
+        }
+      }
       ZETASQL_ASSIGN_OR_RETURN(
           std::unique_ptr<const ResolvedGraphElementTable> edge_table,
           ResolveGraphElementTable(ast_edge_table,
                                    GraphElementTable::Kind::kEdge,
                                    node_table_map, labels, property_decls));
       edge_tables.push_back(std::move(edge_table));
+    }
+  }
+
+  if (dynamic_label_properties_feature_enabled) {
+    if (dynamic_labeled_node_exists &&
+        ast_stmt->node_table_list()->element_tables().size() > 1) {
+      return MakeSqlErrorAt(ast_stmt->node_table_list())
+             << "Cannot define more than one node table when using dynamic "
+                "labels";
+    }
+    if (dynamic_labeled_edge_exists &&
+        ast_stmt->edge_table_list()->element_tables().size() > 1) {
+      return MakeSqlErrorAt(ast_stmt->edge_table_list())
+             << "Cannot define more than one edge table when using dynamic "
+                "labels";
+    }
+    // Disallow mixing dynamic nodes with static edges and vice versa if
+    // FEATURE_SQL_GRAPH_DYNAMIC_LABEL_EXTENSION_IN_DDL is disabled.
+    if (!resolver_.language().LanguageFeatureEnabled(
+            FEATURE_SQL_GRAPH_DYNAMIC_LABEL_EXTENSION_IN_DDL)) {
+      bool static_labeled_edges =
+          ast_stmt->edge_table_list() != nullptr &&
+          !ast_stmt->edge_table_list()->element_tables().empty() &&
+          !dynamic_labeled_edge_exists;
+      bool static_labeled_nodes =
+          !ast_stmt->node_table_list()->element_tables().empty() &&
+          !dynamic_labeled_node_exists;
+
+      if ((dynamic_labeled_node_exists && static_labeled_edges)) {
+        return MakeSqlErrorAt(ast_stmt)
+               << "If a dynamically labeled node table exists, any defined "
+                  "edge table must also be dynamically labeled";
+      }
+      if ((dynamic_labeled_edge_exists && static_labeled_nodes)) {
+        return MakeSqlErrorAt(ast_stmt)
+               << "If a dynamically labeled edge table exists, any defined "
+                  "node table must also be dynamically labeled";
+      }
     }
   }
 

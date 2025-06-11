@@ -27,7 +27,7 @@ ARRAY<STRUCT<
   {1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 ]
 ==
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 [prepare_database]
 CREATE TABLE TableAllNullUuids AS
 SELECT CAST(1 as int64) as row_id,
@@ -48,7 +48,7 @@ ARRAY<STRUCT<
         range_timestamp_val RANGE<TIMESTAMP>
       >>[{1, NULL, NULL}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [prepare_database]
 CREATE TABLE TableAllNullDatetimeRange AS
 SELECT CAST(1 as int64) as row_id,
@@ -98,7 +98,7 @@ ARRAY<STRUCT<
    2001-01-01 00:00:00+00
  }]
 ==
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 [prepare_database]
 CREATE TABLE TableOneValueUuid AS
 SELECT CAST(1 as int64) as row_id,
@@ -130,7 +130,7 @@ ARRAY<STRUCT<
     2020-12-31 08:00:00+00
   )}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [prepare_database]
 CREATE TABLE TableOneValueDatetimeRange AS
 SELECT CAST(1 as int64) as row_id,
@@ -582,7 +582,7 @@ ARRAY<STRUCT<
  },
  {17, NULL, -1, NULL, 1, NULL, 0, NULL, "1", NULL, 2014-02-04, NULL}]
 ==
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 [prepare_database]
 CREATE TABLE TableUuidTypes AS
 SELECT CAST(1 AS int64) as row_id,
@@ -763,7 +763,7 @@ ARRAY<STRUCT<
     9999-12-31 23:59:59.999999+00
   )}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [prepare_database]
 CREATE TABLE TableDatetimeRangeTypes AS
 SELECT CAST(1 AS int64) as row_id,
@@ -848,7 +848,7 @@ ARRAY<STRUCT<
         range_timestamp_val RANGE<TIMESTAMP>
       >>[]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [prepare_database]
 CREATE TABLE TableEmptyDatetimeRange AS SELECT range_datetime_val
  FROM (SELECT RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)' as range_datetime_val) WHERE false
@@ -1171,25 +1171,25 @@ SELECT COUNT(val) FROM TableEmpty
 --
 ARRAY<STRUCT<INT64>>[{0}]
 ==
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 [name=aggregation_count_uuids_1]
 SELECT COUNT(uuid_val) FROM TableUuidTypes
 --
 ARRAY<STRUCT<INT64>>[{14}]
 ==
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 [name=aggregation_count_uuids_2]
 SELECT COUNT(*) FROM TableUuidTypes
 --
 ARRAY<STRUCT<INT64>>[{17}]
 ==
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 [name=aggregation_count_uuid_nulls_1]
 SELECT COUNT(uuid_val) FROM TableAllNullUuids
 --
 ARRAY<STRUCT<INT64>>[{0}]
 ==
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 [name=aggregation_count_uuid_nulls_2]
 SELECT COUNT(*) FROM TableAllNullUuids
 --
@@ -1221,7 +1221,7 @@ SELECT bool_val, COUNT(double_val) FROM TableAllTypes GROUP BY bool_val HAVING b
 ARRAY<STRUCT<bool_val BOOL, INT64>>[{true, 6}]
 ==
 # COUNT should work with GROUP BY and HAVING with Uuids
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 [name=aggregation_count_uuids_group_by_and_having]
 SELECT bool_val, COUNT(uuid_val) FROM TableUuidTypes GROUP BY bool_val HAVING bool_val ORDER BY bool_val
 --
@@ -1244,7 +1244,7 @@ FROM TableRangeTypes
 --
 ARRAY<STRUCT<INT64, INT64, INT64>>[{9, 9, 10}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_count_range_datetime]
 SELECT COUNT(range_datetime_val), COUNT(*) FROM TableDatetimeRangeTypes
 --
@@ -1257,7 +1257,7 @@ FROM TableAllNullRanges
 --
 ARRAY<STRUCT<INT64, INT64, INT64>>[{0, 0, 1}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_count_range_datetime_all_null]
 SELECT COUNT(range_datetime_val), COUNT(*) FROM TableAllNullDatetimeRange
 --
@@ -1270,7 +1270,7 @@ FROM TableEmptyRanges
 --
 ARRAY<STRUCT<INT64, INT64, INT64>>[{0, 0, 0}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_count_range_datetime_empty]
 SELECT COUNT(range_datetime_val), COUNT(*) FROM TableEmptyDatetimeRange
 --
@@ -1287,7 +1287,7 @@ ARRAY<STRUCT<bool_val BOOL, INT64, INT64, INT64>>[unknown order:
   {true, 4, 4, 5}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_count_range_datetime_group_by]
 SELECT bool_val, COUNT(range_datetime_val), COUNT(*) FROM TableDatetimeRangeTypes
 GROUP BY bool_val
@@ -1305,7 +1305,7 @@ GROUP BY bool_val HAVING bool_val
 --
 ARRAY<STRUCT<bool_val BOOL, INT64, INT64, INT64>>[{true, 4, 4, 5}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_count_range_datetime_group_by_having]
 SELECT bool_val, COUNT(range_datetime_val), COUNT(*) FROM TableDatetimeRangeTypes
 GROUP BY bool_val HAVING bool_val
@@ -1390,7 +1390,7 @@ ARRAY<STRUCT<
                 1,
                 1}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_count_range_datetime_group_by_range_datetime]
 SELECT range_datetime_val, COUNT(range_datetime_val), COUNT(*) FROM TableDatetimeRangeTypes
 GROUP BY range_datetime_val
@@ -1491,7 +1491,7 @@ ARRAY<STRUCT<
                 2,
                 2}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_count_range_datetime_group_by_having_range]
 SELECT range_datetime_val, COUNT(range_datetime_val), COUNT(*)
 FROM TableDatetimeRangeTypes
@@ -1722,7 +1722,7 @@ SELECT MIN(int32_val), bool_val FROM TableAllTypes
 ARRAY<STRUCT<INT32, bool_val BOOL>>[known order:{-24, false}, {-3, true}]
 ==
 [name=aggregation_min_max_uuid_1]
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 SELECT MIN(uuid_val), MAX(uuid_val) FROM TableUuidTypes;
 --
 ARRAY<STRUCT<UUID, UUID>>[
@@ -1733,13 +1733,13 @@ ARRAY<STRUCT<UUID, UUID>>[
 ]
 ==
 [name=aggregation_min_max_uuid_3]
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 SELECT MIN(uuid_val), MAX(uuid_val) FROM TableAllNullUuids;
 --
 ARRAY<STRUCT<UUID, UUID>>[{NULL, NULL}]
 ==
 [name=aggregation_min_max_uuid_with_group_by]
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 SELECT bool_val, MIN(uuid_val), MAX(uuid_val) FROM TableUuidTypes GROUP BY bool_val;
 --
 ARRAY<STRUCT<bool_val BOOL, UUID, UUID>>[unknown order:
@@ -1796,7 +1796,7 @@ ARRAY<STRUCT<bool_val BOOL, RANGE<TIMESTAMP>, RANGE<TIMESTAMP>>>[unknown order:
 ]
 ==
 [name=aggregation_min_max_range_datetime_with_groupby]
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 SELECT bool_val,
        MIN(range_datetime_val), MAX(range_datetime_val)
 FROM TableDatetimeRangeTypes GROUP BY bool_val;
@@ -1860,7 +1860,7 @@ ARRAY<STRUCT<row_id INT64, RANGE<TIMESTAMP>, RANGE<TIMESTAMP>>>[
 ]
 ==
 [name=aggregation_min_max_range_datetime_with_groupby_and_having]
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 SELECT row_id,
        MIN(range_datetime_val), MAX(range_datetime_val)
 FROM TableDatetimeRangeTypes
@@ -1929,7 +1929,7 @@ FROM TableAllTypes WHERE NOT IS_NAN(float_val) AND NOT IS_INF(float_val)
 ARRAY<STRUCT<FLOAT, FLOAT>>[{-0.5, 0.75}]
 ==
 [name=aggregation_min_max_array_null_vs_nan]
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 SELECT MIN(a), MAX(a)
 FROM (
   (
@@ -1945,7 +1945,7 @@ ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[{ARRAY<DOUBLE>[NULL], ARRAY<DOUBLE>[nan]}]
 ==
 
 [name=aggregation_min_max_array_empty_vs_null]
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 SELECT MIN(a), MAX(a)
 FROM (
   (
@@ -1961,7 +1961,7 @@ ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[{ARRAY<INT64>[], ARRAY<INT64>[NULL]}]
 ==
 
 [name=aggregation_min_max_array_empty_vs_nan]
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 SELECT MIN(a), MAX(a)
 FROM (
   (
@@ -1977,7 +1977,7 @@ ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[{ARRAY<DOUBLE>[], ARRAY<DOUBLE>[nan]}]
 ==
 
 [name=aggregation_min_max_array_null_nan_appended]
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 SELECT MIN(a), MAX(a)
 FROM (
   (
@@ -2002,7 +2002,7 @@ ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
 ==
 
 [name=aggregation_min_max_array_null_in_the_middle]
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 SELECT MIN(a), MAX(a)
 FROM (
   (
@@ -2023,7 +2023,7 @@ ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
 ==
 
 [name=aggregation_min_max_array_nan_in_the_middle]
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 SELECT MIN(a), MAX(a)
 FROM (
   (
@@ -2044,7 +2044,7 @@ ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
 ==
 
 [name=aggregation_min_max_array_null_nan_in_the_middle]
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 SELECT MIN(a), MAX(a)
 FROM (
   (
@@ -2069,7 +2069,7 @@ ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
 ==
 
 [name=aggregation_min_max_array_null_nan_vs_positive_inf]
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 SELECT MIN(a), MAX(a)
 FROM (
   (
@@ -2093,7 +2093,7 @@ ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
 ]
 ==
 [name=aggregation_min_max_array_null_nan_vs_negative_inf]
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 SELECT MIN(a), MAX(a)
 FROM (
   (
@@ -2125,7 +2125,7 @@ ARRAY<STRUCT<RANGE<DATE>, RANGE<DATE>>>[
 ]
 ==
 [name=aggregation_min_max_range_datetime]
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 SELECT min(range_datetime_val), max(range_datetime_val) FROM TableDatetimeRangeTypes
 --
 ARRAY<STRUCT<RANGE<DATETIME>, RANGE<DATETIME>>>[
@@ -2160,7 +2160,7 @@ FROM TableAllNullRanges
 ARRAY<STRUCT<max_NULL RANGE<DATE>, min_NULL RANGE<DATE>>>[{NULL, NULL}]
 ==
 [name=aggregation_min_max_range_datetime_all_null]
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 SELECT MAX(range_datetime_val) AS max_NULL,
        MIN(range_datetime_val) AS min_NULL
 FROM TableAllNullDatetimeRange
@@ -2495,13 +2495,13 @@ SELECT JSON '10')
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[unknown order:null, 10, {"a":10}, NULL]}]
 ==
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 [name=aggregation_array_agg_uuid_1]
 SELECT ARRAY_AGG(uuid_val) FROM TableAllNullUuids
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<UUID>[NULL]}]
 ==
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 [name=aggregation_array_agg_uuid_2]
 SELECT ARRAY_AGG(uuid_val) FROM TableUuidTypes
 --
@@ -2527,7 +2527,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 [name=aggregation_array_agg_uuid_with_group_by]
 SELECT ARRAY_AGG(uuid_val) FROM TableUuidTypes GROUP BY bool_val
 --
@@ -2900,28 +2900,28 @@ GROUP BY id
 --
 ARRAY<STRUCT<id STRING, INT64>>[unknown order:{"a", 1}, {"b", 4}]
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES]
 [name=bit_and_aggregation_bytes_arg_1]
 SELECT bit_and(x) FROM
 (SELECT NULL x UNION ALL SELECT b"" UNION ALL SELECT b"");
 --
 ARRAY<STRUCT<BYTES>>[{b""}]
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES]
 [name=bit_and_aggregation_bytes_arg_2]
 SELECT bit_and(x) FROM
 (SELECT NULL x UNION ALL SELECT b"\x00" UNION ALL SELECT b"\xFF");
 --
 ARRAY<STRUCT<BYTES>>[{b"\x00"}]
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES]
 [name=bit_and_aggregation_bytes_arg_3]
 SELECT bit_and(x) FROM
 (SELECT NULL x UNION ALL SELECT b"\x00\xFF" UNION ALL SELECT b"\xFF\x00");
 --
 ARRAY<STRUCT<BYTES>>[{b"\x00\x00"}]
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES]
 [name=bit_and_aggregation_bytes_arg_4]
 SELECT bit_and(x) FROM
 (SELECT NULL x UNION ALL SELECT b"\xAA\xAA\xAA\xAA\xAA" UNION ALL
@@ -2929,7 +2929,7 @@ SELECT bit_and(x) FROM
 --
 ARRAY<STRUCT<BYTES>>[{b"\x00\x00\x00\x00\x00"}]
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES]
 [name=bit_and_aggregation_bytes_arg_5]
 SELECT bit_and(x) FROM
 (SELECT NULL x UNION ALL
@@ -2939,7 +2939,7 @@ SELECT bit_and(x) FROM
 ARRAY<STRUCT<BYTES>>[{b"\x00 D`\x88\xa8\xcc\xe0\x0e\xcc\x8a"}]
 ==
 # BIT_AND with BYTES argument should work with GROUP BY.
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES]
 [name=bit_and_aggregation_bytes_arg_6]
 SELECT id, bit_and(x) FROM
 (SELECT "a" id, b"\xFF" x UNION ALL SELECT "a", b"\x00" UNION ALL
@@ -2948,7 +2948,7 @@ GROUP BY id;
 --
 ARRAY<STRUCT<id STRING, BYTES>>[unknown order:{"a", b"\x00"}, {"b", b"\xff"}]
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES]
 [name=bit_and_aggregation_bytes_arg_7]
 # BIT_AND with BYTES argument should verify input is the same length.
 SELECT bit_and(x) FROM
@@ -2958,7 +2958,7 @@ SELECT bit_and(x) FROM
 --
 ERROR: generic::out_of_range: Bitwise binary operator for BYTES requires equal length of the inputs. Got 2 bytes on the left hand side and 1 bytes on the right hand side.
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES,NAMED_ARGUMENTS]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES,NAMED_ARGUMENTS]
 [name=bit_and_aggregation_bytes_arg_with_pad_mode_1]
 # BIT_AND with BYTES and PAD mode should pad the shorter input.
 SELECT bit_and(x, mode => 'PAD') FROM
@@ -2968,7 +2968,7 @@ SELECT bit_and(x, mode => 'PAD') FROM
 --
 ARRAY<STRUCT<BYTES>>[{b"\x01\x00"}]
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES,NAMED_ARGUMENTS]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES,NAMED_ARGUMENTS]
 [name=bit_and_aggregation_bytes_arg_with_pad_mode_2]
 # BIT_AND with BYTES and PAD mode should pad the shorter input.
 SELECT bit_and(x, mode => 'PAD') FROM
@@ -3076,28 +3076,28 @@ GROUP BY id
 --
 ARRAY<STRUCT<id STRING, INT64>>[unknown order:{"a", 7}, {"b", 7}]
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES]
 [name=bit_or_aggregation_bytes_arg_1]
 SELECT bit_or(x) FROM
 (SELECT NULL x UNION ALL SELECT b"" UNION ALL SELECT b"");
 --
 ARRAY<STRUCT<BYTES>>[{b""}]
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES]
 [name=bit_or_aggregation_bytes_arg_2]
 SELECT bit_or(x) FROM
 (SELECT NULL x UNION ALL SELECT b"\x00" UNION ALL SELECT b"\xFF");
 --
 ARRAY<STRUCT<BYTES>>[{b"\xff"}]
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES]
 [name=bit_or_aggregation_bytes_arg_3]
 SELECT bit_or(x) FROM
 (SELECT NULL x UNION ALL SELECT b"\x00\xFF" UNION ALL SELECT b"\xFF\x00");
 --
 ARRAY<STRUCT<BYTES>>[{b"\xff\xff"}]
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES]
 [name=bit_or_aggregation_bytes_arg_4]
 SELECT bit_or(x) FROM
 (SELECT NULL x UNION ALL SELECT b"\xAA\xAA\xAA\xAA\xAA" UNION ALL
@@ -3105,7 +3105,7 @@ SELECT bit_or(x) FROM
 --
 ARRAY<STRUCT<BYTES>>[{b"\xff\xff\xff\xff\xff"}]
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES]
 [name=bit_or_aggregation_bytes_arg_5]
 SELECT bit_or(x) FROM
 (SELECT NULL x UNION ALL
@@ -3115,7 +3115,7 @@ SELECT bit_or(x) FROM
 ARRAY<STRUCT<BYTES>>[{b"\x137W\x7f\x9b\xbf\xdf\xff\xff\xfd\xfb"}]
 ==
 # BIT_OR with BYTES argument should work with GROUP BY.
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES]
 [name=bit_or_aggregation_bytes_arg_6]
 SELECT id, bit_or(x) FROM
 (SELECT "a" id, b"\xFF" x UNION ALL SELECT "a", b"\x00" UNION ALL
@@ -3124,7 +3124,7 @@ GROUP BY id
 --
 ARRAY<STRUCT<id STRING, BYTES>>[unknown order:{"a", b"\xff"}, {"b", b"\x00"}]
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES]
 [name=bit_or_aggregation_bytes_arg_7]
 # BIT_OR with BYTES argument should verify input is the same length.
 SELECT bit_or(x) FROM
@@ -3134,7 +3134,7 @@ SELECT bit_or(x) FROM
 --
 ERROR: generic::out_of_range: Bitwise binary operator for BYTES requires equal length of the inputs. Got 2 bytes on the left hand side and 1 bytes on the right hand side.
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES,NAMED_ARGUMENTS]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES,NAMED_ARGUMENTS]
 [name=bit_or_aggregation_bytes_arg_with_pad_mode_1]
 # BIT_OR with BYTES and PAD mode should pad the shorter input.
 SELECT bit_or(x, mode => 'PAD') FROM
@@ -3144,7 +3144,7 @@ SELECT bit_or(x, mode => 'PAD') FROM
 --
 ARRAY<STRUCT<BYTES>>[{b"\x01\x02"}]
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES,NAMED_ARGUMENTS]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES,NAMED_ARGUMENTS]
 [name=bit_or_aggregation_bytes_arg_with_pad_mode_2]
 # BIT_OR with BYTES and PAD mode should pad the shorter input.
 SELECT bit_or(x, mode => 'PAD') FROM
@@ -3252,28 +3252,28 @@ GROUP BY id
 --
 ARRAY<STRUCT<id STRING, INT64>>[unknown order:{"a", 6}, {"b", 3}]
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES]
 [name=bit_xor_aggregation_bytes_arg_1]
 SELECT bit_xor(x) FROM
 (SELECT NULL x UNION ALL SELECT b"" UNION ALL SELECT b"");
 --
 ARRAY<STRUCT<BYTES>>[{b""}]
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES]
 [name=bit_xor_aggregation_bytes_arg_2]
 SELECT bit_xor(x) FROM
 (SELECT NULL x UNION ALL SELECT b"\x00" UNION ALL SELECT b"\xFF");
 --
 ARRAY<STRUCT<BYTES>>[{b"\xff"}]
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES]
 [name=bit_xor_aggregation_bytes_arg_3]
 SELECT bit_xor(x) FROM
 (SELECT NULL x UNION ALL SELECT b"\x00\xFF" UNION ALL SELECT b"\xFF\x00");
 --
 ARRAY<STRUCT<BYTES>>[{b"\xff\xff"}]
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES]
 [name=bit_xor_aggregation_bytes_arg_4]
 SELECT bit_xor(x) FROM
 (SELECT NULL x UNION ALL SELECT b"\xAA\xAA\xAA\xAA\xAA" UNION ALL
@@ -3281,7 +3281,7 @@ SELECT bit_xor(x) FROM
 --
 ARRAY<STRUCT<BYTES>>[{b"\xff\xff\xff\xff\xff"}]
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES]
 [name=bit_xor_aggregation_bytes_arg_5]
 SELECT bit_xor(x) FROM
 (SELECT NULL x UNION ALL
@@ -3291,7 +3291,7 @@ SELECT bit_xor(x) FROM
 ARRAY<STRUCT<BYTES>>[{b"\x13\x17\x13\x1f\x13\x17\x13\x1f\xf11q"}]
 ==
 # BIT_XOR with BYTES argument should work with GROUP BY.
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES]
 [name=bit_xor_aggregation_bytes_arg_6]
 SELECT id, bit_xor(x) FROM
 (SELECT "a" id, b"\xFF" x UNION ALL SELECT "a", b"\x00" UNION ALL
@@ -3300,7 +3300,7 @@ GROUP BY id
 --
 ARRAY<STRUCT<id STRING, BYTES>>[unknown order:{"a", b"\xff"}, {"b", b"\x00"}]
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES]
 [name=bit_xor_aggregation_bytes_arg_7]
 # BIT_XOR with BYTES argument should verify input is the same length.
 SELECT bit_xor(x) FROM
@@ -3310,7 +3310,7 @@ SELECT bit_xor(x) FROM
 --
 ERROR: generic::out_of_range: Bitwise binary operator for BYTES requires equal length of the inputs. Got 2 bytes on the left hand side and 1 bytes on the right hand side.
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES,NAMED_ARGUMENTS]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES,NAMED_ARGUMENTS]
 [name=bit_xor_aggregation_bytes_arg_with_pad_mode_1]
 # BIT_XOR with BYTES and PAD mode should pad the shorter input.
 SELECT bit_xor(x, mode => 'PAD') FROM
@@ -3320,7 +3320,7 @@ SELECT bit_xor(x, mode => 'PAD') FROM
 --
 ARRAY<STRUCT<BYTES>>[{b"\x00\x02"}]
 ==
-[required_features=V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES,NAMED_ARGUMENTS]
+[required_features=BITWISE_AGGREGATE_BYTES_SIGNATURES,NAMED_ARGUMENTS]
 [name=bit_xor_aggregation_bytes_arg_with_pad_mode_2]
 # BIT_XOR with BYTES and PAD mode should pad the shorter input.
 SELECT bit_xor(x, mode => 'PAD') FROM
@@ -3610,13 +3610,13 @@ SELECT CAST(NULL AS JSON) x)
 --
 ARRAY<STRUCT<JSON>>[{NULL}]
 ==
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 [name=aggregation_any_value_uuid_1]
 SELECT ANY_VALUE(uuid_val) FROM TableOneValueUuid;
 --
 ARRAY<STRUCT<UUID>>[{9d3da323-4c20-460f-8d9b-ec54feec54f0}]
 ==
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 [name=aggregation_any_value_uuid_2]
 SELECT ANY_VALUE(uuid_val) FROM TableAllNullUuids;
 --
@@ -3638,7 +3638,7 @@ ARRAY<STRUCT<RANGE<DATE>, RANGE<TIMESTAMP>>>[
    )}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_any_value_range_datetime]
 SELECT ANY_VALUE(range_datetime_val) FROM (
 SELECT RANGE<DATETIME> '[2020-01-01, 2020-12-31)' range_datetime_val UNION ALL
@@ -3654,7 +3654,7 @@ SELECT CAST(NULL AS RANGE<DATE>) range_date_val,
 --
 ARRAY<STRUCT<RANGE<DATE>, RANGE<TIMESTAMP>>>[{NULL, NULL}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_any_value_range_datetime_null]
 SELECT ANY_VALUE(range_datetime_val) FROM (
 SELECT CAST(NULL AS RANGE<DATETIME>) range_datetime_val)
@@ -3707,7 +3707,7 @@ ARRAY<STRUCT<bool_val BOOL, RANGE<TIMESTAMP>>>[unknown order:
    )}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_any_value_range_datetime_group_by]
 SELECT bool_val, ANY_VALUE(range_datetime_val)
 FROM (
@@ -3766,7 +3766,7 @@ ARRAY<STRUCT<bool_val BOOL, RANGE<TIMESTAMP>>>[
    )}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_any_value_range_datetime_group_by_having]
 SELECT bool_val, ANY_VALUE(range_datetime_val)
 FROM (
@@ -3822,7 +3822,7 @@ ARRAY<STRUCT<RANGE<TIMESTAMP>>>[unknown order:
    )}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_any_value_range_datetime_group_by_range]
 SELECT ANY_VALUE(range_datetime_val)
 FROM (
@@ -3888,13 +3888,13 @@ SELECT COUNT(DISTINCT A) FROM UNNEST([@nan_01, @nan_02]) AS A;
 ARRAY<STRUCT<INT64>>[{1}]
 ==
 [parameters="x" as val]
-[required_features=V_1_1_LIMIT_IN_AGGREGATE]
+[required_features=LIMIT_IN_AGGREGATE]
 [name=string_agg_with_parameters_and_limit]
 select string_agg(@val limit 100) from (select 1)
 --
 ARRAY<STRUCT<STRING>>[{"x"}]
 ==
-[required_features=V_1_1_LIMIT_IN_AGGREGATE]
+[required_features=LIMIT_IN_AGGREGATE]
 [name=string_agg_with_constants_and_limit]
 select array_agg("x" limit 100) from (select 1)
 --

@@ -22,6 +22,8 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.zetasql.SimplePropertyGraphProtos.SimpleGraphElementTableProto;
 import java.util.List;
 import java.util.Map;
@@ -32,16 +34,26 @@ public final class SimpleGraphEdgeTable extends SimpleGraphElementTable implemen
   private final GraphNodeTableReference sourceNode;
   private final GraphNodeTableReference destinationNode;
 
-  public SimpleGraphEdgeTable(
+  private SimpleGraphEdgeTable(
       String name,
       List<String> propertyGraphNamePath,
       Table table,
       List<Integer> keyColumns,
       Set<GraphElementLabel> labels,
       Set<GraphPropertyDefinition> propertyDefinitions,
+      GraphDynamicLabel dynamicLabel,
+      GraphDynamicProperties dynamicProperties,
       GraphNodeTableReference sourceNode,
       GraphNodeTableReference destinationNode) {
-    super(name, propertyGraphNamePath, table, keyColumns, labels, propertyDefinitions);
+    super(
+        name,
+        propertyGraphNamePath,
+        table,
+        keyColumns,
+        labels,
+        propertyDefinitions,
+        dynamicLabel,
+        dynamicProperties);
     this.sourceNode = sourceNode;
     this.destinationNode = destinationNode;
   }
@@ -99,6 +111,12 @@ public final class SimpleGraphEdgeTable extends SimpleGraphElementTable implemen
                       SimpleGraphPropertyDefinition.deserialize(
                           propertyDefProto, catalog, pools, propertyDclMap))
               .collect(toImmutableSet()),
+          proto.hasDynamicLabel()
+              ? SimpleGraphDynamicLabel.deserialize(proto.getDynamicLabel())
+              : null,
+          proto.hasDynamicProperties()
+              ? SimpleGraphDynamicProperties.deserialize(proto.getDynamicProperties())
+              : null,
           SimpleGraphNodeTableReference.deserialize(proto.getSourceNodeTable(), nodeTableMap),
           SimpleGraphNodeTableReference.deserialize(proto.getDestNodeTable(), nodeTableMap));
     } catch (NotFoundException unused) {
@@ -115,5 +133,100 @@ public final class SimpleGraphEdgeTable extends SimpleGraphElementTable implemen
   @Override
   public GraphNodeTableReference getDestNodeTable() {
     return destinationNode;
+  }
+
+  static final class Builder {
+    private String name;
+    private List<String> propertyGraphNamePath = ImmutableList.of();
+    private Table table;
+    private List<Integer> keyColumns = ImmutableList.of();
+    private Set<GraphElementLabel> labels = ImmutableSet.of();
+    private Set<GraphPropertyDefinition> propertyDefinitions = ImmutableSet.of();
+    private GraphNodeTableReference sourceNode;
+    private GraphNodeTableReference destinationNode;
+    private GraphDynamicLabel dynamicLabel;
+    private GraphDynamicProperties dynamicProperties;
+
+    @CanIgnoreReturnValue
+    public Builder setName(String name) {
+      this.name = name;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setPropertyGraphNamePath(List<String> propertyGraphNamePath) {
+      this.propertyGraphNamePath = propertyGraphNamePath;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setTable(Table table) {
+      this.table = table;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setKeyColumns(List<Integer> keyColumns) {
+      this.keyColumns = keyColumns;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setLabels(Set<GraphElementLabel> labels) {
+      this.labels = labels;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setPropertyDefinitions(Set<GraphPropertyDefinition> propertyDefinitions) {
+      this.propertyDefinitions = propertyDefinitions;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setSourceNode(GraphNodeTableReference sourceNode) {
+      this.sourceNode = sourceNode;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setDestinationNode(GraphNodeTableReference destinationNode) {
+      this.destinationNode = destinationNode;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setDynamicLabel(GraphDynamicLabel dynamicLabel) {
+      this.dynamicLabel = dynamicLabel;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setDynamicProperties(GraphDynamicProperties dynamicProperties) {
+      this.dynamicProperties = dynamicProperties;
+      return this;
+    }
+
+    public SimpleGraphEdgeTable build() {
+      checkNotNull(name, "name cannot be null");
+      checkNotNull(table, "table cannot be null");
+      checkNotNull(sourceNode, "sourceNode cannot be null");
+      checkNotNull(destinationNode, "destinationNode cannot be null");
+      return new SimpleGraphEdgeTable(
+          name,
+          propertyGraphNamePath,
+          table,
+          keyColumns,
+          labels,
+          propertyDefinitions,
+          dynamicLabel,
+          dynamicProperties,
+          sourceNode,
+          destinationNode);
+    }
+  }
+
+  public static Builder builder() {
+    return new Builder();
   }
 }

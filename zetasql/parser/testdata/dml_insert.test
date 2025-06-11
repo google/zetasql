@@ -1827,7 +1827,7 @@ VALUES
   (null)
 ==
 
-[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
 insert{{| into}} project-987654321.a.b values (1)
 --
 ALTERNATION GROUP: <empty>
@@ -1842,7 +1842,7 @@ ERROR: Syntax error: Table name contains '-' character. The dashed identifier pa
 insert into project-987654321.a.b values (1)
             ^
 --
-ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME,
+ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME,
 --
 InsertStatement [0-39] [insert project...values (1)]
   PathExpression [7-28] [project-987654321.a.b]
@@ -1857,7 +1857,7 @@ INSERT INTO `project-987654321`.a.b
 VALUES
   (1)
 --
-ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME, into
+ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME, into
 --
 InsertStatement [0-44] [insert into...values (1)]
   PathExpression [12-33] [project-987654321.a.b]

@@ -137,7 +137,7 @@ STRUCT<
 
 # Repro b/362158469: DML containing WITH scan on subquery does not have
 # algebrizer implementation.
-[required_features=V_1_1_WITH_ON_SUBQUERY]
+[required_features=WITH_ON_SUBQUERY]
 [name=delete_dml_exists_subquery_with_scan]
 [labels=Special:NoReference]
 DELETE Table1

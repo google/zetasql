@@ -1163,7 +1163,7 @@ QueryStmt
 
 # A set operation on value tables acts as value table when used as a
 # table subquery, with an alias on the subquery.
-[language_features=V_1_2_GROUP_BY_STRUCT]
+[language_features=GROUP_BY_STRUCT]
 select *, input.*, a, input.a
 from (
   select AS STRUCT 1 a, 2 b
@@ -2786,13 +2786,13 @@ QueryStmt
         +-output_column_list=[$union_all2.$col1#2]
 ==
 
-[language_features={{V_1_2_GROUP_BY_STRUCT|}}]
+[language_features={{GROUP_BY_STRUCT|}}]
 select (1, 1)
  {{union|intersect|except}} {{all|distinct}}
 select (1, 1);
 --
 ALTERNATION GROUPS:
-    V_1_2_GROUP_BY_STRUCT,union,all
+    GROUP_BY_STRUCT,union,all
     union,all
 --
 QueryStmt
@@ -2822,7 +2822,7 @@ QueryStmt
         |     +-SingleRowScan
         +-output_column_list=[$union_all2.$col1#2]
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT,union,distinct
+ALTERNATION GROUP: GROUP_BY_STRUCT,union,distinct
 --
 QueryStmt
 +-output_column_list=
@@ -2851,7 +2851,7 @@ QueryStmt
         |     +-SingleRowScan
         +-output_column_list=[$union_distinct2.$col1#2]
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT,intersect,all
+ALTERNATION GROUP: GROUP_BY_STRUCT,intersect,all
 --
 QueryStmt
 +-output_column_list=
@@ -2880,7 +2880,7 @@ QueryStmt
         |     +-SingleRowScan
         +-output_column_list=[$intersect_all2.$col1#2]
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT,intersect,distinct
+ALTERNATION GROUP: GROUP_BY_STRUCT,intersect,distinct
 --
 QueryStmt
 +-output_column_list=
@@ -2909,7 +2909,7 @@ QueryStmt
         |     +-SingleRowScan
         +-output_column_list=[$intersect_distinct2.$col1#2]
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT,except,all
+ALTERNATION GROUP: GROUP_BY_STRUCT,except,all
 --
 QueryStmt
 +-output_column_list=
@@ -2938,7 +2938,7 @@ QueryStmt
         |     +-SingleRowScan
         +-output_column_list=[$except_all2.$col1#2]
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT,except,distinct
+ALTERNATION GROUP: GROUP_BY_STRUCT,except,distinct
 --
 QueryStmt
 +-output_column_list=
@@ -3000,7 +3000,7 @@ select (1, 1);
 ==
 
 # Allow group by struct, but invalid because the struct contains array
-[language_features=V_1_2_GROUP_BY_STRUCT]
+[language_features=GROUP_BY_STRUCT]
 select (1, [1])
  {{union|intersect|except}} {{all|distinct}}
 select (1, [1]);
@@ -3066,7 +3066,7 @@ select (1, [1]);
 ==
 
 # Allow group by struct, but invalid because the struct contains floating point
-[language_features=V_1_2_GROUP_BY_STRUCT{{|,DISALLOW_GROUP_BY_FLOAT}}]
+[language_features=GROUP_BY_STRUCT{{|,DISALLOW_GROUP_BY_FLOAT}}]
 select (1, 1.123)
  {{union|intersect|except}} {{all|distinct}}
 select (1, 1.123);

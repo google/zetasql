@@ -1,0 +1,10 @@
+MODULE named_constant_referencing_uda;
+
+CREATE PUBLIC CONSTANT named_constant_uda =
+    (SELECT uda(1234) FROM UNNEST([1]));
+CREATE PUBLIC CONSTANT named_constant_uda_templated =
+    (SELECT uda_templated(1234) FROM UNNEST([1]));
+
+CREATE PUBLIC AGGREGATE FUNCTION uda(a INT32) AS (SUM(a * 1000));
+CREATE PUBLIC AGGREGATE FUNCTION uda_templated(a ANY TYPE)
+    AS (SUM(a * 10000));

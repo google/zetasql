@@ -12,6 +12,7 @@ All mathematical functions have the following behaviors:
 
 ## Categories
 
+<!-- disableFinding(LINK_ID) -->
 <table>
   <thead>
     <tr>
@@ -43,6 +44,7 @@ All mathematical functions have the following behaviors:
         <a href="#tan"><code>TAN</code></a>&nbsp;&nbsp;
         <a href="#tanh"><code>TANH</code></a>&nbsp;&nbsp;
       </td>
+    </tr>
     <tr>
       <td>
         Exponential and<br />
@@ -154,6 +156,7 @@ All mathematical functions have the following behaviors:
     
   </tbody>
 </table>
+<!-- enableFinding(LINK_ID) -->
 
 ## Function list
 
@@ -1341,7 +1344,7 @@ Computes the [cosine distance][wiki-cosine-distance] between two vectors.
     ```zetasql
     [('d', 40.0), ('a', 10.0), ('b', 30.0)]
     ```
-+   Both  non-sparse vectors
++   Both non-sparse vectors
     in this function must share the same dimensions, and if they don't, an error
     is produced.
 +   A vector can't be a zero vector. A vector is a zero vector if it has
@@ -1900,7 +1903,7 @@ Computes the [Euclidean distance][wiki-euclidean-distance] between two vectors.
     ```zetasql
     [('d', 40.0), ('a', 10.0), ('b', 30.0)]
     ```
-+   Both  non-sparse vectors
++   Both non-sparse vectors
     in this function must share the same dimensions, and if they don't, an error
     is produced.
 +   A vector can be a zero vector. A vector is a zero vector if it has
@@ -2117,7 +2120,7 @@ Divides X by Y; this function never fails. Returns
 `DOUBLE` unless
 both X and Y are `FLOAT`, in which case it returns
 `FLOAT`. Unlike the division operator (/),
-this function doesn't generate errors for division by zero or overflow.</p>
+this function doesn't generate errors for division by zero or overflow.
 
 <table>
   <thead>
@@ -2146,6 +2149,11 @@ this function doesn't generate errors for division by zero or overflow.</p>
     <tr>
       <td>-25.0</td>
       <td>0.0</td>
+      <td><code>-inf</code></td>
+    </tr>
+    <tr>
+      <td>25.0</td>
+      <td>-0.0</td>
       <td><code>-inf</code></td>
     </tr>
     <tr>
@@ -2492,6 +2500,7 @@ value has the same sign as X. An error is generated if Y is 0.
       <td>0</td>
       <td>Error</td>
     </tr>
+  </tbody>
 </table>
 
 **Return Data Type**
@@ -2604,7 +2613,7 @@ POW(X, Y)
 **Description**
 
 Returns the value of X raised to the power of Y. If the result underflows and
-isn't representable, then the function returns a  value of zero.
+isn't representable, then the function returns a value of zero.
 
 <table>
   <thead>

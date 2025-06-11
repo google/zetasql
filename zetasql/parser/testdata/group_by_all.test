@@ -201,7 +201,7 @@ QUALIFY a = 1
 ^
 ==
 
-[language_features=V_1_3_QUALIFY]
+[language_features=QUALIFY]
 [{{|no_}}qualify_reserved]
 SELECT *
 FROM T

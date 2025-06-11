@@ -507,7 +507,7 @@ AssignmentStmt
   +-Literal(type=ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>, value=[])
 ==
 
-[language_features=V_1_3_PROTO_MAPS]
+[language_features=PROTO_MAPS]
 SET @@map_system_variable = PROTO_MODIFY_MAP(@@map_system_variable, "hello", 3)
 --
 AssignmentStmt

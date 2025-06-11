@@ -45,9 +45,13 @@
 #include "absl/status/status_matchers.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
+
+using ::absl_testing::StatusIs;
+using ::testing::HasSubstr;
 
 namespace internal {
 
@@ -277,6 +281,23 @@ MATCHER_P(IsTableNotFoundError, table_name,
   return ExplainMatchResult(
       absl_testing::StatusIs(absl::StatusCode::kNotFound,
                              IsTableNotFoundErrorMessage(table_name)),
+      arg, result_listener);
+}
+
+// Matches syntax errors from ZetaSQL's parser.
+MATCHER(IsSyntaxError, "is an error indicating failure to parse the query") {
+  return ExplainMatchResult(
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("Syntax error:")),
+      arg, result_listener);
+}
+
+// Matches an error with a location encoded into the error message looking for
+// the given line and column.
+MATCHER_P2(IsAtLocation, line, column,
+           "is an error located at the given line and column") {
+  return ExplainMatchResult(
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr(absl::StrCat("[at ", line, ":", column, "]"))),
       arg, result_listener);
 }
 

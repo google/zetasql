@@ -161,10 +161,10 @@ class JSONValueConstRef {
   bool IsUInt64() const;
   bool IsDouble() const;
 
-  // Returns a JSON number value as int64_t.
+  // Returns a JSON number value as int64.
   // Requires IsInt64() to be true. Otherwise, the call results in ABSL_LOG(FATAL).
   int64_t GetInt64() const;
-  // Returns a JSON number value as uint64_t.
+  // Returns a JSON number value as uint64.
   // Requires IsUInt64() to be true. Otherwise, the call results in ABSL_LOG(FATAL).
   uint64_t GetUInt64() const;
   // Returns a JSON number value as double.
@@ -277,7 +277,7 @@ class JSONValueRef : public JSONValueConstRef {
 
   // Sets the JSON value to null.
   void SetNull();
-  // Sets the JSON value to the given int64_t value.
+  // Sets the JSON value to the given int64 value.
   void SetInt64(int64_t value);
   // Sets the JSON value to the given uin64 value.
   void SetUInt64(uint64_t value);

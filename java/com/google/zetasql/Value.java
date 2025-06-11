@@ -41,6 +41,7 @@ import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import com.google.protobuf.TextFormat;
+import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Timestamps;
 import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.ZetaSQLValue.ValueProto;
@@ -48,6 +49,7 @@ import com.google.zetasql.ZetaSQLValue.ValueProto.Array;
 import com.google.zetasql.ZetaSQLValue.ValueProto.Datetime;
 import com.google.zetasql.ZetaSQLValue.ValueProto.Range;
 import com.google.zetasql.ZetaSQLValue.ValueProto.Struct;
+import com.google.zetasql.ZetaSQLValue.ValueProto.TimestampPicos;
 import com.google.zetasql.ZetaSQLValue.ValueProto.ValueCase;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -61,6 +63,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -480,7 +483,7 @@ public class Value implements Serializable {
   public long getTimestampUnixMicros() {
     checkValueHasKind(TypeKind.TYPE_TIMESTAMP);
     checkValueNotNull();
-    return Timestamps.toMicros(proto.getTimestampValue());
+    return Timestamps.toMicros(getNanosecondsTimestampValue());
   }
 
   /** Returns the encoded bytes value of the proto if the type is proto. */
@@ -647,7 +650,9 @@ public class Value implements Serializable {
       case TYPE_DATE:
         return other.getDateValue() == getDateValue();
       case TYPE_TIMESTAMP:
-        return Timestamps.compare(other.proto.getTimestampValue(), proto.getTimestampValue()) == 0;
+        return Timestamps.compare(
+                other.getNanosecondsTimestampValue(), getNanosecondsTimestampValue())
+            == 0;
       case TYPE_TIME:
         return other.getTimeValue() == getTimeValue();
       case TYPE_DATETIME:
@@ -725,6 +730,7 @@ public class Value implements Serializable {
   }
 
   @Override
+  @SuppressWarnings("SuperCallToObjectMethod") // For fall through to super.hashCode().
   public int hashCode() {
     if (isNull) {
       return ~type.hashCode();
@@ -1425,12 +1431,16 @@ public class Value implements Serializable {
         }
       case TYPE_TIMESTAMP:
         {
-          if (!proto.hasTimestampValue()) {
+          if (!proto.hasTimestampValue() && !proto.hasTimestampPicosValue()) {
             throw typeMismatchException(type, proto);
           }
-          if (!Type.isValidTimestamp(proto.getTimestampValue())) {
+          if (proto.hasTimestampValue() && !Type.isValidTimestamp(proto.getTimestampValue())) {
             throw new IllegalArgumentException(
                 "Invalid value for TIMESTAMP: " + proto.getTimestampValue());
+          } else if (proto.hasTimestampPicosValue()
+              && !Type.isValidTimestamp(proto.getTimestampPicosValue())) {
+            throw new IllegalArgumentException(
+                "Invalid value for TIMESTAMP: " + proto.getTimestampPicosValue());
           }
           break;
         }
@@ -1919,7 +1929,7 @@ public class Value implements Serializable {
         }
       case TYPE_TIMESTAMP:
         return Timestamps.compare(
-            first.proto.getTimestampValue(), second.proto.getTimestampValue());
+            first.getNanosecondsTimestampValue(), second.getNanosecondsTimestampValue());
       default:
         throw new IllegalStateException("Compare with unsupported type " + type);
     }
@@ -1994,6 +2004,69 @@ public class Value implements Serializable {
     return new Value(jsonType, proto);
   }
 
+  /**
+   * Returns a TimestampPicos proto from the serialized TimestampPicosValue.
+   *
+   * @param serializedValue Serialized value of a TimestampPicosValue. See method
+   *     TimestampPicosValue::SerializeAndAppendToProtoBytes() in
+   *     zetasql/public/timestamp_picos_value.cc for the encoding.
+   */
+  public static TimestampPicos deserializeTimestampPicos(ByteString serializedValue) {
+    // TIMESTAMP_PICOS values are serialized as integers in two's complement form in
+    // little endian order. BigInteger requires the same encoding but in big endian order,
+    // therefore we must reverse the bytes.
+    byte[] bytes = serializedValue.toByteArray();
+    Bytes.reverse(bytes);
+    BigInteger[] result =
+        new BigInteger(bytes).divideAndRemainder(BigInteger.valueOf(Type.PICOS_PER_SECOND));
+    long seconds = result[0].longValue();
+    long picos = result[1].longValue();
+    return TimestampPicos.newBuilder().setSeconds(seconds).setPicos(picos).build();
+  }
+
+  // Convert the big integer to a byte array with the given length.
+  //
+  // The byte array returned by BigInteger.toByeArray() has the minimum length needed. On the other
+  // hand, this function returns a byte array with the specified length, Examples:
+  // - if BigInteger.toByteArray() is [0x01], and length is 4, the return value is [0x00, 0x00,
+  //   0x00, 0x01].
+  // - if BigInteger.toByteArray() is [0xF0], and length is 4, the return value is [0xFF, 0xFF,
+  //   0xFF, 0xF0].
+  private static byte[] toByteArray(BigInteger bigInt, int length) {
+    byte[] base = bigInt.toByteArray();
+    Preconditions.checkArgument(base.length <= length);
+    byte[] returnArray = new byte[Math.max(base.length, length)];
+    // If the big integer is negative, perform sign extension by filling the array with 0xFF.
+    if (bigInt.signum() < 0) {
+      Arrays.fill(returnArray, (byte) 0xFF);
+    }
+    System.arraycopy(base, 0, returnArray, returnArray.length - base.length, base.length);
+    return returnArray;
+  }
+
+  /**
+   * Serializes a TimestampPicos proto, in the same way as method
+   * TimestampPicosValue::SerializeAndAppendToProtoBytes() in
+   * zetasql/public/timestamp_picos_value.cc for the encoding.
+   */
+  public static ByteString serializeTimestampPicos(TimestampPicos picos) {
+    Preconditions.checkArgument(Type.isValidTimestamp(picos));
+
+    // TIMESTAMP_PICOS values are serialized as 128-bit integers in two's complement form in little
+    // endian order, taking exactly 16 bytes. BigInteger requires the same encoding but in big
+    // endian order, therefore we must reverse the bytes.
+    BigInteger v =
+        BigInteger.valueOf(picos.getSeconds())
+            .multiply(BigInteger.valueOf(Type.PICOS_PER_SECOND))
+            .add(BigInteger.valueOf(picos.getPicos()));
+    byte[] bytes = toByteArray(v, /* length= */ 16);
+
+    // The byte array from BigInteger is in big endian order, while encoded byte array of
+    // TIMESTAMP_PICOS is in little endian order, therefore we must reverse the bytes.
+    Bytes.reverse(bytes);
+    return ByteString.copyFrom(bytes);
+  }
+
   private void checkValueNotNull() {
     Preconditions.checkState(!isNull, "Can't retrieve null value");
   }
@@ -2006,6 +2079,23 @@ public class Value implements Serializable {
               "Value is a %s, but was expecting %s",
               Ascii.toLowerCase(getType().getKind().toString()).replace("type_", ""),
               Ascii.toLowerCase(kind.toString()).replace("type_", "")));
+    }
+  }
+
+  /**
+   * Helper function to get the timestamp value from the proto. If the proto is storing timestamp
+   * picos, we will convert it to timestamp, truncating the picos part.
+   */
+  private Timestamp getNanosecondsTimestampValue() {
+    checkValueHasKind(TypeKind.TYPE_TIMESTAMP);
+    checkValueNotNull();
+    if (proto.hasTimestampPicosValue()) {
+      return Timestamp.newBuilder()
+          .setSeconds(proto.getTimestampPicosValue().getSeconds())
+          .setNanos((int) (proto.getTimestampPicosValue().getPicos() / 1000))
+          .build();
+    } else {
+      return proto.getTimestampValue();
     }
   }
 }

@@ -19,9 +19,11 @@
 
 #include <compare>
 #include <cstddef>
+#include <ostream>
 #include <string>
 
 #include "zetasql/public/pico_time.h"
+#include "absl/base/port.h"
 #include "absl/numeric/int128.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -132,6 +134,9 @@ class TimestampPicosValue final {
   PicoTime time_;
 };
 
+// Allow TimestampPicosValue values to be logged.
+std::ostream& operator<<(std::ostream& out, const TimestampPicosValue& value);
+
 inline bool TimestampPicosValue::operator==(
     const TimestampPicosValue& rh) const {
   return time_ == rh.time_;
@@ -161,6 +166,6 @@ inline bool TimestampPicosValue::operator<=(
     const TimestampPicosValue& rh) const {
   return !(*this > rh);
 }
-
 }  // namespace zetasql
+
 #endif  // ZETASQL_PUBLIC_TIMESTAMP_PICOS_VALUE_H_

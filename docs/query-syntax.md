@@ -241,6 +241,7 @@ WITH PlayerStats AS (
   SELECT ['Coolidge', 'Adams'], 1 UNION ALL
   SELECT ['Kiran', 'Noam'], 1)
 SELECT DISTINCT Name
+FROM PlayerStats;
 
 /*------------------+
  | Name             |
@@ -4708,7 +4709,7 @@ when left and right input columns don't match:
   </thead>
   <tbody>
     <tr>
-      <td><code>BY NAME</code> (no prefix) or<br/><code>STRICT CORRESPONDING</code>
+      <td><code>BY NAME</code> (no prefix) or<br/><code>STRICT CORRESPONDING</code></td>
       <td>Error, all columns must match in both inputs.</td>
      </tr>
     <tr>
@@ -6523,7 +6524,8 @@ following rules apply:
       The column produced using <code>WITH OFFSET</code> has the implicit alias
       <code>offset</code>.
     </li>
-  </ul>
+    </ul>
+  </li>
   <li>
     Table subqueries don't have implicit aliases.
   </li>

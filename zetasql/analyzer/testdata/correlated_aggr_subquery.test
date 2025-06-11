@@ -16,7 +16,7 @@
 # Note that the only AST difference between 'FROM UNNEST(y)' and 'FROM t.y'
 # is the ArrayScan element_column alias - '$unnest1' vs. 'y'.
 
-[default language_features=GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT]
+[default language_features=GROUP_BY_ROLLUP,GROUP_BY_STRUCT]
 
 SELECT (
   SELECT {{t.|}}x FROM {{UNNEST(y)|t.y}} GROUP BY x

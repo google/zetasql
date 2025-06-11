@@ -116,7 +116,7 @@ class ProcedureDefinition {
   const ProcedureExtension* extension() const {
     return extension_ ? extension_.get() : nullptr;
   }
-  const bool is_dynamic_sql() const { return is_dynamic_sql_; }
+  bool is_dynamic_sql() const { return is_dynamic_sql_; }
 
  private:
   // Procedure name.

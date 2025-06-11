@@ -716,7 +716,7 @@ STRUCT<
 ==
 
 [name=assign_extension_proto_field]
-[required_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
+[required_features=PROTO_EXTENSIONS_WITH_SET]
 UPDATE ExtensionProtoTable
   SET proto_value.(zetasql_test__.int_top_level_extension) =
       proto_value.(zetasql_test__.int_top_level_extension) + 1000
@@ -748,7 +748,7 @@ STRUCT<
 ==
 
 [name=clear_extension_proto_field]
-[required_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
+[required_features=PROTO_EXTENSIONS_WITH_SET]
 UPDATE ExtensionProtoTable
   SET proto_value.(zetasql_test__.int_top_level_extension) = NULL
 WHERE True
@@ -777,7 +777,7 @@ STRUCT<
 ==
 
 [name=assign_extension_proto_field_default]
-[required_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
+[required_features=PROTO_EXTENSIONS_WITH_SET]
 UPDATE ExtensionProtoTable
   SET proto_value.(zetasql_test__.int_top_level_extension) = DEFAULT
 WHERE True
@@ -895,7 +895,7 @@ STRUCT<
 ==
 
 [name=assign_extension_proto_field_with_format_annotation]
-[required_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
+[required_features=PROTO_EXTENSIONS_WITH_SET]
 UPDATE ExtensionProtoTable
   SET proto_value.(zetasql_test__.date_extension) = DATE '2017-12-15'
 WHERE True
@@ -926,7 +926,7 @@ STRUCT<
 ==
 
 [name=assign_extension_proto_field_with_format_annotation_null]
-[required_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
+[required_features=PROTO_EXTENSIONS_WITH_SET]
 UPDATE ExtensionProtoTable
   SET proto_value.(zetasql_test__.date_extension) = NULL
 WHERE True
@@ -955,7 +955,7 @@ STRUCT<
 ==
 
 [name=assign_extension_proto_field_with_format_annotation_default]
-[required_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
+[required_features=PROTO_EXTENSIONS_WITH_SET]
 UPDATE ExtensionProtoTable
   SET proto_value.(zetasql_test__.date_extension) = DEFAULT
 WHERE True
@@ -1082,7 +1082,7 @@ STRUCT<
 ==
 
 [name=update_repeated_proto_field_first_element_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE BasicProtoTable SET proto_value.repeated_int64_val[OFFSET(0)] = 1000
 WHERE primary_key = 2
 --
@@ -1114,7 +1114,7 @@ STRUCT<
 ==
 
 [name=update_repeated_proto_field_first_element_with_set_null_proto]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE NestedProtoTable
 SET proto_value.nested_value.nested_repeated_int64[OFFSET(0)] = 1000
 WHERE primary_key = 1
@@ -1124,7 +1124,7 @@ ERROR: generic::out_of_range: Cannot set field of NULL `zetasql_test__.KitchenSi
 
 # Repeated fields cannot represent NULL elements.
 [name=update_repeated_proto_field_first_element_to_null_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE BasicProtoTable SET proto_value.repeated_int64_val[OFFSET(0)] = NULL
 WHERE primary_key = 2
 --
@@ -1132,7 +1132,7 @@ ERROR: generic::out_of_range: Cannot store a NULL element in repeated proto fiel
 ==
 
 [name=update_repeated_proto_field_second_element_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE BasicProtoTable SET proto_value.repeated_int64_val[OFFSET(1)] = 1000
 WHERE primary_key = 2
 --
@@ -1164,7 +1164,7 @@ STRUCT<
 ==
 
 [name=update_repeated_proto_field_with_set_nonliteral_offset]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE BasicProtoTable
 SET proto_value.repeated_int64_val[OFFSET(primary_key)] = 1000
 WHERE primary_key = 2
@@ -1197,7 +1197,7 @@ STRUCT<
 ==
 
 [name=update_two_elements_of_repeated_proto_field_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE BasicProtoTable
 SET proto_value.repeated_int64_val[OFFSET(0)] = 1000,
     proto_value.repeated_int64_val[OFFSET(1)] = 2000
@@ -1231,7 +1231,7 @@ STRUCT<
 ==
 
 [name=update_duplicate_elements_of_repeated_proto_field_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE BasicProtoTable
 SET proto_value.repeated_int64_val[OFFSET(0)] = 1000,
     proto_value.repeated_int64_val[OFFSET(0)] = 2000
@@ -1241,7 +1241,7 @@ ERROR: generic::out_of_range: Cannot perform multiple updates to offset 0 of an 
 ==
 
 [name=update_repeated_proto_field_with_set_null_index]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE NestedProtoTable
 SET proto_value.repeated_int64_val[OFFSET(NULL)] = 1000
 WHERE primary_key = 2
@@ -1250,7 +1250,7 @@ ERROR: generic::out_of_range: Cannot SET a NULL offset of an ARRAY<INT64>
 ==
 
 [name=update_repeated_proto_field_with_set_negative_index]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE NestedProtoTable
 SET proto_value.repeated_int64_val[OFFSET(-1)] = 1000
 WHERE primary_key = 2
@@ -1259,7 +1259,7 @@ ERROR: generic::out_of_range: Cannot SET array offset -1 of an ARRAY<INT64> of s
 ==
 
 [name=update_repeated_proto_field_with_set_index_too_large]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE NestedProtoTable
 SET proto_value.repeated_int64_val[OFFSET(10000)] = 1000
 WHERE primary_key = 2
@@ -1268,7 +1268,7 @@ ERROR: generic::out_of_range: Cannot SET array offset 10000 of an ARRAY<INT64> o
 ==
 
 [name=update_repeated_proto_field_with_set_index_barely_too_large]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE NestedProtoTable
 SET proto_value.repeated_int64_val[OFFSET(3)] = 1000
 WHERE primary_key = 2
@@ -1277,7 +1277,7 @@ ERROR: generic::out_of_range: Cannot SET array offset 3 of an ARRAY<INT64> of si
 ==
 
 [name=update_repeated_proto_field_long_path_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE RecursiveArrayProtoTable
 SET proto_value.repeated_recursive_pb[OFFSET(0)]
                .repeated_recursive_pb[OFFSET(1)]
@@ -1320,7 +1320,7 @@ STRUCT<
 ==
 
 [name=update_repeated_proto_field_of_proto_type_first_element_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE NestedProtoTable
 SET proto_value.nested_repeated_value[OFFSET(0)].nested_repeated_int64 = [10000]
 WHERE primary_key = 2
@@ -1364,7 +1364,7 @@ STRUCT<
 ==
 
 [name=update_repeated_proto_field_of_proto_type_first_element_to_null_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE NestedProtoTable
 SET proto_value.nested_repeated_value[OFFSET(0)].nested_int64 = NULL
 WHERE primary_key = 2
@@ -1406,7 +1406,7 @@ STRUCT<
 ==
 
 [name=update_repeated_proto_field_of_proto_type_second_element_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE NestedProtoTable
 SET proto_value.nested_repeated_value[OFFSET(1)].nested_repeated_int64 = [10000]
 WHERE primary_key = 2
@@ -1450,7 +1450,7 @@ STRUCT<
 ==
 
 [name=update_repeated_proto_field_of_proto_type_with_set_nonliteral_offset]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE NestedProtoTable
 SET proto_value.nested_repeated_value[OFFSET(primary_key)]
                .nested_repeated_int64 = [10000]
@@ -1495,7 +1495,7 @@ STRUCT<
 ==
 
 [name=update_two_elements_of_repeated_proto_field_of_proto_type_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE NestedProtoTable
 SET proto_value.nested_repeated_value[OFFSET(0)]
                .nested_repeated_int64 = [10000],
@@ -1543,7 +1543,7 @@ STRUCT<
 ==
 
 [name=update_duplicate_elements_of_repeated_proto_field_of_proto_type_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE NestedProtoTable
 SET proto_value.nested_repeated_value[OFFSET(0)]
                .nested_repeated_int64 = [10000],
@@ -1557,7 +1557,7 @@ ERROR: generic::out_of_range: Cannot perform multiple updates to offset 0 of an 
 # TODO: Ideally the spec would allow this. See the comments for
 # ResolvedUpdateItem in gen_resolved_ast.py.
 [name=update_duplicate_elements_of_repeated_field_of_proto_type_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE NestedProtoTable
 SET proto_value.nested_repeated_value[OFFSET(0)]
                .nested_repeated_int64 = [10000],
@@ -1568,7 +1568,7 @@ ERROR: generic::out_of_range: Cannot perform multiple updates to offset 0 of an 
 ==
 
 [name=update_element_in_repeated_field_of_proto_type_with_set_null_index]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE NestedProtoTable
 SET proto_value.nested_repeated_value[OFFSET(NULL)].nested_int64 = 10000
 WHERE primary_key = 2
@@ -1577,7 +1577,7 @@ ERROR: generic::out_of_range: Cannot SET a NULL offset of an ARRAY<`zetasql_test
 ==
 
 [name=update_element_in_repeated_field_of_proto_type_with_set_negative_index]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE NestedProtoTable
 SET proto_value.nested_repeated_value[OFFSET(-1)].nested_int64 = 1000
 WHERE primary_key = 2
@@ -1586,7 +1586,7 @@ ERROR: generic::out_of_range: Cannot SET array offset -1 of an ARRAY<`zetasql_te
 ==
 
 [name=update_element_in_repeated_field_of_proto_type_with_set_index_too_large]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE NestedProtoTable
 SET proto_value.nested_repeated_value[OFFSET(1000)].nested_int64 = 1000
 WHERE primary_key = 2
@@ -1595,7 +1595,7 @@ ERROR: generic::out_of_range: Cannot SET array offset 1000 of an ARRAY<`zetasql_
 ==
 
 [name=update_element_in_repeated_of_proto_type_with_set_index_barely_too_large]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE NestedProtoTable
 SET proto_value.nested_repeated_value[OFFSET(3)].nested_int64 = 1000
 WHERE primary_key = 2
@@ -1604,7 +1604,7 @@ ERROR: generic::out_of_range: Cannot SET array offset 3 of an ARRAY<`zetasql_tes
 ==
 
 [name=update_repeated_proto_field_complex_long_path_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE RecursiveArrayProtoTable2
 SET proto_value.recursive_pb.repeated_recursive_pb[OFFSET(0)]
                .recursive_pb.repeated_recursive_pb[OFFSET(1)]
@@ -1655,7 +1655,7 @@ STRUCT<
 ==
 
 [name=update_array_of_protos_first_element_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE ArrayOfProtosTable SET array_value[OFFSET(0)].int64_key_1 = 1000
 WHERE primary_key != 3
 --
@@ -1708,7 +1708,7 @@ STRUCT<
 ==
 
 [name=update_array_of_protos_first_element_to_null_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE ArrayOfProtosTable SET array_value[OFFSET(0)].int64_val = NULL
 WHERE primary_key != 3
 --
@@ -1759,7 +1759,7 @@ STRUCT<
 ==
 
 [name=update_array_of_protos_second_element_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE ArrayOfProtosTable SET array_value[OFFSET(1)].int64_key_1 = 1000
 WHERE primary_key != 3
 --
@@ -1812,7 +1812,7 @@ STRUCT<
 ==
 
 [name=update_array_of_protos_with_set_nonliteral_offset]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE ArrayOfProtosTable
 SET array_value[OFFSET(primary_key)].int64_key_1 = 1000
 WHERE primary_key != 3
@@ -1866,7 +1866,7 @@ STRUCT<
 ==
 
 [name=update_two_elements_array_of_protos_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE ArrayOfProtosTable
 SET array_value[OFFSET(0)].int64_key_1 = 1000,
     array_value[OFFSET(1)].int64_key_1 = 2000
@@ -1921,7 +1921,7 @@ STRUCT<
 ==
 
 [name=update_duplicate_elements_array_of_protos_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE ArrayOfProtosTable
 SET array_value[OFFSET(0)].int64_key_1 = 1000,
     array_value[OFFSET(0)].int64_key_1 = 2000
@@ -1933,7 +1933,7 @@ ERROR: generic::out_of_range: Cannot perform multiple updates to offset 0 of an 
 # TODO: Ideally the spec would allow this. See the comments for
 # ResolvedUpdateItem in gen_resolved_ast.py.
 [name=update_duplicate_nonoverlapping_elements_array_of_protos_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE ArrayOfProtosTable
 SET array_value[OFFSET(0)].int64_key_1 = 1000,
     array_value[OFFSET(0)].int64_key_2 = 2000
@@ -1943,7 +1943,7 @@ ERROR: generic::out_of_range: Cannot perform multiple updates to offset 0 of an 
 ==
 
 [name=update_null_element_in_array_of_protos_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE ArrayOfProtosTable
 SET array_value[OFFSET(0)].int64_key_1 = 1000
 WHERE True
@@ -1952,7 +1952,7 @@ ERROR: generic::out_of_range: Cannot use [] to modify a NULL array of type ARRAY
 ==
 
 [name=update_element_in_array_of_protos_with_set_null_index]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE ArrayOfProtosTable
 SET array_value[OFFSET(NULL)].int64_key_1 = 1000
 WHERE primary_key != 3
@@ -1961,7 +1961,7 @@ ERROR: generic::out_of_range: Cannot SET a NULL offset of an ARRAY<`zetasql_test
 ==
 
 [name=update_element_in_array_of_protos_with_set_negative_index]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE ArrayOfProtosTable
 SET array_value[OFFSET(-1)].int64_key_1 = 1000
 WHERE primary_key != 3
@@ -1970,7 +1970,7 @@ ERROR: generic::out_of_range: Cannot SET array offset -1 of an ARRAY<`zetasql_te
 ==
 
 [name=update_element_in_array_of_protos_with_set_index_too_large]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE ArrayOfProtosTable
 SET array_value[OFFSET(1000)].int64_key_1 = 1000
 WHERE primary_key != 3
@@ -1979,7 +1979,7 @@ ERROR: generic::out_of_range: Cannot SET array offset 1000 of an ARRAY<`zetasql_
 ==
 
 [name=update_element_in_array_of_protos_with_set_index_barely_too_large]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE ArrayOfProtosTable
 SET array_value[OFFSET(3)].int64_key_1 = 1000
 WHERE primary_key != 3
@@ -1990,7 +1990,7 @@ ERROR: generic::out_of_range: Cannot SET array offset 3 of an ARRAY<`zetasql_tes
 # A brief, somewhat tortuous test involving an array of protos wrapping a
 # repeated proto field.
 [name=update_array_of_struct_with_proto_repeated_field_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE ArrayOfProtosTable2
 SET array_value[OFFSET(0)].repeated_int64_val[OFFSET(1)] = 1000
 WHERE True
@@ -2026,7 +2026,7 @@ STRUCT<
 # Another brief, somewhat tortuous test involving an array of protos with
 # a repeated proto field that wraps another field.
 [name=update_array_of_struct_with_proto_repeated_field_with_set_subfield]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE ArrayOfProtosTable2
 SET array_value[OFFSET(0)].nested_repeated_value[OFFSET(1)]
                           .nested_int64 = 1000
@@ -3137,7 +3137,7 @@ STRUCT<
 ==
 
 [name=assign_extension_field_and_two_proto_fields]
-[required_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
+[required_features=PROTO_EXTENSIONS_WITH_SET]
 UPDATE ExtensionProtoTable SET
   proto_value.int64_key_1 = 1000,
   proto_value.int64_key_2 = 2000,

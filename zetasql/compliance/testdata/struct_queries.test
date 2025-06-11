@@ -121,7 +121,7 @@ ARRAY<STRUCT<STRUCT<a STRING, b INT64>>>[unknown order:
 
 # Union distinct structs.
 [name=struct_union_distinct]
-[required_features=V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_STRUCT]
 SELECT STRUCT("abc" AS a, 3 AS b)
 UNION DISTINCT
 SELECT STRUCT("def" AS a, 5 AS b)
@@ -136,7 +136,7 @@ ARRAY<STRUCT<STRUCT<a STRING, b INT64>>>[unknown order:
 
 # Union distinct structs with null
 [name=struct_union_distinct_null]
-[required_features=V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_STRUCT]
 SELECT STRUCT("abc" AS a, NULL AS b)
 UNION DISTINCT
 SELECT STRUCT(NULL AS a, 5 AS b)
@@ -172,7 +172,7 @@ SELECT STRUCT<DOUBLE, INT32>(1.4, 2)
 ARRAY<STRUCT<STRUCT<DOUBLE, DOUBLE>>>[unknown order:{{3, 5.5}}, {{1.4, 2}}]
 ==
 [name=struct_union_distinct_requiring_coercion]
-[required_features=V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_STRUCT]
 SELECT STRUCT<INT64, DOUBLE>(3, 5.5)
 UNION DISTINCT
 SELECT STRUCT<DOUBLE, INT32>(1.4, 2)

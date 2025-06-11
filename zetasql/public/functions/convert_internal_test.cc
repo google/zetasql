@@ -56,13 +56,13 @@ namespace zetasql {
 namespace convert_internal {
 
 TEST(CastOpsTest, InRangeNoTruncate) {
-  // int32_t in range cases.
+  // int32 in range cases.
   EXPECT_EQ(true, (InRangeNoTruncate<double, int32_t>(5744950.5334)));
   EXPECT_EQ(true, (InRangeNoTruncate<double, int32_t>(-41834793.402368)));
   EXPECT_EQ(true, (InRangeNoTruncate<float, int32_t>(1470707200)));
   EXPECT_EQ(true, (InRangeNoTruncate<float, int32_t>(-14707.997)));
 
-  // int32_t border or out of range cases.
+  // int32 border or out of range cases.
   EXPECT_EQ(false, (InRangeNoTruncate<float, int32_t>(FLOAT_INT32_MAX)));
   EXPECT_EQ(true, (InRangeNoTruncate<float, int32_t>(FLOAT_INT32_MIN)));
   EXPECT_EQ(true, (InRangeNoTruncate<double, int32_t>(DOUBLE_INT32_MAX)));
@@ -72,24 +72,24 @@ TEST(CastOpsTest, InRangeNoTruncate) {
   EXPECT_EQ(false,
             (InRangeNoTruncate<double, int32_t>(DOUBLE_INT32_MIN - 0.5)));
 
-  // int64_t in range cases.
+  // int64 in range cases.
   EXPECT_EQ(true, (InRangeNoTruncate<double, int64_t>(37483134.653)));
   EXPECT_EQ(true, (InRangeNoTruncate<double, int64_t>(-37483134.653)));
   EXPECT_EQ(true, (InRangeNoTruncate<float, int64_t>(374831.653)));
   EXPECT_EQ(true, (InRangeNoTruncate<float, int64_t>(-374831.653)));
 
-  // int64_t border or out of range cases.
+  // int64 border or out of range cases.
   EXPECT_EQ(false, (InRangeNoTruncate<double, int64_t>(DOUBLE_INT64_MAX)));
   EXPECT_EQ(false, (InRangeNoTruncate<double, int64_t>(DOUBLE_INT64_MAX + 1)));
   EXPECT_EQ(true, (InRangeNoTruncate<double, int64_t>(DOUBLE_INT64_MIN)));
   EXPECT_EQ(false, (InRangeNoTruncate<float, int64_t>(FLOAT_INT64_MAX)));
   EXPECT_EQ(true, (InRangeNoTruncate<float, int64_t>(FLOAT_INT64_MIN)));
 
-  // uint32_t in range cases.
+  // uint32 in range cases.
   EXPECT_EQ(true, (InRangeNoTruncate<double, uint32_t>(5744950.5334)));
   EXPECT_EQ(true, (InRangeNoTruncate<float, uint32_t>(2634022912.00)));
 
-  // uint32_t corner or out of range cases.
+  // uint32 corner or out of range cases.
   EXPECT_EQ(true, (InRangeNoTruncate<double, uint32_t>(DOUBLE_UINT32_MAX)));
   EXPECT_EQ(false,
             (InRangeNoTruncate<double, uint32_t>(DOUBLE_UINT32_MAX + 0.5)));
@@ -99,23 +99,23 @@ TEST(CastOpsTest, InRangeNoTruncate) {
   EXPECT_EQ(false, (InRangeNoTruncate<float, uint32_t>(-1.023)));
   EXPECT_EQ(false, (InRangeNoTruncate<float, uint32_t>(-0.023)));
 
-  // uint64_t in range cases.
+  // uint64 in range cases.
   EXPECT_EQ(true, (InRangeNoTruncate<double, uint64_t>(5744950.5334)));
   EXPECT_EQ(true, (InRangeNoTruncate<float, uint64_t>(2634022912.00)));
 
-  // uint64_t corner or out of range cases.
+  // uint64 corner or out of range cases.
   EXPECT_EQ(false, (InRangeNoTruncate<double, uint64_t>(DOUBLE_UINT64_MAX)));
   EXPECT_EQ(false, (InRangeNoTruncate<double, uint64_t>(-1.23)));
   EXPECT_EQ(false, (InRangeNoTruncate<float, uint64_t>(FLOAT_UINT64_MAX)));
   EXPECT_EQ(false, (InRangeNoTruncate<float, uint64_t>(-1.023)));
 
-  // int8_t in range cases.
+  // int8 in range cases.
   EXPECT_EQ(true, (InRangeNoTruncate<float, int8_t>(101.234f)));
   EXPECT_EQ(true, (InRangeNoTruncate<float, int8_t>(-100.234f)));
   EXPECT_EQ(true, (InRangeNoTruncate<double, int8_t>(101.234)));
   EXPECT_EQ(true, (InRangeNoTruncate<double, int8_t>(-100.234)));
 
-  // int8_t corner or out of range cases.
+  // int8 corner or out of range cases.
   EXPECT_EQ(true, (InRangeNoTruncate<float, int8_t>(127)));
   EXPECT_EQ(false, (InRangeNoTruncate<float, int8_t>(127.023f)));
   EXPECT_EQ(true, (InRangeNoTruncate<float, int8_t>(-128)));
@@ -125,11 +125,11 @@ TEST(CastOpsTest, InRangeNoTruncate) {
   EXPECT_EQ(true, (InRangeNoTruncate<double, int8_t>(-128)));
   EXPECT_EQ(false, (InRangeNoTruncate<double, int8_t>(-128.0233)));
 
-  // uint8_t in range cases.
+  // uint8 in range cases.
   EXPECT_EQ(true, (InRangeNoTruncate<float, uint8_t>(201.234f)));
   EXPECT_EQ(true, (InRangeNoTruncate<double, uint8_t>(200.234)));
 
-  // uint8_t corner or out of range cases.
+  // uint8 corner or out of range cases.
   EXPECT_EQ(true, (InRangeNoTruncate<float, uint8_t>(255)));
   EXPECT_EQ(false, (InRangeNoTruncate<float, uint8_t>(255.023f)));
   EXPECT_EQ(false, (InRangeNoTruncate<float, uint8_t>(-1.13f)));

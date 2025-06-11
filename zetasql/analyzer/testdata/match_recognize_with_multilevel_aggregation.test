@@ -1,6 +1,5 @@
-[default language_features=V_1_4_MATCH_RECOGNIZE,V_1_4_MULTILEVEL_AGGREGATION,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_HAVING_IN_AGGREGATE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,ANALYTIC_FUNCTIONS,V_1_3_QUALIFY,V_1_4_GROUPING_BUILTIN,V_1_2_GROUP_BY_STRUCT]
+[default language_features=MATCH_RECOGNIZE,MULTILEVEL_AGGREGATION,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,HAVING_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE,ANALYTIC_FUNCTIONS,QUALIFY,GROUPING_BUILTIN,GROUP_BY_STRUCT]
 [default show_sqlbuilder_output]
-[default also_show_signature_mismatch_details]
 
 SELECT * FROM SimpleTypes
 MATCH_RECOGNIZE(
@@ -44,17 +43,19 @@ QueryStmt
             |   | +-int32#21 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
             |   +-input_scan=
             |     +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, string#5, double#9], table=SimpleTypes, column_index_list=[0, 1, 4, 8])
-            +-partition_by=
-            | +-WindowPartitioning
-            |   +-partition_by_list=
-            |     +-ColumnRef(type=INT64, column=$partitionby.int64#20)
-            |     +-ColumnRef(type=INT32, column=$partitionby.int32#21)
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-partition_by=
+            |   | +-WindowPartitioning
+            |   |   +-partition_by_list=
+            |   |     +-ColumnRef(type=INT64, column=$partitionby.int64#20)
+            |   |     +-ColumnRef(type=INT32, column=$partitionby.int32#21)
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -235,12 +236,14 @@ QueryStmt
             +-column_list=$aggregate.[$agg1#28, $agg2#32]
             +-input_scan=
             | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, string#5, double#9], table=SimpleTypes, column_index_list=[0, 1, 4, 8])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -418,17 +421,19 @@ QueryStmt
             |   | +-int32#21 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
             |   +-input_scan=
             |     +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, string#5, double#9], table=SimpleTypes, column_index_list=[0, 1, 4, 8])
-            +-partition_by=
-            | +-WindowPartitioning
-            |   +-partition_by_list=
-            |     +-ColumnRef(type=INT64, column=$partitionby.int64#20)
-            |     +-ColumnRef(type=INT32, column=$partitionby.int32#21)
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-partition_by=
+            |   | +-WindowPartitioning
+            |   |   +-partition_by_list=
+            |   |     +-ColumnRef(type=INT64, column=$partitionby.int64#20)
+            |   |     +-ColumnRef(type=INT32, column=$partitionby.int32#21)
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -667,12 +672,14 @@ QueryStmt
             +-column_list=$aggregate.[$agg3#40, $agg1#28, $agg2#34]
             +-input_scan=
             | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, string#5, double#9], table=SimpleTypes, column_index_list=[0, 1, 4, 8])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -927,12 +934,14 @@ QueryStmt
             +-column_list=[$aggregate.$agg1#25]
             +-input_scan=
             | +-TableScan(column_list=SimpleTypes.[int64#2, string#5, double#9], table=SimpleTypes, column_index_list=[1, 4, 8], alias="t")
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -1114,12 +1123,14 @@ QueryStmt
             +-column_list=[$aggregate.$agg1#25]
             +-input_scan=
             | +-TableScan(column_list=SimpleTypes.[int64#2, string#5, double#9], table=SimpleTypes, column_index_list=[1, 4, 8], alias="t")
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -1352,16 +1363,18 @@ QueryStmt
                 |   |           +-Literal(type=INT64, value=1)
                 |   +-input_scan=
                 |     +-TableScan(column_list=SimpleTypes.[int32#3, int64#4, string#7, double#11], table=SimpleTypes, column_index_list=[0, 1, 4, 8])
-                +-partition_by=
-                | +-WindowPartitioning
-                |   +-partition_by_list=
-                |     +-ColumnRef(type=BOOL, column=$partitionby.$partitionbycol1#25)
-                +-order_by=
-                | +-WindowOrdering
-                |   +-order_by_item_list=
-                |     +-OrderByItem
-                |       +-column_ref=
-                |         +-ColumnRef(type=STRING, column=SimpleTypes.string#7)
+                +-analytic_function_group_list=
+                | +-AnalyticFunctionGroup
+                |   +-partition_by=
+                |   | +-WindowPartitioning
+                |   |   +-partition_by_list=
+                |   |     +-ColumnRef(type=BOOL, column=$partitionby.$partitionbycol1#25)
+                |   +-order_by=
+                |     +-WindowOrdering
+                |       +-order_by_item_list=
+                |         +-OrderByItem
+                |           +-column_ref=
+                |             +-ColumnRef(type=STRING, column=SimpleTypes.string#7)
                 +-pattern_variable_definition_list=
                 | +-MatchRecognizeVariableDefinition
                 | | +-name="A"
@@ -1593,16 +1606,18 @@ QueryStmt
             |       | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, string#5], table=SimpleTypes, column_index_list=[0, 1, 4])
             |       +-right_scan=
             |         +-TableScan(column_list=[ComplexTypes.TestStruct#24], table=ComplexTypes, column_index_list=[4])
-            +-partition_by=
-            | +-WindowPartitioning
-            |   +-partition_by_list=
-            |     +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$partitionby.d#26)
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-partition_by=
+            |   | +-WindowPartitioning
+            |   |   +-partition_by_list=
+            |   |     +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$partitionby.d#26)
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -1768,16 +1783,18 @@ QueryStmt
             |       | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, string#5, double#9], table=SimpleTypes, column_index_list=[0, 1, 4, 8])
             |       +-right_scan=
             |         +-TableScan(column_list=[ComplexTypes.TestStruct#24], table=ComplexTypes, column_index_list=[4])
-            +-partition_by=
-            | +-WindowPartitioning
-            |   +-partition_by_list=
-            |     +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$partitionby.d#26)
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-partition_by=
+            |   | +-WindowPartitioning
+            |   |   +-partition_by_list=
+            |   |     +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$partitionby.d#26)
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -2015,16 +2032,18 @@ QueryStmt
             |       | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, string#5, double#9], table=SimpleTypes, column_index_list=[0, 1, 4, 8])
             |       +-right_scan=
             |         +-TableScan(column_list=[ComplexTypes.TestStruct#24], table=ComplexTypes, column_index_list=[4])
-            +-partition_by=
-            | +-WindowPartitioning
-            |   +-partition_by_list=
-            |     +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$partitionby.d#26)
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-partition_by=
+            |   | +-WindowPartitioning
+            |   |   +-partition_by_list=
+            |   |     +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$partitionby.d#26)
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -2256,12 +2275,14 @@ QueryStmt
             +-column_list=[$aggregate.$agg1#26]
             +-input_scan=
             | +-TableScan(column_list=SimpleTypes.[int32#1, string#5], table=SimpleTypes, column_index_list=[0, 4])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="a"
@@ -2386,12 +2407,14 @@ QueryStmt
             +-column_list=[$aggregate.$agg1#26]
             +-input_scan=
             | +-TableScan(column_list=SimpleTypes.[int32#1, string#5], table=SimpleTypes, column_index_list=[0, 4])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="a"

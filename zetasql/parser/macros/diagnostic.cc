@@ -33,9 +33,29 @@ namespace zetasql {
 namespace parser {
 namespace macros {
 
+// Converts the error source struct to proto.
+static ErrorSource ConvertErrorSourceStructToProto(
+    const StackFrame::ErrorSource& error_source) {
+  ErrorSource error_source_proto;
+  error_source_proto.set_error_message(error_source.error_message);
+  error_source_proto.set_error_message_caret_string(
+      error_source.error_message_caret_string);
+  ErrorLocation* error_location = error_source_proto.mutable_error_location();
+  if (!error_source.filename.empty()) {
+    error_location->set_filename(error_source.filename);
+  }
+  error_location->set_line(error_source.line);
+  error_location->set_column(error_source.column);
+  error_location->set_input_start_line_offset(
+      error_source.input_start_line_offset);
+  error_location->set_input_start_column_offset(
+      error_source.input_start_column_offset);
+  return error_source_proto;
+}
+
 absl::Status MakeSqlErrorWithStackFrame(
     const ParseLocationPoint& location, absl::string_view message,
-    absl::string_view input_text, absl::Nullable<const StackFrame*> stack_frame,
+    absl::string_view input_text, const StackFrame* /*absl_nullable*/ stack_frame,
     int offset_in_original_input,
     const parser::macros::DiagnosticOptions& diagnostic_options) {
   zetasql_base::StatusBuilder status_builder = MakeSqlError() << message;
@@ -44,7 +64,8 @@ absl::Status MakeSqlErrorWithStackFrame(
   const StackFrame* next_ancestor = stack_frame;
   std::vector<ErrorSource> error_sources;
   while (next_ancestor != nullptr) {
-    error_sources.push_back(next_ancestor->error_source);
+    error_sources.push_back(
+        ConvertErrorSourceStructToProto(next_ancestor->error_source));
     next_ancestor = next_ancestor->parent;
   }
   // ErrorSources are supposed to be supplied in the reverse order of display.

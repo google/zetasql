@@ -32,6 +32,7 @@
 #include "zetasql/testing/test_function.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/numeric/int128.h"
 #include "absl/status/status.h"
 #include "zetasql/base/status.h"
 
@@ -78,8 +79,8 @@ void TestBinaryFunction(const QueryParamsWithResult& param,
   absl::Status status;  // actual status
   function(input1.Get<ArgType>(), input2.Get<ArgType>(), &out, &status);
   if (param.status().ok()) {
-    EXPECT_EQ(absl::OkStatus(), status) << "op1: " << input1.DebugString()
-                                        << ", op2: " << input2.DebugString();
+    EXPECT_EQ(absl::OkStatus(), status)
+        << "op1: " << input1.DebugString() << ", op2: " << input2.DebugString();
     ASSERT_EQ(expected.type_kind(), Value::MakeNull<ResultType>().type_kind())
         << "expected result type: "
         << Type::TypeKindToString(expected.type_kind(), PRODUCT_INTERNAL)
@@ -346,6 +347,23 @@ TEST(LongDouble, Simple) {
   UnaryMinus(a, &result, &status);
   ZETASQL_EXPECT_OK(status);
   EXPECT_DOUBLE_EQ(result, neg);
+}
+
+// Test Multiply function over absl::int128. The template test functions cannot
+// be used because "absl::int128" is not a valid Value type.
+TEST(Int128, MultiplySimple) {
+  absl::int128 result;
+  absl::Status status;
+  ASSERT_TRUE(Multiply(absl::int128(2), absl::int128(3), &result, &status));
+  ZETASQL_EXPECT_OK(status);
+  EXPECT_EQ(result, absl::int128(6));
+}
+
+TEST(Int128, MultiplyOverflow) {
+  absl::int128 result;
+  absl::Status status;
+  ASSERT_FALSE(Multiply(absl::Int128Max(), absl::int128(2), &result, &status));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 }  // namespace functions

@@ -1363,7 +1363,7 @@ FROM
 ==
 
 # MATCH_RECOGNIZE() on a PGQ graph query
-[language_features=V_1_4_SQL_GRAPH]
+[language_features=SQL_GRAPH]
 [reserve_graph_table]
 select * 
   from graph_table(g1
@@ -1474,7 +1474,7 @@ FROM
 ==
 
 # MATCH_RECOGNIZE() on a GQL graph query
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [reserve_graph_table]
 select * 
   from graph_table(g1
@@ -1512,7 +1512,7 @@ QueryStatement [0-215] [select *...AS x.y   )]
                       GraphElementPatternFiller [53-54] [y]
                         Identifier(y) [53-54] [y]
               GqlReturn [60-80] [RETURN count(*) as c]
-                Select [66-80] [count(*) as c]
+                Select [67-80] [count(*) as c]
                   SelectList [67-80] [count(*) as c]
                     SelectColumn [67-80] [count(*) as c]
                       FunctionCall [67-75] [count(*)]

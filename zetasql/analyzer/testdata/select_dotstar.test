@@ -1008,10 +1008,10 @@ QueryStmt
 ==
 
 # Selecting fields with civil time annotations
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select CivilTimeTypesSink.nested_civil_time_fields.* from CivilTimeTestTable;
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 QueryStmt
 +-output_column_list=
@@ -1059,10 +1059,10 @@ select CivilTimeTypesSink.nested_civil_time_fields.* from CivilTimeTestTable;
 ==
 
 # Selecting fields with civil time annotations
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select CivilTimeTypesSink.* from CivilTimeTestTable;
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 QueryStmt
 +-output_column_list=
@@ -1166,11 +1166,11 @@ select CivilTimeTypesSink.* from CivilTimeTestTable;
        ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select CivilTimeTypesSink.nested_civil_time_repeated_fields.* from CivilTimeTestTable
 
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 QueryStmt
 +-output_column_list=
@@ -1218,7 +1218,7 @@ select CivilTimeTypesSink.nested_civil_time_repeated_fields.* from CivilTimeT...
 ==
 
 # Test case from b/32810432.
-[language_features=V_1_1_LIMIT_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[language_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE]
 WITH my_table AS (
   SELECT 1 AS primary_key, "foo" AS value, DATE('2016-11-09') AS modified_date
 )
@@ -1869,7 +1869,7 @@ ERROR: SELECT list expression references t.key which is neither grouped nor aggr
 
 # This test dot-stars into the result of an expression that includes
 # an analytic function.
-[language_features=V_1_1_LIMIT_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
+[language_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
 WITH my_table AS (
   SELECT 1 AS key, "a" AS value
 )
@@ -1945,7 +1945,7 @@ QueryStmt
 
 # This test dot-stars into the result of an analytic function, with an
 # additional analytic function in the SELECT.
-[language_features=V_1_1_LIMIT_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
+[language_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
 WITH my_table AS (
   SELECT 1 AS key, "a" AS value
 )
@@ -2043,7 +2043,7 @@ QueryStmt
 ==
 
 # This test dot-stars into the result of analytic function, after group by.
-[language_features=V_1_1_LIMIT_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
+[language_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
 WITH my_table AS (
   SELECT 1 AS primary_key, "foo" AS value
 )
@@ -2116,7 +2116,7 @@ QueryStmt
 ==
 
 # This test dot-stars into both an aggregate function and an analytic function.
-[language_features=V_1_1_LIMIT_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
+[language_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
 WITH my_table AS (
   SELECT 1 AS primary_key, "foo" AS value, true as bool_val
 )
@@ -2245,7 +2245,7 @@ QueryStmt
 
 # This test dot-stars into an analytic function that nests an aggregate
 # function.
-[language_features=V_1_1_LIMIT_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
+[language_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
 WITH my_table AS (
   SELECT 1 AS primary_key, "foo" AS value,
          DATE('2016-11-09') AS modified_date
@@ -2342,7 +2342,7 @@ QueryStmt
 
 # Similar to the previous, but also references grouping columns within
 # the nested expressions.
-[language_features=V_1_1_LIMIT_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
+[language_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
 WITH my_table AS (
   SELECT 1 AS primary_key, "foo" AS value,
          DATE('2016-11-09') AS modified_date UNION ALL
@@ -2479,7 +2479,7 @@ QueryStmt
 # This test has an aggregate function in the HAVING reference a column
 # resulting from dot-star expansion.
 # an analytic function.
-[language_features=V_1_1_LIMIT_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
+[language_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
 SELECT t.*
 FROM (SELECT 1 AS key, "a" AS value) AS t
 GROUP BY key, value
@@ -2522,7 +2522,7 @@ QueryStmt
 # This test has an analytic function in the ORDER BY reference a column
 # resulting from dot-star expansion.
 # an analytic function.
-[language_features=V_1_1_LIMIT_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
+[language_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
 SELECT t.*
 FROM (SELECT 1 AS key, "a" AS value) AS t
 ORDER BY sum(key) over ();
@@ -2567,7 +2567,7 @@ QueryStmt
 # Similar to the previous, but having an analytic function in the ORDER BY
 # reference a column resulting from dot-star expansion after aggregation.
 # an analytic function.
-[language_features=V_1_1_LIMIT_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
+[language_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
 SELECT [struct(t.value, sum(t.key) as k)][OFFSET(0)].*
 FROM (SELECT 1 AS key, "a" AS value) AS t
 GROUP BY t.value
@@ -2649,7 +2649,7 @@ QueryStmt
 ==
 
 # Test case from b/64682136
-[language_features=V_1_1_ORDER_BY_IN_AGGREGATE]
+[language_features=ORDER_BY_IN_AGGREGATE]
 WITH Perf_Accounts_D AS (
   SELECT 1 as customer_id, 2 as service_channel, 3 as division_id,
          4 as sub_pod_id, 5 as division_name, 6 as sub_pod_name, 7 as region,
@@ -2778,7 +2778,7 @@ QueryStmt
 ==
 
 # Test case from b/69311615.
-[language_features=V_1_1_LIMIT_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS,V_1_2_CIVIL_TIME]
+[language_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS,CIVIL_TIME]
 WITH Candidate_RowPartitions AS (
   SELECT b'x' as CompressedRowPartition, 'a' as ResourcePath,
   TIMESTAMP '2017-01-01' as ResourceModifiedTimestamp
@@ -3312,7 +3312,7 @@ QueryStmt
           +-ColumnRef(type=STRING, column=$groupby.c#6)
 ==
 
-[language_features=V_1_3_QUALIFY,ANALYTIC_FUNCTIONS]
+[language_features=QUALIFY,ANALYTIC_FUNCTIONS]
 SELECT
   STRUCT(x).*
 FROM

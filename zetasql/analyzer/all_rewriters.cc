@@ -16,7 +16,6 @@
 
 #include "zetasql/analyzer/all_rewriters.h"
 
-
 #include "zetasql/analyzer/rewriters/aggregation_threshold_rewriter.h"
 #include "zetasql/analyzer/rewriters/anonymization_rewriter.h"
 #include "zetasql/analyzer/rewriters/builtin_function_inliner.h"
@@ -68,8 +67,6 @@ void RegisterBuiltinRewriters() {
     r.Register(ResolvedASTRewrite::REWRITE_INLINE_SQL_VIEWS,
                GetSqlViewInliner());
 
-    // TODO: b/350555383 - Figure if the measure type rewriter needs to be run
-    // before the function inliners.
     r.Register(ResolvedASTRewrite::REWRITE_MEASURE_TYPE,
                GetMeasureTypeRewriter());
 

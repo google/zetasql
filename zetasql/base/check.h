@@ -18,5 +18,6 @@
 #define THIRD_PARTY_ZETASQL_ZETASQL_BASE_CHECK_H_
 
 #include "zetasql/base/logging.h"
+#include "zetasql/base/status.h"
 
 #endif  // THIRD_PARTY_ZETASQL_ZETASQL_BASE_CHECK_H_

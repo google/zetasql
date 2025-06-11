@@ -28,7 +28,6 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/parser/tm_token.h"
-#include "zetasql/parser/token_codes.h"
 #include "absl/base/macros.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/ascii.h"
@@ -106,6 +105,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"cascade", Token::KW_CASCADE},
     {"case", Token::KW_CASE, kReserved},
     {"cast", Token::KW_CAST, kReserved},
+    {"cheapest", Token::KW_CHEAPEST},
     {"check", Token::KW_CHECK},
     {"clamped", Token::KW_CLAMPED},
     {"clone", Token::KW_CLONE},
@@ -122,6 +122,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"continue", Token::KW_CONTINUE},
     {"copy", Token::KW_COPY},
     {"corresponding", Token::KW_CORRESPONDING},
+    {"cost", Token::KW_COST},
     {"create", Token::KW_CREATE, kReserved},
     {"cross", Token::KW_CROSS, kReserved},
     {"cube", Token::KW_CUBE, kReserved},
@@ -284,6 +285,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"path", Token::KW_PATH},
     {"paths", Token::KW_PATHS},
     {"pattern", Token::KW_PATTERN},
+    {"per", Token::KW_PER},
     {"percent", Token::KW_PERCENT},
     {"pivot", Token::KW_PIVOT},
     {"policies", Token::KW_POLICIES},
@@ -398,6 +400,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"with", Token::KW_WITH, kReserved},
     {"within", Token::KW_WITHIN, kReserved},
     {"write", Token::KW_WRITE},
+    {"yield", Token::KW_YIELD},
     {"zone", Token::KW_ZONE},
     // (broken link) end
 };

@@ -549,7 +549,12 @@ static FunctionSignatureOptions DpReportSignatureOptions(
     if (value->Equals(expected_value)) {
       return std::string("");
     }
-    return absl::StrCat("Found: ", value->EnumDisplayName(),
+    absl::StatusOr<std::string_view> enum_name = value->EnumName();
+    if (!enum_name.ok()) {
+      return absl::StrCat("Invalid value for report_format argument: ",
+                          enum_name.status().message());
+    }
+    return absl::StrCat("Found: ", enum_name.value(),
                         " expecting: ", expected_value.EnumDisplayName());
   };
   return FunctionSignatureOptions()

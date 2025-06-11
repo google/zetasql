@@ -1,5 +1,5 @@
 # View using RECURSIVE keyword, but not actually recursive.
-[default language_features=V_1_3_WITH_RECURSIVE,V_1_1_WITH_ON_SUBQUERY,PIPES]
+[default language_features=WITH_RECURSIVE,WITH_ON_SUBQUERY,PIPES]
 create {{materialized|}} recursive view tt
 as select 1 a, 2 b
 --

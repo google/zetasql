@@ -390,7 +390,7 @@ DROP AGGREGATE FUNCTION myfunc(string);
      ^
 ==
 
-[language_features=V_1_3_ALLOW_DASHES_IN_TABLE_NAME]
+[language_features=ALLOW_DASHES_IN_TABLE_NAME]
 DROP {{|TABLE}} FUNCTION foo-bar-123;
 --
 ALTERNATION GROUP: <empty>
@@ -408,7 +408,7 @@ DropTableFunctionStatement [0-31] [DROP TABLE...foo-bar-123]
 DROP TABLE FUNCTION `foo-bar-123`
 ==
 
-[language_features=V_1_3_ALLOW_DASHES_IN_TABLE_NAME]
+[language_features=ALLOW_DASHES_IN_TABLE_NAME]
 DROP {{|TABLE}} FUNCTION foo-bar-123.baz;
 --
 ALTERNATION GROUP: <empty>
@@ -427,7 +427,7 @@ DropTableFunctionStatement [0-35] [DROP TABLE...bar-123.baz]
 DROP TABLE FUNCTION `foo-bar-123`.baz
 ==
 
-[language_features=V_1_3_ALLOW_DASHES_IN_TABLE_NAME]
+[language_features=ALLOW_DASHES_IN_TABLE_NAME]
 DROP {{|TABLE}} FUNCTION foo-bar-123.baz(string);
 --
 ALTERNATION GROUP: <empty>

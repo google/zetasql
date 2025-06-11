@@ -140,7 +140,7 @@ ERROR: generic::invalid_argument: Differential privacy option EPSILON must be se
 ==
 # Lower bound cannot be greater than upper bound.
 [name=differential_privacy_lower_bound_higher_upper_bound]
-[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,NAMED_ARGUMENTS,V_1_1_WITH_ON_SUBQUERY]
+[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,NAMED_ARGUMENTS,WITH_ON_SUBQUERY]
 [labels=differential_privacy]
 SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1, delta=0, group_selection_strategy=PUBLIC_GROUPS, max_groups_contributed=3)
   int64_val, COUNT(*, contribution_bounds_per_group => (1, 0))

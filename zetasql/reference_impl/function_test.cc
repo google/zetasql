@@ -550,6 +550,192 @@ TEST(NonDeterministicEvaluationContextTest,
   }
 }
 
+TEST(DynamicPropertyEqualsTest, DynamicPropertyEquals) {
+  std::vector<Value> args;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const JSONValue json_value,
+                       JSONValue::ParseJSONString(R"json(
+  {
+    "p_bool": true,
+    "p_string": "hello",
+    "p_double": 123.34,
+    "p_int": 123,
+    "p_int_overflow": 18446744073709551616,
+    "p_int_array": [1,2,3],
+    "p_double_array": [1.0,2.0,3.0],
+    "p_string_array": ["hello","world"],
+    "p_bool_array": [true, false, false]
+  })json"));
+
+  Value node = test_values::DynamicGraphNode(
+      {"graph_name"}, "id", /*static_properties=*/{},
+      /*dynamic_properties=*/json_value.GetConstRef(),
+      /*static_labels=*/{}, /*dynamic_labels=*/{},
+      /*definition_name=*/"ElementTable");
+
+  struct TestCase {
+    const Value& node;
+    std::string property;
+    Value target_value;
+    Value expected_result;
+  };
+
+  const Value kTrue = Value::Bool(true);
+  const Value kFalse = Value::Bool(false);
+  const Value kNull = Value::NullBool();
+
+  std::vector<TestCase> test_cases = {
+      {node, "p_unknown", Value::Bool(true), kNull},
+      {node, "p_unknown", Value::Int64(123), kNull},
+      {node, "p_unknown", Value::String("hello"), kNull},
+      {node, "p_unknown", Value::Double(123.34), kNull},
+      {node, "p_bool", Value::Bool(true), kTrue},
+      {node, "p_bool", Value::Bool(false), kFalse},
+      {node, "p_string", Value::String("hello"), kTrue},
+      {node, "p_string", Value::String("world"), kFalse},
+      {node, "p_double", Value::Double(123.34), kTrue},
+      {node, "p_double", Value::Double(123.33), kFalse},
+      {node, "p_int", Value::Int64(123), kTrue},
+      {node, "p_bool", Value::String("hello"), kNull},
+      {node, "p_int", Value::String("hello"), kNull},
+      {node, "p_string", Value::Int64(1), kNull},
+      {node, "p_string", Value::Bool(true), kNull},
+      {node, "p_double", Value::String("hello"), kNull},
+      {node, "p_double", Value::Int64(123), kNull},
+      {node, "p_int_overflow",
+       Value::Uint64(std::numeric_limits<uint64_t>::max()), kNull},
+      {node, "p_int", Value::Int64(122), kFalse},
+      {node, "p_bool_array",
+       Value::MakeArray(
+           types::BoolArrayType(),
+           {Value::Bool(true), Value::Bool(false), Value::Bool(false)})
+           .value(),
+       kTrue},
+      {node, "p_int_array",
+       Value::MakeArray(types::Int64ArrayType(),
+                        {Value::Int64(1), Value::Int64(2), Value::Int64(3)})
+           .value(),
+       kTrue},
+      {node, "p_int_array",
+       Value::MakeArray(types::Uint64ArrayType(),
+                        {Value::Uint64(1), Value::Uint64(2), Value::Uint64(3)})
+           .value(),
+       kTrue},
+      {node, "p_int_array",
+       Value::MakeArray(types::Int32ArrayType(),
+                        {Value::Int32(1), Value::Int32(2), Value::Int32(3)})
+           .value(),
+       kTrue},
+      {node, "p_int_array",
+       Value::MakeArray(types::Uint32ArrayType(),
+                        {Value::Uint32(1), Value::Uint32(2), Value::Uint32(3)})
+           .value(),
+       kTrue},
+      {node, "p_double_array",
+       Value::MakeArray(
+           types::FloatArrayType(),
+           {Value::Float(1.0), Value::Float(2.0), Value::Float(3.0)})
+           .value(),
+       kTrue},
+      {node, "p_double_array",
+       Value::MakeArray(
+           types::DoubleArrayType(),
+           {Value::Double(1.0), Value::Double(2.0), Value::Double(3.0)})
+           .value(),
+       kTrue},
+      {node, "p_double_array",
+       Value::MakeArray(types::Int64ArrayType(),
+                        {Value::Int64(1), Value::Int64(2), Value::Int64(3)})
+           .value(),
+       kTrue},
+      {node, "p_string_array",
+       Value::MakeArray(types::StringArrayType(),
+                        {Value::String("hello"), Value::String("world")})
+           .value(),
+       kTrue},
+      {node, "p_bool_array",
+       Value::MakeArray(
+           types::BoolArrayType(),
+           {Value::Bool(false), Value::Bool(false), Value::Bool(false)})
+           .value(),
+       kFalse},
+      {node, "p_int_array",
+       Value::MakeArray(types::Int64ArrayType(),
+                        {Value::Int64(1), Value::Int64(2), Value::Int64(2)})
+           .value(),
+       kFalse},
+      {node, "p_int_array",
+       Value::MakeArray(types::Uint64ArrayType(),
+                        {Value::Uint64(1), Value::Uint64(2), Value::Uint64(2)})
+           .value(),
+       kFalse},
+      {node, "p_int_array",
+       Value::MakeArray(types::Int32ArrayType(),
+                        {Value::Int32(1), Value::Int32(2), Value::Int32(2)})
+           .value(),
+       kFalse},
+      {node, "p_int_array",
+       Value::MakeArray(types::Uint32ArrayType(),
+                        {Value::Uint32(1), Value::Uint32(2), Value::Uint32(2)})
+           .value(),
+       kFalse},
+      {node, "p_double_array",
+       Value::MakeArray(
+           types::FloatArrayType(),
+           {Value::Float(1.0), Value::Float(2.0), Value::Float(3.1)})
+           .value(),
+       kFalse},
+      {node, "p_double_array",
+       Value::MakeArray(
+           types::DoubleArrayType(),
+           {Value::Double(1.0), Value::Double(2.0), Value::Double(3.1)})
+           .value(),
+       kFalse},
+      {node, "p_string_array",
+       Value::MakeArray(types::StringArrayType(),
+                        {Value::String("hello"), Value::String("world1")})
+           .value(),
+       kFalse},
+      {node, "p_bool_array",
+       Value::MakeArray(types::StringArrayType(),
+                        {Value::String("true"), Value::String("false"),
+                         Value::String("false")})
+           .value(),
+       kNull},
+      {node, "p_int_array",
+       Value::MakeArray(
+           types::StringArrayType(),
+           {Value::String("1"), Value::String("2"), Value::String("3")})
+           .value(),
+       kNull},
+      {node, "p_string_array",
+       Value::MakeArray(types::Int64ArrayType(),
+                        {Value::Int64(1), Value::Int64(2), Value::Int64(3)})
+           .value(),
+       kNull},
+  };
+
+  RegisterBuiltinGraphFunctions();
+  for (const auto& test_case : test_cases) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        BuiltinScalarFunction * property_equals_fn,
+        BuiltinFunctionRegistry::GetScalarFunction(
+            FunctionKind::kDynamicPropertyEquals, types::BoolType(), {}));
+    auto fn = absl::WrapUnique<BuiltinScalarFunction>(property_equals_fn);
+    EvaluationContext context{/*options=*/{}};
+    Value result;
+    absl::Status status;
+    ASSERT_TRUE(fn->Eval(/*params=*/{},
+                         {test_case.node, Value::String(test_case.property),
+                          test_case.target_value},
+                         &context, &result, &status));
+    EXPECT_TRUE(result.Equals(test_case.expected_result))
+        << "property: " << test_case.property
+        << ", target_value: " << test_case.target_value.DebugString()
+        << ", expected output: " << test_case.expected_result.DebugString()
+        << ", actual output: " << result.DebugString();
+  }
+}
+
 namespace {
 
 class BasicTestFunction : public SimpleBuiltinScalarFunction {

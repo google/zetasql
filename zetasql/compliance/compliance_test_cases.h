@@ -126,7 +126,7 @@ class ComplianceCodebasedTests : public SQLTestBase {
       const std::vector<FunctionTestCall>& calls);
 
   // For each original FunctionTestCall, build QueryParamsWithResult enabled for
-  // FEATURE_V_1_3_DATE_ARITHMETICS language feature.
+  // FEATURE_DATE_ARITHMETICS language feature.
   std::vector<QueryParamsWithResult> GetFunctionTestsDateArithmetics(
       absl::Span<const FunctionTestCall> tests);
 

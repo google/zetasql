@@ -121,7 +121,7 @@ class SharedStatePool {
       "SharedStatePool only works with subclass of GenericState");
 };
 
-// Base class of saved states with an int64_t id.
+// Base class of saved states with an int64 id.
 class GenericState {
  public:
   GenericState() = default;

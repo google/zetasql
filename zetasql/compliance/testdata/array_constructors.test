@@ -131,7 +131,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=construct_RANGE_DATETIME_array_basic]
 SELECT ARRAY<RANGE<DATETIME>>[
   RANGE<DATETIME> '[2016-01-01 12:00:00, 2017-01-01 12:00:00)',
@@ -306,7 +306,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=construct_RANGE_DATETIME_array_from_params]
 [parameters=
   cast(NULL as RANGE<DATETIME>) a,
@@ -469,7 +469,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=construct_RANGE_DATETIME_array_from_non_literals]
 SELECT ARRAY<RANGE<DATETIME>>[
   RANGE<DATETIME> '[2016-01-01 12:00:00, 2017-01-01 12:00:00)',
@@ -629,7 +629,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=construct_RANGE_DATETIME_array_with_null]
 SELECT ARRAY<RANGE<DATETIME>>[
   RANGE<DATETIME> '[2016-01-01 12:00:00, 2017-01-01 12:00:00)',
@@ -742,7 +742,7 @@ SELECT ARRAY<RANGE<DATE>>[NULL, NULL];
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<RANGE<DATE>>[known order:NULL, NULL]}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=construct_RANGE_DATETIME_array_all_null]
 SELECT ARRAY<RANGE<DATETIME>>[NULL, NULL];
 --
@@ -830,7 +830,7 @@ SELECT ARRAY<RANGE<DATE>>[];
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<RANGE<DATE>>[]}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=construct_RANGE_DATETIME_array_empty]
 SELECT ARRAY<RANGE<DATETIME>>[];
 --
@@ -918,7 +918,7 @@ SELECT CAST(NULL AS ARRAY<RANGE<DATE>>);
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<RANGE<DATE>>(NULL)}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=construct_RANGE_DATETIME_array_cast_from_null]
 SELECT CAST(NULL AS ARRAY<RANGE<DATETIME>>);
 --

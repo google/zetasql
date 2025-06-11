@@ -204,7 +204,8 @@ message Album {
 </tbody>
 </table>
 
-## `INSERT` statement
+## `INSERT` statement 
+<a id="insert_statement"></a>
 
 Use the `INSERT` statement when you want to add new rows to a table.
 
@@ -717,8 +718,8 @@ WHERE true;
 
 ### `DELETE` and `ASSERT_ROWS_MODIFIED`
 
-With ZetaSQL, you can confirm how many rows were deleted each time
-you use a `DELETE` statement. You implement this confirmation through the
+With ZetaSQL, you can confirm how many rows are deleted each time you
+use a `DELETE` statement. You implement this confirmation through the
 `ASSERT_ROWS_MODIFIED` keyword.
 
 ```
@@ -919,7 +920,7 @@ WHERE true;
 
 ### `UPDATE` and `ASSERT_ROWS_MODIFIED`
 
-With ZetaSQL, you can confirm how many rows were added each time you
+With ZetaSQL, you can confirm how many rows are updated each time you
 use an `UPDATE` statement. You implement this confirmation through the
 `ASSERT_ROWS_MODIFIED` keyword.
 

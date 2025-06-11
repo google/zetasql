@@ -46,10 +46,52 @@
 
 namespace zetasql {
 
+absl::StatusOr<const GraphDynamicLabel*> GetDynamicLabelOfElementTable(
+    const GraphElementTable& element_table) {
+  if (!element_table.HasDynamicLabel()) {
+    return nullptr;
+  }
+  const GraphDynamicLabel* label = nullptr;
+  ZETASQL_RET_CHECK_OK(element_table.GetDynamicLabel(label));
+  return label;
+}
+
+absl::Status ValidateGraphElementTablesDynamicLabelAndProperties(
+    const LanguageOptions& language_options, const ASTNode* error_location,
+    const PropertyGraph& property_graph) {
+  absl::flat_hash_set<const GraphNodeTable*> node_tables;
+  ZETASQL_RETURN_IF_ERROR(property_graph.GetNodeTables(node_tables));
+  absl::flat_hash_set<const GraphEdgeTable*> edge_tables;
+  ZETASQL_RETURN_IF_ERROR(property_graph.GetEdgeTables(edge_tables));
+
+  absl::flat_hash_set<const GraphElementTable*> element_tables{
+      node_tables.begin(), node_tables.end()};
+  element_tables.insert(edge_tables.begin(), edge_tables.end());
+  for (const GraphElementTable* element_table : element_tables) {
+    // Both DDL and query language features must be enabled for dynamic labels
+    // and properties to be supported.
+    if (!language_options.LanguageFeatureEnabled(
+            FEATURE_SQL_GRAPH_DYNAMIC_ELEMENT_TYPE) ||
+        !language_options.LanguageFeatureEnabled(
+            FEATURE_SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL)) {
+      if (element_table->HasDynamicLabel()) {
+        return MakeSqlErrorAt(error_location)
+               << "Dynamic label is not supported";
+      }
+      if (element_table->HasDynamicProperties()) {
+        return MakeSqlErrorAt(error_location)
+               << "Dynamic properties are not supported";
+      }
+    }
+  }
+  return absl::OkStatus();
+}
+
 absl::Status FindAllLabelsApplicableToElementKind(
     const PropertyGraph& property_graph, GraphElementTable::Kind element_kind,
-    absl::flat_hash_set<const GraphElementLabel*>& static_labels
-) {
+    absl::flat_hash_set<const GraphElementLabel*>& static_labels,
+    absl::flat_hash_map<const GraphElementTable*, const GraphDynamicLabel*>&
+        dynamic_labels) {
   absl::flat_hash_set<const GraphElementTable*> element_tables;
   if (element_kind == GraphElementTable::Kind::kNode) {
     absl::flat_hash_set<const GraphNodeTable*> node_tables;
@@ -67,12 +109,19 @@ absl::Status FindAllLabelsApplicableToElementKind(
     absl::flat_hash_set<const GraphElementLabel*> labels;
     ZETASQL_RETURN_IF_ERROR(element_table->GetLabels(labels));
     static_labels.insert(labels.begin(), labels.end());
+
+    ZETASQL_ASSIGN_OR_RETURN(const GraphDynamicLabel* dynamic_label,
+                     GetDynamicLabelOfElementTable(*element_table));
+    if (dynamic_label != nullptr) {
+      dynamic_labels[element_table] = dynamic_label;
+    }
   }
   return absl::OkStatus();
 }
 
-absl::StatusOr<bool> ElementLabelsSatisfyResolvedGraphLabelExpr(
+absl::StatusOr<LabelSatisfyResult> ElementLabelsSatisfyResolvedGraphLabelExpr(
     absl::flat_hash_set<const GraphElementLabel*> element_labels,
+    const GraphDynamicLabel* dynamic_label,
     const ResolvedGraphLabelExpr* label_expr) {
   // Recursively determines whether a set of element labels
   // satisfies the given label expression.
@@ -80,15 +129,32 @@ absl::StatusOr<bool> ElementLabelsSatisfyResolvedGraphLabelExpr(
     case RESOLVED_GRAPH_LABEL: {
       // Base case: This is a simple, non-wildcard base label, e.g. `Worker`.
       const ResolvedGraphLabel* label = label_expr->GetAs<ResolvedGraphLabel>();
-      bool is_valid_label = false;
-      return (label->label() != nullptr &&
-              element_labels.contains(label->label())) ||
-             is_valid_label;
+      // If the label is static and present in the static label set then
+      // we know for sure that it is carried by the element.
+      if (label->label() != nullptr &&
+          element_labels.contains(label->label())) {
+        return LabelSatisfyResult::kTrue;
+      }
+      // If the element table has dynamic label, we cannot determine
+      // whether the label is contained or not at resolution time.
+      if (dynamic_label != nullptr) {
+        return LabelSatisfyResult::kUndetermined;
+      }
+      // Only one node and edge table is allowed if there is dynamic label
+      // defined in the graph, so if this element table does not have a dynamic
+      // label, no dynamic label is expected in the graph.
+      ZETASQL_RET_CHECK(label->label() != nullptr)
+          << "Dynamic label not expected if element table has no dynamic "
+             "label defined. ";
+      return element_labels.contains(label->label())
+                 ? LabelSatisfyResult::kTrue
+                 : LabelSatisfyResult::kFalse;
     }
     case RESOLVED_GRAPH_WILD_CARD_LABEL: {
       // Base case: This is the wildcard label % and should return true so long
       // as the set of element labels is non-empty.
-      return !element_labels.empty();
+      return element_labels.empty() ? LabelSatisfyResult::kFalse
+                                    : LabelSatisfyResult::kTrue;
     }
     case RESOLVED_GRAPH_LABEL_NARY_EXPR: {
       const ResolvedGraphLabelNaryExpr* label_nary_expr =
@@ -98,45 +164,53 @@ absl::StatusOr<bool> ElementLabelsSatisfyResolvedGraphLabelExpr(
           // In the case of !, return the simple negation of the recursive
           // function called on the inner expression being negated.
           ZETASQL_RET_CHECK_EQ(label_nary_expr->operand_list().size(), 1);
-          ZETASQL_ASSIGN_OR_RETURN(
-              bool satisfied,
-              ElementLabelsSatisfyResolvedGraphLabelExpr(
-                  element_labels,
-                  label_nary_expr->operand_list()[0].get()));
-          return !satisfied;
+          ZETASQL_ASSIGN_OR_RETURN(auto result,
+                           ElementLabelsSatisfyResolvedGraphLabelExpr(
+                               element_labels, dynamic_label,
+                               label_nary_expr->operand_list()[0].get()));
+          if (result == LabelSatisfyResult::kUndetermined) {
+            return LabelSatisfyResult::kUndetermined;
+          }
+          return result == LabelSatisfyResult::kTrue
+                     ? LabelSatisfyResult::kFalse
+                     : LabelSatisfyResult::kTrue;
         }
         case ResolvedGraphLabelNaryExpr::AND: {
           // In the case of & and |, return the result of applying conjunction
           // or disjunction, respectively, on the result of the recursive calls
           // to each operand in the operand list.
+          bool has_non_determined_result = false;
           ZETASQL_RET_CHECK_GE(label_nary_expr->operand_list().size(), 2);
           for (const std::unique_ptr<const ResolvedGraphLabelExpr>& operand :
                label_nary_expr->operand_list()) {
-            ZETASQL_ASSIGN_OR_RETURN(
-                bool satisfied,
-                ElementLabelsSatisfyResolvedGraphLabelExpr(
-                    element_labels,
-                    operand.get()));
-            if (!satisfied) {
-              return false;
+            ZETASQL_ASSIGN_OR_RETURN(auto satisfied,
+                             ElementLabelsSatisfyResolvedGraphLabelExpr(
+                                 element_labels, dynamic_label, operand.get()));
+            if (satisfied == LabelSatisfyResult::kFalse) {
+              return LabelSatisfyResult::kFalse;
             }
+            has_non_determined_result |=
+                (satisfied == LabelSatisfyResult::kUndetermined);
           }
-          return true;
+          return has_non_determined_result ? LabelSatisfyResult::kUndetermined
+                                           : LabelSatisfyResult::kTrue;
         }
         case ResolvedGraphLabelNaryExpr::OR: {
           ZETASQL_RET_CHECK_GE(label_nary_expr->operand_list().size(), 2);
+          bool has_non_determined_result = false;
           for (const std::unique_ptr<const ResolvedGraphLabelExpr>& operand :
                label_nary_expr->operand_list()) {
-            ZETASQL_ASSIGN_OR_RETURN(
-                bool satisfied,
-                ElementLabelsSatisfyResolvedGraphLabelExpr(
-                    element_labels,
-                    operand.get()));
-            if (satisfied) {
-              return true;
+            ZETASQL_ASSIGN_OR_RETURN(auto satisfied,
+                             ElementLabelsSatisfyResolvedGraphLabelExpr(
+                                 element_labels, dynamic_label, operand.get()));
+            if (satisfied == LabelSatisfyResult::kTrue) {
+              return LabelSatisfyResult::kTrue;
             }
+            has_non_determined_result |=
+                (satisfied == LabelSatisfyResult::kUndetermined);
           }
-          return false;
+          return has_non_determined_result ? LabelSatisfyResult::kUndetermined
+                                           : LabelSatisfyResult::kFalse;
         }
         case ResolvedGraphLabelNaryExpr::OPERATION_TYPE_UNSPECIFIED: {
           ZETASQL_RET_CHECK_FAIL() << "Unexpected graph label operation: "
@@ -173,24 +247,43 @@ ResolveGraphLabelExpr(
     const ASTGraphLabelExpression* ast_graph_label_expr,
     const GraphElementTable::Kind element_kind,
     const absl::flat_hash_set<const GraphElementLabel*>& valid_static_labels,
-    const PropertyGraph* property_graph
-) {
-  std::unique_ptr<const ResolvedGraphLabelExpr> output;
+    const PropertyGraph* property_graph, bool supports_dynamic_labels,
+    bool element_table_contains_dynamic_label) {
   if (ast_graph_label_expr == nullptr) {
-    return output;
+    return nullptr;
   }
+  std::unique_ptr<ResolvedGraphLabelExpr> output;
   switch (ast_graph_label_expr->node_kind()) {
-    case AST_GRAPH_WILDCARD_LABEL:
-      return ResolvedGraphWildCardLabelBuilder().Build();
+    case AST_GRAPH_WILDCARD_LABEL: {
+      ZETASQL_ASSIGN_OR_RETURN(output,
+                       ResolvedGraphWildCardLabelBuilder().BuildMutable());
+      break;
+    }
     case AST_GRAPH_ELEMENT_LABEL: {
       const GraphElementLabel* label = nullptr;
+      absl::string_view name =
+          ast_graph_label_expr->GetAsOrDie<ASTGraphElementLabel>()
+              ->name()
+              ->GetAsStringView();
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedLiteral> label_name,
+                       ResolvedLiteralBuilder()
+                           .set_type(types::StringType())
+                           .set_value(Value::String(name))
+                           .set_has_explicit_type(true)
+                           .Build());
       absl::Status find_status = property_graph->FindLabelByName(
           ast_graph_label_expr->GetAsOrDie<ASTGraphElementLabel>()
               ->name()
               ->GetAsStringView(),
           label);
       if (!find_status.ok()) {
+        if (element_table_contains_dynamic_label) {
+          return ResolvedGraphLabelBuilder()
+              .set_label_name(std::move(label_name))
+              .Build();
+        } else {
           return MakeSqlErrorAt(ast_graph_label_expr) << find_status.message();
+        }
       }
       // If the label was successfully found, but not present in the set of
       // valid static labels, then it must be a label for the wrong element kind
@@ -207,7 +300,11 @@ ResolveGraphLabelExpr(
       }
       ResolvedGraphLabelBuilder builder =
           ResolvedGraphLabelBuilder().set_label(label);
-      return std::move(builder).Build();
+      if (supports_dynamic_labels) {
+        builder.set_label_name(std::move(label_name));
+      }
+      ZETASQL_ASSIGN_OR_RETURN(output, std::move(builder).BuildMutable());
+      break;
     }
     case AST_GRAPH_LABEL_OPERATION: {
       std::vector<std::unique_ptr<const ResolvedGraphLabelExpr>> operand_list;
@@ -218,22 +315,24 @@ ResolveGraphLabelExpr(
       for (const ASTGraphLabelExpression* input : inputs) {
         ZETASQL_ASSIGN_OR_RETURN(
             std::unique_ptr<const ResolvedGraphLabelExpr> next_operand,
-            ResolveGraphLabelExpr(
-                input, element_kind, valid_static_labels,
-                property_graph
-                ));
+            ResolveGraphLabelExpr(input, element_kind, valid_static_labels,
+                                  property_graph, supports_dynamic_labels,
+                                  element_table_contains_dynamic_label));
         operand_list.emplace_back(std::move(next_operand));
       }
       ZETASQL_ASSIGN_OR_RETURN(ResolvedGraphLabelNaryExprEnums_GraphLogicalOpType op,
                        GetGraphLabelExprOp(ast_graph_label_operation));
-      return ResolvedGraphLabelNaryExprBuilder()
-          .set_op(op)
-          .set_operand_list(std::move(operand_list))
-          .Build();
+      ZETASQL_ASSIGN_OR_RETURN(output, ResolvedGraphLabelNaryExprBuilder()
+                                   .set_op(op)
+                                   .set_operand_list(std::move(operand_list))
+                                   .BuildMutable());
+      break;
     }
     default:
       ZETASQL_RET_CHECK_FAIL() << "Unrecognized graph label node type";
   }
+  output->SetParseLocationRange(ast_graph_label_expr->GetParseLocationRange());
+  return output;
 }
 
 static absl::StatusOr<std::unique_ptr<const ResolvedLiteral>>
@@ -249,6 +348,7 @@ absl::StatusOr<std::unique_ptr<const ResolvedGraphGetElementProperty>>
 ResolveGraphGetElementProperty(
     const ASTNode* error_location, const PropertyGraph* graph,
     const GraphElementType* element_type, absl::string_view property_name,
+    bool supports_dynamic_properties,
     std::unique_ptr<const ResolvedExpr> resolved_lhs) {
   auto builder = ResolvedGraphGetElementPropertyBuilder().set_expr(
       std::move(resolved_lhs));
@@ -256,16 +356,30 @@ ResolveGraphGetElementProperty(
       get_element_property_expr;
 
   if (element_type->FindPropertyType(property_name) == nullptr) {
+    if (element_type->is_dynamic()) {
+      ZETASQL_RET_CHECK(supports_dynamic_properties);
+      ZETASQL_ASSIGN_OR_RETURN(get_element_property_expr,
+                       std::move(builder)
+                           .set_type(types::JsonType())
+                           .set_property_name(
+                               GetResolvedLiteralForPropertyName(property_name))
+                           .Build());
+    } else {
       return MakeSqlErrorAt(error_location)
              << "Property " << property_name
              << " is not exposed by element type "
              << element_type->DebugString();
+    }
   } else {
     const GraphPropertyDeclaration* prop_dcl;
     ZETASQL_RETURN_IF_ERROR(
         graph->FindPropertyDeclarationByName(property_name, prop_dcl));
     ZETASQL_RET_CHECK(prop_dcl != nullptr);
 
+    if (supports_dynamic_properties) {
+      builder.set_property_name(
+          GetResolvedLiteralForPropertyName(property_name));
+    }
     ZETASQL_ASSIGN_OR_RETURN(get_element_property_expr, std::move(builder)
                                                     .set_type(prop_dcl->Type())
                                                     .set_property(prop_dcl)

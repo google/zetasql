@@ -21,8 +21,15 @@
 #include <string>
 #include <vector>
 
-#include "zetasql/public/error_helpers.h"
+#include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
+#include "zetasql/public/module_details.h"
+#include "zetasql/public/parse_resume_location.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "absl/status/status.h"
+#include "absl/strings/ascii.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/ret_check.h"
 
@@ -34,7 +41,7 @@ const char NonSqlFunction::kNonSqlFunctionGroup[] = "Non_sql_function";
 NonSqlFunction::NonSqlFunction(
     absl::string_view name, Mode mode,
     const std::vector<FunctionSignature>& function_signatures,
-    const FunctionOptions& function_options,
+    const FunctionOptions& function_options, ModuleDetails module_details,
     const ResolvedCreateFunctionStmt* resolved_create_function_statement,
     const std::vector<std::string>& argument_names,
     std::optional<ParseResumeLocation> parse_resume_location,
@@ -42,6 +49,7 @@ NonSqlFunction::NonSqlFunction(
         aggregate_expression_list)
     : Function(name, kNonSqlFunctionGroup, mode, function_signatures,
                function_options),
+      module_details_(module_details),
       resolved_create_function_statement_(resolved_create_function_statement),
       argument_names_(argument_names),
       parse_resume_location_(parse_resume_location) {}
@@ -49,7 +57,7 @@ NonSqlFunction::NonSqlFunction(
 absl::Status NonSqlFunction::Create(
     absl::string_view name, Mode mode,
     const std::vector<FunctionSignature>& function_signatures,
-    const FunctionOptions& function_options,
+    const FunctionOptions& function_options, ModuleDetails module_details,
     const ResolvedCreateFunctionStmt* resolved_create_function_statement,
     const std::vector<std::string>& argument_names,
     const std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
@@ -75,10 +83,10 @@ absl::Status NonSqlFunction::Create(
   if (mode == FunctionEnums::AGGREGATE) {
     ZETASQL_RET_CHECK(aggregate_expression_list != nullptr);
   }
-  non_sql_function->reset(
-      new NonSqlFunction(name, mode, function_signatures, function_options,
-                         resolved_create_function_statement, argument_names,
-                         parse_resume_location, aggregate_expression_list));
+  non_sql_function->reset(new NonSqlFunction(
+      name, mode, function_signatures, function_options, module_details,
+      resolved_create_function_statement, argument_names, parse_resume_location,
+      aggregate_expression_list));
   return absl::OkStatus();
 }
 

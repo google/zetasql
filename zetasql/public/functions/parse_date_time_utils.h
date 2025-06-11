@@ -27,7 +27,7 @@ namespace zetasql {
 namespace functions {
 namespace parse_date_time_utils {
 
-// Converts Time to int64_t microseconds and validates the value is within
+// Converts Time to int64 microseconds and validates the value is within
 // the supported ZetaSQL range.
 bool ConvertTimeToTimestamp(absl::Time time, int64_t* timestamp);
 

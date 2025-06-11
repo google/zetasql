@@ -14,21 +14,14 @@
 // limitations under the License.
 //
 
-#ifndef ZETASQL_PARSER_TOKEN_CODES_H_
-#define ZETASQL_PARSER_TOKEN_CODES_H_
+syntax = "proto2";
 
-#include "zetasql/parser/tm_token.h"
-#include "absl/base/macros.h"
+// Test having a keyword in the package name.
+package zetasql_test__.where;
 
-namespace zetasql {
-namespace parser {
+import "zetasql/testdata/test_schema.proto";
 
-using TokenKinds ABSL_DEPRECATED("Inline me!") = Token;
-
-}  // namespace parser
-
-using TokenKinds ABSL_DEPRECATED("Inline me!") = parser::Token;
-
-}  // namespace zetasql
-
-#endif  // ZETASQL_PARSER_TOKEN_CODES_H_
+// Extension name which is a keyword.
+extend zetasql_test__.TestExtraPB {
+  optional int32 order = 96450397;
+}

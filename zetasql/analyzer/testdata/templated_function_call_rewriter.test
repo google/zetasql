@@ -1,9 +1,9 @@
 # Tests for the TemplatedFunctionCallRewriter, which is enabled via
 # ResolvedASTRewrite::REWRITE_APPLY_ENABLED_REWRITES_TO_TEMPLATED_FUNCTION_CALLS
 [default enabled_ast_rewrites=DEFAULTS,+APPLY_ENABLED_REWRITES_TO_TEMPLATED_FUNCTION_CALLS,+ANONYMIZATION]
-[default language_features=V_1_3_TYPEOF_FUNCTION,TABLE_VALUED_FUNCTIONS,DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS]
+[default language_features=TYPEOF_FUNCTION,TABLE_VALUED_FUNCTIONS,DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS]
 
-# TYPEOF is rewritten when V_1_3_TYPEOF_FUNCTION is enabled.
+# TYPEOF is rewritten when TYPEOF_FUNCTION is enabled.
 SELECT TYPEOF(1)
 --
 
@@ -313,7 +313,7 @@ QueryStmt
     |   +-FunctionCall(Templated_SQL_Function:udf_templated_typeof_function(BYTES) -> STRING)
     |     +-ColumnRef(type=BYTES, column=tvf_no_args.column_bytes#2)
     +-input_scan=
-      +-TVFScan(column_list=[tvf_no_args.column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[1])
+      +-TVFScan(column_list=[tvf_no_args.column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[1], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
 
 With Templated SQL function call:
   Templated_SQL_Function:udf_templated_typeof_function(BYTES) -> STRING
@@ -333,7 +333,7 @@ QueryStmt
     |   +-FunctionCall(Templated_SQL_Function:udf_templated_typeof_function(BYTES) -> STRING)
     |     +-ColumnRef(type=BYTES, column=tvf_no_args.column_bytes#2)
     +-input_scan=
-      +-TVFScan(column_list=[tvf_no_args.column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[1])
+      +-TVFScan(column_list=[tvf_no_args.column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[1], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
 
 With Templated SQL function call:
   Templated_SQL_Function:udf_templated_typeof_function(BYTES) -> STRING
@@ -362,7 +362,7 @@ QueryStmt
     |   +-FunctionCall(Templated_SQL_Function:udf_templated_typeof_function(INT64) -> STRING)
     |     +-ColumnRef(type=INT64, column=tvf_templated_select_one.x#1)
     +-input_scan=
-      +-TVFScan(column_list=[tvf_templated_select_one.x#1], tvf=tvf_templated_select_one(() -> ANY TABLE), signature=() -> TABLE<x INT64>, column_index_list=[0])
+      +-TVFScan(column_list=[tvf_templated_select_one.x#1], tvf=tvf_templated_select_one(() -> ANY TABLE), signature=() -> TABLE<x INT64>, column_index_list=[0], function_call_signature=() -> ANY TABLE)
 
 With Templated SQL function call:
   Templated_SQL_Function:udf_templated_typeof_function(INT64) -> STRING
@@ -396,7 +396,7 @@ QueryStmt
     |   +-FunctionCall(Templated_SQL_Function:udf_templated_typeof_function(INT64) -> STRING)
     |     +-ColumnRef(type=INT64, column=tvf_templated_select_one.x#1)
     +-input_scan=
-      +-TVFScan(column_list=[tvf_templated_select_one.x#1], tvf=tvf_templated_select_one(() -> ANY TABLE), signature=() -> TABLE<x INT64>, column_index_list=[0])
+      +-TVFScan(column_list=[tvf_templated_select_one.x#1], tvf=tvf_templated_select_one(() -> ANY TABLE), signature=() -> TABLE<x INT64>, column_index_list=[0], function_call_signature=() -> ANY TABLE)
 
 With Templated SQL function call:
   Templated_SQL_Function:udf_templated_typeof_function(INT64) -> STRING
@@ -442,6 +442,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=1)
         +-column_index_list=[0]
+        +-function_call_signature=(INT64) -> ANY TABLE
 
 With Templated SQL TVF signature:
   tvf_templated_select_typeof_function(literal INT64) -> TABLE<col STRING>
@@ -476,6 +477,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=1)
         +-column_index_list=[0]
+        +-function_call_signature=(INT64) -> ANY TABLE
 
 With Templated SQL TVF signature:
   tvf_templated_select_typeof_function(literal INT64) -> TABLE<col STRING>
@@ -528,6 +530,7 @@ QueryStmt
         |   |   +-expr=
         |   |     +-Literal(type=STRING, value="hello")
         |   +-column_index_list=[1]
+        |   +-function_call_signature=(STRING) -> ANY TABLE
         +-group_by_list=
         | +-value#4 := ColumnRef(type=STRING, column=tvf_templated_select_typeof_function_with_anonymization_info.value#2)
         +-aggregate_list=
@@ -580,6 +583,7 @@ QueryStmt
         |   |   |   +-expr=
         |   |   |     +-Literal(type=STRING, value="hello")
         |   |   +-column_index_list=[0, 1]
+        |   |   +-function_call_signature=(STRING) -> ANY TABLE
         |   +-group_by_list=
         |   | +-value_partial#8 := ColumnRef(type=STRING, column=tvf_templated_select_typeof_function_with_anonymization_info.value#2)
         |   | +-$uid#9 := ColumnRef(type=INT64, column=tvf_templated_select_typeof_function_with_anonymization_info.user_id#5)
@@ -645,6 +649,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="hello")
         +-column_index_list=[0]
+        +-function_call_signature=(STRING) -> ANY TABLE
 
 With Templated SQL TVF signature:
   tvf_templated_select_nested_typeof_function(literal STRING) -> TABLE<col STRING>
@@ -665,6 +670,7 @@ QueryStmt
         |   +-expr=
         |     +-ArgumentRef(type=STRING, name="x")
         +-column_index_list=[0]
+        +-function_call_signature=(STRING) -> ANY TABLE
 
 With Templated SQL TVF signature:
   tvf_templated_select_typeof_function(STRING) -> TABLE<col STRING>
@@ -699,6 +705,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="hello")
         +-column_index_list=[0]
+        +-function_call_signature=(STRING) -> ANY TABLE
 
 With Templated SQL TVF signature:
   tvf_templated_select_nested_typeof_function(literal STRING) -> TABLE<col STRING>
@@ -719,6 +726,7 @@ QueryStmt
         |   +-expr=
         |     +-ArgumentRef(type=STRING, name="x")
         +-column_index_list=[0]
+        +-function_call_signature=(STRING) -> ANY TABLE
 
 With Templated SQL TVF signature:
   tvf_templated_select_typeof_function(STRING) -> TABLE<col STRING>

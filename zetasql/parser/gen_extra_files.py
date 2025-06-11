@@ -90,6 +90,36 @@ def GenerateParseTreeVisitor(concrete_classes):
         '    defaultVisit(node, data);\n' +  #
         '  }}\n' +  #
         '\n').format(cls)
+  yield """\
+      };
+
+      class ParseTreeStatusVisitor {
+       public:
+        virtual ~ParseTreeStatusVisitor() {}
+        virtual absl::Status Visit(const ASTNode* node, std::any& output) = 0;
+      """
+  for cls in concrete_classes:
+    yield (("""\
+        virtual absl::Status Visit{0}(const {0}* node, std::any& output) = 0;
+        """).format(cls))
+  yield """\
+      };
+
+      class DefaultParseTreeStatusVisitor : public ParseTreeStatusVisitor {
+       public:
+        virtual absl::Status DefaultVisit(const ASTNode* node, std::any& output) {
+          return node->ChildrenAccept(*this, output);
+        }
+        absl::Status Visit(const ASTNode* node, std::any& output) override {
+          return DefaultVisit(node, output);
+        }
+      """
+  for cls in concrete_classes:
+    yield """\
+
+        absl::Status Visit{0}(const {0}* node, std::any& output) override {{
+          return DefaultVisit(node, output);
+        }}""".format(cls)
   yield textwrap.dedent('''\
       };
 
@@ -157,6 +187,15 @@ def GeneerateParseTreeAcceptMethods(
         }}
 
         ''').format(cls)
+
+  for cls in concrete_classes:
+    yield """\
+        absl::Status {0}::Accept(ParseTreeStatusVisitor& visitor, std::any& output) const {{
+          return visitor.Visit{0}(this, output);
+        }}
+
+        """.format(cls)
+
   for cls in concrete_classes:
     yield textwrap.dedent('''\
         absl::StatusOr<VisitResult> {0}::Accept(NonRecursiveParseTreeVisitor* visitor) const {{

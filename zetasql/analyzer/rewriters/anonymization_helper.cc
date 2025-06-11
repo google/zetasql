@@ -65,6 +65,7 @@
 #include "zetasql/resolved_ast/column_factory.h"
 #include "zetasql/resolved_ast/make_node_vector.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
@@ -2233,9 +2234,9 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     ZETASQL_RET_CHECK(!current_uid_.column.IsInitialized());
 
     // Lookup the referenced WITH entry
-    auto it = std::find_if(
-        with_entries_.begin(), with_entries_.end(),
-        [node](const std::unique_ptr<WithEntryRewriteState>& entry) {
+    auto it = absl::c_find_if(
+        with_entries_,
+        [&node](const std::unique_ptr<WithEntryRewriteState>& entry) {
           return node->with_query_name() ==
                  entry->original_entry.with_query_name();
         });
@@ -3096,12 +3097,12 @@ RewriterVisitor::CreateAggregateScan(
   return result;
 }
 
-// Verifies that `option` is a resolved literal containing either a valid int64_t
-// value that either is NULL or is strictly positive and fits into an int32_t.
+// Verifies that `option` is a resolved literal containing either a valid int64
+// value that either is NULL or is strictly positive and fits into an int32.
 // Returns the value of the resolved literal.
 //
-// In some places, the privacy libraries only support int32_t values (e.g.
-// max_groups_contributed), but those options are declared as int64_t values in
+// In some places, the privacy libraries only support int32 values (e.g.
+// max_groups_contributed), but those options are declared as int64 values in
 // SQL.
 absl::StatusOr<Value> ParseNullOrPositiveInt32Option(
     const ResolvedOption& option, absl::string_view dp_option_error_prefix) {
@@ -3150,8 +3151,7 @@ ValidateAndParseGroupSelectionStrategyEnum(
       return MakeSqlErrorAtNode(option)
              << error_prefix << " PUBLIC_GROUPS has not been enabled";
     }
-    if (!language_options.LanguageFeatureEnabled(
-            FEATURE_V_1_1_WITH_ON_SUBQUERY)) {
+    if (!language_options.LanguageFeatureEnabled(FEATURE_WITH_ON_SUBQUERY)) {
       return MakeSqlErrorAtNode(option)
              << error_prefix
              << " PUBLIC_GROUPS is not supported without support for WITH "
@@ -3188,7 +3188,7 @@ RewriterVisitor::AddCrossPartitionSampleScan(
 // Returns ResolvedGetProtoFieldExpr for extracting a submessage field
 // from a ResolvedColumn containing a proto.
 absl::StatusOr<std::unique_ptr<ResolvedGetProtoField>>
-ExtractSubmessageFromProtoColumn(const std::string& field_name,
+ExtractSubmessageFromProtoColumn(absl::string_view field_name,
                                  const ResolvedColumn& proto_column,
                                  const google::protobuf::Descriptor& proto_descriptor,
                                  TypeFactory& type_factory) {
@@ -3207,10 +3207,10 @@ ExtractSubmessageFromProtoColumn(const std::string& field_name,
       /* return_default_value_when_unset=*/false);
 }
 
-// Returns ResolvedGetProtoFieldExpr for extracting an int64_t field
+// Returns ResolvedGetProtoFieldExpr for extracting an int64 field
 // from the provided ResolvedGetProtoField.
 absl::StatusOr<std::unique_ptr<ResolvedGetProtoField>> ExtractIntFromProtoExpr(
-    const std::string& field_name,
+    absl::string_view field_name,
     std::unique_ptr<ResolvedGetProtoField> proto_expr,
     const google::protobuf::Descriptor& proto_descriptor, TypeFactory& type_factory) {
   const google::protobuf::FieldDescriptor* int_value =
@@ -3337,7 +3337,7 @@ static absl::StatusOr<std::unique_ptr<ResolvedExpr>>
 MakeExtractCountFromAnonOutputWithReportJson(
     const ResolvedColumn& unique_users_count_column, TypeFactory& type_factory,
     Catalog& catalog, AnalyzerOptions& options) {
-  // Construct ResolvedExpr for int64_t(json_query(unique_users_count_column,
+  // Construct ResolvedExpr for int64(json_query(unique_users_count_column,
   // "$.result.value"))
   const Function* json_query_fn = nullptr;
   ZETASQL_RETURN_IF_ERROR(catalog.FindFunction({std::string("json_query")},
@@ -4087,10 +4087,10 @@ const ResolvedScan* TryResolveCTESubqueryOrReturnSame(
   if (!node->Is<ResolvedWithRefScan>()) {
     return node;
   }
-  const std::string with_query_name =
+  const std::string& with_query_name =
       node->GetAs<ResolvedWithRefScan>()->with_query_name();
-  auto with_entry = std::find_if(
-      with_entries.begin(), with_entries.end(),
+  auto with_entry = absl::c_find_if(
+      with_entries,
       [&with_query_name](
           const std::unique_ptr<WithEntryRewriteState>& rewrite_state) {
         return zetasql_base::CaseEqual(
@@ -4265,10 +4265,14 @@ PublicGroupsState::CreateJoinScanAfterSampleScan(
       new_column_list.push_back(column);
     }
 
-    sample_scan = MakeResolvedJoinScan(
-        new_column_list, ResolvedJoinScanEnums::RIGHT,
-        /*left_scan=*/std::move(sample_scan),
-        /*right_scan=*/std::move(ref_scan), std::move(owned_join_expr));
+    ZETASQL_ASSIGN_OR_RETURN(sample_scan,
+                     ResolvedJoinScanBuilder()
+                         .set_column_list(new_column_list)
+                         .set_join_type(ResolvedJoinScanEnums::RIGHT)
+                         .set_left_scan(std::move(sample_scan))
+                         .set_right_scan(std::move(ref_scan))
+                         .set_join_expr(std::move(owned_join_expr))
+                         .BuildMutable());
   }
   return sample_scan;
 }
@@ -4809,7 +4813,7 @@ absl::StatusOr<std::optional<int64_t>> GetMaxGroupsContributedOrDefault(
   ZETASQL_RET_CHECK(0 <= default_max_groups_contributed &&
             default_max_groups_contributed <
                 std::numeric_limits<int32_t>::max())
-      << "Default max_groups_contributed value must be an int64_t between 0 and "
+      << "Default max_groups_contributed value must be an int64 between 0 and "
       << std::numeric_limits<int32_t>::max() << ", but was "
       << default_max_groups_contributed;
 

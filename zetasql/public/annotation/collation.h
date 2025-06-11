@@ -37,11 +37,16 @@ namespace zetasql {
 // node.
 class CollationAnnotation : public DefaultAnnotationSpec {
  public:
-  CollationAnnotation() {}
+  CollationAnnotation() = default;
 
   static int GetId() { return static_cast<int>(AnnotationKind::kCollation); }
 
   int Id() const override { return GetId(); }
+
+  // Collation assigns an annotation to the output of a cast if the target type
+  // has collation. It drops the input's collation.
+  absl::Status CheckAndPropagateForCast(
+      const ResolvedCast& cast, AnnotationMap* result_annotation_map) override;
 
   // Determines whether collation should be propagated to the function's result,
   // as defined by the function call's signature.  If appropriate, propagates

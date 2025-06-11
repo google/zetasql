@@ -43,7 +43,6 @@
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/timestamp_picos_value.h"
-#include "zetasql/public/token_list.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/value_representations.h"
@@ -51,6 +50,8 @@
 #include "zetasql/public/value.h"  
 #include "zetasql/public/value_content.h"
 #include "zetasql/base/case.h"
+#include "absl/algorithm/container.h"
+#include "absl/base/attributes.h"
 #include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/hash/hash.h"
@@ -98,6 +99,8 @@ class Value::TypedList : public internal::ValueContentOrderedList {
   std::vector<Value> values_;
 };
 
+// Compares two `Value`s using `Value::LessThan()`. Note that this is not SQL
+// inequality; see comments on `Value::LessThan()` for more details.
 struct ValueComparator {
   bool operator()(const Value& a, const Value& b) const {
     return a.LessThan(b);
@@ -131,6 +134,34 @@ class Value::TypedMap : public internal::ValueContentMap {
       const override;
 
   ValueMap map_;
+};
+
+class Value::TypedMeasure : public internal::ValueContentMeasure {
+ public:
+  TypedMeasure(const TypedMeasure&) = delete;
+  TypedMeasure& operator=(const TypedMeasure&) = delete;
+
+  static absl::StatusOr<std::unique_ptr<TypedMeasure>> Create(
+      Value captured_values_as_struct, std::vector<int> key_indices,
+      const LanguageOptions& language_options);
+
+  uint64_t physical_byte_size() const override;
+
+  const Value& GetCapturedValuesAsStructValue() const {
+    return captured_values_as_struct_;
+  }
+
+  const internal::ValueContentOrderedList* GetCapturedValues() const override;
+
+  const StructType* GetCapturedValuesStructType() const override;
+
+  const std::vector<int>& KeyIndices() const override;
+
+ private:
+  TypedMeasure(Value captured_values_as_struct, std::vector<int> key_indices);
+
+  Value captured_values_as_struct_;
+  std::vector<int> key_indices_;
 };
 
 class Value::GraphElementValue final
@@ -203,6 +234,14 @@ class Value::GraphElementValue final
         return Value::Null(type_->property_types().at(index).value_type);
       }
     }
+    if (type_->is_dynamic()) {
+      auto it = valid_property_name_to_index_.find(name);
+      if (it != valid_property_name_to_index_.end()) {
+        return properties_.values().at(it->second);
+      } else {
+        return Value::NullJson();
+      }
+    }
     return absl::NotFoundError(absl::StrCat("No such property: ", name));
   }
 
@@ -232,6 +271,9 @@ class Value::GraphElementValue final
   }
 
   // Returns all property values.
+  // This includes:
+  // - all static properties
+  // - dynamic properties with valid values
   absl::Span<const Value> property_values() const {
     return properties_.values();
   }
@@ -604,7 +646,14 @@ inline Value Value::Bytes(const char (&str)[N]) {
 
 inline Value Value::Date(int32_t v) { return Value(TYPE_DATE, v); }
 inline Value Value::Timestamp(absl::Time t) { return Value(t); }
-inline Value Value::TimestampPicos(TimestampPicosValue t) { return Value(t); }
+inline Value Value::Timestamp(TimestampPicosValue t) {
+  return Value(t, TypeKind::TYPE_TIMESTAMP);
+}
+// TODO: Strip obsolete TIMESTAMP_PICOS values from our codebase.
+ABSL_DEPRECATED("Obsolete timestamp types are deprecated")
+inline Value Value::TimestampPicos(TimestampPicosValue t) {
+  return Value(t, TypeKind::TYPE_TIMESTAMP_PICOS);
+}
 inline Value Value::Time(TimeValue time) { return Value(time); }
 inline Value Value::Datetime(DatetimeValue datetime) { return Value(datetime); }
 inline Value Value::Interval(IntervalValue interval) { return Value(interval); }
@@ -647,6 +696,8 @@ inline Value Value::NullString() { return Value(TypeKind::TYPE_STRING); }
 inline Value Value::NullBytes() { return Value(TypeKind::TYPE_BYTES); }
 inline Value Value::NullDate() { return Value(TypeKind::TYPE_DATE); }
 inline Value Value::NullTimestamp() { return Value(TypeKind::TYPE_TIMESTAMP); }
+// TODO: Strip obsolete TIMESTAMP_PICOS values from our codebase.
+ABSL_DEPRECATED("Obsolete timestamp types are deprecated")
 inline Value Value::NullTimestampPicos() {
   return Value(TypeKind::TYPE_TIMESTAMP_PICOS);
 }
@@ -708,25 +759,25 @@ inline bool Value::has_content() const {
 }
 
 inline int32_t Value::int32_value() const {
-  ABSL_CHECK_EQ(TYPE_INT32, metadata_.type_kind()) << "Not an int32_t value";
+  ABSL_CHECK_EQ(TYPE_INT32, metadata_.type_kind()) << "Not an int32 value";
   ABSL_CHECK(!metadata_.is_null()) << "Null value";
   return int32_value_;
 }
 
 inline int64_t Value::int64_value() const {
-  ABSL_CHECK_EQ(TYPE_INT64, metadata_.type_kind()) << "Not an int64_t value";
+  ABSL_CHECK_EQ(TYPE_INT64, metadata_.type_kind()) << "Not an int64 value";
   ABSL_CHECK(!metadata_.is_null()) << "Null value";
   return int64_value_;
 }
 
 inline uint32_t Value::uint32_value() const {
-  ABSL_CHECK_EQ(TYPE_UINT32, metadata_.type_kind()) << "Not a uint32_t value";
+  ABSL_CHECK_EQ(TYPE_UINT32, metadata_.type_kind()) << "Not a uint32 value";
   ABSL_CHECK(!metadata_.is_null()) << "Null value";
   return uint32_value_;
 }
 
 inline uint64_t Value::uint64_value() const {
-  ABSL_CHECK_EQ(TYPE_UINT64, metadata_.type_kind()) << "Not a uint64_t value";
+  ABSL_CHECK_EQ(TYPE_UINT64, metadata_.type_kind()) << "Not a uint64 value";
   ABSL_CHECK(!metadata_.is_null()) << "Null value";
   return uint64_value_;
 }
@@ -805,13 +856,6 @@ inline const BigNumericValue& Value::bignumeric_value() const {
   ABSL_CHECK_EQ(TYPE_BIGNUMERIC, metadata_.type_kind()) << "Not a bignumeric type";
   ABSL_CHECK(!metadata_.is_null()) << "Null value";
   return bignumeric_ptr_->value();
-}
-
-inline const TimestampPicosValue& Value::timestamp_picos_value() const {
-  ABSL_CHECK_EQ(TYPE_TIMESTAMP_PICOS, metadata_.type_kind())  // Crash OK
-      << "Not a timestamp_picos type";
-  ABSL_CHECK(!metadata_.is_null()) << "Null value";
-  return timestamp_picos_ptr_->value();
 }
 
 inline bool Value::is_validated_json() const {
@@ -1096,7 +1140,7 @@ class Value::Metadata::ContentLayout<4> {
 // allocation mechanism is used since std::malloc is required to return an
 // allocation that is suitably aligned for any scalar type). We use 3 lowest
 // bits to encode is_null, preserves_order and has_type. These bits must never
-// overlap with int32_t value_. Thus we use different structure layout depending
+// overlap with int32 value_. Thus we use different structure layout depending
 // on system endianness.
 template <>
 class Value::Metadata::ContentLayout<8> {
@@ -1211,10 +1255,12 @@ inline Value Date(absl::CivilDay day) {
   return Value::Date(static_cast<int32_t>(day - kEpochDay));
 }
 inline Value Timestamp(absl::Time time) { return Value::Timestamp(time); }
+inline Value Timestamp(TimestampPicosValue t) { return Value::Timestamp(t); }
 inline Value TimestampFromUnixMicros(int64_t v) {
   return Value::TimestampFromUnixMicros(v);
 }
 
+// TODO: Strip obsolete TIMESTAMP_PICOS values from our codebase.
 inline Value TimestampPicos(TimestampPicosValue t) {
   return Value::TimestampPicos(t);
 }

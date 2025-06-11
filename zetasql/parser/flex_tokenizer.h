@@ -22,7 +22,6 @@
 
 #include "zetasql/parser/tm_lexer.h"
 #include "zetasql/parser/tm_token.h"
-#include "zetasql/parser/token_codes.h"
 #include "absl/flags/declare.h"
 
 // Some contortions to avoid duplicate inclusion of FlexLexer.h in the

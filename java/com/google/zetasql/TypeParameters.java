@@ -24,6 +24,7 @@ import com.google.common.base.Preconditions;
 import com.google.zetasql.ZetaSQLTypeParameters.ExtendedTypeParametersProto;
 import com.google.zetasql.ZetaSQLTypeParameters.NumericTypeParametersProto;
 import com.google.zetasql.ZetaSQLTypeParameters.StringTypeParametersProto;
+import com.google.zetasql.ZetaSQLTypeParameters.TimestampTypeParametersProto;
 import com.google.zetasql.ZetaSQLTypeParameters.TypeParametersProto;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -58,6 +59,12 @@ public final class TypeParameters implements Serializable {
     typeParametersProto = TypeParametersProto.newBuilder().setNumericTypeParameters(proto).build();
   }
 
+  public TypeParameters(TimestampTypeParametersProto proto) {
+    validateTypeParameters(proto);
+    typeParametersProto =
+        TypeParametersProto.newBuilder().setTimestampTypeParameters(proto).build();
+  }
+
   public TypeParameters(ExtendedTypeParametersProto proto) {
     typeParametersProto = TypeParametersProto.newBuilder().setExtendedTypeParameters(proto).build();
   }
@@ -85,6 +92,11 @@ public final class TypeParameters implements Serializable {
     return typeParametersProto.getNumericTypeParameters();
   }
 
+  public TimestampTypeParametersProto getTimestampTypeParameters() {
+    Preconditions.checkState(isTimestampTypeParameters());
+    return typeParametersProto.getTimestampTypeParameters();
+  }
+
   public ExtendedTypeParametersProto getExtendedTypeParameters() {
     Preconditions.checkState(isExtendedTypeParameters());
     return typeParametersProto.getExtendedTypeParameters();
@@ -93,6 +105,7 @@ public final class TypeParameters implements Serializable {
   public boolean isEmpty() {
     return !typeParametersProto.hasStringTypeParameters()
         && !typeParametersProto.hasNumericTypeParameters()
+        && !typeParametersProto.hasTimestampTypeParameters()
         && !typeParametersProto.hasExtendedTypeParameters()
         && childList.isEmpty();
   }
@@ -103,6 +116,10 @@ public final class TypeParameters implements Serializable {
 
   public boolean isNumericTypeParameters() {
     return typeParametersProto.hasNumericTypeParameters();
+  }
+
+  public boolean isTimestampTypeParameters() {
+    return typeParametersProto.hasTimestampTypeParameters();
   }
 
   public boolean isExtendedTypeParameters() {
@@ -141,6 +158,9 @@ public final class TypeParameters implements Serializable {
     }
     if (proto.hasNumericTypeParameters()) {
       return new TypeParameters(proto.getNumericTypeParameters());
+    }
+    if (proto.hasTimestampTypeParameters()) {
+      return new TypeParameters(proto.getTimestampTypeParameters());
     }
     List<TypeParameters> childList = new ArrayList<>();
     for (TypeParametersProto child : proto.getChildListList()) {
@@ -188,6 +208,9 @@ public final class TypeParameters implements Serializable {
     if (isNumericTypeParameters()) {
       return numericTypeParametersDebugString(typeParametersProto.getNumericTypeParameters());
     }
+    if (isTimestampTypeParameters()) {
+      return timestampTypeParametersDebugString(typeParametersProto.getTimestampTypeParameters());
+    }
     // Extended type may has childList.
     StringBuilder debugStringBuilder = new StringBuilder();
     if (isExtendedTypeParameters()) {
@@ -218,6 +241,11 @@ public final class TypeParameters implements Serializable {
         parameters.hasIsMaxPrecision() ? "MAX" : String.valueOf(parameters.getPrecision());
     long scale = parameters.getScale();
     return "(precision=" + precision + ",scale=" + scale + ")";
+  }
+
+  private static String timestampTypeParametersDebugString(
+      TimestampTypeParametersProto parameters) {
+    return "(precision=" + parameters.getPrecision() + ")";
   }
 
   private static String extendedTypeParametersDebugString() {
@@ -257,6 +285,14 @@ public final class TypeParameters implements Serializable {
         scale >= 0 && scale <= 38,
         "scale must be within range [0, 38], actual scale: %s",
         String.valueOf(scale));
+  }
+
+  private static void validateTypeParameters(TimestampTypeParametersProto proto) {
+    long precision = proto.getPrecision();
+    Preconditions.checkArgument(
+        precision >= 0 && precision <= 12 && precision % 3 == 0,
+        "precision can only be 0, 3, 6, 9, or 12, actual precision: %s",
+        String.valueOf(precision));
   }
 
   private static void validateTypeParameters(StringTypeParametersProto proto) {

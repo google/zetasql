@@ -47,14 +47,14 @@ namespace zetasql_base {
 namespace castops {
 
 TEST(CastOpsTest, SaturatingFloatToInt) {
-  // int32_t in range cases.
+  // int32 in range cases.
   EXPECT_EQ(5744950, (SaturatingFloatToInt<double, int32_t>(5744950.5334)));
   EXPECT_EQ(-41834793,
             (SaturatingFloatToInt<double, int32_t>(-41834793.402368)));
   EXPECT_EQ(1470707200, (SaturatingFloatToInt<float, int32_t>(1470707200)));
   EXPECT_EQ(-14707, (SaturatingFloatToInt<float, int32_t>(-14707.997)));
 
-  // int32_t border or out of range cases.
+  // int32 border or out of range cases.
   EXPECT_EQ(INT32_MAX, (SaturatingFloatToInt<float, int32_t>(FLOAT_INT32_MAX)));
   EXPECT_EQ(INT32_MAX,
             (SaturatingFloatToInt<float, int32_t>(FLOAT_INT32_MAX + 1)));
@@ -70,7 +70,7 @@ TEST(CastOpsTest, SaturatingFloatToInt) {
   EXPECT_EQ(INT32_MIN,
             (SaturatingFloatToInt<double, int32_t>(DOUBLE_INT32_MIN - 0.5)));
 
-  // int32_t infinite and nan cases.
+  // int32 infinite and nan cases.
   EXPECT_EQ(INT32_MAX, (SaturatingFloatToInt<float, int32_t>(FLOAT_INFI)));
   EXPECT_EQ(INT32_MIN, (SaturatingFloatToInt<float, int32_t>(FLOAT_NINFI)));
   EXPECT_EQ(0, (SaturatingFloatToInt<float, int32_t>(FLOAT_NAN)));
@@ -78,13 +78,13 @@ TEST(CastOpsTest, SaturatingFloatToInt) {
   EXPECT_EQ(INT32_MIN, (SaturatingFloatToInt<double, int32_t>(DOUBLE_NINFI)));
   EXPECT_EQ(0, (SaturatingFloatToInt<double, int32_t>(DOUBLE_NAN)));
 
-  // int64_t in range cases.
+  // int64 in range cases.
   EXPECT_EQ(37483134, (SaturatingFloatToInt<double, int64_t>(37483134.653)));
   EXPECT_EQ(-37483134, (SaturatingFloatToInt<double, int64_t>(-37483134.653)));
   EXPECT_EQ(374831, (SaturatingFloatToInt<float, int64_t>(374831.653)));
   EXPECT_EQ(-374831, (SaturatingFloatToInt<float, int64_t>(-374831.653)));
 
-  // int64_t border or out of range cases.
+  // int64 border or out of range cases.
   EXPECT_EQ(INT64_MAX,
             (SaturatingFloatToInt<double, int64_t>(DOUBLE_INT64_MAX)));
   EXPECT_EQ(INT64_MAX,
@@ -100,7 +100,7 @@ TEST(CastOpsTest, SaturatingFloatToInt) {
   EXPECT_EQ(INT64_MAX, (SaturatingFloatToInt<float, int64_t>(FLOAT_INT64_MAX)));
   EXPECT_EQ(INT64_MIN, (SaturatingFloatToInt<float, int64_t>(FLOAT_INT64_MIN)));
 
-  // int64_t infinite and nan cases.
+  // int64 infinite and nan cases.
   EXPECT_EQ(INT64_MAX, (SaturatingFloatToInt<float, int64_t>(FLOAT_INFI)));
   EXPECT_EQ(INT64_MIN, (SaturatingFloatToInt<float, int64_t>(FLOAT_NINFI)));
   EXPECT_EQ(0, (SaturatingFloatToInt<float, int64_t>(FLOAT_NAN)));
@@ -108,11 +108,11 @@ TEST(CastOpsTest, SaturatingFloatToInt) {
   EXPECT_EQ(INT64_MIN, (SaturatingFloatToInt<double, int64_t>(DOUBLE_NINFI)));
   EXPECT_EQ(0, (SaturatingFloatToInt<double, int64_t>(DOUBLE_NAN)));
 
-  // uint32_t in range cases.
+  // uint32 in range cases.
   EXPECT_EQ(5744950, (SaturatingFloatToInt<double, uint32_t>(5744950.5334)));
   EXPECT_EQ(2634022912, (SaturatingFloatToInt<float, uint32_t>(2634022912.00)));
 
-  // uint32_t corner or out of range cases.
+  // uint32 corner or out of range cases.
   EXPECT_EQ(UINT32_MAX,
             (SaturatingFloatToInt<double, uint32_t>(DOUBLE_UINT32_MAX)));
   EXPECT_EQ(UINT32_MAX,
@@ -124,7 +124,7 @@ TEST(CastOpsTest, SaturatingFloatToInt) {
             (SaturatingFloatToInt<float, uint32_t>(FLOAT_UINT32_MAX + 0.5)));
   EXPECT_EQ(0, (SaturatingFloatToInt<float, uint32_t>(-1.023)));
 
-  // uint32_t infinite and nan cases.
+  // uint32 infinite and nan cases.
   EXPECT_EQ(UINT32_MAX, (SaturatingFloatToInt<float, uint32_t>(FLOAT_INFI)));
   EXPECT_EQ(0, (SaturatingFloatToInt<float, uint32_t>(FLOAT_NINFI)));
   EXPECT_EQ(0, (SaturatingFloatToInt<float, uint32_t>(FLOAT_NAN)));
@@ -132,11 +132,11 @@ TEST(CastOpsTest, SaturatingFloatToInt) {
   EXPECT_EQ(0, (SaturatingFloatToInt<double, uint32_t>(DOUBLE_NINFI)));
   EXPECT_EQ(0, (SaturatingFloatToInt<double, uint32_t>(DOUBLE_NAN)));
 
-  // uint64_t in range cases.
+  // uint64 in range cases.
   EXPECT_EQ(5744950, (SaturatingFloatToInt<double, uint64_t>(5744950.5334)));
   EXPECT_EQ(2634022912, (SaturatingFloatToInt<float, uint64_t>(2634022912.00)));
 
-  // uint64_t corner or out of range cases.
+  // uint64 corner or out of range cases.
   EXPECT_EQ(UINT64_MAX,
             (SaturatingFloatToInt<double, uint64_t>(DOUBLE_UINT64_MAX)));
   EXPECT_EQ(UINT64_MAX,
@@ -148,7 +148,7 @@ TEST(CastOpsTest, SaturatingFloatToInt) {
             (SaturatingFloatToInt<float, uint64_t>(FLOAT_UINT64_MAX + 0.5)));
   EXPECT_EQ(0, (SaturatingFloatToInt<float, uint64_t>(-1.023)));
 
-  // uint64_t infinite and nan cases.
+  // uint64 infinite and nan cases.
   EXPECT_EQ(UINT64_MAX, (SaturatingFloatToInt<float, uint64_t>(FLOAT_INFI)));
   EXPECT_EQ(0, (SaturatingFloatToInt<float, uint64_t>(FLOAT_NINFI)));
   EXPECT_EQ(0, (SaturatingFloatToInt<float, uint64_t>(FLOAT_NAN)));
@@ -234,13 +234,13 @@ TEST(CastOpsTest, SaturatingFloatToInt) {
 }
 
 TEST(CastOpsTest, InRange) {
-  // int32_t in range cases.
+  // int32 in range cases.
   EXPECT_EQ(true, (InRange<double, int32_t>(5744950.5334)));
   EXPECT_EQ(true, (InRange<double, int32_t>(-41834793.402368)));
   EXPECT_EQ(true, (InRange<float, int32_t>(1470707200)));
   EXPECT_EQ(true, (InRange<float, int32_t>(-14707.997)));
 
-  // int32_t border or out of range cases.
+  // int32 border or out of range cases.
   EXPECT_EQ(false, (InRange<float, int32_t>(FLOAT_INT32_MAX)));
   EXPECT_EQ(true, (InRange<float, int32_t>(FLOAT_INT32_MIN)));
   EXPECT_EQ(true, (InRange<double, int32_t>(DOUBLE_INT32_MAX)));
@@ -249,24 +249,24 @@ TEST(CastOpsTest, InRange) {
   EXPECT_EQ(true, (InRange<double, int32_t>(DOUBLE_INT32_MIN)));
   EXPECT_EQ(true, (InRange<double, int32_t>(DOUBLE_INT32_MIN - 0.5)));
 
-  // int64_t in range cases.
+  // int64 in range cases.
   EXPECT_EQ(true, (InRange<double, int64_t>(37483134.653)));
   EXPECT_EQ(true, (InRange<double, int64_t>(-37483134.653)));
   EXPECT_EQ(true, (InRange<float, int64_t>(374831.653)));
   EXPECT_EQ(true, (InRange<float, int64_t>(-374831.653)));
 
-  // int64_t border or out of range cases.
+  // int64 border or out of range cases.
   EXPECT_EQ(false, (InRange<double, int64_t>(DOUBLE_INT64_MAX)));
   EXPECT_EQ(false, (InRange<double, int64_t>(DOUBLE_INT64_MAX + 1)));
   EXPECT_EQ(true, (InRange<double, int64_t>(DOUBLE_INT64_MIN)));
   EXPECT_EQ(false, (InRange<float, int64_t>(FLOAT_INT64_MAX)));
   EXPECT_EQ(true, (InRange<float, int64_t>(FLOAT_INT64_MIN)));
 
-  // uint32_t in range cases.
+  // uint32 in range cases.
   EXPECT_EQ(true, (InRange<double, uint32_t>(5744950.5334)));
   EXPECT_EQ(true, (InRange<float, uint32_t>(2634022912.00)));
 
-  // uint32_t corner or out of range cases.
+  // uint32 corner or out of range cases.
   EXPECT_EQ(true, (InRange<double, uint32_t>(DOUBLE_UINT32_MAX)));
   EXPECT_EQ(true, (InRange<double, uint32_t>(DOUBLE_UINT32_MAX + 0.5)));
   EXPECT_EQ(false, (InRange<double, uint32_t>(-1.23)));
@@ -275,11 +275,11 @@ TEST(CastOpsTest, InRange) {
   EXPECT_EQ(false, (InRange<float, uint32_t>(-1.023)));
   EXPECT_EQ(true, (InRange<float, uint32_t>(-0.023)));
 
-  // uint64_t in range cases.
+  // uint64 in range cases.
   EXPECT_EQ(true, (InRange<double, uint64_t>(5744950.5334)));
   EXPECT_EQ(true, (InRange<float, uint64_t>(2634022912.00)));
 
-  // uint64_t corner or out of range cases.
+  // uint64 corner or out of range cases.
   EXPECT_EQ(false, (InRange<double, uint64_t>(DOUBLE_UINT64_MAX)));
   EXPECT_EQ(false, (InRange<double, uint64_t>(-1.23)));
   EXPECT_EQ(false, (InRange<float, uint64_t>(FLOAT_UINT64_MAX)));
@@ -316,13 +316,13 @@ TEST(CastOpsTest, InRange) {
 }
 
 TEST(CastOpsTest, InRangeNoTruncate) {
-  // int32_t in range cases.
+  // int32 in range cases.
   EXPECT_EQ(true, (InRangeNoTruncate<double, int32_t>(5744950.5334)));
   EXPECT_EQ(true, (InRangeNoTruncate<double, int32_t>(-41834793.402368)));
   EXPECT_EQ(true, (InRangeNoTruncate<float, int32_t>(1470707200)));
   EXPECT_EQ(true, (InRangeNoTruncate<float, int32_t>(-14707.997)));
 
-  // int32_t border or out of range cases.
+  // int32 border or out of range cases.
   EXPECT_EQ(false, (InRangeNoTruncate<float, int32_t>(FLOAT_INT32_MAX)));
   EXPECT_EQ(true, (InRangeNoTruncate<float, int32_t>(FLOAT_INT32_MIN)));
   EXPECT_EQ(true, (InRangeNoTruncate<double, int32_t>(DOUBLE_INT32_MAX)));
@@ -332,24 +332,24 @@ TEST(CastOpsTest, InRangeNoTruncate) {
   EXPECT_EQ(false,
             (InRangeNoTruncate<double, int32_t>(DOUBLE_INT32_MIN - 0.5)));
 
-  // int64_t in range cases.
+  // int64 in range cases.
   EXPECT_EQ(true, (InRangeNoTruncate<double, int64_t>(37483134.653)));
   EXPECT_EQ(true, (InRangeNoTruncate<double, int64_t>(-37483134.653)));
   EXPECT_EQ(true, (InRangeNoTruncate<float, int64_t>(374831.653)));
   EXPECT_EQ(true, (InRangeNoTruncate<float, int64_t>(-374831.653)));
 
-  // int64_t border or out of range cases.
+  // int64 border or out of range cases.
   EXPECT_EQ(false, (InRangeNoTruncate<double, int64_t>(DOUBLE_INT64_MAX)));
   EXPECT_EQ(false, (InRangeNoTruncate<double, int64_t>(DOUBLE_INT64_MAX + 1)));
   EXPECT_EQ(true, (InRangeNoTruncate<double, int64_t>(DOUBLE_INT64_MIN)));
   EXPECT_EQ(false, (InRangeNoTruncate<float, int64_t>(FLOAT_INT64_MAX)));
   EXPECT_EQ(true, (InRangeNoTruncate<float, int64_t>(FLOAT_INT64_MIN)));
 
-  // uint32_t in range cases.
+  // uint32 in range cases.
   EXPECT_EQ(true, (InRangeNoTruncate<double, uint32_t>(5744950.5334)));
   EXPECT_EQ(true, (InRangeNoTruncate<float, uint32_t>(2634022912.00)));
 
-  // uint32_t corner or out of range cases.
+  // uint32 corner or out of range cases.
   EXPECT_EQ(true, (InRangeNoTruncate<double, uint32_t>(DOUBLE_UINT32_MAX)));
   EXPECT_EQ(false,
             (InRangeNoTruncate<double, uint32_t>(DOUBLE_UINT32_MAX + 0.5)));
@@ -359,11 +359,11 @@ TEST(CastOpsTest, InRangeNoTruncate) {
   EXPECT_EQ(false, (InRangeNoTruncate<float, uint32_t>(-1.023)));
   EXPECT_EQ(false, (InRangeNoTruncate<float, uint32_t>(-0.023)));
 
-  // uint64_t in range cases.
+  // uint64 in range cases.
   EXPECT_EQ(true, (InRangeNoTruncate<double, uint64_t>(5744950.5334)));
   EXPECT_EQ(true, (InRangeNoTruncate<float, uint64_t>(2634022912.00)));
 
-  // uint64_t corner or out of range cases.
+  // uint64 corner or out of range cases.
   EXPECT_EQ(false, (InRangeNoTruncate<double, uint64_t>(DOUBLE_UINT64_MAX)));
   EXPECT_EQ(false, (InRangeNoTruncate<double, uint64_t>(-1.23)));
   EXPECT_EQ(false, (InRangeNoTruncate<float, uint64_t>(FLOAT_UINT64_MAX)));
@@ -589,7 +589,7 @@ TEST(CastOpsTest, ToInt32) {
 
   // Float border cases.
   // Because INT_MAX cannot be presented precisely in float, when it is casted
-  // to float type, it is actually treated out of range of int32_t representable
+  // to float type, it is actually treated out of range of int32 representable
   // range.
   // Note that 2147483520.000f (2^31-128 = FLOAT_INT32_MAX-128) and
   // 2147483648.000f (2^31 = FLOAT_INT32_MAX) are
@@ -652,7 +652,7 @@ TEST(CastOptsTest, ToUint32) {
   EXPECT_EQ(0, ToUint32<float>(FLOAT_UINT32_MAX));
   EXPECT_EQ(UINT32_MAX-255, ToUint32<float>(FLOAT_UINT32_MAX-256));
 
-  // Negative cases. These are out-of-range of uint32_t.
+  // Negative cases. These are out-of-range of uint32.
   EXPECT_EQ(static_cast<uint32_t>(-678), ToUint32<float>(-678));
   EXPECT_EQ(static_cast<uint32_t>(INT32_MIN + 128),
             ToUint32<float>(FLOAT_INT32_MIN + 128));

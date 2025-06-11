@@ -268,6 +268,22 @@ TEST(InputArgumentTypeTest, ArgumentAlias) {
   EXPECT_THAT(input_argument_type.argument_alias(), Optional(alias));
 }
 
+TEST(InputArgumentTypeTest, ChainedInput) {
+  InputArgumentType arg(types::Int64Type());
+  EXPECT_EQ("INT64", arg.DebugString());
+  EXPECT_EQ(InputArgumentType::ArgumentsToString({arg, arg}, PRODUCT_EXTERNAL,
+                                                 {"", "named"}),
+            "INT64, named => INT64");
+
+  arg.set_is_chained_function_call_input();
+
+  EXPECT_EQ("chained_function_call_input INT64", arg.DebugString());
+  EXPECT_EQ(InputArgumentType::ArgumentsToString({arg, arg}, PRODUCT_EXTERNAL,
+                                                 {"", "named"}),
+            "INT64 (from chained function call input), "
+            "named => INT64 (from chained function call input)");
+}
+
 TEST(InputArgumentTypeTest, Relation) {
   TVFRelation relation(/*columns=*/{});
   InputArgumentType arg =
@@ -290,10 +306,10 @@ TEST(InputArgumentTypeTest, Relation) {
 
   EXPECT_EQ(InputArgumentType::ArgumentsToString({arg, arg2}, PRODUCT_EXTERNAL,
                                                  {"", ""}),
-            "TABLE<>, pipe_input:TABLE<>");
+            "TABLE<>, TABLE<> (from pipe input)");
   EXPECT_EQ(InputArgumentType::ArgumentsToString({arg, arg2}, PRODUCT_EXTERNAL,
                                                  {"n1", "n2"}),
-            "n1 => TABLE<>, pipe_input:n2 => TABLE<>");
+            "n1 => TABLE<>, n2 => TABLE<> (from pipe input)");
 }
 
 }  // namespace

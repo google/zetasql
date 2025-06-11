@@ -64,6 +64,18 @@ void CheckLabel(const PropertyGraph* property_graph, std::string_view name,
   EXPECT_THAT(property_declarations, ContainerEq(expected));
 }
 
+void CheckPropertyDefinitions(
+    const GraphElementTable* element,
+    absl::flat_hash_set<std::string> expected_definition_exprs) {
+  absl::flat_hash_set<const GraphPropertyDefinition*> property_definitions;
+  ZETASQL_ASSERT_OK(element->GetPropertyDefinitions(property_definitions));
+  absl::flat_hash_set<std::string> definitions;
+  for (const auto* property_definition : property_definitions) {
+    definitions.insert(std::string(property_definition->expression_sql()));
+  }
+  EXPECT_THAT(definitions, ContainerEq(expected_definition_exprs));
+}
+
 TEST_F(SampleCatalogPropertyGraphTest, BasicAmlGraphElementLabel) {
   const PropertyGraph* property_graph = nullptr;
   ZETASQL_ASSERT_OK(catalog_->FindPropertyGraph({"aml"}, property_graph));
@@ -295,6 +307,121 @@ TEST_F(SampleCatalogPropertyGraphTest, EnhancedAmlVerifyAdditionalPaths) {
                   Not(UnorderedElementsAre(city_element, country_element)));
     }
   }
+}
+
+// Check the shape of the "aml_dynamic" property graph schema.
+TEST_F(SampleCatalogPropertyGraphTest,
+       PropertyGraphWithDynamicLabelAndProperties) {
+  const PropertyGraph* property_graph = nullptr;
+  ZETASQL_ASSERT_OK(catalog_->FindPropertyGraph({"aml_dynamic"}, property_graph));
+
+  absl::flat_hash_set<const GraphNodeTable*> node_tables;
+  ZETASQL_ASSERT_OK(property_graph->GetNodeTables(node_tables));
+  EXPECT_EQ(node_tables.size(), 1);
+  std::for_each(node_tables.begin(), node_tables.end(),
+                [](const GraphNodeTable* node) {
+                  EXPECT_THAT(node->Name(), AnyOf("DynamicGraphNode"));
+                });
+
+  absl::flat_hash_set<const GraphEdgeTable*> edge_tables;
+  ZETASQL_ASSERT_OK(property_graph->GetEdgeTables(edge_tables));
+  EXPECT_EQ(edge_tables.size(), 1);
+  std::for_each(edge_tables.begin(), edge_tables.end(),
+                [](const GraphEdgeTable* edge) {
+                  EXPECT_THAT(edge->Name(), AnyOf("DynamicGraphEdge"));
+                });
+
+  const GraphElementTable* graph_node_table = nullptr;
+  ZETASQL_ASSERT_OK(property_graph->FindElementTableByName("DynamicGraphNode",
+                                                   graph_node_table));
+  const GraphElementTable* graph_edge_table = nullptr;
+  ZETASQL_ASSERT_OK(property_graph->FindElementTableByName("DynamicGraphEdge",
+                                                   graph_edge_table));
+
+  // Validate prop declarations.
+  const GraphPropertyDeclaration* property_dcl_id = nullptr;
+  ZETASQL_ASSERT_OK(
+      property_graph->FindPropertyDeclarationByName("id", property_dcl_id));
+  EXPECT_EQ(property_dcl_id->Type()->kind(), TypeKind::TYPE_INT64);
+
+  const GraphPropertyDeclaration* property_dcl_dst_id = nullptr;
+  ZETASQL_ASSERT_OK(property_graph->FindPropertyDeclarationByName("dst_id",
+                                                          property_dcl_dst_id));
+  EXPECT_EQ(property_dcl_dst_id->Type()->kind(), TypeKind::TYPE_INT64);
+
+  const GraphPropertyDeclaration* property_dcl_node_label_col = nullptr;
+  ZETASQL_ASSERT_OK(property_graph->FindPropertyDeclarationByName(
+      "nodeLabelCol", property_dcl_node_label_col));
+  EXPECT_EQ(property_dcl_node_label_col->Type()->kind(), TypeKind::TYPE_STRING);
+
+  const GraphPropertyDeclaration* property_dcl_edge_label_col = nullptr;
+  ZETASQL_ASSERT_OK(property_graph->FindPropertyDeclarationByName(
+      "edgeLabelCol", property_dcl_edge_label_col));
+  EXPECT_EQ(property_dcl_edge_label_col->Type()->kind(), TypeKind::TYPE_STRING);
+
+  const GraphPropertyDeclaration* property_dcl_node_json_prop = nullptr;
+  ZETASQL_ASSERT_OK(property_graph->FindPropertyDeclarationByName(
+      "nodeJsonProp", property_dcl_node_json_prop));
+  EXPECT_EQ(property_dcl_node_json_prop->Type()->kind(), TypeKind::TYPE_JSON);
+
+  const GraphPropertyDeclaration* property_dcl_edge_json_prop = nullptr;
+  ZETASQL_ASSERT_OK(property_graph->FindPropertyDeclarationByName(
+      "edgeJsonProp", property_dcl_edge_json_prop));
+  EXPECT_EQ(property_dcl_edge_json_prop->Type()->kind(), TypeKind::TYPE_JSON);
+
+  const GraphPropertyDeclaration* property_dcl_code = nullptr;
+  ZETASQL_ASSERT_OK(
+      property_graph->FindPropertyDeclarationByName("code", property_dcl_code));
+  EXPECT_EQ(property_dcl_code->Type()->kind(), TypeKind::TYPE_INT64);
+
+  const GraphPropertyDeclaration* property_dcl_category = nullptr;
+  ZETASQL_ASSERT_OK(property_graph->FindPropertyDeclarationByName(
+      "category", property_dcl_category));
+  EXPECT_EQ(property_dcl_category->Type()->kind(), TypeKind::TYPE_STRING);
+
+  // Check default labels.
+  CheckLabel(property_graph, "DynamicGraphNode",
+             {property_dcl_id, property_dcl_node_label_col, property_dcl_code,
+              property_dcl_node_json_prop});
+  CheckLabel(property_graph, "DynamicGraphEdge",
+             {
+                 property_dcl_id,
+                 property_dcl_dst_id,
+                 property_dcl_edge_label_col,
+                 property_dcl_edge_json_prop,
+                 property_dcl_category,
+             });
+
+  // Check static labels.
+  CheckLabel(property_graph, "Entity", {property_dcl_code});
+  CheckLabel(property_graph, "CONNECTION", {property_dcl_category});
+
+  // Check property definitions.
+  CheckPropertyDefinitions(graph_node_table,
+                           {"id", "nodeLabelCol", "code", "nodeJsonProp"});
+  CheckPropertyDefinitions(graph_edge_table, {"id", "dst_id", "edgeLabelCol",
+                                              "edgeJsonProp", "category"});
+
+  // Validate node and edge dynamic labels and properties.
+  EXPECT_TRUE(graph_node_table->HasDynamicLabel());
+  const GraphDynamicLabel* dynamic_label = nullptr;
+  ZETASQL_EXPECT_OK(graph_node_table->GetDynamicLabel(dynamic_label));
+  EXPECT_EQ(dynamic_label->label_expression(), "nodeLabelCol");
+
+  EXPECT_TRUE(graph_node_table->HasDynamicProperties());
+  const GraphDynamicProperties* dynamic_properties = nullptr;
+  ZETASQL_EXPECT_OK(graph_node_table->GetDynamicProperties(dynamic_properties));
+  EXPECT_EQ(dynamic_properties->properties_expression(), "nodeJsonProp");
+
+  EXPECT_TRUE(graph_edge_table->HasDynamicLabel());
+  const GraphDynamicLabel* edge_dynamic_label = nullptr;
+  ZETASQL_EXPECT_OK(graph_edge_table->GetDynamicLabel(edge_dynamic_label));
+  EXPECT_EQ(edge_dynamic_label->label_expression(), "edgeLabelCol");
+
+  EXPECT_TRUE(graph_edge_table->HasDynamicProperties());
+  const GraphDynamicProperties* edge_dynamic_properties = nullptr;
+  ZETASQL_EXPECT_OK(graph_edge_table->GetDynamicProperties(edge_dynamic_properties));
+  EXPECT_EQ(edge_dynamic_properties->properties_expression(), "edgeJsonProp");
 }
 
 }  // namespace zetasql

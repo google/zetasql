@@ -1,6 +1,6 @@
 [default enabled_ast_rewrites=DEFAULTS]
 [default show_sqlbuilder_output]
-[default language_features=V_1_4_WITH_EXPRESSION]
+[default language_features=WITH_EXPRESSION]
 
 select WITH(a AS 2, b AS 3 * 4, a + b)
 --
@@ -747,7 +747,7 @@ FROM
      ) AS a_7;
 ==
 
-[language_features=ANALYTIC_FUNCTIONS,V_1_4_WITH_EXPRESSION]
+[language_features=ANALYTIC_FUNCTIONS,WITH_EXPRESSION]
 select WITH(k AS key, a AS afn_agg(k) over (), a * 2)
 from KeyValue;
 --
@@ -756,7 +756,7 @@ select WITH(k AS key, a AS afn_agg(k) over (), a * 2)
                                    ^
 ==
 
-[language_features=ANALYTIC_FUNCTIONS,V_1_4_WITH_EXPRESSION]
+[language_features=ANALYTIC_FUNCTIONS,WITH_EXPRESSION]
 select sum(WITH(s AS sum(key) over (), s * 2)) over ()
 from KeyValue;
 --
@@ -765,7 +765,7 @@ select sum(WITH(s AS sum(key) over (), s * 2)) over ()
        ^
 ==
 
-[language_features=V_1_4_WITH_EXPRESSION]
+[language_features=WITH_EXPRESSION]
 select sum(WITH(s AS sum(key), s * 2))
 from KeyValue;
 --
@@ -1358,7 +1358,7 @@ ERROR: Column 'sumk' is introduced by WITH. Columns introduced by WITH cannot be
                   ^
 ==
 
-[language_features=V_1_4_WITH_EXPRESSION,PIPES,V_1_4_MULTIWAY_UNNEST]
+[language_features=WITH_EXPRESSION,PIPES,MULTIWAY_UNNEST]
 SELECT
      [1, 2, 3] AS a_1
 |> SELECT

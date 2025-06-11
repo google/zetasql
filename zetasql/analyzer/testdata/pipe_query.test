@@ -216,7 +216,7 @@ QueryStmt
 
 # With a WITH query inside parentheses, the WITH alias
 # is not visible to the following pipe operator.
-[language_features=PIPES,V_1_1_WITH_ON_SUBQUERY]
+[language_features=PIPES,WITH_ON_SUBQUERY]
 (
   WITH q1 AS (select 1 x |> where x=1)
   select * from q1
@@ -1058,7 +1058,7 @@ QueryStmt
 # LIKE ANY with a subquery producuing one column plus pseudo-columns.
 # TODO LIKE ANY is not fully implemented yet.  This should
 # be producing LIKE_ANY/LIKE_ALL subqueries, not SCALAR subqueries.
-[language_features=PIPES,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_SUBQUERY]
+[language_features=PIPES,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
 [{{|no_}}prune_unused_columns]
 SELECT 'abc' LIKE ANY(FROM EnumTable
                       |> EXTEND 'a%' AS pattern

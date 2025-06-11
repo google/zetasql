@@ -87,7 +87,7 @@
 //   FunctionOptions function_options;
 //   function_options.set_evaluator(
 //       [](const absl::Span<const Value>& args) {
-//         // Returns string length as int64_t.
+//         // Returns string length as int64.
 //         ABSL_DCHECK_EQ(args.size(), 1);
 //         ABSL_DCHECK(args[0].type()->Equals(zetasql::types::StringType()));
 //         return Value::Int64(args[0].string_value().size());

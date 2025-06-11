@@ -47,7 +47,6 @@ public final class AnnotationMapTest {
 
     assertThat(annotationMap).isNotNull();
     assertThat(annotationMap.isStructMap()).isFalse();
-    assertThat(annotationMap.isArrayMap()).isFalse();
   }
 
   @Test
@@ -56,25 +55,22 @@ public final class AnnotationMapTest {
 
     assertThat(annotationMap).isNotNull();
     assertThat(annotationMap.isStructMap()).isTrue();
-    assertThat(annotationMap.isArrayMap()).isFalse();
 
     // STRUCT<a STRING, b ARRAY<STRUCT<a STRING, b INT64>>>
     annotationMap = AnnotationMap.create(NESTED_STRUCT_TYPE);
     assertThat(annotationMap).isNotNull();
     assertThat(annotationMap.isStructMap()).isTrue();
-    assertThat(annotationMap.isArrayMap()).isFalse();
 
-    assertThat(annotationMap.asStructMap().getField(1).isStructMap()).isFalse();
-    assertThat(annotationMap.asStructMap().getField(1).isArrayMap()).isTrue();
+    assertThat(annotationMap.asStructMap().getField(1).isStructMap()).isTrue();
 
-    assertThat(annotationMap.asStructMap().getField(1).asArrayMap().getElement().isStructMap())
+    assertThat(annotationMap.asStructMap().getField(1).asStructMap().getField(0).isStructMap())
         .isTrue();
     assertThat(
             annotationMap
                 .asStructMap()
                 .getField(1)
-                .asArrayMap()
-                .getElement()
+                .asStructMap()
+                .getField(0)
                 .asStructMap()
                 .getField(0)
                 .isStructMap())
@@ -83,11 +79,11 @@ public final class AnnotationMapTest {
             annotationMap
                 .asStructMap()
                 .getField(1)
-                .asArrayMap()
-                .getElement()
                 .asStructMap()
                 .getField(0)
-                .isArrayMap())
+                .asStructMap()
+                .getField(0)
+                .isStructMap())
         .isFalse();
   }
 
@@ -96,36 +92,34 @@ public final class AnnotationMapTest {
     AnnotationMap annotationMap = AnnotationMap.create(SIMPLE_ARRAY_TYPE);
 
     assertThat(annotationMap).isNotNull();
-    assertThat(annotationMap.isStructMap()).isFalse();
-    assertThat(annotationMap.isArrayMap()).isTrue();
-    assertThat(annotationMap.asArrayMap().getElement().isStructMap()).isFalse();
-    assertThat(annotationMap.asArrayMap().getElement().isArrayMap()).isFalse();
+    assertThat(annotationMap.isStructMap()).isTrue();
+    assertThat(annotationMap.asStructMap().getField(0).isStructMap()).isFalse();
+    assertThat(annotationMap.asStructMap().getField(0).isStructMap()).isFalse();
 
     // ARRAY<STRUCT<a STRING, b ARRAY<INT64>>>
     annotationMap = AnnotationMap.create(NESTED_ARRAY_TYPE);
-    assertThat(annotationMap.isStructMap()).isFalse();
-    assertThat(annotationMap.isArrayMap()).isTrue();
-    assertThat(annotationMap.asArrayMap().getElement().isStructMap()).isTrue();
-    assertThat(annotationMap.asArrayMap().getElement().asStructMap().getField(1).isArrayMap())
+    assertThat(annotationMap.isStructMap()).isTrue();
+    assertThat(annotationMap.asStructMap().getField(0).isStructMap()).isTrue();
+    assertThat(annotationMap.asStructMap().getField(0).asStructMap().getField(1).isStructMap())
         .isTrue();
     assertThat(
             annotationMap
-                .asArrayMap()
-                .getElement()
+                .asStructMap()
+                .getField(0)
                 .asStructMap()
                 .getField(1)
-                .asArrayMap()
-                .getElement()
-                .isArrayMap())
+                .asStructMap()
+                .getField(0)
+                .isStructMap())
         .isFalse();
     assertThat(
             annotationMap
-                .asArrayMap()
-                .getElement()
+                .asStructMap()
+                .getField(0)
                 .asStructMap()
                 .getField(1)
-                .asArrayMap()
-                .getElement()
+                .asStructMap()
+                .getField(0)
                 .isStructMap())
         .isFalse();
   }
@@ -224,20 +218,6 @@ public final class AnnotationMapTest {
   }
 
   @Test
-  public void isArrayMap_stringAnnotationMap_returnsFalse() {
-    AnnotationMap annotationMap = AnnotationMap.create(STRING_TYPE);
-
-    assertThat(annotationMap.isArrayMap()).isFalse();
-  }
-
-  @Test
-  public void asArrayMap_stringAnnotationMap_returnsNull() {
-    AnnotationMap annotationMap = AnnotationMap.create(STRING_TYPE);
-
-    assertThat(annotationMap.asArrayMap()).isNull();
-  }
-
-  @Test
   public void isEmpty_stringAnnotationMap() {
     AnnotationMap annotationMap = AnnotationMap.create(STRING_TYPE);
     assertThat(annotationMap.isEmpty()).isTrue();
@@ -283,14 +263,14 @@ public final class AnnotationMapTest {
   public void isEmpty_arrayAnnotationMap() {
     AnnotationMap annotationMap = AnnotationMap.create(SIMPLE_ARRAY_TYPE);
     assertThat(annotationMap.isEmpty()).isTrue();
-    assertThat(annotationMap.asArrayMap().getElement().isEmpty()).isTrue();
+    assertThat(annotationMap.asStructMap().getField(0).isEmpty()).isTrue();
 
     // Set annotation to element type
     annotationMap
-        .asArrayMap()
-        .getElement()
+        .asStructMap()
+        .getField(0)
         .setAnnotation(COLLATION_ANNOTATION_ID, TEST_SIMPLE_VALUE1);
-    assertThat(annotationMap.asArrayMap().getElement().isEmpty()).isFalse();
+    assertThat(annotationMap.asStructMap().getField(0).isEmpty()).isFalse();
     assertThat(annotationMap.isEmpty()).isFalse();
   }
 
@@ -301,13 +281,13 @@ public final class AnnotationMapTest {
 
     // Set annotation to element type
     annotationMap
-        .asArrayMap()
-        .getElement()
+        .asStructMap()
+        .getField(0)
         .setAnnotation(COLLATION_ANNOTATION_ID, TEST_SIMPLE_VALUE1);
     assertThat(annotationMap.isEmpty()).isFalse();
 
     // Set the element to null
-    annotationMap.asArrayMap().setElement(null);
+    annotationMap.asStructMap().setField(0, null);
 
     assertThat(annotationMap.isEmpty()).isTrue();
   }
@@ -322,8 +302,8 @@ public final class AnnotationMapTest {
     annotationMap
         .asStructMap()
         .getField(1) // ARRAY<STRUCT<a STRING, b INT64>>>
-        .asArrayMap()
-        .getElement() // STRUCT<a STRING, b INT64>>
+        .asStructMap()
+        .getField(0) // STRUCT<a STRING, b INT64>>
         .asStructMap()
         .getField(0) // String
         .setAnnotation(COLLATION_ANNOTATION_ID, TEST_SIMPLE_VALUE1);
@@ -444,22 +424,22 @@ public final class AnnotationMapTest {
 
     // Set annotations for the element
     annotationMap
-        .asArrayMap()
-        .getElement()
+        .asStructMap()
+        .getField(0)
         .setAnnotation(COLLATION_ANNOTATION_ID, TEST_SIMPLE_VALUE1);
     assertThat(annotationMap.equals(anotherAnnotationMap)).isFalse();
 
     anotherAnnotationMap
-        .asArrayMap()
-        .getElement()
+        .asStructMap()
+        .getField(0)
         .setAnnotation(COLLATION_ANNOTATION_ID, TEST_SIMPLE_VALUE1);
     assertThat(annotationMap.equals(anotherAnnotationMap)).isTrue();
 
     // Set different annotation to the subfield0
-    anotherAnnotationMap.asArrayMap().getElement().unsetAnnotation(COLLATION_ANNOTATION_ID);
+    anotherAnnotationMap.asStructMap().getField(0).unsetAnnotation(COLLATION_ANNOTATION_ID);
     anotherAnnotationMap
-        .asArrayMap()
-        .getElement()
+        .asStructMap()
+        .getField(0)
         .setAnnotation(SAMPLE_ANNOTATION_ID, TEST_SIMPLE_VALUE2);
     assertThat(annotationMap.equals(anotherAnnotationMap)).isFalse();
   }
@@ -469,10 +449,10 @@ public final class AnnotationMapTest {
     AnnotationMap annotationMap = AnnotationMap.create(SIMPLE_ARRAY_TYPE);
     AnnotationMap anotherAnnotationMap = AnnotationMap.create(SIMPLE_ARRAY_TYPE);
 
-    annotationMap.asArrayMap().setElement(null);
+    annotationMap.asStructMap().setField(0, null);
     assertThat(annotationMap.equals(anotherAnnotationMap)).isTrue();
 
-    anotherAnnotationMap.asArrayMap().setElement(null);
+    anotherAnnotationMap.asStructMap().setField(0, null);
     assertThat(annotationMap.equals(anotherAnnotationMap)).isTrue();
   }
 
@@ -487,7 +467,7 @@ public final class AnnotationMapTest {
     annotationMap
         .asStructMap()
         .getField(1) // ARRAY<STRUCT<a STRING, b INT64>>>
-        .asArrayMap()
+        .asStructMap()
         .setAnnotation(COLLATION_ANNOTATION_ID, TEST_SIMPLE_VALUE1);
     assertThat(annotationMap.equals(anotherAnnotationMap)).isFalse();
 
@@ -495,8 +475,8 @@ public final class AnnotationMapTest {
     annotationMap
         .asStructMap()
         .getField(1) // ARRAY<STRUCT<a STRING, b INT64>>>
-        .asArrayMap()
-        .getElement() // STRUCT<a STRING, b INT64>>
+        .asStructMap()
+        .getField(0) // STRUCT<a STRING, b INT64>>
         .asStructMap()
         .getField(0) // String
         .setAnnotation(SAMPLE_ANNOTATION_ID, TEST_SIMPLE_VALUE2);
@@ -506,13 +486,13 @@ public final class AnnotationMapTest {
     anotherAnnotationMap
         .asStructMap()
         .getField(1) // ARRAY<STRUCT<a STRING, b INT64>>>
-        .asArrayMap()
+        .asStructMap()
         .setAnnotation(COLLATION_ANNOTATION_ID, TEST_SIMPLE_VALUE1);
     anotherAnnotationMap
         .asStructMap()
         .getField(1) // ARRAY<STRUCT<a STRING, b INT64>>>
-        .asArrayMap()
-        .getElement() // STRUCT<a STRING, b INT64>>
+        .asStructMap()
+        .getField(0) // STRUCT<a STRING, b INT64>>
         .asStructMap()
         .getField(0) // String
         .setAnnotation(SAMPLE_ANNOTATION_ID, TEST_SIMPLE_VALUE2);
@@ -556,15 +536,15 @@ public final class AnnotationMapTest {
     AnnotationMap anotherAnnotationMap = AnnotationMap.create(SIMPLE_ARRAY_TYPE);
 
     annotationMap.setAnnotation(COLLATION_ANNOTATION_ID, TEST_SIMPLE_VALUE1);
-    annotationMap.asArrayMap().getElement().setAnnotation(SAMPLE_ANNOTATION_ID, TEST_SIMPLE_VALUE2);
+    annotationMap.asStructMap().getField(0).setAnnotation(SAMPLE_ANNOTATION_ID, TEST_SIMPLE_VALUE2);
     assertThat(annotationMap.hashCode()).isNotEqualTo(anotherAnnotationMap.hashCode());
 
     anotherAnnotationMap.setAnnotation(COLLATION_ANNOTATION_ID, TEST_SIMPLE_VALUE1);
     assertThat(annotationMap.hashCode()).isNotEqualTo(anotherAnnotationMap.hashCode());
 
     anotherAnnotationMap
-        .asArrayMap()
-        .getElement()
+        .asStructMap()
+        .getField(0)
         .setAnnotation(SAMPLE_ANNOTATION_ID, TEST_SIMPLE_VALUE2);
     assertThat(annotationMap.hashCode()).isEqualTo(anotherAnnotationMap.hashCode());
   }
@@ -603,8 +583,8 @@ public final class AnnotationMapTest {
     nestedAnnotationMap
         .asStructMap()
         .getField(1)
-        .asArrayMap()
-        .getElement()
+        .asStructMap()
+        .getField(0)
         .setAnnotation(COLLATION_ANNOTATION_ID, TEST_SIMPLE_VALUE1);
     assertThat(nestedAnnotationMap.has(COLLATION_ANNOTATION_ID)).isTrue();
     assertThat(nestedAnnotationMap.has(SAMPLE_ANNOTATION_ID)).isFalse();
@@ -612,8 +592,8 @@ public final class AnnotationMapTest {
     nestedAnnotationMap
         .asStructMap()
         .getField(1)
-        .asArrayMap()
-        .getElement()
+        .asStructMap()
+        .getField(0)
         .asStructMap()
         .getField(0)
         .setAnnotation(SAMPLE_ANNOTATION_ID, TEST_SIMPLE_VALUE2);
@@ -627,8 +607,8 @@ public final class AnnotationMapTest {
     assertThat(annotationMap.has(COLLATION_ANNOTATION_ID)).isFalse();
 
     annotationMap
-        .asArrayMap()
-        .getElement()
+        .asStructMap()
+        .getField(0)
         .setAnnotation(COLLATION_ANNOTATION_ID, TEST_SIMPLE_VALUE1);
     assertThat(annotationMap.has(COLLATION_ANNOTATION_ID)).isTrue();
     assertThat(annotationMap.has(SAMPLE_ANNOTATION_ID)).isFalse();
@@ -639,8 +619,8 @@ public final class AnnotationMapTest {
     assertThat(nestedAnnotationMap.has(SAMPLE_ANNOTATION_ID)).isFalse();
 
     nestedAnnotationMap
-        .asArrayMap()
-        .getElement() // STRUCT<a STRING, b ARRAY<INT64>>
+        .asStructMap()
+        .getField(0) // STRUCT<a STRING, b ARRAY<INT64>>
         .asStructMap()
         .getField(0) // STRING
         .setAnnotation(COLLATION_ANNOTATION_ID, TEST_SIMPLE_VALUE1);
@@ -648,11 +628,11 @@ public final class AnnotationMapTest {
     assertThat(nestedAnnotationMap.has(SAMPLE_ANNOTATION_ID)).isFalse();
 
     nestedAnnotationMap
-        .asArrayMap()
-        .getElement() // STRUCT<a STRING, b ARRAY<INT64>>
+        .asStructMap()
+        .getField(0) // STRUCT<a STRING, b ARRAY<INT64>>
         .asStructMap()
         .getField(1) // ARRAY<INT64>
-        .asArrayMap()
+        .asStructMap()
         .setAnnotation(SAMPLE_ANNOTATION_ID, TEST_SIMPLE_VALUE2);
     assertThat(nestedAnnotationMap.has(COLLATION_ANNOTATION_ID)).isTrue();
     assertThat(nestedAnnotationMap.has(SAMPLE_ANNOTATION_ID)).isTrue();
@@ -764,8 +744,8 @@ public final class AnnotationMapTest {
     nestedAnnotationMap
         .asStructMap()
         .getField(1)
-        .asArrayMap()
-        .getElement()
+        .asStructMap()
+        .getField(0)
         .setAnnotation(SAMPLE_ANNOTATION_ID, TEST_SIMPLE_VALUE2);
     assertThat(
             nestedAnnotationMap.hasEqualAnnotations(
@@ -780,8 +760,8 @@ public final class AnnotationMapTest {
     anotherNestedAnnotationMap
         .asStructMap()
         .getField(1)
-        .asArrayMap()
-        .getElement()
+        .asStructMap()
+        .getField(0)
         .setAnnotation(SAMPLE_ANNOTATION_ID, TEST_SIMPLE_VALUE1);
     assertThat(
             nestedAnnotationMap.hasEqualAnnotations(
@@ -792,8 +772,8 @@ public final class AnnotationMapTest {
     anotherNestedAnnotationMap
         .asStructMap()
         .getField(1)
-        .asArrayMap()
-        .getElement()
+        .asStructMap()
+        .getField(0)
         .setAnnotation(SAMPLE_ANNOTATION_ID, TEST_SIMPLE_VALUE2);
     // Add another unrelated annotation
     anotherNestedAnnotationMap
@@ -824,14 +804,14 @@ public final class AnnotationMapTest {
     // Set annotation for the top-level and nested element
     annotationMap.setAnnotation(COLLATION_ANNOTATION_ID, TEST_SIMPLE_VALUE1);
     annotationMap
-        .asArrayMap()
-        .getElement()
+        .asStructMap()
+        .getField(0)
         .setAnnotation(COLLATION_ANNOTATION_ID, TEST_SIMPLE_VALUE1);
 
     // Set annotation for the nest element only
     anotherAnnotationMap
-        .asArrayMap()
-        .getElement()
+        .asStructMap()
+        .getField(0)
         .setAnnotation(COLLATION_ANNOTATION_ID, TEST_SIMPLE_VALUE1);
     // The annotation value doesn't exist
     assertThat(annotationMap.hasEqualAnnotations(anotherAnnotationMap, COLLATION_ANNOTATION_ID))
@@ -861,8 +841,8 @@ public final class AnnotationMapTest {
 
     // Set annotation for one sub-field
     nestedAnnotationMap
-        .asArrayMap()
-        .getElement()
+        .asStructMap()
+        .getField(0)
         .setAnnotation(SAMPLE_ANNOTATION_ID, TEST_SIMPLE_VALUE2);
     assertThat(
             nestedAnnotationMap.hasEqualAnnotations(
@@ -875,8 +855,8 @@ public final class AnnotationMapTest {
 
     // Set a different annotation value to sub-fields
     anotherNestedAnnotationMap
-        .asArrayMap()
-        .getElement()
+        .asStructMap()
+        .getField(0)
         .setAnnotation(SAMPLE_ANNOTATION_ID, TEST_SIMPLE_VALUE1);
     assertThat(
             nestedAnnotationMap.hasEqualAnnotations(
@@ -885,8 +865,8 @@ public final class AnnotationMapTest {
 
     // Set the correct annotation value
     anotherNestedAnnotationMap
-        .asArrayMap()
-        .getElement()
+        .asStructMap()
+        .getField(0)
         .setAnnotation(SAMPLE_ANNOTATION_ID, TEST_SIMPLE_VALUE2);
     assertThat(
             nestedAnnotationMap.hasEqualAnnotations(
@@ -895,8 +875,8 @@ public final class AnnotationMapTest {
 
     // Add another unrelated annotation
     anotherNestedAnnotationMap
-        .asArrayMap()
-        .getElement()
+        .asStructMap()
+        .getField(0)
         .asStructMap()
         .getField(0)
         .setAnnotation(COLLATION_ANNOTATION_ID, TEST_SIMPLE_VALUE1);
@@ -967,21 +947,21 @@ public final class AnnotationMapTest {
     assertThat(annotationMap.debugString())
         .isEqualTo(
             "{Collation:\"TestAnnotation1 value\"}<{SampleAnnotation:\"TestAnnotation2"
-                + " value\"},[{Collation:\"TestAnnotation1 value\"}<{},{}>]>");
+                + " value\"},<{Collation:\"TestAnnotation1 value\"}<{},{}>>>");
     assertThat(annotationMap.debugString(COLLATION_ANNOTATION_ID))
-        .isEqualTo("\"TestAnnotation1 value\"<,[\"TestAnnotation1 value\"<,>]>");
+        .isEqualTo("\"TestAnnotation1 value\"<,<\"TestAnnotation1 value\"<,>>>");
     assertThat(annotationMap.debugString(SAMPLE_ANNOTATION_ID))
-        .isEqualTo("<\"TestAnnotation2 value\",[<,>]>");
+        .isEqualTo("<\"TestAnnotation2 value\",<<,>>>");
 
     annotationMap.normalize();
     assertThat(annotationMap.debugString())
         .isEqualTo(
             "{Collation:\"TestAnnotation1 value\"}<{SampleAnnotation:\"TestAnnotation2"
-                + " value\"},[{Collation:\"TestAnnotation1 value\"}<_,_>]>");
+                + " value\"},<{Collation:\"TestAnnotation1 value\"}<_,_>>>");
     assertThat(annotationMap.debugString(COLLATION_ANNOTATION_ID))
-        .isEqualTo("\"TestAnnotation1 value\"<,[\"TestAnnotation1 value\"<_,_>]>");
+        .isEqualTo("\"TestAnnotation1 value\"<,<\"TestAnnotation1 value\"<_,_>>>");
     assertThat(annotationMap.debugString(SAMPLE_ANNOTATION_ID))
-        .isEqualTo("<\"TestAnnotation2 value\",[<_,_>]>");
+        .isEqualTo("<\"TestAnnotation2 value\",<<_,_>>>");
   }
 
   @Test
@@ -990,11 +970,11 @@ public final class AnnotationMapTest {
 
     assertThat(annotationMap.debugString())
         .isEqualTo(
-            "{Collation:\"TestAnnotation1 value\"}[{SampleAnnotation:\"TestAnnotation2 value\"}]");
+            "{Collation:\"TestAnnotation1 value\"}<{SampleAnnotation:\"TestAnnotation2 value\"}>");
     assertThat(annotationMap.debugString(COLLATION_ANNOTATION_ID))
-        .isEqualTo("\"TestAnnotation1 value\"[]");
+        .isEqualTo("\"TestAnnotation1 value\"<>");
     assertThat(annotationMap.debugString(SAMPLE_ANNOTATION_ID))
-        .isEqualTo("[\"TestAnnotation2 value\"]");
+        .isEqualTo("<\"TestAnnotation2 value\">");
   }
 
   @Test
@@ -1004,23 +984,23 @@ public final class AnnotationMapTest {
 
     assertThat(annotationMap.debugString())
         .isEqualTo(
-            "{Collation:\"TestAnnotation1 value\"}[<{SampleAnnotation:\"TestAnnotation2"
-                + " value\"},{Collation:\"TestAnnotation1 value\"}[{}]>]");
+            "{Collation:\"TestAnnotation1 value\"}<<{SampleAnnotation:\"TestAnnotation2"
+                + " value\"},{Collation:\"TestAnnotation1 value\"}<{}>>>");
     assertThat(annotationMap.debugString(COLLATION_ANNOTATION_ID))
-        .isEqualTo("\"TestAnnotation1 value\"[<,\"TestAnnotation1 value\"[]>]");
+        .isEqualTo("\"TestAnnotation1 value\"<<,\"TestAnnotation1 value\"<>>>");
     assertThat(annotationMap.debugString(SAMPLE_ANNOTATION_ID))
-        .isEqualTo("[<\"TestAnnotation2 value\",[]>]");
+        .isEqualTo("<<\"TestAnnotation2 value\",<>>>");
 
     annotationMap.normalize();
 
     assertThat(annotationMap.debugString())
         .isEqualTo(
-            "{Collation:\"TestAnnotation1 value\"}[<{SampleAnnotation:\"TestAnnotation2"
-                + " value\"},{Collation:\"TestAnnotation1 value\"}[_]>]");
+            "{Collation:\"TestAnnotation1 value\"}<<{SampleAnnotation:\"TestAnnotation2"
+                + " value\"},{Collation:\"TestAnnotation1 value\"}<_>>>");
     assertThat(annotationMap.debugString(COLLATION_ANNOTATION_ID))
-        .isEqualTo("\"TestAnnotation1 value\"[<,\"TestAnnotation1 value\"[_]>]");
+        .isEqualTo("\"TestAnnotation1 value\"<<,\"TestAnnotation1 value\"<_>>>");
     assertThat(annotationMap.debugString(SAMPLE_ANNOTATION_ID))
-        .isEqualTo("[<\"TestAnnotation2 value\",[_]>]");
+        .isEqualTo("<<\"TestAnnotation2 value\",<_>>>");
   }
 
   @Test
@@ -1306,9 +1286,9 @@ public final class AnnotationMapTest {
 
     assertThat(emptyAnnotationMap.debugString()).isEmpty();
     // STRUCT<a STRING, b ARRAY<STRUCT<a STRING, b INT64>>>
-    assertThat(nestedEmptyStructAnnotationMap.debugString()).isEqualTo("<{},[<{},{}>]>");
+    assertThat(nestedEmptyStructAnnotationMap.debugString()).isEqualTo("<{},<<{},{}>>>");
     // ARRAY<STRUCT<a STRING, b ARRAY<INT64>>>
-    assertThat(nestedEmptyArrayAnnotationMap.debugString()).isEqualTo("[<{},[{}]>]");
+    assertThat(nestedEmptyArrayAnnotationMap.debugString()).isEqualTo("<<{},<{}>>>");
 
     emptyAnnotationMap.normalize();
     nestedEmptyStructAnnotationMap.normalize();
@@ -1316,7 +1296,7 @@ public final class AnnotationMapTest {
 
     assertThat(emptyAnnotationMap.debugString()).isEmpty();
     assertThat(nestedEmptyStructAnnotationMap.debugString()).isEqualTo("<_,_>");
-    assertThat(nestedEmptyArrayAnnotationMap.debugString()).isEqualTo("[_]");
+    assertThat(nestedEmptyArrayAnnotationMap.debugString()).isEqualTo("<_>");
     assertThat(emptyAnnotationMap.isNormailized()).isTrue();
     assertThat(nestedEmptyStructAnnotationMap.isNormailized()).isTrue();
     assertThat(nestedEmptyArrayAnnotationMap.isNormailized()).isTrue();
@@ -1344,7 +1324,7 @@ public final class AnnotationMapTest {
     assertThat(nestedStructAnnotationMap.debugString())
         .isEqualTo(
             "{Collation:\"TestAnnotation1 value\"}<{SampleAnnotation:\"TestAnnotation2"
-                + " value\"},[{Collation:\"TestAnnotation1 value\"}<_,_>]>");
+                + " value\"},<{Collation:\"TestAnnotation1 value\"}<_,_>>>");
   }
 
   @Test
@@ -1364,11 +1344,11 @@ public final class AnnotationMapTest {
     assertThat(simpleArrayAnnotationMap.isNormailized()).isTrue();
     assertThat(simpleArrayAnnotationMap.debugString())
         .isEqualTo(
-            "{Collation:\"TestAnnotation1 value\"}[{SampleAnnotation:\"TestAnnotation2 value\"}]");
+            "{Collation:\"TestAnnotation1 value\"}<{SampleAnnotation:\"TestAnnotation2 value\"}>");
     assertThat(nestedArrayAnnotationMap.debugString())
         .isEqualTo(
-            "{Collation:\"TestAnnotation1 value\"}[<{SampleAnnotation:\"TestAnnotation2"
-                + " value\"},{Collation:\"TestAnnotation1 value\"}[_]>]");
+            "{Collation:\"TestAnnotation1 value\"}<<{SampleAnnotation:\"TestAnnotation2"
+                + " value\"},{Collation:\"TestAnnotation1 value\"}<_>>>");
   }
 
   @Test
@@ -1378,12 +1358,12 @@ public final class AnnotationMapTest {
     nestedStructAnnotationMap.normalize();
     nestedArrayAnnotationMap.normalize();
 
-    // There are null nested annotation map now, normailize again
+    // There are null nested annotation map now, normalize again
     nestedStructAnnotationMap.normalize();
     nestedArrayAnnotationMap.normalize();
 
     assertThat(nestedStructAnnotationMap.debugString()).isEqualTo("<_,_>");
-    assertThat(nestedArrayAnnotationMap.debugString()).isEqualTo("[_]");
+    assertThat(nestedArrayAnnotationMap.debugString()).isEqualTo("<_>");
   }
 
   @Test

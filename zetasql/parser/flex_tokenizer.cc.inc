@@ -20,13 +20,13 @@
 // to call from the various rules.
 
 #include "zetasql/parser/flex_tokenizer.h"  
-#include "zetasql/parser/token_codes.h"
+#include "zetasql/parser/tm_token.h"
 #include "zetasql/public/parse_location.h"  
 #include "absl/strings/escaping.h"        
 #include "absl/strings/str_format.h"      
 #include "absl/strings/string_view.h"     
 
-using Tokens = zetasql::parser::TokenKinds;
+using Tokens = zetasql::parser::Token;
 
 #undef YY_DECL
 #define YY_DECL                                                        \

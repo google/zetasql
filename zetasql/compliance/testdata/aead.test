@@ -377,7 +377,7 @@ ARRAY<STRUCT<BOOL>>[{true}]
 ==
 
 # Various error cases with the SAFE version of the functions.
-[required_features=ENCRYPTION,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=ENCRYPTION,SAFE_FUNCTION_CALL]
 [name=safe_decrypt_string_functions]
 SELECT
   -- Bad keyset
@@ -410,7 +410,7 @@ ARRAY<STRUCT<STRING, STRING, STRING>>[known order:
 ==
 
 # Various error cases with the SAFE version of the functions.
-[required_features=ENCRYPTION,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=ENCRYPTION,SAFE_FUNCTION_CALL]
 [name=safe_functions]
 SELECT
   -- Bad keyset
@@ -591,7 +591,7 @@ ARRAY<STRUCT<BOOL>>[{true}]
 ==
 
 # Various error cases with the SAFE version of the functions.
-[required_features=ENCRYPTION,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=ENCRYPTION,SAFE_FUNCTION_CALL]
 [name=deterministic_safe_functions]
 SELECT
   -- Bad keyset

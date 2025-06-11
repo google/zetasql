@@ -479,7 +479,8 @@ absl::Status StatementEvaluatorImpl::StatementEvaluation::ProcessDdlStatement(
   if (statement->node_kind() == RESOLVED_CREATE_FUNCTION_STMT) {
     const ResolvedCreateFunctionStmt* stmt =
         statement->GetAs<ResolvedCreateFunctionStmt>();
-    ZETASQL_ASSIGN_OR_RETURN(auto function, MakeFunctionFromCreateFunction(*stmt));
+    ZETASQL_ASSIGN_OR_RETURN(auto function, MakeFunctionFromCreateFunction(
+                                        *stmt, /*function_options=*/nullptr));
 
     std::string function_name = function->Name();
     if (!evaluator()->catalog_for_temp_objects()->AddOwnedFunctionIfNotPresent(
@@ -732,7 +733,7 @@ StatementEvaluatorImpl::ExecuteQueryWithResult(const ScriptExecutor& executor,
 
   return std::make_unique<EvaluatorTableIteratorWrapper>(
       evaluation.get_prepared_query(), evaluation.get_table_iterator(),
-      segment.node()->GetParseLocationRange().start());
+      segment.node()->location().start());
 }
 
 absl::Status StatementEvaluatorImpl::SerializeIterator(
@@ -824,12 +825,10 @@ absl::StatusOr<int> StatementEvaluatorImpl::EvaluateCaseExpression(
     std::pair<int, int> line_and_column;
     ErrorLocation location;
     ParseLocationTranslator translator(executor.GetScriptText());
-    ZETASQL_ASSIGN_OR_RETURN(line_and_column,
-                     translator.GetLineAndColumnAfterTabExpansion(
-                         executor.GetCurrentNode()
-                             ->ast_node()
-                             ->GetParseLocationRange()
-                             .start()));
+    ZETASQL_ASSIGN_OR_RETURN(
+        line_and_column,
+        translator.GetLineAndColumnAfterTabExpansion(
+            executor.GetCurrentNode()->ast_node()->location().start()));
     if (internal::HasPayloadWithType<ErrorLocation>(status)) {
       location = internal::GetPayload<ErrorLocation>(status);
       auto it = std::upper_bound(offsets.begin(), offsets.end(),

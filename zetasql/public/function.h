@@ -412,6 +412,14 @@ struct FunctionOptions {
     return *this;
   }
 
+  FunctionOptions& set_module_name_from_import(
+      absl::Span<const std::string> module_name_from_import_span) {
+    module_name_from_import =
+        std::vector<std::string>(module_name_from_import_span.begin(),
+                                 module_name_from_import_span.end());
+    return *this;
+  }
+
   // Add a LanguageFeature that must be enabled for this function to be enabled.
   // This is used only on built-in functions, and determines whether they will
   // be loaded in GetBuiltinFunctionsAndTypes.
@@ -596,7 +604,7 @@ struct FunctionOptions {
   //  1. IF(a, b(), c()) ensures that either b() or c() is evaluated, not both.
   //  2. ISERROR(f(x)) absorbs computation errors from f(x).
   //
-  // When FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION is enabled, functions
+  // When FEATURE_ENFORCE_CONDITIONAL_EVALUATION is enabled, functions
   // with this bit on handle deferred side effects and may suppress them.
   // The resolver wraps each argument that has potentially suppressed side
   // effects (e.g. an aggregation computed on a different scan) into an
@@ -612,7 +620,7 @@ struct FunctionOptions {
   //                side_effect_column: $err1 (payload representing any deferred
   //                                           error)
   //
-  // Note that if the FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION if off, or
+  // Note that if the FEATURE_ENFORCE_CONDITIONAL_EVALUATION if off, or
   // the computation does not need to be split across scans (i.e., does not get
   // refactored out and referenced as a ColumnRef, such as when there are no
   // aggregations involved), resolution proceeds normally without any side-
@@ -626,6 +634,10 @@ struct FunctionOptions {
   // only relevant for aggregate functions and window functions.
   FunctionEnums::DefaultNullHandling default_null_handling =
       FunctionEnums::DEFAULT_NULL_HANDLING_UNSPECIFIED;
+
+  // The module name path of corresponding the IMPORT MODULE statement. Empty if
+  // the function is not from a module.
+  std::vector<std::string> module_name_from_import;
   // Copyable.
 };
 
@@ -824,8 +836,22 @@ class Function {
 
   // Returns SQL to perform a function call with the given SQL arguments,
   // using given FunctionSignature if provided.
+  //
+  // `arguments_prefix` is a prefix on the arguments list, like "DISTINCT".
+  // `arguments_suffix` is a suffix on the arguments list, like "IGNORE NULLS".
+  //
+  // Generate a SAFE call if `safe_call` is true.  This won't work correctly
+  // for functions that don't accept SAFE calls.
+  //
+  // Use chained call syntax if `chained_call` is true and the function
+  // signature supports that syntax (e.g. it has a positional first argument).
+  // The caller should only set `chained_call` when the first argument is
+  // an expression string, without an alias or other modifiers.
   std::string GetSQL(std::vector<std::string> inputs,
-                     const FunctionSignature* signature = nullptr) const;
+                     const FunctionSignature* signature = nullptr,
+                     absl::string_view arguments_prefix = "",
+                     absl::string_view arguments_suffix = "",
+                     bool safe_call = false, bool chained_call = false) const;
 
   // Returns Status indicating whether or not any specified constraints were
   // violated. If <constraints_callback> is NULL returns OK.

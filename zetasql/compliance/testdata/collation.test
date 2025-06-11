@@ -1,4 +1,4 @@
-[default required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[default required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 
 [prepare_database]
 CREATE TABLE StringTable(
@@ -421,7 +421,7 @@ ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[unknown order:
 ==
 
 [name=comparison_with_column_collation_ci_is_distinct_from]
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_IS_DISTINCT]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,IS_DISTINCT]
 select primary_key, col_ci from StringTable WHERE col_ci is distinct from 'hello'
 --
 ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[unknown order:
@@ -442,7 +442,7 @@ ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[unknown order:
 ==
 
 [name=comparison_with_column_collation_binary_is_distinct_from]
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_IS_DISTINCT]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,IS_DISTINCT]
 select primary_key, col_binary from StringTable WHERE col_binary is distinct from 'a'
 --
 ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[unknown order:
@@ -460,7 +460,7 @@ ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[unknown order:
 ==
 
 [name=comparison_with_column_collation_ci_is_not_distinct_from]
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_IS_DISTINCT]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,IS_DISTINCT]
 select primary_key, col_ci from StringTable WHERE col_ci is not distinct from 'hello'
 --
 ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[unknown order:
@@ -472,7 +472,7 @@ ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[unknown order:
 ==
 
 [name=comparison_with_column_collation_binary_is_not_distinct_from]
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_IS_DISTINCT]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,IS_DISTINCT]
 select primary_key, col_binary from StringTable WHERE col_binary is not distinct from 'a'
 --
 ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[unknown order:
@@ -602,7 +602,7 @@ ARRAY<STRUCT<INT64, INT64, INT64>>[{NULL, 3, 0}]
 ==
 
 [name=instr_with_collation_ci]
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ADDITIONAL_STRING_FUNCTIONS]
 select
   instr(collate(NULL, 'und:ci'), 'ABC'),
   instr(collate('..abc,.,', 'und:ci'), 'ABC'),
@@ -618,7 +618,7 @@ ARRAY<STRUCT<INT64, INT64, INT64, INT64, INT64, INT64, INT64>>[
 ==
 
 [name=instr_with_collation_binary]
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ADDITIONAL_STRING_FUNCTIONS]
 select
   instr(collate(NULL, 'binary'), 'ABC'),
   instr(collate('..abc,.,', 'binary'), 'abc'),
@@ -763,7 +763,7 @@ select array_length(array_agg(distinct collate(col, 'und:ci'))) from TestTable
 ARRAY<STRUCT<INT64>>[{2}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ORDER_BY_IN_AGGREGATE]
 [name=string_agg_with_sort_key_with_collation_ci]
 with TestTable as (
 select 'a' col union all
@@ -778,7 +778,7 @@ from TestTable
 ARRAY<STRUCT<STRING>>[{"a,B,C,d,e"}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ORDER_BY_IN_AGGREGATE]
 [name=string_agg_with_sort_key_with_collation_binary]
 with TestTable as (
 select 'a' col union all
@@ -1281,7 +1281,7 @@ SELECT 'ZetaSQL' = ARRAY_LAST([collate("hello", "und:ci"), collate("zetasql", "u
 ARRAY<STRUCT<BOOL>>[{true}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 [forbidden_features=DISABLE_ARRAY_MIN_AND_MAX]
 [name=array_min_collation_ci_string_1]
 SELECT ARRAY_MIN([collate("c", "und:ci"), collate("a", "und:ci"), collate("A", "und:ci")])
@@ -1289,7 +1289,7 @@ SELECT ARRAY_MIN([collate("c", "und:ci"), collate("a", "und:ci"), collate("A", "
 ARRAY<STRUCT<STRING>>[{"a"}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 [forbidden_features=DISABLE_ARRAY_MIN_AND_MAX]
 [name=array_min_collation_ci_string_2]
 SELECT ARRAY_MIN([collate("c", "und:ci"), collate("A", "und:ci"), collate("a", "und:ci")])
@@ -1297,7 +1297,7 @@ SELECT ARRAY_MIN([collate("c", "und:ci"), collate("A", "und:ci"), collate("a", "
 ARRAY<STRUCT<STRING>>[{"A"}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 [forbidden_features=DISABLE_ARRAY_MIN_AND_MAX]
 [name=array_max_collation_ci_string_1]
 SELECT ARRAY_MAX([collate("C", "und:ci"), collate("c", "und:ci"), collate("a", "und:ci")])
@@ -1305,7 +1305,7 @@ SELECT ARRAY_MAX([collate("C", "und:ci"), collate("c", "und:ci"), collate("a", "
 ARRAY<STRUCT<STRING>>[{"C"}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 [forbidden_features=DISABLE_ARRAY_MIN_AND_MAX]
 [name=array_max_collation_ci_string_2]
 SELECT ARRAY_MAX([collate("c", "und:ci"), collate("C", "und:ci"), collate("a", "und:ci")])
@@ -1313,91 +1313,91 @@ SELECT ARRAY_MAX([collate("c", "und:ci"), collate("C", "und:ci"), collate("a", "
 ARRAY<STRUCT<STRING>>[{"c"}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_FIND_FUNCTIONS]
 [name=array_offset_collation_ci_string_1]
 SELECT ARRAY_OFFSET([collate("a", "und:ci"), collate("c", "und:ci"), collate("C", "und:ci")], "C")
 --
 ARRAY<STRUCT<INT64>>[{1}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_FIND_FUNCTIONS]
 [name=array_offset_collation_ci_string_2]
 SELECT ARRAY_OFFSET(["a", "c", "C"], collate("C", "und:ci"))
 --
 ARRAY<STRUCT<INT64>>[{1}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_FIND_FUNCTIONS]
 [name=array_offset_collation_ci_string_3]
 SELECT ARRAY_OFFSET(["a", "c", "C"], collate("C", "und:ci"), "LAST")
 --
 ARRAY<STRUCT<INT64>>[{2}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_FIND_FUNCTIONS]
 [name=array_find_collation_ci_string_1]
 SELECT ARRAY_FIND([collate("a", "und:ci"), collate("c", "und:ci"), collate("C", "und:ci")], "C")
 --
 ARRAY<STRUCT<STRING>>[{"c"}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_FIND_FUNCTIONS]
 [name=array_find_collation_ci_string_2]
 SELECT ARRAY_FIND(["a", "c", "C"], collate("C", "und:ci"))
 --
 ARRAY<STRUCT<STRING>>[{"c"}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_FIND_FUNCTIONS]
 [name=array_find_collation_ci_string_3]
 SELECT ARRAY_FIND(["a", "c", "C"], collate("C", "und:ci"), "LAST")
 --
 ARRAY<STRUCT<STRING>>[{"C"}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_FIND_FUNCTIONS]
 [name=array_offsets_collation_ci_string_1]
 SELECT ARRAY_OFFSETS([collate("a", "und:ci"), collate("c", "und:ci"), collate("C", "und:ci")], "C")
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:1, 2]}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_FIND_FUNCTIONS]
 [name=array_offsets_collation_ci_string_2]
 SELECT ARRAY_OFFSETS(["c", "a", "C"], collate("C", "und:ci"))
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:0, 2]}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_FIND_FUNCTIONS]
 [name=array_offsets_collation_ci_string_null_1]
 SELECT ARRAY_OFFSETS(["c", NULL, "C"], collate("C", "und:ci"))
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:0, 2]}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_FIND_FUNCTIONS]
 [name=array_offsets_collation_ci_string_null_2]
 SELECT ARRAY_OFFSETS([collate("a", "und:ci"), NULL, collate("C", "und:ci")], "C")
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[2]}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_FIND_FUNCTIONS]
 [name=array_find_all_collation_ci_string_1]
 SELECT ARRAY_FIND_ALL([collate("a", "und:ci"), collate("c", "und:ci"), collate("C", "und:ci")], "C")
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[known order:"c", "C"]}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_FIND_FUNCTIONS]
 [name=array_find_all_collation_ci_string_2]
 SELECT ARRAY_FIND_ALL(["c", "a", "C"], collate("C", "und:ci"))
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[known order:"c", "C"]}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
 [name=analytic_function_count_distinct_with_collation_ci]
 with TestTable as (
 select 'a' col union all
@@ -1411,7 +1411,7 @@ order by col
 ARRAY<STRUCT<INT64>>[known order:{2}, {2}, {2}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
 [name=analytic_function_count_distinct_with_collation_binary]
 with TestTable as (
 select 'a' col union all
@@ -1423,7 +1423,7 @@ select count(distinct collate(col, 'binary')) over () from TestTable
 ARRAY<STRUCT<INT64>>[unknown order:{3}, {3}, {3}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
 [name=analytic_function_min_max_with_collation_ci]
 with TestTable as (
 select 'A' col union all
@@ -1442,7 +1442,7 @@ ARRAY<STRUCT<STRING, STRING>>[unknown order:
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
 [name=analytic_function_min_max_with_collation_binary]
 with TestTable as (
 select 'A' col union all
@@ -1461,7 +1461,7 @@ ARRAY<STRUCT<STRING, STRING>>[unknown order:
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
 [name=analytic_function_min_max_with_collation_empty]
 with TestTable as (
 select 'A' col union all
@@ -1480,7 +1480,7 @@ ARRAY<STRUCT<STRING, STRING>>[unknown order:
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
 [name=analytic_function_partition_by_with_collation_ci]
 with TestTable as (
 select 'abc' col_str, 1 as col union all
@@ -1599,7 +1599,7 @@ ARRAY<STRUCT<
 NOTE: Reference implementation reports non-determinism.
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
 [name=analytic_function_partition_by_with_collation_binary]
 with TestTable as (
 select 'abc' col_str, 1 as col union all
@@ -1688,7 +1688,7 @@ ARRAY<STRUCT<
 NOTE: Reference implementation reports non-determinism.
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
 [name=analytic_function_order_by_with_collation_ci]
 with TestTable as (
 select 'ab' col_str, 1 as col union all
@@ -1781,7 +1781,7 @@ ARRAY<STRUCT<col_str STRING,
 NOTE: Reference implementation reports non-determinism.
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
 [name=analytic_function_order_by_with_collation_binary]
 with TestTable as (
 select 'ab' col_str, 1 as col union all
@@ -1897,7 +1897,7 @@ select
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{NULL, true, false, false, false}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
 [name=analytic_percentile_disc_with_collation_ci]
 WITH TestTable AS (
 SELECT '' col UNION ALL
@@ -1925,7 +1925,7 @@ ARRAY<STRUCT<STRING>>[unknown order:
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
 [name=analytic_percentile_disc_with_collation_binary]
 WITH TestTable AS (
 SELECT '' col UNION ALL
@@ -1953,7 +1953,7 @@ ARRAY<STRUCT<STRING>>[unknown order:
 ]
 ==
 
-[required_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,V_1_4_COLLATION_IN_EXPLICIT_CAST]
+[required_features=COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,COLLATION_IN_EXPLICIT_CAST]
 [name=cast_to_string_with_collation_ci_binary]
 SELECT
   CAST('abc' AS STRING COLLATE 'und:ci') = 'ABC',
@@ -1962,7 +1962,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL>>[{true, false}]
 ==
 
-[required_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,V_1_4_COLLATION_IN_EXPLICIT_CAST]
+[required_features=COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,COLLATION_IN_EXPLICIT_CAST]
 [name=cast_to_array_with_collation_ci_binary]
 SELECT
   'ABC' IN UNNEST(CAST(['abc', 'aBc']  AS ARRAY<STRING COLLATE 'und:ci'>)),
@@ -1971,7 +1971,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL>>[{true, false}]
 ==
 
-[required_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,V_1_4_COLLATION_IN_EXPLICIT_CAST]
+[required_features=COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,COLLATION_IN_EXPLICIT_CAST]
 [name=cast_to_struct_with_collation_ci_binary]
 SELECT
   CAST(STRUCT<a BOOL, b STRING>(true, 'abc') AS STRUCT<a BOOL, b STRING COLLATE 'und:ci'>).b = 'ABC',
@@ -1980,7 +1980,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL>>[{true, false}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
 [name=analytic_percentile_disc_with_collation_empty]
 WITH TestTable AS (
 SELECT '' col UNION ALL

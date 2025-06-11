@@ -215,7 +215,7 @@ ARRAY<STRUCT<
 ==
 
 [name=partitionby_struct]
-[required_features=V_1_2_GROUP_BY_STRUCT,ANALYTIC_FUNCTIONS]
+[required_features=GROUP_BY_STRUCT,ANALYTIC_FUNCTIONS]
 SELECT struct_val, COUNT(struct_val) OVER (PARTITION BY struct_val)
 FROM (SELECT STRUCT(3, 5) struct_val UNION ALL
       SELECT STRUCT(3, 5) UNION ALL
@@ -230,7 +230,7 @@ ARRAY<STRUCT<
 ==
 
 [name=partitionby_array]
-[required_features=ANALYTIC_FUNCTIONS,V_1_2_GROUP_BY_ARRAY]
+[required_features=ANALYTIC_FUNCTIONS,GROUP_BY_ARRAY]
 SELECT array_val, ROW_NUMBER() OVER (PARTITION BY array_val)
 FROM (SELECT [1, 2, 3] array_val UNION ALL
       SELECT [2, 3, 4] UNION ALL SELECT [2, 3, 4])
@@ -526,7 +526,7 @@ ARRAY<STRUCT<
 ==
 
 [name=orderby_array]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_ARRAY_ORDERING]
+[required_features=ANALYTIC_FUNCTIONS,ARRAY_ORDERING]
 SELECT array_val, RANK() OVER (ORDER BY array_val)
 FROM (SELECT [1, 2, 3] array_val UNION ALL
       SELECT [2, 3, 4])
@@ -543,7 +543,7 @@ ARRAY<STRUCT<array_val ARRAY<>, INT64>>[unknown order:
 ]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,V_1_1_ORDER_BY_COLLATE]
+[required_features=ANALYTIC_FUNCTIONS,ORDER_BY_COLLATE]
 [name=orderby_collate_binary_us]
 SELECT str_val,
        RANK() OVER (ORDER BY str_val COLLATE "binary"),
@@ -561,7 +561,7 @@ ARRAY<STRUCT<str_val STRING, INT64, INT64>>[unknown order:
 ]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,V_1_1_ORDER_BY_COLLATE]
+[required_features=ANALYTIC_FUNCTIONS,ORDER_BY_COLLATE]
 [name=orderby_collate_und_ci]
 SELECT str_val,
        RANK() OVER (ORDER BY str_val COLLATE "und:ci"),
@@ -579,7 +579,7 @@ ARRAY<STRUCT<str_val STRING, INT64, INT64>>[unknown order:
 ]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,V_1_1_ORDER_BY_COLLATE]
+[required_features=ANALYTIC_FUNCTIONS,ORDER_BY_COLLATE]
 [name=orderby_collate_unknown]
 SELECT RANK() OVER (ORDER BY str_val COLLATE "some_collate")
 FROM TableAllTypes
@@ -587,7 +587,7 @@ FROM TableAllTypes
 ERROR: generic::out_of_range: COLLATE has invalid collation name 'some_collate'
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,V_1_1_ORDER_BY_COLLATE]
+[required_features=ANALYTIC_FUNCTIONS,ORDER_BY_COLLATE]
 [name=orderby_collate_null]
 [parameters=cast(NULL as string) collation_name]
 SELECT RANK() OVER (ORDER BY str_val COLLATE @collation_name)

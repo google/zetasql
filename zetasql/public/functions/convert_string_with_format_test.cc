@@ -1359,7 +1359,7 @@ TEST(Convert, IntegerOverflow) {
             .value(),
         "-8000000000000000");
 
-    // Non-overflow negative int64_t.
+    // Non-overflow negative int64.
     ZETASQL_ASSERT_OK(formatter.SetFormatString("x"));
     EXPECT_EQ(formatter.Format(Value::Int64(-1)).value(), "-1");
 

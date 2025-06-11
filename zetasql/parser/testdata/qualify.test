@@ -5,7 +5,7 @@
 # QUALIFY, but we are not able to correctly output that. This usage should be
 # rare so we can probably live with this mis-handling.
 [default no_qualify_reserved]
-[default language_features=V_1_3_QUALIFY]
+[default language_features=QUALIFY]
 select f1, f2 from {{T|T QUALIFY|T AS QUALIFY|T SOMETHING}}
   QUALIFY row_number() OVER (PARTITION BY f2 ORDER BY f3) = 1
 --

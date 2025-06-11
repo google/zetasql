@@ -627,8 +627,12 @@ For a complete list and in depth technical details, consult
 
 + Differing strings can be considered equal.
   For instance, `ẞ` (LATIN CAPITAL LETTER SHARP S) is considered equal to `'SS'`
-  on the primary level, thus `'ẞ1' < 'SS2'` are equal. This is similar to how
-  case insensitivity works.
+  in some contexts. The following expressions both evaluate to `TRUE`:
+
+  + `COLLATE('ẞ', 'und:ci') > COLLATE('SS', 'und:ci')`
+  + `COLLATE('ẞ1', 'und:ci') < COLLATE('SS2', 'und:ci')`
+
+  This is similar to how case insensitivity works.
 + In search operations, strings with different lengths could be considered
   equal. To ensure consistency, collation should be used without
   search tailoring.

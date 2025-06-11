@@ -1,8 +1,7 @@
-[default language_features=V_1_4_MATCH_RECOGNIZE,TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY,ANALYTIC_FUNCTIONS,V_1_1_ORDER_BY_IN_AGGREGATE]
+[default language_features=MATCH_RECOGNIZE,TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS,NULLS_FIRST_LAST_IN_ORDER_BY,ANALYTIC_FUNCTIONS,ORDER_BY_IN_AGGREGATE]
 [default show_sqlbuilder_output]
-[default also_show_signature_mismatch_details]
 
-[language_features=V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY{{|,V_1_4_MATCH_RECOGNIZE}}]
+[language_features=NULLS_FIRST_LAST_IN_ORDER_BY{{|,MATCH_RECOGNIZE}}]
 # In many of these basic cases, we're intentionally using:
 # 1. SELECT *, to verify the output columns from MATCH_RECOGNIZE
 # 2. Complex expressions over aggregates in the MEASURES clause to ensure they
@@ -24,7 +23,7 @@ ERROR: MATCH_RECOGNIZE is not supported [at 5:24]
 select * from KeyValue MATCH_RECOGNIZE(
                        ^
 --
-ALTERNATION GROUP: ,V_1_4_MATCH_RECOGNIZE,key DESC
+ALTERNATION GROUP: ,MATCH_RECOGNIZE,key DESC
 --
 QueryStmt
 +-output_column_list=
@@ -45,13 +44,15 @@ QueryStmt
             +-column_list=$aggregate.[$agg1#6, $agg2#7]
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |       | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-            |       +-is_descending=TRUE
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |           | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            |           +-is_descending=TRUE
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -138,7 +139,7 @@ FROM
 |> SELECT
      (matchrecognizescan_7.a_4) - (matchrecognizescan_7.a_5) AS m;
 --
-ALTERNATION GROUP: ,V_1_4_MATCH_RECOGNIZE,key + 1 DESC NULLS FIRST
+ALTERNATION GROUP: ,MATCH_RECOGNIZE,key + 1 DESC NULLS FIRST
 --
 QueryStmt
 +-output_column_list=
@@ -167,14 +168,16 @@ QueryStmt
             |   |     +-Literal(type=INT64, value=1)
             |   +-input_scan=
             |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |       | +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#3)
-            |       +-is_descending=TRUE
-            |       +-null_order=NULLS_FIRST
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |           | +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#3)
+            |           +-is_descending=TRUE
+            |           +-null_order=NULLS_FIRST
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -274,7 +277,7 @@ FROM
      (matchrecognizescan_9.a_6) - (matchrecognizescan_9.a_7) AS m;
 ==
 
-[language_features=V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY{{|,V_1_4_MATCH_RECOGNIZE}}]
+[language_features=NULLS_FIRST_LAST_IN_ORDER_BY{{|,MATCH_RECOGNIZE}}]
 # subquery
 select * from (SELECT * FROM KeyValue) AS k MATCH_RECOGNIZE(
   ORDER BY {{key DESC|key + 1 DESC NULLS FIRST}}
@@ -293,7 +296,7 @@ ERROR: MATCH_RECOGNIZE is not supported [at 2:45]
 select * from (SELECT * FROM KeyValue) AS k MATCH_RECOGNIZE(
                                             ^
 --
-ALTERNATION GROUP: ,V_1_4_MATCH_RECOGNIZE,key DESC
+ALTERNATION GROUP: ,MATCH_RECOGNIZE,key DESC
 --
 QueryStmt
 +-output_column_list=
@@ -317,13 +320,15 @@ QueryStmt
             |   +-column_list=KeyValue.[Key#1, Value#2]
             |   +-input_scan=
             |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |       | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-            |       +-is_descending=TRUE
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |           | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            |           +-is_descending=TRUE
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -410,7 +415,7 @@ FROM
 |> SELECT
      (matchrecognizescan_7.a_4) - (matchrecognizescan_7.a_5) AS m;
 --
-ALTERNATION GROUP: ,V_1_4_MATCH_RECOGNIZE,key + 1 DESC NULLS FIRST
+ALTERNATION GROUP: ,MATCH_RECOGNIZE,key + 1 DESC NULLS FIRST
 --
 QueryStmt
 +-output_column_list=
@@ -442,14 +447,16 @@ QueryStmt
             |       +-column_list=KeyValue.[Key#1, Value#2]
             |       +-input_scan=
             |         +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |       | +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#3)
-            |       +-is_descending=TRUE
-            |       +-null_order=NULLS_FIRST
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |           | +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#3)
+            |           +-is_descending=TRUE
+            |           +-null_order=NULLS_FIRST
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -549,7 +556,7 @@ FROM
      (matchrecognizescan_9.a_6) - (matchrecognizescan_9.a_7) AS m;
 ==
 
-[language_features=V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY{{|,V_1_4_MATCH_RECOGNIZE}}]
+[language_features=NULLS_FIRST_LAST_IN_ORDER_BY{{|,MATCH_RECOGNIZE}}]
 # UNNEST
 select * from UNNEST(['abc', 'def']) AS value MATCH_RECOGNIZE(
   ORDER BY {{key DESC|key + 1 DESC NULLS FIRST}}
@@ -565,7 +572,7 @@ select * from UNNEST(['abc', 'def']) AS value MATCH_RECOGNIZE(
                                               ^
 ==
 
-[language_features=V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY{{|,V_1_4_MATCH_RECOGNIZE}}]
+[language_features=NULLS_FIRST_LAST_IN_ORDER_BY{{|,MATCH_RECOGNIZE}}]
 # 2 UNNESTs
 select * from UNNEST([1, 2]) AS key, UNNEST(['abc', 'def']) AS value
 MATCH_RECOGNIZE(
@@ -582,7 +589,7 @@ MATCH_RECOGNIZE(
 ^
 ==
 
-[language_features=V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY{{|,V_1_4_MATCH_RECOGNIZE}}]
+[language_features=NULLS_FIRST_LAST_IN_ORDER_BY{{|,MATCH_RECOGNIZE}}]
 # Table with 2 UNNESTs
 select * from UNNEST([1, 2]) AS key, UNNEST(['abc', 'def']) AS value
 MATCH_RECOGNIZE(
@@ -599,7 +606,7 @@ MATCH_RECOGNIZE(
 ^
 ==
 
-[language_features=TABLE_VALUED_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY{{|,V_1_4_MATCH_RECOGNIZE}}]
+[language_features=TABLE_VALUED_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY{{|,MATCH_RECOGNIZE}}]
 # TVF
 select * from tvf_no_args()
 MATCH_RECOGNIZE(
@@ -617,7 +624,7 @@ ERROR: MATCH_RECOGNIZE is not supported [at 3:1]
 MATCH_RECOGNIZE(
 ^
 --
-ALTERNATION GROUP: ,V_1_4_MATCH_RECOGNIZE
+ALTERNATION GROUP: ,MATCH_RECOGNIZE
 --
 QueryStmt
 +-output_column_list=
@@ -634,13 +641,15 @@ QueryStmt
           +-MatchRecognizeScan
             +-column_list=[$aggregate.$agg1#6]
             +-input_scan=
-            | +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=BOOL, column=tvf_no_args.column_bool#1)
+            | +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=BOOL, column=tvf_no_args.column_bool#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -717,7 +726,7 @@ FROM
      matchrecognizescan_6.a_4 AS m;
 ==
 
-[language_features=V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY{{|,V_1_4_MATCH_RECOGNIZE}}]
+[language_features=NULLS_FIRST_LAST_IN_ORDER_BY{{|,MATCH_RECOGNIZE}}]
 # parenthesized join
 select * from (KeyValue t1 INNER JOIN KeyValue t2 ON t1.key = t2.key)
 MATCH_RECOGNIZE(
@@ -738,7 +747,7 @@ ERROR: MATCH_RECOGNIZE is not supported [at 3:1]
 MATCH_RECOGNIZE(
 ^
 --
-ALTERNATION GROUP: ,V_1_4_MATCH_RECOGNIZE,t1.key DESC
+ALTERNATION GROUP: ,MATCH_RECOGNIZE,t1.key DESC
 --
 QueryStmt
 +-output_column_list=
@@ -768,13 +777,15 @@ QueryStmt
             |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
             |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             |       +-ColumnRef(type=INT64, column=KeyValue.Key#3)
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |       | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-            |       +-is_descending=TRUE
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |           | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            |           +-is_descending=TRUE
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -894,7 +905,7 @@ FROM
 |> SELECT
      (matchrecognizescan_11.a_8) - (matchrecognizescan_11.a_9) AS m;
 --
-ALTERNATION GROUP: ,V_1_4_MATCH_RECOGNIZE,t1.key + 1 DESC NULLS FIRST
+ALTERNATION GROUP: ,MATCH_RECOGNIZE,t1.key + 1 DESC NULLS FIRST
 --
 QueryStmt
 +-output_column_list=
@@ -932,14 +943,16 @@ QueryStmt
             |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
             |           +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             |           +-ColumnRef(type=INT64, column=KeyValue.Key#3)
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |       | +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#5)
-            |       +-is_descending=TRUE
-            |       +-null_order=NULLS_FIRST
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |           | +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#5)
+            |           +-is_descending=TRUE
+            |           +-null_order=NULLS_FIRST
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -1062,7 +1075,7 @@ FROM
      (matchrecognizescan_12.a_9) - (matchrecognizescan_12.a_10) AS m;
 ==
 
-[language_features=V_1_4_SQL_GRAPH,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY{{|,V_1_4_MATCH_RECOGNIZE}}]
+[language_features=SQL_GRAPH,NULLS_FIRST_LAST_IN_ORDER_BY{{|,MATCH_RECOGNIZE}}]
 select * from graph_table(aml MATCH (n) COLUMNS(n.age AS key, n.name AS value))
 MATCH_RECOGNIZE(
   ORDER BY {{key DESC|key + 1 DESC NULLS FIRST}}
@@ -1081,7 +1094,7 @@ ERROR: MATCH_RECOGNIZE is not supported [at 2:1]
 MATCH_RECOGNIZE(
 ^
 --
-ALTERNATION GROUP: ,V_1_4_MATCH_RECOGNIZE,key DESC
+ALTERNATION GROUP: ,MATCH_RECOGNIZE,key DESC
 --
 QueryStmt
 +-output_column_list=
@@ -1138,13 +1151,15 @@ QueryStmt
             |         +-expr=
             |         | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
             |         +-property=name(STRING)
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |       | +-ColumnRef(type=UINT32, column=$graph_table.key#2)
-            |       +-is_descending=TRUE
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |           | +-ColumnRef(type=UINT32, column=$graph_table.key#2)
+            |           +-is_descending=TRUE
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -1249,7 +1264,7 @@ FROM
 |> SELECT
      (matchrecognizescan_9.a_6) - (matchrecognizescan_9.a_7) AS m;
 --
-ALTERNATION GROUP: ,V_1_4_MATCH_RECOGNIZE,key + 1 DESC NULLS FIRST
+ALTERNATION GROUP: ,MATCH_RECOGNIZE,key + 1 DESC NULLS FIRST
 --
 QueryStmt
 +-output_column_list=
@@ -1315,14 +1330,16 @@ QueryStmt
             |             +-expr=
             |             | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
             |             +-property=name(STRING)
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |       | +-ColumnRef(type=UINT64, column=$orderby.$orderbycol1#4)
-            |       +-is_descending=TRUE
-            |       +-null_order=NULLS_FIRST
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |           | +-ColumnRef(type=UINT64, column=$orderby.$orderbycol1#4)
+            |           +-is_descending=TRUE
+            |           +-null_order=NULLS_FIRST
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -1498,13 +1515,15 @@ QueryStmt
             +-column_list=[$aggregate.$agg1#6]
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="t")
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |       | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-            |       +-is_descending=TRUE
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |           | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            |           +-is_descending=TRUE
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -1597,14 +1616,16 @@ QueryStmt
             |   |     +-Literal(type=INT64, value=1)
             |   +-input_scan=
             |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="t")
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |       | +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#3)
-            |       +-is_descending=TRUE
-            |       +-null_order=NULLS_FIRST
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |           | +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#3)
+            |           +-is_descending=TRUE
+            |           +-null_order=NULLS_FIRST
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -1733,13 +1754,15 @@ QueryStmt
             +-column_list=[$aggregate.$agg1#6]
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |       | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-            |       +-is_descending=TRUE
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |           | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            |           +-is_descending=TRUE
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="a"
@@ -1879,14 +1902,16 @@ QueryStmt
             |   |     +-Literal(type=INT64, value=1)
             |   +-input_scan=
             |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |       | +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#3)
-            |       +-is_descending=TRUE
-            |       +-null_order=NULLS_FIRST
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |           | +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#3)
+            |           +-is_descending=TRUE
+            |           +-null_order=NULLS_FIRST
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="a"
@@ -2078,13 +2103,15 @@ QueryStmt
         |       +-column_list=[$aggregate.$agg1#6]
         |       +-input_scan=
         |       | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-        |       +-order_by=
-        |       | +-WindowOrdering
-        |       |   +-order_by_item_list=
-        |       |     +-OrderByItem
-        |       |       +-column_ref=
-        |       |       | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-        |       |       +-is_descending=TRUE
+        |       +-analytic_function_group_list=
+        |       | +-AnalyticFunctionGroup
+        |       |   +-order_by=
+        |       |     +-WindowOrdering
+        |       |       +-order_by_item_list=
+        |       |         +-OrderByItem
+        |       |           +-column_ref=
+        |       |           | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |       |           +-is_descending=TRUE
         |       +-pattern_variable_definition_list=
         |       | +-MatchRecognizeVariableDefinition
         |       | | +-name="A"
@@ -2243,14 +2270,16 @@ QueryStmt
         |       |   |     +-Literal(type=INT64, value=1)
         |       |   +-input_scan=
         |       |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-        |       +-order_by=
-        |       | +-WindowOrdering
-        |       |   +-order_by_item_list=
-        |       |     +-OrderByItem
-        |       |       +-column_ref=
-        |       |       | +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#3)
-        |       |       +-is_descending=TRUE
-        |       |       +-null_order=NULLS_FIRST
+        |       +-analytic_function_group_list=
+        |       | +-AnalyticFunctionGroup
+        |       |   +-order_by=
+        |       |     +-WindowOrdering
+        |       |       +-order_by_item_list=
+        |       |         +-OrderByItem
+        |       |           +-column_ref=
+        |       |           | +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#3)
+        |       |           +-is_descending=TRUE
+        |       |           +-null_order=NULLS_FIRST
         |       +-pattern_variable_definition_list=
         |       | +-MatchRecognizeVariableDefinition
         |       | | +-name="A"
@@ -2405,7 +2434,7 @@ ERROR: Aggregate function MAX not allowed in MATCH_RECOGNIZE DEFINE predicate [a
 
 # Conditional evaluation is not yet supported
 # Conditional on the whole MATCH_RECOGNIZE operation
-[language_features=V_1_4_MATCH_RECOGNIZE,V_1_4_ENFORCE_CONDITIONAL_EVALUATION]
+[language_features=MATCH_RECOGNIZE,ENFORCE_CONDITIONAL_EVALUATION]
 SELECT IF(key = 0, NULL,
         (select * from KeyValue MATCH_RECOGNIZE(
           ORDER BY 1/outer_tbl.key        # Could be a div by zero error
@@ -2424,7 +2453,7 @@ ERROR: Conditional evaluation is not supported with MATCH_RECOGNIZE [at 2:33]
 
 # Conditional evaluation is not yet supported
 # Conditional on aggregations in the MATCH_RECOGNIZE clause
-[language_features=V_1_4_MATCH_RECOGNIZE,V_1_4_ENFORCE_CONDITIONAL_EVALUATION]
+[language_features=MATCH_RECOGNIZE,ENFORCE_CONDITIONAL_EVALUATION]
 select * from KeyValue MATCH_RECOGNIZE(
   ORDER BY 1/key
   MEASURES IF(min(length(value)) > 0, min(1/length(value)), NULL) AS x
@@ -2493,12 +2522,14 @@ QueryStmt
             +-column_list=[$aggregate.$agg1#6]
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -2607,12 +2638,14 @@ QueryStmt
             +-column_list=[$aggregate.$agg1#6]
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -2721,12 +2754,14 @@ QueryStmt
             +-column_list=[$aggregate.$agg1#6]
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -2886,12 +2921,14 @@ QueryStmt
             +-column_list=[$aggregate.$agg1#6]
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -3048,12 +3085,14 @@ QueryStmt
             +-column_list=[$aggregate.$agg1#6]
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -3205,12 +3244,14 @@ QueryStmt
             +-column_list=[$aggregate.$agg1#6]
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -3437,7 +3478,7 @@ ERROR: Ordinals are not allowed in MATCH_RECOGNIZE ORDER BY clause [at 2:12]
            ^
 ==
 
-[language_features=V_1_4_MATCH_RECOGNIZE,JSON_TYPE]
+[language_features=MATCH_RECOGNIZE,JSON_TYPE]
 # ORDER BY expressions must be of an orderable type. JSON is not orderable.
 select * from KeyValue MATCH_RECOGNIZE(
   ORDER BY JSON'{"f":1}'
@@ -3452,7 +3493,7 @@ ERROR: Ordering by expressions of type JSON is not allowed [at 3:12]
            ^
 ==
 
-[language_features=V_1_4_MATCH_RECOGNIZE,V_1_1_ORDER_BY_COLLATE]
+[language_features=MATCH_RECOGNIZE,ORDER_BY_COLLATE]
 # ORDER BY with collation
 select * from KeyValue MATCH_RECOGNIZE(
   ORDER BY value COLLATE "en_US"
@@ -3478,14 +3519,16 @@ QueryStmt
             +-column_list=[$aggregate.$agg1#6]
             +-input_scan=
             | +-TableScan(column_list=[KeyValue.Value#2], table=KeyValue, column_index_list=[1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
-            |       +-collation_name=
-            |         +-Literal(type=STRING, value="en_US")
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |           | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            |           +-collation_name=
+            |             +-Literal(type=STRING, value="en_US")
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -3595,16 +3638,18 @@ QueryStmt
             |   |     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
             |   +-input_scan=
             |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-partition_by=
-            | +-WindowPartitioning
-            |   +-partition_by_list=
-            |     +-ColumnRef(type=INT64, column=$partitionby.$partitionbycol1#3)
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#4)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-partition_by=
+            |   | +-WindowPartitioning
+            |   |   +-partition_by_list=
+            |   |     +-ColumnRef(type=INT64, column=$partitionby.$partitionbycol1#3)
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#4)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -3729,16 +3774,18 @@ QueryStmt
             |   |     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
             |   +-input_scan=
             |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-partition_by=
-            | +-WindowPartitioning
-            |   +-partition_by_list=
-            |     +-ColumnRef(type=INT64, column=$partitionby.key#3)
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#4)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-partition_by=
+            |   | +-WindowPartitioning
+            |   |   +-partition_by_list=
+            |   |     +-ColumnRef(type=INT64, column=$partitionby.key#3)
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#4)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -3888,12 +3935,14 @@ QueryStmt
             +-column_list=$aggregate.[$agg1#8, $agg2#12]
             +-input_scan=
             | +-TableScan(column_list=[KeyValue.Value#2], table=KeyValue, column_index_list=[1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=STRING, column=KeyValue.Value#2)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -4044,12 +4093,14 @@ QueryStmt
             +-column_list=[$aggregate.$agg1#6]
             +-input_scan=
             | +-TableScan(column_list=[KeyValue.Value#2], table=KeyValue, column_index_list=[1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=STRING, column=KeyValue.Value#2)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -4125,7 +4176,7 @@ FROM
      matchrecognizescan_5.a_3 AS m;
 ==
 
-[language_features=V_1_4_MATCH_RECOGNIZE,V_1_1_WITH_ON_SUBQUERY]
+[language_features=MATCH_RECOGNIZE,WITH_ON_SUBQUERY]
 # DML column in partition by
 DELETE FROM KeyValue WHERE
   (
@@ -4188,16 +4239,18 @@ DeleteStmt
     |                 |   | +-Key#7 := ColumnRef(type=INT64, column=KeyValue.Key#1, is_correlated=TRUE)
     |                 |   +-input_scan=
     |                 |     +-WithRefScan(column_list=t.[x#5, y#6], with_query_name="t")
-    |                 +-partition_by=
-    |                 | +-WindowPartitioning
-    |                 |   +-partition_by_list=
-    |                 |     +-ColumnRef(type=INT64, column=$partitionby.Key#7)
-    |                 +-order_by=
-    |                 | +-WindowOrdering
-    |                 |   +-order_by_item_list=
-    |                 |     +-OrderByItem
-    |                 |       +-column_ref=
-    |                 |         +-ColumnRef(type=INT64, column=t.y#6)
+    |                 +-analytic_function_group_list=
+    |                 | +-AnalyticFunctionGroup
+    |                 |   +-partition_by=
+    |                 |   | +-WindowPartitioning
+    |                 |   |   +-partition_by_list=
+    |                 |   |     +-ColumnRef(type=INT64, column=$partitionby.Key#7)
+    |                 |   +-order_by=
+    |                 |     +-WindowOrdering
+    |                 |       +-order_by_item_list=
+    |                 |         +-OrderByItem
+    |                 |           +-column_ref=
+    |                 |             +-ColumnRef(type=INT64, column=t.y#6)
     |                 +-pattern_variable_definition_list=
     |                 | +-MatchRecognizeVariableDefinition
     |                 |   +-name="A"
@@ -4301,7 +4354,7 @@ WHERE
   ) > 0;
 ==
 
-[language_features=V_1_4_MATCH_RECOGNIZE,V_1_1_WITH_ON_SUBQUERY]
+[language_features=MATCH_RECOGNIZE,WITH_ON_SUBQUERY]
 # DML column in partition by with duplication
 DELETE FROM KeyValue WHERE
   (
@@ -4366,17 +4419,19 @@ DeleteStmt
     |                 |   | +-value#8 := ColumnRef(type=STRING, column=KeyValue.Value#2, is_correlated=TRUE)
     |                 |   +-input_scan=
     |                 |     +-WithRefScan(column_list=t.[x#5, y#6], with_query_name="t")
-    |                 +-partition_by=
-    |                 | +-WindowPartitioning
-    |                 |   +-partition_by_list=
-    |                 |     +-ColumnRef(type=STRING, column=$partitionby.value#7)
-    |                 |     +-ColumnRef(type=STRING, column=$partitionby.value#8)
-    |                 +-order_by=
-    |                 | +-WindowOrdering
-    |                 |   +-order_by_item_list=
-    |                 |     +-OrderByItem
-    |                 |       +-column_ref=
-    |                 |         +-ColumnRef(type=INT64, column=t.y#6)
+    |                 +-analytic_function_group_list=
+    |                 | +-AnalyticFunctionGroup
+    |                 |   +-partition_by=
+    |                 |   | +-WindowPartitioning
+    |                 |   |   +-partition_by_list=
+    |                 |   |     +-ColumnRef(type=STRING, column=$partitionby.value#7)
+    |                 |   |     +-ColumnRef(type=STRING, column=$partitionby.value#8)
+    |                 |   +-order_by=
+    |                 |     +-WindowOrdering
+    |                 |       +-order_by_item_list=
+    |                 |         +-OrderByItem
+    |                 |           +-column_ref=
+    |                 |             +-ColumnRef(type=INT64, column=t.y#6)
     |                 +-pattern_variable_definition_list=
     |                 | +-MatchRecognizeVariableDefinition
     |                 |   +-name="A"
@@ -4484,7 +4539,7 @@ WHERE
   ) > 0;
 ==
 
-[language_features=V_1_4_MATCH_RECOGNIZE,V_1_1_WITH_ON_SUBQUERY]
+[language_features=MATCH_RECOGNIZE,WITH_ON_SUBQUERY]
 # DML column referenced in measures, including with scoping to variables.
 DELETE FROM KeyValue WHERE
   (
@@ -4547,12 +4602,14 @@ DeleteStmt
     |                 +-column_list=[$aggregate.$agg1#10]
     |                 +-input_scan=
     |                 | +-WithRefScan(column_list=t.[x#5, y#6], with_query_name="t")
-    |                 +-order_by=
-    |                 | +-WindowOrdering
-    |                 |   +-order_by_item_list=
-    |                 |     +-OrderByItem
-    |                 |       +-column_ref=
-    |                 |         +-ColumnRef(type=INT64, column=t.y#6)
+    |                 +-analytic_function_group_list=
+    |                 | +-AnalyticFunctionGroup
+    |                 |   +-order_by=
+    |                 |     +-WindowOrdering
+    |                 |       +-order_by_item_list=
+    |                 |         +-OrderByItem
+    |                 |           +-column_ref=
+    |                 |             +-ColumnRef(type=INT64, column=t.y#6)
     |                 +-pattern_variable_definition_list=
     |                 | +-MatchRecognizeVariableDefinition
     |                 |   +-name="A"
@@ -4699,12 +4756,14 @@ DeleteStmt
     |                 +-column_list=[$aggregate.$agg1#10]
     |                 +-input_scan=
     |                 | +-WithRefScan(column_list=t.[x#5, y#6], with_query_name="t")
-    |                 +-order_by=
-    |                 | +-WindowOrdering
-    |                 |   +-order_by_item_list=
-    |                 |     +-OrderByItem
-    |                 |       +-column_ref=
-    |                 |         +-ColumnRef(type=INT64, column=t.y#6)
+    |                 +-analytic_function_group_list=
+    |                 | +-AnalyticFunctionGroup
+    |                 |   +-order_by=
+    |                 |     +-WindowOrdering
+    |                 |       +-order_by_item_list=
+    |                 |         +-OrderByItem
+    |                 |           +-column_ref=
+    |                 |             +-ColumnRef(type=INT64, column=t.y#6)
     |                 +-pattern_variable_definition_list=
     |                 | +-MatchRecognizeVariableDefinition
     |                 |   +-name="A"
@@ -4806,7 +4865,7 @@ WHERE
   ) > 0;
 ==
 
-[language_features=V_1_4_MATCH_RECOGNIZE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_HAVING_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE]
+[language_features=MATCH_RECOGNIZE,NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,HAVING_IN_AGGREGATE,LIMIT_IN_AGGREGATE]
 # Modifiers on the measure aggregations
 select * from KeyValue MATCH_RECOGNIZE(
   ORDER BY value
@@ -4845,12 +4904,14 @@ QueryStmt
             |   |     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
             |   +-input_scan=
             |     +-TableScan(column_list=[KeyValue.Value#2], table=KeyValue, column_index_list=[1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=STRING, column=KeyValue.Value#2)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -5037,12 +5098,14 @@ QueryStmt
                 +-column_list=[$aggregate.$agg1#8]
                 +-input_scan=
                 | +-TableScan(column_list=[KeyValue.Value#4], table=KeyValue, column_index_list=[1])
-                +-order_by=
-                | +-WindowOrdering
-                |   +-order_by_item_list=
-                |     +-OrderByItem
-                |       +-column_ref=
-                |         +-ColumnRef(type=STRING, column=KeyValue.Value#4)
+                +-analytic_function_group_list=
+                | +-AnalyticFunctionGroup
+                |   +-order_by=
+                |     +-WindowOrdering
+                |       +-order_by_item_list=
+                |         +-OrderByItem
+                |           +-column_ref=
+                |             +-ColumnRef(type=STRING, column=KeyValue.Value#4)
                 +-pattern_variable_definition_list=
                 | +-MatchRecognizeVariableDefinition
                 |   +-name="A"
@@ -5174,12 +5237,14 @@ QueryStmt
           +-MatchRecognizeScan
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -5338,18 +5403,20 @@ QueryStmt
                               |   | +-x#9 := ColumnRef(type=INT64, column=t.x#3, is_correlated=TRUE)
                               |   +-input_scan=
                               |     +-TableScan(column_list=[KeyValue.Value#6], table=KeyValue, column_index_list=[1])
-                              +-partition_by=
-                              | +-WindowPartitioning
-                              |   +-partition_by_list=
-                              |     +-ColumnRef(type=INT64, column=$partitionby.y#7)
-                              |     +-ColumnRef(type=INT64, column=$partitionby.x#8)
-                              |     +-ColumnRef(type=INT64, column=$partitionby.x#9)
-                              +-order_by=
-                              | +-WindowOrdering
-                              |   +-order_by_item_list=
-                              |     +-OrderByItem
-                              |       +-column_ref=
-                              |         +-ColumnRef(type=STRING, column=KeyValue.Value#6)
+                              +-analytic_function_group_list=
+                              | +-AnalyticFunctionGroup
+                              |   +-partition_by=
+                              |   | +-WindowPartitioning
+                              |   |   +-partition_by_list=
+                              |   |     +-ColumnRef(type=INT64, column=$partitionby.y#7)
+                              |   |     +-ColumnRef(type=INT64, column=$partitionby.x#8)
+                              |   |     +-ColumnRef(type=INT64, column=$partitionby.x#9)
+                              |   +-order_by=
+                              |     +-WindowOrdering
+                              |       +-order_by_item_list=
+                              |         +-OrderByItem
+                              |           +-column_ref=
+                              |             +-ColumnRef(type=STRING, column=KeyValue.Value#6)
                               +-pattern_variable_definition_list=
                               | +-MatchRecognizeVariableDefinition
                               |   +-name="A"
@@ -5530,19 +5597,21 @@ QueryStmt
             |   |     +-Literal(type=INT64, value=1)
             |   +-input_scan=
             |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-partition_by=
-            | +-WindowPartitioning
-            |   +-partition_by_list=
-            |     +-ColumnRef(type=INT64, column=$partitionby.Key#3)
-            |     +-ColumnRef(type=INT64, column=$partitionby.Key#4)
-            |     +-ColumnRef(type=INT64, column=$partitionby.$partitionbycol3#5)
-            |     +-ColumnRef(type=INT64, column=$partitionby.$partitionbycol4#6)
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-partition_by=
+            |   | +-WindowPartitioning
+            |   |   +-partition_by_list=
+            |   |     +-ColumnRef(type=INT64, column=$partitionby.Key#3)
+            |   |     +-ColumnRef(type=INT64, column=$partitionby.Key#4)
+            |   |     +-ColumnRef(type=INT64, column=$partitionby.$partitionbycol3#5)
+            |   |     +-ColumnRef(type=INT64, column=$partitionby.$partitionbycol4#6)
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=STRING, column=KeyValue.Value#2)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -5684,16 +5753,18 @@ QueryStmt
             |   | +-Key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
             |   +-input_scan=
             |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-partition_by=
-            | +-WindowPartitioning
-            |   +-partition_by_list=
-            |     +-ColumnRef(type=INT64, column=$partitionby.Key#3)
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-partition_by=
+            |   | +-WindowPartitioning
+            |   |   +-partition_by_list=
+            |   |     +-ColumnRef(type=INT64, column=$partitionby.Key#3)
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=STRING, column=KeyValue.Value#2)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="a"
@@ -5805,12 +5876,14 @@ QueryStmt
             +-column_list=[$aggregate.$agg1#6]
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -5900,12 +5973,14 @@ QueryStmt
             +-column_list=[$aggregate.$agg1#6]
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -6011,12 +6086,14 @@ QueryStmt
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
             +-option_list=
             | +-use_LonGeST_match := Literal(type=BOOL, value=true)
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -6113,12 +6190,14 @@ QueryStmt
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
             +-option_list=
             | +-use_LonGeST_match := Literal(type=BOOL, value=false)
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -6215,12 +6294,14 @@ QueryStmt
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
             +-option_list=
             | +-use_LonGeST_match := Parameter(type=BOOL, name="test_param_bool")
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -6334,12 +6415,14 @@ QueryStmt
             +-column_list=[$aggregate.$agg1#6]
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -6560,12 +6643,14 @@ QueryStmt
             +-column_list=[$aggregate.$agg1#6]
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="^"
@@ -6731,16 +6816,18 @@ CreateFunctionStmt
             |       |   |       +-ArgumentRef(type=INT64, name="fn_arg")
             |       |   +-input_scan=
             |       |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="t")
-            |       +-partition_by=
-            |       | +-WindowPartitioning
-            |       |   +-partition_by_list=
-            |       |     +-ColumnRef(type=INT64, column=$partitionby.fn_arg#3)
-            |       +-order_by=
-            |       | +-WindowOrdering
-            |       |   +-order_by_item_list=
-            |       |     +-OrderByItem
-            |       |       +-column_ref=
-            |       |         +-ColumnRef(type=DOUBLE, column=$orderby.$orderbycol1#4)
+            |       +-analytic_function_group_list=
+            |       | +-AnalyticFunctionGroup
+            |       |   +-partition_by=
+            |       |   | +-WindowPartitioning
+            |       |   |   +-partition_by_list=
+            |       |   |     +-ColumnRef(type=INT64, column=$partitionby.fn_arg#3)
+            |       |   +-order_by=
+            |       |     +-WindowOrdering
+            |       |       +-order_by_item_list=
+            |       |         +-OrderByItem
+            |       |           +-column_ref=
+            |       |             +-ColumnRef(type=DOUBLE, column=$orderby.$orderbycol1#4)
             |       +-pattern_variable_definition_list=
             |       | +-MatchRecognizeVariableDefinition
             |       |   +-name="A"
@@ -6854,7 +6941,7 @@ RETURNS INT64 AS (
 
 # Grouping constants, catalog constants, correlated references, etc are OK since
 # they're the same for all rows.
-[language_features=V_1_4_MATCH_RECOGNIZE,TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS,V_1_1_WITH_ON_SUBQUERY,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=MATCH_RECOGNIZE,TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS,WITH_ON_SUBQUERY,INLINE_LAMBDA_ARGUMENT]
 CREATE TEMP FUNCTION tvf(fn_arg INT64) RETURNS ARRAY<INT64> AS (
   (WITH outer_tbl AS (SELECT [1, 2] AS arr, 1 AS a)
    SELECT
@@ -6945,12 +7032,14 @@ CreateFunctionStmt
             |                       |       |   |     +-ColumnRef(type=STRING, column=KeyValue.Value#7)
             |                       |       |   +-input_scan=
             |                       |       |     +-TableScan(column_list=[KeyValue.Value#7], table=KeyValue, column_index_list=[1], alias="t")
-            |                       |       +-order_by=
-            |                       |       | +-WindowOrdering
-            |                       |       |   +-order_by_item_list=
-            |                       |       |     +-OrderByItem
-            |                       |       |       +-column_ref=
-            |                       |       |         +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#8)
+            |                       |       +-analytic_function_group_list=
+            |                       |       | +-AnalyticFunctionGroup
+            |                       |       |   +-order_by=
+            |                       |       |     +-WindowOrdering
+            |                       |       |       +-order_by_item_list=
+            |                       |       |         +-OrderByItem
+            |                       |       |           +-column_ref=
+            |                       |       |             +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#8)
             |                       |       +-pattern_variable_definition_list=
             |                       |       | +-MatchRecognizeVariableDefinition
             |                       |       |   +-name="A"
@@ -7124,12 +7213,14 @@ QueryStmt
             +-column_list=$aggregate.[$agg9#20, $agg1#6, $agg2#8, $agg5#14, $agg7#18, $agg3#10, $agg4#12, $agg6#16, $agg8#19]
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="a"
@@ -7424,15 +7515,17 @@ QueryStmt
                 |   |     +-field_idx=0
                 |   +-input_scan=
                 |     +-WithRefScan(column_list=t.[a#3, b#4], with_query_name="t")
-                +-order_by=
-                | +-WindowOrdering
-                |   +-order_by_item_list=
-                |     +-OrderByItem
-                |     | +-column_ref=
-                |     |   +-ColumnRef(type=INT64, column=$orderby.b#5)
-                |     +-OrderByItem
-                |       +-column_ref=
-                |         +-ColumnRef(type=INT64, column=t.b#4)
+                +-analytic_function_group_list=
+                | +-AnalyticFunctionGroup
+                |   +-order_by=
+                |     +-WindowOrdering
+                |       +-order_by_item_list=
+                |         +-OrderByItem
+                |         | +-column_ref=
+                |         |   +-ColumnRef(type=INT64, column=$orderby.b#5)
+                |         +-OrderByItem
+                |           +-column_ref=
+                |             +-ColumnRef(type=INT64, column=t.b#4)
                 +-pattern_variable_definition_list=
                 | +-MatchRecognizeVariableDefinition
                 |   +-name="A"
@@ -7601,12 +7694,14 @@ QueryStmt
           +-MatchRecognizeScan
             +-input_scan=
             | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="A"
@@ -7663,7 +7758,7 @@ FROM
 
 # Test case for the GROUPING() function. PARTITION BY operates like grouping but
 # we do not have grouping sets.
-[language_features=V_1_4_MATCH_RECOGNIZE,V_1_4_GROUPING_BUILTIN]
+[language_features=MATCH_RECOGNIZE,GROUPING_BUILTIN]
 SELECT * FROM KeyValue MATCH_RECOGNIZE(
   PARTITION BY Key
   ORDER BY Key
@@ -7679,7 +7774,7 @@ ERROR: GROUPING must have an argument that exists within the group-by expression
 ==
 
 # Regression test for b/379925625
-[language_features=V_1_4_MATCH_RECOGNIZE,V_1_4_WITH_EXPRESSION]
+[language_features=MATCH_RECOGNIZE,WITH_EXPRESSION]
 SELECT * FROM KeyValue MATCH_RECOGNIZE(
   PARTITION BY with(x AS key, x+1), key
   ORDER BY with(y AS key, y+1)
@@ -7773,13 +7868,15 @@ QueryStmt
         |       |     +-TableScan(column_list=[TestExtraValueTable.value#1], table=TestExtraValueTable, column_index_list=[0], alias="t")
         |       +-option_list=
         |       | +-use_longest_match := Literal(type=BOOL, value=true)
-        |       +-order_by=
-        |       | +-WindowOrdering
-        |       |   +-order_by_item_list=
-        |       |     +-OrderByItem
-        |       |       +-column_ref=
-        |       |       | +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
-        |       |       +-is_descending=TRUE
+        |       +-analytic_function_group_list=
+        |       | +-AnalyticFunctionGroup
+        |       |   +-order_by=
+        |       |     +-WindowOrdering
+        |       |       +-order_by_item_list=
+        |       |         +-OrderByItem
+        |       |           +-column_ref=
+        |       |           | +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
+        |       |           +-is_descending=TRUE
         |       +-pattern_variable_definition_list=
         |       | +-MatchRecognizeVariableDefinition
         |       |   +-name="a"
@@ -7942,12 +8039,14 @@ QueryStmt
             +-column_list=$aggregate.[$agg1#6, $agg2#8]
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -8068,12 +8167,14 @@ QueryStmt
             +-column_list=$aggregate.[$agg2#8, $agg1#6]
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -8212,12 +8313,14 @@ QueryStmt
             +-column_list=$aggregate.[$agg2#7, $agg3#9, $agg6#13, $agg7#15, $agg1#6, $agg4#10, $agg5#12, $agg8#16]
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -8373,12 +8476,14 @@ QueryStmt
             +-column_list=$aggregate.[$agg2#8, $agg3#10, $agg1#6]
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -8513,12 +8618,14 @@ QueryStmt
             +-column_list=$aggregate.[$agg2#8, $agg3#10, $agg1#6]
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -8655,12 +8762,14 @@ QueryStmt
             +-column_list=$aggregate.[$agg2#8, $agg1#6, $agg3#10]
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -8790,12 +8899,14 @@ QueryStmt
             +-column_list=$aggregate.[$agg1#6, $agg2#8, $agg3#10]
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"
@@ -8895,7 +9006,7 @@ FROM
 # Regression test for b/394128431 where the row range info is not passed to and
 # from subqueries.
 # Same level, in top-level agg, pattern variable comes first
-[language_features=V_1_4_MATCH_RECOGNIZE,V_1_4_MULTILEVEL_AGGREGATION]
+[language_features=MATCH_RECOGNIZE,MULTILEVEL_AGGREGATION]
 SELECT * FROM KeyValue MATCH_RECOGNIZE(
   ORDER BY key
   MEASURES
@@ -8914,7 +9025,7 @@ ERROR: Correlated access to MATCH_RECOGNIZE columns in the MEASURES clause is no
 # Regression test for b/394128431 where the row range info is not passed to and
 # from subqueries.
 # Same level, in top-level agg, subquery comes first
-[language_features=V_1_4_MATCH_RECOGNIZE,V_1_4_MULTILEVEL_AGGREGATION]
+[language_features=MATCH_RECOGNIZE,MULTILEVEL_AGGREGATION]
 SELECT * FROM KeyValue MATCH_RECOGNIZE(
   ORDER BY key
   MEASURES
@@ -8933,7 +9044,7 @@ ERROR: Correlated access to MATCH_RECOGNIZE columns in the MEASURES clause is no
 # Regression test for b/394128431 where the row range info is not passed to and
 # from subqueries.
 # Multilevel agg, pattern variable access in GROUP BY
-[language_features=V_1_4_MATCH_RECOGNIZE,V_1_4_MULTILEVEL_AGGREGATION]
+[language_features=MATCH_RECOGNIZE,MULTILEVEL_AGGREGATION]
 SELECT * FROM KeyValue MATCH_RECOGNIZE(
   ORDER BY key
   MEASURES
@@ -8952,7 +9063,7 @@ ERROR: Correlated access to MATCH_RECOGNIZE columns in the MEASURES clause is no
 # Regression test for b/394128431 where the row range info is not passed to and
 # from subqueries.
 # Multilevel agg, subquery in GROUP BY
-[language_features=V_1_4_MATCH_RECOGNIZE,V_1_4_MULTILEVEL_AGGREGATION]
+[language_features=MATCH_RECOGNIZE,MULTILEVEL_AGGREGATION]
 SELECT * FROM KeyValue MATCH_RECOGNIZE(
   ORDER BY key
   MEASURES
@@ -8972,7 +9083,7 @@ ERROR: Correlated access to MATCH_RECOGNIZE columns in the MEASURES clause is no
 # from subqueries.
 # Like the above but for DEFINE. Currently DEFINE doesn't allow references to
 # pattenr variables nor aggregation.
-[language_features=V_1_4_MATCH_RECOGNIZE,V_1_4_MULTILEVEL_AGGREGATION]
+[language_features=MATCH_RECOGNIZE,MULTILEVEL_AGGREGATION]
 SELECT * FROM KeyValue MATCH_RECOGNIZE(
   ORDER BY key
   MEASURES 1 AS one
@@ -8986,7 +9097,7 @@ ERROR: Correlated access to MATCH_RECOGNIZE columns in the DEFINE clause is not 
                  ^
 ==
 
-[language_features=V_1_4_MATCH_RECOGNIZE,V_1_4_WITH_EXPRESSION]
+[language_features=MATCH_RECOGNIZE,WITH_EXPRESSION]
 # WITH() expr inside DEFINE should not count as correlated access.
 SELECT * FROM KeyValue MATCH_RECOGNIZE(
   ORDER BY key
@@ -9011,12 +9122,14 @@ QueryStmt
           +-MatchRecognizeScan
             +-input_scan=
             | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             |   +-name="a"

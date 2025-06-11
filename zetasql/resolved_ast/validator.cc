@@ -34,6 +34,7 @@
 #include "zetasql/analyzer/expr_matching_helpers.h"
 #include "zetasql/analyzer/filter_fields_path_validator.h"
 #include "zetasql/common/graph_element_utils.h"
+#include "zetasql/common/measure_utils.h"
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/public/aggregation_threshold_utils.h"
 #include "zetasql/public/annotation/collation.h"
@@ -273,8 +274,7 @@ absl::Status Validator::ValidateResolvedCast(
         type_params, language_options_.product_mode()));
   }
 
-  if (language_options_.LanguageFeatureEnabled(
-          FEATURE_V_1_3_COLLATION_SUPPORT)) {
+  if (language_options_.LanguageFeatureEnabled(FEATURE_COLLATION_SUPPORT)) {
     VALIDATOR_RET_CHECK(collation.HasCompatibleStructure(resolved_cast->type()))
         << "collation must have compatible structure with the target type";
     ZETASQL_ASSIGN_OR_RETURN(bool equals_to_annotation,
@@ -570,8 +570,7 @@ absl::Status Validator::ValidateResolvedExpr(
         expr->type_annotation_map()->HasCompatibleStructure(expr->type()));
   }
 
-  if (!language_options_.LanguageFeatureEnabled(
-          FEATURE_V_1_3_COLLATION_SUPPORT)) {
+  if (!language_options_.LanguageFeatureEnabled(FEATURE_COLLATION_SUPPORT)) {
     VALIDATOR_RET_CHECK(
         !CollationAnnotation::ExistsIn(expr->type_annotation_map()));
   }
@@ -803,7 +802,7 @@ absl::Status Validator::ValidateOrderByAndLimitClausesOfAggregateFunctionCall(
   if (aggregate_function_call->limit() != nullptr) {
     bool validate_constant_nonnegative =
         !language_options_.LanguageFeatureEnabled(
-            FEATURE_V_1_4_LIMIT_OFFSET_EXPRESSIONS);
+            FEATURE_LIMIT_OFFSET_EXPRESSIONS);
     ZETASQL_RETURN_IF_ERROR(ValidateArgumentIsInt64(
         aggregate_function_call->limit(), validate_constant_nonnegative,
         absl::StrCat("Limit in ", function_name)));
@@ -930,16 +929,16 @@ absl::Status Validator::ValidateResolvedAggregateFunctionCall(
   }
   if (!aggregate_function_call->group_by_list().empty()) {
     VALIDATOR_RET_CHECK(language_options_.LanguageFeatureEnabled(
-        FEATURE_V_1_4_MULTILEVEL_AGGREGATION))
+        FEATURE_MULTILEVEL_AGGREGATION))
         << "Aggregate functions can only have a group_by_list when "
-           "FEATURE_V_1_4_MULTILEVEL_AGGREGATION is enabled";
+           "FEATURE_MULTILEVEL_AGGREGATION is enabled";
   }
 
   if (aggregate_function_call->where_expr() != nullptr) {
-    VALIDATOR_RET_CHECK(language_options_.LanguageFeatureEnabled(
-        FEATURE_V_1_4_AGGREGATE_FILTERING))
+    VALIDATOR_RET_CHECK(
+        language_options_.LanguageFeatureEnabled(FEATURE_AGGREGATE_FILTERING))
         << "Aggregate functions can only have a where_expr when "
-           "FEATURE_V_1_4_AGGREGATE_FILTERING is enabled";
+           "FEATURE_AGGREGATE_FILTERING is enabled";
     // Validate the WHERE expression against the current visible columns and
     // parameters. Since the WHERE expression operates on the pre-grouping
     // input, we do not need to consider columns provided by the `group_by_list`
@@ -949,10 +948,10 @@ absl::Status Validator::ValidateResolvedAggregateFunctionCall(
   }
 
   if (aggregate_function_call->having_expr() != nullptr) {
-    VALIDATOR_RET_CHECK(language_options_.LanguageFeatureEnabled(
-        FEATURE_V_1_4_AGGREGATE_FILTERING))
+    VALIDATOR_RET_CHECK(
+        language_options_.LanguageFeatureEnabled(FEATURE_AGGREGATE_FILTERING))
         << "Aggregate functions can only have a having_expr when "
-           "FEATURE_V_1_4_AGGREGATE_FILTERING is enabled";
+           "FEATURE_AGGREGATE_FILTERING is enabled";
     VALIDATOR_RET_CHECK(!aggregate_function_call->group_by_list().empty())
         << "Aggregate functions with having_expr must have a non-empty "
            "group_by_list";
@@ -1083,10 +1082,10 @@ absl::Status Validator::ValidateResolvedAnalyticFunctionCall(
                                                    visible_parameters, call));
 
   if (call->where_expr() != nullptr) {
-    VALIDATOR_RET_CHECK(language_options_.LanguageFeatureEnabled(
-        FEATURE_V_1_4_AGGREGATE_FILTERING))
+    VALIDATOR_RET_CHECK(
+        language_options_.LanguageFeatureEnabled(FEATURE_AGGREGATE_FILTERING))
         << "Analytic functions can only have a where_expr when "
-           "FEATURE_V_1_4_AGGREGATE_FILTERING is enabled";
+           "FEATURE_AGGREGATE_FILTERING is enabled";
     ZETASQL_RETURN_IF_ERROR(ValidateBoolExpr(visible_columns, visible_parameters,
                                      call->where_expr()));
   }
@@ -1507,9 +1506,9 @@ absl::Status Validator::ValidateResolvedComputedColumn(
   std::set<ResolvedColumn> available_side_effect_columns;
   if (computed_column->Is<ResolvedDeferredComputedColumn>()) {
     VALIDATOR_RET_CHECK(language_options_.LanguageFeatureEnabled(
-        FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION))
+        FEATURE_ENFORCE_CONDITIONAL_EVALUATION))
         << "ResolvedDeferredComputedColumns is only used when "
-           "FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION is enabled.";
+           "FEATURE_ENFORCE_CONDITIONAL_EVALUATION is enabled.";
     const auto* deferred_computed_column =
         computed_column->GetAs<ResolvedDeferredComputedColumn>();
     available_side_effect_columns.insert(
@@ -1668,9 +1667,9 @@ absl::Status Validator::AddColumnFromComputedColumn(
     // future-proofing, in case someone calls this without calling
     // ValidateComputedColumn() first.
     VALIDATOR_RET_CHECK(language_options_.LanguageFeatureEnabled(
-        FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION))
+        FEATURE_ENFORCE_CONDITIONAL_EVALUATION))
         << "ResolvedDeferredComputedColumns is only used when "
-           "FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION is enabled.";
+           "FEATURE_ENFORCE_CONDITIONAL_EVALUATION is enabled.";
 
     const ResolvedColumn& side_effect_column =
         computed_column->GetAs<ResolvedDeferredComputedColumn>()
@@ -1745,9 +1744,28 @@ absl::Status Validator::ValidateResolvedTableScan(
         << scan->for_system_time_expr()->type()->DebugString();
   }
 
-  // Make sure column ids are unique
+  // Make sure column ids are unique. If the table scan emits a measure column,
+  // perform additional checks below.
+  bool perform_measure_column_checks = false;
   for (const ResolvedColumn& column : scan->column_list()) {
     ZETASQL_RETURN_IF_ERROR(CheckUniqueColumnId(column));
+    if (column.type() != nullptr && column.type()->IsMeasureType()) {
+      perform_measure_column_checks = true;
+    }
+  }
+
+  if (perform_measure_column_checks) {
+    VALIDATOR_RET_CHECK(
+        language_options_.LanguageFeatureEnabled(FEATURE_ENABLE_MEASURES))
+        << "TableScan projects a measure column, but "
+           "FEATURE_ENABLE_MEASURES is not enabled. Scan: "
+        << scan->DebugString();
+    auto row_identity_columns = table->RowIdentityColumns();
+    VALIDATOR_RET_CHECK(row_identity_columns.has_value() &&
+                        !row_identity_columns.value().empty())
+        << "TableScan projects a measure column, but the table does not have "
+           "row identity columns. Scan: "
+        << scan->DebugString();
   }
 
   // Ideally, column_index_list should always be the same size as column_list.
@@ -1789,14 +1807,43 @@ absl::Status Validator::ValidateResolvedJoinScan(
 
   VALIDATOR_RET_CHECK(nullptr != scan->left_scan());
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedScan(scan->left_scan(), visible_parameters));
-  VALIDATOR_RET_CHECK(nullptr != scan->right_scan());
-  ZETASQL_RETURN_IF_ERROR(ValidateResolvedScan(scan->right_scan(), visible_parameters));
 
   scan->join_type();  // Mark field as visited.
 
-  std::set<ResolvedColumn> left_visible_columns, right_visible_columns;
+  std::set<ResolvedColumn> left_visible_columns;
   ZETASQL_RETURN_IF_ERROR(
       AddColumnList(scan->left_scan()->column_list(), &left_visible_columns));
+
+  std::set<ResolvedColumn> visible_paramerters_for_rhs;
+  if (!scan->is_lateral()) {
+    VALIDATOR_RET_CHECK(scan->parameter_list().empty());
+    visible_paramerters_for_rhs = visible_parameters;
+  } else {
+    for (const auto& col_ref : scan->parameter_list()) {
+      if (!col_ref->is_correlated()) {
+        // If the ref is not already correlated, it must be available from the
+        // left scan.
+        VALIDATOR_RET_CHECK(
+            zetasql_base::ContainsKey(left_visible_columns, col_ref->column()))
+            << "Column must come from the left scan";
+      } else {
+        // If the ref is correlated, it cannot come from the left scan.
+        VALIDATOR_RET_CHECK(
+            !zetasql_base::ContainsKey(left_visible_columns, col_ref->column()))
+            << "Column cannot come from the left scan";
+      }
+      visible_paramerters_for_rhs.insert(col_ref->column());
+    }
+  }
+
+  VALIDATOR_RET_CHECK(nullptr != scan->right_scan());
+
+  // For LATERAL joins, the RHS sees only the lateral list, not the outside
+  // parameters.
+  ZETASQL_RETURN_IF_ERROR(
+      ValidateResolvedScan(scan->right_scan(), visible_paramerters_for_rhs));
+
+  std::set<ResolvedColumn> right_visible_columns;
   ZETASQL_RETURN_IF_ERROR(
       AddColumnList(scan->right_scan()->column_list(), &right_visible_columns));
   // Both left and right scans should not have any common column references
@@ -1813,6 +1860,11 @@ absl::Status Validator::ValidateResolvedJoinScan(
     VALIDATOR_RET_CHECK(scan->join_expr()->type()->IsBool())
         << "JoinScan has join_expr with non-BOOL type: "
         << scan->join_expr()->type()->DebugString();
+  } else {
+    if (scan->join_type() == ResolvedJoinScan::LEFT) {
+      VALIDATOR_RET_CHECK(scan->is_lateral())
+          << "LEFT JOIN can omit the condition only if it is LATERAL";
+    }
   }
 
   ZETASQL_RETURN_IF_ERROR(CheckColumnList(scan, visible_columns));
@@ -1935,9 +1987,9 @@ absl::Status Validator::ValidateResolvedAggregateComputedColumn(
       !Contains(available_side_effect_columns, computed_column->column()));
   if (computed_column->Is<ResolvedDeferredComputedColumn>()) {
     VALIDATOR_RET_CHECK(language_options_.LanguageFeatureEnabled(
-        FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION))
+        FEATURE_ENFORCE_CONDITIONAL_EVALUATION))
         << "ResolvedDeferredComputedColumns is only used when "
-           "FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION is enabled.";
+           "FEATURE_ENFORCE_CONDITIONAL_EVALUATION is enabled.";
 
     const auto* deferred_computed_column =
         computed_column->GetAs<ResolvedDeferredComputedColumn>();
@@ -1973,8 +2025,7 @@ absl::Status Validator::ValidateResolvedAggregateScanBase(
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedComputedColumnList(
       *input_scan_visible_columns, visible_parameters, scan->group_by_list()));
 
-  if (language_options_.LanguageFeatureEnabled(
-          FEATURE_V_1_3_COLLATION_SUPPORT)) {
+  if (language_options_.LanguageFeatureEnabled(FEATURE_COLLATION_SUPPORT)) {
     if (scan->collation_list_size() != 0) {
       ZETASQL_RET_CHECK_EQ(scan->collation_list_size(), scan->group_by_list_size());
       for (int i = 0; i < scan->collation_list_size(); i++) {
@@ -2275,6 +2326,27 @@ absl::Status Validator::ValidateAggregateScanHasNoMultiLevelAggregates(
   return absl::OkStatus();
 }
 
+// Validates that the aggregate scan has no `AGG` function calls (`AGG` is used
+// to aggregate measure typed columns).
+absl::Status Validator::ValidateAggregateScanHasNoAggFunctionCall(
+    const ResolvedAggregateScanBase* scan) {
+  for (const auto& resolved_computed_column : scan->aggregate_list()) {
+    VALIDATOR_RET_CHECK(
+        resolved_computed_column->expr()->Is<ResolvedAggregateFunctionCall>());
+    const ResolvedAggregateFunctionCall* aggregate_function_call =
+        resolved_computed_column->expr()
+            ->GetAs<ResolvedAggregateFunctionCall>();
+    if (aggregate_function_call->function()->NumSignatures() == 1) {
+      VALIDATOR_RET_CHECK(
+          aggregate_function_call->function()->GetSignature(0)->context_id() !=
+          FN_AGG)
+          << aggregate_function_call->function()->Name()
+          << " function is not supported for this scan type.";
+    }
+  }
+  return absl::OkStatus();
+}
+
 absl::Status Validator::ValidateResolvedAnonymizedAggregateScan(
     const ResolvedAnonymizedAggregateScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) {
@@ -2292,6 +2364,8 @@ absl::Status Validator::ValidateResolvedAnonymizedAggregateScan(
   // Multi-level aggregation is currently not supported for Anonymized aggregate
   // scans.
   ZETASQL_RETURN_IF_ERROR(ValidateAggregateScanHasNoMultiLevelAggregates(scan));
+  // `AGG` function calls are not supported for Anonymized aggregate scans.
+  ZETASQL_RETURN_IF_ERROR(ValidateAggregateScanHasNoAggFunctionCall(scan));
 
   std::set<ResolvedColumn> visible_columns;
   ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(scan->aggregate_list(),
@@ -2329,6 +2403,9 @@ absl::Status Validator::ValidateResolvedDifferentialPrivacyAggregateScan(
   // Multi-level aggregation is currently not supported for Differential Privacy
   // aggregate scans.
   ZETASQL_RETURN_IF_ERROR(ValidateAggregateScanHasNoMultiLevelAggregates(scan));
+  // `AGG` function calls are not supported for Differential Privacy aggregate
+  // scans.
+  ZETASQL_RETURN_IF_ERROR(ValidateAggregateScanHasNoAggFunctionCall(scan));
 
   std::set<ResolvedColumn> visible_columns;
   ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(scan->aggregate_list(),
@@ -2366,6 +2443,9 @@ absl::Status Validator::ValidateResolvedAggregationThresholdAggregateScan(
   // Multi-level aggregation is currently not supported for Aggregation
   // Threshold aggregate scans.
   ZETASQL_RETURN_IF_ERROR(ValidateAggregateScanHasNoMultiLevelAggregates(scan));
+  // `AGG` function calls are not supported for Aggregation Threshold aggregate
+  // scans.
+  ZETASQL_RETURN_IF_ERROR(ValidateAggregateScanHasNoAggFunctionCall(scan));
 
   std::set<ResolvedColumn> visible_columns;
   ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(scan->aggregate_list(),
@@ -2619,8 +2699,7 @@ absl::Status Validator::ValidateResolvedWindowPartitioning(
     ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns, visible_parameters,
                                          column_ref.get()));
   }
-  if (language_options_.LanguageFeatureEnabled(
-          FEATURE_V_1_3_COLLATION_SUPPORT)) {
+  if (language_options_.LanguageFeatureEnabled(FEATURE_COLLATION_SUPPORT)) {
     if (!partition_by->collation_list().empty()) {
       VALIDATOR_RET_CHECK_EQ(partition_by->collation_list().size(),
                              partition_by->partition_by_list().size());
@@ -2925,7 +3004,7 @@ absl::Status Validator::ValidateResolvedLimitOffsetScan(
 
   const bool validate_constant_nonnegative =
       !language_options_.LanguageFeatureEnabled(
-          FEATURE_V_1_4_LIMIT_OFFSET_EXPRESSIONS);
+          FEATURE_LIMIT_OFFSET_EXPRESSIONS);
 
   constexpr absl::string_view kClauseName = "LIMIT ... OFFSET ...";
   ZETASQL_RETURN_IF_ERROR(ValidateArgumentIsInt64(
@@ -3025,6 +3104,12 @@ absl::Status Validator::ValidateResolvedTVFScan(
         case ARG_TYPE_SEQUENCE:
           VALIDATOR_RET_CHECK(resolved_arg->sequence() != nullptr);
           break;
+        case ARG_TYPE_FIXED:
+          // Descriptor argument types can resolve to be an integer offset so
+          // we allow either an expr or a descriptor arg here.
+          VALIDATOR_RET_CHECK(resolved_arg->expr() != nullptr ||
+                              resolved_arg->descriptor_arg() != nullptr);
+          break;
         default:
           VALIDATOR_RET_CHECK(resolved_arg->expr() != nullptr);
           break;
@@ -3057,12 +3142,6 @@ absl::Status Validator::ValidateResolvedTVFScan(
       const TVFRelation& input_relation = tvf_signature_arg.relation();
       ZETASQL_RETURN_IF_ERROR(ValidateRelationSchemaInResolvedFunctionArgument(
           required_input_schema, input_relation, resolved_arg));
-
-      if (concrete_arg != nullptr) {
-        VALIDATOR_RET_CHECK(concrete_arg->IsFixedRelation());
-        VALIDATOR_RET_CHECK_EQ(input_relation,
-                               concrete_arg->options().relation_input_schema());
-      }
     } else if (resolved_arg->model() != nullptr) {
       if (concrete_arg != nullptr) {
         VALIDATOR_RET_CHECK(concrete_arg->IsModel());
@@ -3132,15 +3211,6 @@ absl::Status Validator::ValidateResolvedTVFScan(
     VALIDATOR_RET_CHECK(!result_schema.column(0).is_pseudo_column);
   } else {
     VALIDATOR_RET_CHECK_NE(0, result_schema.num_columns());
-  }
-  if (function_call_signature != nullptr) {
-    VALIDATOR_RET_CHECK(
-        function_call_signature->result_type().IsFixedRelation());
-    const TVFRelation& result_schema_in_matched_signature =
-        function_call_signature->result_type()
-            .options()
-            .relation_input_schema();
-    VALIDATOR_RET_CHECK_EQ(result_schema, result_schema_in_matched_signature);
   }
 
   // Each output column should have a unique column id. Mark the column id
@@ -4220,9 +4290,9 @@ absl::Status Validator::ValidateResolvedCreateModelStmt(
   };
 
   bool enable_aliased_query_list = language_options_.LanguageFeatureEnabled(
-      FEATURE_V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST);
+      FEATURE_CREATE_MODEL_WITH_ALIASED_QUERY_LIST);
   bool enable_remote_model =
-      language_options_.LanguageFeatureEnabled(FEATURE_V_1_4_REMOTE_MODEL);
+      language_options_.LanguageFeatureEnabled(FEATURE_REMOTE_MODEL);
   if (stmt->is_remote()) {
     // Remote model.
     VALIDATOR_RET_CHECK(enable_remote_model) << "Remote model is not supported";
@@ -4576,7 +4646,7 @@ absl::Status Validator::ValidateResolvedCreateFunctionStmt(
       << "is_remote is true iff language is \"REMOTE\"";
 
   if (stmt->is_remote() &&
-      language_options_.LanguageFeatureEnabled(FEATURE_V_1_3_REMOTE_FUNCTION)) {
+      language_options_.LanguageFeatureEnabled(FEATURE_REMOTE_FUNCTION)) {
     // For a remote function, its code should be empty.
     VALIDATOR_RET_CHECK(stmt->code().empty());
   }
@@ -4585,7 +4655,7 @@ absl::Status Validator::ValidateResolvedCreateFunctionStmt(
     VALIDATOR_RET_CHECK(
         stmt->is_remote() ||
         (language_options_.LanguageFeatureEnabled(
-             FEATURE_V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION) &&
+             FEATURE_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION) &&
          !stmt->language().empty()));
   }
 
@@ -5051,8 +5121,7 @@ absl::Status Validator::ValidateResolvedOrderByItem(
                                          item->collation_name()));
     VALIDATOR_RET_CHECK(item->collation_name()->type()->IsString())
         << "collation_name must have type STRING";
-    if (language_options_.LanguageFeatureEnabled(
-            FEATURE_V_1_3_COLLATION_SUPPORT)) {
+    if (language_options_.LanguageFeatureEnabled(FEATURE_COLLATION_SUPPORT)) {
       if (item->collation_name()->Is<ResolvedLiteral>()) {
         VALIDATOR_RET_CHECK(!item->collation().Empty());
         VALIDATOR_RET_CHECK_EQ(item->collation_name()
@@ -5181,6 +5250,66 @@ absl::Status Validator::ValidateCreateWithEntryStmt(
   with_entry->with_query_name();  // Mark visited.
 
   visible_with_entries_.push_back(with_entry);
+  return absl::OkStatus();
+}
+
+absl::Status Validator::ValidateScanCanEmitMeasureColumns(
+    const ResolvedScan* scan) {
+  // These are the only scan kinds that can emit measure columns. We use an
+  // allow list instead of a deny list to ensure any new scan kinds don't
+  // accidentally allow measure column emission.
+  absl::flat_hash_set<ResolvedNodeKind> allow_listed_scan_kinds = {
+      RESOLVED_TABLE_SCAN,
+      RESOLVED_JOIN_SCAN,
+      RESOLVED_ARRAY_SCAN,
+      RESOLVED_FILTER_SCAN,
+      RESOLVED_ORDER_BY_SCAN,
+      RESOLVED_LIMIT_OFFSET_SCAN,
+      RESOLVED_WITH_REF_SCAN,
+      RESOLVED_PROJECT_SCAN,
+      RESOLVED_WITH_SCAN,
+      RESOLVED_STATIC_DESCRIBE_SCAN,
+      RESOLVED_LOG_SCAN,
+      RESOLVED_PIPE_IF_SCAN,
+      RESOLVED_SUBPIPELINE_INPUT_SCAN,
+      RESOLVED_ANALYTIC_SCAN,
+      RESOLVED_SAMPLE_SCAN,
+  };
+  auto it =
+      std::find_if(scan->column_list().cbegin(), scan->column_list().cend(),
+                   [](const ResolvedColumn& column) {
+                     return IsOrContainsMeasure(column.type());
+                   });
+  // If the scan does not emit any measure columns, return ok.
+  if (it == scan->column_list().cend()) {
+    return absl::OkStatus();
+  }
+  int measure_column_idx =
+      static_cast<int>(std::distance(scan->column_list().begin(), it));
+  ZETASQL_RET_CHECK_GE(measure_column_idx, 0);
+  // Scan emits measure columns; check if it is allow listed.
+  if (!std::any_of(allow_listed_scan_kinds.begin(),
+                   allow_listed_scan_kinds.end(),
+                   [scan](const ResolvedNodeKind& kind) {
+                     return kind == scan->node_kind();
+                   })) {
+    return zetasql_base::InternalErrorBuilder()
+           << scan->node_kind_string() << " cannot emit column "
+           << it->DebugString() << " of type " << it->type()->DebugString();
+  }
+  // Scan is allow listed and emits measure columns. This is generally valid,
+  // but we need an additional check for JOIN scans. Only INNER JOINs can
+  // currently emit measure columns; outer JOIN support relies on aggregate
+  // filtering which is still in-development.
+  if (scan->node_kind() == RESOLVED_JOIN_SCAN) {
+    const ResolvedJoinScan* join_scan = scan->GetAs<ResolvedJoinScan>();
+    ZETASQL_RET_CHECK(join_scan != nullptr);
+    if (join_scan->join_type() != ResolvedJoinScan::INNER) {
+      return zetasql_base::InternalErrorBuilder()
+             << scan->node_kind_string() << " cannot emit column "
+             << it->DebugString() << " of type " << it->type()->DebugString();
+    }
+  }
   return absl::OkStatus();
 }
 
@@ -5333,6 +5462,10 @@ absl::Status Validator::ValidateResolvedScan(
       scan_subtype_status = ValidateResolvedGraphRefScan(
           scan->GetAs<ResolvedGraphRefScan>(), visible_parameters);
       break;
+    case RESOLVED_GRAPH_CALL_SCAN:
+      scan_subtype_status = ValidateResolvedGraphCallScan(
+          scan->GetAs<ResolvedGraphCallScan>(), visible_parameters);
+      break;
     case RESOLVED_STATIC_DESCRIBE_SCAN:
       scan_subtype_status = ValidateResolvedStaticDescribeScan(
           scan->GetAs<ResolvedStaticDescribeScan>(), visible_parameters);
@@ -5399,11 +5532,10 @@ absl::Status Validator::ValidateResolvedRecursiveScan(
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, scan);
   VALIDATOR_RET_CHECK(
-      language_options_.LanguageFeatureEnabled(FEATURE_V_1_3_WITH_RECURSIVE) ||
+      language_options_.LanguageFeatureEnabled(FEATURE_WITH_RECURSIVE) ||
       language_options_.LanguageFeatureEnabled(
-          FEATURE_V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION) ||
-      language_options_.LanguageFeatureEnabled(
-          FEATURE_V_1_4_PIPE_RECURSIVE_UNION))
+          FEATURE_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION) ||
+      language_options_.LanguageFeatureEnabled(FEATURE_PIPE_RECURSIVE_UNION))
       << "Found recursive scan, but WITH RECURSIVE and pipe RECURSIVE UNION "
          "are both disabled in language features";
   VALIDATOR_RET_CHECK(scan->non_recursive_term() != nullptr);
@@ -7097,7 +7229,7 @@ absl::Status Validator::ValidateResolvedMatchRecognizeScan(
     const std::set<ResolvedColumn>& visible_parameters) {
   PushErrorContext push(this, scan);
   VALIDATOR_RET_CHECK(
-      language_options_.LanguageFeatureEnabled(FEATURE_V_1_4_MATCH_RECOGNIZE))
+      language_options_.LanguageFeatureEnabled(FEATURE_MATCH_RECOGNIZE))
       << "MATCH_RECOGNIZE is not supported";
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedScan(scan->input_scan(), visible_parameters));
 
@@ -7124,6 +7256,22 @@ absl::Status Validator::ValidateResolvedMatchRecognizeScan(
       ZETASQL_RETURN_IF_ERROR(ValidateResolvedParameter(
           option->value()->GetAs<ResolvedParameter>()));
     }
+  }
+
+  VALIDATOR_RET_CHECK_EQ(scan->analytic_function_group_list_size(), 1);
+  const ResolvedAnalyticFunctionGroup* group =
+      scan->analytic_function_group_list(0);
+
+  std::set<ResolvedColumn> visible_columns_for_def = visible_columns;
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedAnalyticFunctionGroup(group, visible_columns,
+                                                        visible_parameters));
+  for (const auto& col : group->analytic_function_list()) {
+    VALIDATOR_RET_CHECK(col->expr()->Is<ResolvedAnalyticFunctionCall>());
+    const FunctionSignature& signature =
+        col->expr()->GetAs<ResolvedAnalyticFunctionCall>()->signature();
+    VALIDATOR_RET_CHECK(signature.context_id() == FN_LEAD ||
+                        signature.context_id() == FN_LAG);
+    VALIDATOR_RET_CHECK(visible_columns_for_def.insert(col->column()).second);
   }
 
   if (scan->partition_by() != nullptr) {
@@ -7161,8 +7309,8 @@ absl::Status Validator::ValidateResolvedMatchRecognizeScan(
   std::set<absl::string_view, zetasql_base::CaseLess>
       pattern_variable_names_defined_case_insensitive;
   for (const auto& definition : scan->pattern_variable_definition_list()) {
-    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns, visible_parameters,
-                                         definition->predicate()));
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
+        visible_columns_for_def, visible_parameters, definition->predicate()));
     absl::string_view name = definition->name();
     ZETASQL_RETURN_IF_ERROR(ValidateMatchRecognizeVariableName(name));
     VALIDATOR_RET_CHECK(pattern_variable_names_defined_case_insensitive
@@ -7809,56 +7957,6 @@ std::string Validator::RecordContext() {
   return "";
 }
 
-absl::Status Validator::ValidateScanCanEmitMeasureColumns(
-    const ResolvedScan* scan) {
-  // These are the only scan kinds that can emit measure columns. We use an
-  // allow list instead of a deny list to ensure any new scan kinds don't
-  // accidentally allow measure column emission.
-  absl::flat_hash_set<ResolvedNodeKind> allow_listed_scan_kinds = {
-      RESOLVED_TABLE_SCAN,         RESOLVED_JOIN_SCAN,
-      RESOLVED_ARRAY_SCAN,         RESOLVED_FILTER_SCAN,
-      RESOLVED_ORDER_BY_SCAN,      RESOLVED_LIMIT_OFFSET_SCAN,
-      RESOLVED_WITH_REF_SCAN,      RESOLVED_PROJECT_SCAN,
-      RESOLVED_RECURSIVE_REF_SCAN, RESOLVED_RECURSIVE_SCAN,
-      RESOLVED_WITH_SCAN,
-  };
-
-  // If the scan does not emit any measure columns, return ok.
-  auto it =
-      std::find_if(scan->column_list().cbegin(), scan->column_list().cend(),
-                   [](const ResolvedColumn& column) {
-                     return column.type()->IsMeasureType();
-                   });
-  if (it == scan->column_list().cend()) {
-    return absl::OkStatus();
-  }
-  // Scan emits measure columns; check if it is allow listed.
-  if (!std::any_of(allow_listed_scan_kinds.begin(),
-                   allow_listed_scan_kinds.end(),
-                   [scan](const ResolvedNodeKind& kind) {
-                     return kind == scan->node_kind();
-                   })) {
-    return InternalErrorBuilder()
-           << scan->node_kind_string() << " cannot emit column "
-           << it->DebugString() << " of MEASURE type";
-  }
-
-  // Scan is allow listed and emits measure columns. This is generally valid,
-  // but we need an additional check for JOIN scans. Only INNER JOINs can
-  // currently emit measure columns; outer JOIN support relies on aggregate
-  // filtering which is still in-development.
-  if (scan->node_kind() == RESOLVED_JOIN_SCAN) {
-    const ResolvedJoinScan* join_scan = scan->GetAs<ResolvedJoinScan>();
-    ZETASQL_RET_CHECK(join_scan != nullptr);
-    if (join_scan->join_type() != ResolvedJoinScan::INNER) {
-      return InternalErrorBuilder()
-             << "Outer JOINs cannot emit measure columns until aggregate "
-                "filtering is supported";
-    }
-  }
-  return absl::OkStatus();
-}
-
 absl::Status Validator::ValidateBoolExpr(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
@@ -7983,6 +8081,18 @@ absl::Status Validator::ValidateResolvedGraphElementTable(
         property_definition.get(), visible_columns, all_property_name_set));
   }
 
+  if (language_options_.LanguageFeatureEnabled(
+          FEATURE_SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL) &&
+      element_table->dynamic_label() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedGraphDynamicLabelSpecification(
+        element_table->dynamic_label(), visible_columns));
+  }
+  if (language_options_.LanguageFeatureEnabled(
+          FEATURE_SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL) &&
+      element_table->dynamic_properties() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedGraphDynamicPropertiesSpecification(
+        element_table->dynamic_properties(), visible_columns));
+  }
   return absl::OkStatus();
 }
 
@@ -8057,6 +8167,37 @@ absl::Status Validator::ValidateResolvedGraphPropertyDefinition(
 
   return ValidateResolvedExpr(visible_columns, /*visible_parameters=*/{},
                               property_definition->expr());
+}
+
+absl::Status Validator::ValidateResolvedGraphDynamicLabelSpecification(
+    const ResolvedGraphDynamicLabelSpecification* label_specification,
+    const std::set<ResolvedColumn>& visible_columns) {
+  VALIDATOR_RET_CHECK_NE(label_specification->label_expr(), nullptr);
+  VALIDATOR_RET_CHECK(label_specification->label_expr()->type()->IsString());
+  // A dynamic label can only be a column-ref or a catalog-column-ref.
+  VALIDATOR_RET_CHECK(
+      label_specification->label_expr()->Is<ResolvedColumnRef>() ||
+      label_specification->label_expr()->Is<ResolvedCatalogColumnRef>());
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns,
+                                       /*visible_parameters=*/{},
+                                       label_specification->label_expr()));
+  return absl::OkStatus();
+}
+
+absl::Status Validator::ValidateResolvedGraphDynamicPropertiesSpecification(
+    const ResolvedGraphDynamicPropertiesSpecification* property_specification,
+    const std::set<ResolvedColumn>& visible_columns) {
+  VALIDATOR_RET_CHECK_NE(property_specification->property_expr(), nullptr);
+  VALIDATOR_RET_CHECK(
+      property_specification->property_expr()->type()->IsJson());
+  // A dynamic property can only be a column-ref or a catalog-column-ref.
+  VALIDATOR_RET_CHECK(
+      property_specification->property_expr()->Is<ResolvedColumnRef>() ||
+      property_specification->property_expr()->Is<ResolvedCatalogColumnRef>());
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
+      visible_columns,
+      /*visible_parameters=*/{}, property_specification->property_expr()));
+  return absl::OkStatus();
 }
 
 absl::Status Validator::ValidateGraphReturnOperator(const ResolvedScan* scan) {
@@ -8169,9 +8310,27 @@ absl::Status Validator::ValidateInnerGraphLinearScanStructure(
           input_scan =
               primitive_ops[i]->GetAs<ResolvedArrayScan>()->input_scan();
           break;
+        case RESOLVED_GRAPH_CALL_SCAN: {
+          const ResolvedGraphCallScan* call_scan =
+              primitive_ops[i]->GetAs<ResolvedGraphCallScan>();
+          VALIDATOR_RET_CHECK(
+              call_scan->input_scan()->Is<ResolvedGraphRefScan>() ||
+              call_scan->input_scan()->Is<ResolvedSingleRowScan>());
+          input_scan = call_scan->subquery();
+          break;
+        }
         case RESOLVED_SAMPLE_SCAN:
           input_scan =
               primitive_ops[i]->GetAs<ResolvedSampleScan>()->input_scan();
+          break;
+        case RESOLVED_TVFSCAN:
+          // The first table arg must be the GraphRefScan.
+          for (const auto& arg :
+               primitive_ops[i]->GetAs<ResolvedTVFScan>()->argument_list()) {
+            if (arg->scan() != nullptr) {
+              input_scan = arg->scan();
+            }
+          }
           break;
         default:
           VALIDATOR_RET_CHECK_FAIL();
@@ -8230,9 +8389,9 @@ absl::Status Validator::ValidateResolvedGraphTableScan(
   ZETASQL_RETURN_IF_ERROR(CheckColumnList(scan, visible_columns));
 
   // Verify that scan only outputs non-graph SQL type columns, unless
-  // FEATURE_V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT is enabled.
+  // FEATURE_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT is enabled.
   if (!language_options_.LanguageFeatureEnabled(
-          FEATURE_V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT)) {
+          FEATURE_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT)) {
     for (const ResolvedColumn& column : scan->column_list()) {
       VALIDATOR_RET_CHECK(!TypeIsOrContainsGraphElement(column.type()));
     }
@@ -8314,7 +8473,25 @@ absl::Status Validator::ValidateResolvedGraphLabel(
   PushErrorContext push(this, expr);
   VALIDATOR_RET_CHECK_NE(expr, nullptr);
 
-  VALIDATOR_RET_CHECK_NE(expr->label(), nullptr) << "label must be set";
+  const ResolvedExpr* label_name = expr->label_name();
+  if (!language_options_.LanguageFeatureEnabled(
+          FEATURE_SQL_GRAPH_DYNAMIC_ELEMENT_TYPE)) {
+    VALIDATOR_RET_CHECK_NE(expr->label(), nullptr) << "label must be set";
+    VALIDATOR_RET_CHECK_EQ(label_name, nullptr);
+  } else {
+    VALIDATOR_RET_CHECK_NE(label_name, nullptr);
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
+        /*visible_columns=*/{}, /*visible_parameters=*/{}, label_name));
+    VALIDATOR_RET_CHECK(label_name->Is<ResolvedLiteral>());
+    VALIDATOR_RET_CHECK(label_name->type()->IsString());
+
+    if (expr->label() != nullptr) {
+      VALIDATOR_RET_CHECK(zetasql_base::CaseEqual(
+          label_name->GetAs<ResolvedLiteral>()->value().string_value(),
+          expr->label()->Name()))
+          << "label_name and label must match case-insensitively";
+    }
+  }
   return absl::OkStatus();
 }
 absl::Status Validator::ValidateResolvedGraphWildCardLabel(
@@ -8338,6 +8515,9 @@ absl::Status Validator::ValidateResolvedGraphEdgeScan(
   scan->MarkFieldsAccessed();  // Mark field as visited.
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(scan->lhs_hint_list()));
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(scan->rhs_hint_list()));
+  if (scan->cost_expr() != nullptr) {
+    VALIDATOR_RET_CHECK(scan->cost_expr()->type()->IsNumerical());
+  }
   return ValidateResolvedGraphElementScan(scan, visible_parameters);
 }
 
@@ -8373,7 +8553,7 @@ absl::Status Validator::ValidateResolvedGraphPathScan(
   // Check that `head` and `tail` are set correctly.
   if (scan->quantifier() == nullptr) {
     if (language_options_.LanguageFeatureEnabled(
-            FEATURE_V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION)) {
+            FEATURE_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION)) {
       VALIDATOR_RET_CHECK(scan->group_variable_list_size() == 0)
           << "If group variables cannot be accessed then group_variable_list "
              "must be empty";
@@ -8415,7 +8595,7 @@ absl::Status Validator::ValidateResolvedGraphPathScan(
 
     // Validate the group variables.
     if (language_options_.LanguageFeatureEnabled(
-            FEATURE_V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION)) {
+            FEATURE_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION)) {
       VALIDATOR_RET_CHECK(scan->group_variable_list_size() != 0)
           << "Quantifier and group_variable_list must be set together";
       for (auto& make_array : scan->group_variable_list()) {
@@ -8491,6 +8671,10 @@ absl::Status Validator::ValidateResolvedGraphPathScan(
   if (scan->filter_expr() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(ValidateBoolExpr(visible_columns, visible_parameters,
                                      scan->filter_expr()));
+  }
+  if (scan->path_cost() != nullptr) {
+    VALIDATOR_RET_CHECK(scan->path_cost()->cost_supertype() != nullptr);
+    VALIDATOR_RET_CHECK(scan->path_cost()->cost_supertype()->IsNumerical());
   }
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedGraphPathPatternQuantifier(
       scan->quantifier(), visible_parameters));
@@ -8591,6 +8775,74 @@ absl::Status Validator::ValidateResolvedGraphRefScan(
   return CheckColumnList(scan, visible_columns);
 }
 
+absl::Status Validator::ValidateResolvedGraphCallScan(
+    const ResolvedGraphCallScan* scan,
+    const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+  PushErrorContext push(this, scan);
+
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedScan(scan->input_scan(), visible_parameters));
+
+  if (scan->optional()) {
+    absl::string_view err_text =
+        "OPTIONAL CALL needs an input scan in order to do a left join";
+    VALIDATOR_RET_CHECK(scan->input_scan() != nullptr) << err_text;
+    VALIDATOR_RET_CHECK(scan->input_scan()->Is<ResolvedGraphRefScan>())
+        << err_text << "; found " << scan->input_scan()->node_kind_string();
+    VALIDATOR_RET_CHECK_GT(scan->input_scan()->column_list().size(), 0);
+  }
+
+  std::set<ResolvedColumn> left_visible_columns;
+  ZETASQL_RETURN_IF_ERROR(
+      AddColumnList(scan->input_scan()->column_list(), &left_visible_columns));
+
+  std::set<ResolvedColumn> visible_paramerters_for_rhs;
+  for (const auto& col_ref : scan->parameter_list()) {
+    if (!col_ref->is_correlated()) {
+      // If the ref is not already correlated, it must be available from the
+      // left scan.
+      VALIDATOR_RET_CHECK(
+          zetasql_base::ContainsKey(left_visible_columns, col_ref->column()))
+          << "Column must come from the left scan";
+    } else {
+      // If the ref is correlated, it cannot come from the left scan.
+      VALIDATOR_RET_CHECK(
+          !zetasql_base::ContainsKey(left_visible_columns, col_ref->column()))
+          << "Column cannot come from the left scan";
+    }
+    visible_paramerters_for_rhs.insert(col_ref->column());
+  }
+
+  // CALL subqueries are just like LATERAL joins, the RHS sees only the lateral
+  // list, not the outside parameters.
+  VALIDATOR_RET_CHECK(scan->subquery() != nullptr);
+
+  if (scan->subquery()->Is<ResolvedGraphTableScan>()) {
+    const auto* subquery = scan->subquery()->GetAs<ResolvedGraphTableScan>();
+    // We should check that this is the same as the enclosing property graph.
+    VALIDATOR_RET_CHECK(subquery->shape_expr_list().empty());
+  } else {
+    VALIDATOR_RET_CHECK(scan->subquery()->Is<ResolvedTVFScan>());
+  }
+
+  ZETASQL_RETURN_IF_ERROR(
+      ValidateResolvedScan(scan->subquery(), visible_paramerters_for_rhs));
+
+  std::set<ResolvedColumn> right_visible_columns;
+  ZETASQL_RETURN_IF_ERROR(
+      AddColumnList(scan->subquery()->column_list(), &right_visible_columns));
+  // The input and subquery scans should not have any common columns.
+  VALIDATOR_RET_CHECK(!zetasql_base::SortedContainersHaveIntersection(
+      left_visible_columns, right_visible_columns));
+
+  const std::set<ResolvedColumn> visible_columns =
+      zetasql_base::STLSetUnion(left_visible_columns, right_visible_columns);
+
+  ZETASQL_RETURN_IF_ERROR(CheckColumnList(scan, visible_columns));
+
+  return absl::OkStatus();
+}
+
 absl::Status Validator::ValidateResolvedGraphGetElementProperty(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
@@ -8598,8 +8850,26 @@ absl::Status Validator::ValidateResolvedGraphGetElementProperty(
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   VALIDATOR_RET_CHECK(get_element_prop_expr->expr()->type()->IsGraphElement());
 
-  VALIDATOR_RET_CHECK_NE(get_element_prop_expr->property(), nullptr)
-      << "property must be set";
+  const ResolvedExpr* property_name = get_element_prop_expr->property_name();
+  if (!language_options_.LanguageFeatureEnabled(
+          FEATURE_SQL_GRAPH_DYNAMIC_ELEMENT_TYPE)) {
+    VALIDATOR_RET_CHECK_NE(get_element_prop_expr->property(), nullptr)
+        << "property must be set";
+    VALIDATOR_RET_CHECK_EQ(property_name, nullptr);
+  } else {
+    VALIDATOR_RET_CHECK_NE(property_name, nullptr);
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
+        /*visible_columns=*/{}, /*visible_parameters=*/{}, property_name));
+    VALIDATOR_RET_CHECK(property_name->Is<ResolvedLiteral>());
+    VALIDATOR_RET_CHECK(property_name->type()->IsString());
+
+    if (get_element_prop_expr->property() != nullptr) {
+      VALIDATOR_RET_CHECK(zetasql_base::CaseEqual(
+          property_name->GetAs<ResolvedLiteral>()->value().string_value(),
+          get_element_prop_expr->property()->Name()))
+          << "property_name and property must match case-insensitively";
+    }
+  }
 
   return ValidateResolvedExpr(visible_columns, visible_parameters,
                               get_element_prop_expr->expr());
@@ -8687,6 +8957,21 @@ absl::Status Validator::ValidateResolvedGraphMakeElement(
         visible_columns, visible_parameters, property.get()));
   }
 
+  // TODO: b/382764934 - support `dynamic_labels` and `dynamic_properties`.
+  if (!language_options_.LanguageFeatureEnabled(
+          FEATURE_SQL_GRAPH_DYNAMIC_ELEMENT_TYPE)) {
+    VALIDATOR_RET_CHECK_EQ(make_graph_element->dynamic_labels(), nullptr);
+    VALIDATOR_RET_CHECK_EQ(make_graph_element->dynamic_properties(), nullptr);
+  } else {
+    if (make_graph_element->dynamic_labels() != nullptr) {
+      VALIDATOR_RET_CHECK(
+          make_graph_element->dynamic_labels()->type()->IsString());
+    }
+    if (make_graph_element->dynamic_properties() != nullptr) {
+      VALIDATOR_RET_CHECK(
+          make_graph_element->dynamic_properties()->type()->IsJson());
+    }
+  }
   return absl::OkStatus();
 }
 

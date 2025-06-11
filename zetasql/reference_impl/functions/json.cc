@@ -330,6 +330,16 @@ class JsonKeysFunction : public SimpleBuiltinScalarFunction {
                              EvaluationContext* context) const override;
 };
 
+class JsonFlattenFunction : public SimpleBuiltinScalarFunction {
+ public:
+  JsonFlattenFunction()
+      : SimpleBuiltinScalarFunction(FunctionKind::kJsonFlatten,
+                                    types::StringArrayType()) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
 // Helper function for the string version of JSON_QUERY, JSON_VALUE,
 // JSON_EXTRACT and JSON_EXTRACT_SCALAR.
 absl::StatusOr<Value> JsonExtractString(
@@ -1466,6 +1476,34 @@ absl::StatusOr<Value> JsonKeysFunction::Eval(
   return values::StringArray(keys);
 }
 
+absl::StatusOr<Value> JsonFlattenFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_EQ(args.size(), 1);
+  if (args[0].is_null()) {
+    return Value::Null(types::JsonArrayType());
+  }
+
+  ZETASQL_RET_CHECK(args[0].type()->IsJson());
+  JSONParsingOptions json_parsing_options =
+      GetJSONParsingOptions(context->GetLanguageOptions());
+  JSONValue input_backing;
+  ZETASQL_ASSIGN_OR_RETURN(
+      JSONValueConstRef input,
+      GetJSONValueConstRef(args[0], json_parsing_options, input_backing));
+
+  const std::vector<JSONValueConstRef> json_refs =
+      functions::JsonFlatten(input);
+  std::vector<Value> json_value_array;
+  json_value_array.reserve(json_refs.size());
+  for (const JSONValueConstRef& json_element : json_refs) {
+    json_value_array.push_back(Value::Json(JSONValue::CopyFrom(json_element)));
+  }
+  // Avoid unnecessary copy. This is safe, because all elements are valid JSON.
+  return Value::MakeArrayFromValidatedInputs(types::JsonArrayType(),
+                                             std::move(json_value_array));
+}
+
 }  // namespace
 
 void RegisterBuiltinJsonFunctions() {
@@ -1572,6 +1610,11 @@ void RegisterBuiltinJsonFunctions() {
       {FunctionKind::kJsonKeys},
       [](FunctionKind kind, const zetasql::Type* output_type) {
         return new JsonKeysFunction();
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kJsonFlatten},
+      [](FunctionKind kind, const zetasql::Type* output_type) {
+        return new JsonFlattenFunction();
       });
 }
 

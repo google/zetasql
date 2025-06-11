@@ -1223,6 +1223,13 @@ class NameList {
   // Return vector of ResolvedColumns contained in columns().
   std::vector<ResolvedColumn> GetResolvedColumns() const;
 
+  // Return vector of Resolved pseudo-columns contained in columns().
+  std::vector<ResolvedColumn> GetResolvedPseudoColumns() const;
+
+  // Return vector of NamedColumns corresponding to the pseudo-columns in
+  // local name scope.
+  std::vector<NamedColumn> GetNamedPseudoColumns() const;
+
   // Return vector of column names.  Excludes pseudo-columns.
   std::vector<IdString> GetColumnNames() const;
 

@@ -1,6 +1,5 @@
 # Analyzer tests for ZetaSQL's untyped argument coercion behavior.
 
-[default also_show_signature_mismatch_details]
 # An untyped null passed as a templated array will resolve to ARRAY<INT64> if there is no templated any type.
 SELECT fn_req_any_array_returns_any_arg({{NULL|['a']}});
 --
@@ -127,11 +126,6 @@ SELECT fn_optional_any_arg_returns_any({{|NULL|'a'}});
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_OPTIONAL_ANY_ARG_RETURNS_ANY with no arguments. Supported signature: FN_OPTIONAL_ANY_ARG_RETURNS_ANY([ANY]) [at 1:8]
-SELECT fn_optional_any_arg_returns_any();
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_OPTIONAL_ANY_ARG_RETURNS_ANY with no arguments
   Signature: FN_OPTIONAL_ANY_ARG_RETURNS_ANY([T1])
     Unable to determine type for function return type of kind T1 [at 1:8]
@@ -176,11 +170,6 @@ SELECT fn_optional_any_arg_returns_any_array({{|NULL|'a'}});
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_OPTIONAL_ANY_ARG_RETURNS_ANY_ARRAY with no arguments. Supported signature: FN_OPTIONAL_ANY_ARG_RETURNS_ANY_ARRAY([ANY]) [at 1:8]
-SELECT fn_optional_any_arg_returns_any_array();
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_OPTIONAL_ANY_ARG_RETURNS_ANY_ARRAY with no arguments
   Signature: FN_OPTIONAL_ANY_ARG_RETURNS_ANY_ARRAY([T1])
     Unable to determine type for function return type of kind ARRAY<T1> [at 1:8]
@@ -216,4 +205,3 @@ QueryStmt
     |     +-Literal(type=STRING, value="a")
     +-input_scan=
       +-SingleRowScan
-==

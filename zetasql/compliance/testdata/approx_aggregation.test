@@ -125,7 +125,7 @@ FROM UNNEST([BIGNUMERIC "1.23", BIGNUMERIC "1.23", BIGNUMERIC "3.14"]) x
 ARRAY<STRUCT<INT64>>[{2}]
 ==
 
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 [name=approx_count_distinct_array]
 SELECT APPROX_COUNT_DISTINCT(array_int64_val)
 FROM TableAllTypes
@@ -133,7 +133,7 @@ FROM TableAllTypes
 ARRAY<STRUCT<INT64>>[{1}]
 ==
 
-[required_features=V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_STRUCT]
 [name=approx_count_distinct_struct]
 SELECT APPROX_COUNT_DISTINCT(struct_val)
 FROM TableAllTypes
@@ -166,7 +166,7 @@ FROM UNNEST([NULL, NULL, NULL, NULL, NULL]) x
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>(NULL)}]
 
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [name=approx_quantiles_with_ignore_nulls]
 SELECT APPROX_QUANTILES(x,1 IGNORE NULLS)
 FROM UNNEST([NULL, NULL, NULL, NULL, NULL]) x
@@ -174,7 +174,7 @@ FROM UNNEST([NULL, NULL, NULL, NULL, NULL]) x
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>(NULL)}]
 
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [name=approx_quantiles_with_respect_nulls]
 SELECT APPROX_QUANTILES(x,1 RESPECT NULLS)
 FROM UNNEST([NULL, NULL, NULL, NULL, NULL]) x
@@ -189,7 +189,7 @@ FROM UNNEST([1, NULL, 1, NULL, NULL]) x
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:1, 1]}]
 
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [name=approx_quantiles_with_ignore_nulls2]
 SELECT APPROX_QUANTILES(x,1 IGNORE NULLS)
 FROM UNNEST([1, NULL, 1, NULL, NULL]) x
@@ -197,7 +197,7 @@ FROM UNNEST([1, NULL, 1, NULL, NULL]) x
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:1, 1]}]
 
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [name=approx_quantiles_with_respect_nulls2]
 SELECT APPROX_QUANTILES(x,1 RESPECT NULLS)
 FROM UNNEST([1, NULL, 1, NULL, NULL]) x
@@ -389,7 +389,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=approx_quantiles_range_datetimes]
 SELECT APPROX_QUANTILES(x, 1)
 FROM UNNEST([
@@ -590,7 +590,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 ==
 
 
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 [name=approx_top_count_array]
 SELECT APPROX_TOP_COUNT(array_int64_val, 1)
 FROM TableAllTypes
@@ -605,7 +605,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 ==
 
-[required_features=V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_STRUCT]
 [name=approx_top_count_struct]
 SELECT APPROX_TOP_COUNT(struct_val, 1)
 FROM TableAllTypes
@@ -858,7 +858,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 ==
 
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 [name=approx_top_sum_array]
 SELECT APPROX_TOP_SUM(array_int64_val, double_val, 1)
 FROM TableAllTypes
@@ -873,7 +873,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 ==
 
-[required_features=V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_STRUCT]
 [name=approx_top_sum_struct]
 SELECT APPROX_TOP_SUM(struct_val, double_val, 1)
 FROM TableAllTypes

@@ -152,6 +152,13 @@ class SimpleType : public Type {
   absl::StatusOr<TypeParameters> ResolveNumericBignumericTypeParameters(
       absl::Span<const TypeParameterValue> type_parameter_values,
       ProductMode mode) const;
+  // Resolves type parameters for TIMESTAMP(<precision>). `precision` must be
+  // one of 0, 3, 6, 9 or 12, and must be less than or equal to the maximum
+  // precision supported by the system (e.g. Nanos, Picos).
+  absl::StatusOr<TypeParameters> ResolveTimestampTypeParameters(
+      absl::Span<const TypeParameterValue> type_parameter_values,
+      ProductMode mode) const;
+
   // Validates the resolved numeric type parameters.
   // We put ValidateNumericTypeParameters() in Type class instead of
   // TypeParameters class because TypeParameters class doesn't know whether

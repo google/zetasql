@@ -41,7 +41,7 @@
 
 # Subquery 'key' resolves to a post-grouped version of the column.
 
-[default language_features=GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT]
+[default language_features=GROUP_BY_ROLLUP,GROUP_BY_STRUCT]
 
 SELECT key, (select key)
 FROM KeyValue kv

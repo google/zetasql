@@ -85,7 +85,7 @@ inline int FindMSBSetNonZero(uint64_t x) {
 }
 
 // Builds a std::array<Word, size> with left padding in compile-time.
-// For example, LeftPad<uint32_t, 4>(1, 2, 3) returns {1, 1, 2, 3}.
+// For example, LeftPad<uint32, 4>(1, 2, 3) returns {1, 1, 2, 3}.
 // The number of arguments cannot exceed <size> + 1.
 template <typename Word, int size, typename... T>
 inline constexpr std::array<Word, size> LeftPad(Word filler, T... v) {
@@ -97,7 +97,7 @@ inline constexpr std::array<Word, size> LeftPad(Word filler, T... v) {
 }
 
 // Builds a std::array<Word, size> with right padding in compile-time.
-// For example, RightPad<uint32_t, 4>(1, 2, 3) returns {2, 3, 1, 1}.
+// For example, RightPad<uint32, 4>(1, 2, 3) returns {2, 3, 1, 1}.
 // The number of arguments cannot exceed <size> + 1.
 template <typename Word, int size, typename... T>
 inline constexpr std::array<Word, size> RightPad(Word filler, T... v) {
@@ -508,7 +508,7 @@ inline void DivModWord(Word dividend_hi, Word dividend_lo, Word divisor,
 
 #ifdef __x86_64__
 // Requires dividend_hi < divisor to prevent overflow.
-// When the divisor is a compile-time constant uint32_t, DivModWord above is much
+// When the divisor is a compile-time constant uint32, DivModWord above is much
 // more efficient because the compiler can replace division with multiplication.
 // In other cases, RawDivModWord is much more efficient.
 inline void RawDivModWord(uint32_t dividend_hi, uint32_t dividend_lo,

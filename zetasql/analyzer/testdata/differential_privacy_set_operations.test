@@ -1,5 +1,4 @@
 # Reject set operations that don't read user data
-[default also_show_signature_mismatch_details]
 [default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE]
 
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]

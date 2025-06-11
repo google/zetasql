@@ -2386,7 +2386,7 @@ NOTE: Reference implementation reports non-determinism.
 
 # Conditional evaluation with anonymization
 [name=aggregate_in_if]
-[required_features=ANONYMIZATION,V_1_4_ENFORCE_CONDITIONAL_EVALUATION]
+[required_features=ANONYMIZATION,ENFORCE_CONDITIONAL_EVALUATION]
 [labels=anonymization]
 SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
   IF(ANON_COUNT(*) > 0, ANON_COUNT(*), ANON_COUNT(1/(int64_val-1)))
@@ -2409,7 +2409,7 @@ ARRAY<STRUCT<DOUBLE>>[{11}]
 
 # Public groups without group by
 [name=anonymization_public_groups_without_group_by]
-[required_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,V_1_1_WITH_ON_SUBQUERY]
+[required_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,WITH_ON_SUBQUERY]
 [labels=anonymization]
 SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0, group_selection_strategy=PUBLIC_GROUPS)
   ANON_COUNT(int64_val)
@@ -2420,7 +2420,7 @@ ARRAY<STRUCT<INT64>>[{8}]
 
 # Public groups with group by
 [name=anonymization_public_groups_with_group_by]
-[required_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,V_1_1_WITH_ON_SUBQUERY]
+[required_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,WITH_ON_SUBQUERY]
 [labels=anonymization]
 SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0, group_selection_strategy=PUBLIC_GROUPS)
   int64_val, ANON_COUNT(* CLAMPED BETWEEN 0 AND 1)
@@ -2441,7 +2441,7 @@ ARRAY<STRUCT<int64_val INT64, INT64>>[unknown order:
 
 # Public groups with group by
 [name=anonymization_public_groups_with_group_by_and_max_groups_contributed]
-[required_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,V_1_1_WITH_ON_SUBQUERY]
+[required_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,WITH_ON_SUBQUERY]
 [labels=anonymization]
 SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0, group_selection_strategy=PUBLIC_GROUPS, max_groups_contributed=3)
   int64_val, ANON_COUNT(* CLAMPED BETWEEN 0 AND 1)
@@ -2559,7 +2559,7 @@ SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=5, min_privacy_un...
 # An error should be reported if min_privacy_units_per_group is set
 # simultaneously with the PUBLIC_GROUPS groups selection strategy.
 [name=anonymization_public_groups_and_min_privacy_units_per_group_set]
-[required_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,V_1_1_WITH_ON_SUBQUERY,DIFFERENTIAL_PRIVACY_MIN_PRIVACY_UNITS_PER_GROUP]
+[required_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,WITH_ON_SUBQUERY,DIFFERENTIAL_PRIVACY_MIN_PRIVACY_UNITS_PER_GROUP]
 [labels=anonymization]
 SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta = 1.0, min_privacy_units_per_group=2, group_selection_strategy = PUBLIC_GROUPS)
   ANON_SUM(double_val CLAMPED BETWEEN 0 AND 2)
@@ -2633,7 +2633,7 @@ ARRAY<STRUCT<
 
 # Approx bounds with not enough data returns NULL.
 [name=anonymization_approx_bounds_on_no_data_returns_null]
-[required_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,V_1_1_WITH_ON_SUBQUERY]
+[required_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,WITH_ON_SUBQUERY]
 [labels=anonymization]
 SELECT WITH ANONYMIZATION OPTIONS(epsilon=1, delta=0, group_selection_strategy=PUBLIC_GROUPS, max_groups_contributed=3)
   int64_val, ANON_COUNT(*)

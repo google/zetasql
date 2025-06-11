@@ -1267,7 +1267,7 @@ TEST(IntervalValueTest, ParseFromString1) {
   // overflow during multiplication
   ExpectParseError("9223372036854775807", YEAR, /*allow_nanos=*/false);
   ExpectParseError("-9223372036854775808", YEAR, /*allow_nanos=*/false);
-  // overflow fitting into int64_t at SimpleAtoi
+  // overflow fitting into int64 at SimpleAtoi
   ExpectParseError("9223372036854775808", YEAR, /*allow_nanos=*/false);
   ExpectParseError("-9223372036854775809", YEAR, /*allow_nanos=*/false);
 
@@ -1289,7 +1289,7 @@ TEST(IntervalValueTest, ParseFromString1) {
   // overflow during multiplication
   ExpectParseError("9223372036854775807", QUARTER, /*allow_nanos=*/false);
   ExpectParseError("-9223372036854775808", QUARTER, /*allow_nanos=*/false);
-  // overflow fitting into int64_t at SimpleAtoi
+  // overflow fitting into int64 at SimpleAtoi
   ExpectParseError("9223372036854775808", QUARTER, /*allow_nanos=*/false);
   ExpectParseError("-9223372036854775809", QUARTER, /*allow_nanos=*/false);
 
@@ -1307,7 +1307,7 @@ TEST(IntervalValueTest, ParseFromString1) {
   // exceeds max number of months
   ExpectParseError("120001", MONTH, /*allow_nanos=*/false);
   ExpectParseError("-120001", MONTH, /*allow_nanos=*/false);
-  // overflow fitting into int64_t at SimpleAtoi
+  // overflow fitting into int64 at SimpleAtoi
   ExpectParseError("9223372036854775808", MONTH, /*allow_nanos=*/false);
   ExpectParseError("-9223372036854775809", MONTH, /*allow_nanos=*/false);
 
@@ -1328,7 +1328,7 @@ TEST(IntervalValueTest, ParseFromString1) {
   // overflow during multiplication
   ExpectParseError("9223372036854775807", WEEK, /*allow_nanos=*/false);
   ExpectParseError("-9223372036854775808", WEEK, /*allow_nanos=*/false);
-  // overflow fitting into int64_t at SimpleAtoi
+  // overflow fitting into int64 at SimpleAtoi
   ExpectParseError("9223372036854775808", WEEK, /*allow_nanos=*/false);
   ExpectParseError("-9223372036854775809", WEEK, /*allow_nanos=*/false);
 
@@ -1445,7 +1445,7 @@ TEST(IntervalValueTest, ParseFromString1) {
   // exceeds max number of seconds
   ExpectParseError("316224000000.000001", SECOND, /*allow_nanos=*/false);
   ExpectParseError("-316224000000.000001", SECOND, /*allow_nanos=*/false);
-  // overflow fitting into int64_t at SimpleAtoi
+  // overflow fitting into int64 at SimpleAtoi
   ExpectParseError("9223372036854775808", SECOND, /*allow_nanos=*/false);
   ExpectParseError("-9223372036854775809", SECOND, /*allow_nanos=*/false);
 
@@ -1466,7 +1466,7 @@ TEST(IntervalValueTest, ParseFromString1) {
   // exceeds max number of milliseconds
   ExpectParseError("3162240000000001", MILLISECOND, /*allow_nanos=*/false);
   ExpectParseError("-3162240000000001", MILLISECOND, /*allow_nanos=*/false);
-  // overflow fitting into int64_t at SimpleAtoi
+  // overflow fitting into int64 at SimpleAtoi
   ExpectParseError("9223372036854775808", MILLISECOND, /*allow_nanos=*/false);
   ExpectParseError("-9223372036854775809", MILLISECOND, /*allow_nanos=*/false);
   // Overflow in multiplication
@@ -1490,7 +1490,7 @@ TEST(IntervalValueTest, ParseFromString1) {
   // exceeds max number of microseconds
   ExpectParseError("3162240000000000001", MICROSECOND, /*allow_nanos=*/false);
   ExpectParseError("-3162240000000000001", MICROSECOND, /*allow_nanos=*/false);
-  // overflow fitting into int64_t at SimpleAtoi
+  // overflow fitting into int64 at SimpleAtoi
   ExpectParseError("9223372036854775808", MICROSECOND, /*allow_nanos=*/false);
   ExpectParseError("-9223372036854775809", MICROSECOND, /*allow_nanos=*/false);
 
@@ -2205,7 +2205,7 @@ TEST(IntervalValueTest, ParseFromString2) {
   ExpectParseError("0 -87840000:0:0.000000001", DAY, SECOND,
                    /*allow_nanos=*/true);
 
-  // Numbers too large to fit into int64_t
+  // Numbers too large to fit into int64
   ExpectParseError("9223372036854775808-0", YEAR, MONTH, /*allow_nanos=*/false);
   ExpectParseError("-9223372036854775808-0", YEAR, MONTH,
                    /*allow_nanos=*/false);

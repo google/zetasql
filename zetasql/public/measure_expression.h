@@ -22,39 +22,19 @@
 
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/catalog.h"
-#include "zetasql/public/language_options.h"
-#include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+
 namespace zetasql {
 
-// A measure column definition.
-struct MeasureColumnDef {
-  absl::string_view name;
-  absl::string_view expression;
-};
-// Adds measure columns to a SimpleTable.
-// `table` is the table to which the measure columns should be added. `table`
-// cannot allow duplicate column names.
-// `measures` is a vector of name+expression pairs for the new measure
-//   columns. The expressions are resolved against the columns in `table`.
-// `type_factory` is used to create types.
-// `catalog` should contain builtin functions which can be referenced in
-//   measure expressions.
-// `analyzer_options` is the analyzer options used when resolving the measure
-//   expressions, and should enable any features required for those expressions.
-//   This object will be modified by this function as required for analyzing the
-//   measure expressions, and should not be re-used for purposes other than this
-//   function call.
-// The returned vector of AnalyzerOutputs corresponds to the resolved ASTs of
-// each of the measure columns, and must outlive the table.
-absl::StatusOr<std::vector<std::unique_ptr<const AnalyzerOutput>>>
-AddMeasureColumnsToTable(SimpleTable& table,
-                         std::vector<MeasureColumnDef> measures,
-                         TypeFactory& type_factory, Catalog& catalog,
-                         AnalyzerOptions& analyzer_options);
+// Public API wrapper around `AnalyzeMeasureExpressionInternal`.
+// expression.
+absl::StatusOr<const ResolvedExpr*> AnalyzeMeasureExpression(
+    absl::string_view measure_expr, const Table& table, Catalog& catalog,
+    TypeFactory& type_factory, AnalyzerOptions analyzer_options,
+    std::unique_ptr<const AnalyzerOutput>& analyzer_output);
 
 }  // namespace zetasql
 

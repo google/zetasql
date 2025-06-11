@@ -1,0 +1,32 @@
+-- This imported module has resolution errors.
+MODULE module_test_errors_imported_d;
+
+-- Valid
+CREATE PUBLIC FUNCTION foo(a INT64) AS (a);
+
+-- UDF resolution error
+-- Note that this will not show up with ModuleCatalog::AppendModuleErrors()
+-- if the function is not resolved.
+CREATE PUBLIC FUNCTION udf_resolution_error(a INT64) AS (a + "a");
+
+-- Templated UDF resolution error
+CREATE PUBLIC FUNCTION templated_udf_resolution_error(a ANY TYPE) AS (a + "a");
+
+-- UDA resolution error
+CREATE PUBLIC AGGREGATE FUNCTION uda_resolution_error(a INT64)
+AS (SUM(a) + "b");
+
+-- Templated UDA resolution error
+CREATE PUBLIC AGGREGATE FUNCTION templated_uda_resolution_error(a ANY TYPE)
+AS (SUM(a) + "b");
+
+-- TVF resolution error
+CREATE PUBLIC TABLE FUNCTION tvf_resolution_error(a INT64) AS (SELECT a + "c");
+
+-- Templated TVF resolution error
+CREATE PUBLIC TABLE FUNCTION templated_tvf_resolution_error(a ANY TYPE)
+AS (SELECT a + "c");
+
+-- Constant resolution error
+CREATE PUBLIC CONSTANT constant_resolution_error =
+    1 + "constant_resolution_error";

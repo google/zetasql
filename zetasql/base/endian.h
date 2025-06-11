@@ -168,7 +168,7 @@ inline uint64_t gntohll(uint64_t x) { return ghtonll(x); }
 // ToHostxx(ValueType)" APIs, we use the following trait class to automatically
 // find the corresponding IntType given a ValueType, where IntType is an
 // unsigned integer type with the same size of ValueType. The supported
-// ValueTypes are uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t, int32_t, int64_t.
+// ValueTypes are uint8, uint16, uint32, uint64, int8, int16, int32, int64.
 //
 // template <class ValueType>
 // struct tofromhost_value_type_traits {
@@ -454,8 +454,8 @@ FROMHOST_TYPE_MAP(absl::uint128, absl::uint128);
 
 
 // Default implementation for the unified FromHost(ValueType) API, which
-// handles all integral types (ValueType is one of uint8_t, int8_t, uint16_t, int16_t,
-// uint32_t, int32_t, uint64_t, int64_t). The compiler will remove the switch case
+// handles all integral types (ValueType is one of uint8, int8, uint16, int16,
+// uint32, int32, uint64, int64). The compiler will remove the switch case
 // branches and unnecessary static_cast, when the template is expanded.
 template <typename ValueType>
 typename tofromhost_value_type_traits<ValueType>::int_type
@@ -479,8 +479,8 @@ GeneralFormatConverter<ValueType>::FromHost(ValueType v) {
 }
 
 // Default implementation for the unified ToHost(ValueType) API, which handles
-// all integral types (ValueType is one of uint8_t, int8_t, uint16_t, int16_t, uint32_t,
-// int32_t, uint64_t, int64_t). The compiler will remove the switch case branches and
+// all integral types (ValueType is one of uint8, int8, uint16, int16, uint32,
+// int32, uint64, int64). The compiler will remove the switch case branches and
 // unnecessary static_cast, when the template is expanded.
 template <typename ValueType>
 typename tofromhost_value_type_traits<ValueType>::int_type

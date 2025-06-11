@@ -52,6 +52,7 @@
 #include "absl/functional/bind_front.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
@@ -100,13 +101,13 @@ class ProtoValueConversionTest : public ::testing::Test {
     LanguageOptions language_options;
     language_options.EnableLanguageFeature(FEATURE_NUMERIC_TYPE);
     language_options.EnableLanguageFeature(FEATURE_GEOGRAPHY);
-    language_options.EnableLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
+    language_options.EnableLanguageFeature(FEATURE_CIVIL_TIME);
     language_options.EnableLanguageFeature(FEATURE_BIGNUMERIC_TYPE);
     language_options.EnableLanguageFeature(FEATURE_JSON_TYPE);
     language_options.EnableLanguageFeature(FEATURE_INTERVAL_TYPE);
     language_options.EnableLanguageFeature(FEATURE_TOKENIZED_SEARCH);
     language_options.EnableLanguageFeature(FEATURE_RANGE_TYPE);
-    language_options.EnableLanguageFeature(FEATURE_V_1_4_UUID_TYPE);
+    language_options.EnableLanguageFeature(FEATURE_UUID_TYPE);
     ZETASQL_RETURN_IF_ERROR(AnalyzeExpression(expression_sql,
                                       AnalyzerOptions(language_options),
                                       &catalog_, &type_factory_, &output));
@@ -990,6 +991,18 @@ TEST_P(MergeValueToProtoFieldTest, SubMessageBehavior) {
                                    &message_factory, proto.get()));
   const google::protobuf::Message& result2 = reflection->GetMessage(*proto, proto_field);
   EXPECT_THAT(result2, EqualsProto(proto_value));
+
+  // Merge a bad (unparseable) message
+  Value bad_value = values::Proto(proto_type, absl::Cord("bad_proto_value"));
+
+  EXPECT_THAT(
+      MergeValueToProtoField(bad_value, proto_field,
+                             use_wire_format_annotations_, &message_factory,
+                             proto.get()),
+      StatusIs(
+          absl::StatusCode::kOutOfRange,
+          HasSubstr(
+              "Cannot parse value for field: GeneratedProto0.proto_field")));
 }
 
 TEST_P(MergeValueToProtoFieldTest, ArrayBehavior) {

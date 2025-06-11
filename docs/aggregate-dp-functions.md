@@ -831,7 +831,7 @@ WITH DIFFERENTIAL_PRIVACY ...
 Takes an expression and computes the population (biased) variance of the values
 in the expression. The final result is an aggregation across
 privacy unit columns between `0` and `+Inf`. You can
-[clamp the input values][dp-clamp-explicit] explicitly, otherwise input values
+[clamp the input values][dp_clamped_named] explicitly, otherwise input values
 are clamped implicitly. Clamping is performed per individual user values.
 
 This function must be used with the `DIFFERENTIAL_PRIVACY` clause and
@@ -906,8 +906,6 @@ GROUP BY item;
  *----------+-----------------*/
 ```
 
-[dp-clamp-explicit]: #dp_explicit_clamping
-
 [dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_tables
 
 [dp-clamped-named]: #dp_clamped_named
@@ -939,7 +937,7 @@ can support these arguments:
 
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`.
-+ `clamped_between_clause`: Perform [clamping][dp-clamp-between] per
++ `clamped_between_clause`: Perform [clamping][dp-clamping] per
   privacy unit column averages.
 
 **Return type**
@@ -1000,7 +998,7 @@ noise [here][dp-noise].
 
 [dp-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
 
-[dp-clamp-between]: #dp_clamp_between
+[dp-clamping]: #dp_clamping
 
 ## `ANON_COUNT` (DEPRECATED) 
 <a id="anon_count"></a>
@@ -1102,7 +1100,7 @@ can support these arguments:
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`.
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][dp-clamp-between] per privacy unit column.
+  Perform [clamping][dp-clamping] per privacy unit column.
 
 **Return type**
 
@@ -1157,7 +1155,7 @@ GROUP BY item;
 Note: You can learn more about when and when not to use
 noise [here][dp-noise].
 
-[dp-clamp-implicit]: #dp_implicit_clamping
+[dp-clamp-implicit]: #dp_clamped_named_implicit
 
 [dp-from-clause]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_from_rules
 
@@ -1165,7 +1163,7 @@ noise [here][dp-noise].
 
 [dp-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
 
-[dp-clamp-between]: #dp_clamp_between
+[dp-clamping]: #dp_clamping
 
 ## `ANON_PERCENTILE_CONT` (DEPRECATED) 
 <a id="anon_percentile_cont"></a>
@@ -1191,7 +1189,7 @@ can support these arguments:
 + `percentile`: The percentile to compute. The percentile must be a literal in
   the range [0, 1]
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][dp-clamp-between] per privacy unit column.
+  Perform [clamping][dp-clamping] per privacy unit column.
 
 `NUMERIC` and `BIGNUMERIC` arguments aren't allowed.
  If you need them, cast them as the
@@ -1230,7 +1228,7 @@ GROUP BY item;
 
 [dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
-[dp-clamp-between]: #dp_clamp_between
+[dp-clamping]: #dp_clamping
 
 ## `ANON_QUANTILES` (DEPRECATED) 
 <a id="anon_quantiles"></a>
@@ -1257,7 +1255,7 @@ can support these arguments:
   such as `INT64`. `NULL`s are always ignored.
 + `number`: The number of quantiles to create. This must be an `INT64`.
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][dp-clamp-between] per privacy unit column.
+  Perform [clamping][dp-clamping] per privacy unit column.
 
 `NUMERIC` and `BIGNUMERIC` arguments aren't allowed.
  If you need them, cast them as the
@@ -1265,7 +1263,7 @@ can support these arguments:
 
 **Return type**
 
-`ARRAY`<`DOUBLE`>
+`ARRAY`\<`DOUBLE`>
 
 **Examples**
 
@@ -1296,7 +1294,7 @@ GROUP BY item;
 
 [dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
-[dp-clamp-between]: #dp_clamp_between
+[dp-clamping]: #dp_clamping
 
 ## `ANON_STDDEV_POP` (DEPRECATED) 
 <a id="anon_stddev_pop"></a>
@@ -1321,7 +1319,7 @@ can support these arguments:
 + `expression`: The input expression. This can be most numeric input types,
   such as `INT64`. `NULL`s are always ignored.
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][dp-clamp-between] per individual entity values.
+  Perform [clamping][dp-clamping] per individual entity values.
 
 `NUMERIC` and `BIGNUMERIC` arguments aren't allowed.
  If you need them, cast them as the
@@ -1361,7 +1359,7 @@ GROUP BY item;
 
 [dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
-[dp-clamp-between]: #dp_clamp_between
+[dp-clamping]: #dp_clamping
 
 ## `ANON_SUM` (DEPRECATED) 
 <a id="anon_sum"></a>
@@ -1385,7 +1383,7 @@ can support these arguments:
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`.
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][dp-clamp-between] per privacy unit column.
+  Perform [clamping][dp-clamping] per privacy unit column.
 
 **Return type**
 
@@ -1451,7 +1449,7 @@ noise [here][dp-noise].
 
 [dp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
 
-[dp-clamp-between]: #dp_clamp_between
+[dp-clamping]: #dp_clamping
 
 ## `ANON_VAR_POP` (DEPRECATED) 
 <a id="anon_var_pop"></a>
@@ -1478,7 +1476,7 @@ can support these arguments:
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`. `NULL`s are always ignored.
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][dp-clamp-between] per individual entity values.
+  Perform [clamping][dp-clamping] per individual entity values.
 
 `NUMERIC` and `BIGNUMERIC` arguments aren't allowed.
  If you need them, cast them as the
@@ -1516,11 +1514,11 @@ GROUP BY item;
  *----------+-----------------*/
 ```
 
-[dp-clamp-explicit]: #dp_explicit_clamping
+[dp-clamp-explicit]: #dp_clamped_named
 
 [dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
-[dp-clamp-between]: #dp_clamp_between
+[dp-clamping]: #dp_clamping
 
 ## Supplemental materials
 
@@ -1666,9 +1664,9 @@ In differentially private aggregate functions, clamping explicitly clamps the
 total contribution from each privacy unit column to within a specified
 range.
 
-Explicit bounds are uniformly applied to all aggregations.  So even if some
+Explicit bounds are uniformly applied to all aggregations. So even if some
 aggregations have a wide range of values, and others have a narrow range of
-values, the same bounds are applied to all of them.  On the other hand, when
+values, the same bounds are applied to all of them. On the other hand, when
 [implicit bounds][dp-clamped-named-imp] are inferred from the data, the bounds
 applied to each aggregation can be different.
 

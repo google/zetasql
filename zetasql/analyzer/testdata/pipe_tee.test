@@ -12,7 +12,7 @@ ERROR: Pipe TEE not supported [at 2:1]
 # statement kinds are enabled.
 # TODO SQLBuilder doesn't work for pipe TEE yet.
 [default no_run_sqlbuilder]
-[default language_features=PIPES,PIPE_TEE,PIPE_FORK,PIPE_IF,TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,V_1_1_WITH_ON_SUBQUERY,PIPE_STATIC_DESCRIBE,PIPE_LOG,PIPE_CREATE_TABLE,PIPE_EXPORT_DATA]
+[default language_features=PIPES,PIPE_TEE,PIPE_FORK,PIPE_IF,TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,WITH_ON_SUBQUERY,PIPE_STATIC_DESCRIBE,PIPE_LOG,PIPE_CREATE_TABLE,PIPE_EXPORT_DATA]
 [supported_statement_kinds={{QUERY|GENERALIZED_QUERY|QUERY,GENERALIZED_QUERY|INSERT}}]
 FROM KeyValue
 |> TEE ()
@@ -1848,7 +1848,7 @@ QueryStmt
 # Check for error if we try to return an unretunable type (GRAPH_ELEMENT).
 # If we don't select `a` inside the TEE, we get the same error trying to return
 # it after the TEE.
-[language_features=PIPES,PIPE_TEE,V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[language_features=PIPES,PIPE_TEE,SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 FROM GRAPH_TABLE(
   aml
   MATCH (a IS Person) -[e]-> (b IS Account)

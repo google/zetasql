@@ -1023,7 +1023,7 @@ SELECT
   'hi' AS b
 ==
 
-[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
 create table x-5-z as select * from a-3-b;
 --
 ALTERNATION GROUP: <empty>
@@ -1032,7 +1032,7 @@ ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `
 create table x-5-z as select * from a-3-b;
              ^
 --
-ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
 --
 CreateTableStatement [0-41] [create table...from a-3-b]
   PathExpression [13-18] [x-5-z]

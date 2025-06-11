@@ -1,6 +1,6 @@
 # Tests for the FOR UPDATE clause with combinations of GROUP BY and HAVING.
 
-[default language_features=V_1_4_FOR_UPDATE]
+[default language_features=FOR_UPDATE]
 
 # GROUP BY and FOR UPDATE in query.
 select a, b from t1 group by a for update;

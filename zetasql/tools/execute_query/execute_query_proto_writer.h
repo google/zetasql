@@ -22,8 +22,6 @@
 #include <memory>
 #include <ostream>
 
-#include "google/protobuf/descriptor.h"
-#include "google/protobuf/message.h"
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/tools/execute_query/execute_query_writer.h"

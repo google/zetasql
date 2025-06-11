@@ -1,6 +1,5 @@
 # TODO: Figure out how to make all tests work in Java.
 [default no_java]
-[default also_show_signature_mismatch_details]
 
 [language_features={{|INTERVAL_TYPE}}]
 SELECT INTERVAL "1" YEAR
@@ -451,11 +450,6 @@ SELECT INTERVAL -'2' HOUR
 --
 ALTERNATION GROUP: INTERVAL_TYPE
 --
-ERROR: No matching signature for operator - for argument types: STRING. Supported signatures: -(INT32); -(INT64); -(FLOAT); -(DOUBLE); -(INTERVAL) [at 1:17]
-SELECT INTERVAL -'2' HOUR
-                ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator -
   Argument types: STRING
   Signature: -(INT32)
@@ -525,11 +519,6 @@ SELECT CURRENT_DATE - DATE '2000-01-01'
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for operator - for argument types: DATE, DATE. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE [at 1:8]
-SELECT CURRENT_DATE - DATE '2000-01-01'
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator -
   Argument types: DATE, DATE
   Signature: INT64 - INT64
@@ -576,7 +565,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=INTERVAL_TYPE,V_1_2_CIVIL_TIME]
+[language_features=INTERVAL_TYPE,CIVIL_TIME]
 SELECT CURRENT_DATETIME - '2000-01-01'
 --
 QueryStmt
@@ -594,7 +583,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=INTERVAL_TYPE,V_1_2_CIVIL_TIME]
+[language_features=INTERVAL_TYPE,CIVIL_TIME]
 SELECT CURRENT_DATE - DATETIME '2000-01-01 10:20:30'
 --
 QueryStmt
@@ -613,7 +602,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=INTERVAL_TYPE,V_1_2_CIVIL_TIME]
+[language_features=INTERVAL_TYPE,CIVIL_TIME]
 SELECT CURRENT_TIME - '00:00:00.999'
 --
 QueryStmt
@@ -634,11 +623,6 @@ QueryStmt
 [language_features=INTERVAL_TYPE]
 SELECT CURRENT_TIMESTAMP - CURRENT_DATE
 --
-ERROR: No matching signature for operator - for argument types: TIMESTAMP, DATE. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE; DATE - DATE; TIMESTAMP - TIMESTAMP; TIMESTAMP - INTERVAL; INTERVAL - INTERVAL [at 1:8]
-SELECT CURRENT_TIMESTAMP - CURRENT_DATE
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator -
   Argument types: TIMESTAMP, DATE
   Signature: INT64 - INT64
@@ -692,11 +676,6 @@ QueryStmt
 [language_features=INTERVAL_TYPE]
 SELECT INTERVAL 1 YEAR - CURRENT_TIMESTAMP
 --
-ERROR: No matching signature for operator - for argument types: INTERVAL, TIMESTAMP. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE; DATE - DATE; TIMESTAMP - TIMESTAMP; TIMESTAMP - INTERVAL; INTERVAL - INTERVAL [at 1:8]
-SELECT INTERVAL 1 YEAR - CURRENT_TIMESTAMP
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator -
   Argument types: INTERVAL, TIMESTAMP
   Signature: INT64 - INT64
@@ -717,18 +696,13 @@ SELECT INTERVAL 1 YEAR - CURRENT_TIMESTAMP
        ^
 ==
 
-[language_features=INTERVAL_TYPE{{|,V_1_2_CIVIL_TIME}}]
+[language_features=INTERVAL_TYPE{{|,CIVIL_TIME}}]
 SELECT CURRENT_DATE + INTERVAL '1-2 3 4:5:6.789' YEAR TO SECOND,
        INTERVAL '6' HOUR + DATE '2020-02-20',
        CURRENT_DATE() - INTERVAL '3' MONTH
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for operator + for argument types: DATE, INTERVAL. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE; TIMESTAMP + INTERVAL; INTERVAL + TIMESTAMP; INTERVAL + INTERVAL [at 1:8]
-SELECT CURRENT_DATE + INTERVAL '1-2 3 4:5:6.789' YEAR TO SECOND,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator +
   Argument types: DATE, INTERVAL
   Signature: INT64 + INT64
@@ -746,7 +720,7 @@ ERROR: No matching signature for operator +
 SELECT CURRENT_DATE + INTERVAL '1-2 3 4:5:6.789' YEAR TO SECOND,
        ^
 --
-ALTERNATION GROUP: ,V_1_2_CIVIL_TIME
+ALTERNATION GROUP: ,CIVIL_TIME
 --
 QueryStmt
 +-output_column_list=
@@ -773,14 +747,9 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=INTERVAL_TYPE,V_1_2_CIVIL_TIME]
+[language_features=INTERVAL_TYPE,CIVIL_TIME]
 SELECT INTERVAL 1 YEAR - CURRENT_DATE
 --
-ERROR: No matching signature for operator - for argument types: INTERVAL, DATE. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE; DATE - DATE; TIMESTAMP - TIMESTAMP; DATETIME - DATETIME; TIME - TIME; TIMESTAMP - INTERVAL; DATE - INTERVAL; DATETIME - INTERVAL; INTERVAL - INTERVAL [at 1:8]
-SELECT INTERVAL 1 YEAR - CURRENT_DATE
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator -
   Argument types: INTERVAL, DATE
   Signature: INT64 - INT64
@@ -809,7 +778,7 @@ SELECT INTERVAL 1 YEAR - CURRENT_DATE
        ^
 ==
 
-[language_features=INTERVAL_TYPE,V_1_2_CIVIL_TIME]
+[language_features=INTERVAL_TYPE,CIVIL_TIME]
 SELECT CURRENT_DATETIME + INTERVAL '1-2 3 4:5:6.789' YEAR TO SECOND,
        INTERVAL '2.22' SECOND  + DATETIME '2020-02-20 02:20:02.222',
        CURRENT_DATETIME() - INTERVAL '1' QUARTER
@@ -839,14 +808,9 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=INTERVAL_TYPE,V_1_2_CIVIL_TIME]
+[language_features=INTERVAL_TYPE,CIVIL_TIME]
 SELECT INTERVAL 1 YEAR - CURRENT_DATETIME
 --
-ERROR: No matching signature for operator - for argument types: INTERVAL, DATETIME. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE; DATE - DATE; TIMESTAMP - TIMESTAMP; DATETIME - DATETIME; TIME - TIME; TIMESTAMP - INTERVAL; DATE - INTERVAL; DATETIME - INTERVAL; INTERVAL - INTERVAL [at 1:8]
-SELECT INTERVAL 1 YEAR - CURRENT_DATETIME
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator -
   Argument types: INTERVAL, DATETIME
   Signature: INT64 - INT64
@@ -942,11 +906,6 @@ QueryStmt
 [language_features=INTERVAL_TYPE]
 select 10 / INTERVAL '10' YEAR
 --
-ERROR: No matching signature for operator / for argument types: INT64, INTERVAL. Supported signatures: DOUBLE / DOUBLE; INTERVAL / INT64 [at 1:8]
-select 10 / INTERVAL '10' YEAR
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator /
   Argument types: INT64, INTERVAL
   Signature: DOUBLE / DOUBLE
@@ -1157,11 +1116,6 @@ SELECT EXTRACT({{DATE|QUARTER}} FROM INTERVAL '0' YEAR)
 --
 ALTERNATION GROUP: DATE
 --
-ERROR: No matching signature for function EXTRACT for argument types: DATE FROM INTERVAL. Supported signature: EXTRACT(DATE FROM TIMESTAMP [AT TIME ZONE STRING]) [at 1:8]
-SELECT EXTRACT(DATE FROM INTERVAL '0' YEAR)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function EXTRACT for argument types: DATE FROM INTERVAL
   Signature: EXTRACT(DATE FROM TIMESTAMP [AT TIME ZONE STRING])
     Argument 1: Unable to coerce type INTERVAL to expected type TIMESTAMP [at 1:8]

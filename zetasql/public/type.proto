@@ -47,13 +47,14 @@ enum TypeKind {
   TYPE_BYTES = 9;
   TYPE_DATE = 10;
   TYPE_TIMESTAMP = 19;
+  // TODO: Deprecate this TypeKind by prefixing it with OBSOLETE_.
   TYPE_TIMESTAMP_PICOS = 35;
   TYPE_ENUM = 15;
   TYPE_ARRAY = 16;
   TYPE_STRUCT = 17;
   TYPE_PROTO = 18;
 
-  // TIME and DATETIME is controlled by FEATURE_V_1_2_CIVIL_TIME
+  // TIME and DATETIME is controlled by FEATURE_CIVIL_TIME
   TYPE_TIME = 20;
   TYPE_DATETIME = 21;
 
@@ -81,18 +82,18 @@ enum TypeKind {
   // RANGE type is controlled by FEATURE_RANGE_TYPE
   TYPE_RANGE = 29;
 
-  // GRAPH_ELEMENT type is controlled by FEATURE_V_1_4_SQL_GRAPH
+  // GRAPH_ELEMENT type is controlled by FEATURE_SQL_GRAPH
   TYPE_GRAPH_ELEMENT = 30;
-  // GRAPH_ELEMENT type is controlled by FEATURE_V_1_4_SQL_GRAPH_PATH_TYPE
+  // GRAPH_ELEMENT type is controlled by FEATURE_SQL_GRAPH_PATH_TYPE
   TYPE_GRAPH_PATH = 33;
 
   // MAP type is controlled by FEATURE_MAP_TYPE
   TYPE_MAP = 31;
 
-  // UUID type is controlled by FEATURE_V_1_4_UUID_TYPE
+  // UUID type is controlled by FEATURE_UUID_TYPE
   TYPE_UUID = 32;
 
-  // MEASURE type is controlled by FEATURE_V_1_4_ENABLE_MEASURES
+  // MEASURE type is controlled by FEATURE_ENABLE_MEASURES
   TYPE_MEASURE = 34;
 }
 //
@@ -228,6 +229,7 @@ message GraphElementTypeProto {
   repeated PropertyTypeProto property_type = 2;
   reserved 3;  // was graph_full_name.
   repeated string graph_reference = 4;
+  optional bool is_dynamic = 5;
 }
 
 message GraphPathTypeProto {

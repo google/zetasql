@@ -16,13 +16,9 @@
 
 #include "zetasql/tools/execute_query/execute_query_prompt_testutils.h"
 
-#include <algorithm>
-#include <iterator>
 #include <string>
 
-#include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "absl/status/status.h"
 
 namespace zetasql {
 namespace {

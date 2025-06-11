@@ -1,4 +1,4 @@
-[default language_features=V_1_3_QUALIFY,ANALYTIC_FUNCTIONS]
+[default language_features=QUALIFY,ANALYTIC_FUNCTIONS]
 
 [language_features=ANALYTIC_FUNCTIONS]
 select 1 from KeyValue WHERE true QUALIFY row_number() over ()

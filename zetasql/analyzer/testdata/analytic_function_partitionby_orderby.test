@@ -104,7 +104,7 @@ select afn_agg() over (partition by Int32Array) from ComplexTypes
 ==
 
 # Invalid because group by float|double is disallowed.
-[language_features={{ANALYTIC_FUNCTIONS|ANALYTIC_FUNCTIONS,V_1_2_GROUP_BY_STRUCT}}]
+[language_features={{ANALYTIC_FUNCTIONS|ANALYTIC_FUNCTIONS,GROUP_BY_STRUCT}}]
 select 1
 from
   (select (select as struct 1, 1.1213) as StructField, 1 as Value) t
@@ -117,14 +117,14 @@ ERROR: Partitioning by expressions of type STRUCT is not allowed [at 4:39]
 order by afn_agg() over (partition by StructField);
                                       ^
 --
-ALTERNATION GROUP: ANALYTIC_FUNCTIONS,V_1_2_GROUP_BY_STRUCT
+ALTERNATION GROUP: ANALYTIC_FUNCTIONS,GROUP_BY_STRUCT
 --
 ERROR: Partitioning by expressions of type STRUCT containing DOUBLE is not allowed [at 4:39]
 order by afn_agg() over (partition by StructField);
                                       ^
 ==
 
-[language_features={{ANALYTIC_FUNCTIONS|ANALYTIC_FUNCTIONS,V_1_2_GROUP_BY_STRUCT}}]
+[language_features={{ANALYTIC_FUNCTIONS|ANALYTIC_FUNCTIONS,GROUP_BY_STRUCT}}]
 select afn_agg() over (partition by TestStruct) from ComplexTypes
 --
 ALTERNATION GROUP: ANALYTIC_FUNCTIONS
@@ -133,7 +133,7 @@ ERROR: Partitioning by expressions of type STRUCT is not allowed [at 1:37]
 select afn_agg() over (partition by TestStruct) from ComplexTypes
                                     ^
 --
-ALTERNATION GROUP: ANALYTIC_FUNCTIONS,V_1_2_GROUP_BY_STRUCT
+ALTERNATION GROUP: ANALYTIC_FUNCTIONS,GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -258,7 +258,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$analytic.$analytic1#27)
 ==
 
-[language_features=ANALYTIC_FUNCTIONS{{|,V_1_3_ARRAY_ORDERING}}]
+[language_features=ANALYTIC_FUNCTIONS{{|,ARRAY_ORDERING}}]
 select afn_agg() over (order by Int32Array)
 from ComplexTypes;
 --
@@ -268,7 +268,7 @@ ERROR: Ordering by expressions of type ARRAY is not allowed [at 1:33]
 select afn_agg() over (order by Int32Array)
                                 ^
 --
-ALTERNATION GROUP: ,V_1_3_ARRAY_ORDERING
+ALTERNATION GROUP: ,ARRAY_ORDERING
 --
 QueryStmt
 +-output_column_list=
@@ -300,7 +300,7 @@ QueryStmt
                         +-WindowFrameExpr(boundary_type=CURRENT ROW)
 ==
 
-[language_features=ANALYTIC_FUNCTIONS{{|,V_1_3_ARRAY_ORDERING}}]
+[language_features=ANALYTIC_FUNCTIONS{{|,ARRAY_ORDERING}}]
 select afn_agg() over (order by [KitchenSink])
 from ComplexTypes;
 --
@@ -310,7 +310,7 @@ ERROR: Ordering by expressions of type ARRAY is not allowed [at 1:33]
 select afn_agg() over (order by [KitchenSink])
                                 ^
 --
-ALTERNATION GROUP: ,V_1_3_ARRAY_ORDERING
+ALTERNATION GROUP: ,ARRAY_ORDERING
 --
 ERROR: Ordering by expressions of type ARRAY containing PROTO is not allowed [at 1:33]
 select afn_agg() over (order by [KitchenSink])

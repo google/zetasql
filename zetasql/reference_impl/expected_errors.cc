@@ -216,6 +216,17 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange,
       "Unsupported argument type TOKENLIST for TO_JSON"));
 
+  // TODO: b/322857409 - Reference implementation does not support MAP for
+  // TO_JSON functions.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kUnimplemented,
+      "Unsupported argument type MAP.* for TO_JSON"));
+  // JSON_OBJECT and JSON_ARRAY generate kOutOfRange. These are harder to
+  // address.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "(JSON_OBJECT|JSON_ARRAY).*Unsupported argument type MAP.* for TO_JSON"));
+
   return std::make_unique<MatcherCollection<absl::Status>>(
       matcher_name, std::move(error_matchers));
 }

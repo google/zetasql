@@ -18,6 +18,7 @@
 package com.google.zetasql;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.zetasql.ZetaSQLAnnotation.AnnotationMapProto;
 import com.google.zetasql.StructType.StructField;
 import java.util.ArrayList;
@@ -45,6 +46,10 @@ public final class StructAnnotationMap extends AnnotationMap {
   /** Creates an empty {@link StructArrayMap}. */
   static StructAnnotationMap create() {
     return new StructAnnotationMap();
+  }
+
+  static StructAnnotationMap create(ImmutableList<Type> componentTypes) {
+    return new StructAnnotationMap(componentTypes);
   }
 
   @Override
@@ -118,6 +123,8 @@ public final class StructAnnotationMap extends AnnotationMap {
     return fields;
   }
 
+  // TODO: Keeping this temporarily until all callers are migrated to use the
+  // component_types() call.
   private StructAnnotationMap(StructType structType) {
     fields = new ArrayList<>();
     for (StructField field : structType.getFieldList()) {
@@ -126,6 +133,13 @@ public final class StructAnnotationMap extends AnnotationMap {
   }
 
   private StructAnnotationMap() {
+    this(ImmutableList.of());
+  }
+
+  private StructAnnotationMap(ImmutableList<Type> componentTypes) {
     fields = new ArrayList<>();
+    for (Type componentType : componentTypes) {
+      fields.add(AnnotationMap.create(componentType));
+    }
   }
 }

@@ -1,6 +1,6 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
 [load_proto_names=zetasql_test__.KitchenSinkPB, zetasql_test__.TestExtraPB, zetasql_test__.RecursivePB, zetasql_test__.RepeatedHolderPB]
-[default required_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+[default required_features=UNNEST_AND_FLATTEN_ARRAYS]
 
 [name=array_path_top_level_struct_array]
 SELECT v
@@ -139,7 +139,7 @@ ARRAY<STRUCT<v ARRAY<>>>[{ARRAY<INT64>[known order:1, 2, 3]}]
 ==
 
 [name=array_path_unnest_null_flatten_path]
-[required_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+[required_features=UNNEST_AND_FLATTEN_ARRAYS]
 SELECT v
 FROM UNNEST(
   CAST('' AS zetasql_test__.RecursivePB).recursive_pb.repeated_recursive_pb.int64_val
@@ -150,7 +150,7 @@ ARRAY<STRUCT<v INT64>>[]
 ==
 
 [name=array_path_flatten_null_flatten_path]
-[required_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+[required_features=UNNEST_AND_FLATTEN_ARRAYS]
 SELECT FLATTEN(
   CAST('' AS zetasql_test__.RecursivePB).recursive_pb.repeated_recursive_pb.int64_val
 ) AS my_array
@@ -401,35 +401,35 @@ SELECT FLATTEN(
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:1, 2]}]
 ==
 
-[required_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+[required_features=UNNEST_AND_FLATTEN_ARRAYS]
 [name=array_path_empty_array]
 SELECT FLATTEN(ARRAY<STRUCT<int64_val INT64>>[].int64_val)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[]}]
 ==
 
-[required_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS,JSON_TYPE]
+[required_features=UNNEST_AND_FLATTEN_ARRAYS,JSON_TYPE]
 [name=array_path_through_struct_array_and_json_field]
 SELECT FLATTEN([STRUCT(JSON '1' AS x, 2 AS y), (JSON '11', 22)].x)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[known order:1, 11]}]
 ==
 
-[required_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS,JSON_TYPE]
+[required_features=UNNEST_AND_FLATTEN_ARRAYS,JSON_TYPE]
 [name=array_path_through_struct_array_and_nested_json_fields]
 SELECT FLATTEN([STRUCT(JSON '{"field": 1}' AS x, 2 AS y), (JSON '{"field": "foo"}', 22), (JSON '"test"', 33)].x.field)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[known order:1, "foo", NULL]}]
 ==
 
-[required_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS,JSON_TYPE]
+[required_features=UNNEST_AND_FLATTEN_ARRAYS,JSON_TYPE]
 [name=array_path_through_struct_array_and_json_array_leaf]
 SELECT FLATTEN([STRUCT(JSON '["foo", "bar"]' AS x, 2 AS y), (JSON '["baz"]', 22)].x)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[known order:["foo","bar"], ["baz"]]}]
 ==
 
-[required_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS,JSON_TYPE]
+[required_features=UNNEST_AND_FLATTEN_ARRAYS,JSON_TYPE]
 [name=array_path_through_struct_array_and_json_arrays]
 SELECT FLATTEN([STRUCT(JSON '[{"field": 1}]' AS x, 2 AS y), (JSON '{"field": 11}', 22)].x.field)
 --
@@ -515,7 +515,7 @@ SELECT 3 IN UNNEST([STRUCT([1, 2] AS a), STRUCT([3, 4, 5] AS a)].a)
 ARRAY<STRUCT<BOOL>>[{true}]
 ==
 
-[default required_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+[default required_features=UNNEST_AND_FLATTEN_ARRAYS]
 [name=flatten_in_flatten]
 SELECT
   FLATTEN((SELECT [STRUCT(['A','B'] AS f11)])

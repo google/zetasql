@@ -41,6 +41,8 @@
 #include "zetasql/public/proto_value_conversion.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
@@ -159,14 +161,84 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> CreateFunctionArgumentRefExpr(
 // -------------------------------------------------------
 
 absl::StatusOr<std::unique_ptr<TableAsArrayExpr>> TableAsArrayExpr::Create(
-    const std::string& table_name, const ArrayType* type) {
-  return absl::WrapUnique(new TableAsArrayExpr(table_name, type));
+    const std::string& table_name, const ArrayType* type,
+    std::optional<std::vector<int>> column_index_list) {
+  return absl::WrapUnique(
+      new TableAsArrayExpr(table_name, type, std::move(column_index_list)));
 }
 
 absl::Status TableAsArrayExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> /* params_schemas */) {
   // Eval() ignores the parameters.
   return absl::OkStatus();
+}
+
+// Populates `output_array_of_structs_value` with a subset of the fields in
+// `array_of_structs_value`. The subset is specified by `column_index_list`,
+// and the chosen fields must match the fields in `output_type`.
+// Assumes that `output_type` and `array_of_structs_value` are both arrays of
+// structs.
+// Returns true if the subset was successfully populated.
+static bool MakeSubsetStructValue(
+    const Type* output_type, const Value& array_of_structs_value,
+    const std::optional<std::vector<int>>& column_index_list,
+    Value& output_array_of_structs_value) {
+  if (!output_type->IsArray() ||
+      !output_type->AsArray()->element_type()->IsStruct() ||
+      !array_of_structs_value.type()->IsArray() ||
+      !array_of_structs_value.type()->AsArray()->element_type()->IsStruct()) {
+    return false;
+  }
+  if (!column_index_list.has_value() || column_index_list.value().empty()) {
+    return false;
+  }
+
+  const std::vector<int>& column_index_list_values = column_index_list.value();
+  const StructType* output_row_struct_type =
+      output_type->AsArray()->element_type()->AsStruct();
+  const StructType* table_row_struct_type =
+      array_of_structs_value.type()->AsArray()->element_type()->AsStruct();
+
+  // Validate that the output struct type has the same number of fields as
+  // the number of columns in `column_index_list`.
+  if (output_row_struct_type->num_fields() != column_index_list_values.size()) {
+    return false;
+  }
+  // Validate that the column indices are valid.
+  for (int i = 0; i < column_index_list_values.size(); ++i) {
+    int column_index = column_index_list_values[i];
+    if (column_index >= table_row_struct_type->num_fields()) {
+      return false;
+    }
+    const Type* output_field_type = output_row_struct_type->field(i).type;
+    const Type* table_field_type =
+        table_row_struct_type->field(column_index).type;
+    if (!output_field_type->Equals(table_field_type)) {
+      return false;
+    }
+  }
+  // Populate `output_array_of_structs_value` from a subset of the fields in
+  // `array_of_structs_value`.
+  std::vector<Value> struct_values;
+  for (const Value& table_row_value : array_of_structs_value.elements()) {
+    std::vector<Value> values_in_struct;
+    values_in_struct.reserve(column_index_list_values.size());
+    for (int column_index : column_index_list_values) {
+      values_in_struct.push_back(table_row_value.field(column_index));
+    }
+    auto output_row_struct_value =
+        Value::MakeStruct(output_row_struct_type, std::move(values_in_struct));
+    if (!output_row_struct_value.ok()) {
+      return false;
+    }
+    struct_values.push_back(std::move(*output_row_struct_value));
+  }
+  auto tmp = Value::MakeArray(output_type->AsArray(), struct_values);
+  if (!tmp.ok()) {
+    return false;
+  }
+  output_array_of_structs_value = std::move(*tmp);
+  return true;
 }
 
 bool TableAsArrayExpr::Eval(absl::Span<const TupleData* const> /* params */,
@@ -178,18 +250,37 @@ bool TableAsArrayExpr::Eval(absl::Span<const TupleData* const> /* params */,
     *status = zetasql_base::OutOfRangeErrorBuilder()
               << "Table not populated with array: " << table_name();
     return false;
-  } else if (!output_type()->Equals(array.type())) {
-    *status = zetasql_base::OutOfRangeErrorBuilder()
-              << "Type of populated table (as array) " << table_name()
-              << " deviates from the "
-              << "type reported in the catalog.\n"
-              << "Actual: " << array.type()->DebugString() << "\n"
-              << "Expected: " << output_type()->DebugString();
-    return false;
   }
 
-  result->SetValue(array);
-  return true;
+  if (output_type()->Equals(array.type())) {
+    result->SetValue(array);
+    return true;
+  }
+
+  // Tables may be represented as arrays in the ref impl if the
+  // `use_arrays_for_tables` algebrizer option is set. For these tables, the
+  // corresponding `array` value in memory may be a superset of the fields
+  // actually projected by the `ResolvedTableScan` in the ResolvedAST.
+  //
+  // The logic previously used by this method would enforce that the
+  // `ResolvedTableScan` project all the columns present in the `array` value,
+  // but this is not strictly necessary. Instead, we can create a new value
+  // containing only the fields projected by the `ResolvedTableScan` - provided
+  // that the supplied `column_index_list_` is valid.
+  Value subset_row_struct_value;
+  if (MakeSubsetStructValue(output_type(), array, column_index_list_,
+                            subset_row_struct_value)) {
+    result->SetValue(subset_row_struct_value);
+    return true;
+  }
+
+  *status = zetasql_base::OutOfRangeErrorBuilder()
+            << "Type of populated table (as array) " << table_name()
+            << " deviates from the "
+            << "type reported in the catalog.\n"
+            << "Actual: " << array.type()->DebugString() << "\n"
+            << "Expected: " << output_type()->DebugString();
+  return false;
 }
 
 std::string TableAsArrayExpr::DebugInternal(const std::string& indent,
@@ -197,9 +288,12 @@ std::string TableAsArrayExpr::DebugInternal(const std::string& indent,
   return absl::StrCat("TableAsArrayExpr(", table_name(), ")");
 }
 
-TableAsArrayExpr::TableAsArrayExpr(const std::string& table_name,
-                                   const ArrayType* type)
-    : ValueExpr(type), table_name_(table_name) {}
+TableAsArrayExpr::TableAsArrayExpr(
+    const std::string& table_name, const ArrayType* type,
+    std::optional<std::vector<int>> column_index_list)
+    : ValueExpr(type),
+      table_name_(table_name),
+      column_index_list_(std::move(column_index_list)) {}
 
 // -------------------------------------------------------
 // NewStructExpr
@@ -623,6 +717,101 @@ ValueExpr* FieldValueExpr::mutable_input() {
 }
 
 // -------------------------------------------------------
+// MeasureFieldValueExpr
+// -------------------------------------------------------
+absl::StatusOr<std::unique_ptr<MeasureFieldValueExpr>>
+MeasureFieldValueExpr::Create(std::string field_name, const Type* field_type,
+                              std::unique_ptr<ValueExpr> expr) {
+  return absl::WrapUnique(new MeasureFieldValueExpr(
+      std::move(field_name), field_type, std::move(expr)));
+}
+
+absl::Status MeasureFieldValueExpr::SetSchemasForEvaluation(
+    absl::Span<const TupleSchema* const> params_schemas) {
+  return mutable_input()->SetSchemasForEvaluation(params_schemas);
+}
+
+bool MeasureFieldValueExpr::Eval(absl::Span<const TupleData* const> params,
+                                 EvaluationContext* context,
+                                 VirtualTupleSlot* result,
+                                 absl::Status* status) const {
+  TupleSlot measure_value_slot;
+  if (!input()->EvalSimple(params, context, &measure_value_slot, status)) {
+    return false;
+  }
+
+  const Value& measure_value = measure_value_slot.value();
+  // NULL measure values can result from measure column propagation past OUTER
+  // JOINs. This isn't supported yet, but will be in the future.
+  if (measure_value.is_null()) {
+    result->SetValueAndMaybeSharedProtoState(
+        Value::Null(output_type()),
+        measure_value_slot.mutable_shared_proto_state());
+    return true;
+  }
+
+  // Handle the non-NULL measure value case.
+  auto captured_values_as_struct =
+      InternalValue::GetMeasureAsStructValue(measure_value);
+  if (!captured_values_as_struct.ok()) {
+    *status = captured_values_as_struct.status();
+    return false;
+  }
+
+  // The captured values should be a valid, non-NULL STRUCT.
+  Value captured_values_as_struct_value = captured_values_as_struct.value();
+  if (!captured_values_as_struct_value.is_valid()) {
+    *status = zetasql_base::InternalErrorBuilder()
+              << "Captured value for measure is invalid";
+    return false;
+  }
+  if (captured_values_as_struct_value.is_null()) {
+    *status = zetasql_base::InternalErrorBuilder()
+              << "Captured value for measure is null";
+    return false;
+  }
+  if (!captured_values_as_struct_value.type()->IsStruct()) {
+    *status = zetasql_base::InternalErrorBuilder()
+              << "Captured value for measure is not a struct";
+    return false;
+  }
+  Value field_value =
+      captured_values_as_struct_value.FindFieldByName(field_name());
+  if (!field_value.is_valid()) {
+    *status = zetasql_base::InternalErrorBuilder()
+              << "Captured value for measure does not have field "
+              << field_name();
+    return false;
+  }
+  result->SetValueAndMaybeSharedProtoState(
+      std::move(field_value), measure_value_slot.mutable_shared_proto_state());
+  return true;
+}
+
+std::string MeasureFieldValueExpr::DebugInternal(const std::string& indent,
+                                                 bool verbose) const {
+  return absl::StrCat("MeasureFieldValueExpr(", field_name(), ", ",
+                      input()->DebugInternal(indent, verbose), ")");
+}
+
+MeasureFieldValueExpr::MeasureFieldValueExpr(std::string field_name,
+                                             const Type* field_type,
+                                             std::unique_ptr<ValueExpr> expr)
+    : ValueExpr(field_type), field_name_(field_name) {
+  SetArg(kMeasureWrappingStruct, std::make_unique<ExprArg>(std::move(expr)));
+}
+
+const ValueExpr* MeasureFieldValueExpr::input() const {
+  return GetArg(kMeasureWrappingStruct)->node()->AsValueExpr();
+}
+
+ValueExpr* MeasureFieldValueExpr::mutable_input() {
+  return GetMutableArg(kMeasureWrappingStruct)
+      ->mutable_node()
+      ->AsMutableValueExpr();
+}
+
+// -------------------------------------------------------
 // ProtoFieldReader
 // -------------------------------------------------------
 
@@ -1012,6 +1201,20 @@ bool ExistsExpr::Eval(absl::Span<const TupleData* const> params,
   }
 
   result->SetValue(Bool(true));
+
+  if (!context->options().return_early_from_exists_subquery) {
+    // Before we return success, exhaust the input and see if there are more
+    // rows which hit an error. In that case, signal nondeterminism in case the
+    // other engine hits those rows.
+    while (iter->Next() != nullptr) {
+      // skip the row, keep going until we hit an error.
+    }
+
+    if (!iter->Status().ok()) {
+      context->SetNonDeterministicOutput();
+    }
+  }
+
   return true;
 }
 
@@ -1881,7 +2084,7 @@ std::string InlineLambdaExpr::DebugInternal(const std::string& indent,
 // out scan_op_->DebugString() and somehow match up the ResolvedExprs with the
 // corresponding ValueExpr::DebugString() in 'resolved_expr_map_'. But that
 // doesn't seem to be worth the effort.
-std::string DMLValueExpr::DebugDMLCommon(const std::string& indent,
+std::string DMLValueExpr::DebugDMLCommon(absl::string_view indent,
                                          bool verbose) const {
   const std::string indent_input = absl::StrCat(indent, kIndentFork);
   const std::string indent_entry =
@@ -4043,7 +4246,7 @@ absl::StatusOr<int64_t> DMLInsertValueExpr::InsertRows(
 
 absl::StatusOr<Value> DMLInsertValueExpr::GetDMLOutputValue(
     int64_t num_rows_modified, const PrimaryKeyRowMap& row_map,
-    const std::vector<std::vector<Value>>& dml_returning_rows,
+    absl::Span<const std::vector<Value>> dml_returning_rows,
     EvaluationContext* context) const {
   std::vector<std::vector<Value>> dml_output_rows(row_map.size());
   for (const auto& elt : row_map) {
@@ -4128,9 +4331,11 @@ absl::Status AppendOrderedCode(absl::Span<const zetasql::Value> values,
 
 absl::Status ValidateGraphElementExprInputs(
     const Type* type, const GraphElementTable* table,
-    const std::vector<std::unique_ptr<ValueExpr>>& key,
-    const std::vector<std::unique_ptr<ValueExpr>>& src_node_key,
-    const std::vector<std::unique_ptr<ValueExpr>>& dest_node_key) {
+    absl::Span<const std::unique_ptr<ValueExpr>> key,
+    const std::unique_ptr<ValueExpr>& dynamic_property_expr,
+    const std::unique_ptr<ValueExpr>& dynamic_label_expr,
+    absl::Span<const std::unique_ptr<ValueExpr>> src_node_key,
+    absl::Span<const std::unique_ptr<ValueExpr>> dest_node_key) {
   ZETASQL_RET_CHECK(!key.empty()) << "Key value cannot be empty";
   ZETASQL_RET_CHECK(type->IsGraphElement());
   const GraphElementType* graph_element_type = type->AsGraphElement();
@@ -4143,6 +4348,12 @@ absl::Status ValidateGraphElementExprInputs(
     ZETASQL_RET_CHECK(!src_node_key.empty());
     ZETASQL_RET_CHECK(!dest_node_key.empty());
     ZETASQL_RET_CHECK(table->Is<GraphEdgeTable>());
+  }
+  if (graph_element_type->is_dynamic()) {
+    ZETASQL_RET_CHECK_NE(dynamic_property_expr, nullptr);
+  }
+  if (table->HasDynamicLabel()) {
+    ZETASQL_RET_CHECK_NE(dynamic_label_expr, nullptr);
   }
   return absl::OkStatus();
 }
@@ -4166,13 +4377,17 @@ NewGraphElementExpr::Create(
     const Type* graph_element_type, const GraphElementTable* table,
     std::vector<std::unique_ptr<ValueExpr>> key,
     std::vector<Property> static_properties,
+    std::unique_ptr<ValueExpr> dynamic_property_expr,
+    std::unique_ptr<ValueExpr> dynamic_label_expr,
     std::vector<std::unique_ptr<ValueExpr>> src_node_key,
     std::vector<std::unique_ptr<ValueExpr>> dest_node_key) {
   ZETASQL_RETURN_IF_ERROR(ValidateGraphElementExprInputs(
       graph_element_type, table, key,
+      dynamic_property_expr, dynamic_label_expr,
       src_node_key, dest_node_key));
   return absl::WrapUnique(new NewGraphElementExpr(
       graph_element_type, table, std::move(key), std::move(static_properties),
+      std::move(dynamic_property_expr), std::move(dynamic_label_expr),
       std::move(src_node_key), std::move(dest_node_key)));
 }
 
@@ -4180,6 +4395,8 @@ NewGraphElementExpr::NewGraphElementExpr(
     const Type* graph_element_type, const GraphElementTable* table,
     std::vector<std::unique_ptr<ValueExpr>> key,
     std::vector<Property> static_properties,
+    std::unique_ptr<ValueExpr> dynamic_property_expr,
+    std::unique_ptr<ValueExpr> dynamic_label_expr,
     std::vector<std::unique_ptr<ValueExpr>> src_node_key,
     std::vector<std::unique_ptr<ValueExpr>> dest_node_key)
     : ValueExpr(graph_element_type), table_(table) {
@@ -4194,6 +4411,14 @@ NewGraphElementExpr::NewGraphElementExpr(
                    !dest_node_key.empty()
                        ? MakeExprArgList(std::move(dest_node_key))
                        : std::vector<std::unique_ptr<ExprArg>>{});
+  SetArg(kDynamicProperty,
+         dynamic_property_expr != nullptr
+             ? std::make_unique<ExprArg>(std::move(dynamic_property_expr))
+             : nullptr);
+  SetArg(kDynamicLabel,
+         dynamic_label_expr != nullptr
+             ? std::make_unique<ExprArg>(std::move(dynamic_label_expr))
+             : nullptr);
 }
 
 std::vector<std::unique_ptr<NewGraphElementExpr::PropertyArg>>
@@ -4217,6 +4442,9 @@ absl::Status NewGraphElementExpr::SetSchemasForEvaluation(
   }
   ZETASQL_RETURN_IF_ERROR(
       SetArgsSchema(params_schemas, mutable_args<kStaticProperty>()));
+  ZETASQL_RETURN_IF_ERROR(
+      SetArgsSchema(params_schemas, mutable_args<kDynamicProperty>()));
+  ZETASQL_RETURN_IF_ERROR(SetArgsSchema(params_schemas, mutable_args<kDynamicLabel>()));
   return absl::OkStatus();
 }
 
@@ -4259,6 +4487,41 @@ bool NewGraphElementExpr::Eval(absl::Span<const TupleData* const> params,
                  std::back_inserter(static_labels),
                  [](const GraphElementLabel* l) { return l->Name(); });
 
+  std::vector<std::string> dynamic_labels;
+  if (HasDynamicLabel()) {
+    // Dynamic label is a single STRING value.
+    std::vector<Value> dynamic_label_values;
+    if (!Evaluate(args<kDynamicLabel>(), params, context, status, &values_size,
+                  &dynamic_label_values)) {
+      return false;
+    }
+    ZETASQL_RET_CHECK_EQ(dynamic_label_values.size(), 1).With(kErrorAdaptor);
+    ZETASQL_RET_CHECK(dynamic_label_values.front().type()->IsString())
+        .With(kErrorAdaptor);
+    if (!dynamic_label_values.front().is_null()) {
+      dynamic_labels.push_back(dynamic_label_values.front().string_value());
+    }
+  }
+
+  std::optional<JSONValueConstRef> dynamic_properties = std::nullopt;
+  JSONValue prop_json;
+  if (HasDynamicProperties()) {
+    // Dynamic property is a single JSON value.
+    std::vector<Value> dynamic_property_values;
+    if (!Evaluate(args<kDynamicProperty>(), params, context, status,
+                  &values_size, &dynamic_property_values)) {
+      return false;
+    }
+    ZETASQL_RET_CHECK_EQ(dynamic_property_values.size(), 1).With(kErrorAdaptor);
+    ZETASQL_RET_CHECK(dynamic_property_values.front().type()->IsJson())
+        .With(kErrorAdaptor);
+    if (!dynamic_property_values.front().is_null()) {
+      prop_json =
+          JSONValue::CopyFrom(dynamic_property_values.front().json_value());
+    }
+    dynamic_properties = prop_json.GetConstRef();
+  }
+
   const GraphElementType* element_type = output_type()->AsGraphElement();
   if (IsNode()) {
     ZETASQL_ASSIGN_OR_RETURN(std::string opaque_key, MakeOpaqueKey(table_, keys),
@@ -4270,6 +4533,9 @@ bool NewGraphElementExpr::Eval(absl::Span<const TupleData* const> params,
             Value::GraphElementLabelsAndProperties{
                 .static_labels = std::move(static_labels),
                 .static_properties = std::move(properties)
+                ,
+                .dynamic_labels = std::move(dynamic_labels),
+                .dynamic_properties = std::move(dynamic_properties)
             },
             table_->Name()),
         _.With(kErrorAdaptor));
@@ -4313,6 +4579,9 @@ bool NewGraphElementExpr::Eval(absl::Span<const TupleData* const> params,
           Value::GraphElementLabelsAndProperties{
               .static_labels = std::move(static_labels),
               .static_properties = std::move(properties)
+              ,
+              .dynamic_labels = std::move(dynamic_labels),
+              .dynamic_properties = std::move(dynamic_properties)
           },
           table_->Name(), std::move(src_node_opaque_key),
           std::move(dst_node_opaque_key)),
@@ -4391,6 +4660,16 @@ std::string NewGraphElementExpr::DebugInternal(const std::string& indent,
   }
   absl::StrAppend(&result, indent_child, "static_properties: ",
                   StaticPropertiesDebugString(indent_child_field, verbose));
+  if (HasDynamicProperties()) {
+    absl::StrAppend(&result, indent_child, "dynamic_property: ",
+                    args<kDynamicProperty>().front()->DebugInternal(
+                        indent + kIndentSpace, verbose));
+  }
+  if (HasDynamicLabel()) {
+    absl::StrAppend(&result, indent_child, "dynamic_label: ",
+                    args<kDynamicLabel>().front()->DebugInternal(
+                        indent + kIndentSpace, verbose));
+  }
   return result;
 }
 
@@ -4630,7 +4909,17 @@ static absl::StatusOr<bool> CheckLabelSatisfactionOnStringLabels(
     case RESOLVED_GRAPH_LABEL: {
       const ResolvedGraphLabel* graph_label =
           label_expr.GetAs<ResolvedGraphLabel>();
-      std::string label_name = graph_label->label()->Name();
+      std::string label_name;
+      if (graph_label->label_name() != nullptr) {
+        ZETASQL_RET_CHECK(graph_label->label_name()->Is<ResolvedLiteral>());
+        label_name = graph_label->label_name()
+                         ->GetAs<ResolvedLiteral>()
+                         ->value()
+                         .string_value();
+      } else {
+        ZETASQL_RET_CHECK(graph_label->label() != nullptr);
+        label_name = graph_label->label()->Name();
+      }
       return labels.contains(label_name);
     }
     case RESOLVED_GRAPH_WILD_CARD_LABEL: {

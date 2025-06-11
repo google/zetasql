@@ -440,18 +440,7 @@ SELECT float_val FROM TableDataTypes)
 --
 ARRAY<STRUCT<compare_gte BOOL>>[{true}]
 ==
-# Incompatible types
-[name=unionall_implicit_coercion_incompatible_types]
-SELECT int32_val AS double_val FROM TableDataTypes
-UNION ALL
-SELECT int64_val FROM TableDataTypes
-UNION ALL
-SELECT uint64_val FROM TableDataTypes
---
-ERROR: generic::invalid_argument: Column 1 in UNION ALL has incompatible types: INT32, INT64, UINT64 [at 3:1]
-SELECT int64_val FROM TableDataTypes
-^
-==
+
 # Literal coercion from string to timestamp types and date
 [name=unionall_literal_coercion_string]
 SELECT date_val,
@@ -517,16 +506,7 @@ SELECT 17, 43
 --
 ARRAY<STRUCT<x INT64, x INT32>>[unknown order:{-2, -2}, {-1, -1}, {17, 43}]
 ==
-# Mismatch in number of columns
-[name=unionall_error_num_column_mismatch]
-SELECT int64_val, int32_val, date_val FROM TableDataTypes
-UNION ALL
-SELECT int64_val, int32_val FROM TableDataTypes
---
-ERROR: generic::invalid_argument: Queries in UNION ALL have mismatched column count; query 1 has 3 columns, query 2 has 2 columns [at 3:1]
-SELECT int64_val, int32_val FROM TableDataTypes
-^
-==
+
 # @nan_01 and @nan02 are both nans with different bitwise representation.
 [name=union_all_nan_different_bitwise_representation]
 [parameters=CAST(b"\x08\x00\x10\x00\x49\x01\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test__.KitchenSinkPB).double_val as nan_01, CAST(b"\x08\x00\x10\x00\x49\x02\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test__.KitchenSinkPB).double_val as nan_02]
@@ -537,7 +517,7 @@ SELECT * FROM UNNEST([@nan_02]);
 ARRAY<STRUCT<DOUBLE>>[unknown order:{nan}, {nan}]
 ==
 [name=union_all_corresponding_parenthesized_multiple_operands]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val, bool_val
 FROM Table1
 UNION ALL CORRESPONDING
@@ -559,7 +539,7 @@ ARRAY<STRUCT<int64_val INT64, bool_val BOOL>>[unknown order:
 ]
 ==
 [name=union_all_corresponding_multiple_operands]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val, bool_val
 FROM Table1
 UNION ALL CORRESPONDING
@@ -579,7 +559,7 @@ ARRAY<STRUCT<int64_val INT64, bool_val BOOL>>[unknown order:
 ]
 ==
 [name=union_all_corresponding_type_coercion]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val AS col1, bool_val AS col2, double_val AS col3
 FROM Table1
 UNION ALL CORRESPONDING

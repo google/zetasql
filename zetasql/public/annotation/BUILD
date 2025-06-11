@@ -40,6 +40,23 @@ cc_library(
 )
 
 cc_library(
+    name = "timestamp_precision",
+    srcs = ["timestamp_precision.cc"],
+    hdrs = ["timestamp_precision.h"],
+    deps = [
+        ":default_annotation",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/public:function_cc_proto",
+        "//zetasql/public:type",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public/types:type",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+    ],
+)
+
+cc_library(
     name = "default_annotation",
     srcs = ["default_annotation_spec.cc"],
     hdrs = ["default_annotation_spec.h"],

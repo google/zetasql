@@ -360,15 +360,6 @@ public class AnalyzerOptions implements Serializable {
     return builder.getPreserveUnnecessaryCast();
   }
 
-  public void setShowFunctionSignatureMismatchDetails(
-      boolean showFunctionSignatureMismatchDetails) {
-    builder.setShowFunctionSignatureMismatchDetails(showFunctionSignatureMismatchDetails);
-  }
-
-  public boolean getShowFunctionSignatureMismatchDetails() {
-    return builder.getShowFunctionSignatureMismatchDetails();
-  }
-
   public void setReplaceTableNotFoundErrorWithTvfErrorIfApplicable(
       boolean replaceTableNotFoundErrorWithTvfErrorIfApplicable) {
     builder.setReplaceTableNotFoundErrorWithTvfErrorIfApplicable(
@@ -407,7 +398,6 @@ public class AnalyzerOptions implements Serializable {
     setParameterMode(proto.getParameterMode());
     setPreserveColumnAliases(proto.getPreserveColumnAliases());
     setPreserveUnnecessaryCast(proto.getPreserveUnnecessaryCast());
-    setShowFunctionSignatureMismatchDetails(proto.getShowFunctionSignatureMismatchDetails());
     setReplaceTableNotFoundErrorWithTvfErrorIfApplicable(
         proto.getReplaceTableNotFoundErrorWithTvfErrorIfApplicable());
 

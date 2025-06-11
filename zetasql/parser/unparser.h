@@ -445,6 +445,10 @@ class Unparser : public ParseTreeVisitor {
   void visitASTGqlReturn(const ASTGqlReturn* node, void* data) override;
   void visitASTGqlWith(const ASTGqlWith* node, void* data) override;
   void visitASTGqlFor(const ASTGqlFor* node, void* data) override;
+  void visitASTGqlInlineSubqueryCall(const ASTGqlInlineSubqueryCall* node,
+                                     void* data) override;
+  void visitASTGqlNamedCall(const ASTGqlNamedCall* node, void* data) override;
+  void visitASTYieldItemList(const ASTYieldItemList* node, void* data) override;
   void visitASTGqlLet(const ASTGqlLet* node, void* data) override;
   void visitASTGqlLetVariableDefinitionList(
       const ASTGqlLetVariableDefinitionList* node, void* data) override;
@@ -473,6 +477,10 @@ class Unparser : public ParseTreeVisitor {
       const ASTGraphElementLabelAndPropertiesList* node, void* data) override;
   void visitASTGraphElementLabelAndProperties(
       const ASTGraphElementLabelAndProperties* node, void* data) override;
+  void visitASTGraphDynamicLabel(const ASTGraphDynamicLabel* node,
+                                 void* data) override;
+  void visitASTGraphDynamicProperties(const ASTGraphDynamicProperties* node,
+                                      void* data) override;
   void visitASTGraphProperties(const ASTGraphProperties* node,
                                void* data) override;
   void visitASTGraphTableQuery(const ASTGraphTableQuery* node,
@@ -648,6 +656,8 @@ class Unparser : public ParseTreeVisitor {
   void visitASTExpressionWithAlias(const ASTExpressionWithAlias* node,
                                    void* data) override;
   void visitASTFunctionCall(const ASTFunctionCall* node, void* data) override;
+  void visitASTChainedBaseExpr(const ASTChainedBaseExpr* node,
+                               void* data) override;
   void visitASTWithGroupRows(const ASTWithGroupRows* node, void* data) override;
   void visitASTArrayElement(const ASTArrayElement* node, void* data) override;
   void visitASTExpressionSubquery(const ASTExpressionSubquery* node,
@@ -1052,6 +1062,7 @@ class Unparser : public ParseTreeVisitor {
   void VisitAlterStatementBase(const ASTAlterStatementBase* node, void* data);
   void VisitASTDropIndexStatement(const ASTDropIndexStatement* node,
                                   void* data);
+  void VisitASTGqlCallBase(const ASTGqlCallBase* node, void* data);
 };
 
 }  // namespace parser

@@ -1315,7 +1315,7 @@ ARRAY<STRUCT<key INT64, value INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[un
 ]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC]
+[required_features=ANALYTIC_FUNCTIONS,NULL_HANDLING_MODIFIER_IN_ANALYTIC]
 [name=analytic_percentile_cont_ignore_nulls]
 SELECT value,
        PERCENTILE_CONT(value, 0 IGNORE NULLS) OVER (),
@@ -1345,7 +1345,7 @@ ARRAY<STRUCT<value DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[unknown orde
 ]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC]
+[required_features=ANALYTIC_FUNCTIONS,NULL_HANDLING_MODIFIER_IN_ANALYTIC]
 [name=analytic_percentile_cont_partition_ignore_nulls]
 SELECT key, value,
        PERCENTILE_CONT(value, 0 IGNORE NULLS) OVER (PARTITION BY key),
@@ -1375,7 +1375,7 @@ ARRAY<STRUCT<key INT64, value DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[u
 ]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC]
+[required_features=ANALYTIC_FUNCTIONS,NULL_HANDLING_MODIFIER_IN_ANALYTIC]
 [name=analytic_percentile_cont_respect_nulls]
 SELECT value,
        PERCENTILE_CONT(value, 0 RESPECT NULLS) OVER (),
@@ -1405,7 +1405,7 @@ ARRAY<STRUCT<value DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[unknown orde
 ]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC]
+[required_features=ANALYTIC_FUNCTIONS,NULL_HANDLING_MODIFIER_IN_ANALYTIC]
 [name=analytic_percentile_cont_partition_respect_nulls]
 SELECT key, value,
        PERCENTILE_CONT(value, 0 RESPECT NULLS) OVER (PARTITION BY key),
@@ -1435,7 +1435,7 @@ ARRAY<STRUCT<key INT64, value DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[u
 ]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC,NUMERIC_TYPE]
+[required_features=ANALYTIC_FUNCTIONS,NULL_HANDLING_MODIFIER_IN_ANALYTIC,NUMERIC_TYPE]
 [name=analytic_percentile_cont_numeric_ignore_nulls]
 SELECT key, value,
 PERCENTILE_CONT(value, NUMERIC "0" IGNORE NULLS) OVER(partition by key),
@@ -1631,7 +1631,7 @@ ARRAY<STRUCT<key INT64,
                }]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC,BIGNUMERIC_TYPE]
+[required_features=ANALYTIC_FUNCTIONS,NULL_HANDLING_MODIFIER_IN_ANALYTIC,BIGNUMERIC_TYPE]
 [name=analytic_percentile_cont_bignumeric_ignore_nulls]
 SELECT key, value,
 PERCENTILE_CONT(value, BIGNUMERIC "0" IGNORE NULLS) OVER(partition by key),
@@ -1829,7 +1829,7 @@ ARRAY<STRUCT<key INT64,
 ]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC,NUMERIC_TYPE]
+[required_features=ANALYTIC_FUNCTIONS,NULL_HANDLING_MODIFIER_IN_ANALYTIC,NUMERIC_TYPE]
 [name=analytic_percentile_cont_numeric_respect_nulls]
 SELECT key, value,
 PERCENTILE_CONT(value, NUMERIC "0" RESPECT NULLS) OVER(partition by key),
@@ -2025,7 +2025,7 @@ ARRAY<STRUCT<key INT64,
                }]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC,BIGNUMERIC_TYPE]
+[required_features=ANALYTIC_FUNCTIONS,NULL_HANDLING_MODIFIER_IN_ANALYTIC,BIGNUMERIC_TYPE]
 [name=analytic_percentile_cont_bignumeric_respect_nulls]
 SELECT key, value,
 PERCENTILE_CONT(value, BIGNUMERIC "0" RESPECT NULLS) OVER(partition by key),

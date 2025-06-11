@@ -653,7 +653,7 @@ TEST(ValidateTest,
           /*is_remote=*/true,
           /*connection=*/nullptr);
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_3_REMOTE_FUNCTION);
+  language_options.EnableLanguageFeature(FEATURE_REMOTE_FUNCTION);
   Validator validator(language_options);
   ASSERT_THAT(
       validator.ValidateResolvedStatement(create_function_stmt.get()),
@@ -798,7 +798,7 @@ TEST(ValidateTest, CreateFunctionStmtWithInvalidResolvedArgumentRef) {
           /*connection=*/nullptr);
 
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MULTILEVEL_AGGREGATION);
+  language_options.EnableLanguageFeature(FEATURE_MULTILEVEL_AGGREGATION);
   Validator validator(language_options);
   EXPECT_THAT(
       validator.ValidateResolvedStatement(create_function_stmt.get()),
@@ -1132,7 +1132,7 @@ TEST(ValidatorTest, ValidCreateModelStatement_AliasedQueryList) {
 
   LanguageOptions language_options;
   language_options.EnableLanguageFeature(
-      FEATURE_V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST);
+      FEATURE_CREATE_MODEL_WITH_ALIASED_QUERY_LIST);
   Validator validator(language_options);
   ZETASQL_EXPECT_OK(validator.ValidateResolvedStatement(statement.get()));
 }
@@ -1184,7 +1184,7 @@ TEST(ValidatorTest, CreateModelStatement_DuplicateAliasedQueryList) {
 
   LanguageOptions language_options;
   language_options.EnableLanguageFeature(
-      FEATURE_V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST);
+      FEATURE_CREATE_MODEL_WITH_ALIASED_QUERY_LIST);
   Validator validator(language_options);
   EXPECT_THAT(validator.ValidateResolvedStatement(statement.get()),
               StatusIs(absl::StatusCode::kInternal,
@@ -1280,7 +1280,7 @@ TEST(ValidatorTest,
 
   LanguageOptions language_options;
   language_options.EnableLanguageFeature(
-      FEATURE_V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST);
+      FEATURE_CREATE_MODEL_WITH_ALIASED_QUERY_LIST);
   Validator validator(language_options);
   EXPECT_THAT(
       validator.ValidateResolvedStatement(statement.get()),
@@ -1330,7 +1330,7 @@ TEST(ValidatorTest, InvalidCreateModelStatement_AliasedQueryListWithTransform) {
 
   LanguageOptions language_options;
   language_options.EnableLanguageFeature(
-      FEATURE_V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST);
+      FEATURE_CREATE_MODEL_WITH_ALIASED_QUERY_LIST);
   Validator validator(language_options);
   EXPECT_THAT(
       validator.ValidateResolvedStatement(statement.get()),
@@ -1383,7 +1383,7 @@ TEST(ValidatorTest, ValidCreateModelStatement_Imported) {
       /*connection=*/{});
 
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_REMOTE_MODEL);
+  language_options.EnableLanguageFeature(FEATURE_REMOTE_MODEL);
   Validator validator(language_options);
   ZETASQL_EXPECT_OK(validator.ValidateResolvedStatement(statement.get()));
 }
@@ -1487,7 +1487,7 @@ TEST(ValidatorTest, ValidCreateModelStatement_Remote) {
       /*connection=*/MakeResolvedConnection(&connection));
 
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_REMOTE_MODEL);
+  language_options.EnableLanguageFeature(FEATURE_REMOTE_MODEL);
   Validator validator(language_options);
   ZETASQL_EXPECT_OK(validator.ValidateResolvedStatement(statement.get()));
 }
@@ -1599,7 +1599,7 @@ TEST(ValidatorTest, ValidCreateModelStatement_SchemaAndQuery_Invalid) {
       /*connection=*/{});
 
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_REMOTE_MODEL);
+  language_options.EnableLanguageFeature(FEATURE_REMOTE_MODEL);
   Validator validator(language_options);
   EXPECT_THAT(
       validator.ValidateResolvedStatement(statement.get()),
@@ -1653,7 +1653,7 @@ TEST(ValidatorTest, ValidCreateModelStatement_ConnectionNoRemote_Invalid) {
       /*connection=*/MakeResolvedConnection(&connection));
 
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_REMOTE_MODEL);
+  language_options.EnableLanguageFeature(FEATURE_REMOTE_MODEL);
   Validator validator(language_options);
   EXPECT_THAT(
       validator.ValidateResolvedStatement(statement.get()),
@@ -1735,11 +1735,163 @@ TEST(ValidatorTest, InvalidGraphLabelExpression) {
           .Build());
 
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_SQL_GRAPH);
+  language_options.EnableLanguageFeature(FEATURE_SQL_GRAPH);
   Validator validator(language_options);
   EXPECT_THAT(validator.ValidateResolvedStatement(query_stmt.get()),
               StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("expr->operand_list_size()")));
+}
+
+TEST(ValidatorTest, InvalidDynamicGraphLabelExpression) {
+  std::string graph_name = "graph_name";
+  const SimplePropertyGraph graph(std::vector<std::string>{graph_name});
+  TypeFactory factory;
+  const GraphElementType* dynamic_graph_element_type;
+  ZETASQL_ASSERT_OK(factory.MakeDynamicGraphElementType(
+      {graph_name}, GraphElementType::ElementKind::kNode,
+      /*static_property_types=*/{}, &dynamic_graph_element_type));
+
+  IdStringPool pool;
+  const std::vector<ResolvedColumn> col_list = {ResolvedColumn(
+      1, pool.Make("tbl"), pool.Make("x"), dynamic_graph_element_type)};
+
+  auto name_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
+      "name", std::vector<std::string>{graph_name}, factory.get_string());
+  absl::flat_hash_set<const GraphPropertyDeclaration*> property_declarations{
+      name_property_dcl.get()};
+  auto person_label = std::make_unique<SimpleGraphElementLabel>(
+      "Person", std::vector<std::string>{graph_name}, property_declarations);
+
+  // Create an invalid resolved AST where the `label` and `label_name` fields
+  // don't match.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedGraphLabelNaryExpr> label_expr,
+      ResolvedGraphLabelNaryExprBuilder()
+          .set_op(ResolvedGraphLabelNaryExprEnums::OR)
+          .add_operand_list(ResolvedGraphWildCardLabelBuilder())
+          .add_operand_list(
+              ResolvedGraphLabelBuilder()
+                  .set_label(person_label.get())
+                  .set_label_name(ResolvedLiteralBuilder()
+                                      .set_value(Value::String("Account"))
+                                      .set_type(factory.get_string())
+                                      .Build())
+                  .Build())
+          .Build());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedQueryStmt> query_stmt,
+      ResolvedQueryStmtBuilder()
+          .set_query(ResolvedProjectScanBuilder().set_input_scan(
+              ResolvedGraphTableScanBuilder()
+                  .set_property_graph(&graph)
+                  .set_input_scan(
+                      ResolvedGraphScanBuilder()
+                          .set_column_list(col_list)
+                          .set_filter_expr(nullptr)
+                          .add_input_scan_list(
+                              ResolvedGraphPathScanBuilder()
+                                  .set_column_list(col_list)
+                                  .set_filter_expr(nullptr)
+                                  .set_head(col_list.front())
+                                  .set_tail(col_list.back())
+                                  .set_path_mode(nullptr)
+                                  .add_input_scan_list(
+                                      ResolvedGraphNodeScanBuilder()
+                                          .set_filter_expr(nullptr)
+                                          .set_label_expr(std::move(label_expr))
+                                          .set_column_list(col_list))))))
+          .Build());
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(
+      FEATURE_SQL_GRAPH_DYNAMIC_ELEMENT_TYPE);
+  language_options.EnableLanguageFeature(FEATURE_SQL_GRAPH);
+  Validator validator(language_options);
+  EXPECT_THAT(
+      validator.ValidateResolvedStatement(query_stmt.get()),
+      StatusIs(
+          absl::StatusCode::kInternal,
+          HasSubstr("label_name and label must match case-insensitively")));
+}
+
+TEST(ValidatorTest, CaseInsensitiveDynamicGraphLabelExpression) {
+  std::string graph_name = "graph_name";
+  const SimplePropertyGraph graph(std::vector<std::string>{graph_name});
+  TypeFactory factory;
+  const GraphElementType* dynamic_graph_element_type;
+  ZETASQL_ASSERT_OK(factory.MakeDynamicGraphElementType(
+      {graph_name}, GraphElementType::ElementKind::kNode,
+      /*static_property_types=*/{}, &dynamic_graph_element_type));
+
+  IdStringPool pool;
+  const std::vector<ResolvedColumn> col_list = {ResolvedColumn(
+      1, pool.Make("tbl"), pool.Make("x"), dynamic_graph_element_type)};
+
+  auto name_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
+      "name", std::vector<std::string>{graph_name}, factory.get_string());
+  absl::flat_hash_set<const GraphPropertyDeclaration*> property_declarations{
+      name_property_dcl.get()};
+  auto person_label = std::make_unique<SimpleGraphElementLabel>(
+      "Person", std::vector<std::string>{graph_name}, property_declarations);
+
+  // Create a resolved AST where the `label` and `label_name` fields only match
+  // case-insensitively.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedGraphLabelNaryExpr> label_expr,
+      ResolvedGraphLabelNaryExprBuilder()
+          .set_op(ResolvedGraphLabelNaryExprEnums::OR)
+          .add_operand_list(ResolvedGraphWildCardLabelBuilder())
+          .add_operand_list(
+              ResolvedGraphLabelBuilder()
+                  .set_label(person_label.get())
+                  .set_label_name(ResolvedLiteralBuilder()
+                                      .set_value(Value::String("PERSON"))
+                                      .set_type(factory.get_string())
+                                      .Build())
+                  .Build())
+          .Build());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedQueryStmt> query_stmt,
+      ResolvedQueryStmtBuilder()
+          .add_output_column_list(
+              MakeResolvedOutputColumn("x", col_list.front()))
+          .set_query(
+              ResolvedProjectScanBuilder()
+                  .set_column_list(col_list)
+                  .set_input_scan(
+                      ResolvedGraphTableScanBuilder()
+                          .set_column_list(col_list)
+                          .set_property_graph(&graph)
+                          .set_input_scan(
+                              ResolvedGraphScanBuilder()
+                                  .set_column_list(col_list)
+                                  .set_filter_expr(nullptr)
+                                  .add_input_scan_list(
+                                      ResolvedGraphPathScanBuilder()
+                                          .set_column_list(col_list)
+                                          .set_filter_expr(nullptr)
+                                          .set_head(col_list.front())
+                                          .set_tail(col_list.back())
+                                          .set_path_mode(nullptr)
+                                          .add_input_scan_list(
+                                              ResolvedGraphNodeScanBuilder()
+                                                  .set_filter_expr(nullptr)
+                                                  .set_label_expr(
+                                                      std::move(label_expr))
+                                                  .set_column_list(
+                                                      col_list))))))
+          .Build());
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(
+      FEATURE_SQL_GRAPH_DYNAMIC_ELEMENT_TYPE);
+  language_options.EnableLanguageFeature(FEATURE_SQL_GRAPH);
+  language_options.EnableLanguageFeature(
+      FEATURE_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT);
+  Validator validator(language_options);
+  ZETASQL_EXPECT_OK(validator.ValidateResolvedStatement(query_stmt.get()));
 }
 
 struct ResolvedGraphElementTableBuildStrategy {
@@ -2172,7 +2324,7 @@ void ExerciseValidatorOnGraphStatement(
                        builder.Build());
 
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_SQL_GRAPH);
+  language_options.EnableLanguageFeature(FEATURE_SQL_GRAPH);
   Validator validator(language_options);
 
   if (expect_ok) {
@@ -2414,7 +2566,7 @@ TEST(ValidateTest, ValidGroupingSetsResolvedAST) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto query_stmt, MakeGroupingSetsResolvedAST(
                                             pool, GroupingSetTestMode::kValid));
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_GROUPING_SETS);
+  language_options.EnableLanguageFeature(FEATURE_GROUPING_SETS);
   Validator validator(language_options);
 
   ZETASQL_EXPECT_OK(validator.ValidateResolvedStatement(query_stmt.get()));
@@ -2428,7 +2580,7 @@ TEST(ValidateTest, InvalidGroupingSetsResolvedASTMissingGroupByKey) {
       auto query_stmt,
       MakeGroupingSetsResolvedAST(pool, GroupingSetTestMode::kMissGroupByKey));
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_GROUPING_SETS);
+  language_options.EnableLanguageFeature(FEATURE_GROUPING_SETS);
   Validator validator(language_options);
 
   absl::Status status = validator.ValidateResolvedStatement(query_stmt.get());
@@ -2444,7 +2596,7 @@ TEST(ValidateTest, InvalidGroupingSetsResolvedASTMissingGroupByKeyReference) {
                        MakeGroupingSetsResolvedAST(
                            pool, GroupingSetTestMode::KMissGroupByKeyRef));
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_GROUPING_SETS);
+  language_options.EnableLanguageFeature(FEATURE_GROUPING_SETS);
   Validator validator(language_options);
 
   absl::Status status = validator.ValidateResolvedStatement(query_stmt.get());
@@ -2490,13 +2642,13 @@ TEST(ValidateTest, ErrorWhenSideEffectColumnIsNotConsumed) {
 
   LanguageOptions options_with_conditional_eval;
   options_with_conditional_eval.EnableLanguageFeature(
-      FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION);
+      FEATURE_ENFORCE_CONDITIONAL_EVALUATION);
 
   // Validate statement
-  EXPECT_THAT(Validator().ValidateResolvedStatement(stmt.get()),
-              testing::StatusIs(
-                  absl::StatusCode::kInternal,
-                  HasSubstr("FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION)")));
+  EXPECT_THAT(
+      Validator().ValidateResolvedStatement(stmt.get()),
+      testing::StatusIs(absl::StatusCode::kInternal,
+                        HasSubstr("FEATURE_ENFORCE_CONDITIONAL_EVALUATION)")));
 
   EXPECT_THAT(
       Validator(options_with_conditional_eval)
@@ -2512,10 +2664,10 @@ TEST(ValidateTest, ErrorWhenSideEffectColumnIsNotConsumed) {
                      .set_subquery(ToBuilder(std::move(stmt)).release_query())
                      .Build());
 
-  EXPECT_THAT(Validator().ValidateStandaloneResolvedExpr(expr.get()),
-              testing::StatusIs(
-                  absl::StatusCode::kInternal,
-                  HasSubstr("FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION")));
+  EXPECT_THAT(
+      Validator().ValidateStandaloneResolvedExpr(expr.get()),
+      testing::StatusIs(absl::StatusCode::kInternal,
+                        HasSubstr("FEATURE_ENFORCE_CONDITIONAL_EVALUATION")));
   EXPECT_THAT(
       Validator(options_with_conditional_eval)
           .ValidateStandaloneResolvedExpr(expr.get()),
@@ -2555,7 +2707,7 @@ TEST(ValidateTest, MultilevelAggregationNotYetSupported) {
         StatusIs(
             absl::StatusCode::kInternal,
             HasSubstr("Aggregate functions can only have a group_by_list when "
-                      "FEATURE_V_1_4_MULTILEVEL_AGGREGATION is enabled")));
+                      "FEATURE_MULTILEVEL_AGGREGATION is enabled")));
   }
 
   {
@@ -2618,7 +2770,7 @@ TEST(ValidateTest, AggregateFiltering) {
         StatusIs(
             absl::StatusCode::kInternal,
             HasSubstr("Aggregate functions can only have a where_expr when "
-                      "FEATURE_V_1_4_AGGREGATE_FILTERING is enabled")));
+                      "FEATURE_AGGREGATE_FILTERING is enabled")));
   }
   {
     // Test valid having_expr is not supported when feature is disabled.
@@ -2644,11 +2796,11 @@ TEST(ValidateTest, AggregateFiltering) {
         StatusIs(
             absl::StatusCode::kInternal,
             HasSubstr("Aggregate functions can only have a having_expr when "
-                      "FEATURE_V_1_4_AGGREGATE_FILTERING is enabled")));
+                      "FEATURE_AGGREGATE_FILTERING is enabled")));
   }
   {
     // Test valid where_expr is supported when feature is enabled.
-    language_options.EnableLanguageFeature(FEATURE_V_1_4_AGGREGATE_FILTERING);
+    language_options.EnableLanguageFeature(FEATURE_AGGREGATE_FILTERING);
     Validator validator(language_options);
     ZETASQL_ASSERT_OK_AND_ASSIGN(
         std::unique_ptr<const ResolvedLiteral> placeholder_where_expr,
@@ -2669,9 +2821,8 @@ TEST(ValidateTest, AggregateFiltering) {
   }
   {
     // Test valid having_expr is supported when feature is enabled.
-    language_options.EnableLanguageFeature(FEATURE_V_1_4_AGGREGATE_FILTERING);
-    language_options.EnableLanguageFeature(
-        FEATURE_V_1_4_MULTILEVEL_AGGREGATION);
+    language_options.EnableLanguageFeature(FEATURE_AGGREGATE_FILTERING);
+    language_options.EnableLanguageFeature(FEATURE_MULTILEVEL_AGGREGATION);
     Validator validator(language_options);
     ZETASQL_ASSERT_OK_AND_ASSIGN(
         std::unique_ptr<const ResolvedComputedColumn>
@@ -2701,7 +2852,7 @@ TEST(ValidateTest, AggregateFiltering) {
   }
   {
     // Test where_expr must be a bool.
-    language_options.EnableLanguageFeature(FEATURE_V_1_4_AGGREGATE_FILTERING);
+    language_options.EnableLanguageFeature(FEATURE_AGGREGATE_FILTERING);
     Validator validator(language_options);
     ZETASQL_ASSERT_OK_AND_ASSIGN(
         std::unique_ptr<const ResolvedLiteral> bad_placeholder_where_expr,
@@ -2724,9 +2875,8 @@ TEST(ValidateTest, AggregateFiltering) {
   }
   {
     // Test having_expr must be a bool.
-    language_options.EnableLanguageFeature(FEATURE_V_1_4_AGGREGATE_FILTERING);
-    language_options.EnableLanguageFeature(
-        FEATURE_V_1_4_MULTILEVEL_AGGREGATION);
+    language_options.EnableLanguageFeature(FEATURE_AGGREGATE_FILTERING);
+    language_options.EnableLanguageFeature(FEATURE_MULTILEVEL_AGGREGATION);
     Validator validator(language_options);
     ZETASQL_ASSERT_OK_AND_ASSIGN(
         std::unique_ptr<const ResolvedComputedColumn>
@@ -2804,7 +2954,7 @@ TEST(ValidateTest, AnalyticFilteringRequiresFeature) {
             HasSubstr("Analytic functions can only have a where_expr when ")));
   }
   {
-    language_options.EnableLanguageFeature(FEATURE_V_1_4_AGGREGATE_FILTERING);
+    language_options.EnableLanguageFeature(FEATURE_AGGREGATE_FILTERING);
     Validator validator(language_options);
     ZETASQL_ASSERT_OK_AND_ASSIGN(
         std::unique_ptr<const ResolvedLiteral> placeholder_filter_expr,
@@ -2911,13 +3061,16 @@ static ResolvedMatchRecognizeScanBuilder CreateMatchRecognizeScanBuilder(
                           .add_column_list(input_col)
                           .add_expr_list(MakeResolvedComputedColumn(
                               input_col, MakeResolvedLiteral(Value::Int64(1)))))
-      .set_partition_by(nullptr)
-      .set_order_by(ResolvedWindowOrderingBuilder().add_order_by_item_list(
-          ResolvedOrderByItemBuilder().set_column_ref(
-              ResolvedColumnRefBuilder()
-                  .set_column(input_col)
-                  .set_type(input_col.type())
-                  .set_is_correlated(false))))
+      .add_analytic_function_group_list(
+          ResolvedAnalyticFunctionGroupBuilder()
+              .set_partition_by(nullptr)
+              .set_order_by(
+                  ResolvedWindowOrderingBuilder().add_order_by_item_list(
+                      ResolvedOrderByItemBuilder().set_column_ref(
+                          ResolvedColumnRefBuilder()
+                              .set_column(input_col)
+                              .set_type(input_col.type())
+                              .set_is_correlated(false)))))
       .set_after_match_skip_mode(ResolvedMatchRecognizeScanEnums::END_OF_MATCH)
       .set_match_number_column(
           ResolvedColumn(100, pool.Make("$match_recognize"),
@@ -2989,7 +3142,7 @@ TEST(ValidateTest, MatchRecognizeRequiresTheFlag) {
 
 TEST(ValidateTest, EmptyVariableNameDisallowedInPattern) {
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MATCH_RECOGNIZE);
+  language_options.EnableLanguageFeature(FEATURE_MATCH_RECOGNIZE);
   Validator validator(language_options);
 
   IdStringPool pool;
@@ -3003,7 +3156,7 @@ TEST(ValidateTest, EmptyVariableNameDisallowedInPattern) {
 
 TEST(ValidateTest, EmptyVariableNameDisallowedInDefine) {
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MATCH_RECOGNIZE);
+  language_options.EnableLanguageFeature(FEATURE_MATCH_RECOGNIZE);
   Validator validator(language_options);
 
   IdStringPool pool;
@@ -3017,7 +3170,7 @@ TEST(ValidateTest, EmptyVariableNameDisallowedInDefine) {
 
 TEST(ValidateTest, PatternVariableReferenceMustHaveACorrespondingDefinition) {
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MATCH_RECOGNIZE);
+  language_options.EnableLanguageFeature(FEATURE_MATCH_RECOGNIZE);
   Validator validator(language_options);
 
   IdStringPool pool;
@@ -3031,7 +3184,7 @@ TEST(ValidateTest, PatternVariableReferenceMustHaveACorrespondingDefinition) {
 
 TEST(ValidateTest, PatternVariableReferencesMustMatchTheCaseInDefinition) {
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MATCH_RECOGNIZE);
+  language_options.EnableLanguageFeature(FEATURE_MATCH_RECOGNIZE);
   Validator validator(language_options);
 
   IdStringPool pool;
@@ -3045,7 +3198,7 @@ TEST(ValidateTest, PatternVariableReferencesMustMatchTheCaseInDefinition) {
 
 TEST(ValidateTest, MatchRecognizeOrderByListCannotBeEmpty) {
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MATCH_RECOGNIZE);
+  language_options.EnableLanguageFeature(FEATURE_MATCH_RECOGNIZE);
   Validator validator(language_options);
 
   IdStringPool pool;
@@ -3060,7 +3213,15 @@ TEST(ValidateTest, MatchRecognizeOrderByListCannotBeEmpty) {
               ResolvedOutputColumnBuilder().set_column(col0).set_name(""))
           .set_query(CreateMatchRecognizeScanBuilder(pool, col0)
                          .add_column_list(col1)
-                         .set_order_by(ResolvedWindowOrderingBuilder())
+                         // Clear the default analytic groups, to build our
+                         // specific case.
+                         .set_analytic_function_group_list(
+                             std::vector<std::unique_ptr<
+                                 const ResolvedAnalyticFunctionGroup>>{})
+                         .add_analytic_function_group_list(
+                             ResolvedAnalyticFunctionGroupBuilder()
+                                 .set_partition_by(nullptr)
+                                 .set_order_by(ResolvedWindowOrderingBuilder()))
                          .add_measure_group_list(
                              ResolvedMeasureGroupBuilder().add_aggregate_list(
                                  ResolvedComputedColumnBuilder()
@@ -3075,7 +3236,7 @@ TEST(ValidateTest, MatchRecognizeOrderByListCannotBeEmpty) {
 
 TEST(ValidateTest, MatchRecognizeDefineListCannotBeEmpty) {
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MATCH_RECOGNIZE);
+  language_options.EnableLanguageFeature(FEATURE_MATCH_RECOGNIZE);
   Validator validator(language_options);
 
   IdStringPool pool;
@@ -3110,7 +3271,7 @@ TEST(ValidateTest, MatchRecognizeDefineListCannotBeEmpty) {
 // DEFINE cannot have duplicates, even ignoring case and an identical predicate.
 TEST(ValidateTest, MatchRecognizeDefineListCannotHaveDuplicates) {
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MATCH_RECOGNIZE);
+  language_options.EnableLanguageFeature(FEATURE_MATCH_RECOGNIZE);
   Validator validator(language_options);
 
   IdStringPool pool;
@@ -3181,7 +3342,7 @@ MakeMatchRecognizeQuery(
 
 TEST(ValidateTest, MatchRecognizePatternOperationsAreNeverUnspecified) {
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MATCH_RECOGNIZE);
+  language_options.EnableLanguageFeature(FEATURE_MATCH_RECOGNIZE);
   Validator validator(language_options);
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
@@ -3202,7 +3363,7 @@ TEST(ValidateTest, MatchRecognizePatternOperationsAreNeverUnspecified) {
 
 TEST(ValidateTest, MatchRecognizeConcatRequireAtLeastTwoOperands) {
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MATCH_RECOGNIZE);
+  language_options.EnableLanguageFeature(FEATURE_MATCH_RECOGNIZE);
   Validator validator(language_options);
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
@@ -3225,7 +3386,7 @@ TEST(ValidateTest, MatchRecognizeConcatRequireAtLeastTwoOperands) {
 
 TEST(ValidateTest, MatchRecognizeAlternateRequireAtLeastTwoOperands) {
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MATCH_RECOGNIZE);
+  language_options.EnableLanguageFeature(FEATURE_MATCH_RECOGNIZE);
   Validator validator(language_options);
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
@@ -3249,7 +3410,7 @@ TEST(ValidateTest, MatchRecognizeAlternateRequireAtLeastTwoOperands) {
 
 TEST(ValidateTest, MatchRecognizeDoesNotAllowDuplicateRefsInPartitioning) {
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MATCH_RECOGNIZE);
+  language_options.EnableLanguageFeature(FEATURE_MATCH_RECOGNIZE);
   Validator validator(language_options);
 
   IdStringPool pool;
@@ -3262,24 +3423,33 @@ TEST(ValidateTest, MatchRecognizeDoesNotAllowDuplicateRefsInPartitioning) {
       ResolvedQueryStmtBuilder()
           .add_output_column_list(
               ResolvedOutputColumnBuilder().set_column(col1).set_name(""))
-          .set_query(ResolvedProjectScanBuilder()
-                         .add_column_list(col1)
-                         .add_expr_list(MakeResolvedComputedColumn(
-                             col1, MakeResolvedLiteral(Value::Double(1.0))))
-                         .set_input_scan(
-                             CreateMatchRecognizeScanBuilder(pool, col0)
-                                 .set_partition_by(
-                                     ResolvedWindowPartitioningBuilder()
-                                         .add_partition_by_list(
-                                             ResolvedColumnRefBuilder()
-                                                 .set_column(col0)
-                                                 .set_type(col0.type())
-                                                 .set_is_correlated(false))
-                                         .add_partition_by_list(
-                                             ResolvedColumnRefBuilder()
-                                                 .set_column(col0)
-                                                 .set_type(col0.type())
-                                                 .set_is_correlated(false)))))
+          .set_query(
+              ResolvedProjectScanBuilder()
+                  .add_column_list(col1)
+                  .add_expr_list(MakeResolvedComputedColumn(
+                      col1, MakeResolvedLiteral(Value::Double(1.0))))
+                  .set_input_scan(
+                      CreateMatchRecognizeScanBuilder(pool, col0)
+                          // Clear the default analytic groups, to build our
+                          // specific case.
+                          .set_analytic_function_group_list(
+                              std::vector<std::unique_ptr<
+                                  const ResolvedAnalyticFunctionGroup>>{})
+                          .add_analytic_function_group_list(
+                              ResolvedAnalyticFunctionGroupBuilder()
+                                  .set_order_by(nullptr)
+                                  .set_partition_by(
+                                      ResolvedWindowPartitioningBuilder()
+                                          .add_partition_by_list(
+                                              ResolvedColumnRefBuilder()
+                                                  .set_column(col0)
+                                                  .set_type(col0.type())
+                                                  .set_is_correlated(false))
+                                          .add_partition_by_list(
+                                              ResolvedColumnRefBuilder()
+                                                  .set_column(col0)
+                                                  .set_type(col0.type())
+                                                  .set_is_correlated(false))))))
           .Build());
   EXPECT_THAT(validator.ValidateResolvedStatement(query.get()),
               StatusIs(absl::StatusCode::kInternal,
@@ -3288,7 +3458,7 @@ TEST(ValidateTest, MatchRecognizeDoesNotAllowDuplicateRefsInPartitioning) {
 
 TEST(ValidateTest, MatchRecognizeScanAfterMatchSkipModeMustBeSpecified) {
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MATCH_RECOGNIZE);
+  language_options.EnableLanguageFeature(FEATURE_MATCH_RECOGNIZE);
   Validator validator(language_options);
 
   IdStringPool pool;
@@ -3318,7 +3488,7 @@ TEST(ValidateTest, MatchRecognizeScanAfterMatchSkipModeMustBeSpecified) {
 
 TEST(ValidateTest, MeasureGroupCanNeverBeEmpty) {
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MATCH_RECOGNIZE);
+  language_options.EnableLanguageFeature(FEATURE_MATCH_RECOGNIZE);
   Validator validator(language_options);
 
   IdStringPool pool;
@@ -3349,7 +3519,7 @@ TEST(ValidateTest, MeasureGroupCanNeverBeEmpty) {
 
 TEST(ValidateTest, MeasureGroupsCanOnlyHaveOneUniversalGroup) {
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MATCH_RECOGNIZE);
+  language_options.EnableLanguageFeature(FEATURE_MATCH_RECOGNIZE);
   Validator validator(language_options);
 
   IdStringPool pool;
@@ -3394,7 +3564,7 @@ TEST(ValidateTest, MeasureGroupsCanOnlyHaveOneUniversalGroup) {
 
 TEST(ValidateTest, MeasureGroupsMustBeUnique) {
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MATCH_RECOGNIZE);
+  language_options.EnableLanguageFeature(FEATURE_MATCH_RECOGNIZE);
   Validator validator(language_options);
 
   IdStringPool pool;
@@ -3446,7 +3616,7 @@ TEST(ValidateTest, MeasureGroupsMustBeUnique) {
 // Even mismatching case is considered undefined.
 TEST(ValidateTest, MeasureGroupVariableMustBeDefined) {
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MATCH_RECOGNIZE);
+  language_options.EnableLanguageFeature(FEATURE_MATCH_RECOGNIZE);
   Validator validator(language_options);
 
   IdStringPool pool;
@@ -3483,6 +3653,213 @@ TEST(ValidateTest, MeasureGroupVariableMustBeDefined) {
   EXPECT_THAT(validator.ValidateResolvedStatement(query.get()),
               StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("Pattern variable a has no definition.")));
+}
+
+ResolvedJoinScanBuilder CreateLateralJoinScanBuilder(
+    const ResolvedColumn& outer_correlated_column,
+    const ResolvedColumn& lhs_column, const SimpleTable* lhs_table,
+    const ResolvedColumn& rhs_column) {
+  return ResolvedJoinScanBuilder()
+      .add_column_list(lhs_column)
+      .add_column_list(rhs_column)
+      .set_is_lateral(true)
+      .add_parameter_list(ResolvedColumnRefBuilder()
+                              .set_type(outer_correlated_column.type())
+                              .set_column(outer_correlated_column)
+                              .set_is_correlated(true))
+      .add_parameter_list(ResolvedColumnRefBuilder()
+                              .set_type(lhs_column.type())
+                              .set_column(lhs_column)
+                              .set_is_correlated(false))
+      .set_left_scan(ResolvedTableScanBuilder()
+                         .add_column_list(lhs_column)
+                         .set_table(lhs_table))
+      .set_right_scan(
+          ResolvedProjectScanBuilder()
+              .add_column_list(rhs_column)
+              .set_input_scan(ResolvedSingleRowScanBuilder())
+              .add_expr_list(ResolvedComputedColumnBuilder()
+                                 .set_column(rhs_column)
+                                 .set_expr(ResolvedColumnRefBuilder()
+                                               .set_type(lhs_column.type())
+                                               .set_column(lhs_column)
+                                               .set_is_correlated(true))));
+}
+
+TEST(ValidatorTest, NonLateralJoinCannotListLateralColumns) {
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_LATERAL_JOIN);
+  Validator validator(language_options);
+
+  IdStringPool pool;
+  ResolvedColumn outer_col(1, pool.Make("t1"), pool.Make("col1"),
+                           types::Int64Type());
+  ResolvedColumn col2(2, pool.Make("t1"), pool.Make("col2"),
+                      types::Int64Type());
+  ResolvedColumn col3(3, pool.Make("t1"), pool.Make("col3"),
+                      types::Int64Type());
+  ResolvedColumn output_col(4, pool.Make("$query"), pool.Make("output_col"),
+                            types::Int64Type());
+
+  const SimpleTable t1{"t1"};
+
+  auto join_builder = CreateLateralJoinScanBuilder(outer_col, col2, &t1, col3);
+  join_builder.set_is_lateral(false);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto query,
+      ResolvedQueryStmtBuilder()
+          .add_output_column_list(
+              ResolvedOutputColumnBuilder().set_column(output_col).set_name(""))
+          .set_query(
+              ResolvedProjectScanBuilder()
+                  .add_column_list(output_col)
+                  .add_expr_list(
+                      ResolvedComputedColumnBuilder()
+                          .set_column(output_col)
+                          .set_expr(ResolvedSubqueryExprBuilder()
+                                        .set_type(types::Int64Type())
+                                        .set_subquery_type(
+                                            ResolvedSubqueryExpr::SCALAR)
+                                        .set_subquery(std::move(join_builder))
+                                        .add_parameter_list(
+                                            ResolvedColumnRefBuilder()
+                                                .set_type(outer_col.type())
+                                                .set_column(outer_col)
+                                                .set_is_correlated(false))))
+                  .set_input_scan(ResolvedTableScanBuilder()
+                                      .add_column_list(outer_col)
+                                      .set_table(&t1)))
+          .Build());
+
+  EXPECT_THAT(validator.ValidateResolvedStatement(query.get()),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("scan->parameter_list().empty()")));
+}
+
+TEST(ValidatorTest, LateralJoinNeedsToDeclareLateralReferencesAsNotCorrelated) {
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_LATERAL_JOIN);
+  Validator validator(language_options);
+
+  IdStringPool pool;
+  ResolvedColumn outer_col(1, pool.Make("t1"), pool.Make("col1"),
+                           types::Int64Type());
+  ResolvedColumn col2(2, pool.Make("t1"), pool.Make("col2"),
+                      types::Int64Type());
+  ResolvedColumn col3(3, pool.Make("t1"), pool.Make("col3"),
+                      types::Int64Type());
+  ResolvedColumn output_col(4, pool.Make("$query"), pool.Make("output_col"),
+                            types::Int64Type());
+
+  const SimpleTable t1{"t1"};
+
+  auto join_builder = CreateLateralJoinScanBuilder(outer_col, col2, &t1, col3);
+  ASSERT_TRUE(join_builder.is_lateral());
+
+  auto lateral_columns = join_builder.release_parameter_list();
+  ASSERT_EQ(lateral_columns.size(), 2);
+  ASSERT_FALSE(lateral_columns[1]->is_correlated());
+
+  // Set to true, pretending that the exposed LHS column is an outer, already
+  // correlated column.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      lateral_columns[1],
+      ToBuilder(std::move(lateral_columns[1])).set_is_correlated(true).Build());
+  join_builder.set_parameter_list(std::move(lateral_columns));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto query,
+      ResolvedQueryStmtBuilder()
+          .add_output_column_list(
+              ResolvedOutputColumnBuilder().set_column(output_col).set_name(""))
+          .set_query(
+              ResolvedProjectScanBuilder()
+                  .add_column_list(output_col)
+                  .add_expr_list(
+                      ResolvedComputedColumnBuilder()
+                          .set_column(output_col)
+                          .set_expr(ResolvedSubqueryExprBuilder()
+                                        .set_type(types::Int64Type())
+                                        .set_subquery_type(
+                                            ResolvedSubqueryExpr::SCALAR)
+                                        .set_subquery(std::move(join_builder))
+                                        .add_parameter_list(
+                                            ResolvedColumnRefBuilder()
+                                                .set_type(outer_col.type())
+                                                .set_column(outer_col)
+                                                .set_is_correlated(false))))
+                  .set_input_scan(ResolvedTableScanBuilder()
+                                      .add_column_list(outer_col)
+                                      .set_table(&t1)))
+          .Build());
+
+  EXPECT_THAT(validator.ValidateResolvedStatement(query.get()),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("Column cannot come from the left scan")));
+}
+
+TEST(ValidatorTest,
+     LateralJoinNeedsToRecordOuterCorrelatedColumnsAsAlreadyCorrelated) {
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_LATERAL_JOIN);
+  Validator validator(language_options);
+
+  IdStringPool pool;
+  ResolvedColumn outer_col(1, pool.Make("t1"), pool.Make("col1"),
+                           types::Int64Type());
+  ResolvedColumn col2(2, pool.Make("t1"), pool.Make("col2"),
+                      types::Int64Type());
+  ResolvedColumn col3(3, pool.Make("t1"), pool.Make("col3"),
+                      types::Int64Type());
+  ResolvedColumn output_col(4, pool.Make("$query"), pool.Make("output_col"),
+                            types::Int64Type());
+
+  const SimpleTable t1{"t1"};
+
+  auto join_builder = CreateLateralJoinScanBuilder(outer_col, col2, &t1, col3);
+  ASSERT_TRUE(join_builder.is_lateral());
+
+  auto lateral_columns = join_builder.release_parameter_list();
+  ASSERT_EQ(lateral_columns.size(), 2);
+  ASSERT_TRUE(lateral_columns[0]->is_correlated());
+
+  // Set to false to ensure the validator catches it.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(lateral_columns[0],
+                       ToBuilder(std::move(lateral_columns[0]))
+                           .set_is_correlated(false)
+                           .Build());
+  join_builder.set_parameter_list(std::move(lateral_columns));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto query,
+      ResolvedQueryStmtBuilder()
+          .add_output_column_list(
+              ResolvedOutputColumnBuilder().set_column(output_col).set_name(""))
+          .set_query(
+              ResolvedProjectScanBuilder()
+                  .add_column_list(output_col)
+                  .add_expr_list(
+                      ResolvedComputedColumnBuilder()
+                          .set_column(output_col)
+                          .set_expr(ResolvedSubqueryExprBuilder()
+                                        .set_type(types::Int64Type())
+                                        .set_subquery_type(
+                                            ResolvedSubqueryExpr::SCALAR)
+                                        .set_subquery(std::move(join_builder))
+                                        .add_parameter_list(
+                                            ResolvedColumnRefBuilder()
+                                                .set_type(outer_col.type())
+                                                .set_column(outer_col)
+                                                .set_is_correlated(false))))
+                  .set_input_scan(ResolvedTableScanBuilder()
+                                      .add_column_list(outer_col)
+                                      .set_table(&t1)))
+          .Build());
+
+  EXPECT_THAT(validator.ValidateResolvedStatement(query.get()),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("Column must come from the left scan")));
 }
 
 TEST(ValidatorTest, RebuildActionIsNotLastActionReturnsError) {
@@ -3567,5 +3944,110 @@ TEST(ValidatorTest, AddColumnIdentifierActionInNonIndexAlterStmtReturnsError) {
 
 }  // namespace
 }  // namespace testing
+
+TEST(ValidatorTest, InvalidDynamicGraphGetElementProperty) {
+  std::string graph_name = "graph_name";
+  const SimplePropertyGraph graph(std::vector<std::string>{graph_name});
+  TypeFactory factory;
+  const GraphElementType* dynamic_graph_element_type;
+  ZETASQL_ASSERT_OK(factory.MakeDynamicGraphElementType(
+      {graph_name}, GraphElementType::ElementKind::kNode,
+      /*static_property_types=*/{}, &dynamic_graph_element_type));
+
+  IdStringPool pool;
+  const ResolvedColumn element_col(1, pool.Make("tbl"), pool.Make("x"),
+                                   dynamic_graph_element_type);
+
+  auto name_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
+      "name", std::vector<std::string>{graph_name}, factory.get_string());
+  absl::flat_hash_set<const GraphPropertyDeclaration*> property_declarations{
+      name_property_dcl.get()};
+  auto person_label = std::make_unique<SimpleGraphElementLabel>(
+      "Person", std::vector<std::string>{graph_name}, property_declarations);
+
+  // Create a resolved AST where the `property` and `property_name` do not
+  // match.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto get_element_prop_expr,
+      ResolvedGraphGetElementPropertyBuilder()
+          .set_property(name_property_dcl.get())
+          .set_property_name(ResolvedLiteralBuilder()
+                                 .set_value(Value::String("UnknownProperty"))
+                                 .set_type(factory.get_string())
+                                 .Build())
+          .set_type(name_property_dcl->Type())
+          .set_expr(ResolvedColumnRefBuilder()
+                        .set_column(element_col)
+                        .set_type(dynamic_graph_element_type)
+                        .set_is_correlated(false)
+                        .Build())
+          .Build());
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(
+      FEATURE_SQL_GRAPH_DYNAMIC_ELEMENT_TYPE);
+  language_options.EnableLanguageFeature(FEATURE_SQL_GRAPH);
+  language_options.EnableLanguageFeature(
+      FEATURE_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT);
+  Validator validator(language_options);
+  EXPECT_THAT(
+      validator.ValidateResolvedExpr(
+          /*visible_columns=*/{element_col}, /*visible_parameters=*/{},
+          get_element_prop_expr.get()),
+      testing::StatusIs(
+          absl::StatusCode::kInternal,
+          testing::HasSubstr(
+              "property_name and property must match case-insensitively")));
+}
+
+TEST(ValidatorTest, CaseInsensitiveDynamicGraphGetElementProperty) {
+  std::string graph_name = "graph_name";
+  const SimplePropertyGraph graph(std::vector<std::string>{graph_name});
+  TypeFactory factory;
+  const GraphElementType* dynamic_graph_element_type;
+  ZETASQL_ASSERT_OK(factory.MakeDynamicGraphElementType(
+      {graph_name}, GraphElementType::ElementKind::kNode,
+      /*static_property_types=*/{}, &dynamic_graph_element_type));
+
+  IdStringPool pool;
+  const ResolvedColumn element_col(1, pool.Make("tbl"), pool.Make("x"),
+                                   dynamic_graph_element_type);
+
+  auto name_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
+      "name", std::vector<std::string>{graph_name}, factory.get_string());
+  absl::flat_hash_set<const GraphPropertyDeclaration*> property_declarations{
+      name_property_dcl.get()};
+  auto person_label = std::make_unique<SimpleGraphElementLabel>(
+      "Person", std::vector<std::string>{graph_name}, property_declarations);
+
+  // Create a resolved AST where the `property` and `property_name` fields only
+  // match case-insensitively.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto get_element_prop_expr,
+      ResolvedGraphGetElementPropertyBuilder()
+          .set_property(name_property_dcl.get())
+          .set_property_name(ResolvedLiteralBuilder()
+                                 .set_value(Value::String("nAME"))
+                                 .set_type(factory.get_string())
+                                 .Build())
+          .set_type(name_property_dcl->Type())
+          .set_expr(ResolvedColumnRefBuilder()
+                        .set_column(element_col)
+                        .set_type(dynamic_graph_element_type)
+                        .set_is_correlated(false)
+                        .Build())
+          .Build());
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(
+      FEATURE_SQL_GRAPH_DYNAMIC_ELEMENT_TYPE);
+  language_options.EnableLanguageFeature(FEATURE_SQL_GRAPH);
+  language_options.EnableLanguageFeature(
+      FEATURE_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT);
+  Validator validator(language_options);
+  ZETASQL_EXPECT_OK(validator.ValidateResolvedExpr(
+      /*visible_columns=*/{element_col}, /*visible_parameters=*/{},
+      get_element_prop_expr.get()));
+}
 
 }  // namespace zetasql

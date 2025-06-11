@@ -24,7 +24,6 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/parser/tm_token.h"
-#include "zetasql/parser/token_codes.h"
 #include "zetasql/base/case.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/string_view.h"

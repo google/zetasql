@@ -558,7 +558,7 @@ QueryStatement [34-60]
             PathExpression [41-58]
               Identifier(an_analyzer_error) [41-58]
 
-ERROR: INVALID_ARGUMENT: Syntax error: Expected end of input but got keyword ERROR [at 3:16]
+ERROR: INVALID_ARGUMENT: Syntax error: Expected ";" or end of input but got keyword ERROR [at 3:16]
 select a parse error;
                ^
 --
@@ -1026,7 +1026,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=[tvf.x#1]
     +-input_scan=
-      +-TVFScan(column_list=[tvf.x#1], tvf=tvf(() -> TABLE<x INT64>), signature=() -> TABLE<x INT64>, column_index_list=[0], alias="t")
+      +-TVFScan(column_list=[tvf.x#1], tvf=tvf(() -> TABLE<x INT64>), signature=() -> TABLE<x INT64>, column_index_list=[0], alias="t", function_call_signature=() -> TABLE<x INT64>)
 \
 ==
 
@@ -1046,7 +1046,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=[tvf.x#1]
     +-input_scan=
-      +-TVFScan(column_list=[tvf.x#1], tvf=tvf(() -> TABLE<x DOUBLE>), signature=() -> TABLE<x DOUBLE>, column_index_list=[0], alias="t")
+      +-TVFScan(column_list=[tvf.x#1], tvf=tvf(() -> TABLE<x DOUBLE>), signature=() -> TABLE<x DOUBLE>, column_index_list=[0], alias="t", function_call_signature=() -> TABLE<x DOUBLE>)
 \
 --
 ALTERNATION GROUP: execute
@@ -1361,7 +1361,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=[tvf.mm#1]
     +-input_scan=
-      +-TVFScan(column_list=[tvf.mm#1], tvf=tvf(() -> TABLE<mm INT64>), signature=() -> TABLE<mm INT64>, column_index_list=[0])
+      +-TVFScan(column_list=[tvf.mm#1], tvf=tvf(() -> TABLE<mm INT64>), signature=() -> TABLE<mm INT64>, column_index_list=[0], function_call_signature=() -> TABLE<mm INT64>)
 \
 ==
 
@@ -2089,7 +2089,7 @@ SELECT (JSON "{}")[0];
 # Subscript access on MAP types using
 [catalog=none]
 [mode=analyze,execute]
-[enabled_language_features=DEV,+V_1_4_BARE_ARRAY_ACCESS]
+[enabled_language_features=DEV,+BARE_ARRAY_ACCESS]
 
 SELECT MAP_FROM_ARRAY([('a', 1)])['a']
 --

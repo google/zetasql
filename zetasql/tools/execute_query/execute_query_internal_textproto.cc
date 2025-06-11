@@ -16,7 +16,6 @@
 
 #include <memory>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -31,15 +30,12 @@
 #include "zetasql/public/value.h"
 #include "zetasql/tools/execute_query/simple_proto_evaluator_table_iterator.h"
 #include "zetasql/tools/execute_query/string_error_collector.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "zetasql/base/file_util.h"
-#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace {

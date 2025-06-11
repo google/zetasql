@@ -17,6 +17,8 @@
 
 package com.google.zetasql;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
@@ -72,6 +74,11 @@ public class StructType extends Type {
 
   public ImmutableList<StructField> getFieldList() {
     return fields;
+  }
+
+  @Override
+  public ImmutableList<Type> componentTypes() {
+    return fields.stream().map(StructField::getType).collect(toImmutableList());
   }
 
   @Override

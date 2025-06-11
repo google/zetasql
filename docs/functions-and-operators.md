@@ -11,6 +11,7 @@ To learn more about how to call functions, function call rules,
 the `SAFE` prefix, and special types of arguments,
 see [Function calls][function-calls].
 
+<!-- disableFinding(G3DOC_ATTRIBUTE) -->
 ---
 ## OPERATORS AND CONDITIONALS
 
@@ -482,6 +483,12 @@ ambiguity. For example:
 </tr>
 
 <tr>
+  <td><a href="#is_labeled_predicate"><code>IS LABELED</code> predicate</a>
+</td>
+  <td>In a graph, checks to see if a node or edge label satisfies a label expression.</td>
+</tr>
+
+<tr>
   <td><a href="#is_source_predicate"><code>IS SOURCE</code> predicate</a>
 </td>
   <td>In a graph, checks to see if a node is or isn't the source of an edge.</td>
@@ -603,8 +610,8 @@ a field by position is useful when fields are un-named or have ambiguous names.
   the protocol buffer, an error is thrown.
 + For `JSON`: `JSON`. If a field isn't found in a JSON value, a SQL `NULL` is
   returned.
-+ For `GRAPH_ELEMENT`: SQL data type of `fieldname`. If a field (property) isn't
-  found in the graph element, an error is produced.
++ For `GRAPH_ELEMENT`: SQL data type of `fieldname`. If a field (property)
+  isn't found in the graph element, an error is returned.
 
 **Example**
 
@@ -625,6 +632,8 @@ SELECT
 ```
 
 [struct-subscript-operator]: #struct_subscript_operator
+
+[graph-element-type]: https://github.com/google/zetasql/blob/master/docs/graph-data-types.md#graph_element_type
 
 ### Array subscript operator 
 <a id="array_subscript_operator"></a>
@@ -1005,14 +1014,14 @@ Input values:
 
   These data types have fields:
 
-  
-  
+<!-- disableFinding(SPACES) -->
 
   + `STRUCT`
   + `PROTO`
   + `JSON`
 
-  
+<!-- enableFinding(SPACES) -->
+
 + `array_element`: If the field to access is an array field (`array_field`),
   you can additionally access a specific position in the field
   with the [array subscript operator][array-subscript-operator]
@@ -1702,7 +1711,7 @@ This operator throws an error if <code>Y</code> is negative.</td>
 ### Logical operators 
 <a id="logical_operators"></a>
 
-ZetaSQL supports the `AND`, `OR`, and  `NOT` logical operators.
+ZetaSQL supports the `AND`, `OR`, and `NOT` logical operators.
 Logical operators allow only `BOOL` or `NULL` input
 and use [three-valued logic][three-valued-logic]
 to produce a result. The result can be `TRUE`, `FALSE`, or `NULL`:
@@ -1942,10 +1951,10 @@ ZetaSQL supports the following logical operators in
 ZetaSQL supports the following graph-specific predicates in
 graph expressions. A predicate can produce `TRUE`, `FALSE`, or `NULL`.
 
-+   [`ALL_DIFFERENT` predicate][all-different-predicate]
 +   [`PROPERTY_EXISTS` predicate][property-exists-predicate]
 +   [`IS SOURCE` predicate][is-source-predicate]
 +   [`IS DESTINATION` predicate][is-destination-predicate]
++   [`IS LABELED` predicate][is-labeled-predicate]
 +   [`SAME` predicate][same-predicate]
 
 [all-different-predicate]: #all_different_predicate
@@ -1955,6 +1964,8 @@ graph expressions. A predicate can produce `TRUE`, `FALSE`, or `NULL`.
 [is-source-predicate]: #is_source_predicate
 
 [is-destination-predicate]: #is_destination_predicate
+
+[is-labeled-predicate]: #is_labeled_predicate
 
 [same-predicate]: #same_predicate
 
@@ -2010,6 +2021,85 @@ RETURN a.id AS a_id, b.id AS b_id
  | 20   | 16   |
  +-------------*/
 ```
+
+### `IS LABELED` predicate 
+<a id="is_labeled_predicate"></a>
+
+```zetasql
+element IS [ NOT ] LABELED label_expression
+```
+
+**Description**
+
+In a graph, checks to see if a node or edge label satisfies a label
+expression. Can produce `TRUE`, `FALSE`, or `NULL` if `element` is `NULL`.
+
+Arguments:
+
++   `element`: The graph pattern variable for a graph node or edge element.
++   `label_expression`: The label expression to verify. For more information,
+     see [Label expression definition][label-expression-definition].
+
+**Examples**
+
+```zetasql
+GRAPH FinGraph
+MATCH (a)
+WHERE a IS LABELED Account | Person
+RETURN a.id AS a_id, LABELS(a) AS labels
+
+/*----------------+
+ | a_id | labels  |
+ +----------------+
+ | 1    | Person  |
+ | 2    | Person  |
+ | 3    | Person  |
+ | 7    | Account |
+ | 16   | Account |
+ | 20   | Account |
+ +----------------*/
+```
+
+```zetasql
+GRAPH FinGraph
+MATCH (a)-[e]-(b:Account)
+WHERE e IS LABELED Transfers | Owns
+RETURN a.Id as a_id, Labels(e) AS labels, b.Id as b_id
+ORDER BY a_id, b_id
+
+/*------+-----------------------+------+
+ | a_id | labels                | b_id |
+ +------+-----------------------+------+
+ |    1 | [owns]                |    7 |
+ |    2 | [owns]                |   20 |
+ |    3 | [owns]                |   16 |
+ |    7 | [transfers]           |   16 |
+ |    7 | [transfers]           |   16 |
+ |    7 | [transfers]           |   20 |
+ |   16 | [transfers]           |    7 |
+ |   16 | [transfers]           |    7 |
+ |   16 | [transfers]           |   20 |
+ |   16 | [transfers]           |   20 |
+ |   20 | [transfers]           |    7 |
+ |   20 | [transfers]           |   16 |
+ |   20 | [transfers]           |   16 |
+ +------+-----------------------+------*/
+```
+
+```zetasql
+GRAPH FinGraph
+MATCH (a:Account {Id: 7})
+OPTIONAL MATCH (a)-[:OWNS]->(b)
+RETURN a.Id AS a_id, b.Id AS b_id, b IS LABELED Account AS b_is_account
+
+/*------+-----------------------+
+ | a_id | b_id   | b_is_account |
+ +------+-----------------------+
+ | 7    | NULL   | NULL         |
+ +------+-----------------------+*/
+```
+
+[label-expression-definition]: https://github.com/google/zetasql/blob/master/docs/graph-patterns.md#label_expression_definition
 
 ### `IS SOURCE` predicate 
 <a id="is_source_predicate"></a>
@@ -3529,8 +3619,9 @@ expressions within the `WITH` expression. Returns the value of
 **Requirements and Caveats**
 
 +   A given variable may only be assigned once in a given `WITH` clause.
-+   Variables created during `WITH` may not be used in 
-    analytic or  aggregate function arguments. For example,
++   Variables created during `WITH` may not be used
+    in analytic or aggregate
+    function arguments. For example,
     `WITH(a AS ..., SUM(a))` produces an error.
 +   Volatile expressions (for example, `RAND()`) behave
     as if they are evaluated only once.
@@ -5326,7 +5417,8 @@ rows. Returns `NULL` when `expression`
 or `expression2` is
 `NULL` for all rows in the group.
 
-`ANY_VALUE` behaves as if `IGNORE NULLS` is specified;
+If `expression` contains any non-NULL values, then `ANY_VALUE` behaves as if
+`IGNORE NULLS` is specified;
 rows for which `expression` is `NULL` aren't considered and won't be
 selected.
 
@@ -6069,7 +6161,7 @@ To count the number of non-distinct values of an expression for which a
 certain condition is satisfied, consider using the
 [`COUNTIF`][countif] function.
 
-This function with <code>DISTINCT</code> supports specifying [collation][collation].
+This function with `DISTINCT` supports specifying [collation][collation].
 
 [collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
@@ -7460,8 +7552,6 @@ UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
 
 [hll-functions]: #hll_functions
 
-[kll-functions]: #kll_quantile_functions
-
 [aggregate-functions-reference]: #aggregate_functions
 
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
@@ -8588,7 +8678,7 @@ Additional details:
 
 + The input array can contain `NULL` elements. `NULL` elements are included
   in the resulting array.
-+ Returns `NULL` if `array_to_slice`,  `start_offset`, or `end_offset` is
++ Returns `NULL` if `array_to_slice`, `start_offset`, or `end_offset` is
   `NULL`.
 + Returns an empty array if `array_to_slice` is empty.
 + Returns an empty array if the position of the `start_offset` in the array is
@@ -9072,8 +9162,8 @@ FLATTEN(array_elements_field_access_expression)
 
 **Description**
 
-Takes a nested array and flattens a specific part of it into a single, flat
-array with the
+Takes an array of nested data and flattens a specific part of it into a single,
+flat array with the
 [array elements field access operator][array-el-field-operator].
 Returns `NULL` if the input value is `NULL`.
 If `NULL` array elements are
@@ -10562,6 +10652,138 @@ learn more about implicit and explicit conversion [here][conversion-rules].
   </tbody>
 </table>
 
+### `BIT_CAST_TO_INT32`
+
+```zetasql
+BIT_CAST_TO_INT32(value)
+```
+
+**Description**
+
+ZetaSQL supports bit casting to `INT32`. A bit
+cast is a cast in which the order of bits is preserved instead of the value
+those bytes represent.
+
+The `value` parameter can represent:
+
++ `INT32`
++ `UINT32`
+
+**Return Data Type**
+
+`INT32`
+
+**Examples**
+
+```zetasql
+SELECT BIT_CAST_TO_UINT32(-1) as UINT32_value, BIT_CAST_TO_INT32(BIT_CAST_TO_UINT32(-1)) as bit_cast_value;
+
+/*---------------+----------------------*
+ | UINT32_value  | bit_cast_value       |
+ +---------------+----------------------+
+ | 4294967295    | -1                   |
+ *---------------+----------------------*/
+```
+
+### `BIT_CAST_TO_INT64`
+
+```zetasql
+BIT_CAST_TO_INT64(value)
+```
+
+**Description**
+
+ZetaSQL supports bit casting to `INT64`. A bit
+cast is a cast in which the order of bits is preserved instead of the value
+those bytes represent.
+
+The `value` parameter can represent:
+
++ `INT64`
++ `UINT64`
+
+**Return Data Type**
+
+`INT64`
+
+**Example**
+
+```zetasql
+SELECT BIT_CAST_TO_UINT64(-1) as UINT64_value, BIT_CAST_TO_INT64(BIT_CAST_TO_UINT64(-1)) as bit_cast_value;
+
+/*-----------------------+----------------------*
+ | UINT64_value          | bit_cast_value       |
+ +-----------------------+----------------------+
+ | 18446744073709551615  | -1                   |
+ *-----------------------+----------------------*/
+```
+
+### `BIT_CAST_TO_UINT32`
+
+```zetasql
+BIT_CAST_TO_UINT32(value)
+```
+
+**Description**
+
+ZetaSQL supports bit casting to `UINT32`. A bit
+cast is a cast in which the order of bits is preserved instead of the value
+those bytes represent.
+
+The `value` parameter can represent:
+
++ `INT32`
++ `UINT32`
+
+**Return Data Type**
+
+`UINT32`
+
+**Examples**
+
+```zetasql
+SELECT -1 as UINT32_value, BIT_CAST_TO_UINT32(-1) as bit_cast_value;
+
+/*--------------+----------------------*
+ | UINT32_value | bit_cast_value       |
+ +--------------+----------------------+
+ | -1           | 4294967295           |
+ *--------------+----------------------*/
+```
+
+### `BIT_CAST_TO_UINT64`
+
+```zetasql
+BIT_CAST_TO_UINT64(value)
+```
+
+**Description**
+
+ZetaSQL supports bit casting to `UINT64`. A bit
+cast is a cast in which the order of bits is preserved instead of the value
+those bytes represent.
+
+The `value` parameter can represent:
+
++ `INT64`
++ `UINT64`
+
+**Return Data Type**
+
+`UINT64`
+
+**Example**
+
+```zetasql
+SELECT -1 as INT64_value, BIT_CAST_TO_UINT64(-1) as bit_cast_value;
+
+/*--------------+----------------------*
+ | INT64_value  | bit_cast_value       |
+ +--------------+----------------------+
+ | -1           | 18446744073709551615 |
+ *--------------+----------------------*/
+```
+
 ### `CAST` 
 <a id="cast"></a>
 
@@ -10685,7 +10907,7 @@ ZetaSQL supports [casting][con-func-cast] to `BIGNUMERIC`. The
 
       Casting a <code>NaN</code>, <code>+inf</code> or
       <code>-inf</code> will return an error. Casting a value outside the range
-      of <code>BIGNUMERIC</code></a> returns an overflow error.
+      of <code>BIGNUMERIC</code> returns an overflow error.
     </td>
   </tr>
   <tr>
@@ -12376,7 +12598,7 @@ SELECT CAST("apple" AS INT64) AS not_a_number;
 ```
 
 If you want to protect your queries from these types of errors, you can use
-`SAFE_CAST`. `SAFE_CAST` replaces runtime errors with `NULL`s.  However, during
+`SAFE_CAST`. `SAFE_CAST` replaces runtime errors with `NULL`s. However, during
 static analysis, impossible casts between two non-castable types still produce
 an error because the query is invalid.
 
@@ -12625,8 +12847,6 @@ SELECT CURRENT_DATE AS the_date;
  | 2016-12-25   |
  *--------------*/
 ```
-
-[date-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
 
 [date-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time_zones
 
@@ -13104,7 +13324,8 @@ be one of:
 +   `DAY`
 +   `DAYOFYEAR`
 + `WEEK`: Returns the week number of the date in the range [0, 53]. Weeks begin
-  with Sunday, and dates prior to the first Sunday of the year are in week 0.
+  with Sunday, and dates prior to the first Sunday of the year are in week
+  0.
 + `WEEK(<WEEKDAY>)`: Returns the week number of the date in the range [0, 53].
   Weeks begin on `WEEKDAY`. Dates prior to
   the first `WEEKDAY` of the year are in week 0. Valid values for `WEEKDAY` are
@@ -13444,8 +13665,6 @@ SELECT PARSE_DATE('%Y%m%d', '20081225') AS parsed;
  *------------*/
 ```
 
-[date-format]: #format_date
-
 [date-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
 
 ### `UNIX_DATE`
@@ -13618,8 +13837,6 @@ SELECT CURRENT_DATETIME() as now;
  | 2016-05-19 10:38:47.046465 |
  *----------------------------*/
 ```
-
-[datetime-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
 
 [datetime-timezone-definitions]: #timezone_definitions
 
@@ -14099,8 +14316,9 @@ Allowed `part` values are:
    of the week.
 + `DAY`
 + `DAYOFYEAR`
-+ `WEEK`: Returns the week number of the date in the range [0, 53].  Weeks begin
-  with Sunday, and dates prior to the first Sunday of the year are in week 0.
++ `WEEK`: Returns the week number of the date in the range [0, 53]. Weeks begin
+  with Sunday, and dates prior to the first Sunday of the year are in week
+  0.
 + `WEEK(<WEEKDAY>)`: Returns the week number of `datetime_expression` in the
   range [0, 53]. Weeks begin on `WEEKDAY`.
   `datetime`s prior to the first `WEEKDAY` of the year are in week 0. Valid
@@ -14474,8 +14692,6 @@ SELECT PARSE_DATETIME('%A, %B %e, %Y','Wednesday, December 19, 2018')
  | 2018-12-19 00:00:00 |
  *---------------------*/
 ```
-
-[datetime-format]: #format_datetime
 
 [datetime-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
 
@@ -15780,7 +15996,7 @@ WITH DIFFERENTIAL_PRIVACY ...
 Takes an expression and computes the population (biased) variance of the values
 in the expression. The final result is an aggregation across
 privacy unit columns between `0` and `+Inf`. You can
-[clamp the input values][dp-clamp-explicit] explicitly, otherwise input values
+[clamp the input values][dp_clamped_named] explicitly, otherwise input values
 are clamped implicitly. Clamping is performed per individual user values.
 
 This function must be used with the `DIFFERENTIAL_PRIVACY` clause and
@@ -15855,8 +16071,6 @@ GROUP BY item;
  *----------+-----------------*/
 ```
 
-[dp-clamp-explicit]: #dp_explicit_clamping
-
 [dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_tables
 
 [dp-clamped-named]: #dp_clamped_named
@@ -15888,7 +16102,7 @@ can support these arguments:
 
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`.
-+ `clamped_between_clause`: Perform [clamping][dp-clamp-between] per
++ `clamped_between_clause`: Perform [clamping][dp-clamping] per
   privacy unit column averages.
 
 **Return type**
@@ -15949,7 +16163,7 @@ noise [here][dp-noise].
 
 [dp-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
 
-[dp-clamp-between]: #dp_clamp_between
+[dp-clamping]: #dp_clamping
 
 ### `ANON_COUNT` (DEPRECATED) 
 <a id="anon_count"></a>
@@ -16051,7 +16265,7 @@ can support these arguments:
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`.
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][dp-clamp-between] per privacy unit column.
+  Perform [clamping][dp-clamping] per privacy unit column.
 
 **Return type**
 
@@ -16106,7 +16320,7 @@ GROUP BY item;
 Note: You can learn more about when and when not to use
 noise [here][dp-noise].
 
-[dp-clamp-implicit]: #dp_implicit_clamping
+[dp-clamp-implicit]: #dp_clamped_named_implicit
 
 [dp-from-clause]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_from_rules
 
@@ -16114,7 +16328,7 @@ noise [here][dp-noise].
 
 [dp-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
 
-[dp-clamp-between]: #dp_clamp_between
+[dp-clamping]: #dp_clamping
 
 ### `ANON_PERCENTILE_CONT` (DEPRECATED) 
 <a id="anon_percentile_cont"></a>
@@ -16140,7 +16354,7 @@ can support these arguments:
 + `percentile`: The percentile to compute. The percentile must be a literal in
   the range [0, 1]
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][dp-clamp-between] per privacy unit column.
+  Perform [clamping][dp-clamping] per privacy unit column.
 
 `NUMERIC` and `BIGNUMERIC` arguments aren't allowed.
  If you need them, cast them as the
@@ -16179,7 +16393,7 @@ GROUP BY item;
 
 [dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
-[dp-clamp-between]: #dp_clamp_between
+[dp-clamping]: #dp_clamping
 
 ### `ANON_QUANTILES` (DEPRECATED) 
 <a id="anon_quantiles"></a>
@@ -16206,7 +16420,7 @@ can support these arguments:
   such as `INT64`. `NULL`s are always ignored.
 + `number`: The number of quantiles to create. This must be an `INT64`.
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][dp-clamp-between] per privacy unit column.
+  Perform [clamping][dp-clamping] per privacy unit column.
 
 `NUMERIC` and `BIGNUMERIC` arguments aren't allowed.
  If you need them, cast them as the
@@ -16214,7 +16428,7 @@ can support these arguments:
 
 **Return type**
 
-`ARRAY`<`DOUBLE`>
+`ARRAY`\<`DOUBLE`>
 
 **Examples**
 
@@ -16245,7 +16459,7 @@ GROUP BY item;
 
 [dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
-[dp-clamp-between]: #dp_clamp_between
+[dp-clamping]: #dp_clamping
 
 ### `ANON_STDDEV_POP` (DEPRECATED) 
 <a id="anon_stddev_pop"></a>
@@ -16270,7 +16484,7 @@ can support these arguments:
 + `expression`: The input expression. This can be most numeric input types,
   such as `INT64`. `NULL`s are always ignored.
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][dp-clamp-between] per individual entity values.
+  Perform [clamping][dp-clamping] per individual entity values.
 
 `NUMERIC` and `BIGNUMERIC` arguments aren't allowed.
  If you need them, cast them as the
@@ -16310,7 +16524,7 @@ GROUP BY item;
 
 [dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
-[dp-clamp-between]: #dp_clamp_between
+[dp-clamping]: #dp_clamping
 
 ### `ANON_SUM` (DEPRECATED) 
 <a id="anon_sum"></a>
@@ -16334,7 +16548,7 @@ can support these arguments:
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`.
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][dp-clamp-between] per privacy unit column.
+  Perform [clamping][dp-clamping] per privacy unit column.
 
 **Return type**
 
@@ -16400,7 +16614,7 @@ noise [here][dp-noise].
 
 [dp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
 
-[dp-clamp-between]: #dp_clamp_between
+[dp-clamping]: #dp_clamping
 
 ### `ANON_VAR_POP` (DEPRECATED) 
 <a id="anon_var_pop"></a>
@@ -16427,7 +16641,7 @@ can support these arguments:
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`. `NULL`s are always ignored.
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][dp-clamp-between] per individual entity values.
+  Perform [clamping][dp-clamping] per individual entity values.
 
 `NUMERIC` and `BIGNUMERIC` arguments aren't allowed.
  If you need them, cast them as the
@@ -16465,11 +16679,11 @@ GROUP BY item;
  *----------+-----------------*/
 ```
 
-[dp-clamp-explicit]: #dp_explicit_clamping
+[dp-clamp-explicit]: #dp_clamped_named
 
 [dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
-[dp-clamp-between]: #dp_clamp_between
+[dp-clamping]: #dp_clamping
 
 ### Supplemental materials
 
@@ -16615,9 +16829,9 @@ In differentially private aggregate functions, clamping explicitly clamps the
 total contribution from each privacy unit column to within a specified
 range.
 
-Explicit bounds are uniformly applied to all aggregations.  So even if some
+Explicit bounds are uniformly applied to all aggregations. So even if some
 aggregations have a wide range of values, and others have a narrow range of
-values, the same bounds are applied to all of them.  On the other hand, when
+values, the same bounds are applied to all of them. On the other hand, when
 [implicit bounds][dp-clamped-named-imp] are inferred from the data, the bounds
 applied to each aggregation can be different.
 
@@ -16818,6 +17032,16 @@ ZetaSQL supports the following GQL functions:
     
   </td>
   <td>Checks if a graph path has a repeating node.</td>
+</tr>
+
+<tr>
+  <td>
+    
+    <a href="#is_simple"><code>IS_SIMPLE</code></a>
+
+    
+  </td>
+  <td>Checks if a graph path is simple.</td>
 </tr>
 
 <tr>
@@ -17054,8 +17278,8 @@ IS_ACYCLIC(graph_path)
 
 **Description**
 
-Checks if a graph path has a repeating node. Returns `TRUE` if a repetition is
-found, otherwise returns `FALSE`.
+Checks if a graph path has a repeating node. Returns `TRUE` if a repetition
+isn't found, otherwise returns `FALSE`.
 
 **Definitions**
 
@@ -17091,6 +17315,51 @@ RETURN src.id AS source_account_id, IS_ACYCLIC(p) AS is_acyclic_path
  *-------------------------------------*/
 ```
 
+### `IS_SIMPLE`
+
+```zetasql
+IS_SIMPLE(graph_path)
+```
+
+**Description**
+
+Checks if a graph path is simple. Returns `TRUE` if the path has no repeated
+nodes, or if the only repeated nodes are its head and tail. Otherwise, returns
+`FALSE`.
+
+**Definitions**
+
++   `graph_path`: A `GRAPH_PATH` value that represents a graph path.
+
+**Details**
+
+Returns `NULL` if `graph_path` is `NULL`.
+
+**Return type**
+
+`BOOL`
+
+**Examples**
+
+```zetasql
+GRAPH FinGraph
+MATCH p=(a1:Account)-[t1:Transfers where t1.amount > 200]->
+        (a2:Account)-[t2:Transfers where t2.amount > 200]->
+        (a3:Account)-[t3:Transfers where t3.amount > 100]->(a4:Account)
+RETURN
+  IS_SIMPLE(p) AS is_simple_path,
+  a1.id as a1_id, a2.id as a2_id, a3.id as a3_id, a4.id as a4_id
+
+/*----------------+-------+-------+-------+-------+
+ | is_simple_path | a1_id | a2_id | a3_id | a4_id |
+ +----------------+-------+-------+-------+-------+
+ | TRUE           | 7     | 16    | 20    | 7     |
+ | TRUE           | 16    | 20    | 7     | 16    |
+ | FALSE          | 7     | 16    | 20    | 16    |
+ | TRUE           | 20    | 7     | 16    | 20    |
+ +----------------+-------+-------+-------+-------*/
+```
+
 ### `IS_TRAIL`
 
 ```zetasql
@@ -17099,8 +17368,8 @@ IS_TRAIL(graph_path)
 
 **Description**
 
-Checks if a graph path has a repeating edge. Returns `TRUE` if a repetition is
-found, otherwise returns `FALSE`.
+Checks if a graph path has a repeating edge. Returns `TRUE` if a repetition
+isn't found, otherwise returns `FALSE`.
 
 **Definitions**
 
@@ -17533,6 +17802,7 @@ is `NULL`.
 The geography functions are grouped into the following categories based on their
 behavior:
 
+<!-- disableFinding(LINK_ID) -->
 <table>
   <thead>
     <tr>
@@ -17710,6 +17980,7 @@ behavior:
     
   </tbody>
 </table>
+<!-- enableFinding(LINK_ID) -->
 
 ### Function list
 
@@ -20682,8 +20953,7 @@ ST_LINEINTERPOLATEPOINT(linestring_geography, fraction)
 
 **Description**
 
-Gets a point at a specific fraction in a linestring <code>GEOGRAPHY</code>
-value.
+Gets a point at a specific fraction in a linestring `GEOGRAPHY` value.
 
 **Definitions**
 
@@ -21769,7 +22039,7 @@ SELECT SHA512("Hello World") as sha512;
 <a id="hll_functions"></a>
 
 The [HyperLogLog++ algorithm (HLL++)][hll-sketches] estimates
-[cardinality][cardinality] from [sketches][hll-sketches].
+[cardinality][cardinality] from sketches.
 
 HLL++ functions are approximate aggregate functions.
 Approximate aggregation typically requires less
@@ -21779,7 +22049,8 @@ This makes HLL++ functions appropriate for large data streams for
 which linear memory usage is impractical, as well as for data that is
 already approximate.
 
-If you don't need materialized sketches, you can alternatively use an
+A data sketch is a compact summary of a data aggregation. If you don't need
+materialized sketches, you can alternatively use an
 [approximate aggregate function with system-defined precision][approx-functions-reference],
 such as [`APPROX_COUNT_DISTINCT`][approx-count-distinct]. However,
 `APPROX_COUNT_DISTINCT` doesn't allow partial aggregations, re-aggregations,
@@ -22090,7 +22361,7 @@ FROM
 
 [hll-link-to-research-whitepaper]: https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/40671.pdf
 
-[hll-sketches]: https://github.com/google/zetasql/blob/master/docs/sketches.md#sketches_hll
+[hll-sketches]: https://en.wikipedia.org/wiki/HyperLogLog
 
 [cardinality]: https://en.wikipedia.org/wiki/Cardinality
 
@@ -22375,6 +22646,7 @@ transform JSON data.
 The JSON functions are grouped into the following categories based on their
 behavior:
 
+<!-- disableFinding(LINK_ID) -->
 <table>
   <thead>
     <tr>
@@ -22626,8 +22898,22 @@ behavior:
       </td>
     </tr>
     
+    <tr>
+      <td><a id="predicates"></a>Predicates</td>
+      <td>
+        
+        <a href="#json_contains"><code>JSON_CONTAINS</code></a><br>
+        
+      </td>
+      <td>
+        Functions that return <code>BOOL</code> when checking JSON documents for
+        certain properties.
+      </td>
+    </tr>
+    
   </tbody>
 </table>
+<!-- enableFinding(LINK_ID) -->
 
 ### Function list
 
@@ -22762,6 +23048,15 @@ behavior:
 </td>
   <td>
     Inserts JSON data into a JSON array.
+    
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#json_contains"><code>JSON_CONTAINS</code></a>
+</td>
+  <td>
+    Checks if a JSON document contains another JSON document.
     
   </td>
 </tr>
@@ -24368,6 +24663,130 @@ SELECT JSON_ARRAY_INSERT(JSON '1', '$[0]', 'r1') AS json_data
  *-----------*/
 ```
 
+### `JSON_CONTAINS`
+
+```zetasql
+JSON_CONTAINS(json_expr, json_expr)
+```
+
+**Description**
+
+Checks if a JSON document contains another JSON document. This function returns
+`true` if the first parameter JSON document contains the second parameter JSON
+document; otherwise the function returns `false`. If any input argument is
+`NULL`, a `NULL` value is returned.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"class": {"students": [{"name": "Jane"}]}}'
+    ```
+
+Details:
+
++   The structure and data of the contained document must match a portion of the
+    containing document. This function determines if the smaller JSON document
+    is part of the larger JSON document.
++   JSON scalars: A JSON scalar value (like a string, number, bool, or JSON null
+    ) contains only itself.
++   JSON objects:
+
+    +   An object contains another object if the first object contains all the
+        key-value pairs present in the second JSON object.
+    +   When checking for object containment, extra key-value pairs in the
+        containing object don't prevent a match.
+    +   Any JSON object can contain an empty object.
++   JSON arrays:
+
+    +   An array contains another array if every element of the second array is
+        contained by some element of the first.
+    +   Duplicate elements in arrays are treated as if they appear only once.
+    +   The order of elements within JSON arrays isn't significant for
+        containment checks.
+    +   Any array can contain an empty array.
+    +   As a special case, a top-level array can contain a scalar value.
+
+**Return type**
+
+`BOOL`
+
+**Examples**
+
+In the following example, a JSON scalar value (a string) contains only itself:
+
+```zetasql
+SELECT JSON_CONTAINS(JSON '"a"', JSON '"a"') AS result;
+
+/*----------*
+ |  result  |
+ +----------+
+ |   true   |
+ *----------*/
+```
+
+The following examples check if a JSON object contains another JSON object:
+
+```zetasql
+SELECT
+    JSON_CONTAINS(JSON '{"a": {"b": 1}, "c": 2}', JSON '{"b": 1}') AS result1,
+    JSON_CONTAINS(JSON '{"a": {"b": 1}, "c": 2}', JSON '{"a": {"b": 1}}') AS result2,
+    JSON_CONTAINS(JSON '{"a": {"b": 1, "d": 3}, "c": 2}', JSON '{"a": {"b": 1}}') AS result3;
+
+/*----------*----------*----------*
+ |  result1 |  result2 |  result3 |
+ +----------+----------+----------+
+ |   false  |   true   |   true   |
+ *----------*----------*----------*/
+```
+
+The following examples check if a JSON array contains another JSON array. An
+array contains another array if the first JSON array contains all the elements
+present in the second array. The order of elements doesn't matter.
+
+Also, if the array is a top-level array, it can contain a scalar value.
+
+```zetasql
+SELECT
+    JSON_CONTAINS(JSON '[1, 2, 3]', JSON '[2]') AS result1,
+    JSON_CONTAINS(JSON '[1, 2, 3]', JSON '2') AS result2;
+
+/*----------*----------*
+ |  result1 |  result2 |
+ +----------+----------+
+ |   true   |   true   |
+ *----------*----------*/
+```
+
+```zetasql
+SELECT
+    JSON_CONTAINS(JSON '[[1, 2, 3]]', JSON '2') AS result1,
+    JSON_CONTAINS(JSON '[[1, 2, 3]]', JSON '[2]') AS result2,
+    JSON_CONTAINS(JSON '[[1, 2, 3]]', JSON '[[2]]') AS result3;
+
+/*----------*----------*----------*
+ |  result1 |  result2 |  result3 |
+ +----------+----------+----------+
+ |   false  |   false  |   true   |
+ *----------*----------*----------*/
+```
+
+The following examples check if a JSON array contains a JSON object:
+
+```zetasql
+SELECT
+    JSON_CONTAINS(JSON '[{"a":0}, {"b":1, "c":2}]', JSON '[{"b":1}]') AS result1,
+    JSON_CONTAINS(JSON '[{"a":0}, {"b":1, "c":2}]', JSON '{"b":1}') AS results2,
+    JSON_CONTAINS(JSON '[{"a":0}, {"b":1, "c":2}]', JSON '[{"a":0, "b":1}]') AS results3;
+
+/*----------*----------*----------*
+ |  result1 |  result2 |  result3 |
+ +----------+----------+----------+
+ |   true   |   false  |   false  |
+ *----------*----------*----------*/
+```
+
 ### `JSON_EXTRACT`
 
 Note: This function is deprecated. Consider using [JSON_QUERY][json-query].
@@ -25662,11 +26081,11 @@ SELECT JSON_QUERY(JSON '{"a": null}', "$.a"); -- Returns a JSON 'null'
 SELECT JSON_QUERY(JSON '{"a": null}', "$.b"); -- Returns a SQL NULL
 ```
 
-[JSONPath-format]: #JSONPath_format
+[JSONPath-format]: https://github.com/google/zetasql/blob/master/docs/jsonpath_format.md#JSONPath_format
 
 [differences-json-and-string]: #differences_json_and_string
 
-[JSONPath-mode]: #JSONPath_mode
+[JSONPath-mode]: https://github.com/google/zetasql/blob/master/docs/jsonpath_format.md#JSONPath_mode
 
 ### `JSON_QUERY_ARRAY`
 
@@ -30085,15 +30504,10 @@ Arguments:
 
     The following numerical data types are affected by the
     `stringify_wide_numbers` argument:
-
-    
-    
 + `INT64`
 + `UINT64`
 + `NUMERIC`
 + `BIGNUMERIC`
-
-    
 
     If one of these numerical data types appears in a container data type
     such as an `ARRAY` or `STRUCT`, the `stringify_wide_numbers` argument is
@@ -30690,6 +31104,7 @@ The following SQL to JSON encodings are supported:
           double-precision floating point numbers. A value outside of this range
           is encoded as a string.
         </p>
+      </td>
       <td>
         SQL input: <code>9007199254740992</code><br />
         JSON output: <code>9007199254740992</code><br />
@@ -30726,6 +31141,7 @@ The following SQL to JSON encodings are supported:
           numerical value can't be stored in JSON without loss of precision,
           an error is thrown.
         </p>
+      </td>
       <td>
         SQL input: <code>9007199254740992</code><br />
         JSON output: <code>9007199254740992</code><br />
@@ -30748,7 +31164,8 @@ The following SQL to JSON encodings are supported:
     
     <tr>
       <td>INTERVAL</td>
-      <td>string<td>
+      <td>string</td>
+      <td>
         SQL input: <code>INTERVAL '10:20:30.52' HOUR TO SECOND</code><br />
         JSON output: <code>"PT10H20M30.52S"</code><br />
         <hr />
@@ -30874,7 +31291,7 @@ The following SQL to JSON encodings are supported:
         <p>string</p>
         <p>
           Encoded as a string, escaped according to the JSON standard.
-          Specifically, <code>"</code>, <code>\</code>, and the control
+          Specifically, <code>"</code>, <code>\,</code> and the control
           characters from <code>U+0000</code> to <code>U+001F</code> are
           escaped.
         </p>
@@ -31027,7 +31444,7 @@ The following SQL to JSON encodings are supported:
         <p>
           Invalid UTF-8 field names might result in unparseable JSON. String
           values are escaped according to the JSON standard. Specifically,
-          <code>"</code>, <code>\</code>, and the control characters from
+          <code>"</code>, <code>\,</code> and the control characters from
           <code>U+0000</code> to <code>U+001F</code> are escaped.
         </p>
       </td>
@@ -31280,6 +31697,7 @@ All mathematical functions have the following behaviors:
 
 ### Categories
 
+<!-- disableFinding(LINK_ID) -->
 <table>
   <thead>
     <tr>
@@ -31311,6 +31729,7 @@ All mathematical functions have the following behaviors:
         <a href="#tan"><code>TAN</code></a>&nbsp;&nbsp;
         <a href="#tanh"><code>TANH</code></a>&nbsp;&nbsp;
       </td>
+    </tr>
     <tr>
       <td>
         Exponential and<br />
@@ -31422,6 +31841,7 @@ All mathematical functions have the following behaviors:
     
   </tbody>
 </table>
+<!-- enableFinding(LINK_ID) -->
 
 ### Function list
 
@@ -32609,7 +33029,7 @@ Computes the [cosine distance][wiki-cosine-distance] between two vectors.
     ```zetasql
     [('d', 40.0), ('a', 10.0), ('b', 30.0)]
     ```
-+   Both  non-sparse vectors
++   Both non-sparse vectors
     in this function must share the same dimensions, and if they don't, an error
     is produced.
 +   A vector can't be a zero vector. A vector is a zero vector if it has
@@ -33168,7 +33588,7 @@ Computes the [Euclidean distance][wiki-euclidean-distance] between two vectors.
     ```zetasql
     [('d', 40.0), ('a', 10.0), ('b', 30.0)]
     ```
-+   Both  non-sparse vectors
++   Both non-sparse vectors
     in this function must share the same dimensions, and if they don't, an error
     is produced.
 +   A vector can be a zero vector. A vector is a zero vector if it has
@@ -33385,7 +33805,7 @@ Divides X by Y; this function never fails. Returns
 `DOUBLE` unless
 both X and Y are `FLOAT`, in which case it returns
 `FLOAT`. Unlike the division operator (/),
-this function doesn't generate errors for division by zero or overflow.</p>
+this function doesn't generate errors for division by zero or overflow.
 
 <table>
   <thead>
@@ -33414,6 +33834,11 @@ this function doesn't generate errors for division by zero or overflow.</p>
     <tr>
       <td>-25.0</td>
       <td>0.0</td>
+      <td><code>-inf</code></td>
+    </tr>
+    <tr>
+      <td>25.0</td>
+      <td>-0.0</td>
       <td><code>-inf</code></td>
     </tr>
     <tr>
@@ -33760,6 +34185,7 @@ value has the same sign as X. An error is generated if Y is 0.
       <td>0</td>
       <td>Error</td>
     </tr>
+  </tbody>
 </table>
 
 **Return Data Type**
@@ -33872,7 +34298,7 @@ POW(X, Y)
 **Description**
 
 Returns the value of X raised to the power of Y. If the result underflows and
-isn't representable, then the function returns a  value of zero.
+isn't representable, then the function returns a value of zero.
 
 <table>
   <thead>
@@ -35676,7 +36102,7 @@ interpolation.
 
 This function ignores NULL
 values if
-`RESPECT NULLS` is absent.  If `RESPECT NULLS` is present:
+`RESPECT NULLS` is absent. If `RESPECT NULLS` is present:
 
 + Interpolation between two `NULL` values returns `NULL`.
 + Interpolation between a `NULL` value and a non-`NULL` value returns the
@@ -35873,7 +36299,7 @@ ZetaSQL supports the following Net functions.
   <tbody>
 
 <tr>
-  <td><a href="#netformat_ip"><code>NET.FORMAT_IP</code></a>
+  <td><a href="#net_format_ip"><code>NET.FORMAT_IP</code></a>
 </td>
   <td>
     (Deprecated) Converts an
@@ -35883,7 +36309,7 @@ ZetaSQL supports the following Net functions.
 </tr>
 
 <tr>
-  <td><a href="#netformat_packed_ip"><code>NET.FORMAT_PACKED_IP</code></a>
+  <td><a href="#net_format_packed_ip"><code>NET.FORMAT_PACKED_IP</code></a>
 </td>
   <td>
     (Deprecated) Converts an
@@ -35971,7 +36397,7 @@ ZetaSQL supports the following Net functions.
 </tr>
 
 <tr>
-  <td><a href="#netparse_ip"><code>NET.PARSE_IP</code></a>
+  <td><a href="#net_parse_ip"><code>NET.PARSE_IP</code></a>
 </td>
   <td>
     (Deprecated) Converts an
@@ -35981,7 +36407,7 @@ ZetaSQL supports the following Net functions.
 </tr>
 
 <tr>
-  <td><a href="#netparse_packed_ip"><code>NET.PARSE_PACKED_IP</code></a>
+  <td><a href="#net_parse_packed_ip"><code>NET.PARSE_PACKED_IP</code></a>
 </td>
   <td>
     (Deprecated) Converts an
@@ -36715,7 +37141,7 @@ Numbering functions are a subset of window functions. To create a
 window function call and learn about the syntax for window functions,
 see [Window function calls][window-function-calls].
 
-Numbering functions assign integer values to each row based on their position
+Numbering functions assign values to each row based on their position
 within the specified window. The `OVER` clause syntax varies across
 numbering functions.
 
@@ -36753,7 +37179,7 @@ numbering functions.
   <td><a href="#IS_FIRST"><code>IS_FIRST</code></a>
 </td>
   <td>
-        Returns `true` if this row is in the first `k` rows (1-based) within the window.
+        Returns <code>true</code> if this row is in the first <code>k</code> rows (1-based) within the window.
     
   </td>
 </tr>
@@ -36762,7 +37188,7 @@ numbering functions.
   <td><a href="#IS_LAST"><code>IS_LAST</code></a>
 </td>
   <td>
-        Returns `true` if this row is in the last `k` rows (1-based) within the window.
+        Returns <code>true</code> if this row is in the last <code>k</code> rows (1-based) within the window.
     
   </td>
 </tr>
@@ -37440,10 +37866,12 @@ window_specification:
 
 **Description**
 
-Doesn't require the `ORDER BY` clause. Returns the sequential
-row ordinal (1-based) of each row for each ordered partition. If the
-`ORDER BY` clause is unspecified then the result is
+Returns the sequential row ordinal (1-based) of each row for each ordered
+partition. The order of row numbers within their peer group is
 non-deterministic.
+
+Doesn't require the `ORDER BY` clause. If the `ORDER BY` clause is unspecified
+then the result is non-deterministic.
 
 To learn more about the `OVER` clause and how to use it, see
 [Window function calls][window-function-calls].
@@ -37629,7 +38057,7 @@ ENUM_VALUE_DESCRIPTOR_PROTO(proto_enum)
 **Description**
 
 Gets the enum value descriptor proto
-(<code>proto2.EnumValueDescriptorProto</code>) for an enum.
+(`proto2.EnumValueDescriptorProto`) for an enum.
 
 **Definitions**
 
@@ -41916,7 +42344,7 @@ FORMAT(format_string_expression, data_type_expression[, ...])
   by the `%` symbol, and must map to one or more of the remaining arguments.
   In general, this is a one-to-one mapping, except when the `*` specifier is
   present. For example, `%.*i` maps to two arguments&mdash;a length argument
-  and a signed integer argument.  If the number of arguments related to the
+  and a signed integer argument. If the number of arguments related to the
   format specifiers isn't the same as the number of arguments, an error occurs.
 + `data_type_expression`: The value to format as a string. This can be any
   ZetaSQL data type.
@@ -42427,7 +42855,6 @@ format specifiers with the following data types:
     <td><strong>%p</strong></td>
     <td><strong>%P</strong></td>
   </tr>
- 
   <tr>
     <td>PROTO</td>
     <td valign="top">
@@ -42454,8 +42881,6 @@ month: 10
 </pre>
     </td>
   </tr>
- 
- 
   <tr>
     <td>JSON</td>
     <td valign="top">
@@ -42488,10 +42913,7 @@ JSON '
 </pre>
     </td>
   </tr>
- 
 </table>
-
- 
 
 ##### %t and %T behavior 
 <a id="t_and_t_behavior"></a>
@@ -42506,9 +42928,8 @@ padding to width.
 The `%t` specifier is always meant to be a readable form of the value.
 
 The `%T` specifier is always a valid SQL literal of a similar type, such as a
-wider numeric type.
-The literal will not include casts or a type name, except for the special case
-of non-finite floating point values.
+wider numeric type. The literal will not include casts or a type name,
+except for the special case of non-finite floating point values.
 
 The `STRING` is formatted as follows:
 
@@ -42534,7 +42955,7 @@ The `STRING` is formatted as follows:
 
   <tr>
     <td>NUMERIC</td>
-    <td>123.0  <em>(always with .0)</em>
+    <td>123.0  <em>(always with .0)</em></td>
     <td>NUMERIC "123.0"</td>
   </tr>
   <tr>
@@ -42583,29 +43004,21 @@ The `STRING` is formatted as follows:
     <td>EnumName</td>
     <td>"EnumName"</td>
   </tr>
- 
- 
   <tr>
     <td>DATE</td>
     <td>2011-02-03</td>
     <td>DATE "2011-02-03"</td>
   </tr>
- 
- 
   <tr>
     <td>TIMESTAMP</td>
     <td>2011-02-03 04:05:06+00</td>
     <td>TIMESTAMP "2011-02-03 04:05:06+00"</td>
   </tr>
-
- 
   <tr>
     <td>INTERVAL</td>
     <td>1-2 3 4:5:6.789</td>
     <td>INTERVAL "1-2 3 4:5:6.789" YEAR TO SECOND</td>
   </tr>
- 
- 
   <tr>
     <td>PROTO</td>
     <td>
@@ -42616,7 +43029,6 @@ The `STRING` is formatted as follows:
       protocol buffer.
     </td>
   </tr>
- 
   <tr>
     <td>ARRAY</td>
     <td>[value, value, ...]<br/>
@@ -42624,7 +43036,6 @@ The `STRING` is formatted as follows:
     <td>[value, value, ...]<br/>
     where values are formatted with %T</td>
   </tr>
- 
   <tr>
     <td>STRUCT</td>
     <td>(value, value, ...)<br/>
@@ -42636,8 +43047,6 @@ The `STRING` is formatted as follows:
     Zero fields: STRUCT()<br/>
     One field: STRUCT(value)</td>
   </tr>
-  
- 
   <tr>
     <td>JSON</td>
     <td>
@@ -42649,7 +43058,6 @@ The `STRING` is formatted as follows:
       <pre class="lang-sql prettyprint">JSON '{"name":"apple","stock":3}'</pre>
     </td>
   </tr>
- 
 </table>
 
 ##### Error conditions 
@@ -42657,7 +43065,7 @@ The `STRING` is formatted as follows:
 
 If a format specifier is invalid, or isn't compatible with the related
 argument type, or the wrong number or arguments are provided, then an error is
-produced.  For example, the following `<format_string>` expressions are invalid:
+produced. For example, the following `<format_string>` expressions are invalid:
 
 ```zetasql
 FORMAT('%s', 1)
@@ -42699,8 +43107,8 @@ Returns
 `FLOAT` values can be `+/-inf` or `NaN`.
 When an argument has one of those values, the result of the format specifiers
 `%f`, `%F`, `%e`, `%E`, `%g`, `%G`, and `%t` are `inf`, `-inf`, or `nan`
-(or the same in uppercase) as appropriate.  This is consistent with how
-ZetaSQL casts these values to `STRING`.  For `%T`,
+(or the same in uppercase) as appropriate. This is consistent with how
+ZetaSQL casts these values to `STRING`. For `%T`,
 ZetaSQL returns quoted strings for
 `DOUBLE` values that don't have non-string literal
 representations.
@@ -43279,7 +43687,7 @@ SELECT CONCAT('#', LTRIM('   apple   '), '#') AS example
 /*-------------*
  | example     |
  +-------------+
- | #apple #    |
+ | #apple   #  |
  *-------------*/
 ```
 
@@ -43787,7 +44195,7 @@ If `position` is specified, the search starts at this position in
 
 If `occurrence` is specified, the search returns the position of a specific
 instance of `regexp` in `source_value`. If not specified, `occurrence` defaults
-to `1` and returns the position of the first occurrence.  For `occurrence` > 1,
+to `1` and returns the position of the first occurrence. For `occurrence` > 1,
 the function searches for the next, non-overlapping occurrence.
 `occurrence` is of type `INT64` and must be positive.
 
@@ -45384,8 +45792,6 @@ SELECT CURRENT_TIME() as now;
  *----------------------------*/
 ```
 
-[time-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
-
 [time-link-to-timezone-definitions]: #timezone_definitions
 
 ### `EXTRACT`
@@ -45540,8 +45946,6 @@ SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time;
  | 14:23:38    |
  *-------------*/
 ```
-
-[time-format]: #format_time
 
 [time-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
 
@@ -46442,8 +46846,6 @@ SELECT CURRENT_TIMESTAMP() AS now;
  *---------------------------------------------*/
 ```
 
-[timestamp-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
-
 ### `EXTRACT`
 
 ```zetasql
@@ -46471,8 +46873,9 @@ Allowed `part` values are:
    of the week.
 + `DAY`
 + `DAYOFYEAR`
-+ `WEEK`: Returns the week number of the date in the range [0, 53].  Weeks begin
-  with Sunday, and dates prior to the first Sunday of the year are in week 0.
++ `WEEK`: Returns the week number of the date in the range [0, 53]. Weeks begin
+  with Sunday, and dates prior to the first Sunday of the year are in week
+  0.
 + `WEEK(<WEEKDAY>)`: Returns the week number of `timestamp_expression` in the
   range [0, 53]. Weeks begin on `WEEKDAY`. `datetime`s prior to the first
   `WEEKDAY` of the year are in week 0. Valid values for `WEEKDAY` are `SUNDAY`,
@@ -46488,8 +46891,8 @@ Allowed `part` values are:
   week-numbering year, which is the Gregorian calendar year containing the
   Thursday of the week to which `date_expression` belongs.
 + `DATE`
-+ <code>DATETIME</code>
-+ <code>TIME</code>
++ `DATETIME`
++ `TIME`
 
 Returned values truncate lower order time periods. For example, when extracting
 seconds, `EXTRACT` truncates the millisecond and microsecond values.
@@ -46770,7 +47173,7 @@ function:
 + Unspecified fields. Any unspecified field is initialized from `1970-01-01
   00:00:00.0`. This initialization value uses the time zone specified by the
   function's time zone argument, if present. If not, the initialization value
-  uses the default time zone, which is implementation defined.  For instance, if the year
+  uses the default time zone, which is implementation defined. For instance, if the year
   is unspecified then it defaults to `1970`, and so on.
 + Case insensitivity. Names, such as `Monday`, `February`, and so on, are
   case insensitive.
@@ -46815,8 +47218,6 @@ SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
  | 2008-12-25 07:30:00.000 America/Los_Angeles |
  *---------------------------------------------*/
 ```
-
-[timestamp-format]: #format_timestamp
 
 [timestamp-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
 
@@ -46940,8 +47341,6 @@ SELECT TIMESTAMP(DATE "2008-12-25") AS timestamp_date;
  | 2008-12-25 00:00:00.000 America/Los_Angeles |
  *---------------------------------------------*/
 ```
-
-[timestamp-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#timestamp_literals
 
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
 
@@ -47690,7 +48089,7 @@ ZetaSQL supports the following
   <td><a href="#IS_FIRST"><code>IS_FIRST</code></a>
 </td>
   <td>
-        Returns `true` if this row is in the first `k` rows (1-based) within the window.
+        Returns <code>true</code> if this row is in the first <code>k</code> rows (1-based) within the window.
     <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/numbering_functions.md">Numbering functions</a>.
 
   </td>
@@ -47700,7 +48099,7 @@ ZetaSQL supports the following
   <td><a href="#IS_LAST"><code>IS_LAST</code></a>
 </td>
   <td>
-        Returns `true` if this row is in the last `k` rows (1-based) within the window.
+        Returns <code>true</code> if this row is in the last <code>k</code> rows (1-based) within the window.
     <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/numbering_functions.md">Numbering functions</a>.
 
   </td>
@@ -47822,6 +48221,8 @@ ZetaSQL supports the following
 </table>
 
 [window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- enableFinding(G3DOC_ATTRIBUTE) -->
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 

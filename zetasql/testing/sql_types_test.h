@@ -195,14 +195,10 @@ class ZetaSQLTypesTest : public ::testing::Test {
   std::unique_ptr<InputArgumentType> ltype##_null_arg;
 
   GEN_VARIABLES(bool,       Bool,           Value::Bool(true));
-  GEN_VARIABLES(int32,
-                Int32, Value::Int32(3));
-  GEN_VARIABLES(int64,
-                Int64, Value::Int64(4));
-  GEN_VARIABLES(uint32,
-                Uint32, Value::Uint32(5));
-  GEN_VARIABLES(uint64,
-                Uint64, Value::Uint64(6));
+  GEN_VARIABLES(int32, Int32, Value::Int32(3));
+  GEN_VARIABLES(int64, Int64, Value::Int64(4));
+  GEN_VARIABLES(uint32, Uint32, Value::Uint32(5));
+  GEN_VARIABLES(uint64, Uint64, Value::Uint64(6));
   GEN_VARIABLES(float,      Float,          Value::Float(7.0));
   GEN_VARIABLES(double,     Double,         Value::Double(8.0));
   GEN_VARIABLES(numeric,    Numeric,        Value::Numeric(NumericValue(9LL)));

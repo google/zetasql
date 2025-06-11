@@ -129,7 +129,7 @@ void SimpleValue::CopyFrom(const SimpleValue& that) {
 }
 
 int64_t SimpleValue::int64_value() const {
-  ABSL_CHECK(has_int64_value()) << "Not an int64_t value";
+  ABSL_CHECK(has_int64_value()) << "Not an int64 value";
   return int64_value_;
 }
 

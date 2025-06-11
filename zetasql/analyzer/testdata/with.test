@@ -278,7 +278,7 @@ with recursive r1 as (select 1)
 ==
 
 # WITH RECURSIVE support works if language option is enabled (detailed coverage in with_recursive.test)
-[language_features=V_1_3_WITH_RECURSIVE]
+[language_features=WITH_RECURSIVE]
 with recursive r1 as (select 1)
 select 2
 --

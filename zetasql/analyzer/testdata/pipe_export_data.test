@@ -20,7 +20,7 @@ ERROR: Pipe EXPORT DATA not supported [at 2:1]
 # statement kinds are enabled.
 # TODO SQLBuilder doesn't work for pipe EXPORT DATA yet.
 [default no_run_sqlbuilder]
-[default language_features=PIPES,PIPE_EXPORT_DATA,PIPE_FORK,PIPE_TEE,PIPE_IF,V_1_1_WITH_ON_SUBQUERY,V_1_3_WITH_RECURSIVE,V_1_4_ENABLE_MEASURES]
+[default language_features=PIPES,PIPE_EXPORT_DATA,PIPE_FORK,PIPE_TEE,PIPE_IF,WITH_ON_SUBQUERY,WITH_RECURSIVE,ENABLE_MEASURES]
 [supported_statement_kinds={{QUERY|GENERALIZED_QUERY|QUERY,GENERALIZED_QUERY|INSERT}}]
 FROM KeyValue
 |> EXPORT DATA

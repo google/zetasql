@@ -1,5 +1,5 @@
 # Test file for complex multi-level aggregate queries.
-[default language_features=V_1_4_MULTILEVEL_AGGREGATION,V_1_3_WITH_GROUP_ROWS,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_HAVING_IN_AGGREGATE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,ANALYTIC_FUNCTIONS,V_1_3_QUALIFY,V_1_4_GROUPING_BUILTIN,V_1_2_GROUP_BY_STRUCT,V_1_4_ENFORCE_CONDITIONAL_EVALUATION,V_1_3_LIKE_ANY_SOME_ALL]
+[default language_features=MULTILEVEL_AGGREGATION,WITH_GROUP_ROWS,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,HAVING_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE,ANALYTIC_FUNCTIONS,QUALIFY,GROUPING_BUILTIN,GROUP_BY_STRUCT,ENFORCE_CONDITIONAL_EVALUATION,LIKE_ANY_SOME_ALL]
 [default show_sqlbuilder_output]
 
 SELECT
@@ -2077,7 +2077,7 @@ FROM
      analyticscan_13.a_11 AS window_result;
 ==
 
-[language_features=V_1_4_MATCH_RECOGNIZE,V_1_4_MULTILEVEL_AGGREGATION,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_HAVING_IN_AGGREGATE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,ANALYTIC_FUNCTIONS,V_1_3_QUALIFY,V_1_4_GROUPING_BUILTIN,V_1_2_GROUP_BY_STRUCT]
+[language_features=MATCH_RECOGNIZE,MULTILEVEL_AGGREGATION,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,HAVING_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE,ANALYTIC_FUNCTIONS,QUALIFY,GROUPING_BUILTIN,GROUP_BY_STRUCT]
 SELECT * FROM SimpleTypes
 MATCH_RECOGNIZE(
   ORDER BY string
@@ -2108,12 +2108,14 @@ QueryStmt
             +-column_list=$aggregate.[$agg1#28, $agg2#32]
             +-input_scan=
             | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, string#5, double#9], table=SimpleTypes, column_index_list=[0, 1, 4, 8])
-            +-order_by=
-            | +-WindowOrdering
-            |   +-order_by_item_list=
-            |     +-OrderByItem
-            |       +-column_ref=
-            |         +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+            +-analytic_function_group_list=
+            | +-AnalyticFunctionGroup
+            |   +-order_by=
+            |     +-WindowOrdering
+            |       +-order_by_item_list=
+            |         +-OrderByItem
+            |           +-column_ref=
+            |             +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
             +-pattern_variable_definition_list=
             | +-MatchRecognizeVariableDefinition
             | | +-name="A"

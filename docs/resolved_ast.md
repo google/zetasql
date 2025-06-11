@@ -104,6 +104,8 @@ Additional non-generated classes that are documented separately:
     <a href="#ResolvedFunctionSignatureHolder">ResolvedFunctionSignatureHolder</a>
     <a href="#ResolvedGeneralizedQuerySubpipeline">ResolvedGeneralizedQuerySubpipeline</a>
     <a href="#ResolvedGeneratedColumnInfo">ResolvedGeneratedColumnInfo</a>
+    <a href="#ResolvedGraphDynamicLabelSpecification">ResolvedGraphDynamicLabelSpecification</a>
+    <a href="#ResolvedGraphDynamicPropertiesSpecification">ResolvedGraphDynamicPropertiesSpecification</a>
     <a href="#ResolvedGraphElementIdentifier">ResolvedGraphElementIdentifier</a>
     <a href="#ResolvedGraphElementLabel">ResolvedGraphElementLabel</a>
     <a href="#ResolvedGraphElementProperty">ResolvedGraphElementProperty</a>
@@ -114,6 +116,7 @@ Additional non-generated classes that are documented separately:
       <a href="#ResolvedGraphWildCardLabel">ResolvedGraphWildCardLabel</a>
     <a href="#ResolvedGraphMakeArrayVariable">ResolvedGraphMakeArrayVariable</a>
     <a href="#ResolvedGraphNodeTableReference">ResolvedGraphNodeTableReference</a>
+    <a href="#ResolvedGraphPathCost">ResolvedGraphPathCost</a>
     <a href="#ResolvedGraphPathMode">ResolvedGraphPathMode</a>
     <a href="#ResolvedGraphPathPatternQuantifier">ResolvedGraphPathPatternQuantifier</a>
     <a href="#ResolvedGraphPathSearchPrefix">ResolvedGraphPathSearchPrefix</a>
@@ -213,6 +216,7 @@ Additional non-generated classes that are documented separately:
     <a href="#ResolvedBarrierScan">ResolvedBarrierScan</a>
     <a href="#ResolvedExecuteAsRoleScan">ResolvedExecuteAsRoleScan</a>
     <a href="#ResolvedFilterScan">ResolvedFilterScan</a>
+    <a href="#ResolvedGraphCallScan">ResolvedGraphCallScan</a>
     <a href="#ResolvedGraphPathScanBase">ResolvedGraphPathScanBase</a>
       <a href="#ResolvedGraphElementScan">ResolvedGraphElementScan</a>
         <a href="#ResolvedGraphEdgeScan">ResolvedGraphEdgeScan</a>
@@ -669,7 +673,7 @@ class ResolvedFilterField : public <a href="#ResolvedExpr">ResolvedExpr</a> {
 // &lt;generic_argument_list&gt; will be used. Only one of &lt;argument_list&gt; or
 // &lt;generic_argument_list&gt; can be non-empty.
 //
-// &lt;collation_list&gt; (only set when FEATURE_V_1_3_COLLATION_SUPPORT is
+// &lt;collation_list&gt; (only set when FEATURE_COLLATION_SUPPORT is
 // enabled) is the operation collation to use.
 // (broken link) lists the functions affected by
 // collation, where this can show up.
@@ -794,7 +798,7 @@ class ResolvedNonScalarFunctionCallBase : public <a href="#ResolvedFunctionCallB
   const <a href="#ResolvedColumnRef">ResolvedColumnRef</a>* with_group_rows_parameter_list(int i) const;
 
 <font color="brown">  // A scalar filtering expression to apply before supplying rows to
-  // the function. Allowed only when FEATURE_V_1_4_AGGREGATE_FILTERING
+  // the function. Allowed only when FEATURE_AGGREGATE_FILTERING
   // is enabled.</font>
   const <a href="#ResolvedExpr">ResolvedExpr</a>* where_expr() const;
 };
@@ -805,7 +809,7 @@ class ResolvedNonScalarFunctionCallBase : public <a href="#ResolvedFunctionCallB
 
 <p><pre><code class="lang-c++"><font color="brown">// An aggregate function call.  The signature always has mode AGGREGATE.
 //
-// FEATURE_V_1_4_MULTILEVEL_AGGREGATION enables multi-level aggregate
+// FEATURE_MULTILEVEL_AGGREGATION enables multi-level aggregate
 // expressions (e.g. &#39;SUM(AVG(1 + X) GROUP BY key)&#39; ). The GROUP BY modifier
 // within an aggregate function body indicates the presence of a multi-level
 // aggregate expression.
@@ -827,7 +831,7 @@ class ResolvedNonScalarFunctionCallBase : public <a href="#ResolvedFunctionCallB
 // modifiers are applied on the output rows from the initial aggregation,
 // as input to the final aggregation.
 //
-// FEATURE_V_1_4_AGGREGATE_FILTERING enables aggregate filtering.
+// FEATURE_AGGREGATE_FILTERING enables aggregate filtering.
 // `where_expr` is applied before other aggregate function modifiers
 // (including any inner grouping specified by the `group_by_list`).
 // `having_expr` can only be present if `group_by_list` is also present,
@@ -864,21 +868,21 @@ class ResolvedAggregateFunctionCall : public <a href="#ResolvedNonScalarFunction
 <font color="brown">  // Group the stream of input values by columns in this list, and
   // compute the aggregates defined in `group_by_aggregate_list`.
   // Used only for multi-level aggregation, when
-  // FEATURE_V_1_4_MULTILEVEL_AGGREGATION is enabled.</font>
+  // FEATURE_MULTILEVEL_AGGREGATION is enabled.</font>
   const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedComputedColumn">ResolvedComputedColumn</a>&gt;&gt;&amp; group_by_list() const;
   int group_by_list_size() const;
   const <a href="#ResolvedComputedColumn">ResolvedComputedColumn</a>* group_by_list(int i) const;
 
 <font color="brown">  // Aggregate columns to compute over the grouping keys defined in
   // `group_by_list`. Used only for multi-level aggregation, when
-  // FEATURE_V_1_4_MULTILEVEL_AGGREGATION is enabled.</font>
+  // FEATURE_MULTILEVEL_AGGREGATION is enabled.</font>
   const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedComputedColumnBase">ResolvedComputedColumnBase</a>&gt;&gt;&amp; group_by_aggregate_list() const;
   int group_by_aggregate_list_size() const;
   const <a href="#ResolvedComputedColumnBase">ResolvedComputedColumnBase</a>* group_by_aggregate_list(int i) const;
 
 <font color="brown">  // A scalar filtering expression applied after computing columns in
   // the `group_by_list` and `group_by_aggregate_list`. Allowed only
-  // when FEATURE_V_1_4_AGGREGATE_FILTERING is enabled.</font>
+  // when FEATURE_AGGREGATE_FILTERING is enabled.</font>
   const <a href="#ResolvedExpr">ResolvedExpr</a>* having_expr() const;
 };
 </code></pre></p>
@@ -1663,6 +1667,23 @@ class ResolvedJoinScan : public <a href="#ResolvedScan">ResolvedScan</a> {
   // `has_using` is True and `join_expr` has the correct shape.
   // Otherwise the sql_builder will generate JOIN ON.</font>
   bool has_using() const;
+
+<font color="brown">  // Indicates whether this join is lateral. In a lateral join,
+  // `rhs_scan` is evaluated for every row in `lhs_scan`, and can see
+  // columns from `lhs_scan`.</font>
+  bool is_lateral() const;
+
+<font color="brown">  // Used when `is_lateral` is true. The columns in this list are the
+  // columns from `left_scan` and any outer columns that are referenced
+  // in the derived `right_scan`. This list serves a similar function
+  // to ResolvedSubqueryExpr::parameter_list. When not empty, any
+  // references to further outside columns appear as correlated refs
+  // on this list first.
+  //
+  // When `is_lateral` is false, this list must always be empty.</font>
+  const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedColumnRef">ResolvedColumnRef</a>&gt;&gt;&amp; parameter_list() const;
+  int parameter_list_size() const;
+  const <a href="#ResolvedColumnRef">ResolvedColumnRef</a>* parameter_list(int i) const;
 };
 </code></pre></p>
 
@@ -1670,7 +1691,7 @@ class ResolvedJoinScan : public <a href="#ResolvedScan">ResolvedScan</a> {
 <a id="ResolvedArrayScan"></a>
 
 <p><pre><code class="lang-c++"><font color="brown">// Scan one or more (N) array values produced by evaluating N expressions,
-// merging them positionally. Without FEATURE_V_1_4_MULTIWAY_UNNEST, it must
+// merging them positionally. Without FEATURE_MULTIWAY_UNNEST, it must
 // be exactly one array (N=1).
 //
 // If `input_scan` is NULL, this produces one row for each array offset.
@@ -1859,7 +1880,7 @@ class ResolvedCube : public <a href="#ResolvedGroupingSetBase">ResolvedGroupingS
 // same number of elements as &lt;group_by_list&gt;.  Each element is the collation
 // for the element in &lt;group_by_list&gt; with the same index, or can be empty to
 // indicate default collation or when the type is not collatable.
-// &lt;collation_list&gt; is only set when FEATURE_V_1_3_COLLATION_SUPPORT is
+// &lt;collation_list&gt; is only set when FEATURE_COLLATION_SUPPORT is
 // enabled.
 // See (broken link).
 //
@@ -2281,7 +2302,7 @@ class ResolvedSampleScan : public <a href="#ResolvedScan">ResolvedScan</a> {
 // ResolvedDeferredComputedColumn, depending on whether any side effects need
 // to be captured.
 //
-// If FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION is not set, the runtime
+// If FEATURE_ENFORCE_CONDITIONAL_EVALUATION is not set, the runtime
 // type is always just ResolvedComputedColumn.
 //
 // See (broken link) for more details.</font>
@@ -2367,9 +2388,9 @@ class ResolvedDeferredComputedColumn : public <a href="#ResolvedComputedColumnIm
 //
 // &lt;collation_name&gt; is the ORDER BY COLLATE expression, and could be a string
 // literal or query parameter.  &lt;collation_name&gt; can only be set when the
-// FEATURE_V_1_1_ORDER_BY_COLLATE is enabled.
+// FEATURE_ORDER_BY_COLLATE is enabled.
 // See (broken link) for COLLATE clause.
-// &lt;collation&gt; (only set when FEATURE_V_1_3_COLLATION_SUPPORT is enabled) is
+// &lt;collation&gt; (only set when FEATURE_COLLATION_SUPPORT is enabled) is
 // the derived collation to use.  It comes from the &lt;column_ref&gt; and COLLATE
 // clause.  It is unset if COLLATE is present and set to a parameter.
 // See (broken link) for general Collation Support.
@@ -2432,7 +2453,7 @@ class ResolvedColumnAnnotations : public <a href="#ResolvedArgument">ResolvedArg
       const Type* type) const;
 
 <font color="brown">  // &lt;collation_name&gt; can only be a string literal, and is only set
-  // when FEATURE_V_1_3_COLLATION_SUPPORT is enabled. See
+  // when FEATURE_COLLATION_SUPPORT is enabled. See
   // (broken link).</font>
   const <a href="#ResolvedExpr">ResolvedExpr</a>* collation_name() const;
 
@@ -2863,11 +2884,7 @@ class ResolvedProjectScan : public <a href="#ResolvedScan">ResolvedScan</a> {
 //                           matches 1:1 to &lt;argument_list&gt;, while its
 //                           &lt;FunctionSignature::arguments&gt; list still has
 //                           the full argument list.
-//                           The analyzer only sets this field when
-//                           it could be ambiguous for an engine to figure
-//                           out the actual arguments provided, e.g., when
-//                           there are arguments omitted from the call. When
-//                           it is provided, engines may use this object to
+//                           Engines may use this object to
 //                           check for the argument names and omitted
 //                           arguments. SQLBuilder may also need this object
 //                           in cases when the named argument notation is
@@ -4400,7 +4417,7 @@ class ResolvedRecursiveScan : public <a href="#ResolvedScan">ResolvedScan</a> {
 // subqueries, so the ResolvedWithScan node can only occur as the outermost
 // scan in a statement (e.g. a QueryStmt or CreateTableAsSelectStmt).
 //
-// In ZetaSQL 1.1 (language option FEATURE_V_1_1_WITH_ON_SUBQUERY), WITH
+// In ZetaSQL 1.1 (language option FEATURE_WITH_ON_SUBQUERY), WITH
 // is allowed on subqueries.  Then, ResolvedWithScan can occur anywhere in
 // the tree.  The alias introduced by a ResolvedWithEntry is visible only
 // in subsequent ResolvedWithEntry queries and in &lt;query&gt;.  The aliases used
@@ -4409,7 +4426,7 @@ class ResolvedRecursiveScan : public <a href="#ResolvedScan">ResolvedScan</a> {
 // unique, it is legal to collect all ResolvedWithEntries in the tree and
 // treat them as if they were a single WITH clause at the outermost level.
 //
-// In ZetaSQL 1.3 (language option FEATURE_V_1_3_WITH_RECURSIVE), WITH
+// In ZetaSQL 1.3 (language option FEATURE_WITH_RECURSIVE), WITH
 // RECURSIVE is supported, which allows any &lt;with_subquery&gt; to reference
 // any &lt;with_query_name&gt;, regardless of order, including WITH entries which
 // reference themself. Circular dependency chains of WITH entries are allowed
@@ -4530,7 +4547,7 @@ class ResolvedOption : public <a href="#ResolvedArgument">ResolvedArgument</a> {
 // collation for the element in &lt;partition_by_list&gt; with the same index, or
 // can be empty to indicate default collation or when the type is not
 // collatable. &lt;collation_list&gt; is only set when
-// FEATURE_V_1_3_COLLATION_SUPPORT is enabled.
+// FEATURE_COLLATION_SUPPORT is enabled.
 // See (broken link).</font>
 class ResolvedWindowPartitioning : public <a href="#ResolvedArgument">ResolvedArgument</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_WINDOW_PARTITIONING;
@@ -4852,7 +4869,7 @@ class ResolvedInsertRow : public <a href="#ResolvedArgument">ResolvedArgument</a
 //
 // &lt;query_parameter_list&gt; is set for nested INSERTs where &lt;query&gt; is set and
 // references non-target values (columns or field values) from the table. It
-// is only set when FEATURE_V_1_2_CORRELATED_REFS_IN_NESTED_DML is enabled.
+// is only set when FEATURE_CORRELATED_REFS_IN_NESTED_DML is enabled.
 //
 // If &lt;returning&gt; is present, the INSERT statement will return newly inserted
 // rows. &lt;returning&gt; can only occur on top-level statements.
@@ -5134,7 +5151,7 @@ class ResolvedUpdateItem : public <a href="#ResolvedArgument">ResolvedArgument</
 <font color="brown">  // Array element modifications to apply. Each item runs on the value
   // of &lt;element_column&gt; specified by ResolvedUpdateArrayItem.offset.
   // This field is always empty if the analyzer option
-  // FEATURE_V_1_2_ARRAY_ELEMENTS_WITH_SET is disabled.
+  // FEATURE_ARRAY_ELEMENTS_WITH_SET is disabled.
   //
   // The engine must fail if two elements in this list have offset
   // expressions that evaluate to the same value.
@@ -7556,27 +7573,59 @@ class ResolvedMatchRecognizeScan : public <a href="#ResolvedScan">ResolvedScan</
   static const AfterMatchSkipMode END_OF_MATCH = ResolvedMatchRecognizeScanEnums::END_OF_MATCH;
   static const AfterMatchSkipMode NEXT_ROW = ResolvedMatchRecognizeScanEnums::NEXT_ROW;
 
+  // TODO: Remove this once callers are migrated.
+  const ResolvedWindowPartitioning* partition_by() const {
+    return analytic_function_group_list(0)-&gt;partition_by();
+  }
+  // TODO: Remove this once callers are migrated.
+  const ResolvedWindowOrdering* order_by() const {
+    return analytic_function_group_list(0)-&gt;order_by();
+  }
+
   const <a href="#ResolvedScan">ResolvedScan</a>* input_scan() const;
 
   const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedOption">ResolvedOption</a>&gt;&gt;&amp; option_list() const;
   int option_list_size() const;
   const <a href="#ResolvedOption">ResolvedOption</a>* option_list(int i) const;
 
-<font color="brown">  // Partitioning columns for this pattern matching operation.
-  // Pattern matching occurs on individual partitions, just like
-  // windowing functions.
+<font color="brown">  // Currently, there is always exactly one group, which holds the
+  // PARTITION BY and ORDER BY for this MATCH_RECOGNIZE clause. It is
+  // a list to avoid a breaking change in the future, if we decide to
+  // support other windows on the DEFINE clause, e.g. FIRST_VALUE().
   //
-  // If this list is empty, the whole input table is a single
-  // partition.
+  // If the main group&#39;s `partition_by` is null, the whole input table
+  // is a single partition.
   //
   // Partitioning columns are always part of the scan&#39;s output columns,
-  // along with the measures.</font>
-  const <a href="#ResolvedWindowPartitioning">ResolvedWindowPartitioning</a>* partition_by() const;
-
-<font color="brown">  // The ordering list can never be empty.
-  // Collation &amp; hints supported, just like in window specification.
-  // However, ordinals are not allowed.</font>
-  const <a href="#ResolvedWindowOrdering">ResolvedWindowOrdering</a>* order_by() const;
+  // along with the measures.
+  //
+  // ORDER BY does not allow ordinals, same as with window functions.
+  //
+  // The single analytic group defines the partitioning and ordering
+  // for this MATCH_RECOGNIZE operation:
+  // 1. Pattern matching occurs on individual partitions, just like
+  //    windowing functions. If it has no partitioning columns, the
+  //    whole input table is a single partition.
+  //
+  // 2. Its ordering similarly defines the row order for this pattern
+  //    matching operation.
+  //    The ordering list can never be empty.
+  //    Collation and hints are supported, just like in window
+  //    specification.
+  //
+  // When there are calls to the navigation operations PREV() and
+  // NEXT() in the DEFINE clause, they are represented by
+  // ResolvedAnalyticFunctionCalls to LAG() and LEAD() (respectively).
+  // The group remains empty if there are no such calls.
+  //
+  // These analytic calls are placed in the group to indicate that they
+  // all see the exact same row order of the matching operation, even
+  // when the ordering is partial (e.g. ties or non-determinism).
+  //
+  // See (broken link) for details.</font>
+  const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedAnalyticFunctionGroup">ResolvedAnalyticFunctionGroup</a>&gt;&gt;&amp; analytic_function_group_list() const;
+  int analytic_function_group_list_size() const;
+  const <a href="#ResolvedAnalyticFunctionGroup">ResolvedAnalyticFunctionGroup</a>* analytic_function_group_list(int i) const;
 
 <font color="brown">  // The pattern variable definitions. This list is never empty, and
   // variable names must be unique (ignoring case).</font>
@@ -8060,6 +8109,8 @@ class ResolvedCreatePropertyGraphStmt : public <a href="#ResolvedCreateStatement
 //   [&lt;dest_node_reference&gt;]
 //   [&lt;label_name_list&gt;]
 //   [&lt;property_definition_list]
+//   [&lt;dynamic_label&gt;]
+//   [&lt;dynamic_properties&gt;]
 //
 // &lt;alias&gt; identifier of the element table in the property graph.
 // &lt;key_list&gt; has a set of references to ResolvedColumn from input_scan that
@@ -8070,7 +8121,11 @@ class ResolvedCreatePropertyGraphStmt : public <a href="#ResolvedCreateStatement
 // rows in the referenced destination node table by same value columns.
 // &lt;label_name_list&gt; is a list of label names.
 // &lt;property_definition_list&gt; is a list of property definitions exposed by
-// labels.</font>
+// labels.
+// &lt;dynamic_label&gt; is the optional dynamic label definition, pointing to
+// the dynamic label STRING column.
+// &lt;dynamic_properties&gt; is the optional dynamic property definition, pointing
+// to the dynamic property JSON column.</font>
 class ResolvedGraphElementTable : public <a href="#ResolvedArgument">ResolvedArgument</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_GRAPH_ELEMENT_TABLE;
 
@@ -8095,6 +8150,10 @@ class ResolvedGraphElementTable : public <a href="#ResolvedArgument">ResolvedArg
   const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedGraphPropertyDefinition">ResolvedGraphPropertyDefinition</a>&gt;&gt;&amp; property_definition_list() const;
   int property_definition_list_size() const;
   const <a href="#ResolvedGraphPropertyDefinition">ResolvedGraphPropertyDefinition</a>* property_definition_list(int i) const;
+
+  const <a href="#ResolvedGraphDynamicLabelSpecification">ResolvedGraphDynamicLabelSpecification</a>* dynamic_label() const;
+
+  const <a href="#ResolvedGraphDynamicPropertiesSpecification">ResolvedGraphDynamicPropertiesSpecification</a>* dynamic_properties() const;
 };
 </code></pre></p>
 
@@ -8176,6 +8235,35 @@ class ResolvedGraphPropertyDefinition : public <a href="#ResolvedArgument">Resol
 };
 </code></pre></p>
 
+### ResolvedGraphDynamicLabelSpecification
+<a id="ResolvedGraphDynamicLabelSpecification"></a>
+
+<p><pre><code class="lang-c++"><font color="brown">// ResolvedGraphDynamicLabelSpecification is a schema entity that defines
+// the dynamic label specification.
+// The dynamic label specification is a column reference, and the column
+// type needs to be of STRING. The `label_expr` field is a
+// ResolvedColumnRef type.</font>
+class ResolvedGraphDynamicLabelSpecification : public <a href="#ResolvedArgument">ResolvedArgument</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_GRAPH_DYNAMIC_LABEL_SPECIFICATION;
+
+  const <a href="#ResolvedExpr">ResolvedExpr</a>* label_expr() const;
+};
+</code></pre></p>
+
+### ResolvedGraphDynamicPropertiesSpecification
+<a id="ResolvedGraphDynamicPropertiesSpecification"></a>
+
+<p><pre><code class="lang-c++"><font color="brown">// ResolvedGraphDynamicPropertiesSpecification is a schema entity that defines
+// the dynamic property specification.
+// The dynamic property specification is a column reference, and the column
+// type needs to be of JSON. `property_expr` is of ResolvedColumnRef type.</font>
+class ResolvedGraphDynamicPropertiesSpecification : public <a href="#ResolvedArgument">ResolvedArgument</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_GRAPH_DYNAMIC_PROPERTIES_SPECIFICATION;
+
+  const <a href="#ResolvedExpr">ResolvedExpr</a>* property_expr() const;
+};
+</code></pre></p>
+
 ### ResolvedGraphScanBase
 <a id="ResolvedGraphScanBase"></a>
 
@@ -8218,7 +8306,7 @@ class ResolvedGraphLinearScan : public <a href="#ResolvedGraphScanBase">Resolved
 //
 // It produces columns of non-graph SQL type, either defined by
 // &lt;shape_expr_list&gt; or from &lt;input_scan&gt; directly.
-// When FEATURE_V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT is enabled it may
+// When FEATURE_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT is enabled it may
 // produce columns of graph element type.
 //
 // If &lt;shape_expr_list&gt; is not empty, it defines the output columns of
@@ -8234,6 +8322,46 @@ class ResolvedGraphTableScan : public <a href="#ResolvedScan">ResolvedScan</a> {
   const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedComputedColumn">ResolvedComputedColumn</a>&gt;&gt;&amp; shape_expr_list() const;
   int shape_expr_list_size() const;
   const <a href="#ResolvedComputedColumn">ResolvedComputedColumn</a>* shape_expr_list(int i) const;
+};
+</code></pre></p>
+
+### ResolvedGraphCallScan
+<a id="ResolvedGraphCallScan"></a>
+
+<p><pre><code class="lang-c++"><font color="brown">// Represents a GQL CALL operation, which with a subquery is equivalent to a
+// LATERAL JOIN.
+// * This operator must a direct child of a ResolvedGraphLinearScan.
+// * &#39;input_scan&#39; is never nullptr, and must be a ResolvedSingleRowScan if it
+//   is the first operator in the parent linear scan, or ResolvedGraphRefScan
+//   otherwise.
+// * &#39;subquery&#39; is never nullptr and must either be:
+//    1. a ResolvedTVFScan, or
+//    2. a ResolvedGraphTableScan whose &#39;input_scan&#39; is a
+//       ResolvedGraphLinearScan (since it&#39;s always a GQL linear query)
+//       Its graph reference must be the same as the parent&#39;s.
+// * If &#39;optional&#39; is true, this operator cannot be the first one in the
+//   parent linear scan, and `input_scan` must be a ResolvedGraphRefScan.</font>
+class ResolvedGraphCallScan : public <a href="#ResolvedScan">ResolvedScan</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_GRAPH_CALL_SCAN;
+
+  bool optional() const;
+
+<font color="brown">  // The subquery or the TVF to apply.</font>
+  const <a href="#ResolvedScan">ResolvedScan</a>* subquery() const;
+
+  const <a href="#ResolvedScan">ResolvedScan</a>* input_scan() const;
+
+<font color="brown">  // The columns from the `input_scan` which are visible to the inline
+  // subquery. Equivalent to JoinScan::lateral_column_list. The columns
+  // in this list are the columns from `input_scan` that are referenced
+  // in the derived `subquery`. All correlated references in the subquery
+  // must be listed here.
+  //
+  // Note: In the general syntax, this will be the same columns from
+  // the partitioning list, equivalent to FOR EACH PARTITION BY.</font>
+  const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedColumnRef">ResolvedColumnRef</a>&gt;&gt;&amp; parameter_list() const;
+  int parameter_list_size() const;
+  const <a href="#ResolvedColumnRef">ResolvedColumnRef</a>* parameter_list(int i) const;
 };
 </code></pre></p>
 
@@ -8314,6 +8442,7 @@ class ResolvedGraphPathSearchPrefix : public <a href="#ResolvedArgument">Resolve
   static const PathSearchPrefixType PATH_SEARCH_PREFIX_TYPE_UNSPECIFIED = ResolvedGraphPathSearchPrefixEnums::PATH_SEARCH_PREFIX_TYPE_UNSPECIFIED;
   static const PathSearchPrefixType ANY = ResolvedGraphPathSearchPrefixEnums::ANY;
   static const PathSearchPrefixType SHORTEST = ResolvedGraphPathSearchPrefixEnums::SHORTEST;
+  static const PathSearchPrefixType CHEAPEST = ResolvedGraphPathSearchPrefixEnums::CHEAPEST;
 
   <a href="#ResolvedGraphPathSearchPrefix">ResolvedGraphPathSearchPrefix</a>::PathSearchPrefixType type() const;
 
@@ -8393,6 +8522,8 @@ class ResolvedGraphEdgeScan : public <a href="#ResolvedGraphElementScan">Resolve
   const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedOption">ResolvedOption</a>&gt;&gt;&amp; rhs_hint_list() const;
   int rhs_hint_list_size() const;
   const <a href="#ResolvedOption">ResolvedOption</a>* rhs_hint_list(int i) const;
+
+  const <a href="#ResolvedExpr">ResolvedExpr</a>* cost_expr() const;
 };
 </code></pre></p>
 
@@ -8400,13 +8531,17 @@ class ResolvedGraphEdgeScan : public <a href="#ResolvedGraphElementScan">Resolve
 <a id="ResolvedGraphGetElementProperty"></a>
 
 <p><pre><code class="lang-c++"><font color="brown">// Get a property from the graph element in `expr`. `expr` must be of
-// GraphElementType.</font>
+// GraphElementType.
+// `property_name` must be evaluated to a STRING typed expression.
+// If `property` is populated, its name matches the value of `property_name`.</font>
 class ResolvedGraphGetElementProperty : public <a href="#ResolvedExpr">ResolvedExpr</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_GRAPH_GET_ELEMENT_PROPERTY;
 
   const <a href="#ResolvedExpr">ResolvedExpr</a>* expr() const;
 
   const GraphPropertyDeclaration* property() const;
+
+  const <a href="#ResolvedExpr">ResolvedExpr</a>* property_name() const;
 };
 </code></pre></p>
 
@@ -8457,12 +8592,19 @@ class ResolvedGraphLabelNaryExpr : public <a href="#ResolvedGraphLabelExpr">Reso
 <p><pre><code class="lang-c++"><font color="brown">// This represents a single resolved graph label.
 //
 // A label is an element belonging to a property graph that has a unique
-// name identifier.</font>
+// name identifier.
+// A static label exposes all the properties declared by
+// that label, whereas a dynamic label has no association with the properties
+// and acts as an element filter.
+// `label_name` must be evaluated to a STRING typed expression. If `label` is
+// populated, its name matches the value of `label_name`.</font>
 class ResolvedGraphLabel : public <a href="#ResolvedGraphLabelExpr">ResolvedGraphLabelExpr</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_GRAPH_LABEL;
 
 <font color="brown">  // Points to a label in the catalog</font>
   const GraphElementLabel* label() const;
+
+  const <a href="#ResolvedExpr">ResolvedExpr</a>* label_name() const;
 };
 </code></pre></p>
 
@@ -8526,7 +8668,12 @@ class ResolvedGraphElementProperty : public <a href="#ResolvedArgument">Resolved
 // `type` is always a GraphElementType.
 // `identifier` uniquely identifies a graph element in the graph.
 // `label_list` contains all static labels.
-// `property_list` contains all static properties and their definitions.</font>
+// `property_list` contains all static properties and their definitions.
+// `dynamic_labels` is an expression that can be evaluated to a STRING or
+// ARRAY&lt;STRING&gt; typed value representing one or a list of dynamic labels.
+// `dynamic_properties` is an expression that can be evaluated to a JSON
+// typed value. Its top-level key/value pairs make up the dynamic properties
+// of the graph element.</font>
 class ResolvedGraphMakeElement : public <a href="#ResolvedExpr">ResolvedExpr</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_GRAPH_MAKE_ELEMENT;
 
@@ -8539,6 +8686,10 @@ class ResolvedGraphMakeElement : public <a href="#ResolvedExpr">ResolvedExpr</a>
   const std::vector&lt;const GraphElementLabel*&gt;&amp; label_list() const;
   int label_list_size() const;
   const GraphElementLabel* label_list(int i) const;
+
+  const <a href="#ResolvedExpr">ResolvedExpr</a>* dynamic_labels() const;
+
+  const <a href="#ResolvedExpr">ResolvedExpr</a>* dynamic_properties() const;
 };
 </code></pre></p>
 
@@ -8620,6 +8771,20 @@ class ResolvedGraphPathMode : public <a href="#ResolvedArgument">ResolvedArgumen
 };
 </code></pre></p>
 
+### ResolvedGraphPathCost
+<a id="ResolvedGraphPathCost"></a>
+
+<p><pre><code class="lang-c++"><font color="brown">// This node defines the cost for a graph path. Currently it only defines the
+// value type of the cost. Value expressions are not yet supported at this
+// level. The actual cost for a path is the sum of the costs defined on graph
+// edge elements within the path.</font>
+class ResolvedGraphPathCost : public <a href="#ResolvedArgument">ResolvedArgument</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_GRAPH_PATH_COST;
+
+  const Type* cost_supertype() const;
+};
+</code></pre></p>
+
 ### ResolvedGraphPathScan
 <a id="ResolvedGraphPathScan"></a>
 
@@ -8697,6 +8862,8 @@ class ResolvedGraphPathScan : public <a href="#ResolvedGraphPathScanBase">Resolv
   const <a href="#ResolvedGraphPathMode">ResolvedGraphPathMode</a>* path_mode() const;
 
   const <a href="#ResolvedGraphPathSearchPrefix">ResolvedGraphPathSearchPrefix</a>* search_prefix() const;
+
+  const <a href="#ResolvedGraphPathCost">ResolvedGraphPathCost</a>* path_cost() const;
 };
 </code></pre></p>
 

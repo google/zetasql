@@ -24,16 +24,19 @@
 #include <vector>
 
 #include "zetasql/public/annotation.pb.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
 #include "absl/container/flat_hash_map.h"
+#include "zetasql/base/check.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -43,6 +46,8 @@ std::string GetAnnotationKindName(AnnotationKind kind) {
   switch (kind) {
     case AnnotationKind::kCollation:
       return "Collation";
+    case AnnotationKind::kTimestampPrecision:
+      return "TimestampPrecision";
     case AnnotationKind::kSampleAnnotation:
       return "SampleAnnotation";
     case AnnotationKind::kMaxBuiltinAnnotationKind:
@@ -77,10 +82,12 @@ absl::StatusOr<std::unique_ptr<AnnotationMap>> AnnotationMap::Deserialize(
       annotation_map->AsStructMap()->fields_.push_back(std::move(struct_field));
     }
   } else if (proto.has_array_element()) {
-    annotation_map = absl::WrapUnique(new ArrayAnnotationMap());
+    // Deserialize the deprecated ArrayAnnotationMap as a StructAnnotationMap.
+    annotation_map = absl::WrapUnique(new StructAnnotationMap());
     if (!proto.array_element().is_null()) {
-      ZETASQL_ASSIGN_OR_RETURN(annotation_map->AsArrayMap()->element_,
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AnnotationMap> element,
                        Deserialize(proto.array_element()));
+      annotation_map->AsStructMap()->fields_.push_back(std::move(element));
     }
   } else {
     annotation_map = absl::WrapUnique(new AnnotationMap());
@@ -108,17 +115,13 @@ bool AnnotationMap::HasCompatibleStructure(const AnnotationMap* lhs,
     }
     for (int i = 0; i < lhs->AsStructMap()->num_fields(); i++) {
       if (!HasCompatibleStructure(lhs->AsStructMap()->field(i),
-                                  lhs->AsStructMap()->field(i))) {
+                                  rhs->AsStructMap()->field(i))) {
         return false;
       }
     }
     return true;
-  } else if (lhs->IsArrayMap()) {
-    return rhs->IsArrayMap() &&
-           HasCompatibleStructure(lhs->AsArrayMap()->element(),
-                                  rhs->AsArrayMap()->element());
   }
-  return !rhs->IsStructMap() && !rhs->IsArrayMap();
+  return !rhs->IsStructMap();
 }
 
 std::unique_ptr<AnnotationMap> AnnotationMap::Clone() const {
@@ -131,11 +134,6 @@ std::unique_ptr<AnnotationMap> AnnotationMap::Clone() const {
         target->AsStructMap()->fields_[i] = AsStructMap()->field(i)->Clone();
       }
     }
-  } else if (IsArrayMap()) {
-    target.reset(new ArrayAnnotationMap());
-    if (AsArrayMap()->element() != nullptr) {
-      target->AsArrayMap()->element_ = AsArrayMap()->element()->Clone();
-    }
   } else {
     target.reset(new AnnotationMap());
   }
@@ -144,25 +142,22 @@ std::unique_ptr<AnnotationMap> AnnotationMap::Clone() const {
 }
 
 bool AnnotationMap::HasCompatibleStructure(const Type* type) const {
-  if (IsStructMap()) {
-    if (!type->IsStruct() ||
-        AsStructMap()->num_fields() != type->AsStruct()->num_fields()) {
+  std::vector<const Type*> component_types = type->ComponentTypes();
+  if (component_types.empty()) {
+    return !IsStructMap();
+  }
+
+  if (!IsStructMap() || component_types.size() != AsStructMap()->num_fields()) {
+    return false;
+  }
+
+  for (int i = 0; i < component_types.size(); i++) {
+    if (AsStructMap()->field(i) != nullptr &&
+        !AsStructMap()->field(i)->HasCompatibleStructure(component_types[i])) {
       return false;
     }
-    for (int i = 0; i < AsStructMap()->num_fields(); i++) {
-      if (AsStructMap()->field(i) != nullptr &&
-          !AsStructMap()->field(i)->HasCompatibleStructure(
-              type->AsStruct()->field(i).type)) {
-        return false;
-      }
-    }
-    return true;
-  } else if (IsArrayMap()) {
-    return type->AsArray() && (AsArrayMap()->element() == nullptr ||
-                               AsArrayMap()->element()->HasCompatibleStructure(
-                                   type->AsArray()->element_type()));
   }
-  return !type->IsStruct() && !type->IsArray();
+  return true;
 }
 
 bool AnnotationMap::NormalizeInternal() {
@@ -177,16 +172,6 @@ bool AnnotationMap::NormalizeInternal() {
         } else {
           empty = false;
         }
-      }
-    }
-  } else if (IsArrayMap()) {
-    std::unique_ptr<AnnotationMap>& element_ptr = AsArrayMap()->element_;
-    if (element_ptr != nullptr) {
-      if (element_ptr->NormalizeInternal()) {
-        // Set element pointer to nullptr if the AnnotationMap is empty.
-        element_ptr.reset(nullptr);
-      } else {
-        empty = false;
       }
     }
   }
@@ -209,14 +194,6 @@ bool AnnotationMap::IsNormalizedAndNonEmpty(bool check_non_empty) const {
       }
       children_non_empty = children_non_empty || ptr != nullptr;
     }
-  } else if (IsArrayMap()) {
-    const AnnotationMap* ptr = AsArrayMap()->element();
-    // The normalized form is that an array element is either null or non-empty.
-    if (ptr != nullptr &&
-        !ptr->IsNormalizedAndNonEmpty(/*check_non_empty=*/true)) {
-      return false;
-    }
-    children_non_empty = ptr != nullptr;
   }
   if (!check_non_empty) {
     return true;
@@ -238,12 +215,6 @@ int64_t AnnotationMap::GetEstimatedOwnedMemoryBytesSize() const {
                ? 0
                : AsStructMap()->field(i)->GetEstimatedOwnedMemoryBytesSize());
     }
-  } else if (IsArrayMap()) {
-    total_size +=
-        sizeof(std::unique_ptr<AnnotationMap>) +
-        (AsArrayMap()->element() == nullptr
-             ? 0
-             : AsArrayMap()->element()->GetEstimatedOwnedMemoryBytesSize());
   }
   return total_size;
 }
@@ -289,13 +260,9 @@ bool AnnotationMap::EqualsInternal(const AnnotationMap* lhs,
       }
     }
     return true;
-  } else if (lhs->IsArrayMap()) {
-    return rhs->IsArrayMap() &&
-           EqualsInternal(lhs->AsArrayMap()->element(),
-                          rhs->AsArrayMap()->element(), annotation_spec_id);
   }
   // lhs is neither a struct nor an array.
-  return !rhs->IsStructMap() && !rhs->IsArrayMap();
+  return !rhs->IsStructMap();
 }
 
 bool AnnotationMap::EmptyInternal(std::optional<int> annotation_spec_id) const {
@@ -313,24 +280,21 @@ bool AnnotationMap::EmptyInternal(std::optional<int> annotation_spec_id) const {
         return false;
       }
     }
-  } else if (IsArrayMap()) {
-    if (AsArrayMap()->element() != nullptr &&
-        !AsArrayMap()->element()->EmptyInternal(annotation_spec_id)) {
-      return false;
-    }
   }
   return true;
 }
 
 // Static
 std::unique_ptr<AnnotationMap> AnnotationMap::Create(const Type* type) {
+  // This special case should be removed once callers are migrated to use
+  // the component_types() call.
   if (type->IsStruct()) {
     return absl::WrapUnique(new StructAnnotationMap(type->AsStruct()));
-  } else if (type->IsArray()) {
-    return absl::WrapUnique(new ArrayAnnotationMap(type->AsArray()));
-  } else {
-    return absl::WrapUnique(new AnnotationMap());
   }
+  std::vector<const Type*> component_types = type->ComponentTypes();
+  return component_types.empty()
+             ? absl::WrapUnique(new AnnotationMap())
+             : absl::WrapUnique(new StructAnnotationMap(component_types));
 }
 
 std::string AnnotationMap::DebugStringInternal(
@@ -367,9 +331,17 @@ std::string AnnotationMap::DebugStringInternal(
   return out;
 }
 
+// TODO: Leaving this temporarily to ease the migration of callers.
 StructAnnotationMap::StructAnnotationMap(const StructType* struct_type) {
   for (const StructField& field : struct_type->fields()) {
     fields_.push_back(AnnotationMap::Create(field.type));
+  }
+}
+
+StructAnnotationMap::StructAnnotationMap(
+    absl::Span<const Type* const> component_types) {
+  for (const Type* type : component_types) {
+    fields_.push_back(AnnotationMap::Create(type));
   }
 }
 
@@ -418,49 +390,6 @@ absl::Status StructAnnotationMap::CloneIntoField(int i,
     fields_[i].reset(nullptr);
   } else {
     fields_[i] = from->Clone();
-  }
-  return absl::OkStatus();
-}
-
-absl::Status ArrayAnnotationMap::CloneIntoElement(const AnnotationMap* from) {
-  ZETASQL_RET_CHECK(HasCompatibleStructure(element_.get(), from));
-  if (from == nullptr) {
-    element_.reset(nullptr);
-  } else {
-    element_ = from->Clone();
-  }
-  return absl::OkStatus();
-}
-
-ArrayAnnotationMap::ArrayAnnotationMap(const ArrayType* array_type) {
-  element_ = AnnotationMap::Create(array_type->element_type());
-}
-
-std::string ArrayAnnotationMap::DebugStringInternal(
-    std::optional<int> annotation_spec_id) const {
-  std::string out(AnnotationMap::DebugStringInternal(annotation_spec_id));
-  absl::StrAppend(&out, "[");
-  std::string element_debug_string =
-      element() == nullptr ? "_"
-                           : element()->DebugStringInternal(annotation_spec_id);
-  if (element_debug_string.empty() && !annotation_spec_id.has_value()) {
-    element_debug_string = "{}";
-  }
-  absl::StrAppend(&out, element_debug_string);
-  absl::StrAppend(&out, "]");
-  return out;
-}
-
-absl::Status ArrayAnnotationMap::Serialize(AnnotationMapProto* proto) const {
-  // Serialize parent class AnnotationMap first.
-  ZETASQL_RETURN_IF_ERROR(AnnotationMap::Serialize(proto));
-
-  // Serialize array element annotation.
-  auto* array_element = proto->mutable_array_element();
-  if (element_ == nullptr) {
-    array_element->set_is_null(true);
-  } else {
-    ZETASQL_RETURN_IF_ERROR(element_->Serialize(array_element));
   }
   return absl::OkStatus();
 }

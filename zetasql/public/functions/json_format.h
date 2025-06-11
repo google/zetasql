@@ -48,7 +48,7 @@ constexpr int64_t kMaxLosslessInt64ValueForJson = 9007199254740992;
 // Default maximum size of strings returned from conversion to JSON, in bytes.
 constexpr int32_t kDefaultMaxJsonStringSizeBytes = 1 << 20;
 
-// Supports bool, int32_t, uint32_t, int64_t, uint64_t, float, double, NumericValue,
+// Supports bool, int32, uint32, int64, uint64, float, double, NumericValue,
 // and BigNumericValue
 // Appends the representation of the value for JSON to 'output'.
 void JsonFromNumericOrBool(bool value, std::string* output);
@@ -76,6 +76,9 @@ void JsonFromBytes(absl::string_view value, std::string* output,
 // a T separator and Z suffix if quote_output_string is true.
 // Otherwise, returns the unquoted string.
 absl::Status JsonFromTimestamp(absl::Time value, std::string* output,
+                               bool quote_output_string = true);
+
+absl::Status JsonFromTimestamp(TimestampPicosValue value, std::string* output,
                                bool quote_output_string = true);
 
 // Appends the given datetime to 'output' as a quoted ISO 8601 date-time with

@@ -34,6 +34,14 @@ import org.junit.runners.JUnit4;
 public final class MeasureTypeTest {
 
   @Test
+  public void testComponentTypes() {
+    assertThat(
+            TypeFactory.createMeasureType(TypeFactory.createSimpleType(TypeKind.TYPE_INT64))
+                .componentTypes())
+        .containsExactly(TypeFactory.createSimpleType(TypeKind.TYPE_INT64));
+  }
+
+  @Test
   public void testSerializationAndDeserialization() {
     TypeFactory factory = TypeFactory.nonUniqueNames();
     checkTypeSerializationAndDeserialization(

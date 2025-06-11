@@ -51,9 +51,9 @@ class ParseTreeSerializerTest : public ::testing::Test {
     // proto to the expected value.
     std::string sql = std::string(test_case_input);
     auto language_options = std::make_unique<LanguageOptions>();
-    ParserOptions parser_options =
-        ParserOptions(/*id_string_pool=*/nullptr,
-                      /*arena=*/nullptr, language_options.get());
+    ParserOptions parser_options = ParserOptions(
+        /*id_string_pool=*/nullptr, /*arena=*/nullptr,
+        language_options.get() ? *language_options.get() : LanguageOptions());
     std::unique_ptr<ParserOutput> parser_output;
     absl::Status status;
     bool is_expression = absl::StartsWith(sql, "expression: ");

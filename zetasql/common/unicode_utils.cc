@@ -36,7 +36,7 @@ ABSL_FLAG(bool, zetasql_idstring_allow_unicode_characters, false,
 
 namespace {
 
-absl::Nullable<const icu::Normalizer2*> GetCaseFoldingNormalizer() {
+const icu::Normalizer2* /*absl_nullable*/ GetCaseFoldingNormalizer() {
   static const icu::Normalizer2* normalizer = []() -> const icu::Normalizer2* {
     icu::ErrorCode error_code;
     const icu::Normalizer2* normalizer =

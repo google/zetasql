@@ -1,6 +1,6 @@
 # This file contains test cases to test joins with consecutive ON/USING clauses
 # Simple test case
-[default language_features=V_1_3_ALLOW_CONSECUTIVE_ON]
+[default language_features=ALLOW_CONSECUTIVE_ON]
 select * from a join b join c join d on cond1 on cond2 on cond3;
 --
 QueryStatement [0-63] [select * from...cond2 on cond3]

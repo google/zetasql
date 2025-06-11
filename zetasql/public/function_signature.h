@@ -340,10 +340,6 @@ class FunctionArgumentTypeOptions {
   // - Non-expression-typed templated arguments (e.g., tables, connections,
   //   models, etc.) cannot have default values.
   //
-  // Note that (in the near future), an optional argument that has a default
-  // value and is omitted in a function call will be resolved as if the default
-  // value is specified.
-  //
   // Also note that the type of <default_value> must outlive this object as well
   // as all the FunctionSignature instances created using this object.
   FunctionArgumentTypeOptions& set_default(Value default_value) {
@@ -1283,7 +1279,7 @@ class FunctionSignatureOptions {
   // has AFFECTS_PROPAGATION bit set are considered in calculating the
   // propagation collation.
   //
-  // This option is only effective when FEATURE_V_1_3_COLLATION_SUPPORT is
+  // This option is only effective when FEATURE_COLLATION_SUPPORT is
   // enabled.
   bool propagates_collation_ = true;
 
@@ -1297,7 +1293,7 @@ class FunctionSignatureOptions {
   // AFFECTS_OPERATION bit set are considered in calculating the operation
   // collation.
   //
-  // This option is only effective when FEATURE_V_1_3_COLLATION_SUPPORT is
+  // This option is only effective when FEATURE_COLLATION_SUPPORT is
   // enabled.
   bool uses_operation_collation_ = false;
 

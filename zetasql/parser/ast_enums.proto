@@ -477,6 +477,8 @@ message ASTGraphPathSearchPrefixEnums {
     SHORTEST = 2;
     ALL = 3;
     ALL_SHORTEST = 4;
+    CHEAPEST = 5;
+    ALL_CHEAPEST = 6;
   }
 }
 

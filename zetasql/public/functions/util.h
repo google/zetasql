@@ -21,6 +21,7 @@
 #include <string>
 
 #include "absl/base/attributes.h"
+#include "absl/numeric/int128.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -57,6 +58,10 @@ struct ArithmeticType<double> {
 template <>
 struct ArithmeticType<long double> {
   static constexpr char kName[] = "long double";
+};
+template <>
+struct ArithmeticType<absl::int128> {
+  static constexpr char kName[] = "int128";
 };
 
 // Error message assembly is defined out-of-line to extra avoid overhead in the

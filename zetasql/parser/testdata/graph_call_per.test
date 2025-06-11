@@ -1,0 +1,200 @@
+[default reserve_graph_table]
+[default language_features=SQL_GRAPH]
+
+select * from
+  graph_table(my.graph.name
+    MATCH ()
+    CALL PER() tvf(x, a)
+    RETURN *
+  ) g1
+--
+QueryStatement [0-99] [select * from...ETURN *   ) g1]
+  Query [0-99] [select * from...ETURN *   ) g1]
+    Select [0-99] [select * from...ETURN *   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-99] [from   graph_tabl...N *   ) g1]
+        GraphTableQuery [16-99] [graph_table...RETURN *   ) g1]
+          PathExpression [28-41] [my.graph.name]
+            Identifier(my) [28-30] [my]
+            Identifier(graph) [31-36] [graph]
+            Identifier(name) [37-41] [name]
+          GqlOperatorList [46-92] [MATCH ()...RETURN *]
+            GqlOperatorList [46-92] [MATCH ()...RETURN *]
+              GqlMatch [46-54] [MATCH ()]
+                GraphPattern [52-54] [()]
+                  GraphPathPattern [52-54] [()]
+                    GraphNodePattern [52-54] [()]
+                      GraphElementPatternFiller [53-53] []
+              GqlNamedCall [59-79] [CALL PER() tvf(x, a)]
+                TVF [70-79] [tvf(x, a)]
+                  PathExpression [70-73] [tvf]
+                    Identifier(tvf) [70-73] [tvf]
+                  TVFArgument [74-75] [x]
+                    PathExpression [74-75] [x]
+                      Identifier(x) [74-75] [x]
+                  TVFArgument [77-78] [a]
+                    PathExpression [77-78] [a]
+                      Identifier(a) [77-78] [a]
+                IdentifierList [67-69] [()]
+              GqlReturn [84-92] [RETURN *]
+                Select [91-92] [*]
+                  SelectList [91-92] [*]
+                    SelectColumn [91-92] [*]
+                      Star(*) [91-92] [*]
+          Alias [97-99] [g1]
+            Identifier(g1) [97-99] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      ()
+    CALL PER () tvf(x, a)
+    RETURN
+      *
+  ) AS g1
+==
+
+# Cannot accept alias or other postfix table operators
+select * from
+  graph_table(my.graph.name
+    MATCH (e)
+    CALL PER() tvf(x, a) {{t|AS t|PIVOT SUM (a) AS m FOR b IN (1, 2) }}
+    RETURN *
+  ) g1
+--
+ALTERNATION GROUP: t
+--
+ERROR: Syntax error: Unexpected identifier "t" [at 4:26]
+    CALL PER() tvf(x, a) t
+                         ^
+--
+ALTERNATION GROUP: AS t
+--
+ERROR: Syntax error: Unexpected keyword AS [at 4:26]
+    CALL PER() tvf(x, a) AS t
+                         ^
+--
+ALTERNATION GROUP: PIVOT SUM (a) AS m FOR b IN (1, 2) 
+--
+ERROR: Syntax error: Unexpected keyword PIVOT [at 4:26]
+    CALL PER() tvf(x, a) PIVOT SUM (a) AS m FOR b IN (1, 2) 
+                         ^
+==
+
+# PER with backticks is just an identifier.
+select * from
+  graph_table(my.graph.name
+    MATCH (e)
+    CALL `PER`()
+    RETURN *
+  ) g1
+--
+QueryStatement [0-92] [select * from...ETURN *   ) g1]
+  Query [0-92] [select * from...ETURN *   ) g1]
+    Select [0-92] [select * from...ETURN *   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-92] [from   graph_tabl...N *   ) g1]
+        GraphTableQuery [16-92] [graph_table...RETURN *   ) g1]
+          PathExpression [28-41] [my.graph.name]
+            Identifier(my) [28-30] [my]
+            Identifier(graph) [31-36] [graph]
+            Identifier(name) [37-41] [name]
+          GqlOperatorList [46-85] [MATCH (e)...RETURN *]
+            GqlOperatorList [46-85] [MATCH (e)...RETURN *]
+              GqlMatch [46-55] [MATCH (e)]
+                GraphPattern [52-55] [(e)]
+                  GraphPathPattern [52-55] [(e)]
+                    GraphNodePattern [52-55] [(e)]
+                      GraphElementPatternFiller [53-54] [e]
+                        Identifier(e) [53-54] [e]
+              GqlNamedCall [60-72] [CALL `PER`()]
+                TVF [65-72] [`PER`()]
+                  PathExpression [65-70] [`PER`]
+                    Identifier(`PER`) [65-70] [`PER`]
+              GqlReturn [77-85] [RETURN *]
+                Select [84-85] [*]
+                  SelectList [84-85] [*]
+                    SelectColumn [84-85] [*]
+                      Star(*) [84-85] [*]
+          Alias [90-92] [g1]
+            Identifier(g1) [90-92] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (e)
+    CALL `PER`()
+    RETURN
+      *
+  ) AS g1
+==
+
+# Test with YIELD
+select * from
+  graph_table(my.graph.name
+    MATCH (e)
+    CALL PER() tvf() YIELD x, a AS b
+    RETURN *
+  ) g1
+--
+QueryStatement [0-112] [select * from...ETURN *   ) g1]
+  Query [0-112] [select * from...ETURN *   ) g1]
+    Select [0-112] [select * from...ETURN *   ) g1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-112] [from   graph_tabl...N *   ) g1]
+        GraphTableQuery [16-112] [graph_table...RETURN *   ) g1]
+          PathExpression [28-41] [my.graph.name]
+            Identifier(my) [28-30] [my]
+            Identifier(graph) [31-36] [graph]
+            Identifier(name) [37-41] [name]
+          GqlOperatorList [46-105] [MATCH (e)...RETURN *]
+            GqlOperatorList [46-105] [MATCH (e)...RETURN *]
+              GqlMatch [46-55] [MATCH (e)]
+                GraphPattern [52-55] [(e)]
+                  GraphPathPattern [52-55] [(e)]
+                    GraphNodePattern [52-55] [(e)]
+                      GraphElementPatternFiller [53-54] [e]
+                        Identifier(e) [53-54] [e]
+              GqlNamedCall [60-92] [CALL PER()...x, a AS b]
+                TVF [71-76] [tvf()]
+                  PathExpression [71-74] [tvf]
+                    Identifier(tvf) [71-74] [tvf]
+                YieldItemList [77-92] [YIELD x, a AS b]
+                  ExpressionWithOptAlias [83-84] [x]
+                    Identifier(x) [83-84] [x]
+                  ExpressionWithOptAlias [86-92] [a AS b]
+                    Identifier(a) [86-87] [a]
+                    Alias [88-92] [AS b]
+                      Identifier(b) [91-92] [b]
+                IdentifierList [68-70] [()]
+              GqlReturn [97-105] [RETURN *]
+                Select [104-105] [*]
+                  SelectList [104-105] [*]
+                    SelectColumn [104-105] [*]
+                      Star(*) [104-105] [*]
+          Alias [110-112] [g1]
+            Identifier(g1) [110-112] [g1]
+--
+SELECT
+  *
+FROM
+  GRAPH_TABLE(
+    my.graph.name
+    MATCH
+      (e)
+    CALL PER () tvf() YIELD x, a AS b
+    RETURN
+      *
+  ) AS g1

@@ -35,8 +35,8 @@ class Type;
 // matched arguments (for both literals and non-literals).  Coercion
 // distance indicates how close types are together, where two same types
 // have distance 0 and smaller distances indicate closer types (i.e.,
-// int32_t is closer to int64_t than to double, and the distance between int32_t and
-// int64_t is less than the distance between int32_t and double).  Distance is
+// int32 is closer to int64 than to double, and the distance between int32 and
+// int64 is less than the distance between int32 and double).  Distance is
 // computed as the difference between the Type::KindSpecificity() values
 // of the types.
 class SignatureMatchResult {

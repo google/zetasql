@@ -267,6 +267,16 @@ bool EnumType::IsSupportedType(const LanguageOptions& language_options) const {
     return true;
   }
 
+  if (types::
+          DifferentialPrivacyCountDistinctContributionBoundingStrategyEnumType()
+              .ok() &&
+      Equivalent(
+          types::
+              DifferentialPrivacyCountDistinctContributionBoundingStrategyEnumType()  // NOLINT
+                  .value())) {
+    return true;
+  }
+
   if (language_options.product_mode() == ProductMode::PRODUCT_EXTERNAL &&
       !Equivalent(types::DatePartEnumType()) &&
       !Equivalent(types::NormalizeModeEnumType()) &&

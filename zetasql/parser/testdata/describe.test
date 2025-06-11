@@ -257,7 +257,7 @@ describe foo.bar FROM ;
                       ^
 ==
 
-[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
 DESCRIBE my-project.dataset.table;
 --
 ALTERNATION GROUP: <empty>
@@ -266,7 +266,7 @@ ERROR: Syntax error: Table name contains '-' character. The dashed identifier pa
 DESCRIBE my-project.dataset.table;
          ^
 --
-ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
 --
 DescribeStatement [0-33] [DESCRIBE my...dataset.table]
   PathExpression [9-33] [my-project.dataset.table]
@@ -277,7 +277,7 @@ DescribeStatement [0-33] [DESCRIBE my...dataset.table]
 DESCRIBE `my-project`.dataset.table
 ==
 
-[language_features=V_1_3_ALLOW_DASHES_IN_TABLE_NAME{{|,V_1_3_ALLOW_SLASH_PATHS}}]
+[language_features=ALLOW_DASHES_IN_TABLE_NAME{{|,ALLOW_SLASH_PATHS}}]
 DESCRIBE /span/db/my-mdb-grp:my_db.Table
 --
 ALTERNATION GROUP: <empty>
@@ -286,7 +286,7 @@ ERROR: Syntax error: Table name contains '/' character. The slashed identifier p
 DESCRIBE /span/db/my-mdb-grp:my_db.Table
          ^
 --
-ALTERNATION GROUP: ,V_1_3_ALLOW_SLASH_PATHS
+ALTERNATION GROUP: ,ALLOW_SLASH_PATHS
 --
 DescribeStatement [0-40] [DESCRIBE /...my_db.Table]
   PathExpression [9-40] [/span/db/my...my_db.Table]

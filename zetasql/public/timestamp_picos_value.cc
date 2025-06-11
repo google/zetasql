@@ -18,6 +18,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <ostream>
 #include <string>
 
 #include "zetasql/public/functions/date_time_util.h"
@@ -80,6 +81,10 @@ absl::StatusOr<TimestampPicosValue> TimestampPicosValue::FromString(
       str, default_timezone,
       /*allow_tz_in_str=*/allow_tz_in_str, &timestamp));
   return TimestampPicosValue(timestamp);
+}
+
+std::ostream& operator<<(std::ostream& out, const TimestampPicosValue& value) {
+  return out << value.ToString();
 }
 
 }  // namespace zetasql

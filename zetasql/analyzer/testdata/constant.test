@@ -393,7 +393,14 @@ CreateFunctionStmt
 --
 ALTERNATION GROUP: BOOL
 --
-ERROR: No matching signature for operator + for argument types: BOOL, INT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 2:19]
+ERROR: No matching signature for operator +
+  Argument types: BOOL, INT64
+  Signature: INT64 + INT64
+    Argument 1: Unable to coerce type BOOL to expected type INT64
+  Signature: UINT64 + UINT64
+    Argument 1: Unable to coerce type BOOL to expected type UINT64
+  Signature: DOUBLE + DOUBLE
+    Argument 1: Unable to coerce type BOOL to expected type DOUBLE [at 2:19]
 RETURNS INT64 AS (TestConstantInt64 + IF(nested_catalog.TestConstantBool, 1, 0))
                   ^
 ==
@@ -698,7 +705,7 @@ QueryStmt
     +-expr_list=
     | +-TestConstantInt64#3 := Constant(TestConstantInt64, type=INT64, value=1)
     +-input_scan=
-      +-TVFScan(tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+      +-TVFScan(tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
 --
 ALTERNATION GROUP: tvf_exactly_1_int64_arg(443)
 --
@@ -715,9 +722,10 @@ QueryStmt
         +-tvf=tvf_exactly_1_int64_arg((INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>)
         +-signature=(literal INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
-          +-FunctionArgument
-            +-expr=
-              +-Literal(type=INT64, value=443)
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=INT64, value=443)
+        +-function_call_signature=(INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # A table-valued function reference without parentheses is resolved as a table.
@@ -1098,17 +1106,3 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 ==
-
-[prepare_database=db]
-create constant local_constant_int64 = 1 + 2 * 3;
---
-CreateConstantStmt
-+-name_path=local_constant_int64
-+-expr=
-  +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
-    +-Literal(type=INT64, value=1)
-    +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -> INT64)
-      +-Literal(type=INT64, value=2)
-      +-Literal(type=INT64, value=3)
-==
-

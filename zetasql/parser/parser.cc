@@ -24,11 +24,12 @@
 
 #include "zetasql/base/arena.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/warning_sink.h"
 #include "zetasql/parser/ast_node_kind.h"
-#include "zetasql/parser/bison_parser.h"
-#include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/parser/parser_internal.h"
+#include "zetasql/parser/parser_mode.h"
 #include "zetasql/parser/parser_runtime_info.h"
 #include "zetasql/parser/statement_properties.h"
 #include "zetasql/public/error_helpers.h"
@@ -36,6 +37,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_resume_location.h"
+#include "absl/base/nullability.h"
 #include "absl/container/flat_hash_map.h"
 #include "zetasql/base/check.h"
 #include "absl/memory/memory.h"
@@ -47,8 +49,7 @@
 
 namespace zetasql {
 
-using parser::BisonParser;
-using parser::BisonParserMode;
+using parser::ParserMode;
 using MacroCatalog = parser::macros::MacroCatalog;
 using MacroExpansionMode = parser::MacroExpansionMode;
 
@@ -62,14 +63,30 @@ static ErrorMessageOptions GetDefaultErrorMessageOptions() {
 
 ParserOptions::ParserOptions() : ParserOptions(LanguageOptions{}) {}
 
+ParserOptions::ParserOptions(
+    std::shared_ptr<IdStringPool> id_string_pool,
+    std::shared_ptr<zetasql_base::UnsafeArena> arena, LanguageOptions language_options,
+    ErrorMessageOptions error_message_options,
+    parser::MacroExpansionMode macro_expansion_mode,
+    const parser::macros::MacroCatalog* /*absl_nullable*/ macro_catalog)
+    : arena_(arena != nullptr
+                 ? std::move(arena)
+                 : std::make_shared<zetasql_base::UnsafeArena>(/*block_size=*/4096)),
+      id_string_pool_(id_string_pool != nullptr
+                          ? std::move(id_string_pool)
+                          : std::make_shared<IdStringPool>(arena_)),
+      language_options_(std::move(language_options)),
+      macro_expansion_mode_(macro_expansion_mode),
+      macro_catalog_(macro_catalog),
+      error_message_options_(std::move(error_message_options)) {}
+
 ParserOptions::ParserOptions(LanguageOptions language_options,
                              MacroExpansionMode macro_expansion_mode,
                              const MacroCatalog* macro_catalog)
-    : arena_(std::make_shared<zetasql_base::UnsafeArena>(/*block_size=*/4096)),
-      id_string_pool_(std::make_shared<IdStringPool>(arena_)),
-      language_options_(std::move(language_options)),
-      macro_expansion_mode_(macro_expansion_mode),
-      macro_catalog_(macro_catalog) {}
+    : ParserOptions(/*id_string_pool=*/nullptr, /*arena=*/nullptr,
+                    std::move(language_options),
+                    GetDefaultErrorMessageOptions(), macro_expansion_mode,
+                    macro_catalog) {}
 
 ParserOptions::ParserOptions(std::shared_ptr<IdStringPool> id_string_pool,
                              std::shared_ptr<zetasql_base::UnsafeArena> arena,
@@ -80,7 +97,8 @@ ParserOptions::ParserOptions(std::shared_ptr<IdStringPool> id_string_pool,
       id_string_pool_(std::move(id_string_pool)),
       language_options_(std::move(language_options)),
       macro_expansion_mode_(macro_expansion_mode),
-      macro_catalog_(macro_catalog) {}
+      macro_catalog_(macro_catalog),
+      error_message_options_(GetDefaultErrorMessageOptions()) {}
 
 ParserOptions::~ParserOptions() = default;
 
@@ -100,8 +118,7 @@ ParserOutput::ParserOutput(
     std::variant<std::unique_ptr<ASTStatement>, std::unique_ptr<ASTScript>,
                  std::unique_ptr<ASTType>, std::unique_ptr<ASTExpression>>
         node,
-    std::unique_ptr<std::vector<absl::Status>> warnings,
-    std::unique_ptr<ParserRuntimeInfo> runtime_info)
+    WarningSink warnings, std::unique_ptr<ParserRuntimeInfo> runtime_info)
     : id_string_pool_(std::move(id_string_pool)),
       arena_(std::move(arena)),
       other_allocated_ast_nodes_(std::move(other_allocated_ast_nodes)),
@@ -121,19 +138,20 @@ absl::Status ParseStatement(absl::string_view statement_string,
   // subtle differences that make this difficult. One of them is that the error
   // messages from the parser change depending on whether a "next" statement is
   // expected to occur or not.
-  BisonParser parser;
   std::unique_ptr<ASTNode> ast_node;
   std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes;
-  absl::Status status = parser.Parse(
-      BisonParserMode::kStatement, /*filename=*/absl::string_view(),
+  auto runtime_info = std::make_unique<ParserRuntimeInfo>();
+  WarningSink warning_sink(/*consider_location=*/true);
+  absl::Status status = ParseInternal(
+      ParserMode::kStatement, /*filename=*/absl::string_view(),
       statement_string, /*start_byte_offset=*/0,
       parser_options.id_string_pool().get(), parser_options.arena().get(),
       parser_options.language_options(), parser_options.macro_expansion_mode(),
-      parser_options.macro_catalog(), &ast_node, &other_allocated_ast_nodes,
-      /*ast_statement_properties=*/nullptr,
+      parser_options.macro_catalog(), &ast_node, *runtime_info, warning_sink,
+      &other_allocated_ast_nodes, /*ast_statement_properties=*/nullptr,
       /*statement_end_byte_offset=*/nullptr);
   ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationAndAdjustErrorString(
-      GetDefaultErrorMessageOptions(), statement_string, status));
+      parser_options.error_message_options(), statement_string, status));
   ZETASQL_RET_CHECK(ast_node != nullptr);
 
   std::unique_ptr<ASTStatement> statement(
@@ -141,7 +159,7 @@ absl::Status ParseStatement(absl::string_view statement_string,
   *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(statement),
-      parser.release_warnings(), parser.release_runtime_info());
+      std::move(warning_sink), std::move(runtime_info));
   return absl::OkStatus();
 }
 
@@ -152,15 +170,16 @@ absl::Status ParseScript(absl::string_view script_string,
   ParserOptions parser_options = parser_options_in;
   parser_options.CreateDefaultArenasIfNotSet();
 
-  BisonParser parser;
   std::unique_ptr<ASTNode> ast_node;
   std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes;
-  absl::Status status = parser.Parse(
-      BisonParserMode::kScript, /*filename=*/absl::string_view(), script_string,
+  auto runtime_info = std::make_unique<ParserRuntimeInfo>();
+  WarningSink warning_sink(/*consider_location=*/true);
+  absl::Status status = ParseInternal(
+      ParserMode::kScript, /*filename=*/absl::string_view(), script_string,
       /*start_byte_offset=*/0, parser_options.id_string_pool().get(),
       parser_options.arena().get(), parser_options.language_options(),
       parser_options.macro_expansion_mode(), parser_options.macro_catalog(),
-      &ast_node, &other_allocated_ast_nodes,
+      &ast_node, *runtime_info, warning_sink, &other_allocated_ast_nodes,
       /*ast_statement_properties=*/nullptr,
       /*statement_end_byte_offset=*/nullptr);
 
@@ -174,14 +193,14 @@ absl::Status ParseScript(absl::string_view script_string,
   *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(script),
-      parser.release_warnings(), parser.release_runtime_info());
+      std::move(warning_sink), std::move(runtime_info));
   return absl::OkStatus();
 }
 
 namespace {
 absl::Status ParseNextStatementInternal(ParseResumeLocation* resume_location,
                                         const ParserOptions& parser_options_in,
-                                        BisonParserMode mode,
+                                        ParserMode mode,
                                         std::unique_ptr<ParserOutput>* output,
                                         bool* at_end_of_input) {
   ParserOptions parser_options = parser_options_in;
@@ -191,21 +210,23 @@ absl::Status ParseNextStatementInternal(ParseResumeLocation* resume_location,
   output->reset();
   ZETASQL_RETURN_IF_ERROR(resume_location->Validate());
 
-  parser::BisonParser parser;
   std::unique_ptr<ASTNode> ast_node;
+  auto runtime_info = std::make_unique<ParserRuntimeInfo>();
+  WarningSink warning_sink(/*consider_location=*/true);
   std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes;
 
   int next_statement_byte_offset = 0;
 
-  absl::Status status = parser.Parse(
+  absl::Status status = ParseInternal(
       mode, resume_location->filename(), resume_location->input(),
       resume_location->byte_position(), parser_options.id_string_pool().get(),
       parser_options.arena().get(), parser_options.language_options(),
       parser_options.macro_expansion_mode(), parser_options.macro_catalog(),
-      &ast_node, &other_allocated_ast_nodes,
+      &ast_node, *runtime_info, warning_sink, &other_allocated_ast_nodes,
       /*ast_statement_properties=*/nullptr, &next_statement_byte_offset);
   ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationAndAdjustErrorString(
-      GetDefaultErrorMessageOptions(), resume_location->input(), status));
+      parser_options.error_message_options(), resume_location->input(),
+      status));
 
   *at_end_of_input =
       (next_statement_byte_offset == -1 ||
@@ -223,7 +244,7 @@ absl::Status ParseNextStatementInternal(ParseResumeLocation* resume_location,
   *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(statement),
-      parser.release_warnings(), parser.release_runtime_info());
+      std::move(warning_sink), std::move(runtime_info));
   return absl::OkStatus();
 }
 }  // namespace
@@ -233,8 +254,8 @@ absl::Status ParseNextScriptStatement(ParseResumeLocation* resume_location,
                                       std::unique_ptr<ParserOutput>* output,
                                       bool* at_end_of_input) {
   return ParseNextStatementInternal(resume_location, parser_options_in,
-                                    BisonParserMode::kNextScriptStatement,
-                                    output, at_end_of_input);
+                                    ParserMode::kNextScriptStatement, output,
+                                    at_end_of_input);
 }
 
 absl::Status ParseNextStatement(ParseResumeLocation* resume_location,
@@ -242,7 +263,7 @@ absl::Status ParseNextStatement(ParseResumeLocation* resume_location,
                                 std::unique_ptr<ParserOutput>* output,
                                 bool* at_end_of_input) {
   return ParseNextStatementInternal(resume_location, parser_options_in,
-                                    BisonParserMode::kNextStatement, output,
+                                    ParserMode::kNextStatement, output,
                                     at_end_of_input);
 }
 
@@ -252,19 +273,20 @@ absl::Status ParseType(absl::string_view type_string,
   ParserOptions parser_options = parser_options_in;
   parser_options.CreateDefaultArenasIfNotSet();
 
-  parser::BisonParser parser;
   std::unique_ptr<ASTNode> ast_node;
+  auto runtime_info = std::make_unique<ParserRuntimeInfo>();
+  WarningSink warning_sink(/*consider_location=*/true);
   std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes;
-  absl::Status status = parser.Parse(
-      BisonParserMode::kType, /* filename = */ absl::string_view(), type_string,
+  absl::Status status = ParseInternal(
+      ParserMode::kType, /* filename = */ absl::string_view(), type_string,
       0 /* offset */, parser_options.id_string_pool().get(),
       parser_options.arena().get(), parser_options.language_options(),
       parser_options.macro_expansion_mode(), parser_options.macro_catalog(),
-      &ast_node, &other_allocated_ast_nodes,
+      &ast_node, *runtime_info, warning_sink, &other_allocated_ast_nodes,
       /*ast_statement_properties=*/nullptr,
       /*statement_end_byte_offset=*/nullptr);
   ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationAndAdjustErrorString(
-      GetDefaultErrorMessageOptions(), type_string, status));
+      parser_options.error_message_options(), type_string, status));
   ZETASQL_RET_CHECK(ast_node != nullptr);
   ZETASQL_RET_CHECK(ast_node->IsType());
   std::unique_ptr<ASTType> type(ast_node.release()->GetAsOrDie<ASTType>());
@@ -272,7 +294,7 @@ absl::Status ParseType(absl::string_view type_string,
   *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(type),
-      parser.release_warnings(), parser.release_runtime_info());
+      std::move(warning_sink), std::move(runtime_info));
   return absl::OkStatus();
 }
 
@@ -282,19 +304,20 @@ absl::Status ParseExpression(absl::string_view expression_string,
   ParserOptions parser_options = parser_options_in;
   parser_options.CreateDefaultArenasIfNotSet();
 
-  parser::BisonParser parser;
   std::unique_ptr<ASTNode> ast_node;
+  auto runtime_info = std::make_unique<ParserRuntimeInfo>();
+  WarningSink warning_sink(/*consider_location=*/true);
   std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes;
-  absl::Status status = parser.Parse(
-      BisonParserMode::kExpression, /* filename = */ absl::string_view(),
+  absl::Status status = ParseInternal(
+      ParserMode::kExpression, /* filename = */ absl::string_view(),
       expression_string, 0 /* offset */, parser_options.id_string_pool().get(),
       parser_options.arena().get(), parser_options.language_options(),
       parser_options.macro_expansion_mode(), parser_options.macro_catalog(),
-      &ast_node, &other_allocated_ast_nodes,
+      &ast_node, *runtime_info, warning_sink, &other_allocated_ast_nodes,
       /*ast_statement_properties=*/nullptr,
       /*statement_end_byte_offset=*/nullptr);
   ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationAndAdjustErrorString(
-      GetDefaultErrorMessageOptions(), expression_string, status));
+      parser_options.error_message_options(), expression_string, status));
   ZETASQL_RET_CHECK(ast_node != nullptr);
   ZETASQL_RET_CHECK(ast_node->IsExpression());
   std::unique_ptr<ASTExpression> expression(
@@ -303,7 +326,7 @@ absl::Status ParseExpression(absl::string_view expression_string,
   *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(expression),
-      parser.release_warnings(), parser.release_runtime_info());
+      std::move(warning_sink), std::move(runtime_info));
   return absl::OkStatus();
 }
 
@@ -313,19 +336,21 @@ absl::Status ParseExpression(const ParseResumeLocation& resume_location,
   ParserOptions parser_options = parser_options_in;
   parser_options.CreateDefaultArenasIfNotSet();
 
-  parser::BisonParser parser;
   std::unique_ptr<ASTNode> ast_node;
+  auto runtime_info = std::make_unique<ParserRuntimeInfo>();
+  WarningSink warning_sink(/*consider_location=*/true);
   std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes;
-  absl::Status status = parser.Parse(
-      BisonParserMode::kExpression, resume_location.filename(),
+  absl::Status status = ParseInternal(
+      ParserMode::kExpression, resume_location.filename(),
       resume_location.input(), resume_location.byte_position(),
       parser_options.id_string_pool().get(), parser_options.arena().get(),
       parser_options.language_options(), parser_options.macro_expansion_mode(),
-      parser_options.macro_catalog(), &ast_node, &other_allocated_ast_nodes,
+      parser_options.macro_catalog(), &ast_node, *runtime_info, warning_sink,
+      &other_allocated_ast_nodes,
       /*ast_statement_properties=*/nullptr,
       /*statement_end_byte_offset=*/nullptr);
   ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationAndAdjustErrorString(
-      GetDefaultErrorMessageOptions(), resume_location.input(), status));
+      parser_options.error_message_options(), resume_location.input(), status));
   ZETASQL_RET_CHECK(ast_node != nullptr);
   std::unique_ptr<ASTExpression> expression(
       ast_node.release()->GetAsOrDie<ASTExpression>());
@@ -333,7 +358,7 @@ absl::Status ParseExpression(const ParseResumeLocation& resume_location,
   *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(expression),
-      parser.release_warnings(), parser.release_runtime_info());
+      std::move(warning_sink), std::move(runtime_info));
   return absl::OkStatus();
 }
 
@@ -354,18 +379,19 @@ ASTNodeKind ParseNextStatementKind(const ParseResumeLocation& resume_location,
                                    bool* next_statement_is_ctas) {
   ZETASQL_DCHECK_OK(resume_location.Validate());
 
-  parser::BisonParser parser;
   IdStringPool id_string_pool;
   zetasql_base::UnsafeArena arena(/*block_size=*/1024);
+  auto runtime_info = std::make_unique<ParserRuntimeInfo>();
+  WarningSink warning_sink(/*consider_location=*/true);
   std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes;
   parser::ASTStatementProperties ast_statement_properties;
-  parser
-      .Parse(BisonParserMode::kNextStatementKind, resume_location.filename(),
-             resume_location.input(), resume_location.byte_position(),
-             &id_string_pool, &arena, language_options, macro_expansion_mode,
-             macro_catalog, /*output=*/nullptr, &other_allocated_ast_nodes,
-             &ast_statement_properties,
-             /*statement_end_byte_offset=*/nullptr)
+  ParseInternal(ParserMode::kNextStatementKind, resume_location.filename(),
+                resume_location.input(), resume_location.byte_position(),
+                &id_string_pool, &arena, language_options, macro_expansion_mode,
+                macro_catalog, /*output=*/nullptr, *runtime_info, warning_sink,
+                &other_allocated_ast_nodes, &ast_statement_properties,
+                /*statement_end_byte_offset=*/nullptr)
+      // TODO: b/196226376 - Return this if is isn't a parsing error.
       .IgnoreError();
   *next_statement_is_ctas = ast_statement_properties.is_create_table_as_select;
   return ast_statement_properties.node_kind;
@@ -379,8 +405,9 @@ absl::Status ParseNextStatementProperties(
   ZETASQL_RETURN_IF_ERROR(resume_location.Validate());
   ZETASQL_RET_CHECK(parser_options.AllArenasAreInitialized());
 
-  parser::BisonParser parser;
   std::unique_ptr<ASTNode> output;
+  auto runtime_info = std::make_unique<ParserRuntimeInfo>();
+  WarningSink warning_sink(/*consider_location=*/true);
 
   // Unlike ParseStatementKind above, it is not safe to ignore the output
   // status in this case. In this function we expect to be able to inspect the
@@ -392,13 +419,13 @@ absl::Status ParseNextStatementProperties(
   // error. That is hard to do right now because the parser's tests run
   // ParseNextStatementProperties on things that are not statements and expects
   // that to work.
-  absl::Status parse_status = parser.Parse(
-      BisonParserMode::kNextStatementKind, resume_location.filename(),
+  absl::Status parse_status = ParseInternal(
+      ParserMode::kNextStatementKind, resume_location.filename(),
       resume_location.input(), resume_location.byte_position(),
       parser_options.id_string_pool().get(), parser_options.arena().get(),
       parser_options.language_options(), parser_options.macro_expansion_mode(),
-      parser_options.macro_catalog(), &output, allocated_ast_nodes,
-      ast_statement_properties,
+      parser_options.macro_catalog(), &output, *runtime_info, warning_sink,
+      allocated_ast_nodes, ast_statement_properties,
       /*statement_end_byte_offset=*/nullptr);
 
   // In kNextStatementKind mode, the bison parser places the statement level
@@ -412,6 +439,7 @@ absl::Status ParseNextStatementProperties(
         ast_hint, sql_input, ast_statement_properties->statement_level_hints));
   }
 
+  // TODO: b/196226376 - Return `parse_status` if it is not a parsing error.
   return absl::OkStatus();
 }
 
@@ -429,10 +457,8 @@ absl::Status ProcessStatementLevelHintsToMap(
 
     // Get the start and end byte offset of the hint's value expression,
     // and use the text from the input string.
-    const int start_offset =
-        hint->value()->GetParseLocationRange().start().GetByteOffset();
-    const int end_offset =
-        hint->value()->GetParseLocationRange().end().GetByteOffset();
+    const int start_offset = hint->value()->location().start().GetByteOffset();
+    const int end_offset = hint->value()->location().end().GetByteOffset();
     absl::string_view hint_expr_text =
         sql_input.substr(start_offset, end_offset - start_offset);
 

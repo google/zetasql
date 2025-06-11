@@ -225,8 +225,7 @@ class TableValuedFunction {
       absl::string_view tvf_name_string,
       absl::Span<const InputArgumentType> input_arg_types, int signature_idx,
       const SignatureMatchResult& signature_match_result,
-      const LanguageOptions& language_options,
-      bool show_function_signature_mismatch_details) const;
+      const LanguageOptions& language_options) const;
 
   // Serializes this table-valued function to a protocol buffer. Subclasses may
   // override this to add more information as needed.

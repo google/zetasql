@@ -443,6 +443,8 @@ absl::Status ProtoType::FieldDescriptorToTypeKind(
     TypeKind* kind) {
   if (field->label() == google::protobuf::FieldDescriptor::LABEL_REPEATED) {
     *kind = TYPE_ARRAY;
+  } else if (field->options().GetExtension(zetasql::is_measure)) {
+    *kind = TYPE_MEASURE;
   } else {
     ZETASQL_RETURN_IF_ERROR(
         FieldDescriptorToTypeKindBase(ignore_annotations, field, kind));
@@ -455,6 +457,8 @@ absl::Status ProtoType::FieldDescriptorToTypeKind(
     TypeKind* kind) {
   if (field->label() == google::protobuf::FieldDescriptor::LABEL_REPEATED) {
     *kind = TYPE_ARRAY;
+  } else if (field->options().GetExtension(zetasql::is_measure)) {
+    *kind = TYPE_MEASURE;
   } else {
     ZETASQL_RETURN_IF_ERROR(
         FieldDescriptorToTypeKindBase(field, use_obsolete_timestamp, kind));

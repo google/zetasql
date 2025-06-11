@@ -264,6 +264,8 @@ enum class FunctionKind {
   kArrayFindAll,
   kArrayZip,
 
+  kApply,
+
   // Proto map functions. Like array functions, the map functions must use
   // MaybeSetNonDeterministicArrayOutput.
   kProtoMapAtKey,
@@ -325,6 +327,7 @@ enum class FunctionKind {
   kJsonSubscript,
   kJsonContains,
   kJsonKeys,
+  kJsonFlatten,
   // Proto functions
   kFromProto,
   kToProto,
@@ -540,6 +543,7 @@ enum class FunctionKind {
   kIsTrail,
   kIsAcyclic,
   kIsSimple,
+  kDynamicPropertyEquals,
 
   // Distance functions
   kCosineDistance,
@@ -574,6 +578,8 @@ enum class FunctionKind {
   kMapCardinality,
   kMapDelete,
   kMapFilter,
+  // AGG(measure) function
+  kMeasureAgg,
 };
 
 // Provides two utility methods to look up a built-in function name or function
@@ -2360,6 +2366,20 @@ class ArrayZipFunction : public SimpleBuiltinScalarFunction {
   // Returns true if all the arrays in `arrays` have the same length.
   bool EqualArrayLength(absl::Span<const Value> arrays) const;
 
+  const InlineLambdaExpr* lambda_;
+};
+
+class ApplyFunction : public SimpleBuiltinScalarFunction {
+ public:
+  ApplyFunction(FunctionKind kind, const Type* output_type,
+                const InlineLambdaExpr* lambda)
+      : SimpleBuiltinScalarFunction(kind, output_type), lambda_(lambda) {}
+
+  absl::StatusOr<Value> Eval(
+      absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+      EvaluationContext* evaluation_context) const override;
+
+ private:
   const InlineLambdaExpr* lambda_;
 };
 

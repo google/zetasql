@@ -77,7 +77,7 @@ class TableNameResolver {
         analyzer_options_(analyzer_options),
         for_system_time_as_of_feature_enabled_(
             analyzer_options->language().LanguageFeatureEnabled(
-                FEATURE_V_1_1_FOR_SYSTEM_TIME_AS_OF)),
+                FEATURE_FOR_SYSTEM_TIME_AS_OF)),
         type_factory_(type_factory),
         catalog_(catalog),
         table_names_(table_names),
@@ -203,18 +203,19 @@ class TableNameResolver {
                                      const AliasSet& external_visible_aliases,
                                      AliasSet* local_visible_aliases);
 
-  absl::Status FindInTableSubquery(
-      const ASTTableSubquery* table_subquery,
+  absl::Status FindInGqlCallsOnNamedTvfsUnder(
+      const ASTGraphTableQuery* graph_query,
       const AliasSet& external_visible_aliases,
       AliasSet* local_visible_aliases);
+  absl::Status FindInTableSubquery(const ASTTableSubquery* table_subquery,
+                                   const AliasSet& external_visible_aliases,
+                                   AliasSet* local_visible_aliases);
 
   absl::Status FindInTablePathExpression(
-      const ASTTablePathExpression* table_ref,
-      AliasSet* visible_aliases);
+      const ASTTablePathExpression* table_ref, AliasSet* visible_aliases);
 
-  absl::Status ResolveTablePath(
-      const std::vector<std::string>& path,
-      const ASTForSystemTime* for_system_time);
+  absl::Status ResolveTablePath(const std::vector<std::string>& path,
+                                const ASTForSystemTime* for_system_time);
 
   absl::Status FindInTableElements(const ASTTableElementList* elements);
 
@@ -238,7 +239,7 @@ class TableNameResolver {
   //
   // `visible_aliases` are the aliases that can be resolved inside the query.
   // `new_aliases`: the output variable that contains the new aliases introduced
-  //    by the pipe operators.
+  // by the pipe operators.
   absl::Status FindInPipeOperatorList(
       absl::Span<const ASTPipeOperator* const> pipe_operator_list,
       const AliasSet& visible_aliases, AliasSet* new_aliases);
@@ -501,7 +502,7 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
           return FindInQuery(query, /*visible_aliases=*/{});
         }
         if (analyzer_options_->language().LanguageFeatureEnabled(
-                FEATURE_V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST) &&
+                FEATURE_CREATE_MODEL_WITH_ALIASED_QUERY_LIST) &&
             aliased_query_list != nullptr) {
           for (const ASTAliasedQuery* aliased_query :
                aliased_query_list->aliased_query_list()) {
@@ -1818,8 +1819,34 @@ absl::Status TableNameResolver::FindInGraphTableQuery(
     const AliasSet& external_visible_aliases, AliasSet* local_visible_aliases) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
+  // Find any TVFs called through CALL, as these are not on a relational
+  // subquery and won't show up in the usual path looking for them as table
+  // expressions in a FROM clause.
+  ZETASQL_RETURN_IF_ERROR(FindInGqlCallsOnNamedTvfsUnder(
+      graph_query, external_visible_aliases, local_visible_aliases));
+
   // Find in any nested subqueries
   return FindInExpressionsUnder(graph_query, external_visible_aliases);
+}
+
+absl::Status TableNameResolver::FindInGqlCallsOnNamedTvfsUnder(
+    const ASTGraphTableQuery* graph_query,
+    const AliasSet& external_visible_aliases, AliasSet* local_visible_aliases) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
+  ZETASQL_RET_CHECK(graph_query != nullptr);
+
+  std::vector<const ASTNode*> call_named_tvf_nodes;
+  graph_query->GetDescendantSubtreesWithKinds({AST_GQL_NAMED_CALL},
+                                              &call_named_tvf_nodes);
+
+  for (const ASTNode* call_named_tvf_node : call_named_tvf_nodes) {
+    ZETASQL_RETURN_IF_ERROR(FindInTVF(
+        call_named_tvf_node->GetAsOrDie<ASTGqlNamedCall>()->tvf_call(),
+        external_visible_aliases, local_visible_aliases));
+  }
+
+  return absl::OkStatus();
 }
 
 absl::Status TableNameResolver::FindInCreatePropertyGraphStatement(

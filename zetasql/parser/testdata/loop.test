@@ -1,5 +1,5 @@
 [default mode=script]
-[default language_features=V_1_3_REPEAT,V_1_3_FOR_IN]
+[default language_features=REPEAT,FOR_IN]
 LOOP
 END LOOP
 --

@@ -121,7 +121,7 @@ ARRAY<STRUCT<
  }]
 ==
 [prepare_database]
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 CREATE TABLE TestUuid AS
 SELECT 'a' as str,
        cast('9d3da323-4c20-360f-bd9b-ec54feec54f0' as uuid) as uuid_col
@@ -248,7 +248,7 @@ ARRAY<STRUCT<
  {"d", [NULL, NULL), [NULL, NULL)}]
 ==
 [prepare_database]
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 CREATE TABLE TestDatetimeRange AS
 SELECT 'a' as y,
        RANGE<DATETIME> '[2020-01-01, 2020-12-31)' as range_datetime_col
@@ -343,14 +343,14 @@ WHERE bignumeric_col IN(CAST(1.234567890123456789 AS BIGNUMERIC), CAST(-3.141592
 --
 ARRAY<STRUCT<y STRING>>[unknown order:{"b"}, {"a"}]
 ==
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 [name=in_clause_simple_not_in_uuid]
 SELECT str FROM TestUuid
 WHERE uuid_col NOT IN(CAST('9d3da323-4c20-360f-bd9b-ec54feec54f0' AS UUID), CAST('00000000-0000-4000-8000-000000000000' AS UUID));
 --
 ARRAY<STRUCT<str STRING>>[{"c"}]
 ==
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 [name=in_clause_simple_in_uuid]
 SELECT str FROM TestUuid
 WHERE uuid_col IN(CAST('9d3da323-4c20-360f-bd9b-ec54feec54f0' AS UUID), CAST('00000000-0000-4000-8000-000000000000' AS UUID));
@@ -385,14 +385,14 @@ WHERE range_timestamp_col IN(RANGE<TIMESTAMP> '[2020-01-01, 2020-12-31)', RANGE<
 --
 ARRAY<STRUCT<y STRING>>[unknown order:{"d"}, {"a"}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=in_clause_simple_not_in_range_datetime]
 SELECT y FROM TestDatetimeRange
 WHERE range_datetime_col NOT IN(RANGE<DATETIME> '[2020-01-01, 2020-12-31)', RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)');
 --
 ARRAY<STRUCT<y STRING>>[unknown order:{"b"}, {"c"}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=in_clause_simple_in_range_datetime]
 SELECT y FROM TestDatetimeRange
 WHERE range_datetime_col IN(RANGE<DATETIME> '[2020-01-01, 2020-12-31)', RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)');
@@ -481,7 +481,7 @@ ORDER BY y;
 --
 ARRAY<STRUCT<y STRING>>[known order:{"b"}, {"c"}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=in_clause_subquery_range_datetime]
 SELECT y FROM TestDatetimeRange WHERE range_datetime_col IN (
   SELECT RANGE<DATETIME> '[2020-01-01, 2020-12-31)' t1
@@ -491,7 +491,7 @@ ORDER BY y;
 --
 ARRAY<STRUCT<y STRING>>[known order:{"a"}, {"d"}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=in_clause_not_in_subquery_range_datetime]
 SELECT y FROM TestDatetimeRange WHERE range_datetime_col NOT IN (
   SELECT RANGE<DATETIME> '[2020-01-01, 2020-12-31)' t1
@@ -537,7 +537,7 @@ ORDER BY y;
 --
 ARRAY<STRUCT<y STRING>>[known order:{"b"}, {"c"}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=in_clause_subquery_range_datetime_unnest]
 SELECT y FROM TestDatetimeRange WHERE range_datetime_col IN (
   SELECT i FROM UNNEST([RANGE<DATETIME> '[2020-01-01, 2020-12-31)',
@@ -546,7 +546,7 @@ ORDER BY y;
 --
 ARRAY<STRUCT<y STRING>>[known order:{"a"}, {"d"}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=in_clause_not_in_subquery_range_datetime_unnest]
 SELECT y FROM TestDatetimeRange WHERE range_datetime_col NOT IN (
   SELECT i FROM UNNEST([RANGE<DATETIME> '[2020-01-01, 2020-12-31)',
@@ -589,7 +589,7 @@ SELECT CAST(1.234567890123456789 AS BIGNUMERIC) IN UNNEST(ARRAY<BIGNUMERIC>[1, 2
 --
 ARRAY<STRUCT<BOOL>>[{true}]
 ==
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 [name=in_clause_unnest_in_select_uuid]
 SELECT CAST('9d3da323-4c20-360f-bd9b-ec54feec54f0' AS UUID)
 IN UNNEST(
@@ -616,7 +616,7 @@ IN UNNEST(
 --
 ARRAY<STRUCT<BOOL>>[{true}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=in_clause_unnest_in_select_range_datetime]
 SELECT RANGE<DATETIME> '[2020-01-01, 2020-02-01)'
 IN UNNEST(
@@ -810,21 +810,21 @@ SELECT x FROM TestEnum WHERE enum_col IN (
 --
 ARRAY<STRUCT<x INT64>>[known order:{1}, {3}]
 ==
-[required_features=V_1_1_ARRAY_EQUALITY]
+[required_features=ARRAY_EQUALITY]
 [name=in_clause_array_type]
 SELECT id FROM Test2 WHERE Info.str_value IN (['d']);
 --
 ARRAY<STRUCT<id INT64>>[{2}]
 ==
 
-[required_features=V_1_1_ARRAY_EQUALITY]
+[required_features=ARRAY_EQUALITY]
 [name=in_clause_array_type_not_in]
 SELECT id FROM Test2 WHERE Info.str_value NOT IN (['d']);
 --
 ARRAY<STRUCT<id INT64>>[{1}]
 ==
 
-[required_features=V_1_1_ARRAY_EQUALITY]
+[required_features=ARRAY_EQUALITY]
 [name=in_clause_array_type_case]
 SELECT id, CASE WHEN Info.str_value IN (['d']) THEN "yes" END
 FROM Test2;
@@ -832,14 +832,14 @@ FROM Test2;
 ARRAY<STRUCT<id INT64, STRING>>[unknown order:{2, "yes"}, {1, NULL}]
 ==
 
-[required_features=V_1_1_ARRAY_EQUALITY]
+[required_features=ARRAY_EQUALITY]
 [name=in_clause_array_type_join]
 SELECT a.id FROM Test2 a JOIN Test2 b ON a.Info.str_value IN (['d']);
 --
 ARRAY<STRUCT<id INT64>>[unknown order:{2}, {2}]
 ==
 
-[required_features=V_1_1_ARRAY_EQUALITY]
+[required_features=ARRAY_EQUALITY]
 [name=in_clause_struct_array_type]
 SELECT x, x IN ((("test", [1, 2])))
 FROM (SELECT ("test", [1, 2]) x UNION ALL SELECT ("test", [1, 2, 3]))
@@ -860,7 +860,7 @@ ARRAY<STRUCT<
                 true}]
 ==
 
-[required_features=V_1_1_ARRAY_EQUALITY]
+[required_features=ARRAY_EQUALITY]
 [name=in_unnest_clause_struct_array_type]
 SELECT ("test", [1, 2]) IN UNNEST([("test", [1, 2]), ("test", [1, 2, 3])])
 --

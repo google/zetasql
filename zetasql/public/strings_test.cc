@@ -215,7 +215,7 @@ static void TestStringEscaping(absl::string_view orig) {
   EXPECT_EQ(orig, unescaped) << "escaped: " << escaped;
 }
 
-static void TestValue(const std::string& orig) {
+static void TestValue(absl::string_view orig) {
   TestStringEscaping(orig);
   TestString(orig);
   TestIdentifier(orig);
@@ -1239,11 +1239,11 @@ TEST(StringsTest, ParseIdentifierPath) {
   });
 
   // By default, test cases should produce the expected result regardless of
-  // whether FEATURE_V_1_3_ALLOW_SLASH_PATHS is enabled.
+  // whether FEATURE_ALLOW_SLASH_PATHS is enabled.
   for (const bool enable_slash_paths : {true, false}) {
     LanguageOptions language_options;
     if (enable_slash_paths) {
-      language_options.EnableLanguageFeature(FEATURE_V_1_3_ALLOW_SLASH_PATHS);
+      language_options.EnableLanguageFeature(FEATURE_ALLOW_SLASH_PATHS);
     }
     for (const ParseIdentifierPathTestCase& test : test_cases) {
       // Also prepare an input char array without null terminator at the end.
@@ -1297,7 +1297,7 @@ TEST(StringsTest, ParseIdentifierPath) {
 
 TEST(StringsTest, ParseIdentifierPathWithSlashes) {
   // All test cases are expected to produce an error if
-  // FEATURE_V_1_3_ALLOW_SLASH_PATHS is disabled, otherwise they produce success
+  // FEATURE_ALLOW_SLASH_PATHS is disabled, otherwise they produce success
   // or error as indicated in the TestCase.
   const std::vector<ParseIdentifierPathTestCase> test_cases({
       // Test format:
@@ -1343,7 +1343,7 @@ TEST(StringsTest, ParseIdentifierPathWithSlashes) {
   for (const bool enable_slash_paths : {true, false}) {
     LanguageOptions language_options;
     if (enable_slash_paths) {
-      language_options.EnableLanguageFeature(FEATURE_V_1_3_ALLOW_SLASH_PATHS);
+      language_options.EnableLanguageFeature(FEATURE_ALLOW_SLASH_PATHS);
     }
     for (const ParseIdentifierPathTestCase& test : test_cases) {
       // Also prepare an input char array without null terminator at the end.

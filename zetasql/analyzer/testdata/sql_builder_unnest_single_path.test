@@ -1,4 +1,4 @@
-[default language_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS,V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH]
+[default language_features=UNNEST_AND_FLATTEN_ARRAYS,SINGLE_TABLE_NAME_ARRAY_PATH]
 [default show_sqlbuilder_output]
 [default no_show_resolved_ast]
 

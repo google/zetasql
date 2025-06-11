@@ -8,7 +8,7 @@ SELECT TYPEOF(NULL);
        ^
 ==
 
-[default language_features=V_1_3_TYPEOF_FUNCTION]
+[default language_features=TYPEOF_FUNCTION]
 SELECT TYPEOF({{NULL|1|1+1}});
 --
 ALTERNATION GROUP: NULL
@@ -199,7 +199,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_2_SAFE_FUNCTION_CALL,V_1_3_TYPEOF_FUNCTION]
+[language_features=SAFE_FUNCTION_CALL,TYPEOF_FUNCTION]
 SELECT SAFE.TYPEOF(1);
 --
 QueryStmt

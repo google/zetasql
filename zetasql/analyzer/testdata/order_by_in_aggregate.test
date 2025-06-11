@@ -1,4 +1,4 @@
-[default language_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_ORDER_BY_COLLATE,ANALYTIC_FUNCTIONS,V_1_1_LIMIT_IN_AGGREGATE]
+[default language_features=ORDER_BY_IN_AGGREGATE,ORDER_BY_COLLATE,ANALYTIC_FUNCTIONS,LIMIT_IN_AGGREGATE]
 
 select array_agg(Key order by Key)
 from TestTable
@@ -824,27 +824,27 @@ select sort_count(distinct order by Key) as c from TestTable;
 select ntile(10 order by Key) over (partition by Key ORDER BY Key) as b
 from TestTable;
 --
-ERROR: ORDER BY in arguments is not supported on analytic functions [at 1:8]
+ERROR: ORDER BY in arguments is not supported on analytic functions [at 1:17]
 select ntile(10 order by Key) over (partition by Key ORDER BY Key) as b
-       ^
+                ^
 
 ==
 
 select sum(Key order by Key) over (partition by Key ORDER BY Key) as b
 from TestTable;
 --
-ERROR: ORDER BY in arguments is not supported on analytic functions [at 1:8]
+ERROR: ORDER BY in arguments is not supported on analytic functions [at 1:16]
 select sum(Key order by Key) over (partition by Key ORDER BY Key) as b
-       ^
+               ^
 
 ==
 
 select array_agg(Key order by Key) over (partition by Key ORDER BY Key) as b
 from TestTable;
 --
-ERROR: ORDER BY in arguments is not supported on analytic functions [at 1:8]
+ERROR: ORDER BY in arguments is not supported on analytic functions [at 1:22]
 select array_agg(Key order by Key) over (partition by Key ORDER BY Key) as b
-       ^
+                     ^
 
 ==
 
@@ -1738,7 +1738,7 @@ QueryStmt
                 +-Literal(type=INT64, value=5)
 ==
 
-[language_features=V_1_1_ORDER_BY_IN_AGGREGATE{{|,V_1_3_ARRAY_ORDERING}}]
+[language_features=ORDER_BY_IN_AGGREGATE{{|,ARRAY_ORDERING}}]
 SELECT array_concat_agg(arr1 ORDER BY arr2)
 FROM (select [1] as arr1, [2] as arr2);
 --
@@ -1748,7 +1748,7 @@ ERROR: ORDER BY does not support expressions of type ARRAY<INT64> [at 1:39]
 SELECT array_concat_agg(arr1 ORDER BY arr2)
                                       ^
 --
-ALTERNATION GROUP: ,V_1_3_ARRAY_ORDERING
+ALTERNATION GROUP: ,ARRAY_ORDERING
 --
 QueryStmt
 +-output_column_list=
@@ -1777,7 +1777,7 @@ QueryStmt
                     +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.arr2#2)
 ==
 
-[language_features=V_1_1_ORDER_BY_IN_AGGREGATE{{|,V_1_3_ARRAY_ORDERING}}]
+[language_features=ORDER_BY_IN_AGGREGATE{{|,ARRAY_ORDERING}}]
 SELECT array_concat_agg(arr1 ORDER BY arr2)
 FROM (select [1] as arr1, [KitchenSink] as arr2 FROM ComplexTypes);
 --
@@ -1786,22 +1786,22 @@ SELECT array_concat_agg(arr1 ORDER BY arr2)
                                       ^
 ==
 
-[language_features=V_1_1_ORDER_BY_IN_AGGREGATE{{|,V_1_3_ARRAY_ORDERING|,V_1_3_ARRAY_ORDERING,V_1_1_ARRAY_EQUALITY|,V_1_3_ARRAY_ORDERING,V_1_2_GROUP_BY_ARRAY|,V_1_3_ARRAY_ORDERING,V_1_1_ARRAY_EQUALITY,V_1_2_GROUP_BY_ARRAY}}]
+[language_features=ORDER_BY_IN_AGGREGATE{{|,ARRAY_ORDERING|,ARRAY_ORDERING,ARRAY_EQUALITY|,ARRAY_ORDERING,GROUP_BY_ARRAY|,ARRAY_ORDERING,ARRAY_EQUALITY,GROUP_BY_ARRAY}}]
 SELECT array_concat_agg(distinct arr1 ORDER BY arr1)
 FROM (select [1] as arr1);
 --
 ALTERNATION GROUPS:
     <empty>
-    ,V_1_3_ARRAY_ORDERING
-    ,V_1_3_ARRAY_ORDERING,V_1_1_ARRAY_EQUALITY
+    ,ARRAY_ORDERING
+    ,ARRAY_ORDERING,ARRAY_EQUALITY
 --
 ERROR: Aggregate functions with DISTINCT cannot be used with arguments of type ARRAY [at 1:8]
 SELECT array_concat_agg(distinct arr1 ORDER BY arr1)
        ^
 --
 ALTERNATION GROUPS:
-    ,V_1_3_ARRAY_ORDERING,V_1_2_GROUP_BY_ARRAY
-    ,V_1_3_ARRAY_ORDERING,V_1_1_ARRAY_EQUALITY,V_1_2_GROUP_BY_ARRAY
+    ,ARRAY_ORDERING,GROUP_BY_ARRAY
+    ,ARRAY_ORDERING,ARRAY_EQUALITY,GROUP_BY_ARRAY
 --
 QueryStmt
 +-output_column_list=
@@ -1830,22 +1830,22 @@ QueryStmt
                     +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.arr1#1)
 ==
 
-[language_features=V_1_1_ORDER_BY_IN_AGGREGATE{{|,V_1_3_ARRAY_ORDERING|,V_1_3_ARRAY_ORDERING,V_1_1_ARRAY_EQUALITY|,V_1_3_ARRAY_ORDERING,V_1_2_GROUP_BY_ARRAY|,V_1_3_ARRAY_ORDERING,V_1_1_ARRAY_EQUALITY,V_1_2_GROUP_BY_ARRAY}}]
+[language_features=ORDER_BY_IN_AGGREGATE{{|,ARRAY_ORDERING|,ARRAY_ORDERING,ARRAY_EQUALITY|,ARRAY_ORDERING,GROUP_BY_ARRAY|,ARRAY_ORDERING,ARRAY_EQUALITY,GROUP_BY_ARRAY}}]
 SELECT array_concat_agg(distinct arr1 ORDER BY arr1)
 FROM (select [KitchenSink] as arr1 FROM ComplexTypes);
 --
 ALTERNATION GROUPS:
     <empty>
-    ,V_1_3_ARRAY_ORDERING
-    ,V_1_3_ARRAY_ORDERING,V_1_1_ARRAY_EQUALITY
+    ,ARRAY_ORDERING
+    ,ARRAY_ORDERING,ARRAY_EQUALITY
 --
 ERROR: Aggregate functions with DISTINCT cannot be used with arguments of type ARRAY [at 1:8]
 SELECT array_concat_agg(distinct arr1 ORDER BY arr1)
        ^
 --
 ALTERNATION GROUPS:
-    ,V_1_3_ARRAY_ORDERING,V_1_2_GROUP_BY_ARRAY
-    ,V_1_3_ARRAY_ORDERING,V_1_1_ARRAY_EQUALITY,V_1_2_GROUP_BY_ARRAY
+    ,ARRAY_ORDERING,GROUP_BY_ARRAY
+    ,ARRAY_ORDERING,ARRAY_EQUALITY,GROUP_BY_ARRAY
 --
 ERROR: Aggregate functions with DISTINCT cannot be used with arguments of type ARRAY containing PROTO [at 1:8]
 SELECT array_concat_agg(distinct arr1 ORDER BY arr1)
@@ -2077,7 +2077,7 @@ select array_agg(distinct Key + 1024 order by Key + 2048) from TestTable
                                               ^
 ==
 
-[language_features=V_1_1_ORDER_BY_IN_AGGREGATE{{|,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY}}]
+[language_features=ORDER_BY_IN_AGGREGATE{{|,NULLS_FIRST_LAST_IN_ORDER_BY}}]
 select array_agg(key order by key nulls {{first|last}})
 from TestTable
 --
@@ -2094,7 +2094,7 @@ ERROR: NULLS FIRST and NULLS LAST are not supported [at 1:35]
 select array_agg(key order by key nulls last)
                                   ^
 --
-ALTERNATION GROUP: ,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY,first
+ALTERNATION GROUP: ,NULLS_FIRST_LAST_IN_ORDER_BY,first
 --
 QueryStmt
 +-output_column_list=
@@ -2117,7 +2117,7 @@ QueryStmt
                   | +-ColumnRef(type=INT32, column=TestTable.key#1)
                   +-null_order=NULLS_FIRST
 --
-ALTERNATION GROUP: ,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY,last
+ALTERNATION GROUP: ,NULLS_FIRST_LAST_IN_ORDER_BY,last
 --
 QueryStmt
 +-output_column_list=

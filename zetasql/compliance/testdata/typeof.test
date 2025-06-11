@@ -1,7 +1,7 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
 [load_proto_names=zetasql_test__.KitchenSinkPB, zetasql_test__.TestExtraPB, zetasql_test__.TestExtraPBExtensionHolder, zetasql_test__.KitchenSinkPB.Nested, zetasql_test__.RepeatedHolderPB, zetasql_test__.MessageWithMapField, zetasql_test__.MessageWithMapField.StringInt32MapEntry]
 [load_enum_names=zetasql_test__.TestEnum, zetasql_test__.AnotherTestEnum, zetasql_test__.TestEnumWithAlias, zetasql_test__.TestEnumWithAnnotations]
-[default required_features=V_1_3_TYPEOF_FUNCTION]
+[default required_features=TYPEOF_FUNCTION]
 [prepare_database]
 CREATE TABLE EverywhereTypes AS
 SELECT CAST(0 AS INT64) AS i64,
@@ -160,57 +160,57 @@ ARRAY<STRUCT<STRING, STRING, STRING, STRING, STRING, STRING>>[
   }
 ]
 ==
-[required_features=V_1_3_TYPEOF_FUNCTION,PARAMETERIZED_TYPES]
+[required_features=TYPEOF_FUNCTION,PARAMETERIZED_TYPES]
 [name=typeof_parameterized_type_expression]
 SELECT TYPEOF(CAST('abc' AS STRING(10)));
 --
 ARRAY<STRUCT<STRING>>[{"STRING"}]
 ==
-[required_features=V_1_3_TYPEOF_FUNCTION,NUMERIC_TYPE]
+[required_features=TYPEOF_FUNCTION,NUMERIC_TYPE]
 [name=typeof_numeric]
 SELECT TYPEOF(NUMERIC '1.1');
 --
 ARRAY<STRUCT<STRING>>[{"NUMERIC"}]
 ==
-[required_features=V_1_3_TYPEOF_FUNCTION,BIGNUMERIC_TYPE]
+[required_features=TYPEOF_FUNCTION,BIGNUMERIC_TYPE]
 [name=typeof_bignumeric]
 SELECT TYPEOF(BIGNUMERIC '1.1');
 --
 ARRAY<STRUCT<STRING>>[{"BIGNUMERIC"}]
 ==
-[required_features=V_1_3_TYPEOF_FUNCTION,V_1_2_CIVIL_TIME]
+[required_features=TYPEOF_FUNCTION,CIVIL_TIME]
 [name=typeof_civil_time]
 SELECT TYPEOF(DATETIME '2020-02-02 20:20:02.02'),
        TYPEOF(TIME '20:20:02.02');
 --
 ARRAY<STRUCT<STRING, STRING>>[{"DATETIME", "TIME"}]
 ==
-[required_features=V_1_3_TYPEOF_FUNCTION,GEOGRAPHY]
+[required_features=TYPEOF_FUNCTION,GEOGRAPHY]
 [name=typeof_geography]
 SELECT TYPEOF(CAST(NULL AS GEOGRAPHY));
 --
 ARRAY<STRUCT<STRING>>[{"GEOGRAPHY"}]
 ==
-[required_features=V_1_3_TYPEOF_FUNCTION,JSON_TYPE]
+[required_features=TYPEOF_FUNCTION,JSON_TYPE]
 [name=typeof_json]
 SELECT TYPEOF(CAST(NULL AS JSON));
 --
 ARRAY<STRUCT<STRING>>[{"JSON"}]
 ==
-[required_features=V_1_3_TYPEOF_FUNCTION,INTERVAL_TYPE]
+[required_features=TYPEOF_FUNCTION,INTERVAL_TYPE]
 [name=typeof_interval]
 SELECT TYPEOF(CAST(NULL AS INTERVAL));
 --
 ARRAY<STRUCT<STRING>>[{"INTERVAL"}]
 ==
-[required_features=V_1_3_TYPEOF_FUNCTION,NUMERIC_TYPE,PARAMETERIZED_TYPES]
+[required_features=TYPEOF_FUNCTION,NUMERIC_TYPE,PARAMETERIZED_TYPES]
 [name=typeof_parameterized_type_schema]
 SELECT TYPEOF(n), TYPEOF(s), TYPEOF(b) FROM ParameterizedTypes;
 --
 ARRAY<STRUCT<STRING, STRING, STRING>>[{"NUMERIC", "STRING", "BYTES"}]
 ==
 
-[required_features=V_1_3_TYPEOF_FUNCTION,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[required_features=TYPEOF_FUNCTION,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 [name=typeof_collated_string]
 WITH t AS (SELECT COLLATE('aBc', 'und:ci') AS collated_str)
 SELECT TYPEOF(collated_str) FROM t
@@ -218,7 +218,7 @@ SELECT TYPEOF(collated_str) FROM t
 ARRAY<STRUCT<STRING>>[{"STRING"}]
 ==
 
-[required_features=V_1_3_TYPEOF_FUNCTION,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[required_features=TYPEOF_FUNCTION,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 [name=typeof_collated_compound_types]
 WITH t AS (SELECT [COLLATE('aBc', 'und:ci')] AS arr)
 SELECT TYPEOF(t.arr), TYPEOF(t) FROM t

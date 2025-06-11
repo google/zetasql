@@ -41,6 +41,7 @@
 #include "absl/strings/str_replace.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+#include "re2/re2.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -82,7 +83,11 @@ absl::Status FunctionOptions::Deserialize(
       proto.supports_clamped_between_modifier());
   options->set_uses_upper_case_sql_name(proto.uses_upper_case_sql_name());
   options->set_may_suppress_side_effects(proto.may_suppress_side_effects());
-
+  options->module_name_from_import.reserve(
+      proto.module_name_from_import_size());
+  for (const auto& module_name : proto.module_name_from_import()) {
+    options->module_name_from_import.push_back(module_name);
+  }
   *result = std::move(options);
   return absl::OkStatus();
 }
@@ -111,6 +116,9 @@ void FunctionOptions::Serialize(FunctionOptionsProto* proto) const {
   proto->set_supports_limit(supports_limit);
   proto->set_supports_null_handling_modifier(supports_null_handling_modifier);
   proto->set_may_suppress_side_effects(may_suppress_side_effects);
+  for (const std::string& module_name : module_name_from_import) {
+    proto->add_module_name_from_import(module_name);
+  }
 }
 
 FunctionOptions& FunctionOptions::set_evaluator(
@@ -439,16 +447,104 @@ std::string Function::DebugString(bool verbose) const {
 }
 
 std::string Function::GetSQL(std::vector<std::string> inputs,
-                             const FunctionSignature* signature) const {
+                             const FunctionSignature* signature,
+                             absl::string_view arguments_prefix,
+                             absl::string_view arguments_suffix, bool safe_call,
+                             bool chained_call) const {
+  // Save the original first argument so we can detect below if
+  // UpdateArgsForGetSQL modified it (e.g. to make it a named argument).
+  const std::string orig_input0 = inputs.empty() ? "" : inputs.front();
+
   UpdateArgsForGetSQL(signature, &inputs);
+
   if (GetSQLCallback() != nullptr) {
-    return GetSQLCallback()(inputs);
+    // The callback uses an older signature that requires hacking the
+    // prefix and suffix in as part of inputs.
+    if (!arguments_prefix.empty()) {
+      if (inputs.empty()) {
+        inputs.push_back(std::string(arguments_prefix));
+      } else {
+        inputs[0] = absl::StrCat(arguments_prefix, " ", inputs[0]);
+      }
+    }
+    if (!arguments_suffix.empty()) {
+      if (inputs.empty()) {
+        inputs.push_back(std::string(arguments_suffix));
+      } else {
+        absl::StrAppend(&inputs.back(), " ", arguments_suffix);
+      }
+    }
+
+    std::string sql = GetSQLCallback()(inputs);
+
+    if (safe_call) {
+      // These internal function names are special-cased to switch to alternate
+      // names when called in safe mode.  e.g. OFFSET -> SAFE_OFFSET.
+      //
+      // These cases aren't reached for the built-in functions since those
+      // directly resolve to alternate functions like `$safe_array_at_offset`
+      // rather than showing up as SAFE calls.
+      //
+      // These cases are only reached when non-built-in overloads are added for
+      // the function names below, since those don't use alternate internal
+      // function names for the SAFE version. They show up as SAFE calls of
+      // the base function name, and their GetSQL() callback isn't aware of
+      // the SAFE mode.  So the rewrite happens here.
+      //
+      // See `analyzer/testdata/extended_subscript.test` and
+      // (broken link).
+      absl::string_view function_name = Name();
+      if (function_name == "$subscript_with_offset") {
+        RE2::Replace(&sql, R"re(\[\s*OFFSET\s*\()re", "[SAFE_OFFSET(");
+      } else if (function_name == "$subscript_with_key") {
+        RE2::Replace(&sql, R"re(\[\s*KEY\s*\()re", "[SAFE_KEY(");
+      } else if (function_name == "$subscript_with_ordinal") {
+        RE2::Replace(&sql, R"re(\[\s*ORDINAL\s*\()re", "[SAFE_ORDINAL(");
+      } else {
+        // By default, assume that we can use "SAFE." prefixes on the generated
+        // SQL to make a SAFE call, since the looks like a function call.
+        // Operators that don't support this shouldn't have SAFE calls.
+        sql = absl::StrCat("SAFE.", sql);
+      }
+    }
+
+    return sql;
   }
-  std::string name = FullName(/*include_group=*/false);
+
+  // Generate a chained call when requested, but only if possible.
+  // Chained calls won't work for zero-arg functions or if the first argument
+  // was a named argument or other special form.  We detect those cases by
+  // checking if the first argument was modified by UpdateArgsForGetSQL.
+  if (chained_call && (inputs.empty() || orig_input0 != inputs.front())) {
+    chained_call = false;
+  }
+
+  std::string name;
+  if (safe_call) {
+    name = "SAFE.";
+  }
+
+  absl::StrAppend(&name, FullName(/*include_group=*/false));
+
+  if (chained_call && absl::StrContains(name, '.')) {
+    name = absl::StrCat("(", name, ")");
+  }
+
   if (function_options_.uses_upper_case_sql_name) {
     absl::AsciiStrToUpper(&name);
   }
-  return absl::StrCat(name, "(", absl::StrJoin(inputs, ", "), ")");
+  if (chained_call) {
+    // Currently, we always add parentheses around the base argument.
+    // Detecting when they are unneeded is tricky without an AST.
+    // Looking for a trailing ")" isn't enough because an expression like
+    // "a + b()" requires parentheses too.
+    name = absl::StrCat("(", inputs.front(), ").", name);
+    inputs.erase(inputs.begin());
+  }
+  return absl::StrCat(
+      name, "(", arguments_prefix, arguments_prefix.empty() ? "" : " ",
+      absl::StrJoin(inputs, ", "), arguments_suffix.empty() ? "" : " ",
+      arguments_suffix, ")");
 }
 
 absl::Status Function::CheckPreResolutionArgumentConstraints(

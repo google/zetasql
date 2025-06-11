@@ -1,6 +1,6 @@
 # Tests for the FOR UPDATE clause in subqueries.
 
-[default language_features=V_1_4_FOR_UPDATE]
+[default language_features=FOR_UPDATE]
 
 # FOR UPDATE scoped to correlated subquery.
 select a, b from t as i where b >= (select b from t where a = i.a for update);

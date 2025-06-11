@@ -3,7 +3,7 @@
 #
 # with_on_subquery_v1_0.test has the same queries on v1.0, showing errors.
 
-[default language_features=V_1_1_WITH_ON_SUBQUERY]
+[default language_features=WITH_ON_SUBQUERY]
 
 SELECT * FROM
   (WITH q AS (select 1 x) SELECT x+1 AS y FROM q)

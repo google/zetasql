@@ -14,10 +14,13 @@
 // limitations under the License.
 //
 
+#include "zetasql/public/types/measure_type.h"
+
 #include <memory>
 #include <string>
 
 #include "zetasql/base/testing/status_matchers.h"  
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/collation.h"
 #include "zetasql/public/types/simple_value.h"
@@ -40,11 +43,17 @@ TEST(MeasureTypeTest, TestNames) {
   TypeFactory factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* measure_type_with_int64,
                        factory.MakeMeasureType(types::Int64Type()));
+
   EXPECT_EQ(measure_type_with_int64->DebugString(), "MEASURE<INT64>");
   EXPECT_EQ(measure_type_with_int64->ShortTypeName(PRODUCT_INTERNAL),
             "MEASURE<INT64>");
   EXPECT_EQ(measure_type_with_int64->TypeName(PRODUCT_INTERNAL),
             "MEASURE<INT64>");
+  EXPECT_TRUE(measure_type_with_int64->IsMeasureType());
+  EXPECT_TRUE(measure_type_with_int64->AsMeasure()->result_type()->IsInt64());
+  EXPECT_EQ(measure_type_with_int64->AsMeasure()->CapitalizedName(),
+            "Measure<Int64>");
+  EXPECT_EQ(measure_type_with_int64->AsMeasure()->nesting_depth(), 1);
 
   zetasql_test__::KitchenSinkPB kitchen_sink;
   const ProtoType* proto_type = nullptr;
@@ -57,6 +66,11 @@ TEST(MeasureTypeTest, TestNames) {
             "MEASURE<zetasql_test__.KitchenSinkPB>");
   EXPECT_EQ(measure_type_with_proto->TypeName(PRODUCT_INTERNAL),
             "MEASURE<`zetasql_test__.KitchenSinkPB`>");
+  EXPECT_TRUE(measure_type_with_proto->IsMeasureType());
+  EXPECT_TRUE(measure_type_with_proto->AsMeasure()->result_type()->IsProto());
+  EXPECT_EQ(measure_type_with_proto->AsMeasure()->CapitalizedName(),
+            "Measure<Proto<zetasql_test__.KitchenSinkPB>>");
+  EXPECT_EQ(measure_type_with_proto->AsMeasure()->nesting_depth(), 1);
 
   const StructType* struct_type;
   ZETASQL_ASSERT_OK(factory.MakeStructType({{"a", types::StringType()}}, &struct_type));
@@ -70,6 +84,11 @@ TEST(MeasureTypeTest, TestNames) {
             "MEASURE<ARRAY<STRUCT<a STRING>>>");
   EXPECT_EQ(measure_type_with_nested->TypeName(PRODUCT_INTERNAL),
             "MEASURE<ARRAY<STRUCT<a STRING>>>");
+  EXPECT_TRUE(measure_type_with_nested->IsMeasureType());
+  EXPECT_TRUE(measure_type_with_nested->AsMeasure()->result_type()->IsArray());
+  EXPECT_EQ(measure_type_with_nested->AsMeasure()->CapitalizedName(),
+            "Measure<Array<STRUCT<a STRING>>>");
+  EXPECT_EQ(measure_type_with_nested->AsMeasure()->nesting_depth(), 3);
 }
 
 TEST(MeasureTypeTest, TestTypeNameWithModifiers) {
@@ -133,7 +152,7 @@ TEST(MeasureTypeTest, TestSupportsOrdering) {
 
   std::string type_description = "";
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_3_ARRAY_ORDERING);
+  language_options.EnableLanguageFeature(FEATURE_ARRAY_ORDERING);
   EXPECT_FALSE(measure_type_with_string->SupportsOrdering(language_options,
                                                           &type_description));
   EXPECT_EQ(type_description, "MEASURE");
@@ -151,7 +170,7 @@ TEST(MeasureTypeTest, TestSupportsPartitioning) {
   TypeFactory factory;
   std::string type_description = "";
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_2_GROUP_BY_ARRAY);
+  language_options.EnableLanguageFeature(FEATURE_GROUP_BY_ARRAY);
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* measure_type_with_string,
                        factory.MakeMeasureType(types::StringType()));
@@ -175,7 +194,42 @@ TEST(MeasureTypeTest, TestSupportsEquality) {
   EXPECT_FALSE(measure_type_with_string->SupportsEquality());
 }
 
-// TODO: b/350555383 - Add tests for all class methods.
+TEST(MeasureTypeTest, TestTypeEqualityAndEquivalence) {
+  TypeFactory factory;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* measure_type_with_int64,
+                       factory.MakeMeasureType(types::Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* another_measure_type_with_int64,
+                       factory.MakeMeasureType(types::Int64Type()));
+  EXPECT_TRUE(measure_type_with_int64->IsMeasureType());
+
+  // A measure type is equal to itself.
+  EXPECT_TRUE(measure_type_with_int64->Equals(measure_type_with_int64));
+  EXPECT_TRUE(measure_type_with_int64->AsMeasure()->EqualsForSameKind(
+      measure_type_with_int64, /*equivalent=*/false));
+  EXPECT_TRUE(measure_type_with_int64->AsMeasure()->EqualsForSameKind(
+      measure_type_with_int64, /*equivalent=*/true));
+
+  // Two measure types with the same result type are not considered equal or
+  // equivalent.
+  EXPECT_FALSE(
+      measure_type_with_int64->Equals(another_measure_type_with_int64));
+  EXPECT_FALSE(measure_type_with_int64->AsMeasure()->EqualsForSameKind(
+      another_measure_type_with_int64, /*equivalent=*/false));
+  EXPECT_FALSE(measure_type_with_int64->AsMeasure()->EqualsForSameKind(
+      another_measure_type_with_int64, /*equivalent=*/true));
+}
+
+TEST(MeasureTypeTest, TestIsSupportedType) {
+  TypeFactory factory;
+  LanguageOptions language_options;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* measure_type_with_int64,
+                       factory.MakeMeasureType(types::Int64Type()));
+  EXPECT_FALSE(measure_type_with_int64->IsSupportedType(language_options));
+
+  // Type is supported when FEATURE_ENABLE_MEASURES is enabled.
+  language_options.EnableLanguageFeature(FEATURE_ENABLE_MEASURES);
+  EXPECT_TRUE(measure_type_with_int64->IsSupportedType(language_options));
+}
 
 }  // namespace
 

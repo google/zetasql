@@ -115,7 +115,7 @@ TEST(GraphElementTypeTest, InternalProductModeSupportedTypeTest) {
 
   EXPECT_FALSE(graph_element_type->IsSupportedType(options));
 
-  options.EnableLanguageFeature(FEATURE_V_1_4_SQL_GRAPH);
+  options.EnableLanguageFeature(FEATURE_SQL_GRAPH);
   EXPECT_TRUE(graph_element_type->IsSupportedType(options));
 }
 
@@ -131,8 +131,8 @@ TEST(GraphElementTypeTest, ExternalProductModeSupportedTypeTest) {
 
   EXPECT_FALSE(graph_element_type->IsSupportedType(options));
 
-  // uint64_t is not supported in external mode.
-  options.EnableLanguageFeature(FEATURE_V_1_4_SQL_GRAPH);
+  // uint64 is not supported in external mode.
+  options.EnableLanguageFeature(FEATURE_SQL_GRAPH);
   EXPECT_FALSE(graph_element_type->IsSupportedType(options));
 }
 
@@ -259,8 +259,145 @@ TEST(GraphElementTypeTest, BasicTest) {
   EXPECT_EQ(
       absl::HashOf(*graph_element_type),
       absl::HashOf(
+          graph_element_type->is_dynamic(),
           graph_element_type->element_kind(),
           graph_element_type->property_types(), graph_element_type->kind()));
+}
+
+TEST(GraphElementTypeTest, MakeDynamicGraphElementType) {
+  TypeFactory factory;
+  const Type* string_type = factory.get_string();
+  const Type* bytes_type = factory.get_bytes();
+
+  const GraphElementType* dynamic_type_without_static_properties;
+  ZETASQL_ASSERT_OK(factory.MakeDynamicGraphElementType(
+      {"graph_name"}, GraphElementType::ElementKind::kNode, {},
+      &dynamic_type_without_static_properties));
+  EXPECT_TRUE(dynamic_type_without_static_properties->is_dynamic());
+  EXPECT_THAT(dynamic_type_without_static_properties->property_types(),
+              IsEmpty());
+
+  const GraphElementType* graph_element_type;
+  EXPECT_THAT(
+      factory.MakeDynamicGraphElementType(
+          {}, GraphElementType::ElementKind::kNode, {}, &graph_element_type),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Graph reference cannot be empty")));
+
+  EXPECT_THAT(factory.MakeDynamicGraphElementType(
+                  {"graph_name"}, GraphElementType::ElementKind::kNode,
+                  {{"", string_type}}, &graph_element_type),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Property type name cannot be empty")));
+
+  EXPECT_THAT(factory.MakeDynamicGraphElementType(
+                  {"graph_name"}, GraphElementType::ElementKind::kNode,
+                  {{"a", string_type}, {"a", bytes_type}}, &graph_element_type),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Inconsistent property: a")));
+
+  EXPECT_THAT(factory.MakeDynamicGraphElementType(
+                  {"graph_name"}, GraphElementType::ElementKind::kNode,
+                  {{"a", string_type}, {"A", bytes_type}}, &graph_element_type),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Inconsistent property: A")));
+
+  EXPECT_THAT(factory.MakeDynamicGraphElementType(
+                  {"graph_name"}, GraphElementType::ElementKind::kNode,
+                  {{"", string_type}}, &graph_element_type),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Property type name cannot be empty")));
+
+  EXPECT_THAT(graph_element_type, IsNull());
+
+  ZETASQL_EXPECT_OK(factory.MakeDynamicGraphElementType(
+      {"graph_name"}, GraphElementType::ElementKind::kNode,
+      {{"a", string_type}, {"A", string_type}}, &graph_element_type));
+}
+
+TEST(GraphElementTypeTest,
+     InternalProductModeDynamicGraphElementTypeIsSupportedType) {
+  TypeFactory factory;
+  LanguageOptions options;
+  options.set_product_mode(PRODUCT_INTERNAL);
+  const GraphElementType* graph_element_type;
+  ZETASQL_ASSERT_OK(factory.MakeDynamicGraphElementType(
+      {"graph_name"}, GraphElementType::ElementKind::kNode,
+      {{"a", factory.get_uint64()}}, &graph_element_type));
+  ASSERT_THAT(graph_element_type, NotNull());
+
+  EXPECT_FALSE(graph_element_type->IsSupportedType(options));
+
+  options.EnableLanguageFeature(FEATURE_SQL_GRAPH);
+  EXPECT_FALSE(graph_element_type->IsSupportedType(options));
+
+  options.EnableLanguageFeature(FEATURE_JSON_TYPE);
+  EXPECT_FALSE(graph_element_type->IsSupportedType(options));
+
+  options.EnableLanguageFeature(FEATURE_SQL_GRAPH_DYNAMIC_ELEMENT_TYPE);
+  EXPECT_TRUE(graph_element_type->IsSupportedType(options));
+}
+
+TEST(GraphElementTypeTest,
+     ExternalProductModeDynamicGraphElementTypeIsSupportedType) {
+  TypeFactory factory;
+  LanguageOptions options;
+  options.set_product_mode(PRODUCT_EXTERNAL);
+  const GraphElementType* graph_element_type;
+  ZETASQL_ASSERT_OK(factory.MakeDynamicGraphElementType(
+      {"graph_name"}, GraphElementType::ElementKind::kNode,
+      {{"a", factory.get_uint64()}}, &graph_element_type));
+  ASSERT_THAT(graph_element_type, NotNull());
+
+  EXPECT_FALSE(graph_element_type->IsSupportedType(options));
+
+  // uint64 is not supported in external mode.
+  options.EnableLanguageFeature(FEATURE_SQL_GRAPH);
+  EXPECT_FALSE(graph_element_type->IsSupportedType(options));
+
+  options.EnableLanguageFeature(FEATURE_JSON_TYPE);
+  EXPECT_FALSE(graph_element_type->IsSupportedType(options));
+
+  options.EnableLanguageFeature(FEATURE_SQL_GRAPH_DYNAMIC_ELEMENT_TYPE);
+  EXPECT_FALSE(graph_element_type->IsSupportedType(options));
+}
+
+TEST(GraphElementTypeTest, DynamicGraphElementTypeDebugString) {
+  TypeFactory factory;
+  const Type* string_type = factory.get_string();
+  const Type* bytes_type = factory.get_bytes();
+  const StructType* struct_type;
+  ZETASQL_ASSERT_OK(factory.MakeStructType({{"a", string_type}, {"b c", bytes_type}},
+                                   &struct_type));
+  const ArrayType* array_type;
+  ZETASQL_ASSERT_OK(factory.MakeArrayType(string_type, &array_type));
+
+  const GraphElementType* graph_element_type;
+  ZETASQL_ASSERT_OK(factory.MakeDynamicGraphElementType(
+      {"graph_name"}, GraphElementType::ElementKind::kNode,
+      {{"a", string_type},
+       {"b c", bytes_type},
+       {"e", array_type},
+       {"d", struct_type}},
+      &graph_element_type));
+
+  EXPECT_EQ(graph_element_type->DebugString(),
+            "GRAPH_NODE(graph_name)<a STRING, `b c` BYTES, d STRUCT<a STRING, "
+            "`b c` BYTES>, e ARRAY<STRING>, DYNAMIC>");
+  EXPECT_EQ(graph_element_type->TypeName(PRODUCT_INTERNAL),
+            "GRAPH_NODE(graph_name)<a STRING, `b c` BYTES, d STRUCT<a STRING, "
+            "`b c` BYTES>, e ARRAY<STRING>, DYNAMIC>");
+  EXPECT_EQ(
+      graph_element_type->ShortTypeName(PRODUCT_INTERNAL),
+      "GRAPH_NODE(graph_name)<a STRING, `b c` BYTES, d STRUCT<a STRING, `b c` "
+      "BYTES>, ..., DYNAMIC>");
+
+  TypeModifiers type_modifiers;
+  EXPECT_THAT(
+      graph_element_type->TypeNameWithModifiers(type_modifiers,
+                                                PRODUCT_INTERNAL),
+      IsOkAndHolds("GRAPH_NODE(graph_name)<a STRING, `b c` BYTES, d STRUCT<a "
+                   "STRING, `b c` BYTES>, e ARRAY<STRING>, DYNAMIC>"));
 }
 
 class GraphElementTypeEqualityTest : public testing::Test {
@@ -269,10 +406,14 @@ class GraphElementTypeEqualityTest : public testing::Test {
     ZETASQL_ASSERT_OK(factory_.MakeGraphElementType(
         {"graph_name"}, GraphElementType::ElementKind::kNode,
         {{"aaA", factory_.get_string()}}, &static_graph_element_type_));
+    ZETASQL_ASSERT_OK(factory_.MakeDynamicGraphElementType(
+        {"graph_name"}, GraphElementType::ElementKind::kNode,
+        {{"aaA", factory_.get_string()}}, &dynamic_graph_element_type_));
   }
 
   TypeFactory factory_;
   const GraphElementType* static_graph_element_type_;
+  const GraphElementType* dynamic_graph_element_type_;
 };
 
 TEST_F(GraphElementTypeEqualityTest, SameGraphElementType) {
@@ -392,6 +533,86 @@ TEST_F(GraphElementTypeEqualityTest, StaticGraphElementTypeEquivalent) {
   EXPECT_TRUE(static_graph_element_type_->Equivalent(graph_element_type2));
 }
 
+TEST_F(GraphElementTypeEqualityTest, DynamicGraphElementTypeEquivalent) {
+  const StructType *struct_type, *equivalent_struct_type;
+  ZETASQL_ASSERT_OK(
+      factory_.MakeStructType({{"aaA", factory_.get_string()}}, &struct_type));
+  ZETASQL_ASSERT_OK(factory_.MakeStructType({{"aaB", factory_.get_string()}},
+                                    &equivalent_struct_type));
+
+  ZETASQL_ASSERT_OK(factory_.MakeDynamicGraphElementType(
+      {"graph_name"}, GraphElementType::ElementKind::kNode,
+      {{"property", struct_type}}, &dynamic_graph_element_type_));
+  const GraphElementType* dynamic_graph_element_type2;
+  ZETASQL_ASSERT_OK(factory_.MakeDynamicGraphElementType(
+      {"graph_name"}, GraphElementType::ElementKind::kNode,
+      {{"property", equivalent_struct_type}}, &dynamic_graph_element_type2));
+
+  EXPECT_FALSE(
+      dynamic_graph_element_type_->Equals(dynamic_graph_element_type2));
+  EXPECT_TRUE(
+      dynamic_graph_element_type_->Equivalent(dynamic_graph_element_type2));
+}
+
+TEST_F(GraphElementTypeEqualityTest,
+       StaticAndDynamicGraphElementTypeNotEquivalent) {
+  EXPECT_FALSE(dynamic_graph_element_type_->Equals(static_graph_element_type_));
+  EXPECT_FALSE(
+      dynamic_graph_element_type_->Equivalent(static_graph_element_type_));
+  EXPECT_FALSE(static_graph_element_type_->Equals(dynamic_graph_element_type_));
+  EXPECT_FALSE(
+      static_graph_element_type_->Equivalent(dynamic_graph_element_type_));
+}
+
+TEST_F(GraphElementTypeEqualityTest, StaticGraphElementTypeCoercion) {
+  const GraphElementType* static_graph_element_type2;
+  ZETASQL_ASSERT_OK(factory_.MakeGraphElementType(
+      {"graph_name"}, GraphElementType::ElementKind::kNode,
+      {{"aaA", factory_.get_string()}, {"bbB", factory_.get_bool()}},
+      &static_graph_element_type2));
+  EXPECT_TRUE(
+      static_graph_element_type_->CoercibleTo(static_graph_element_type2));
+  EXPECT_FALSE(
+      static_graph_element_type2->CoercibleTo(static_graph_element_type_));
+}
+
+TEST_F(GraphElementTypeEqualityTest, DynamicGraphElementTypeCoercion) {
+  const GraphElementType* dynamic_graph_element_type2;
+  ZETASQL_ASSERT_OK(factory_.MakeDynamicGraphElementType(
+      {"graph_name"}, GraphElementType::ElementKind::kNode,
+      {{"aaA", factory_.get_string()}, {"bbB", factory_.get_bool()}},
+      &dynamic_graph_element_type2));
+  EXPECT_TRUE(
+      dynamic_graph_element_type_->CoercibleTo(dynamic_graph_element_type2));
+  EXPECT_FALSE(
+      dynamic_graph_element_type2->CoercibleTo(dynamic_graph_element_type_));
+}
+
+TEST_F(GraphElementTypeEqualityTest, StaticAndDynamicGraphElementTypeCoercion) {
+  EXPECT_FALSE(
+      dynamic_graph_element_type_->CoercibleTo(static_graph_element_type_));
+  EXPECT_TRUE(
+      static_graph_element_type_->CoercibleTo(dynamic_graph_element_type_));
+
+  // Graph element type with more static properties does not coerce to another
+  // graph element type with fewer static properties, regardless of whether the
+  // type is dynamic or not.
+  const GraphElementType* static_graph_element_type2;
+  ZETASQL_ASSERT_OK(factory_.MakeGraphElementType(
+      {"graph_name"}, GraphElementType::ElementKind::kNode,
+      {{"aaA", factory_.get_string()}, {"bbB", factory_.get_bool()}},
+      &static_graph_element_type2));
+  const GraphElementType* dynamic_graph_element_type2;
+  ZETASQL_ASSERT_OK(factory_.MakeDynamicGraphElementType(
+      {"graph_name"}, GraphElementType::ElementKind::kNode,
+      {{"aaA", factory_.get_string()}, {"bbB", factory_.get_bool()}},
+      &dynamic_graph_element_type2));
+  EXPECT_FALSE(
+      static_graph_element_type2->CoercibleTo(dynamic_graph_element_type_));
+  EXPECT_FALSE(
+      dynamic_graph_element_type2->CoercibleTo(dynamic_graph_element_type_));
+}
+
 TEST(TypeTest, TypeDeserializerGraphElementInvalidProto) {
   TypeFactory factory;
   const TypeDeserializer type_deserializer(&factory);
@@ -498,6 +719,33 @@ TEST(TypeTest, TypeDeserializerStaticGraphElement) {
       &type_proto));
   const GraphElementType* graph_element_type;
   ZETASQL_ASSERT_OK(factory.MakeGraphElementType(
+      {"graph_name"}, GraphElementType::kNode, {{"a", factory.get_bool()}},
+      &graph_element_type));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* deserialized_type,
+                       type_deserializer.Deserialize(type_proto));
+  EXPECT_TRUE(deserialized_type->Equals(graph_element_type));
+}
+
+TEST(TypeTest, TypeDeserializerDynamicGraphElement) {
+  TypeFactory factory;
+  const TypeDeserializer type_deserializer(&factory);
+  TypeProto type_proto;
+  ABSL_QCHECK(google::protobuf::TextFormat::ParseFromString(
+      R"pb(
+        type_kind: TYPE_GRAPH_ELEMENT
+        graph_element_type {
+          graph_reference: "graph_name"
+          kind: KIND_NODE
+          property_type {
+            name: "a"
+            value_type { type_kind: TYPE_BOOL }
+          }
+          is_dynamic: true
+        }
+      )pb",
+      &type_proto));
+  const GraphElementType* graph_element_type;
+  ZETASQL_ASSERT_OK(factory.MakeDynamicGraphElementType(
       {"graph_name"}, GraphElementType::kNode, {{"a", factory.get_bool()}},
       &graph_element_type));
   ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* deserialized_type,

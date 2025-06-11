@@ -1,14 +1,19 @@
-# The langugage feature V_1_4_ARRAY_AGGREGATION_FUNCTIONS and
-# V_1_4_ARRAY_FIND_FUNCTIONS are added temporarily.
-# * V_1_4_ARRAY_AGGREGATION_FUNCTIONS will be removed once UDF naming conflicts
+# The langugage feature ARRAY_AGGREGATION_FUNCTIONS and
+# ARRAY_FIND_FUNCTIONS are added temporarily.
+# * ARRAY_AGGREGATION_FUNCTIONS will be removed once UDF naming conflicts
 #   are cleaned up.
-# * V_1_4_ARRAY_FIND_FUNCTIONS will be removed once rollout of ENUM type is
+# * ARRAY_FIND_FUNCTIONS will be removed once rollout of ENUM type is
 # mature, and lambda signatures are added.
-[default language_features=V_1_4_ARRAY_FIND_FUNCTIONS,V_1_4_ARRAY_AGGREGATION_FUNCTIONS]
+[default language_features=ARRAY_FIND_FUNCTIONS,ARRAY_AGGREGATION_FUNCTIONS]
 
 SELECT ARRAY_OFFSET([1, 2, 3], CAST(3 AS INT32))
 --
-ERROR: No matching signature for function ARRAY_OFFSET for argument types: ARRAY<INT64>, INT32. Supported signatures: ARRAY_OFFSET(ARRAY, ANY, [ARRAY_FIND_MODE]); ARRAY_OFFSET(ARRAY, FUNCTION<ANY->BOOL>, [ARRAY_FIND_MODE]) [at 1:8]
+ERROR: No matching signature for function ARRAY_OFFSET
+  Argument types: ARRAY<INT64>, INT32
+  Signature: ARRAY_OFFSET(ARRAY<T1>, T1, [ARRAY_FIND_MODE])
+    Unable to coerce type ARRAY<INT64> to inferred array type ARRAY<INT32> for argument <array<T1>>
+  Signature: ARRAY_OFFSET(ARRAY<T1>, FUNCTION<T1->BOOL>, [ARRAY_FIND_MODE])
+    Argument 2: expected FUNCTION<T1->BOOL>, found INT32 [at 1:8]
 SELECT ARRAY_OFFSET([1, 2, 3], CAST(3 AS INT32))
        ^
 ==
@@ -20,7 +25,7 @@ SELECT ARRAY_OFFSET([new zetasql_test__.EmptyMessage()], new zetasql_test__.E...
        ^
 ==
 
-[language_features={{|V_1_4_ARRAY_FIND_FUNCTIONS}}]
+[language_features={{|ARRAY_FIND_FUNCTIONS}}]
 [no_java]
 # TODO: Enable this test when enum debug string is fixed in Java
 SELECT ARRAY_OFFSET([CAST(1 AS INT32), CAST(2 AS INT32), CAST(3 AS INT32)], 3)
@@ -31,7 +36,7 @@ ERROR: Function not found: ARRAY_OFFSET; Did you mean array_first? [at 2:8]
 SELECT ARRAY_OFFSET([CAST(1 AS INT32), CAST(2 AS INT32), CAST(3 AS INT32)], 3)
        ^
 --
-ALTERNATION GROUP: V_1_4_ARRAY_FIND_FUNCTIONS
+ALTERNATION GROUP: ARRAY_FIND_FUNCTIONS
 --
 QueryStmt
 +-output_column_list=
@@ -97,7 +102,7 @@ SELECT ARRAY_OFFSETS([new zetasql_test__.EmptyMessage()], new zetasql_test__....
        ^
 ==
 
-[language_features={{|V_1_4_ARRAY_FIND_FUNCTIONS}}]
+[language_features={{|ARRAY_FIND_FUNCTIONS}}]
 SELECT ARRAY_OFFSETS([""], "")
 --
 ALTERNATION GROUP: <empty>
@@ -106,7 +111,7 @@ ERROR: Function not found: ARRAY_OFFSETS [at 1:8]
 SELECT ARRAY_OFFSETS([""], "")
        ^
 --
-ALTERNATION GROUP: V_1_4_ARRAY_FIND_FUNCTIONS
+ALTERNATION GROUP: ARRAY_FIND_FUNCTIONS
 --
 QueryStmt
 +-output_column_list=
@@ -125,12 +130,17 @@ QueryStmt
 
 SELECT ARRAY_FIND([4, 5.0], CAST(5 AS FLOAT))
 --
-ERROR: No matching signature for function ARRAY_FIND for argument types: ARRAY<DOUBLE>, FLOAT. Supported signatures: ARRAY_FIND(ARRAY, ANY, [ARRAY_FIND_MODE]); ARRAY_FIND(ARRAY, FUNCTION<ANY->BOOL>, [ARRAY_FIND_MODE]) [at 1:8]
+ERROR: No matching signature for function ARRAY_FIND
+  Argument types: ARRAY<DOUBLE>, FLOAT
+  Signature: ARRAY_FIND(ARRAY<T1>, T1, [ARRAY_FIND_MODE])
+    Unable to coerce type ARRAY<DOUBLE> to inferred array type ARRAY<FLOAT> for argument <array<T1>>
+  Signature: ARRAY_FIND(ARRAY<T1>, FUNCTION<T1->BOOL>, [ARRAY_FIND_MODE])
+    Argument 2: expected FUNCTION<T1->BOOL>, found FLOAT [at 1:8]
 SELECT ARRAY_FIND([4, 5.0], CAST(5 AS FLOAT))
        ^
 ==
 
-[language_features={{|V_1_4_ARRAY_FIND_FUNCTIONS}}]
+[language_features={{|ARRAY_FIND_FUNCTIONS}}]
 [no_java]
 # TODO: Enable this test when enum debug string is fixed in Java
 SELECT ARRAY_FIND([4, 5.0], 5, "LAST")
@@ -141,7 +151,7 @@ ERROR: Function not found: ARRAY_FIND; Did you mean array_min? [at 2:8]
 SELECT ARRAY_FIND([4, 5.0], 5, "LAST")
        ^
 --
-ALTERNATION GROUP: V_1_4_ARRAY_FIND_FUNCTIONS
+ALTERNATION GROUP: ARRAY_FIND_FUNCTIONS
 --
 QueryStmt
 +-output_column_list=
@@ -159,7 +169,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=GEOGRAPHY,V_1_4_ARRAY_FIND_FUNCTIONS]
+[language_features=GEOGRAPHY,ARRAY_FIND_FUNCTIONS]
 SELECT ARRAY_FIND(ARRAY<GEOGRAPHY>[], st_geogpoint(1.2, 9e100))
 --
 ERROR: ARRAY_FIND cannot be used on argument of type ARRAY<GEOGRAPHY> because the array's element type does not support equality [at 1:8]
@@ -167,7 +177,7 @@ SELECT ARRAY_FIND(ARRAY<GEOGRAPHY>[], st_geogpoint(1.2, 9e100))
        ^
 ==
 
-[language_features={{|V_1_4_ARRAY_FIND_FUNCTIONS}}]
+[language_features={{|ARRAY_FIND_FUNCTIONS}}]
 SELECT ARRAY_FIND_ALL([4, 5.0], 5)
 --
 ALTERNATION GROUP: <empty>
@@ -176,7 +186,7 @@ ERROR: Function not found: ARRAY_FIND_ALL [at 1:8]
 SELECT ARRAY_FIND_ALL([4, 5.0], 5)
        ^
 --
-ALTERNATION GROUP: V_1_4_ARRAY_FIND_FUNCTIONS
+ALTERNATION GROUP: ARRAY_FIND_FUNCTIONS
 --
 QueryStmt
 +-output_column_list=
@@ -193,7 +203,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=JSON_TYPE,V_1_4_ARRAY_FIND_FUNCTIONS]
+[language_features=JSON_TYPE,ARRAY_FIND_FUNCTIONS]
 SELECT ARRAY_FIND_ALL(ARRAY<JSON>[], JSON '1')
 --
 ERROR: ARRAY_FIND_ALL cannot be used on argument of type ARRAY<JSON> because the array's element type does not support equality [at 1:8]
@@ -215,7 +225,7 @@ SELECT ARRAY_MIN([new zetasql_test__.EmptyMessage()])
        ^
 ==
 
-[language_features=JSON_TYPE,V_1_4_ARRAY_AGGREGATION_FUNCTIONS]
+[language_features=JSON_TYPE,ARRAY_AGGREGATION_FUNCTIONS]
 SELECT ARRAY_MIN([JSON '1'])
 --
 ERROR: ARRAY_MIN cannot be used on argument of type ARRAY<JSON> because the array's element type does not support ordering [at 1:8]
@@ -223,7 +233,7 @@ SELECT ARRAY_MIN([JSON '1'])
        ^
 ==
 
-[language_features=GEOGRAPHY,V_1_4_ARRAY_AGGREGATION_FUNCTIONS]
+[language_features=GEOGRAPHY,ARRAY_AGGREGATION_FUNCTIONS]
 SELECT ARRAY_MIN([st_geogpoint(1.2, 9e100)])
 --
 ERROR: ARRAY_MIN cannot be used on argument of type ARRAY<GEOGRAPHY> because the array's element type does not support ordering [at 1:8]
@@ -231,7 +241,7 @@ SELECT ARRAY_MIN([st_geogpoint(1.2, 9e100)])
        ^
 ==
 
-[language_features=V_1_2_SAFE_FUNCTION_CALL{{|,DISABLE_ARRAY_MIN_AND_MAX}}]
+[language_features=SAFE_FUNCTION_CALL{{|,DISABLE_ARRAY_MIN_AND_MAX}}]
 SELECT ARRAY_MIN([3.5, 7])
 --
 ALTERNATION GROUP: <empty>
@@ -256,15 +266,20 @@ SELECT ARRAY_MIN([3.5, 7])
        ^
 ==
 
-[language_features=NAMED_ARGUMENTS,V_1_4_ARRAY_FIND_FUNCTIONS]
+[language_features=NAMED_ARGUMENTS,ARRAY_FIND_FUNCTIONS]
 SELECT ARRAY_OFFSETS(input_array=>[1, 2, 3], target_element=>2);
 --
-ERROR: No matching signature for function ARRAY_OFFSETS for argument types: input_array => ARRAY<INT64>, target_element => INT64. Supported signatures: ARRAY_OFFSETS(ARRAY, ANY); ARRAY_OFFSETS(ARRAY, FUNCTION<ANY->BOOL>) [at 1:8]
+ERROR: No matching signature for function ARRAY_OFFSETS
+  Argument types: input_array => ARRAY<INT64>, target_element => INT64
+  Signature: ARRAY_OFFSETS(ARRAY<T1>, T1)
+    Named argument `input_array` does not exist in signature
+  Signature: ARRAY_OFFSETS(ARRAY<T1>, FUNCTION<T1->BOOL>)
+    Named argument `input_array` does not exist in signature [at 1:8]
 SELECT ARRAY_OFFSETS(input_array=>[1, 2, 3], target_element=>2);
        ^
 ==
 
-[language_features=NAMED_ARGUMENTS,V_1_4_ARRAY_FIND_FUNCTIONS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=NAMED_ARGUMENTS,ARRAY_FIND_FUNCTIONS,INLINE_LAMBDA_ARGUMENT]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT ARRAY_OFFSET([1, 4, 4, 6], e -> e = 4, 'FIRST')
 --
@@ -407,7 +422,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=NAMED_ARGUMENTS,V_1_4_ARRAY_FIND_FUNCTIONS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=NAMED_ARGUMENTS,ARRAY_FIND_FUNCTIONS,INLINE_LAMBDA_ARGUMENT]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT ARRAY_OFFSET([1, 4, 4, 6], e -> e > 2 AND e < 5, 'LAST')
 --
@@ -563,7 +578,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=NAMED_ARGUMENTS,V_1_4_ARRAY_FIND_FUNCTIONS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=NAMED_ARGUMENTS,ARRAY_FIND_FUNCTIONS,INLINE_LAMBDA_ARGUMENT]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT ARRAY_OFFSETS([COLLATE('ABC', 'und:ci'),
                COLLATE('abc', 'und:ci'),
@@ -575,7 +590,7 @@ ERROR: Syntax error: Expected end of input but got "->" [at 3:46]
                                              ^
 ==
 
-[language_features=NAMED_ARGUMENTS,V_1_4_ARRAY_FIND_FUNCTIONS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=NAMED_ARGUMENTS,ARRAY_FIND_FUNCTIONS,INLINE_LAMBDA_ARGUMENT]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT ARRAY_FIND([1, 4, 4, 6], e -> e > 7, 'FIRST')
 --
@@ -719,7 +734,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=NAMED_ARGUMENTS,V_1_4_ARRAY_FIND_FUNCTIONS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=NAMED_ARGUMENTS,ARRAY_FIND_FUNCTIONS,INLINE_LAMBDA_ARGUMENT]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT ARRAY_FIND_ALL([STRUCT(1 AS a, 2 AS b), STRUCT(3 AS a, 4 AS b)], e -> e.a > 2)
 --
@@ -816,33 +831,43 @@ QueryStmt
 ==
 
 # Incorrect return type for lambda, a boolean return type is expected.
-[language_features=NAMED_ARGUMENTS,V_1_4_ARRAY_FIND_FUNCTIONS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=NAMED_ARGUMENTS,ARRAY_FIND_FUNCTIONS,INLINE_LAMBDA_ARGUMENT]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT ARRAY_OFFSET([1, 4, 4, 6], e -> e + 2, 'FIRST')
 --
 
-ERROR: No matching signature for function ARRAY_OFFSET for argument types: ARRAY<INT64>, LAMBDA, STRING. Supported signatures: ARRAY_OFFSET(ARRAY, ANY, [ARRAY_FIND_MODE]); ARRAY_OFFSET(ARRAY, FUNCTION<ANY->BOOL>, [ARRAY_FIND_MODE]) [at 1:8]
+ERROR: No matching signature for function ARRAY_OFFSET
+  Argument types: ARRAY<INT64>, LAMBDA, STRING
+  Signature: ARRAY_OFFSET(ARRAY<T1>, T1, [ARRAY_FIND_MODE])
+    Argument 2: expected T1, found LAMBDA
+  Signature: ARRAY_OFFSET(ARRAY<T1>, FUNCTION<T1->BOOL>, [ARRAY_FIND_MODE])
+    Argument 2: failed to resolve lambda body, error: Lambda should return type BOOL, but returns INT64 [at 1:8]
 SELECT ARRAY_OFFSET([1, 4, 4, 6], e -> e + 2, 'FIRST')
        ^
 ==
 
 # Lambda with incorrect number of arguments, a 1-argument lambda is expected.
-[language_features=NAMED_ARGUMENTS,V_1_4_ARRAY_FIND_FUNCTIONS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=NAMED_ARGUMENTS,ARRAY_FIND_FUNCTIONS,INLINE_LAMBDA_ARGUMENT]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT ARRAY_OFFSET([1, 4, 4, 6], (e, i) -> e > i, 'FIRST')
 --
 
-ERROR: No matching signature for function ARRAY_OFFSET for argument types: ARRAY<INT64>, LAMBDA, STRING. Supported signatures: ARRAY_OFFSET(ARRAY, ANY, [ARRAY_FIND_MODE]); ARRAY_OFFSET(ARRAY, FUNCTION<ANY->BOOL>, [ARRAY_FIND_MODE]) [at 1:8]
+ERROR: No matching signature for function ARRAY_OFFSET
+  Argument types: ARRAY<INT64>, LAMBDA, STRING
+  Signature: ARRAY_OFFSET(ARRAY<T1>, T1, [ARRAY_FIND_MODE])
+    Argument 2: expected T1, found LAMBDA
+  Signature: ARRAY_OFFSET(ARRAY<T1>, FUNCTION<T1->BOOL>, [ARRAY_FIND_MODE])
+    Argument 2: lambda requires 1 arguments but 2 is provided [at 1:8]
 SELECT ARRAY_OFFSET([1, 4, 4, 6], (e, i) -> e > i, 'FIRST')
        ^
 ==
 
 # This is testing the disabler feature, not the function signature or rewriter.
-[language_features={{V_1_4_FIRST_AND_LAST_N|}}]
+[language_features={{FIRST_AND_LAST_N|}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT ARRAY_FIRST_N([1, 2, 3], 1);
 --
-ALTERNATION GROUP: V_1_4_FIRST_AND_LAST_N
+ALTERNATION GROUP: FIRST_AND_LAST_N
 --
 QueryStmt
 +-output_column_list=
@@ -936,11 +961,11 @@ SELECT ARRAY_FIRST_N([1, 2, 3], 1);
 ==
 
 # This is testing the disabler feature, not the function signature or rewriter.
-[language_features={{V_1_4_FIRST_AND_LAST_N|}}]
+[language_features={{FIRST_AND_LAST_N|}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT ARRAY_LAST_N([1, 2, 3], 1);
 --
-ALTERNATION GROUP: V_1_4_FIRST_AND_LAST_N
+ALTERNATION GROUP: FIRST_AND_LAST_N
 --
 QueryStmt
 +-output_column_list=
@@ -1056,11 +1081,11 @@ SELECT ARRAY_LAST_N([1, 2, 3], 1);
 ==
 
 # This is testing the disabler feature, not the function signature or rewriter.
-[language_features={{V_1_4_FIRST_AND_LAST_N|}}]
+[language_features={{FIRST_AND_LAST_N|}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT ARRAY_REMOVE_FIRST_N([1, 2, 3], 1);
 --
-ALTERNATION GROUP: V_1_4_FIRST_AND_LAST_N
+ALTERNATION GROUP: FIRST_AND_LAST_N
 --
 QueryStmt
 +-output_column_list=
@@ -1154,11 +1179,11 @@ SELECT ARRAY_REMOVE_FIRST_N([1, 2, 3], 1);
 ==
 
 # This is testing the disabler feature, not the function signature or rewriter.
-[language_features={{V_1_4_FIRST_AND_LAST_N|}}]
+[language_features={{FIRST_AND_LAST_N|}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT ARRAY_REMOVE_LAST_N([1, 2, 3], 1);
 --
-ALTERNATION GROUP: V_1_4_FIRST_AND_LAST_N
+ALTERNATION GROUP: FIRST_AND_LAST_N
 --
 QueryStmt
 +-output_column_list=
@@ -1273,7 +1298,7 @@ SELECT ARRAY_REMOVE_LAST_N([1, 2, 3], 1);
        ^
 ==
 
-[language_features=V_1_3_INLINE_LAMBDA_ARGUMENT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[language_features=INLINE_LAMBDA_ARGUMENT,ARRAY_FIND_FUNCTIONS]
 [enabled_ast_rewrites=DEFAULTS]
 # Substitution template invokes lambda more than once and there is a ResolvedColumn internal to the lambda body
 SELECT ARRAY_FIND(["A"], e -> exists (select 1))
@@ -1439,7 +1464,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_3_INLINE_LAMBDA_ARGUMENT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[language_features=INLINE_LAMBDA_ARGUMENT,ARRAY_FIND_FUNCTIONS]
 [enabled_ast_rewrites=DEFAULTS]
 # Substitution template invokes lambda more than once there is Correlated column ref in lambda body
 SELECT (ARRAY_FIND(["A"], e -> exists (select Key))) FROM KeyValue as kv;

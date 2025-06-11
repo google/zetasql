@@ -11,7 +11,7 @@ ERROR: Pipe CREATE TABLE not supported [at 2:1]
 # statement kinds are enabled.
 # TODO SQLBuilder doesn't work for pipe CREATE TABLE yet.
 [default no_run_sqlbuilder]
-[default language_features=PIPES,PIPE_CREATE_TABLE,PIPE_FORK,PIPE_TEE,PIPE_IF,CREATE_TABLE_AS_SELECT_COLUMN_LIST,V_1_1_WITH_ON_SUBQUERY,V_1_3_WITH_RECURSIVE,V_1_4_ENABLE_MEASURES]
+[default language_features=PIPES,PIPE_CREATE_TABLE,PIPE_FORK,PIPE_TEE,PIPE_IF,CREATE_TABLE_AS_SELECT_COLUMN_LIST,WITH_ON_SUBQUERY,WITH_RECURSIVE,ENABLE_MEASURES]
 [enabled_ast_rewrites=DEFAULTS]
 [supported_statement_kinds={{QUERY|GENERALIZED_QUERY|QUERY,GENERALIZED_QUERY|INSERT}}]
 FROM KeyValue
@@ -693,7 +693,7 @@ ERROR: The number of columns in the LIKE table does not match the number of colu
 
 # CREATE TABLE with `collate`
 # Literal replacement doens't work on the COLLATE string.
-[language_features=PIPES,PIPE_CREATE_TABLE,CREATE_TABLE_AS_SELECT_COLUMN_LIST,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=PIPES,PIPE_CREATE_TABLE,CREATE_TABLE_AS_SELECT_COLUMN_LIST,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 [no_enable_literal_replacement]
 From KeyValue
 |> CREATE TABLE t2 DEFAULT COLLATE 'und:ci'
@@ -770,7 +770,7 @@ GeneralizedQueryStmt
 
 # CREATE TABLE with `ttl`
 # Not fully implemented yet - the deletion policy isn't in the output.
-[language_features=PIPES,PIPE_CREATE_TABLE,CREATE_TABLE_AS_SELECT_COLUMN_LIST,V_1_4_TTL]
+[language_features=PIPES,PIPE_CREATE_TABLE,CREATE_TABLE_AS_SELECT_COLUMN_LIST,TTL]
 SELECT 1 x
 |> CREATE TABLE t2{{| (x INT64)}}
    ROW DELETION POLICY ( x < 10 )

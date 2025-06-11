@@ -34,6 +34,11 @@ import org.junit.runners.JUnit4;
 public class SimpleTypeTest {
 
   @Test
+  public void testComponentTypes() {
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_INT32).componentTypes()).isEmpty();
+  }
+
+  @Test
   public void testSerializationAndDeserialization() {
     for (TypeKind kind : TypeKind.values()) {
       if (TypeFactory.isSimpleType(kind)) {

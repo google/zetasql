@@ -5,7 +5,7 @@
 
 # CORRESPONDING BY Literal coercion STRICT mode
 [name=corresponding_by_literal_coercion_strict]
-[default required_features=V_1_4_CORRESPONDING_FULL]
+[default required_features=CORRESPONDING_FULL]
 SELECT 1 AS b, 1 AS a
 UNION ALL STRICT CORRESPONDING BY (b, a)
 SELECT 1 AS a, CAST(1 AS INT32) AS b

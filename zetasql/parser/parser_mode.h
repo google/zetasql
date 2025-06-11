@@ -14,14 +14,15 @@
 // limitations under the License.
 //
 
-#ifndef ZETASQL_PARSER_BISON_PARSER_MODE_H_
-#define ZETASQL_PARSER_BISON_PARSER_MODE_H_
+#ifndef ZETASQL_PARSER_PARSER_MODE_H_
+#define ZETASQL_PARSER_PARSER_MODE_H_
 
 namespace zetasql {
 namespace parser {
 
-// What the Bison ZetaSQL parser should parse.
-enum class BisonParserMode {
+// Indicates what sort of ZetaSQL incantation we are parsing. This roughly
+// corresponds to the start states declared in the Textmapper grammar.
+enum class ParserMode {
   // Parse one statement until the end of the input.
   // Script statements are disallowed.
   kStatement,
@@ -73,4 +74,4 @@ enum class MacroExpansionMode {
 }  // namespace parser
 }  // namespace zetasql
 
-#endif  // ZETASQL_PARSER_BISON_PARSER_MODE_H_
+#endif  // ZETASQL_PARSER_PARSER_MODE_H_

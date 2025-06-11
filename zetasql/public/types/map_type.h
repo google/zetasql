@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
@@ -49,6 +50,10 @@ class MapType : public ContainerType {
   const Type* value_type() const { return value_type_; }
 
   const MapType* AsMap() const override { return this; }
+
+  std::vector<const Type*> ComponentTypes() const override {
+    return {key_type_, value_type_};
+  }
 
   std::string ShortTypeName(ProductMode mode,
                             bool use_external_float32) const override;

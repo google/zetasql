@@ -17,7 +17,6 @@
 #include "zetasql/public/simple_catalog_util.h"
 
 #include <memory>
-#include <optional>
 #include <utility>
 
 #include "zetasql/base/testing/status_matchers.h"
@@ -54,14 +53,14 @@ TEST(SimpleCatalogUtilTest, AddFunctionFromCreateFunctionTest) {
       AddFunctionFromCreateFunction(
           "CREATE TEMP FUNCTION Basic() AS (1)", analyzer_options,
           /*allow_persistent_function=*/false,
-          /*function_options=*/std::nullopt, analyzer_output, simple, simple),
+          /*function_options=*/nullptr, analyzer_output, simple, simple),
       Not(IsOk()));
 
   analyzer_options.mutable_language()->AddSupportedStatementKind(
       RESOLVED_CREATE_FUNCTION_STMT);
   ZETASQL_EXPECT_OK(AddFunctionFromCreateFunction(
       "CREATE TEMP FUNCTION Basic() AS (1)", analyzer_options,
-      /*allow_persistent_function=*/false, /*function_options=*/std::nullopt,
+      /*allow_persistent_function=*/false, /*function_options=*/nullptr,
       analyzer_output, simple, simple));
   const Function* function;
   ZETASQL_EXPECT_OK(simple.FindFunction({"Basic"}, &function));
@@ -72,7 +71,7 @@ TEST(SimpleCatalogUtilTest, AddFunctionFromCreateFunctionTest) {
       AddFunctionFromCreateFunction(
           "CREATE TEMP FUNCTION Basic() AS (1)", analyzer_options,
           /*allow_persistent_function=*/false,
-          /*function_options=*/std::nullopt, analyzer_output, simple, simple),
+          /*function_options=*/nullptr, analyzer_output, simple, simple),
       Not(IsOk()));
 
   // Invalid persistent function.
@@ -80,11 +79,11 @@ TEST(SimpleCatalogUtilTest, AddFunctionFromCreateFunctionTest) {
       AddFunctionFromCreateFunction(
           "CREATE FUNCTION Persistent() AS (1)", analyzer_options,
           /*allow_persistent_function=*/false,
-          /*function_options=*/std::nullopt, analyzer_output, simple, simple),
+          /*function_options=*/nullptr, analyzer_output, simple, simple),
       Not(IsOk()));
   ZETASQL_EXPECT_OK(AddFunctionFromCreateFunction(
       "CREATE FUNCTION Persistent() AS (1)", analyzer_options,
-      /*allow_persistent_function=*/true, /*function_options=*/std::nullopt,
+      /*allow_persistent_function=*/true, /*function_options=*/nullptr,
       analyzer_output, simple, simple));
 
   // Analysis failure
@@ -92,13 +91,13 @@ TEST(SimpleCatalogUtilTest, AddFunctionFromCreateFunctionTest) {
       AddFunctionFromCreateFunction(
           "CREATE TEMP FUNCTION Template(arg ANY TYPE) AS (arg)",
           analyzer_options, /*allow_persistent_function=*/false,
-          /*function_options=*/std::nullopt, analyzer_output, simple, simple),
+          /*function_options=*/nullptr, analyzer_output, simple, simple),
       Not(IsOk()));
   analyzer_options.mutable_language()->EnableLanguageFeature(
       FEATURE_TEMPLATE_FUNCTIONS);
   ZETASQL_EXPECT_OK(AddFunctionFromCreateFunction(
       "CREATE TEMP FUNCTION Template(arg ANY TYPE) AS (arg)", analyzer_options,
-      /*allow_persistent_function=*/false, /*function_options=*/std::nullopt,
+      /*allow_persistent_function=*/false, /*function_options=*/nullptr,
       analyzer_output, simple, simple));
   ZETASQL_EXPECT_OK(simple.FindFunction({"Template"}, &function));
   EXPECT_EQ(function->FullName(), "Templated_SQL_Function:Template");
@@ -112,7 +111,7 @@ TEST(SimpleCatalogUtilTest, AddFunctionFromCreateFunctionTest) {
   ZETASQL_EXPECT_OK(AddFunctionFromCreateFunction(
       "CREATE TEMP FUNCTION MyFunc() RETURNS INT32 AS (TestConstant)",
       analyzer_options,
-      /*allow_persistent_function=*/false, /*function_options=*/std::nullopt,
+      /*allow_persistent_function=*/false, /*function_options=*/nullptr,
       analyzer_output, resolving_catalog, simple));
   ZETASQL_EXPECT_OK(simple.FindFunction({"MyFunc"}, &function));
   EXPECT_EQ(function->FullName(), "Lazy_resolution_function:MyFunc");
@@ -122,7 +121,7 @@ TEST(SimpleCatalogUtilTest, AddFunctionFromCreateFunctionTest) {
   ZETASQL_EXPECT_OK(AddFunctionFromCreateFunction(
       "CREATE TEMP FUNCTION NonSQL(x INT64) RETURNS DOUBLE LANGUAGE C",
       analyzer_options,
-      /*allow_persistent_function=*/false, /*function_options=*/std::nullopt,
+      /*allow_persistent_function=*/false, /*function_options=*/nullptr,
       analyzer_output, simple, simple));
   ZETASQL_EXPECT_OK(simple.FindFunction({"NonSQL"}, &function));
   EXPECT_EQ(function->FullName(), "External_function:NonSQL");
@@ -147,10 +146,11 @@ TEST(SimpleCatalogUtilTest, MakeFunctionFromCreateFunctionBasic) {
       analyzer_output->resolved_statement()
           ->GetAs<ResolvedCreateFunctionStmt>();
 
+  FunctionOptions function_options;
+  function_options.set_is_deprecated(true);
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<Function> function,
-      MakeFunctionFromCreateFunction(
-          *create_function_stmt, FunctionOptions().set_is_deprecated(true)));
+      MakeFunctionFromCreateFunction(*create_function_stmt, &function_options));
   EXPECT_EQ(function->Name(), "Basic");
   EXPECT_TRUE(function->IsDeprecated());
   EXPECT_EQ(function->mode(), Function::SCALAR);
@@ -185,8 +185,10 @@ TEST(SimpleCatalogUtilTest, MakeFunctionFromCreateFunctionAgg) {
       analyzer_output->resolved_statement()
           ->GetAs<ResolvedCreateFunctionStmt>();
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<Function> function,
-                       MakeFunctionFromCreateFunction(*create_function_stmt));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<Function> function,
+      MakeFunctionFromCreateFunction(*create_function_stmt,
+                                     /*function_options=*/nullptr));
   EXPECT_EQ(function->Name(), "F");
   EXPECT_THAT(function->FunctionNamePath(),
               testing::ElementsAre("Path", "to", "F"));

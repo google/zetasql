@@ -113,33 +113,30 @@ FunctionResolver::FunctionResolver(Catalog* catalog, TypeFactory* type_factory,
                                    Resolver* resolver)
     : catalog_(catalog), type_factory_(type_factory), resolver_(resolver) {}
 
-static const std::string* const kBitwiseNotFnName =
-    new std::string("$bitwise_not");
-static const std::string* const kInvalidUnaryOperatorFnName =
-    new std::string("$invalid_unary_operator");
-static const std::string* const kNotFnName = new std::string("$not");
-static const std::string* const kUnaryMinusFnName =
-    new std::string("$unary_minus");
-static const std::string* const kUnaryPlusFnName =
-    new std::string("$unary_plus");
-static const std::string* const kIsNullFnName = new std::string("$is_null");
+constexpr absl::string_view kBitwiseNotFnName = "$bitwise_not";
+constexpr absl::string_view kInvalidUnaryOperatorFnName =
+    "$invalid_unary_operator";
+constexpr absl::string_view kNotFnName = "$not";
+constexpr absl::string_view kUnaryMinusFnName = "$unary_minus";
+constexpr absl::string_view kUnaryPlusFnName = "$unary_plus";
+constexpr absl::string_view kIsNullFnName = "$is_null";
 
-const std::string& FunctionResolver::UnaryOperatorToFunctionName(
+absl::string_view FunctionResolver::UnaryOperatorToFunctionName(
     ASTUnaryExpression::Op op) {
   switch (op) {
     case ASTUnaryExpression::NOT:
-      return *kNotFnName;
+      return kNotFnName;
     case ASTUnaryExpression::MINUS:
-      return *kUnaryMinusFnName;
+      return kUnaryMinusFnName;
     case ASTUnaryExpression::PLUS:
       // Note that this function definition does not actually exist.  The
       // resolver treats this as a no-op and effectively removes it from the
       // resolved tree.
-      return *kUnaryPlusFnName;
+      return kUnaryPlusFnName;
     case ASTUnaryExpression::BITWISE_NOT:
-      return *kBitwiseNotFnName;
+      return kBitwiseNotFnName;
     case ASTUnaryExpression::NOT_SET:
-      return *kInvalidUnaryOperatorFnName;
+      return kInvalidUnaryOperatorFnName;
     case ASTUnaryExpression::IS_UNKNOWN:
     case ASTUnaryExpression::IS_NOT_UNKNOWN:
       // As a side note, IS [NOT] UNKNOWN reuses the existing "is_null" function
@@ -147,94 +144,84 @@ const std::string& FunctionResolver::UnaryOperatorToFunctionName(
       // is currently implemented as a binary operator which can recognize if a
       // preceding keyword NOT is presented. But unary operator does not support
       // that so two unary operators are created to be mapped to the same name.
-      return *kIsNullFnName;
+      return kIsNullFnName;
   }
 }
 
-static const std::string* const kAddFnName = new std::string("$add");
-static const std::string* const kBitwiseAndFnName =
-    new std::string("$bitwise_and");
-static const std::string* const kBitwiseOrFnName =
-    new std::string("$bitwise_or");
-static const std::string* const kBitwiseXorFnName =
-    new std::string("$bitwise_xor");
-static const std::string* const kConcatOpFnName = new std::string("$concat_op");
-static const std::string* const kDivideFnName = new std::string("$divide");
-static const std::string* const kEqualFnName = new std::string("$equal");
-static const std::string* const kGreaterFnName = new std::string("$greater");
-static const std::string* const kGreaterOrEqualFnName =
-    new std::string("$greater_or_equal");
-static const std::string* const kLessFnName = new std::string("$less");
-static const std::string* const kLessOrEqualFnName =
-    new std::string("$less_or_equal");
-static const std::string* const kLikeFnName = new std::string("$like");
-static const std::string* const kMultiplyFnName = new std::string("$multiply");
-static const std::string* const kNotEqualFnName = new std::string("$not_equal");
-static const std::string* const kSubtractFnName = new std::string("$subtract");
-static const std::string* const kDistinctOpFnName =
-    new std::string("$is_distinct_from");
-static const std::string* const kNotDistinctOpFnName =
-    new std::string("$is_not_distinct_from");
-static const std::string* const kIsSourceNodeOpFnName =
-    new std::string("$is_source_node");
-static const std::string* const kIsDestNodeOpFnName =
-    new std::string("$is_dest_node");
+constexpr absl::string_view kAddFnName = "$add";
+constexpr absl::string_view kBitwiseAndFnName = "$bitwise_and";
+constexpr absl::string_view kBitwiseOrFnName = "$bitwise_or";
+constexpr absl::string_view kBitwiseXorFnName = "$bitwise_xor";
+constexpr absl::string_view kConcatOpFnName = "$concat_op";
+constexpr absl::string_view kDivideFnName = "$divide";
+constexpr absl::string_view kEqualFnName = "$equal";
+constexpr absl::string_view kGreaterFnName = "$greater";
+constexpr absl::string_view kGreaterOrEqualFnName = "$greater_or_equal";
+constexpr absl::string_view kLessFnName = "$less";
+constexpr absl::string_view kLessOrEqualFnName = "$less_or_equal";
+constexpr absl::string_view kLikeFnName = "$like";
+constexpr absl::string_view kMultiplyFnName = "$multiply";
+constexpr absl::string_view kNotEqualFnName = "$not_equal";
+constexpr absl::string_view kSubtractFnName = "$subtract";
+constexpr absl::string_view kDistinctOpFnName = "$is_distinct_from";
+constexpr absl::string_view kNotDistinctOpFnName = "$is_not_distinct_from";
+constexpr absl::string_view kIsSourceNodeOpFnName = "$is_source_node";
+constexpr absl::string_view kIsDestNodeOpFnName = "$is_dest_node";
+constexpr absl::string_view kInvalidBinaryOperatorStr =
+    "$invalid_binary_operator";
 
-static std::string* kInvalidBinaryOperatorStr =
-    new std::string("$invalid_binary_operator");
-
-const std::string& FunctionResolver::BinaryOperatorToFunctionName(
+absl::string_view FunctionResolver::BinaryOperatorToFunctionName(
     ASTBinaryExpression::Op op, bool is_not, bool* not_handled) {
   if (not_handled != nullptr) {
     *not_handled = false;
   }
   switch (op) {
     case ASTBinaryExpression::DIVIDE:
-      return *kDivideFnName;
+      return kDivideFnName;
     case ASTBinaryExpression::EQ:
-      return *kEqualFnName;
+      return kEqualFnName;
     case ASTBinaryExpression::NE:
     case ASTBinaryExpression::NE2:
-      return *kNotEqualFnName;
+      return kNotEqualFnName;
     case ASTBinaryExpression::GT:
-      return *kGreaterFnName;
+      return kGreaterFnName;
     case ASTBinaryExpression::GE:
-      return *kGreaterOrEqualFnName;
+      return kGreaterOrEqualFnName;
     case ASTBinaryExpression::LT:
-      return *kLessFnName;
+      return kLessFnName;
     case ASTBinaryExpression::LE:
-      return *kLessOrEqualFnName;
+      return kLessOrEqualFnName;
     case ASTBinaryExpression::MINUS:
-      return *kSubtractFnName;
+      return kSubtractFnName;
     case ASTBinaryExpression::MULTIPLY:
-      return *kMultiplyFnName;
+      return kMultiplyFnName;
     case ASTBinaryExpression::PLUS:
-      return *kAddFnName;
+      return kAddFnName;
     case ASTBinaryExpression::LIKE:
-      return *kLikeFnName;
+      return kLikeFnName;
     case ASTBinaryExpression::BITWISE_OR:
-      return *kBitwiseOrFnName;
+      return kBitwiseOrFnName;
     case ASTBinaryExpression::BITWISE_XOR:
-      return *kBitwiseXorFnName;
+      return kBitwiseXorFnName;
     case ASTBinaryExpression::BITWISE_AND:
-      return *kBitwiseAndFnName;
+      return kBitwiseAndFnName;
     case ASTBinaryExpression::IS:
     case ASTBinaryExpression::NOT_SET:
-      return *kInvalidBinaryOperatorStr;
+      return kInvalidBinaryOperatorStr;
     case ASTBinaryExpression::CONCAT_OP:
-      return *kConcatOpFnName;
+      return kConcatOpFnName;
     case ASTBinaryExpression::DISTINCT:
       if (is_not) {
         ABSL_CHECK(not_handled != nullptr);
         *not_handled = true;
-        return *kNotDistinctOpFnName;
+        return kNotDistinctOpFnName;
       } else {
-        return *kDistinctOpFnName;
+        return kDistinctOpFnName;
       }
     case ASTBinaryExpression::IS_SOURCE_NODE:
-      return *kIsSourceNodeOpFnName;
+      return kIsSourceNodeOpFnName;
     case ASTBinaryExpression::IS_DEST_NODE:
-      return *kIsDestNodeOpFnName;
+      return kIsDestNodeOpFnName;
   }
 }
 
@@ -312,7 +299,7 @@ absl::Status FunctionResolver::CheckCreateAggregateFunctionProperties(
 
       if (!aggregate_function_call->group_by_list().empty() &&
           !language_options.LanguageFeatureEnabled(
-              FEATURE_V_1_4_MULTILEVEL_AGGREGATION_IN_UDAS)) {
+              FEATURE_MULTILEVEL_AGGREGATION_IN_UDAS)) {
         return sql_error(absl::StrFormat(modifier_error_template, "GROUP BY"));
       }
       if (aggregate_function_call->where_expr() != nullptr) {
@@ -376,15 +363,7 @@ FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
     absl::Span<const NamedArgumentInfo> named_arguments,
     int num_repeated_args_repetitions,
     bool always_include_omitted_named_arguments_in_index_mapping,
-    bool show_mismatch_details,
     std::vector<ArgIndexEntry>* index_mapping) const {
-  // Make sure the language feature is enabled.
-  if (!named_arguments.empty() &&
-      !resolver_->language().LanguageFeatureEnabled(FEATURE_NAMED_ARGUMENTS)) {
-    return named_arguments[0].MakeSQLError()
-           << "Named arguments are not supported";
-  }
-
   // Make the reservation for the largest number of arguments that are possibly
   // to be handled and put into the list.
   index_mapping->reserve(
@@ -413,35 +392,18 @@ FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
     }
     // Make sure the provided argument name exists in the function signature.
     if (!signature.HasNamedArgument(provided_arg_name)) {
-      if (show_mismatch_details) {
-        return absl::StrCat("Named argument ",
-                            ToAlwaysQuotedIdentifierLiteral(provided_arg_name),
-                            " does not exist in signature");
-      } else {
-        return named_argument.MakeSQLError()
-               << "Named argument "
-               << ToAlwaysQuotedIdentifierLiteral(provided_arg_name)
-               << " not found in signature for call to function "
-               << function_name;
-      }
+      return absl::StrCat("Named argument ",
+                          ToAlwaysQuotedIdentifierLiteral(provided_arg_name),
+                          " does not exist in signature");
     }
     // Make sure the argument name is allowed in function calls.
     const FunctionArgumentTypeOptions* argument_options =
         signature.FindNamedArgumentOptions(provided_arg_name);
     ZETASQL_RET_CHECK(argument_options != nullptr);
     if (argument_options->named_argument_kind() == kPositionalOnly) {
-      if (show_mismatch_details) {
-        return absl::StrCat("Argument ",
-                            ToAlwaysQuotedIdentifierLiteral(provided_arg_name),
-                            " must by supplied by position, not by name");
-      } else {
-        return named_argument.MakeSQLError()
-               << "Argument "
-               << ToAlwaysQuotedIdentifierLiteral(provided_arg_name)
-               << " must by supplied by "
-               << "position, not by name, for call to function "
-               << function_name;
-      }
+      return absl::StrCat("Argument ",
+                          ToAlwaysQuotedIdentifierLiteral(provided_arg_name),
+                          " must by supplied by position, not by name");
     }
     // Keep track of the first and last named argument index.
     first_named_arg_index_in_call =
@@ -489,38 +451,21 @@ FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
       // for this positional argument that also appears later as a named
       // argument in the function call.
       if (!signature_arg_name.empty() && named_argument_call_index != nullptr) {
-        if (show_mismatch_details) {
-          return absl::StrCat(
-              "Named argument ",
-              ToAlwaysQuotedIdentifierLiteral(signature_arg_name),
-              " duplicates positional argument ", call_arg_index + 1,
-              ", which also provides ",
-              ToAlwaysQuotedIdentifierLiteral(signature_arg_name));
-        } else {
-          return MakeSqlErrorAt(arg_locations.at(*named_argument_call_index))
-                 << "Named argument "
-                 << ToAlwaysQuotedIdentifierLiteral(signature_arg_name)
-                 << " duplicates positional argument " << call_arg_index + 1
-                 << ", which also provides "
-                 << ToAlwaysQuotedIdentifierLiteral(signature_arg_name);
-        }
+        return absl::StrCat(
+            "Named argument ",
+            ToAlwaysQuotedIdentifierLiteral(signature_arg_name),
+            " duplicates positional argument ", call_arg_index + 1,
+            ", which also provides ",
+            ToAlwaysQuotedIdentifierLiteral(signature_arg_name));
       }
       // Make sure that the function signature does not specify an argument
       // name positionally when the options require that it must be named.
       if (!signature_arg_name.empty() &&
           arg_type.options().named_argument_kind() == kNamedOnly) {
-        if (show_mismatch_details) {
-          return absl::StrCat(
-              "Positional argument at ", call_arg_index + 1,
-              " is invalid because argument ",
-              ToAlwaysQuotedIdentifierLiteral(signature_arg_name),
-              " can only be referred to by name");
-        } else {
-          return MakeSqlErrorAt(arg_locations.at(call_arg_index))
-                 << "Positional argument is invalid because this function "
-                 << "restricts that this argument is referred to by name \""
-                 << signature_arg_name << "\" only";
-        }
+        return absl::StrCat("Positional argument at ", call_arg_index + 1,
+                            " is invalid because argument ",
+                            ToAlwaysQuotedIdentifierLiteral(signature_arg_name),
+                            " can only be referred to by name");
       }
 
       // Skip the repeated part if we run into it but the repetition is zero.
@@ -562,25 +507,13 @@ FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
                << " is missing repeated arguments.";
       }
       if (arg_type.required()) {
-        if (show_mismatch_details) {
-          return !signature_arg_name.empty()
-                     ? absl::StrCat(
-                           "Required named argument ",
-                           ToAlwaysQuotedIdentifierLiteral(signature_arg_name),
-                           " is not provided")
-                     : absl::StrCat("Required positional argument number ",
-                                    (sig_index + 1), " is not provided");
-        } else {
-          return !signature_arg_name.empty()
-                     ? MakeSqlErrorAt(ast_location)
-                           << "Call to function " << function_name
-                           << " does not include the required named argument '"
-                           << signature_arg_name << "'"
-                     : MakeSqlErrorAt(ast_location)
-                           << "Call to function " << function_name
-                           << " does not include required positional argument "
-                           << "number " << (sig_index + 1);
-        }
+        return !signature_arg_name.empty()
+                   ? absl::StrCat(
+                         "Required named argument ",
+                         ToAlwaysQuotedIdentifierLiteral(signature_arg_name),
+                         " is not provided")
+                   : absl::StrCat("Required positional argument number ",
+                                  (sig_index + 1), " is not provided");
       }
 
       if (arg_type.optional() &&
@@ -841,27 +774,18 @@ FunctionResolver::GenerateErrorMessageWithSupportedSignatures(
     const std::vector<std::string>* mismatch_errors) const {
   int num_signatures = 0;
   std::string supported_signatures;
-  bool show_detailed_messages = mismatch_errors != nullptr;
-  if (!show_detailed_messages) {
-    supported_signatures = function->GetSupportedSignaturesUserFacingText(
-        resolver_->language(), print_style, &num_signatures,
-        show_detailed_messages);
-  } else {
+  ZETASQL_RET_CHECK(mismatch_errors != nullptr);
+  if (!function->HideSupportedSignatures()) {
     ZETASQL_ASSIGN_OR_RETURN(supported_signatures, GetSupportedSignaturesWithMessage(
                                                function, *mismatch_errors,
                                                print_style, &num_signatures));
   }
 
   if (!supported_signatures.empty()) {
-    if (show_detailed_messages) {
-      // Example `prefix_message`:
-      //   No matching signature for function ARRAY_INCLUDES_ANY.
-      //     Argument types: ARRAY<INT64>, ARRAY<STRING>
-      return absl::StrCat(prefix_message, "\n", supported_signatures);
-    }
-    return absl::StrCat(prefix_message, ". Supported signature",
-                        (num_signatures > 1 ? "s" : ""), ": ",
-                        supported_signatures);
+    // Example `prefix_message`:
+    //   No matching signature for function ARRAY_INCLUDES_ANY.
+    //     Argument types: ARRAY<INT64>, ARRAY<STRING>
+    return absl::StrCat(prefix_message, "\n", supported_signatures);
   } else {
     if (function->GetSupportedSignaturesCallback() == nullptr &&
         !function->HideSupportedSignatures()) {
@@ -904,21 +828,24 @@ FunctionResolver::FindMatchingSignature(
   SignatureMatchResult best_result;
   std::vector<FunctionArgumentOverride> best_result_arg_overrides;
   bool seen_matched_signature_with_lambda = false;
-  bool show_mismatch_details = mismatch_errors != nullptr;
+  ZETASQL_RET_CHECK(mismatch_errors != nullptr);
 
   ZETASQL_VLOG(6) << "FindMatchingSignature for function: "
           << function->DebugString(/*verbose=*/true) << "\n  for arguments: "
-          << InputArgumentType::ArgumentsToString(*input_arguments,
-                                                  ProductMode::PRODUCT_INTERNAL)
-          << " show_mismatch_details: " << show_mismatch_details;
+          << InputArgumentType::ArgumentsToString(
+                 *input_arguments, ProductMode::PRODUCT_INTERNAL);
+
+  if (!named_arguments.empty() &&
+      !resolver_->language().LanguageFeatureEnabled(FEATURE_NAMED_ARGUMENTS)) {
+    return named_arguments[0].MakeSQLError()
+           << "Named arguments are not supported";
+  }
 
   ZETASQL_RET_CHECK_LE(arg_locations_in.size(), std::numeric_limits<int32_t>::max());
   const int num_provided_args = static_cast<int>(arg_locations_in.size());
   const int num_signatures = function->NumSignatures();
   std::vector<InputArgumentType> original_input_arguments = *input_arguments;
-  if (show_mismatch_details) {
-    mismatch_errors->reserve(num_signatures);
-  }
+  mismatch_errors->reserve(num_signatures);
   for (const FunctionSignature& signature : function->signatures()) {
     int repetitions = 0;
     int optionals = 0;
@@ -926,15 +853,13 @@ FunctionResolver::FindMatchingSignature(
     // Only when an internal caller invoke this method, the internal signature
     // will be matched.
     if (signature.IsInternal() && !match_internal_signatures) {
-      if (show_mismatch_details) {
-        mismatch_errors->push_back("Internal error");
-      }
+      mismatch_errors->push_back("Internal error");
       continue;
     }
 
     // Prioritize named argument not found error, which is better than a general
     // "argument count does not match".
-    if (show_mismatch_details && !named_arguments.empty()) {
+    if (!named_arguments.empty()) {
       bool error_found = false;
       for (const NamedArgumentInfo& named_argument : named_arguments) {
         absl::string_view name = named_argument.name().ToStringView();
@@ -952,31 +877,13 @@ FunctionResolver::FindMatchingSignature(
     }
 
     SignatureMatchResult signature_match_result;
-    signature_match_result.set_allow_mismatch_message(mismatch_errors !=
-                                                      nullptr);
-    if (!SignatureArgumentCountMatches(signature, num_provided_args,
+    signature_match_result.set_allow_mismatch_message(true);
+    ZETASQL_RET_CHECK_EQ(original_input_arguments.size(), num_provided_args);
+    if (!SignatureArgumentCountMatches(signature, original_input_arguments,
                                        &repetitions, &optionals,
                                        &signature_match_result)) {
-      if (num_signatures == 1 && mismatch_errors == nullptr) {
-        // TODO: Given that we support optional arguments with
-        // defaults, an error message that says the 'number of function
-        // arguments does not match' is not very informative. It may be better
-        // to use the more general 'no matching signature' error message form,
-        // like:  "No matching signature for <function_name> for argument types:
-        // INT64.  Supported signature(s): ...". Improve this.
-        ZETASQL_ASSIGN_OR_RETURN(
-            std::string error_message,
-            GenerateErrorMessageWithSupportedSignatures(
-                function,
-                absl::StrCat("Number of arguments does not match for ",
-                             function->QualifiedSQLName()),
-                FunctionArgumentType::NamePrintingStyle::kIfNamedOnly));
-        return MakeSqlErrorAt(ast_location) << error_message;
-      }
-      if (show_mismatch_details) {
-        ZETASQL_RET_CHECK(!signature_match_result.mismatch_message().empty());
-        mismatch_errors->push_back(signature_match_result.mismatch_message());
-      }
+      ZETASQL_RET_CHECK(!signature_match_result.mismatch_message().empty());
+      mismatch_errors->push_back(signature_match_result.mismatch_message());
       continue;
     }
 
@@ -986,35 +893,21 @@ FunctionResolver::FindMatchingSignature(
             function->FullName(), signature, ast_location, arg_locations_in,
             named_arguments, repetitions,
             /*always_include_omitted_named_arguments_in_index_mapping=*/true,
-            show_mismatch_details, &arg_index_mapping);
+            &arg_index_mapping);
     // NOTE: Some errors means the call will match no signature providing the
     // same named argument twice) while others means this signature mismatches
     // (for example providing unknown argument name for a signature). This is
     // better handled below when show_function_signature_mismatch_details is
     // enabled.
-    if (!show_mismatch_details) {
-      if (!mismatch_message_or.ok()) {
-        // If <status> was not ok then the given signature is not a match.
-        // If there are additional signatures then we will proceed to the next
-        // one. Otherwise, we return <status> which has more detailed
-        // information about why the signature did not match (rather than return
-        // a more generic error later).
-        if (num_signatures == 1) {
-          return mismatch_message_or.status();
-        } else {
-          continue;
-        }
-      }
-    } else {
-      // Error means the call can never match any signature.
-      if (!mismatch_message_or.ok()) {
-        return mismatch_message_or.status();
-      }
-      // Record the mismatch message when it's set.
-      if (!mismatch_message_or.value().empty() && show_mismatch_details) {
-        mismatch_errors->push_back(mismatch_message_or.value());
-        continue;
-      }
+
+    // Error means the call can never match any signature.
+    if (!mismatch_message_or.ok()) {
+      return mismatch_message_or.status();
+    }
+    // Record the mismatch message when it's set.
+    if (!mismatch_message_or.value().empty()) {
+      mismatch_errors->push_back(mismatch_message_or.value());
+      continue;
     }
 
     std::vector<InputArgumentType> input_arguments_copy =
@@ -1037,9 +930,7 @@ FunctionResolver::FindMatchingSignature(
                          &signature_match_result, &arg_index_mapping,
                          &sig_arg_overrides));
     if (!is_match) {
-      if (show_mismatch_details) {
-        mismatch_errors->push_back(signature_match_result.mismatch_message());
-      }
+      mismatch_errors->push_back(signature_match_result.mismatch_message());
       continue;
     }
 
@@ -1050,9 +941,7 @@ FunctionResolver::FindMatchingSignature(
     // If this signature has argument constraints and they are not
     // satisfied then check the next signature.
     if (!arg_constraints_violation_reason.empty()) {
-      if (show_mismatch_details) {
-        mismatch_errors->push_back(arg_constraints_violation_reason);
-      }
+      mismatch_errors->push_back(arg_constraints_violation_reason);
       continue;
     }
 
@@ -1080,7 +969,7 @@ FunctionResolver::FindMatchingSignature(
       //   Func(T1, LAMBDA(T1, T1) -> STRING)
       // These two signatures cannot match any actual function call at the
       // same time as one expression could only be coerced to either string or
-      // int64_t. But our restriction is still restricting this for simplicity
+      // int64. But our restriction is still restricting this for simplicity
       // and lack of use case.
       ZETASQL_RET_CHECK(!seen_matched_signature_with_lambda ||
                 sig_arg_overrides.empty())
@@ -1596,7 +1485,7 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
     const ASTNode* ast_location,
     const std::vector<const ASTNode*>& arg_locations,
     bool match_internal_signatures,
-    const std::vector<std::string>& function_name_path, bool is_analytic,
+    absl::Span<const std::string> function_name_path, bool is_analytic,
     std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
     std::vector<NamedArgumentInfo> named_arguments,
     const Type* expected_result_type,
@@ -1848,17 +1737,26 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
   ZETASQL_RET_CHECK(ast_location != nullptr);
   ZETASQL_RET_CHECK_EQ(arg_locations.size(), arguments.size());
 
+  const auto* opt_ast_function_call =
+      ast_location->GetAsOrNull<ASTFunctionCall>();
+
   // For binary operators, point the error message at the operator in the
   // middle rather that at the start of the leftmost argument.
   // This works for some operators but not others, depending on the
   // construction rules in the parser.
-  // TODO Figure out how to get error location for 'abc=def'
-  // to point at the '='.
-  const bool include_leftmost_child =
-      (ast_location->node_kind() == AST_BINARY_EXPRESSION);
+  //
+  // TODO Point error location for 'abc=def' at the '='.
+  // This appears to never have worked for binary operators.
+  // We don't even have a location for the operator in ASTBinaryExpression.
+  // We would always want to use the operator location if we can.
+  //
+  // This function is now updated to always request the inner location.
+  // This works for chained function calls, pointing at the function name
+  // rather than the base argument.
+  const bool include_leftmost_child = false;
 
   if (is_analytic && !function->SupportsOverClause()) {
-    return MakeSqlErrorAt(ast_location)
+    return MakeSqlErrorAtLocalNode(ast_location)
            << function->QualifiedSQLName(/*capitalize_qualifier=*/true)
            << " does not support an OVER clause";
   }
@@ -1869,6 +1767,16 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
   GetInputArgumentTypesForGenericArgumentList(
       arg_locations, arguments,
       /*pick_default_type_for_untyped_expr=*/false, &input_argument_types);
+  ZETASQL_RET_CHECK_EQ(arg_locations.size(), input_argument_types.size());
+
+  // If this is a chained function call, mark the first InputArgumentType
+  // with `is_chained_function_call_input`.  This doesn't affect any behavior
+  // but is used to improve error messages.
+  if (opt_ast_function_call != nullptr &&
+      opt_ast_function_call->is_chained_call() &&
+      !input_argument_types.empty()) {
+    input_argument_types.front().set_is_chained_function_call_input();
+  }
 
   // Check initial argument constraints, if any.
   if (function->PreResolutionConstraints() != nullptr) {
@@ -1886,16 +1794,9 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
   // errors.
   // When function has SignatureTextCallback, we have opportunity for per
   // signature mismatch error.
-  // Skip mismatch details when we don't even want to show list of signatures
-  // with HideSupportedSignatures.
-  bool show_mismatch_details =
-      (function->GetSupportedSignaturesCallback() == nullptr ||
-       function->HasSignatureTextCallback()) &&
-      !function->HideSupportedSignatures() &&
-      resolver_->analyzer_options().show_function_signature_mismatch_details();
-  auto mismatch_errors = show_mismatch_details
-                             ? std::make_unique<std::vector<std::string>>()
-                             : nullptr;
+  // To simplify code, we always collect the mismatch errors, but may ignore
+  // them if we use other callbacks.
+  auto mismatch_errors = std::make_unique<std::vector<std::string>>();
   ZETASQL_ASSIGN_OR_RETURN(
       const FunctionSignature* signature,
       FindMatchingSignature(function, ast_location, arg_locations,
@@ -1914,7 +1815,7 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
                 NamedArgInfoToNameVector(
                     static_cast<int>(input_argument_types.size()),
                     named_arguments),
-                /*argument_types_on_new_line=*/show_mismatch_details),
+                /*argument_types_on_new_line=*/true),
             named_arguments.empty()
                 ? FunctionArgumentType::NamePrintingStyle::kIfNamedOnly
                 : FunctionArgumentType::NamePrintingStyle::kIfNotPositionalOnly,
@@ -2186,7 +2087,7 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
                          match_internal_signatures, named_arguments,
                          /*name_scope=*/nullptr, &input_argument_types,
                          /*arg_overrides=*/nullptr, &arg_reorder_index_mapping,
-                         /*mismatch_errors=*/nullptr));
+                         mismatch_errors.get()));
     ZETASQL_RET_CHECK_NE(matched_signature, nullptr);
     std::unique_ptr<const FunctionSignature> concat_op_result_signature(
         matched_signature);
@@ -2289,9 +2190,8 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
         /*error_location=*/ast_location, (*resolved_expr_out).get()));
   }
 
-  if (ast_location->node_kind() == zetasql::ASTNodeKind::AST_FUNCTION_CALL) {
-    auto ast_function_call = ast_location->GetAs<ASTFunctionCall>();
-    resolver_->MaybeRecordFunctionCallParseLocation(ast_function_call,
+  if (opt_ast_function_call != nullptr) {
+    resolver_->MaybeRecordFunctionCallParseLocation(opt_ast_function_call,
                                                     resolved_expr_out->get());
   } else if (resolver_->analyzer_options().parse_location_record_type() ==
              PARSE_LOCATION_RECORD_FULL_NODE_SCOPE) {
@@ -2400,11 +2300,21 @@ absl::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
   // function's SQL expression from the <parse_resume_location_>. Use the same
   // ID string pool as the original parser.
   if (expression == nullptr) {
+    // ParseExpression didn't used to take error_message_options as a parameter
+    // and just picked some defaults. Those defaults worked well here. Copying
+    // the error message options from the analyzer results in weird error
+    // messages, so we're making a copy and setting it up like the old defaults
+    // from ParseExpression.
+    ParserOptions function_body_parser_options =
+        analyzer_options.GetParserOptions();
+    ErrorMessageOptions& error_opts =
+        function_body_parser_options.mutable_error_message_options();
+    error_opts.attach_error_location_payload = true;
+    error_opts.mode = ERROR_MESSAGE_WITH_PAYLOAD;
     ZETASQL_RETURN_IF_ERROR(ForwardNestedResolutionAnalysisError(
         function,
         ParseExpression(function.GetParseResumeLocation(),
-                        analyzer_options.GetParserOptions(),
-                        &parser_output_storage),
+                        function_body_parser_options, &parser_output_storage),
         analyzer_options.error_message_options()));
     expression = parser_output_storage->expression();
   }

@@ -33,7 +33,7 @@
 
 // TODO: Remove flag when references are gone.
 ABSL_FLAG(bool, zetasql_use_customized_flex_istream, true, "Unused");
-ABSL_FLAG(bool, use_textmapper_lexer, false,
+ABSL_FLAG(bool, use_textmapper_lexer, true,
           "If true, uses TextMapper lexer rather than flex.");
 ABSL_FLAG(bool, verify_textmapper_lexer, false,
           "If true, compare the Flex tokens with the TextMapper tokens even if "

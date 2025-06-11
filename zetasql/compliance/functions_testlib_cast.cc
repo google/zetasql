@@ -229,7 +229,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastBytesStringWithFormat() {
   tests.reserve(function_calls.size());
   for (auto& function_call : function_calls) {
     tests.push_back(QueryParamsWithResult(function_call.params)
-                        .WrapWithFeature(FEATURE_V_1_3_FORMAT_IN_CAST));
+                        .WrapWithFeature(FEATURE_FORMAT_IN_CAST));
   }
 
   return tests;
@@ -244,7 +244,7 @@ GetFunctionTestsCastDateTimestampStringWithFormat() {
   tests.reserve(function_calls.size());
   for (auto& function_call : function_calls) {
     tests.push_back(QueryParamsWithResult(function_call.params)
-                        .AddRequiredFeature(FEATURE_V_1_3_FORMAT_IN_CAST));
+                        .AddRequiredFeature(FEATURE_FORMAT_IN_CAST));
   }
 
   return tests;
@@ -274,7 +274,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
       {{String("TRUE")}, true},
       {{String("FALSE")}, false},
 
-      // string->int64_t
+      // string->int64
       {{NullString()}, NullInt64()},
       {{String("")}, NullInt64(), OUT_OF_RANGE},
       {{String("a")}, NullInt64(), OUT_OF_RANGE},
@@ -284,7 +284,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
       {{String("-9223372036854775808")}, -9223372036854775807ll - 1},
       {{String("-9223372036854775809")}, NullInt64(), OUT_OF_RANGE},
 
-      // int64_t->string
+      // int64->string
       {{NullInt64()}, NullString()},
       {{0ll}, String("0")},
       {{123ll}, String("123")},
@@ -292,7 +292,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
       {{9223372036854775807ll}, String("9223372036854775807")},
       {{-9223372036854775807ll - 1}, String("-9223372036854775808")},
 
-      // string->uint64_t
+      // string->uint64
       {{NullString()}, NullUint64()},
       {{String("")}, NullUint64(), OUT_OF_RANGE},
       {{String("a")}, NullUint64(), OUT_OF_RANGE},
@@ -303,13 +303,13 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
       {{String("-1")}, NullUint64(), OUT_OF_RANGE},
       {{String("-9223372036854775809")}, NullUint64(), OUT_OF_RANGE},
 
-      // uint64_t->string
+      // uint64->string
       {{NullUint64()}, NullString()},
       {{0ull}, String("0")},
       {{123ull}, String("123")},
       {{18446744073709551615ull}, String("18446744073709551615")},
 
-      // string->int32_t
+      // string->int32
       {{NullString()}, NullInt32()},
       {{String("")}, NullInt32(), OUT_OF_RANGE},
       {{String("a")}, NullInt32(), OUT_OF_RANGE},
@@ -319,7 +319,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
       {{String("-2147483648")}, -2147483647 - 1},
       {{String("-2147483649")}, NullInt32(), OUT_OF_RANGE},
 
-      // int32_t->string
+      // int32->string
       {{NullInt32()}, NullString()},
       {{0}, String("0")},
       {{123}, String("123")},
@@ -327,7 +327,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
       {{2147483647}, String("2147483647")},
       {{-2147483647 - 1}, String("-2147483648")},
 
-      // string->uint32_t
+      // string->uint32
       {{NullString()}, NullUint32()},
       {{String("")}, NullUint32(), OUT_OF_RANGE},
       {{String("a")}, NullUint32(), OUT_OF_RANGE},
@@ -338,7 +338,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
       {{String("-1")}, NullUint32(), OUT_OF_RANGE},
       {{String("-4294967295")}, NullUint32(), OUT_OF_RANGE},
 
-      // uint32_t->string
+      // uint32->string
       {{NullUint32()}, NullString()},
       {{0u}, String("0")},
       {{123u}, String("123")},
@@ -538,7 +538,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
   };
 }
 
-// FromType is in {float, double}. ToType is in {int32_t, uint32_t, int64_t, uint64_t}.
+// FromType is in {float, double}. ToType is in {int32, uint32, int64, uint64}.
 template <typename FromType, typename ToType>
 static std::vector<QueryParamsWithResult> TestCastPositiveRounding() {
   return {
@@ -549,7 +549,7 @@ static std::vector<QueryParamsWithResult> TestCastPositiveRounding() {
   };
 }
 
-// FromType = {float, double}. ToType = {int32_t, int64_t}.
+// FromType = {float, double}. ToType = {int32, int64}.
 template <typename FromType, typename ToType>
 static std::vector<QueryParamsWithResult> TestCastNegativeRounding() {
   return {
@@ -560,7 +560,7 @@ static std::vector<QueryParamsWithResult> TestCastNegativeRounding() {
   };
 }
 
-// FromType is in {float, double}. ToType is in {int32_t, uint32_t, int64_t, uint64_t,
+// FromType is in {float, double}. ToType is in {int32, uint32, int64, uint64,
 // bool}.
 template <typename FromType, typename ToType>
 static std::vector<QueryParamsWithResult> TestCastInfinityError() {
@@ -577,7 +577,7 @@ static std::vector<QueryParamsWithResult> TestCastInfinityError() {
   };
 }
 
-// FromType = {int32_t, int64_t, uint32_t, uint64_t, float, double}.
+// FromType = {int32, int64, uint32, uint64, float, double}.
 template <typename FromType>
 static std::vector<QueryParamsWithResult> TestCastNumericNull() {
   const Value& from_null = Value::MakeNull<FromType>();
@@ -993,33 +993,31 @@ std::vector<QueryParamsWithResult> TestCastDateTimeWithString() {
 std::vector<QueryParamsWithResult> GetFunctionTestsCastDateTime() {
   const absl::CivilDay epoch_day = absl::CivilDay(1970, 1, 1);
   std::vector<QueryParamsWithResult> v = {
-    // DATE -> DATE
-    {{NullDate()},           NullDate()},
-    {{Date(date_min)},       Date(date_min)},
-    {{Date(0)},              Date(0)},
-    {{Date(date_max)},       Date(date_max)},
+      // DATE -> DATE
+      {{NullDate()}, NullDate()},
+      {{Date(date_min)}, Date(date_min)},
+      {{Date(0)}, Date(0)},
+      {{Date(date_max)}, Date(date_max)},
 
-    // TIMESTAMP ->  TIMESTAMP
-    {{NullTimestamp()},      NullTimestamp()},
-    {{Timestamp(timestamp_min)}, Timestamp(timestamp_min)},
-    {{Timestamp(0)},         Timestamp(0)},
-    {{Timestamp(timestamp_max)}, Timestamp(timestamp_max)},
+      // TIMESTAMP ->  TIMESTAMP
+      {{NullTimestamp()}, NullTimestamp()},
+      {{Timestamp(timestamp_min)}, Timestamp(timestamp_min)},
+      {{Timestamp(0)}, Timestamp(0)},
+      {{Timestamp(timestamp_max)}, Timestamp(timestamp_max)},
 
-    // DATETIME -> TIME
-    QueryParamsWithResult(
-        {Datetime(DatetimeValue::FromYMDHMSAndMicros(
-            2018, 11, 21, 11, 13, 1, 2))},
-         Time(TimeValue::FromHMSAndMicros(11, 13, 1, 2)))
-        .WrapWithFeature(FEATURE_V_1_2_CIVIL_TIME),
+      // DATETIME -> TIME
+      QueryParamsWithResult({Datetime(DatetimeValue::FromYMDHMSAndMicros(
+                                2018, 11, 21, 11, 13, 1, 2))},
+                            Time(TimeValue::FromHMSAndMicros(11, 13, 1, 2)))
+          .WrapWithFeature(FEATURE_CIVIL_TIME),
 
-    // DATETIME -> DATE
-    QueryParamsWithResult(
-        {Datetime(DatetimeValue::FromYMDHMSAndMicros(
-            2018, 11, 21, 11, 13, 1, 2))},
-        Date(absl::CivilDay(2018, 11, 21) - epoch_day))
-        .WrapWithFeature(FEATURE_V_1_2_CIVIL_TIME),
+      // DATETIME -> DATE
+      QueryParamsWithResult({Datetime(DatetimeValue::FromYMDHMSAndMicros(
+                                2018, 11, 21, 11, 13, 1, 2))},
+                            Date(absl::CivilDay(2018, 11, 21) - epoch_day))
+          .WrapWithFeature(FEATURE_CIVIL_TIME),
 
-    // TODO: Add positive tests between date and timestamp.
+      // TODO: Add positive tests between date and timestamp.
   };
 
   return ConcatTests<QueryParamsWithResult>({
@@ -1229,7 +1227,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastUuid() {
   std::vector<QueryParamsWithResult> result;
   result.reserve(tests.size());
   for (auto& test : tests) {
-    test.AddRequiredFeature(FEATURE_V_1_4_UUID_TYPE);
+    test.AddRequiredFeature(FEATURE_UUID_TYPE);
     result.push_back(test);
   }
   return result;
@@ -1363,11 +1361,11 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastRange() {
   };
   for (auto& test : tests) {
     test.AddRequiredFeature(FEATURE_RANGE_TYPE);
-    // Add FEATURE_V_1_2_CIVIL_TIME if the source/result value is of DATETIME
+    // Add FEATURE_CIVIL_TIME if the source/result value is of DATETIME
     // type.
     if (is_datetime_range_value(test.param(0)) ||
         is_datetime_range_value(test.result())) {
-      test.AddRequiredFeature(FEATURE_V_1_2_CIVIL_TIME);
+      test.AddRequiredFeature(FEATURE_CIVIL_TIME);
     }
   }
   return tests;
@@ -2397,7 +2395,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
   const Value another_null_array = Value::Null(Int64ArrayType());
 
   LanguageOptions language_options_map_type;
-  language_options_map_type.EnableLanguageFeature(FEATURE_V_1_4_MAP_TYPE);
+  language_options_map_type.EnableLanguageFeature(FEATURE_MAP_TYPE);
   absl::StatusOr<const Type*> map_type_or_status = type_factory()->MakeMapType(
       StringType(), Int64Type(), language_options_map_type);
   ZETASQL_CHECK_OK(map_type_or_status);
@@ -2520,7 +2518,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
             test_values::kPreservesOrder, type_factory())}},
       type_factory());
 
-  std::set<LanguageFeature> with_proto_maps = {FEATURE_V_1_3_PROTO_MAPS};
+  std::set<LanguageFeature> with_proto_maps = {FEATURE_PROTO_MAPS};
 
   return {
       {{NullInt64()}, null_enum},
@@ -2587,7 +2585,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
       {{NullString()}, null_proto},
 
       QueryParamsWithResult({{null_map}, null_map})
-          .AddRequiredFeature(FEATURE_V_1_4_MAP_TYPE),
+          .AddRequiredFeature(FEATURE_MAP_TYPE),
 
       {{KitchenSink(kitchen_sink_string_1)}, String(kitchen_sink_string_1)},
       {{KitchenSink(kitchen_sink_string_2)}, String(kitchen_sink_string_2)},
@@ -2710,8 +2708,8 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
 
       QueryParamsWithResult({nested_container_from_type},
                             nested_container_to_type)
-          .AddRequiredFeatures({FEATURE_V_1_4_MAP_TYPE,
-                                FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES}),
+          .AddRequiredFeatures(
+              {FEATURE_MAP_TYPE, FEATURE_CAST_DIFFERENT_ARRAY_TYPES}),
   };
 }
 
@@ -2781,9 +2779,9 @@ GetFunctionTestsCastBetweenDifferentArrayTypes(bool arrays_with_nulls) {
 
       tests.push_back(
           QueryParamsWithResult({from_array}, to_array, test.status())
-              .AddRequiredFeatures(zetasql_base::STLSetUnion(
-                  test.required_features(),
-                  {FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES})));
+              .AddRequiredFeatures(
+                  zetasql_base::STLSetUnion(test.required_features(),
+                                   {FEATURE_CAST_DIFFERENT_ARRAY_TYPES})));
     }
   }
 
@@ -2794,7 +2792,7 @@ GetFunctionTestsCastBetweenDifferentArrayTypes(bool arrays_with_nulls) {
 
     tests.push_back(
         QueryParamsWithResult({null_array}, another_null_array)
-            .AddRequiredFeature(FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES));
+            .AddRequiredFeature(FEATURE_CAST_DIFFERENT_ARRAY_TYPES));
   }
 
   return tests;
@@ -2855,13 +2853,13 @@ absl::StatusOr<QueryParamsWithResult> WrapCastTestInputAndResultInMapCastTest(
       ABSL_LOG(FATAL) << "Unsupported MapKeyOrValueSelector";
   }
 
-  required_features.emplace(FEATURE_V_1_4_MAP_TYPE);
+  required_features.emplace(FEATURE_MAP_TYPE);
 
   // Basic support for cases with containers as keys.
   if (map_entry_cast_key.type()->IsArray()) {
-    required_features.emplace(FEATURE_V_1_2_GROUP_BY_ARRAY);
+    required_features.emplace(FEATURE_GROUP_BY_ARRAY);
   } else if (map_entry_cast_key.type()->IsStruct()) {
-    required_features.emplace(FEATURE_V_1_2_GROUP_BY_STRUCT);
+    required_features.emplace(FEATURE_GROUP_BY_STRUCT);
   }
 
   LanguageOptions language_options;
@@ -2906,17 +2904,15 @@ static inline absl::Status AddAdditionalMapCastTestCases(
           MapKeyOrValueSelector::kMapKey,
           test_values::Array({"1", "2", "3"}, type_factory()),
           test_values::Array({1, 2, 3}, type_factory()), absl::OkStatus(),
-          {FEATURE_V_1_2_GROUP_BY_ARRAY,
-           FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES}));
+          {FEATURE_GROUP_BY_ARRAY, FEATURE_CAST_DIFFERENT_ARRAY_TYPES}));
   map_cast_test_cases.push_back(map_array_key);
 
-  ZETASQL_ASSIGN_OR_RETURN(
-      QueryParamsWithResult map_array_value,
-      WrapCastTestInputAndResultInMapCastTest(
-          MapKeyOrValueSelector::kMapValue,
-          test_values::Array({"1", "2", "3"}, type_factory()),
-          test_values::Array({1, 2, 3}, type_factory()), absl::OkStatus(),
-          {FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES}));
+  ZETASQL_ASSIGN_OR_RETURN(QueryParamsWithResult map_array_value,
+                   WrapCastTestInputAndResultInMapCastTest(
+                       MapKeyOrValueSelector::kMapValue,
+                       test_values::Array({"1", "2", "3"}, type_factory()),
+                       test_values::Array({1, 2, 3}, type_factory()),
+                       absl::OkStatus(), {FEATURE_CAST_DIFFERENT_ARRAY_TYPES}));
   map_cast_test_cases.push_back(map_array_value);
 
   // MAP element test.
@@ -2937,7 +2933,7 @@ static inline absl::Status AddAdditionalMapCastTestCases(
           test_values::Struct({"a", "b"}, {1, 2.5}, type_factory()),
           test_values::Struct({"a", "b"}, {"1", "2.5"}, type_factory()),
           absl::OkStatus(),
-          /*required_features=*/{FEATURE_V_1_2_GROUP_BY_STRUCT}));
+          /*required_features=*/{FEATURE_GROUP_BY_STRUCT}));
   map_cast_test_cases.push_back(map_struct_key);
   ZETASQL_ASSIGN_OR_RETURN(
       QueryParamsWithResult map_struct_value,
@@ -3021,7 +3017,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsMapCast() {
   ZETASQL_CHECK_OK(AddAdditionalMapCastTestCases(map_cast_test_cases));
 
   for (auto& test_case : map_cast_test_cases) {
-    test_case.AddRequiredFeature(FEATURE_V_1_4_MAP_TYPE);
+    test_case.AddRequiredFeature(FEATURE_MAP_TYPE);
   }
 
   return map_cast_test_cases;

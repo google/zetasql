@@ -98,7 +98,7 @@ class ResolverTest : public ::testing::Test {
     analyzer_options_.mutable_language()->EnableLanguageFeature(
         FEATURE_AGGREGATION_THRESHOLD);
     analyzer_options_.mutable_language()->EnableLanguageFeature(
-        FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS);
+        FEATURE_UNNEST_AND_FLATTEN_ARRAYS);
     analyzer_options_.mutable_language()->EnableLanguageFeature(
         FEATURE_INTERVAL_TYPE);
     analyzer_options_.mutable_language()->EnableLanguageFeature(
@@ -106,7 +106,7 @@ class ResolverTest : public ::testing::Test {
     analyzer_options_.mutable_language()->EnableLanguageFeature(
         FEATURE_RANGE_TYPE);
     analyzer_options_.mutable_language()->EnableLanguageFeature(
-        FEATURE_V_1_4_UUID_TYPE);
+        FEATURE_UUID_TYPE);
     analyzer_options_.CreateDefaultArenasIfNotSet();
     sample_catalog_ = std::make_unique<SampleCatalog>(
         analyzer_options_.language(), &type_factory_);
@@ -598,8 +598,8 @@ TEST_F(ResolverTest, ResolveTypeInvalidTypeNameTests) {
               StatusIs(_, HasSubstr("Type not found: CONCAT")));
 
   EXPECT_THAT(
-      resolver_->ResolveTypeName("timestamp(0)", &type),
-      StatusIs(_, HasSubstr("TIMESTAMP does not support type parameters")));
+      resolver_->ResolveTypeName("timestamp(1)", &type),
+      StatusIs(_, HasSubstr("TIMESTAMP precision must be 0, 3, 6, 9, or 12")));
 
   EXPECT_THAT(
       resolver_->ResolveTypeName("string collate 'abc'", &type),
@@ -1053,7 +1053,7 @@ TEST_F(ResolverTest, TestResolveLiteralAsNumericTarget) {
 }
 
 TEST_F(ResolverTest, TestBytesAndStringLiteralComparison) {
-  // FEATURE_V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES is enabled, so
+  // FEATURE_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES is enabled, so
   // these statements succeed.
   TestResolverOK("'abc' < b'abd'");
   TestResolverOK("'abc' <= b'abd'");
@@ -1865,7 +1865,7 @@ TEST_F(ResolverTest, TestIntervalLiteral) {
   // overflow during multiplication
   TestIntervalLiteralError("INTERVAL '9223372036854775807' YEAR");
   TestIntervalLiteralError("INTERVAL '-9223372036854775808' YEAR");
-  // overflow fitting into int64_t at SimpleAtoi
+  // overflow fitting into int64 at SimpleAtoi
   TestIntervalLiteralError("INTERVAL '9223372036854775808' YEAR");
   TestIntervalLiteralError("INTERVAL '-9223372036854775809' YEAR");
 
@@ -1875,14 +1875,14 @@ TEST_F(ResolverTest, TestIntervalLiteral) {
   // overflow during multiplication
   TestIntervalLiteralError("INTERVAL '9223372036854775807' QUARTER");
   TestIntervalLiteralError("INTERVAL '-9223372036854775808' QUARTER");
-  // overflow fitting into int64_t at SimpleAtoi
+  // overflow fitting into int64 at SimpleAtoi
   TestIntervalLiteralError("INTERVAL '9223372036854775808' QUARTER");
   TestIntervalLiteralError("INTERVAL '-9223372036854775809' QUARTER");
 
   // exceeds max number of months
   TestIntervalLiteralError("INTERVAL '120001' MONTH");
   TestIntervalLiteralError("INTERVAL '-120001' MONTH");
-  // overflow fitting into int64_t at SimpleAtoi
+  // overflow fitting into int64 at SimpleAtoi
   TestIntervalLiteralError("INTERVAL '9223372036854775808' MONTH");
   TestIntervalLiteralError("INTERVAL '-9223372036854775809' MONTH");
 
@@ -1892,7 +1892,7 @@ TEST_F(ResolverTest, TestIntervalLiteral) {
   // overflow during multiplication
   TestIntervalLiteralError("INTERVAL '9223372036854775807' WEEK");
   TestIntervalLiteralError("INTERVAL '-9223372036854775808' WEEK");
-  // overflow fitting into int64_t at SimpleAtoi
+  // overflow fitting into int64 at SimpleAtoi
   TestIntervalLiteralError("INTERVAL '9223372036854775808' WEEK");
   TestIntervalLiteralError("INTERVAL '-9223372036854775809' WEEK");
 
@@ -1927,7 +1927,7 @@ TEST_F(ResolverTest, TestIntervalLiteral) {
   // exceeds max number of seconds
   TestIntervalLiteralError("INTERVAL '316224000000.000001' SECOND");
   TestIntervalLiteralError("INTERVAL '-316224000000.000001' SECOND");
-  // overflow fitting into int64_t at SimpleAtoi
+  // overflow fitting into int64 at SimpleAtoi
   TestIntervalLiteralError("INTERVAL '9223372036854775808' SECOND");
   TestIntervalLiteralError("INTERVAL '-9223372036854775809' SECOND");
 
@@ -1947,7 +1947,7 @@ TEST_F(ResolverTest, TestIntervalLiteral) {
   // exceeds max number of milliseconds
   TestIntervalLiteralError("INTERVAL '316224000000001' MILLISECOND");
   TestIntervalLiteralError("INTERVAL '-316224000000001' MILLISECOND");
-  // overflow fitting into int64_t at SimpleAtoi
+  // overflow fitting into int64 at SimpleAtoi
   TestIntervalLiteralError("INTERVAL '9223372036854775808' MILLISECOND");
   TestIntervalLiteralError("INTERVAL '-9223372036854775809' MILLISECOND");
 
@@ -1967,7 +1967,7 @@ TEST_F(ResolverTest, TestIntervalLiteral) {
   // exceeds max number of microseconds
   TestIntervalLiteralError("INTERVAL '316224000000000001' MICROSECOND");
   TestIntervalLiteralError("INTERVAL '-316224000000000001' MICROSECOND");
-  // overflow fitting into int64_t at SimpleAtoi
+  // overflow fitting into int64 at SimpleAtoi
   TestIntervalLiteralError("INTERVAL '9223372036854775808' MICROSECOND");
   TestIntervalLiteralError("INTERVAL '-9223372036854775809' MICROSECOND");
 
@@ -2026,7 +2026,7 @@ TEST_F(ResolverTest, TestIntervalLiteral) {
   TestIntervalLiteralError(
       "INTERVAL '0 -87840000:0:0.000000001' DAY TO SECOND");
 
-  // Numbers too large to fit into int64_t
+  // Numbers too large to fit into int64
   TestIntervalLiteralError("INTERVAL '9223372036854775808-0' YEAR TO MONTH");
   TestIntervalLiteralError("INTERVAL '-9223372036854775808-0' YEAR TO MONTH");
   TestIntervalLiteralError("INTERVAL '0-9223372036854775808' YEAR TO MONTH");

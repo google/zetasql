@@ -446,8 +446,7 @@ absl::Status Resolver::ResolveAlterActions(
       } break;
       case AST_ALTER_COLUMN_SET_DEFAULT_ACTION:
       case AST_ALTER_COLUMN_DROP_DEFAULT_ACTION: {
-        if (!language().LanguageFeatureEnabled(
-                FEATURE_V_1_3_COLUMN_DEFAULT_VALUE)) {
+        if (!language().LanguageFeatureEnabled(FEATURE_COLUMN_DEFAULT_VALUE)) {
           return MakeSqlErrorAt(action)
                  << "Column default value is not supported";
         }
@@ -496,8 +495,7 @@ absl::Status Resolver::ResolveAlterActions(
         break;
       }
       case AST_SET_COLLATE_CLAUSE: {
-        if (!language().LanguageFeatureEnabled(
-                FEATURE_V_1_3_COLLATION_SUPPORT) ||
+        if (!language().LanguageFeatureEnabled(FEATURE_COLLATION_SUPPORT) ||
             (ast_statement->node_kind() != AST_ALTER_TABLE_STATEMENT &&
              ast_statement->node_kind() != AST_ALTER_SCHEMA_STATEMENT)) {
           // AST_SET_COLLATE_CLAUSE supports ALTER TABLE and ALTER SCHEMA

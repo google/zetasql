@@ -419,11 +419,6 @@ absl::Status CheckGreatestLeastArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-absl::Status CheckFirstArgumentSupportsEquality(
-    const std::string& comparison_name,
-    const std::vector<InputArgumentType>& arguments,
-    const LanguageOptions& language_options);
-
 absl::Status CheckArrayAggArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);

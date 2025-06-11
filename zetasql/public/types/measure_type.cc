@@ -19,12 +19,17 @@
 #include <string>
 #include <utility>
 
+#include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/collation.h"
+#include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_modifiers.h"
 #include "zetasql/public/types/value_equality_check_options.h"
+#include "zetasql/public/types/value_representations.h"
 #include "absl/hash/hash.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
@@ -99,8 +104,7 @@ bool MeasureType::SupportsPartitioningImpl(
 
 bool MeasureType::IsSupportedType(
     const LanguageOptions& language_options) const {
-  return language_options.LanguageFeatureEnabled(
-             FEATURE_V_1_4_ENABLE_MEASURES) &&
+  return language_options.LanguageFeatureEnabled(FEATURE_ENABLE_MEASURES) &&
          result_type_->IsSupportedType(language_options);
 }
 
@@ -117,22 +121,43 @@ absl::HashState MeasureType::HashTypeParameter(absl::HashState state) const {
 
 absl::HashState MeasureType::HashValueContent(const ValueContent& value,
                                               absl::HashState state) const {
-  // It is not required that HashValueContent depend on the type, but only on
-  // the content. Since a Measure type doesn't inherently have a value, this is
-  // a no-op on the hash state.
-  return state;
+  absl::HashState result = absl::HashState::Create(&state);
+  const internal::ValueContentMeasure* value_content_measure =
+      value.GetAs<internal::ValueContentMeasureRef*>()->value();
+  const internal::ValueContentOrderedList* captured_values =
+      value_content_measure->GetCapturedValues();
+  const StructType* captured_values_struct_type =
+      value_content_measure->GetCapturedValuesStructType();
+  ABSL_DCHECK(captured_values_struct_type->num_fields() ==
+         captured_values->num_elements());
+  for (int i = 0; i < captured_values_struct_type->num_fields(); i++) {
+    const StructField& field = captured_values_struct_type->field(i);
+    NullableValueContentHasher hasher(field.type);
+    result = absl::HashState::combine(std::move(result),
+                                      hasher(captured_values->element(i)));
+  }
+  for (int key_index : value_content_measure->KeyIndices()) {
+    result = absl::HashState::combine(std::move(result), key_index);
+  }
+  return result;
 }
 
 absl::Status MeasureType::SerializeValueContent(const ValueContent& value,
                                                 ValueProto* value_proto) const {
-  // A Measure type doesn't inherently have a value.
+  // A measure value is currently modeled as a thin wrapper around a STRUCT.
+  // However, we choose not to support serialization because it detracts from
+  // the conceptual meaning of a measure (which is a specialized aggregate
+  // lambda).
   return absl::UnimplementedError(
       "SerializeValueContent is unsupported for MeasureType.");
 }
 
 absl::Status MeasureType::DeserializeValueContent(const ValueProto& value_proto,
                                                   ValueContent* value) const {
-  // A Measure type doesn't inherently have a value.
+  // A measure value is currently modeled as a thin wrapper around a STRUCT.
+  // However, we choose not to support serialization because it detracts from
+  // the conceptual meaning of a measure (which is a specialized aggregate
+  // lambda).
   return absl::UnimplementedError(
       "DeserializeValueContent is unsupported for MeasureType.");
 }
@@ -146,25 +171,60 @@ absl::Status MeasureType::SerializeToProtoAndDistinctFileDescriptorsImpl(
       file_descriptor_set_map);
 }
 
+// Measure values are currently just a thin wrapper around a STRUCT.
+// ValueContent comparisons are technically possible, but we choose not to
+// support them because it detracts from the conceptual meaning of a measure
+// (which is a specialized aggregate lambda).
 bool MeasureType::ValueContentEquals(
     const ValueContent& x, const ValueContent& y,
     const ValueEqualityCheckOptions& options) const {
-  // A Measure type doesn't inherently have a value.
   ABSL_DCHECK(false) << "ValueContentEquals is unsupported for MeasureType.";
   return false;
 }
 bool MeasureType::ValueContentLess(const ValueContent& x, const ValueContent& y,
                                    const Type* other_type) const {
-  // A Measure type doesn't inherently have a value.
+  // See comments on `ValueContentEquals`.
   ABSL_DCHECK(false) << "ValueContentLess is unsupported for MeasureType.";
   return false;
 }
 
 std::string MeasureType::FormatValueContent(
     const ValueContent& value, const FormatValueContentOptions& options) const {
-  // A Measure type doesn't inherently have a value.
-  ABSL_DCHECK(false) << "FormatValueContent is unsupported for MeasureType.";
-  return "FormatValueContent is unsupported for MeasureType.";
+  if (!ThreadHasEnoughStack()) {
+    return std::string(kFormatValueContentOutOfStackError);
+  }
+
+  switch (options.mode) {
+    case Type::FormatValueContentOptions::Mode::kDebug:
+      break;
+    case Type::FormatValueContentOptions::Mode::kSQLLiteral:
+    case Type::FormatValueContentOptions::Mode::kSQLExpression:
+      ABSL_LOG(ERROR) << "No SQL expression or literal for measures";
+      return "()";
+  }
+
+  const internal::ValueContentMeasure* value_content_measure =
+      value.GetAs<internal::ValueContentMeasureRef*>()->value();
+  std::string result;
+  // Always print the type name for measures. This prevents measure values from
+  // being printed (and possibly interpreted) as just a STRUCT.
+  absl::StrAppend(&result, CapitalizedName());
+  absl::StrAppend(&result, "{");
+  value_content_measure->GetCapturedValuesStructType()
+      ->FormatValueContentDebugModeImpl(
+          value_content_measure->GetCapturedValues(), options, &result);
+  absl::StrAppend(&result, "}");
+  return result;
+}
+
+void MeasureType::ClearValueContent(const ValueContent& value) const {
+  value.GetAs<internal::ValueContentMeasureRef*>()->Unref();
+}
+
+void MeasureType::CopyValueContent(const ValueContent& from,
+                                   ValueContent* to) const {
+  from.GetAs<internal::ValueContentMeasureRef*>()->Ref();
+  *to = from;
 }
 
 }  // namespace zetasql

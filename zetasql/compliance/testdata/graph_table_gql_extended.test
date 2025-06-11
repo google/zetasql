@@ -1,5 +1,5 @@
 [default reserve_graph_table]
-[default required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [load_proto_files=zetasql/testdata/test_schema.proto]
 [load_proto_names=zetasql_test__.KitchenSinkPB]
 [prepare_database]
@@ -360,7 +360,7 @@ ARRAY<STRUCT<aid INT64,
              aid2 INT64>>[{1010, 200, 1020, 300, 1030, 500, 1010}]
 ==
 # same as above, replacing RETURN ... NEXT ... by WITH
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_RETURN_EXTENSIONS]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_RETURN_EXTENSIONS]
 [name=consecutive_match_across_linear_queries_using_with]
 select * from graph_table(aml
   MATCH (a IS Account Where a.account_id = 1010)
@@ -465,7 +465,7 @@ ARRAY<STRUCT<aid INT64,
 ]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=optional_columns_return_graph_element]
 select a.account_id as aid, t1.amount as amount1, b.account_id as bid, t2.amount as amount2, c.account_id as cid, t3.amount as amount3, a.account_id as aid2 from graph_table(aml
   MATCH (a IS Account Where a.account_id = 1010) (-[t1 IS Transfer]-> (b) -[t2 IS Transfer]-> WHERE t1.amount*2 > t2.amount) (c),
@@ -484,7 +484,7 @@ ARRAY<STRUCT<aid INT64,
              aid2 INT64>>[{1010, 200, 1020, 300, 1030, 500, 1010}]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=property_specification]
 SELECT * FROM GRAPH_TABLE(aml
   MATCH (a IS Account {account_id: 1010}) -[t1 IS Transfer {amount: 600}]-> (b IS Account)
@@ -498,7 +498,7 @@ ARRAY<STRUCT<sender_id INT64, account_kind STRING, amount INT64, receiver_id INT
 ]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_GROUP_BY_ALL]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,GROUP_BY_ALL]
 [name=aggregation1]
 select gt.* from
 graph_table(aml
@@ -515,7 +515,7 @@ ARRAY<STRUCT<a1_id INT64, a2_id INT64, count INT64>>[known order:
   {1030, 1010, 1}
 ]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_RETURN_EXTENSIONS]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_RETURN_EXTENSIONS]
 [name=aggregation_with1]
 select gt.* from
 graph_table(aml
@@ -544,7 +544,7 @@ order by 1
 ARRAY<STRUCT<total_amount INT64>>[{2100}]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_RETURN_EXTENSIONS]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_RETURN_EXTENSIONS]
 [name=aggregation_with2]
 select gt.* from
 graph_table(aml
@@ -574,7 +574,7 @@ ARRAY<STRUCT<a1_id INT64, a2_id INT64, amount INT64>>[known order:
   {1030, 1010, 500}
 ]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_RETURN_EXTENSIONS]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_RETURN_EXTENSIONS]
 [name=aggregation_with3]
 select gt.* from
 graph_table(aml
@@ -611,7 +611,7 @@ ARRAY<STRUCT<a1_id INT64, a2_id INT64>>[known order:
 ]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_RETURN_EXTENSIONS]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_RETURN_EXTENSIONS]
 [name=aggregation_with4]
 select gt.* from
 graph_table(aml
@@ -647,7 +647,7 @@ ARRAY<STRUCT<a1_id INT64, a2_id INT64, total_amount INT64>>[known order:
 ]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_RETURN_EXTENSIONS]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_RETURN_EXTENSIONS]
 [name=aggregation_with5]
 select gt.* from
 graph_table(aml
@@ -678,7 +678,7 @@ ORDER BY first_id
 ARRAY<STRUCT<first_id INT64>>[known order:{1010}, {1020}, {1030}]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_RETURN_EXTENSIONS]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_RETURN_EXTENSIONS]
 [name=aggregation_with6]
 select gt.* from
 graph_table(aml
@@ -692,7 +692,7 @@ ORDER BY first_id
 ARRAY<STRUCT<first_id INT64>>[known order:{1010}, {1020}, {1030}]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_1_HAVING_IN_AGGREGATE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,HAVING_IN_AGGREGATE]
 [name=aggregation7]
 select gt.* from
 graph_table(aml
@@ -711,7 +711,7 @@ ARRAY<STRUCT<a1_id INT64, a2_id INT64, norm_amount INT64>>[known order:
 ]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_1_HAVING_IN_AGGREGATE,V_1_4_SQL_GRAPH_RETURN_EXTENSIONS]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,HAVING_IN_AGGREGATE,SQL_GRAPH_RETURN_EXTENSIONS]
 [name=aggregation_with7]
 select gt.* from
 graph_table(aml
@@ -731,7 +731,7 @@ ARRAY<STRUCT<a1_id INT64, a2_id INT64, norm_amount INT64>>[known order:
 ]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_GROUP_BY_ALL]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,GROUP_BY_ALL]
 [name=aggregation8]
 select gt.* from
 graph_table(aml
@@ -767,7 +767,7 @@ ARRAY<STRUCT<a1_id INT64, a2_id INT64, arr ARRAY<>>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=for_operator_null_array]
 select *
 from graph_table(aml
@@ -780,7 +780,7 @@ ORDER BY 1, 2, 3
 ARRAY<STRUCT<account_id INT64, element INT64, offset INT64>>[]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=for_operator_empty_untyped_array]
 select *
 from graph_table(aml
@@ -793,7 +793,7 @@ ORDER BY 1, 2, 3
 ARRAY<STRUCT<account_id INT64, element INT64, offset INT64>>[]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=for_operator_str_literal_array]
 select *
 from graph_table(aml
@@ -819,7 +819,7 @@ ARRAY<STRUCT<account_id INT64, element STRING, offset INT64>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=for_operator_str_literal_array_with_nulls]
 select *
 from graph_table(aml
@@ -853,7 +853,7 @@ ARRAY<STRUCT<account_id INT64, element STRING, offset INT64>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 [name=for_operator_str_literal_array_with_collation]
 select *, element = "abc" AS is_equivalent_to_abc
 from graph_table(aml
@@ -885,7 +885,7 @@ ARRAY<STRUCT<
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=for_operator_gql_array_subquery]
 select *
 from graph_table(aml
@@ -903,7 +903,7 @@ ARRAY<STRUCT<account_id INT64, element INT64, offset INT64>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,INLINE_LAMBDA_ARGUMENT]
 [name=for_operator_array_expr]
 select *
 from graph_table(aml
@@ -933,7 +933,7 @@ ARRAY<STRUCT<element INT64, offset INT64>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=for_operator_group_variable]
 select COUNT(*) as cnt
 from graph_table(aml
@@ -945,7 +945,7 @@ from graph_table(aml
 --
 ARRAY<STRUCT<cnt INT64>>[{102}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_RETURN_EXTENSIONS]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_RETURN_EXTENSIONS]
 [name=aggregation_with8]
 select gt.* from
 graph_table(aml
@@ -979,7 +979,7 @@ ARRAY<STRUCT<a1_id INT64, a2_id INT64, arr ARRAY<>>>[known order:
 
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=horizontal_aggregation_simple]
 
 select * from graph_table(aml
@@ -995,7 +995,7 @@ ARRAY<STRUCT<r INT64>>[{38}]
 
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ORDER_BY_IN_AGGREGATE]
 [name=horizontal_aggregation_array_agg]
 
 select * from graph_table(aml
@@ -1015,7 +1015,7 @@ ARRAY<STRUCT<r ARRAY<>>>[
 
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ORDER_BY_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE,NULLS_FIRST_LAST_IN_ORDER_BY]
 [name=horizontal_aggregation_array_agg_with_nulls]
 
 select * from graph_table(aml
@@ -1034,7 +1034,7 @@ ARRAY<STRUCT<r ARRAY<>>>[
 
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_1_HAVING_IN_AGGREGATE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,HAVING_IN_AGGREGATE]
 [name=horizontal_aggregation_having_max]
 
 select * from graph_table(aml
@@ -1049,7 +1049,7 @@ ARRAY<STRUCT<r STRING>>[{"orange"}]
 
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ORDER_BY_IN_AGGREGATE]
 [name=horizontal_aggregation_string_agg_with_constant_arg]
 
 select * from graph_table(aml
@@ -1062,7 +1062,7 @@ ARRAY<STRUCT<r STRING>>[{"hello, world"}]
 
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ORDER_BY_IN_AGGREGATE]
 [name=horizontal_aggregation_params]
 [parameters=", " as separator, ARRAY<STRING>["hello", "world"] as arr]
 
@@ -1076,7 +1076,7 @@ ARRAY<STRUCT<r STRING>>[{"hello, world"}]
 
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ORDER_BY_IN_AGGREGATE]
 [name=horizontal_aggregation_empty_array]
 
 select * from graph_table(aml
@@ -1090,7 +1090,7 @@ ARRAY<STRUCT<r INT64, r2 ARRAY<>>>[{0, ARRAY<INT64>(NULL)}]
 
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_WITH_EXPRESSION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,WITH_EXPRESSION]
 [name=horizontal_aggregation_with_expr]
 
 select * from graph_table(aml
@@ -1107,7 +1107,7 @@ ARRAY<STRUCT<r1 INT64, r2 INT64, r3 INT64>>[{15, 22, 22}]
 ==
 
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=horizontal_aggregation_separate_aggregations]
 
 # Separate horizontal aggregations are separate
@@ -1123,7 +1123,7 @@ ARRAY<STRUCT<z INT64>>[{24}]
 
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=horizontal_aggregation_overflow]
 
 # Aggregates that overflow
@@ -1139,7 +1139,7 @@ ERROR: generic::out_of_range: int64 overflow
 
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SAFE_FUNCTION_CALL]
 [name=horizontal_aggregation_safe_agg]
 
 # SAFE aggregates are supported
@@ -1194,7 +1194,7 @@ ARRAY<STRUCT<r1 INT64>>[{1}]
 ==
 
 [name=horizontal_aggregation_null_array]
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ORDER_BY_IN_AGGREGATE]
 
 # Horizontal aggregation with possibly failing aggregates
 SELECT * from graph_table(aml
@@ -1214,7 +1214,7 @@ ARRAY<STRUCT<r1 INT64, r2 INT64, r3 INT64, r4 ARRAY<>>>[
 ==
 
 [name=horizontal_aggregation_array_agg_options_without_limit]
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_1_HAVING_IN_AGGREGATE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,HAVING_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE]
 # All features of ARRAY_AGG
 select * from graph_table(aml
   let single = 3
@@ -1236,7 +1236,7 @@ ARRAY<STRUCT<r1 ARRAY<>, r2 ARRAY<>, r3 ARRAY<>>>[
 
 ==
 [name=horizontal_aggregation_array_agg_options]
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_HAVING_IN_AGGREGATE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,LIMIT_IN_AGGREGATE,HAVING_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE]
 # All features of ARRAY_AGG
 select * from graph_table(aml
   let single = 3
@@ -1251,10 +1251,22 @@ select * from graph_table(aml
 ARRAY<STRUCT<r1 ARRAY<>, r2 ARRAY<>, r3 ARRAY<>>>[
   {ARRAY<INT64>[4], ARRAY<INT64>[4], ARRAY<INT64>[5]}
 ]
-
+==
+[name=horizontal_aggregation_having_max_and_order_by_same_variable]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,HAVING_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE]
+# b/347756011
+select * from graph_table(aml
+  let x = [1,2,3]
+  let y = 3
+  let z = ARRAY_AGG(x having min y order by y)
+  let r1 = SUM(z)  # r1 isn't actually ordered
+  return r1
+)
+--
+ARRAY<STRUCT<r1 INT64>>[{6}]
 ==
 
-[default required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[default required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=fixed_quantified_test]
 select * from graph_table(aml
   MATCH (x:Account)((a)-[e:Transfer]->(b)){3}(y:Account)
@@ -1340,7 +1352,7 @@ ARRAY<STRUCT<
              {1030, 1020, 2}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_2_GROUP_BY_ARRAY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,GROUP_BY_ARRAY]
 [name=count_possible_paths_group_by_group_var]
 # using group var as a grouping key
 select * from graph_table(aml
@@ -1583,7 +1595,7 @@ ARRAY<STRUCT<x_id INT64, y_id INT64>>[known order:
 
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,ORDER_BY_IN_AGGREGATE]
 [name=group_variables_basic]
 select head, amounts, tail from graph_table(aml
   match (head:Account)(-[e:Transfer]->{1,2})(tail:Account)
@@ -1664,7 +1676,7 @@ ARRAY<STRUCT<head INT64, amounts ARRAY<>, tail INT64>>[known order:
 
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,ORDER_BY_IN_AGGREGATE]
 [name=group_variables_filter]
 select a, amounts from graph_table(aml
   match (a:Account)(-[e:Transfer]->{1,2})(a)
@@ -1684,7 +1696,7 @@ ARRAY<STRUCT<a INT64, amounts ARRAY<>>>[known order:
 
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=group_variables_two_groups]
 select * from
 graph_table(
@@ -1716,7 +1728,7 @@ ARRAY<STRUCT<
 
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,ORDER_BY_IN_AGGREGATE]
 [name=group_variables_different_types]
 # The inner path has different graph types (the head is "everything" whereas the
 # tail is Account). They should still join correctly.
@@ -1751,7 +1763,7 @@ ARRAY<STRUCT<accounts ARRAY<>>>[known order:
 
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=group_variables_same_as_writing_it_by_hand]
 with T1 as (select a.account_id as a, b.account_id as b, c.account_id as c, d.account_id as d from
 (
@@ -1785,7 +1797,7 @@ ARRAY<STRUCT<BOOL>>[{false}]
 
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=group_variables_same_as_writing_it_by_hand_no_types_or_direction]
 with T1 as (select a.id as a, b.id as b, c.id as c, d.id as d from
 (
@@ -1819,7 +1831,7 @@ ARRAY<STRUCT<BOOL>>[{false}]
 
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=group_variables_two_hops_is_one_at_a_time]
 with T1 as (select * from graph_table(aml
   match ((a)-[e]-){1,1}((b)-[e2]-(c)){1,1}
@@ -1839,7 +1851,7 @@ ARRAY<STRUCT<BOOL>>[{false}]
 
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_3_UNNEST_AND_FLATTEN_ARRAYS,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,UNNEST_AND_FLATTEN_ARRAYS,ORDER_BY_IN_AGGREGATE]
 [name=group_variables_flatten]
 select distinct * from graph_table(aml
   match ((a)-[e:Transfer]-){1,3}((b)-[e2]-(c)){1,1}
@@ -1853,7 +1865,7 @@ select distinct * from graph_table(aml
 ARRAY<STRUCT<should_be_true BOOL>>[{true}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=composite_query_in_block_1_union_all_1]
 select *, COUNT(*) AS count
 from graph_table(aml
@@ -1875,7 +1887,7 @@ ARRAY<STRUCT<name STRING, aid INT64, count INT64>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=composite_query_in_block_1_union_all_2]
 select *, COUNT(*) AS count
 from graph_table(aml
@@ -1896,7 +1908,7 @@ ARRAY<STRUCT<name STRING, aid INT64, count INT64>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=composite_query_in_block_1_union_distinct_1]
 select *, COUNT(*) AS count
 from graph_table(aml
@@ -1918,7 +1930,7 @@ ARRAY<STRUCT<name STRING, aid INT64, count INT64>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=composite_query_in_block_1_union_distinct_2]
 select *, COUNT(*) AS count
 from graph_table(aml
@@ -1943,7 +1955,7 @@ ARRAY<STRUCT<name STRING, aid INT64, count INT64>>[known order:
 ==
 
 [name=composite_query_in_block_1_union_distinct_3]
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 select * from graph_table(aml
   MATCH (a:Account)
   return a as c
@@ -1966,7 +1978,7 @@ ARRAY<STRUCT<account_id INT64, name STRING>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=composite_query_in_block_1_intersect_all]
 select *, COUNT(*) AS count
 from graph_table(aml
@@ -1988,7 +2000,7 @@ ARRAY<STRUCT<
 [known order:{1010, 1010, 1}, {1010, 1020, 2}, {1020, 1030, 2}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=composite_query_in_block_1_intersect_distinct]
 select *, COUNT(*) AS count
 from graph_table(aml
@@ -2010,7 +2022,7 @@ ARRAY<STRUCT<
 [known order:{1010, 1010, 1}, {1010, 1020, 1}, {1020, 1030, 1}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=composite_query_in_block_1_except_all]
 select *, COUNT(*) AS count
 from graph_table(aml
@@ -2032,7 +2044,7 @@ ARRAY<STRUCT<
 [known order:{1020, 1030, 2}, {1030, 1010, 1}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=composite_query_in_block_1_except_distinct]
 select * from graph_table(aml
   MATCH (a:Account)-[e:Transfer]->(b:Account)
@@ -2052,7 +2064,7 @@ ARRAY<STRUCT<
 [known order:{1020, 1030}, {1030, 1010}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=composite_query_in_block_1_union_all_with_next]
 select COUNT(*) AS count
 from graph_table(aml
@@ -2072,7 +2084,7 @@ order by 1
 ARRAY<STRUCT<count INT64>>[{18}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=composite_query_in_block_2_union_all]
 select *, COUNT(*) AS count
 from graph_table(aml
@@ -2097,7 +2109,7 @@ ARRAY<STRUCT<name STRING, aid INT64, count INT64>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=composite_query_in_block_2_union_distinct]
 select *, COUNT(*) AS count
 from graph_table(aml
@@ -2122,7 +2134,7 @@ ARRAY<STRUCT<name STRING, aid INT64, count INT64>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=composite_query_in_block_2_intersect_all]
 select *, COUNT(*) AS count
 from graph_table(aml
@@ -2148,7 +2160,7 @@ ARRAY<STRUCT<
 [known order:{1010, 1010, 3}, {1010, 1020, 6}, {1020, 1030, 6}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=composite_query_in_block_2_intersect_distinct]
 select *, COUNT(*) AS count
 from graph_table(aml
@@ -2174,7 +2186,7 @@ ARRAY<STRUCT<
 [known order:{1010, 1010, 1}, {1010, 1020, 1}, {1020, 1030, 1}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=composite_query_in_block_2_except_all]
 select *, COUNT(*) AS count
 from graph_table(aml
@@ -2200,7 +2212,7 @@ ARRAY<STRUCT<
 [known order:{1020, 1030, 6}, {1030, 1010, 3}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=composite_query_in_block_2_except_distinct]
 select *, COUNT(*) AS count
 from graph_table(aml
@@ -2227,7 +2239,7 @@ ARRAY<STRUCT<
 ==
 
 # Correlated column reference in set operation without NEXT is supported.
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=composite_query_in_block_1_with_correlated_column]
 SELECT 1 FROM (
   SELECT 1000 AS Key, 1 AS Value
@@ -2247,7 +2259,7 @@ WHERE exists (
 ARRAY<STRUCT<INT64>>[{1}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=composite_query_in_block_2_3]
 select * from graph_table(aml
   MATCH (a:Account)-[e:Transfer]->(b:Account)
@@ -2277,7 +2289,7 @@ ARRAY<STRUCT<
 [known order:{1010, 1010}, {1010, 1020}, {1020, 1030}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,UNNEST_AND_FLATTEN_ARRAYS]
 [name=shortest_with_ties]
 # 10 to 20, 20 to 30 both have 2 direct edges, so there are ties.
 select * from graph_table(aml
@@ -2321,7 +2333,7 @@ ARRAY<STRUCT<x_id INT64, y_id INT64, flattened ARRAY<>>>[known order:
 
 NOTE: Reference implementation reports non-determinism.
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=shortest_with_ties_counting_hops]
 # See shortest_with_ties for the exact edges. This is to allow engines like Spanner without FLATTEN feature to run this case
 select * from graph_table(aml
@@ -2347,7 +2359,7 @@ ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[known order:
 NOTE: Reference implementation reports non-determinism.
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,UNNEST_AND_FLATTEN_ARRAYS]
 [name=shortest_with_no_ties]
 select * from graph_table(aml
   MATCH ANY SHORTEST (x:Account)((a)-[e:Transfer WHERE e.amount != 400 AND e.amount != 200]->(b)){1, 3}(y:Account)
@@ -2389,7 +2401,7 @@ ARRAY<STRUCT<x_id INT64, y_id INT64, flattened ARRAY<>>>[known order:
 ]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=shortest_with_no_ties_counting_hops]
 # To allow engines like Spanner without FLATTEN feature to run this case
 select * from graph_table(aml
@@ -2413,7 +2425,7 @@ ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[known order:
 ]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,UNNEST_AND_FLATTEN_ARRAYS]
 [name=any_with_no_ties]
 select * from graph_table(aml
   MATCH ANY (x:Account)((a)-[e:Transfer WHERE e.amount != 400 AND e.amount != 200]->(b)){2}(y:Account)
@@ -2456,7 +2468,7 @@ ARRAY<STRUCT<x_id INT64, y_id INT64, flattened ARRAY<>>>[known order:
 ]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=any_with_ties_counting_hops]
 select * from graph_table(aml
   MATCH ANY (x:Account)((a)-[e:Transfer WHERE e.amount != 400 AND e.amount != 200]->(b)){2, 4}(y:Account)
@@ -2480,7 +2492,7 @@ ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[known order:
 NOTE: Reference implementation reports non-determinism.
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_SEARCH_PREFIX_PATH_COUNT]
 [name=any_0_with_ties_counting_hops]
 select * from graph_table(aml
   MATCH ANY 0 (x:Account)((a)-[e:Transfer]->(b)){1, 3}(y:Account)
@@ -2491,7 +2503,7 @@ order by x_id, y_id, hops
 --
 ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_SEARCH_PREFIX_PATH_COUNT]
 [name=shortest_0_with_ties_counting_hops]
 select * from graph_table(aml
   MATCH SHORTEST 0 (x:Account)((a)-[e:Transfer]->(b)){1, 3}(y:Account)
@@ -2502,7 +2514,7 @@ order by x_id, y_id, hops
 --
 ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_SEARCH_PREFIX_PATH_COUNT]
 [name=any_2_with_ties_counting_hops]
 select x_id, y_id from graph_table(aml
   MATCH ANY 2 (x:Account)((a)-[e:Transfer]->(b)){1, 3}(y:Account)
@@ -2534,7 +2546,7 @@ ARRAY<STRUCT<x_id INT64, y_id INT64>>[known order:
 
 NOTE: Reference implementation reports non-determinism.
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_SEARCH_PREFIX_PATH_COUNT]
 [name=shortest_2_with_ties_counting_hops]
 select * from graph_table(aml
   MATCH SHORTEST 2 (x:Account)((a)-[e:Transfer]->(b)){1, 3}(y:Account)
@@ -2566,7 +2578,7 @@ ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[known order:
 
 NOTE: Reference implementation reports non-determinism.
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_SEARCH_PREFIX_PATH_COUNT]
 [name=shortest_10_with_ties_counting_hops]
 select * from graph_table(aml
   MATCH SHORTEST 10 (x:Account)((a)-[e:Transfer]->(b)){1, 3}(y:Account)
@@ -2620,7 +2632,7 @@ ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[known order:
   {1030, 1030, 3}
 ]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_SEARCH_PREFIX_PATH_COUNT]
 [name=any_10_with_ties_counting_hops]
 select * from graph_table(aml
   MATCH ANY 10 (x:Account)((a)-[e:Transfer]->(b)){1, 3}(y:Account)
@@ -2675,7 +2687,7 @@ ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_SEARCH_PREFIX_PATH_COUNT]
 [name=any_0_with_no_ties_counting_hops]
 select * from graph_table(aml
   MATCH ANY 0 (x:Account)((a)-[e:Transfer WHERE e.amount != 400 AND e.amount != 200]->(b)){2}(y:Account)
@@ -2686,7 +2698,7 @@ order by x_id, y_id, hops
 --
 ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_SEARCH_PREFIX_PATH_COUNT]
 [name=shortest_0_with_no_ties_counting_hops]
 select * from graph_table(aml
   MATCH SHORTEST 0 (x:Account)((a)-[e:Transfer WHERE e.amount != 400 AND e.amount != 200]->(b)){2}(y:Account)
@@ -2697,7 +2709,7 @@ order by x_id, y_id, hops
 --
 ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_SEARCH_PREFIX_PATH_COUNT]
 [name=any_2_with_no_ties_counting_hops]
 select * from graph_table(aml
   MATCH ANY 2 (x:Account)((a)-[e:Transfer WHERE e.amount != 400 AND e.amount != 200]->(b)){2}(y:Account)
@@ -2715,7 +2727,7 @@ ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[known order:
   {1030, 1020, 2}
 ]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_SEARCH_PREFIX_PATH_COUNT]
 [name=shortest_2_with_no_ties_counting_hops]
 select * from graph_table(aml
   MATCH SHORTEST 2 (x:Account)((a)-[e:Transfer WHERE e.amount != 400 AND e.amount != 200]->(b)){2}(y:Account)
@@ -2733,7 +2745,7 @@ ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[known order:
   {1030, 1020, 2}
 ]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_SEARCH_PREFIX_PATH_COUNT]
 [name=shortest_10_with_no_ties_counting_hops]
 select * from graph_table(aml
   MATCH SHORTEST 10 (x:Account)((a)-[e:Transfer WHERE e.amount != 400 AND e.amount != 200]->(b)){2}(y:Account)
@@ -2751,7 +2763,7 @@ ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[known order:
   {1030, 1020, 2}
 ]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_SEARCH_PREFIX_PATH_COUNT]
 [name=any_10_with_no_ties_counting_hops]
 select * from graph_table(aml
   MATCH ANY 10 (x:Account)((a)-[e:Transfer WHERE e.amount != 400 AND e.amount != 200]->(b)){2}(y:Account)
@@ -2770,7 +2782,7 @@ ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[known order:
 ]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=no_match_from_label_or_where_or_quantifier_1]
 # path pattern finds no matches due to label-expr
 select * from graph_table(aml
@@ -2791,7 +2803,7 @@ order by x_id, y_id
 ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=no_match_from_label_or_where_or_quantifier_2]
 # path pattern finds no matches due to label-expr
 select * from graph_table(aml
@@ -2811,7 +2823,7 @@ order by x_id, y_id
 --
 ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=unspecified_path_mode_with_scalar_edges]
 # This serves as a baseline for the following path mode tests. Note the repeated edges and nodes in the results.
 select * from graph_table(aml
@@ -2841,7 +2853,7 @@ ARRAY<STRUCT<a_id INT64,
   {1010, 600, 1010, 600, 1010, 600, 1010}
 ]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_MODE]
 [name=walk_path_mode_with_scalar_edges]
 # Similar to unspecified path mode case above.
 select * from graph_table(aml
@@ -2871,7 +2883,7 @@ ARRAY<STRUCT<a_id INT64,
   {1010, 600, 1010, 600, 1010, 600, 1010}
 ]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_MODE]
 [name=trail_path_mode_with_scalar_edges]
 select * from graph_table(aml
   MATCH TRAIL (a:Account {account_id: 1010})-[e1:Transfer]->(b:Account)-[e2:Transfer]->(c:Account)-[e3:Transfer]->(d:Account)
@@ -2897,7 +2909,7 @@ ARRAY<STRUCT<a_id INT64,
   {1010, 600, 1010, 200, 1020, 400, 1030}
 ]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_MODE]
 [name=acyclic_path_mode_with_scalar_edges]
 select * from graph_table(aml
   MATCH ACYCLIC (a:Account {account_id: 1010})-[e1:Transfer]->(b:Account)-[e2:Transfer]->(c:Account)-[e3:Transfer]->(d:Account)
@@ -2913,7 +2925,7 @@ ARRAY<STRUCT<a_id INT64,
              e3_amount INT64,
              d_id INT64>>[]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_MODE]
 [name=simple_path_mode_with_scalar_edges]
 select * from graph_table(aml
   MATCH SIMPLE (a:Account {account_id: 1010})-[e1:Transfer]->(b:Account)-[e2:Transfer]->(c:Account)-[e3:Transfer]->(d:Account)
@@ -2936,7 +2948,7 @@ ARRAY<STRUCT<a_id INT64,
 ]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_MODE]
 [name=trail_path_mode_with_scalar_edges_of_different_types]
 select * from graph_table(aml
   MATCH TRAIL (a)-[e1]->(b)-[e2:Transfer]->(c)-[e3]->(d)
@@ -2946,7 +2958,7 @@ select * from graph_table(aml
 ARRAY<STRUCT<num_paths INT64>>[{57}]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_MODE]
 [name=acyclic_path_mode_with_scalar_edges_of_different_types]
 select * from graph_table(aml
   MATCH ACYCLIC (a)-[e1]->(b)-[e2:Transfer]->(c)-[e3]->(d)
@@ -2956,7 +2968,7 @@ select * from graph_table(aml
 ARRAY<STRUCT<num_paths INT64>>[{16}]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_MODE]
 [name=simple_path_mode_with_scalar_edges_of_different_types]
 select * from graph_table(aml
   MATCH SIMPLE (a)-[e1]->(b)-[e2:Transfer]->(c)-[e3]->(d)
@@ -2965,7 +2977,7 @@ select * from graph_table(aml
 --
 ARRAY<STRUCT<num_paths INT64>>[{32}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_MODE]
 [name=trail_path_mode_with_duplicate_scalar_nodes]
 select * from graph_table(aml
   MATCH TRAIL (a)->(b)(->(c)->(d))()
@@ -2974,7 +2986,7 @@ select * from graph_table(aml
 --
 ARRAY<STRUCT<num_paths INT64>>[{87}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_MODE]
 [name=acyclic_path_mode_with_duplicate_scalar_nodes]
 select * from graph_table(aml
   MATCH ACYCLIC (a)->(b)(->(c)->(d))()
@@ -2983,7 +2995,7 @@ select * from graph_table(aml
 --
 ARRAY<STRUCT<num_paths INT64>>[{25}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_MODE]
 [name=simple_path_mode_with_duplicate_scalar_nodes]
 select * from graph_table(aml
   MATCH SIMPLE (a)->(b)(->(c)->(d))()
@@ -2992,7 +3004,7 @@ select * from graph_table(aml
 --
 ARRAY<STRUCT<num_paths INT64>>[{43}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=trail_path_mode_with_array_edges]
 select * from graph_table(aml
   MATCH TRAIL ((a:Account)-[e:Transfer]->(b:Account)){3}
@@ -3001,7 +3013,7 @@ select * from graph_table(aml
 --
 ARRAY<STRUCT<num_paths INT64>>[{20}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=acyclic_path_mode_with_array_edges]
 select * from graph_table(aml
   MATCH ACYCLIC ((a:Account)-[e:Transfer]->(b:Account)){3}
@@ -3010,7 +3022,7 @@ select * from graph_table(aml
 --
 ARRAY<STRUCT<num_paths INT64>>[{0}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=simple_path_mode_with_array_edges]
 select * from graph_table(aml
   MATCH SIMPLE ((a:Account)-[e:Transfer]->(b:Account)){3}
@@ -3019,7 +3031,7 @@ select * from graph_table(aml
 --
 ARRAY<STRUCT<num_paths INT64>>[{12}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=trail_path_mode_with_array_edges_of_different_types]
 select * from graph_table(aml
   MATCH TRAIL (a)-[e1]->{1,3}(b)
@@ -3029,7 +3041,7 @@ select * from graph_table(aml
 ARRAY<STRUCT<num_paths INT64>>[{140}]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=acyclic_path_mode_with_array_edges_of_different_types]
 select * from graph_table(aml
   MATCH ACYCLIC (a)-[e1]->{1,3}(b)
@@ -3039,7 +3051,7 @@ select * from graph_table(aml
 ARRAY<STRUCT<num_paths INT64>>[{61}]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=simple_path_mode_with_array_edges_of_different_types]
 select * from graph_table(aml
   MATCH SIMPLE (a)-[e1]->{1,3}(b)
@@ -3048,7 +3060,7 @@ select * from graph_table(aml
 --
 ARRAY<STRUCT<num_paths INT64>>[{87}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=trail_path_mode_with_scalar_and_array_edges]
 select * from graph_table(aml
   MATCH TRAIL (a:Human)-[e1]->(b:Human)-[e2]->{1,3}(c:Human)
@@ -3066,7 +3078,7 @@ ARRAY<STRUCT<a_id INT64, b_id INT64, c_id INT64, path_legnth INT64>>[unknown ord
   {2, 1, 2, 2}
 ]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=acyclic_path_mode_with_scalar_and_array_edges]
 select * from graph_table(aml
   MATCH ACYCLIC (a:Human)-[e1]->(b:Human)-[e2]->{1,3}(c:Human)
@@ -3077,7 +3089,7 @@ select * from graph_table(aml
 ARRAY<STRUCT<a_id INT64, b_id INT64, c_id INT64, path_legnth INT64>>[]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=simple_path_mode_with_scalar_and_array_edges]
 select * from graph_table(aml
   MATCH SIMPLE (a:Human)-[e1]->(b:Human)-[e2]->{1,3}(c:Human)
@@ -3090,7 +3102,7 @@ ARRAY<STRUCT<a_id INT64, b_id INT64, c_id INT64, path_legnth INT64>>[unknown ord
   {2, 1, 2, 1}
 ]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE,V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE,UNNEST_AND_FLATTEN_ARRAYS]
 [name=trail_path_mode_with_scalar_and_long_array_edges_of_different_types]
 select * from graph_table(aml
   MATCH TRAIL (a)-[e1]->((b:Account)-[e2:Transfer WHERE MOD(e2.amount, 200) != 0]->(c:Account)-[e3:Transfer WHERE MOD(e3.amount, 200) != 0]->(d:Account)){1}(e:Account)
@@ -3111,7 +3123,7 @@ ARRAY<STRUCT<a_id INT64, b_ids ARRAY<>, c_ids ARRAY<>, d_ids ARRAY<>>>[unknown o
   {30, ARRAY<INT64>[1010], ARRAY<INT64>[1020], ARRAY<INT64>[1030]}
 ]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE,V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE,UNNEST_AND_FLATTEN_ARRAYS]
 [name=acyclic_path_mode_with_scalar_and_long_array_edges_of_different_types]
 select * from graph_table(aml
   MATCH ACYCLIC (a)-[e1]->((b:Account)-[e2:Transfer WHERE MOD(e2.amount, 200) != 0]->(c:Account)-[e3:Transfer WHERE MOD(e3.amount, 200) != 0]->(d:Account)){1}(e:Account)
@@ -3124,7 +3136,7 @@ ARRAY<STRUCT<a_id INT64, b_ids ARRAY<>, c_ids ARRAY<>, d_ids ARRAY<>>>[unknown o
   {2, ARRAY<INT64>[1030], ARRAY<INT64>[1010], ARRAY<INT64>[1020]}
 ]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE,V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE,UNNEST_AND_FLATTEN_ARRAYS]
 [name=simple_path_mode_with_scalar_and_long_array_edges_of_different_types]
 select * from graph_table(aml
   MATCH SIMPLE (a)-[e1]->((b:Account)-[e2:Transfer WHERE MOD(e2.amount, 200) != 0]->(c:Account)-[e3:Transfer WHERE MOD(e3.amount, 200) != 0]->(d:Account)){1}(e:Account)
@@ -3143,7 +3155,7 @@ ARRAY<STRUCT<a_id INT64, b_ids ARRAY<>, c_ids ARRAY<>, d_ids ARRAY<>>>[unknown o
   {30, ARRAY<INT64>[1010], ARRAY<INT64>[1020], ARRAY<INT64>[1030]}
 ]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=trail_path_mode_with_array_edges_and_duplicate_scalar_nodes]
 select * from graph_table(aml
   MATCH TRAIL (a)((b)-[e1]->){2}->(c)
@@ -3152,7 +3164,7 @@ select * from graph_table(aml
 --
 ARRAY<STRUCT<num_paths INT64>>[{87}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=acyclic_path_mode_with_array_edges_and_duplicate_scalar_nodes]
 select * from graph_table(aml
   MATCH ACYCLIC (a)((b)-[e1]->){2}->(c)
@@ -3161,7 +3173,7 @@ select * from graph_table(aml
 --
 ARRAY<STRUCT<num_paths INT64>>[{25}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=simple_path_mode_with_array_edges_and_duplicate_scalar_nodes]
 select * from graph_table(aml
   MATCH SIMPLE (a)((b)-[e1]->){2}->(c)
@@ -3170,7 +3182,7 @@ select * from graph_table(aml
 --
 ARRAY<STRUCT<num_paths INT64>>[{43}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=trail_path_mode_with_scalar_and_array_edges_of_different_types]
 select * from graph_table(aml
   MATCH TRAIL (a)-[e1:Transfer]->(b)-[e2]->{1,3}(c)
@@ -3180,7 +3192,7 @@ select * from graph_table(aml
 ARRAY<STRUCT<num_paths INT64>>[{133}]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=acyclic_path_mode_with_scalar_and_array_edges_of_different_types]
 select * from graph_table(aml
   MATCH ACYCLIC (a)-[e1:Transfer]->(b)-[e2]->{1,3}(c)
@@ -3190,7 +3202,7 @@ select * from graph_table(aml
 ARRAY<STRUCT<num_paths INT64>>[{18}]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=simple_path_mode_with_scalar_and_array_edges_of_different_types]
 select * from graph_table(aml
   MATCH SIMPLE (a)-[e1:Transfer]->(b)-[e2]->{1,3}(c)
@@ -3200,7 +3212,7 @@ select * from graph_table(aml
 ARRAY<STRUCT<num_paths INT64>>[{36}]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=trail_path_mode_with_array_edges_over_quantified_paths]
 select * from graph_table(aml
   MATCH TRAIL ((-[e]->)){1,3}
@@ -3210,7 +3222,7 @@ select * from graph_table(aml
 ARRAY<STRUCT<num_paths INT64>>[{140}]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=acyclic_path_mode_with_array_edges_over_quantified_paths]
 select * from graph_table(aml
   MATCH ACYCLIC ((-[e]->)){1,3}
@@ -3220,7 +3232,7 @@ select * from graph_table(aml
 ARRAY<STRUCT<num_paths INT64>>[{61}]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=simple_path_mode_with_array_edges_over_quantified_paths]
 select * from graph_table(aml
   MATCH SIMPLE ((-[e]->)){1,3}
@@ -3230,7 +3242,7 @@ select * from graph_table(aml
 ARRAY<STRUCT<num_paths INT64>>[{87}]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=trail_path_mode_with_scalar_edges_within_quantified_paths]
 select * from graph_table(aml
   MATCH (TRAIL (-[e]->)){1,3}
@@ -3239,7 +3251,7 @@ select * from graph_table(aml
 --
 ARRAY<STRUCT<num_paths INT64>>[{159}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=acyclic_path_mode_with_scalar_edges_within_quantified_paths]
 select * from graph_table(aml
   MATCH (ACYCLIC (-[e]->)){1,3}
@@ -3248,7 +3260,7 @@ select * from graph_table(aml
 --
 ARRAY<STRUCT<num_paths INT64>>[{107}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=simple_path_mode_with_scalar_edges_within_quantified_paths]
 select * from graph_table(aml
   MATCH (SIMPLE (-[e]->)){1,3}
@@ -3257,7 +3269,7 @@ select * from graph_table(aml
 --
 ARRAY<STRUCT<num_paths INT64>>[{159}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_MODE,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_MODE,SQL_GRAPH_PATH_TYPE]
 [name=walk_path_mode_with_scalar_edges_with_path_variable]
 # This serves as a baseline for the following trail test. Note the repeated edge on the results.
 select * from graph_table(aml
@@ -3279,7 +3291,7 @@ ARRAY<STRUCT<a_id INT64,
   {1010, 600, 1010, 600, 1010, 2}
 ]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_MODE,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_MODE,SQL_GRAPH_PATH_TYPE]
 [name=trail_path_mode_with_scalar_edges_with_path_variable]
 select * from graph_table(aml
   MATCH p=TRAIL (a:Account {account_id: 1010})-[e1:Transfer]->(b:Account {account_id: 1010})-[e2:Transfer]->(c:Account)
@@ -3299,7 +3311,7 @@ ARRAY<STRUCT<a_id INT64,
 ]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_MODE,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_MODE,SQL_GRAPH_PATH_TYPE]
 [name=trail_path_mode_with_scalar_edges_of_different_types_with_path_variable]
 select distinct len from graph_table(aml
   MATCH p=TRAIL (a)-[e1]->(b)-[e2:Transfer]->(c)-[e3]->(d)
@@ -3310,7 +3322,7 @@ order by 1
 ARRAY<STRUCT<len INT64>>[{3}]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE,SQL_GRAPH_PATH_TYPE]
 [name=trail_path_mode_with_array_edges_with_path_variable]
 select distinct len from graph_table(aml
   MATCH p=TRAIL (a)-[e1]->{1,3}(b)
@@ -3321,7 +3333,7 @@ order by 1
 ARRAY<STRUCT<len INT64>>[known order:{1}, {2}, {3}]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE,SQL_GRAPH_PATH_TYPE]
 [name=trail_path_mode_with_scalar_and_array_edges_with_path_variable]
 select distinct len from graph_table(aml
   MATCH p=TRAIL (a)-[e1]->(b)-[e2]->{1,3}(c)
@@ -3332,7 +3344,7 @@ order by 1
 ARRAY<STRUCT<len INT64>>[known order:{2}, {3}, {4}]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE,SQL_GRAPH_PATH_TYPE]
 [name=trail_path_mode_with_scalar_and_array_edges_of_different_types_with_path_variable]
 select distinct len from graph_table(aml
   MATCH p=TRAIL (a)-[e1:Transfer]->(b)-[e2]->{1,3}(c)
@@ -3343,7 +3355,7 @@ order by 1
 ARRAY<STRUCT<len INT64>>[known order:{2}, {3}, {4}]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE,SQL_GRAPH_PATH_TYPE]
 [name=trail_path_mode_with_array_edges_over_quantified_paths_with_path_variable]
 select distinct len from graph_table(aml
   MATCH p=TRAIL ((-[e]->)){1,3}
@@ -3354,7 +3366,7 @@ order by 1
 ARRAY<STRUCT<len INT64>>[known order:{1}, {2}, {3}]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE,SQL_GRAPH_PATH_TYPE]
 [name=trail_path_mode_with_scalar_edges_within_quantified_paths_with_path_variable]
 select distinct len from graph_table(aml
   MATCH p=(TRAIL (-[e]->)){1,3}
@@ -3365,7 +3377,7 @@ order by 1
 ARRAY<STRUCT<len INT64>>[known order:{1}, {2}, {3}]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=multiple_labels_between_same_nodes_without_quantification]
 select * from graph_table(aml
   MATCH ANY (a: Account)-[mid: can_transfer | Transfer]->(b: Account)
@@ -3386,7 +3398,7 @@ ARRAY<STRUCT<a_acct_id INT64, b_acct_id INT64>>[known order:
 NOTE: Reference implementation reports non-determinism.
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_simple_no_quantification]
 select distinct len from graph_table(aml
   match p=(a)-[e]-(b)
@@ -3397,7 +3409,7 @@ order by len
 ARRAY<STRUCT<len INT64>>[{1}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=path_multiple_match_no_quantification]
 select distinct one from graph_table(aml
   match p=(a)-[e1]->(b)-[e2]->(c)
@@ -3409,7 +3421,7 @@ order by one
 ARRAY<STRUCT<one INT64>>[{1}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=path_simple_with_quantification]
 select distinct len from graph_table(aml
   match p=(a)-[e]->{1,3}(b)
@@ -3420,7 +3432,7 @@ order by len
 ARRAY<STRUCT<len INT64>>[known order:{1}, {2}, {3}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_nested_no_quantification]
 select distinct len from graph_table(aml
   match p=(a)(-[e:Transfer]-> -[f:Transfer]->)(b)
@@ -3431,7 +3443,7 @@ order by len
 ARRAY<STRUCT<len INT64>>[{2}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=path_nested_with_quantification]
 select distinct len from graph_table(aml
   match p=(a)(-[e:Transfer]->{1,1} -[f:Transfer]->{1,2}((x)-[y]->(z))-[j]->(k))(b)
@@ -3442,7 +3454,7 @@ order by len
 ARRAY<STRUCT<len INT64>>[known order:{4}, {5}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=path_nested_with_quantification_all]
 select distinct len from graph_table(aml
   match p=all (a)(-[e:Transfer]->{1,1} -[f:Transfer]->{1,2}((x)-[y]->(z))-[j]->(k))(b)
@@ -3453,7 +3465,7 @@ order by len
 ARRAY<STRUCT<len INT64>>[known order:{4}, {5}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=path_nested_with_quantification_any]
 select distinct len from graph_table(aml
   match p=any (a)(-[e:Transfer]->{1,1} -[f:Transfer]->{2,2}((x)-[y]->(z))-[j]->(k))(b)
@@ -3466,7 +3478,7 @@ ARRAY<STRUCT<len INT64>>[{5}]
 NOTE: Reference implementation reports non-determinism.
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=path_nested_with_quantification_any_shortest]
 select distinct len from graph_table(aml
   match p=any shortest (a)(-[e:Transfer]->{1,1} -[f:Transfer]->{1,2}((x)-[y]->(z))-[j]->(k))(b)
@@ -3479,7 +3491,7 @@ ARRAY<STRUCT<len INT64>>[{4}]
 NOTE: Reference implementation reports non-determinism.
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_GROUP_BY_GRAPH_PATH]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,GROUP_BY_GRAPH_PATH]
 [name=path_variable_group_by_path]
 select distinct path_length(p) from graph_table(aml
   match p=(a)(-[e:Transfer]->{1,1} -[f:Transfer]->{1,2}((x)-[y]->(z))-[j]->(k))(b)
@@ -3491,7 +3503,7 @@ order by 1
 ARRAY<STRUCT<INT64>>[known order:{4}, {5}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=path_deeply_nested_with_quantification]
 select distinct len from graph_table(aml
   match p=(a)-(((((x)-[y]-(z))){1,2}))
@@ -3502,7 +3514,7 @@ order by len
 ARRAY<STRUCT<len INT64>>[known order:{2}, {3}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_variable_equality]
 select b_id, p_amount, c_id, q_amount, paths_equal from graph_table(aml
   match p=(a:Account)(-[e1:Transfer]->(b:Account))
@@ -3535,7 +3547,7 @@ ARRAY<STRUCT<b_id INT64,
 ]
 ==
 
-[required_features=V_1_3_IS_DISTINCT,V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_GROUP_BY_GRAPH_PATH]
+[required_features=IS_DISTINCT,SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,GROUP_BY_GRAPH_PATH]
 [name=path_variable_is_not_distinct]
 select b_id, p_amount, c_id, q_amount, paths_not_distinct from graph_table(aml
   match p=(a:Account)(-[e1:Transfer]->(b:Account))
@@ -3570,7 +3582,7 @@ ARRAY<STRUCT<
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_length_with_null_input]
 select path_length(p)
 FROM graph_table(aml
@@ -3586,7 +3598,7 @@ ARRAY<STRUCT<INT64>>[{NULL}]
 # Each repetition of the path adds 2 nodes to the concatenated array `arr`,
 # so ARR_LEN(arr) is double the particular repetition count of the path in that
 # row.
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_1_CAST_DIFFERENT_ARRAY_TYPES]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,CAST_DIFFERENT_ARRAY_TYPES]
 [name=array_concat_with_arrays_of_graph_elements_and_supertype_no_lambda]
 select ARRAY_LENGTH(arr) AS len
 from graph_table(
@@ -3609,7 +3621,7 @@ ARRAY<STRUCT<len INT64>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_1_CAST_DIFFERENT_ARRAY_TYPES,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,CAST_DIFFERENT_ARRAY_TYPES,INLINE_LAMBDA_ARGUMENT]
 [name=array_concat_with_arrays_of_graph_elements_and_supertype_with_lambda]
 select * from graph_table(
   aml
@@ -3653,7 +3665,7 @@ ARRAY<STRUCT<ids ARRAY<>, names ARRAY<>>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_equality_with_null_input]
 select distinct *
 FROM graph_table(aml
@@ -3668,7 +3680,7 @@ ARRAY<STRUCT<should_be_null BOOL, should_be_null2 BOOL, should_be_true BOOL>>[
   {NULL, NULL, true}
 ]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_equality_with_null_input_with_edges]
 select distinct *
 FROM graph_table(aml
@@ -3683,7 +3695,7 @@ ARRAY<STRUCT<should_be_null BOOL, should_be_null2 BOOL, should_be_true BOOL>>[
   {NULL, NULL, true}
 ]
 ==
-[required_features=V_1_3_IS_DISTINCT,V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_GROUP_BY_GRAPH_PATH]
+[required_features=IS_DISTINCT,SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,GROUP_BY_GRAPH_PATH]
 [name=path_is_distinct_from_with_null_input]
 select distinct *
 FROM graph_table(aml
@@ -3700,7 +3712,7 @@ ARRAY<STRUCT<
         should_be_false2 BOOL
       >>[{false, true, false}]
 ==
-[required_features=V_1_3_IS_DISTINCT,V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_GROUP_BY_GRAPH_PATH]
+[required_features=IS_DISTINCT,SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,GROUP_BY_GRAPH_PATH]
 [name=path_is_distinct_from_with_null_input_with_edges]
 select distinct *
 FROM graph_table(aml
@@ -3717,7 +3729,7 @@ ARRAY<STRUCT<
         should_be_false2 BOOL
       >>[{false, true, false}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,V_1_4_GROUP_BY_GRAPH_PATH]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,GROUP_BY_GRAPH_PATH]
 [name=path_intersect_distinct]
 with paths1 as ((select * from graph_table(aml match p=(:Human) return p))
   intersect distinct
@@ -3730,7 +3742,7 @@ SELECT EXISTS(SELECT * FROM paths1 EXCEPT ALL SELECT * FROM paths2 LIMIT 1) OR
 --
 ARRAY<STRUCT<not_equal BOOL>>[{false}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_nodes_with_null_input]
 select len
 FROM graph_table(aml
@@ -3741,7 +3753,7 @@ FROM graph_table(aml
 ARRAY<STRUCT<len INT64>>[{NULL}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_edges_with_null_input]
 select len
 FROM graph_table(aml
@@ -3752,7 +3764,7 @@ FROM graph_table(aml
 ARRAY<STRUCT<len INT64>>[{NULL}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_nodes_simple]
 select distinct invariants
 FROM graph_table(aml
@@ -3766,7 +3778,7 @@ FROM graph_table(aml
 ARRAY<STRUCT<invariants BOOL>>[{true}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_edges_simple]
 select distinct invariants
 FROM graph_table(aml
@@ -3779,7 +3791,7 @@ FROM graph_table(aml
 ARRAY<STRUCT<invariants BOOL>>[{true}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=path_nodes_with_quantification]
 select distinct invariants
 FROM graph_table(aml
@@ -3795,7 +3807,7 @@ FROM graph_table(aml
 ARRAY<STRUCT<invariants BOOL>>[{true}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=path_edges_with_quantification]
 select distinct invariants
 FROM graph_table(aml
@@ -3809,7 +3821,7 @@ FROM graph_table(aml
 ARRAY<STRUCT<invariants BOOL>>[{true}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_first_with_null_input]
 select id
 FROM graph_table(aml
@@ -3822,7 +3834,7 @@ FROM graph_table(aml
 ARRAY<STRUCT<id INT64>>[{NULL}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_last_with_null_input]
 select id
 FROM graph_table(aml
@@ -3835,7 +3847,7 @@ FROM graph_table(aml
 ARRAY<STRUCT<id INT64>>[{NULL}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_first_simple]
 select distinct invariants
 FROM graph_table(aml
@@ -3848,7 +3860,7 @@ FROM graph_table(aml
 ARRAY<STRUCT<invariants BOOL>>[{true}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_last_simple]
 select distinct invariants
 FROM graph_table(aml
@@ -3861,7 +3873,7 @@ FROM graph_table(aml
 ARRAY<STRUCT<invariants BOOL>>[{true}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=path_first_with_quantification]
 select distinct invariants
 FROM graph_table(aml
@@ -3875,7 +3887,7 @@ FROM graph_table(aml
 ARRAY<STRUCT<invariants BOOL>>[{true}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=path_last_with_quantification]
 select distinct invariants
 FROM graph_table(aml
@@ -3889,7 +3901,7 @@ FROM graph_table(aml
 ARRAY<STRUCT<invariants BOOL>>[{true}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_create_with_null_input]
 select len
 FROM graph_table(aml
@@ -3900,7 +3912,7 @@ FROM graph_table(aml
 ERROR: generic::out_of_range: Input to the function PATH must not be null
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_create_with_invalid_edges]
 select len
 FROM graph_table(aml
@@ -3912,7 +3924,7 @@ FROM graph_table(aml
 ERROR: generic::out_of_range: The arguments to PATH must contain edges that connect the previous node to the next node. The edge at index 1 does not
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_create_simple]
 select distinct invariant
 FROM graph_table(aml
@@ -3924,7 +3936,7 @@ FROM graph_table(aml
 ARRAY<STRUCT<invariant BOOL>>[{true}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_create_multiple_match]
 select distinct invariants
 FROM graph_table(aml
@@ -3940,7 +3952,7 @@ FROM graph_table(aml
 ARRAY<STRUCT<invariants BOOL>>[{true}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_concat_with_null_input]
 select distinct is_null
 FROM graph_table(aml
@@ -3954,7 +3966,7 @@ FROM graph_table(aml
 ARRAY<STRUCT<is_null BOOL>>[{true}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_concat_with_incompatible_paths]
 select distinct len
 FROM graph_table(aml
@@ -3967,7 +3979,7 @@ FROM graph_table(aml
 ERROR: generic::out_of_range: Path concatenation requires that the first node of the path to be concatenated is equal to the last node of the previous path
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_concat_simple]
 select distinct invariants
 FROM graph_table(aml
@@ -3983,7 +3995,7 @@ FROM graph_table(aml
 ARRAY<STRUCT<invariants BOOL>>[{true}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_concat_multi]
 select distinct invariants
 FROM graph_table(aml
@@ -4001,7 +4013,7 @@ FROM graph_table(aml
 ARRAY<STRUCT<invariants BOOL>>[{true}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=path_concat_with_quantification]
 select distinct invariants
 FROM graph_table(aml
@@ -4019,7 +4031,7 @@ FROM graph_table(aml
 --
 ARRAY<STRUCT<invariants BOOL>>[{true}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_equality]
 select distinct invariants
 FROM graph_table(aml
@@ -4040,7 +4052,7 @@ FROM graph_table(aml
 --
 ARRAY<STRUCT<invariants BOOL>>[{true}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_is_trail_on_null]
 SELECT is_trail as should_be_null FROM GRAPH_TABLE(aml
   OPTIONAL MATCH p = (a) WHERE false
@@ -4048,7 +4060,7 @@ SELECT is_trail as should_be_null FROM GRAPH_TABLE(aml
 --
 ARRAY<STRUCT<should_be_null BOOL>>[{NULL}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_PATH_MODE]
 [name=path_is_trail]
 SELECT DISTINCT is_trail as should_be_true FROM GRAPH_TABLE(aml
   MATCH p = TRAIL (a:Human)-[e]-(b)-[e2]-(c:Human)
@@ -4056,7 +4068,7 @@ SELECT DISTINCT is_trail as should_be_true FROM GRAPH_TABLE(aml
 --
 ARRAY<STRUCT<should_be_true BOOL>>[{true}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_PATH_MODE,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_PATH_MODE,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=path_is_trail_quantified]
 SELECT DISTINCT is_trail as should_be_true FROM GRAPH_TABLE(aml
   MATCH p = TRAIL (a:Human)-[e]-{1,3}-(c:Human)
@@ -4064,7 +4076,7 @@ SELECT DISTINCT is_trail as should_be_true FROM GRAPH_TABLE(aml
 --
 ARRAY<STRUCT<should_be_true BOOL>>[{true}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_is_acyclic_on_null]
 SELECT is_acyclic as should_be_null FROM GRAPH_TABLE(aml
   OPTIONAL MATCH p = (a) WHERE false
@@ -4072,7 +4084,7 @@ SELECT is_acyclic as should_be_null FROM GRAPH_TABLE(aml
 --
 ARRAY<STRUCT<should_be_null BOOL>>[{NULL}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_is_acyclic_has_cycle]
 SELECT distinct is_acyclic as should_be_false FROM GRAPH_TABLE(aml
   MATCH p = (a:Account)-[e:Transfer]-(a:Account)
@@ -4080,7 +4092,7 @@ SELECT distinct is_acyclic as should_be_false FROM GRAPH_TABLE(aml
 --
 ARRAY<STRUCT<should_be_false BOOL>>[{false}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_is_acyclic]
 SELECT distinct is_acyclic as should_be_true FROM GRAPH_TABLE(aml
   MATCH p = (a:Account)-[e:Transfer]-(b:Account)-[e2:Transfer]-(c:Account)
@@ -4089,7 +4101,7 @@ SELECT distinct is_acyclic as should_be_true FROM GRAPH_TABLE(aml
 --
 ARRAY<STRUCT<should_be_true BOOL>>[{true}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=path_is_acyclic_quantified]
 SELECT DISTINCT is_acyclic as should_be_true FROM GRAPH_TABLE(aml
   MATCH p = (-[e:Transfer]->){1,3}
@@ -4098,7 +4110,7 @@ SELECT DISTINCT is_acyclic as should_be_true FROM GRAPH_TABLE(aml
 --
 ARRAY<STRUCT<should_be_true BOOL>>[{true}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_is_simple_on_null]
 SELECT is_simple as should_be_null FROM GRAPH_TABLE(aml
   OPTIONAL MATCH p = (a:Account) WHERE false
@@ -4106,7 +4118,7 @@ SELECT is_simple as should_be_null FROM GRAPH_TABLE(aml
 --
 ARRAY<STRUCT<should_be_null BOOL>>[{NULL}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_is_simple_short_path]
 SELECT distinct is_simple as should_be_true FROM GRAPH_TABLE(aml
   MATCH p = (a:Account)-[e:Transfer]-(a:Account)
@@ -4119,7 +4131,7 @@ ORDER BY 1
 --
 ARRAY<STRUCT<should_be_true BOOL>>[known order:{true}, {true}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,INLINE_LAMBDA_ARGUMENT]
 [name=path_is_simple_true]
 SELECT distinct is_simple as should_be_true FROM GRAPH_TABLE(aml
   MATCH p = (a:Account)-[e:Transfer]->(b:Account)-[e2:Transfer]->(c:Account)
@@ -4129,7 +4141,7 @@ SELECT distinct is_simple as should_be_true FROM GRAPH_TABLE(aml
 --
 ARRAY<STRUCT<should_be_true BOOL>>[{true}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
 [name=path_is_simple_false]
 SELECT distinct is_simple as should_be_false FROM GRAPH_TABLE(aml
   MATCH p = (a:Account)-[e:Transfer]->(a:Account)-[e2:Transfer]->(c:Account)
@@ -4137,7 +4149,7 @@ SELECT distinct is_simple as should_be_false FROM GRAPH_TABLE(aml
 --
 ARRAY<STRUCT<should_be_false BOOL>>[{false}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,INLINE_LAMBDA_ARGUMENT]
 [name=path_is_simple_quantified]
 SELECT DISTINCT is_simple as should_be_true FROM GRAPH_TABLE(aml
   MATCH p = (-[e:Transfer]->){1,3}
@@ -4147,7 +4159,7 @@ SELECT DISTINCT is_simple as should_be_true FROM GRAPH_TABLE(aml
 --
 ARRAY<STRUCT<should_be_true BOOL>>[{true}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_PATH_MODE]
 [name=path_is_acyclic_with_path_mode]
 SELECT distinct is_acyclic as should_be_true FROM GRAPH_TABLE(aml
   MATCH p = ACYCLIC (a:Account)-[e:Transfer]-(b:Account)-[e2:Transfer]-(c:Account)
@@ -4155,7 +4167,7 @@ SELECT distinct is_acyclic as should_be_true FROM GRAPH_TABLE(aml
 --
 ARRAY<STRUCT<should_be_true BOOL>>[{true}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=path_is_acyclic_quantified_with_path_mode]
 SELECT DISTINCT is_acyclic as should_be_true FROM GRAPH_TABLE(aml
   MATCH p = ACYCLIC (-[e:Transfer]->){1,3}
@@ -4163,7 +4175,7 @@ SELECT DISTINCT is_acyclic as should_be_true FROM GRAPH_TABLE(aml
 --
 ARRAY<STRUCT<should_be_true BOOL>>[{true}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_PATH_MODE]
 [name=path_is_simple_with_path_mode]
 SELECT distinct is_simple as should_be_true FROM GRAPH_TABLE(aml
   MATCH p = SIMPLE (a:Account)-[e:Transfer]->(b:Account)-[e2:Transfer]->(c:Account)
@@ -4171,7 +4183,7 @@ SELECT distinct is_simple as should_be_true FROM GRAPH_TABLE(aml
 --
 ARRAY<STRUCT<should_be_true BOOL>>[{true}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_MODE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
 [name=path_is_simple_quantified_with_path_mode]
 SELECT DISTINCT is_simple as should_be_true FROM GRAPH_TABLE(aml
   MATCH p = SIMPLE (-[e:Transfer]->){1,3}
@@ -4179,7 +4191,7 @@ SELECT DISTINCT is_simple as should_be_true FROM GRAPH_TABLE(aml
 --
 ARRAY<STRUCT<should_be_true BOOL>>[{true}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=delete_dml_exists_graph_subquery]
 DELETE person
 WHERE EXISTS(
@@ -4199,7 +4211,7 @@ STRUCT<
   ARRAY<STRUCT<id INT64, name STRING>>[]
 }
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=delete_dml_exists_graph_subquery_set_op]
 DELETE person
 WHERE EXISTS(
@@ -4222,7 +4234,7 @@ STRUCT<
   ARRAY<STRUCT<id INT64, name STRING>>[]
 }
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [name=delete_dml_exists_graph_subquery_set_op_after_next]
 DELETE person
 WHERE EXISTS(
@@ -4250,7 +4262,7 @@ STRUCT<
 }
 ==
 # Repro b/366540825
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=array_is_distinct_on_null_graph_elements]
 SELECT * FROM GRAPH_TABLE(aml
   OPTIONAL MATCH -[e:Transfer]-{1} WHERE false
@@ -4259,7 +4271,7 @@ SELECT * FROM GRAPH_TABLE(aml
 ARRAY<STRUCT<is_distinct BOOL>>[{NULL}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,ANALYTIC_FUNCTIONS,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_3_ARRAY_ORDERING]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ANALYTIC_FUNCTIONS,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,ARRAY_ORDERING]
 [name=window_functions_in_let_with_horizontal_agg]
 select *
 FROM GRAPH_TABLE(aml
@@ -4298,7 +4310,7 @@ ARRAY<STRUCT<src INT64, h_avg DOUBLE, w ARRAY<>>>[unknown order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,ANALYTIC_FUNCTIONS]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,ANALYTIC_FUNCTIONS]
 [name=window_functions_in_filter_with_horizontal_agg]
 select *
 FROM GRAPH_TABLE(aml
@@ -4317,7 +4329,7 @@ ARRAY<STRUCT<src INT64, tgt INT64>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,ANALYTIC_FUNCTIONS]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ANALYTIC_FUNCTIONS]
 [name=window_functions_in_return_with_vertical_agg]
 select *
 FROM GRAPH_TABLE(aml
@@ -4339,7 +4351,7 @@ ARRAY<STRUCT<src INT64, tgt INT64, min_amount INT64, w ARRAY<>>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,ANALYTIC_FUNCTIONS,V_1_4_SQL_GRAPH_RETURN_EXTENSIONS]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ANALYTIC_FUNCTIONS,SQL_GRAPH_RETURN_EXTENSIONS]
 [name=window_functions_in_WITH_with_vertical_agg]
 select *
 FROM GRAPH_TABLE(aml
@@ -4362,7 +4374,7 @@ ARRAY<STRUCT<src INT64, tgt INT64, min_amount INT64, w ARRAY<>>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,ANALYTIC_FUNCTIONS]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,ANALYTIC_FUNCTIONS]
 [name=window_functions_partition_by_graph_element]
 select *
 FROM GRAPH_TABLE(aml
@@ -4381,7 +4393,7 @@ ARRAY<STRUCT<src INT64, tgt INT64>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_GROUP_BY_GRAPH_PATH,ANALYTIC_FUNCTIONS]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,GROUP_BY_GRAPH_PATH,ANALYTIC_FUNCTIONS]
 [name=window_functions_partition_by_graph_path]
 select *
 FROM GRAPH_TABLE(aml
@@ -4401,7 +4413,7 @@ ARRAY<STRUCT<src INT64, tgt INT64>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,TABLESAMPLE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,TABLESAMPLE]
 [name=graph_sample_bernoulli_none]
 select *
 FROM GRAPH_TABLE(aml
@@ -4414,7 +4426,7 @@ ORDER BY 1, 2, 3
 ARRAY<STRUCT<src INT64, amount INT64, tgt INT64, weight DOUBLE>>[]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,TABLESAMPLE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,TABLESAMPLE]
 [name=graph_sample_bernoulli_all]
 select *
 FROM GRAPH_TABLE(aml
@@ -4434,7 +4446,7 @@ ARRAY<STRUCT<src INT64, amount INT64, tgt INT64, weight DOUBLE>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,TABLESAMPLE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,TABLESAMPLE]
 [name=graph_sample_bernoulli_invalid_percentage]
 [parameters=123 as p]
 select *
@@ -4449,7 +4461,7 @@ ERROR: generic::out_of_range: PERCENT value must be in the range [0, 100]
 ==
 
 # Stratified sampling
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE]
 [name=graph_sample_stratified_sampling]
 select *
 FROM GRAPH_TABLE(aml
@@ -4467,3 +4479,189 @@ ARRAY<STRUCT<src INT64, amount INT64, tgt INT64, weight DOUBLE>>[known order:
   {1020, 400, 1030, 1},
   {1030, 500, 1010, 1}
 ]
+==
+
+[name=gql_call_elements_from_outside_same_as_inside]
+[required_features=SQL_GRAPH,SQL_GRAPH_CALL,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+select * from
+graph_table(aml
+  let k = 1
+  match (n)
+  CALL (k, n) {
+    MATCH (n) -[e IS transfer]->{1,2} (x) WHERE LENGTH(n.account_kind) > k
+    let hops = count(element_id(e))
+    RETURN hops, x, n AS n2
+  }
+  return n.name AS name, n.account_id AS n, hops, x.account_id AS x, n2.account_id AS m2
+) gt
+order by 1,2,3,4,5
+--
+ARRAY<STRUCT<name STRING, n INT64, hops INT64, x INT64, m2 INT64>>[known order:
+  {NULL, 1010, 1, 1010, 1010},
+  {NULL, 1010, 1, 1020, 1010},
+  {NULL, 1010, 1, 1020, 1010},
+  {NULL, 1010, 2, 1010, 1010},
+  {NULL, 1010, 2, 1020, 1010},
+  {NULL, 1010, 2, 1020, 1010},
+  {NULL, 1010, 2, 1030, 1010},
+  {NULL, 1010, 2, 1030, 1010},
+  {NULL, 1010, 2, 1030, 1010},
+  {NULL, 1010, 2, 1030, 1010},
+  {NULL, 1020, 1, 1030, 1020},
+  {NULL, 1020, 1, 1030, 1020},
+  {NULL, 1020, 2, 1010, 1020},
+  {NULL, 1020, 2, 1010, 1020},
+  {NULL, 1030, 1, 1010, 1030},
+  {NULL, 1030, 2, 1010, 1030},
+  {NULL, 1030, 2, 1020, 1030},
+  {NULL, 1030, 2, 1020, 1030}
+]
+==
+
+# Like the above, but with OPTIONAL.
+# Human nodes appear in (n), shown by `name` not being NULL.
+# Element names are multiply-declared, they resolve to the same entities.
+[name=gql_optional_call_elements_from_outside_same_as_inside_implicit_call_list]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_CALL,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+select * from
+graph_table(aml
+  let k = 1
+  match (n)
+  OPTIONAL CALL (k, n) {
+    MATCH (n) -[e IS transfer]->{1,2} (x) WHERE LENGTH(n.account_kind) > k
+    let hops = count(element_id(e))
+    RETURN hops, x, n AS n2
+  }
+  return n.name AS name, n.account_id AS n, hops, x.account_id AS x, n2.account_id AS m2
+) gt
+order by 1,2,3,4,5
+--
+ARRAY<STRUCT<name STRING, n INT64, hops INT64, x INT64, m2 INT64>>[known order:
+  {NULL, 1010, 1, 1010, 1010},
+  {NULL, 1010, 1, 1020, 1010},
+  {NULL, 1010, 1, 1020, 1010},
+  {NULL, 1010, 2, 1010, 1010},
+  {NULL, 1010, 2, 1020, 1010},
+  {NULL, 1010, 2, 1020, 1010},
+  {NULL, 1010, 2, 1030, 1010},
+  {NULL, 1010, 2, 1030, 1010},
+  {NULL, 1010, 2, 1030, 1010},
+  {NULL, 1010, 2, 1030, 1010},
+  {NULL, 1020, 1, 1030, 1020},
+  {NULL, 1020, 1, 1030, 1020},
+  {NULL, 1020, 2, 1010, 1020},
+  {NULL, 1020, 2, 1010, 1020},
+  {NULL, 1030, 1, 1010, 1030},
+  {NULL, 1030, 2, 1010, 1030},
+  {NULL, 1030, 2, 1020, 1030},
+  {NULL, 1030, 2, 1020, 1030},
+  {NULL, 1040, NULL, NULL, NULL},
+  {"name1", NULL, NULL, NULL, NULL},
+  {"name2", NULL, NULL, NULL, NULL},
+  {"name3", NULL, NULL, NULL, NULL}
+]
+==
+
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_CALL]
+[name=nested_call]
+select gt.* from
+graph_table(aml
+  match (a IS Account)
+  CALL (a)
+  {
+    MATCH (a) -> (b)
+    OPTIONAL CALL (a, b)
+    {
+      MATCH (b) -> (c)
+      RETURN a.account_id AS aid3, b.account_id AS bid3, c.account_id AS cid3
+      ORDER BY cid3, bid3, aid3
+    }
+    RETURN a.account_id AS aid2, b.account_id AS bid2, aid3, bid3, cid3
+    ORDER BY bid2, aid2
+  }
+  RETURN a.account_id AS aid1, aid2, aid3, bid2, bid3, cid3
+) gt
+ORDER BY aid1, aid2, aid3, bid2, bid3, cid3
+--
+
+ARRAY<STRUCT<aid1 INT64, aid2 INT64, aid3 INT64, bid2 INT64, bid3 INT64, cid3 INT64>>[known order:
+  {1010, 1010, NULL, 1040, NULL, NULL},
+  {1010, 1010, 1010, 1010, 1010, 1010},
+  {1010, 1010, 1010, 1010, 1010, 1020},
+  {1010, 1010, 1010, 1010, 1010, 1020},
+  {1010, 1010, 1010, 1010, 1010, 1020},
+  {1010, 1010, 1010, 1010, 1010, 1040},
+  {1010, 1010, 1010, 1020, 1020, 1030},
+  {1010, 1010, 1010, 1020, 1020, 1030},
+  {1010, 1010, 1010, 1020, 1020, 1030},
+  {1010, 1010, 1010, 1020, 1020, 1030},
+  {1010, 1010, 1010, 1020, 1020, 1030},
+  {1010, 1010, 1010, 1020, 1020, 1030},
+  {1020, 1020, 1020, 1030, 1030, 1010},
+  {1020, 1020, 1020, 1030, 1030, 1010},
+  {1020, 1020, 1020, 1030, 1030, 1020},
+  {1020, 1020, 1020, 1030, 1030, 1020},
+  {1020, 1020, 1020, 1030, 1030, 1040},
+  {1020, 1020, 1020, 1030, 1030, 1040},
+  {1030, 1030, NULL, 1040, NULL, NULL},
+  {1030, 1030, 1030, 1010, 1010, 1010},
+  {1030, 1030, 1030, 1010, 1010, 1020},
+  {1030, 1030, 1030, 1010, 1010, 1020},
+  {1030, 1030, 1030, 1010, 1010, 1020},
+  {1030, 1030, 1030, 1010, 1010, 1040},
+  {1030, 1030, 1030, 1020, 1020, 1030},
+  {1030, 1030, 1030, 1020, 1020, 1030}
+]
+==
+
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_CALL]
+[name=call_declaring_correlated_name_in_variable_scope_clause]
+select (
+  select * from
+  graph_table(aml
+    match (a IS Account)
+    CALL (a, outer_col)
+    {
+      RETURN a.account_id, outer_col AS correlated
+    }
+    RETURN array_agg(correlated) AS correlated
+  ) gt
+)
+FROM (SELECT 1 AS outer_col)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[unknown order:1, 1, 1, 1]}]
+==
+
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_CALL]
+[name=call_subquery_with_simple_values]
+select * from
+graph_table(aml
+  for k in [1, 2]
+  CALL (k) {
+    for e in [1, 2, 3]
+    filter e < k
+    RETURN e
+  }
+  return k, e
+) gt
+order by k, e
+--
+ARRAY<STRUCT<k INT64, e INT64>>[{2, 1}]
+==
+
+# Same as above but with OPTIONAL. Now `k=1` appears in the output along with NULLs.
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_CALL]
+[name=optional_call_subquery_with_simple_values]
+select * from
+graph_table(aml
+  for k in [1, 2]
+  OPTIONAL CALL (k) {
+    for e in [1, 2, 3]
+    filter e < k
+    RETURN e
+  }
+  return k, e
+) gt
+order by k, e
+--
+ARRAY<STRUCT<k INT64, e INT64>>[known order:{1, NULL}, {2, 1}]

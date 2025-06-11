@@ -303,7 +303,7 @@ TEST(TupleDataDeque, PushAndPopTest) {
 
     ++num_tuples;
 
-    // The queue has to store the size (as an int64_t) of each TupleData, so
+    // The queue has to store the size (as an int64) of each TupleData, so
     // adding an entry costs at least that many bytes.
     EXPECT_LE(accountant.remaining_bytes() + sizeof(int64_t), remaining_bytes);
   }

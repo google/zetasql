@@ -207,7 +207,7 @@ TEST(TVFTest, TestDuplicateColumnNameForTVFWithExtraColumns) {
 TEST(TVFTest, TestInvalidNonTemplatedArgumentForTVFWithExtraColumns) {
   TypeFactory factory;
   std::unique_ptr<TableValuedFunction> tvf;
-  // Generate an output schema that returns an int64_t value table.
+  // Generate an output schema that returns an int64 value table.
   TVFRelation output_schema_int64_value_table =
       TVFRelation::ValueTable(zetasql::types::Int64Type());
   TVFSchemaColumn int64_col =

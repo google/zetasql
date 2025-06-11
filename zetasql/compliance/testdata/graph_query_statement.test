@@ -1,5 +1,5 @@
 [default reserve_graph_table]
-[default required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [load_proto_files=zetasql/testdata/test_schema.proto]
 [load_proto_names=zetasql_test__.KitchenSinkPB]
 [prepare_database]

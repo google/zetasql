@@ -1124,7 +1124,7 @@ Additional details:
 
 + The input array can contain `NULL` elements. `NULL` elements are included
   in the resulting array.
-+ Returns `NULL` if `array_to_slice`,  `start_offset`, or `end_offset` is
++ Returns `NULL` if `array_to_slice`, `start_offset`, or `end_offset` is
   `NULL`.
 + Returns an empty array if `array_to_slice` is empty.
 + Returns an empty array if the position of the `start_offset` in the array is
@@ -1608,8 +1608,8 @@ FLATTEN(array_elements_field_access_expression)
 
 **Description**
 
-Takes a nested array and flattens a specific part of it into a single, flat
-array with the
+Takes an array of nested data and flattens a specific part of it into a single,
+flat array with the
 [array elements field access operator][array-el-field-operator].
 Returns `NULL` if the input value is `NULL`.
 If `NULL` array elements are

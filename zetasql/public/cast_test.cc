@@ -366,6 +366,269 @@ TEST(GraphCastTests, GraphElementTypeTest) {
                        HasSubstr("with different graph references")));
 }
 
+// Parameterized common test that applies to both node and edge.
+class GraphElementValueCastTest
+    : public TestWithParam<GraphElementType::ElementKind> {
+ protected:
+  void SetUp() override {
+    language_options_.EnableLanguageFeature(
+        FEATURE_SQL_GRAPH_DYNAMIC_ELEMENT_TYPE);
+  }
+
+  bool IsNode() const { return GetParam() == GraphElementType::kNode; }
+  bool IsEdge() const { return GetParam() == GraphElementType::kEdge; }
+
+  // A graph element value might contain static property values that are only a
+  // subset of the declared static properties of its graph element type.
+  absl::StatusOr<Value> MakeDynamicGraphElementByType(
+      const GraphElementType* type, std::string identifier,
+      std::vector<Value::Property> static_properties,
+      std::vector<Value::Property> dynamic_properties,
+      std::vector<std::string> static_labels,
+      std::vector<std::string> dynamic_labels, std::string definition_name) {
+    ZETASQL_ASSIGN_OR_RETURN(JSONValue json_value,
+                     MakePropertiesJsonValue(absl::MakeSpan(dynamic_properties),
+                                             language_options_));
+    return IsNode()
+               ? Value::MakeGraphNode(
+                     type, std::move(identifier),
+                     {.static_labels = std::move(static_labels),
+                      .static_properties = std::move(static_properties),
+                      .dynamic_labels = std::move(dynamic_labels),
+                      .dynamic_properties = json_value.GetConstRef()},
+                     std::move(definition_name))
+               : Value::MakeGraphEdge(
+                     type, std::move(identifier),
+                     {.static_labels = std::move(static_labels),
+                      .static_properties = std::move(static_properties),
+                      .dynamic_labels = std::move(dynamic_labels),
+                      .dynamic_properties = json_value.GetConstRef()},
+                     std::move(definition_name), "src_node_id", "dst_node_id");
+  }
+
+  Value MakeElement(absl::Span<const std::string> graph_reference,
+                    std::string identifier,
+                    std::vector<Value::Property> properties,
+                    absl::Span<const std::string> labels,
+                    std::string definition_name) {
+    return IsNode() ? GraphNode(graph_reference, identifier, properties, labels,
+                                definition_name)
+                    : GraphEdge(graph_reference, identifier, properties, labels,
+                                definition_name, "src_node_id", "dst_node_id");
+  }
+
+  absl::StatusOr<Value> MakeDynamicElement(
+      absl::Span<const std::string> graph_reference, std::string identifier,
+      std::vector<Value::Property> static_properties,
+      std::vector<Value::Property> dynamic_properties,
+      std::vector<std::string> static_labels,
+      std::vector<std::string> dynamic_labels, std::string definition_name) {
+    ZETASQL_ASSIGN_OR_RETURN(JSONValue json_value,
+                     MakePropertiesJsonValue(absl::MakeSpan(dynamic_properties),
+                                             language_options_));
+    return IsNode() ? DynamicGraphNode(
+                          graph_reference, identifier, static_properties,
+                          /*dynamic_properties=*/json_value.GetConstRef(),
+                          static_labels, dynamic_labels, definition_name)
+                    : DynamicGraphEdge(
+                          graph_reference, identifier, static_properties,
+                          /*dynamic_properties=*/json_value.GetConstRef(),
+                          static_labels, dynamic_labels, definition_name,
+                          "src_node_id", "dst_node_id");
+  }
+
+  LanguageOptions language_options_ = LanguageOptions::MaximumFeatures();
+};
+
+INSTANTIATE_TEST_SUITE_P(Common, GraphElementValueCastTest,
+                         ValuesIn({GraphElementType::kNode,
+                                   GraphElementType::kEdge}));
+
+TEST_P(GraphElementValueCastTest, DynamicGraphElementTypeTest) {
+  const Value static_no_properties =
+      MakeElement({"graph_name"}, "id1", {}, {"label1"}, "ElementTable");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value dynamic_no_properties,
+                       MakeDynamicElement({"graph_name"}, "id1", {}, {},
+                                          {"label1"}, {}, "ElementTable"));
+
+  const Value static_no_properties_different_label =
+      MakeElement({"graph_name"}, "id1", {}, {"label2"}, "ElementTable");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value dynamic_no_properties_different_label,
+                       MakeDynamicElement({"graph_name"}, "id1", {}, {},
+                                          {"label2"}, {}, "ElementTable"));
+
+  const Value static_no_properties_different_name =
+      MakeElement({"graph_name"}, "id1", {}, {"label2"}, "NewElementTable");
+
+  const Value static_sp_a_b =
+      MakeElement({"graph_name"}, "id1",
+                  {{"a", Value::String("v0")}, {"b", Value::Int32(1)}},
+                  {"label1"}, "ElementTable");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value dynamic_sp_a_b,
+      MakeDynamicElement({"graph_name"}, "id1",
+                         {{"a", Value::String("v0")}, {"b", Value::Int32(1)}},
+                         {}, {"label1"}, {}, "ElementTable"));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value dynamic_sp_b_c,
+      MakeDynamicElement({"graph_name"}, "id1",
+                         {{"b", Value::Int32(1)}, {"c", Value::Float(3.14)}},
+                         {}, {"label1"}, {}, "ElementTable"));
+
+  const Value static_sp_c =
+      MakeElement({"graph_name"}, "id1", {{"c", Value::String("v0")}},
+                  {"label1"}, "ElementTable");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value dynamic_sp_c_d,
+      MakeDynamicElement({"graph_name"}, "id1",
+                         {{"c", Value::String("v0")}, {"d", Value::Int32(1)}},
+                         {}, {"label1"}, {}, "ElementTable"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value dynamic_dp_c_d,
+      MakeDynamicElement({"graph_name"}, "id1", {},
+                         {{"c", Value::String("v0")}, {"d", Value::Int32(1)}},
+                         {"label1"}, {}, "ElementTable"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value dynamic_sp_c_d_nulls,
+                       MakeDynamicElement({"graph_name"}, "id1",
+                                          {{"c", Value::NullString()},
+                                           {"d", Value::NullInt32()}},
+                                          {}, {"label1"}, {}, "ElementTable"));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value dynamic_sp_a_b_dp_c_d,
+      MakeDynamicElement({"graph_name"}, "id1",
+                         {{"a", Value::String("v0")}, {"b", Value::Int32(1)}},
+                         {{"c", Value::String("v0")}, {"d", Value::Int32(1)}},
+                         {"label1"}, {}, "ElementTable"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value dynamic_sp_a_b_c_dp_c_d,
+      MakeDynamicElement({"graph_name"}, "id1",
+                         {{"a", Value::String("v0")},
+                          {"b", Value::Int32(1)},
+                          {"c", Value::Float(3.14)}},
+                         {{"c", Value::String("v0")}, {"d", Value::Int32(1)}},
+                         {"label1"}, {}, "ElementTable"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value dynamic_sp_a_b_c_null_dp_d,
+                       MakeDynamicElement({"graph_name"}, "id1",
+                                          {{"a", Value::String("v0")},
+                                           {"b", Value::Int32(1)},
+                                           {"c", Value::NullFloat()}},
+                                          {{"d", Value::Int32(1)}}, {"label1"},
+                                          {}, "ElementTable"));
+
+  // Invalid coercion.
+  EXPECT_THAT(CastValue(static_sp_a_b, absl::UTCTimeZone(), language_options_,
+                        dynamic_sp_b_c.type()),
+              StatusIs(absl::StatusCode::kInternal));
+
+  // Conversion 1: static -> dynamic
+  EXPECT_THAT(CastValue(static_no_properties, absl::UTCTimeZone(),
+                        language_options_, dynamic_no_properties.type()),
+              IsOkAndHolds(dynamic_no_properties));
+
+  // CastValue has no effect on labels.
+  auto static_to_dynamic_no_properties_different_labels =
+      CastValue(static_no_properties_different_label, absl::UTCTimeZone(),
+                language_options_, dynamic_no_properties.type());
+  EXPECT_THAT(static_to_dynamic_no_properties_different_labels,
+              IsOkAndHolds(dynamic_no_properties));
+  EXPECT_THAT(static_to_dynamic_no_properties_different_labels,
+              IsOkAndHolds(dynamic_no_properties_different_label));
+
+  // CastValue has no effect on definition name.
+  EXPECT_THAT(
+      CastValue(static_no_properties_different_name, absl::UTCTimeZone(),
+                language_options_, dynamic_no_properties.type()),
+      IsOkAndHolds(dynamic_no_properties));
+
+  // The return type's static properties are defined by the "to type".
+  EXPECT_THAT(CastValue(static_sp_a_b, absl::UTCTimeZone(), language_options_,
+                        dynamic_sp_a_b.type()),
+              IsOkAndHolds(dynamic_sp_a_b));
+  EXPECT_THAT(CastValue(static_sp_c, absl::UTCTimeZone(), language_options_,
+                        dynamic_sp_c_d.type()),
+              IsOkAndHolds(dynamic_sp_c_d_nulls));
+
+  // Conversion 2: dynamic -> dynamic
+  EXPECT_THAT(CastValue(dynamic_dp_c_d, absl::UTCTimeZone(), language_options_,
+                        dynamic_sp_c_d.type()),
+              IsOkAndHolds(dynamic_sp_c_d_nulls));
+  EXPECT_THAT(CastValue(dynamic_sp_a_b_dp_c_d, absl::UTCTimeZone(),
+                        language_options_, dynamic_sp_a_b_c_dp_c_d.type()),
+              IsOkAndHolds(dynamic_sp_a_b_c_null_dp_d));
+}
+
+TEST_P(GraphElementValueCastTest,
+       DynamicGraphElementValueWithStaticPropertiesSubsetOfThatInType) {
+  const GraphElementType* type_a_b_c_d =
+      MakeDynamicGraphElementType({"graph_name"}, GetParam(),
+                                  {{"a", StringType()},
+                                   {"b", Int32Type()},
+                                   {"c", BoolType()},
+                                   {"d", FloatType()}});
+
+  const GraphElementType* type_a_b_c_d_e =
+      MakeDynamicGraphElementType({"graph_name"}, GetParam(),
+                                  {{"a", StringType()},
+                                   {"b", Int32Type()},
+                                   {"c", BoolType()},
+                                   {"d", FloatType()},
+                                   {"e", Int64Type()}});
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value dynamic_sp_a_b,
+      MakeDynamicGraphElementByType(
+          type_a_b_c_d, "id", /*static_properties=*/
+          {{"a", Value::String("v0")}, {"b", Value::Int32(1)}},
+          /*dynamic_properties=*/{}, /*static_labels=*/{"label1"},
+          /*dynamic_labels=*/{"label2"}, "ElementTable"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value dynamic_sp_a_b_c_null_d_null_e_null,
+      MakeDynamicElement({"graph_name"}, "id",
+                         {{"a", Value::String("v0")},
+                          {"b", Value::Int32(1)},
+                          {"c", Value::NullBool()},
+                          {"d", Value::NullFloat()},
+                          {"e", Value::NullInt64()}},
+                         {}, {"label1"}, {"label2"}, "ElementTable"));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value dynamic_sp_a_b_dp_c_d,
+      MakeDynamicGraphElementByType(
+          type_a_b_c_d, "id", /*static_properties=*/
+          {{"a", Value::String("v0")}, {"b", Value::Int32(1)}},
+          /*dynamic_properties=*/
+          {{"c", Value::Bool(true)}, {"d", Value::Float(3.14)}},
+          /*static_labels=*/{"label1"},
+          /*dynamic_labels=*/{"label2"}, "ElementTable"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value dynamic_sp_a_b_dp_c_d_wrong_type,
+      MakeDynamicGraphElementByType(
+          type_a_b_c_d, "id", /*static_properties=*/
+          {{"a", Value::String("v0")}, {"b", Value::Int32(1)}},
+          /*dynamic_properties=*/
+          {{"c", Value::String("v0")}, {"d", Value::String("v0")}},
+          /*static_labels=*/{"label1"},
+          /*dynamic_labels=*/{"label2"}, "ElementTable"));
+
+  EXPECT_THAT(CastValue(dynamic_sp_a_b, absl::UTCTimeZone(), language_options_,
+                        type_a_b_c_d_e),
+              IsOkAndHolds(dynamic_sp_a_b_c_null_d_null_e_null));
+
+  // Dynamic properties with conflicting names compared to to_type's static
+  // properties are dropped.
+  EXPECT_THAT(CastValue(dynamic_sp_a_b_dp_c_d, absl::UTCTimeZone(),
+                        language_options_, type_a_b_c_d_e),
+              IsOkAndHolds(dynamic_sp_a_b_c_null_d_null_e_null));
+
+  // Dynamic properties with conflicting names and conflicting types compared
+  // to to_type's static properties are dropped.
+  EXPECT_THAT(CastValue(dynamic_sp_a_b_dp_c_d_wrong_type, absl::UTCTimeZone(),
+                        language_options_, type_a_b_c_d_e),
+              IsOkAndHolds(dynamic_sp_a_b_c_null_d_null_e_null));
+}
+
 TEST(GraphCastTests, GraphPathTypeTest) {
   using test_values::MakeGraphPathType;
   const Value graph_node_no_properties = GraphNode(
@@ -480,7 +743,7 @@ static void ExecuteTest(const QueryParamsWithResult& test_case) {
   }
   if ((from_value.type()->IsFeatureV12CivilTimeType() ||
        test_case.result().type()->IsFeatureV12CivilTimeType()) &&
-      !language_options.LanguageFeatureEnabled(FEATURE_V_1_2_CIVIL_TIME)) {
+      !language_options.LanguageFeatureEnabled(FEATURE_CIVIL_TIME)) {
     return;
   }
   const Type* expected_type = test_case.result().type();

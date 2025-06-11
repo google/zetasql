@@ -1,4 +1,3 @@
-
 select {{KeyValue.|}}key from KeyValue where true group by {{KeyValue.|}}key
 --
 QueryStmt
@@ -1998,7 +1997,14 @@ QueryStmt
 
 select sum(KitchenSink.string_val) from TestTable
 --
-ERROR: No matching signature for aggregate function SUM for argument types: STRING. Supported signatures: SUM(INT64); SUM(UINT64); SUM(DOUBLE) [at 1:8]
+ERROR: No matching signature for aggregate function SUM
+  Argument types: STRING
+  Signature: SUM(INT64)
+    Argument 1: Unable to coerce type STRING to expected type INT64
+  Signature: SUM(UINT64)
+    Argument 1: Unable to coerce type STRING to expected type UINT64
+  Signature: SUM(DOUBLE)
+    Argument 1: Unable to coerce type STRING to expected type DOUBLE [at 1:8]
 select sum(KitchenSink.string_val) from TestTable
        ^
 ==
@@ -2081,7 +2087,9 @@ select count(distinct *) from KeyValue
 
 select count(distinct) from KeyValue
 --
-ERROR: Number of arguments does not match for aggregate function COUNT. Supported signature: COUNT(ANY) [at 1:8]
+ERROR: No matching signature for aggregate function COUNT with no arguments
+  Signature: COUNT(T1)
+    Signature requires at least 1 argument, found 0 arguments [at 1:8]
 select count(distinct) from KeyValue
        ^
 ==
@@ -2378,7 +2386,16 @@ QueryStmt
 select string_agg(value, @test_param_int32)
 from KeyValue
 --
-ERROR: No matching signature for aggregate function STRING_AGG for argument types: STRING, INT32. Supported signatures: STRING_AGG(STRING); STRING_AGG(STRING, STRING); STRING_AGG(BYTES); STRING_AGG(BYTES, BYTES) [at 1:8]
+ERROR: No matching signature for aggregate function STRING_AGG
+  Argument types: STRING, INT32
+  Signature: STRING_AGG(STRING)
+    Signature accepts at most 1 argument, found 2 arguments
+  Signature: STRING_AGG(STRING, STRING)
+    Argument 2: Unable to coerce type INT32 to expected type STRING
+  Signature: STRING_AGG(BYTES)
+    Signature accepts at most 1 argument, found 2 arguments
+  Signature: STRING_AGG(BYTES, BYTES)
+    Argument 1: Unable to coerce type STRING to expected type BYTES [at 1:8]
 select string_agg(value, @test_param_int32)
        ^
 ==
@@ -2386,21 +2403,39 @@ select string_agg(value, @test_param_int32)
 # string_agg(string, bytes) is not supported
 SELECT string_agg(value, b"foo") from KeyValue;
 --
-ERROR: No matching signature for aggregate function STRING_AGG for argument types: STRING, BYTES. Supported signatures: STRING_AGG(STRING); STRING_AGG(STRING, STRING); STRING_AGG(BYTES); STRING_AGG(BYTES, BYTES) [at 1:8]
+ERROR: No matching signature for aggregate function STRING_AGG
+  Argument types: STRING, BYTES
+  Signature: STRING_AGG(STRING)
+    Signature accepts at most 1 argument, found 2 arguments
+  Signature: STRING_AGG(STRING, STRING)
+    Argument 2: Unable to coerce type BYTES to expected type STRING
+  Signature: STRING_AGG(BYTES)
+    Signature accepts at most 1 argument, found 2 arguments
+  Signature: STRING_AGG(BYTES, BYTES)
+    Argument 1: Unable to coerce type STRING to expected type BYTES [at 1:8]
 SELECT string_agg(value, b"foo") from KeyValue;
        ^
 ==
 
-[language_features={{|V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 SELECT string_agg(cast(value as bytes), "foo") from KeyValue;
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for aggregate function STRING_AGG for argument types: BYTES, STRING. Supported signatures: STRING_AGG(STRING); STRING_AGG(STRING, STRING); STRING_AGG(BYTES); STRING_AGG(BYTES, BYTES) [at 1:8]
+ERROR: No matching signature for aggregate function STRING_AGG
+  Argument types: BYTES, STRING
+  Signature: STRING_AGG(STRING)
+    Signature accepts at most 1 argument, found 2 arguments
+  Signature: STRING_AGG(STRING, STRING)
+    Argument 1: Unable to coerce type BYTES to expected type STRING
+  Signature: STRING_AGG(BYTES)
+    Signature accepts at most 1 argument, found 2 arguments
+  Signature: STRING_AGG(BYTES, BYTES)
+    Argument 2: Unable to coerce type STRING to expected type BYTES [at 1:8]
 SELECT string_agg(cast(value as bytes), "foo") from KeyValue;
        ^
 --
-ALTERNATION GROUP: V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
+ALTERNATION GROUP: IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
 --
 QueryStmt
 +-output_column_list=
@@ -2699,7 +2734,7 @@ select Int32Array from ComplexTypes group by 1;
 ==
 
 # Test GROUP BY <array> with the supported types.
-[language_features=V_1_2_GROUP_BY_ARRAY]
+[language_features=GROUP_BY_ARRAY]
 select 10 from ArrayTypes group by
     Int32Array,
     Int64Array,
@@ -2746,7 +2781,7 @@ QueryStmt
 ==
 
 # Test GROUP BY <array> with an unsupported type.
-[language_features=V_1_2_GROUP_BY_ARRAY]
+[language_features=GROUP_BY_ARRAY]
 select 10 from ArrayTypes group by ProtoArray
 --
 ERROR: Grouping by expressions of type ARRAY containing PROTO is not allowed [at 1:36]
@@ -2755,16 +2790,16 @@ select 10 from ArrayTypes group by ProtoArray
 ==
 
 # Test GROUP BY <array> for an array of structs.
-[language_features={{V_1_2_GROUP_BY_ARRAY|V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY}}]
+[language_features={{GROUP_BY_ARRAY|GROUP_BY_STRUCT,GROUP_BY_ARRAY}}]
 select 10 from ArrayTypes group by StructArray
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_ARRAY
+ALTERNATION GROUP: GROUP_BY_ARRAY
 --
 ERROR: Grouping by expressions of type ARRAY containing STRUCT is not allowed [at 1:36]
 select 10 from ArrayTypes group by StructArray
                                    ^
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY
+ALTERNATION GROUP: GROUP_BY_STRUCT,GROUP_BY_ARRAY
 --
 QueryStmt
 +-output_column_list=
@@ -2783,7 +2818,7 @@ QueryStmt
 ==
 
 # Test GROUP BY <array> for an array of structs containing a proto.
-[language_features={{|V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY}}]
+[language_features={{|GROUP_BY_STRUCT,GROUP_BY_ARRAY}}]
 select a
 from (select [(cast('int32_val1: 1' as zetasql_test__.TestExtraPB))] as a)
 group by a
@@ -2794,17 +2829,17 @@ ERROR: Grouping by expressions of type ARRAY is not allowed [at 3:10]
 group by a
          ^
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY
+ALTERNATION GROUP: GROUP_BY_STRUCT,GROUP_BY_ARRAY
 --
 ERROR: Grouping by expressions of type ARRAY containing PROTO is not allowed [at 3:10]
 group by a
          ^
 ==
 
-[language_features={{V_1_2_GROUP_BY_STRUCT|}}]
+[language_features={{GROUP_BY_STRUCT|}}]
 select TestStruct from ComplexTypes group by 1;
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT
+ALTERNATION GROUP: GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -2959,10 +2994,10 @@ select count(distinct Int32Array) from ComplexTypes;
        ^
 ==
 
-[language_features={{V_1_2_GROUP_BY_STRUCT|}}]
+[language_features={{GROUP_BY_STRUCT|}}]
 select count(distinct TestStruct) from ComplexTypes;
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT
+ALTERNATION GROUP: GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -3489,15 +3524,15 @@ GROUP BY foo.b;
          ^
 ==
 
-# TODO: when V_1_2_GROUP_BY_STRUCT is set, this should be valid. Note
+# TODO: when GROUP_BY_STRUCT is set, this should be valid. Note
 # that because fixing this requires some complex analysis, we decide not to
 # fix this now.
-[language_features={{V_1_2_GROUP_BY_STRUCT|}}]
+[language_features={{GROUP_BY_STRUCT|}}]
 select foo as foo2
 FROM (select as struct 1 as a, 2 as b) foo
 GROUP BY foo2, foo2.a, foo2.b;
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT
+ALTERNATION GROUP: GROUP_BY_STRUCT
 --
 ERROR: Cannot GROUP BY field references from SELECT list alias foo2 [at 3:16]
 GROUP BY foo2, foo2.a, foo2.b;
@@ -3510,12 +3545,12 @@ GROUP BY foo2, foo2.a, foo2.b;
          ^
 ==
 
-[language_features={{V_1_2_GROUP_BY_STRUCT|}}]
+[language_features={{GROUP_BY_STRUCT|}}]
 select TestStruct as ts
 FROM ComplexTypes kv
 GROUP BY ts, ts.d, ts.c;
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT
+ALTERNATION GROUP: GROUP_BY_STRUCT
 --
 ERROR: Cannot GROUP BY field references from SELECT list alias ts [at 3:14]
 GROUP BY ts, ts.d, ts.c;
@@ -3528,7 +3563,7 @@ GROUP BY ts, ts.d, ts.c;
          ^
 ==
 
-[language_features=V_1_2_GROUP_BY_STRUCT]
+[language_features=GROUP_BY_STRUCT]
 select vt as vt2
 FROM  TestStructValueTable vt
 GROUP BY vt2, vt2.a, vt2.b;
@@ -3538,13 +3573,13 @@ GROUP BY vt2, vt2.a, vt2.b;
               ^
 ==
 
-[language_features={{V_1_2_GROUP_BY_STRUCT|}}]
+[language_features={{GROUP_BY_STRUCT|}}]
 select foo as foo2
 FROM (select as struct 1 as a, 2 as b) foo
 GROUP BY foo2, foo.a, foo.b;
 
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT
+ALTERNATION GROUP: GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -3595,12 +3630,12 @@ GROUP BY foo2, foo.a, foo.b;
          ^
 ==
 
-[language_features={{V_1_2_GROUP_BY_STRUCT|}}]
+[language_features={{GROUP_BY_STRUCT|}}]
 select foo.a AS a1, foo.b AS foo_b
 FROM (SELECT as struct 1 AS a, 2 AS b) AS foo
 GROUP BY foo
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT
+ALTERNATION GROUP: GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -3653,12 +3688,12 @@ GROUP BY foo
          ^
 ==
 
-[language_features={{V_1_2_GROUP_BY_STRUCT|}}]
+[language_features={{GROUP_BY_STRUCT|}}]
 select foo AS foo2, foo.a as foo_a, foo.b AS foo_b
 FROM (SELECT as struct 1 AS a, 2 AS b) AS foo
 GROUP BY foo2
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT
+ALTERNATION GROUP: GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -4073,31 +4108,49 @@ select {{max|min|avg|count|sum}}() from KeyValue;
 --
 ALTERNATION GROUP: max
 --
-ERROR: Number of arguments does not match for aggregate function MAX. Supported signature: MAX(ANY) [at 1:8]
+ERROR: No matching signature for aggregate function MAX with no arguments
+  Signature: MAX(T1)
+    Signature requires at least 1 argument, found 0 arguments [at 1:8]
 select max() from KeyValue;
        ^
 --
 ALTERNATION GROUP: min
 --
-ERROR: Number of arguments does not match for aggregate function MIN. Supported signature: MIN(ANY) [at 1:8]
+ERROR: No matching signature for aggregate function MIN with no arguments
+  Signature: MIN(T1)
+    Signature requires at least 1 argument, found 0 arguments [at 1:8]
 select min() from KeyValue;
        ^
 --
 ALTERNATION GROUP: avg
 --
-ERROR: No matching signature for aggregate function AVG with no arguments. Supported signatures: AVG(INT64); AVG(UINT64); AVG(DOUBLE) [at 1:8]
+ERROR: No matching signature for aggregate function AVG with no arguments
+  Signature: AVG(INT64)
+    Signature requires at least 1 argument, found 0 arguments
+  Signature: AVG(UINT64)
+    Signature requires at least 1 argument, found 0 arguments
+  Signature: AVG(DOUBLE)
+    Signature requires at least 1 argument, found 0 arguments [at 1:8]
 select avg() from KeyValue;
        ^
 --
 ALTERNATION GROUP: count
 --
-ERROR: Number of arguments does not match for aggregate function COUNT. Supported signature: COUNT(ANY) [at 1:8]
+ERROR: No matching signature for aggregate function COUNT with no arguments
+  Signature: COUNT(T1)
+    Signature requires at least 1 argument, found 0 arguments [at 1:8]
 select count() from KeyValue;
        ^
 --
 ALTERNATION GROUP: sum
 --
-ERROR: No matching signature for aggregate function SUM with no arguments. Supported signatures: SUM(INT64); SUM(UINT64); SUM(DOUBLE) [at 1:8]
+ERROR: No matching signature for aggregate function SUM with no arguments
+  Signature: SUM(INT64)
+    Signature requires at least 1 argument, found 0 arguments
+  Signature: SUM(UINT64)
+    Signature requires at least 1 argument, found 0 arguments
+  Signature: SUM(DOUBLE)
+    Signature requires at least 1 argument, found 0 arguments [at 1:8]
 select sum() from KeyValue;
        ^
 ==
@@ -5126,15 +5179,18 @@ QueryStmt
 select countif(KitchenSink.string_val) as cntif
 from TestTable
 --
-ERROR: No matching signature for aggregate function COUNTIF for argument types: STRING. Supported signature: COUNTIF(BOOL) [at 1:8]
+ERROR: No matching signature for aggregate function COUNTIF
+  Argument types: STRING
+  Signature: COUNTIF(BOOL)
+    Argument 1: Unable to coerce type STRING to expected type BOOL [at 1:8]
 select countif(KitchenSink.string_val) as cntif
        ^
 ==
 
-[language_features={{V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE|}}]
+[language_features={{NULL_HANDLING_MODIFIER_IN_AGGREGATE|}}]
 select array_agg(Key ignore nulls) from KeyValue
 --
-ALTERNATION GROUP: V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE
+ALTERNATION GROUP: NULL_HANDLING_MODIFIER_IN_AGGREGATE
 --
 QueryStmt
 +-output_column_list=
@@ -5160,10 +5216,10 @@ select array_agg(Key ignore nulls) from KeyValue
        ^
 ==
 
-[language_features={{V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE|}}]
+[language_features={{NULL_HANDLING_MODIFIER_IN_AGGREGATE|}}]
 select array_agg(Key respect nulls) from KeyValue
 --
-ALTERNATION GROUP: V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE
+ALTERNATION GROUP: NULL_HANDLING_MODIFIER_IN_AGGREGATE
 --
 QueryStmt
 +-output_column_list=
@@ -5189,7 +5245,7 @@ select array_agg(Key respect nulls) from KeyValue
        ^
 ==
 
-[language_features={{V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE|}}]
+[language_features={{NULL_HANDLING_MODIFIER_IN_AGGREGATE|}}]
 select array_agg(Key) from KeyValue
 --
 QueryStmt
@@ -5209,11 +5265,37 @@ QueryStmt
               +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 ==
 
-[language_features={{V_1_1_LIMIT_IN_AGGREGATE|}}]
+[language_features={{NULL_HANDLING_MODIFIER_IN_AGGREGATE|}}]
+select array_agg(ignore nulls) from KeyValue
+--
+ERROR: No matching signature for aggregate function ARRAY_AGG with no arguments
+  Signature: ARRAY_AGG(T1)
+    Signature requires at least 1 argument, found 0 arguments [at 1:8]
+select array_agg(ignore nulls) from KeyValue
+       ^
+==
+
+[language_features={{NULL_HANDLING_MODIFIER_IN_AGGREGATE|}}]
+select count(* ignore nulls) from KeyValue
+--
+ALTERNATION GROUP: NULL_HANDLING_MODIFIER_IN_AGGREGATE
+--
+ERROR: IGNORE NULLS and RESPECT NULLS are not allowed for aggregate function $count_star [at 1:8]
+select count(* ignore nulls) from KeyValue
+       ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: IGNORE NULLS and RESPECT NULLS in aggregate functions are not supported [at 1:8]
+select count(* ignore nulls) from KeyValue
+       ^
+==
+
+[language_features={{LIMIT_IN_AGGREGATE|}}]
 select array_agg(Key limit 10)
 from TestTable
 --
-ALTERNATION GROUP: V_1_1_LIMIT_IN_AGGREGATE
+ALTERNATION GROUP: LIMIT_IN_AGGREGATE
 --
 QueryStmt
 +-output_column_list=
@@ -5240,11 +5322,11 @@ select array_agg(Key limit 10)
                      ^
 ==
 
-[language_features={{V_1_1_LIMIT_IN_AGGREGATE|}}]
+[language_features={{LIMIT_IN_AGGREGATE|}}]
 select array_agg(distinct Key limit 10)
 from TestTable
 --
-ALTERNATION GROUP: V_1_1_LIMIT_IN_AGGREGATE
+ALTERNATION GROUP: LIMIT_IN_AGGREGATE
 --
 QueryStmt
 +-output_column_list=
@@ -5272,11 +5354,11 @@ select array_agg(distinct Key limit 10)
                               ^
 ==
 
-[language_features={{V_1_1_LIMIT_IN_AGGREGATE|}}]
+[language_features={{LIMIT_IN_AGGREGATE|}}]
 select array_agg(Key limit 10 offset 5)
 from TestTable
 --
-ALTERNATION GROUP: V_1_1_LIMIT_IN_AGGREGATE
+ALTERNATION GROUP: LIMIT_IN_AGGREGATE
 --
 ERROR: Aggregate function ARRAY_AGG does not support OFFSET in arguments [at 1:38]
 select array_agg(Key limit 10 offset 5)
@@ -5289,11 +5371,11 @@ select array_agg(Key limit 10 offset 5)
                      ^
 ==
 
-[language_features={{V_1_1_LIMIT_IN_AGGREGATE|}}]
+[language_features={{LIMIT_IN_AGGREGATE|}}]
 select count(Key limit 10)
 from TestTable
 --
-ALTERNATION GROUP: V_1_1_LIMIT_IN_AGGREGATE
+ALTERNATION GROUP: LIMIT_IN_AGGREGATE
 --
 ERROR: Aggregate function COUNT does not support LIMIT in arguments [at 1:18]
 select count(Key limit 10)
@@ -5306,7 +5388,7 @@ select count(Key limit 10)
                  ^
 ==
 
-[language_features={{V_1_1_LIMIT_IN_AGGREGATE|}}]
+[language_features={{LIMIT_IN_AGGREGATE|}}]
 select sqrt(KitchenSink.int64_val limit 10) from TestTable;
 --
 ERROR: LIMIT in arguments is not supported on scalar functions [at 1:35]
@@ -5314,11 +5396,11 @@ select sqrt(KitchenSink.int64_val limit 10) from TestTable;
                                   ^
 ==
 
-[language_features={{V_1_1_LIMIT_IN_AGGREGATE|}}]
+[language_features={{LIMIT_IN_AGGREGATE|}}]
 select array_agg(Key limit @test_param_int32)
 from TestTable
 --
-ALTERNATION GROUP: V_1_1_LIMIT_IN_AGGREGATE
+ALTERNATION GROUP: LIMIT_IN_AGGREGATE
 --
 QueryStmt
 +-output_column_list=
@@ -5346,11 +5428,11 @@ select array_agg(Key limit @test_param_int32)
                      ^
 ==
 
-[language_features={{V_1_1_LIMIT_IN_AGGREGATE|}}]
+[language_features={{LIMIT_IN_AGGREGATE|}}]
 select array_agg(Key limit KitchenSink.int32_val)
 from TestTable
 --
-ALTERNATION GROUP: V_1_1_LIMIT_IN_AGGREGATE
+ALTERNATION GROUP: LIMIT_IN_AGGREGATE
 --
 ERROR: Unrecognized name: KitchenSink [at 1:28]
 select array_agg(Key limit KitchenSink.int32_val)
@@ -5363,17 +5445,17 @@ select array_agg(Key limit KitchenSink.int32_val)
                      ^
 ==
 
-[language_features={{V_1_1_LIMIT_IN_AGGREGATE|V_1_1_LIMIT_IN_AGGREGATE,V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+[language_features={{LIMIT_IN_AGGREGATE|LIMIT_IN_AGGREGATE,LIMIT_OFFSET_EXPRESSIONS|}}]
 select array_agg(Key limit 1 + 2)
 from TestTable
 --
-ALTERNATION GROUP: V_1_1_LIMIT_IN_AGGREGATE
+ALTERNATION GROUP: LIMIT_IN_AGGREGATE
 --
 ERROR: LIMIT expects an integer literal or parameter [at 1:28]
 select array_agg(Key limit 1 + 2)
                            ^
 --
-ALTERNATION GROUP: V_1_1_LIMIT_IN_AGGREGATE,V_1_4_LIMIT_OFFSET_EXPRESSIONS
+ALTERNATION GROUP: LIMIT_IN_AGGREGATE,LIMIT_OFFSET_EXPRESSIONS
 --
 QueryStmt
 +-output_column_list=
@@ -5402,11 +5484,11 @@ select array_agg(Key limit 1 + 2)
                      ^
 ==
 
-[language_features={{V_1_1_HAVING_IN_AGGREGATE|}}]
+[language_features={{HAVING_IN_AGGREGATE|}}]
 select max(key having max value)
 from KeyValue
 --
-ALTERNATION GROUP: V_1_1_HAVING_IN_AGGREGATE
+ALTERNATION GROUP: HAVING_IN_AGGREGATE
 --
 QueryStmt
 +-output_column_list=
@@ -5436,11 +5518,11 @@ select max(key having max value)
                ^
 ==
 
-[language_features={{V_1_1_HAVING_IN_AGGREGATE|}}]
+[language_features={{HAVING_IN_AGGREGATE|}}]
 select max(key having min value)
 from KeyValue
 --
-ALTERNATION GROUP: V_1_1_HAVING_IN_AGGREGATE
+ALTERNATION GROUP: HAVING_IN_AGGREGATE
 --
 QueryStmt
 +-output_column_list=
@@ -5470,11 +5552,11 @@ select max(key having min value)
                ^
 ==
 
-[language_features={{V_1_1_HAVING_IN_AGGREGATE|}}]
+[language_features={{HAVING_IN_AGGREGATE|}}]
 select count(key having max 1)
 from KeyValue
 --
-ALTERNATION GROUP: V_1_1_HAVING_IN_AGGREGATE
+ALTERNATION GROUP: HAVING_IN_AGGREGATE
 --
 QueryStmt
 +-output_column_list=
@@ -5504,7 +5586,7 @@ select count(key having max 1)
                  ^
 ==
 
-[language_features=V_1_1_HAVING_IN_AGGREGATE]
+[language_features=HAVING_IN_AGGREGATE]
 select count(distinct key having max 1)
 from KeyValue
 --
@@ -5531,11 +5613,11 @@ QueryStmt
                     +-Literal(type=INT64, value=1)
 ==
 
-[language_features={{V_1_1_HAVING_IN_AGGREGATE|}}]
+[language_features={{HAVING_IN_AGGREGATE|}}]
 select max(1 having max value)
 from KeyValue
 --
-ALTERNATION GROUP: V_1_1_HAVING_IN_AGGREGATE
+ALTERNATION GROUP: HAVING_IN_AGGREGATE
 --
 QueryStmt
 +-output_column_list=
@@ -5565,7 +5647,7 @@ select max(1 having max value)
              ^
 ==
 
-[language_features=V_1_1_HAVING_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[language_features=HAVING_IN_AGGREGATE,LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE]
 select array_agg(key having max value order by key limit 1)
 from KeyValue
 --
@@ -5597,7 +5679,7 @@ QueryStmt
                 +-Literal(type=INT64, value=1)
 ==
 
-[language_features=V_1_1_HAVING_IN_AGGREGATE]
+[language_features=HAVING_IN_AGGREGATE]
 select array_agg(key having max count(value))
 from KeyValue
 --
@@ -5606,7 +5688,7 @@ select array_agg(key having max count(value))
        ^
 ==
 
-[language_features=V_1_1_HAVING_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
+[language_features=HAVING_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
 select array_agg(key having max rank() over (partition by value order by value))
 from KeyValue
 --
@@ -5615,7 +5697,7 @@ select array_agg(key having max rank() over (partition by value order by value))
        ^
 ==
 
-[language_features=V_1_1_HAVING_IN_AGGREGATE]
+[language_features=HAVING_IN_AGGREGATE]
 select array_agg(key having max (value, 'nonorderable'))
 from KeyValue
 --
@@ -5624,7 +5706,7 @@ select array_agg(key having max (value, 'nonorderable'))
                      ^
 ==
 
-[language_features=V_1_1_HAVING_IN_AGGREGATE]
+[language_features=HAVING_IN_AGGREGATE]
 select count(* having max value)
 from KeyValue
 --
@@ -5649,7 +5731,7 @@ QueryStmt
                     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
 ==
 
-[language_features=V_1_1_HAVING_IN_AGGREGATE]
+[language_features=HAVING_IN_AGGREGATE]
 select sort_count(having max value)
 from KeyValue
 --
@@ -5674,7 +5756,7 @@ QueryStmt
                     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
 ==
 
-[language_features=V_1_1_HAVING_IN_AGGREGATE]
+[language_features=HAVING_IN_AGGREGATE]
 select sqrt(2 having max value)
 from KeyValue
 --
@@ -5683,17 +5765,17 @@ select sqrt(2 having max value)
               ^
 ==
 
-[language_features={{DISALLOW_GROUP_BY_FLOAT,V_1_1_HAVING_IN_AGGREGATE|V_1_1_HAVING_IN_AGGREGATE}}]
+[language_features={{DISALLOW_GROUP_BY_FLOAT,HAVING_IN_AGGREGATE|HAVING_IN_AGGREGATE}}]
 select count(1 having max 0.1)
 from KeyValue
 --
-ALTERNATION GROUP: DISALLOW_GROUP_BY_FLOAT,V_1_1_HAVING_IN_AGGREGATE
+ALTERNATION GROUP: DISALLOW_GROUP_BY_FLOAT,HAVING_IN_AGGREGATE
 --
 ERROR: HAVING modifier does not support expressions of type DOUBLE [at 1:16]
 select count(1 having max 0.1)
                ^
 --
-ALTERNATION GROUP: V_1_1_HAVING_IN_AGGREGATE
+ALTERNATION GROUP: HAVING_IN_AGGREGATE
 --
 QueryStmt
 +-output_column_list=
@@ -5732,7 +5814,7 @@ select sqrt(1 respect nulls) from KeyValue
        ^
 ==
 
-[language_features={{|V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE}}]
+[language_features={{|NULL_HANDLING_MODIFIER_IN_AGGREGATE}}]
 select sum(1 {{ignore|respect}} nulls) from KeyValue
 --
 ALTERNATION GROUP: ignore
@@ -5747,20 +5829,20 @@ ERROR: IGNORE NULLS and RESPECT NULLS in aggregate functions are not supported [
 select sum(1 respect nulls) from KeyValue
        ^
 --
-ALTERNATION GROUP: V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,ignore
+ALTERNATION GROUP: NULL_HANDLING_MODIFIER_IN_AGGREGATE,ignore
 --
 ERROR: IGNORE NULLS and RESPECT NULLS are not allowed for aggregate function sum [at 1:8]
 select sum(1 ignore nulls) from KeyValue
        ^
 --
-ALTERNATION GROUP: V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,respect
+ALTERNATION GROUP: NULL_HANDLING_MODIFIER_IN_AGGREGATE,respect
 --
 ERROR: IGNORE NULLS and RESPECT NULLS are not allowed for aggregate function sum [at 1:8]
 select sum(1 respect nulls) from KeyValue
        ^
 ==
 
-[language_features={{|V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE}}]
+[language_features={{|NULL_HANDLING_MODIFIER_IN_AGGREGATE}}]
 select afn_null_handling(1 {{ignore|respect}} nulls) from KeyValue
 --
 ALTERNATION GROUP: ignore
@@ -5775,7 +5857,7 @@ ERROR: IGNORE NULLS and RESPECT NULLS in aggregate functions are not supported [
 select afn_null_handling(1 respect nulls) from KeyValue
        ^
 --
-ALTERNATION GROUP: V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,ignore
+ALTERNATION GROUP: NULL_HANDLING_MODIFIER_IN_AGGREGATE,ignore
 --
 QueryStmt
 +-output_column_list=
@@ -5794,7 +5876,7 @@ QueryStmt
               +-Literal(type=INT64, value=1)
               +-null_handling_modifier=IGNORE_NULLS
 --
-ALTERNATION GROUP: V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,respect
+ALTERNATION GROUP: NULL_HANDLING_MODIFIER_IN_AGGREGATE,respect
 --
 QueryStmt
 +-output_column_list=
@@ -5814,7 +5896,7 @@ QueryStmt
               +-null_handling_modifier=RESPECT_NULLS
 ==
 
-[language_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_HAVING_IN_AGGREGATE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[language_features=ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,HAVING_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 select afn_null_handling(distinct key {{ignore|respect}} nulls
                          having {{max|min}} value order by key limit 2)
 from KeyValue
@@ -5945,12 +6027,12 @@ QueryStmt
 
 ==
 
-[language_features={{V_1_2_GROUP_BY_STRUCT|V_1_2_GROUP_BY_STRUCT,DISALLOW_GROUP_BY_FLOAT|}}]
+[language_features={{GROUP_BY_STRUCT|GROUP_BY_STRUCT,DISALLOW_GROUP_BY_FLOAT|}}]
 SELECT t
 FROM (SELECT AS STRUCT 1 a, 1.2121 b) t
 GROUP BY t
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT
+ALTERNATION GROUP: GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -5982,7 +6064,7 @@ QueryStmt
         +-group_by_list=
           +-t#4 := ColumnRef(type=STRUCT<a INT64, b DOUBLE>, column=$make_struct.$struct#3)
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT,DISALLOW_GROUP_BY_FLOAT
+ALTERNATION GROUP: GROUP_BY_STRUCT,DISALLOW_GROUP_BY_FLOAT
 --
 ERROR: Grouping by expressions of type STRUCT containing DOUBLE is not allowed [at 3:10]
 GROUP BY t
@@ -5995,13 +6077,13 @@ GROUP BY t
          ^
 ==
 
-[language_features={{V_1_2_GROUP_BY_STRUCT|}}]
+[language_features={{GROUP_BY_STRUCT|}}]
 SELECT t
 FROM (SELECT AS STRUCT 1 a, [1] b) t
 GROUP BY t
 
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT
+ALTERNATION GROUP: GROUP_BY_STRUCT
 --
 ERROR: Grouping by expressions of type STRUCT containing ARRAY is not allowed [at 3:10]
 GROUP BY t
@@ -6014,10 +6096,10 @@ GROUP BY t
          ^
 ==
 
-[language_features={{V_1_2_GROUP_BY_STRUCT|}}]
+[language_features={{GROUP_BY_STRUCT|}}]
 select as struct (Key, KitchenSink) from TestTable group by 1
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT
+ALTERNATION GROUP: GROUP_BY_STRUCT
 --
 ERROR: Grouping by expressions of type STRUCT containing PROTO is not allowed [at 1:61]
 select as struct (Key, KitchenSink) from TestTable group by 1
@@ -6032,14 +6114,14 @@ select as struct (Key, KitchenSink) from TestTable group by 1
 
 # Error - struct contains a floating point which with DISALLOW_GROUP_BY_FLOAT
 # flag, does not support GROUP BY.
-[language_features={{V_1_2_GROUP_BY_STRUCT|V_1_2_GROUP_BY_STRUCT,DISALLOW_GROUP_BY_FLOAT}}]
+[language_features={{GROUP_BY_STRUCT|GROUP_BY_STRUCT,DISALLOW_GROUP_BY_FLOAT}}]
 SELECT {{T.|}}a.b.c.d.e
 FROM (SELECT STRUCT (STRUCT (STRUCT (STRUCT (1.0 as e) as d) as c) as b) as a) T
 GROUP BY T.a;
 --
 ALTERNATION GROUPS:
-    V_1_2_GROUP_BY_STRUCT,T.
-    V_1_2_GROUP_BY_STRUCT,
+    GROUP_BY_STRUCT,T.
+    GROUP_BY_STRUCT,
 --
 QueryStmt
 +-output_column_list=
@@ -6080,8 +6162,8 @@ QueryStmt
           +-a#2 := ColumnRef(type=STRUCT<b STRUCT<c STRUCT<d STRUCT<e DOUBLE>>>>, column=T.a#1)
 --
 ALTERNATION GROUPS:
-    V_1_2_GROUP_BY_STRUCT,DISALLOW_GROUP_BY_FLOAT,T.
-    V_1_2_GROUP_BY_STRUCT,DISALLOW_GROUP_BY_FLOAT,
+    GROUP_BY_STRUCT,DISALLOW_GROUP_BY_FLOAT,T.
+    GROUP_BY_STRUCT,DISALLOW_GROUP_BY_FLOAT,
 --
 ERROR: Grouping by expressions of type STRUCT containing DOUBLE is not allowed [at 3:10]
 GROUP BY T.a;
@@ -6089,7 +6171,7 @@ GROUP BY T.a;
 ==
 
 # Error - struct contains an array, which does not support group by.
-[language_features=V_1_2_GROUP_BY_STRUCT]
+[language_features=GROUP_BY_STRUCT]
 SELECT {{T.|}}a.b.c.d.e
 FROM (SELECT STRUCT (STRUCT (STRUCT (STRUCT ([1] as e) as d) as c) as b) as a) T
 GROUP BY T.a;
@@ -6099,7 +6181,7 @@ GROUP BY T.a;
          ^
 ==
 
-[language_features=V_1_2_GROUP_BY_STRUCT]
+[language_features=GROUP_BY_STRUCT]
 SELECT TestStruct.d.a, TestStruct.c
 FROM ComplexTypes ct
 GROUP BY TestStruct, TestStruct.d, TestStruct.d.a
@@ -6154,7 +6236,7 @@ QueryStmt
 ==
 
 # TODO: this should be valid. Fix it.
-[language_features=V_1_2_GROUP_BY_STRUCT]
+[language_features=GROUP_BY_STRUCT]
 SELECT TestStruct.d.*
 FROM ComplexTypes
 GROUP BY TestStruct.d
@@ -6165,7 +6247,7 @@ SELECT TestStruct.d.*
 ==
 
 # TestStruct.c is resolved to the second TestStruct in GROUP BY.
-[language_features=V_1_2_GROUP_BY_STRUCT]
+[language_features=GROUP_BY_STRUCT]
 SELECT TestStruct.d as TestStruct, TestStruct.c, TestStruct.d, TestStruct.d.a
 FROM ComplexTypes ct
 GROUP BY TestStruct, ct.TestStruct
@@ -6217,7 +6299,7 @@ QueryStmt
           +-TestStruct#8 := ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5)
 ==
 
-[language_features=V_1_2_GROUP_BY_STRUCT]
+[language_features=GROUP_BY_STRUCT]
 select foo.bar as foo2, foo.bar.a, foo.bar.b
 from (select struct<baz int32, bar struct<a int32, b int32>>(1, (2, 3)) as foo) as T
 group by foo2;
@@ -6262,7 +6344,7 @@ QueryStmt
               +-field_idx=1
 ==
 
-[language_features=V_1_2_GROUP_BY_STRUCT]
+[language_features=GROUP_BY_STRUCT]
 SELECT {{T.|}}a.b.c, {{T.|}}a.b.c.d, {{T.|}}a.b.c.d.e
 FROM (SELECT STRUCT (STRUCT (STRUCT (STRUCT (1 as e) as d) as c) as b) as a) T
 GROUP BY {{T.|}}a.b.c;
@@ -6315,7 +6397,7 @@ QueryStmt
               +-field_idx=0
 ==
 
-[language_features=V_1_2_GROUP_BY_STRUCT]
+[language_features=GROUP_BY_STRUCT]
 SELECT {{T.|}}a.b.c as foo, {{T.|}}a.b.c.d, {{T.|}}a.b.c.d.e
 FROM (SELECT STRUCT (STRUCT (STRUCT (STRUCT (1 as e) as d) as c) as b) as a) T
 GROUP BY foo;
@@ -6368,7 +6450,7 @@ QueryStmt
               +-field_idx=0
 ==
 
-[language_features=V_1_2_GROUP_BY_STRUCT]
+[language_features=GROUP_BY_STRUCT]
 SELECT distinct {{T.|}}a.b.c.d.e
 FROM (SELECT STRUCT (STRUCT (STRUCT (STRUCT (1 as e) as d) as c) as b) as a) T
 GROUP BY {{T.|}}a.b;
@@ -6418,7 +6500,7 @@ QueryStmt
       +-e#4 := ColumnRef(type=INT64, column=$query.e#3)
 ==
 
-[language_features=V_1_2_GROUP_BY_STRUCT]
+[language_features=GROUP_BY_STRUCT]
 SELECT {{ct.|}}TestStruct, {{ct.|}}TestStruct.d
 FROM ComplexTypes ct
 GROUP BY {{ct.TestStruct|TestStruct|1}}
@@ -6447,7 +6529,7 @@ QueryStmt
 ==
 
 # TODO We should make both cases work.
-[language_features=V_1_2_GROUP_BY_STRUCT]
+[language_features=GROUP_BY_STRUCT]
 SELECT t as foo, t.key
 FROM SimpleTypesWithStruct as t
 group by {{1|t|foo}}
@@ -6468,7 +6550,7 @@ SELECT t as foo, t.key
 ==
 
 # The alternation differs in the group by field name.
-[language_features=V_1_2_GROUP_BY_STRUCT]
+[language_features=GROUP_BY_STRUCT]
 SELECT vt as foo, vt.a
 FROM TestStructValueTable vt
 GROUP BY {{1|vt|foo}}
@@ -6525,7 +6607,7 @@ QueryStmt
 ==
 
 # MIN is supported for ARRAYs only if array ordering is enabled.
-[language_features={{|V_1_3_ARRAY_ORDERING}}]
+[language_features={{|ARRAY_ORDERING}}]
 SELECT MIN(x) FROM (SELECT [1] x);
 --
 ALTERNATION GROUP: <empty>
@@ -6534,7 +6616,7 @@ ERROR: MIN is not defined for arguments of type ARRAY<INT64> [at 1:8]
 SELECT MIN(x) FROM (SELECT [1] x);
        ^
 --
-ALTERNATION GROUP: V_1_3_ARRAY_ORDERING
+ALTERNATION GROUP: ARRAY_ORDERING
 --
 QueryStmt
 +-output_column_list=
@@ -6558,7 +6640,7 @@ QueryStmt
               +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.x#1)
 ==
 
-[language_features=V_1_1_HAVING_IN_AGGREGATE{{|,V_1_3_ARRAY_ORDERING}}]
+[language_features=HAVING_IN_AGGREGATE{{|,ARRAY_ORDERING}}]
 select count(key having max x)
 from (select 'a' key, [1] x);
 --
@@ -6567,7 +6649,7 @@ select count(key having max x)
                  ^
 ==
 
-[language_features=V_1_1_HAVING_IN_AGGREGATE{{|,V_1_3_ARRAY_ORDERING}}]
+[language_features=HAVING_IN_AGGREGATE{{|,ARRAY_ORDERING}}]
 select count(key having min x)
 from (select 'a' key, [1] x);
 --
@@ -6715,7 +6797,7 @@ QueryStmt
 ==
 
 # Test case related to b/112108147 (but does not reproduce it).
-[language_features=V_1_2_GROUP_BY_ARRAY]
+[language_features=GROUP_BY_ARRAY]
 select TestProto.*, count(*)
 from ComplexTypes
 group by 1,2,3
@@ -6855,7 +6937,7 @@ SELECT Count(*), JSON_VALUE(json_col.c)
 
 ==
 
-[language_features=V_1_3_PROTO_DEFAULT_IF_NULL]
+[language_features=PROTO_DEFAULT_IF_NULL]
 SELECT
   PROTO_DEFAULT_IF_NULL(KitchenSink.int32_val)
 FROM TestTable
@@ -6883,7 +6965,7 @@ QueryStmt
               +-return_default_value_when_unset=TRUE
 ==
 
-[language_features=V_1_3_PROTO_DEFAULT_IF_NULL,V_1_1_ORDER_BY_IN_AGGREGATE]
+[language_features=PROTO_DEFAULT_IF_NULL,ORDER_BY_IN_AGGREGATE]
 SELECT
   ARRAY_AGG(
     DISTINCT PROTO_DEFAULT_IF_NULL(KitchenSink.int32_val)

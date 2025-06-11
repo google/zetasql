@@ -77,4 +77,16 @@ public interface GraphElementTable extends Serializable {
 
   /** Returns all {@link GraphElementLabel} exposed by this GraphElementTable. */
   Set<GraphElementLabel> getLabels();
+
+  /** Returns true if this GraphElementTable has {@link GraphDynamicLabel} defined. */
+  boolean hasDynamicLabel();
+
+  /** Returns the {@link GraphDynamicLabel} of this GraphElementTable. */
+  GraphDynamicLabel getDynamicLabel();
+
+  /** Returns true if this GraphElementTable has {@link GraphDynamicProperties} defined. */
+  boolean hasDynamicProperties();
+
+  /** Returns the {@link GraphDynamicProperties} of this GraphElementTable. */
+  GraphDynamicProperties getDynamicProperties();
 }

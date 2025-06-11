@@ -1,4 +1,4 @@
-[default required_features=V_1_4_MAP_TYPE]
+[default required_features=MAP_TYPE]
 [load_proto_files=zetasql/testdata/test_schema.proto]
 [load_proto_names=zetasql_test__.KitchenSinkPB]
 
@@ -33,7 +33,7 @@ ARRAY<STRUCT<MAP<INT64, INT64>>>[{NULL}]
 ==
 
 [name=map_from_array_nesting]
-[required_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_STRUCT]
+[required_features=MAP_TYPE,GROUP_BY_STRUCT]
 SELECT MAP_FROM_ARRAY([
   ('a', MAP_FROM_ARRAY([
     ((1, 'b'), MAP_FROM_ARRAY([
@@ -50,7 +50,7 @@ ARRAY<STRUCT<
 ==
 
 [name=map_from_array_nested_containers]
-[required_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY]
+[required_features=MAP_TYPE,GROUP_BY_STRUCT,GROUP_BY_ARRAY]
 SELECT MAP_FROM_ARRAY([(('key_struct', ['array_key1', 'array_key2']), 'foo_val')]);
 --
 ARRAY<STRUCT<MAP<STRUCT<STRING, ARRAY<STRING>>, STRING>>>[
@@ -78,7 +78,7 @@ ERROR: generic::out_of_range: Duplicate map keys are not allowed, but got multip
 ==
 
 [name=map_from_array_repeated_array_key]
-[required_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_ARRAY]
+[required_features=MAP_TYPE,GROUP_BY_ARRAY]
 SELECT MAP_FROM_ARRAY([(['a'], 0), (['a'], 0)])
 --
 ERROR: generic::out_of_range: Duplicate map keys are not allowed, but got multiple instances of key: ARRAY<STRING>["a"]
@@ -97,7 +97,7 @@ ERROR: generic::out_of_range: Duplicate map keys are not allowed, but got multip
 ==
 
 [name=map_from_array_transformed_input]
-[required_features=V_1_4_MAP_TYPE,V_1_4_ARRAY_ZIP]
+[required_features=MAP_TYPE,ARRAY_ZIP]
 SELECT MAP_FROM_ARRAY(ARRAY_ZIP(["a", "b", "c"], [1, 2, 3]));
 --
 ARRAY<STRUCT<MAP<STRING, INT64>>>[{{"a": 1, "b": 2, "c": 3}}]
@@ -139,7 +139,7 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<key STRING, value BOOL>>[{"a", true}]}]
 ==
 
 [name=map_entries_sorted_nested]
-[required_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_ARRAY,V_1_3_ARRAY_ORDERING]
+[required_features=MAP_TYPE,GROUP_BY_ARRAY,ARRAY_ORDERING]
 SELECT
   MAP_ENTRIES_SORTED(
     MAP_FROM_ARRAY([
@@ -165,7 +165,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 ==
 
 [name=map_entries_unsorted_nested]
-[required_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_ARRAY]
+[required_features=MAP_TYPE,GROUP_BY_ARRAY]
 SELECT
   MAP_ENTRIES_UNSORTED(
     MAP_FROM_ARRAY([
@@ -204,7 +204,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 ==
 
-[required_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_ARRAY,V_1_3_ARRAY_ORDERING]
+[required_features=MAP_TYPE,GROUP_BY_ARRAY,ARRAY_ORDERING]
 [name=map_entries_sorted_array_key]
 SELECT MAP_ENTRIES_SORTED(MAP_FROM_ARRAY([(['b'], 1), (['a'], 2), (['a', 'b'], 3)]));
 --
@@ -273,7 +273,7 @@ ARRAY<STRUCT<
 ==
 
 [name=map_get_bytes_to_string_coercion]
-[required_features=V_1_4_MAP_TYPE,V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
+[required_features=MAP_TYPE,IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
 SELECT MAP_GET(MAP_FROM_ARRAY([(b'a', 1)]), 'a');
 --
 ARRAY<STRUCT<INT64>>[{1}]
@@ -291,14 +291,14 @@ SELECT MAP_GET(MAP_FROM_ARRAY([(1.5, 'a'), (1.0, 'b')]), 1);
 ARRAY<STRUCT<STRING>>[{"b"}]
 ==
 
-[required_features=V_1_4_MAP_TYPE,JSON_TYPE]
+[required_features=MAP_TYPE,JSON_TYPE]
 [name=map_get_json_null_found]
 SELECT MAP_GET(MAP_FROM_ARRAY([('a', JSON '1'), (NULL, NULL)]), NULL);
 --
 ARRAY<STRUCT<JSON>>[{NULL}]
 ==
 
-[required_features=V_1_4_MAP_TYPE,JSON_TYPE]
+[required_features=MAP_TYPE,JSON_TYPE]
 [name=map_get_json_null_not_found]
 SELECT MAP_GET(MAP_FROM_ARRAY([('a', JSON '1'), ('b', NULL)]), NULL, JSON '-1');
 --
@@ -376,49 +376,49 @@ ERROR: generic::out_of_range: Key not found in map: NULL
 ==
 
 [name=map_subscript_safe_key_found]
-[required_features=V_1_4_MAP_TYPE,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=MAP_TYPE,SAFE_FUNCTION_CALL]
 SELECT MAP_FROM_ARRAY([('a', 1)])[SAFE_KEY('a')];
 --
 ARRAY<STRUCT<INT64>>[{1}]
 ==
 
 [name=map_subscript_safe_key_not_found]
-[required_features=V_1_4_MAP_TYPE,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=MAP_TYPE,SAFE_FUNCTION_CALL]
 SELECT MAP_FROM_ARRAY([('a', 1)])[SAFE_KEY('b')];
 --
 ARRAY<STRUCT<INT64>>[{NULL}]
 ==
 
 [name=map_subscript_safe_key_null_key_found]
-[required_features=V_1_4_MAP_TYPE,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=MAP_TYPE,SAFE_FUNCTION_CALL]
 SELECT MAP_FROM_ARRAY([('a', 1), (NULL, 2)])[SAFE_KEY(NULL)];
 --
 ARRAY<STRUCT<INT64>>[{2}]
 ==
 
 [name=map_subscript_safe_key_null_key_not_found]
-[required_features=V_1_4_MAP_TYPE,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=MAP_TYPE,SAFE_FUNCTION_CALL]
 SELECT MAP_FROM_ARRAY([('a', 1)])[SAFE_KEY(NULL)];
 --
 ARRAY<STRUCT<INT64>>[{NULL}]
 ==
 
 [name=null_map_subscript_bare_access]
-[required_features=V_1_4_MAP_TYPE]
+[required_features=MAP_TYPE]
 SELECT MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<STRING, INT64>>))['a'];
 --
 ARRAY<STRUCT<INT64>>[{NULL}]
 ==
 
 [name=null_map_subscript_with_key]
-[required_features=V_1_4_MAP_TYPE]
+[required_features=MAP_TYPE]
 SELECT MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<STRING, INT64>>))[KEY('a')];
 --
 ARRAY<STRUCT<INT64>>[{NULL}]
 ==
 
 [name=null_map_subscript_safe_key]
-[required_features=V_1_4_MAP_TYPE,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=MAP_TYPE,SAFE_FUNCTION_CALL]
 SELECT MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<STRING, INT64>>))[SAFE_KEY('a')];
 --
 ARRAY<STRUCT<INT64>>[{NULL}]
@@ -488,7 +488,7 @@ ARRAY<STRUCT<MAP<STRING, INT64>>>[{{"a": 1}}]
 ==
 
 [name=cast_nested_same_type]
-[required_features=V_1_4_MAP_TYPE]
+[required_features=MAP_TYPE]
 SELECT CAST(MAP_FROM_ARRAY([("a", [('a', new zetasql_test__.EmptyMessage())])]) AS MAP<STRING, ARRAY<STRUCT<STRING, zetasql_test__.EmptyMessage>>>);
 --
 ARRAY<STRUCT<
@@ -556,7 +556,7 @@ ARRAY<STRUCT<MAP<FLOAT, STRING>>>[{{1.1: "2024-01-01", 1.2: "2024-01-02"}}]
 ==
 
 [name=cast_map_nested]
-[required_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_STRUCT]
+[required_features=MAP_TYPE,GROUP_BY_STRUCT]
 SELECT
   CAST(
     MAP_FROM_ARRAY([("a", MAP_FROM_ARRAY([(STRUCT("4"), 1), (STRUCT("5"), 2)]))])
@@ -568,7 +568,7 @@ ARRAY<STRUCT<MAP<STRING, MAP<STRUCT<INT64>, INT64>>>>[
 ==
 
 [name=cast_map_nested_invalid]
-[required_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_STRUCT]
+[required_features=MAP_TYPE,GROUP_BY_STRUCT]
 SELECT
   CAST(
     MAP_FROM_ARRAY([("a", MAP_FROM_ARRAY([(STRUCT("4a"), 1), (STRUCT("5"), 2)]))])
@@ -665,17 +665,22 @@ SELECT
   MAP_VALUES_SORTED_BY_KEY(MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<STRING, INT64>>))) as null_map,
   MAP_VALUES_SORTED_BY_KEY(MAP_FROM_ARRAY(CAST([] AS ARRAY<STRUCT<STRING, INT64>>))) as empty_map,
   MAP_VALUES_SORTED_BY_KEY(MAP_FROM_ARRAY([('b', 1), ('a', 2)])) as opposite_map,
-  MAP_VALUES_SORTED_BY_KEY(MAP_FROM_ARRAY([('b', 1), ('a', 2), (NULL, 3)])) as map_null_key;
+  MAP_VALUES_SORTED_BY_KEY(MAP_FROM_ARRAY([('b', 1), ('a', 2), (NULL, 3)])) as map_null_key,
+  MAP_VALUES_SORTED_BY_KEY(MAP_FROM_ARRAY([('b', STRUCT(1)), ('a', STRUCT(2)), (NULL, STRUCT(3))])) as map_unorderable_value;
 --
-ARRAY<STRUCT<null_map ARRAY<>,
-             empty_map ARRAY<>,
-             opposite_map ARRAY<>,
-             map_null_key ARRAY<>>>
+ARRAY<STRUCT<
+        null_map ARRAY<>,
+        empty_map ARRAY<>,
+        opposite_map ARRAY<>,
+        map_null_key ARRAY<>,
+        map_unorderable_value ARRAY<>
+      >>
 [{
    ARRAY<INT64>(NULL),
    ARRAY<INT64>[],
    ARRAY<INT64>[known order:2, 1],
-   ARRAY<INT64>[known order:3, 2, 1]
+   ARRAY<INT64>[known order:3, 2, 1],
+   ARRAY<STRUCT<INT64>>[known order:{3}, {2}, {1}]
  }]
 ==
 
@@ -874,7 +879,7 @@ ARRAY<STRUCT<
 ==
 
 [name=map_replace_lambda]
-[required_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
 SELECT
   MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', v -> v + 1) as one_element_one_replaced,
   MAP_REPLACE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'a', v -> v - 1) as two_elements_one_replaced,
@@ -899,14 +904,14 @@ ARRAY<STRUCT<
 ==
 
 [name=map_replace_lambda_error_duplicate_key_arg]
-[required_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
 SELECT MAP_REPLACE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'a', 'b', 'a', v -> v + 1);
 --
 ERROR: generic::out_of_range: Key provided more than once as argument: "a"
 ==
 
 [name=map_replace_lambda_error_duplicate_null_key_arg]
-[required_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
 SELECT
   MAP_REPLACE(
     MAP_FROM_ARRAY([(1, 'a'), (NULL, 'b')]),
@@ -918,28 +923,28 @@ ERROR: generic::out_of_range: Key provided more than once as argument: NULL
 ==
 
 [name=map_replace_lambda_can_raise_user_error]
-[required_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
 SELECT MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', v -> ERROR("custom user error"));
 --
 ERROR: generic::out_of_range: custom user error
 ==
 
 [name=map_replace_lambda_with_conditional_user_error_not_raised]
-[required_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
 SELECT MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', v -> IF(v = 1, 0, ERROR("not raised")));
 --
 ARRAY<STRUCT<MAP<STRING, INT64>>>[{{"a": 0}}]
 ==
 
 [name=map_replace_lambda_error_invalid_key_arg]
-[required_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
 SELECT MAP_REPLACE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'a', 'b', 'c', v -> v + 1);
 --
 ERROR: generic::out_of_range: Key does not exist in map: "c"
 ==
 
 [name=map_modify_fns_null_map_duplicate_key_arg]
-[required_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
 # All map modification functions should return NULL if the map is NULL, and this
 # takes precedence over the duplicate key argument error.
 SELECT
@@ -995,7 +1000,7 @@ ARRAY<STRUCT<
 ==
 
 [name=map_filter]
-[required_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
 SELECT
   MAP_FILTER(MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<STRING, INT64>>)), (k, v) -> v > 1) as null_map,
   MAP_FILTER(MAP_FROM_ARRAY(CAST([] AS ARRAY<STRUCT<STRING, INT64>>)), (k, v) -> v > 1) as empty_map,
@@ -1025,7 +1030,7 @@ ARRAY<STRUCT<
 ==
 
 [name=map_filter_with_subquery]
-[required_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
 WITH
   t1 AS (SELECT col FROM UNNEST([1, 2]) as col),
   t2 AS (SELECT y FROM UNNEST([1, 2]) as y)
@@ -1054,7 +1059,7 @@ ARRAY<STRUCT<
 ==
 
 [name=map_cardinality_dynamic_map]
-[required_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
 SELECT
   MAP_CARDINALITY(
     MAP_FILTER(

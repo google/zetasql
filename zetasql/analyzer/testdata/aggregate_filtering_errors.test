@@ -1,4 +1,4 @@
-[default language_features=ANALYTIC_FUNCTIONS,V_1_4_AGGREGATE_FILTERING,V_1_4_MULTILEVEL_AGGREGATION,V_1_4_GROUPING_BUILTIN,V_1_3_QUALIFY,V_1_2_GROUP_BY_STRUCT,V_1_1_ORDER_BY_IN_AGGREGATE]
+[default language_features=ANALYTIC_FUNCTIONS,AGGREGATE_FILTERING,MULTILEVEL_AGGREGATION,GROUPING_BUILTIN,QUALIFY,GROUP_BY_STRUCT,ORDER_BY_IN_AGGREGATE]
 [default show_sqlbuilder_output]
 
 
@@ -128,7 +128,7 @@ ERROR: WHERE modifier is not supported in function calls [at 2:13]
 ==
 
 # Error with HAVING without AGGREGATE_FILTERING language feature.
-[language_features=V_1_4_MULTILEVEL_AGGREGATION]
+[language_features=MULTILEVEL_AGGREGATION]
 SELECT
   SUM(ANY_VALUE(int64) GROUP BY int32 HAVING bool is not null)
 FROM SimpleTypes;

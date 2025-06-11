@@ -78,7 +78,7 @@ absl::Status GetToJsonStackOverflowStatus() {
   }
 
 // Returns JSONValue constructed from NumericValue and BigNumericValue.
-// If the value is int64_t or uint64_t, use the corresponding value directly.
+// If the value is int64 or uint64, use the corresponding value directly.
 // If double, checks whether NumericValue/BigNumericValue can be
 // converted to DOUBLE without precision loss and use the double value to
 // construct the json if no loss. Otherwise returns the rounded value iff
@@ -90,13 +90,13 @@ absl::StatusOr<JSONValue> ToJsonFromNumeric(
     bool canonicalize_zero,
     UnsupportedFieldsEnum::UnsupportedFields unsupported_fields) {
   if (!value.HasFractionalPart()) {
-    // Check whether the value is int64_t
+    // Check whether the value is int64
     if (value >= T(kInt64Min) && value <= T(kInt64Max)) {
       ZETASQL_ASSIGN_OR_RETURN(int64_t int64value, value.template To<int64_t>());
       return ToJson(Value::Int64(int64value), stringify_wide_number,
                     language_options, canonicalize_zero, unsupported_fields);
     }
-    // Check whether the value is uint64_t
+    // Check whether the value is uint64
     if (value >= T(kUint64Min) && value <= T(kUint64Max)) {
       ZETASQL_ASSIGN_OR_RETURN(uint64_t uint64value, value.template To<uint64_t>());
       return ToJson(Value::Uint64(uint64value), stringify_wide_number,
@@ -389,6 +389,11 @@ absl::StatusOr<JSONValue> ToJsonFromGraphElement(
   JSONValue json_value;
   JSONValueRef json_value_ref = json_value.GetRef();
   json_value_ref.SetToEmptyObject();
+  if (language_options.LanguageFeatureEnabled(
+          FEATURE_SQL_GRAPH_ELEMENT_DEFINITION_NAME_IN_JSON_RESULT)) {
+    json_value_ref.GetMember("element_definition_name")
+        .SetString(value.GetDefinitionName());
+  }
 
   std::string tmp;
   JsonFromBytes(value.GetIdentifier(), &tmp, /*quote_output_string=*/false);
@@ -413,6 +418,8 @@ absl::StatusOr<JSONValue> ToJsonFromGraphElement(
     ZETASQL_RET_CHECK(
         (property_type != nullptr &&
          property_type->value_type->Equals(property_value.type()))
+        // A dynamic property is json typed and graph element must be dynamic.
+        || (type->is_dynamic() && property_value.type()->IsJson())
     );
     ZETASQL_ASSIGN_OR_RETURN(JSONValue v,
                      ToJsonHelper(property_value, stringify_wide_numbers,

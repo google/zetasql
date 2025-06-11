@@ -1,4 +1,4 @@
-[default language_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS,V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH]
+[default language_features=UNNEST_AND_FLATTEN_ARRAYS,SINGLE_TABLE_NAME_ARRAY_PATH]
 
 # Path expression pattern:
 #   table.invalid_path
@@ -676,7 +676,7 @@ from ArrayTypes.ProtoArray.(zetasql_test__.TestExtraPBExtensionHolder.test_ex...
 ==
 
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH,V_1_3_UNNEST_AND_FLATTEN_ARRAYS,V_1_3_PIVOT{{|,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
+[language_features=SINGLE_TABLE_NAME_ARRAY_PATH,UNNEST_AND_FLATTEN_ARRAYS,PIVOT{{|,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
 SELECT * FROM ArrayTypes.ProtoArray.int32_val1 AS Value PIVOT(COUNT(Value) FOR int32_val1 IN (0, 1));
 --
 ALTERNATION GROUP: <empty>
@@ -746,7 +746,7 @@ QueryStmt
                 | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
                 +-element_column_list=[$flatten.injected#22]
 --
-ALTERNATION GROUP: ,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
+ALTERNATION GROUP: ,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
 --
 ERROR: PIVOT is not allowed with array scans [at 1:57]
 ...FROM ArrayTypes.ProtoArray.int32_val1 AS Value PIVOT(COUNT(Value) FOR int3...
@@ -754,7 +754,7 @@ ERROR: PIVOT is not allowed with array scans [at 1:57]
 ==
 
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH,V_1_3_UNNEST_AND_FLATTEN_ARRAYS,V_1_3_PIVOT{{|,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
+[language_features=SINGLE_TABLE_NAME_ARRAY_PATH,UNNEST_AND_FLATTEN_ARRAYS,PIVOT{{|,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
 SELECT * FROM ArrayTypes.ProtoArray.int32_val1 UNPIVOT(a FOR b IN (int32_val1));
 --
 ALTERNATION GROUP: <empty>
@@ -824,14 +824,14 @@ QueryStmt
                 | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
                 +-element_column_list=[$flatten.injected#22]
 --
-ALTERNATION GROUP: ,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
+ALTERNATION GROUP: ,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
 --
 ERROR: UNPIVOT is not allowed with array scans [at 1:48]
 SELECT * FROM ArrayTypes.ProtoArray.int32_val1 UNPIVOT(a FOR b IN (int32_val1));
                                                ^
 ==
 
-[language_features=V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH,V_1_3_UNNEST_AND_FLATTEN_ARRAYS,TABLESAMPLE]
+[language_features=SINGLE_TABLE_NAME_ARRAY_PATH,UNNEST_AND_FLATTEN_ARRAYS,TABLESAMPLE]
 SELECT * FROM ArrayTypes.ProtoArray.int32_val1 AS Value
 TABLESAMPLE RESERVOIR (100 ROWS);
 --
@@ -843,7 +843,7 @@ TABLESAMPLE RESERVOIR (100 ROWS);
 # This is to test backward compatibility.
 # Path expression pattern with JOIN condition:
 #   table JOIN table.valid_array_path
-[language_features={{|V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH}}]
+[language_features={{|SINGLE_TABLE_NAME_ARRAY_PATH}}]
 SELECT *
 FROM
   TestTable{{| as TestTable}}{{,| CROSS JOIN}}
@@ -852,8 +852,8 @@ FROM
 ALTERNATION GROUPS:
     ,
      CROSS JOIN
-    V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH,,,
-    V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH,, CROSS JOIN
+    SINGLE_TABLE_NAME_ARRAY_PATH,,,
+    SINGLE_TABLE_NAME_ARRAY_PATH,, CROSS JOIN
 --
 QueryStmt
 +-output_column_list=
@@ -881,8 +881,8 @@ QueryStmt
 ALTERNATION GROUPS:
      as TestTable,,
      as TestTable, CROSS JOIN
-    V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH, as TestTable,,
-    V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH, as TestTable, CROSS JOIN
+    SINGLE_TABLE_NAME_ARRAY_PATH, as TestTable,,
+    SINGLE_TABLE_NAME_ARRAY_PATH, as TestTable, CROSS JOIN
 --
 QueryStmt
 +-output_column_list=

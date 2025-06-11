@@ -27,7 +27,7 @@ static constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 
 std::vector<FunctionTestCall> GetFunctionTestsInstr2() {
   return {
-      // instr(bytes, bytes, int64_t) -> int64_t
+      // instr(bytes, bytes, int64) -> int64
       {"instr", {NullBytes(), Bytes(""), 1ll}, NullInt64()},
       {"instr", {NullBytes(), Bytes("x"), 1ll}, NullInt64()},
       {"instr", {Bytes(""), NullBytes(), 1ll}, NullInt64()},
@@ -130,7 +130,7 @@ std::vector<FunctionTestCall> GetFunctionTestsInstr2() {
       {"instr", {Bytes("zгдlг"), Bytes("дl"), -5ll}, 4ll},
       {"instr", {Bytes("zгдlг"), Bytes("дl"), -6ll}, 0ll},
 
-      // instr(string, string, int64_t, int64_t) -> int64_t
+      // instr(string, string, int64, int64) -> int64
       {"instr", {NullString(), "", 1ll, 1ll}, NullInt64()},
       {"instr", {NullString(), "x", 1ll, 1ll}, NullInt64()},
       {"instr", {"", NullString(), 1ll, 1ll}, NullInt64()},

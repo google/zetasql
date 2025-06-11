@@ -592,7 +592,7 @@ ARRAY<STRUCT<
 ]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC]
+[required_features=ANALYTIC_FUNCTIONS,NULL_HANDLING_MODIFIER_IN_ANALYTIC]
 [name=analytic_percentile_disc_ignore_nulls]
 SELECT row_id, value, str,
        PERCENTILE_DISC(row_id, -0.0 IGNORE NULLS) OVER (),
@@ -781,7 +781,7 @@ ARRAY<STRUCT<
                }]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC]
+[required_features=ANALYTIC_FUNCTIONS,NULL_HANDLING_MODIFIER_IN_ANALYTIC]
 [name=analytic_percentile_disc_partition_ignore_nulls]
 SELECT row_id, value, str,
        PERCENTILE_DISC(row_id, -0.0 IGNORE NULLS) OVER (PARTITION BY str),
@@ -956,7 +956,7 @@ ARRAY<STRUCT<
 ]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC]
+[required_features=ANALYTIC_FUNCTIONS,NULL_HANDLING_MODIFIER_IN_ANALYTIC]
 [name=analytic_percentile_disc_respect_nulls]
 SELECT row_id, value, str,
        PERCENTILE_DISC(row_id, -0.0 RESPECT NULLS) OVER (),
@@ -1145,7 +1145,7 @@ ARRAY<STRUCT<
                }]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC]
+[required_features=ANALYTIC_FUNCTIONS,NULL_HANDLING_MODIFIER_IN_ANALYTIC]
 [name=analytic_percentile_disc_partition_resepect_nulls]
 SELECT row_id, value, str,
        PERCENTILE_DISC(row_id, -0.0 RESPECT NULLS) OVER (PARTITION BY str),

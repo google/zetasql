@@ -258,6 +258,26 @@ class TypeFactory : public TypeFactoryBase {
       absl::Span<const GraphElementType::PropertyType> property_types,
       const GraphElementType** result);
 
+  // Make a dynamic graph element type.
+  // `graph_reference` is a path to the graph to which this type belongs. It can
+  //   be used for looking up the property graph in the catalog;
+  // `element_kind` must be node or edge;
+  // `static_property_types`:
+  //  - property type name is case-insensitive;
+  //  - property types with the same name must have same value type;
+  //  - duplicate property types are removed:
+  //    e.g. {{"a", string}, {"a", string}} `static_property_types` produces the
+  //    same type as {{"a", string}};
+  //  - static property type shadows dynamic property type with the same name.
+  // If value_types of `static_property_types` are not created by this
+  // TypeFactory, the TypeFactory that created the value_types must outlive this
+  // TypeFactory.
+  absl::Status MakeDynamicGraphElementType(
+      absl::Span<const std::string> graph_reference,
+      GraphElementType::ElementKind element_kind,
+      absl::Span<const GraphElementType::PropertyType> static_property_types,
+      const GraphElementType** result);
+
   // Make a graph path type. <node_type> is the supertype of all nodes in the
   // path; <edge_type> is the supertype of all edges in the path.
   absl::Status MakeGraphPathType(const GraphElementType* node_type,
@@ -435,11 +455,12 @@ class TypeFactory : public TypeFactoryBase {
       absl::Span<const std::string> catalog_name_path = {});
 
   // Internal method to make a graph element type.
+  // `is_dynamic` indicates whether the graph element type is dynamic.
   absl::Status MakeGraphElementTypeFromVector(
       absl::Span<const std::string> graph_reference,
       GraphElementType::ElementKind element_kind,
       std::vector<GraphElementType::PropertyType> property_types,
-      const GraphElementType** result);
+      bool is_dynamic, const GraphElementType** result);
 
   // Add <type> into <owned_types_>.  Templated so it can return the
   // specific subclass of Type.
@@ -459,7 +480,7 @@ class TypeFactory : public TypeFactoryBase {
       const AnnotationMap* annotation_map);
 
   // Mark that <other_type>'s factory must outlive <this>.
-  void AddDependency(absl::Nonnull<const Type*> other_type)
+  void AddDependency(const Type* /*absl_nonnull*/ other_type)
       ABSL_LOCKS_EXCLUDED(store_->mutex_);
 
   const ProtoType* MakeProtoTypeImpl(

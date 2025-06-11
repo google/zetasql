@@ -47,9 +47,8 @@ absl::btree_set<ResolvedASTRewrite> MinimalRewritesForReference() {
       // (broken link) start
       // TODO: Remove this once the aggregation threshold rewriter
       // and anonymization rewriter are updated to follow the correct pattern.
-      // TODO: b/350555383 - Add REWRITE_MEASURE_TYPE here once it's ready.
       REWRITE_AGGREGATION_THRESHOLD,
-      REWRITE_INLINE_SQL_VIEWS,
+      REWRITE_INLINE_SQL_VIEWS
       // (broken link) end
       // clang-format on
   };
@@ -117,4 +116,5 @@ ABSL_FLAG(
     "  default: Enable only rewrites which are on by default\n"
     "  none: Disable all rewrites\n"
     "  all: Enable all rewrites\n"
-    "  REWRITE_FOO,REWRITE_BAR,...: Enable only rewrites in the explicit list");
+    "  DEFAULTS,+FOO,-BAR,...: Enables default rewrites, with REWRITE_FOO\n"
+    "    added and REWRITE_BAR removed.");

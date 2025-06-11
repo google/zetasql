@@ -105,7 +105,7 @@ void BasicMapAsserts(const Type* map_type) {
   LanguageOptions language_options;
   EXPECT_FALSE(map_type->IsSupportedType(language_options));
 
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MAP_TYPE);
+  language_options.EnableLanguageFeature(FEATURE_MAP_TYPE);
   std::string no_partitioning_type;
   EXPECT_FALSE(
       map_type->SupportsPartitioning(language_options, &no_partitioning_type));
@@ -141,7 +141,7 @@ TEST(TypeTest, MapTypeRequiresKeyTypeToBeGroupable) {
       factory.MakeMapType(factory.get_string(), factory.get_string()));
 
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MAP_TYPE);
+  language_options.EnableLanguageFeature(FEATURE_MAP_TYPE);
   EXPECT_TRUE(
       map_type_with_groupable_simple_key->IsSupportedType(language_options));
 }
@@ -153,9 +153,9 @@ TEST(TypeTest, MapTypeRequiresKeyTypeToBeGroupableConditionallyGroupableKey) {
       factory.MakeMapType(types::Int32ArrayType(), factory.get_string()));
 
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MAP_TYPE);
+  language_options.EnableLanguageFeature(FEATURE_MAP_TYPE);
   EXPECT_FALSE(map_type_with_array_key->IsSupportedType(language_options));
-  language_options.EnableLanguageFeature(FEATURE_V_1_2_GROUP_BY_ARRAY);
+  language_options.EnableLanguageFeature(FEATURE_GROUP_BY_ARRAY);
   EXPECT_TRUE(map_type_with_array_key->IsSupportedType(language_options));
 }
 
@@ -165,10 +165,10 @@ TEST(TypeTest, MapTypeRequiresKeyAndValueTypesToBeSupported) {
       const Type* map_type,
       factory.MakeMapType(types::DateRangeType(), factory.get_time()));
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MAP_TYPE);
+  language_options.EnableLanguageFeature(FEATURE_MAP_TYPE);
   EXPECT_FALSE(map_type->IsSupportedType(language_options));
 
-  language_options.EnableLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
+  language_options.EnableLanguageFeature(FEATURE_CIVIL_TIME);
   EXPECT_FALSE(map_type->IsSupportedType(language_options));
 
   language_options.EnableLanguageFeature(FEATURE_RANGE_TYPE);
@@ -297,9 +297,9 @@ TEST(TypeTest, MapTypeWithStructValid) {
   BasicMapAsserts(map_type);
 
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MAP_TYPE);
+  language_options.EnableLanguageFeature(FEATURE_MAP_TYPE);
   EXPECT_FALSE(map_type->IsSupportedType(language_options));
-  language_options.EnableLanguageFeature(FEATURE_V_1_2_GROUP_BY_STRUCT);
+  language_options.EnableLanguageFeature(FEATURE_GROUP_BY_STRUCT);
   EXPECT_TRUE(map_type->IsSupportedType(language_options));
 }
 
@@ -313,9 +313,9 @@ TEST(MapTest, MapTypeWithArrayValid) {
   BasicMapAsserts(map_type);
 
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MAP_TYPE);
+  language_options.EnableLanguageFeature(FEATURE_MAP_TYPE);
   EXPECT_FALSE(map_type->IsSupportedType(language_options));
-  language_options.EnableLanguageFeature(FEATURE_V_1_2_GROUP_BY_ARRAY);
+  language_options.EnableLanguageFeature(FEATURE_GROUP_BY_ARRAY);
   EXPECT_TRUE(map_type->IsSupportedType(language_options));
 }
 
@@ -329,7 +329,7 @@ TEST(MapTest, MapTypeWithRangeValid) {
   BasicMapAsserts(map_type);
 
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MAP_TYPE);
+  language_options.EnableLanguageFeature(FEATURE_MAP_TYPE);
   EXPECT_FALSE(map_type->IsSupportedType(language_options));
   language_options.EnableLanguageFeature(FEATURE_RANGE_TYPE);
   EXPECT_TRUE(map_type->IsSupportedType(language_options));
@@ -349,7 +349,7 @@ TEST(MapTest, MapTypeWithProtoValid) {
   BasicMapAsserts(map_type);
 
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MAP_TYPE);
+  language_options.EnableLanguageFeature(FEATURE_MAP_TYPE);
   EXPECT_TRUE(map_type->IsSupportedType(language_options));
 }
 TEST(MapTest, MapTypeWithEnumValid) {
@@ -365,7 +365,7 @@ TEST(MapTest, MapTypeWithEnumValid) {
   BasicMapAsserts(map_type);
 
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_MAP_TYPE);
+  language_options.EnableLanguageFeature(FEATURE_MAP_TYPE);
   EXPECT_TRUE(map_type->IsSupportedType(language_options));
 }
 
@@ -385,15 +385,65 @@ TEST(MapTest, FormatValueContentSQLLiteralMode) {
 
 // Note: More rigorous testing is done through GetSQL() value_test.cc
 TEST(MapTest, FormatValueContentSQLExpressionMode) {
-  Type::FormatValueContentOptions options;
-  options.mode = Type::FormatValueContentOptions::Mode::kSQLExpression;
-  options.verbose = true;
+  {
+    Type::FormatValueContentOptions options = {
+        .mode = Type::FormatValueContentOptions::Mode::kSQLExpression,
+    };
+    Value map_value =
+        test_values::Map({{Value::String("foo"), Value::Int64(100)}});
+    EXPECT_EQ(
+        map_value.type()->FormatValueContent(map_value.GetContent(), options),
+        R"(MAP_FROM_ARRAY(ARRAY<STRUCT<STRING, INT64>>[("foo", 100)]))");
+  }
+  // MAP with FLOATs and use_external_float32 = false
+  {
+    Type::FormatValueContentOptions options = {
+        .mode = Type::FormatValueContentOptions::Mode::kSQLExpression,
+    };
+    Value map_value =
+        test_values::Map({{Value::Float(1.5), Value::Double(2.5)}});
+    EXPECT_EQ(
+        map_value.type()->FormatValueContent(map_value.GetContent(), options),
+        R"(MAP_FROM_ARRAY(ARRAY<STRUCT<FLOAT, FLOAT64>>[(CAST(1.5 AS FLOAT), 2.5)]))");
+  }
 
-  Value map_value =
-      test_values::Map({{Value::String("foo"), Value::Int64(100)}});
-  EXPECT_EQ(
-      map_value.type()->FormatValueContent(map_value.GetContent(), options),
-      R"(MAP_FROM_ARRAY(ARRAY<STRUCT<STRING, INT64>>[("foo", 100)]))");
+  // MAP with FLOATs and use_external_float32 = true
+  {
+    Type::FormatValueContentOptions options = {
+        .use_external_float32 = true,
+        .mode = Type::FormatValueContentOptions::Mode::kSQLExpression,
+    };
+    Value map_value =
+        test_values::Map({{Value::Float(1.5), Value::Double(2.5)}});
+    EXPECT_EQ(
+        map_value.type()->FormatValueContent(map_value.GetContent(), options),
+        R"(MAP_FROM_ARRAY(ARRAY<STRUCT<FLOAT32, FLOAT64>>[(CAST(1.5 AS FLOAT32), 2.5)]))");
+  }
+
+  // MAP with FLOAT in nested container and use_external_float32 = false
+  {
+    Type::FormatValueContentOptions options = {
+        .mode = Type::FormatValueContentOptions::Mode::kSQLExpression,
+    };
+    Value map_value = test_values::Map(
+        {{Value::Float(1.5), test_values::Array({Value::Float(2.5)})}});
+    EXPECT_EQ(
+        map_value.type()->FormatValueContent(map_value.GetContent(), options),
+        R"(MAP_FROM_ARRAY(ARRAY<STRUCT<FLOAT, ARRAY<FLOAT>>>[(CAST(1.5 AS FLOAT), ARRAY<FLOAT>[CAST(2.5 AS FLOAT)])]))");
+  }
+
+  // MAP with FLOAT in nested container and use_external_float32 = true
+  {
+    Type::FormatValueContentOptions options = {
+        .use_external_float32 = true,
+        .mode = Type::FormatValueContentOptions::Mode::kSQLExpression,
+    };
+    Value map_value = test_values::Map(
+        {{Value::Float(1.5), test_values::Array({Value::Float(2.5)})}});
+    EXPECT_EQ(
+        map_value.type()->FormatValueContent(map_value.GetContent(), options),
+        R"(MAP_FROM_ARRAY(ARRAY<STRUCT<FLOAT32, ARRAY<FLOAT32>>>[(CAST(1.5 AS FLOAT32), ARRAY<FLOAT32>[CAST(2.5 AS FLOAT32)])]))");
+  }
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -489,7 +539,7 @@ TEST(MapTest, MakeMapWithLanguageOptions) {
   TypeFactory factory;
 
   LanguageOptions language_map_enabled;
-  language_map_enabled.EnableLanguageFeature(FEATURE_V_1_4_MAP_TYPE);
+  language_map_enabled.EnableLanguageFeature(FEATURE_MAP_TYPE);
 
   LanguageOptions language_map_enabled_geography_enabled = language_map_enabled;
   language_map_enabled_geography_enabled.EnableLanguageFeature(
@@ -498,12 +548,12 @@ TEST(MapTest, MakeMapWithLanguageOptions) {
   LanguageOptions language_map_enabled_array_grouping_enabled =
       language_map_enabled;
   language_map_enabled_array_grouping_enabled.EnableLanguageFeature(
-      FEATURE_V_1_2_GROUP_BY_ARRAY);
+      FEATURE_GROUP_BY_ARRAY);
 
   LanguageOptions language_map_array_struct_grouping_enabled =
       language_map_enabled_array_grouping_enabled;
   language_map_array_struct_grouping_enabled.EnableLanguageFeature(
-      FEATURE_V_1_2_GROUP_BY_STRUCT);
+      FEATURE_GROUP_BY_STRUCT);
 
   const StructType* struct_type;
   ZETASQL_ASSERT_OK(factory.MakeStructType({{"a", types::Int32Type()}}, &struct_type));

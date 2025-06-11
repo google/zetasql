@@ -1,7 +1,6 @@
 # SAFE_DIVIDE supports the same types as / does. These alternations should show
 # that SAFE_DIVIDE resolves the same regardless of whether the NUMERIC_TYPE
 # feature is enabled.
-[default also_show_signature_mismatch_details]
 
 [language_features={{NUMERIC_TYPE|}}]
 select safe_divide(
@@ -674,11 +673,6 @@ QueryStmt
 --
 ALTERNATION GROUP: NUMERIC_TYPE,int32,uint64
 --
-ERROR: No matching signature for function SAFE_ADD for argument types: INT32, UINT64. Supported signatures: SAFE_ADD(INT64, INT64); SAFE_ADD(UINT64, UINT64); SAFE_ADD(DOUBLE, DOUBLE); SAFE_ADD(NUMERIC, NUMERIC) [at 1:8]
-select safe_add(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_ADD
   Argument types: INT32, UINT64
   Signature: SAFE_ADD(INT64, INT64)
@@ -866,11 +860,6 @@ QueryStmt
 --
 ALTERNATION GROUP: NUMERIC_TYPE,int64,uint64
 --
-ERROR: No matching signature for function SAFE_ADD for argument types: INT64, UINT64. Supported signatures: SAFE_ADD(INT64, INT64); SAFE_ADD(UINT64, UINT64); SAFE_ADD(DOUBLE, DOUBLE); SAFE_ADD(NUMERIC, NUMERIC) [at 1:8]
-select safe_add(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_ADD
   Argument types: INT64, UINT64
   Signature: SAFE_ADD(INT64, INT64)
@@ -904,11 +893,6 @@ QueryStmt
 --
 ALTERNATION GROUP: NUMERIC_TYPE,uint64,int32
 --
-ERROR: No matching signature for function SAFE_ADD for argument types: UINT64, INT32. Supported signatures: SAFE_ADD(INT64, INT64); SAFE_ADD(UINT64, UINT64); SAFE_ADD(DOUBLE, DOUBLE); SAFE_ADD(NUMERIC, NUMERIC) [at 1:8]
-select safe_add(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_ADD
   Argument types: UINT64, INT32
   Signature: SAFE_ADD(INT64, INT64)
@@ -943,11 +927,6 @@ QueryStmt
 --
 ALTERNATION GROUP: NUMERIC_TYPE,uint64,int64
 --
-ERROR: No matching signature for function SAFE_ADD for argument types: UINT64, INT64. Supported signatures: SAFE_ADD(INT64, INT64); SAFE_ADD(UINT64, UINT64); SAFE_ADD(DOUBLE, DOUBLE); SAFE_ADD(NUMERIC, NUMERIC) [at 1:8]
-select safe_add(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_ADD
   Argument types: UINT64, INT64
   Signature: SAFE_ADD(INT64, INT64)
@@ -1091,11 +1070,6 @@ QueryStmt
 --
 ALTERNATION GROUP: int32,uint64
 --
-ERROR: No matching signature for function SAFE_ADD for argument types: INT32, UINT64. Supported signatures: SAFE_ADD(INT64, INT64); SAFE_ADD(UINT64, UINT64); SAFE_ADD(DOUBLE, DOUBLE) [at 1:8]
-select safe_add(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_ADD
   Argument types: INT32, UINT64
   Signature: SAFE_ADD(INT64, INT64)
@@ -1109,11 +1083,6 @@ select safe_add(
 --
 ALTERNATION GROUP: int64,uint64
 --
-ERROR: No matching signature for function SAFE_ADD for argument types: INT64, UINT64. Supported signatures: SAFE_ADD(INT64, INT64); SAFE_ADD(UINT64, UINT64); SAFE_ADD(DOUBLE, DOUBLE) [at 1:8]
-select safe_add(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_ADD
   Argument types: INT64, UINT64
   Signature: SAFE_ADD(INT64, INT64)
@@ -1127,11 +1096,6 @@ select safe_add(
 --
 ALTERNATION GROUP: uint64,int32
 --
-ERROR: No matching signature for function SAFE_ADD for argument types: UINT64, INT32. Supported signatures: SAFE_ADD(INT64, INT64); SAFE_ADD(UINT64, UINT64); SAFE_ADD(DOUBLE, DOUBLE) [at 1:8]
-select safe_add(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_ADD
   Argument types: UINT64, INT32
   Signature: SAFE_ADD(INT64, INT64)
@@ -1145,11 +1109,6 @@ select safe_add(
 --
 ALTERNATION GROUP: uint64,int64
 --
-ERROR: No matching signature for function SAFE_ADD for argument types: UINT64, INT64. Supported signatures: SAFE_ADD(INT64, INT64); SAFE_ADD(UINT64, UINT64); SAFE_ADD(DOUBLE, DOUBLE) [at 1:8]
-select safe_add(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_ADD
   Argument types: UINT64, INT64
   Signature: SAFE_ADD(INT64, INT64)
@@ -1335,11 +1294,6 @@ QueryStmt
 --
 ALTERNATION GROUP: NUMERIC_TYPE,int32,uint64
 --
-ERROR: No matching signature for function SAFE_SUBTRACT for argument types: INT32, UINT64. Supported signatures: SAFE_SUBTRACT(INT64, INT64); SAFE_SUBTRACT(UINT64, UINT64); SAFE_SUBTRACT(NUMERIC, NUMERIC); SAFE_SUBTRACT(DOUBLE, DOUBLE) [at 1:8]
-select safe_subtract(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_SUBTRACT
   Argument types: INT32, UINT64
   Signature: SAFE_SUBTRACT(INT64, INT64)
@@ -1527,11 +1481,6 @@ QueryStmt
 --
 ALTERNATION GROUP: NUMERIC_TYPE,int64,uint64
 --
-ERROR: No matching signature for function SAFE_SUBTRACT for argument types: INT64, UINT64. Supported signatures: SAFE_SUBTRACT(INT64, INT64); SAFE_SUBTRACT(UINT64, UINT64); SAFE_SUBTRACT(NUMERIC, NUMERIC); SAFE_SUBTRACT(DOUBLE, DOUBLE) [at 1:8]
-select safe_subtract(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_SUBTRACT
   Argument types: INT64, UINT64
   Signature: SAFE_SUBTRACT(INT64, INT64)
@@ -1565,11 +1514,6 @@ QueryStmt
 --
 ALTERNATION GROUP: NUMERIC_TYPE,uint64,int32
 --
-ERROR: No matching signature for function SAFE_SUBTRACT for argument types: UINT64, INT32. Supported signatures: SAFE_SUBTRACT(INT64, INT64); SAFE_SUBTRACT(UINT64, UINT64); SAFE_SUBTRACT(NUMERIC, NUMERIC); SAFE_SUBTRACT(DOUBLE, DOUBLE) [at 1:8]
-select safe_subtract(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_SUBTRACT
   Argument types: UINT64, INT32
   Signature: SAFE_SUBTRACT(INT64, INT64)
@@ -1604,11 +1548,6 @@ QueryStmt
 --
 ALTERNATION GROUP: NUMERIC_TYPE,uint64,int64
 --
-ERROR: No matching signature for function SAFE_SUBTRACT for argument types: UINT64, INT64. Supported signatures: SAFE_SUBTRACT(INT64, INT64); SAFE_SUBTRACT(UINT64, UINT64); SAFE_SUBTRACT(NUMERIC, NUMERIC); SAFE_SUBTRACT(DOUBLE, DOUBLE) [at 1:8]
-select safe_subtract(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_SUBTRACT
   Argument types: UINT64, INT64
   Signature: SAFE_SUBTRACT(INT64, INT64)
@@ -1752,11 +1691,6 @@ QueryStmt
 --
 ALTERNATION GROUP: int32,uint64
 --
-ERROR: No matching signature for function SAFE_SUBTRACT for argument types: INT32, UINT64. Supported signatures: SAFE_SUBTRACT(INT64, INT64); SAFE_SUBTRACT(UINT64, UINT64); SAFE_SUBTRACT(DOUBLE, DOUBLE) [at 1:8]
-select safe_subtract(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_SUBTRACT
   Argument types: INT32, UINT64
   Signature: SAFE_SUBTRACT(INT64, INT64)
@@ -1770,11 +1704,6 @@ select safe_subtract(
 --
 ALTERNATION GROUP: int64,uint64
 --
-ERROR: No matching signature for function SAFE_SUBTRACT for argument types: INT64, UINT64. Supported signatures: SAFE_SUBTRACT(INT64, INT64); SAFE_SUBTRACT(UINT64, UINT64); SAFE_SUBTRACT(DOUBLE, DOUBLE) [at 1:8]
-select safe_subtract(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_SUBTRACT
   Argument types: INT64, UINT64
   Signature: SAFE_SUBTRACT(INT64, INT64)
@@ -1788,11 +1717,6 @@ select safe_subtract(
 --
 ALTERNATION GROUP: uint64,int32
 --
-ERROR: No matching signature for function SAFE_SUBTRACT for argument types: UINT64, INT32. Supported signatures: SAFE_SUBTRACT(INT64, INT64); SAFE_SUBTRACT(UINT64, UINT64); SAFE_SUBTRACT(DOUBLE, DOUBLE) [at 1:8]
-select safe_subtract(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_SUBTRACT
   Argument types: UINT64, INT32
   Signature: SAFE_SUBTRACT(INT64, INT64)
@@ -1806,11 +1730,6 @@ select safe_subtract(
 --
 ALTERNATION GROUP: uint64,int64
 --
-ERROR: No matching signature for function SAFE_SUBTRACT for argument types: UINT64, INT64. Supported signatures: SAFE_SUBTRACT(INT64, INT64); SAFE_SUBTRACT(UINT64, UINT64); SAFE_SUBTRACT(DOUBLE, DOUBLE) [at 1:8]
-select safe_subtract(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_SUBTRACT
   Argument types: UINT64, INT64
   Signature: SAFE_SUBTRACT(INT64, INT64)
@@ -1996,11 +1915,6 @@ QueryStmt
 --
 ALTERNATION GROUP: NUMERIC_TYPE,int32,uint64
 --
-ERROR: No matching signature for function SAFE_MULTIPLY for argument types: INT32, UINT64. Supported signatures: SAFE_MULTIPLY(INT64, INT64); SAFE_MULTIPLY(UINT64, UINT64); SAFE_MULTIPLY(DOUBLE, DOUBLE); SAFE_MULTIPLY(NUMERIC, NUMERIC) [at 1:8]
-select safe_multiply(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_MULTIPLY
   Argument types: INT32, UINT64
   Signature: SAFE_MULTIPLY(INT64, INT64)
@@ -2188,11 +2102,6 @@ QueryStmt
 --
 ALTERNATION GROUP: NUMERIC_TYPE,int64,uint64
 --
-ERROR: No matching signature for function SAFE_MULTIPLY for argument types: INT64, UINT64. Supported signatures: SAFE_MULTIPLY(INT64, INT64); SAFE_MULTIPLY(UINT64, UINT64); SAFE_MULTIPLY(DOUBLE, DOUBLE); SAFE_MULTIPLY(NUMERIC, NUMERIC) [at 1:8]
-select safe_multiply(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_MULTIPLY
   Argument types: INT64, UINT64
   Signature: SAFE_MULTIPLY(INT64, INT64)
@@ -2226,11 +2135,6 @@ QueryStmt
 --
 ALTERNATION GROUP: NUMERIC_TYPE,uint64,int32
 --
-ERROR: No matching signature for function SAFE_MULTIPLY for argument types: UINT64, INT32. Supported signatures: SAFE_MULTIPLY(INT64, INT64); SAFE_MULTIPLY(UINT64, UINT64); SAFE_MULTIPLY(DOUBLE, DOUBLE); SAFE_MULTIPLY(NUMERIC, NUMERIC) [at 1:8]
-select safe_multiply(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_MULTIPLY
   Argument types: UINT64, INT32
   Signature: SAFE_MULTIPLY(INT64, INT64)
@@ -2265,11 +2169,6 @@ QueryStmt
 --
 ALTERNATION GROUP: NUMERIC_TYPE,uint64,int64
 --
-ERROR: No matching signature for function SAFE_MULTIPLY for argument types: UINT64, INT64. Supported signatures: SAFE_MULTIPLY(INT64, INT64); SAFE_MULTIPLY(UINT64, UINT64); SAFE_MULTIPLY(DOUBLE, DOUBLE); SAFE_MULTIPLY(NUMERIC, NUMERIC) [at 1:8]
-select safe_multiply(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_MULTIPLY
   Argument types: UINT64, INT64
   Signature: SAFE_MULTIPLY(INT64, INT64)
@@ -2413,11 +2312,6 @@ QueryStmt
 --
 ALTERNATION GROUP: int32,uint64
 --
-ERROR: No matching signature for function SAFE_MULTIPLY for argument types: INT32, UINT64. Supported signatures: SAFE_MULTIPLY(INT64, INT64); SAFE_MULTIPLY(UINT64, UINT64); SAFE_MULTIPLY(DOUBLE, DOUBLE) [at 1:8]
-select safe_multiply(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_MULTIPLY
   Argument types: INT32, UINT64
   Signature: SAFE_MULTIPLY(INT64, INT64)
@@ -2431,11 +2325,6 @@ select safe_multiply(
 --
 ALTERNATION GROUP: int64,uint64
 --
-ERROR: No matching signature for function SAFE_MULTIPLY for argument types: INT64, UINT64. Supported signatures: SAFE_MULTIPLY(INT64, INT64); SAFE_MULTIPLY(UINT64, UINT64); SAFE_MULTIPLY(DOUBLE, DOUBLE) [at 1:8]
-select safe_multiply(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_MULTIPLY
   Argument types: INT64, UINT64
   Signature: SAFE_MULTIPLY(INT64, INT64)
@@ -2449,11 +2338,6 @@ select safe_multiply(
 --
 ALTERNATION GROUP: uint64,int32
 --
-ERROR: No matching signature for function SAFE_MULTIPLY for argument types: UINT64, INT32. Supported signatures: SAFE_MULTIPLY(INT64, INT64); SAFE_MULTIPLY(UINT64, UINT64); SAFE_MULTIPLY(DOUBLE, DOUBLE) [at 1:8]
-select safe_multiply(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_MULTIPLY
   Argument types: UINT64, INT32
   Signature: SAFE_MULTIPLY(INT64, INT64)
@@ -2467,11 +2351,6 @@ select safe_multiply(
 --
 ALTERNATION GROUP: uint64,int64
 --
-ERROR: No matching signature for function SAFE_MULTIPLY for argument types: UINT64, INT64. Supported signatures: SAFE_MULTIPLY(INT64, INT64); SAFE_MULTIPLY(UINT64, UINT64); SAFE_MULTIPLY(DOUBLE, DOUBLE) [at 1:8]
-select safe_multiply(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_MULTIPLY
   Argument types: UINT64, INT64
   Signature: SAFE_MULTIPLY(INT64, INT64)
@@ -2696,11 +2575,6 @@ QueryStmt
 --
 ALTERNATION GROUP: numeric
 --
-ERROR: No matching signature for function SAFE_NEGATE for argument types: NUMERIC. Supported signatures: SAFE_NEGATE(INT32); SAFE_NEGATE(INT64); SAFE_NEGATE(FLOAT); SAFE_NEGATE(DOUBLE) [at 1:8]
-select safe_negate(numeric)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_NEGATE
   Argument types: NUMERIC
   Signature: SAFE_NEGATE(INT32)
@@ -2721,11 +2595,6 @@ from SimpleTypes;
 --
 ALTERNATION GROUP: uint32
 --
-ERROR: No matching signature for function SAFE_NEGATE for argument types: UINT32. Supported signatures: SAFE_NEGATE(INT32); SAFE_NEGATE(INT64); SAFE_NEGATE(FLOAT); SAFE_NEGATE(DOUBLE) [at 1:8]
-select safe_negate(uint32)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_NEGATE
   Argument types: UINT32
   Signature: SAFE_NEGATE(INT32)
@@ -2741,11 +2610,6 @@ select safe_negate(uint32)
 --
 ALTERNATION GROUP: uint64
 --
-ERROR: No matching signature for function SAFE_NEGATE for argument types: UINT64. Supported signatures: SAFE_NEGATE(INT32); SAFE_NEGATE(INT64); SAFE_NEGATE(FLOAT); SAFE_NEGATE(DOUBLE) [at 1:8]
-select safe_negate(uint64)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAFE_NEGATE
   Argument types: UINT64
   Signature: SAFE_NEGATE(INT32)

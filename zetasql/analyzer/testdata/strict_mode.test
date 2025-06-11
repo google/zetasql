@@ -73,7 +73,14 @@ STRICT MODE ERROR: Alias value cannot be used without a qualifier in strict name
 where KeyValue.key = 5 and value = 7
                            ^
 --
-ERROR: No matching signature for operator = for argument types: STRING, INT64. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 3:28]
+ERROR: No matching signature for operator = for argument types: STRING, INT64
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {INT64, STRING}
+  Signature: INT64 = UINT64
+    Argument 1: Unable to coerce type STRING to expected type INT64
+  Signature: UINT64 = INT64
+    Argument 1: Unable to coerce type STRING to expected type UINT64 [at 3:28]
 where KeyValue.key = 5 and value = 7
                            ^
 ==
@@ -609,7 +616,7 @@ order by key, sum(key)
 ==
 
 # Direct table input to PIVOT disallowed in strict mode
-[language_features=V_1_3_PIVOT]
+[language_features=PIVOT]
 SELECT 1 FROM KeyValue PIVOT(COUNT(Value) FOR Key IN (0 AS zero, 1 AS one));
 --
 STRICT MODE ERROR: Input to PIVOT must be a subquery in strict name resolution mode [at 1:24]
@@ -618,7 +625,7 @@ SELECT 1 FROM KeyValue PIVOT(COUNT(Value) FOR Key IN (0 AS zero, 1 AS one));
 ==
 
 # TVF input to PIVOT disallowed in strict mode
-[language_features=V_1_3_PIVOT,TABLE_VALUED_FUNCTIONS]
+[language_features=PIVOT,TABLE_VALUED_FUNCTIONS]
 SELECT 1 FROM tvf_no_args() PIVOT(COUNT(1) FOR 1 IN (0 AS zero, 1 AS one));
 --
 STRICT MODE ERROR: Input to PIVOT must be a subquery in strict name resolution mode [at 1:29]
@@ -627,7 +634,7 @@ SELECT 1 FROM tvf_no_args() PIVOT(COUNT(1) FOR 1 IN (0 AS zero, 1 AS one));
 ==
 
 # Subquery input to PIVOT allowed in strict mode
-[language_features=V_1_3_PIVOT]
+[language_features=PIVOT]
 SELECT 1 FROM (SELECT KeyValue.Key, KeyValue.Value FROM KeyValue) kv
 PIVOT(COUNT(kv.Value) FOR kv.Key IN (0 AS zero, 1 AS one));
 --
@@ -636,7 +643,7 @@ PIVOT(COUNT(kv.Value) FOR kv.Key IN (0 AS zero, 1 AS one));
 # Similar to the above, but the pivot expressions and FOR expression refer
 # to unqualified column names from the input table. This is also ok, since the
 # input table is a subquery.
-[language_features=V_1_3_PIVOT]
+[language_features=PIVOT]
 SELECT 1 FROM (SELECT KeyValue.Key, KeyValue.Value FROM KeyValue) kv
 PIVOT(COUNT(Value) FOR Key IN (0 AS zero, 1 AS one));
 --
@@ -810,4 +817,3 @@ from KeyValue AS kv
 STRICT MODE ERROR: Pipe operator not handled in strict mode: PipeLog [at 2:5]
     |> LOG (|> WHERE MOD(kv.key, 100) = 0)
     ^
-==

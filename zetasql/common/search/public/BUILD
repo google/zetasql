@@ -21,8 +21,8 @@ cc_library(
     srcs = ["token_list_util.cc"],
     hdrs = ["token_list_util.h"],
     deps = [
+        "//zetasql/public:simple_token_list",
         "//zetasql/public:strings",
-        "//zetasql/public:token_list",
         "@com_google_absl//absl/base:no_destructor",
         "@com_google_absl//absl/functional:any_invocable",
         "@com_google_absl//absl/strings",
@@ -38,7 +38,7 @@ cc_test(
     deps = [
         ":token_list_util",
         "//zetasql/base/testing:zetasql_gtest_main",
-        "//zetasql/public:token_list",
+        "//zetasql/public:simple_token_list",
         "@com_google_absl//absl/strings",
     ],
 )

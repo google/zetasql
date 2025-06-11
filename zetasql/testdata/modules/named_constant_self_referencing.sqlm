@@ -1,0 +1,5 @@
+MODULE named_constant_self_referencing;
+
+CREATE PUBLIC CONSTANT public_bar = 1 + public_bar;
+
+CREATE PRIVATE CONSTANT private_bar = 1 + private_bar;

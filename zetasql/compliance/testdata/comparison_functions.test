@@ -695,7 +695,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
   {true, true, true, true, false, false, NULL, NULL, NULL, NULL, NULL}
 ]
 ==
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 [name=datetime_between]
 SELECT DATETIME '1969-12-31 00:15:30' BETWEEN '1960-01-01 10:20:30' AND '1969-12-31 23:00:00',
        DATETIME '2000-01-01 23:59:59' BETWEEN '2000-01-01 23:59:59' AND '2001-01-02 00:00:00',
@@ -713,7 +713,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
   {true, true, true, true, false, false, NULL, NULL, NULL, NULL, NULL}
 ]
 ==
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 [name=time_between]
 SELECT TIME '02:03:04.123' BETWEEN '01:02:03' AND '03:04:05',
        TIME '17:59:59' BETWEEN '17:59:59' AND '18:00:00',
@@ -732,7 +732,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
   {true, true, true, true, false, false, NULL, NULL, NULL, NULL, false}
 ]
 ==
-[required_features=V_1_3_IS_DISTINCT]
+[required_features=IS_DISTINCT]
 [name=is_distinct_integers]
 SELECT
   1 IS DISTINCT FROM 1,
@@ -743,7 +743,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{false, true, true, false}]
 ==
 
-[required_features=V_1_3_IS_DISTINCT]
+[required_features=IS_DISTINCT]
 [name=is_distinct_strings]
 SELECT
   '1' IS DISTINCT FROM '1',
@@ -753,7 +753,7 @@ SELECT
 --
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{false, true, true, false}]
 ==
-[required_features=V_1_3_IS_DISTINCT]
+[required_features=IS_DISTINCT]
 [name=is_distinct_bytes]
 SELECT
   b'1' IS DISTINCT FROM b'1',
@@ -763,7 +763,7 @@ SELECT
 --
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{false, true, true, false}]
 ==
-[required_features=V_1_3_IS_DISTINCT]
+[required_features=IS_DISTINCT]
 [name=is_distinct_null_second_arg]
 SELECT
   1 IS DISTINCT FROM NULL,
@@ -772,7 +772,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL>>[{true, false}]
 ==
 
-[required_features=V_1_3_IS_DISTINCT,V_1_2_GROUP_BY_STRUCT]
+[required_features=IS_DISTINCT,GROUP_BY_STRUCT]
 [name=is_distinct_null_second_arg_struct]
 SELECT
   STRUCT(NULL) IS DISTINCT FROM NULL,
@@ -781,7 +781,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL>>[{true, false}]
 ==
 
-[required_features=V_1_3_IS_DISTINCT,V_1_2_GROUP_BY_ARRAY]
+[required_features=IS_DISTINCT,GROUP_BY_ARRAY]
 [name=is_distinct_null_second_arg_array]
 SELECT
   [NULL] IS DISTINCT FROM NULL,
@@ -790,7 +790,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL>>[{true, false}]
 ==
 
-[required_features=V_1_3_IS_DISTINCT]
+[required_features=IS_DISTINCT]
 [name=is_distinct_null_first_arg]
 SELECT
   NULL IS DISTINCT FROM 1,
@@ -799,7 +799,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL>>[{true, false}]
 ==
 
-[required_features=V_1_3_IS_DISTINCT]
+[required_features=IS_DISTINCT]
 [name=is_distinct_nan]
 SELECT
   inf_positive IS DISTINCT FROM inf_positive,
@@ -821,7 +821,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_IS_DISTINCT,V_1_2_GROUP_BY_STRUCT]
+[required_features=IS_DISTINCT,GROUP_BY_STRUCT]
 [name=is_distinct_nan_struct]
 SELECT
   STRUCT(inf_positive, inf_negative, nan) IS DISTINCT FROM
@@ -843,7 +843,7 @@ FROM (SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{false, true, true, false}]
 ==
 
-[required_features=V_1_3_IS_DISTINCT,V_1_2_GROUP_BY_ARRAY]
+[required_features=IS_DISTINCT,GROUP_BY_ARRAY]
 [name=is_distinct_nan_array]
 SELECT
   [inf_positive, inf_negative, nan] IS DISTINCT FROM
@@ -865,7 +865,7 @@ FROM (SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{false, true, true, false}]
 ==
 
-[required_features=V_1_3_IS_DISTINCT]
+[required_features=IS_DISTINCT]
 [name=is_distinct_int64_int32]
 SELECT
   CAST(1 AS INT32) IS DISTINCT FROM CAST(1 AS INT64),
@@ -874,7 +874,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL>>[{false, true}]
 ==
 
-[required_features=V_1_3_IS_DISTINCT]
+[required_features=IS_DISTINCT]
 [name=is_distinct_int64_uint64]
 SELECT
   CAST(1 AS INT64) IS DISTINCT FROM CAST(1 AS UINT64),
@@ -883,7 +883,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL>>[{false, true}]
 ==
 
-[required_features=V_1_3_IS_DISTINCT]
+[required_features=IS_DISTINCT]
 [name=is_distinct_uint64_int64]
 SELECT
   CAST(1 AS UINT64) IS DISTINCT FROM CAST(1 AS INT64),
@@ -892,7 +892,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL>>[{false, true}]
 ==
 
-[required_features=V_1_3_IS_DISTINCT]
+[required_features=IS_DISTINCT]
 [name=is_distinct_uint64_int64_out_of_range]
  -- This covers cases where int64 and uint64 values share the same bit pattern,
  -- but one value is out of range of the other's type, so they should not be
@@ -924,7 +924,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_IS_DISTINCT,V_1_2_GROUP_BY_STRUCT]
+[required_features=IS_DISTINCT,GROUP_BY_STRUCT]
 [name=is_distinct_structs]
 SELECT
   STRUCT(1 AS x, 2 AS y) IS DISTINCT FROM STRUCT (1 AS a, 2 AS b),
@@ -935,7 +935,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{false, true, false}]
 ==
 
-[required_features=V_1_3_IS_DISTINCT,V_1_2_GROUP_BY_STRUCT]
+[required_features=IS_DISTINCT,GROUP_BY_STRUCT]
 [name=is_distinct_empty_structs]
 WITH t AS (
   SELECT
@@ -961,7 +961,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_IS_DISTINCT,V_1_2_GROUP_BY_ARRAY]
+[required_features=IS_DISTINCT,GROUP_BY_ARRAY]
 [name=is_distinct_arrays]
 SELECT
   [1, 2] IS DISTINCT FROM [1, 2];
@@ -969,7 +969,7 @@ SELECT
 ARRAY<STRUCT<BOOL>>[{false}]
 ==
 
-[required_features=V_1_3_IS_DISTINCT]
+[required_features=IS_DISTINCT]
 [name=is_distinct_uint64_int64_null_vs_null]
 SELECT
   CAST(NULL AS INT64) IS DISTINCT FROM CAST(NULL AS UINT64),
@@ -980,7 +980,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{false, true, false, true}]
 ==
 
-[required_features=V_1_3_IS_DISTINCT]
+[required_features=IS_DISTINCT]
 [name=is_distinct_uint64_int64_null_vs_nonnull]
 SELECT
   CAST(NULL AS INT64) IS DISTINCT FROM CAST(0 AS UINT64),
@@ -990,7 +990,7 @@ SELECT
 --
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{true, false, true, false}]
 ==
-[required_features=V_1_3_IS_DISTINCT]
+[required_features=IS_DISTINCT]
 [name=is_distinct_uint64_int64_nonnull_vs_null]
 SELECT
   CAST(0 AS INT64) IS DISTINCT FROM CAST(NULL AS UINT64),
@@ -1002,7 +1002,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{true, false, true, false}]
 ==
 
 # Floating point IS DISTINCT operations involving predefined tables
-[required_features=V_1_3_IS_DISTINCT]
+[required_features=IS_DISTINCT]
 [name=is_distinct_float_predefined_tables]
 SELECT
   testcase,
@@ -1037,7 +1037,7 @@ ARRAY<STRUCT<testcase STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[k
 ==
 
 # Struct IS DISTINCT comparisons from predefined tables
-[required_features=V_1_3_IS_DISTINCT,V_1_2_GROUP_BY_STRUCT]
+[required_features=IS_DISTINCT,GROUP_BY_STRUCT]
 [name=is_distinct_struct_predefined_tables]
 SELECT
   rowid,
@@ -1059,7 +1059,7 @@ ARRAY<STRUCT<rowid INT64, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known
 ]
 ==
 
-[required_features=V_1_3_IS_DISTINCT]
+[required_features=IS_DISTINCT]
 [name=is_distinct_int64_uint64_predefined_tables]
 SELECT
   rowid,
@@ -1078,7 +1078,7 @@ ARRAY<STRUCT<rowid INT64, BOOL, BOOL, BOOL, BOOL>>[known order:
   {4, true, true, false, false}
 ]
 ==
-[required_features=V_1_3_IS_DISTINCT]
+[required_features=IS_DISTINCT]
 [name=is_distinct_string_predefined_tables]
 SELECT
   rowid,
@@ -1097,7 +1097,7 @@ ARRAY<STRUCT<rowid INT64, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_IS_DISTINCT,INTERVAL_TYPE]
+[required_features=IS_DISTINCT,INTERVAL_TYPE]
 [name=is_distinct_interval]
 WITH IntervalTable AS (
   SELECT * FROM UNNEST([
@@ -1128,7 +1128,7 @@ ARRAY<STRUCT<i1 INTERVAL, i2 INTERVAL, BOOL, BOOL, BOOL, BOOL>>[unknown order:
   {-10000-0 0 1:0:0, -10000-0 0 1:0:0, false, false, true, true}
 ]
 ==
-[required_features=V_1_3_IS_DISTINCT,INTERVAL_TYPE,TIMESTAMP_NANOS]
+[required_features=IS_DISTINCT,INTERVAL_TYPE,TIMESTAMP_NANOS]
 [name=is_distinct_interval_nanoseconds]
 WITH IntervalTable AS (
   SELECT * FROM UNNEST([
@@ -1164,7 +1164,7 @@ ARRAY<STRUCT<i1 INTERVAL, i2 INTERVAL, BOOL, BOOL, BOOL, BOOL>>[unknown order:
 ]
 ==
 
-[required_features=V_1_3_IS_DISTINCT,RANGE_TYPE]
+[required_features=IS_DISTINCT,RANGE_TYPE]
 [name=is_distinct_range_date]
 With RangeTable AS (
   SELECT * FROM UNNEST([
@@ -1224,7 +1224,7 @@ ARRAY<STRUCT<r1 RANGE<DATE>, r2 RANGE<DATE>, BOOL, BOOL, BOOL, BOOL>>[unknown or
 ]
 ==
 
-[required_features=V_1_3_IS_DISTINCT,RANGE_TYPE]
+[required_features=IS_DISTINCT,RANGE_TYPE]
 [name=is_distinct_range_date_vs_null]
 With RangeTable AS (
   SELECT * FROM UNNEST([
@@ -1253,7 +1253,7 @@ ARRAY<STRUCT<r1 RANGE<DATE>, r2 RANGE<DATE>, BOOL, BOOL, BOOL, BOOL>>[unknown or
 ]
 ==
 
-[required_features=V_1_3_IS_DISTINCT,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=IS_DISTINCT,RANGE_TYPE,CIVIL_TIME]
 [name=is_distinct_range_datetime]
 With RangeTable AS (
   SELECT * FROM UNNEST([
@@ -1396,7 +1396,7 @@ ARRAY<STRUCT<r1 RANGE<DATETIME>, r2 RANGE<DATETIME>, BOOL, BOOL, BOOL, BOOL>>[un
 ]
 ==
 
-[required_features=V_1_3_IS_DISTINCT,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=IS_DISTINCT,RANGE_TYPE,CIVIL_TIME]
 [name=is_distinct_range_datetime_vs_null]
 With RangeTable AS (
   SELECT * FROM UNNEST([
@@ -1425,7 +1425,7 @@ ARRAY<STRUCT<r1 RANGE<DATETIME>, r2 RANGE<DATETIME>, BOOL, BOOL, BOOL, BOOL>>[un
 ]
 ==
 
-[required_features=V_1_3_IS_DISTINCT,RANGE_TYPE]
+[required_features=IS_DISTINCT,RANGE_TYPE]
 [name=is_distinct_range_timestamp]
 With RangeTable AS (
   SELECT * FROM UNNEST([
@@ -1627,7 +1627,7 @@ ARRAY<STRUCT<r1 RANGE<TIMESTAMP>, r2 RANGE<TIMESTAMP>, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_IS_DISTINCT,RANGE_TYPE]
+[required_features=IS_DISTINCT,RANGE_TYPE]
 [name=is_distinct_range_timestamp_vs_null]
 With RangeTable AS (
   SELECT * FROM UNNEST([

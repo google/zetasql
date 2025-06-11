@@ -546,7 +546,7 @@ order by 1;
 ==
 
 # Cannot ORDER BY array unless the relevant language feature is enabled.
-[language_features={{|V_1_3_ARRAY_ORDERING}}]
+[language_features={{|ARRAY_ORDERING}}]
 select Int32Array from ComplexTypes
 order by 1;
 --
@@ -556,7 +556,7 @@ ERROR: ORDER BY does not support expressions of type ARRAY<INT32> [at 2:10]
 order by 1;
          ^
 --
-ALTERNATION GROUP: V_1_3_ARRAY_ORDERING
+ALTERNATION GROUP: ARRAY_ORDERING
 --
 QueryStmt
 +-output_column_list=
@@ -575,7 +575,7 @@ QueryStmt
 
 # Cannot ORDER BY array with unorderable element type even if the array
 # ordering language feature is enabled.
-[language_features={{|V_1_3_ARRAY_ORDERING}}]
+[language_features={{|ARRAY_ORDERING}}]
 select [KitchenSink] from ComplexTypes
 order by 1;
 --
@@ -3067,7 +3067,7 @@ select 1 FROM UNNEST([1,2,3]) as e WITH OFFSET o GROUP BY e ORDER BY o
                                                                      ^
 ==
 
-[language_features=V_1_2_GROUP_BY_STRUCT]
+[language_features=GROUP_BY_STRUCT]
 SELECT TestStruct
 FROM ComplexTypes
 GROUP BY TestStruct
@@ -3115,7 +3115,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#8)
 ==
 
-[language_features=V_1_2_GROUP_BY_STRUCT]
+[language_features=GROUP_BY_STRUCT]
 SELECT TestStruct.d as TestStruct
 FROM ComplexTypes ct
 GROUP BY TestStruct, ct.TestStruct
@@ -3171,7 +3171,7 @@ ORDER BY TestStruct.c
                     ^
 ==
 
-[language_features=ANALYTIC_FUNCTIONS{{|,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY}}]
+[language_features=ANALYTIC_FUNCTIONS{{|,NULLS_FIRST_LAST_IN_ORDER_BY}}]
 select key from KeyValue order by key nulls {{first|last}};
 --
 ALTERNATION GROUP: first
@@ -3186,7 +3186,7 @@ ERROR: NULLS FIRST and NULLS LAST are not supported [at 1:39]
 select key from KeyValue order by key nulls last;
                                       ^
 --
-ALTERNATION GROUP: ,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY,first
+ALTERNATION GROUP: ,NULLS_FIRST_LAST_IN_ORDER_BY,first
 --
 QueryStmt
 +-output_column_list=
@@ -3203,7 +3203,7 @@ QueryStmt
         | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         +-null_order=NULLS_FIRST
 --
-ALTERNATION GROUP: ,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY,last
+ALTERNATION GROUP: ,NULLS_FIRST_LAST_IN_ORDER_BY,last
 --
 QueryStmt
 +-output_column_list=

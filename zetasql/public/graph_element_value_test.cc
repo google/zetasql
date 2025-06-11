@@ -38,6 +38,9 @@ namespace zetasql {
 
 namespace {
 
+using ::zetasql::test_values::DynamicGraphEdge;
+using ::zetasql::test_values::DynamicGraphNode;
+using ::zetasql::test_values::MakeDynamicGraphElementType;
 using ::zetasql::test_values::GraphEdge;
 using ::zetasql::test_values::GraphNode;
 using ::zetasql::test_values::MakeGraphElementType;
@@ -86,6 +89,54 @@ class GraphElementValueTest
                                 definition_name)
                     : GraphEdge(graph_reference, identifier, properties, labels,
                                 definition_name, "src_node_id", "dst_node_id");
+  }
+
+  absl::StatusOr<Value> MakeDynamicGraphElementByType(
+      const GraphElementType* type, std::string identifier,
+      std::vector<Value::Property> static_properties,
+      std::vector<Value::Property> dynamic_properties,
+      std::vector<std::string> static_labels,
+      std::vector<std::string> dynamic_labels, std::string definition_name) {
+    ZETASQL_ASSIGN_OR_RETURN(JSONValue json_value,
+                     MakePropertiesJsonValue(absl::MakeSpan(dynamic_properties),
+                                             language_options_));
+    return IsNode()
+               ? Value::MakeGraphNode(
+                     type, std::move(identifier),
+                     Value::GraphElementLabelsAndProperties{
+                         .static_labels = std::move(static_labels),
+                         .static_properties = std::move(static_properties),
+                         .dynamic_labels = std::move(dynamic_labels),
+                         .dynamic_properties = json_value.GetConstRef()},
+                     std::move(definition_name))
+               : Value::MakeGraphEdge(
+                     type, std::move(identifier),
+                     Value::GraphElementLabelsAndProperties{
+                         .static_labels = std::move(static_labels),
+                         .static_properties = std::move(static_properties),
+                         .dynamic_labels = std::move(dynamic_labels),
+                         .dynamic_properties = json_value.GetConstRef()},
+                     std::move(definition_name), "src_node_id", "dst_node_id");
+  }
+
+  absl::StatusOr<Value> MakeDynamicElement(
+      absl::Span<const std::string> graph_reference, std::string identifier,
+      std::vector<Value::Property> static_properties,
+      std::vector<Value::Property> dynamic_properties,
+      std::vector<std::string> static_labels,
+      std::vector<std::string> dynamic_labels, std::string definition_name) {
+    ZETASQL_ASSIGN_OR_RETURN(JSONValue json_value,
+                     MakePropertiesJsonValue(absl::MakeSpan(dynamic_properties),
+                                             language_options_));
+    return IsNode() ? DynamicGraphNode(
+                          graph_reference, identifier, static_properties,
+                          /*dynamic_properties=*/json_value.GetConstRef(),
+                          static_labels, dynamic_labels, definition_name)
+                    : DynamicGraphEdge(
+                          graph_reference, identifier, static_properties,
+                          /*dynamic_properties=*/json_value.GetConstRef(),
+                          static_labels, dynamic_labels, definition_name,
+                          "src_node_id", "dst_node_id");
   }
 
   const LanguageOptions language_options_ = LanguageOptions::MaximumFeatures();
@@ -232,6 +283,212 @@ TEST_P(GraphElementValueTest, GetLabels) {
   EXPECT_THAT(element.GetLabels(), ElementsAre("Label1", "label2", "laBel3"));
 }
 
+TEST_P(GraphElementValueTest,
+       DynamicGraphElementInvalidConstructionDifferentPropertyNames) {
+  const std::vector<Value::Property> properties = {{"p1", Value::String("v0")}};
+  const GraphElementType* dynamic_type = MakeDynamicGraphElementType(
+      {"graph_name"}, GetParam(), {{"p0", StringType()}});
+  EXPECT_THAT(
+      MakeDynamicGraphElementByType(
+          dynamic_type, "id", /*static_properties=*/properties,
+          /*dynamic_properties=*/{}, /*static_labels=*/{"label1"},
+          /*dynamic_labels=*/{"label2"}, "ElementTable"),
+      StatusIs(absl::StatusCode::kInternal, HasSubstr("Unknown property: p1")));
+}
+
+TEST_P(GraphElementValueTest,
+       DynamicGraphElementInvalidConstructionDifferentPropertyTypes) {
+  const Value p0_value = Value::String("v0");
+  const std::vector<Value::Property> properties = {{"p0", p0_value},
+                                                   {"p1", p0_value}};
+  const GraphElementType* dynamic_type = MakeDynamicGraphElementType(
+      {"graph_name"}, GetParam(), {{"p0", StringType()}, {"p1", Int32Type()}});
+  EXPECT_THAT(
+      MakeDynamicGraphElementByType(
+          dynamic_type, "id", /*static_properties=*/properties,
+          /*dynamic_properties=*/{}, /*static_labels=*/{"label1"},
+          /*dynamic_labels=*/{"label2"}, "ElementTable"),
+      StatusIs(absl::StatusCode::kInternal,
+               HasSubstr("Expected property value type: INT32, got: STRING")));
+}
+
+TEST_P(GraphElementValueTest, DynamicGraphElementCommonTest) {
+  bool p2 = true;
+  double p3 = 3.14;
+  const Value p0_value = Value::String("v0");
+  const Value p1_value = Value::Int32(1);
+  const Value p2_value = Value::Bool(p2);
+  const Value p3_value = Value::Double(p3);
+  const Value null_json_value = Value::NullJson();
+  JSONValue p2_json(p2);
+  JSONValue p3_json(p3);
+  const Value p2_json_value = Value::Json(std::move(p2_json));
+  const Value p3_json_value = Value::Json(std::move(p3_json));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value element,
+      MakeDynamicElement(
+          {"graph_name"}, "id",
+          /*static_properties=*/{{"p0", p0_value}, {"p1", p1_value}},
+          /*dynamic_properties=*/{{"p2", p2_value}, {"p3", p3_value}},
+          /*static_labels=*/{"label1", "label2"}, /*dynamic_labels=*/{"Label1"},
+          "ElementTable"));
+  EXPECT_EQ(element.type_kind(), TYPE_GRAPH_ELEMENT);
+  EXPECT_THAT(element.type()->AsGraphElement()->graph_reference(),
+              ElementsAre("graph_name"));
+  EXPECT_EQ(element.GetIdentifier(), "id");
+  EXPECT_THAT(element.property_values(),
+              ElementsAre(Eq(p0_value), Eq(p1_value), Eq(p2_json_value),
+                          Eq(p3_json_value)));
+  EXPECT_THAT(element.FindValidPropertyValueByName("p0"),
+              IsOkAndHolds(Eq(p0_value)));
+  EXPECT_THAT(element.FindValidPropertyValueByName("p1"),
+              IsOkAndHolds(Eq(p1_value)));
+  EXPECT_THAT(element.FindValidPropertyValueByName("p2"),
+              IsOkAndHolds(Eq(p2_json_value)));
+  EXPECT_THAT(element.FindValidPropertyValueByName("p3"),
+              IsOkAndHolds(Eq(p3_json_value)));
+
+  EXPECT_THAT(element.FindValidPropertyValueByName("unknown"),
+              StatusIs(absl::StatusCode::kNotFound));
+  EXPECT_THAT(element.FindPropertyByName("unknown"),
+              IsOkAndHolds(Eq(null_json_value)));
+  EXPECT_THAT(element.GetLabels(), ElementsAre("label1", "label2"));
+  EXPECT_EQ(element.GetDefinitionName(), "ElementTable");
+
+  // Static labels order takes precedence over dynamic labels when deduplicated
+  // case-insensitively.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value element2,
+      MakeDynamicElement(
+          {"graph_name"}, "id",
+          /*static_properties=*/{{"p0", p0_value}, {"p1", p1_value}},
+          /*dynamic_properties=*/{{"p2", p2_value}, {"p3", p3_value}},
+          /*static_labels=*/{"label2", "Label1"}, /*dynamic_labels=*/{"laBel1"},
+          "ElementTable"));
+  EXPECT_THAT(element2.GetLabels(), ElementsAre("Label1", "label2"));
+}
+
+TEST_P(GraphElementValueTest,
+       DynamicGraphElementPropertyNameDynamicShadowsStatic) {
+  const Value p1_value_1 = Value::String("v0");
+  const Value p1_value_2 = Value::Bool(true);
+  const std::vector<Value::Property> static_properties1 = {{"p1", p1_value_1}};
+  const std::vector<Value::Property> dynamic_properties = {{"p1", p1_value_2}};
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value element1,
+      MakeDynamicElement({"graph_name"}, "id", static_properties1,
+                         dynamic_properties,
+                         /*static_labels=*/{"label1", "label2"},
+                         /*dynamic_labels=*/{"label3"}, "ElementTable"));
+  EXPECT_THAT(element1.FindValidPropertyValueByName("p1"),
+              IsOkAndHolds(Eq(p1_value_1)));
+
+  const std::vector<Value::Property> static_properties2 = {};
+  const GraphElementType* dynamic_type = MakeDynamicGraphElementType(
+      {"graph_name"}, GetParam(), {{"p0", Int32Type()}, {"p1", StringType()}});
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value element2,
+                       MakeDynamicGraphElementByType(
+                           dynamic_type, "id", static_properties2,
+                           dynamic_properties, /*static_labels=*/{"label1"},
+                           /*dynamic_labels=*/{"label2"}, "ElementTable"));
+  EXPECT_THAT(element2.FindPropertyByName("p1"),
+              IsOkAndHolds(Eq(Value::Null(StringType()))));
+}
+
+TEST_P(GraphElementValueTest,
+       DynamicGraphElementLabelNameDynamicShadowsStatic) {
+  const Value p1_value_1 = Value::String("v0");
+  const Value p1_value_2 = Value::Bool(true);
+  const std::vector<Value::Property> static_properties = {{"p1", p1_value_1}};
+  const std::vector<Value::Property> dynamic_properties = {{"p1", p1_value_2}};
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value element,
+      MakeDynamicElement({"graph_name"}, "id", static_properties,
+                         dynamic_properties,
+                         /*static_labels=*/{"label1", "label2"},
+                         /*dynamic_labels=*/{"label1"}, "ElementTable"));
+  EXPECT_THAT(element.GetLabels(), ElementsAre("label1", "label2"));
+}
+
+TEST_P(GraphElementValueTest,
+       DynamicGraphElementValueContentEqualsTestDifferentValue) {
+  // Dynamic elements are not equal if they have different static property
+  // values.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value dynamic_element1,
+      MakeDynamicElement(
+          {"graph_name"}, "id1",
+          /*static_properties=*/
+          {{"p0", Value::String("v0")}, {"p1", Value::Int32(1)}},
+          /*dynamic_properties=*/
+          {{"p2", Value::Bool(true)}, {"p3", Value::Double(3.14)}},
+          /*static_labels=*/{"label1", "label2"}, /*dynamic_labels=*/{"Label1"},
+          "ElementTable"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value dynamic_element2,
+      MakeDynamicElement(
+          {"graph_name"}, "id2",
+          /*static_properties=*/
+          {{"p0", Value::String("v0")}, {"p1", Value::Int32(2)}},
+          /*dynamic_properties=*/
+          {{"p2", Value::Bool(true)}, {"p3", Value::Double(3.14)}},
+          /*static_labels=*/{"label1", "label2"}, /*dynamic_labels=*/{"Label1"},
+          "ElementTable"));
+  EXPECT_FALSE(dynamic_element1.Equals(dynamic_element2));
+
+  // Dynamic elements are not equal if they have different dynamic property
+  // values.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value dynamic_element3,
+      MakeDynamicElement(
+          {"graph_name"}, "id1",
+          /*static_properties=*/
+          {{"p0", Value::String("v0")}, {"p1", Value::Int32(1)}},
+          /*dynamic_properties=*/
+          {{"p2", Value::Bool(true)}, {"p3", Value::Double(3.14)}},
+          /*static_labels=*/{"label1", "label2"}, /*dynamic_labels=*/{"Label1"},
+          "ElementTable"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value dynamic_element4,
+      MakeDynamicElement(
+          {"graph_name"}, "id2",
+          /*static_properties=*/
+          {{"p0", Value::String("v0")}, {"p1", Value::Int32(1)}},
+          /*dynamic_properties=*/
+          {{"p2", Value::Bool(true)}, {"p3", Value::Double(100000.0)}},
+          /*static_labels=*/{"label1", "label2"}, /*dynamic_labels=*/{"Label1"},
+          "ElementTable"));
+  EXPECT_FALSE(dynamic_element3.Equals(dynamic_element4));
+}
+
+TEST_P(GraphElementValueTest,
+       DynamicGraphElementValueContentEqualsTestDifferentIdentifier) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value dynamic_element1,
+      MakeDynamicElement(
+          {"graph_name"}, "id1",
+          /*static_properties=*/
+          {{"p0", Value::String("v0")}, {"p1", Value::Int32(1)}},
+          /*dynamic_properties=*/
+          {{"p2", Value::Bool(true)}, {"p3", Value::Double(3.14)}},
+          /*static_labels=*/{"label1", "label2"}, /*dynamic_labels=*/{"Label1"},
+          "ElementTable"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value dynamic_element2,
+      MakeDynamicElement(
+          {"graph_name"}, "id2",
+          /*static_properties=*/
+          {{"p0", Value::String("v0")}, {"p1", Value::Int32(1)}},
+          /*dynamic_properties=*/
+          {{"p2", Value::Bool(true)}, {"p3", Value::Double(3.14)}},
+          /*static_labels=*/{"label1", "label2"}, /*dynamic_labels=*/{"Label1"},
+          "ElementTable"));
+  EXPECT_FALSE(dynamic_element1.Equals(dynamic_element2));
+}
+
 TEST(GraphElementValueTest,
      EmptyIdentifierForSourceOrDestNodeFailsEdgeConstruction) {
   const GraphElementType* type =
@@ -264,6 +521,16 @@ TEST(GraphElementValueTest, GraphNodeSpecificTest) {
   EXPECT_DEBUG_DEATH(node.GetSourceNodeIdentifier(), "Not an edge");
   EXPECT_DEBUG_DEATH(node.GetDestNodeIdentifier(), "Not an edge");
   EXPECT_EQ(node.ShortDebugString(), "{p0:\"v0\", p1:1}");
+  EXPECT_EQ(node.FullDebugString(),
+            "GraphNode{$name:\"ElementTable\", $id:b\"id\", "
+            "$labels:[\"label1\", \"label2\"], "
+            "$is_dynamic:0, "
+            "p0:String(\"v0\"), "
+            "p1:Int32(1)}\n"
+            " property_name_to_index: {\n"
+            "  p0: 0\n"
+            "  p1: 1\n"
+            " }");
 }
 
 TEST(GraphElementValueTest, GraphEdgeSpecificTest) {
@@ -277,6 +544,17 @@ TEST(GraphElementValueTest, GraphEdgeSpecificTest) {
   EXPECT_EQ(edge.GetSourceNodeIdentifier(), "src_node_id");
   EXPECT_EQ(edge.GetDestNodeIdentifier(), "dst_node_id");
   EXPECT_EQ(edge.ShortDebugString(), "{p0:\"v0\", p1:1}");
+  EXPECT_EQ(edge.FullDebugString(),
+            "GraphEdge{$name:\"ElementTable\", $id:b\"id\", "
+            "$labels:[\"label1\", \"label2\"], "
+            "$source_node_id:b\"src_node_id\", $dest_node_id:b\"dst_node_id\", "
+            "$is_dynamic:0, "
+            "p0:String(\"v0\"), "
+            "p1:Int32(1)}\n"
+            " property_name_to_index: {\n"
+            "  p0: 0\n"
+            "  p1: 1\n"
+            " }");
 
   const Value copied_edge = edge;
   EXPECT_EQ(copied_edge.GetIdentifier(), "id");

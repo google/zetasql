@@ -129,17 +129,20 @@ Note: all GQL examples in the GQL reference use the
 <span class="var">element</span>:
   <span class="var">element_name</span>
   [ AS <span class="var">element_alias</span> ]
-  [ <span class="var">element_keys</span> ]
-  [ { <span class="var">label_and_properties_list</span> | <span class="var">element_properties</span> } ]
+  <span class="var">element_keys</span>
+  [ { <span class="var">label_and_properties_list</span> | <span
+  class="var">element_properties</span> } ]
+  [ <span class="var">dynamic_label</span> ]
+  [ <span class="var">dynamic_properties</span> ]
 
 <span class="var">element_keys</span>:
   { <span class="var">node_element_key</span> | <span class="var">edge_element_keys</span> }
 
 <span class="var">node_element_key</span>:
-  <span class="var">element_key</span>
+  [ <span class="var">element_key</span> ]
 
 <span class="var">edge_element_keys</span>:
-  <span class="var">element_key</span>
+  [ <span class="var">element_key</span> ]
   <span class="var">source_key</span>
   <span class="var">destination_key</span>
 
@@ -208,7 +211,8 @@ rules:
   SOURCE KEY (item1_column) REFERENCES item_node (item_node_column)
   DESTINATION KEY (item2_column) REFERENCES item_node (item_node_column)
   ```
-+ `element_key`: The key that identifies the node or edge element.
++ `element_key`: An optional key that identifies the node or edge element. If
+  `element_key` isn't provided, then the primary key of the table is used.
 
   ```zetasql
   KEY (item1_column, item2_column)
@@ -239,9 +243,15 @@ rules:
   In this case, the column order in the `element_keys` must match the column
   order in the `edge_column_name_list`.
 + `element_alias_reference`: The alias of another element to reference.
-+ `label_and_property_list`: The list of labels and properties to add to
++ `label_and_properties_list`: The list of labels and properties to add to
   an element. For more information, see
   [Label and properties list definition][label-property-definition].
++ `dynamic_label`: The name of the column that holds dynamic label values. For
+  more information, see the
+  [Dynamic label definition][dynamic-label-definition].
++ `dynamic_properties`: The name of the column that holds dynamic properties
+  values. For more information see the
+  [Dynamic properties definition][dynamic-properties-definition].
 
 ### Label and properties list definition 
 <a id="label_property_definition"></a>
@@ -309,7 +319,7 @@ Adds a list of labels and properties to an element.
   (<span class="var">column_name</span>[, ...])
 
 <span class="var">derived_property_list</span>:
-  PROPERTIES <span class="var">derived_property</span>[, ...]
+  PROPERTIES (<span class="var">derived_property</span>[, ...])
 
 <span class="var">derived_property</span>:
   <span class="var">value_expression</span> [ AS <span class="var">property_name</span> ]
@@ -379,8 +389,78 @@ Adds properties associated with a label.
   must be a column reference and the implicit `property_name` is the
   column name.
 
-### `FinGraph` Example 
+### Dynamic label definition 
+<a id="dynamic_label_definition"></a>
+
+<pre>
+<span class="var">dynamic_label</span>:
+  DYNAMIC LABEL (<span class="var">dynamic_label_column_name</span>)
+
+</pre>
+
+**Description**
+
+Specifies a column that holds dynamic label values.
+
+**Definitions**
+
++ `dynamic_label_column_name`: The name of the column that holds label
+  values. The column must use the STRING data type.
+
+  + As a graph element is mapped from a row of an element table, an element's
+    dynamic label is the data that resides in the
+    `dynamic_label_column_name` column.
+
+  + There can be at most one node table and one edge table within a schema
+    that supports dynamic labels.
+
+  + Both defined labels and a dynamic label can be applied to an element.
+    If the names of a [defined label][label-property-definition] and dynamic
+    label overlap, the defined label takes precedence over the dynamic one.
+
+### Dynamic properties definition 
+<a id="dynamic_properties_definition"></a>
+
+<pre>
+<span class="var">dynamic_properties</span>:
+  DYNAMIC PROPERTIES (<span class="var">dynamic_properties_column_name</span>)
+
+</pre>
+
+**Description**
+
+Specifies a column that holds dynamic properties values.
+
+**Definitions**
+
++ `dynamic_properties_column_name`: The name of the column that holds
+  properties values. The column must be of JSON type.
+
+  + As a graph element is mapped from a row of an element table, an element's
+    dynamic properties are the data that resides in the
+    `dynamic_properties_column_name` column.
+
+  + Top-level JSON keys in the `dynamic_properties_column_name` column are
+    mapped as dynamic properties.
+
+  + The JSON key of each dynamic property must be stored in lower-case.
+    When you access them in queries, they are case-insensitive.
+
+  + Unlike dynamic labels, any number of nodes or edges within a schema can
+    support dynamic properties.
+
+  + Unlike the
+    [Element properties definition][element-table-property-definition], dynamic
+    properties for an element are not exposed by a dynamic label and can evolve
+    independently.
+
+  + If the names of a defined property and dynamic property overlap, the defined
+    property takes precedence over the dynamic one.
+
+### `FinGraph` Examples 
 <a id="fin_graph"></a>
+
+#### `FinGraph` with defined labels and defined properties
 
 The following property graph, `FinGraph`, contains two node
 definitions (`Account` and `Person`) and two edge definitions
@@ -425,6 +505,41 @@ RETURN p.name
  +---------*/
 ```
 
+#### `FinGraph` with dynamic label and dynamic properties
+
+The following property graph, `FinGraph`, contains a unified node and unified
+edge definition with dynamic label and dynamic properties to store all nodes and
+edges.
+
+```zetasql
+CREATE PROPERTY GRAPH FinGraph
+  NODE TABLES (
+    GraphNode
+      DYNAMIC LABEL (label)
+      DYNAMIC PROPERTIES (properties)
+)
+  EDGE TABLES (
+    GraphEdge
+      SOURCE KEY (id) REFERENCES GraphNode(id)
+      DESTINATION KEY (dest_id) REFERENCES GraphNode(id)
+      DYNAMIC LABEL (label)
+      DYNAMIC PROPERTIES (properties)
+);
+```
+
+Compared to the previous example, to add `Account` and `Person` nodes in a
+dynamic label model, insert entries into `GraphNode` with the label as `Account`
+or `Person` to indicate which node type that entry specifies. Dynamic properties
+must be added as JSON.
+
+```zetasql
+INSERT INTO GraphNode (id, label, properties)
+VALUES (1, "person", JSON '{"name": "Alex", "age": 33}');
+```
+
+Similarly, inserting entries to `GraphEdge` with values like `PersonOwnAccount`
+and `AccountTransferAccount` for the `label` column creates edges.
+
 [hints]: https://github.com/google/zetasql/blob/master/docs/lexical.md#hints
 
 [element-definition]: #element_definition
@@ -436,6 +551,10 @@ RETURN p.name
 [fin-graph]: #fin_graph
 
 [gql]: https://github.com/google/zetasql/blob/master/docs/graph-query-statements.md
+
+[dynamic-label-definition]: #dynamic_label_definition
+
+[dynamic-properties-definition]: #dynamic_properties_definition
 
 ## `DROP PROPERTY GRAPH` statement 
 <a id="gql_drop_graph"></a>

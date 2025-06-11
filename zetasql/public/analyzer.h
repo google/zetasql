@@ -50,8 +50,8 @@ using SystemVariableValuesMap =
 // location is reported is given by <options.error_message_mode()>.
 absl::Status AnalyzeStatement(
     absl::string_view sql, const AnalyzerOptions& options_in,
-    absl::Nonnull<Catalog*> catalog, absl::Nonnull<TypeFactory*> type_factory,
-    absl::Nonnull<std::unique_ptr<const AnalyzerOutput>*> output);
+    Catalog* /*absl_nonnull*/ catalog, TypeFactory* /*absl_nonnull*/ type_factory,
+    std::unique_ptr<const AnalyzerOutput>* /*absl_nonnull*/ output);
 
 // Analyze one statement from a string that may contain multiple statements.
 // This can be called in a loop with the same <resume_location> to parse
@@ -71,11 +71,11 @@ absl::Status AnalyzeStatement(
 // After an error, <resume_location> may not be updated and analyzing further
 // statements is not supported.
 absl::Status AnalyzeNextStatement(
-    absl::Nonnull<ParseResumeLocation*> resume_location,
-    const AnalyzerOptions& options_in, absl::Nonnull<Catalog*> catalog,
-    absl::Nonnull<TypeFactory*> type_factory,
-    absl::Nonnull<std::unique_ptr<const AnalyzerOutput>*> output,
-    absl::Nonnull<bool*> at_end_of_input);
+    ParseResumeLocation* /*absl_nonnull*/ resume_location,
+    const AnalyzerOptions& options_in, Catalog* /*absl_nonnull*/ catalog,
+    TypeFactory* /*absl_nonnull*/ type_factory,
+    std::unique_ptr<const AnalyzerOutput>* /*absl_nonnull*/ output,
+    bool* /*absl_nonnull*/ at_end_of_input);
 
 // Same as AnalyzeStatement(), but analyze from the parsed AST contained in a
 // ParserOutput instead of raw SQL string. For projects which are allowed to use
@@ -87,17 +87,17 @@ absl::Status AnalyzeNextStatement(
 // On failure, the ownership of <*statement_parser_output> remains unchanged.
 // The statement contained within remains valid.
 absl::Status AnalyzeStatementFromParserOutputOwnedOnSuccess(
-    absl::Nonnull<std::unique_ptr<ParserOutput>*> statement_parser_output,
+    std::unique_ptr<ParserOutput>* /*absl_nonnull*/ statement_parser_output,
     const AnalyzerOptions& options, absl::string_view sql,
-    absl::Nonnull<Catalog*> catalog, absl::Nonnull<TypeFactory*> type_factory,
-    absl::Nonnull<std::unique_ptr<const AnalyzerOutput>*> output);
+    Catalog* /*absl_nonnull*/ catalog, TypeFactory* /*absl_nonnull*/ type_factory,
+    std::unique_ptr<const AnalyzerOutput>* /*absl_nonnull*/ output);
 // Similar to the previous function, but does *not* change ownership of
 // <statement_parser_output>.
 absl::Status AnalyzeStatementFromParserOutputUnowned(
-    absl::Nonnull<std::unique_ptr<ParserOutput>*> statement_parser_output,
+    std::unique_ptr<ParserOutput>* /*absl_nonnull*/ statement_parser_output,
     const AnalyzerOptions& options, absl::string_view sql,
-    absl::Nonnull<Catalog*> catalog, absl::Nonnull<TypeFactory*> type_factory,
-    absl::Nonnull<std::unique_ptr<const AnalyzerOutput>*> output);
+    Catalog* /*absl_nonnull*/ catalog, TypeFactory* /*absl_nonnull*/ type_factory,
+    std::unique_ptr<const AnalyzerOutput>* /*absl_nonnull*/ output);
 
 // Similar to the previous function, but uses a pre-existing ASTStatement,
 // without a ParserOutput.
@@ -107,9 +107,9 @@ absl::Status AnalyzeStatementFromParserOutputUnowned(
 // returned will use line/column numbers relative to the script.
 absl::Status AnalyzeStatementFromParserAST(
     const ASTStatement& statement, const AnalyzerOptions& options,
-    absl::string_view sql, absl::Nonnull<Catalog*> catalog,
-    absl::Nonnull<TypeFactory*> type_factory,
-    absl::Nonnull<std::unique_ptr<const AnalyzerOutput>*> output);
+    absl::string_view sql, Catalog* /*absl_nonnull*/ catalog,
+    TypeFactory* /*absl_nonnull*/ type_factory,
+    std::unique_ptr<const AnalyzerOutput>* /*absl_nonnull*/ output);
 
 // Analyze a ZetaSQL expression.  The expression may include query
 // parameters, subqueries, and any other valid expression syntax.
@@ -126,8 +126,8 @@ absl::Status AnalyzeStatementFromParserAST(
 // reported in multiple ways depending on <options.error_message_mode()>.
 absl::Status AnalyzeExpression(
     absl::string_view sql, const AnalyzerOptions& options,
-    absl::Nonnull<Catalog*> catalog, absl::Nonnull<TypeFactory*> type_factory,
-    absl::Nonnull<std::unique_ptr<const AnalyzerOutput>*> output);
+    Catalog* /*absl_nonnull*/ catalog, TypeFactory* /*absl_nonnull*/ type_factory,
+    std::unique_ptr<const AnalyzerOutput>* /*absl_nonnull*/ output);
 
 // Similar to the above, but coerces the expression to <target_type>.
 // The conversion is performed using assignment semantics.
@@ -141,18 +141,18 @@ absl::Status AnalyzeExpression(
 // target_column_types_ to trigger expression coercion to the target type.
 absl::Status AnalyzeExpressionForAssignmentToType(
     absl::string_view sql, const AnalyzerOptions& options,
-    absl::Nonnull<Catalog*> catalog, absl::Nonnull<TypeFactory*> type_factory,
-    absl::Nullable<const Type*> target_type,
-    absl::Nonnull<std::unique_ptr<const AnalyzerOutput>*> output);
+    Catalog* /*absl_nonnull*/ catalog, TypeFactory* /*absl_nonnull*/ type_factory,
+    const Type* /*absl_nullable*/ target_type,
+    std::unique_ptr<const AnalyzerOutput>* /*absl_nonnull*/ output);
 
 // TODO: Take a ParserOutput instead of ASTExpression; also make the
 // constructor of ParserOutput take an unowned ASTExpression.
 // Resolves a standalone AST expression.
 absl::Status AnalyzeExpressionFromParserAST(
     const ASTExpression& ast_expression, const AnalyzerOptions& options_in,
-    absl::string_view sql, absl::Nonnull<TypeFactory*> type_factory,
-    absl::Nonnull<Catalog*> catalog,
-    absl::Nonnull<std::unique_ptr<const AnalyzerOutput>*> output);
+    absl::string_view sql, TypeFactory* /*absl_nonnull*/ type_factory,
+    Catalog* /*absl_nonnull*/ catalog,
+    std::unique_ptr<const AnalyzerOutput>* /*absl_nonnull*/ output);
 
 // Similar to the above, but coerces the expression to <target_type>.
 // The conversion is performed using assignment semantics.
@@ -170,9 +170,9 @@ absl::Status AnalyzeExpressionFromParserAST(
 // (similar to AnalyzeExpressionForAssignmentToType()).
 absl::Status AnalyzeExpressionFromParserASTForAssignmentToType(
     const ASTExpression& ast_expression, const AnalyzerOptions& options_in,
-    absl::string_view sql, absl::Nonnull<TypeFactory*> type_factory,
-    absl::Nonnull<Catalog*> catalog, absl::Nullable<const Type*> target_type,
-    absl::Nonnull<std::unique_ptr<const AnalyzerOutput>*> output);
+    absl::string_view sql, TypeFactory* /*absl_nonnull*/ type_factory,
+    Catalog* /*absl_nonnull*/ catalog, const Type* /*absl_nullable*/ target_type,
+    std::unique_ptr<const AnalyzerOutput>* /*absl_nonnull*/ output);
 
 // Parse and analyze a ZetaSQL type name with optional type parameters.
 // The type may reference type names from <catalog>. If type parameters are
@@ -184,18 +184,18 @@ absl::Status AnalyzeExpressionFromParserASTForAssignmentToType(
 // location is reported is given by <options.error_message_mode()>.
 absl::Status AnalyzeType(const std::string& type_name,
                          const AnalyzerOptions& options_in,
-                         absl::Nonnull<Catalog*> catalog,
-                         absl::Nonnull<TypeFactory*> type_factory,
-                         absl::Nonnull<const Type**> output_type);
+                         Catalog* /*absl_nonnull*/ catalog,
+                         TypeFactory* /*absl_nonnull*/ type_factory,
+                         const Type** /*absl_nonnull*/ output_type);
 
 // Same as above function, but also returns a TypeModifiers object in
 // <output_type_modifiers> on success.
 absl::Status AnalyzeType(const std::string& type_name,
                          const AnalyzerOptions& options_in,
-                         absl::Nonnull<Catalog*> catalog,
-                         absl::Nonnull<TypeFactory*> type_factory,
-                         absl::Nonnull<const Type**> output_type,
-                         absl::Nonnull<TypeModifiers*> output_type_modifiers);
+                         Catalog* /*absl_nonnull*/ catalog,
+                         TypeFactory* /*absl_nonnull*/ type_factory,
+                         const Type** /*absl_nonnull*/ output_type,
+                         TypeModifiers* /*absl_nonnull*/ output_type_modifiers);
 
 // A set of table names found is returned in <*table_names>, where each
 // table name is an identifier path stored as a vector<string>.
@@ -217,8 +217,8 @@ typedef std::set<std::vector<std::string>> TableNamesSet;
 // location is reported is given by <options.error_message_mode()>.
 absl::Status ExtractTableNamesFromStatement(
     absl::string_view sql, const AnalyzerOptions& options_in,
-    absl::Nonnull<TableNamesSet*> table_names,
-    absl::Nullable<TableNamesSet*> tvf_names = nullptr);
+    TableNamesSet* /*absl_nonnull*/ table_names,
+    TableNamesSet* /*absl_nullable*/ tvf_names = nullptr);
 
 // Same as ExtractTableNamesFromStatement(), but extracts table names from one
 // SQL statement from a string. The string may contain multiple statements, so
@@ -236,11 +236,10 @@ absl::Status ExtractTableNamesFromStatement(
 // After an error, <resume_location> may not be updated and analyzing further
 // statements is not supported.
 absl::Status ExtractTableNamesFromNextStatement(
-    absl::Nonnull<ParseResumeLocation*> resume_location,
-    const AnalyzerOptions& options_in,
-    absl::Nonnull<TableNamesSet*> table_names,
-    absl::Nonnull<bool*> at_end_of_input,
-    absl::Nullable<TableNamesSet*> tvf_names = nullptr);
+    ParseResumeLocation* /*absl_nonnull*/ resume_location,
+    const AnalyzerOptions& options_in, TableNamesSet* /*absl_nonnull*/ table_names,
+    bool* /*absl_nonnull*/ at_end_of_input,
+    TableNamesSet* /*absl_nullable*/ tvf_names = nullptr);
 
 // Same as ExtractTableNamesFromStatement(), but extracts table names from the
 // parsed AST instead of a raw SQL string. For projects which are allowed to use
@@ -250,8 +249,8 @@ absl::Status ExtractTableNamesFromNextStatement(
 // <*table_names> contains table names referenced in the AST statement.
 absl::Status ExtractTableNamesFromASTStatement(
     const ASTStatement& ast_statement, const AnalyzerOptions& options_in,
-    absl::string_view sql, absl::Nonnull<TableNamesSet*> table_names,
-    absl::Nullable<TableNamesSet*> tvf_names = nullptr);
+    absl::string_view sql, TableNamesSet* /*absl_nonnull*/ table_names,
+    TableNamesSet* /*absl_nullable*/ tvf_names = nullptr);
 
 // Extract the set of referenced table names from a script.
 //
@@ -267,8 +266,8 @@ absl::Status ExtractTableNamesFromASTStatement(
 // location is reported is given by <options.error_message_mode()>.
 absl::Status ExtractTableNamesFromScript(
     absl::string_view sql, const AnalyzerOptions& options_in,
-    absl::Nonnull<TableNamesSet*> table_names,
-    absl::Nullable<TableNamesSet*> tvf_names = nullptr);
+    TableNamesSet* /*absl_nonnull*/ table_names,
+    TableNamesSet* /*absl_nullable*/ tvf_names = nullptr);
 
 // Same as ExtractTableNamesFromScript(), but extracts table names from
 // the parsed AST script. For projects which are allowed to use the parser
@@ -278,8 +277,8 @@ absl::Status ExtractTableNamesFromScript(
 // <*table_names> contains table names referenced in the AST statement.
 absl::Status ExtractTableNamesFromASTScript(
     const ASTScript& ast_script, const AnalyzerOptions& options_in,
-    absl::string_view sql, absl::Nonnull<TableNamesSet*> table_names,
-    absl::Nullable<TableNamesSet*> tvf_names = nullptr);
+    absl::string_view sql, TableNamesSet* /*absl_nonnull*/ table_names,
+    TableNamesSet* /*absl_nullable*/ tvf_names = nullptr);
 
 // Resolved "FOR SYSTEM_TIME AS OF" expression.
 struct TableResolutionTimeExpr {
@@ -376,9 +375,9 @@ typedef std::map<std::vector<std::string>, TableResolutionTimeInfo>
 // expressions other than that they resolve to timestamp type.
 absl::Status ExtractTableResolutionTimeFromStatement(
     absl::string_view sql, const AnalyzerOptions& options_in,
-    absl::Nullable<TypeFactory*> type_factory, absl::Nullable<Catalog*> catalog,
-    absl::Nonnull<TableResolutionTimeInfoMap*> table_resolution_time_info_map,
-    absl::Nonnull<std::unique_ptr<ParserOutput>*> parser_output);
+    TypeFactory* /*absl_nullable*/ type_factory, Catalog* /*absl_nullable*/ catalog,
+    TableResolutionTimeInfoMap* /*absl_nonnull*/ table_resolution_time_info_map,
+    std::unique_ptr<ParserOutput>* /*absl_nonnull*/ parser_output);
 
 // Same as ExtractTableResolutionTimeFromStatement(), but extracts table
 // resolution time from the parsed AST instead of a raw SQL string.
@@ -392,9 +391,9 @@ absl::Status ExtractTableResolutionTimeFromStatement(
 // <ast_statement>.
 absl::Status ExtractTableResolutionTimeFromASTStatement(
     const ASTStatement& ast_statement, const AnalyzerOptions& options_in,
-    absl::string_view sql, absl::Nullable<TypeFactory*> type_factory,
-    absl::Nullable<Catalog*> catalog,
-    absl::Nonnull<TableResolutionTimeInfoMap*> table_resolution_time_info_map);
+    absl::string_view sql, TypeFactory* /*absl_nullable*/ type_factory,
+    Catalog* /*absl_nullable*/ catalog,
+    TableResolutionTimeInfoMap* /*absl_nonnull*/ table_resolution_time_info_map);
 
 // Given an AnalyzerOutput that contains a ResolvedStatement, transforms that
 // AST to reflect the semantics defined in (broken link)
@@ -439,13 +438,13 @@ absl::Status ExtractTableResolutionTimeFromASTStatement(
 // Does not take ownership of <catalog> or <type_factory>.
 absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
     const std::unique_ptr<const AnalyzerOutput>& analyzer_output,
-    const AnalyzerOptions& analyzer_options, absl::Nonnull<Catalog*> catalog,
-    absl::Nonnull<TypeFactory*> type_factory);
+    const AnalyzerOptions& analyzer_options, Catalog* /*absl_nonnull*/ catalog,
+    TypeFactory* /*absl_nonnull*/ type_factory);
 
 absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
     const AnalyzerOutput& analyzer_output,
-    const AnalyzerOptions& analyzer_options, absl::Nonnull<Catalog*> catalog,
-    absl::Nonnull<TypeFactory*> type_factory);
+    const AnalyzerOptions& analyzer_options, Catalog* /*absl_nonnull*/ catalog,
+    TypeFactory* /*absl_nonnull*/ type_factory);
 
 // Performs resolved AST rewrites as requested with the enabled rewrites in
 // `analyzer_options`.
@@ -463,8 +462,8 @@ absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
 // some rewrites applied (or even partially applied).
 absl::Status RewriteResolvedAst(const AnalyzerOptions& analyzer_options,
                                 absl::string_view sql,
-                                absl::Nonnull<Catalog*> catalog,
-                                absl::Nonnull<TypeFactory*> type_factory,
+                                Catalog* /*absl_nonnull*/ catalog,
+                                TypeFactory* /*absl_nonnull*/ type_factory,
                                 AnalyzerOutput& analyzer_output);
 
 }  // namespace zetasql

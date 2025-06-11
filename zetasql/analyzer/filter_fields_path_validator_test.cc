@@ -16,7 +16,6 @@
 
 #include "zetasql/analyzer/filter_fields_path_validator.h"
 
-
 #include "zetasql/base/testing/status_matchers.h"  
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"

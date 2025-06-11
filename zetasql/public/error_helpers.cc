@@ -114,7 +114,7 @@ std::string FormatErrorSource(const ErrorSource& error_source,
   if (mode == ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD) {
     return "";
   }
-  std::string message = error_source.error_message();
+  std::string message(error_source.error_message());
   if (!message.empty() && error_source.has_error_location()) {
     // Note - if error_source.error_location has an ErrorSource, it is ignored.
     absl::StrAppend(
@@ -434,7 +434,18 @@ constexpr ErrorRedaction kRedactions[] = {
     {"FUNCTION_ARG_MUST_HAVE_NAME_AND_TYPE",
      "Parameters in function declarations must include both name and type"},
 
+    {"FUNCTION_ARG_MUST_SUPPORT_EQUALITY",
+     R"re(Argument ([0-9]+) to (<id>) must support equality; Type [^ ]+ does not)re",
+     "$0: $2 argument $1", 2},
+
     {"TYPE_NOT_FOUND", R"re(Type not found: (<id>))re", "$0: $1", 1},
+
+    // This one is reached through ZetaSQL's "ForAssignmentToType" APIs. Its
+    // almost an internal error, so we kept the name vague.
+    {"TYPE_CHECK_FAILED", R"re(Expected type .*; found .*)re"},
+    {"TYPE_CHECK_FAILED", R"re(Could not cast literal .* to type .*)re"},
+
+    {"INVALID_LITERAL", "Invalid INTERVAL value"},
 
     {"NONSQL_FN_MISSING_RETURN_TYPE",
      "Non-SQL functions must specify a return type"},
@@ -457,9 +468,14 @@ constexpr ErrorRedaction kRedactions[] = {
     /////////////////////
     {"SYNTAX_ERROR", "Syntax error\\:"},
 
+    {"NOT_FOUND", "Unrecognized name\\: (<id>)", "$0: $1", 1},
+
     {"TABLE_NOT_FOUND", R"re(Table not found: (<id>))re", "$0: $1", 1},
 
     {"PARAMETERS_NOT_SUPPORTED", "Parameters are not supported"},
+    {"PARAMETER_NOT_FOUND", R"re(Query parameter '(<id>)' not found)re",
+     "$0: $1", 1},
+    {"PARAMETER_NOT_FOUND", R"re(Query parameter number \d+ is not defined)re"},
 
     {"FUNCTION_NOT_FOUND", R"re(Function not found: (<id>))re", "$0: $1", 1},
 
@@ -488,6 +504,7 @@ constexpr ErrorRedaction kRedactions[] = {
 
     {"COLLATION_NOT_ALLOWED",
      R"re(Collation .* on argument of TVF call is not allowed)re"},
+    {"COLLATION_NOT_ALLOWED", R"re(Collation is not allowed on argument)re"},
 
     {"ARG_MUST_BE_LITERAL_OR_QUERY_PARAM",
      R"re((?:The argument|Argument (?:\d+)) to (<id>) must be a literal or query parameter)re",
@@ -500,10 +517,33 @@ constexpr ErrorRedaction kRedactions[] = {
      R"re(Aggregate function (<id>) does not support LIMIT in arguments)re",
      "$0: $1", 1},
     {"TABLE_VALUED_FUNCTION_NOT_EXPECTED_HERE",
-     R"re(Table-valued function is not expected here: (<id>))re", "$0: $1", 1}};
+     R"re(Table-valued function is not expected here: (<id>))re", "$0: $1", 1},
+    {"DML_REQUIRES_TABLE_NAME",
+     R"re(Non-nested .* statement requires a table name)re"},
+    {"UNKNOWN_OPTION", "Unknown option: (<id>)", "$0: $1", 1},
+
+    {"UNSUPPORTED_FEATURE", ".* is not supported"},
+    {"UNSUPPORTED_FEATURE", ".* has not been enabled"},
+
+    {"WITH_CYCLE", "Unsupported WITH entry dependency cycle"},
+
+    // Catch-all because tests should not crash.
+    {"SQL_ERROR", ".*"},
+};
+
+// This skip list includes error messages that are not owned by ZetaSQL, but
+// sometimes flow through ZetaSQL APIs, and should not be subject to ZetaSQL
+// error message redaction.
+constexpr LazyRE2 kSkipRedactions[] = {
+};
 
 static std::string GetEnhancedRedactedErrorMessage(const absl::Status& status) {
   std::string arg1, arg2, arg3;
+  for (const LazyRE2& skip_redaction : kSkipRedactions) {
+    if (RE2::PartialMatch(status.message(), *skip_redaction)) {
+      return std::string(status.message());
+    }
+  }
   for (const ErrorRedaction& redaction : kRedactions) {
     RE2 regex(absl::StrReplaceAll(redaction.regex, {{"<id>", kIdRegexp}}));
     switch (redaction.num_arguments) {
@@ -555,6 +595,7 @@ static std::string GetRedactedErrorMessage(
     const absl::Status& status, bool enable_enhanced_error_redaction) {
 
   // Full redaction
+  ABSL_LOG(INFO) << "Redacted `" << status.message() << "` to `SQL ERROR`";
   return "SQL ERROR";
 }
 
@@ -568,6 +609,9 @@ static absl::Status ApplyErrorMessageStabilityMode(
   if (status.ok()) {
     return status;
   }
+
+  static constexpr LazyRE2 kRedactedRe = {
+      R"([A-Z_]+\:? .*\((broken link)\))"};
 
   switch (stability_mode) {
     case ERROR_MESSAGE_STABILITY_UNSPECIFIED:
@@ -584,6 +628,9 @@ static absl::Status ApplyErrorMessageStabilityMode(
           // Make a copy so that we don't remove the payloads from 'status'
           absl::Status for_payload_stripping = status;
           if (RedactZetaSqlOwnedPayloads(for_payload_stripping)) {
+            if (RE2::FullMatch(status.message(), *kRedactedRe)) {
+              return status;  // Message is already redacted.
+            }
             // All of the payloads attached to 'status' are ZetaSQL-owned.
             // Redact the error message from the original status with all
             // payloads to return.
@@ -609,6 +656,9 @@ static absl::Status ApplyErrorMessageStabilityMode(
           // Make a non-const copy.
           absl::Status redacted = status;
           if (RedactZetaSqlOwnedPayloads(redacted)) {
+            if (RE2::FullMatch(status.message(), *kRedactedRe)) {
+              return redacted;  // Message is already redacted.
+            }
             // Redact the message only if there are no other payloads. If there
             // are, it is likely the message comes from a dependency outside of
             // ZetaSQL.

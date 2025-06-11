@@ -10,7 +10,7 @@
 # and skip printing the resolved AST (for successfully resolved queries).
 # This allows us to compare the output more explicitly, and also test cases
 # where the query analysis will fail because the tables don't exist.
-[default language_features=V_1_1_FOR_SYSTEM_TIME_AS_OF]
+[default language_features=FOR_SYSTEM_TIME_AS_OF]
 [default show_extracted_table_names]
 [default show_table_resolution_time]
 [default no_show_resolved_ast]

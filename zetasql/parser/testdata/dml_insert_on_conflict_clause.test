@@ -1,6 +1,6 @@
 
 # Tests for the ON CONFLICT clause in INSERT DML statement.
-[default language_features=V_1_4_INSERT_ON_CONFLICT_CLAUSE]
+[default language_features=INSERT_ON_CONFLICT_CLAUSE]
 
 INSERT OR IGNORE INTO T(a, b) VALUES(1, 2) ON CONFLICT DO NOTHING;
 --

@@ -71,11 +71,11 @@ class ExpressionSubstitutorTest : public ::testing::Test {
     seq_.GetNext();  // Avoid column id's of 0, which are forbidden.
     options_.set_column_id_sequence_number(&seq_);
     options_.mutable_language()->EnableLanguageFeature(
-        FEATURE_V_1_3_INLINE_LAMBDA_ARGUMENT);
+        FEATURE_INLINE_LAMBDA_ARGUMENT);
     options_.mutable_language()->EnableLanguageFeature(
-        FEATURE_V_1_3_COLLATION_SUPPORT);
+        FEATURE_COLLATION_SUPPORT);
     options_.mutable_language()->EnableLanguageFeature(
-        FEATURE_V_1_3_ANNOTATION_FRAMEWORK);
+        FEATURE_ANNOTATION_FRAMEWORK);
     options_.set_record_parse_locations(true);
 
     catalog_.AddBuiltinFunctions(BuiltinFunctionOptions(options_.language()));
@@ -256,6 +256,7 @@ TEST_F(ExpressionSubstitutorTest, SubstituteExpressions) {
         |             |   +-element_column_list=[$array.x#7]
         |             +-filter_expr=
         |               +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+        |                 +-parse_location=41-46
         |                 +-ColumnRef(type=INT64, column=$array.x#7)
         |                 +-Literal(parse_location=45-46, type=INT64, value=2)
         +-input_scan=
@@ -315,7 +316,9 @@ TEST_F(ExpressionSubstitutorTest, SubstituteLambda) {
     |             |     +-ColumnHolder(column=$array_offset.off#8)
     |             +-filter_expr=
     |               +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    |                 +-parse_location=45-57
     |                 +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |                 | +-parse_location=45-48
     |                 | +-ColumnRef(type=INT64, column=$array.x#7)
     |                 | +-ColumnRef(type=INT64, column=$array_offset.off#8)
     |                 +-ColumnRef(parse_location=49-57, type=INT64, column=TestTable.Int64Col#3, is_correlated=TRUE)
@@ -380,7 +383,9 @@ TEST_F(ExpressionSubstitutorTest, SubstituteLambdaWithCorrelatedArgument) {
     |                     +-expr_list=
     |                     | +-$col1#9 :=
     |                     |   +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    |                     |     +-parse_location=45-57
     |                     |     +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |                     |     | +-parse_location=45-48
     |                     |     | +-ColumnRef(type=INT64, column=$array.x#7, is_correlated=TRUE)
     |                     |     | +-ColumnRef(type=INT64, column=$array_offset.off#8, is_correlated=TRUE)
     |                     |     +-ColumnRef(parse_location=49-57, type=INT64, column=TestTable.Int64Col#3, is_correlated=TRUE)
@@ -530,7 +535,9 @@ TEST_F(ExpressionSubstitutorTest, MultipleLambdas) {
     |                 |     +-expr_list=
     |                 |     | +-$col1#12 :=
     |                 |     |   +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    |                 |     |     +-parse_location=45-57
     |                 |     |     +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |                 |     |     | +-parse_location=45-48
     |                 |     |     | +-ColumnRef(type=INT64, column=$array.x#10, is_correlated=TRUE)
     |                 |     |     | +-ColumnRef(type=INT64, column=$array_offset.off#11, is_correlated=TRUE)
     |                 |     |     +-ColumnRef(parse_location=49-57, type=INT64, column=TestTable.Int64Col#3, is_correlated=TRUE)
@@ -547,6 +554,7 @@ TEST_F(ExpressionSubstitutorTest, MultipleLambdas) {
     |                       +-expr_list=
     |                       | +-$col1#13 :=
     |                       |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |                       |     +-parse_location=46-50
     |                       |     +-ColumnRef(type=INT64, column=$array.x#10, is_correlated=TRUE)
     |                       |     +-Literal(parse_location=48-50, type=INT64, value=20)
     |                       +-input_scan=
@@ -589,7 +597,9 @@ TEST_F(ExpressionSubstitutorTest, LambdaNameConflictsWithExistingFunction) {
     |         +-expr_list=
     |         | +-$col1#9 :=
     |         |   +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    |         |     +-parse_location=45-57
     |         |     +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |         |     | +-parse_location=45-48
     |         |     | +-ColumnRef(type=INT64, column=$subquery2.element#8)
     |         |     | +-ColumnRef(type=INT64, column=$subquery2.element#8)
     |         |     +-ColumnRef(parse_location=49-57, type=INT64, column=TestTable.Int64Col#3, is_correlated=TRUE)

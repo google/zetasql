@@ -18,7 +18,9 @@
 
 #include <string>
 
-#include "zetasql/public/token_list.h"  
+#include "zetasql/public/simple_token_list.h"
+#include "zetasql/public/simple_token_list.h"
+#include "zetasql/public/simple_token_list.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/strings/str_cat.h"
@@ -73,6 +75,27 @@ TEST(FormatTokenListTest, DebugMode) {
               "{text: 'foo', attribute: 3, index_tokens: ['foo':5]}\n{text: "
               "'bar', attribute: 6, index_tokens: ['bar':8]}");
   }
+}
+
+TEST(FormatTokenListTest, EmptyTokenList) {
+  EXPECT_EQ(FormatTokenList(TokenList(),
+                            /*debug_mode=*/true),
+            "<empty>");
+
+  EXPECT_EQ(FormatTokenList(TokenList(),
+                            /*debug_mode=*/false),
+            "CAST(b\"\" AS TOKENLIST)");
+}
+
+
+TEST(FormatTokenListTest, InvalidTokenList) {
+  EXPECT_EQ(FormatTokenList(TokenList::FromBytesUnvalidated("imposssible"),
+                            /*debug_mode=*/true),
+            "Invalid tokenlist encoding");
+
+  EXPECT_EQ(FormatTokenList(TokenList::FromBytesUnvalidated("imposssible"),
+                            /*debug_mode=*/false),
+            "CAST(b\"imposssible\" AS TOKENLIST)");
 }
 
 TEST(FormatTokenListTest, CollapseIdenticalTokens) {

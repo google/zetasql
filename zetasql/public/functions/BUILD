@@ -27,6 +27,7 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/common:utf_util",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/numeric:int128",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
@@ -348,6 +349,7 @@ cc_test(
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/testing:test_function",
+        "@com_google_absl//absl/numeric:int128",
         "@com_google_absl//absl/status",
     ],
 )
@@ -1000,6 +1002,7 @@ cc_library(
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
@@ -1127,7 +1130,7 @@ cc_library(
         "@com_google_absl//absl/strings:cord",
         "@com_google_googleapis//google/type:latlng_cc_proto",
         "@com_google_googleapis//google/type:timeofday_cc_proto",
-        "@com_google_protobuf//:cc_wkt_protos",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -1145,7 +1148,7 @@ cc_test(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_googleapis//google/type:timeofday_cc_proto",
-        "@com_google_protobuf//:cc_wkt_protos",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -1195,6 +1198,7 @@ cc_library(
         "//zetasql/public:json_value",
         "//zetasql/public:numeric_value",
         "//zetasql/public:options_cc_proto",
+        "//zetasql/public:timestamp_picos_value",
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:uuid_value",
@@ -1210,18 +1214,23 @@ cc_test(
     name = "json_format_test",
     srcs = ["json_format_test.cc"],
     deps = [
+        ":date_time_util",
         ":json_format",
+        "//zetasql/base:check",
         "//zetasql/base:map_util",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/compliance:functions_testlib",
         "//zetasql/public:json_value",
         "//zetasql/public:options_cc_proto",
+        "//zetasql/public:pico_time",
+        "//zetasql/public:timestamp_picos_value",
         "//zetasql/public:type",
         "//zetasql/public:value",
         "//zetasql/testing:test_function",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
     ],
 )
 
@@ -1269,6 +1278,7 @@ cc_test(
         "//zetasql/public:json_value",
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
+        "//zetasql/public:simple_token_list",
         "//zetasql/public:value",
         "//zetasql/public/types",
         "//zetasql/testing:test_function",

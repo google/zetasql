@@ -1,5 +1,5 @@
 [name=with_recursive_back_reference]
-[default required_features=V_1_3_WITH_RECURSIVE]
+[default required_features=WITH_RECURSIVE]
 [load_proto_files=zetasql/testdata/test_schema.proto]
 [load_proto_names=zetasql_test__.KitchenSinkPB]
 WITH RECURSIVE
@@ -131,7 +131,7 @@ ARRAY<STRUCT<path ARRAY<>, total_cost INT64>>[known order:
 
 # WITH RECURSIVE in subquery
 [name=recursive_query_subquery]
-[required_features=V_1_3_WITH_RECURSIVE,V_1_1_WITH_ON_SUBQUERY]
+[required_features=WITH_RECURSIVE,WITH_ON_SUBQUERY]
 SELECT * FROM (
   WITH RECURSIVE t AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM t WHERE n < 10)
   SELECT n, 2*n FROM t
@@ -152,7 +152,7 @@ ARRAY<STRUCT<n INT64, INT64>>[unknown order:
 ==
 
 # WITH RECURSIVE nested in the recursive term of an outer WITH RECURSIVE
-[required_features=V_1_3_WITH_RECURSIVE,V_1_1_WITH_ON_SUBQUERY]
+[required_features=WITH_RECURSIVE,WITH_ON_SUBQUERY]
 [name=recursive_query_nested_recursive_term]
 WITH RECURSIVE
   a AS (SELECT 1 AS n UNION ALL (
@@ -169,7 +169,7 @@ ARRAY<STRUCT<n INT64>>[unknown order:{1}, {2}, {3}, {4}, {5}, {6}]
 # WITH RECURSIVE nested inside of the non-recursive term of an outer
 # WITH RECURSIVE.
 [name=recursive_query_nested_non_recursive]
-[required_features=V_1_3_WITH_RECURSIVE,V_1_1_WITH_ON_SUBQUERY]
+[required_features=WITH_RECURSIVE,WITH_ON_SUBQUERY]
 WITH RECURSIVE
   a AS (
     (WITH RECURSIVE
@@ -214,7 +214,7 @@ ARRAY<STRUCT<n INT64>>[known order:
 # the engines do not make incorrect assumptions about the parent node of a
 # ResolvedRecursiveScan necessarily being a ResolvedWithEntry.
 [name=recursive_query_nested_top_level]
-[required_features=V_1_3_WITH_RECURSIVE,V_1_1_WITH_ON_SUBQUERY]
+[required_features=WITH_RECURSIVE,WITH_ON_SUBQUERY]
 WITH RECURSIVE
   a AS (
     WITH RECURSIVE
@@ -254,7 +254,7 @@ ARRAY<STRUCT<n INT64>>[known order:
 ==
 
 [name=recursive_query_family_tree]
-[required_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_3_WITH_RECURSIVE]
+[required_features=ORDER_BY_IN_AGGREGATE,WITH_RECURSIVE]
  -- Sample recursive query to find the ancestors and descendants of each person
  -- in a family tree
 WITH RECURSIVE
@@ -490,7 +490,7 @@ ARRAY<STRUCT<
 ]
 ==
 
-[required_features=V_1_3_WITH_RECURSIVE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=WITH_RECURSIVE,ORDER_BY_IN_AGGREGATE]
 [name=recursive_query_prime_factorization]
 WITH RECURSIVE
   -- Inputs to compute prime factors of
@@ -689,7 +689,7 @@ ARRAY<STRUCT<n INT64, ARRAY<>>>[known order:
 ]
 ==
 # Recursive query using Geography types
-[required_features=GEOGRAPHY,V_1_3_WITH_RECURSIVE]
+[required_features=GEOGRAPHY,WITH_RECURSIVE]
 [name=recursive_query_geography]
 WITH RECURSIVE
   t AS (
@@ -925,7 +925,7 @@ ARRAY<STRUCT<n INT64, a INT64>>[unknown order:
 
 # Recursive query using UNION DISTINCT in a subquery
 [name=recursive_query_distinct_subquery]
-[required_features=V_1_3_WITH_RECURSIVE,V_1_1_WITH_ON_SUBQUERY]
+[required_features=WITH_RECURSIVE,WITH_ON_SUBQUERY]
 SELECT * FROM (
   WITH RECURSIVE
     t AS (
@@ -946,7 +946,7 @@ ARRAY<STRUCT<a INT64>>[unknown order:{0}, {1}, {2}, {3}, {4}]
 # Note that t1 is just n = [0, 1, 2, 3, 4]
 
 [name=recursive_query_distinct_nested_in_non_recursive_term]
-[required_features=V_1_3_WITH_RECURSIVE,V_1_1_WITH_ON_SUBQUERY]
+[required_features=WITH_RECURSIVE,WITH_ON_SUBQUERY]
 WITH RECURSIVE t AS (
   WITH RECURSIVE t1 AS (
     SELECT 0 AS n
@@ -980,7 +980,7 @@ ARRAY<STRUCT<n INT64>>[unknown order:
 #
 # Note that t1 is just n = [0, 1, 2]
 [name=recursive_query_distinct_nested_in_recursive_term]
-[required_features=V_1_3_WITH_RECURSIVE,V_1_1_WITH_ON_SUBQUERY]
+[required_features=WITH_RECURSIVE,WITH_ON_SUBQUERY]
 WITH RECURSIVE t AS (
   SELECT 0 AS n
   UNION DISTINCT (
@@ -1044,7 +1044,7 @@ NOTE: Reference implementation reports non-determinism.
 # Make sure duplicate-checking logic for UNION DISTINCT is able to handle
 # STRUCT-type columns
 [name=recursive_query_distinct_struct_column]
-[required_features=V_1_3_WITH_RECURSIVE,V_1_2_GROUP_BY_STRUCT]
+[required_features=WITH_RECURSIVE,GROUP_BY_STRUCT]
 WITH RECURSIVE
   t AS (
     SELECT STRUCT(0 AS a, 'abcd' AS b) AS s
@@ -1064,7 +1064,7 @@ ARRAY<STRUCT<s STRUCT<a INT64, b STRING>>>[unknown order:
 
 # Make sure UNION DISTINCT under WITH RECURSIVE handles NaN values correctly
 [name=recursive_query_distinct_nan_values]
-[required_features=V_1_3_WITH_RECURSIVE]
+[required_features=WITH_RECURSIVE]
 WITH RECURSIVE
   t AS (
     SELECT * FROM UNNEST([
@@ -1084,7 +1084,7 @@ ARRAY<STRUCT<x DOUBLE>>[unknown order:{-1}, {1}, {0}, {inf}, {-inf}, {nan}]
 # division by zero if the recursive term is evaluated, or succeeding with no
 # rows if the recursive is completely skipped.
 [name=recursive_query_non_recursive_term_empty_union_all]
-[required_features=V_1_3_WITH_RECURSIVE]
+[required_features=WITH_RECURSIVE]
 WITH RECURSIVE
   t0 AS (SELECT 0.0 AS n),
   t AS (
@@ -1100,7 +1100,7 @@ ERROR: generic::out_of_range: division by zero: 1 / 0
 # to terminate with a deterministic and nonempty row set, rather than fail with
 # division by zero.
 [name=recursive_query_non_recursive_term_empty_union_distinct]
-[required_features=V_1_3_WITH_RECURSIVE]
+[required_features=WITH_RECURSIVE]
 WITH RECURSIVE
   t0 AS (SELECT 0 AS n),
   t AS (
@@ -1113,7 +1113,7 @@ ARRAY<STRUCT<n INT64>>[unknown order:{1}, {2}, {3}, {4}, {0}]
 ==
 
 # WITH RECURSIVE nested in the SELECT list.
-[required_features=V_1_1_WITH_ON_SUBQUERY,V_1_3_WITH_RECURSIVE]
+[required_features=WITH_ON_SUBQUERY,WITH_RECURSIVE]
 [name=recursive_query_nested_in_select_list]
 SELECT
   (
@@ -1133,7 +1133,7 @@ ARRAY<STRUCT<n_arr ARRAY<>, x INT64>>[
 ==
 
 # WITH RECURSIVE inside of WITH CTE.
-[required_features=V_1_1_WITH_ON_SUBQUERY,V_1_3_WITH_RECURSIVE]
+[required_features=WITH_ON_SUBQUERY,WITH_RECURSIVE]
 [name=recursive_query_nested_in_with_cte]
 WITH
   t AS (
@@ -1146,7 +1146,7 @@ SELECT * FROM t;
 ARRAY<STRUCT<n INT64>>[unknown order:{1}, {2}, {3}, {4}, {5}]
 ==
 
-[required_features=V_1_1_WITH_ON_SUBQUERY,V_1_3_WITH_RECURSIVE,V_1_4_ENFORCE_CONDITIONAL_EVALUATION]
+[required_features=WITH_ON_SUBQUERY,WITH_RECURSIVE,ENFORCE_CONDITIONAL_EVALUATION]
 [name=conditional_evaluation_in_cte_including_recursive]
 WITH
   t AS (
@@ -1159,7 +1159,7 @@ SELECT * FROM t;
 ARRAY<STRUCT<DOUBLE>>[{15}]
 ==
 
-[required_features=V_1_3_WITH_RECURSIVE,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER]
+[required_features=WITH_RECURSIVE,WITH_RECURSIVE_DEPTH_MODIFIER]
 [name=explicit_recursion_depth_union_all]
 WITH RECURSIVE t AS (
   SELECT 0 AS n
@@ -1178,7 +1178,7 @@ ARRAY<STRUCT<n INT64, depth INT64>>[known order:
 ]
 ==
 
-[required_features=V_1_3_WITH_RECURSIVE,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER]
+[required_features=WITH_RECURSIVE,WITH_RECURSIVE_DEPTH_MODIFIER]
 [name=explicit_recursion_depth_union_distinct]
 WITH RECURSIVE t AS (
   SELECT 0 AS n
@@ -1196,7 +1196,7 @@ ARRAY<STRUCT<n INT64, depth INT64>>[known order:{1, 1}, {2, 2}]
 
 ==
 
-[required_features=V_1_3_WITH_RECURSIVE,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER]
+[required_features=WITH_RECURSIVE,WITH_RECURSIVE_DEPTH_MODIFIER]
 [name=explicit_recursion_depth_union_all_multiple_rows_each_iteration]
 WITH RECURSIVE t AS (
   SELECT 0 AS n
@@ -1218,7 +1218,7 @@ ARRAY<STRUCT<n INT64, depth INT64>>[known order:
 ]
 ==
 
-[required_features=V_1_3_WITH_RECURSIVE,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER]
+[required_features=WITH_RECURSIVE,WITH_RECURSIVE_DEPTH_MODIFIER]
 [name=explicit_recursion_depth_union_distinct_multiple_rows_each_iteration]
 WITH RECURSIVE t AS (
   SELECT 0 AS n
@@ -1233,7 +1233,7 @@ ARRAY<STRUCT<n INT64, depth INT64>>[known order:{1, 1}, {2, 1}]
 ==
 
 [name=by_name_union_distinct]
-[required_features=V_1_3_WITH_RECURSIVE,V_1_4_CORRESPONDING_FULL,V_1_4_BY_NAME]
+[required_features=WITH_RECURSIVE,CORRESPONDING_FULL,BY_NAME]
 with recursive t as (
   select 1 as a, 2 as b
   union distinct by name
@@ -1245,7 +1245,7 @@ ARRAY<STRUCT<a INT64, b INT64>>[{1, 2}]
 ==
 
 [name=by_name_pipe_set_op_union_distinct]
-[required_features=PIPES,V_1_3_WITH_RECURSIVE,V_1_4_CORRESPONDING_FULL,V_1_4_BY_NAME]
+[required_features=PIPES,WITH_RECURSIVE,CORRESPONDING_FULL,BY_NAME]
 with recursive t as (
   (select 1 as a, 2 as b)
   |> union distinct by name
@@ -1257,7 +1257,7 @@ ARRAY<STRUCT<a INT64, b INT64>>[{1, 2}]
 ==
 
 [name=by_name_multiple_inputs_in_non_recursive_term_union_distinct]
-[required_features=V_1_3_WITH_RECURSIVE,V_1_4_CORRESPONDING_FULL,V_1_4_BY_NAME]
+[required_features=WITH_RECURSIVE,CORRESPONDING_FULL,BY_NAME]
 with recursive t as (
   select 1 as a, 2 as b
   union distinct by name
@@ -1271,7 +1271,7 @@ ARRAY<STRUCT<a INT64, b INT64>>[unknown order:{1, 2}, {1, NULL}]
 ==
 
 [name=strict_corresponding_union_distinct]
-[required_features=V_1_3_WITH_RECURSIVE,V_1_4_CORRESPONDING_FULL]
+[required_features=WITH_RECURSIVE,CORRESPONDING_FULL]
 with recursive t as (
   select 1 as a, 2 as b
   union distinct strict corresponding
@@ -1283,7 +1283,7 @@ ARRAY<STRUCT<a INT64, b INT64>>[{1, 2}]
 ==
 
 [name=strict_corresponding_pipe_set_op_union_distinct]
-[required_features=PIPES,V_1_3_WITH_RECURSIVE,V_1_4_CORRESPONDING_FULL]
+[required_features=PIPES,WITH_RECURSIVE,CORRESPONDING_FULL]
 with recursive t as (
   (select 1 as a, 2 as b)
   |> union distinct strict corresponding
@@ -1295,7 +1295,7 @@ ARRAY<STRUCT<a INT64, b INT64>>[{1, 2}]
 ==
 
 [name=strict_corresponding_multiple_inputs_in_non_recursive_term_union_distinct]
-[required_features=V_1_3_WITH_RECURSIVE,V_1_4_CORRESPONDING_FULL]
+[required_features=WITH_RECURSIVE,CORRESPONDING_FULL]
 with recursive t as (
   select 1 as a, 2 as b
   union distinct strict corresponding

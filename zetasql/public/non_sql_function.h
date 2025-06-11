@@ -24,6 +24,7 @@
 
 #include "zetasql/public/function.h"
 #include "zetasql/public/function_signature.h"
+#include "zetasql/public/module_details.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/status/status.h"
@@ -63,7 +64,7 @@ class NonSqlFunction : public Function {
   static absl::Status Create(
       absl::string_view name, Mode mode,
       const std::vector<FunctionSignature>& function_signatures,
-      const FunctionOptions& function_options,
+      const FunctionOptions& function_options, ModuleDetails module_details,
       const ResolvedCreateFunctionStmt* resolved_create_function_statement,
       const std::vector<std::string>& argument_names,
       const std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
@@ -75,6 +76,8 @@ class NonSqlFunction : public Function {
     return *resolved_create_function_statement_;
   }
 
+  const ModuleDetails& module_details() const { return module_details_; }
+
   // Returns a debug string that includes the <function_expression_> string,
   // if present.
   std::string FullDebugString() const;
@@ -84,13 +87,14 @@ class NonSqlFunction : public Function {
   NonSqlFunction(
       absl::string_view name, Mode mode,
       const std::vector<FunctionSignature>& function_signatures,
-      const FunctionOptions& function_options,
+      const FunctionOptions& function_options, ModuleDetails module_details,
       const ResolvedCreateFunctionStmt* resolved_create_function_statement,
       const std::vector<std::string>& argument_names,
       std::optional<ParseResumeLocation> parse_resume_location,
       const std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
           aggregate_expression_list);
 
+  const ModuleDetails module_details_;
   const ResolvedCreateFunctionStmt* resolved_create_function_statement_;
   const std::vector<std::string> argument_names_;
   std::optional<ParseResumeLocation> parse_resume_location_;

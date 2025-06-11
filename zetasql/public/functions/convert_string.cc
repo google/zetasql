@@ -175,13 +175,13 @@ bool StringToNumeric(absl::string_view value, int32_t* out,
   } else {
     if (ABSL_PREDICT_TRUE(absl::SimpleAtoi(value, out))) return true;
   }
-  // b/235365564: copybara currently adds the "_t" suffix to int32_t, int64_t, ...
+  // b/235365564: copybara currently adds the "_t" suffix to int32, int64, ...
   // etc. Unfortunately these messages use type->DebugString() instead of the
   // (capitalized) type name, and changing these messages is currently
   // infeasible due to the bug above. It is challenging as well to have copybara
   // parse C++. As a workaround, we're simply breaking the literal string to
   // hide matches from copybara (We have a special copybara rule for just
-  // passing int32_t/int64/.. enclosed directly in quotes)
+  // passing int32/int64/.. enclosed directly in quotes)
   return internal::UpdateError(error, FormatError("Bad "
                                                   "int32"
                                                   " value: ",

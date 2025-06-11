@@ -1,5 +1,4 @@
 # Selecting privacy unit column from table.
-[default also_show_signature_mismatch_details]
 [default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy options(privacy_unit_column=`int64`) count(*)

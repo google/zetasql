@@ -163,8 +163,7 @@ std::string TableValuedFunction::GetTVFSignatureErrorMessage(
     absl::string_view tvf_name_string,
     absl::Span<const InputArgumentType> input_arg_types, int signature_idx,
     const SignatureMatchResult& signature_match_result,
-    const LanguageOptions& language_options,
-    bool show_function_signature_mismatch_details) const {
+    const LanguageOptions& language_options) const {
   // bad_argument_index is set for some specific tvf mismatch cases.
   if (signature_match_result.bad_argument_index() != -1) {
     // TODO: Update this error message when we support more than one
@@ -173,8 +172,7 @@ std::string TableValuedFunction::GetTVFSignatureErrorMessage(
                         GetSupportedSignaturesUserFacingText(
                             language_options,
                             /*print_template_and_name_details=*/false));
-  } else if (show_function_signature_mismatch_details &&
-             !signature_match_result.mismatch_message().empty()) {
+  } else if (!signature_match_result.mismatch_message().empty()) {
     return absl::StrCat(
         Function::GetGenericNoMatchingFunctionSignatureErrorMessage(
             tvf_name_string, input_arg_types, language_options.product_mode(),

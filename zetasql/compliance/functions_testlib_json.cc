@@ -45,6 +45,8 @@ namespace zetasql {
 namespace {
 constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 
+using ::zetasql::values::UnvalidatedJsonStringArray;
+
 Value ParseJson(absl::string_view json) {
   return Json(JSONValue::ParseJSONString(json).value());
 }
@@ -1085,7 +1087,7 @@ std::vector<FunctionTestCall> GetFunctionTestsConvertJsonIncompatibleTypes() {
       {"bool", Json(JSONValue(true))},
       {"float64",
        {Json(JSONValue(
-           2.1))}},  // incompatible with int64_t due to its fractional part
+           2.1))}},  // incompatible with int64 due to its fractional part
       {"int64", Json(JSONValue(int64_t{321}))},
       {"string", Json(JSONValue(std::string{"abc321"}))}};
 
@@ -1093,7 +1095,7 @@ std::vector<FunctionTestCall> GetFunctionTestsConvertJsonIncompatibleTypes() {
   for (const std::string& type_function : type_functions) {
     for (const auto& [input_type, input_value] : input_type_value_lookup) {
       if (type_function != input_type &&
-          // float64(int64_t) is compatible
+          // float64(int64) is compatible
           !(type_function == "float64" && input_type == "int64")) {
         std::vector<ValueConstructor> input = {input_value};
         tests.emplace_back(type_function, input,
@@ -3405,6 +3407,33 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonKeys() {
   for (auto& test : tests) {
     test.params.AddRequiredFeature(FEATURE_JSON_TYPE);
     test.params.AddRequiredFeature(FEATURE_JSON_KEYS_FUNCTION);
+  }
+  return tests;
+}
+
+void AddJsonFlattenTest(absl::string_view input,
+                        absl::Span<const std::string> output,
+                        std::vector<FunctionTestCall>& tests) {
+  tests.push_back({"json_flatten",
+                   QueryParamsWithResult({ParseJson(input)},
+                                         UnvalidatedJsonStringArray(output))});
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsJsonFlatten() {
+  std::vector<FunctionTestCall> tests;
+  AddJsonFlattenTest(R"([1, 2, 3])", {"1", "2", "3"}, tests);
+  AddJsonFlattenTest(R"([[[1, 2], 3], 4])", {"1", "2", "3", "4"}, tests);
+  AddJsonFlattenTest(R"([[[[1, 2], 3], 4], {"a":10}, ["foo", true]])",
+                     {"1", "2", "3", "4", R"({"a":10})", R"("foo")", "true"},
+                     tests);
+  AddJsonFlattenTest(R"([])", {}, tests);
+  AddJsonFlattenTest(R"([[[], []]])", {}, tests);
+  tests.push_back(
+      {"json_flatten", QueryParamsWithResult(
+                           {NullJson()}, Value::Null(types::JsonArrayType()))});
+  for (FunctionTestCall& test : tests) {
+    test.params.AddRequiredFeature(FEATURE_JSON_TYPE);
+    test.params.AddRequiredFeature(FEATURE_JSON_FLATTEN_FUNCTION);
   }
   return tests;
 }

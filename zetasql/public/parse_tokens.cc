@@ -26,11 +26,10 @@
 
 #include "zetasql/base/arena.h"
 #include "zetasql/common/errors.h"
-#include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/keywords.h"
 #include "zetasql/parser/lookahead_transformer.h"
+#include "zetasql/parser/parser_mode.h"
 #include "zetasql/parser/tm_token.h"
-#include "zetasql/parser/token_codes.h"
 #include "zetasql/parser/token_with_location.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/functions/convert_string.h"
@@ -246,9 +245,9 @@ absl::Status GetParseTokens(const ParseTokenOptions& options,
   ZETASQL_RETURN_IF_ERROR(resume_location->Validate());
   tokens->clear();
 
-  auto mode = parser::BisonParserMode::kTokenizer;
+  auto mode = parser::ParserMode::kTokenizer;
   if (options.include_comments) {
-    mode = parser::BisonParserMode::kTokenizerPreserveComments;
+    mode = parser::ParserMode::kTokenizerPreserveComments;
   }
 
   auto arena = std::make_unique<zetasql_base::UnsafeArena>(/*block_size=*/4096);

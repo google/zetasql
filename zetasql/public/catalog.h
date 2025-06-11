@@ -28,6 +28,7 @@
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/property_graph.h"
 #include "zetasql/public/type.h"
+#include "absl/base/nullability.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -134,7 +135,7 @@ class Catalog {
       cycle_detector_ = cycle_detector;
     }
 
-    CycleDetector* cycle_detector() const {
+    CycleDetector* /*absl_nullable*/ cycle_detector() const {
       return cycle_detector_;
     }
 
@@ -391,9 +392,9 @@ class Catalog {
   // Examples:
   //   ["A","B","C"] -> "A.B.C"
   //   ["A"] -> "A"
-  //   ["A.B"] -> "A.B"
-  //   ["A","B.C"] -> ""
-  //   ["A","B C"] -> ""
+  //   ["A.B"] -> ""      ("." is invalid in a proto identifier)
+  //   ["A","B.C"] -> ""  ("." is invalid in a proto identifier)
+  //   ["A","B C"] -> ""  (" " is invalid in a proto identifier)
   //   [] -> ""
   static std::string ConvertPathToProtoName(absl::Span<const std::string> path);
 
@@ -1018,6 +1019,9 @@ class Column {
     ExpressionKind GetExpressionKind() const { return expression_kind_; }
     const std::string& GetExpressionString() const {
       return expression_string_;
+    }
+    bool HasResolvedExpression() const {
+      return resolved_expression_ != nullptr;
     }
     const ResolvedExpr* GetResolvedExpression() const {
       ABSL_DCHECK(resolved_expression_ != nullptr);

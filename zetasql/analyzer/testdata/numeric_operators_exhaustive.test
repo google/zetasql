@@ -5,7 +5,6 @@
 # types. The analyzer output for each alternation should be the same with and
 # without NUMERIC_TYPE enabled except for the error cases, which will include
 # the extra NUMERIC signature when it is enabled.
-[default also_show_signature_mismatch_details]
 [language_features={{NUMERIC_TYPE|}}]
 select div({{int32|uint32|int64|uint64|1|1.0}},
            {{int32|uint32|int64|uint64|1|1.0}})
@@ -73,11 +72,6 @@ QueryStmt
 ALTERNATION GROUP: NUMERIC_TYPE,int32,uint64
 --
 
-ERROR: No matching signature for function DIV for argument types: INT32, UINT64. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64); DIV(NUMERIC, NUMERIC) [at 1:8]
-select div(int32,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: INT32, UINT64
   Signature: DIV(INT64, INT64)
@@ -110,11 +104,6 @@ QueryStmt
 --
 ALTERNATION GROUP: NUMERIC_TYPE,int32,1.0
 --
-ERROR: No matching signature for function DIV for argument types: INT32, DOUBLE. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64); DIV(NUMERIC, NUMERIC) [at 1:8]
-select div(int32,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: INT32, DOUBLE
   Signature: DIV(INT64, INT64)
@@ -225,11 +214,6 @@ QueryStmt
 --
 ALTERNATION GROUP: NUMERIC_TYPE,uint32,1.0
 --
-ERROR: No matching signature for function DIV for argument types: UINT32, DOUBLE. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64); DIV(NUMERIC, NUMERIC) [at 1:8]
-select div(uint32,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: UINT32, DOUBLE
   Signature: DIV(INT64, INT64)
@@ -299,11 +283,6 @@ QueryStmt
 --
 ALTERNATION GROUP: NUMERIC_TYPE,int64,uint64
 --
-ERROR: No matching signature for function DIV for argument types: INT64, UINT64. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64); DIV(NUMERIC, NUMERIC) [at 1:8]
-select div(int64,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: INT64, UINT64
   Signature: DIV(INT64, INT64)
@@ -335,11 +314,6 @@ QueryStmt
 --
 ALTERNATION GROUP: NUMERIC_TYPE,int64,1.0
 --
-ERROR: No matching signature for function DIV for argument types: INT64, DOUBLE. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64); DIV(NUMERIC, NUMERIC) [at 1:8]
-select div(int64,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: INT64, DOUBLE
   Signature: DIV(INT64, INT64)
@@ -353,11 +327,6 @@ select div(int64,
 --
 ALTERNATION GROUP: NUMERIC_TYPE,uint64,int32
 --
-ERROR: No matching signature for function DIV for argument types: UINT64, INT32. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64); DIV(NUMERIC, NUMERIC) [at 1:8]
-select div(uint64,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: UINT64, INT32
   Signature: DIV(INT64, INT64)
@@ -390,11 +359,6 @@ QueryStmt
 --
 ALTERNATION GROUP: NUMERIC_TYPE,uint64,int64
 --
-ERROR: No matching signature for function DIV for argument types: UINT64, INT64. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64); DIV(NUMERIC, NUMERIC) [at 1:8]
-select div(uint64,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: UINT64, INT64
   Signature: DIV(INT64, INT64)
@@ -444,11 +408,6 @@ QueryStmt
 --
 ALTERNATION GROUP: NUMERIC_TYPE,uint64,1.0
 --
-ERROR: No matching signature for function DIV for argument types: UINT64, DOUBLE. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64); DIV(NUMERIC, NUMERIC) [at 1:8]
-select div(uint64,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: UINT64, DOUBLE
   Signature: DIV(INT64, INT64)
@@ -554,11 +513,6 @@ QueryStmt
 --
 ALTERNATION GROUP: NUMERIC_TYPE,1,1.0
 --
-ERROR: No matching signature for function DIV for argument types: INT64, DOUBLE. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64); DIV(NUMERIC, NUMERIC) [at 1:8]
-select div(1,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: INT64, DOUBLE
   Signature: DIV(INT64, INT64)
@@ -572,11 +526,6 @@ select div(1,
 --
 ALTERNATION GROUP: NUMERIC_TYPE,1.0,int32
 --
-ERROR: No matching signature for function DIV for argument types: DOUBLE, INT32. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64); DIV(NUMERIC, NUMERIC) [at 1:8]
-select div(1.0,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: DOUBLE, INT32
   Signature: DIV(INT64, INT64)
@@ -590,11 +539,6 @@ select div(1.0,
 --
 ALTERNATION GROUP: NUMERIC_TYPE,1.0,uint32
 --
-ERROR: No matching signature for function DIV for argument types: DOUBLE, UINT32. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64); DIV(NUMERIC, NUMERIC) [at 1:8]
-select div(1.0,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: DOUBLE, UINT32
   Signature: DIV(INT64, INT64)
@@ -610,11 +554,6 @@ ALTERNATION GROUPS:
     NUMERIC_TYPE,1.0,int64
     NUMERIC_TYPE,1.0,1
 --
-ERROR: No matching signature for function DIV for argument types: DOUBLE, INT64. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64); DIV(NUMERIC, NUMERIC) [at 1:8]
-select div(1.0,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: DOUBLE, INT64
   Signature: DIV(INT64, INT64)
@@ -628,11 +567,6 @@ select div(1.0,
 --
 ALTERNATION GROUP: NUMERIC_TYPE,1.0,uint64
 --
-ERROR: No matching signature for function DIV for argument types: DOUBLE, UINT64. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64); DIV(NUMERIC, NUMERIC) [at 1:8]
-select div(1.0,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: DOUBLE, UINT64
   Signature: DIV(INT64, INT64)
@@ -646,11 +580,6 @@ select div(1.0,
 --
 ALTERNATION GROUP: NUMERIC_TYPE,1.0,1.0
 --
-ERROR: No matching signature for function DIV for argument types: DOUBLE, DOUBLE. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64); DIV(NUMERIC, NUMERIC) [at 1:8]
-select div(1.0,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: DOUBLE, DOUBLE
   Signature: DIV(INT64, INT64)
@@ -664,11 +593,6 @@ select div(1.0,
 --
 ALTERNATION GROUP: int32,uint64
 --
-ERROR: No matching signature for function DIV for argument types: INT32, UINT64. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64) [at 1:8]
-select div(int32,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: INT32, UINT64
   Signature: DIV(INT64, INT64)
@@ -680,11 +604,6 @@ select div(int32,
 --
 ALTERNATION GROUP: int32,1.0
 --
-ERROR: No matching signature for function DIV for argument types: INT32, DOUBLE. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64) [at 1:8]
-select div(int32,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: INT32, DOUBLE
   Signature: DIV(INT64, INT64)
@@ -696,11 +615,6 @@ select div(int32,
 --
 ALTERNATION GROUP: uint32,1.0
 --
-ERROR: No matching signature for function DIV for argument types: UINT32, DOUBLE. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64) [at 1:8]
-select div(uint32,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: UINT32, DOUBLE
   Signature: DIV(INT64, INT64)
@@ -712,11 +626,6 @@ select div(uint32,
 --
 ALTERNATION GROUP: int64,uint64
 --
-ERROR: No matching signature for function DIV for argument types: INT64, UINT64. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64) [at 1:8]
-select div(int64,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: INT64, UINT64
   Signature: DIV(INT64, INT64)
@@ -728,11 +637,6 @@ select div(int64,
 --
 ALTERNATION GROUP: int64,1.0
 --
-ERROR: No matching signature for function DIV for argument types: INT64, DOUBLE. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64) [at 1:8]
-select div(int64,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: INT64, DOUBLE
   Signature: DIV(INT64, INT64)
@@ -744,11 +648,6 @@ select div(int64,
 --
 ALTERNATION GROUP: uint64,int32
 --
-ERROR: No matching signature for function DIV for argument types: UINT64, INT32. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64) [at 1:8]
-select div(uint64,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: UINT64, INT32
   Signature: DIV(INT64, INT64)
@@ -760,11 +659,6 @@ select div(uint64,
 --
 ALTERNATION GROUP: uint64,int64
 --
-ERROR: No matching signature for function DIV for argument types: UINT64, INT64. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64) [at 1:8]
-select div(uint64,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: UINT64, INT64
   Signature: DIV(INT64, INT64)
@@ -776,11 +670,6 @@ select div(uint64,
 --
 ALTERNATION GROUP: uint64,1.0
 --
-ERROR: No matching signature for function DIV for argument types: UINT64, DOUBLE. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64) [at 1:8]
-select div(uint64,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: UINT64, DOUBLE
   Signature: DIV(INT64, INT64)
@@ -792,11 +681,6 @@ select div(uint64,
 --
 ALTERNATION GROUP: 1,1.0
 --
-ERROR: No matching signature for function DIV for argument types: INT64, DOUBLE. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64) [at 1:8]
-select div(1,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: INT64, DOUBLE
   Signature: DIV(INT64, INT64)
@@ -808,11 +692,6 @@ select div(1,
 --
 ALTERNATION GROUP: 1.0,int32
 --
-ERROR: No matching signature for function DIV for argument types: DOUBLE, INT32. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64) [at 1:8]
-select div(1.0,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: DOUBLE, INT32
   Signature: DIV(INT64, INT64)
@@ -824,11 +703,6 @@ select div(1.0,
 --
 ALTERNATION GROUP: 1.0,uint32
 --
-ERROR: No matching signature for function DIV for argument types: DOUBLE, UINT32. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64) [at 1:8]
-select div(1.0,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: DOUBLE, UINT32
   Signature: DIV(INT64, INT64)
@@ -842,11 +716,6 @@ ALTERNATION GROUPS:
     1.0,int64
     1.0,1
 --
-ERROR: No matching signature for function DIV for argument types: DOUBLE, INT64. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64) [at 1:8]
-select div(1.0,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: DOUBLE, INT64
   Signature: DIV(INT64, INT64)
@@ -858,11 +727,6 @@ select div(1.0,
 --
 ALTERNATION GROUP: 1.0,uint64
 --
-ERROR: No matching signature for function DIV for argument types: DOUBLE, UINT64. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64) [at 1:8]
-select div(1.0,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: DOUBLE, UINT64
   Signature: DIV(INT64, INT64)
@@ -874,11 +738,6 @@ select div(1.0,
 --
 ALTERNATION GROUP: 1.0,1.0
 --
-ERROR: No matching signature for function DIV for argument types: DOUBLE, DOUBLE. Supported signatures: DIV(INT64, INT64); DIV(UINT64, UINT64) [at 1:8]
-select div(1.0,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DIV
   Argument types: DOUBLE, DOUBLE
   Signature: DIV(INT64, INT64)

@@ -124,7 +124,6 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
     ],
 )
@@ -326,6 +325,7 @@ cc_library(
     deps = [
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
+        "//zetasql/common:measure_utils",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:builtin_function_cc_proto",
         "//zetasql/public:catalog",
@@ -416,6 +416,7 @@ cc_library(
     srcs = ["builtin_function_inliner.cc"],
     hdrs = ["builtin_function_inliner.h"],
     deps = [
+        "//zetasql/analyzer:builtin_only_catalog",
         "//zetasql/analyzer:substitute",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
@@ -584,6 +585,7 @@ cc_library(
         "//zetasql/resolved_ast",
         "//zetasql/resolved_ast:column_factory",
         "//zetasql/resolved_ast:make_node_vector",
+        "//zetasql/resolved_ast:resolved_ast_builder",
         "//zetasql/resolved_ast:resolved_ast_enums_cc_proto",
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
         "//zetasql/resolved_ast:rewrite_utils",

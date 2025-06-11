@@ -14,6 +14,8 @@
 // limitations under the License.
 //
 
+// This file defines the lexer and parser used in the ZetaSQL analyzer.
+
 language sql(cc);
 namespace = "zetasql::parser"
 includeGuardPrefix = "STORAGE_ZETASQL_PARSER"
@@ -28,12 +30,18 @@ caseInsensitive = true
 scanBytes = true
 skipByteOrderMark = false
 variantStackEntry = true
+// Use "-opt" rather than "_opt" or the default "opt" so that its less likely
+// that this operator is confused for part of the symbol name.
+optInstantiationSuffix = "-opt"
 
 parseParams = [
-  "parser::LookaheadTransformer* tokenizer",
-  "parser::BisonParser* parser",
+  "LookaheadTransformer& tokenizer",
+  "const LanguageOptions& language_options",
+  "ASTNodeFactory& node_factory",
+  "WarningSink& warning_sink",
+  "MacroExpansionMode macro_expansion_mode",
   "ASTNode** ast_node_result",
-  "parser::ASTStatementProperties* ast_statement_properties",
+  "ASTStatementProperties* ast_statement_properties",
   "std::string* error_message",
   "ParseLocationPoint* error_location",
   "int* statement_end_byte_offset",
@@ -555,6 +563,7 @@ SENTINEL_NONRESERVED_KW_START:
 "CALL" (KW_CALL): /call/
 "CASCADE" (KW_CASCADE): /cascade/
 "CHECK" (KW_CHECK): /check/
+"CHEAPEST" (KW_CHEAPEST): /cheapest/
 "CLAMPED" (KW_CLAMPED): /clamped/
 "CLONE" (KW_CLONE): /clone/
 "COPY" (KW_COPY): /copy/
@@ -567,6 +576,7 @@ SENTINEL_NONRESERVED_KW_START:
 "CONTINUE" (KW_CONTINUE): /continue/
 "CONSTANT" (KW_CONSTANT): /constant/
 "CONSTRAINT" (KW_CONSTRAINT): /constraint/
+"COST" (KW_COST): /cost/
 "CYCLE" (KW_CYCLE): /cycle/
 "DATA" (KW_DATA): /data/
 "DATABASE" (KW_DATABASE): /database/
@@ -666,6 +676,7 @@ KW_MATCH_RECOGNIZE_NONRESERVED: /match_recognize/
 "PATTERN" (KW_PATTERN): /pattern/
 "PATH" (KW_PATH): /path/
 "PATHS" (KW_PATHS): /paths/
+"PER" (KW_PER): /per/
 "PERCENT" (KW_PERCENT): /percent/
 "PIVOT" (KW_PIVOT): /pivot/
 "POLICIES" (KW_POLICIES): /policies/
@@ -750,6 +761,7 @@ KW_QUALIFY_NONRESERVED {absl::string_view}: /qualify/
 "WEIGHT" (KW_WEIGHT): /weight/
 "WHILE" (KW_WHILE): /while/
 "WRITE" (KW_WRITE): /write/
+"YIELD" (KW_YIELD): /yield/
 "ZONE" (KW_ZONE): /zone/
 "EXCEPTION" (KW_EXCEPTION): /exception/
 "ERROR" (KW_ERROR): /error/
@@ -771,14 +783,6 @@ KW_CURRENT_DATETIME_FUNCTION:
 // emitted as MACRO_BODY_TOKEN. This prevents the parser from needing to
 // enumerate all token kinds to implement the macro body rule.
 MACRO_BODY_TOKEN {absl::string_view}:
-
-MODE_STATEMENT:
-MODE_SCRIPT:
-MODE_NEXT_STATEMENT:
-MODE_NEXT_SCRIPT_STATEMENT:
-MODE_NEXT_STATEMENT_KIND:
-MODE_EXPRESSION:
-MODE_TYPE:
 
 /* Whitespace and EOI rule.
 
@@ -979,6 +983,46 @@ catch_all: /./ -100 {
 // will be rejected at analysis time, since pipe INSERT is only allowed in
 // query statements, not in DML statements like INSERT.
 //
+// AMBIGUOUS CASE 15: COST in <graph_element_pattern_filler>
+// ----------------------------------
+//  graph_element_pattern_filler:
+//    opt_hint[hint] opt_graph_element_identifier[elem_name]
+//    opt_is_label_expression[label] opt_graph_property_specification[prop_spec]
+//    opt_where_clause[where] opt_graph_cost[cost]
+//
+// 'COST' is a non-reserved keyword that can be an identifier. There is a
+// grammatical ambiguity for inputs such as:
+//
+// 1)  MATCH (COST ● COST
+// 2)  MATCH (COST ● {
+//
+// At ● in #1, the parser must decide between:
+// * Make the first 'COST' `elem_name`. Then the second 'COST' is the keyword
+//   introducing `cost`.
+// * Make the first 'COST' the keyword introducing `cost`. That means the second
+//   'COST' is the first token of the cost expression.
+//
+// At ● in #2, the parser must decide between:
+// * Make 'COST' `elem_name`. Then '{' opens prop_spec.
+// * Make 'COST' the keyword introducing `cost`. Then '{' is the first token of
+//   the cost expression.
+//
+// Case #1 is a limitation of the single token lookahead, but #2 is a true
+// ambiguity.
+//
+// TODO: b/376552156 - Resolve this using precedence and `?` after EBNF release.
+//
+// AMBIGUOUS CASE 16: CALL PER()
+// ------------------------------
+// The PER keyword is non-reserved and can be used as an identifier.
+// When the parser sees `CALL PER(`, it can either assume this is the PER clause
+// and continue shifting, or it can assume this is already the tvf() (which is
+// called "per", reducing the PER() and ON() clauses as if they do not exist.
+// Allowing the resolution in favor of "shift" favors the PER clause.
+// There are 2 instances because graph subquery has a different entry point from
+// the main graph query.
+//
+//
 // Total expected shift/reduce conflicts as described above:
 //   1: SAFE CAST
 //   3: CREATE TABLE FUNCTION
@@ -995,7 +1039,9 @@ catch_all: /./ -100 {
 //   1: WITH OFFSET
 //   1: WITH WEIGHT
 //   2: Pipe INSERT
-%expect 27;
+//   2: COST
+//   2: CALL PER()
+%expect 31;
 
 // Precedence for operator tokens. The operator precedence is defined by the
 // order of the declarations here, with tokens specified in the same declaration
@@ -1035,57 +1081,54 @@ EDGE_ENDPOINT_PRECEDENCE
 // statements.
 %right "OFFSET" "SKIP" "LIMIT";
 
-%input start_mode;
-
-start_mode:
-    MODE_STATEMENT sql_statement { *ast_node_result = $2; }
-    | MODE_SCRIPT script { *ast_node_result = $2; }
-    | MODE_NEXT_STATEMENT next_statement { *ast_node_result = $2; }
-    | MODE_NEXT_SCRIPT_STATEMENT next_script_statement { *ast_node_result = $2; }
-    | MODE_NEXT_STATEMENT_KIND next_statement_kind
-      { ast_statement_properties->node_kind = $2; }
-    | MODE_EXPRESSION expression { *ast_node_result = $2; }
-    | MODE_TYPE type { *ast_node_result = $2; }
-    ;
-
+%input next_script_statement no-eoi,
+       next_statement no-eoi,
+       next_statement_kind no-eoi,
+       script,
+       sql_statement,
+       standalone_expression,
+       standalone_type;
 
 opt_semicolon: ";" | %empty ;
+semicolon_or_eoi: ";" | eoi ;
 
-sql_statement {ASTNode*}:
-    unterminated_sql_statement opt_semicolon
+sql_statement:
+    // Using `semicolon_or_eoi` here improves the error message.
+    // TODO: Remove 'opt_semicolon' and use semicolon_or_eoi.
+    unterminated_sql_statement[stmt] opt_semicolon
+    {
+      *ast_node_result = $stmt;
+    }
+    ;
+
+next_script_statement:
+    unterminated_statement[stmt] semicolon_or_eoi[stmt_end]
       {
-        $$ = $1;
+        *statement_end_byte_offset = @stmt_end.end().GetByteOffset();
+        *ast_node_result = $stmt;
       }
     ;
 
-next_script_statement {ASTNode*}:
-    unterminated_statement ";"
+next_statement:
+    unterminated_sql_statement[stmt] semicolon_or_eoi[stmt_end]
       {
-        // The semicolon marks the end of the statement.
-        SetForceTerminate(tokenizer, statement_end_byte_offset);
-        $$ = $1;
-      }
-    | unterminated_statement
-      {
-        // There's no semicolon. That means we have to be at EOI.
-        *statement_end_byte_offset = -1;
-        $$ = $1;
+        *statement_end_byte_offset = @stmt_end.end().GetByteOffset();
+        *ast_node_result = $stmt;
       }
     ;
 
-next_statement {ASTNode*}:
-    unterminated_sql_statement ";"
-      {
-        // The semicolon marks the end of the statement.
-        SetForceTerminate(tokenizer, statement_end_byte_offset);
-        $$ = $1;
-      }
-    | unterminated_sql_statement
-      {
-        // There's no semicolon. That means we have to be at EOI.
-        *statement_end_byte_offset = -1;
-        $$ = $1;
-      }
+standalone_expression:
+    expression
+    {
+      *ast_node_result = $expression;
+    }
+    ;
+
+standalone_type:
+    type
+    {
+      *ast_node_result = $type;
+    }
     ;
 
 // This rule exists to run an action before parsing a statement irrespective
@@ -1128,7 +1171,7 @@ unterminated_sql_statement {ASTNode*}:
     sql_statement_body
     | statement_level_hint[hint] sql_statement_body
       {
-        $$ = MAKE_NODE(ASTHintedStatement, @$, {$hint, $sql_statement_body});
+        $$ = MakeNode<ASTHintedStatement>(@$, $hint, $sql_statement_body);
       }
     | "DEFINE"[kw_define] "MACRO"
       {
@@ -1200,9 +1243,9 @@ unterminated_script_statement {ASTNode*}:
                            $label->GetAsStringView(), ", got ",
                            $end_label->GetAsStringView()));
         }
-        auto label = MAKE_NODE(ASTLabel, @label, {$label});
-        $stmt->AddChildFront(label);
-        $$ = parser->WithLocation($stmt, @$);
+        auto label = MakeNode<ASTLabel>(@label, $label);
+        ExtendNodeLeft($stmt, label);
+        $$ = WithLocation($stmt, @$);
       }
     ;
 
@@ -1270,7 +1313,7 @@ define_macro_statement {ASTNode*}:
     // is top-level (i.e., not nested under other statements or blocks like IF).
     KW_DEFINE_FOR_MACROS "MACRO"
       {
-        PushBisonParserMode(tokenizer, BisonParserMode::kMacroBody);
+        PushParserMode(tokenizer, ParserMode::kMacroBody);
       }
       MACRO_BODY_TOKEN[name] macro_body[body]
       {
@@ -1286,10 +1329,9 @@ define_macro_statement {ASTNode*}:
           name = name.substr(1, name.length()-2);
         }
 
-        PopBisonParserMode(tokenizer);
-        $$ = MAKE_NODE(ASTDefineMacroStatement,
-                       @$,
-                       {parser->MakeIdentifier(@name, name), $body});
+        PopParserMode(tokenizer);
+        $$ = MakeNode<ASTDefineMacroStatement>(@$,
+                       node_factory.MakeIdentifier(@name, name), $body);
       }
     ;
 
@@ -1307,19 +1349,11 @@ define_macro_statement {ASTNode*}:
 macro_body {ASTNode*}:
     %empty
       {
-        auto* macro_body = MAKE_NODE(ASTMacroBody, @$);
-        macro_body->set_image("");
-        $$ = macro_body;
+        $$ = MakeNode<ASTMacroBody>(@$);
       }
     | macro_token_list
       {
-        auto* macro_body = MAKE_NODE(ASTMacroBody, @$);
-        // Macro definitions are never expanded from other macros, so
-        // GetInputText() is safe. This is the only situation where
-        // GetInputText() is safe, and we have no other easy way to get the text
-        // as macro_token_list is a non-terminal.
-        macro_body->set_image(std::string(parser->GetInputText(@1)));
-        $$ = macro_body;
+        $$ = MakeNode<ASTMacroBody>(@$);
       }
     ;
 
@@ -1331,55 +1365,54 @@ macro_token_list:
 query_statement {ASTNode*}:
     query
       {
-        $$ = MAKE_NODE(ASTQueryStatement, @$, {$1});
+        $$ = MakeNode<ASTQueryStatement>(@$, $1);
       }
     ;
 
 alter_action {ASTNode*}:
     "SET" "OPTIONS" options_list
       {
-        $$ = MAKE_NODE(ASTSetOptionsAction, @$, {$3});
+        $$ = MakeNode<ASTSetOptionsAction>(@$, $3);
       }
     | "SET" "AS" generic_entity_body[body]
       // See (broken link)
       {
-        $$ = MAKE_NODE(ASTSetAsAction, @$, {$body});
+        $$ = MakeNode<ASTSetAsAction>(@$, $body);
       }
     | "ADD" table_constraint_spec
       {
-        $$ = MAKE_NODE(ASTAddConstraintAction, @$, {$2});
+        $$ = MakeNode<ASTAddConstraintAction>(@$, $2);
       }
     | "ADD" primary_key_spec
       {
-        $$ = MAKE_NODE(ASTAddConstraintAction, @$, {$2});
+        $$ = MakeNode<ASTAddConstraintAction>(@$, $2);
       }
-    | "ADD" "CONSTRAINT" opt_if_not_exists identifier
-        primary_key_or_table_constraint_spec
+    | "ADD" "CONSTRAINT" opt_if_not_exists identifier[name]
+        primary_key_or_table_constraint_spec[constraint]
       {
-        auto* constraint = $5;
-        constraint->AddChild($4);
-        parser->WithStartLocation(constraint, @4);
-        auto* node = MAKE_NODE(ASTAddConstraintAction, @$, {constraint});
+        ExtendNodeRight($constraint, @constraint.end(), $name);
+        WithStartLocation($constraint, @name.start());
+        auto* node = MakeNode<ASTAddConstraintAction>(@$, $constraint);
         node->set_is_if_not_exists($3);
         $$ = node;
       }
     | "DROP" "CONSTRAINT" opt_if_exists identifier
       {
         auto* node =
-          MAKE_NODE(ASTDropConstraintAction, @$, {$4});
+          MakeNode<ASTDropConstraintAction>(@$, $4);
         node->set_is_if_exists($3);
         $$ = node;
       }
     | "DROP" "PRIMARY" "KEY" opt_if_exists
       {
-        auto* node = MAKE_NODE(ASTDropPrimaryKeyAction, @$, {});
+        auto* node = MakeNode<ASTDropPrimaryKeyAction>(@$);
         node->set_is_if_exists($4);
         $$ = node;
       }
     | "ALTER" "CONSTRAINT" opt_if_exists identifier constraint_enforcement
       {
         auto* node =
-          MAKE_NODE(ASTAlterConstraintEnforcementAction, @$, {$4});
+          MakeNode<ASTAlterConstraintEnforcementAction>(@$, $4);
         node->set_is_if_exists($3);
         node->set_is_enforced($5);
         $$ = node;
@@ -1387,124 +1420,124 @@ alter_action {ASTNode*}:
     | "ALTER" "CONSTRAINT" opt_if_exists identifier "SET" "OPTIONS" options_list
       {
         auto* node =
-          MAKE_NODE(ASTAlterConstraintSetOptionsAction, @$, {$4, $7});
+          MakeNode<ASTAlterConstraintSetOptionsAction>(@$, $4, $7);
         node->set_is_if_exists($3);
         $$ = node;
       }
     | "ADD" "COLUMN" opt_if_not_exists table_column_definition
           opt_column_position opt_fill_using_expression
       {
-        auto* node = MAKE_NODE(ASTAddColumnAction, @$, {$4, $5, $6});
+        auto* node = MakeNode<ASTAddColumnAction>(@$, $4, $5, $6);
         node->set_is_if_not_exists($3);
         $$ = node;
       }
     | "DROP" "COLUMN" opt_if_exists identifier
       {
-        auto* node = MAKE_NODE(ASTDropColumnAction, @$, {$4});
+        auto* node = MakeNode<ASTDropColumnAction>(@$, $4);
         node->set_is_if_exists($3);
         $$ = node;
       }
     | "RENAME" "COLUMN" opt_if_exists identifier "TO" identifier
       {
-        auto* node = MAKE_NODE(ASTRenameColumnAction, @$, {$4, $6});
+        auto* node = MakeNode<ASTRenameColumnAction>(@$, $4, $6);
         node->set_is_if_exists($3);
         $$ = node;
       }
     | "ALTER" "COLUMN" opt_if_exists identifier "SET" "DATA" "TYPE"
           field_schema
       {
-        auto* node = MAKE_NODE(ASTAlterColumnTypeAction, @$, {$4, $8});
+        auto* node = MakeNode<ASTAlterColumnTypeAction>(@$, $4, $8);
         node->set_is_if_exists($3);
         $$ = node;
       }
     | "ALTER" "COLUMN" opt_if_exists identifier "SET" "OPTIONS" options_list
       {
-        auto* node = MAKE_NODE(ASTAlterColumnOptionsAction, @$, {$4, $7});
+        auto* node = MakeNode<ASTAlterColumnOptionsAction>(@$, $4, $7);
         node->set_is_if_exists($3);
         $$ = node;
       }
     | "ALTER" "COLUMN" opt_if_exists identifier "SET" "DEFAULT" expression
       {
-        auto* node = MAKE_NODE(ASTAlterColumnSetDefaultAction, @$,{$4, $7});
+        auto* node = MakeNode<ASTAlterColumnSetDefaultAction>(@$, $4, $7);
         node->set_is_if_exists($3);
         $$ = node;
       }
     | "ALTER" "COLUMN" opt_if_exists identifier "DROP" "DEFAULT"
       {
-        auto* node = MAKE_NODE(ASTAlterColumnDropDefaultAction, @$, {$4});
+        auto* node = MakeNode<ASTAlterColumnDropDefaultAction>(@$, $4);
         node->set_is_if_exists($3);
         $$ = node;
       }
     | "ALTER" "COLUMN" opt_if_exists identifier "DROP" "NOT" "NULL"
       {
-        auto* node = MAKE_NODE(ASTAlterColumnDropNotNullAction, @$, {$4});
+        auto* node = MakeNode<ASTAlterColumnDropNotNullAction>(@$, $4);
         node->set_is_if_exists($3);
         $$ = node;
       }
     | "ALTER" "COLUMN" opt_if_exists identifier "DROP" "GENERATED"
       {
         auto* node =
-            MAKE_NODE(ASTAlterColumnDropGeneratedAction, @$, {$identifier});
+            MakeNode<ASTAlterColumnDropGeneratedAction>(@$, $identifier);
         node->set_is_if_exists($opt_if_exists);
         $$ = node;
       }
     | "RENAME" "TO" path_expression
       {
-        $$ = MAKE_NODE(ASTRenameToClause, @$, {$3});
+        $$ = MakeNode<ASTRenameToClause>(@$, $3);
       }
     | "SET" "DEFAULT" collate_clause
       {
-        $$ = MAKE_NODE(ASTSetCollateClause, @$, {$3});
+        $$ = MakeNode<ASTSetCollateClause>(@$, $3);
       }
     | "ADD" "ROW" "DELETION" "POLICY" opt_if_not_exists "(" expression ")"
       {
-        if (!parser->language_options().LanguageFeatureEnabled(
-              FEATURE_V_1_4_TTL)) {
+        if (!language_options.LanguageFeatureEnabled(
+              FEATURE_TTL)) {
           return MakeSyntaxError(@2,
             "ADD ROW DELETION POLICY clause is not supported.");
         }
-        auto* node = MAKE_NODE(ASTAddTtlAction, @$, {$7});
+        auto* node = MakeNode<ASTAddTtlAction>(@$, $7);
         node->set_is_if_not_exists($5);
         $$ = node;
       }
     | "REPLACE" "ROW" "DELETION" "POLICY" opt_if_exists "(" expression ")"
       {
-        if (!parser->language_options().LanguageFeatureEnabled(
-              FEATURE_V_1_4_TTL)) {
+        if (!language_options.LanguageFeatureEnabled(
+              FEATURE_TTL)) {
           return MakeSyntaxError(@2,
             "REPLACE ROW DELETION POLICY clause is not supported.");
         }
-        auto* node = MAKE_NODE(ASTReplaceTtlAction, @$, {$7});
+        auto* node = MakeNode<ASTReplaceTtlAction>(@$, $7);
         node->set_is_if_exists($5);
         $$ = node;
       }
     | "DROP" "ROW" "DELETION" "POLICY" opt_if_exists
       {
-        if (!parser->language_options().LanguageFeatureEnabled(
-              FEATURE_V_1_4_TTL)) {
+        if (!language_options.LanguageFeatureEnabled(
+              FEATURE_TTL)) {
           return MakeSyntaxError(@2,
             "DROP ROW DELETION POLICY clause is not supported.");
         }
-        auto* node = MAKE_NODE(ASTDropTtlAction, @$, {});
+        auto* node = MakeNode<ASTDropTtlAction>(@$);
         node->set_is_if_exists($5);
         $$ = node;
       }
     | "ALTER" generic_sub_entity_type opt_if_exists identifier alter_action
       {
-        auto* node = MAKE_NODE(ASTAlterSubEntityAction, @$, {$2, $4, $5});
+        auto* node = MakeNode<ASTAlterSubEntityAction>(@$, $2, $4, $5);
         node->set_is_if_exists($3);
         $$ = node;
       }
     | "ADD" generic_sub_entity_type opt_if_not_exists identifier
       opt_options_list
       {
-        auto* node = MAKE_NODE(ASTAddSubEntityAction, @$, {$2, $4, $5});
+        auto* node = MakeNode<ASTAddSubEntityAction>(@$, $2, $4, $5);
         node->set_is_if_not_exists($3);
         $$ = node;
       }
     | "DROP" generic_sub_entity_type opt_if_exists identifier
       {
-        auto* node = MAKE_NODE(ASTDropSubEntityAction, @$, {$2, $4});
+        auto* node = MakeNode<ASTDropSubEntityAction>(@$, $2, $4);
         node->set_is_if_exists($3);
         $$ = node;
       }
@@ -1515,11 +1548,11 @@ alter_action {ASTNode*}:
 alter_action_list {ASTNode*}:
     alter_action
       {
-        $$ = MAKE_NODE(ASTAlterActionList, @$, {$1});
+        $$ = MakeNode<ASTAlterActionList>(@$, $1);
       }
     | alter_action_list "," alter_action
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
@@ -1529,14 +1562,13 @@ privilege_restriction_alter_action {ASTNode*}:
     restrict_to_clause
     | "ADD" opt_if_not_exists possibly_empty_grantee_list
       {
-        auto* node = MAKE_NODE(ASTAddToRestricteeListClause, @$, {$3});
+        auto* node = MakeNode<ASTAddToRestricteeListClause>(@$, $3);
         node->set_is_if_not_exists($2);
         $$ = node;
       }
     | "REMOVE" opt_if_exists possibly_empty_grantee_list
       {
-        auto* node = MAKE_NODE(
-            ASTRemoveFromRestricteeListClause, @$, {$3}
+        auto* node = MakeNode<ASTRemoveFromRestricteeListClause>(@$, $3
         );
         node->set_is_if_exists($2);
         $$ = node;
@@ -1548,12 +1580,12 @@ privilege_restriction_alter_action {ASTNode*}:
 privilege_restriction_alter_action_list {ASTNode*}:
     privilege_restriction_alter_action
       {
-        $$ = MAKE_NODE(ASTAlterActionList, @$, {$1});
+        $$ = MakeNode<ASTAlterActionList>(@$, $1);
       }
     | privilege_restriction_alter_action_list ","
     privilege_restriction_alter_action
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
@@ -1566,40 +1598,40 @@ privilege_restriction_alter_action_list {ASTNode*}:
 alter_index_action_list {ASTNode*}:
     alter_index_action
       {
-        $$ = MAKE_NODE(ASTAlterActionList, @$, {$1});
+        $$ = MakeNode<ASTAlterActionList>(@$, $1);
       }
     | alter_index_action_list "," alter_index_action
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 alter_index_action {ASTNode*}:
     "SET" "OPTIONS" options_list
       {
-        $$ = MAKE_NODE(ASTSetOptionsAction, @$, {$3});
+        $$ = MakeNode<ASTSetOptionsAction>(@$, $3);
       }
     | "ADD" "COLUMN" opt_if_not_exists identifier opt_options_list
       {
-        auto* node = MAKE_NODE(ASTAddColumnIdentifierAction, @$, {$4, $5});
+        auto* node = MakeNode<ASTAddColumnIdentifierAction>(@$, $4, $5);
         node->set_is_if_not_exists($3);
         $$ = node;
       }
     | "DROP" "COLUMN" opt_if_exists identifier
       {
-        auto* node = MAKE_NODE(ASTDropColumnAction, @$, {$4});
+        auto* node = MakeNode<ASTDropColumnAction>(@$, $4);
         node->set_is_if_exists($3);
         $$ = node;
       }
     | "ALTER" "COLUMN" opt_if_exists identifier "SET" "OPTIONS" options_list
       {
-        auto* node = MAKE_NODE(ASTAlterColumnOptionsAction, @$, {$4, $7});
+        auto* node = MakeNode<ASTAlterColumnOptionsAction>(@$, $4, $7);
         node->set_is_if_exists($3);
         $$ = node;
       }
     | "REBUILD"
       {
-        auto* node = MAKE_NODE(ASTRebuildAction, @$, {});
+        auto* node = MakeNode<ASTRebuildAction>(@$);
         $$ = node;
       }
     ;
@@ -1610,27 +1642,25 @@ row_access_policy_alter_action {ASTNode*}:
     grant_to_clause
     | "FILTER" "USING" "(" expression ")"
       {
-        ASTFilterUsingClause* node = MAKE_NODE(
-            ASTFilterUsingClause, @$, {$4});
+        ASTFilterUsingClause* node = MakeNode<ASTFilterUsingClause>(@$, $4);
         node->set_has_filter_keyword(true);
         $$ = node;
       }
     | "REVOKE" "FROM" "(" grantee_list ")"
       {
-        $$ = MAKE_NODE(ASTRevokeFromClause, @$, {$4});
+        $$ = MakeNode<ASTRevokeFromClause>(@$, $4);
       }
     | "REVOKE" "FROM" "ALL"
       {
-        ASTRevokeFromClause* node = MAKE_NODE(
-            ASTRevokeFromClause, @$);
+        ASTRevokeFromClause* node = MakeNode<ASTRevokeFromClause>(@$);
         node->set_is_revoke_from_all(true);
         $$ = node;
       }
     | "RENAME" "TO" identifier
       {
         ASTPathExpression* id =
-            MAKE_NODE(ASTPathExpression, @3, {$3});
-        $$ = MAKE_NODE(ASTRenameToClause, @$, {id});
+            MakeNode<ASTPathExpression>(@3, $3);
+        $$ = MakeNode<ASTRenameToClause>(@$, id);
       }
     ;
 
@@ -1639,11 +1669,11 @@ row_access_policy_alter_action {ASTNode*}:
 row_access_policy_alter_action_list {ASTNode*}:
     row_access_policy_alter_action
       {
-        $$ = MAKE_NODE(ASTAlterActionList, @$, {$1});
+        $$ = MakeNode<ASTAlterActionList>(@$, $1);
       }
     | row_access_policy_alter_action_list "," row_access_policy_alter_action
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
@@ -1702,33 +1732,32 @@ alter_statement {ASTNode*}:
         if ($2 == TableOrTableFunctionKeywords::kTableAndFunctionKeywords) {
           return MakeSyntaxError(@2, "ALTER TABLE FUNCTION is not supported");
         }
-        ASTAlterTableStatement* node = MAKE_NODE(
-          ASTAlterTableStatement, @$, {$4, $5});
+        ASTAlterTableStatement* node = MakeNode<ASTAlterTableStatement>(@$, $4, $5);
         node->set_is_if_exists($3);
         $$ = node;
       }
-    | "ALTER" schema_object_kind opt_if_exists path_expression
-      alter_action_list
+    | "ALTER" schema_object_kind opt_if_exists path_expression[name]
+      alter_action_list[actions]
       {
         ASTAlterStatementBase* node = nullptr;
         // Only ALTER DATABASE, SCHEMA, TABLE, VIEW, MATERIALIZED VIEW,
         // APPROX VIEW and MODEL are currently supported.
         if ($2 == SchemaObjectKind::kApproxView) {
-          node = MAKE_NODE(ASTAlterApproxViewStatement, @$);
+          node = MakeNode<ASTAlterApproxViewStatement>(@$);
         } else if ($2 == SchemaObjectKind::kConnection) {
-          node = MAKE_NODE(ASTAlterConnectionStatement, @$);
+          node = MakeNode<ASTAlterConnectionStatement>(@$);
         } else if ($2 == SchemaObjectKind::kDatabase) {
-          node = MAKE_NODE(ASTAlterDatabaseStatement, @$);
+          node = MakeNode<ASTAlterDatabaseStatement>(@$);
         } else if ($2 == SchemaObjectKind::kSchema) {
-          node = MAKE_NODE(ASTAlterSchemaStatement, @$);
+          node = MakeNode<ASTAlterSchemaStatement>(@$);
         } else if ($2 == SchemaObjectKind::kExternalSchema) {
-          node = MAKE_NODE(ASTAlterExternalSchemaStatement, @$);
+          node = MakeNode<ASTAlterExternalSchemaStatement>(@$);
         } else if ($2 == SchemaObjectKind::kView) {
-          node = MAKE_NODE(ASTAlterViewStatement, @$);
+          node = MakeNode<ASTAlterViewStatement>(@$);
         } else if ($2 == SchemaObjectKind::kMaterializedView) {
-          node = MAKE_NODE(ASTAlterMaterializedViewStatement, @$);
+          node = MakeNode<ASTAlterMaterializedViewStatement>(@$);
         } else if ($2 == SchemaObjectKind::kModel) {
-          node = MAKE_NODE(ASTAlterModelStatement, @$);
+          node = MakeNode<ASTAlterModelStatement>(@$);
         } else {
           return MakeSyntaxError(
             @2,
@@ -1739,19 +1768,18 @@ alter_statement {ASTNode*}:
               " is not supported"));
         }
         node->set_is_if_exists($3);
-        node->AddChildren({$4, $5});
-        $$ = parser->WithLocation(node, @$);
+        $$ = ExtendNodeRight(node, $name, $actions);
       }
     | "ALTER" generic_entity_type opt_if_exists path_expression
       alter_action_list
       {
-        auto* node = MAKE_NODE(ASTAlterEntityStatement, @$, {$2, $4, $5});
+        auto* node = MakeNode<ASTAlterEntityStatement>(@$, $2, $4, $5);
         node->set_is_if_exists($3);
         $$ = node;
       }
     | "ALTER" generic_entity_type opt_if_exists alter_action_list
       {
-        auto* node = MAKE_NODE(ASTAlterEntityStatement, @$, {$2, nullptr, $4});
+        auto* node = MakeNode<ASTAlterEntityStatement>(@$, $2, $4);
         node->set_is_if_exists($3);
         $$ = node;
       }
@@ -1759,28 +1787,26 @@ alter_statement {ASTNode*}:
       "ON" privilege_list "ON" identifier path_expression
       privilege_restriction_alter_action_list
       {
-        auto* alter_privilege_restriction = MAKE_NODE(
-            ASTAlterPrivilegeRestrictionStatement, @$, {$6, $8, $9, $10});
+        auto* alter_privilege_restriction = MakeNode<ASTAlterPrivilegeRestrictionStatement>(@$, $6, $8, $9, $10);
         alter_privilege_restriction->set_is_if_exists($4);
         $$ = alter_privilege_restriction;
       }
     | "ALTER" "ROW" "ACCESS" "POLICY" opt_if_exists identifier "ON"
       path_expression row_access_policy_alter_action_list
       {
-        ASTAlterRowAccessPolicyStatement* node = MAKE_NODE(
-            ASTAlterRowAccessPolicyStatement, @$, {$6, $8, $9});
+        ASTAlterRowAccessPolicyStatement* node = MakeNode<ASTAlterRowAccessPolicyStatement>(@$, $6, $8, $9);
         node->set_is_if_exists($5);
         $$ = node;
       }
     | "ALTER" "ALL" "ROW" "ACCESS" "POLICIES" "ON" path_expression
       row_access_policy_alter_action
       {
-        $$ = MAKE_NODE(ASTAlterAllRowAccessPoliciesStatement, @$, {$7, $8});
+        $$ = MakeNode<ASTAlterAllRowAccessPoliciesStatement>(@$, $7, $8);
       }
     | "ALTER" alter_index_type "INDEX" opt_if_exists path_expression
       opt_on_path_expression alter_index_action_list
       {
-        auto* alter_index = MAKE_NODE(ASTAlterIndexStatement, @$, {$5, $6, $7});
+        auto* alter_index = MakeNode<ASTAlterIndexStatement>(@$, $5, $6, $7);
         alter_index->set_index_type($2);
         alter_index->set_is_if_exists($4);
         $$ = alter_index;
@@ -1802,7 +1828,7 @@ opt_input_output_clause {ASTNode*}:
           return MakeSyntaxError(@4,
                 "Syntax error: Element list contains unexpected constraint");
         }
-        $$ = MAKE_NODE(ASTInputOutputClause, @$, {$2, $4});
+        $$ = MakeNode<ASTInputOutputClause>(@$, $2, $4);
       }
     | %empty { $$ = nullptr; }
     ;
@@ -1810,7 +1836,7 @@ opt_input_output_clause {ASTNode*}:
 opt_transform_clause {ASTNode*}:
     "TRANSFORM" "(" select_list ")"
       {
-        $$ = MAKE_NODE(ASTTransformClause, @$, {$3});
+        $$ = MakeNode<ASTTransformClause>(@$, $3);
       }
     | %empty { $$ = nullptr; }
     ;
@@ -1818,7 +1844,7 @@ opt_transform_clause {ASTNode*}:
 assert_statement {ASTNode*}:
     "ASSERT" expression opt_description
       {
-        $$ = MAKE_NODE(ASTAssertStatement, @$, {$2, $3});
+        $$ = MakeNode<ASTAssertStatement>(@$, $2, $3);
       }
     ;
 
@@ -1836,7 +1862,7 @@ opt_description {ASTNode*}:
 analyze_statement {ASTNode*}:
     "ANALYZE" opt_options_list opt_table_and_column_info_list
       {
-        $$ = MAKE_NODE(ASTAnalyzeStatement, @$, {$2, $3});
+        $$ = MakeNode<ASTAnalyzeStatement>(@$, $2, $3);
       }
     ;
 
@@ -1848,52 +1874,52 @@ opt_table_and_column_info_list {ASTNode*}:
 table_and_column_info_list {ASTNode*}:
     table_and_column_info
       {
-        $$ = MAKE_NODE(ASTTableAndColumnInfoList, @$, {$1});
+        $$ = MakeNode<ASTTableAndColumnInfoList>(@$, $1);
       }
     | table_and_column_info_list "," table_and_column_info
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 table_and_column_info {ASTNode*}:
     maybe_dashed_path_expression opt_column_list
       {
-        $$ = MAKE_NODE(ASTTableAndColumnInfo, @$, {$1, $2});
+        $$ = MakeNode<ASTTableAndColumnInfo>(@$, $1, $2);
       }
     ;
 
 transaction_mode {ASTNode*}:
     "READ" "ONLY"
       {
-        auto* node = MAKE_NODE(ASTTransactionReadWriteMode, @$, {});
+        auto* node = MakeNode<ASTTransactionReadWriteMode>(@$);
         node->set_mode(ASTTransactionReadWriteMode::READ_ONLY);
         $$ = node;
       }
     | "READ" "WRITE"
       {
-        auto* node = MAKE_NODE(ASTTransactionReadWriteMode, @$, {});
+        auto* node = MakeNode<ASTTransactionReadWriteMode>(@$);
         node->set_mode(ASTTransactionReadWriteMode::READ_WRITE);
         $$ = node;
       }
     | "ISOLATION" "LEVEL" identifier
       {
-        $$ = MAKE_NODE(ASTTransactionIsolationLevel, @$, {$3});
+        $$ = MakeNode<ASTTransactionIsolationLevel>(@$, $3);
       }
     | "ISOLATION" "LEVEL" identifier identifier
       {
-        $$ = MAKE_NODE(ASTTransactionIsolationLevel, @$, {$3, $4});
+        $$ = MakeNode<ASTTransactionIsolationLevel>(@$, $3, $4);
       }
     ;
 
 transaction_mode_list {ASTNode*}:
     transaction_mode
       {
-        $$ = MAKE_NODE(ASTTransactionModeList, @$, {$1});
+        $$ = MakeNode<ASTTransactionModeList>(@$, $1);
       }
     | transaction_mode_list "," transaction_mode
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
@@ -1908,7 +1934,7 @@ opt_transaction_mode_list {ASTNode*}:
 begin_statement {ASTNode*}:
     begin_transaction_keywords opt_transaction_mode_list
       {
-        $$ = MAKE_NODE(ASTBeginStatement, @$, {$2});
+        $$ = MakeNode<ASTBeginStatement>(@$, $2);
       }
     ;
 
@@ -1929,23 +1955,23 @@ opt_transaction_keyword:
 set_statement {ASTNode*}:
     "SET" "TRANSACTION" transaction_mode_list
       {
-        $$ = MAKE_NODE(ASTSetTransactionStatement, @$, {$3});
+        $$ = MakeNode<ASTSetTransactionStatement>(@$, $3);
       }
     | "SET" identifier "=" expression
     {
-      $$ = MAKE_NODE(ASTSingleAssignment, @$, {$2, $4});
+      $$ = MakeNode<ASTSingleAssignment>(@$, $2, $4);
     }
     | "SET" named_parameter_expression "=" expression
     {
-      $$ = MAKE_NODE(ASTParameterAssignment, @$, {$2, $4});
+      $$ = MakeNode<ASTParameterAssignment>(@$, $2, $4);
     }
     | "SET" system_variable_expression "=" expression
     {
-      $$ = MAKE_NODE(ASTSystemVariableAssignment, @$, {$2, $4});
+      $$ = MakeNode<ASTSystemVariableAssignment>(@$, $2, $4);
     }
     | "SET" "(" identifier_list ")" "=" expression
     {
-      $$ = MAKE_NODE(ASTAssignmentFromStruct, @$, {$3, $6});
+      $$ = MakeNode<ASTAssignmentFromStruct>(@$, $3, $6);
     }
     | "SET" "(" ")"
     {
@@ -1966,35 +1992,35 @@ set_statement {ASTNode*}:
 commit_statement {ASTNode*}:
     "COMMIT" opt_transaction_keyword
       {
-        $$ = MAKE_NODE(ASTCommitStatement, @$, {});
+        $$ = MakeNode<ASTCommitStatement>(@$);
       }
     ;
 
 rollback_statement {ASTNode*}:
     "ROLLBACK" opt_transaction_keyword
       {
-        $$ = MAKE_NODE(ASTRollbackStatement, @$, {});
+        $$ = MakeNode<ASTRollbackStatement>(@$);
       }
     ;
 
 start_batch_statement {ASTNode*}:
     "START" "BATCH" opt_identifier
       {
-        $$ = MAKE_NODE(ASTStartBatchStatement, @$, {$3});
+        $$ = MakeNode<ASTStartBatchStatement>(@$, $3);
       }
     ;
 
 run_batch_statement {ASTNode*}:
     "RUN" "BATCH"
       {
-        $$ = MAKE_NODE(ASTRunBatchStatement, @$, {});
+        $$ = MakeNode<ASTRunBatchStatement>(@$);
       }
     ;
 
 abort_batch_statement {ASTNode*}:
     "ABORT" "BATCH"
       {
-        $$ = MAKE_NODE(ASTAbortBatchStatement, @$, {});
+        $$ = MakeNode<ASTAbortBatchStatement>(@$);
       }
     ;
 
@@ -2002,7 +2028,7 @@ create_constant_statement {ASTNode*}:
     "CREATE" opt_or_replace opt_create_scope "CONSTANT" opt_if_not_exists
     path_expression "=" expression
       {
-        auto* create = MAKE_NODE(ASTCreateConstantStatement, @$, {$6, $8});
+        auto* create = MakeNode<ASTCreateConstantStatement>(@$, $6, $8);
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_is_if_not_exists($5);
@@ -2013,7 +2039,7 @@ create_constant_statement {ASTNode*}:
 create_database_statement {ASTNode*}:
     "CREATE" "DATABASE" path_expression opt_options_list
       {
-        $$ = MAKE_NODE(ASTCreateDatabaseStatement, @$, {$3, $4});
+        $$ = MakeNode<ASTCreateDatabaseStatement>(@$, $3, $4);
       }
     ;
 
@@ -2026,10 +2052,11 @@ unordered_options_body {OptionsBodySet}:
     | as_sql_function_body_or_string[body] opt_options_list[options]
       {
         if ($options != nullptr) {
-          parser->AddWarning(parser->GenerateWarning(
-              "The preferred style places the OPTIONS clause before the "
-              "function body.",
-              (@options).start().GetByteOffset()));
+          ZETASQL_RETURN_IF_ERROR(warning_sink.AddWarning(
+              DeprecationWarning::LEGACY_FUNCTION_OPTIONS_PLACEMENT,
+              MakeSqlErrorAtStart(@options)
+                  << "The preferred style places the OPTIONS clause before the "
+                  << "function body."));
         }
         $$.options = $options;
         $$.body = $body;
@@ -2050,10 +2077,9 @@ create_function_statement {ASTNode*}:
         opt_language_or_remote_with_connection[language]
         unordered_options_body[uob]
       {
-        auto* create = MAKE_NODE(
-            ASTCreateFunctionStatement, @$,
-            {$function_declaration, $opt_function_returns, $language.language,
-             $language.with_connection_clause, $uob.body, $uob.options});
+        auto* create = MakeNode<ASTCreateFunctionStatement>(@$,
+            $function_declaration, $opt_function_returns, $language.language,
+             $language.with_connection_clause, $uob.body, $uob.options);
         create->set_is_or_replace($opt_or_replace);
         create->set_scope($opt_create_scope);
         create->set_is_aggregate($opt_aggregate);
@@ -2080,7 +2106,7 @@ opt_not_aggregate {bool}:
 function_declaration {ASTNode*}:
     path_expression function_parameters
       {
-        $$ = MAKE_NODE(ASTFunctionDeclaration, @$, {$1, $2});
+        $$ = MakeNode<ASTFunctionDeclaration>(@$, $1, $2);
       }
     ;
 
@@ -2088,13 +2114,13 @@ function_parameter {ASTNode*}:
     identifier type_or_tvf_schema opt_as_alias_with_required_as
       opt_default_expression opt_not_aggregate
       {
-        auto* parameter = MAKE_NODE(ASTFunctionParameter, @$, {$1, $2, $3, $4});
+        auto* parameter = MakeNode<ASTFunctionParameter>(@$, $1, $2, $3, $4);
         parameter->set_is_not_aggregate($5);
         $$ = parameter;
       }
     | type_or_tvf_schema opt_as_alias_with_required_as opt_not_aggregate
       {
-        auto* parameter = MAKE_NODE(ASTFunctionParameter, @$, {$1, $2});
+        auto* parameter = MakeNode<ASTFunctionParameter>(@$, $1, $2);
         parameter->set_is_not_aggregate($3);
         $$ = parameter;
       }
@@ -2103,38 +2129,37 @@ function_parameter {ASTNode*}:
 function_parameters_prefix {ASTNode*}:
     "(" function_parameter
       {
-        $$ = MAKE_NODE(ASTFunctionParameters, @$, {$2});
+        $$ = MakeNode<ASTFunctionParameters>(@$, $2);
       }
     | function_parameters_prefix "," function_parameter
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 function_parameters {ASTNode*}:
     function_parameters_prefix ")"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     | "(" ")"
       {
-        $$ = MAKE_NODE(ASTFunctionParameters, @$);
+        $$ = MakeNode<ASTFunctionParameters>(@$);
       }
     ;
 
 begin_end_block_or_language_as_code {BeginEndBlockOrLanguageAsCode}:
     begin_end_block
       {
-        ASTStatementList* stmt_list = MAKE_NODE(
-            ASTStatementList, @1, {$1});
-        ASTScript* body = MAKE_NODE(ASTScript, @1, {stmt_list});
+        ASTStatementList* stmt_list = MakeNode<ASTStatementList>(@1, $1);
+        ASTScript* body = MakeNode<ASTScript>(@1, stmt_list);
         $$.body = body;
         $$.language = nullptr;
         $$.code = nullptr;
       }
     | "LANGUAGE" identifier opt_as_code
       {
-        if (parser->language_options().LanguageFeatureEnabled(
+        if (language_options.LanguageFeatureEnabled(
                 FEATURE_NON_SQL_PROCEDURE)) {
           $$.body = nullptr;
           $$.language = $2;
@@ -2165,8 +2190,8 @@ create_procedure_statement {ASTNode*}:
     begin_end_block_or_language_as_code
     {
       auto* create =
-          MAKE_NODE(ASTCreateProcedureStatement, @$,
-                    {$6, $7, $10, $11.body, $9, $11.language, $11.code});
+          MakeNode<ASTCreateProcedureStatement>(@$,
+                    $6, $7, $10, $11.body, $9, $11.language, $11.code);
       create->set_is_or_replace($2);
       create->set_scope($3);
       create->set_is_if_not_exists($5);
@@ -2178,22 +2203,22 @@ create_procedure_statement {ASTNode*}:
 procedure_parameters_prefix {ASTNode*}:
     "(" procedure_parameter
       {
-        $$ = MAKE_NODE(ASTFunctionParameters, @$, {$2});
+        $$ = MakeNode<ASTFunctionParameters>(@$, $2);
       }
     | procedure_parameters_prefix "," procedure_parameter
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 procedure_parameters {ASTNode*}:
     procedure_parameters_prefix ")"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     | "(" ")"
       {
-        $$ = MAKE_NODE(ASTFunctionParameters, @$);
+        $$ = MakeNode<ASTFunctionParameters>(@$);
       }
     ;
 
@@ -2205,16 +2230,16 @@ procedure_parameter_termination:
 procedure_parameter {ASTNode*}:
     opt_procedure_parameter_mode identifier type_or_tvf_schema
       {
-        auto* parameter = MAKE_NODE(ASTFunctionParameter, @$, {$2, $3});
+        auto* parameter = MakeNode<ASTFunctionParameter>(@$, $2, $3);
         parameter->set_procedure_parameter_mode($1);
         $$ = parameter;
       }
     | opt_procedure_parameter_mode identifier procedure_parameter_termination
       {
         // There may be 3 cases causing this error:
-        // 1. OUT int32_t where mode is empty and intended identifier name is
+        // 1. OUT int32 where mode is empty and intended identifier name is
         //    "OUT"
-        // 2. OUT int32_t where mode is OUT and identifier is missing
+        // 2. OUT int32 where mode is OUT and identifier is missing
         // 3. OUT param_a where type is missing
         return MakeSyntaxError(@3,
                              "Syntax error: Unexpected end of parameter."
@@ -2302,8 +2327,8 @@ opt_language {ASTIdentifier*}:
 remote_with_connection_clause {LanguageOrRemoteWithConnection}:
     "REMOTE" opt_with_connection_clause
       {
-        if (!parser->language_options().LanguageFeatureEnabled(
-                FEATURE_V_1_3_REMOTE_FUNCTION)) {
+        if (!language_options.LanguageFeatureEnabled(
+                FEATURE_REMOTE_FUNCTION)) {
           return MakeSyntaxError(@1, "Keyword REMOTE is not supported");
         }
 
@@ -2323,10 +2348,10 @@ remote_with_connection_clause {LanguageOrRemoteWithConnection}:
         if ($1 == nullptr) {
           $$.with_connection_clause = nullptr;
         } else {
-          if (!parser->language_options().LanguageFeatureEnabled(
-                  FEATURE_V_1_3_REMOTE_FUNCTION) &&
-              !parser->language_options().LanguageFeatureEnabled(
-                  FEATURE_V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION)) {
+          if (!language_options.LanguageFeatureEnabled(
+                  FEATURE_REMOTE_FUNCTION) &&
+              !language_options.LanguageFeatureEnabled(
+                  FEATURE_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION)) {
             return MakeSyntaxError(@1, "WITH CONNECTION clause is not supported");
           }
           $$.with_connection_clause =
@@ -2437,14 +2462,14 @@ path_expression_or_default {ASTExpression*}:
       }
     | "DEFAULT"
       {
-        $$ = MAKE_NODE(ASTDefaultLiteral, @$, {});
+        $$ = MakeNode<ASTDefaultLiteral>(@$);
       }
     ;
 
 sql_function_body {ASTNode*}:
     "(" expression ")"
       {
-        $$ = MAKE_NODE(ASTSqlFunctionBody, @$, {$2});
+        $$ = MakeNode<ASTSqlFunctionBody>(@$, $2);
       }
     | "(" "SELECT"
       {
@@ -2463,7 +2488,7 @@ restrict_to_clause {ASTNode*}:
     "RESTRICT" "TO" possibly_empty_grantee_list
       {
         ASTRestrictToClause* node =
-            MAKE_NODE(ASTRestrictToClause, @$, {$3});
+            MakeNode<ASTRestrictToClause>(@$, $3);
         $$ = node;
       }
     ;
@@ -2483,7 +2508,7 @@ grant_to_clause {ASTNode*}:
     "GRANT" "TO" "(" grantee_list ")"
       {
         ASTGrantToClause* grant_to =
-            MAKE_NODE(ASTGrantToClause, @$, {$4});
+            MakeNode<ASTGrantToClause>(@$, $4);
         grant_to->set_has_grant_keyword_and_parens(true);
         $$ = grant_to;
       }
@@ -2494,7 +2519,7 @@ create_row_access_policy_grant_to_clause {ASTNode*}:
     | "TO" grantee_list
       {
         ASTGrantToClause* grant_to =
-            MAKE_NODE(ASTGrantToClause, @$, {$2});
+            MakeNode<ASTGrantToClause>(@$, $2);
         grant_to->set_has_grant_keyword_and_parens(false);
         $$ = grant_to;
       }
@@ -2527,7 +2552,7 @@ filter_using_clause {ASTNode*}:
     opt_filter "USING" "(" expression ")"
       {
         ASTFilterUsingClause* filter_using =
-            MAKE_NODE(ASTFilterUsingClause, @$, {$4});
+            MakeNode<ASTFilterUsingClause>(@$, $4);
         filter_using->set_has_filter_keyword($1);
         $$ = filter_using;
       }
@@ -2539,8 +2564,8 @@ create_privilege_restriction_statement {ASTNode*}:
     opt_restrict_to_clause
       {
         ASTCreatePrivilegeRestrictionStatement* node =
-            MAKE_NODE(ASTCreatePrivilegeRestrictionStatement, @$,
-                      {$7, $9, $10, $11});
+            MakeNode<ASTCreatePrivilegeRestrictionStatement>(@$,
+                      $7, $9, $10, $11);
         node->set_is_or_replace($2);
         node->set_is_if_not_exists($5);
         $$ = node;
@@ -2553,10 +2578,10 @@ create_row_access_policy_statement {ASTNode*}:
         opt_create_row_access_policy_grant_to_clause filter_using_clause
       {
         ASTPathExpression* opt_path_expression =
-            $7 == nullptr ? nullptr : MAKE_NODE(ASTPathExpression, @7, {$7});
+            $7 == nullptr ? nullptr : MakeNode<ASTPathExpression>(@7, $7);
         ASTCreateRowAccessPolicyStatement* create =
-            MAKE_NODE(ASTCreateRowAccessPolicyStatement, @$,
-                      {$9, $10, $11, opt_path_expression});
+            MakeNode<ASTCreateRowAccessPolicyStatement>(@$,
+                      $9, $10, $11, opt_path_expression);
         create->set_is_or_replace($2);
         create->set_is_if_not_exists($6);
         create->set_has_access_keyword($4);
@@ -2568,7 +2593,7 @@ with_partition_columns_clause {ASTNode*}:
     "WITH" "PARTITION" "COLUMNS" opt_table_element_list
       {
         ASTWithPartitionColumnsClause* with_partition_columns =
-            MAKE_NODE(ASTWithPartitionColumnsClause, @$, {$4});
+            MakeNode<ASTWithPartitionColumnsClause>(@$, $4);
         $$ = with_partition_columns;
       }
       ;
@@ -2576,7 +2601,7 @@ with_partition_columns_clause {ASTNode*}:
 with_connection_clause {ASTNode*}:
     "WITH" connection_clause
       {
-        $$ = MAKE_NODE(ASTWithConnectionClause, @$, {$2});
+        $$ = MakeNode<ASTWithConnectionClause>(@$, $2);
       }
       ;
 
@@ -2625,9 +2650,9 @@ create_external_table_statement {ASTNode*}:
               "Syntax error: Expected keyword OPTIONS");
         }
         auto* create =
-            MAKE_NODE(ASTCreateExternalTableStatement, @$,
-            {$7, $8, $9, $10, $11.with_partition_columns_clause,
-             $11.with_connection_clause, $12});
+            MakeNode<ASTCreateExternalTableStatement>(@$,
+            $7, $8, $9, $10, $11.with_partition_columns_clause,
+             $11.with_connection_clause, $12);
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_is_if_not_exists($6);
@@ -2686,13 +2711,13 @@ create_index_statement {ASTNode*}:
     opt_index_storing_list opt_create_index_statement_suffix
       {
         auto* create =
-          MAKE_NODE(ASTCreateIndexStatement, @$,
-              {$path_expression, $on_path_expression, $opt_as_alias,
+          MakeNode<ASTCreateIndexStatement>(@$,
+              $path_expression, $on_path_expression, $opt_as_alias,
               $opt_index_unnest_expression_list, $index_order_by_and_options,
               $opt_index_storing_list,
               $opt_create_index_statement_suffix.partition_by,
               $opt_create_index_statement_suffix.options_list,
-              $opt_create_index_statement_suffix.spanner_index_innerleaving_clause});
+              $opt_create_index_statement_suffix.spanner_index_innerleaving_clause);
         create->set_is_or_replace($opt_or_replace);
         create->set_is_unique($opt_unique);
         create->set_is_if_not_exists($opt_if_not_exists);
@@ -2709,11 +2734,11 @@ create_index_statement {ASTNode*}:
 braced_graph_subquery {ASTQuery*}:
     "{" graph_operation_block[ops] "}"
       {
-        $$ = MakeGraphSubquery($ops, /*graph=*/nullptr, parser, @$);
+        $$ = MakeGraphSubquery($ops, /*graph=*/nullptr, node_factory, @$);
       }
     | "{" "GRAPH" path_expression[graph] graph_operation_block[ops] "}"
       {
-        $$ = MakeGraphSubquery($ops, $graph, parser, @$);
+        $$ = MakeGraphSubquery($ops, $graph, node_factory, @$);
       }
     ;
 
@@ -2721,12 +2746,12 @@ exists_graph_pattern_subquery {ASTExpressionSubquery*}:
     "EXISTS" opt_hint "{" graph_pattern "}"
       {
         $$ = MakeGqlExistsGraphPatternSubquery(
-            $graph_pattern, /*graph=*/nullptr, $opt_hint, parser, @$);
+            $graph_pattern, /*graph=*/nullptr, $opt_hint, node_factory, @$);
       }
     | "EXISTS" opt_hint "{" "GRAPH" path_expression[graph] graph_pattern "}"
       {
         $$ = MakeGqlExistsGraphPatternSubquery(
-            $graph_pattern, $graph, $opt_hint, parser, @$);
+            $graph_pattern, $graph, $opt_hint, node_factory, @$);
       }
     ;
 
@@ -2734,12 +2759,12 @@ exists_linear_ops_subquery {ASTExpressionSubquery*}:
     "EXISTS" opt_hint "{" graph_linear_operator_list[ops] "}"
       {
         $$ = MakeGqlExistsLinearOpsSubquery(
-            $ops, /*graph=*/nullptr, $opt_hint, parser, @$);
+            $ops, /*graph=*/nullptr, $opt_hint, node_factory, @$);
       }
     | "EXISTS" opt_hint "{" "GRAPH" path_expression[graph] graph_linear_operator_list[ops] "}"
       {
         $$ = MakeGqlExistsLinearOpsSubquery(
-            $ops, $graph, $opt_hint, parser, @$);
+            $ops, $graph, $opt_hint, node_factory, @$);
       }
     ;
 
@@ -2748,7 +2773,7 @@ exists_graph_subquery {ASTExpressionSubquery*}:
     | exists_linear_ops_subquery
     | "EXISTS" opt_hint braced_graph_subquery[graph_query]
       {
-        auto* subquery = MAKE_NODE(ASTExpressionSubquery, @$, {$opt_hint, $graph_query});
+        auto* subquery = MakeNode<ASTExpressionSubquery>(@$, $opt_hint, $graph_query);
         subquery->set_modifier(ASTExpressionSubquery::EXISTS);
         $$ = subquery;
       }
@@ -2759,12 +2784,12 @@ create_property_graph_statement {ASTNode*}:
     opt_options_list "NODE" "TABLES" element_table_list opt_edge_table_clause
       {
         ASTCreateStatement* create =
-            MAKE_NODE(ASTCreatePropertyGraphStatement, @$, {
+            MakeNode<ASTCreatePropertyGraphStatement>(@$,
               $path_expression,
               $element_table_list,
               $opt_edge_table_clause,
-              $opt_options_list,
-            });
+              $opt_options_list
+            );
         create->set_is_or_replace($opt_or_replace);
         create->set_is_if_not_exists($opt_if_not_exists);
         $$ = create;
@@ -2774,23 +2799,23 @@ create_property_graph_statement {ASTNode*}:
 element_table_list_prefix {ASTNode*}:
     "(" element_table_definition[def]
     {
-      $$ = MAKE_NODE(ASTGraphElementTableList, @$, {$def});
+      $$ = MakeNode<ASTGraphElementTableList>(@$, $def);
     }
     | element_table_list_prefix[prefix] "," element_table_definition[def]
     {
-      $$ = WithExtraChildren($prefix, {$def});
+      $$ = ExtendNodeRight($prefix, $def);
     }
     ;
 
 element_table_list {ASTNode*}:
     element_table_list_prefix ")"
     {
-      $$ = parser->WithEndLocation($1, @2);
+      $$ = WithEndLocation($1, @2);
     }
     // Allows trailing comma.
     | element_table_list_prefix "," ")"
     {
-      $$ = parser->WithEndLocation($1, @3);
+      $$ = WithEndLocation($1, @3);
     }
     ;
 
@@ -2798,15 +2823,18 @@ element_table_definition {ASTNode*}:
     path_expression opt_as_alias_with_required_as opt_key_clause
     opt_source_node_table_clause opt_dest_node_table_clause
     opt_label_and_properties_clause
+    opt_dynamic_label_properties
       {
-        $$ = MAKE_NODE(ASTGraphElementTable, @$, {
+        $$ = MakeNode<ASTGraphElementTable>(@$,
             $path_expression,
             $opt_as_alias_with_required_as,
             $opt_key_clause,
             $opt_source_node_table_clause,
             $opt_dest_node_table_clause,
-            $opt_label_and_properties_clause,
-          });
+            $opt_label_and_properties_clause
+            , $opt_dynamic_label_properties.dynamic_label,
+            $opt_dynamic_label_properties.dynamic_properties
+          );
       }
     ;
 
@@ -2822,8 +2850,8 @@ opt_source_node_table_clause {ASTNode*}:
     %empty { $$ = nullptr; }
     | "SOURCE" "KEY" column_list "REFERENCES" identifier opt_column_list
       {
-        auto* node_ref = MAKE_NODE(ASTGraphNodeTableReference, @$,
-          {$identifier, $column_list, $opt_column_list});
+        auto* node_ref = MakeNode<ASTGraphNodeTableReference>(@$,
+          $identifier, $column_list, $opt_column_list);
         node_ref->set_node_reference_type(ASTGraphNodeTableReference::SOURCE);
         $$ = node_ref;
       }
@@ -2833,8 +2861,8 @@ opt_dest_node_table_clause {ASTNode*}:
     %empty { $$ = nullptr; }
     | "DESTINATION" "KEY" column_list "REFERENCES" identifier opt_column_list
       {
-        auto* node_ref = MAKE_NODE(ASTGraphNodeTableReference, @$,
-          {$identifier, $column_list, $opt_column_list});
+        auto* node_ref = MakeNode<ASTGraphNodeTableReference>(@$,
+          $identifier, $column_list, $opt_column_list);
         node_ref->set_node_reference_type(ASTGraphNodeTableReference::DESTINATION);
         $$ = node_ref;
       }
@@ -2844,7 +2872,7 @@ opt_edge_table_clause {ASTNode*}:
     %empty { $$ = nullptr; }
     | "EDGE" "TABLES" element_table_list
       {
-        $$ = parser->WithEndLocation($3, @$);
+        $$ = WithEndLocation($3, @$);
       }
     ;
 
@@ -2852,21 +2880,16 @@ opt_label_and_properties_clause {ASTNode*}:
     %empty
       {
         // Implicit DEFAULT LABEL PROPERTIES [ARE] ALL COLUMNS
-        auto* properties = MAKE_NODE(ASTGraphProperties, @$,
-        {/*derived_property_list=*/nullptr, /*all_except_columns=*/nullptr});
+        auto* properties = MakeNode<ASTGraphProperties>(@$);
         properties->set_no_properties(false);
         $$ = MakeGraphElementLabelAndPropertiesListImplicitDefaultLabel(
-          parser,
-          /*properties=*/properties,
-          @$);
+          node_factory, /*properties=*/properties, @$);
       }
     | properties_clause
       {
         // Implicit DEFAULT LABEL PROPERTIES ...
         $$ = MakeGraphElementLabelAndPropertiesListImplicitDefaultLabel(
-          parser,
-          /*properties=*/$1,
-          @$);
+          node_factory, /*properties=*/$1, @$);
       }
     | label_and_properties_list
       {
@@ -2877,23 +2900,22 @@ opt_label_and_properties_clause {ASTNode*}:
 label_and_properties_list {ASTNode*}:
     label_and_properties
       {
-        $$ = MAKE_NODE(ASTGraphElementLabelAndPropertiesList, @$, {$1});
+        $$ = MakeNode<ASTGraphElementLabelAndPropertiesList>(@$, $1);
       }
     | label_and_properties_list label_and_properties
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$2}), @$);
+        $$ = ExtendNodeRight($1, $2);
       }
     ;
 
 label_and_properties {ASTNode*}:
     "LABEL" identifier opt_properties_clause
       {
-        $$ = MAKE_NODE(ASTGraphElementLabelAndProperties, @$, {$2, $3});
+        $$ = MakeNode<ASTGraphElementLabelAndProperties>(@$, $2, $3);
       }
     | "DEFAULT" "LABEL" opt_properties_clause
       {
-        $$ = MAKE_NODE(ASTGraphElementLabelAndProperties, @$,
-          {/*label_name=*/nullptr, $3});
+        $$ = MakeNode<ASTGraphElementLabelAndProperties>(@$, $3);
       }
     ;
 
@@ -2901,8 +2923,7 @@ opt_properties_clause {ASTNode*}:
     %empty
       {
         // Implicit PROPERTIES [ARE] ALL COLUMNS
-        auto* properties = MAKE_NODE(ASTGraphProperties, @$,
-          {/*derived_property_list=*/nullptr, /*all_except_columns=*/nullptr});
+        auto* properties = MakeNode<ASTGraphProperties>(@$);
         properties->set_no_properties(false);
         $$ = properties;
       }
@@ -2915,22 +2936,21 @@ opt_properties_clause {ASTNode*}:
 properties_clause {ASTGraphProperties*}:
     "NO" "PROPERTIES"
       {
-        auto* properties = MAKE_NODE(ASTGraphProperties, @$,
-          {/*derived_property_list=*/nullptr, /*all_except_columns=*/nullptr});
+        auto* properties = MakeNode<ASTGraphProperties>(@$);
         properties->set_no_properties(true);
         $$ = properties;
       }
     | properties_all_columns opt_except_column_list
       {
-        auto* properties = MAKE_NODE(ASTGraphProperties, @$,
-          {/*derived_property_list=*/nullptr, $opt_except_column_list});
+        auto* properties = MakeNode<ASTGraphProperties>(@$,
+          $opt_except_column_list);
         properties->set_no_properties(false);
         $$ = properties;
       }
     | "PROPERTIES" "(" derived_property_list ")"
       {
-        auto* properties = MAKE_NODE(ASTGraphProperties, @$,
-          {$derived_property_list, /*all_except_columns=*/nullptr});
+        auto* properties = MakeNode<ASTGraphProperties>(@$,
+          $derived_property_list);
         properties->set_no_properties(false);
         $$ = properties;
       }
@@ -2952,18 +2972,80 @@ opt_except_column_list {ASTNode*}:
 derived_property_list {ASTNode*}:
     derived_property
       {
-        $$ = MAKE_NODE(ASTSelectList, @$, {$1});
+        $$ = MakeNode<ASTSelectList>(@$, $1);
       }
     | derived_property_list "," derived_property
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 derived_property {ASTNode*}:
     expression opt_as_alias_with_required_as
       {
-        $$ = MAKE_NODE(ASTSelectColumn, @$, {$1, $2});
+        $$ = MakeNode<ASTSelectColumn>(@$, $1, $2);
+      }
+    ;
+
+dynamic_label_or_properties {GraphDynamicLabelProperties}:
+    "DYNAMIC" "LABEL" "(" dynamic_label ")"
+      {
+        $$ = {.dynamic_label = $dynamic_label};
+      }
+    | "DYNAMIC" "PROPERTIES" "(" dynamic_property ")"
+      {
+        $$ = {.dynamic_properties = $dynamic_property};
+      }
+    ;
+
+static_label_or_properties_keywords:
+    "NO" "PROPERTIES"
+    | "DEFAULT" "LABEL"
+    | "LABEL"
+    | "PROPERTIES"
+    ;
+
+dynamic_label_and_properties {GraphDynamicLabelProperties}:
+    dynamic_label_or_properties
+    | dynamic_label_and_properties dynamic_label_or_properties
+      {
+        auto merged = MergeDynamicLabelProperties(
+          $dynamic_label_and_properties, $dynamic_label_or_properties);
+        if (merged.ok()) {
+          $$ = *merged;
+        } else {
+          return MakeSyntaxError(@dynamic_label_or_properties,
+            merged.status().message());
+        }
+      }
+    | dynamic_label_or_properties static_label_or_properties_keywords
+      {
+        return MakeSyntaxError(
+          @static_label_or_properties_keywords,
+          "Syntax error: LABEL or PROPERTIES clause should be moved before "
+          "DYNAMIC LABEL/PROPERTIES clause");
+      }
+    ;
+
+opt_dynamic_label_properties {GraphDynamicLabelProperties}:
+    %empty
+    {
+      $$ = {.dynamic_label = nullptr, .dynamic_properties = nullptr };
+    }
+    | dynamic_label_and_properties
+    ;
+
+dynamic_label {ASTNode*}:
+    expression
+      {
+        $$ = MakeNode<ASTGraphDynamicLabel>(@$, $expression);
+      }
+    ;
+
+dynamic_property {ASTNode*}:
+    expression
+      {
+        $$ = MakeNode<ASTGraphDynamicProperties>(@$, $expression);
       }
     ;
 
@@ -2971,7 +3053,7 @@ create_schema_statement {ASTNode*}:
     "CREATE" opt_or_replace "SCHEMA" opt_if_not_exists path_expression
     opt_default_collate_clause opt_options_list
       {
-        auto* create = MAKE_NODE(ASTCreateSchemaStatement, @$, {$5, $6, $7});
+        auto* create = MakeNode<ASTCreateSchemaStatement>(@$, $5, $6, $7);
         create->set_is_or_replace($2);
         create->set_is_if_not_exists($4);
         $$ = create;
@@ -2981,12 +3063,12 @@ create_schema_statement {ASTNode*}:
 create_locality_group_statement {ASTNode*}:
     "CREATE" "LOCALITY" "GROUP" path_expression opt_options_list
       {
-        if (!parser->language_options().LanguageFeatureEnabled(
+        if (!language_options.LanguageFeatureEnabled(
               FEATURE_CREATE_LOCALITY_GROUP)) {
           return MakeSyntaxError(@2,
             "CREATE LOCALITY GROUP is not supported");
         }
-        $$ = MAKE_NODE(ASTCreateLocalityGroupStatement, @$, {$4, $5});
+        $$ = MakeNode<ASTCreateLocalityGroupStatement>(@$, $4, $5);
       }
     ;
 
@@ -2994,7 +3076,7 @@ create_external_schema_statement {ASTNode*}:
     "CREATE" opt_or_replace opt_create_scope "EXTERNAL" "SCHEMA" opt_if_not_exists path_expression
     opt_with_connection_clause options
       {
-        auto* create = MAKE_NODE(ASTCreateExternalSchemaStatement, @$, {$7, $8, $9});
+        auto* create = MakeNode<ASTCreateExternalSchemaStatement>(@$, $7, $8, $9);
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_is_if_not_exists($6);
@@ -3006,7 +3088,7 @@ create_connection_statement {ASTNode*}:
     "CREATE" opt_or_replace "CONNECTION" opt_if_not_exists path_expression
     opt_options_list
       {
-        auto* create = MAKE_NODE(ASTCreateConnectionStatement, @$, {$path_expression, $opt_options_list});
+        auto* create = MakeNode<ASTCreateConnectionStatement>(@$, $path_expression, $opt_options_list);
         create->set_is_or_replace($2);
         create->set_is_if_not_exists($4);
         $$ = create;
@@ -3026,7 +3108,7 @@ undrop_statement {ASTNode*}:
                 SchemaObjectKindToName($schema_object_kind)),
               " is not supported"));
         }
-        auto* undrop = MAKE_NODE(ASTUndropStatement, @$, {$path_expression, $opt_at_system_time, $opt_options_list});
+        auto* undrop = MakeNode<ASTUndropStatement>(@$, $path_expression, $opt_at_system_time, $opt_options_list);
         undrop->set_schema_object_kind($schema_object_kind);
         undrop->set_is_if_not_exists($opt_if_not_exists);
         $$ = undrop;
@@ -3038,7 +3120,7 @@ create_snapshot_statement {ASTNode*}:
      "CLONE" clone_data_source opt_options_list
       {
         auto* create =
-            MAKE_NODE(ASTCreateSnapshotTableStatement, @$, {$6, $8, $9});
+            MakeNode<ASTCreateSnapshotTableStatement>(@$, $6, $8, $9);
         create->set_is_if_not_exists($5);
         create->set_is_or_replace($2);
         $$ = create;
@@ -3056,7 +3138,7 @@ create_snapshot_statement {ASTNode*}:
               " is not supported"));
         }
         auto* create =
-            MAKE_NODE(ASTCreateSnapshotStatement, @$, {$6, $8, $9});
+            MakeNode<ASTCreateSnapshotStatement>(@$, $6, $8, $9);
         create->set_schema_object_kind($schema_object_kind);
         create->set_is_if_not_exists($5);
         create->set_is_or_replace($2);
@@ -3108,12 +3190,10 @@ create_table_function_statement {ASTNode*}:
                                "Syntax error: Expected keyword TABLE");
         }
         // Build the create table function statement.
-        auto* fn_decl = MAKE_NODE(ASTFunctionDeclaration, @path_expression,
-                                  @opt_function_parameters,
-                                  {$path_expression, $opt_function_parameters});
-        auto* create = MAKE_NODE(
-            ASTCreateTableFunctionStatement, @$,
-            {fn_decl, $opt_returns, $ulo.options, $ulo.language, $body});
+        auto* fn_decl = MakeNode<ASTFunctionDeclaration>(MakeLocationRange(@path_expression, @opt_function_parameters),
+            $path_expression, $opt_function_parameters);
+        auto* create = MakeNode<ASTCreateTableFunctionStatement>(@$,
+            fn_decl, $opt_returns, $ulo.options, $ulo.language, $body);
         create->set_is_or_replace($opt_or_replace);
         create->set_scope($opt_create_scope);
         create->set_is_if_not_exists($opt_if_not_exists);
@@ -3122,6 +3202,7 @@ create_table_function_statement {ASTNode*}:
       }
     ;
 
+// LINT.IfChange(ctas_statement)
 // This is the CREATE TABLE statement without the optional AS-query.
 //
 // This rule encounters a shift/reduce conflict with
@@ -3139,7 +3220,7 @@ create_table_statement_prefix {ASTNode*}:
     opt_options_list
       {
         ASTCreateStatement* create =
-            MAKE_NODE(ASTCreateTableStatement, @$, {
+            MakeNode<ASTCreateTableStatement>(@$,
               $maybe_dashed_path_expression,
               $opt_table_element_list,
               $opt_like_path_expression,
@@ -3151,8 +3232,8 @@ create_table_statement_prefix {ASTNode*}:
               $opt_cluster_by_clause_no_hint,
               $opt_ttl_clause,
               $opt_with_connection_clause,
-              $opt_options_list,
-            });
+              $opt_options_list
+            );
         create->set_is_or_replace($opt_or_replace);
         create->set_scope($opt_create_scope);
         create->set_is_if_not_exists($opt_if_not_exists);
@@ -3161,13 +3242,12 @@ create_table_statement_prefix {ASTNode*}:
     ;
 
 create_table_statement {ASTNode*}:
-    create_table_statement_prefix opt_as_query
+    create_table_statement_prefix[prefix] opt_as_query
       {
-        $$ = WithExtraChildren($create_table_statement_prefix, {$opt_as_query});
-        // Fix up location to include the closing paren on the AS query.
-        $$ = parser->WithEndLocation($$, @$);
+        $$ = ExtendNodeRight($prefix, @$.end(), $opt_as_query);
       }
     ;
+// LINT.ThenChange(:ctas_new_statement_kind)
 
 append_or_overwrite {ASTAuxLoadDataStatement::InsertionMode}:
     "INTO" {  // INTO to mean append, which is consistent with INSERT INTO
@@ -3181,7 +3261,7 @@ append_or_overwrite {ASTAuxLoadDataStatement::InsertionMode}:
 aux_load_data_from_files_options_list {ASTNode*}:
     "FROM" "FILES" options_list
       {
-        $$ = MAKE_NODE(ASTAuxLoadDataFromFilesOptionsList, @$, {$3});
+        $$ = MakeNode<ASTAuxLoadDataFromFilesOptionsList>(@$, $3);
       }
     ;
 
@@ -3193,14 +3273,14 @@ opt_overwrite {bool}:
 load_data_partitions_clause {ASTNode*}:
     opt_overwrite "PARTITIONS" "(" expression ")"
       {
-        if (!parser->language_options().LanguageFeatureEnabled(
-          FEATURE_V_1_4_LOAD_DATA_PARTITIONS)) {
+        if (!language_options.LanguageFeatureEnabled(
+          FEATURE_LOAD_DATA_PARTITIONS)) {
             return MakeSyntaxError(
               @2,
               "LOAD DATA statement with PARTITIONS is not supported");
         }
         ASTAuxLoadDataPartitionsClause* partitions_clause =
-            MAKE_NODE(ASTAuxLoadDataPartitionsClause, @$, {$4});
+            MakeNode<ASTAuxLoadDataPartitionsClause>(@$, $4);
         partitions_clause->set_is_overwrite($1);
         $$ = partitions_clause;
       }
@@ -3246,16 +3326,15 @@ aux_load_data_statement {ASTNode*}:
     opt_external_table_with_clauses[with_clauses]
       {
         ASTAuxLoadDataStatement* statement =
-            MAKE_NODE(
-                ASTAuxLoadDataStatement, @$,
-                {$name.maybe_dashed_path_expression,
+            MakeNode<ASTAuxLoadDataStatement>(@$,
+                $name.maybe_dashed_path_expression,
                  $table_elements, $partitions, $collate, $partition_by,
                  $cluster_by, $options, $from_files_options,
                  $with_clauses.with_partition_columns_clause,
-                 $with_clauses.with_connection_clause});
+                 $with_clauses.with_connection_clause);
         statement->set_insertion_mode($append_or_overwrite);
-        if (!parser->language_options().LanguageFeatureEnabled(
-            FEATURE_V_1_4_LOAD_DATA_TEMP_TABLE)
+        if (!language_options.LanguageFeatureEnabled(
+            FEATURE_LOAD_DATA_TEMP_TABLE)
             && $name.is_temp_table) {
             return MakeSyntaxError(
               @4,
@@ -3272,11 +3351,11 @@ generic_entity_type_unchecked {ASTIdentifier*}:
         // It is by design that we don't want to support backtick quoted
         // entity type. Backtick is kept as part of entity type name, and will
         // be rejected by engine later.
-        $$ = parser->MakeIdentifier(@1, $1);
+        $$ = node_factory.MakeIdentifier(@1, $1);
       }
     | "PROJECT"
       {
-        $$ = parser->MakeIdentifier(@1, $1);
+        $$ = node_factory.MakeIdentifier(@1, $1);
       }
     ;
 
@@ -3284,7 +3363,7 @@ generic_entity_type {ASTNode*}:
     generic_entity_type_unchecked
       {
         std::string entity_type($1->GetAsStringView());
-        if (!parser->language_options().
+        if (!language_options.
                  GenericEntityTypeSupported(entity_type)) {
           return MakeSyntaxError(@1, absl::StrCat(
                                entity_type, " is not a supported object type"));
@@ -3303,18 +3382,18 @@ generic_entity_type {ASTNode*}:
 sub_entity_type_identifier {ASTIdentifier*}:
     IDENTIFIER
       {
-        $$ = parser->MakeIdentifier(@1, $1);
+        $$ = node_factory.MakeIdentifier(@1, $1);
       }
     | "REPLICA"
       {
-        $$ = parser->MakeIdentifier(@1, $1);
+        $$ = node_factory.MakeIdentifier(@1, $1);
       }
     ;
 
 generic_sub_entity_type {ASTNode*}:
   sub_entity_type_identifier
     {
-      if (!parser->language_options().
+      if (!language_options.
                 GenericSubEntityTypeSupported($1->GetAsString())) {
         return MakeSyntaxError(
           @1, absl::StrCat(ToIdentifierLiteral($1->GetAsString()),
@@ -3347,15 +3426,12 @@ create_entity_statement {ASTNode*}:
     "CREATE" opt_or_replace generic_entity_type opt_if_not_exists
     path_expression opt_options_list opt_generic_entity_body
       {
-        auto* node = MAKE_NODE(
-            ASTCreateEntityStatement,
-            @$,
-            {
+        auto* node = MakeNode<ASTCreateEntityStatement>(@$,
               $generic_entity_type,
               $path_expression,
               $opt_options_list,
               $opt_generic_entity_body
-            });
+            );
         node->set_is_or_replace($opt_or_replace);
         node->set_is_if_not_exists($opt_if_not_exists);
         $$ = node;
@@ -3368,17 +3444,14 @@ create_model_statement {ASTNode*}:
     opt_remote_with_connection_clause opt_options_list
     opt_as_query_or_aliased_query_list
       {
-        auto* node = MAKE_NODE(
-            ASTCreateModelStatement,
-            @$,
-            {
+        auto* node = MakeNode<ASTCreateModelStatement>(@$,
               $path_expression,
               $opt_input_output_clause,
               $opt_transform_clause,
               $opt_remote_with_connection_clause.with_connection_clause,
               $opt_options_list,
-              $opt_as_query_or_aliased_query_list,
-            });
+              $opt_as_query_or_aliased_query_list
+            );
         node->set_is_or_replace($opt_or_replace);
         node->set_scope($opt_create_scope);
         node->set_is_if_not_exists($opt_if_not_exists);
@@ -3395,31 +3468,31 @@ opt_table_element_list {ASTNode*}:
 table_element_list {ASTNode*}:
     table_element_list_prefix ")"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     | "(" ")"
       {
-        if (!parser->language_options().LanguageFeatureEnabled(
+        if (!language_options.LanguageFeatureEnabled(
           FEATURE_SPANNER_LEGACY_DDL)) {
             return MakeSyntaxError(@2, "A table must define at least one "
               "column.");
         }
-        $$ = MAKE_NODE(ASTTableElementList, @$, {});
+        $$ = MakeNode<ASTTableElementList>(@$);
       }
     ;
 
 table_element_list_prefix {ASTNode*}:
     "(" table_element
       {
-        $$ = MAKE_NODE(ASTTableElementList, @$, {$2});
+        $$ = MakeNode<ASTTableElementList>(@$, $2);
       }
     | table_element_list_prefix "," table_element
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     | table_element_list_prefix ","
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
@@ -3463,60 +3536,48 @@ table_element {ASTNode*}:
 table_column_definition {ASTNode*}:
     identifier table_column_schema opt_column_attributes opt_options_list
       {
-        auto* schema = parser->WithEndLocation(
-            WithExtraChildren($2, {$3, $4}), @$);
-        $$ = MAKE_NODE(ASTColumnDefinition, @$, {$1, schema});
+        auto* schema = ExtendNodeRight($2, @$.end(), $3, $4);
+        $$ = MakeNode<ASTColumnDefinition>(@$, $1, schema);
       }
     ;
 
 table_column_schema {ASTNode*}:
     column_schema_inner opt_collate_clause opt_column_info
       {
-        if ($3.generated_column_info != nullptr) {
-          $$ = parser->WithEndLocation(
-              WithExtraChildren($1, {$2, $3.generated_column_info,
-                                     /*default_expression=*/nullptr}), @$);
-        } else if ($3.default_expression != nullptr) {
-          $$ = parser->WithEndLocation(
-              WithExtraChildren($1, {$2, /*generated_column_info=*/nullptr,
-                                     $3.default_expression}), @$);
-        } else {
-          $$ = parser->WithEndLocation(
-              WithExtraChildren($1, {$2, /*generated_column_info=*/nullptr,
-                                     /*default_expression=*/nullptr}), @$);
-        }
+        $$ = ExtendNodeRight($1, $2, $3.generated_column_info,
+                             $3.default_expression);
       }
     | generated_column_info
       {
-        $$ = MAKE_NODE(ASTInferredTypeColumnSchema, @$, {$1});
+        $$ = MakeNode<ASTInferredTypeColumnSchema>(@$, $1);
       }
     ;
 
 simple_column_schema_inner {ASTNode*}:
     path_expression
       {
-        $$ = MAKE_NODE(ASTSimpleColumnSchema, @$, {$1});
+        $$ = MakeNode<ASTSimpleColumnSchema>(@$, $1);
       }
     // Unlike other type names, 'INTERVAL' is a reserved keyword.
     | "INTERVAL"
       {
-        auto* id = parser->MakeIdentifier(@1, $1);
-        auto* path_expression = MAKE_NODE(ASTPathExpression, @$, {id});
-        $$ = MAKE_NODE(ASTSimpleColumnSchema, @$, {path_expression});
+        auto* id = node_factory.MakeIdentifier(@1, $1);
+        auto* path_expression = MakeNode<ASTPathExpression>(@$, id);
+        $$ = MakeNode<ASTSimpleColumnSchema>(@$, path_expression);
       }
     ;
 
 array_column_schema_inner {ASTNode*}:
     "ARRAY" template_type_open field_schema template_type_close
       {
-        $$ = MAKE_NODE(ASTArrayColumnSchema, @$, {$3});
+        $$ = MakeNode<ASTArrayColumnSchema>(@$, $3);
       }
     ;
 
 range_column_schema_inner {ASTNode*}:
     "RANGE" template_type_open field_schema template_type_close
       {
-        $$ = MAKE_NODE(ASTRangeColumnSchema, @$, {$3});
+        $$ = MakeNode<ASTRangeColumnSchema>(@$, $3);
       }
     ;
 
@@ -3540,33 +3601,32 @@ struct_column_field {ASTNode*}:
     // which have reserved keywords.
     column_schema_inner opt_collate_clause opt_field_attributes
       {
-        auto* schema = parser->WithEndLocation(
-            WithExtraChildren($1, {$2, $3}), @$);
-        $$ = MAKE_NODE(ASTStructColumnField, @$, {schema});
+        auto* schema = ExtendNodeRight($1, $2, $3);
+        $$ = MakeNode<ASTStructColumnField>(@$, schema);
       }
     | identifier field_schema
       {
-        $$ = MAKE_NODE(ASTStructColumnField, @$, {$1, $2});
+        $$ = MakeNode<ASTStructColumnField>(@$, $1, $2);
       }
     ;
 
 struct_column_schema_prefix {ASTNode*}:
     "STRUCT" template_type_open struct_column_field
       {
-        $$ = MAKE_NODE(ASTStructColumnSchema, @$, {$3});
+        $$ = MakeNode<ASTStructColumnSchema>(@$, $3);
       }
     | struct_column_schema_prefix "," struct_column_field
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
-// This node does not apply parser->WithEndLocation. column_schema and
+// This node does not apply WithEndLocation. column_schema and
 // field_schema do.
 struct_column_schema_inner {ASTNode*}:
     "STRUCT" template_type_open template_type_close
       {
-        $$ = MAKE_NODE(ASTStructColumnSchema, @$);
+        $$ = MakeNode<ASTStructColumnSchema>(@$);
       }
     | struct_column_schema_prefix template_type_close
     ;
@@ -3579,9 +3639,9 @@ raw_column_schema_inner {ASTNode*}:
     ;
 
 column_schema_inner {ASTNode*}:
-    raw_column_schema_inner opt_type_parameters
+    raw_column_schema_inner[inner] opt_type_parameters[params]
     {
-      $$ = WithExtraChildren(parser->WithEndLocation($1, @2), {$2});
+      $$ = ExtendNodeRight($inner, @$.end(), $params);
     };
 
 generated_mode {ASTGeneratedColumnInfo::GeneratedMode}:
@@ -3628,13 +3688,13 @@ signed_numerical_literal {ASTExpression*}:
  }
  | "-" integer_literal[literal]
  {
-  auto* expression = MAKE_NODE(ASTUnaryExpression, @$, {$literal});
+  auto* expression = MakeNode<ASTUnaryExpression>(@$, $literal);
   expression->set_op(ASTUnaryExpression::MINUS);
   $$ = expression;
  }
  | "-" floating_point_literal[literal]
  {
-  auto* expression = MAKE_NODE(ASTUnaryExpression, @$, {$literal});
+  auto* expression = MakeNode<ASTUnaryExpression>(@$, $literal);
   expression->set_op(ASTUnaryExpression::MINUS);
   $$ = expression;
  }
@@ -3643,7 +3703,7 @@ signed_numerical_literal {ASTExpression*}:
 opt_start_with {ASTNode*}:
   "START" "WITH" signed_numerical_literal[literal]
   {
-    $$ = MAKE_NODE(ASTIdentityColumnStartWith, @$, {$literal});
+    $$ = MakeNode<ASTIdentityColumnStartWith>(@$, $literal);
   }
   | %empty
   {
@@ -3654,7 +3714,7 @@ opt_start_with {ASTNode*}:
 opt_increment_by {ASTNode*}:
   "INCREMENT" "BY" signed_numerical_literal[literal]
   {
-    $$ = MAKE_NODE(ASTIdentityColumnIncrementBy, @$, {$literal});
+    $$ = MakeNode<ASTIdentityColumnIncrementBy>(@$, $literal);
   }
   | %empty
   {
@@ -3665,7 +3725,7 @@ opt_increment_by {ASTNode*}:
 opt_maxvalue {ASTNode*}:
   "MAXVALUE" signed_numerical_literal[literal]
   {
-    $$ = MAKE_NODE(ASTIdentityColumnMaxValue, @$, {$literal});
+    $$ = MakeNode<ASTIdentityColumnMaxValue>(@$, $literal);
   }
   | %empty
   {
@@ -3676,7 +3736,7 @@ opt_maxvalue {ASTNode*}:
 opt_minvalue {ASTNode*}:
   "MINVALUE" signed_numerical_literal[literal]
   {
-    $$ = MAKE_NODE(ASTIdentityColumnMinValue, @$, {$literal});
+    $$ = MakeNode<ASTIdentityColumnMinValue>(@$, $literal);
   }
   | %empty
   {
@@ -3704,7 +3764,7 @@ identity_column_info {ASTNode*}:
   opt_maxvalue[max] opt_minvalue[min] opt_cycle[cycle] ")"
     {
       auto* identity_column =
-        MAKE_NODE(ASTIdentityColumnInfo, @$, {$start, $increment, $max, $min});
+        MakeNode<ASTIdentityColumnInfo>(@$, $start, $increment, $max, $min);
       identity_column->set_cycling_enabled($cycle);
       $$ = identity_column;
     }
@@ -3713,35 +3773,24 @@ identity_column_info {ASTNode*}:
 generated_column_info {ASTNode*}:
   generated_mode "(" expression ")" stored_mode
     {
-      auto* column = MAKE_NODE(ASTGeneratedColumnInfo, @$, {$expression});
+      auto* column = MakeNode<ASTGeneratedColumnInfo>(@$, $expression);
       column->set_stored_mode($stored_mode);
       column->set_generated_mode($generated_mode);
       $$ = column;
     }
   | generated_mode identity_column_info
     {
-      auto* column = MAKE_NODE(ASTGeneratedColumnInfo, @$, {$2});
+      auto* column = MakeNode<ASTGeneratedColumnInfo>(@$, $2);
       column->set_generated_mode($generated_mode);
       $$ = column;
-    }
-  ;
-
-invalid_generated_column {bool}:
-  generated_column_info
-    {
-      $$ = true;
-    }
-  | %empty
-    {
-      $$ = false;
     }
   ;
 
 default_column_info {ASTNode*}:
   "DEFAULT" expression
     {
-      if (parser->language_options().LanguageFeatureEnabled(
-             FEATURE_V_1_3_COLUMN_DEFAULT_VALUE)) {
+      if (language_options.LanguageFeatureEnabled(
+             FEATURE_COLUMN_DEFAULT_VALUE)) {
         $$ = $2;
       } else {
         return MakeSyntaxError(@2, "Column DEFAULT value is not supported.");
@@ -3749,36 +3798,37 @@ default_column_info {ASTNode*}:
     }
   ;
 
-invalid_default_column {bool}:
-  default_column_info
-    {
-      $$ = true;
-    }
-  | %empty
-    {
-      $$ = false;
-    }
-  ;
-
 opt_column_info {GeneratedOrDefaultColumnInfo}:
-  generated_column_info invalid_default_column
+  generated_column_info[gen_info] default_column_info[default_info]
     {
-      if ($2) {
-        return MakeSyntaxError(@2, "Syntax error: \"DEFAULT\" and \"GENERATED "
-            "ALWAYS AS\" clauses must not be both provided for the column");
+      if ($default_info != nullptr) {
+        return MakeSyntaxError(@default_info, "Syntax error: \"DEFAULT\" and "
+            "\"[GENERATED [ALWAYS | BY DEFAULT]] AS\" clauses must not be both "
+            "provided for the column");
       }
       $$.generated_column_info =
-          static_cast<ASTGeneratedColumnInfo*>($1);
+          static_cast<ASTGeneratedColumnInfo*>($gen_info);
       $$.default_expression = nullptr;
     }
-  | default_column_info invalid_generated_column
+  | generated_column_info[gen_info]
     {
-      if ($2) {
-        return MakeSyntaxError(@2, "Syntax error: \"DEFAULT\" and \"GENERATED "
-            "ALWAYS AS\" clauses must not be both provided for the column");
+      $$.generated_column_info = nullptr;
+      $$.default_expression = static_cast<ASTExpression*>($gen_info);
+    }
+  | default_column_info[default_info] generated_column_info[gen_info]
+    {
+      if ($2 != nullptr) {
+        return MakeSyntaxError(@gen_info, "Syntax error: \"DEFAULT\" and "
+            "\"[GENERATED [ALWAYS | BY DEFAULT]] AS\" clauses must not be both "
+            "provided for the column");
       }
       $$.generated_column_info = nullptr;
-      $$.default_expression = static_cast<ASTExpression*>($1);
+      $$.default_expression = static_cast<ASTExpression*>($default_info);
+    }
+  | default_column_info[default_info]
+    {
+      $$.generated_column_info = nullptr;
+      $$.default_expression = static_cast<ASTExpression*>($default_info);
     }
   | %empty
     {
@@ -3790,36 +3840,36 @@ opt_column_info {GeneratedOrDefaultColumnInfo}:
 field_schema {ASTNode*}:
   column_schema_inner opt_collate_clause opt_field_attributes opt_options_list
     {
-      $$ = parser->WithEndLocation(WithExtraChildren($1, {$2, $3, $4}), @$);
+      $$ = ExtendNodeRight($1, $2, $3, $4);
     }
     ;
 
 primary_key_column_attribute {ASTNode*}:
   "PRIMARY" "KEY"
     {
-      $$ = MAKE_NODE(ASTPrimaryKeyColumnAttribute, @$, {});
+      $$ = MakeNode<ASTPrimaryKeyColumnAttribute>(@$);
     }
   ;
 
 foreign_key_column_attribute {ASTNode*}:
   opt_constraint_identity foreign_key_reference
     {
-      auto* node = MAKE_NODE(ASTForeignKeyColumnAttribute, @$, {$1, $2});
-      $$ = parser->WithStartLocation(node, FirstNonEmptyLocation(@1, @2));
+      auto* node = MakeNode<ASTForeignKeyColumnAttribute>(@$, $1, $2);
+      $$ = WithStartLocation(node, FirstNonEmptyLocation(@1, @2));
     }
   ;
 
 hidden_column_attribute {ASTNode*}:
   "HIDDEN"
     {
-      $$ = MAKE_NODE(ASTHiddenColumnAttribute, @$, {});
+      $$ = MakeNode<ASTHiddenColumnAttribute>(@$);
     }
   ;
 
 not_null_column_attribute {ASTNode*}:
   "NOT" "NULL"
     {
-      $$ = MAKE_NODE(ASTNotNullColumnAttribute, @$, {});
+      $$ = MakeNode<ASTNotNullColumnAttribute>(@$);
     }
   ;
 
@@ -3849,11 +3899,11 @@ column_attribute {ASTNode*}:
 column_attributes {ASTNode*}:
     column_attribute
       {
-        $$ = MAKE_NODE(ASTColumnAttributeList, @$, {$1});
+        $$ = MakeNode<ASTColumnAttributeList>(@$, $1);
       }
     | column_attributes column_attribute
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$2}), @$);
+        $$ = ExtendNodeRight($1, $2);
       }
     | column_attributes constraint_enforcement
       {
@@ -3864,7 +3914,7 @@ column_attributes {ASTNode*}:
               "Syntax error: Unexpected constraint enforcement clause");
         }
         // Update the node's location to include constraint_enforcement.
-        last = parser->WithEndLocation(last, @$);
+        last = WithEndLocation(last, @$);
         if (last->node_kind() == AST_FOREIGN_KEY_COLUMN_ATTRIBUTE) {
           int index = last->find_child_index(
               AST_FOREIGN_KEY_REFERENCE);
@@ -3881,7 +3931,7 @@ column_attributes {ASTNode*}:
               last->GetAsOrDie<ASTPrimaryKeyColumnAttribute>();
           primary_key->set_enforced($2);
         }
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
@@ -3893,7 +3943,7 @@ opt_column_attributes {ASTNode*}:
 opt_field_attributes {ASTNode*}:
   not_null_column_attribute
     {
-      $$ = MAKE_NODE(ASTColumnAttributeList, @$, {$1});
+      $$ = MakeNode<ASTColumnAttributeList>(@$, $1);
     }
   | %empty { $$ = nullptr; }
   ;
@@ -3901,13 +3951,13 @@ opt_field_attributes {ASTNode*}:
 column_position {ASTNode*}:
     "PRECEDING" identifier
       {
-        auto* pos = MAKE_NODE(ASTColumnPosition, @$, {$2});
+        auto* pos = MakeNode<ASTColumnPosition>(@$, $2);
         pos->set_type(ASTColumnPosition::PRECEDING);
         $$ = pos;
       }
     | "FOLLOWING" identifier
       {
-        auto* pos = MAKE_NODE(ASTColumnPosition, @$, {$2});
+        auto* pos = MakeNode<ASTColumnPosition>(@$, $2);
         pos->set_type(ASTColumnPosition::FOLLOWING);
         $$ = pos;
       }
@@ -3933,7 +3983,7 @@ opt_fill_using_expression {ASTExpression*}:
 table_constraint_spec {ASTNode*}:
     "CHECK" "(" expression ")" opt_constraint_enforcement opt_options_list
       {
-        auto* node = MAKE_NODE(ASTCheckConstraint, @$, {$3, $6});
+        auto* node = MakeNode<ASTCheckConstraint>(@$, $3, $6);
         node->set_is_enforced($5);
         $$ = node;
       }
@@ -3942,25 +3992,25 @@ table_constraint_spec {ASTNode*}:
       {
         ASTForeignKeyReference* foreign_key_ref = $4;
         foreign_key_ref->set_enforced($5);
-        $$ = MAKE_NODE(ASTForeignKey, @$, {$3, $4, $6});
+        $$ = MakeNode<ASTForeignKey>(@$, $3, $4, $6);
       }
     ;
 
 primary_key_element {ASTNode*}:
     identifier opt_asc_or_desc opt_null_order
       {
-        if (!parser->language_options().LanguageFeatureEnabled(
-              FEATURE_V_1_4_ORDERED_PRIMARY_KEYS)) {
+        if (!language_options.LanguageFeatureEnabled(
+              FEATURE_ORDERED_PRIMARY_KEYS)) {
           if ($opt_asc_or_desc != ASTOrderingExpression::UNSPECIFIED
               || $opt_null_order != nullptr) {
             return MakeSyntaxError(@2,
               "Ordering for primary keys is not supported");
           }
         }
-        auto* node = MAKE_NODE(ASTPrimaryKeyElement, @$, {
+        auto* node = MakeNode<ASTPrimaryKeyElement>(@$,
           $identifier,
-          $opt_null_order,
-        });
+          $opt_null_order
+        );
         node->set_ordering_spec($opt_asc_or_desc);
         $$ = node;
       }
@@ -3969,18 +4019,18 @@ primary_key_element {ASTNode*}:
 primary_key_element_list_prefix {ASTNode*}:
     "(" primary_key_element
       {
-        $$ = MAKE_NODE(ASTPrimaryKeyElementList, @$, {$2});
+        $$ = MakeNode<ASTPrimaryKeyElementList>(@$, $2);
       }
     | primary_key_element_list_prefix "," primary_key_element
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 primary_key_element_list {ASTNode*}:
     primary_key_element_list_prefix ")"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     | "(" ")" { $$ = nullptr; }
     ;
@@ -3989,7 +4039,7 @@ primary_key_spec {ASTNode*}:
   "PRIMARY" "KEY" primary_key_element_list opt_constraint_enforcement
   opt_options_list
     {
-      ASTPrimaryKey* node = MAKE_NODE(ASTPrimaryKey, @$, {$3, $5});
+      ASTPrimaryKey* node = MakeNode<ASTPrimaryKey>(@$, $3, $5);
       node->set_enforced($4);
       $$ = node;
     }
@@ -4005,7 +4055,7 @@ primary_key_or_table_constraint_spec {ASTNode*}:
 table_constraint_definition {ASTNode*}:
       primary_key_spec
     | table_constraint_spec
-    | identifier identifier table_constraint_spec
+    | identifier identifier[name] table_constraint_spec
       {
         auto* node = $3;
         absl::string_view constraint = $1->GetAsStringView();
@@ -4024,8 +4074,7 @@ table_constraint_definition {ASTNode*}:
               "Syntax error: Unkown table constraint type");
           }
         }
-        node->AddChild($2);
-        $$ = parser->WithLocation(node, @$);
+        $$ = WithLocation(ExtendNodeRight(node, $name), @$);
       }
     ;
 
@@ -4035,7 +4084,7 @@ foreign_key_reference {ASTForeignKeyReference*}:
     "REFERENCES" path_expression column_list opt_foreign_key_match
         opt_foreign_key_actions
       {
-        auto* reference = MAKE_NODE(ASTForeignKeyReference, @$, {$2, $3, $5});
+        auto* reference = MakeNode<ASTForeignKeyReference>(@$, $2, $3, $5);
         reference->set_match($4);
         $$ = reference;
       }
@@ -4057,21 +4106,21 @@ foreign_key_match_mode {ASTForeignKeyReference::Match}:
 opt_foreign_key_actions {ASTNode*}:
     foreign_key_on_update opt_foreign_key_on_delete
       {
-        auto* actions = MAKE_NODE(ASTForeignKeyActions, @$, {});
+        auto* actions = MakeNode<ASTForeignKeyActions>(@$);
         actions->set_update_action($1);
         actions->set_delete_action($2);
         $$ = actions;
       }
     | foreign_key_on_delete opt_foreign_key_on_update
       {
-        auto* actions = MAKE_NODE(ASTForeignKeyActions, @$, {});
+        auto* actions = MakeNode<ASTForeignKeyActions>(@$);
         actions->set_delete_action($1);
         actions->set_update_action($2);
         $$ = actions;
       }
     | %empty
       {
-        $$ = MAKE_NODE(ASTForeignKeyActions, @$, {});
+        $$ = MakeNode<ASTForeignKeyActions>(@$);
       }
     ;
 
@@ -4131,30 +4180,30 @@ table_or_table_function {TableOrTableFunctionKeywords}:
 tvf_schema_column {ASTNode*}:
     identifier type
       {
-        $$ = MAKE_NODE(ASTTVFSchemaColumn, @$, {$1, $2});
+        $$ = MakeNode<ASTTVFSchemaColumn>(@$, $1, $2);
       }
     | type
       {
-        $$ = MAKE_NODE(ASTTVFSchemaColumn, @$, {nullptr, $1});
+        $$ = MakeNode<ASTTVFSchemaColumn>(@$, $1);
       }
     ;
 
 tvf_schema_prefix {ASTNode*}:
     "TABLE" template_type_open tvf_schema_column
       {
-        auto* create = MAKE_NODE(ASTTVFSchema, @$, {$3});
+        auto* create = MakeNode<ASTTVFSchema>(@$, $3);
         $$ = create;
       }
     | tvf_schema_prefix "," tvf_schema_column
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 tvf_schema {ASTNode*}:
     tvf_schema_prefix template_type_close
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
@@ -4169,7 +4218,7 @@ create_view_statement {ASTNode*}:
     opt_options_list as_query
       {
         auto* create =
-            MAKE_NODE(ASTCreateViewStatement, @$, {$7, $8, $10, $11});
+            MakeNode<ASTCreateViewStatement>(@$, $7, $8, $10, $11);
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_recursive($4);
@@ -4184,8 +4233,8 @@ create_view_statement {ASTNode*}:
     opt_cluster_by_clause_no_hint opt_options_list as_before_query
     query_or_replica_source
       {
-        auto* create = MAKE_NODE(ASTCreateMaterializedViewStatement, @$,
-          {$7, $8, $10, $11, $12, $14.query, $14.replica_source});
+        auto* create = MakeNode<ASTCreateMaterializedViewStatement>(@$,
+          $7, $8, $10, $11, $12, $14.query, $14.replica_source);
         create->set_is_or_replace($2);
         create->set_recursive($4);
         create->set_scope(ASTCreateStatement::DEFAULT_SCOPE);
@@ -4199,8 +4248,7 @@ create_view_statement {ASTNode*}:
     opt_sql_security_clause
     opt_options_list as_query
       {
-        auto* create = MAKE_NODE(
-          ASTCreateApproxViewStatement, @$, {$7, $8, $10, $11});
+        auto* create = MakeNode<ASTCreateApproxViewStatement>(@$, $7, $8, $10, $11);
         create->set_is_or_replace($2);
         create->set_scope(ASTCreateStatement::DEFAULT_SCOPE);
         create->set_recursive($4);
@@ -4271,18 +4319,18 @@ opt_if_not_exists {bool}:
 describe_statement {ASTNode*}:
     describe_keyword describe_info
       {
-        $$ = parser->WithStartLocation($2, @$);
+        $$ = WithStartLocation($2, @$);
       }
     ;
 
 describe_info {ASTNode*}:
     identifier maybe_slashed_or_dashed_path_expression opt_from_path_expression
       {
-        $$ = MAKE_NODE(ASTDescribeStatement, @$, {$1, $2, $3});
+        $$ = MakeNode<ASTDescribeStatement>(@$, $1, $2, $3);
       }
     | maybe_slashed_or_dashed_path_expression opt_from_path_expression
       {
-        $$ = MAKE_NODE(ASTDescribeStatement, @$, {nullptr, $1, $2});
+        $$ = MakeNode<ASTDescribeStatement>(@$, $1, $2);
       }
     ;
 
@@ -4297,15 +4345,15 @@ opt_from_path_expression {ASTExpression*}:
 explain_statement {ASTNode*}:
     "EXPLAIN" unterminated_sql_statement
       {
-        $$ = MAKE_NODE(ASTExplainStatement, @$, {$2});
+        $$ = MakeNode<ASTExplainStatement>(@$, $2);
       }
     ;
 
 export_data_no_query {ASTNode*}:
     "EXPORT" "DATA" opt_with_connection_clause opt_options_list
       {
-        $$ = MAKE_NODE(ASTExportDataStatement, @$,
-               {$opt_with_connection_clause, $opt_options_list});
+        $$ = MakeNode<ASTExportDataStatement>(@$,
+               $opt_with_connection_clause, $opt_options_list);
       }
     ;
 
@@ -4314,14 +4362,14 @@ export_data_statement {ASTNode*}:
       {
         // WithEndLocation is needed because as_query won't include the
         // closing paren on a parenthesized query.
-        $$ = parser->WithEndLocation(WithExtraChildren($export_data_no_query, {$as_query}), @$);
+        $$ = ExtendNodeRight($export_data_no_query, @$.end(), $as_query);
       }
     ;
 
 export_model_statement {ASTNode*}:
     "EXPORT" "MODEL" path_expression opt_with_connection_clause opt_options_list
       {
-        $$ = MAKE_NODE(ASTExportModelStatement, @$, {$3, $4, $5});
+        $$ = MakeNode<ASTExportModelStatement>(@$, $3, $4, $5);
       }
     ;
 
@@ -4334,7 +4382,7 @@ export_metadata_statement {ASTNode*}:
           "EXPORT TABLE FUNCTION METADATA is not supported");
         }
         auto* export_metadata =
-        MAKE_NODE(ASTExportMetadataStatement, @$, {$5, $6, $7});
+        MakeNode<ASTExportMetadataStatement>(@$, $5, $6, $7);
         export_metadata->set_schema_object_kind(
           SchemaObjectKind::kTable);
         $$ = export_metadata;
@@ -4344,39 +4392,39 @@ export_metadata_statement {ASTNode*}:
 grant_statement {ASTNode*}:
     "GRANT" privileges "ON" identifier path_expression "TO" grantee_list
       {
-        $$ = MAKE_NODE(ASTGrantStatement, @$, {$2, $4, $5, $7});
+        $$ = MakeNode<ASTGrantStatement>(@$, $2, $4, $5, $7);
       }
     | "GRANT" privileges "ON" identifier identifier path_expression
         "TO" grantee_list
       {
-        $$ = MAKE_NODE(ASTGrantStatement, @$, {$2, $4, $5, $6, $8});
+        $$ = MakeNode<ASTGrantStatement>(@$, $2, $4, $5, $6, $8);
       }
     | "GRANT" privileges "ON" path_expression "TO" grantee_list
       {
-        $$ = MAKE_NODE(ASTGrantStatement, @$, {$2, $4, $6});
+        $$ = MakeNode<ASTGrantStatement>(@$, $2, $4, $6);
       }
     ;
 
 revoke_statement {ASTNode*}:
     "REVOKE" privileges "ON" identifier path_expression "FROM" grantee_list
       {
-        $$ = MAKE_NODE(ASTRevokeStatement, @$, {$2, $4, $5, $7});
+        $$ = MakeNode<ASTRevokeStatement>(@$, $2, $4, $5, $7);
       }
     | "REVOKE" privileges "ON" identifier identifier path_expression
         "FROM" grantee_list
       {
-        $$ = MAKE_NODE(ASTRevokeStatement, @$, {$2, $4, $5, $6, $8});
+        $$ = MakeNode<ASTRevokeStatement>(@$, $2, $4, $5, $6, $8);
       }
     | "REVOKE" privileges "ON" path_expression "FROM" grantee_list
       {
-        $$ = MAKE_NODE(ASTRevokeStatement, @$, {$2, $4, $6});
+        $$ = MakeNode<ASTRevokeStatement>(@$, $2, $4, $6);
       }
     ;
 
 privileges {ASTNode*}:
     "ALL" opt_privileges_keyword
       {
-        $$ = MAKE_NODE(ASTPrivileges, @$, {});
+        $$ = MakeNode<ASTPrivileges>(@$);
       }
     |  privilege_list
       {
@@ -4392,18 +4440,18 @@ opt_privileges_keyword:
 privilege_list {ASTNode*}:
     privilege
       {
-        $$ = MAKE_NODE(ASTPrivileges, @$, {$1});
+        $$ = MakeNode<ASTPrivileges>(@$, $1);
       }
     | privilege_list "," privilege
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 privilege {ASTNode*}:
     privilege_name opt_path_expression_list_with_parens
       {
-        $$ = MAKE_NODE(ASTPrivilege, @$, {$1, $2});
+        $$ = MakeNode<ASTPrivilege>(@$, $1, $2);
       }
     ;
 
@@ -4415,14 +4463,14 @@ privilege_name {ASTNode*}:
     | "SELECT"
       {
         // The SELECT keyword is allowed to be a privilege name.
-        $$ = parser->MakeIdentifier(@1, $1);
+        $$ = node_factory.MakeIdentifier(@1, $1);
       }
     ;
 
 rename_statement {ASTNode*}:
     "RENAME" identifier path_expression "TO" path_expression
       {
-        $$ = MAKE_NODE(ASTRenameStatement, @$, {$2, $3, $5});
+        $$ = MakeNode<ASTRenameStatement>(@$, $2, $3, $5);
       }
     ;
 
@@ -4430,7 +4478,7 @@ import_statement {ASTNode*}:
     "IMPORT" import_type path_expression_or_string
     opt_as_or_into_alias opt_options_list
       {
-        auto* import = MAKE_NODE(ASTImportStatement, @$, {$3, $4, $5});
+        auto* import = MakeNode<ASTImportStatement>(@$, $3, $4, $5);
         switch ($2) {
           case ImportType::kModule:
             import->set_import_kind(ASTImportStatement::MODULE);
@@ -4446,7 +4494,7 @@ import_statement {ASTNode*}:
 module_statement {ASTNode*}:
     "MODULE" path_expression opt_options_list
       {
-        $$ = MAKE_NODE(ASTModuleStatement, @$, {$2, $3});
+        $$ = MakeNode<ASTModuleStatement>(@$, $2, $3);
       }
     ;
 
@@ -4455,12 +4503,12 @@ column_ordering_and_options_expr {ASTNode*}:
     expression opt_collate_clause opt_asc_or_desc opt_null_order opt_options_list
       {
         auto* ordering_expr =
-            MAKE_NODE(ASTOrderingExpression, @$, {
+            MakeNode<ASTOrderingExpression>(@$,
               $expression,
               $opt_collate_clause,
               $opt_null_order,
               $opt_options_list
-            });
+            );
         ordering_expr->set_ordering_spec($3);
         $$ = ordering_expr;
       }
@@ -4469,11 +4517,11 @@ column_ordering_and_options_expr {ASTNode*}:
 index_order_by_and_options_prefix {ASTNode*}:
     "(" column_ordering_and_options_expr
       {
-        $$ = MAKE_NODE(ASTIndexItemList, @$, {$2});
+        $$ = MakeNode<ASTIndexItemList>(@$, $2);
       }
     | index_order_by_and_options_prefix "," column_ordering_and_options_expr
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
@@ -4492,37 +4540,37 @@ opt_with_column_options {ASTNode*}:
 index_all_columns {ASTNode*}:
     "(" "ALL" "COLUMNS" opt_with_column_options ")"
       {
-        auto* all_columns = MAKE_NODE(ASTIndexAllColumns, @$, {$4});
+        auto* all_columns = MakeNode<ASTIndexAllColumns>(@$, $4);
         all_columns->set_image("ALL COLUMNS");
         auto* ordering_expr =
-            MAKE_NODE(ASTOrderingExpression, @$,
-                      {all_columns, nullptr, nullptr, nullptr});
+            MakeNode<ASTOrderingExpression>(@$,
+                      all_columns);
         ordering_expr->set_ordering_spec(
                                 ASTOrderingExpression::UNSPECIFIED);
-        $$ = MAKE_NODE(ASTIndexItemList, @$, {ordering_expr});
+        $$ = MakeNode<ASTIndexItemList>(@$, ordering_expr);
       }
     ;
 
 index_order_by_and_options {ASTNode*}:
     index_order_by_and_options_prefix ")"
     {
-      $$ = parser->WithEndLocation($1, @$);
+      $$ = WithEndLocation($1, @$);
     }
     | index_all_columns
     {
-      $$ = parser->WithEndLocation($1, @$);
+      $$ = WithEndLocation($1, @$);
     }
     ;
 
 index_unnest_expression_list {ASTNode*}:
    unnest_expression_with_opt_alias_and_offset
      {
-       $$ = MAKE_NODE(ASTIndexUnnestExpressionList, @$, {$1});
+       $$ = MakeNode<ASTIndexUnnestExpressionList>(@$, $1);
      }
    |
    index_unnest_expression_list unnest_expression_with_opt_alias_and_offset
      {
-       $$ = WithExtraChildren($1, {$2});
+       $$ = ExtendNodeRight($1, $2);
      }
    ;
 
@@ -4534,18 +4582,18 @@ opt_index_unnest_expression_list {ASTNode*}:
 index_storing_expression_list_prefix {ASTNode*}:
     "(" expression
       {
-        $$ = MAKE_NODE(ASTIndexStoringExpressionList, @$, {$2});
+        $$ = MakeNode<ASTIndexStoringExpressionList>(@$, $2);
       }
     | index_storing_expression_list_prefix "," expression
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 index_storing_expression_list {ASTNode*}:
     index_storing_expression_list_prefix ")"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
@@ -4563,11 +4611,11 @@ opt_index_storing_list {ASTNode*}:
 column_list_prefix {ASTNode*}:
     "(" identifier
       {
-        $$ = MAKE_NODE(ASTColumnList, @$, {$2});
+        $$ = MakeNode<ASTColumnList>(@$, $2);
       }
     | column_list_prefix "," identifier
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
@@ -4576,7 +4624,7 @@ column_list {ASTNode*}:
     { OVERRIDE_NEXT_TOKEN_LOOKBACK(RPAREN, LB_CLOSE_COLUMN_LIST); }
     ")"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
@@ -4588,25 +4636,25 @@ opt_column_list {ASTNode*}:
 column_with_options {ASTNode*}:
     identifier opt_options_list
       {
-        $$ = MAKE_NODE(ASTColumnWithOptions, @$, {$1, $2});
+        $$ = MakeNode<ASTColumnWithOptions>(@$, $1, $2);
       }
     ;
 
 column_with_options_list_prefix {ASTNode*}:
     "(" column_with_options
       {
-        $$ = MAKE_NODE(ASTColumnWithOptionsList, @$, {$2});
+        $$ = MakeNode<ASTColumnWithOptionsList>(@$, $2);
       }
     | column_with_options_list_prefix "," column_with_options
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 column_with_options_list {ASTNode*}:
     column_with_options_list_prefix ")"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
@@ -4618,47 +4666,47 @@ opt_column_with_options_list {ASTNode*}:
 grantee_list {ASTNode*}:
     string_literal_or_parameter
       {
-        $$ = MAKE_NODE(ASTGranteeList, @$, {$1});
+        $$ = MakeNode<ASTGranteeList>(@$, $1);
       }
     | grantee_list "," string_literal_or_parameter
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 grantee_list_with_parens_prefix {ASTNode*}:
     "(" string_literal_or_parameter
       {
-        $$ = MAKE_NODE(ASTGranteeList, @$, {$2});
+        $$ = MakeNode<ASTGranteeList>(@$, $2);
       }
     | grantee_list_with_parens_prefix "," string_literal_or_parameter
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 possibly_empty_grantee_list {ASTNode*}:
     grantee_list_with_parens_prefix ")"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     | "(" ")"
       {
-        $$ = MAKE_NODE(ASTGranteeList, @$, {});
+        $$ = MakeNode<ASTGranteeList>(@$);
       }
     ;
 
 show_statement {ASTNode*}:
     "SHOW" show_target opt_from_path_expression opt_like_string_literal
       {
-        $$ = MAKE_NODE(ASTShowStatement, @$, {$2, $3, $4});
+        $$ = MakeNode<ASTShowStatement>(@$, $2, $3, $4);
       }
     ;
 
 show_target {ASTIdentifier*}:
   "MATERIALIZED" "VIEWS"
     {
-      $$ = parser->MakeIdentifier(@$, "MATERIALIZED VIEWS");
+      $$ = node_factory.MakeIdentifier(@$, "MATERIALIZED VIEWS");
     }
   | identifier
     {
@@ -4700,13 +4748,18 @@ opt_copy_table {ASTNode*}:
 
 all_or_distinct {ASTSetOperationAllOrDistinct*}:
     "ALL" {
-      $$ = MAKE_NODE(ASTSetOperationAllOrDistinct, @$, {});
+      $$ = MakeNode<ASTSetOperationAllOrDistinct>(@$);
       $$->set_value(ASTSetOperation::ALL);
     }
     | "DISTINCT" {
-      $$ = MAKE_NODE(ASTSetOperationAllOrDistinct, @$, {});
+      $$ = MakeNode<ASTSetOperationAllOrDistinct>(@$);
       $$->set_value(ASTSetOperation::DISTINCT);
     }
+    ;
+
+opt_distinct {bool}:
+    %empty { $$ = false; }
+    | "DISTINCT" { $$ = true; }
     ;
 
 // Returns the token for a set operation as expected by
@@ -4714,17 +4767,17 @@ all_or_distinct {ASTSetOperationAllOrDistinct*}:
 query_set_operation_type {ASTSetOperationType*}:
     "UNION"
       {
-        $$ = MAKE_NODE(ASTSetOperationType, @$, {});
+        $$ = MakeNode<ASTSetOperationType>(@$);
         $$->set_value(ASTSetOperation::UNION);
       }
     | KW_EXCEPT_IN_SET_OP
       {
-        $$ = MAKE_NODE(ASTSetOperationType, @$, {});
+        $$ = MakeNode<ASTSetOperationType>(@$);
         $$->set_value(ASTSetOperation::EXCEPT);
       }
     | "INTERSECT"
       {
-        $$ = MAKE_NODE(ASTSetOperationType, @$, {});
+        $$ = MakeNode<ASTSetOperationType>(@$);
         $$->set_value(ASTSetOperation::INTERSECT);
       }
     ;
@@ -4776,8 +4829,8 @@ query_without_pipe_operators {ASTQuery*}:
       opt_limit_offset_clause[offset]
       opt_lock_mode_clause[lock_mode]
       {
-        auto* node = MAKE_NODE(ASTQuery, @$,
-           {$with_clause, $query_primary, $order_by, $offset, $lock_mode});
+        auto* node = MakeNode<ASTQuery>(@$,
+           $with_clause, $query_primary, $order_by, $offset, $lock_mode);
         $$ = node;
       }
     | with_clause_with_trailing_comma select_or_from_keyword
@@ -4790,7 +4843,7 @@ query_without_pipe_operators {ASTQuery*}:
       }
     | with_clause "|>"
       {
-        if (!parser->language_options().LanguageFeatureEnabled(
+        if (!language_options.LanguageFeatureEnabled(
                 FEATURE_PIPES)) {
           return MakeSyntaxError(@2, "Syntax error: Unexpected |");
         } else {
@@ -4808,15 +4861,15 @@ query_without_pipe_operators {ASTQuery*}:
       {
         ASTQuery* query = $query_primary->GetAsOrNull<ASTQuery>();
         if (query != nullptr && !query->parenthesized()) {
-          $$ = WithExtraChildren(query, {$order_by, $offset, $lock_mode});
+          $$ = ExtendNodeRight(query, $order_by, $offset, $lock_mode);
         } else if (query != nullptr && $order_by == nullptr
                    && $offset == nullptr && $lock_mode == nullptr) {
           // This means it is a query originally and there are no other clauses.
           // So then wrapping it is semantically useless.
           $$ = query;
         } else {
-          $$ = MAKE_NODE(ASTQuery, @$,
-                         {$query_primary, $order_by, $offset, $lock_mode});
+          $$ = MakeNode<ASTQuery>(@$,
+                         $query_primary, $order_by, $offset, $lock_mode);
         }
       }
     // Support FROM queries, which just have a standalone FROM clause and
@@ -4827,16 +4880,16 @@ query_without_pipe_operators {ASTQuery*}:
     | opt_with_clause from_clause
       opt_lock_mode_clause
      {
-        if (!parser->language_options().LanguageFeatureEnabled(
+        if (!language_options.LanguageFeatureEnabled(
                 FEATURE_PIPES)) {
           return MakeSyntaxError(@2, "Syntax error: Unexpected FROM");
         }
-        ASTFromQuery* from_query = MAKE_NODE(ASTFromQuery, @2, {$2});
-        $$ = MAKE_NODE(ASTQuery, @$, {$1, from_query, {}, {}, $3});
+        ASTFromQuery* from_query = MakeNode<ASTFromQuery>(@2, $2);
+        $$ = MakeNode<ASTQuery>(@$, $1, from_query, $3);
      }
     | opt_with_clause from_clause bad_keyword_after_from_query
      {
-        if (!parser->language_options().LanguageFeatureEnabled(
+        if (!language_options.LanguageFeatureEnabled(
                 FEATURE_PIPES)) {
           return MakeSyntaxError(@2, "Syntax error: Unexpected FROM");
         }
@@ -4848,7 +4901,7 @@ query_without_pipe_operators {ASTQuery*}:
      }
     | opt_with_clause from_clause bad_keyword_after_from_query_allows_parens
      {
-        if (!parser->language_options().LanguageFeatureEnabled(
+        if (!language_options.LanguageFeatureEnabled(
                 FEATURE_PIPES)) {
           return MakeSyntaxError(@2, "Syntax error: Unexpected FROM");
         }
@@ -4873,9 +4926,9 @@ query {ASTQuery*}:
         // printing double-parentheses.
         query->set_is_nested(true);
         query->set_parenthesized(false);
-        $$ = MAKE_NODE(ASTQuery, @$, {query, $pipe_op});
+        $$ = MakeNode<ASTQuery>(@$, query, $pipe_op);
       } else {
-        $$ = WithExtraChildren(query, {$pipe_op});
+        $$ = ExtendNodeRight(query, $pipe_op);
       }
     }
   ;
@@ -4912,11 +4965,11 @@ subpipeline_prefix_invalid {ASTNode*}:
 subpipeline_prefix_valid {ASTNode*}:
     "("
       {
-        $$ = MAKE_NODE(ASTSubpipeline, @$, {});
+        $$ = MakeNode<ASTSubpipeline>(@$);
       }
     | subpipeline_prefix_valid[prefix] pipe_and_pipe_operator[pipe_op]
       {
-        $$ = WithExtraChildren($prefix, {$pipe_op});
+        $$ = ExtendNodeRight($prefix, $pipe_op);
       }
     ;
 
@@ -4924,7 +4977,7 @@ subpipeline_valid {ASTNode*}:
     subpipeline_prefix_valid ")"
     {
       // Adjust the location to include the closing ")".
-      $$ = parser->WithEndLocation($subpipeline_prefix_valid, @2);
+      $$ = WithEndLocation($subpipeline_prefix_valid, @2);
     }
   ;
 
@@ -4942,7 +4995,7 @@ pipe_and_pipe_operator {ASTPipeOperator*}:
     "|>" pipe_operator
       {
         // Adjust the location on the operator node to include the pipe symbol.
-        $$ = parser->WithStartLocation($pipe_operator, @1);
+        $$ = WithStartLocation($pipe_operator, @1);
       }
   ;
 
@@ -4985,29 +5038,29 @@ pipe_operator {ASTPipeOperator*}:
 pipe_where {ASTPipeOperator*}:
     where_clause
     {
-      $$ = MAKE_NODE(ASTPipeWhere, @$, {$1});
+      $$ = MakeNode<ASTPipeWhere>(@$, $1);
     }
   ;
 
 pipe_select {ASTPipeOperator*}:
     select_clause opt_window_clause_with_trailing_comma[window]
     {
-      ASTSelect* select = WithExtraChildren($select_clause, {$window});
-      $$ = MAKE_NODE(ASTPipeSelect, @$, {select});
+      ASTSelect* select = ExtendNodeRight($select_clause, $window);
+      $$ = MakeNode<ASTPipeSelect>(@$, select);
     }
   ;
 
 pipe_limit_offset {ASTPipeOperator*}:
     limit_offset_clause
     {
-      $$ = MAKE_NODE(ASTPipeLimitOffset, @$, {$1});
+      $$ = MakeNode<ASTPipeLimitOffset>(@$, $1);
     }
   ;
 
 pipe_order_by {ASTPipeOperator*}:
     order_by_clause_with_opt_comma
     {
-      $$ = MAKE_NODE(ASTPipeOrderBy, @$, {$1});
+      $$ = MakeNode<ASTPipeOrderBy>(@$, $1);
     }
   ;
 
@@ -5018,8 +5071,8 @@ pipe_extend {ASTPipeOperator*}:
         // Pipe EXTEND is represented as an ASTSelect inside an
         // ASTPipeExtend.  This allows more resolver code sharing.
         ASTSelect* select =
-            MAKE_NODE(ASTSelect, @$, {$pipe_selection_item_list, $window});
-        $$ = MAKE_NODE(ASTPipeExtend, @$, {select});
+            MakeNode<ASTSelect>(@$, $pipe_selection_item_list, $window);
+        $$ = MakeNode<ASTPipeExtend>(@$, select);
       }
   ;
 
@@ -5033,7 +5086,7 @@ pipe_selection_item {ASTNode*}:
 pipe_selection_item_with_order {ASTNode*}:
     select_column_expr opt_selection_item_order
       {
-        $$ = WithExtraChildren($select_column_expr, {$opt_selection_item_order});
+        $$ = ExtendNodeRight($select_column_expr, $opt_selection_item_order);
       }
     | select_column_dot_star
   ;
@@ -5043,23 +5096,23 @@ pipe_selection_item_with_order {ASTNode*}:
 pipe_selection_item_list_no_comma {ASTNode*}:
     pipe_selection_item
       {
-        $$ = MAKE_NODE(ASTSelectList, @$, {$1});
+        $$ = MakeNode<ASTSelectList>(@$, $1);
       }
     | pipe_selection_item_list_no_comma "," pipe_selection_item
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
   ;
 
 pipe_selection_item_list_no_comma_with_order {ASTNode*}:
     pipe_selection_item_with_order
       {
-        $$ = MAKE_NODE(ASTSelectList, @$, {$1});
+        $$ = MakeNode<ASTSelectList>(@$, $1);
       }
     | pipe_selection_item_list_no_comma_with_order ","
       pipe_selection_item_with_order
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
   ;
 
@@ -5068,7 +5121,7 @@ pipe_selection_item_list_no_comma_with_order {ASTNode*}:
 pipe_selection_item_list {ASTNode*}:
     pipe_selection_item_list_no_comma opt_comma
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
   ;
 
@@ -5077,7 +5130,7 @@ pipe_selection_item_list {ASTNode*}:
 pipe_selection_item_list_with_order {ASTNode*}:
     pipe_selection_item_list_no_comma_with_order opt_comma
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
   ;
 
@@ -5088,14 +5141,14 @@ pipe_selection_item_list_with_order_or_empty {ASTNode*}:
       }
     | %empty
       {
-        $$ = MAKE_NODE(ASTSelectList, @$, {});
+        $$ = MakeNode<ASTSelectList>(@$);
       }
   ;
 
 pipe_rename_item {ASTPipeOperator*}:
     identifier[old] opt_as identifier[new]
       {
-        $$ = MAKE_NODE(ASTPipeRenameItem, @$, {$old, $new});
+        $$ = MakeNode<ASTPipeRenameItem>(@$, $old, $new);
       }
     | identifier "."
       {
@@ -5110,11 +5163,11 @@ pipe_rename_item {ASTPipeOperator*}:
 pipe_rename_item_list {ASTPipeOperator*}:
     pipe_rename_item[item]
       {
-        $$ = MAKE_NODE(ASTPipeRename, @$, {$item});
+        $$ = MakeNode<ASTPipeRename>(@$, $item);
       }
     | pipe_rename_item_list[list] "," pipe_rename_item[item]
       {
-        $$ = WithExtraChildren($list, {$item});
+        $$ = ExtendNodeRight($list, $item);
       }
   ;
 
@@ -5129,7 +5182,7 @@ pipe_rename {ASTPipeOperator*}:
 // Note that when using opt_comma for trailing commas, and passing through a
 // node constructed in another rule (rather than construcing the node locally),
 // it may be necessary to call
-//      $$ = parser->WithEndLocation($1, @$);
+//      $$ = WithEndLocation($1, @$);
 // to ensure the node's location range includes the comma.
 opt_comma:
     ","
@@ -5142,8 +5195,8 @@ pipe_aggregate {ASTPipeOperator*}:
       {
         // Pipe AGGREGATE is represented as an ASTSelect inside an
         // ASTPipeAggregate.  This allows more resolver code sharing.
-        ASTSelect* select = MAKE_NODE(ASTSelect, @$, {$2, $3});
-        $$ = MAKE_NODE(ASTPipeAggregate, @$, {select});
+        ASTSelect* select = MakeNode<ASTSelect>(@$, $2, $3);
+        $$ = MakeNode<ASTPipeAggregate>(@$, select);
       }
   ;
 
@@ -5162,12 +5215,12 @@ pipe_set_operation_base {ASTPipeOperator*}:
     set_operation_metadata parenthesized_query
       {
         $2->set_parenthesized(true);
-        $$ = MAKE_NODE(ASTPipeSetOperation, @$, {$1, $2});
+        $$ = MakeNode<ASTPipeSetOperation>(@$, $1, $2);
       }
     | pipe_set_operation_base "," parenthesized_query
       {
         $3->set_parenthesized(true);
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
@@ -5184,7 +5237,7 @@ subquery_or_subpipeline {ASTNode*}:
     | parenthesized_query[subquery] {
       $subquery->set_parenthesized(true);
       // Fix the location of the subquery to include the parentheses.
-      $$ = parser->WithLocation($subquery, @$);
+      $$ = WithLocation($subquery, @$);
     }
   ;
 
@@ -5192,16 +5245,15 @@ pipe_recursive_union_no_alias {ASTPipeOperator*}:
     "RECURSIVE" set_operation_metadata opt_recursion_depth_modifier[depth]
     subquery_or_subpipeline
     {
-      $$ = MAKE_NODE(
-          ASTPipeRecursiveUnion, @$,
-          {$set_operation_metadata, $depth, $subquery_or_subpipeline});
+      $$ = MakeNode<ASTPipeRecursiveUnion>(@$,
+           $set_operation_metadata, $depth, $subquery_or_subpipeline);
     }
   ;
 
 pipe_recursive_union {ASTPipeOperator*}:
     pipe_recursive_union_no_alias opt_as_alias_with_required_as[alias]
     {
-      $$ = WithExtraChildren($1, {$alias});
+      $$ = ExtendNodeRight($1, $alias);
     }
     | pipe_recursive_union_no_alias[base] identifier[invalid_alias]
       {
@@ -5218,13 +5270,13 @@ pipe_join {ASTPipeOperator*}:
       {
         // Pipe JOIN has no LHS, so we use this placeholder in the ASTJoin.
         ASTPipeJoinLhsPlaceholder* join_lhs =
-            MAKE_NODE(ASTPipeJoinLhsPlaceholder, @$, {});
+            MakeNode<ASTPipeJoinLhsPlaceholder>(@$);
 
         // JoinRuleAction expects a list of clauses, but this grammar rule only
         // accepts one.  Wrap it into a list.
         ASTOnOrUsingClauseList* clause_list = nullptr;
         if ($7 != nullptr) {
-          clause_list = MAKE_NODE(ASTOnOrUsingClauseList, @$, {$7});
+          clause_list = MakeNode<ASTOnOrUsingClauseList>(@$, $7);
         }
 
         // Our main code for constructing ASTJoin is in JoinRuleAction.
@@ -5233,23 +5285,23 @@ pipe_join {ASTPipeOperator*}:
         // so it just constructs a single ASTJoin.
         ErrorInfo error_info;
         auto *join_location =
-            parser->MakeLocation(NonEmptyRangeLocation(@1, @2, @3, @4));
+            MakeNode<ASTLocation>(NonEmptyRangeLocation(@1, @2, @3, @4));
         ASTNode* join = JoinRuleAction(
             @1, @$,
             join_lhs, $1, $2, $3, $5, $6, clause_list,
-            join_location, parser, &error_info);
+            join_location, node_factory, &error_info);
         if (join == nullptr) {
           return MakeSyntaxError(error_info.location, error_info.message);
         }
 
-        $$ = MAKE_NODE(ASTPipeJoin, @$, {join});
+        $$ = MakeNode<ASTPipeJoin>(@$, join);
       }
     ;
 
 pipe_call {ASTPipeOperator*}:
-    "CALL" tvf opt_as_alias
+    "CALL" tvf opt_as_alias[alias]
       {
-        $$ = MAKE_NODE(ASTPipeCall, @$, {WithExtraChildren($2, {$3})});
+        $$ = MakeNode<ASTPipeCall>(@$, ExtendNodeRight($tvf, $alias));
       }
     ;
 
@@ -5258,62 +5310,62 @@ pipe_window {ASTPipeOperator*}:
       {
         // Pipe WINDOW is represented as an ASTSelect inside an
         // ASTPipeWindow.  This allows more resolver code sharing.
-        ASTSelect* select = MAKE_NODE(ASTSelect, @$, {$2});
-        $$ = MAKE_NODE(ASTPipeWindow, @$, {select});
+        ASTSelect* select = MakeNode<ASTSelect>(@$, $2);
+        $$ = MakeNode<ASTPipeWindow>(@$, select);
       }
   ;
 
 pipe_distinct {ASTPipeOperator*}:
   "DISTINCT"
     {
-      $$ = MAKE_NODE(ASTPipeDistinct, @$);
+      $$ = MakeNode<ASTPipeDistinct>(@$);
     }
   ;
 
 pipe_tablesample {ASTPipeOperator*}:
   sample_clause
     {
-      $$ = MAKE_NODE(ASTPipeTablesample, @$, {$1});
+      $$ = MakeNode<ASTPipeTablesample>(@$, $1);
     }
   ;
 
 pipe_as {ASTPipeOperator*}:
   "AS" identifier
     {
-      auto* alias = MAKE_NODE(ASTAlias, @2, {$2});
-      $$ = MAKE_NODE(ASTPipeAs, @$, {alias});
+      auto* alias = MakeNode<ASTAlias>(@2, $2);
+      $$ = MakeNode<ASTPipeAs>(@$, alias);
     }
   ;
 
 pipe_static_describe {ASTPipeOperator*}:
   "STATIC_DESCRIBE"
     {
-      $$ = MAKE_NODE(ASTPipeStaticDescribe, @$);
+      $$ = MakeNode<ASTPipeStaticDescribe>(@$);
     }
   ;
 
 pipe_assert_base {ASTPipeOperator*}:
   "ASSERT" expression
     {
-      $$ = MAKE_NODE(ASTPipeAssert, @$, {$2});
+      $$ = MakeNode<ASTPipeAssert>(@$, $2);
     }
   | pipe_assert_base "," expression
     {
-      $$ = WithExtraChildren($1, {$3});
+      $$ = ExtendNodeRight($1, $3);
     }
   ;
 
 pipe_assert {ASTPipeOperator*}:
   pipe_assert_base opt_comma
     {
-      $$ = parser->WithEndLocation($1, @$);
+      $$ = WithEndLocation($1, @$);
     }
   ;
 
 pipe_log {ASTPipeOperator*}:
   "LOG" opt_hint opt_subpipeline
     {
-      $$ = MAKE_NODE(ASTPipeLog, @$, {$opt_hint, $opt_subpipeline});
+      $$ = MakeNode<ASTPipeLog>(@$, $opt_hint, $opt_subpipeline);
     }
   ;
 
@@ -5339,25 +5391,25 @@ identifier_in_pipe_drop {ASTNode*}:
 identifier_list_in_pipe_drop {ASTNode*}:
     identifier_in_pipe_drop[item]
     {
-      $$ = MAKE_NODE(ASTIdentifierList, @$, {$item});
+      $$ = MakeNode<ASTIdentifierList>(@$, $item);
     }
     | identifier_list_in_pipe_drop[list] "," identifier_in_pipe_drop[item]
     {
-      $$ = parser->WithEndLocation(WithExtraChildren($list, {$item}), @$);
+      $$ = ExtendNodeRight($list, $item);
     }
   ;
 
 pipe_drop {ASTPipeOperator*}:
   "DROP" identifier_list_in_pipe_drop[list] opt_comma
     {
-      $$ = MAKE_NODE(ASTPipeDrop, @$, {$list});
+      $$ = MakeNode<ASTPipeDrop>(@$, $list);
     }
   ;
 
 pipe_set_item {ASTNode*}:
     identifier "=" expression
       {
-        $$ = MAKE_NODE(ASTPipeSetItem, @$, {$1, $3});
+        $$ = MakeNode<ASTPipeSetItem>(@$, $1, $3);
       }
     | identifier "."
     {
@@ -5374,18 +5426,18 @@ pipe_set_item {ASTNode*}:
 pipe_set_item_list {ASTPipeOperator*}:
     pipe_set_item
       {
-        $$ = MAKE_NODE(ASTPipeSet, @$, {$1});
+        $$ = MakeNode<ASTPipeSet>(@$, $1);
       }
     | pipe_set_item_list "," pipe_set_item
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 pipe_set {ASTPipeOperator*}:
   "SET" pipe_set_item_list opt_comma
     {
-      $$ = parser->WithLocation($2, @$);
+      $$ = WithLocation($2, @$);
     }
   ;
 
@@ -5394,7 +5446,7 @@ pipe_pivot {ASTPipeOperator*}:
     {
       // The alias is parsed separately from pivot_clause but needs to be
       // added into that AST node.
-      $$ = MAKE_NODE(ASTPipePivot, @$, { WithExtraChildren($1, {$2}) });
+      $$ = MakeNode<ASTPipePivot>(@$, ExtendNodeRight($1, $2));
     }
   ;
 
@@ -5403,7 +5455,7 @@ pipe_unpivot {ASTPipeOperator*}:
     {
       // The alias is parsed separately from unpivot_clause but needs to be
       // added into that AST node.
-      $$ = MAKE_NODE(ASTPipeUnpivot, @$, { WithExtraChildren($1, {$2}) });
+      $$ = MakeNode<ASTPipeUnpivot>(@$, ExtendNodeRight($1, $2));
     }
   ;
 
@@ -5411,26 +5463,26 @@ pipe_if {ASTPipeOperator*}:
   pipe_if_prefix
   | pipe_if_prefix "ELSE" subpipeline
     {
-      $$ = WithExtraChildren($pipe_if_prefix, {$subpipeline});
+      $$ = ExtendNodeRight($pipe_if_prefix, $subpipeline);
     }
   ;
 
 pipe_if_prefix {ASTPipeOperator*}:
   "IF" opt_hint[hint] expression[condition] "THEN" subpipeline
     {
-      auto* if_case = MAKE_NODE(ASTPipeIfCase, @$, { $condition, $subpipeline });
-      $$ = MAKE_NODE(ASTPipeIf, @$, { $hint, if_case });
+      auto* if_case = MakeNode<ASTPipeIfCase>(@$, $condition, $subpipeline);
+      $$ = MakeNode<ASTPipeIf>(@$, $hint, if_case);
     }
   | pipe_if_prefix[prefix] pipe_if_elseif[elseif]
     {
-      $$ = WithExtraChildren($prefix, {$elseif});
+      $$ = ExtendNodeRight($prefix, $elseif);
     }
   ;
 
 pipe_if_elseif {ASTNode*}:
   "ELSEIF" expression[condition] "THEN" subpipeline
     {
-      $$ = MAKE_NODE(ASTPipeIfCase, @$, { $condition, $subpipeline });
+      $$ = MakeNode<ASTPipeIfCase>(@$, $condition, $subpipeline);
     }
   | "ELSE" "IF"
     {
@@ -5464,54 +5516,54 @@ pipe_else {ASTPipeOperator*}:
 pipe_fork {ASTPipeOperator*}:
   pipe_fork_impl opt_comma
     {
-      $$ = parser->WithEndLocation($pipe_fork_impl, @$);
+      $$ = WithEndLocation($pipe_fork_impl, @$);
     }
   ;
 
 pipe_fork_impl {ASTPipeOperator*}:
   "FORK" opt_hint subpipeline
     {
-      $$ = MAKE_NODE(ASTPipeFork, @$, { $opt_hint, $subpipeline });
+      $$ = MakeNode<ASTPipeFork>(@$, $opt_hint, $subpipeline);
     }
   | pipe_fork_impl "," subpipeline
     {
-      $$ = WithExtraChildren($pipe_fork_impl, {$subpipeline});
+      $$ = ExtendNodeRight($pipe_fork_impl, $subpipeline);
     }
   ;
 
 pipe_tee {ASTPipeOperator*}:
   "TEE" opt_hint
     {
-      $$ = MAKE_NODE(ASTPipeTee, @$, { $opt_hint });
+      $$ = MakeNode<ASTPipeTee>(@$, $opt_hint);
     }
   | pipe_tee_impl opt_comma
     {
-      $$ = parser->WithEndLocation($pipe_tee_impl, @$);
+      $$ = WithEndLocation($pipe_tee_impl, @$);
     }
   ;
 
 pipe_tee_impl {ASTPipeOperator*}:
   "TEE" opt_hint subpipeline
     {
-      $$ = MAKE_NODE(ASTPipeTee, @$, { $opt_hint, $subpipeline });
+      $$ = MakeNode<ASTPipeTee>(@$, $opt_hint, $subpipeline);
     }
   | pipe_tee_impl "," subpipeline
     {
-      $$ = WithExtraChildren($pipe_tee_impl, {$subpipeline});
+      $$ = ExtendNodeRight($pipe_tee_impl, $subpipeline);
     }
   ;
 
 pipe_with {ASTPipeOperator*}:
   with_clause opt_comma
     {
-      $$ = MAKE_NODE(ASTPipeWith, @$, { $with_clause });
+      $$ = MakeNode<ASTPipeWith>(@$, $with_clause);
     }
   ;
 
 pipe_export_data {ASTPipeOperator*}:
   export_data_no_query
     {
-      $$ = MAKE_NODE(ASTPipeExportData, @$, { $export_data_no_query });
+      $$ = MakeNode<ASTPipeExportData>(@$, $export_data_no_query);
     }
   | export_data_no_query "AS"[as]
     {
@@ -5523,7 +5575,7 @@ pipe_export_data {ASTPipeOperator*}:
 pipe_create_table {ASTPipeOperator*}:
   create_table_statement_prefix
     {
-      $$ = MAKE_NODE(ASTPipeCreateTable, @$, { $create_table_statement_prefix });
+      $$ = MakeNode<ASTPipeCreateTable>(@$, $create_table_statement_prefix);
     }
   | create_table_statement_prefix "AS"[as]
     {
@@ -5535,36 +5587,36 @@ pipe_create_table {ASTPipeOperator*}:
 pipe_insert {ASTPipeOperator*}:
   insert_statement_in_pipe
     {
-      $$ = MAKE_NODE(ASTPipeInsert, @$, { $insert_statement_in_pipe});
+      $$ = MakeNode<ASTPipeInsert>(@$, $insert_statement_in_pipe);
     }
   ;
 
 pipe_match_recognize {ASTPipeOperator*}:
   match_recognize_clause
     {
-      $$ = MAKE_NODE(ASTPipeMatchRecognize, @$, { $match_recognize_clause });
+      $$ = MakeNode<ASTPipeMatchRecognize>(@$, $match_recognize_clause);
     }
   ;
 
 opt_corresponding_outer_mode {ASTSetOperationColumnPropagationMode*}:
     KW_FULL_IN_SET_OP opt_outer
       {
-        $$ = MAKE_NODE(ASTSetOperationColumnPropagationMode, @$, {});
+        $$ = MakeNode<ASTSetOperationColumnPropagationMode>(@$);
         $$->set_value(ASTSetOperation::FULL);
       }
     | "OUTER"
       {
-        $$ = MAKE_NODE(ASTSetOperationColumnPropagationMode, @$, {});
+        $$ = MakeNode<ASTSetOperationColumnPropagationMode>(@$);
         $$->set_value(ASTSetOperation::FULL);
       }
     | KW_INNER_IN_SET_OP
       {
-        $$ = MAKE_NODE(ASTSetOperationColumnPropagationMode, @$, {});
+        $$ = MakeNode<ASTSetOperationColumnPropagationMode>(@$);
         $$->set_value(ASTSetOperation::INNER);
       }
     | KW_LEFT_IN_SET_OP opt_outer
       {
-        $$ = MAKE_NODE(ASTSetOperationColumnPropagationMode, @$, {});
+        $$ = MakeNode<ASTSetOperationColumnPropagationMode>(@$);
         $$->set_value(ASTSetOperation::LEFT);
       }
     | %empty
@@ -5576,7 +5628,7 @@ opt_corresponding_outer_mode {ASTSetOperationColumnPropagationMode*}:
 opt_strict {ASTSetOperationColumnPropagationMode*}:
     "STRICT"
       {
-        $$ = MAKE_NODE(ASTSetOperationColumnPropagationMode, @$, {});
+        $$ = MakeNode<ASTSetOperationColumnPropagationMode>(@$);
         $$->set_value(ASTSetOperation::STRICT);
       }
     | %empty
@@ -5588,28 +5640,28 @@ opt_strict {ASTSetOperationColumnPropagationMode*}:
 opt_column_match_suffix {ColumnMatchSuffix}:
     "CORRESPONDING"
       {
-        auto* mode = MAKE_NODE(ASTSetOperationColumnMatchMode, @$, {});
+        auto* mode = MakeNode<ASTSetOperationColumnMatchMode>(@$);
         mode->set_value(ASTSetOperation::CORRESPONDING);
         $$.column_match_mode = mode;
         $$.column_list = nullptr;
       }
     | "CORRESPONDING" "BY" column_list
       {
-        auto* mode = MAKE_NODE(ASTSetOperationColumnMatchMode, @1, @2, {});
+        auto* mode = MakeNode<ASTSetOperationColumnMatchMode>(MakeLocationRange(@1, @2));
         mode->set_value(ASTSetOperation::CORRESPONDING_BY);
         $$.column_match_mode = mode;
         $$.column_list = $column_list->GetAsOrDie<ASTColumnList>();
       }
     | "BY" "NAME"
       {
-        auto* mode = MAKE_NODE(ASTSetOperationColumnMatchMode, @$, {});
+        auto* mode = MakeNode<ASTSetOperationColumnMatchMode>(@$);
         mode->set_value(ASTSetOperation::BY_NAME);
         $$.column_match_mode = mode;
         $$.column_list = nullptr;
       }
     | "BY" "NAME" "ON" column_list
       {
-        auto* mode = MAKE_NODE(ASTSetOperationColumnMatchMode, @1, @3, {});
+        auto* mode = MakeNode<ASTSetOperationColumnMatchMode>(MakeLocationRange(@1, @3));
         mode->set_value(ASTSetOperation::BY_NAME_ON);
         $$.column_match_mode = mode;
         $$.column_list = $column_list->GetAsOrDie<ASTColumnList>();
@@ -5631,18 +5683,18 @@ query_set_operation_prefix {ASTSetOperation*}:
     query_primary[left_query] set_operation_metadata[set_op] query_primary[right_query]
       {
         auto* metadata_list =
-            MAKE_NODE(ASTSetOperationMetadataList, @set_op, {$set_op});
-        $$ = MAKE_NODE(ASTSetOperation, @$,
-                      {metadata_list, $left_query, $right_query});
+            MakeNode<ASTSetOperationMetadataList>(@set_op, $set_op);
+        $$ = MakeNode<ASTSetOperation>(@$,
+                      metadata_list, $left_query, $right_query);
       }
     | query_set_operation_prefix[prefix] set_operation_metadata query_primary
       {
-        $prefix->mutable_child(0)->AddChild($set_operation_metadata);
-        $$ = WithExtraChildren($prefix, {$query_primary});
+        ExtendNodeRight($prefix->mutable_child(0), $set_operation_metadata);
+        $$ = ExtendNodeRight($prefix, $query_primary);
       }
     | query_primary set_operation_metadata "FROM"
       {
-        if (!parser->language_options().LanguageFeatureEnabled(
+        if (!language_options.LanguageFeatureEnabled(
                 FEATURE_PIPES)) {
           return MakeSyntaxError(@3, "Syntax error: Unexpected FROM");
         }
@@ -5652,7 +5704,7 @@ query_set_operation_prefix {ASTSetOperation*}:
       }
     | query_set_operation_prefix set_operation_metadata "FROM"
       {
-        if (!parser->language_options().LanguageFeatureEnabled(
+        if (!language_options.LanguageFeatureEnabled(
                 FEATURE_PIPES)) {
           return MakeSyntaxError(@3, "Syntax error: Unexpected FROM");
         }
@@ -5684,17 +5736,17 @@ set_operation_metadata {ASTNode*}:
         }
         ASTSetOperationColumnPropagationMode* column_propagation_mode =
             $opt_strict == nullptr ? $opt_corresponding_outer_mode : $opt_strict;
-        $$ = MAKE_NODE(ASTSetOperationMetadata, @$,
-                 {$query_set_operation_type, $all_or_distinct, $opt_hint,
+        $$ = MakeNode<ASTSetOperationMetadata>(@$,
+                 $query_set_operation_type, $all_or_distinct, $opt_hint,
                   $opt_column_match_suffix.column_match_mode,
-                  column_propagation_mode, $opt_column_match_suffix.column_list});
+                  column_propagation_mode, $opt_column_match_suffix.column_list);
       }
     ;
 
 query_set_operation {ASTNode*}:
    query_set_operation_prefix
      {
-       $$ = parser->WithEndLocation($1, @$);
+       $$ = WithEndLocation($1, @$);
      }
    ;
 
@@ -5702,18 +5754,18 @@ query_primary {ASTNode*}:
     select
     | table_clause_reserved[table]
       {
-        $$ = MAKE_NODE(ASTQuery, @$, {$table});
+        $$ = MakeNode<ASTQuery>(@$, $table);
       }
     | parenthesized_query[query] opt_as_alias_with_required_as[alias]
      {
         if ($alias != nullptr) {
-          if (!parser->language_options().LanguageFeatureEnabled(
+          if (!language_options.LanguageFeatureEnabled(
                   FEATURE_PIPES)) {
             return MakeSyntaxError(
                 @alias, "Syntax error: Alias not allowed on parenthesized "
                         "outer query");
           }
-          $$ = MAKE_NODE(ASTAliasedQueryExpression, @$, {$query, $alias});
+          $$ = MakeNode<ASTAliasedQueryExpression>(@$, $query, $alias);
        } else {
          $query->set_parenthesized(true);
          $$ = $query;
@@ -5729,7 +5781,7 @@ select_clause {ASTSelect*}:
     opt_select_as_clause select_list
       {
         auto* select =
-            MAKE_NODE(ASTSelect, @$, {$2, $3, $5, $6});
+            MakeNode<ASTSelect>(@$, $2, $3, $5, $6);
         select->set_distinct($4 == AllOrDistinctKeyword::kDistinct);
         $$ = select;
       }
@@ -5748,8 +5800,8 @@ select {ASTNode*}:
     select_clause opt_from_clause opt_clauses_following_from
     {
       ASTSelect* select = static_cast<ASTSelect*>($1);
-      $$ = WithExtraChildren(select, {$2, $3.where, $3.group_by,
-                                      $3.having, $3.qualify, $3.window});
+      $$ = ExtendNodeRight(select, $2, $3.where, $3.group_by,
+                           $3.having, $3.qualify, $3.window);
     }
   ;
 
@@ -5761,11 +5813,11 @@ pre_select_with:
 opt_select_with {ASTSelectWith*}:
     pre_select_with "WITH"[with] identifier
       {
-        $$ = MAKE_NODE(ASTSelectWith, @$, {$identifier});
+        $$ = MakeNode<ASTSelectWith>(@$, $identifier);
       }
     | pre_select_with "WITH"[with] identifier KW_OPTIONS_IN_SELECT_WITH_OPTIONS options_list
       {
-        $$ = MAKE_NODE(ASTSelectWith, @$, {$identifier, $options_list});
+        $$ = MakeNode<ASTSelectWith>(@$, $identifier, $options_list);
       }
     | pre_select_with { $$ = nullptr; }
     ;
@@ -5775,7 +5827,7 @@ opt_select_with {ASTSelectWith*}:
 opt_select_as_clause {ASTNode*}:
     "AS" "STRUCT"
       {
-         auto* select_as = MAKE_NODE(ASTSelectAs, @$);
+         auto* select_as = MakeNode<ASTSelectAs>(@$);
          select_as->set_as_mode(ASTSelectAs::STRUCT);
          $$ = select_as;
       }
@@ -5791,14 +5843,14 @@ opt_select_as_clause {ASTNode*}:
           auto* identifier = $2->child(0)->GetAsOrDie<ASTIdentifier>();
           if (!identifier->is_quoted() &&
               zetasql_base::CaseEqual(identifier->GetAsStringView(), "VALUE")) {
-            auto* select_as = MAKE_NODE(ASTSelectAs, @$);
+            auto* select_as = MakeNode<ASTSelectAs>(@$);
             select_as->set_as_mode(ASTSelectAs::VALUE);
             $$ = select_as;
             is_value = true;
           }
         }
         if (!is_value) {
-          auto* select_as = MAKE_NODE(ASTSelectAs, @$, {$2});
+          auto* select_as = MakeNode<ASTSelectAs>(@$, $2);
           select_as->set_as_mode(ASTSelectAs::TYPE_NAME);
           $$ = select_as;
         }
@@ -5816,40 +5868,40 @@ identifier_in_hints {ASTIdentifier*}:
     identifier
     | extra_identifier_in_hints_name
       {
-        $$ = parser->MakeIdentifier(@1, $1);
+        $$ = node_factory.MakeIdentifier(@1, $1);
       }
     ;
 
 hint_entry {ASTNode*}:
     identifier_in_hints "=" expression
       {
-        $$ = MAKE_NODE(ASTHintEntry, @$, {$1, $3});
+        $$ = MakeNode<ASTHintEntry>(@$, $1, $3);
       }
     | identifier_in_hints "." identifier_in_hints "=" expression
       {
-        $$ = MAKE_NODE(ASTHintEntry, @$, {$1, $3, $5});
+        $$ = MakeNode<ASTHintEntry>(@$, $1, $3, $5);
       }
     ;
 
 hint_with_body_prefix {ASTNode*}:
     OPEN_INTEGER_PREFIX_HINT integer_literal KW_OPEN_HINT "{" hint_entry[entry]
       {
-        $$ = MAKE_NODE(ASTHint, @$, {$2, $entry});
+        $$ = MakeNode<ASTHint>(@$, $2, $entry);
       }
     | KW_OPEN_HINT "{" hint_entry[entry]
       {
-        $$ = MAKE_NODE(ASTHint, @$, {$entry});
+        $$ = MakeNode<ASTHint>(@$, $entry);
       }
     | hint_with_body_prefix "," hint_entry
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 hint_with_body {ASTNode*}:
     hint_with_body_prefix "}"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
@@ -5861,7 +5913,7 @@ hint {ASTNode*}:
       {
         ZETASQL_RET_CHECK(PARSER_LA_IS_EMPTY())
             << "Expected parser lookahead to be empty following hint.";
-        $$ = MAKE_NODE(ASTHint, @$, {$integer_literal});
+        $$ = MakeNode<ASTHint>(@$, $integer_literal);
       }
     | hint_with_body
       {
@@ -5881,74 +5933,74 @@ opt_all_or_distinct {AllOrDistinctKeyword}:
 select_list_prefix {ASTNode*}:
     select_column
       {
-        $$ = MAKE_NODE(ASTSelectList, @$, {$1});
+        $$ = MakeNode<ASTSelectList>(@$, $1);
       }
     | select_list_prefix "," select_column
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 select_list {ASTNode*}:
     select_list_prefix
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     |
     select_list_prefix ","
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
 star_except_list_prefix {ASTNode*}:
     "EXCEPT" "(" identifier
       {
-        $$ = MAKE_NODE(ASTStarExceptList, @$, {$3});
+        $$ = MakeNode<ASTStarExceptList>(@$, $3);
       }
     | star_except_list_prefix "," identifier
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 star_except_list {ASTNode*}:
     star_except_list_prefix ")"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
 star_replace_item {ASTNode*}:
     expression "AS" identifier
       {
-        $$ = MAKE_NODE(ASTStarReplaceItem, @$, {$1, $3});
+        $$ = MakeNode<ASTStarReplaceItem>(@$, $1, $3);
       }
     ;
 
 star_modifiers_with_replace_prefix {ASTNode*}:
    star_except_list "REPLACE" "(" star_replace_item
       {
-        $$ = MAKE_NODE(ASTStarModifiers, @$, {$1, $4});
+        $$ = MakeNode<ASTStarModifiers>(@$, $1, $4);
       }
    | "REPLACE" "(" star_replace_item
      {
-       $$ = MAKE_NODE(ASTStarModifiers, @$, {$3});
+       $$ = MakeNode<ASTStarModifiers>(@$, $3);
      }
    | star_modifiers_with_replace_prefix "," star_replace_item
      {
-       $$ = WithExtraChildren($1, {$3});
+       $$ = ExtendNodeRight($1, $3);
      }
    ;
 
 star_modifiers {ASTNode*}:
     star_except_list
       {
-        $$ = MAKE_NODE(ASTStarModifiers, @$, {$1});
+        $$ = MakeNode<ASTStarModifiers>(@$, $1);
       }
     | star_modifiers_with_replace_prefix ")"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
@@ -5962,32 +6014,32 @@ select_column {ASTNode*}:
 select_column_expr {ASTNode*}:
     expression
       {
-        $$ = MAKE_NODE(ASTSelectColumn, @$, {$1});
+        $$ = MakeNode<ASTSelectColumn>(@$, $1);
       }
     | select_column_expr_with_as_alias
     | expression[e] identifier[alias]
       {
-        auto* alias = MAKE_NODE(ASTAlias, @alias, {$alias});
-        $$ = MAKE_NODE(ASTSelectColumn, @$, {$e, alias});
+        auto* alias = MakeNode<ASTAlias>(@alias, $alias);
+        $$ = MakeNode<ASTSelectColumn>(@$, $e, alias);
       }
     ;
 
 select_list_prefix_with_as_aliases {ASTNode*}:
     select_column_expr_with_as_alias[c]
       {
-        $$ = MAKE_NODE(ASTSelectList, @$, {$c});
+        $$ = MakeNode<ASTSelectList>(@$, $c);
       }
     | select_list_prefix_with_as_aliases[list] "," select_column_expr_with_as_alias[c]
       {
-        $$ = WithExtraChildren($list, {$c});
+        $$ = ExtendNodeRight($list, $c);
       }
     ;
 
 select_column_expr_with_as_alias {ASTNode*}:
     expression[expr] "AS"[as] identifier[alias]
       {
-        auto* alias = MAKE_NODE(ASTAlias, @as, @alias, {$alias});
-        $$ = MAKE_NODE(ASTSelectColumn, @$, {$expr, alias});
+        auto* alias = MakeNode<ASTAlias>(MakeLocationRange(@as, @$), $alias);
+        $$ = MakeNode<ASTSelectColumn>(@$, $expr, alias);
       }
     ;
 
@@ -5999,8 +6051,8 @@ select_column_dot_star {ASTNode*}:
     // "*".
     expression_higher_prec_than_and[expr] "." "*" %prec "."
       {
-        auto* dot_star = MAKE_NODE(ASTDotStar, @$, {$expr});
-        $$ = MAKE_NODE(ASTSelectColumn, @$, {dot_star});
+        auto* dot_star = MakeNode<ASTDotStar>(@$, $expr);
+        $$ = MakeNode<ASTSelectColumn>(@$, dot_star);
       }
     // Bison uses the precedence of the last terminal in the rule, but this is a
     // post-fix expression, and it really should have the precedence of ".", not
@@ -6008,8 +6060,8 @@ select_column_dot_star {ASTNode*}:
     | expression_higher_prec_than_and "." "*" star_modifiers[modifiers] %prec "."
       {
         auto* dot_star_with_modifiers =
-            MAKE_NODE(ASTDotStarWithModifiers, @$, {$1, $modifiers});
-        $$ = MAKE_NODE(ASTSelectColumn, @$, {dot_star_with_modifiers});
+            MakeNode<ASTDotStarWithModifiers>(@$, $1, $modifiers);
+        $$ = MakeNode<ASTSelectColumn>(@$, dot_star_with_modifiers);
       }
     ;
 
@@ -6018,21 +6070,21 @@ select_column_dot_star {ASTNode*}:
 select_column_star {ASTNode*}:
     "*"
       {
-        auto* star = MAKE_NODE(ASTStar, @$);
+        auto* star = MakeNode<ASTStar>(@$);
         star->set_image("*");
-        $$ = MAKE_NODE(ASTSelectColumn, @$, {star});
+        $$ = MakeNode<ASTSelectColumn>(@$, star);
       }
     | "*" star_modifiers
       {
-        auto* star_with_modifiers = MAKE_NODE(ASTStarWithModifiers, @$, {$2});
-        $$ = MAKE_NODE(ASTSelectColumn, @$, {star_with_modifiers});
+        auto* star_with_modifiers = MakeNode<ASTStarWithModifiers>(@$, $2);
+        $$ = MakeNode<ASTSelectColumn>(@$, star_with_modifiers);
       }
     ;
 
 opt_as_alias {ASTAlias*}:
     opt_as identifier
       {
-        $$ = MAKE_NODE(ASTAlias, FirstNonEmptyLocation(@1, @2), @2, {$2});
+        $$ = MakeNode<ASTAlias>(@$, $2);
       }
     | %empty { $$ = nullptr; }
     ;
@@ -6040,7 +6092,7 @@ opt_as_alias {ASTAlias*}:
 opt_as_alias_with_required_as {ASTAlias*}:
     "AS" identifier
       {
-        $$ = MAKE_NODE(ASTAlias, @$, {$2});
+        $$ = MakeNode<ASTAlias>(@$, $2);
       }
     | %empty { $$ = nullptr; }
     ;
@@ -6048,11 +6100,11 @@ opt_as_alias_with_required_as {ASTAlias*}:
 opt_as_or_into_alias {ASTNode*}:
     "AS" identifier
       {
-        $$ = MAKE_NODE(ASTAlias, @$, {$2});
+        $$ = MakeNode<ASTAlias>(@$, $2);
       }
     | "INTO" identifier
       {
-        $$ = MAKE_NODE(ASTIntoAlias, @$, {$2});
+        $$ = MakeNode<ASTIntoAlias>(@$, $2);
       }
     | %empty { $$ = nullptr; }
     ;
@@ -6083,7 +6135,7 @@ int_literal_or_parameter {ASTExpression*}:
 cast_int_literal_or_parameter {ASTExpression*}:
     "CAST" "(" int_literal_or_parameter "AS" type opt_format ")"
       {
-        $$ = MAKE_NODE(ASTCastExpression, @$, {$3, $5, $6});
+        $$ = MakeNode<ASTCastExpression>(@$, $3, $5, $6);
       }
     ;
 
@@ -6097,7 +6149,7 @@ possibly_cast_int_literal_or_parameter {ASTExpression*}:
 repeatable_clause {ASTNode*}:
     "REPEATABLE" "(" possibly_cast_int_literal_or_parameter ")"
       {
-        $$ = MAKE_NODE(ASTRepeatableClause, @$, {$3});
+        $$ = MakeNode<ASTRepeatableClause>(@$, $3);
       }
     ;
 
@@ -6115,7 +6167,7 @@ sample_size_unit {ASTSampleSize::Unit}:
 sample_size {ASTNode*}:
     sample_size_value sample_size_unit opt_partition_by_clause_no_hint
       {
-        auto* sample_size = MAKE_NODE(ASTSampleSize, @$, {$1, $3});
+        auto* sample_size = MakeNode<ASTSampleSize>(@$, $1, $3);
         sample_size->set_unit($2);
         $$ = sample_size;
       }
@@ -6131,24 +6183,24 @@ opt_repeatable_clause {ASTNode*}:
 opt_sample_clause_suffix {ASTNode*}:
     repeatable_clause
       {
-        $$ = MAKE_NODE(ASTSampleSuffix, @$, {nullptr, $1});
+        $$ = MakeNode<ASTSampleSuffix>(@$, $1);
       }
     | "WITH" "WEIGHT" opt_repeatable_clause
       {
-        auto* with_weight = MAKE_NODE(ASTWithWeight, @$, {});
-        $$ = MAKE_NODE(ASTSampleSuffix, @$, {with_weight, $3});
+        auto* with_weight = MakeNode<ASTWithWeight>(@$);
+        $$ = MakeNode<ASTSampleSuffix>(@$, with_weight, $3);
       }
     | "WITH" "WEIGHT" identifier opt_repeatable_clause
       {
-        auto* alias = MAKE_NODE(ASTAlias, @3, {$3});
-        auto* with_weight = MAKE_NODE(ASTWithWeight, @$, {alias});
-        $$ = MAKE_NODE(ASTSampleSuffix, @$, {with_weight, $4});
+        auto* alias = MakeNode<ASTAlias>(@3, $3);
+        auto* with_weight = MakeNode<ASTWithWeight>(@$, alias);
+        $$ = MakeNode<ASTSampleSuffix>(@$, with_weight, $4);
       }
     | "WITH" "WEIGHT" "AS" identifier opt_repeatable_clause
       {
-        auto* alias = MAKE_NODE(ASTAlias, @3, @4, {$4});
-        auto* with_weight = MAKE_NODE(ASTWithWeight, @$, {alias});
-        $$ = MAKE_NODE(ASTSampleSuffix, @$, {with_weight, $5});
+        auto* alias = MakeNode<ASTAlias>(MakeLocationRange(@3, @4), $4);
+        auto* with_weight = MakeNode<ASTWithWeight>(@$, alias);
+        $$ = MakeNode<ASTSampleSuffix>(@$, with_weight, $5);
       }
     | %empty { $$ = nullptr; }
     ;
@@ -6159,18 +6211,18 @@ opt_sample_clause_suffix {ASTNode*}:
 opt_graph_sample_clause_suffix {ASTNode*}:
     repeatable_clause
       {
-        $$ = MAKE_NODE(ASTSampleSuffix, @$, {nullptr, $1});
+        $$ = MakeNode<ASTSampleSuffix>(@$, $1);
       }
   | "WITH" "WEIGHT" opt_repeatable_clause
       {
-        auto* with_weight = MAKE_NODE(ASTWithWeight, @$, {});
-        $$ = MAKE_NODE(ASTSampleSuffix, @$, {with_weight, $3});
+        auto* with_weight = MakeNode<ASTWithWeight>(@$);
+        $$ = MakeNode<ASTSampleSuffix>(@$, with_weight, $3);
       }
   | "WITH" "WEIGHT" "AS" identifier opt_repeatable_clause
       {
-        auto* alias = MAKE_NODE(ASTAlias, @3, @4, {$4});
-        auto* with_weight = MAKE_NODE(ASTWithWeight, @$, {alias});
-        $$ = MAKE_NODE(ASTSampleSuffix, @$, {with_weight, $5});
+        auto* alias = MakeNode<ASTAlias>(MakeLocationRange(@3, @4), $4);
+        auto* with_weight = MakeNode<ASTWithWeight>(@$, alias);
+        $$ = MakeNode<ASTSampleSuffix>(@$, with_weight, $5);
       }
   | %empty { $$ = nullptr; }
 ;
@@ -6178,43 +6230,43 @@ opt_graph_sample_clause_suffix {ASTNode*}:
 sample_clause {ASTSampleClause*}:
     "TABLESAMPLE" identifier "(" sample_size ")" opt_sample_clause_suffix
       {
-        $$ = MAKE_NODE(ASTSampleClause, @$, {$2, $4, $6});
+        $$ = MakeNode<ASTSampleClause>(@$, $2, $4, $6);
       }
     ;
 
 graph_sample_clause {ASTSampleClause*}:
     "TABLESAMPLE" identifier "(" sample_size ")" opt_graph_sample_clause_suffix
       {
-        $$ = MAKE_NODE(ASTSampleClause, @$, {$2, $4, $6});
+        $$ = MakeNode<ASTSampleClause>(@$, $2, $4, $6);
       }
     ;
 
 pivot_expression {ASTNode*}:
   expression opt_as_alias {
-    $$ = MAKE_NODE(ASTPivotExpression, @$, {$1, $2});
+    $$ = MakeNode<ASTPivotExpression>(@$, $1, $2);
   }
   ;
 
 pivot_expression_list {ASTNode*}:
   pivot_expression {
-    $$ = MAKE_NODE(ASTPivotExpressionList, @$, {$1});
+    $$ = MakeNode<ASTPivotExpressionList>(@$, $1);
   }
   | pivot_expression_list "," pivot_expression {
-    $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+    $$ = ExtendNodeRight($1, $3);
   }
 ;
 
 pivot_value {ASTNode*}:
   expression opt_as_alias {
-    $$ = MAKE_NODE(ASTPivotValue, @$, {$1, $2});
+    $$ = MakeNode<ASTPivotValue>(@$, $1, $2);
   };
 
 pivot_value_list {ASTNode*}:
   pivot_value {
-    $$ = MAKE_NODE(ASTPivotValueList, @$, {$1});
+    $$ = MakeNode<ASTPivotValueList>(@$, $1);
   }
   | pivot_value_list "," pivot_value {
-    $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+    $$ = ExtendNodeRight($1, $3);
   };
 
 pivot_clause {ASTPivotClause*}:
@@ -6225,26 +6277,26 @@ pivot_clause {ASTPivotClause*}:
         return MakeSyntaxError(@3,
         "PIVOT clause requires at least one pivot expression");
       }
-      $$ = MAKE_NODE(ASTPivotClause, @$, {$3, $5, $8});
+      $$ = MakeNode<ASTPivotClause>(@$, $3, $5, $8);
   };
 
 opt_as_string_or_integer {ASTNode*}:
   opt_as string_literal{
-    $$ = MAKE_NODE(ASTUnpivotInItemLabel, @$, {$2});
+    $$ = MakeNode<ASTUnpivotInItemLabel>(@$, $2);
   }
   | opt_as integer_literal{
-    $$ = MAKE_NODE(ASTUnpivotInItemLabel, @$, {$2});
+    $$ = MakeNode<ASTUnpivotInItemLabel>(@$, $2);
   }
   | %empty { $$ = nullptr; };
 
 path_expression_list {ASTNode*}:
     path_expression
     {
-      $$ = MAKE_NODE(ASTPathExpressionList, @$, {$1});
+      $$ = MakeNode<ASTPathExpressionList>(@$, $1);
     }
     | path_expression_list "," path_expression
     {
-      $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+      $$ = ExtendNodeRight($1, $3);
     };
 
 path_expression_list_with_opt_parens {ASTNode*}:
@@ -6253,24 +6305,24 @@ path_expression_list_with_opt_parens {ASTNode*}:
  }
  |
  path_expression {
-   $$ = MAKE_NODE(ASTPathExpressionList, @$, {$1});
+   $$ = MakeNode<ASTPathExpressionList>(@$, $1);
  };
 
 path_expression_list_prefix {ASTNode*}:
     "(" path_expression
       {
-        $$ = MAKE_NODE(ASTPathExpressionList, @$, {$2});
+        $$ = MakeNode<ASTPathExpressionList>(@$, $2);
       }
     | path_expression_list_prefix "," path_expression
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 path_expression_list_with_parens {ASTNode*}:
     path_expression_list_prefix ")"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
@@ -6281,20 +6333,20 @@ opt_path_expression_list_with_parens {ASTNode*}:
 
 unpivot_in_item {ASTNode*}:
   path_expression_list_with_opt_parens opt_as_string_or_integer {
-    $$ = MAKE_NODE(ASTUnpivotInItem, @$, {$1, $2});
+    $$ = MakeNode<ASTUnpivotInItem>(@$, $1, $2);
   };
 
 unpivot_in_item_list_prefix {ASTNode*}:
   "(" unpivot_in_item {
-    $$ = MAKE_NODE(ASTUnpivotInItemList, @$, {$2});
+    $$ = MakeNode<ASTUnpivotInItemList>(@$, $2);
   }
   | unpivot_in_item_list_prefix "," unpivot_in_item {
-    $$ = WithExtraChildren($1, {$3});
+    $$ = ExtendNodeRight($1, $3);
   };
 
 unpivot_in_item_list {ASTNode*}:
   unpivot_in_item_list_prefix ")" {
-    $$ = parser->WithEndLocation($1, @$);
+    $$ = WithEndLocation($1, @$);
   } ;
 
 opt_unpivot_nulls_filter {ASTUnpivotClause::NullFilter}:
@@ -6307,7 +6359,7 @@ unpivot_clause {ASTUnpivotClause*}:
    "UNPIVOT" opt_unpivot_nulls_filter "("
    path_expression_list_with_opt_parens
    "FOR" path_expression "IN" unpivot_in_item_list ")" {
-    auto* unpivot_clause = MAKE_NODE(ASTUnpivotClause, @$, {$4, $6, $8});
+    auto* unpivot_clause = MakeNode<ASTUnpivotClause>(@$, $4, $6, $8);
     unpivot_clause->set_null_filter($2);
     $$ = unpivot_clause;
    } ;
@@ -6326,25 +6378,25 @@ unpivot_clause {ASTUnpivotClause*}:
 //
 opt_pivot_or_unpivot_clause_and_alias {PivotOrUnpivotClause}:
   "AS" identifier {
-    $$.alias = MAKE_NODE(ASTAlias, @$, {$2});
+    $$.alias = MakeNode<ASTAlias>(@$, $2);
     $$.pivot_clause = nullptr;
     $$.unpivot_clause = nullptr;
   }
   | identifier {
-    $$.alias = MAKE_NODE(ASTAlias, @$, {$1});
+    $$.alias = MakeNode<ASTAlias>(@$, $1);
     $$.pivot_clause = nullptr;
     $$.unpivot_clause = nullptr;
   }
   | "AS" identifier pivot_clause opt_as_alias {
-    $$.alias = MAKE_NODE(ASTAlias, @1, {$2});
-    $$.alias = parser->WithEndLocation($$.alias, @2);
-    $$.pivot_clause = WithExtraChildren($3, {$4});
+    $$.alias = MakeNode<ASTAlias>(@1, $2);
+    $$.alias = WithEndLocation($$.alias, @2);
+    $$.pivot_clause = ExtendNodeRight($3, $4);
     $$.unpivot_clause = nullptr;
   }
   | "AS" identifier unpivot_clause opt_as_alias {
-    $$.alias = MAKE_NODE(ASTAlias, @1, {$2});
-    $$.alias = parser->WithEndLocation($$.alias, @2);
-    $$.unpivot_clause = WithExtraChildren($3, {$4});
+    $$.alias = MakeNode<ASTAlias>(@1, $2);
+    $$.alias = WithEndLocation($$.alias, @2);
+    $$.unpivot_clause = ExtendNodeRight($3, $4);
     $$.pivot_clause = nullptr;
   }
   | "AS" identifier qualify_clause_nonreserved {
@@ -6354,13 +6406,13 @@ opt_pivot_or_unpivot_clause_and_alias {PivotOrUnpivotClause}:
         "or HAVING clause");
   }
   | identifier pivot_clause opt_as_alias {
-    $$.alias = MAKE_NODE(ASTAlias, @1, {$1});
-    $$.pivot_clause = WithExtraChildren($2, {$3});
+    $$.alias = MakeNode<ASTAlias>(@1, $1);
+    $$.pivot_clause = ExtendNodeRight($2, $3);
     $$.unpivot_clause = nullptr;
   }
   | identifier unpivot_clause opt_as_alias {
-    $$.alias = MAKE_NODE(ASTAlias, @1, {$1});
-    $$.unpivot_clause = WithExtraChildren($2, {$3});
+    $$.alias = MakeNode<ASTAlias>(@1, $1);
+    $$.unpivot_clause = ExtendNodeRight($2, $3);
     $$.pivot_clause = nullptr;
   }
   | identifier qualify_clause_nonreserved {
@@ -6371,12 +6423,12 @@ opt_pivot_or_unpivot_clause_and_alias {PivotOrUnpivotClause}:
   }
   | pivot_clause opt_as_alias {
     $$.alias = nullptr;
-    $$.pivot_clause = WithExtraChildren($1, {$2});
+    $$.pivot_clause = ExtendNodeRight($1, $2);
     $$.unpivot_clause = nullptr;
   }
   | unpivot_clause opt_as_alias {
     $$.alias = nullptr;
-    $$.unpivot_clause = WithExtraChildren($1, {$2});
+    $$.unpivot_clause = ExtendNodeRight($1, $2);
     $$.pivot_clause = nullptr;
   }
   | qualify_clause_nonreserved {
@@ -6403,10 +6455,10 @@ match_recognize_clause {ASTPostfixTableOperator*}:
     opt_options_list[options]
     ")" opt_as_alias[alias]
       {
-        $$ = MAKE_NODE(ASTMatchRecognizeClause, @$,
-                       {$options, $partition_by, $order_by, $measures,
+        $$ = MakeNode<ASTMatchRecognizeClause>(@$,
+                       $options, $partition_by, $order_by, $measures,
                         $after_match_skip_clause, $row_pattern_expr,
-                        $definitions, $alias});
+                        $definitions, $alias);
       }
   ;
 
@@ -6427,13 +6479,13 @@ opt_after_match_skip_clause {ASTNode*}:
 
 skip_to_target {ASTNode*}:
   "PAST" "LAST" "ROW" {
-    auto* skip_clause = MAKE_NODE(ASTAfterMatchSkipClause, @$);
+    auto* skip_clause = MakeNode<ASTAfterMatchSkipClause>(@$);
     skip_clause->set_target_type(
         ASTAfterMatchSkipClause::PAST_LAST_ROW);
     $$ = skip_clause;
   }
   | "TO" "NEXT" "ROW" {
-    auto* skip_clause = MAKE_NODE(ASTAfterMatchSkipClause, @$);
+    auto* skip_clause = MakeNode<ASTAfterMatchSkipClause>(@$);
     skip_clause->set_target_type(
         ASTAfterMatchSkipClause::TO_NEXT_ROW);
     $$ = skip_clause;
@@ -6445,7 +6497,7 @@ row_pattern_expr {ASTRowPatternExpression*}:
   | row_pattern_expr[alt] "|" row_pattern_concatenation_or_empty[e]
     {
       $$ = MakeOrCombineRowPatternOperation(
-          ASTRowPatternOperation::ALTERNATE, parser, @$, $alt, $e);
+          ASTRowPatternOperation::ALTERNATE, node_factory, @$, $alt, $e);
     }
   | row_pattern_expr[alt] "||"[double_pipe] row_pattern_concatenation_or_empty[e]
     {
@@ -6454,19 +6506,15 @@ row_pattern_expr {ASTRowPatternExpression*}:
       // location in the middle of the `||`.
       auto middle_loc = @double_pipe.start();
       middle_loc.IncrementByteOffset(1);
+      ParseLocationRange middle_range(middle_loc, middle_loc);
 
-      auto* middle_empty = MAKE_NODE(ASTEmptyRowPattern, @double_pipe, {});
-      middle_empty->set_start_location(middle_loc);
-      middle_empty->set_end_location(middle_loc);
+      auto* middle_empty = MakeNode<ASTEmptyRowPattern>(middle_range);
       auto* op = MakeOrCombineRowPatternOperation(
-                  ASTRowPatternOperation::ALTERNATE,
-                  parser,
-                  @$,
-                  $alt,
-                  middle_empty);
+                  ASTRowPatternOperation::ALTERNATE, node_factory, @$,
+                  $alt, middle_empty);
 
       $$ = MakeOrCombineRowPatternOperation(
-          ASTRowPatternOperation::ALTERNATE, parser, @$, op, $e);
+          ASTRowPatternOperation::ALTERNATE, node_factory, @$, op, $e);
     }
 ;
 
@@ -6476,7 +6524,7 @@ row_pattern_concatenation_or_empty {ASTRowPatternExpression*}:
     {
       // Unparenthesized empty pattern can only appear at the top-level or in
       // alternations, e.g. "(a|)".
-      $$ = MAKE_NODE(ASTEmptyRowPattern, @$, {});
+      $$ = MakeNode<ASTEmptyRowPattern>(@$);
     }
   ;
 
@@ -6485,7 +6533,7 @@ row_pattern_concatenation {ASTRowPatternExpression*}:
   | row_pattern_concatenation[sequence] row_pattern_factor[e]
     {
       $$ = MakeOrCombineRowPatternOperation(
-          ASTRowPatternOperation::CONCAT, parser, @$, $sequence, $e);
+          ASTRowPatternOperation::CONCAT, node_factory, @$, $sequence, $e);
     }
   ;
 
@@ -6498,13 +6546,13 @@ row_pattern_factor {ASTRowPatternExpression*}:
 row_pattern_anchor {ASTRowPatternExpression*}:
   "^"
     {
-      auto* anchor = MAKE_NODE(ASTRowPatternAnchor, @$, {});
+      auto* anchor = MakeNode<ASTRowPatternAnchor>(@$);
       anchor->set_anchor(ASTRowPatternAnchor::START);
       $$ = anchor;
     }
   | "$"
     {
-      auto* anchor = MAKE_NODE(ASTRowPatternAnchor, @$, {});
+      auto* anchor = MakeNode<ASTRowPatternAnchor>(@$);
       anchor->set_anchor(ASTRowPatternAnchor::END);
       $$ = anchor;
     }
@@ -6513,14 +6561,14 @@ row_pattern_anchor {ASTRowPatternExpression*}:
 quantified_row_pattern {ASTRowPatternExpression*}:
   row_pattern_primary[primary] row_pattern_quantifier[quantifier]
   {
-      $$ = MAKE_NODE(ASTRowPatternQuantification, @$, {$primary, $quantifier});
+      $$ = MakeNode<ASTRowPatternQuantification>(@$, $primary, $quantifier);
   }
   ;
 
 row_pattern_primary {ASTRowPatternExpression*}:
   identifier
     {
-      $$ = MAKE_NODE(ASTRowPatternVariable, @$, {$1});
+      $$ = MakeNode<ASTRowPatternVariable>(@$, $1);
     }
   | "(" row_pattern_expr[e] ")"
     {
@@ -6539,13 +6587,26 @@ row_pattern_quantifier {ASTQuantifier*}:
     }
   | potentially_reluctant_quantifier[q] "?"
     {
-      $$ = parser->WithEndLocation($q, @$);
+      $$ = WithEndLocation($q, @$);
       $$->set_is_reluctant(true);
     }
   | "{" int_literal_or_parameter[count] "}"
     {
       // {n} is never reluctant because it matches exactly `n` times regardless.
-      $$ = MAKE_NODE(ASTFixedQuantifier, @$, {$count});
+      $$ = MakeNode<ASTFixedQuantifier>(@$, $count);
+    }
+  ;
+
+plus_or_star_quantifier {ASTSymbolQuantifier*}:
+  "*"
+    {
+      $$ = MakeNode<ASTSymbolQuantifier>(@$);
+      $$->set_symbol(ASTSymbolQuantifier::STAR);
+    }
+  | "+"
+    {
+      $$ = MakeNode<ASTSymbolQuantifier>(@$);
+      $$->set_symbol(ASTSymbolQuantifier::PLUS);
     }
   ;
 
@@ -6553,32 +6614,24 @@ row_pattern_quantifier {ASTQuantifier*}:
 potentially_reluctant_quantifier {ASTQuantifier*}:
   "?"
     {
-      auto* quantifier = MAKE_NODE(ASTSymbolQuantifier, @$, {});
+      auto* quantifier = MakeNode<ASTSymbolQuantifier>(@$);
       quantifier->set_symbol(ASTSymbolQuantifier::QUESTION_MARK);
       $$ = quantifier;
     }
-  | "+"
+  | plus_or_star_quantifier
     {
-      auto* quantifier = MAKE_NODE(ASTSymbolQuantifier, @$, {});
-      quantifier->set_symbol(ASTSymbolQuantifier::PLUS);
-      $$ = quantifier;
-    }
-  | "*"
-    {
-      auto* quantifier = MAKE_NODE(ASTSymbolQuantifier, @$, {});
-      quantifier->set_symbol(ASTSymbolQuantifier::STAR);
-      $$ = quantifier;
+      $$ = $1;
     }
   | "{" opt_int_literal_or_parameter[lower] ","
     opt_int_literal_or_parameter[upper] "}"
     {
-      auto* lower_bound = MAKE_NODE(ASTQuantifierBound, @$, {$lower});
-      auto* upper_bound = MAKE_NODE(ASTQuantifierBound, @$, {$upper});
-      $$ = MAKE_NODE(ASTBoundedQuantifier, @$, {lower_bound, upper_bound });
+      auto* lower_bound = MakeNode<ASTQuantifierBound>(@$, $lower);
+      auto* upper_bound = MakeNode<ASTQuantifierBound>(@$, $upper);
+      $$ = MakeNode<ASTBoundedQuantifier>(@$, lower_bound, upper_bound );
     }
   ;
 
-table_subquery {ASTTableExpression*}:
+table_subquery {ASTTableSubquery*}:
   parenthesized_query[query]
   opt_pivot_or_unpivot_clause_and_alias[pivot_and_alias]
       {
@@ -6591,8 +6644,8 @@ table_subquery {ASTTableExpression*}:
         // we print two sets of brackets in very disorderly way.
         // So set parenthesized to false.
         query->set_parenthesized(false);
-        auto* node = MAKE_NODE(ASTTableSubquery, @$,
-                                {$query, $pivot_and_alias.alias});
+        auto* node = MakeNode<ASTTableSubquery>(@$,
+                                $query, $pivot_and_alias.alias);
         $$ = MaybeApplyPivotOrUnpivot(node,
                                       $pivot_and_alias.pivot_clause,
                                       $pivot_and_alias.unpivot_clause);
@@ -6602,25 +6655,25 @@ table_subquery {ASTTableExpression*}:
 table_clause_no_keyword {ASTNode*}:
     path_expression[table_name] opt_where_clause[where]
       {
-        $$ = MAKE_NODE(ASTTableClause, @$, {$table_name, $where});
+        $$ = MakeNode<ASTTableClause>(@$, $table_name, $where);
       }
     | tvf_with_suffixes[tvf_call] opt_where_clause[where]
       {
-        $$ = MAKE_NODE(ASTTableClause, @$, {$tvf_call, $where});
+        $$ = MakeNode<ASTTableClause>(@$, $tvf_call, $where);
       }
     ;
 
 table_clause_reserved {ASTNode*}:
     KW_TABLE_FOR_TABLE_CLAUSE table_clause_no_keyword
       {
-        $$ = parser->WithStartLocation($table_clause_no_keyword, @1);
+        $$ = WithStartLocation($table_clause_no_keyword, @1);
       }
     ;
 
 table_clause_unreserved {ASTNode*}:
     "TABLE" table_clause_no_keyword
       {
-        $$ = parser->WithStartLocation($table_clause_no_keyword, @1);
+        $$ = WithStartLocation($table_clause_no_keyword, @1);
       }
     ;
 
@@ -6629,66 +6682,66 @@ table_clause {ASTNode*}: table_clause_reserved | table_clause_unreserved;
 model_clause {ASTNode*}:
     "MODEL" path_expression
       {
-        $$ = MAKE_NODE(ASTModelClause, @$, {$2});
+        $$ = MakeNode<ASTModelClause>(@$, $2);
       }
     ;
 
 connection_clause {ASTNode*}:
     "CONNECTION" path_expression_or_default
       {
-        $$ = MAKE_NODE(ASTConnectionClause, @$, {$2});
+        $$ = MakeNode<ASTConnectionClause>(@$, $2);
       }
     ;
 
 descriptor_column {ASTNode*}:
     identifier
       {
-        $$ = MAKE_NODE(ASTDescriptorColumn, @$, {$1, nullptr});
+        $$ = MakeNode<ASTDescriptorColumn>(@$, $1);
       }
     ;
 
 descriptor_column_list {ASTNode*}:
     descriptor_column
       {
-        $$ = MAKE_NODE(ASTDescriptorColumnList, @$, {$1});
+        $$ = MakeNode<ASTDescriptorColumnList>(@$, $1);
       }
     | descriptor_column_list "," descriptor_column
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 descriptor_argument {ASTNode*}:
     "DESCRIPTOR" "(" descriptor_column_list ")"
       {
-        $$ = MAKE_NODE(ASTDescriptor, @$, {$3});
+        $$ = MakeNode<ASTDescriptor>(@$, $3);
       }
     ;
 
 tvf_argument {ASTNode*}:
     expression
       {
-        $$ = MAKE_NODE(ASTTVFArgument, @$, {$1});
+        $$ = MakeNode<ASTTVFArgument>(@$, $1);
       }
     | descriptor_argument
       {
-        $$ = MAKE_NODE(ASTTVFArgument, @$, {$1});
+        $$ = MakeNode<ASTTVFArgument>(@$, $1);
       }
     | table_clause
       {
-        $$ = MAKE_NODE(ASTTVFArgument, @$, {$1});
+        $$ = MakeNode<ASTTVFArgument>(@$, $1);
       }
     | model_clause
       {
-        $$ = MAKE_NODE(ASTTVFArgument, @$, {$1});
+        $$ = MakeNode<ASTTVFArgument>(@$, $1);
       }
     | connection_clause
       {
-        $$ = MAKE_NODE(ASTTVFArgument, @$, {$1});
+        $$ = MakeNode<ASTTVFArgument>(@$, $1);
       }
     | named_argument
       {
-        $$ = MAKE_NODE(ASTTVFArgument, @$, {$1});
+        $$ = MakeNode<ASTTVFArgument>(@$, $1);
       }
     | "(" model_clause ")"
       {
@@ -6734,64 +6787,62 @@ tvf_argument {ASTNode*}:
       }
     ;
 
-tvf_prefix_no_args {ASTTableExpression*}:
+tvf_prefix_no_args {ASTTVF*}:
     path_expression "("
       {
-        $$ = MAKE_NODE(ASTTVF, @$, {$1});
+        $$ = MakeNode<ASTTVF>(@$, $1);
       }
     | "IF" "("
       {
-        auto* identifier = parser->MakeIdentifier(@1, $1);
-        auto* path_expression = MAKE_NODE(ASTPathExpression, @1, {identifier});
-        $$ = MAKE_NODE(ASTTVF, @$, {path_expression});
+        auto* identifier = node_factory.MakeIdentifier(@1, $1);
+        auto* path_expression = MakeNode<ASTPathExpression>(@1, identifier);
+        $$ = MakeNode<ASTTVF>(@$, path_expression);
       }
     ;
 
-tvf_prefix {ASTTableExpression*}:
+tvf_prefix {ASTTVF*}:
     tvf_prefix_no_args tvf_argument
       {
-        $$ = WithExtraChildren($1, {$2});
+        $$ = ExtendNodeRight($1, $2);
       }
     | tvf_prefix "," tvf_argument
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
-tvf {ASTTableExpression*}:
-    tvf_prefix_no_args ")" opt_hint
+tvf {ASTTVF*}:
+    tvf_prefix_no_args[tvf] ")" opt_hint[hint]
       {
-        $$ = WithExtraChildren(parser->WithEndLocation($1, @$), {$3});
+        $$ = ExtendNodeRight($tvf, @$.end(), $hint);
       }
-    | tvf_prefix ")" opt_hint
+    | tvf_prefix[tvf] ")" opt_hint[hint]
       {
-        $$ = WithExtraChildren(parser->WithEndLocation($1, @$), {$3});
+        $$ = ExtendNodeRight($tvf, @$.end(), $hint);
       }
     ;
 
-tvf_with_suffixes {ASTTableExpression*}:
+tvf_with_suffixes {ASTTVF*}:
     // Using the `tvf` production inside these rules causes a reduce conflict.
     tvf_prefix_no_args[prefix] ")"
     opt_hint[hint]
     opt_pivot_or_unpivot_clause_and_alias[pivot_and_alias]
       {
-        auto* node = WithExtraChildren(
-                        parser->WithEndLocation($prefix, @$),
-                        {$hint, $pivot_and_alias.alias});
-        $$ = MaybeApplyPivotOrUnpivot(node,
+        auto* node =
+            ExtendNodeRight($prefix, $hint, $pivot_and_alias.alias);
+        $$ = WithLocation(MaybeApplyPivotOrUnpivot(node,
                                       $pivot_and_alias.pivot_clause,
-                                      $pivot_and_alias.unpivot_clause);
+                                      $pivot_and_alias.unpivot_clause), @$);
       }
     | tvf_prefix[prefix] ")"
       opt_hint[hint]
       opt_pivot_or_unpivot_clause_and_alias[pivot_and_alias]
       {
-        auto* node = WithExtraChildren(
-                        parser->WithEndLocation($prefix, @$),
-                        {$hint, $pivot_and_alias.alias});
-        $$ = MaybeApplyPivotOrUnpivot(node,
+        auto* node =
+            ExtendNodeRight($prefix, $hint, $pivot_and_alias.alias);
+        $$ = WithLocation(MaybeApplyPivotOrUnpivot(node,
                                       $pivot_and_alias.pivot_clause,
-                                      $pivot_and_alias.unpivot_clause);
+                                      $pivot_and_alias.unpivot_clause), @$);
       }
     ;
 
@@ -6872,9 +6923,9 @@ table_path_expression {ASTTableExpression*}:
                 "may not be combined");
           }
         }
-        auto* node = MAKE_NODE(ASTTablePathExpression, @$,
-                               {$path, $hint, $pivot_and_alias.alias, $offset,
-                                $time});
+        auto* node = MakeNode<ASTTablePathExpression>(@$,
+                                $path, $hint, $pivot_and_alias.alias, $offset,
+                                $time);
 
         $$ = MaybeApplyPivotOrUnpivot(node,
                                       $pivot_and_alias.pivot_clause,
@@ -6882,20 +6933,30 @@ table_path_expression {ASTTableExpression*}:
       };
 
 table_primary {ASTTableExpression*}:
-    tvf_with_suffixes
+    tvf_with_suffixes { $$ = $tvf_with_suffixes; }
+    | "LATERAL" tvf_with_suffixes
+      {
+        $tvf_with_suffixes->set_is_lateral(true);
+        $$ = WithStartLocation($tvf_with_suffixes, @$);
+      }
     | table_path_expression
     | "(" join ")"
       {
         ErrorInfo error_info;
         auto node = TransformJoinExpression(
-          $join, parser, &error_info);
+          $join, node_factory, &error_info);
         if (node == nullptr) {
           return MakeSyntaxError(error_info.location, error_info.message);
         }
 
-        $$ = MAKE_NODE(ASTParenthesizedJoin, @$,{node});
+        $$ = MakeNode<ASTParenthesizedJoin>(@$, node);
       }
-    | table_subquery
+    | table_subquery { $$ = $table_subquery; }
+    | "LATERAL" table_subquery
+      {
+        $table_subquery->set_is_lateral(true);
+        $$ = WithStartLocation($table_subquery, @$);
+      }
     | graph_table_query
     // Postfix operators. Note that PIVOT/UNPIVOT are lumped together with each
     // rule because they're entangled with alias to work around the fact that
@@ -6903,22 +6964,22 @@ table_primary {ASTTableExpression*}:
     // Ideally they should be listed here.
     | table_primary[table] match_recognize_clause
       {
-        $$ = WithExtraChildren($table, {$match_recognize_clause});
+        $$ = ExtendNodeRight($table, $match_recognize_clause);
       }
     | table_primary[table] sample_clause
       {
-        $$ = WithExtraChildren($table, {$sample_clause});
+        $$ = ExtendNodeRight($table, $sample_clause);
       }
     ;
 
 gql_statement {ASTNode*}:
   "GRAPH" path_expression[graph] graph_operation_block[composite_query]
   {
-    auto* graph_table = MAKE_NODE(ASTGraphTableQuery, @$,
-                                  {$graph, $composite_query});
-    auto* graph_query = MAKE_NODE(ASTGqlQuery, @$, {graph_table});
-    auto* query = MAKE_NODE(ASTQuery, @$, {graph_query});
-    $$ = MAKE_NODE(ASTQueryStatement, @$, {query});
+    auto* graph_table = MakeNode<ASTGraphTableQuery>(@$,
+                                  $graph, $composite_query);
+    auto* graph_query = MakeNode<ASTGqlQuery>(@$, graph_table);
+    auto* query = MakeNode<ASTQuery>(@$, graph_query);
+    $$ = MakeNode<ASTQueryStatement>(@$, query);
   }
   ;
 
@@ -6930,8 +6991,8 @@ graph_table_query {ASTTableExpression*}:
       ")"
       opt_as_alias[alias]
       {
-        $$ = MAKE_NODE(ASTGraphTableQuery, @$,
-                       {$graph, $match, $shape, $alias});
+        $$ = MakeNode<ASTGraphTableQuery>(@$,
+                       $graph, $match, $shape, $alias);
       }
     | KW_GRAPH_TABLE_RESERVED "("
       path_expression[graph]
@@ -6939,8 +7000,8 @@ graph_table_query {ASTTableExpression*}:
       ")"
       opt_as_alias[alias]
       {
-        $$ = MAKE_NODE(ASTGraphTableQuery, @$,
-                       {$graph, $composite_query, $alias});
+        $$ = MakeNode<ASTGraphTableQuery>(@$,
+                       $graph, $composite_query, $alias);
       }
     ;
 
@@ -6955,29 +7016,29 @@ graph_shape_clause {ASTNode*}:
 graph_return_item {ASTNode*}:
   expression
     {
-      $$ = MAKE_NODE(ASTSelectColumn, @$, {$1});
+      $$ = MakeNode<ASTSelectColumn>(@$, $1);
     }
   | expression "AS" identifier
     {
-      auto* alias = MAKE_NODE(ASTAlias, @2, @3, {$3});
-      $$ = MAKE_NODE(ASTSelectColumn, @$, {$1, alias});
+      auto* alias = MakeNode<ASTAlias>(MakeLocationRange(@2, @3), $3);
+      $$ = MakeNode<ASTSelectColumn>(@$, $1, alias);
     }
   | "*"
       {
-        auto* star = MAKE_NODE(ASTStar, @$);
+        auto* star = MakeNode<ASTStar>(@$);
         star->set_image("*");
-        $$ = MAKE_NODE(ASTSelectColumn, @$, {star});
+        $$ = MakeNode<ASTSelectColumn>(@$, star);
       }
   ;
 
 graph_return_item_list {ASTNode*}:
   graph_return_item
     {
-      $$ = MAKE_NODE(ASTSelectList, @$, {$1});
+      $$ = MakeNode<ASTSelectList>(@$, $1);
     }
   | graph_return_item_list "," graph_return_item
     {
-      $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+      $$ = ExtendNodeRight($1, $3);
     }
   ;
 
@@ -6989,12 +7050,18 @@ graph_return_operator {ASTNode*}:
            opt_graph_order_by_clause[order_by]
            opt_graph_page_clause[page]
     {
-      auto* select = MAKE_NODE(ASTSelect, @2, {$hint, $return_list, $group_by});
+      auto* select = MakeNode<ASTSelect>(@return_list, $return_list);
+      if ($distinct != AllOrDistinctKeyword::kNone) {
+        WithStartLocation(select, @distinct);
+      }
+      // Using extend node as a convenient way to set the location correctly.
+      ExtendNodeRight(ExtendNodeLeft(select, $hint), $group_by);
       select->set_distinct($distinct == AllOrDistinctKeyword::kDistinct);
       auto* order_by_and_page =
           ($order_by == nullptr && $page == nullptr) ? nullptr :
-              MAKE_NODE(ASTGqlOrderByAndPage, @6, {$order_by, $page});
-      $$ = MAKE_NODE(ASTGqlReturn, @$, {select, order_by_and_page});
+              MakeNode<ASTGqlOrderByAndPage>(ParseLocationRange(@order_by.start(), @page.end()),
+              $order_by, $page);
+      $$ = MakeNode<ASTGqlReturn>(@$, select, order_by_and_page);
     }
   ;
 
@@ -7009,7 +7076,7 @@ graph_ordering_expression {ASTNode*}:
   opt_null_order[null_order]
     {
       auto* ordering_expr =
-          MAKE_NODE(ASTOrderingExpression, @$, {$expr, $collate, $null_order});
+          MakeNode<ASTOrderingExpression>(@$, $expr, $collate, $null_order);
       ordering_expr->set_ordering_spec($ordering);
       $$ = ordering_expr;
     }
@@ -7018,19 +7085,19 @@ graph_ordering_expression {ASTNode*}:
 graph_order_by_clause_prefix {ASTNode*}:
   "ORDER" opt_hint[hint] "BY" graph_ordering_expression[ordering_expr]
     {
-      $$ = MAKE_NODE(ASTOrderBy, @$, {$hint, $ordering_expr});
+      $$ = MakeNode<ASTOrderBy>(@$, $hint, $ordering_expr);
     }
   | graph_order_by_clause_prefix[order_by] ","
     graph_ordering_expression[ordering_expr]
     {
-      $$ = WithExtraChildren($order_by, {$ordering_expr});
+      $$ = ExtendNodeRight($order_by, $ordering_expr);
     }
   ;
 
 graph_order_by_clause {ASTNode*}:
   graph_order_by_clause_prefix[prefix]
     {
-      $$ = parser->WithEndLocation($prefix, @$);
+      $$ = WithEndLocation($prefix, @$);
     }
   ;
 
@@ -7042,14 +7109,14 @@ opt_graph_order_by_clause {ASTNode*}:
 graph_order_by_operator {ASTNode*}:
   graph_order_by_clause[order_by]
     {
-      $$ = MAKE_NODE(ASTGqlOrderByAndPage, @$, {$order_by});
+      $$ = MakeNode<ASTGqlOrderByAndPage>(@$, $order_by);
     }
   ;
 
 graph_page_operator {ASTNode*}:
   graph_page_clause[page]
     {
-      $$ = MAKE_NODE(ASTGqlOrderByAndPage, @$, {$page});
+      $$ = MakeNode<ASTGqlOrderByAndPage>(@$, $page);
     }
   ;
 
@@ -7062,31 +7129,31 @@ graph_page_clause {ASTNode*}:
   "OFFSET" possibly_cast_int_literal_or_parameter[offset]
   "LIMIT" possibly_cast_int_literal_or_parameter[limit]
     {
-      auto* off = MAKE_NODE(ASTGqlPageOffset, @1, @2, {$offset});
-      auto* lim = MAKE_NODE(ASTGqlPageLimit, @3, @4, {$limit});
-      $$ = MAKE_NODE(ASTGqlPage, @$, {off, lim});
+      auto* off = MakeNode<ASTGqlPageOffset>(MakeLocationRange(@1, @2), $offset);
+      auto* lim = MakeNode<ASTGqlPageLimit>(MakeLocationRange(@3, @4), $limit);
+      $$ = MakeNode<ASTGqlPage>(@$, off, lim);
     }
   | "SKIP" possibly_cast_int_literal_or_parameter[skip]
     "LIMIT" possibly_cast_int_literal_or_parameter[limit]
     {
-      auto* off = MAKE_NODE(ASTGqlPageOffset, @1, @2, {$skip});
-      auto* lim = MAKE_NODE(ASTGqlPageLimit, @3, @4, {$limit});
-      $$ = MAKE_NODE(ASTGqlPage, @$, {off, lim});
+      auto* off = MakeNode<ASTGqlPageOffset>(MakeLocationRange(@1, @2), $skip);
+      auto* lim = MakeNode<ASTGqlPageLimit>(MakeLocationRange(@3, @4), $limit);
+      $$ = MakeNode<ASTGqlPage>(@$, off, lim);
     }
   | "OFFSET" possibly_cast_int_literal_or_parameter[offset]
     {
-      auto* off = MAKE_NODE(ASTGqlPageOffset, @1, @2, {$offset});
-      $$ = MAKE_NODE(ASTGqlPage, @$, {off});
+      auto* off = MakeNode<ASTGqlPageOffset>(@$, $offset);
+      $$ = MakeNode<ASTGqlPage>(@$, off);
     }
   | "SKIP" possibly_cast_int_literal_or_parameter[skip]
     {
-      auto* off = MAKE_NODE(ASTGqlPageOffset, @1, @2, {$skip});
-      $$ = MAKE_NODE(ASTGqlPage, @$, {off});
+      auto* off = MakeNode<ASTGqlPageOffset>(@$, $skip);
+      $$ = MakeNode<ASTGqlPage>(@$, off);
     }
   | "LIMIT" possibly_cast_int_literal_or_parameter[limit]
     {
-      auto* lim = MAKE_NODE(ASTGqlPageLimit, @1, @2, {$limit});
-      $$ = MAKE_NODE(ASTGqlPage, @$, {lim});
+      auto* lim = MakeNode<ASTGqlPageLimit>(@$, $limit);
+      $$ = MakeNode<ASTGqlPage>(@$, lim);
     }
   ;
 
@@ -7098,14 +7165,14 @@ opt_graph_page_clause {ASTNode*}:
 graph_match_operator {ASTNode*}:
   "MATCH" opt_hint[hint] graph_pattern[pattern]
     {
-      $$ = MAKE_NODE(ASTGqlMatch, @$, {$pattern, $hint});
+      $$ = MakeNode<ASTGqlMatch>(@$, $pattern, $hint);
     }
   ;
 
 graph_optional_match_operator {ASTNode*}:
   "OPTIONAL" "MATCH" opt_hint graph_pattern
     {
-      auto* match = MAKE_NODE(ASTGqlMatch, @$, {$graph_pattern, $opt_hint});
+      auto* match = MakeNode<ASTGqlMatch>(@$, $graph_pattern, $opt_hint);
       match->set_optional(true);
       $$ = match;
     }
@@ -7114,37 +7181,37 @@ graph_optional_match_operator {ASTNode*}:
 graph_let_operator {ASTNode*}:
   "LET" graph_let_variable_definition_list
     {
-      $$ = MAKE_NODE(ASTGqlLet, @$, {$2});
+      $$ = MakeNode<ASTGqlLet>(@$, $2);
     }
   ;
 
 graph_let_variable_definition_list {ASTNode*}:
   graph_let_variable_definition
     {
-      $$ = MAKE_NODE(ASTGqlLetVariableDefinitionList, @$, {$1});
+      $$ = MakeNode<ASTGqlLetVariableDefinitionList>(@$, $1);
     }
   | graph_let_variable_definition_list "," graph_let_variable_definition
     {
-      $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+      $$ = ExtendNodeRight($1, $3);
     }
   ;
 
 graph_let_variable_definition {ASTNode*}:
   identifier "=" expression
     {
-      $$ = MAKE_NODE(ASTGqlLetVariableDefinition, @$, {$1, $3});
+      $$ = MakeNode<ASTGqlLetVariableDefinition>(@$, $1, $3);
     }
   ;
 
 graph_filter_operator {ASTNode*}:
   "FILTER" where_clause
     {
-      $$ = MAKE_NODE(ASTGqlFilter, @$, {$2});
+      $$ = MakeNode<ASTGqlFilter>(@$, $2);
     }
   | "FILTER" expression
     {
-      auto* filter_where_clause = MAKE_NODE(ASTWhereClause, @$, {$2});
-      $$ = MAKE_NODE(ASTGqlFilter, @$, {filter_where_clause});
+      auto* filter_where_clause = MakeNode<ASTWhereClause>(@$, $2);
+      $$ = MakeNode<ASTGqlFilter>(@$, filter_where_clause);
     }
   ;
 
@@ -7152,9 +7219,14 @@ graph_with_operator {ASTNode*}:
   "WITH" opt_all_or_distinct[distinct] opt_hint[hint]
          graph_return_item_list[return_list] opt_group_by_clause[group_by]
     {
-      auto* select = MAKE_NODE(ASTSelect, @2, {$hint, $return_list, $group_by});
+      auto* select = MakeNode<ASTSelect>(@return_list, $return_list);
+      // Using extend node as a convenient way to set the location correctly.
+      ExtendNodeRight(ExtendNodeLeft(select, $hint), $group_by);
       select->set_distinct($distinct == AllOrDistinctKeyword::kDistinct);
-      $$ = MAKE_NODE(ASTGqlWith, @$, {select});
+      if ($distinct != AllOrDistinctKeyword::kNone) {
+        WithStartLocation(select, @distinct);
+      }
+      $$ = MakeNode<ASTGqlWith>(@$, select);
     }
   ;
 
@@ -7163,7 +7235,7 @@ graph_for_operator {ASTNode*}:
   "IN" expression
   opt_with_offset_and_alias_with_required_as[offset]
     {
-      $$ = MAKE_NODE(ASTGqlFor, @$, {$identifier, $expression, $offset});
+      $$ = MakeNode<ASTGqlFor>(@$, $identifier, $expression, $offset);
     }
 
   ;
@@ -7171,7 +7243,7 @@ graph_for_operator {ASTNode*}:
 opt_with_offset_and_alias_with_required_as {ASTNode*}:
     "WITH" "OFFSET" opt_as_alias_with_required_as[alias]
       {
-        $$ = MAKE_NODE(ASTWithOffset, @$, {$alias});
+        $$ = MakeNode<ASTWithOffset>(@$, $alias);
       }
     | %empty { $$ = nullptr; }
     ;
@@ -7179,7 +7251,77 @@ opt_with_offset_and_alias_with_required_as {ASTNode*}:
 graph_sample_operator {ASTNode*}:
   graph_sample_clause
     {
-      $$ = MAKE_NODE(ASTGqlSample, @$, {$graph_sample_clause});
+      $$ = MakeNode<ASTGqlSample>(@$, $graph_sample_clause);
+    }
+  ;
+
+graph_call_operator {ASTGqlCallBase*}:
+  graph_call_operator_core
+  | "OPTIONAL"[kw_optional] graph_call_operator_core[call]
+    {
+      auto* optional_call = WithStartLocation($call, @kw_optional.start());
+      optional_call->set_optional(true);
+      $$ = optional_call;
+    }
+  ;
+
+graph_call_operator_core {ASTGqlCallBase*}:
+  "CALL" opt_per_clause[per] tvf opt_yield_clause[yield]
+    {
+      $$ = MakeNode<ASTGqlNamedCall>(@$, $tvf, $yield, $per);
+      $$->set_is_partitioning($per != nullptr);
+    }
+  | "CALL" opt_per_clause[per] braced_graph_subquery[subquery]
+    {
+      $$ = MakeNode<ASTGqlInlineSubqueryCall>(@$, $subquery, $per);
+      $$->set_is_partitioning($per != nullptr);
+    }
+  | "CALL" parenthesized_identifier_list[list] braced_graph_subquery[subquery]
+    {
+      $$ = MakeNode<ASTGqlInlineSubqueryCall>(@$, $subquery, $list);
+      $$->set_is_partitioning(false);
+    }
+  ;
+
+parenthesized_identifier_list {ASTNode*}:
+    "(" identifier_list ")"
+    {
+      $$ = WithLocation($identifier_list, @$);
+    }
+  | "(" ")" { $$ = MakeNode<ASTIdentifierList>(@$); }
+;
+
+opt_per_clause {ASTNode*}:
+  "PER" parenthesized_identifier_list[list]
+    {
+      $$ = $list;
+    }
+  | %empty { $$ = nullptr; }
+  ;
+
+opt_yield_clause {ASTNode*}:
+  "YIELD" yield_item_list[list]
+    {
+      $$ = WithLocation($list, @$);
+    }
+  | %empty { $$ = nullptr; }
+  ;
+
+yield_item_list {ASTNode*}:
+  yield_item
+    {
+      $$ = MakeNode<ASTYieldItemList>(@$, $1);
+    }
+  | yield_item_list "," yield_item
+    {
+      $$ = ExtendNodeRight($1, $3);
+    }
+  ;
+
+yield_item {ASTNode*}:
+  identifier[expr] opt_as_alias_with_required_as[alias]
+    {
+      $$ = MakeNode<ASTExpressionWithOptAlias>(@$, $expr, $alias);
     }
   ;
 
@@ -7202,38 +7344,37 @@ graph_linear_operator {ASTNode*}:
   | graph_with_operator
   | graph_for_operator
   | graph_sample_operator
+  | graph_call_operator[call] { $$ = $call->GetAsOrDie<ASTNode>(); }
   ;
 
 graph_linear_operator_list {ASTGqlOperatorList*}:
   graph_linear_operator[op]
     {
-      $$ = MAKE_NODE(ASTGqlOperatorList, @$, {$op});
+      $$ = MakeNode<ASTGqlOperatorList>(@$, $op);
     }
   | graph_linear_operator_list[op_list] graph_linear_operator[op]
     {
-      $$ = parser->WithEndLocation(WithExtraChildren($op_list, {$op}), @$);
+      $$ = ExtendNodeRight($op_list, $op);
     }
   ;
 
 graph_linear_query_operation {ASTNode*}:
   graph_return_operator
     {
-      $$ = MAKE_NODE(ASTGqlOperatorList, @$, {$1});
+      $$ = MakeNode<ASTGqlOperatorList>(@$, $1);
     }
   | graph_linear_operator_list graph_return_operator
     {
-      $$ = parser->WithEndLocation(WithExtraChildren($1, {$2}), @$);
+      $$ = ExtendNodeRight($1, $2);
     }
   ;
 
 graph_set_operation_metadata {ASTNode*}:
   query_set_operation_type all_or_distinct
     {
-      $$ = MAKE_NODE(ASTSetOperationMetadata, @$,
-                     {$query_set_operation_type, $all_or_distinct,
-                     /*hint=*/nullptr, /*column_match_mode=*/nullptr,
-                     /*column_propagation_mode=*/nullptr,
-                     /*corresponding_by_column_list=*/nullptr});
+      $$ = MakeNode<ASTSetOperationMetadata>(@$,
+                     $query_set_operation_type, $all_or_distinct
+                     );
     }
   ;
 
@@ -7242,16 +7383,15 @@ graph_composite_query_prefix {ASTNode*}:
     graph_set_operation_metadata[set_op]
     graph_linear_query_operation[right]
     {
-      auto* metadata_list = MAKE_NODE(ASTSetOperationMetadataList,
-                                      @set_op, {$set_op});
-      $$ = MAKE_NODE(ASTGqlSetOperation, @$, {metadata_list, $left, $right});
+      auto* metadata_list = MakeNode<ASTSetOperationMetadataList>(@set_op, $set_op);
+      $$ = MakeNode<ASTGqlSetOperation>(@$, metadata_list, $left, $right);
     }
   | graph_composite_query_prefix[prefix]
     graph_set_operation_metadata[set_op]
     graph_linear_query_operation[right]
     {
-      $prefix->mutable_child(0)->AddChild($set_op);
-      $$ = WithExtraChildren($prefix, {$right});
+      ExtendNodeRight($prefix->mutable_child(0), $set_op);
+      $$ = ExtendNodeRight($prefix, $right);
     }
   ;
 
@@ -7264,151 +7404,124 @@ graph_operation_block {ASTGqlOperatorList*}:
   graph_composite_query_block
     {
       // Top-level list
-      $$ = MAKE_NODE(ASTGqlOperatorList, @$, {$1});
+      $$ = MakeNode<ASTGqlOperatorList>(@$, $1);
     }
   | graph_operation_block "NEXT" graph_composite_query_block
     {
-      $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+      $$ = ExtendNodeRight($1, $3);
     }
   ;
 
 graph_pattern {ASTGraphPattern*}:
   graph_path_pattern_list opt_where_clause
     {
-      $$ = parser->WithEndLocation(WithExtraChildren($1, {$2}), @$);
+      $$ = ExtendNodeRight($1, $2);
     }
   ;
 
 graph_path_pattern_list {ASTGraphPattern*}:
   graph_path_pattern[pattern]
     {
-      $$ = MAKE_NODE(ASTGraphPattern, @pattern, {$pattern});
+      $$ = MakeNode<ASTGraphPattern>(@pattern, $pattern);
     }
   | graph_path_pattern_list[path_list] "," opt_hint[hint] graph_path_pattern[pattern]
     {
-      auto* path = $pattern;
       if ($hint != nullptr) {
-        path->AddChildFront($hint);
-        path = parser->WithStartLocation(path, @hint);
+        ExtendNodeLeft($pattern, $hint);
       }
-      $$ = parser->WithEndLocation(WithExtraChildren($path_list, {$pattern}), @$);
+      $$ = ExtendNodeRight($path_list, $pattern);
     }
 ;
 
-opt_graph_search_prefix {ASTGraphPathSearchPrefix*}:
-  %empty { $$ = nullptr; }
-  | "ANY"
+graph_search_prefix {ASTGraphPathSearchPrefix*}:
+  "ANY"
     {
-      $$ = MAKE_NODE(ASTGraphPathSearchPrefix, @$, {});
+      $$ = MakeNode<ASTGraphPathSearchPrefix>(@$);
       $$->set_type(ASTGraphPathSearchPrefix::PathSearchPrefixType::ANY);
     }
   | "ANY" "SHORTEST"
     {
-      $$ = MAKE_NODE(ASTGraphPathSearchPrefix, @$, {});
+      $$ = MakeNode<ASTGraphPathSearchPrefix>(@$);
       $$->set_type(ASTGraphPathSearchPrefix::PathSearchPrefixType::SHORTEST);
+    }
+  | "ANY" "CHEAPEST"
+    {
+      $$ = MakeNode<ASTGraphPathSearchPrefix>(@$);
+      $$->set_type(ASTGraphPathSearchPrefix::PathSearchPrefixType::CHEAPEST);
     }
   | "ANY" int_literal_or_parameter[k]
     {
-      auto* k = MAKE_NODE(ASTGraphPathSearchPrefixCount, @$, {$k});
-      $$ = MAKE_NODE(ASTGraphPathSearchPrefix, @$, {k});
+      auto* k = MakeNode<ASTGraphPathSearchPrefixCount>(@$, $k);
+      $$ = MakeNode<ASTGraphPathSearchPrefix>(@$, k);
       $$->set_type(ASTGraphPathSearchPrefix::PathSearchPrefixType::ANY);
     }
   | "SHORTEST" int_literal_or_parameter[k]
     {
-      auto* k = MAKE_NODE(ASTGraphPathSearchPrefixCount, @$, {$k});
-      $$ = MAKE_NODE(ASTGraphPathSearchPrefix, @$, {k});
+      auto* k = MakeNode<ASTGraphPathSearchPrefixCount>(@$, $k);
+      $$ = MakeNode<ASTGraphPathSearchPrefix>(@$, k);
       $$->set_type(ASTGraphPathSearchPrefix::PathSearchPrefixType::SHORTEST);
+    }
+  | "CHEAPEST" int_literal_or_parameter[k]
+    {
+      auto* k = MakeNode<ASTGraphPathSearchPrefixCount>(@$, $k);
+      $$ = MakeNode<ASTGraphPathSearchPrefix>(@$, k);
+      $$->set_type(ASTGraphPathSearchPrefix::PathSearchPrefixType::CHEAPEST);
     }
   | "ALL"
     {
-      $$ = MAKE_NODE(ASTGraphPathSearchPrefix, @$, {});
+      $$ = MakeNode<ASTGraphPathSearchPrefix>(@$);
       $$->set_type(ASTGraphPathSearchPrefix::PathSearchPrefixType::ALL);
     }
   | "ALL" "SHORTEST"
     {
-      $$ = MAKE_NODE(ASTGraphPathSearchPrefix, @$, {});
+      $$ = MakeNode<ASTGraphPathSearchPrefix>(@$);
       $$->set_type(ASTGraphPathSearchPrefix::PathSearchPrefixType::ALL_SHORTEST);
+    }
+  | "ALL" "CHEAPEST"
+    {
+      $$ = MakeNode<ASTGraphPathSearchPrefix>(@$);
+      $$->set_type(ASTGraphPathSearchPrefix::PathSearchPrefixType::ALL_CHEAPEST);
     }
 ;
 
-opt_graph_path_mode {ASTGraphPathMode*}:
-  %empty { $$ = nullptr; }
-  | "WALK"
+graph_path_mode {ASTGraphPathMode*}:
+  "WALK"
   {
-    $$ = MAKE_NODE(ASTGraphPathMode, @$);
+    $$ = MakeNode<ASTGraphPathMode>(@$);
     $$->set_path_mode(ASTGraphPathMode::WALK);
   }
   | "TRAIL"
   {
-    $$ = MAKE_NODE(ASTGraphPathMode, @$);
+    $$ = MakeNode<ASTGraphPathMode>(@$);
     $$->set_path_mode(ASTGraphPathMode::TRAIL);
   }
   | "SIMPLE"
   {
-    $$ = MAKE_NODE(ASTGraphPathMode, @$);
+    $$ = MakeNode<ASTGraphPathMode>(@$);
     $$->set_path_mode(ASTGraphPathMode::SIMPLE);
   }
   | "ACYCLIC"
   {
-    $$ = MAKE_NODE(ASTGraphPathMode, @$);
+    $$ = MakeNode<ASTGraphPathMode>(@$);
     $$->set_path_mode(ASTGraphPathMode::ACYCLIC);
   }
 ;
 
-path_or_paths:
-  "PATH" | "PATHS";
-
-opt_graph_path_mode_prefix {ASTGraphPathMode*}:
-  opt_graph_path_mode
-  | opt_graph_path_mode path_or_paths { $$ = $opt_graph_path_mode; }
-;
-
 graph_path_pattern {ASTGraphPathPattern*}:
-  graph_identifier[path_assignment] "=" opt_graph_search_prefix[search]
-  opt_graph_path_mode_prefix[path_mode] graph_path_pattern_expr[pattern] {
+  (graph_identifier[assignment] "=")? graph_search_prefix[search]?
+  graph_path_mode[mode]? ("PATH" | "PATHS")? graph_path_pattern_expr[pattern] {
     $$ = $pattern;
+    if (!$assignment.has_value() && !$search.has_value() && !$mode.has_value()) {
+      return absl::OkStatus();
+    }
     if ($pattern->parenthesized()) {
       // If the path pattern is parenthesized, we have already stripped the
       // ASTGraphPathPattern that would include it to avoid unnecessary nested
       // ASTGraphPathPattern nodes. However, the wrapper node is necessary
       // when a top-level path mode is present.
-      $$ = MAKE_NODE(ASTGraphPathPattern, @$, {$pattern});
+      $$ = MakeNode<ASTGraphPathPattern>(@$, $pattern);
     }
-    if ($path_mode != nullptr) {
-      $$->AddChildFront($path_mode);
-      $$ = parser->WithStartLocation($$, @path_mode);
-    }
-    if ($search != nullptr) {
-      $$->AddChildFront($search);
-      $$ = parser->WithStartLocation($$, @search);
-    }
-      $$->AddChildFront($path_assignment);
-      $$ = parser->WithStartLocation($$, @path_assignment);
-  }
-  // TODO: b/322358500 - Simplify this rule when we have Textmapper optional
-  // feature enabled.
-  // We intentionally avoid factoring path variable assignment out of this rule
-  // to avoid introducing shift/reduce conflicts.
-  | opt_graph_search_prefix[search]
-  opt_graph_path_mode_prefix[path_mode] graph_path_pattern_expr[pattern] {
-    $$ = $pattern;
-    if ($search != nullptr || $path_mode != nullptr) {
-      if ($pattern->parenthesized()) {
-        // If the path pattern is parenthesized, we have already stripped the
-        // ASTGraphPathPattern that would include it to avoid unnecessary nested
-        // ASTGraphPathPattern nodes. However, the wrapper node is necessary
-        // when a top-level path mode is present.
-        $$ = MAKE_NODE(ASTGraphPathPattern, @$, {$pattern});
-      }
-    }
-    if ($path_mode != nullptr) {
-      $$->AddChildFront($path_mode);
-      $$ = parser->WithStartLocation($$, @path_mode);
-    }
-    if ($search != nullptr) {
-      $$->AddChildFront($search);
-      $$ = parser->WithStartLocation($$, @search);
-    }
+    ExtendNodeLeft($$, $assignment, $search, $mode);
   }
 ;
 
@@ -7420,7 +7533,7 @@ graph_path_pattern_expr {ASTGraphPathPattern*}:
       // to wrap it in the branch below.
       $$ = $1->Is<ASTGraphPathPattern>()
                 ? $1->GetAsOrDie<ASTGraphPathPattern>()
-                : MAKE_NODE(ASTGraphPathPattern, @$, {$1});
+                : MakeNode<ASTGraphPathPattern>(@$, $1);
     }
   | graph_path_pattern_expr opt_hint graph_path_factor
     {
@@ -7428,7 +7541,7 @@ graph_path_pattern_expr {ASTGraphPathPattern*}:
       // to extend the wrapper to $3's location. No need to wrap if its already
       // a path concatenation.
       auto* path =
-          !$1->parenthesized() ? $1 : MAKE_NODE(ASTGraphPathPattern, @$, {$1});
+          !$1->parenthesized() ? $1 : MakeNode<ASTGraphPathPattern>(@$, $1);
       auto* hint = $2;
       auto* next_element = $3;
       if (hint != nullptr) {
@@ -7445,13 +7558,14 @@ graph_path_pattern_expr {ASTGraphPathPattern*}:
         }
         // If either element is an edge, attach the hint to the edge.
         if (next_element->Is<ASTGraphEdgePattern>()) {
-          auto* lhs_hint = MAKE_NODE(ASTGraphLhsHint, @2, {hint});
-          next_element->AddChildFront(lhs_hint);
-          next_element = parser->WithStartLocation(next_element, @2);
+          auto* lhs_hint = MakeNode<ASTGraphLhsHint>(@2, hint);
+          ExtendNodeLeft(next_element, lhs_hint);
         } else if (last_element->Is<ASTGraphEdgePattern>()) {
-          auto* rhs_hint = MAKE_NODE(ASTGraphRhsHint, @2, {hint});
-          last_element->AddChildFront(rhs_hint);
-          last_element = parser->WithEndLocation(last_element, @2);
+          auto* rhs_hint = MakeNode<ASTGraphRhsHint>(@2, hint);
+          // TODO: b/376552156 - Add rhs_hint to back and remove this location reset.
+          auto start = last_element->start_location();
+          ExtendNodeLeft(last_element, start, rhs_hint);
+          last_element->set_end_location(rhs_hint->end_location());
 
           // Each path pattern can have only up to 1 LHS and RHS hint each.
           // If both exist, swap them here so that they're in the order expected
@@ -7472,13 +7586,12 @@ graph_path_pattern_expr {ASTGraphPathPattern*}:
           // wrap node patterns in path patterns and attach hints to the path
           // patterns.
           if (next_element->Is<ASTGraphNodePattern>()) {
-            next_element = MAKE_NODE(ASTGraphPathPattern, @$, {next_element});
+            next_element = MakeNode<ASTGraphPathPattern>(@$, next_element);
           }
-          next_element->AddChildFront(hint);
-          next_element = parser->WithStartLocation(next_element, @2);
+          ExtendNodeLeft(next_element, hint);
         }
       }
-      $$ = parser->WithEndLocation(WithExtraChildren(path, {next_element}), @$);
+      $$ = ExtendNodeRight(path, @$.end(), next_element);
     }
   ;
 
@@ -7506,25 +7619,42 @@ graph_parenthesized_path_pattern {ASTGraphPathPattern*}:
             "Hint cannot be used at beginning of path pattern");
       }
       if ($where != nullptr) {
-        // Add extra layer of path for parentheses if a WHERE clause exists.
-        ASTGraphPathPattern* return_pattern =
-            !$pattern->parenthesized() ?
-              $pattern
-              : MAKE_NODE(ASTGraphPathPattern, @$, {$pattern});
-        parser->WithLocation(return_pattern, @$);
-        return_pattern->AddChildFront($where);
+        ASTGraphPathPattern* return_pattern = $pattern;
+        if ($pattern->parenthesized()) {
+          // Add extra layer of path for parentheses if a WHERE clause exists.
+          return_pattern = MakeNode<ASTGraphPathPattern>(@$, $pattern);
+        } else {
+          WithLocation($pattern, @$);
+        }
         return_pattern->set_parenthesized(true);
-        $$ = return_pattern;
+        // TODO: b/376552156 - Add $where to back.
+        $$ = ExtendNodeLeft(return_pattern, @$.start(), $where);
       } else {
         // Add parentheses in place.
         $pattern->set_parenthesized(true);
-        $$ = parser->WithLocation($pattern, @$);
+        $$ = WithLocation($pattern, @$);
       }
     }
   ;
 
+graph_quantifier {ASTQuantifier*}:
+  "{"[opening_brace] opt_int_literal_or_parameter[lower_bound] "," int_literal_or_parameter[upper_bound] "}"
+    {
+      // Add the optional lower bound and the upper bound.
+      auto* lower =
+          MakeNode<ASTQuantifierBound>(@lower_bound, $lower_bound);
+      auto* upper = MakeNode<ASTQuantifierBound>(@upper_bound, $upper_bound);
+      $$ = MakeNode<ASTBoundedQuantifier>(MakeLocationRange(@opening_brace, @$),
+                    lower, upper);
+    }
+  | "{" int_literal_or_parameter[fixed_bound] "}"
+    {
+      $$ = MakeNode<ASTFixedQuantifier>(@fixed_bound, $fixed_bound);
+    }
+  ;
+
 graph_quantified_path_primary {ASTGraphPathBase*}:
-    graph_path_primary[path_primary] "{"[opening_brace] opt_int_literal_or_parameter[lower_bound] "," int_literal_or_parameter[upper_bound] "}"
+    graph_path_primary[path_primary] graph_quantifier[quantifier]
       {
         if ($path_primary->node_kind() == AST_GRAPH_NODE_PATTERN) {
           return MakeSyntaxError(@path_primary,
@@ -7534,38 +7664,14 @@ graph_quantified_path_primary {ASTGraphPathBase*}:
         ASTGraphPathBase* quantifier_container = $path_primary;
         if ($path_primary->node_kind() == AST_GRAPH_EDGE_PATTERN) {
           quantifier_container =
-              MAKE_NODE(ASTGraphPathPattern, @$, {$path_primary});
+              MakeNode<ASTGraphPathPattern>(@$, $path_primary);
           quantifier_container->GetAsOrDie<ASTGraphPathPattern>()->
               set_parenthesized(true);
         }
 
-        // Add the optional lower bound and the upper bound.
-        auto* lower =
-            MAKE_NODE(ASTQuantifierBound, @lower_bound, {$lower_bound});
-        auto* upper = MAKE_NODE(
-          ASTQuantifierBound, @upper_bound, {$upper_bound});
-        auto* quantifier =
-            MAKE_NODE(ASTBoundedQuantifier, @opening_brace, @$, {lower, upper});
-
-        quantifier_container->AddChildFront(quantifier);
-        $$ = parser->WithEndLocation(quantifier_container, @$);
-      }
-    | graph_path_primary[path_primary] "{" int_literal_or_parameter[fixed_bound] "}"
-      {
-        if ($path_primary->node_kind() == AST_GRAPH_NODE_PATTERN) {
-          return MakeSyntaxError(@path_primary,
-              "Quantifier cannot be used on on a node pattern");
-        }
-        ASTGraphPathBase* quantifier_container = $path_primary;
-        if ($path_primary->node_kind() == AST_GRAPH_EDGE_PATTERN) {
-            quantifier_container =
-                MAKE_NODE(ASTGraphPathPattern, @$, {$path_primary});
-            quantifier_container->GetAsOrDie<ASTGraphPathPattern>()->
-                set_parenthesized(true);
-        }
-        auto* bound = MAKE_NODE(ASTFixedQuantifier, @fixed_bound, {$fixed_bound});
-        quantifier_container->AddChildFront(bound);
-        $$ = parser->WithEndLocation(quantifier_container, @$);
+        ExtendNodeLeft(quantifier_container, @$.start(), $quantifier);
+        // TODO: b/376552156 - Add quantifier to back and remove this location reset.
+        $$ = WithLocation(quantifier_container, @$);
       }
     ;
 
@@ -7577,7 +7683,7 @@ graph_identifier {ASTIdentifier*}:
     token_identifier
     | common_keyword_as_identifier
       {
-        $$ = parser->MakeIdentifier(@1, $1);
+        $$ = node_factory.MakeIdentifier(@1, $1);
       }
     ;
 
@@ -7586,28 +7692,28 @@ opt_graph_element_identifier {ASTIdentifier*}:
     | %empty { $$ = nullptr; }
     ;
 
+opt_graph_cost {ASTNode*}:
+    "COST" expression { $$ = $expression; }
+    | %empty { $$ = nullptr; }
+    ;
+
 graph_element_pattern_filler {ASTGraphElementPatternFiller*}:
-    opt_hint opt_graph_element_identifier[identifier]
+    opt_hint[hint] opt_graph_element_identifier[elem_name]
     opt_is_label_expression[label] opt_graph_property_specification[prop_spec]
+    opt_where_clause[where] opt_graph_cost[cost]
       {
-        $$ = MAKE_NODE(ASTGraphElementPatternFiller, @$, {$2, $3, $prop_spec, $1});
-      }
-    | opt_hint opt_graph_element_identifier[identifier]
-      opt_is_label_expression[label] where_clause[where]
-      {
-        $$ = MAKE_NODE(ASTGraphElementPatternFiller, @$, {$2, $3, $where, $1});
-      }
-    | opt_hint opt_graph_element_identifier opt_is_label_expression
-      graph_property_specification[prop_spec] where_clause[where]
-      {
-        return MakeSyntaxError(@where, "WHERE clause cannot be used together with property specification");
+        if ($where != nullptr && $prop_spec != nullptr) {
+          return MakeSyntaxError(@where, "WHERE clause cannot be used together with property specification");
+        }
+        $$ = MakeNode<ASTGraphElementPatternFiller>(
+            @$, $elem_name, $label, $prop_spec, $where, $hint, $cost);
       }
     ;
 
 graph_property_specification {ASTNode*}:
     graph_property_specification_prefix[prefix] "}"
       {
-        $$ = parser->WithEndLocation($prefix, @$);
+        $$ = WithEndLocation($prefix, @$);
       }
     ;
 
@@ -7619,25 +7725,25 @@ opt_graph_property_specification {ASTNode*}:
 graph_property_specification_prefix {ASTNode*}:
     "{" graph_property_name_and_value[name_and_value]
       {
-        $$ = MAKE_NODE(ASTGraphPropertySpecification, @$, {$name_and_value});
+        $$ = MakeNode<ASTGraphPropertySpecification>(@$, $name_and_value);
       }
     | graph_property_specification_prefix[prefix] "," graph_property_name_and_value[name_and_value]
       {
-        $$ = WithExtraChildren($prefix, {$name_and_value});
+        $$ = ExtendNodeRight($prefix, $name_and_value);
       }
     ;
 
 graph_property_name_and_value {ASTNode*}:
     identifier[id] ":" expression[expr]
       {
-        $$ = MAKE_NODE(ASTGraphPropertyNameAndValue, @$, {$id, $expr});
+        $$ = MakeNode<ASTGraphPropertyNameAndValue>(@$, $id, $expr);
       }
     ;
 
 graph_node_pattern {ASTGraphElementPattern*}:
     "(" graph_element_pattern_filler ")"
       {
-        $$ = MAKE_NODE(ASTGraphNodePattern, @$, {$2});
+        $$ = MakeNode<ASTGraphNodePattern>(@$, $2);
       }
     ;
 
@@ -7649,7 +7755,7 @@ graph_edge_pattern {ASTGraphElementPattern*}:
       {
         ZETASQL_RETURN_IF_ERROR(ValidateNoWhitespace($1, @1, $2, @2));
         ZETASQL_RETURN_IF_ERROR(ValidateNoWhitespace($4, @4, $5, @5));
-        $$ = MakeGraphEdgePattern(parser, $3,
+        $$ = MakeGraphEdgePattern(node_factory, $3,
                                   ASTGraphEdgePattern::ANY, @$);
       }
     | "<" "-" "[" graph_element_pattern_filler "]" "-"
@@ -7657,31 +7763,31 @@ graph_edge_pattern {ASTGraphElementPattern*}:
         ZETASQL_RETURN_IF_ERROR(ValidateNoWhitespace($1, @1, $2, @2));
         ZETASQL_RETURN_IF_ERROR(ValidateNoWhitespace($2, @2, $3, @3));
         ZETASQL_RETURN_IF_ERROR(ValidateNoWhitespace($5, @5, $6, @6));
-        $$ = MakeGraphEdgePattern(parser, $4,
+        $$ = MakeGraphEdgePattern(node_factory, $4,
                                   ASTGraphEdgePattern::LEFT, @$);
       }
     | "-" "[" graph_element_pattern_filler "]" "->"
       {
         ZETASQL_RETURN_IF_ERROR(ValidateNoWhitespace($1, @1, $2, @2));
         ZETASQL_RETURN_IF_ERROR(ValidateNoWhitespace($4, @4, $5, @5));
-        $$ = MakeGraphEdgePattern(parser, $3,
+        $$ = MakeGraphEdgePattern(node_factory, $3,
                                   ASTGraphEdgePattern::RIGHT, @$);
       }
     // Abbreviated edge patterns.
     | "-"
       {
-        $$ = MakeGraphEdgePattern(parser, nullptr,
+        $$ = MakeGraphEdgePattern(node_factory, nullptr,
                                   ASTGraphEdgePattern::ANY, @$);
       }
     | "<" "-"
       {
         ZETASQL_RETURN_IF_ERROR(ValidateNoWhitespace($1, @1, $2, @2));
-        $$ = MakeGraphEdgePattern(parser, nullptr,
+        $$ = MakeGraphEdgePattern(node_factory, nullptr,
                                   ASTGraphEdgePattern::LEFT, @$);
       }
     | "->"
       {
-        $$ = MakeGraphEdgePattern(parser, nullptr,
+        $$ = MakeGraphEdgePattern(node_factory, nullptr,
                                   ASTGraphEdgePattern::RIGHT, @$);
       }
     ;
@@ -7689,11 +7795,11 @@ graph_edge_pattern {ASTGraphElementPattern*}:
 opt_is_label_expression {ASTNode*}:
     "IS" label_expression
       {
-        $$ = MAKE_NODE(ASTGraphLabelFilter, @$, {$2});
+        $$ = MakeNode<ASTGraphLabelFilter>(@$, $2);
       }
     | ":" label_expression
       {
-        $$ = MAKE_NODE(ASTGraphLabelFilter, @$, {$2});
+        $$ = MakeNode<ASTGraphLabelFilter>(@$, $2);
       }
     | %empty { $$ = nullptr; }
     ;
@@ -7703,16 +7809,16 @@ label_expression {ASTGraphLabelExpression*}:
     | label_expression "&" label_expression
       {
         $$ = MakeOrCombineGraphLabelOperation(
-          ASTGraphLabelOperation::AND, parser, @$, $1, $3);
+          ASTGraphLabelOperation::AND, node_factory, @$, $1, $3);
       }
     | label_expression "|" label_expression
       {
         $$ = MakeOrCombineGraphLabelOperation(
-          ASTGraphLabelOperation::OR, parser, @$, $1, $3);
+          ASTGraphLabelOperation::OR, node_factory, @$, $1, $3);
       }
     | "!" label_expression %prec UNARY_PRECEDENCE
       {
-        auto* not_expr = MAKE_NODE(ASTGraphLabelOperation, @$, {$2});
+        auto* not_expr = MakeNode<ASTGraphLabelOperation>(@$, $2);
         not_expr->set_op_type(ASTGraphLabelOperation::NOT);
         $$ = not_expr;
       }
@@ -7721,11 +7827,11 @@ label_expression {ASTGraphLabelExpression*}:
 label_primary {ASTGraphLabelExpression*}:
     identifier
       {
-        $$ = MAKE_NODE(ASTGraphElementLabel, @$, {$1});
+        $$ = MakeNode<ASTGraphElementLabel>(@$, $1);
       }
     | "%"
       {
-        $$ = MAKE_NODE(ASTGraphWildcardLabel, @$, {});
+        $$ = MakeNode<ASTGraphWildcardLabel>(@$);
       }
     | parenthesized_label_expression
     ;
@@ -7745,7 +7851,7 @@ graph_expression {ASTExpression*}:
     expression_higher_prec_than_and edge_source_endpoint_operator expression_higher_prec_than_and %prec EDGE_ENDPOINT_PRECEDENCE
         {
           auto* binary_expression =
-              MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
+              MakeNode<ASTBinaryExpression>(@$, $1, $3);
           binary_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           binary_expression->set_op(
               ASTBinaryExpression::IS_SOURCE_NODE);
@@ -7754,7 +7860,7 @@ graph_expression {ASTExpression*}:
     | expression_higher_prec_than_and edge_dest_endpoint_operator expression_higher_prec_than_and %prec EDGE_ENDPOINT_PRECEDENCE
         {
           auto* binary_expression =
-              MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
+              MakeNode<ASTBinaryExpression>(@$, $1, $3);
           binary_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           binary_expression->set_op(
               ASTBinaryExpression::IS_DEST_NODE);
@@ -7763,7 +7869,7 @@ graph_expression {ASTExpression*}:
     | expression_higher_prec_than_and[expr] is_labeled_operator[op] label_expression[labelexpr] %prec EDGE_ENDPOINT_PRECEDENCE
         {
           auto* is_labeled_predicate =
-              MAKE_NODE(ASTGraphIsLabeledPredicate, @1, @3, {$expr, $labelexpr});
+              MakeNode<ASTGraphIsLabeledPredicate>(@$, $expr, $labelexpr);
           is_labeled_predicate->set_is_not($2 == NotKeywordPresence::kPresent);
           $$ = is_labeled_predicate;
         }
@@ -7776,9 +7882,9 @@ graph_expression {ASTExpression*}:
                                 "Syntax error: Expression to the left of IN "
                                 "must be parenthesized");
           }
-          ASTLocation* in_location = parser->MakeLocation(@op);
+          ASTLocation* in_location = MakeNode<ASTLocation>(@op);
           ASTInExpression* in_expression =
-              MAKE_NODE(ASTInExpression, @expr, @q, {$expr, in_location, $q});
+              MakeNode<ASTInExpression>(@$, $expr, in_location, $q);
           in_expression->set_is_not($op == NotKeywordPresence::kPresent);
           $$ = in_expression;
         }
@@ -7841,11 +7947,11 @@ is_labeled_operator {NotKeywordPresence}:
 opt_at_system_time {ASTNode*}:
     "FOR" "SYSTEM" "TIME" "AS" "OF" expression
       {
-        $$ = MAKE_NODE(ASTForSystemTime, @$, {$6});
+        $$ = MakeNode<ASTForSystemTime>(@$, $6);
       }
     | "FOR" "SYSTEM_TIME" "AS" "OF" expression
       {
-        $$ = MAKE_NODE(ASTForSystemTime, @$, {$5});
+        $$ = MakeNode<ASTForSystemTime>(@$, $5);
       }
 
     | %empty { $$ = nullptr; }
@@ -7854,25 +7960,25 @@ opt_at_system_time {ASTNode*}:
 on_clause {ASTNode*}:
     "ON" expression
       {
-        $$ = MAKE_NODE(ASTOnClause, @$, {$2});
+        $$ = MakeNode<ASTOnClause>(@$, $2);
       }
     ;
 
 using_clause_prefix {ASTNode*}:
     "USING" "(" identifier
       {
-        $$ = MAKE_NODE(ASTUsingClause, @$, {$3});
+        $$ = MakeNode<ASTUsingClause>(@$, $3);
       }
     | using_clause_prefix "," identifier
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 using_clause {ASTNode*}:
     using_clause_prefix ")"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
@@ -7887,13 +7993,13 @@ opt_on_or_using_clause_list {ASTNode*}:
 on_or_using_clause_list {ASTNode*}:
     on_or_using_clause
       {
-        $$ = MAKE_NODE(ASTOnOrUsingClauseList, @$, {$1});
+        $$ = MakeNode<ASTOnOrUsingClauseList>(@$, $1);
       }
     | on_or_using_clause_list on_or_using_clause
       {
-        if (parser->language_options().LanguageFeatureEnabled(
-               FEATURE_V_1_3_ALLOW_CONSECUTIVE_ON)) {
-          $$ = parser->WithEndLocation(WithExtraChildren($1, {$2}), @$);
+        if (language_options.LanguageFeatureEnabled(
+               FEATURE_ALLOW_CONSECUTIVE_ON)) {
+          $$ = ExtendNodeRight($1, $2);
         } else {
           return MakeSyntaxError(
               @2,
@@ -7932,7 +8038,7 @@ join_hint {ASTJoin::JoinHint}:
     | %empty { $$ = ASTJoin::NO_JOIN_HINT; }
     ;
 
-join_input {ASTTableExpression*}: join | table_primary ;
+join_input {ASTTableExpression*}: join | table_primary;
 
 // This is only used for parenthesized joins. Unparenthesized joins in the FROM
 // clause are directly covered in from_clause_contents. These rules are separate
@@ -7947,10 +8053,10 @@ join {ASTTableExpression*}:
       {
         ErrorInfo error_info;
         auto *join_location =
-            parser->MakeLocation(NonEmptyRangeLocation(@2, @3, @4, @5));
+            MakeNode<ASTLocation>(NonEmptyRangeLocation(@2, @3, @4, @5));
         auto node = JoinRuleAction(
             @1, @$,
-            $1, $2, $3, $4, $6, $7, $8, join_location, parser, &error_info);
+            $1, $2, $3, $4, $6, $7, $8, join_location, node_factory, &error_info);
         if (node == nullptr) {
           return MakeSyntaxError(error_info.location, error_info.message);
         }
@@ -7964,9 +8070,9 @@ from_clause_contents {ASTNode*}:
     | from_clause_contents "," table_primary
       {
         ErrorInfo error_info;
-        auto* comma_location = parser->MakeLocation(@2);
+        auto* comma_location = MakeNode<ASTLocation>(@2);
         auto node = CommaJoinRuleAction(
-            @1, @3, $1, $3, comma_location, parser, &error_info);
+            @1, @3, $1, $3, comma_location, node_factory, &error_info);
         if (node == nullptr) {
           return MakeSyntaxError(error_info.location, error_info.message);
         }
@@ -8007,13 +8113,13 @@ from_clause_contents {ASTNode*}:
         }
 
         ErrorInfo error_info;
-        auto* join_location = parser->MakeLocation(
+        auto* join_location = MakeNode<ASTLocation>(
             NonEmptyRangeLocation(@2, @3, @4, @5));
         auto node = JoinRuleAction(
             @1, @$,
             $1, $2, $3, $4, $6, $7, $8,
             join_location,
-            parser, &error_info);
+            node_factory, &error_info);
         if (node == nullptr) {
           return MakeSyntaxError(error_info.location, error_info.message);
         }
@@ -8047,12 +8153,12 @@ from_clause {ASTNode*}:
       {
         ErrorInfo error_info;
         auto node = TransformJoinExpression(
-          $2, parser, &error_info);
+          $2, node_factory, &error_info);
         if (node == nullptr) {
           return MakeSyntaxError(error_info.location, error_info.message);
         }
 
-        $$ = MAKE_NODE(ASTFromClause, @$, {node});
+        $$ = MakeNode<ASTFromClause>(@$, node);
       }
     ;
 
@@ -8100,7 +8206,7 @@ opt_clauses_following_group_by {ClausesFollowingFrom}:
       };
 
 where_clause {ASTNode*}:
-    "WHERE" expression { $$ = MAKE_NODE(ASTWhereClause, @$, {$2}); };
+    "WHERE" expression { $$ = MakeNode<ASTWhereClause>(@$, $2); };
 
 opt_where_clause {ASTNode*}:
     where_clause
@@ -8110,53 +8216,53 @@ opt_where_clause {ASTNode*}:
 rollup_list {ASTNode*}:
     "ROLLUP" "(" expression
       {
-        $$ = MAKE_NODE(ASTRollup, @$, {$3});
+        $$ = MakeNode<ASTRollup>(@$, $3);
       }
     | rollup_list "," expression
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 cube_list {ASTNode*}:
     "CUBE" "(" expression
       {
-        $$ = MAKE_NODE(ASTCube, @$, {$3});
+        $$ = MakeNode<ASTCube>(@$, $3);
       }
     | cube_list "," expression
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 grouping_set {ASTNode*}:
     "(" ")"
       {
-        auto* grouping_set = MAKE_NODE(ASTGroupingSet, @$, {});
-        $$ = parser->WithEndLocation(grouping_set, @$);
+        auto* grouping_set = MakeNode<ASTGroupingSet>(@$);
+        $$ = WithEndLocation(grouping_set, @$);
       }
     | expression
       {
-        $$ = MAKE_NODE(ASTGroupingSet, @$, {parser->WithEndLocation($1, @$)});
+        $$ = MakeNode<ASTGroupingSet>(@$, WithEndLocation($1, @$));
       }
     | rollup_list ")"
       {
-        $$ = MAKE_NODE(ASTGroupingSet, @$, {parser->WithEndLocation($1, @$)});
+        $$ = MakeNode<ASTGroupingSet>(@$, WithEndLocation($1, @$));
       }
     | cube_list ")"
       {
-        $$ = MAKE_NODE(ASTGroupingSet, @$, {parser->WithEndLocation($1, @$)});
+        $$ = MakeNode<ASTGroupingSet>(@$, WithEndLocation($1, @$));
       }
     ;
 
 grouping_set_list {ASTNode*}:
     "GROUPING" "SETS" "(" grouping_set
       {
-        $$ = MAKE_NODE(ASTGroupingSetList, @$, {$4});
+        $$ = MakeNode<ASTGroupingSetList>(@$, $4);
       }
     | grouping_set_list "," grouping_set
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
       ;
 
@@ -8165,7 +8271,7 @@ opt_selection_item_order {ASTNode*}:
     asc_or_desc opt_null_order
       {
         auto* node =
-            MAKE_NODE(ASTGroupingItemOrder, @$, {$opt_null_order});
+            MakeNode<ASTGroupingItemOrder>(@$, $opt_null_order);
         node->set_ordering_spec($1);
         $$ = node;
       }
@@ -8178,7 +8284,7 @@ opt_grouping_item_order {ASTNode*}:
     | null_order
       {
         auto* node =
-            MAKE_NODE(ASTGroupingItemOrder, @$, {$null_order});
+            MakeNode<ASTGroupingItemOrder>(@$, $null_order);
         $$ = node;
       }
     ;
@@ -8186,20 +8292,20 @@ opt_grouping_item_order {ASTNode*}:
 grouping_item_base {ASTNode*}:
     "(" ")"
       {
-        auto* grouping_item = MAKE_NODE(ASTGroupingItem, @$, {});
-        $$ = parser->WithEndLocation(grouping_item, @$);
+        auto* grouping_item = MakeNode<ASTGroupingItem>(@$);
+        $$ = WithEndLocation(grouping_item, @$);
       }
     | rollup_list ")"
       {
-        $$ = MAKE_NODE(ASTGroupingItem, @$, {parser->WithEndLocation($1, @$)});
+        $$ = MakeNode<ASTGroupingItem>(@$, WithEndLocation($1, @$));
       }
     | cube_list ")"
       {
-        $$ = MAKE_NODE(ASTGroupingItem, @$, {parser->WithEndLocation($1, @$)});
+        $$ = MakeNode<ASTGroupingItem>(@$, WithEndLocation($1, @$));
       }
     | grouping_set_list ")"
       {
-        $$ = MAKE_NODE(ASTGroupingItem, @$, {parser->WithEndLocation($1, @$)});
+        $$ = MakeNode<ASTGroupingItem>(@$, WithEndLocation($1, @$));
       }
     ;
 
@@ -8209,7 +8315,7 @@ grouping_item {ASTNode*}:
     grouping_item_base
     | expression
       {
-        $$ = MAKE_NODE(ASTGroupingItem, @$, {$1});
+        $$ = MakeNode<ASTGroupingItem>(@$, $1);
       }
     ;
 
@@ -8219,13 +8325,13 @@ grouping_item_in_pipe {ASTNode*}:
     grouping_item_base
     | expression opt_as_alias opt_grouping_item_order
       {
-        $$ = MAKE_NODE(ASTGroupingItem, @$, {$1, $2, $3});
+        $$ = MakeNode<ASTGroupingItem>(@$, $1, $2, $3);
       }
     ;
 
 opt_and_order {bool}:
     "AND" "ORDER" {
-        if (!parser->language_options().LanguageFeatureEnabled(
+        if (!language_options.LanguageFeatureEnabled(
                   FEATURE_PIPES)) {
           return MakeSyntaxError(
               @1, "Syntax error: Unexpected AND");
@@ -8255,32 +8361,32 @@ group_by_preamble_in_pipe {GroupByPreamble}:
 group_by_clause_prefix {ASTNode*}:
     group_by_preamble[preamble] grouping_item[item]
       {
-        $$ = MAKE_NODE(ASTGroupBy, @$, {$preamble.hint, $item});
+        $$ = MakeNode<ASTGroupBy>(@$, $preamble.hint, $item);
       }
     | group_by_clause_prefix[prefix] "," grouping_item[item]
       {
-        $$ = WithExtraChildren($prefix, {$item});
+        $$ = ExtendNodeRight($prefix, $item);
       }
     ;
 
 group_by_clause_prefix_in_pipe {ASTNode*}:
     group_by_preamble_in_pipe[preamble] grouping_item_in_pipe[item]
       {
-        auto* node = MAKE_NODE(ASTGroupBy, @$, {$preamble.hint, $item});
+        auto* node = MakeNode<ASTGroupBy>(@$, $preamble.hint, $item);
         node->set_and_order_by($preamble.and_order_by);
         $$ = node;
       }
     | group_by_clause_prefix_in_pipe[prefix] "," grouping_item_in_pipe[item]
       {
-        $$ = WithExtraChildren($prefix, {$item});
+        $$ = ExtendNodeRight($prefix, $item);
       }
     ;
 
 group_by_all {ASTNode*}:
     group_by_preamble[preamble] "ALL"[all]
       {
-        auto* group_by_all = MAKE_NODE(ASTGroupByAll, @all, {});
-        auto* node = MAKE_NODE(ASTGroupBy, @$, {$preamble.hint, group_by_all});
+        auto* group_by_all = MakeNode<ASTGroupByAll>(@all);
+        auto* node = MakeNode<ASTGroupBy>(@$, $preamble.hint, group_by_all);
         node->set_and_order_by($preamble.and_order_by);
         $$ = node;
       }
@@ -8312,7 +8418,7 @@ opt_group_by_clause {ASTNode*}:
 opt_group_by_clause_in_pipe {ASTNode*}:
     group_by_clause_prefix_in_pipe opt_comma
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     | %empty { $$ = nullptr; }
     ;
@@ -8320,7 +8426,7 @@ opt_group_by_clause_in_pipe {ASTNode*}:
 having_clause {ASTNode*}:
     "HAVING" expression
       {
-        $$ = MAKE_NODE(ASTHaving, @$, {$2});
+        $$ = MakeNode<ASTHaving>(@$, $2);
       };
 
 opt_having_clause {ASTNode*}:
@@ -8331,18 +8437,18 @@ opt_having_clause {ASTNode*}:
 window_definition {ASTNode*}:
     identifier "AS" window_specification
       {
-        $$ = MAKE_NODE(ASTWindowDefinition, @$, {$1, $3});
+        $$ = MakeNode<ASTWindowDefinition>(@$, $1, $3);
       }
     ;
 
 window_clause_prefix {ASTNode*}:
     "WINDOW" window_definition
       {
-        $$ = MAKE_NODE(ASTWindowClause, @$, {$2});
+        $$ = MakeNode<ASTWindowClause>(@$, $2);
       }
     | window_clause_prefix "," window_definition
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
@@ -8354,7 +8460,7 @@ opt_window_clause {ASTNode*}:
 opt_window_clause_with_trailing_comma {ASTNode*}:
     window_clause_prefix opt_comma
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     | %empty { $$ = nullptr; }
     ;
@@ -8368,11 +8474,11 @@ opt_qualify_clause {ASTNode*}:
 qualify_clause_reserved {ASTNode*}:
     KW_QUALIFY_RESERVED expression
       {
-       if (!parser->language_options().LanguageFeatureEnabled(
-                FEATURE_V_1_3_QUALIFY)) {
+       if (!language_options.LanguageFeatureEnabled(
+                FEATURE_QUALIFY)) {
           return MakeSyntaxError(@1, "QUALIFY is not supported");
         }
-        $$ = MAKE_NODE(ASTQualify, @$, {$2});
+        $$ = MakeNode<ASTQualify>(@$, $2);
       }
     ;
 
@@ -8384,11 +8490,11 @@ opt_qualify_clause_reserved {ASTNode*}:
 qualify_clause_nonreserved {ASTNode*}:
     KW_QUALIFY_NONRESERVED expression
       {
-       if (!parser->language_options().LanguageFeatureEnabled(
-                FEATURE_V_1_3_QUALIFY)) {
+       if (!language_options.LanguageFeatureEnabled(
+                FEATURE_QUALIFY)) {
           return MakeSyntaxError(@1, "QUALIFY is not supported");
         }
-        $$ = MAKE_NODE(ASTQualify, @$, {$2});
+        $$ = MakeNode<ASTQualify>(@$, $2);
       }
     ;
 
@@ -8396,11 +8502,11 @@ limit_offset_clause {ASTNode*}:
     "LIMIT" expression
     "OFFSET" expression
       {
-        $$ = MAKE_NODE(ASTLimitOffset, @$, {$2, $4});
+        $$ = MakeNode<ASTLimitOffset>(@$, $2, $4);
       }
     | "LIMIT" expression
       {
-        $$ = MAKE_NODE(ASTLimitOffset, @$, {$2});
+        $$ = MakeNode<ASTLimitOffset>(@$, $2);
       }
     ;
 
@@ -8412,11 +8518,11 @@ opt_limit_offset_clause {ASTNode*}:
 opt_lock_mode_clause {ASTLockMode*}:
     KW_FOR_BEFORE_LOCK_MODE "UPDATE"
       {
-        if (!parser->language_options().LanguageFeatureEnabled(
-                FEATURE_V_1_4_FOR_UPDATE)) {
+        if (!language_options.LanguageFeatureEnabled(
+                FEATURE_FOR_UPDATE)) {
           return MakeSyntaxError(@1, "FOR UPDATE is not supported");
         }
-        auto* node = MAKE_NODE(ASTLockMode, @$, {});
+        auto* node = MakeNode<ASTLockMode>(@$);
         node->set_strength(ASTLockMode::UPDATE);
         $$ = node;
       }
@@ -8426,14 +8532,14 @@ opt_lock_mode_clause {ASTLockMode*}:
 opt_having_modifier {ASTNode*}:
     "HAVING" "MAX" expression
       {
-        auto* modifier = MAKE_NODE(ASTHavingModifier, @$, {$3});
+        auto* modifier = MakeNode<ASTHavingModifier>(@$, $3);
         modifier->set_modifier_kind(
             ASTHavingModifier::ModifierKind::MAX);
         $$ = modifier;
       }
     | "HAVING" "MIN" expression
       {
-        auto* modifier = MAKE_NODE(ASTHavingModifier, @$, {$3});
+        auto* modifier = MakeNode<ASTHavingModifier>(@$, $3);
         modifier->set_modifier_kind(
             ASTHavingModifier::ModifierKind::MIN);
         $$ = modifier;
@@ -8458,7 +8564,7 @@ opt_group_by_modifier {GroupByModifier}:
 opt_clamped_between_modifier {ASTNode*}:
     "CLAMPED" "BETWEEN" expression_higher_prec_than_and "AND" expression %prec "BETWEEN"
       {
-        $$ = MAKE_NODE(ASTClampedBetweenModifier, @$, {$3, $5});
+        $$ = MakeNode<ASTClampedBetweenModifier>(@$, $3, $5);
       }
     | %empty { $$ = nullptr; }
     ;
@@ -8466,7 +8572,7 @@ opt_clamped_between_modifier {ASTNode*}:
 opt_with_report_modifier {ASTNode*}:
     "WITH" "REPORT" opt_with_report_format
       {
-        $$ = MAKE_NODE(ASTWithReportModifier, @$, {$3});
+        $$ = MakeNode<ASTWithReportModifier>(@$, $3);
       }
     | %empty { $$ = nullptr; }
     ;
@@ -8492,8 +8598,8 @@ opt_null_handling_modifier {ASTFunctionCall::NullHandlingModifier}:
     ;
 
 possibly_unbounded_int_literal_or_parameter {ASTNode*}:
-    int_literal_or_parameter { $$ = MAKE_NODE(ASTIntOrUnbounded, @$, {$1}); }
-    | "UNBOUNDED" { $$ = MAKE_NODE(ASTIntOrUnbounded, @$, {}); }
+    int_literal_or_parameter { $$ = MakeNode<ASTIntOrUnbounded>(@$, $1); }
+    | "UNBOUNDED" { $$ = MakeNode<ASTIntOrUnbounded>(@$); }
     ;
 
 recursion_depth_modifier {ASTNode*}:
@@ -8502,10 +8608,10 @@ recursion_depth_modifier {ASTNode*}:
         auto empty_location = LocationFromOffset(@alias.end());
 
         // By default, they're unbounded when unspecified.
-        auto* lower_bound = MAKE_NODE(ASTIntOrUnbounded, empty_location, {});
-        auto* upper_bound = MAKE_NODE(ASTIntOrUnbounded, empty_location, {});
-        $$ = MAKE_NODE(ASTRecursionDepthModifier, @$,
-                       {$alias, lower_bound, upper_bound});
+        auto* lower_bound = MakeNode<ASTIntOrUnbounded>(empty_location);
+        auto* upper_bound = MakeNode<ASTIntOrUnbounded>(empty_location);
+        $$ = MakeNode<ASTRecursionDepthModifier>(@$,
+                       $alias, lower_bound, upper_bound);
       }
       // Bison uses the prec of the last terminal (which is "AND" in this case),
       // so we need to explicitly set to %prec "BETWEEN"
@@ -8516,8 +8622,8 @@ recursion_depth_modifier {ASTNode*}:
       "AND" possibly_unbounded_int_literal_or_parameter[upper_bound]
       %prec "BETWEEN"
       {
-        $$ = MAKE_NODE(ASTRecursionDepthModifier, @$,
-                       {$alias, $lower_bound, $upper_bound});
+        $$ = MakeNode<ASTRecursionDepthModifier>(@$,
+                       $alias, $lower_bound, $upper_bound);
       }
     | "WITH" "DEPTH" opt_as_alias_with_required_as[alias]
       "MAX" possibly_unbounded_int_literal_or_parameter[upper_bound]
@@ -8525,9 +8631,9 @@ recursion_depth_modifier {ASTNode*}:
         auto empty_location = LocationFromOffset(@alias.end());
 
         // Lower bound is unspecified in this case.
-        auto* lower_bound = MAKE_NODE(ASTIntOrUnbounded, empty_location, {});
-        $$ = MAKE_NODE(ASTRecursionDepthModifier, @$,
-                       {$alias, lower_bound, $upper_bound});
+        auto* lower_bound = MakeNode<ASTIntOrUnbounded>(empty_location);
+        $$ = MakeNode<ASTRecursionDepthModifier>(@$,
+                       $alias, lower_bound, $upper_bound);
       }
     ;
 
@@ -8539,8 +8645,8 @@ opt_recursion_depth_modifier {ASTNode*}:
 aliased_query_modifiers {ASTNode*}:
     recursion_depth_modifier
       {
-        $$ = MAKE_NODE(ASTAliasedQueryModifiers, @$,
-                       {$recursion_depth_modifier});
+        $$ = MakeNode<ASTAliasedQueryModifiers>(@$,
+                       $recursion_depth_modifier);
       }
     | %empty { $$ = nullptr; }
     ;
@@ -8560,7 +8666,7 @@ aliased_query_with_overridden_next_token_lookback {ASTNode*}:
     } ")"[rparen]
       {
         // Fix the location of the subquery to include the parentheses.
-        $$ = parser->WithLocation($query, @$);
+        $$ = WithLocation($query, @$);
       }
     ;
 
@@ -8568,35 +8674,35 @@ aliased_query {ASTNode*}:
     identifier "AS" aliased_query_with_overridden_next_token_lookback[query]
     aliased_query_modifiers[modifiers]
       {
-        $$ = MAKE_NODE(ASTAliasedQuery, @$, {$1, $query, $modifiers});
+        $$ = MakeNode<ASTAliasedQuery>(@$, $1, $query, $modifiers);
       }
     ;
 
 aliased_query_list {ASTNode*}:
-    aliased_query { $$ = MAKE_NODE(ASTAliasedQueryList, @$, {$1}); }
+    aliased_query { $$ = MakeNode<ASTAliasedQueryList>(@$, $1); }
     | aliased_query_list "," aliased_query
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 with_clause {ASTNode*}:
     "WITH" aliased_query
       {
-        $$ = MAKE_NODE(ASTWithClause, @$, {$2});
-        $$ = parser->WithEndLocation($$, @$);
+        $$ = MakeNode<ASTWithClause>(@$, $2);
+        $$ = WithEndLocation($$, @$);
       }
     | "WITH" "RECURSIVE" aliased_query
       {
         ASTWithClause* with_clause =
-            MAKE_NODE(ASTWithClause, @$, {$3});
-        with_clause = parser->WithEndLocation(with_clause, @$);
+            MakeNode<ASTWithClause>(@$, $3);
+        with_clause = WithEndLocation(with_clause, @$);
         with_clause->set_recursive(true);
         $$ = with_clause;
       }
     | with_clause "," aliased_query
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
@@ -8613,7 +8719,7 @@ opt_with_connection_clause {ASTNode*}:
 with_clause_with_trailing_comma {ASTNode*}:
     with_clause ","
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
@@ -8630,13 +8736,13 @@ opt_asc_or_desc {ASTOrderingExpression::OrderingSpec}:
 null_order {ASTNode*}:
     "NULLS" "FIRST"
       {
-        auto* null_order = MAKE_NODE(ASTNullOrder, @$, {});
+        auto* null_order = MakeNode<ASTNullOrder>(@$);
         null_order->set_nulls_first(true);
         $$ = null_order;
       }
     | "NULLS" "LAST"
       {
-        auto* null_order = MAKE_NODE(ASTNullOrder, @$, {});
+        auto* null_order = MakeNode<ASTNullOrder>(@$);
         null_order->set_nulls_first(false);
         $$ = null_order;
       }
@@ -8655,7 +8761,7 @@ string_literal_or_parameter {ASTExpression*}:
 collate_clause {ASTNode*}:
     "COLLATE" string_literal_or_parameter
       {
-        $$ = MAKE_NODE(ASTCollate, @$, {$2});
+        $$ = MakeNode<ASTCollate>(@$, $2);
       }
     ;
 
@@ -8676,7 +8782,7 @@ ordering_expression {ASTNode*}:
     expression opt_collate_clause opt_asc_or_desc opt_null_order
       {
         auto* ordering_expr =
-            MAKE_NODE(ASTOrderingExpression, @$, {$1, $2, $4, nullptr});
+            MakeNode<ASTOrderingExpression>(@$, $1, $2, $4);
         ordering_expr->set_ordering_spec($3);
         $$ = ordering_expr;
       }
@@ -8685,25 +8791,25 @@ ordering_expression {ASTNode*}:
 order_by_clause_prefix {ASTNode*}:
     "ORDER" opt_hint "BY" ordering_expression
       {
-        $$ = MAKE_NODE(ASTOrderBy, @$, {$2, $4});
+        $$ = MakeNode<ASTOrderBy>(@$, $2, $4);
       }
     | order_by_clause_prefix "," ordering_expression
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 order_by_clause {ASTNode*}:
     order_by_clause_prefix
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
 order_by_clause_with_opt_comma {ASTNode*}:
     order_by_clause_prefix opt_comma
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
@@ -8720,13 +8826,13 @@ parenthesized_in_rhs {ASTNode*}:
     | "(" expression_maybe_parenthesized_not_a_query[e] ")"
       {
         // `expression_maybe_parenthesized_not_a_query` is NOT a query.
-        $$ = MAKE_NODE(ASTInList, @e, {$e});
+        $$ = MakeNode<ASTInList>(@e, $e);
       }
     | in_list_two_or_more_prefix ")"
       {
         // Don't include the ")" in the location, to match the JavaCC parser.
         // TODO: Fix that.
-        $$ = parser->WithEndLocation($1, @1);
+        $$ = WithEndLocation($1, @1);
       }
     ;
 
@@ -8735,32 +8841,32 @@ parenthesized_anysomeall_list_in_rhs {ASTNode*}:
     // (1) LIKE ANY|SOME|ALL (query)
     // (2) LIKE ANY|SOME|ALL ((query))
     // (3) LIKE ANY|SOME|ALL ('a', (query))
-    // (1) falls under V_1_4_LIKE_ANY_SOME_ALL_SUBQUERY feature since it is
+    // (1) falls under FEATURE_LIKE_ANY_SOME_ALL_SUBQUERY feature since it is
     // not treated as a scalar query. (2) and (3) are treated a scalar queries.
     parenthesized_query[query]
       {
         if (!$query->parenthesized() &&
-          !parser->language_options().LanguageFeatureEnabled(
-          FEATURE_V_1_4_LIKE_ANY_SOME_ALL_SUBQUERY)) {
+          !language_options.LanguageFeatureEnabled(
+          FEATURE_LIKE_ANY_SOME_ALL_SUBQUERY)) {
           return MakeSyntaxError(@1, "The LIKE ANY|SOME|ALL operator does "
             "not support subquery expression as patterns. "
             "Patterns must be string or bytes; "
             "did you mean LIKE ANY|SOME|ALL (pattern1, pattern2, ...)?");
         }
         $query->set_parenthesized(false);
-        auto* sub_query = MAKE_NODE(ASTExpressionSubquery, @query, {$query});
-        $$ = MAKE_NODE(ASTInList, @$, {sub_query});
+        auto* sub_query = MakeNode<ASTExpressionSubquery>(@query, $query);
+        $$ = MakeNode<ASTInList>(@$, sub_query);
       }
     | "(" expression_maybe_parenthesized_not_a_query[e] ")"
       {
         // `expression_maybe_parenthesized_not_a_query` is NOT a query.
-        $$ = MAKE_NODE(ASTInList, @e, {$e});
+        $$ = MakeNode<ASTInList>(@e, $e);
       }
     | in_list_two_or_more_prefix ")"
       {
         // Don't include the ")" in the location, to match the JavaCC parser.
         // TODO: Fix that.
-        $$ = parser->WithEndLocation($1, @1);
+        $$ = WithEndLocation($1, @1);
       }
     ;
 
@@ -8769,29 +8875,29 @@ in_list_two_or_more_prefix {ASTNode*}:
       {
         // The JavaCC parser doesn't include the opening "(" in the location
         // for some reason. TODO: Correct this after JavaCC is gone.
-        $$ = MAKE_NODE(ASTInList, @2, @4, {$2, $4});
+        $$ = MakeNode<ASTInList>(MakeLocationRange(@2, @4), $2, $4);
       }
     | in_list_two_or_more_prefix "," expression
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 expression_with_opt_alias {ASTNode*}:
     expression opt_as_alias_with_required_as[opt_alias]
       {
-        $$ = MAKE_NODE(ASTExpressionWithOptAlias, @$, {$expression, $opt_alias});
+        $$ = MakeNode<ASTExpressionWithOptAlias>(@$, $expression, $opt_alias);
       }
     ;
 
 unnest_expression_prefix {ASTNode*}:
     "UNNEST" "(" expression_with_opt_alias[expression]
       {
-        $$ = MAKE_NODE(ASTUnnestExpression, @$, {$expression});
+        $$ = MakeNode<ASTUnnestExpression>(@$, $expression);
       }
     | unnest_expression_prefix[prefix] "," expression_with_opt_alias[expression]
       {
-        $$ = WithExtraChildren($prefix, {$expression});
+        $$ = ExtendNodeRight($prefix, $expression);
       }
     ;
 
@@ -8803,8 +8909,7 @@ opt_array_zip_mode {ASTExpression*}:
 unnest_expression {ASTNode*}:
     unnest_expression_prefix[prefix] opt_array_zip_mode ")"
       {
-        $$ = parser->WithEndLocation(
-          WithExtraChildren($prefix, {$opt_array_zip_mode}), @$);
+        $$ = ExtendNodeRight($prefix, @$.end(), $opt_array_zip_mode);
       }
     | "UNNEST" "(" "SELECT"
       {
@@ -8819,8 +8924,8 @@ unnest_expression {ASTNode*}:
 unnest_expression_with_opt_alias_and_offset {ASTNode*}:
     unnest_expression opt_as_alias opt_with_offset_and_alias
       {
-        $$ = MAKE_NODE(ASTUnnestExpressionWithOptAliasAndOffset, @$,
-                       {$1, $2, $3});
+        $$ = MakeNode<ASTUnnestExpressionWithOptAliasAndOffset>(@$,
+                       $1, $2, $3);
       }
     ;
 
@@ -8860,34 +8965,34 @@ import_type {ImportType}:
 any_some_all {ASTNode*}:
     "ANY"
       {
-       if (!parser->language_options().LanguageFeatureEnabled(
-                FEATURE_V_1_3_LIKE_ANY_SOME_ALL)) {
+       if (!language_options.LanguageFeatureEnabled(
+                FEATURE_LIKE_ANY_SOME_ALL)) {
           return MakeSyntaxError(@1, "LIKE ANY is not supported");
         }
         auto* op =
-            MAKE_NODE(ASTAnySomeAllOp, @$, {});
+            MakeNode<ASTAnySomeAllOp>(@$);
         op->set_op(ASTAnySomeAllOp::kAny);
         $$ = op;
       }
     | "SOME"
       {
-       if (!parser->language_options().LanguageFeatureEnabled(
-                FEATURE_V_1_3_LIKE_ANY_SOME_ALL)) {
+       if (!language_options.LanguageFeatureEnabled(
+                FEATURE_LIKE_ANY_SOME_ALL)) {
           return MakeSyntaxError(@1, "LIKE SOME is not supported");
         }
         auto* op =
-            MAKE_NODE(ASTAnySomeAllOp, @$, {});
+            MakeNode<ASTAnySomeAllOp>(@$);
         op->set_op(ASTAnySomeAllOp::kSome);
         $$ = op;
       }
     | "ALL"
       {
-       if (!parser->language_options().LanguageFeatureEnabled(
-                FEATURE_V_1_3_LIKE_ANY_SOME_ALL)) {
+       if (!language_options.LanguageFeatureEnabled(
+                FEATURE_LIKE_ANY_SOME_ALL)) {
           return MakeSyntaxError(@1, "LIKE ALL is not supported");
         }
         auto* op =
-            MAKE_NODE(ASTAnySomeAllOp, @$, {});
+            MakeNode<ASTAnySomeAllOp>(@$);
         op->set_op(ASTAnySomeAllOp::kAll);
         $$ = op;
       }
@@ -8962,27 +9067,27 @@ unary_operator {ASTUnaryExpression::Op}:
 with_expression_variable {ASTNode*}:
   identifier "AS" expression
       {
-        auto* alias = MAKE_NODE(ASTAlias, @1, @2, {$1});
-        $$ = MAKE_NODE(ASTSelectColumn, @$, {$3, alias});
+        auto* alias = MakeNode<ASTAlias>(MakeLocationRange(@1, @2), $1);
+        $$ = MakeNode<ASTSelectColumn>(@$, $3, alias);
       }
   ;
 
 with_expression_variable_prefix {ASTNode*}:
     with_expression_variable
       {
-        $$ = MAKE_NODE(ASTSelectList, @$, {$1});
+        $$ = MakeNode<ASTSelectList>(@$, $1);
       }
     |
     with_expression_variable_prefix "," with_expression_variable
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 with_expression {ASTExpression*}:
   KW_WITH_STARTING_WITH_EXPRESSION "(" with_expression_variable_prefix "," expression ")"
     {
-      $$ = MAKE_NODE(ASTWithExpression, @$, {$3, $5});
+      $$ = MakeNode<ASTWithExpression>(@$, $3, $5);
     }
   ;
 
@@ -9001,12 +9106,12 @@ expression {ASTExpression*}:
 or_expression {ASTExpression*}:
     expression[lhs] "OR" expression[rhs] %prec "OR"
       {
-        if ($lhs->node_kind() == AST_OR_EXPR &&
-            !$lhs->parenthesized()) {
-          // Embrace and extend $lhs's ASTNode.
-          $$ = WithExtraChildren(parser->WithEndLocation($lhs, @3), {$rhs});
+        if ($lhs->node_kind() == AST_OR_EXPR && !$lhs->parenthesized()) {
+          // $rhs will not includes its own parenthesis in its location, so we
+          // need to override the range in this case.
+          $$ = ExtendNodeRight($lhs, @$.end(), $rhs);
         } else {
-          $$ = MAKE_NODE(ASTOrExpr, @$, {$lhs, $rhs});
+          $$ = MakeNode<ASTOrExpr>(@$, $lhs, $rhs);
         }
       }
     ;
@@ -9014,12 +9119,13 @@ or_expression {ASTExpression*}:
 and_expression {ASTExpression*}:
     and_expression[lhs] "AND" expression_higher_prec_than_and[rhs] %prec "AND"
       {
-        // Embrace and extend $lhs's ASTNode to flatten a series of ANDs.
-        $$ = WithExtraChildren(parser->WithEndLocation($lhs, @3), {$rhs});
+        // $rhs will not includes its own parenthesis in its location, so we
+        // need to override the range in this case.
+        $$ = ExtendNodeRight($lhs, @$.end(), $rhs);
       }
     | expression_higher_prec_than_and[lhs] "AND" expression_higher_prec_than_and[rhs] %prec "AND"
        {
-          $$ = MAKE_NODE(ASTAndExpr, @$, {$lhs, $rhs});
+          $$ = MakeNode<ASTAndExpr>(@$, $lhs, $rhs);
        }
     ;
 
@@ -9035,7 +9141,7 @@ expression_higher_prec_than_and {ASTExpression*}:
       // As the query ASTExpressionSubquery already has parentheses, set this
       // flag to false to avoid a double nesting like SELECT ((SELECT 1)).
       $query->set_parenthesized(false);
-      $$ = MAKE_NODE(ASTExpressionSubquery, @query, {$query});
+      $$ = MakeNode<ASTExpressionSubquery>(@query, $query);
     }
   ;
 
@@ -9090,7 +9196,7 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
     | identifier[id]
       {
         // The path expression is extended by the "." identifier rule below.
-        $$ = MAKE_NODE(ASTPathExpression, @$, {$1});
+        $$ = MakeNode<ASTPathExpression>(@$, $1);
 
         // This could be a bare reference to a CURRENT_* date/time function.
         // Those functions can be called without arguments, but they should
@@ -9106,7 +9212,7 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
               zetasql_base::CaseEqual(remainder, "date") ||
               zetasql_base::CaseEqual(remainder, "datetime") ||
               zetasql_base::CaseEqual(remainder, "timestamp")) {
-            auto* function_call = MAKE_NODE(ASTFunctionCall, @$, {$$});
+            auto* function_call = MakeNode<ASTFunctionCall>(@$, $$);
             function_call->set_is_current_date_time_without_parentheses(true);
             $$ = function_call;
           }
@@ -9119,14 +9225,20 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
       }
     | expression_higher_prec_than_and "[" expression "]" %prec PRIMARY_PRECEDENCE
       {
-        auto* bracket_loc = parser->MakeLocation(@2);
-        $$ = MAKE_NODE(ASTArrayElement, @1, @4, {$1, bracket_loc, $3});
+        auto* bracket_loc = MakeNode<ASTLocation>(@2);
+        $$ = MakeNode<ASTArrayElement>(@$, $1, bracket_loc, $3);
       }
     | expression_higher_prec_than_and "." "(" path_expression ")"  %prec PRIMARY_PRECEDENCE
       {
-        $$ = MAKE_NODE(ASTDotGeneralizedField, @1, @5, {$1, $4});
+        $$ = MakeNode<ASTDotGeneralizedField>(@$, $1, $4);
       }
-    | expression_higher_prec_than_and "." identifier %prec PRIMARY_PRECEDENCE
+    // This rule accepts `identifier_or_function_name_from_keyword` so
+    // chained function calls of reserved names like LEFT work.
+    // This also makes dot-identifier with those names parsable.
+    // e.g. `("abc").LEFT(3)` or `"abc".LEFT`.
+    // `path_expression` rules already accept these, like `LEFT("abc", 3)`.
+    | expression_higher_prec_than_and "."
+      identifier_or_function_name_from_keyword %prec PRIMARY_PRECEDENCE
       {
         // Note that if "expression" ends with an identifier, then the tokenizer
         // switches to IDENTIFIER_DOT mode before tokenizing $3. That means that
@@ -9138,14 +9250,14 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
         // DotIdentifier.
         if ($1->node_kind() == AST_PATH_EXPRESSION &&
             !$1->parenthesized()) {
-          $$ = WithExtraChildren(parser->WithEndLocation($1, @3), {$3});
+          $$ = ExtendNodeRight($1, $3);
         } else {
-          $$ = MAKE_NODE(ASTDotIdentifier, @1, @3, {$1, $3});
+          $$ = MakeNode<ASTDotIdentifier>(@$, $1, $3);
         }
       }
     | "NOT" expression_higher_prec_than_and %prec UNARY_NOT_PRECEDENCE
       {
-        auto* not_expr = MAKE_NODE(ASTUnaryExpression, @$, {$2});
+        auto* not_expr = MakeNode<ASTUnaryExpression>(@$, $2);
         not_expr->set_op(ASTUnaryExpression::NOT);
         $$ = not_expr;
       }
@@ -9163,9 +9275,9 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
                                  "Syntax error: Expression to the left of LIKE "
                                  "must be parenthesized");
           }
-          auto* like_location = parser->MakeLocation(@2);
-          auto* like_expression = MAKE_NODE(ASTLikeExpression, @1, @5,
-                                            {$1, like_location, $3, $5});
+          ASTNode* like_location = MakeNode<ASTLocation>(@2);
+          auto* like_expression = MakeNode<ASTLikeExpression>(@$,
+                                            $1, like_location, $3, $5);
           like_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           $$ = like_expression;
         }
@@ -9178,19 +9290,19 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
                                 "Syntax error: Expression to the left of LIKE "
                                 "must be parenthesized");
           }
-          auto* like_location = parser->MakeLocation(@2);
+          ASTNode* like_location = MakeNode<ASTLocation>(@2);
           ASTLikeExpression* like_expression = nullptr;
           if ($5->node_kind() == AST_QUERY) {
-            like_expression = MAKE_NODE(ASTLikeExpression, @1, @5,
-                                        {$1, like_location, $3, $4, $5});
+            like_expression = MakeNode<ASTLikeExpression>(@$,
+                                        $1, like_location, $3, $4, $5);
           } else {
             if ($opt_hint != nullptr) {
               return MakeSyntaxError(@4,
                                   "Syntax error: HINTs cannot be specified on "
                                   "LIKE clause with value list");
             }
-            like_expression = MAKE_NODE(ASTLikeExpression, @1, @5,
-                                        {$1, like_location, $3, $5});
+            like_expression = MakeNode<ASTLikeExpression>(@$,
+                                        $1, like_location, $3, $5);
           }
           like_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           $$ = like_expression;
@@ -9211,21 +9323,21 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
                 "Expression to the left of LIKE must be parenthesized");
           }
           auto* binary_expression =
-              MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
+              MakeNode<ASTBinaryExpression>(@$, $1, $3);
           binary_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           binary_expression->set_op(ASTBinaryExpression::LIKE);
           $$ = binary_expression;
         }
     | expression_higher_prec_than_and distinct_operator expression_higher_prec_than_and %prec "DISTINCT"
         {
-          if (!parser->language_options().LanguageFeatureEnabled(
-              FEATURE_V_1_3_IS_DISTINCT)) {
+          if (!language_options.LanguageFeatureEnabled(
+              FEATURE_IS_DISTINCT)) {
             return MakeSyntaxError(
                 @2,
                 "IS DISTINCT FROM is not supported");
           }
           auto binary_expression =
-              MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
+              MakeNode<ASTBinaryExpression>(@$, $1, $3);
               binary_expression->set_is_not($2 == NotKeywordPresence::kPresent);
               binary_expression->set_op(
                   ASTBinaryExpression::DISTINCT);
@@ -9245,9 +9357,9 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
                                  "Syntax error: Expression to the left of IN "
                                  "must be parenthesized");
           }
-          ASTLocation* in_location = parser->MakeLocation(@2);
+          ASTLocation* in_location = MakeNode<ASTLocation>(@2);
           auto* in_expression =
-              MAKE_NODE(ASTInExpression, @1, @4, {$1, in_location, $4});
+              MakeNode<ASTInExpression>(@$, $1, in_location, $4);
           in_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           $$ = in_expression;
         }
@@ -9261,10 +9373,10 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
                                 "must be parenthesized");
           }
           ASTInExpression* in_expression = nullptr;
-          ASTLocation* in_location = parser->MakeLocation(@2);
+          ASTLocation* in_location = MakeNode<ASTLocation>(@2);
           if ($4->node_kind() == AST_QUERY) {
             in_expression =
-                MAKE_NODE(ASTInExpression, @1, @4, {$1, in_location, $3, $4});
+                MakeNode<ASTInExpression>(@$, $1, in_location, $3, $4);
           } else {
             if ($opt_hint != nullptr) {
               return MakeSyntaxError(@3,
@@ -9272,7 +9384,7 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
                                   "IN clause with value list");
             }
             in_expression =
-                MAKE_NODE(ASTInExpression, @1, @4, {$1, in_location, $4});
+                MakeNode<ASTInExpression>(@$, $1, in_location, $4);
           }
           in_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           $$ = in_expression;
@@ -9306,9 +9418,9 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
           if (IsUnparenthesizedNotExpression($5)) {
             return MakeSyntaxError(@3);
           }
-          auto* between_loc = parser->MakeLocation(@2);
+          auto* between_loc = MakeNode<ASTLocation>(@2);
           auto* between_expression =
-              MAKE_NODE(ASTBetweenExpression, @1, @5, {$1, between_loc, $3, $5});
+              MakeNode<ASTBetweenExpression>(@$, $1, between_loc, $3, $5);
           between_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           $$ = between_expression;
         }
@@ -9337,7 +9449,7 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
                                  "Syntax error: Expression to the left of IS "
                                  "must be parenthesized");
           }
-          auto* unary_expression = MAKE_NODE(ASTUnaryExpression, @$, {$1});
+          auto* unary_expression = MakeNode<ASTUnaryExpression>(@$, $1);
           if ($2 == NotKeywordPresence::kPresent) {
             unary_expression->set_op(
               ASTUnaryExpression::IS_NOT_UNKNOWN);
@@ -9359,7 +9471,7 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
                                  "must be parenthesized");
           }
           auto* binary_expression =
-              MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
+              MakeNode<ASTBinaryExpression>(@$, $1, $3);
           binary_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           binary_expression->set_op(ASTBinaryExpression::IS);
           $$ = binary_expression;
@@ -9375,7 +9487,7 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
                                  "must be parenthesized");
           }
           auto* binary_expression =
-              MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
+              MakeNode<ASTBinaryExpression>(@$, $1, $3);
           binary_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           binary_expression->set_op(ASTBinaryExpression::IS);
           $$ = binary_expression;
@@ -9399,7 +9511,7 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
                                  "comparison must be parenthesized");
           }
           auto* binary_expression =
-              MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
+              MakeNode<ASTBinaryExpression>(@$, $1, $3);
           binary_expression->set_op($2);
           $$ = binary_expression;
         }
@@ -9413,7 +9525,7 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
           return MakeSyntaxError(@3);
         }
         auto* binary_expression =
-            MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
+            MakeNode<ASTBinaryExpression>(@$, $1, $3);
         binary_expression->set_op(
             ASTBinaryExpression::BITWISE_OR);
         $$ = binary_expression;
@@ -9428,7 +9540,7 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
           return MakeSyntaxError(@3);
         }
         auto* binary_expression =
-            MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
+            MakeNode<ASTBinaryExpression>(@$, $1, $3);
         binary_expression->set_op(
             ASTBinaryExpression::BITWISE_XOR);
         $$ = binary_expression;
@@ -9443,7 +9555,7 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
           return MakeSyntaxError(@3);
         }
         auto* binary_expression =
-            MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
+            MakeNode<ASTBinaryExpression>(@$, $1, $3);
         binary_expression->set_op(
             ASTBinaryExpression::BITWISE_AND);
         $$ = binary_expression;
@@ -9458,7 +9570,7 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
           return MakeSyntaxError(@3);
         }
         auto* binary_expression =
-            MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
+            MakeNode<ASTBinaryExpression>(@$, $1, $3);
         binary_expression->set_op(
             ASTBinaryExpression::CONCAT_OP);
         $$ = binary_expression;
@@ -9472,9 +9584,9 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
         if (IsUnparenthesizedNotExpression($3)) {
           return MakeSyntaxError(@3);
         }
-        auto* operator_location = parser->MakeLocation(@2);
+        auto* operator_location = MakeNode<ASTLocation>(@2);
         auto* binary_expression =
-            MAKE_NODE(ASTBitwiseShiftExpression, @1, @3, {$1, operator_location, $3});
+            MakeNode<ASTBitwiseShiftExpression>(@$, $1, operator_location, $3);
         binary_expression->set_is_left_shift($2 == ShiftOperator::kLeft);
         $$ = binary_expression;
       }
@@ -9488,7 +9600,7 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
           return MakeSyntaxError(@3);
         }
         auto* binary_expression =
-            MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
+            MakeNode<ASTBinaryExpression>(@$, $1, $3);
         binary_expression->set_op($2);
         $$ = binary_expression;
       }
@@ -9502,7 +9614,7 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
           return MakeSyntaxError(@3);
         }
         auto* binary_expression =
-            MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
+            MakeNode<ASTBinaryExpression>(@$, $1, $3);
         binary_expression->set_op($2);
         $$ = binary_expression;
       }
@@ -9516,7 +9628,7 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
           return MakeSyntaxError(@2);
         }
         auto* expression =
-            MAKE_NODE(ASTUnaryExpression, @$, {$2});
+            MakeNode<ASTUnaryExpression>(@$, $2);
         expression->set_op($1);
         $$ = expression;
       }
@@ -9530,11 +9642,11 @@ unparenthesized_expression_higher_prec_than_and {ASTExpression*}:
 path_expression {ASTPathExpression*}:
     identifier
       {
-        $$ = MAKE_NODE(ASTPathExpression, @$, {$1});
+        $$ = MakeNode<ASTPathExpression>(@$, $1);
       }
-    | path_expression "." identifier
+    | path_expression[path] "." identifier
       {
-        $$ = WithExtraChildren(parser->WithEndLocation($1, @3), {$3});
+        $$ = ExtendNodeRight($path, $identifier);
       }
     ;
 
@@ -9548,7 +9660,7 @@ dashed_identifier {SeparatedIdentifierTmpNode*}:
         if ($id1->is_quoted() || $id2->is_quoted()) {
           return MakeSyntaxError(@2, "Syntax error: Unexpected \"-\"");
         }
-        auto out = parser->CreateASTNode<SeparatedIdentifierTmpNode>(@1);
+        auto out = MakeNode<SeparatedIdentifierTmpNode>(@1);
         out->set_path_parts({{$id1->GetAsStringView(), "-", $id2->GetAsStringView()}});
         $$ = out;
       }
@@ -9565,7 +9677,7 @@ dashed_identifier {SeparatedIdentifierTmpNode*}:
         // Add an extra sub-part to the ending dashed identifier.
         prev.back().push_back("-");
         prev.back().push_back($id2->GetAsStringView());
-        auto out = parser->CreateASTNode<SeparatedIdentifierTmpNode>(@1);
+        auto out = MakeNode<SeparatedIdentifierTmpNode>(@1);
         out->set_path_parts(std::move(prev));
         $$ = out;
       }
@@ -9578,7 +9690,7 @@ dashed_identifier {SeparatedIdentifierTmpNode*}:
         if ($id1->is_quoted()) {
           return MakeSyntaxError(@2, "Syntax error: Unexpected \"-\"");
         }
-        auto out = parser->CreateASTNode<SeparatedIdentifierTmpNode>(@1);
+        auto out = MakeNode<SeparatedIdentifierTmpNode>(@1);
         out->set_path_parts({{$id1->GetAsStringView(), "-", $id2}});
         $$ = out;
       }
@@ -9591,7 +9703,7 @@ dashed_identifier {SeparatedIdentifierTmpNode*}:
         SeparatedIdentifierTmpNode::PathParts prev = $1->release_path_parts();
         prev.back().push_back("-");
         prev.back().push_back($id2);
-        auto out = parser->CreateASTNode<SeparatedIdentifierTmpNode>(@1);
+        auto out = MakeNode<SeparatedIdentifierTmpNode>(@1);
         out->set_path_parts(std::move(prev));
         $$ = out;
       }
@@ -9604,7 +9716,7 @@ dashed_identifier {SeparatedIdentifierTmpNode*}:
         if ($id1->is_quoted()) {
           return MakeSyntaxError(@2, "Syntax error: Unexpected \"-\"");
         }
-        auto out = parser->CreateASTNode<SeparatedIdentifierTmpNode>(@1);
+        auto out = MakeNode<SeparatedIdentifierTmpNode>(@1);
         // Here (and below) we need to handle the case where dot is lex'ed as
         // part of floating number as opposed to path delimiter. To parse it
         // correctly, we push the components separately (as string_view).
@@ -9628,7 +9740,7 @@ dashed_identifier {SeparatedIdentifierTmpNode*}:
         prev.back().push_back("-");
         prev.back().push_back($id1);
         prev.push_back({$id2->GetAsStringView()});
-        auto out = parser->CreateASTNode<SeparatedIdentifierTmpNode>(@1);
+        auto out = MakeNode<SeparatedIdentifierTmpNode>(@1);
         out->set_path_parts(std::move(prev));
         $$ = out;
       }
@@ -9639,15 +9751,15 @@ dashed_path_expression {ASTExpression*}:
       {
         absl::StatusOr<std::vector<ASTNode*>> path_parts =
           SeparatedIdentifierTmpNode::BuildPathParts(@1,
-            std::move($1->release_path_parts()), parser);
+            std::move($1->release_path_parts()), node_factory);
         if (!path_parts.ok()) {
           return MakeSyntaxError(@1, std::string(path_parts.status().message()));
         }
-        $$ = MAKE_NODE(ASTPathExpression, @$, std::move(path_parts).value());
+        $$ = MakeNode<ASTPathExpression>(@$, *path_parts);
       }
-    | dashed_path_expression "." identifier
+    | dashed_path_expression[path] "." identifier
       {
-        $$ = WithExtraChildren(parser->WithEndLocation($1, @3), {$3});
+        $$ = ExtendNodeRight($path, $identifier);
       }
     ;
 
@@ -9655,8 +9767,8 @@ maybe_dashed_path_expression {ASTExpression*}:
     path_expression { $$ = $1; }
     | dashed_path_expression
       {
-        if (parser->language_options().LanguageFeatureEnabled(
-               FEATURE_V_1_3_ALLOW_DASHES_IN_TABLE_NAME)) {
+        if (language_options.LanguageFeatureEnabled(
+               FEATURE_ALLOW_DASHES_IN_TABLE_NAME)) {
           $$ = $1;
         } else {
           absl::string_view target =
@@ -9682,8 +9794,8 @@ maybe_slashed_or_dashed_path_expression {ASTExpression*}:
     maybe_dashed_path_expression { $$ = $1; }
     | slashed_path_expression
       {
-        if (parser->language_options().LanguageFeatureEnabled(
-               FEATURE_V_1_3_ALLOW_SLASH_PATHS)) {
+        if (language_options.LanguageFeatureEnabled(
+               FEATURE_ALLOW_SLASH_PATHS)) {
           $$ = $1;
         } else {
           absl::string_view target =
@@ -9717,7 +9829,7 @@ identifier_or_integer {absl::string_view}:
       // rules are mere tokens, not identifiers.
       absl::string_view id = $id->GetAsStringView();
       if ($id->is_quoted()) {
-        id = parser->id_string_pool()
+        id = node_factory.id_string_pool()
                    ->Make(absl::StrCat("`", id, "`")).ToStringView();
       }
       $$ = id;
@@ -9739,7 +9851,7 @@ slashed_identifier {SeparatedIdentifierTmpNode*}:
         if ($id[0] == '`') {
           return MakeSyntaxError(@1, "Syntax error: Unexpected \"/\"");
         }
-        auto out = parser->CreateASTNode<SeparatedIdentifierTmpNode>(@1);
+        auto out = MakeNode<SeparatedIdentifierTmpNode>(@1);
         out->set_path_parts({{"/", $id}});
         $$ = out;
       }
@@ -9761,7 +9873,7 @@ slashed_identifier {SeparatedIdentifierTmpNode*}:
         // identifier: {"a", "-", "b"} -> {"a", "-", "b", ":", "c"}
         prev.back().push_back($sep);
         prev.back().push_back($id);
-        auto out = parser->CreateASTNode<SeparatedIdentifierTmpNode>(@1);
+        auto out = MakeNode<SeparatedIdentifierTmpNode>(@1);
         out->set_path_parts(std::move(prev));
         $$ = out;
       }
@@ -9807,7 +9919,7 @@ slashed_identifier {SeparatedIdentifierTmpNode*}:
         prev.back().push_back($float);
         prev.back().push_back($sep2);
         prev.back().push_back($id);
-        auto out = parser->CreateASTNode<SeparatedIdentifierTmpNode>(@1);
+        auto out = MakeNode<SeparatedIdentifierTmpNode>(@1);
         out->set_path_parts(std::move(prev));
         $$ = out;
       }
@@ -9823,11 +9935,11 @@ slashed_path_expression {ASTExpression*}:
        // Build the path.
        absl::StatusOr<std::vector<ASTNode*>> path_parts =
           SeparatedIdentifierTmpNode::BuildPathParts(@1,
-            std::move($1->release_path_parts()), parser);
+            std::move($1->release_path_parts()), node_factory);
        if (!path_parts.ok()) {
          return MakeSyntaxError(@1, std::string(path_parts.status().message()));
        }
-       $$ = MAKE_NODE(ASTPathExpression, @$, std::move(path_parts).value());
+       $$ = MakeNode<ASTPathExpression>(@$, std::move(path_parts).value());
      }
   | slashed_identifier slashed_identifier_separator[sep]
     FLOATING_POINT_LITERAL[float] identifier[id]
@@ -9875,11 +9987,11 @@ slashed_path_expression {ASTExpression*}:
       // Build the path.
       absl::StatusOr<std::vector<ASTNode*>> path_parts =
         SeparatedIdentifierTmpNode::BuildPathParts(@$,
-          std::move(prev), parser);
+          std::move(prev), node_factory);
       if (!path_parts.ok()) {
         return MakeSyntaxError(@1, std::string(path_parts.status().message()));
       }
-      $$ = MAKE_NODE(ASTPathExpression, @$, std::move(path_parts).value());
+      $$ = MakeNode<ASTPathExpression>(@$, std::move(path_parts).value());
     }
   | slashed_identifier slashed_identifier_separator[sep]
     FLOATING_POINT_LITERAL[float] "." identifier
@@ -9918,55 +10030,55 @@ slashed_path_expression {ASTExpression*}:
       // Build the slash path.
       absl::StatusOr<std::vector<ASTNode*>> path_parts =
         SeparatedIdentifierTmpNode::BuildPathParts(@$,
-          std::move(prev), parser);
+          std::move(prev), node_factory);
       if (!path_parts.ok()) {
         return MakeSyntaxError(@1, std::string(path_parts.status().message()));
       }
       // Add the trailing identifier to the path.
       path_parts.value().push_back($5);
-      $$ = MAKE_NODE(ASTPathExpression, @$, std::move(path_parts).value());
+      $$ = MakeNode<ASTPathExpression>(@$, std::move(path_parts).value());
     }
-  | slashed_path_expression "." identifier
+  | slashed_path_expression[path] "." identifier
     {
-      $$ = WithExtraChildren(parser->WithEndLocation($1, @3), {$3});
+      $$ = ExtendNodeRight($path, $identifier);
     }
   ;
 
 array_constructor_prefix_no_expressions {ASTExpression*}:
-    "ARRAY" "[" { $$ = MAKE_NODE(ASTArrayConstructor, @$); }
-    | "[" { $$ = MAKE_NODE(ASTArrayConstructor, @$); }
+    "ARRAY" "[" { $$ = MakeNode<ASTArrayConstructor>(@$); }
+    | "[" { $$ = MakeNode<ASTArrayConstructor>(@$); }
     | array_type "["
       {
-        $$ = MAKE_NODE(ASTArrayConstructor, @$, {$1});
+        $$ = MakeNode<ASTArrayConstructor>(@$, $1);
       }
     ;
 
 array_constructor_prefix {ASTExpression*}:
     array_constructor_prefix_no_expressions expression
       {
-        $$ = WithExtraChildren($1, {$2});
+        $$ = ExtendNodeRight($1, $2);
       }
     | array_constructor_prefix "," expression
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 array_constructor {ASTExpression*}:
     array_constructor_prefix_no_expressions "]"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     | array_constructor_prefix "]"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
 range_literal {ASTExpression*}:
     range_type string_literal
       {
-        $$ = MAKE_NODE(ASTRangeLiteral, @$, {$1, $2});
+        $$ = MakeNode<ASTRangeLiteral>(@$, $1, $2);
       }
     ;
 
@@ -9980,7 +10092,7 @@ date_or_time_literal_kind {TypeKind}:
 date_or_time_literal {ASTExpression*}:
     date_or_time_literal_kind string_literal
       {
-        auto* literal = MAKE_NODE(ASTDateOrTimeLiteral, @$, {$2});
+        auto* literal = MakeNode<ASTDateOrTimeLiteral>(@$, $2);
         literal->set_type_kind($1);
         $$ = literal;
       }
@@ -9989,11 +10101,11 @@ date_or_time_literal {ASTExpression*}:
 interval_expression {ASTExpression*}:
     "INTERVAL" expression identifier
       {
-        $$ = MAKE_NODE(ASTIntervalExpr, @$, {$2, $3});
+        $$ = MakeNode<ASTIntervalExpr>(@$, $2, $3);
       }
     | "INTERVAL" expression identifier "TO" identifier
       {
-        $$ = MAKE_NODE(ASTIntervalExpr, @$, {$2, $3, $5});
+        $$ = MakeNode<ASTIntervalExpr>(@$, $2, $3, $5);
       }
   ;
 
@@ -10001,11 +10113,10 @@ parameter_expression {ASTExpression*}:
     named_parameter_expression
     | "?"
       {
-        auto* parameter_expr = MAKE_NODE(ASTParameterExpr, @$, {});
+        auto* parameter_expr = MakeNode<ASTParameterExpr>(@$);
         // Bison's algorithm guarantees that the "?" productions are reduced in
         // left-to-right order.
-        parameter_expr->set_position(
-          parser->GetNextPositionalParameterPosition());
+        parameter_expr->set_position(++previous_positional_parameter_position_);
         $$ = parameter_expr;
       }
     ;
@@ -10016,21 +10127,21 @@ named_parameter_expression {ASTExpression*}:
         if (!@at.IsAdjacentlyFollowedBy(@identifier)) {
           // TODO: Add a deprecation warning in this case.
         }
-        $$ = MAKE_NODE(ASTParameterExpr, @$, {$2});
+        $$ = MakeNode<ASTParameterExpr>(@$, $2);
       }
     ;
 
 type_name {ASTNode*}:
     path_expression
       {
-        $$ = MAKE_NODE(ASTSimpleType, @$, {$1});
+        $$ = MakeNode<ASTSimpleType>(@$, $1);
       }
     // Unlike other type names, 'INTERVAL' is a reserved keyword.
     | "INTERVAL"
       {
-        auto* id = parser->MakeIdentifier(@1, $1);
-        auto* path_expression = MAKE_NODE(ASTPathExpression, @$, {id});
-        $$ = MAKE_NODE(ASTSimpleType, @$, {path_expression});
+        auto* id = node_factory.MakeIdentifier(@1, $1);
+        auto* path_expression = MakeNode<ASTPathExpression>(@$, id);
+        $$ = MakeNode<ASTSimpleType>(@$, path_expression);
       }
     ;
 
@@ -10049,58 +10160,58 @@ template_type_close:
 array_type {ASTNode*}:
     "ARRAY" template_type_open type template_type_close
       {
-        $$ = MAKE_NODE(ASTArrayType, @$, {$3});
+        $$ = MakeNode<ASTArrayType>(@$, $3);
       }
     ;
 
 struct_field {ASTNode*}:
     identifier type
       {
-        $$ = MAKE_NODE(ASTStructField, @$, {$1, $2});
+        $$ = MakeNode<ASTStructField>(@$, $1, $2);
       }
     | type
       {
-        $$ = MAKE_NODE(ASTStructField, @$, {$1});
+        $$ = MakeNode<ASTStructField>(@$, $1);
       }
     ;
 
 struct_type_prefix {ASTNode*}:
     "STRUCT" template_type_open struct_field
       {
-        $$ = MAKE_NODE(ASTStructType, @$, {$3});
+        $$ = MakeNode<ASTStructType>(@$, $3);
       }
     | struct_type_prefix "," struct_field
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 struct_type {ASTNode*}:
     "STRUCT" template_type_open template_type_close
       {
-        $$ = MAKE_NODE(ASTStructType, @$);
+        $$ = MakeNode<ASTStructType>(@$);
       }
     | struct_type_prefix template_type_close
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
 range_type {ASTNode*}:
     "RANGE" template_type_open type template_type_close
       {
-        $$ = MAKE_NODE(ASTRangeType, @$, {$3});
+        $$ = MakeNode<ASTRangeType>(@$, $3);
       }
     ;
 
 function_type_prefix {ASTNode*}:
     "FUNCTION" template_type_open "(" type
       {
-        $$ = MAKE_NODE(ASTFunctionTypeArgList, @$, {$type});
+        $$ = MakeNode<ASTFunctionTypeArgList>(@$, $type);
       }
     | function_type_prefix[prev] "," type
       {
-        $$ = WithExtraChildren($prev, {$type});
+        $$ = ExtendNodeRight($prev, $type);
       }
     ;
 
@@ -10108,25 +10219,25 @@ function_type {ASTNode*}:
     "FUNCTION" template_type_open "("[open_paren] ")"[close_paren] "->" type[return_type] template_type_close
       {
         auto empty_arg_list =
-            MAKE_NODE(ASTFunctionTypeArgList, @open_paren, @close_paren, {});
-        $$ = MAKE_NODE(ASTFunctionType, @$, {empty_arg_list, $return_type});
+            MakeNode<ASTFunctionTypeArgList>(MakeLocationRange(@open_paren, @close_paren));
+        $$ = MakeNode<ASTFunctionType>(@$, empty_arg_list, $return_type);
       }
     | "FUNCTION" template_type_open type[arg_type] "->" type[return_type] template_type_close
       {
         auto arg_list =
-            MAKE_NODE(ASTFunctionTypeArgList, @arg_type, {$arg_type});
-        $$ = MAKE_NODE(ASTFunctionType, @$, {arg_list, $return_type});
+            MakeNode<ASTFunctionTypeArgList>(@arg_type, $arg_type);
+        $$ = MakeNode<ASTFunctionType>(@$, arg_list, $return_type);
       }
     | function_type_prefix[arg_list] ")" "->" type[return_type] template_type_close
       {
-        $$ = MAKE_NODE(ASTFunctionType, @$, {$arg_list, $return_type});
+        $$ = MakeNode<ASTFunctionType>(@$, $arg_list, $return_type);
       }
     ;
 
 map_type {ASTNode*}:
     "MAP" template_type_open type[key_type] "," type[value_type] template_type_close
       {
-        $$ = MAKE_NODE(ASTMapType, @$, {$key_type, $value_type});
+        $$ = MakeNode<ASTMapType>(@$, $key_type, $value_type);
       }
     ;
 
@@ -10142,18 +10253,18 @@ type_parameter {ASTExpression*}:
     | floating_point_literal { $$ = $floating_point_literal; }
     | "MAX"
       {
-        $$ = MAKE_NODE(ASTMaxLiteral, @1, {});
+        $$ = MakeNode<ASTMaxLiteral>(@1);
       }
     ;
 
 type_parameters_prefix {ASTNode*}:
     "(" type_parameter
       {
-        $$ = MAKE_NODE(ASTTypeParameterList, @$, {$2});
+        $$ = MakeNode<ASTTypeParameterList>(@$, $2);
       }
     | type_parameters_prefix "," type_parameter
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
@@ -10170,7 +10281,7 @@ opt_type_parameters {ASTNode*}:
 
 type {ASTNode*}: raw_type opt_type_parameters opt_collate_clause
     {
-      $$ = parser->WithEndLocation(WithExtraChildren($1, {$2, $3}), @$);
+      $$ = ExtendNodeRight($1, @$.end(), $2, $3);
     };
 
 templated_parameter_kind {ASTTemplatedParameterType::TemplatedTypeKind}:
@@ -10208,7 +10319,7 @@ templated_parameter_type {ASTNode*}:
     "ANY" templated_parameter_kind
       {
         auto* templated_parameter =
-            MAKE_NODE(ASTTemplatedParameterType, @$, {});
+            MakeNode<ASTTemplatedParameterType>(@$);
         templated_parameter->set_kind($2);
         $$ = templated_parameter;
       }
@@ -10219,58 +10330,58 @@ type_or_tvf_schema {ASTNode*}: type | templated_parameter_type | tvf_schema;
 new_constructor_prefix_no_arg {ASTExpression*}:
     "NEW" type_name "("
       {
-        $$ = MAKE_NODE(ASTNewConstructor, @$, {$2});
+        $$ = MakeNode<ASTNewConstructor>(@$, $2);
       }
     ;
 
 new_constructor_arg {ASTNode*}:
     expression
       {
-        $$ = MAKE_NODE(ASTNewConstructorArg, @$, {$1});
+        $$ = MakeNode<ASTNewConstructorArg>(@$, $1);
       }
     | expression "AS" identifier
       {
-        $$ = MAKE_NODE(ASTNewConstructorArg, @$, {$1, $3});
+        $$ = MakeNode<ASTNewConstructorArg>(@$, $1, $3);
       }
     | expression "AS" "(" path_expression ")"
       {
         // Do not parenthesize $4 because it is not really a parenthesized
         // path expression. The parentheses are just part of the syntax here.
-        $$ = MAKE_NODE(ASTNewConstructorArg, @$, {$1, $4});
+        $$ = MakeNode<ASTNewConstructorArg>(@$, $1, $4);
       }
     ;
 
 new_constructor_prefix {ASTExpression*}:
     new_constructor_prefix_no_arg new_constructor_arg
       {
-        $$ = WithExtraChildren($1, {$2});
+        $$ = ExtendNodeRight($1, $2);
       }
     | new_constructor_prefix "," new_constructor_arg
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 new_constructor {ASTExpression*}:
     new_constructor_prefix ")"
       {
-        $$ = parser->WithEndLocation($1, @2);
+        $$ = WithEndLocation($1, @2);
       }
     | new_constructor_prefix_no_arg ")"
       {
-        $$ = parser->WithEndLocation($1, @2);
+        $$ = WithEndLocation($1, @2);
       }
     ;
 
 braced_constructor_field_value {ASTBracedConstructorFieldValue*}:
     ":" expression
       {
-        $$ = MAKE_NODE(ASTBracedConstructorFieldValue, @$, {$2});
+        $$ = MakeNode<ASTBracedConstructorFieldValue>(@$, $2);
         $$->set_colon_prefixed(true);
       }
     | braced_constructor
       {
-        $$ = MAKE_NODE(ASTBracedConstructorFieldValue, @$, {$1});
+        $$ = MakeNode<ASTBracedConstructorFieldValue>(@$, $1);
       }
     ;
 
@@ -10292,8 +10403,8 @@ braced_constructor_extension_expression {ASTExpression*}:
     |
     braced_constructor_extension_expression_start "[" expression "]"
       {
-        auto* bracket_loc = parser->MakeLocation(@2);
-        $$ = MAKE_NODE(ASTArrayElement, @1, @4, {$1, bracket_loc, $3});
+        auto* bracket_loc = MakeNode<ASTLocation>(@2);
+        $$ = MakeNode<ASTArrayElement>(@$, $1, bracket_loc, $3);
       }
     |
     // We reduce the precendence of this rule (w.r.t. '.' operator) so that
@@ -10301,26 +10412,26 @@ braced_constructor_extension_expression {ASTExpression*}:
     // later.
     braced_constructor_extension_expression "." generalized_path_expression %prec UNARY_PRECEDENCE
       {
-        $$ = MAKE_NODE(ASTExtendedPathExpression, @$, {$1, $3});
+        $$ = MakeNode<ASTExtendedPathExpression>(@$, $1, $3);
       }
     ;
 
 braced_constructor_extension_lhs {ASTExpression*}:
     braced_constructor_extension_expression
       {
-        auto* node = MAKE_NODE(ASTBracedConstructorLhs, @$, {$1});
+        auto* node = MakeNode<ASTBracedConstructorLhs>(@$, $1);
         node->set_operation(zetasql::ASTBracedConstructorLhs::UPDATE_SINGLE);
         $$ = node;
       }
     | braced_constructor_extension_expression "*"
       {
-        auto* node = MAKE_NODE(ASTBracedConstructorLhs, @$, {$1});
+        auto* node = MakeNode<ASTBracedConstructorLhs>(@$, $1);
         node->set_operation(zetasql::ASTBracedConstructorLhs::UPDATE_MANY);
         $$ = node;
       }
     | braced_constructor_extension_expression "?"
       {
-        auto* node = MAKE_NODE(ASTBracedConstructorLhs, @$, {$1});
+        auto* node = MakeNode<ASTBracedConstructorLhs>(@$, $1);
         node->set_operation(zetasql::ASTBracedConstructorLhs::UPDATE_SINGLE_NO_CREATION);
         $$ = node;
       }
@@ -10329,26 +10440,26 @@ braced_constructor_extension_lhs {ASTExpression*}:
 braced_constructor_extension {ASTBracedConstructorField*}:
     braced_constructor_extension_lhs braced_constructor_field_value
       {
-        $$ = MAKE_NODE(ASTBracedConstructorField, @$, {$1, $2});
+        $$ = MakeNode<ASTBracedConstructorField>(@$, $1, $2);
       }
     ;
 
 braced_constructor_lhs {ASTExpression*}:
     generalized_path_expression
       {
-        auto* node = MAKE_NODE(ASTBracedConstructorLhs, @$, {$1});
+        auto* node = MakeNode<ASTBracedConstructorLhs>(@$, $1);
         node->set_operation(zetasql::ASTBracedConstructorLhs::UPDATE_SINGLE);
         $$ = node;
       }
     | generalized_path_expression "*"
       {
-        auto* node = MAKE_NODE(ASTBracedConstructorLhs, @$, {$1});
+        auto* node = MakeNode<ASTBracedConstructorLhs>(@$, $1);
         node->set_operation(zetasql::ASTBracedConstructorLhs::UPDATE_MANY);
         $$ = node;
       }
     | generalized_path_expression "?"
       {
-        auto* node = MAKE_NODE(ASTBracedConstructorLhs, @$, {$1});
+        auto* node = MakeNode<ASTBracedConstructorLhs>(@$, $1);
         node->set_operation(zetasql::ASTBracedConstructorLhs::UPDATE_SINGLE_NO_CREATION);
         $$ = node;
       }
@@ -10357,38 +10468,38 @@ braced_constructor_lhs {ASTExpression*}:
 braced_constructor_field {ASTBracedConstructorField*}:
     braced_constructor_lhs braced_constructor_field_value
       {
-        $$ = MAKE_NODE(ASTBracedConstructorField, @$, {$1, $2});
+        $$ = MakeNode<ASTBracedConstructorField>(@$, $1, $2);
       }
     ;
 
 braced_constructor_start {ASTBracedConstructor*}:
     "{"
     {
-        if (!parser->language_options().LanguageFeatureEnabled(
-                FEATURE_V_1_3_BRACED_PROTO_CONSTRUCTORS)) {
+        if (!language_options.LanguageFeatureEnabled(
+                FEATURE_BRACED_PROTO_CONSTRUCTORS)) {
           return MakeSyntaxError(@1, "Braced constructors are not supported");
         }
-        $$ = MAKE_NODE(ASTBracedConstructor, @$);
+        $$ = MakeNode<ASTBracedConstructor>(@$);
     }
     ;
 
 braced_constructor_prefix {ASTBracedConstructor*}:
     braced_constructor_start braced_constructor_field
       {
-        $$ = WithExtraChildren($1, {$2});
+        $$ = ExtendNodeRight($1, $2);
       }
     | braced_constructor_start braced_constructor_extension
       {
-        $$ = WithExtraChildren($1, {$2});
+        $$ = ExtendNodeRight($1, $2);
       }
     | braced_constructor_prefix "," braced_constructor_field
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
         $3->set_comma_separated(true);
       }
     | braced_constructor_prefix braced_constructor_field
       {
-        $$ = WithExtraChildren($1, {$2});
+        $$ = ExtendNodeRight($1, $2);
       }
     // If we do not require a comma before a path_expression for extensions
     // then it leads to a shift-reduce conflict. An example is:
@@ -10402,7 +10513,7 @@ braced_constructor_prefix {ASTBracedConstructor*}:
     // Fixing this is not possible without arbitrary lookahead.
     | braced_constructor_prefix "," braced_constructor_extension
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
         $3->set_comma_separated(true);
       }
     ;
@@ -10410,56 +10521,56 @@ braced_constructor_prefix {ASTBracedConstructor*}:
 braced_constructor {ASTBracedConstructor*}:
     braced_constructor_start "}"
       {
-        $$ = parser->WithEndLocation($1, @2);
+        $$ = WithEndLocation($1, @2);
       }
     | braced_constructor_prefix "}"
       {
-        $$ = parser->WithEndLocation($1, @2);
+        $$ = WithEndLocation($1, @2);
       }
     // Allow trailing comma
     | braced_constructor_prefix "," "}"
       {
-        $$ = parser->WithEndLocation($1, @3);
+        $$ = WithEndLocation($1, @3);
       }
     ;
 
 braced_new_constructor {ASTExpression*}:
     "NEW" type_name braced_constructor
       {
-        $$ = MAKE_NODE(ASTBracedNewConstructor, @$, {$2, $3});
+        $$ = MakeNode<ASTBracedNewConstructor>(@$, $2, $3);
       }
     ;
 
 struct_braced_constructor {ASTExpression*}:
     struct_type[type] braced_constructor[ctor]
       {
-        $$ = MAKE_NODE(ASTStructBracedConstructor, @$, {$type, $ctor});
+        $$ = MakeNode<ASTStructBracedConstructor>(@$, $type, $ctor);
       }
     | "STRUCT" braced_constructor[ctor]
       {
-        $$ = MAKE_NODE(ASTStructBracedConstructor, @$, {$ctor});
+        $$ = MakeNode<ASTStructBracedConstructor>(@$, $ctor);
       }
     ;
 
 case_no_value_expression_prefix {ASTExpression*}:
     "CASE" "WHEN" expression "THEN" expression
       {
-        $$ = MAKE_NODE(ASTCaseNoValueExpression, @$, {$3, $5});
+        $$ = MakeNode<ASTCaseNoValueExpression>(@$, $3, $5);
       }
     | case_no_value_expression_prefix "WHEN" expression "THEN" expression
       {
-        $$ = WithExtraChildren($1, {$3, $5});
+        $$ = ExtendNodeRight($1, $3, $5);
       }
     ;
 
 case_value_expression_prefix {ASTExpression*}:
     "CASE" expression "WHEN" expression "THEN" expression
       {
-        $$ = MAKE_NODE(ASTCaseValueExpression, @$, {$2, $4, $6});
+        $$ = MakeNode<ASTCaseValueExpression>(@$, $2, $4, $6);
       }
     | case_value_expression_prefix "WHEN" expression "THEN" expression
       {
-        $$ = WithExtraChildren($1, {$3, $5});
+        $$ = ExtendNodeRight($1, $3, $5);
       }
     ;
 
@@ -10471,11 +10582,11 @@ case_expression_prefix {ASTExpression*}:
 case_expression {ASTExpression*}:
     case_expression_prefix "END"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
-    | case_expression_prefix "ELSE" expression "END"
+    | case_expression_prefix[prefix] "ELSE" expression "END"
       {
-        $$ = WithExtraChildren(parser->WithEndLocation($1, @$), {$3});
+        $$ = ExtendNodeRight($prefix, @$.end(), $expression);
       }
     ;
 
@@ -10491,7 +10602,7 @@ opt_at_time_zone {ASTExpression*}:
 opt_format {ASTNode*}:
     "FORMAT" expression opt_at_time_zone
        {
-         $$ = MAKE_NODE(ASTFormatClause, @$, {$2, $3});
+         $$ = MakeNode<ASTFormatClause>(@$, $2, $3);
        }
     | %empty { $$ = nullptr; }
     ;
@@ -10499,7 +10610,7 @@ opt_format {ASTNode*}:
 cast_expression {ASTExpression*}:
       "CAST" "(" expression "AS" type opt_format ")"
       {
-        auto* cast = MAKE_NODE(ASTCastExpression, @$, {$3, $5, $6});
+        auto* cast = MakeNode<ASTCastExpression>(@$, $3, $5, $6);
         cast->set_is_safe_cast(false);
         $$ = cast;
       }
@@ -10515,7 +10626,7 @@ cast_expression {ASTExpression*}:
     // is resolved in favor of this rule, which is the desired behavior.
     | "SAFE_CAST" "(" expression "AS" type opt_format ")"
       {
-        auto* cast = MAKE_NODE(ASTCastExpression, @$, {$3, $5, $6});
+        auto* cast = MakeNode<ASTCastExpression>(@$, $3, $5, $6);
         cast->set_is_safe_cast(true);
         $$ = cast;
       }
@@ -10532,75 +10643,84 @@ cast_expression {ASTExpression*}:
 extract_expression_base {ASTExpression*}:
     "EXTRACT" "(" expression "FROM" expression
       {
-        $$ = MAKE_NODE(ASTExtractExpression, @$, {$3, $5});
+        $$ = MakeNode<ASTExtractExpression>(@$, $3, $5);
       }
     ;
 
 extract_expression {ASTExpression*}:
     extract_expression_base ")"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithLocation($1, @$);
       }
-    | extract_expression_base "AT" "TIME" "ZONE" expression ")"
+    | extract_expression_base[base] "AT" "TIME" "ZONE" expression ")"
       {
-        $$ = WithExtraChildren(parser->WithEndLocation($1, @$), {$5});
+        $$ = ExtendNodeRight($base, @$.end(), $expression);
       }
     ;
 
 replace_fields_arg {ASTNode*}:
     expression "AS" generalized_path_expression
       {
-        $$ = MAKE_NODE(ASTReplaceFieldsArg, @$, {$1, $3});
+        $$ = MakeNode<ASTReplaceFieldsArg>(@$, $1, $3);
       }
     | expression "AS" generalized_extension_path
       {
-        $$ = MAKE_NODE(ASTReplaceFieldsArg, @$, {$1, $3});
+        $$ = MakeNode<ASTReplaceFieldsArg>(@$, $1, $3);
       }
     ;
 
 replace_fields_prefix {ASTExpression*}:
     "REPLACE_FIELDS" "(" expression "," replace_fields_arg
       {
-        $$ = MAKE_NODE(ASTReplaceFieldsExpression, @$, {$3, $5});
+        $$ = MakeNode<ASTReplaceFieldsExpression>(@$, $3, $5);
       }
     | replace_fields_prefix "," replace_fields_arg
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 replace_fields_expression {ASTExpression*}:
     replace_fields_prefix ")"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
 function_name_from_keyword {ASTNode*}:
     "IF"
       {
-        $$ = parser->MakeIdentifier(@1, $1);
+        $$ = node_factory.MakeIdentifier(@1, $1);
       }
     | "GROUPING"
       {
-        $$ = parser->MakeIdentifier(@1, $1);
+        $$ = node_factory.MakeIdentifier(@1, $1);
       }
     | "LEFT"
       {
-        $$ = parser->MakeIdentifier(@1, $1);
+        $$ = node_factory.MakeIdentifier(@1, $1);
       }
     | "RIGHT"
       {
-        $$ = parser->MakeIdentifier(@1, $1);
+        $$ = node_factory.MakeIdentifier(@1, $1);
       }
     | "COLLATE"
       {
-        $$ = parser->MakeIdentifier(@1, $1);
+        $$ = node_factory.MakeIdentifier(@1, $1);
       }
     | "RANGE"
       {
-        $$ = parser->MakeIdentifier(@1, $1);
+        $$ = node_factory.MakeIdentifier(@1, $1);
       }
+    ;
+
+# Use this when identifiers are expected, and keywords from
+# `function_name_from_keyword` are also allowed as identifiers.
+# Note that `path_expression` also accepts these keywords because of
+# special handling in the lexer for DOT_IDENTIFIER mode.
+identifier_or_function_name_from_keyword {ASTNode*}:
+    identifier { $$ = $1; }
+    | function_name_from_keyword { $$ = $1; }
     ;
 
 // These rules have "expression" as their first part rather than
@@ -10618,52 +10738,7 @@ function_name_from_keyword {ASTNode*}:
 // parentheses. We allow them as input parameters so that parentheses can still
 // be added to them after they are already parsed as function calls.
 function_call_expression_base {ASTFunctionCall*}:
-    expression_higher_prec_than_and "(" "DISTINCT" %prec PRIMARY_PRECEDENCE
-      {
-        if ($1->node_kind() == AST_FUNCTION_CALL) {
-          auto* function_call = $1->GetAsOrDie<ASTFunctionCall>();
-          if (function_call->parenthesized()) {
-            return MakeSyntaxError(
-                @2,
-                "Syntax error: Function call cannot be applied to this "
-                "expression. Function calls require a path, e.g. a.b.c()");
-          } else if (
-              function_call->is_current_date_time_without_parentheses()) {
-            // This is a function call like "CURRENT_DATE", which does not
-            // allow DISTINCT.
-            // Note that we don't call this a "Syntax error" because it's really
-            // a semantic error.
-            const auto* fn_path_expr =
-                function_call->child(0)->GetAsOrDie<ASTPathExpression>();
-            ZETASQL_RET_CHECK_EQ(fn_path_expr->num_children(), 1)
-                << "Expected a single name for the function";
-            absl::string_view fn_name =
-              fn_path_expr->child(0)
-                          ->GetAs<ASTIdentifier>()
-                          ->GetAsStringView();
-            return MakeSyntaxError(
-                @3,
-                absl::StrCat("DISTINCT not allowed for function ", fn_name));
-          } else {
-            // TODO: Add test for this error.
-            return MakeSyntaxError(
-                @2,
-                "Syntax error: Double function call parentheses");
-          }
-        } else if (
-            $1->node_kind() != AST_PATH_EXPRESSION ||
-            $1->GetAsOrDie<ASTPathExpression>()->parenthesized()) {
-          return MakeSyntaxError(
-              @2,
-              "Syntax error: Function call cannot be applied to this "
-              "expression. Function calls require a path, e.g. a.b.c()");
-        } else {
-          auto* function_call = MAKE_NODE(ASTFunctionCall, @$, {$1});
-          function_call->set_distinct(true);
-          $$ = function_call;
-        }
-      }
-    | expression_higher_prec_than_and "(" %prec PRIMARY_PRECEDENCE
+    expression_higher_prec_than_and "(" opt_distinct %prec PRIMARY_PRECEDENCE
       {
         // TODO: Merge this with the other code path. We have to have
         // two separate productions to avoid an empty opt_distinct rule that
@@ -10680,13 +10755,49 @@ function_call_expression_base {ASTFunctionCall*}:
             // This is a function call like "CURRENT_DATE" without parentheses.
             // Allow parentheses to be added to such a call at most once.
             function_call->set_is_current_date_time_without_parentheses(false);
+            function_call->set_distinct($opt_distinct);
             $$ = function_call;
           } else {
-            // TODO: Add test for this error.
             return MakeSyntaxError(
                 @2,
                 "Syntax error: Double function call parentheses");
           }
+        } else if (($1->node_kind() == AST_DOT_IDENTIFIER ||
+                    $1->node_kind() == AST_DOT_GENERALIZED_FIELD) &&
+                   !$1->parenthesized()) {
+          // We have ".abc(" or ".(abc.def)(" and will treat this as a chained
+          // function call.
+          ZETASQL_RET_CHECK_EQ($1->num_children(), 2);
+
+          ASTExpression* base_expr =
+              $1->mutable_child(0)->GetAsOrNull<ASTExpression>();
+          ZETASQL_RET_CHECK(base_expr != nullptr);
+
+          if (!base_expr->parenthesized() &&
+              (base_expr->node_kind() == AST_INT_LITERAL ||
+               base_expr->node_kind() == AST_FLOAT_LITERAL)) {
+            return MakeSyntaxError(@2, "Syntax error: Unexpected \"(\"");
+          }
+
+          ASTNode* function_path;
+          if ($1->node_kind() == AST_DOT_IDENTIFIER) {
+            // For ASTDotIdentifier, make an ASTPathExpression with the name.
+            ASTNode* function_name = $1->mutable_child(1);
+            function_path =
+                MakeNode<ASTPathExpression>(function_name->GetParseLocationRange(),
+                          function_name);
+          } else {
+            // For ASTDotGeneralizedField, use the existing ASTPathExpression.
+            ZETASQL_RET_CHECK_EQ($1->child(1)->node_kind(), AST_PATH_EXPRESSION);
+            function_path = $1->mutable_child(1);
+          }
+
+          // The `base_expr` is added as the first `argument`.  Additional
+          // `arguments` will be added from the rest of the call.
+          auto* function_call = MakeNode<ASTFunctionCall>(@$, function_path, base_expr);
+          function_call->set_is_chained_call(true);
+          function_call->set_distinct($opt_distinct);
+          $$ = function_call;
         } else if (
             $1->node_kind() != AST_PATH_EXPRESSION ||
             $1->GetAsOrDie<ASTPathExpression>()->parenthesized()) {
@@ -10695,19 +10806,19 @@ function_call_expression_base {ASTFunctionCall*}:
               "Syntax error: Function call cannot be applied to this "
               "expression. Function calls require a path, e.g. a.b.c()");
         } else {
-          auto* function_call = MAKE_NODE(ASTFunctionCall, @$, {$1});
-          function_call->set_distinct(false);
+          auto* function_call = MakeNode<ASTFunctionCall>(@$, $1);
+          function_call->set_distinct($opt_distinct);
           $$ = function_call;
         }
       }
-    | function_name_from_keyword "(" %prec PRIMARY_PRECEDENCE
+    | function_name_from_keyword "(" opt_distinct %prec PRIMARY_PRECEDENCE
       {
         // IF and GROUPING can be function calls, but they are also keywords.
         // Treat them specially, and don't allow DISTINCT etc. since that only
         // applies to aggregate functions.
-        auto* path_expression = MAKE_NODE(ASTPathExpression, @1, {$1});
-        auto* function_call = MAKE_NODE(ASTFunctionCall, @$, {path_expression});
-        function_call->set_distinct(false);
+        auto* path_expression = MakeNode<ASTPathExpression>(@1, $1);
+        auto* function_call = MakeNode<ASTFunctionCall>(@$, path_expression);
+        function_call->set_distinct($opt_distinct);
         $$ = function_call;
       }
     ;
@@ -10721,7 +10832,7 @@ function_call_argument {ASTExpression*}:
         // backward compatibility break to existing widespread usage of
         // ASTFunctionCall.
         if ($2 != nullptr) {
-          $$ = MAKE_NODE(ASTExpressionWithAlias, @$, {$1, $2});
+          $$ = MakeNode<ASTExpressionWithAlias>(@$, $1, $2);
         } else {
           $$ = $1;
         }
@@ -10742,25 +10853,25 @@ function_call_argument {ASTExpression*}:
 sequence_arg {ASTExpression*}:
     "SEQUENCE" path_expression
       {
-        $$ = MAKE_NODE(ASTSequenceArg, @$, {$2});
+        $$ = MakeNode<ASTSequenceArg>(@$, $2);
       }
     ;
 
 named_argument {ASTExpression*}:
     identifier "=>" expression
       {
-        $$ = MAKE_NODE(ASTNamedArgument, @$, {$1, $3});
+        $$ = MakeNode<ASTNamedArgument>(@$, $1, $3);
       }
     | identifier "=>" lambda_argument
       {
-        $$ = MAKE_NODE(ASTNamedArgument, @$, {$identifier, $lambda_argument});
+        $$ = MakeNode<ASTNamedArgument>(@$, $identifier, $lambda_argument);
       }
     ;
 
 lambda_argument {ASTExpression*}:
     lambda_argument_list "->" expression
       {
-        $$ = MAKE_NODE(ASTLambda, @$, {$1, $3});
+        $$ = MakeNode<ASTLambda>(@$, $1, $3);
       }
     ;
 
@@ -10790,14 +10901,14 @@ lambda_argument_list {ASTNode*}:
       }
     | "(" ")"
     {
-      $$ = MAKE_NODE(ASTStructConstructorWithParens, @$);
+      $$ = MakeNode<ASTStructConstructorWithParens>(@$);
     }
     ;
 
 function_call_expression_with_args_prefix {ASTFunctionCall*}:
     function_call_expression_base function_call_argument
       {
-        $$ = WithExtraChildren($1, {$2});
+        $$ = ExtendNodeRight($1, $2);
       }
     // The first argument may be a "*" instead of an expression. This is valid
     // for COUNT(*), which has no other arguments
@@ -10805,38 +10916,41 @@ function_call_expression_with_args_prefix {ASTFunctionCall*}:
     // The analyzer must validate the "*" is not used with other functions.
     | function_call_expression_base "*"
       {
-        auto* star = MAKE_NODE(ASTStar, @2);
+        auto* star = MakeNode<ASTStar>(@2);
         star->set_image("*");
-        $$ = WithExtraChildren($1, {star});
+        $$ = ExtendNodeRight($1, star);
       }
     | function_call_expression_with_args_prefix "," function_call_argument
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 function_call_expression {ASTFunctionCall*}:
     // Empty argument list.
     function_call_expression_base[call]
+    opt_null_handling_modifier
     opt_where_clause
     opt_having_modifier
     opt_group_by_modifier
+    opt_with_report_modifier
     opt_order_by_clause
     opt_limit_offset_clause ")"
       {
-        $$ = WithExtraChildren(
-          parser->WithEndLocation($call, @$), {
+        $call->set_null_handling_modifier($opt_null_handling_modifier);
+        $$ = ExtendNodeRight($call,
+          @$.end(),
           $opt_where_clause,
           $opt_having_modifier,
           $opt_group_by_modifier.group_by,
           $opt_group_by_modifier.having_expr,
+          $opt_with_report_modifier,
           $opt_order_by_clause,
-          $opt_limit_offset_clause});
+          $opt_limit_offset_clause);
       }
     // Non-empty argument list.
-    // opt_clamped_between_modifier and
-    // opt_null_handling_modifier only appear here as they require at least
-    // one argument.
+    // opt_clamped_between_modifier only appears here as it requires at least
+    // one argument.  With no arguments, CLAMPED parses as an identifier.
     | function_call_expression_with_args_prefix[call]
       opt_null_handling_modifier
       opt_where_clause
@@ -10848,7 +10962,7 @@ function_call_expression {ASTFunctionCall*}:
       opt_limit_offset_clause ")"
       {
         $call->set_null_handling_modifier($opt_null_handling_modifier);
-        $$ = WithExtraChildren(parser->WithEndLocation($call, @$), {
+        $$ = ExtendNodeRight($call, @$.end(),
             $opt_where_clause,
             $opt_having_modifier,
             $opt_group_by_modifier.group_by,
@@ -10856,7 +10970,7 @@ function_call_expression {ASTFunctionCall*}:
             $opt_clamped_between_modifier,
             $opt_with_report_modifier,
             $opt_order_by_clause,
-            $opt_limit_offset_clause});
+            $opt_limit_offset_clause);
       }
     ;
 
@@ -10868,59 +10982,59 @@ opt_identifier {ASTIdentifier*}:
 partition_by_clause_prefix {ASTNode*}:
     "PARTITION" opt_hint "BY" expression
       {
-        $$ = MAKE_NODE(ASTPartitionBy, @$, {$2, $4});
+        $$ = MakeNode<ASTPartitionBy>(@$, $2, $4);
       }
     | partition_by_clause_prefix "," expression
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 opt_partition_by_clause {ASTNode*}:
-    partition_by_clause_prefix { $$ = parser->WithEndLocation($1, @$); }
+    partition_by_clause_prefix { $$ = WithEndLocation($1, @$); }
     | %empty { $$ = nullptr; }
     ;
 
 partition_by_clause_prefix_no_hint {ASTNode*}:
     "PARTITION" "BY" expression
       {
-        $$ = MAKE_NODE(ASTPartitionBy, @$, {nullptr, $3});
+        $$ = MakeNode<ASTPartitionBy>(@$, $3);
       }
     | partition_by_clause_prefix_no_hint "," expression
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 opt_partition_by_clause_no_hint {ASTNode*}:
-    partition_by_clause_prefix_no_hint { $$ = parser->WithEndLocation($1, @$); }
+    partition_by_clause_prefix_no_hint { $$ = WithEndLocation($1, @$); }
     | %empty { $$ = nullptr; }
     ;
 
 cluster_by_clause_prefix_no_hint {ASTNode*}:
     "CLUSTER" "BY" expression
       {
-        $$ = MAKE_NODE(ASTClusterBy, @$, {$3});
+        $$ = MakeNode<ASTClusterBy>(@$, $3);
       }
     | cluster_by_clause_prefix_no_hint "," expression
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 opt_cluster_by_clause_no_hint {ASTNode*}:
-    cluster_by_clause_prefix_no_hint { $$ = parser->WithEndLocation($1, @$); }
+    cluster_by_clause_prefix_no_hint { $$ = WithEndLocation($1, @$); }
     | %empty { $$ = nullptr; }
     ;
 
 opt_ttl_clause {ASTNode*}:
   "ROW" "DELETION" "POLICY" "(" expression ")"
   {
-    if (!parser->language_options().LanguageFeatureEnabled(
-        FEATURE_V_1_4_TTL)) {
+    if (!language_options.LanguageFeatureEnabled(
+        FEATURE_TTL)) {
       return MakeSyntaxError(@1, "ROW DELETION POLICY clause is not supported.");
     }
-    $$ = MAKE_NODE(ASTTtlClause, @$, {$5});
+    $$ = MakeNode<ASTTtlClause>(@$, $5);
   }
   | %empty { $$ = nullptr; }
   ;
@@ -10934,7 +11048,7 @@ preceding_or_following {PrecedingOrFollowingKeyword}:
 window_frame_bound {ASTNode*}:
     "UNBOUNDED" preceding_or_following
       {
-        auto* frame = MAKE_NODE(ASTWindowFrameExpr, @$);
+        auto* frame = MakeNode<ASTWindowFrameExpr>(@$);
         frame->set_boundary_type(
             ($2 == PrecedingOrFollowingKeyword::kPreceding)
                 ? ASTWindowFrameExpr::UNBOUNDED_PRECEDING
@@ -10943,14 +11057,14 @@ window_frame_bound {ASTNode*}:
       }
     | "CURRENT" "ROW"
       {
-        auto* frame = MAKE_NODE(ASTWindowFrameExpr, @$);
+        auto* frame = MakeNode<ASTWindowFrameExpr>(@$);
         frame->set_boundary_type(
             ASTWindowFrameExpr::CURRENT_ROW);
         $$ = frame;
       }
     | expression preceding_or_following
       {
-        auto* frame = MAKE_NODE(ASTWindowFrameExpr, @$, {$1});
+        auto* frame = MakeNode<ASTWindowFrameExpr>(@$, $1);
         frame->set_boundary_type(
             ($2 == PrecedingOrFollowingKeyword::kPreceding)
                 ? ASTWindowFrameExpr::OFFSET_PRECEDING
@@ -10967,13 +11081,13 @@ frame_unit {ASTWindowFrame::FrameUnit}:
 opt_window_frame_clause {ASTNode*}:
     frame_unit "BETWEEN" window_frame_bound "AND" window_frame_bound %prec "BETWEEN"
       {
-        auto* frame = MAKE_NODE(ASTWindowFrame, @$, {$3, $5});
+        auto* frame = MakeNode<ASTWindowFrame>(@$, $3, $5);
         frame->set_unit($1);
         $$ = frame;
       }
     | frame_unit window_frame_bound
       {
-        auto* frame = MAKE_NODE(ASTWindowFrame, @$, {$2});
+        auto* frame = MakeNode<ASTWindowFrame>(@$, $2);
         frame->set_unit($1);
         $$ = frame;
       }
@@ -10983,40 +11097,39 @@ opt_window_frame_clause {ASTNode*}:
 window_specification {ASTNode*}:
     identifier
       {
-        $$ = MAKE_NODE(ASTWindowSpecification, @$, {$1});
+        $$ = MakeNode<ASTWindowSpecification>(@$, $1);
       }
     | "(" opt_identifier opt_partition_by_clause opt_order_by_clause
           opt_window_frame_clause ")"
       {
-        $$ = MAKE_NODE(ASTWindowSpecification, @$, {$2, $3, $4, $5});
+        $$ = MakeNode<ASTWindowSpecification>(@$, $2, $3, $4, $5);
       }
    ;
 
 function_call_expression_with_clauses {ASTExpression*}:
-    function_call_expression opt_hint opt_with_group_rows opt_over_clause
+    function_call_expression[call] opt_hint[hint] opt_with_group_rows opt_over_clause
       {
-        ASTExpression* current_expression = $1;
-        if ($2 != nullptr) {
-          current_expression->AddChild($2);
-        }
+        ASTExpression* current_expression = $call;
+        current_expression =
+            ExtendNodeRight(current_expression, @hint.end(), $hint);
         if ($3 != nullptr) {
-          if (!parser->language_options().LanguageFeatureEnabled(
-                  FEATURE_V_1_3_WITH_GROUP_ROWS)) {
+          if (!language_options.LanguageFeatureEnabled(
+                  FEATURE_WITH_GROUP_ROWS)) {
             return MakeSyntaxError(@3, "WITH GROUP ROWS is not supported");
           }
-          auto* with_group_rows = MAKE_NODE(ASTWithGroupRows, @$, {$3});
-          current_expression->AddChild(with_group_rows);
+          auto* with_group_rows = MakeNode<ASTWithGroupRows>(@$, $3);
+          ExtendNodeRight(current_expression, with_group_rows);
         }
         if ($4 != nullptr) {
-          current_expression = MAKE_NODE(ASTAnalyticFunctionCall, @$,
-              {current_expression, $4});
+          current_expression = MakeNode<ASTAnalyticFunctionCall>(@$,
+              current_expression, $4);
         }
         $$ = current_expression;
       }
     |
     function_call_expression braced_constructor
       {
-        $$ = MAKE_NODE(ASTUpdateConstructor, @$, {$1, $2});
+        $$ = MakeNode<ASTUpdateConstructor>(@$, $1, $2);
       }
     ;
 
@@ -11039,29 +11152,29 @@ opt_over_clause {ASTNode*}:
 struct_constructor_prefix_with_keyword_no_arg {ASTExpression*}:
     struct_type "("
       {
-        $$ = MAKE_NODE(ASTStructConstructorWithKeyword, @$, {$1});
+        $$ = MakeNode<ASTStructConstructorWithKeyword>(@$, $1);
       }
     | "STRUCT" "("
       {
-        $$ = MAKE_NODE(ASTStructConstructorWithKeyword, @$);
+        $$ = MakeNode<ASTStructConstructorWithKeyword>(@$);
       }
     ;
 
 struct_constructor_prefix_with_keyword {ASTExpression*}:
     struct_constructor_prefix_with_keyword_no_arg struct_constructor_arg
       {
-        $$ = WithExtraChildren($1, {$2});
+        $$ = ExtendNodeRight($1, $2);
       }
     | struct_constructor_prefix_with_keyword "," struct_constructor_arg
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 struct_constructor_arg {ASTNode*}:
     expression opt_as_alias_with_required_as
       {
-        $$ = MAKE_NODE(ASTStructConstructorArg, @$, {$1, $2});
+        $$ = MakeNode<ASTStructConstructorArg>(@$, $1, $2);
       }
     ;
 
@@ -11070,45 +11183,45 @@ struct_constructor_prefix_without_keyword {ASTExpression*}:
     // they're parsed as parenthesized expressions.
     "(" expression "," expression
       {
-        $$ = MAKE_NODE(ASTStructConstructorWithParens, @$, {$2, $4});
+        $$ = MakeNode<ASTStructConstructorWithParens>(@$, $2, $4);
       }
     | struct_constructor_prefix_without_keyword "," expression
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 struct_constructor {ASTExpression*}:
     struct_constructor_prefix_with_keyword ")"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     | struct_constructor_prefix_with_keyword_no_arg ")"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     | struct_constructor_prefix_without_keyword ")"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
 expression_subquery_with_keyword {ASTExpressionSubquery*}:
     "ARRAY" parenthesized_query[query]
       {
-        auto* subquery = MAKE_NODE(ASTExpressionSubquery, @$, {$query});
+        auto* subquery = MakeNode<ASTExpressionSubquery>(@$, $query);
         subquery->set_modifier(ASTExpressionSubquery::ARRAY);
         $$ = subquery;
       }
     | "EXISTS" opt_hint parenthesized_query[query]
       {
-        auto* subquery = MAKE_NODE(ASTExpressionSubquery, @$, {$opt_hint, $query});
+        auto* subquery = MakeNode<ASTExpressionSubquery>(@$, $opt_hint, $query);
         subquery->set_modifier(ASTExpressionSubquery::EXISTS);
         $$ = subquery;
       }
     | "ARRAY" braced_graph_subquery[graph_query]
       {
-        auto* subquery = MAKE_NODE(ASTExpressionSubquery, @$, {$graph_query});
+        auto* subquery = MakeNode<ASTExpressionSubquery>(@$, $graph_query);
         subquery->set_modifier(ASTExpressionSubquery::ARRAY);
         $$ = subquery;
       }
@@ -11118,7 +11231,7 @@ expression_subquery_with_keyword {ASTExpressionSubquery*}:
       }
     | "VALUE" opt_hint braced_graph_subquery[graph_query]
       {
-        auto* subquery = MAKE_NODE(ASTExpressionSubquery, @$, {$opt_hint, $graph_query});
+        auto* subquery = MakeNode<ASTExpressionSubquery>(@$, $opt_hint, $graph_query);
         subquery->set_modifier(ASTExpressionSubquery::VALUE);
         $$ = subquery;
       }
@@ -11127,7 +11240,7 @@ expression_subquery_with_keyword {ASTExpressionSubquery*}:
 null_literal {ASTExpression*}:
     "NULL"
       {
-        auto* literal = MAKE_NODE(ASTNullLiteral, @1);
+        auto* literal = MakeNode<ASTNullLiteral>(@1);
         // TODO: Migrate to absl::string_view or avoid having to
         // set this at all if the client isn't interested.
         literal->set_image(std::string($1));
@@ -11138,7 +11251,7 @@ null_literal {ASTExpression*}:
 boolean_literal {ASTExpression*}:
     "TRUE"
       {
-        auto* literal = MAKE_NODE(ASTBooleanLiteral, @1);
+        auto* literal = MakeNode<ASTBooleanLiteral>(@1);
         literal->set_value(true);
         // TODO: Migrate to absl::string_view or avoid having to
         // set this at all if the client isn't interested.
@@ -11147,7 +11260,7 @@ boolean_literal {ASTExpression*}:
       }
     | "FALSE"
       {
-        auto* literal = MAKE_NODE(ASTBooleanLiteral, @1);
+        auto* literal = MakeNode<ASTBooleanLiteral>(@1);
         literal->set_value(false);
         // TODO: Migrate to absl::string_view or avoid having to
         // set this at all if the client isn't interested.
@@ -11177,7 +11290,7 @@ string_literal_component {ASTStringLiteralComponent*}:
                                             parse_status.message()));
         }
 
-        auto* literal = MAKE_NODE(ASTStringLiteralComponent, @1);
+        auto* literal = MakeNode<ASTStringLiteralComponent>(@1);
         literal->set_string_value(std::move(str));
         // TODO: Migrate to absl::string_view or avoid having to
         // set this at all if the client isn't interested.
@@ -11190,7 +11303,7 @@ string_literal_component {ASTStringLiteralComponent*}:
 string_literal {ASTStringLiteral*}:
     string_literal_component[component]
       {
-        $$ = MAKE_NODE(ASTStringLiteral, @$, {$component});
+        $$ = MakeNode<ASTStringLiteral>(@$, $component);
         $$->set_string_value($component->string_value());
       }
     | string_literal[list] string_literal_component[component]
@@ -11199,7 +11312,7 @@ string_literal {ASTStringLiteral*}:
           return MakeSyntaxError(@2, "Syntax error: concatenated string literals must be separated by whitespace or comments");
         }
 
-        $$ = WithExtraChildren($list, {$component});
+        $$ = ExtendNodeRight($list, $component);
         // TODO: append the value in place, instead of StrCat()
         // then set().
         $$->set_string_value(
@@ -11238,7 +11351,7 @@ bytes_literal_component {ASTBytesLiteralComponent*}:
         // The identifier is parsed *again* in the resolver. The output of the
         // parser maintains the original image.
         // TODO: Fix this wasted work when the JavaCC parser is gone.
-        auto* literal = MAKE_NODE(ASTBytesLiteralComponent, @1);
+        auto* literal = MakeNode<ASTBytesLiteralComponent>(@1);
         literal->set_bytes_value(std::move(bytes));
         // TODO: Migrate to absl::string_view or avoid having to
         // set this at all if the client isn't interested.
@@ -11252,7 +11365,7 @@ bytes_literal_component {ASTBytesLiteralComponent*}:
 bytes_literal {ASTBytesLiteral*}:
     bytes_literal_component[component]
       {
-        $$ = MAKE_NODE(ASTBytesLiteral, @$, {$component});
+        $$ = MakeNode<ASTBytesLiteral>(@$, $component);
         $$->set_bytes_value($component->bytes_value());
       }
     | bytes_literal[list] bytes_literal_component[component]
@@ -11263,7 +11376,7 @@ bytes_literal {ASTBytesLiteral*}:
             "Syntax error: concatenated bytes literals must be separated by whitespace or comments");
         }
 
-        $$ = WithExtraChildren($list, {$component});
+        $$ = ExtendNodeRight($list, $component);
         // TODO: append the value in place, instead of StrCat()
         // then set().
         $$->set_bytes_value(
@@ -11279,7 +11392,7 @@ bytes_literal {ASTBytesLiteral*}:
 integer_literal {ASTExpression*}:
     INTEGER_LITERAL
       {
-        auto* literal = MAKE_NODE(ASTIntLiteral, @1);
+        auto* literal = MakeNode<ASTIntLiteral>(@1);
         literal->set_image(std::string($1));
         $$ = literal;
       }
@@ -11293,7 +11406,7 @@ numeric_literal_prefix:
 numeric_literal {ASTExpression*}:
     numeric_literal_prefix string_literal
       {
-        $$ = MAKE_NODE(ASTNumericLiteral, @$, {$2});
+        $$ = MakeNode<ASTNumericLiteral>(@$, $2);
       }
     ;
 
@@ -11305,21 +11418,21 @@ bignumeric_literal_prefix:
 bignumeric_literal {ASTExpression*}:
     bignumeric_literal_prefix string_literal
       {
-        $$ = MAKE_NODE(ASTBigNumericLiteral, @$, {$2});
+        $$ = MakeNode<ASTBigNumericLiteral>(@$, $2);
       }
     ;
 
 json_literal {ASTExpression*}:
     "JSON" string_literal
       {
-        $$ = MAKE_NODE(ASTJSONLiteral, @$, {$2});
+        $$ = MakeNode<ASTJSONLiteral>(@$, $2);
       }
     ;
 
 floating_point_literal {ASTExpression*}:
     FLOATING_POINT_LITERAL
       {
-        auto* literal = MAKE_NODE(ASTFloatLiteral, @1);
+        auto* literal = MakeNode<ASTFloatLiteral>(@1);
         literal->set_image(std::string($1));
         $$ = literal;
       }
@@ -11351,9 +11464,9 @@ token_identifier {ASTIdentifier*}:
                                  absl::StrCat("Syntax error: ",
                                               parse_status.message()));
           }
-          $$ = parser->MakeIdentifier(@1, str, /*is_quoted=*/true);
+          $$ = node_factory.MakeIdentifier(@1, str, /*is_quoted=*/true);
         } else {
-          $$ = parser->MakeIdentifier(@1, identifier_text, /*is_quoted=*/false);
+          $$ = node_factory.MakeIdentifier(@1, identifier_text, /*is_quoted=*/false);
         }
       }
     ;
@@ -11362,7 +11475,7 @@ identifier {ASTIdentifier*}:
     token_identifier
     | keyword_as_identifier
       {
-        $$ = parser->MakeIdentifier(@1, $1);
+        $$ = node_factory.MakeIdentifier(@1, $1);
       }
     ;
 
@@ -11392,9 +11505,9 @@ label {ASTIdentifier*}:
                                absl::StrCat("Syntax error: ",
                                             parse_status.message()));
         }
-        $$ = parser->MakeIdentifier(@1, str, /*is_quoted=*/true);
+        $$ = node_factory.MakeIdentifier(@1, str, /*is_quoted=*/true);
       } else {
-        $$ = parser->MakeIdentifier(@1, label_text);
+        $$ = node_factory.MakeIdentifier(@1, label_text);
       }
     }
 ;
@@ -11405,7 +11518,7 @@ system_variable_expression {ASTExpression*}:
       if (!@1.IsAdjacentlyFollowedBy(@2)) {
         // TODO: Add a deprecation warning in this case.
       }
-      $$ = MAKE_NODE(ASTSystemVariableExpr, @$, {$2});
+      $$ = MakeNode<ASTSystemVariableExpr>(@$, $2);
     }
     ;
 
@@ -11436,10 +11549,12 @@ common_keyword_as_identifier {absl::string_view}:
     | "BREAK"
     | "CALL"
     | "CASCADE"
+    | "CHEAPEST"
     | "CHECK"
     | "CLAMPED"
     | "CLONE"
     | "COPY"
+    | "COST"
     | "CLUSTER"
     | "COLUMN"
     | "COLUMNS"
@@ -11489,11 +11604,8 @@ common_keyword_as_identifier {absl::string_view}:
     | "GENERATED"
     | KW_GRAPH_TABLE_NONRESERVED
       {
-          // TODO: this warning should point to documentation once
-          // we have the engine-specific root URI to use.
-          parser->AddWarning(parser->GenerateWarningForFutureKeywordReservation(
-                                        kGraphTable,
-                                        (@1).start().GetByteOffset()));
+          ZETASQL_RETURN_IF_ERROR(
+              AddKeywordReservationWarning(kGraphTable, @1, warning_sink));
           $$ = $1;
       }
     | "GRAPH"
@@ -11556,6 +11668,7 @@ common_keyword_as_identifier {absl::string_view}:
     | "PARTITIONS"
     | "PAST"
     | "PATTERN"
+    | "PER"
     | "PERCENT"
     | "PIVOT"
     | "POLICIES"
@@ -11571,11 +11684,8 @@ common_keyword_as_identifier {absl::string_view}:
     | "PUBLIC"
     | KW_QUALIFY_NONRESERVED
       {
-          // TODO: this warning should point to documentation once
-          // we have the engine-specific root URI to use.
-          parser->AddWarning(parser->GenerateWarningForFutureKeywordReservation(
-                                        kQualify,
-                                        (@1).start().GetByteOffset()));
+          ZETASQL_RETURN_IF_ERROR(
+              AddKeywordReservationWarning(kQualify, @1, warning_sink));
           $$ = $1;
       }
     | "RAISE"
@@ -11646,6 +11756,7 @@ common_keyword_as_identifier {absl::string_view}:
     | "WEIGHT"
     | "WHILE"
     | "WRITE"
+    | "YIELD"
     | "ZONE"
     | "DESCRIPTOR"
 
@@ -11688,8 +11799,7 @@ opt_hint {ASTNode*}:
 options_entry {ASTNode*}:
     identifier_in_hints options_assignment_operator expression_or_proto
       {
-        auto* options_entry =
-            MAKE_NODE(ASTOptionsEntry, @1, @3, {$1, $3});
+        auto* options_entry = MakeNode<ASTOptionsEntry>(@$, $1, $3);
         options_entry->set_assignment_op($2);
         $$ = options_entry;
       }
@@ -11705,8 +11815,8 @@ expression_or_proto {ASTExpression*}:
     "PROTO"
       {
         ASTIdentifier* proto_identifier =
-            parser->MakeIdentifier(@1, "PROTO");
-        $$ = MAKE_NODE(ASTPathExpression, @$, {proto_identifier});
+            node_factory.MakeIdentifier(@1, "PROTO");
+        $$ = MakeNode<ASTPathExpression>(@$, proto_identifier);
       }
     | expression
     ;
@@ -11714,22 +11824,22 @@ expression_or_proto {ASTExpression*}:
 options_list_prefix {ASTNode*}:
     "(" options_entry
       {
-        $$ = MAKE_NODE(ASTOptionsList, @$, {$2});
+        $$ = MakeNode<ASTOptionsList>(@$, $2);
       }
     | options_list_prefix "," options_entry
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 options_list {ASTNode*}:
     options_list_prefix ")"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     | "(" ")"
       {
-        $$ = MAKE_NODE(ASTOptionsList, @$);
+        $$ = MakeNode<ASTOptionsList>(@$);
       }
     ;
 
@@ -11745,7 +11855,7 @@ opt_options_list {ASTNode*}:
 define_table_statement {ASTNode*}:
     "DEFINE" "TABLE" path_expression options_list
       {
-        $$ = MAKE_NODE(ASTDefineTableStatement, @$, {$3, $4});
+        $$ = MakeNode<ASTDefineTableStatement>(@$, $3, $4);
       }
     ;
 
@@ -11771,7 +11881,7 @@ opt_where_expression {ASTNode*}:
 opt_assert_rows_modified {ASTNode*}:
     "ASSERT_ROWS_MODIFIED" possibly_cast_int_literal_or_parameter
       {
-        $$ = MAKE_NODE(ASTAssertRowsModified, @$, {$2});
+        $$ = MakeNode<ASTAssertRowsModified>(@$, $2);
       }
     | %empty
       {
@@ -11782,19 +11892,19 @@ opt_assert_rows_modified {ASTNode*}:
 opt_returning_clause {ASTNode*}:
     "THEN" "RETURN" select_list
       {
-        $$ = MAKE_NODE(ASTReturningClause, @$, {$3});
+        $$ = MakeNode<ASTReturningClause>(@$, $3);
       }
     | "THEN" "RETURN" "WITH" "ACTION" select_list
       {
         ASTIdentifier* default_identifier =
-          parser->MakeIdentifier(@4, "ACTION");
-        auto* action_alias = MAKE_NODE(ASTAlias, @$, {default_identifier});
-        $$ = MAKE_NODE(ASTReturningClause, @$, {$5, action_alias});
+          node_factory.MakeIdentifier(@4, "ACTION");
+        auto* action_alias = MakeNode<ASTAlias>(@$, default_identifier);
+        $$ = MakeNode<ASTReturningClause>(@$, $5, action_alias);
       }
     | "THEN" "RETURN" "WITH" "ACTION" "AS" identifier select_list
       {
-        auto* action_alias = MAKE_NODE(ASTAlias, @$, {$6});
-        $$ = MAKE_NODE(ASTReturningClause, @$, {$7, action_alias});
+        auto* action_alias = MakeNode<ASTAlias>(@$, $6);
+        $$ = MakeNode<ASTReturningClause>(@$, $7, action_alias);
       }
     | %empty { $$ = nullptr; }
     ;
@@ -11811,14 +11921,14 @@ opt_conflict_target {ASTNode*}:
 on_conflict_clause {ASTOnConflictClause*}:
     "ON" "CONFLICT" opt_conflict_target[conflict_target] "DO" "NOTHING"
       {
-        auto* on_conflict = MAKE_NODE(ASTOnConflictClause, @$, {$conflict_target});
+        auto* on_conflict = MakeNode<ASTOnConflictClause>(@$, $conflict_target);
         on_conflict->set_conflict_action(ASTOnConflictClause::NOTHING);
         $$ = on_conflict;
       }
     | "ON" "CONFLICT" opt_conflict_target[conflict_target] "DO" "UPDATE" "SET"
       update_item_list opt_where_expression[update_where_expr]
       {
-        auto* on_conflict = MAKE_NODE(ASTOnConflictClause, @$, {$conflict_target, $update_item_list, $update_where_expr});
+        auto* on_conflict = MakeNode<ASTOnConflictClause>(@$, $conflict_target, $update_item_list, $update_where_expr);
         on_conflict->set_conflict_action(ASTOnConflictClause::UPDATE);
         $$ = on_conflict;
       }
@@ -11846,7 +11956,7 @@ insert_statement_prefix {ASTInsertStatement*}:
         // never starts a query. There is an exception here, and this lookback
         // override helps indicate that exception to the lookahead component.
         OVERRIDE_NEXT_TOKEN_LOOKBACK(LPAREN, LB_PAREN_OPENS_QUERY);
-        $$ = MAKE_NODE(ASTInsertStatement, @$, {$insert_target, $opt_hint});
+        $$ = MakeNode<ASTInsertStatement>(@$, $insert_target, $opt_hint);
         $$->set_insert_mode($insert_mode);
       }
     ;
@@ -11855,27 +11965,27 @@ insert_statement_prefix {ASTInsertStatement*}:
 insert_statement_middle {ASTInsertStatement*}:
     insert_statement_prefix column_list insert_values_or_query
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$2, $3}), @$);
+        $$ = ExtendNodeRight($1, @$.end(), $2, $3);
       }
     | insert_statement_prefix insert_values_or_query
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$2}), @$);
+        $$ = ExtendNodeRight($1, @$.end(), $2);
       }
     | insert_statement_prefix column_list insert_values_list_or_table_clause on_conflict_clause
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$2, $3, $4}), @$);
+        $$ = ExtendNodeRight($1, @$.end(), $2, $3, $4);
       }
     | insert_statement_prefix insert_values_list_or_table_clause on_conflict_clause
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$2, $3}), @$);
+        $$ = ExtendNodeRight($1, @$.end(), $2, $3);
       }
     | insert_statement_prefix column_list "(" query ")" on_conflict_clause
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$2, $4, $6}), @$);
+        $$ = ExtendNodeRight($1, @$.end(), $2, $4, $6);
       }
     | insert_statement_prefix "(" query ")" on_conflict_clause
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3, $5}), @$);
+        $$ = ExtendNodeRight($1, @$.end(), $3, $5);
       }
     ;
 
@@ -11883,7 +11993,7 @@ insert_statement_middle {ASTInsertStatement*}:
 insert_statement {ASTInsertStatement*}:
     insert_statement_middle opt_assert_rows_modified opt_returning_clause
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$2, $3}), @$);
+        $$ = ExtendNodeRight($1, $2, $3);
       }
     ;
 
@@ -11900,32 +12010,32 @@ insert_statement_in_pipe {ASTInsertStatement*}:
     insert_statement_prefix opt_column_list opt_on_conflict_clause
         opt_assert_rows_modified opt_returning_clause
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$2, $3, $4, $5}), @$);
+        $$ = ExtendNodeRight($1, $2, $3, $4, $5);
       }
     ;
 
 copy_data_source {ASTNode*}:
     maybe_dashed_path_expression opt_at_system_time opt_where_clause
       {
-        $$ = MAKE_NODE(ASTCopyDataSource, @$, {$1, $2, $3});
+        $$ = MakeNode<ASTCopyDataSource>(@$, $1, $2, $3);
       }
     ;
 
 clone_data_source {ASTNode*}:
     maybe_dashed_path_expression opt_at_system_time opt_where_clause
       {
-        $$ = MAKE_NODE(ASTCloneDataSource, @$, {$1, $2, $3});
+        $$ = MakeNode<ASTCloneDataSource>(@$, $1, $2, $3);
       }
     ;
 
 clone_data_source_list {ASTNode*}:
     clone_data_source
       {
-        $$ = MAKE_NODE(ASTCloneDataSourceList, @$, {$1});
+        $$ = MakeNode<ASTCloneDataSourceList>(@$, $1);
       }
     | clone_data_source_list "UNION" "ALL" clone_data_source
       {
-        $$ = WithExtraChildren($1, {$4});
+        $$ = ExtendNodeRight($1, $4);
       }
     ;
 
@@ -11933,7 +12043,7 @@ clone_data_statement {ASTNode*}:
     "CLONE" "DATA" "INTO" maybe_dashed_path_expression
     "FROM" clone_data_source_list
       {
-        $$ = MAKE_NODE(ASTCloneDataStatement, @$, {$4, $6});
+        $$ = MakeNode<ASTCloneDataStatement>(@$, $4, $6);
       }
     ;
 
@@ -11941,31 +12051,31 @@ expression_or_default {ASTExpression*}:
    expression
    | "DEFAULT"
      {
-       $$ = MAKE_NODE(ASTDefaultLiteral, @$, {});
+       $$ = MakeNode<ASTDefaultLiteral>(@$);
      }
    ;
 
 insert_values_row_prefix {ASTNode*}:
     "(" expression_or_default
       {
-        $$ = MAKE_NODE(ASTInsertValuesRow, @$, {$2});
+        $$ = MakeNode<ASTInsertValuesRow>(@$, $2);
       }
     | insert_values_row_prefix "," expression_or_default
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 insert_values_row {ASTNode*}:
     insert_values_row_prefix ")"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
 insert_values_list_or_table_clause {ASTNode*}:
     insert_values_list { $$ = $insert_values_list; }
-    | table_clause_unreserved { $$ = MAKE_NODE(ASTQuery, @$, {$table_clause_unreserved}); }
+    | table_clause_unreserved { $$ = MakeNode<ASTQuery>(@$, $table_clause_unreserved); }
     ;
 
 insert_values_or_query {ASTNode*}:
@@ -11976,11 +12086,11 @@ insert_values_or_query {ASTNode*}:
 insert_values_list {ASTInsertValuesRowList*}:
     "VALUES" insert_values_row
       {
-        $$ = MAKE_NODE(ASTInsertValuesRowList, @$, {$2});
+        $$ = MakeNode<ASTInsertValuesRowList>(@$, $2);
       }
     | insert_values_list "," insert_values_row
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
@@ -11989,14 +12099,14 @@ delete_statement {ASTNode*}:
     opt_as_alias opt_with_offset_and_alias opt_where_expression
     opt_assert_rows_modified opt_returning_clause
       {
-        $$ = MAKE_NODE(ASTDeleteStatement, @$, {$3, $4, $5, $6, $7, $8, $9});
+        $$ = MakeNode<ASTDeleteStatement>(@$, $3, $4, $5, $6, $7, $8, $9);
       }
     ;
 
 opt_with_offset_and_alias {ASTNode*}:
     "WITH" "OFFSET" opt_as_alias
       {
-        $$ = MAKE_NODE(ASTWithOffset, @$, {$3});
+        $$ = MakeNode<ASTWithOffset>(@$, $3);
       }
     | %empty { $$ = nullptr; }
     ;
@@ -12006,14 +12116,14 @@ update_statement {ASTNode*}:
     opt_with_offset_and_alias "SET" update_item_list opt_from_clause
     opt_where_expression opt_assert_rows_modified opt_returning_clause
       {
-        $$ = MAKE_NODE(ASTUpdateStatement, @$, {$2, $3, $4, $5, $7, $8, $9, $10, $11});
+        $$ = MakeNode<ASTUpdateStatement>(@$, $2, $3, $4, $5, $7, $8, $9, $10, $11);
       }
     ;
 
 truncate_statement {ASTNode*}:
     "TRUNCATE" "TABLE" maybe_dashed_path_expression opt_where_expression
       {
-        $$ = MAKE_NODE(ASTTruncateStatement, @$, {$3, $4});
+        $$ = MakeNode<ASTTruncateStatement>(@$, $3, $4);
       }
     ;
 
@@ -12033,7 +12143,7 @@ nested_dml_statement {ASTNode*}:
 generalized_path_expression {ASTExpression*}:
     identifier
       {
-        $$ = MAKE_NODE(ASTPathExpression, @$, {$1});
+        $$ = MakeNode<ASTPathExpression>(@$, $1);
       }
     | generalized_path_expression "." generalized_extension_path
       {
@@ -12043,20 +12153,20 @@ generalized_path_expression {ASTExpression*}:
         // ASTDotGeneralizedField is an extension and thus parentheses are
         // automatically added when this node is unparsed.
         $3->set_parenthesized(false);
-        $$ = MAKE_NODE(ASTDotGeneralizedField, @1, @3, {$1, $3});
+        $$ = MakeNode<ASTDotGeneralizedField>(@$, $1, $3);
       }
-    | generalized_path_expression "." identifier
+    | generalized_path_expression[path] "." identifier
       {
-        if ($1->node_kind() == AST_PATH_EXPRESSION) {
-          $$ = WithExtraChildren(parser->WithEndLocation($1, @3), {$3});
+        if ($path->node_kind() == AST_PATH_EXPRESSION) {
+          $$ = ExtendNodeRight($path, $identifier);
         } else {
-          $$ = MAKE_NODE(ASTDotIdentifier, @1, @3, {$1, $3});
+          $$ = MakeNode<ASTDotIdentifier>(@$, $path, $3);
         }
       }
     | generalized_path_expression "[" expression "]"
       {
-        auto* bracket_loc = parser->MakeLocation(@2);
-        $$ = MAKE_NODE(ASTArrayElement, @1, @4, {$1, bracket_loc, $3});
+        auto* bracket_loc = MakeNode<ASTLocation>(@2);
+        $$ = MakeNode<ASTArrayElement>(@$, $1, bracket_loc, $3);
       }
     ;
 
@@ -12068,8 +12178,8 @@ maybe_dashed_generalized_path_expression {ASTExpression*}:
   // which don't actually allow extensions or array element access anyway.
   | dashed_path_expression
     {
-      if (parser->language_options().LanguageFeatureEnabled(
-             FEATURE_V_1_3_ALLOW_DASHES_IN_TABLE_NAME)) {
+      if (language_options.LanguageFeatureEnabled(
+             FEATURE_ALLOW_DASHES_IN_TABLE_NAME)) {
         $$ = $1;
       } else {
         absl::string_view target =
@@ -12105,40 +12215,40 @@ generalized_extension_path {ASTExpression*}:
       }
     | generalized_extension_path "." "(" path_expression ")"
       {
-        $$ = MAKE_NODE(ASTDotGeneralizedField, @1, @5, {$1, $4});
+        $$ = MakeNode<ASTDotGeneralizedField>(@$, $1, $4);
       }
     | generalized_extension_path "." identifier
       {
-        $$ = MAKE_NODE(ASTDotIdentifier, @1, @3, {$1, $3});
+        $$ = MakeNode<ASTDotIdentifier>(@$, $1, $3);
       }
     ;
 
 update_set_value {ASTNode*}:
     generalized_path_expression "=" expression_or_default
       {
-        $$ = MAKE_NODE(ASTUpdateSetValue, @$, {$1, $3});
+        $$ = MakeNode<ASTUpdateSetValue>(@$, $1, $3);
       }
     ;
 
 update_item {ASTNode*}:
     update_set_value
       {
-        $$ = MAKE_NODE(ASTUpdateItem, @$, {$1});
+        $$ = MakeNode<ASTUpdateItem>(@$, $1);
       }
     | nested_dml_statement
       {
-        $$ = MAKE_NODE(ASTUpdateItem, @$, {$1});
+        $$ = MakeNode<ASTUpdateItem>(@$, $1);
       }
     ;
 
 update_item_list {ASTNode*}:
    update_item
      {
-       $$ = MAKE_NODE(ASTUpdateItemList, @$, {$1});
+       $$ = MakeNode<ASTUpdateItemList>(@$, $1);
      }
    | update_item_list "," update_item
      {
-       $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+       $$ = ExtendNodeRight($1, $3);
      }
    ;
 
@@ -12170,26 +12280,26 @@ merge_insert_value_list_or_source_row {ASTNode*}:
       }
     | "ROW"
       {
-        $$ = MAKE_NODE(ASTInsertValuesRow, @$, {});
+        $$ = MakeNode<ASTInsertValuesRow>(@$);
       }
     ;
 
 merge_action {ASTNode*}:
     "INSERT" opt_column_list merge_insert_value_list_or_source_row
       {
-        auto* node = MAKE_NODE(ASTMergeAction, @$, {$2, $3});
+        auto* node = MakeNode<ASTMergeAction>(@$, $2, $3);
         node->set_action_type(ASTMergeAction::INSERT);
         $$ = node;
       }
     | "UPDATE" "SET" update_item_list
         {
-          auto* node = MAKE_NODE(ASTMergeAction, @$, {$3});
+          auto* node = MakeNode<ASTMergeAction>(@$, $3);
           node->set_action_type(ASTMergeAction::UPDATE);
           $$ = node;
         }
     | "DELETE"
         {
-          auto* node = MAKE_NODE(ASTMergeAction, @$, {});
+          auto* node = MakeNode<ASTMergeAction>(@$);
           node->set_action_type(ASTMergeAction::DELETE);
           $$ = node;
         }
@@ -12198,14 +12308,14 @@ merge_action {ASTNode*}:
 merge_when_clause {ASTNode*}:
     "WHEN" "MATCHED" opt_and_expression "THEN" merge_action
       {
-        auto* node = MAKE_NODE(ASTMergeWhenClause, @$, {$3, $5});
+        auto* node = MakeNode<ASTMergeWhenClause>(@$, $3, $5);
         node->set_match_type(ASTMergeWhenClause::MATCHED);
         $$ = node;
       }
     | "WHEN" "NOT" "MATCHED" opt_by_target opt_and_expression "THEN"
       merge_action
         {
-          auto* node = MAKE_NODE(ASTMergeWhenClause, @$, {$5, $7});
+          auto* node = MakeNode<ASTMergeWhenClause>(@$, $5, $7);
           node->set_match_type(
               ASTMergeWhenClause::NOT_MATCHED_BY_TARGET);
           $$ = node;
@@ -12213,7 +12323,7 @@ merge_when_clause {ASTNode*}:
     | "WHEN" "NOT" "MATCHED" "BY" "SOURCE" opt_and_expression "THEN"
       merge_action
       {
-        auto* node = MAKE_NODE(ASTMergeWhenClause, @$, {$6, $8});
+        auto* node = MakeNode<ASTMergeWhenClause>(@$, $6, $8);
         node->set_match_type(
             ASTMergeWhenClause::NOT_MATCHED_BY_SOURCE);
         $$ = node;
@@ -12223,11 +12333,11 @@ merge_when_clause {ASTNode*}:
 merge_when_clause_list {ASTNode*}:
   merge_when_clause
     {
-      $$ = MAKE_NODE(ASTMergeWhenClauseList, @$, {$1});
+      $$ = MakeNode<ASTMergeWhenClauseList>(@$, $1);
     }
   | merge_when_clause_list merge_when_clause
     {
-      $$ = parser->WithEndLocation(WithExtraChildren($1, {$2}), @$);
+      $$ = ExtendNodeRight($1, $2);
     }
   ;
 
@@ -12235,43 +12345,43 @@ merge_when_clause_list {ASTNode*}:
 // requires agreement about spec change.
 merge_source {ASTTableExpression*}:
     table_path_expression
-    | table_subquery
+    | table_subquery { $$ = $table_subquery; }
     ;
 
 merge_statement_prefix {ASTNode*}:
   "MERGE" opt_into maybe_dashed_path_expression opt_as_alias
   "USING" merge_source "ON" expression
     {
-      $$ = MAKE_NODE(ASTMergeStatement, @$, {$3, $4, $6, $8});
+      $$ = MakeNode<ASTMergeStatement>(@$, $3, $4, $6, $8);
     }
   ;
 
 merge_statement {ASTNode*}:
   merge_statement_prefix merge_when_clause_list
     {
-      $$ = parser->WithEndLocation(WithExtraChildren($1, {$2}), @$);
+      $$ = ExtendNodeRight($1, $2);
     }
   ;
 
 call_statement_with_args_prefix {ASTNode*}:
     "CALL" path_expression "(" tvf_argument
       {
-        $$ = MAKE_NODE(ASTCallStatement, @$, {$2, $4});
+        $$ = MakeNode<ASTCallStatement>(@$, $2, $4);
       }
     | call_statement_with_args_prefix "," tvf_argument
       {
-        $$ = WithExtraChildren($1, {$3});
+        $$ = ExtendNodeRight($1, $3);
       }
     ;
 
 call_statement {ASTNode*}:
     call_statement_with_args_prefix ")"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     | "CALL" path_expression "(" ")"
       {
-        $$ = MAKE_NODE(ASTCallStatement, @$, {$2});
+        $$ = MakeNode<ASTCallStatement>(@$, $2);
       }
     ;
 
@@ -12311,8 +12421,8 @@ opt_access {bool}:
 drop_all_row_access_policies_statement {ASTNode*}:
     "DROP" "ALL" "ROW" opt_access "POLICIES" "ON" path_expression
       {
-        auto* drop_all = MAKE_NODE(ASTDropAllRowAccessPoliciesStatement, @$,
-            {$7});
+        auto* drop_all = MakeNode<ASTDropAllRowAccessPoliciesStatement>(@$,
+            $7);
         drop_all->set_has_access_keyword($4);
         $$ = drop_all;
       }
@@ -12347,8 +12457,8 @@ drop_statement {ASTNode*}:
     "DROP" "PRIVILEGE" "RESTRICTION" opt_if_exists
     "ON" privilege_list "ON" identifier path_expression
       {
-        auto* node = MAKE_NODE(ASTDropPrivilegeRestrictionStatement, @$,
-                               {$6, $8, $9});
+        auto* node = MakeNode<ASTDropPrivilegeRestrictionStatement>(@$,
+                               $6, $8, $9);
         node->set_is_if_exists($4);
         $$ = node;
       }
@@ -12356,10 +12466,9 @@ drop_statement {ASTNode*}:
     on_path_expression
       {
         ASTPathExpression* path_expression =
-            $7 == nullptr ? nullptr : MAKE_NODE(ASTPathExpression, @6, {$6});
+            $7 == nullptr ? nullptr : MakeNode<ASTPathExpression>(@6, $6);
         // This is a DROP ROW ACCESS POLICY statement.
-        auto* drop_row_access_policy = MAKE_NODE(
-            ASTDropRowAccessPolicyStatement, @$, {path_expression, $7});
+        auto* drop_row_access_policy = MakeNode<ASTDropRowAccessPolicyStatement>(@$, path_expression, $7);
         drop_row_access_policy->set_is_if_exists($5);
         $$ = drop_row_access_policy;
       }
@@ -12367,14 +12476,12 @@ drop_statement {ASTNode*}:
       opt_on_path_expression
       {
         if ($2 == IndexTypeKeywords::kSearch) {
-          auto* drop_search_index = MAKE_NODE(
-             ASTDropSearchIndexStatement, @$, {$5, $6});
+          auto* drop_search_index = MakeNode<ASTDropSearchIndexStatement>(@$, $5, $6);
           drop_search_index->set_is_if_exists($4);
           $$ = drop_search_index;
         }
         if ($2 == IndexTypeKeywords::kVector) {
-          auto* drop_vector_index = MAKE_NODE(
-            ASTDropVectorIndexStatement, @$, {$5, $6});
+          auto* drop_vector_index = MakeNode<ASTDropVectorIndexStatement>(@$, $5, $6);
           drop_vector_index->set_is_if_exists($4);
           $$ = drop_vector_index;
         }
@@ -12393,7 +12500,7 @@ drop_statement {ASTNode*}:
                                  "functions don't support "
                                  "overloading");
           }
-          auto* drop = MAKE_NODE(ASTDropTableFunctionStatement, @$, {$4});
+          auto* drop = MakeNode<ASTDropTableFunctionStatement>(@$, $4);
           drop->set_is_if_exists($3);
           $$ = drop;
         } else {
@@ -12403,7 +12510,7 @@ drop_statement {ASTNode*}:
             return MakeSyntaxError(@5,
                                  "Syntax error: Unexpected \"(\"");
           }
-          auto* drop = MAKE_NODE(ASTDropStatement, @$, {$4});
+          auto* drop = MakeNode<ASTDropStatement>(@$, $4);
           drop->set_schema_object_kind(SchemaObjectKind::kTable);
           drop->set_is_if_exists($3);
           $$ = drop;
@@ -12411,13 +12518,13 @@ drop_statement {ASTNode*}:
       }
     | "DROP" "SNAPSHOT" "TABLE" opt_if_exists maybe_dashed_path_expression
       {
-        auto* drop = MAKE_NODE(ASTDropSnapshotTableStatement, @$, {$5});
+        auto* drop = MakeNode<ASTDropSnapshotTableStatement>(@$, $5);
         drop->set_is_if_exists($4);
         $$ = drop;
       }
     | "DROP" generic_entity_type opt_if_exists path_expression
       {
-        auto* drop = MAKE_NODE(ASTDropEntityStatement, @$, {$2, $4});
+        auto* drop = MakeNode<ASTDropEntityStatement>(@$, $2, $4);
         drop->set_is_if_exists($3);
         $$ = drop;
       }
@@ -12449,7 +12556,7 @@ drop_statement {ASTNode*}:
             // will drop the zero-argument overload of foo(), rather than
             // dropping all overloads.
             auto* drop_function =
-                MAKE_NODE(ASTDropFunctionStatement, @$, {$4, $5});
+                MakeNode<ASTDropFunctionStatement>(@$, $4, $5);
             drop_function->set_is_if_exists($3);
             $$ = drop_function;
         } else {
@@ -12460,11 +12567,11 @@ drop_statement {ASTNode*}:
           }
           if ($2 == SchemaObjectKind::kMaterializedView) {
             auto* drop_materialized_view =
-                MAKE_NODE(ASTDropMaterializedViewStatement, @$, {$4});
+                MakeNode<ASTDropMaterializedViewStatement>(@$, $4);
             drop_materialized_view->set_is_if_exists($3);
             $$ = drop_materialized_view;
           } else {
-            auto* drop = MAKE_NODE(ASTDropStatement, @$, {$4});
+            auto* drop = MakeNode<ASTDropStatement>(@$, $4);
             drop->set_schema_object_kind($2);
             drop->set_is_if_exists($3);
             drop->set_drop_mode($6);
@@ -12502,7 +12609,7 @@ unterminated_non_empty_statement_list {ASTStatementList*}:
             "DEFINE MACRO statements cannot be nested under other statements "
             "or blocks.");
         }
-        $$ = MAKE_NODE(ASTStatementList, @$, {$stmt});
+        $$ = MakeNode<ASTStatementList>(@$, $stmt);
       }
     | unterminated_non_empty_statement_list[old_list] ";"
       unterminated_statement[new_stmt]
@@ -12513,26 +12620,26 @@ unterminated_non_empty_statement_list {ASTStatementList*}:
             "DEFINE MACRO statements cannot be nested under other statements "
             "or blocks.");
         }
-        $$ = parser->WithEndLocation(WithExtraChildren($old_list, {$new_stmt}), @$);
+        $$ = ExtendNodeRight($old_list, $new_stmt);
       }
     ;
 
 unterminated_non_empty_top_level_statement_list {ASTStatementList*}:
     unterminated_statement[stmt]
       {
-        $$ = MAKE_NODE(ASTStatementList, @$, {$stmt});
+        $$ = MakeNode<ASTStatementList>(@$, $stmt);
       }
     | unterminated_non_empty_top_level_statement_list[old_list] ";"
       unterminated_statement[new_stmt]
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($old_list, {$new_stmt}), @$);
+        $$ = ExtendNodeRight($old_list, $new_stmt);
       }
     ;
 
 opt_execute_into_clause {ASTNode*}:
   "INTO" identifier_list
     {
-      $$ = MAKE_NODE(ASTExecuteIntoClause, @$, {$2});
+      $$ = MakeNode<ASTExecuteIntoClause>(@$, $2);
     }
   | %empty
     {
@@ -12543,12 +12650,12 @@ opt_execute_into_clause {ASTNode*}:
 execute_using_argument {ASTNode*}:
   expression "AS" identifier
     {
-      auto* alias = MAKE_NODE(ASTAlias, @3, @3, {$3});
-      $$ = MAKE_NODE(ASTExecuteUsingArgument, @$, {$1, alias});
+      auto* alias = MakeNode<ASTAlias>(@3, $3);
+      $$ = MakeNode<ASTExecuteUsingArgument>(@$, $1, alias);
     }
   | expression
     {
-      $$ = MAKE_NODE(ASTExecuteUsingArgument, @$, {$1, nullptr});
+      $$ = MakeNode<ASTExecuteUsingArgument>(@$, $1);
     }
   ;
 
@@ -12557,11 +12664,11 @@ execute_using_argument {ASTNode*}:
 execute_using_argument_list {ASTNode*}:
   execute_using_argument
     {
-      $$ = MAKE_NODE(ASTExecuteUsingClause, @$, {$1});
+      $$ = MakeNode<ASTExecuteUsingClause>(@$, $1);
     }
   | execute_using_argument_list "," execute_using_argument
     {
-      $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+      $$ = ExtendNodeRight($1, $3);
     }
   ;
 
@@ -12580,39 +12687,38 @@ execute_immediate {ASTNode*}:
   "EXECUTE" "IMMEDIATE" expression opt_execute_into_clause
   opt_execute_using_clause
     {
-      $$ = MAKE_NODE(ASTExecuteImmediateStatement, @$, {$3, $4, $5});
+      $$ = MakeNode<ASTExecuteImmediateStatement>(@$, $3, $4, $5);
     }
   ;
 
-script {ASTNode*}:
+script:
   unterminated_non_empty_top_level_statement_list
   {
     $1->set_variable_declarations_allowed(true);
-    $$ = MAKE_NODE(ASTScript, @$, {$1});
+    *ast_node_result = MakeNode<ASTScript>(@$, $1);
   }
   | unterminated_non_empty_top_level_statement_list ";"
   {
     $1->set_variable_declarations_allowed(true);
-    $$ = MAKE_NODE(ASTScript, @$, {parser->WithEndLocation($1, @$)});
+    *ast_node_result =  MakeNode<ASTScript>(@$, WithEndLocation($1, @$));
   }
   | %empty
     {
       // Resolve to an empty script.
-      ASTStatementList* empty_stmt_list = MAKE_NODE(
-          ASTStatementList, @$, {});
-      $$ = MAKE_NODE(ASTScript, @$, {empty_stmt_list});
+      ASTStatementList* empty_stmt_list = MakeNode<ASTStatementList>(@$);
+      *ast_node_result = MakeNode<ASTScript>(@$, empty_stmt_list);
     }
   ;
 
 statement_list {ASTStatementList*}:
   unterminated_non_empty_statement_list ";"
     {
-      $$ = parser->WithEndLocation($1, @$);
+      $$ = WithEndLocation($1, @$);
     }
   | %empty
     {
       // Resolve to an empty statement list.
-      $$ = MAKE_NODE(ASTStatementList, @$, {});
+      $$ = MakeNode<ASTStatementList>(@$);
     }
   ;
 
@@ -12630,16 +12736,13 @@ opt_else {ASTNode*}:
 elseif_clauses {ASTNode*}:
   "ELSEIF" expression "THEN" statement_list
   {
-    ASTElseifClause* elseif_clause = MAKE_NODE(
-        ASTElseifClause, @$, {$2, $4});
-    $$ = MAKE_NODE(ASTElseifClauseList, @$, {elseif_clause});
+    ASTElseifClause* elseif_clause = MakeNode<ASTElseifClause>(@$, $2, $4);
+    $$ = MakeNode<ASTElseifClauseList>(@$, elseif_clause);
   }
   | elseif_clauses "ELSEIF" expression "THEN" statement_list
   {
-    ASTElseifClause* elseif_clause = MAKE_NODE(
-        ASTElseifClause, @2, {$3, $5});
-    $$ = parser->WithEndLocation(WithExtraChildren(
-        $1, {parser->WithEndLocation(elseif_clause, @$)}), @$);
+    ASTElseifClause* elseif_clause = MakeNode<ASTElseifClause>(MakeLocationRange(@2, @$), $3, $5);
+    $$ = ExtendNodeRight($1, elseif_clause);
   };
 
 opt_elseif_clauses {ASTNode*}:
@@ -12656,7 +12759,7 @@ opt_elseif_clauses {ASTNode*}:
 if_statement_unclosed {ASTNode*}:
     "IF" expression "THEN" statement_list opt_elseif_clauses opt_else
       {
-        $$ = MAKE_NODE(ASTIfStatement, @$, {$2, $4, $5, $6});
+        $$ = MakeNode<ASTIfStatement>(@$, $2, $4, $5, $6);
       }
     ;
 
@@ -12664,23 +12767,20 @@ if_statement {ASTNode*}:
     if_statement_unclosed
     "END" "IF"
       {
-        $$ = parser->WithEndLocation($1, @$);
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
 when_then_clauses {ASTNode*}:
     "WHEN" expression "THEN" statement_list
     {
-      ASTWhenThenClause* when_then_clause = MAKE_NODE(
-          ASTWhenThenClause, @$, {$2, $4});
-      $$ = MAKE_NODE(ASTWhenThenClauseList, @$, {when_then_clause});
+      ASTWhenThenClause* when_then_clause = MakeNode<ASTWhenThenClause>(@$, $2, $4);
+      $$ = MakeNode<ASTWhenThenClauseList>(@$, when_then_clause);
     }
     | when_then_clauses "WHEN" expression "THEN" statement_list
     {
-      ASTWhenThenClause* when_then_clause = MAKE_NODE(
-          ASTWhenThenClause, @2, {$3, $5});
-      $$ = parser->WithEndLocation(WithExtraChildren(
-          $1, {parser->WithEndLocation(when_then_clause, @$)}), @$);
+      ASTWhenThenClause* when_then_clause = MakeNode<ASTWhenThenClause>(MakeLocationRange(@2, @$), $3, $5);
+      $$ = ExtendNodeRight($1, when_then_clause);
     };
 
 opt_expression {ASTNode*}:
@@ -12697,11 +12797,11 @@ opt_expression {ASTNode*}:
 case_statement {ASTNode*}:
     "CASE" opt_expression when_then_clauses opt_else "END" "CASE"
       {
-        if (!parser->language_options().LanguageFeatureEnabled(
-                FEATURE_V_1_3_CASE_STMT)) {
+        if (!language_options.LanguageFeatureEnabled(
+                FEATURE_CASE_STMT)) {
           return MakeSyntaxError(@1, "Statement CASE...WHEN is not supported");
         }
-        $$ = MAKE_NODE(ASTCaseStatement, @$, {$2, $3, $4});
+        $$ = MakeNode<ASTCaseStatement>(@$, $2, $3, $4);
       }
     ;
 
@@ -12709,15 +12809,15 @@ begin_end_block {ASTNode*}:
     "BEGIN" statement_list[stmts] opt_exception_handler[handlers] "END"
     {
       $stmts->set_variable_declarations_allowed(true);
-      $$ = MAKE_NODE(ASTBeginEndBlock, @$, {$stmts, $handlers});
+      $$ = MakeNode<ASTBeginEndBlock>(@$, $stmts, $handlers);
     }
     ;
 
 opt_exception_handler {ASTNode*}:
-    "EXCEPTION" "WHEN" "ERROR" "THEN" statement_list {
-      ASTExceptionHandler* handler = MAKE_NODE(
-          ASTExceptionHandler, @2, {$5});
-      $$ = MAKE_NODE(ASTExceptionHandlerList, @1, {handler});
+    "EXCEPTION" "WHEN"[when] "ERROR" "THEN" statement_list {
+      auto* handler = MakeNode<ASTExceptionHandler>(@$, $5);
+      WithStartLocation(handler, @when.start());
+      $$ = MakeNode<ASTExceptionHandlerList>(@$, handler);
     }
     | %empty
     {
@@ -12739,23 +12839,23 @@ opt_default_expression {ASTNode*}:
 identifier_list {ASTNode*}:
     identifier
     {
-      $$ = MAKE_NODE(ASTIdentifierList, @$, {$1});
+      $$ = MakeNode<ASTIdentifierList>(@$, $1);
     }
     | identifier_list "," identifier
     {
-      $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+      $$ = ExtendNodeRight($1, $3);
     }
     ;
 
 variable_declaration {ASTNode*}:
     "DECLARE" identifier_list type opt_default_expression
     {
-      $$ = MAKE_NODE(ASTVariableDeclaration, @$, {$2, $3, $4});
+      $$ = MakeNode<ASTVariableDeclaration>(@$, $2, $3, $4);
     }
     |
     "DECLARE" identifier_list "DEFAULT" expression
     {
-      $$ = MAKE_NODE(ASTVariableDeclaration, @$, {$2, nullptr, $4});
+      $$ = MakeNode<ASTVariableDeclaration>(@$, $2, $4);
     }
     ;
 
@@ -12763,21 +12863,21 @@ loop_statement {ASTNode*}:
     { OVERRIDE_NEXT_TOKEN_LOOKBACK(KW_LOOP, LB_OPEN_STATEMENT_BLOCK); }
     "LOOP"[loop] statement_list "END" "LOOP"
     {
-      $$ = MAKE_NODE(ASTWhileStatement, @$, {$statement_list});
+      $$ = MakeNode<ASTWhileStatement>(@$, $statement_list);
     }
     ;
 
 while_statement {ASTNode*}:
     "WHILE" expression { OVERRIDE_NEXT_TOKEN_LOOKBACK(KW_DO, LB_OPEN_STATEMENT_BLOCK); } "DO" statement_list "END" "WHILE"
     {
-      $$ = MAKE_NODE(ASTWhileStatement, @$, {$expression, $statement_list});
+      $$ = MakeNode<ASTWhileStatement>(@$, $expression, $statement_list);
     }
     ;
 
 until_clause {ASTNode*}:
     "UNTIL" expression
     {
-      $$ = MAKE_NODE(ASTUntilClause, @$, {$2});
+      $$ = MakeNode<ASTUntilClause>(@$, $2);
     }
     ;
 
@@ -12785,11 +12885,11 @@ repeat_statement {ASTNode*}:
     { OVERRIDE_NEXT_TOKEN_LOOKBACK(KW_REPEAT, LB_OPEN_STATEMENT_BLOCK); }
     "REPEAT"[repeat] statement_list until_clause "END" "REPEAT"
     {
-     if (!parser->language_options().LanguageFeatureEnabled(
-              FEATURE_V_1_3_REPEAT)) {
+     if (!language_options.LanguageFeatureEnabled(
+              FEATURE_REPEAT)) {
         return MakeSyntaxError(@repeat, "REPEAT is not supported");
       }
-      $$ = MAKE_NODE(ASTRepeatStatement, @$, {$statement_list, $until_clause});
+      $$ = MakeNode<ASTRepeatStatement>(@$, $statement_list, $until_clause);
     }
     ;
 
@@ -12797,12 +12897,12 @@ for_in_statement {ASTNode*}:
     "FOR" identifier "IN" parenthesized_query[query]
     { OVERRIDE_NEXT_TOKEN_LOOKBACK(KW_DO, LB_OPEN_STATEMENT_BLOCK); } "DO" statement_list "END" "FOR"
     {
-     if (!parser->language_options().LanguageFeatureEnabled(
-              FEATURE_V_1_3_FOR_IN)) {
+     if (!language_options.LanguageFeatureEnabled(
+              FEATURE_FOR_IN)) {
         return MakeSyntaxError(@1, "FOR...IN is not supported");
       }
-      $$ = MAKE_NODE(ASTForInStatement, @$,
-        {$identifier, $query, $statement_list});
+      $$ = MakeNode<ASTForInStatement>(@$,
+        $identifier, $query, $statement_list);
     }
     ;
 
@@ -12812,10 +12912,10 @@ break_statement {ASTNode*}:
       ZETASQL_RETURN_IF_ERROR(ValidateLabelSupport($2, @2));
       ASTBreakStatement* stmt;
       if ($2 == nullptr) {
-        stmt = MAKE_NODE(ASTBreakStatement, @$, {});
+        stmt = MakeNode<ASTBreakStatement>(@$);
       } else {
-        auto label = MAKE_NODE(ASTLabel, @2, {$2});
-        stmt = MAKE_NODE(ASTBreakStatement, @$, {label});
+        auto label = MakeNode<ASTLabel>(@2, $2);
+        stmt = MakeNode<ASTBreakStatement>(@$, label);
       }
       stmt->set_keyword(ASTBreakContinueStatement::BREAK);
       $$ = stmt;
@@ -12825,10 +12925,10 @@ break_statement {ASTNode*}:
       ZETASQL_RETURN_IF_ERROR(ValidateLabelSupport($2, @2));
       ASTBreakStatement* stmt;
       if ($2 == nullptr) {
-        stmt = MAKE_NODE(ASTBreakStatement, @$, {});
+        stmt = MakeNode<ASTBreakStatement>(@$);
       } else {
-        auto label = MAKE_NODE(ASTLabel, @2, {$2});
-        stmt = MAKE_NODE(ASTBreakStatement, @$, {label});
+        auto label = MakeNode<ASTLabel>(@2, $2);
+        stmt = MakeNode<ASTBreakStatement>(@$, label);
       }
       stmt->set_keyword(ASTBreakContinueStatement::LEAVE);
       $$ = stmt;
@@ -12841,10 +12941,10 @@ continue_statement {ASTNode*}:
       ZETASQL_RETURN_IF_ERROR(ValidateLabelSupport($2, @2));
       ASTContinueStatement* stmt;
       if ($2 == nullptr) {
-        stmt = MAKE_NODE(ASTContinueStatement, @$, {});
+        stmt = MakeNode<ASTContinueStatement>(@$);
       } else {
-        auto label = MAKE_NODE(ASTLabel, @2, {$2});
-        stmt = MAKE_NODE(ASTContinueStatement, @$, {label});
+        auto label = MakeNode<ASTLabel>(@2, $2);
+        stmt = MakeNode<ASTContinueStatement>(@$, label);
       }
       stmt->set_keyword(ASTBreakContinueStatement::CONTINUE);
       $$ = stmt;
@@ -12854,10 +12954,10 @@ continue_statement {ASTNode*}:
       ZETASQL_RETURN_IF_ERROR(ValidateLabelSupport($2, @2));
       ASTContinueStatement* stmt;
       if ($2 == nullptr) {
-        stmt = MAKE_NODE(ASTContinueStatement, @$, {});
+        stmt = MakeNode<ASTContinueStatement>(@$);
       } else {
-        auto label = MAKE_NODE(ASTLabel, @2, {$2});
-        stmt = MAKE_NODE(ASTContinueStatement, @$, {label});
+        auto label = MakeNode<ASTLabel>(@2, $2);
+        stmt = MakeNode<ASTContinueStatement>(@$, label);
       }
       stmt->set_keyword(ASTBreakContinueStatement::ITERATE);
       $$ = stmt;
@@ -12869,29 +12969,25 @@ continue_statement {ASTNode*}:
 return_statement {ASTNode*}:
     "RETURN"
     {
-      $$ = MAKE_NODE(ASTReturnStatement, @$, {});
+      $$ = MakeNode<ASTReturnStatement>(@$);
     }
     ;
 
 raise_statement {ASTNode*}:
     "RAISE"
     {
-      $$ = MAKE_NODE(ASTRaiseStatement, @$);
+      $$ = MakeNode<ASTRaiseStatement>(@$);
     }
     | "RAISE" "USING" "MESSAGE" "=" expression
     {
-      $$ = MAKE_NODE(ASTRaiseStatement, @$, {$5});
+      $$ = MakeNode<ASTRaiseStatement>(@$, $5);
     };
 
-next_statement_kind {ASTNodeKind}:
+next_statement_kind:
     next_statement_kind_without_hint[kind]
       {
         *ast_node_result = nullptr;
-        // The parser will complain about the remainder of the input if we let
-        // the tokenizer continue to produce tokens, because we don't have any
-        // grammar for the rest of the input.
-        SetForceTerminate(tokenizer, /*end_byte_offset=*/nullptr);
-        $$ = $kind;
+        ast_statement_properties->node_kind = $kind;
       }
     | hint { OVERRIDE_CURRENT_TOKEN_LOOKBACK(@hint, LB_END_OF_STATEMENT_LEVEL_HINT); }
       next_statement_kind_without_hint[kind]
@@ -12901,11 +12997,7 @@ next_statement_kind {ASTNodeKind}:
             @hint, "Hints are not allowed on DEFINE MACRO statements.");
         }
         *ast_node_result = $hint;
-        // The parser will complain about the remainder of the input if we let
-        // the tokenizer continue to produce tokens, because we don't have any
-        // grammar for the rest of the input.
-        SetForceTerminate(tokenizer, /*end_byte_offset=*/nullptr);
-        $$ = $kind;
+        ast_statement_properties->node_kind = $kind;
       }
     ;
 
@@ -12933,9 +13025,12 @@ next_statement_kind_table:
     ;
 
 next_statement_kind_create_table_opt_as_or_semicolon:
+    // The opt_as_query is the very last thing in the create table statement, so
+    // the statement must end either with the as_query, a semicolon, or the end
+    // of the input. If other clauses are added after the as_query, they will
+    // need to be represented here as well.
     "AS" { ast_statement_properties->is_create_table_as_select = true; }
-    | ";"
-    | %empty
+    | semicolon_or_eoi
     ;
 
 next_statement_kind_create_modifiers {ASTNodeKind}:
@@ -13015,7 +13110,7 @@ next_statement_kind_without_hint {ASTNodeKind}:
     | "GRAPH" { $$ = ASTQueryStatement::kConcreteNodeKind; }
     | "REVOKE" { $$ = ASTRevokeStatement::kConcreteNodeKind; }
     | "RENAME" { $$ = ASTRenameStatement::kConcreteNodeKind; }
-    | "START" { $$ = ASTBeginStatement::kConcreteNodeKind; }
+    | "START" "TRANSACTION" { $$ = ASTBeginStatement::kConcreteNodeKind; }
     | "BEGIN" { $$ = ASTBeginStatement::kConcreteNodeKind; }
     | "SET" "TRANSACTION" identifier
       { $$ = ASTSetTransactionStatement::kConcreteNodeKind; }
@@ -13092,7 +13187,9 @@ next_statement_kind_without_hint {ASTNodeKind}:
       { $$ = ASTCreateSchemaStatement::kConcreteNodeKind; }
     | "CREATE" opt_or_replace generic_entity_type
       { $$ = ASTCreateEntityStatement::kConcreteNodeKind; }
-    | "CREATE" next_statement_kind_create_modifiers
+    | "CREATE"
+      // LINT.IfChange(ctas_next_statement_kind)
+      next_statement_kind_create_modifiers
       next_statement_kind_table opt_if_not_exists
       maybe_dashed_path_expression opt_table_element_list
       opt_like_path_expression opt_clone_table opt_copy_table
@@ -13100,6 +13197,7 @@ next_statement_kind_without_hint {ASTNodeKind}:
       opt_partition_by_clause_no_hint
       opt_cluster_by_clause_no_hint opt_with_connection_clause opt_options_list
       next_statement_kind_create_table_opt_as_or_semicolon
+      // LINT.ThenChange(:ctas_statement)
       {
         $$ = ASTCreateTableStatement::kConcreteNodeKind;
       }
@@ -13158,6 +13256,8 @@ next_statement_kind_without_hint {ASTNodeKind}:
       { $$ = ASTTruncateStatement::kConcreteNodeKind; }
     | "IF"
       { $$ = ASTIfStatement::kConcreteNodeKind; }
+    | "CASE"
+      { $$ = ASTCaseStatement::kConcreteNodeKind; }
     | "WHILE"
       { $$ = ASTWhileStatement::kConcreteNodeKind; }
     | "LOOP"
@@ -13196,24 +13296,24 @@ next_statement_kind_without_hint {ASTNodeKind}:
 spanner_primary_key {ASTNode*}:
     "PRIMARY" "KEY" primary_key_element_list
       {
-        if (!parser->language_options().LanguageFeatureEnabled(
+        if (!language_options.LanguageFeatureEnabled(
           FEATURE_SPANNER_LEGACY_DDL)) {
               return MakeSyntaxError(@1, "PRIMARY KEY must be defined in the "
                 "table element list as column attribute or constraint.");
         }
-        $$ = MAKE_NODE(ASTPrimaryKey, @$, {$3});
+        $$ = MakeNode<ASTPrimaryKey>(@$, $3);
       }
     ;
 
 spanner_index_interleave_clause {ASTNode*}:
     "," "INTERLEAVE" "IN" maybe_dashed_path_expression
       {
-        if (!parser->language_options().LanguageFeatureEnabled(
+        if (!language_options.LanguageFeatureEnabled(
           FEATURE_SPANNER_LEGACY_DDL)) {
             return MakeSyntaxError(@1, "Syntax error: Expected end of input but "
               "got \",\"");
         }
-        auto* clause = MAKE_NODE(ASTSpannerInterleaveClause, @$, {$4});
+        auto* clause = MakeNode<ASTSpannerInterleaveClause>(@$, $4);
         clause->set_type(ASTSpannerInterleaveClause::IN);
         $$ = clause;
       }
@@ -13223,13 +13323,13 @@ opt_spanner_interleave_in_parent_clause {ASTNode*}:
     "," "INTERLEAVE" "IN" "PARENT" maybe_dashed_path_expression
     opt_foreign_key_on_delete
       {
-        if (!parser->language_options().LanguageFeatureEnabled(
+        if (!language_options.LanguageFeatureEnabled(
           FEATURE_SPANNER_LEGACY_DDL)) {
             return MakeSyntaxError(@1, "Syntax error: Expected end of input but "
               "got \",\"");
         }
 
-        auto* clause = MAKE_NODE(ASTSpannerInterleaveClause, @$, {$5});
+        auto* clause = MakeNode<ASTSpannerInterleaveClause>(@$, $5);
         clause->set_action($6);
         clause->set_type(ASTSpannerInterleaveClause::IN_PARENT);
         $$ = clause;
@@ -13240,13 +13340,13 @@ opt_spanner_interleave_in_parent_clause {ASTNode*}:
 opt_spanner_table_options {ASTNode*}:
     spanner_primary_key opt_spanner_interleave_in_parent_clause
       {
-        if (!parser->language_options().LanguageFeatureEnabled(
+        if (!language_options.LanguageFeatureEnabled(
           FEATURE_SPANNER_LEGACY_DDL)) {
             return MakeSyntaxError(@1, "PRIMARY KEY must be defined in the "
                 "table element list as column attribute or constraint.");
         }
 
-        $$ = MAKE_NODE(ASTSpannerTableOptions, @$, {$1, $2});
+        $$ = MakeNode<ASTSpannerTableOptions>(@$, $1, $2);
       }
     | %empty { $$ = nullptr; }
     ;
@@ -13254,7 +13354,7 @@ opt_spanner_table_options {ASTNode*}:
 opt_spanner_null_filtered {bool}:
     "NULL_FILTERED"
       {
-        if (!parser->language_options().LanguageFeatureEnabled(
+        if (!language_options.LanguageFeatureEnabled(
           FEATURE_SPANNER_LEGACY_DDL)) {
             return MakeSyntaxError(
               @1, "null_filtered is not a supported object type");
@@ -13269,7 +13369,7 @@ opt_spanner_null_filtered {bool}:
 spanner_generated_or_default {ASTNode*}:
     "AS" "(" expression ")" "STORED"
       {
-        auto* node = MAKE_NODE(ASTGeneratedColumnInfo, @$, {$3});
+        auto* node = MakeNode<ASTGeneratedColumnInfo>(@$, $3);
         node->set_stored_mode(ASTGeneratedColumnInfo::STORED);
         $$ = node;
       }
@@ -13286,7 +13386,7 @@ opt_spanner_not_null_attribute {ASTNode*}:
       {
         // Feature-checking here would make parser reduce and error out
         // too early, so we rely on the check in spanner_alter_column_action.
-        $$ = MAKE_NODE(ASTColumnAttributeList, @$, {$1});
+        $$ = MakeNode<ASTColumnAttributeList>(@$, $1);
       }
     | %empty { $$ = nullptr; }
     ;
@@ -13296,7 +13396,7 @@ spanner_alter_column_action {ASTNode*}:
     opt_spanner_not_null_attribute opt_spanner_generated_or_default
     opt_options_list
       {
-        if (!parser->language_options().LanguageFeatureEnabled(
+        if (!language_options.LanguageFeatureEnabled(
           FEATURE_SPANNER_LEGACY_DDL)) {
             return MakeSyntaxError(@column_schema_inner,
               "Expected keyword DROP or keyword SET but got identifier");
@@ -13305,27 +13405,27 @@ spanner_alter_column_action {ASTNode*}:
           return MakeSyntaxError(@opt_if_exists,
             "Syntax error: IF EXISTS is not supported");
         }
-        auto* schema = parser->WithEndLocation(
-            WithExtraChildren($column_schema_inner, {
+        auto* schema = ExtendNodeRight($column_schema_inner,
+              @$.end(),
               $opt_spanner_generated_or_default,
               $opt_spanner_not_null_attribute,
               $opt_options_list
-            }), @$);
-        auto* column = MAKE_NODE(ASTColumnDefinition, @$,
-          {$identifier, schema});
-        $$ = MAKE_NODE(ASTSpannerAlterColumnAction, @$,
-          {parser->WithStartLocation(column, @identifier)});
+            );
+        auto* column = MakeNode<ASTColumnDefinition>(@$,
+          $identifier, schema);
+        $$ = MakeNode<ASTSpannerAlterColumnAction>(@$,
+          WithStartLocation(column, @identifier));
       }
     ;
 
 spanner_set_on_delete_action {ASTNode*}:
     "SET" "ON" "DELETE" foreign_key_action
       {
-        if (!parser->language_options().LanguageFeatureEnabled(
+        if (!language_options.LanguageFeatureEnabled(
           FEATURE_SPANNER_LEGACY_DDL)) {
             return MakeSyntaxError(@2, "Syntax error: Unexpected keyword ON");
         }
-        auto* node = MAKE_NODE(ASTSpannerSetOnDeleteAction, @$, {});
+        auto* node = MakeNode<ASTSpannerSetOnDeleteAction>(@$);
         node->set_action($foreign_key_action);
         $$ = node;
       }
@@ -13339,7 +13439,7 @@ spanner_set_on_delete_action {ASTNode*}:
 
 #include "{{.Options.AbslIncludePrefix}}/strings/string_view.h"
 #include "{{.Options.DirIncludePrefix}}{{.Options.FilenamePrefix}}token.h"
-#include "zetasql/parser/bison_parser_mode.h"
+#include "zetasql/parser/parser_mode.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/common/errors.h"
 #include "absl/strings/escaping.h"
@@ -13412,7 +13512,7 @@ absl::Status MakeSyntaxError(const Location& location, absl::string_view msg) {
   // TODO : Attach location and message; return StatusBuilder
   *error_message = std::move(msg);
   *error_location = location.start();
-  return absl::AbortedError("YYABORT");
+  return absl::InvalidArgumentError("YYABORT");
 }
 
 // Generates a parse error of the form "Unexpected X", where X is a description
@@ -13422,8 +13522,8 @@ absl::Status MakeSyntaxError(const Location& location) {
 }
 
 absl::Status ValidateLabelSupport(ASTNode* node, const Location& location) {
-  if (node == nullptr || parser->language_options().LanguageFeatureEnabled(
-                            FEATURE_V_1_3_SCRIPT_LABEL)) {
+  if (node == nullptr || language_options.LanguageFeatureEnabled(
+                            FEATURE_SCRIPT_LABEL)) {
     return absl::OkStatus();
   }
   return MakeSyntaxError(location, "Script labels are not supported");
@@ -13433,7 +13533,7 @@ absl::Status ValidateLabelSupport(ASTNode* node, const Location& location) {
 // used to prevent the parser from silently ignoring macro constructs when the
 // the system isn't configured to use them.
 absl::Status ValidateMacroSupport(const Location& location) {
-  if(parser->macro_expansion_mode() == MacroExpansionMode::kNone) {
+  if(macro_expansion_mode == MacroExpansionMode::kNone) {
     return MakeSyntaxError(
         location,
         "Syntax error: DEFINE MACRO statements are not supported because "
@@ -13456,6 +13556,16 @@ absl::Status ValidateNoWhitespace(
   }
   return absl::OkStatus();
 }
+
+template <typename T, typename... TChildren>
+T* MakeNode(const ParseLocationRange& location, TChildren... children) {
+  T* result = node_factory.CreateASTNode<T>(location);
+  ExtendNodeRight(result, location.end(), children...);
+  return result;
+}
+
+  // Used to assign positions to ? parameters.
+  int32_t previous_positional_parameter_position_ = 0;
 
 {{ end -}}
 
@@ -13528,7 +13638,7 @@ static absl::string_view getTokenStrForError(int32_t token_kind) {
 #include <utility>
 #include <vector>
 
-#include "zetasql/parser/bison_parser.h"
+#include "zetasql/parser/ast_node_factory.h"
 #include "zetasql/parser/textmapper_lexer_adapter.h"
 #include "zetasql/parser/join_processor.h"
 #include "zetasql/parser/parse_tree.h"
@@ -13546,7 +13656,7 @@ static absl::string_view getTokenStrForError(int32_t token_kind) {
 #include "absl/strings/str_join.h"
 #include "{{.Options.DirIncludePrefix}}{{.Options.FilenamePrefix}}token.h"
 
-using namespace zetasql::parser_internal;
+using namespace zetasql::parser::internal;
 {{end -}}
 
 {{define "parserIncludes" -}}

@@ -22,8 +22,8 @@
 //
 //   bool BitCast(TIN in1, TOUT *out, absl::Status* error);
 //
-// Here TIN and TOUT can be one of the following types: int32_t, int64_t, uint32_t,
-// uint64_t.
+// Here TIN and TOUT can be one of the following types: int32, int64, uint32,
+// uint64.
 
 #include "absl/base/casts.h"
 #include "zetasql/base/status.h"

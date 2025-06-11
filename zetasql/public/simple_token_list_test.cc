@@ -257,7 +257,7 @@ TEST(TokenListTest, AddMultipleTokens) {
 }
 
 TEST(TokenListTest, InvalidBytes) {
-  TokenList token_list = TokenList::FromBytes("123");
+  TokenList token_list = TokenList::FromBytesUnvalidated("123");
   EXPECT_FALSE(token_list.IsValid());
   EXPECT_EQ("123", token_list.GetBytes());
   EXPECT_THAT(token_list.GetIterator(),
@@ -282,7 +282,7 @@ TEST(TokenListTest, EmptyFromBuilder) {
 }
 
 TEST(TokenListTest, EmptyFromBytes) {
-  TokenList token_list = TokenList::FromBytes("");
+  TokenList token_list = TokenList::FromBytesUnvalidated("");
   EXPECT_EQ("", token_list.GetBytes());
   EXPECT_TRUE(token_list.EquivalentTo(TokenList()));
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<TextToken> tokens, ToVector(token_list));
@@ -331,7 +331,7 @@ TEST(TokenListTest, Size) {
 TEST(TokenListTest, Equivalence) {
   EXPECT_TRUE(TokenList().EquivalentTo(TokenList()));
 
-  const TokenList bad = TokenList::FromBytes("BAD!");
+  const TokenList bad = TokenList::FromBytesUnvalidated("BAD!");
   ASSERT_FALSE(bad.GetIterator().ok());
 
   EXPECT_TRUE(bad.EquivalentTo(bad));

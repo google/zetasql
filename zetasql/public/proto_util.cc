@@ -28,21 +28,26 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/descriptor.h"
+#include "zetasql/public/simple_token_list.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/arithmetics.h"
 #include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/interval_value.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
-#include "zetasql/public/token_list.h"
+#include "zetasql/public/timestamp_picos_value.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/timestamp_util.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
+#include "absl/base/attributes.h"
 #include "absl/base/casts.h"
 #include "absl/base/optimization.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/flags/flag.h"
@@ -52,13 +57,12 @@
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/source_location.h"
 #include "absl/types/span.h"
-#include "absl/types/variant.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/io/coded_stream.h"
+#include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 #include "google/protobuf/wire_format_lite.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 // This flag is only for testing the non-optimized path when reading one proto
@@ -83,11 +87,11 @@ ProtoFieldDefaultOptions ProtoFieldDefaultOptions::FromFieldAndLanguage(
     const LanguageOptions& language_options) {
   ProtoFieldDefaultOptions options;
   if (!field->has_presence() && language_options.LanguageFeatureEnabled(
-                                    FEATURE_V_1_3_IGNORE_PROTO3_USE_DEFAULTS)) {
+                                    FEATURE_IGNORE_PROTO3_USE_DEFAULTS)) {
     options.ignore_use_default_annotations = true;
   }
   if (field->containing_type()->options().map_entry() &&
-      language_options.LanguageFeatureEnabled(FEATURE_V_1_3_PROTO_MAPS)) {
+      language_options.LanguageFeatureEnabled(FEATURE_PROTO_MAPS)) {
     options.map_fields_always_nonnull = true;
   }
   return options;
@@ -123,6 +127,11 @@ absl::Status GetProtoFieldDefault(const ProtoFieldDefaultOptions& options,
     // Missing repeated fields are treated as empty arrays.
     *default_value = Value::EmptyArray(type->AsArray());
     return absl::OkStatus();
+  }
+
+  if (type->IsMeasureType()) {
+    // Measure types don't have a default value.
+    ZETASQL_RET_CHECK_FAIL() << "Measure types don't have a default value";
   }
 
   const bool is_map_entry_with_special_handling =
@@ -233,6 +242,16 @@ absl::Status GetProtoFieldDefault(const ProtoFieldDefaultOptions& options,
             functions::IsValidDate(decoded_date), field);
         *default_value = Value::Date(decoded_date);
       }
+      break;
+    }
+    // TODO: This type is deprecated but is still returned by
+    // FieldDescriptorToTypeKind. Remove once it's fully deprecated.
+    case TYPE_TIMESTAMP_PICOS: {
+      // The default value is the same as the default for other Timestamp types.
+      // No explicit default should be defined for encoded bytes.
+      ZETASQL_ASSIGN_OR_RETURN(TimestampPicosValue value,
+                       TimestampPicosValue::FromUnixPicos(0));
+      *default_value = Value::TimestampPicos(value);
       break;
     }
     case TYPE_TIMESTAMP: {
@@ -709,7 +728,7 @@ struct VisitIntegerWireValueAsInt64 {
   }
 };
 
-// Same as 'value.ToInt64()', except uint64s are casted to int64_t, and bools and
+// Same as 'value.ToInt64()', except uint64s are casted to int64, and bools and
 // enums are not supported.
 absl::StatusOr<int64_t> IntegerWireValueAsInt64(const WireValueType& value) {
   return std::visit(VisitIntegerWireValueAsInt64(), value);

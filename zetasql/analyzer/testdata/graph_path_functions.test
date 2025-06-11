@@ -1,6 +1,5 @@
-[default language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_3_WITH_RECURSIVE,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_TYPE]
+[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,WITH_RECURSIVE,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_TYPE]
 [default no_test_extract_table_names]
-[default also_show_signature_mismatch_details]
 
 [run_sqlbuilder]
 [show_sqlbuilder_output]
@@ -510,17 +509,12 @@ SELECT * FROM GRAPH_TABLE(
 )
 
 --
-ERROR: Number of arguments does not match for function PATH. Supported signature: PATH(GRAPH_NODE, [[GRAPH_EDGE, GRAPH_NODE], ...]) [at 4:12]
-  LET q2 = PATH()
-           ^
-
---
-Signature Mismatch Details:
 ERROR: No matching signature for function PATH with no arguments
   Signature: PATH(GRAPH_NODE, [[GRAPH_EDGE, GRAPH_NODE], ...])
     Signature requires at least 1 argument, found 0 arguments [at 4:12]
   LET q2 = PATH()
            ^
+
 ==
 
 # PATH creation wrong types
@@ -533,18 +527,13 @@ SELECT * FROM GRAPH_TABLE(
 )
 
 --
-ERROR: No matching signature for function PATH for argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>, GRAPH_NODE(aml)<balance UINT64, id INT64>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>. Supported signature: PATH(GRAPH_NODE, [[GRAPH_EDGE, GRAPH_NODE], ...]) [at 4:12]
-  LET q2 = PATH(a, b, e)
-           ^
-
---
-Signature Mismatch Details:
 ERROR: No matching signature for function PATH
   Argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>, GRAPH_NODE(aml)<balance UINT64, id INT64>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>
   Signature: PATH(GRAPH_NODE, [[GRAPH_EDGE, GRAPH_NODE], ...])
     Argument 2: expected GRAPH_EDGE, found GRAPH_NODE(aml)<balance UINT64, id INT64> [at 4:12]
   LET q2 = PATH(a, b, e)
            ^
+
 ==
 
 # PATH creation wrong types
@@ -557,18 +546,13 @@ SELECT * FROM GRAPH_TABLE(
 )
 
 --
-ERROR: No matching signature for function PATH for argument types: GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>. Supported signature: PATH(GRAPH_NODE, [[GRAPH_EDGE, GRAPH_NODE], ...]) [at 4:12]
-  LET q2 = PATH(e)
-           ^
-
---
-Signature Mismatch Details:
 ERROR: No matching signature for function PATH
   Argument types: GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>
   Signature: PATH(GRAPH_NODE, [[GRAPH_EDGE, GRAPH_NODE], ...])
     Argument 1: expected GRAPH_NODE, found GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...> [at 4:12]
   LET q2 = PATH(e)
            ^
+
 ==
 
 # PATH creation wrong number of arguments
@@ -581,18 +565,13 @@ SELECT * FROM GRAPH_TABLE(
 )
 
 --
-ERROR: Number of arguments does not match for function PATH. Supported signature: PATH(GRAPH_NODE, [[GRAPH_EDGE, GRAPH_NODE], ...]) [at 4:12]
-  LET q2 = PATH(a, e, b, e)
-           ^
-
---
-Signature Mismatch Details:
 ERROR: No matching signature for function PATH
   Argument types: GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>, GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>
   Signature: PATH(GRAPH_NODE, [[GRAPH_EDGE, GRAPH_NODE], ...])
     Wrong number of repeated arguments provided. Expected a multiple of 2 but got 3 repeated arguments [at 4:12]
   LET q2 = PATH(a, e, b, e)
            ^
+
 ==
 
 # PATH creation different types
@@ -631,7 +610,7 @@ QueryStmt
                   | |   | +-GraphNodeScan
                   | |   | | +-column_list=[$element_table.a#1]
                   | |   | | +-label_expr=
-                  | |   | | | +-GraphLabel(label=aml.Person)
+                  | |   | | | +-GraphLabel(parse_location=46-52, label=aml.Person)
                   | |   | | +-target_element_table_list=[aml.Person]
                   | |   | +-GraphEdgeScan
                   | |   | | +-column_list=[$element_table.e#2]
@@ -649,7 +628,7 @@ QueryStmt
                   | |   | +-GraphNodeScan
                   | |   |   +-column_list=[$element_table.b#3]
                   | |   |   +-label_expr=
-                  | |   |   | +-GraphLabel(label=aml.Account)
+                  | |   |   | +-GraphLabel(parse_location=61-68, label=aml.Account)
                   | |   |   +-target_element_table_list=[aml.Account]
                   | |   +-path=
                   | |   | +-ColumnHolder(column=$graph_table.q#4)
@@ -873,7 +852,7 @@ QueryStmt
                   | |   | +-GraphNodeScan
                   | |   | | +-column_list=[$element_table.a#1]
                   | |   | | +-label_expr=
-                  | |   | | | +-GraphLabel(label=aml.Person)
+                  | |   | | | +-GraphLabel(parse_location=46-52, label=aml.Person)
                   | |   | | +-target_element_table_list=[aml.Person]
                   | |   | +-GraphEdgeScan
                   | |   | | +-column_list=[$element_table.e#2]
@@ -891,7 +870,7 @@ QueryStmt
                   | |   | +-GraphNodeScan
                   | |   |   +-column_list=[$element_table.b#3]
                   | |   |   +-label_expr=
-                  | |   |   | +-GraphLabel(label=aml.Account)
+                  | |   |   | +-GraphLabel(parse_location=61-68, label=aml.Account)
                   | |   |   +-target_element_table_list=[aml.Account]
                   | |   +-path=
                   | |   | +-ColumnHolder(column=$graph_table.p#4)
@@ -933,7 +912,7 @@ QueryStmt
                   | |   | +-GraphNodeScan
                   | |   |   +-column_list=[$element_table.c#7]
                   | |   |   +-label_expr=
-                  | |   |   | +-GraphLabel(label=aml.Person)
+                  | |   |   | +-GraphLabel(parse_location=92-98, label=aml.Person)
                   | |   |   +-target_element_table_list=[aml.Person]
                   | |   +-path=
                   | |   | +-ColumnHolder(column=$graph_table.q#8)
@@ -968,7 +947,7 @@ QueryStmt
 
 ==
 
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_3_WITH_RECURSIVE,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,WITH_RECURSIVE,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_TYPE,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 # Path concat with graph reference mismatch fails at resolution
 SELECT * FROM GRAPH_TABLE(
   aml
@@ -996,12 +975,6 @@ SELECT * FROM GRAPH_TABLE(
 )
 
 --
-ERROR: No matching signature for function CONCAT for argument types: PATH<GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>>, PATH<GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>>, PATH<GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>>, PATH<GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>>. Supported signatures: CONCAT(STRING, [STRING, ...]); CONCAT(BYTES, [BYTES, ...]) [at 5:18]
-  LET combined = concat(p, q, p, q)
-                 ^
-
---
-Signature Mismatch Details:
 ERROR: No matching signature for function CONCAT
   Argument types: PATH<GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>>, PATH<GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>>, PATH<GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>>, PATH<GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>>
   Signature: CONCAT(STRING, [STRING, ...])
@@ -1010,6 +983,7 @@ ERROR: No matching signature for function CONCAT
     Argument 1: Unable to coerce type PATH<GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>> to expected type BYTES [at 5:18]
   LET combined = concat(p, q, p, q)
                  ^
+
 ==
 
 # impossible path is identified as an error

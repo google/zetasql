@@ -36,6 +36,7 @@
 #include "zetasql/public/types/type_factory.h"
 #include "absl/algorithm/container.h"
 #include "absl/base/no_destructor.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/functional/bind_front.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
@@ -141,6 +142,37 @@ static absl::StatusOr<const Type*> ComputePathCreateType(
   return path_type;
 }
 
+absl::Status CheckDynamicPropertyEqualsArgs(
+    const FunctionSignature& signature,
+    absl::Span<const InputArgumentType> args,
+    const LanguageOptions& language_options) {
+  ZETASQL_RET_CHECK_EQ(args.size(), 3);
+  ZETASQL_RET_CHECK(args[0].type()->IsGraphElement() &&
+            args[0].type()->AsGraphElement()->is_dynamic());
+  const Type* target_value_type = args[2].type();
+  static const auto kSupportedTypes =
+      absl::NoDestructor(absl::flat_hash_set<TypeKind>({
+          TYPE_BOOL,
+          TYPE_INT32,
+          TYPE_UINT32,
+          TYPE_INT64,
+          TYPE_UINT64,
+          TYPE_FLOAT,
+          TYPE_DOUBLE,
+          TYPE_STRING,
+      }));
+  if (!kSupportedTypes->contains(target_value_type->kind()) &&
+      (!target_value_type->IsArray() ||
+       !kSupportedTypes->contains(
+           target_value_type->AsArray()->element_type()->kind()))) {
+    return MakeSqlError()
+           << "Unsupported equality comparison between dynamic property "
+              "and value of type "
+           << target_value_type->ShortTypeName(language_options.product_mode());
+  }
+  return absl::OkStatus();
+}
+
 }  // namespace
 
 void GetGraphFunctions(TypeFactory* type_factory,
@@ -157,7 +189,7 @@ void GetGraphFunctions(TypeFactory* type_factory,
         {ARG_TYPE_GRAPH_NODE, ARG_TYPE_GRAPH_EDGE},
         FN_IS_SOURCE_NODE}},
       FunctionOptions()
-          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_V_1_4_SQL_GRAPH)
+          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_SQL_GRAPH)
           .set_supports_safe_error_mode(false)
           .set_sql_name("IS SOURCE OF")
           .set_get_sql_callback(
@@ -169,7 +201,7 @@ void GetGraphFunctions(TypeFactory* type_factory,
         {ARG_TYPE_GRAPH_NODE, ARG_TYPE_GRAPH_EDGE},
         FN_IS_DEST_NODE}},
       FunctionOptions()
-          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_V_1_4_SQL_GRAPH)
+          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_SQL_GRAPH)
           .set_supports_safe_error_mode(false)
           .set_sql_name("IS DESTINATION OF")
           .set_get_sql_callback(
@@ -184,7 +216,7 @@ void GetGraphFunctions(TypeFactory* type_factory,
         {{ARG_TYPE_GRAPH_ELEMENT, FunctionArgumentType::REPEATED}},
         FN_ALL_DIFFERENT_GRAPH_ELEMENT}},
       FunctionOptions()
-          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_V_1_4_SQL_GRAPH)
+          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_SQL_GRAPH)
           .set_supports_safe_error_mode(false)
           .set_sql_name("ALL_DIFFERENT")
           .set_pre_resolution_argument_constraint(
@@ -199,7 +231,7 @@ void GetGraphFunctions(TypeFactory* type_factory,
         {{ARG_TYPE_GRAPH_ELEMENT, FunctionArgumentType::REPEATED}},
         FN_SAME_GRAPH_ELEMENT}},
       FunctionOptions()
-          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_V_1_4_SQL_GRAPH)
+          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_SQL_GRAPH)
           .set_supports_safe_error_mode(false)
           .set_sql_name("SAME")
           .set_pre_resolution_argument_constraint(
@@ -211,7 +243,7 @@ void GetGraphFunctions(TypeFactory* type_factory,
         {{ARG_TYPE_GRAPH_ELEMENT, string_type}},
         FN_PROPERTY_EXISTS}},
       FunctionOptions()
-          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_V_1_4_SQL_GRAPH)
+          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_SQL_GRAPH)
           .set_supports_safe_error_mode(false)
           .set_sql_name("PROPERTY_EXISTS")
           .set_get_sql_callback(
@@ -229,7 +261,7 @@ void GetGraphFunctions(TypeFactory* type_factory,
         {{ARG_TYPE_GRAPH_ELEMENT}},
         FN_LABELS_GRAPH_ELEMENT}},
       FunctionOptions()
-          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_V_1_4_SQL_GRAPH)
+          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_SQL_GRAPH)
           .set_supports_safe_error_mode(false));
 
   InsertFunction(
@@ -238,14 +270,14 @@ void GetGraphFunctions(TypeFactory* type_factory,
         {{ARG_TYPE_GRAPH_ELEMENT}},
         FN_PROPERTY_NAMES_GRAPH_ELEMENT}},
       FunctionOptions()
-          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_V_1_4_SQL_GRAPH)
+          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_SQL_GRAPH)
           .set_supports_safe_error_mode(false));
 
   InsertFunction(
       functions, options, "element_id", Function::SCALAR,
       {{string_type, {{ARG_TYPE_GRAPH_ELEMENT}}, FN_ELEMENT_ID_GRAPH_ELEMENT}},
       FunctionOptions()
-          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_V_1_4_SQL_GRAPH)
+          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_SQL_GRAPH)
           .set_supports_safe_error_mode(false)
           .set_volatility(FunctionEnums::STABLE));
 
@@ -253,7 +285,7 @@ void GetGraphFunctions(TypeFactory* type_factory,
       functions, options, "source_node_id", Function::SCALAR,
       {{string_type, {{ARG_TYPE_GRAPH_EDGE}}, FN_SOURCE_NODE_ID}},
       FunctionOptions()
-          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_V_1_4_SQL_GRAPH)
+          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_SQL_GRAPH)
           .set_supports_safe_error_mode(false)
           .set_volatility(FunctionEnums::STABLE));
 
@@ -261,7 +293,7 @@ void GetGraphFunctions(TypeFactory* type_factory,
       functions, options, "destination_node_id", Function::SCALAR,
       {{string_type, {{ARG_TYPE_GRAPH_EDGE}}, FN_DESTINATION_NODE_ID}},
       FunctionOptions()
-          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_V_1_4_SQL_GRAPH)
+          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_SQL_GRAPH)
           .set_supports_safe_error_mode(false)
           .set_volatility(FunctionEnums::STABLE));
 
@@ -269,112 +301,102 @@ void GetGraphFunctions(TypeFactory* type_factory,
       functions, options, "element_definition_name", Function::SCALAR,
       {{string_type, {{ARG_TYPE_GRAPH_ELEMENT}}, FN_ELEMENT_DEFINITION_NAME}},
       FunctionOptions()
-          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_V_1_4_SQL_GRAPH)
+          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_SQL_GRAPH)
           .set_supports_safe_error_mode(false));
 
-  InsertFunction(
-      functions, options, "path_length", Function::SCALAR,
-      {{int64_type, {{ARG_TYPE_GRAPH_PATH}}, FN_PATH_LENGTH}},
-      FunctionOptions()
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH)
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH_PATH_TYPE)
-          .set_supports_safe_error_mode(false)
-          .set_sql_name("PATH_LENGTH"));
+  InsertFunction(functions, options, "path_length", Function::SCALAR,
+                 {{int64_type, {{ARG_TYPE_GRAPH_PATH}}, FN_PATH_LENGTH}},
+                 FunctionOptions()
+                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH)
+                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH_PATH_TYPE)
+                     .set_supports_safe_error_mode(false)
+                     .set_sql_name("PATH_LENGTH"));
 
-  InsertFunction(
-      functions, options, "nodes", Function::SCALAR,
-      {{ARG_TYPE_ARBITRARY, {{ARG_TYPE_GRAPH_PATH}}, FN_PATH_NODES}},
-      FunctionOptions()
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH)
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH_PATH_TYPE)
-          .set_supports_safe_error_mode(false)
-          .set_sql_name("NODES")
-          .set_compute_result_type_callback(ComputePathNodesType));
+  InsertFunction(functions, options, "nodes", Function::SCALAR,
+                 {{ARG_TYPE_ARBITRARY, {{ARG_TYPE_GRAPH_PATH}}, FN_PATH_NODES}},
+                 FunctionOptions()
+                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH)
+                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH_PATH_TYPE)
+                     .set_supports_safe_error_mode(false)
+                     .set_sql_name("NODES")
+                     .set_compute_result_type_callback(ComputePathNodesType));
 
-  InsertFunction(
-      functions, options, "edges", Function::SCALAR,
-      {{ARG_TYPE_ARBITRARY, {{ARG_TYPE_GRAPH_PATH}}, FN_PATH_EDGES}},
-      FunctionOptions()
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH)
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH_PATH_TYPE)
-          .set_supports_safe_error_mode(false)
-          .set_sql_name("EDGES")
-          .set_compute_result_type_callback(ComputePathEdgesType));
+  InsertFunction(functions, options, "edges", Function::SCALAR,
+                 {{ARG_TYPE_ARBITRARY, {{ARG_TYPE_GRAPH_PATH}}, FN_PATH_EDGES}},
+                 FunctionOptions()
+                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH)
+                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH_PATH_TYPE)
+                     .set_supports_safe_error_mode(false)
+                     .set_sql_name("EDGES")
+                     .set_compute_result_type_callback(ComputePathEdgesType));
 
-  InsertFunction(
-      functions, options, "path_first", Function::SCALAR,
-      {{ARG_TYPE_ARBITRARY, {{ARG_TYPE_GRAPH_PATH}}, FN_PATH_FIRST}},
-      FunctionOptions()
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH)
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH_PATH_TYPE)
-          .set_supports_safe_error_mode(false)
-          .set_sql_name("PATH_FIRST")
-          .set_compute_result_type_callback(ComputePathNodeType));
+  InsertFunction(functions, options, "path_first", Function::SCALAR,
+                 {{ARG_TYPE_ARBITRARY, {{ARG_TYPE_GRAPH_PATH}}, FN_PATH_FIRST}},
+                 FunctionOptions()
+                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH)
+                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH_PATH_TYPE)
+                     .set_supports_safe_error_mode(false)
+                     .set_sql_name("PATH_FIRST")
+                     .set_compute_result_type_callback(ComputePathNodeType));
 
-  InsertFunction(
-      functions, options, "path_last", Function::SCALAR,
-      {{ARG_TYPE_ARBITRARY, {{ARG_TYPE_GRAPH_PATH}}, FN_PATH_LAST}},
-      FunctionOptions()
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH)
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH_PATH_TYPE)
-          .set_supports_safe_error_mode(false)
-          .set_sql_name("PATH_LAST")
-          .set_compute_result_type_callback(ComputePathNodeType));
+  InsertFunction(functions, options, "path_last", Function::SCALAR,
+                 {{ARG_TYPE_ARBITRARY, {{ARG_TYPE_GRAPH_PATH}}, FN_PATH_LAST}},
+                 FunctionOptions()
+                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH)
+                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH_PATH_TYPE)
+                     .set_supports_safe_error_mode(false)
+                     .set_sql_name("PATH_LAST")
+                     .set_compute_result_type_callback(ComputePathNodeType));
 
-  InsertFunction(
-      functions, options, "path", Function::SCALAR,
-      {{ARG_TYPE_ARBITRARY,
-        {ARG_TYPE_GRAPH_NODE,
-         {ARG_TYPE_GRAPH_EDGE, FunctionArgumentType::REPEATED},
-         {ARG_TYPE_GRAPH_NODE, FunctionArgumentType::REPEATED}},
-        FN_PATH_CREATE}},
-      FunctionOptions()
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH)
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH_PATH_TYPE)
-          .set_supports_safe_error_mode(false)
-          .set_sql_name("PATH")
-          .set_compute_result_type_callback(ComputePathCreateType));
+  InsertFunction(functions, options, "path", Function::SCALAR,
+                 {{ARG_TYPE_ARBITRARY,
+                   {ARG_TYPE_GRAPH_NODE,
+                    {ARG_TYPE_GRAPH_EDGE, FunctionArgumentType::REPEATED},
+                    {ARG_TYPE_GRAPH_NODE, FunctionArgumentType::REPEATED}},
+                   FN_PATH_CREATE}},
+                 FunctionOptions()
+                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH)
+                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH_PATH_TYPE)
+                     .set_supports_safe_error_mode(false)
+                     .set_sql_name("PATH")
+                     .set_compute_result_type_callback(ComputePathCreateType));
 
-  InsertFunction(
-      functions, options, "is_acyclic", Function::SCALAR,
-      {{bool_type, {{ARG_TYPE_GRAPH_PATH}}, FN_IS_ACYCLIC}},
-      FunctionOptions()
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH)
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH_PATH_TYPE)
-          .set_supports_safe_error_mode(false)
-          .set_sql_name("IS_ACYCLIC"));
+  InsertFunction(functions, options, "is_acyclic", Function::SCALAR,
+                 {{bool_type, {{ARG_TYPE_GRAPH_PATH}}, FN_IS_ACYCLIC}},
+                 FunctionOptions()
+                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH)
+                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH_PATH_TYPE)
+                     .set_supports_safe_error_mode(false)
+                     .set_sql_name("IS_ACYCLIC"));
 
-  InsertFunction(
-      functions, options, "is_trail", Function::SCALAR,
-      {{bool_type, {{ARG_TYPE_GRAPH_PATH}}, FN_IS_TRAIL}},
-      FunctionOptions()
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH)
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH_PATH_TYPE)
-          .set_supports_safe_error_mode(false)
-          .set_sql_name("IS_TRAIL"));
+  InsertFunction(functions, options, "is_trail", Function::SCALAR,
+                 {{bool_type, {{ARG_TYPE_GRAPH_PATH}}, FN_IS_TRAIL}},
+                 FunctionOptions()
+                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH)
+                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH_PATH_TYPE)
+                     .set_supports_safe_error_mode(false)
+                     .set_sql_name("IS_TRAIL"));
 
-  InsertFunction(
-      functions, options, "is_simple", Function::SCALAR,
-      {{bool_type, {{ARG_TYPE_GRAPH_PATH}}, FN_IS_SIMPLE}},
-      FunctionOptions()
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH)
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH_PATH_TYPE)
-          .set_supports_safe_error_mode(false)
-          .set_sql_name("IS_SIMPLE"));
+  InsertFunction(functions, options, "is_simple", Function::SCALAR,
+                 {{bool_type, {{ARG_TYPE_GRAPH_PATH}}, FN_IS_SIMPLE}},
+                 FunctionOptions()
+                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH)
+                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH_PATH_TYPE)
+                     .set_supports_safe_error_mode(false)
+                     .set_sql_name("IS_SIMPLE"));
 
-  InsertFunction(
-      functions, options, "$unchecked_path", Function::SCALAR,
-      {{ARG_TYPE_ARBITRARY,
-        {ARG_TYPE_GRAPH_NODE,
-         {ARG_TYPE_GRAPH_EDGE, FunctionArgumentType::REPEATED},
-         {ARG_TYPE_GRAPH_NODE, FunctionArgumentType::REPEATED}},
-        FN_UNCHECKED_PATH_CREATE,
-        FunctionSignatureOptions().set_is_internal(true)}},
-      FunctionOptions()
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH)
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH_PATH_TYPE)
-          .set_supports_safe_error_mode(false)
-          .set_compute_result_type_callback(ComputePathCreateType));
+  InsertFunction(functions, options, "$unchecked_path", Function::SCALAR,
+                 {{ARG_TYPE_ARBITRARY,
+                   {ARG_TYPE_GRAPH_NODE,
+                    {ARG_TYPE_GRAPH_EDGE, FunctionArgumentType::REPEATED},
+                    {ARG_TYPE_GRAPH_NODE, FunctionArgumentType::REPEATED}},
+                   FN_UNCHECKED_PATH_CREATE,
+                   FunctionSignatureOptions().set_is_internal(true)}},
+                 FunctionOptions()
+                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH)
+                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH_PATH_TYPE)
+                     .set_supports_safe_error_mode(false)
+                     .set_compute_result_type_callback(ComputePathCreateType));
 
   InsertFunction(
       functions, options, "$path_concat", Function::SCALAR,
@@ -384,21 +406,33 @@ void GetGraphFunctions(TypeFactory* type_factory,
         FN_CONCAT_PATH}},
       FunctionOptions()
           .set_get_sql_callback(absl::bind_front(&InfixFunctionSQL, "||"))
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH)
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH_PATH_TYPE)
+          .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH)
+          .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH_PATH_TYPE)
           .set_supports_safe_error_mode(false));
 
+  InsertFunction(functions, options, "$unchecked_path_concat", Function::SCALAR,
+                 {{ARG_TYPE_GRAPH_PATH,
+                   {ARG_TYPE_GRAPH_PATH,
+                    {ARG_TYPE_GRAPH_PATH, FunctionArgumentType::REPEATED}},
+                   FN_UNCHECKED_CONCAT_PATH,
+                   FunctionSignatureOptions().set_is_internal(true)}},
+                 FunctionOptions()
+                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH)
+                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH_PATH_TYPE)
+                     .set_supports_safe_error_mode(false));
+
   InsertFunction(
-      functions, options, "$unchecked_path_concat", Function::SCALAR,
-      {{ARG_TYPE_GRAPH_PATH,
-        {ARG_TYPE_GRAPH_PATH,
-         {ARG_TYPE_GRAPH_PATH, FunctionArgumentType::REPEATED}},
-        FN_UNCHECKED_CONCAT_PATH,
+      functions, options, "$dynamic_property_equals", Function::SCALAR,
+      {{bool_type,
+        {ARG_TYPE_GRAPH_ELEMENT, string_type, ARG_TYPE_ANY_1},
+        FN_DYNAMIC_PROPERTY_EQUALS,
         FunctionSignatureOptions().set_is_internal(true)}},
       FunctionOptions()
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH)
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH_PATH_TYPE)
-          .set_supports_safe_error_mode(false));
+          .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH)
+          .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH_DYNAMIC_ELEMENT_TYPE)
+          .set_supports_safe_error_mode(false)
+          .set_post_resolution_argument_constraint(
+              CheckDynamicPropertyEqualsArgs));
 }
 
 }  // namespace zetasql

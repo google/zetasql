@@ -32,6 +32,7 @@
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
@@ -39,6 +40,7 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_collation.h"
 #include "zetasql/resolved_ast/resolved_column.h"
@@ -56,6 +58,7 @@ namespace zetasql {
 STATIC_IDSTRING(kAnalyticId, "$analytic");
 STATIC_IDSTRING(kPartitionById, "$partitionby");
 STATIC_IDSTRING(kOrderById, "$orderby");
+STATIC_IDSTRING(kMatchRecognizeId, "$match_recognize");
 
 #define RETURN_ERROR_IF_OUT_OF_STACK_SPACE()                      \
   ZETASQL_RETURN_IF_NOT_ENOUGH_STACK(                           \
@@ -182,9 +185,114 @@ void AnalyticFunctionResolver::DisableNamedWindowRefs(
   named_window_not_allowed_here_name_ = clause_name;
 }
 
+absl::Status AnalyticFunctionResolver::SetMatchRecognizeWindowContext(
+    const ASTPartitionBy* ast_partition_by, const ASTOrderBy* ast_order_by,
+    ExprResolutionInfo* expr_resolution_info,
+    std::vector<ResolvedColumn>& out_partitioning_columns) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+  ZETASQL_RET_CHECK(analytic_function_groups_.empty());
+  ZETASQL_RET_CHECK(!in_match_recognize_window_context_);
+  in_match_recognize_window_context_ = true;
+
+  WindowExprInfoList* partition_by_info = nullptr;  // Not owned.
+  if (ast_partition_by != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(ResolveWindowPartitionByPreAggregation(
+        ast_partition_by, expr_resolution_info, /*allow_ordinals=*/false,
+        "MATCH_RECOGNIZE PARTITION BY clause", &partition_by_info));
+
+    for (std::unique_ptr<WindowExprInfo>& partitioning_expr_info :
+         *partition_by_info) {
+      // Since a window PARTITION BY may be shared by multiple analytic
+      // functions, do not create a new column if we have created one for this
+      // partitioning expressions.
+      ZETASQL_RET_CHECK(partitioning_expr_info->resolved_column_ref == nullptr);
+      ZETASQL_RETURN_IF_ERROR(AddColumnForWindowExpression(
+          kPartitionById,
+          resolver_->MakeIdString(
+              absl::StrCat("$partitionbycol", ++num_partitioning_exprs_)),
+          /*force_rename_columns=*/true,
+          expr_resolution_info->query_resolution_info,
+          partitioning_expr_info.get()));
+
+      out_partitioning_columns.push_back(
+          partitioning_expr_info->resolved_column_ref->column());
+    }
+  }
+
+  // ORDER BY
+  WindowExprInfoList* order_by_info = nullptr;  // Not owned.
+  ZETASQL_RETURN_IF_ERROR(ResolveWindowOrderByPreAggregation(
+      ast_order_by, /*is_in_range_window=*/false, expr_resolution_info,
+      /*allow_ordinals=*/false, "MATCH_RECOGNIZE ORDER BY clause",
+      &order_by_info));
+
+  auto group_info = std::make_unique<AnalyticFunctionGroupInfo>(
+      ast_partition_by, ast_order_by);
+
+  // Do not place this group in the map, since it's only grouped with function
+  // calls called in its context (e.g. in the DEFINE clause) and share its
+  // window.
+  analytic_function_groups_.emplace_back(std::move(group_info));
+
+  return absl::OkStatus();
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
+AnalyticFunctionResolver::AddToMatchRecognizeMainAnalyticGroup(
+    const ASTFunctionCall* ast_function_call,
+    ExprResolutionInfo* expr_resolution_info,
+    std::unique_ptr<const ResolvedFunctionCall> resolved_call,
+    std::unique_ptr<const ResolvedWindowFrame> resolved_window_frame) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+  ZETASQL_RET_CHECK(in_match_recognize_window_context_);
+
+  ZETASQL_RET_CHECK(!analytic_function_groups_.empty());
+  AnalyticFunctionGroupInfo* group_info =
+      analytic_function_groups_.front().get();
+
+  if (resolved_call->function()->SupportsWindowFraming() &&
+      resolved_window_frame == nullptr) {
+    ZETASQL_RET_CHECK(group_info->ast_order_by != nullptr);
+    ZETASQL_ASSIGN_OR_RETURN(
+        resolved_window_frame,
+        ResolvedWindowFrameBuilder()
+            .set_frame_unit(ResolvedWindowFrame::RANGE)
+            .set_start_expr(
+                ResolvedWindowFrameExprBuilder()
+                    .set_boundary_type(
+                        ResolvedWindowFrameExpr::UNBOUNDED_PRECEDING)
+                    .set_expression(nullptr))
+            .set_end_expr(
+                ResolvedWindowFrameExprBuilder()
+                    .set_boundary_type(ResolvedWindowFrameExpr::CURRENT_ROW)
+                    .set_expression(nullptr))
+            .Build());
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<const ResolvedAnalyticFunctionCall>
+          resolved_analytic_function_call,
+      FinalizeResolvedAnalyticFunctionCall(
+          ast_function_call, ast_function_call, expr_resolution_info,
+          std::move(resolved_call), /*resolved_where_expr=*/nullptr,
+          std::move(resolved_window_frame)));
+
+  const ResolvedColumn resolved_column(
+      resolver_->AllocateColumnId(), kAnalyticId,
+      resolver_->MakeIdString(
+          absl::StrCat("$analytic", num_analytic_functions_)),
+      resolved_analytic_function_call->annotated_type());
+
+  group_info->resolved_computed_columns.emplace_back(MakeResolvedComputedColumn(
+      resolved_column, std::move(resolved_analytic_function_call)));
+
+  // Set the output resolved expression to be a column reference.
+  return resolver_->MakeColumnRef(resolved_column);
+}
+
 absl::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
     const ASTAnalyticFunctionCall* ast_analytic_function_call,
-    ResolvedFunctionCall* resolved_function_call,
+    std::unique_ptr<const ResolvedFunctionCall> resolved_function_call,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
@@ -193,7 +301,7 @@ absl::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
   // WHERE clause resolution
   std::unique_ptr<const ResolvedExpr> resolved_where_expr;
   ZETASQL_RETURN_IF_ERROR(resolver_->ResolveWhereModifier(
-      ast_analytic_function_call->function(), resolved_function_call,
+      ast_analytic_function_call->function(), resolved_function_call.get(),
       expr_resolution_info->analytic_name_scope, &resolved_where_expr));
 
   const ASTWindowSpecification* over_clause_window_spec =
@@ -221,18 +329,19 @@ absl::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
       flattened_window_info->ast_grouping_window_spec;
 
   // Validate the analytic and DISTINCT support.
-  ZETASQL_RETURN_IF_ERROR(CheckWindowSupport(resolved_function_call,
-                                     ast_analytic_function_call,
-                                     ast_order_by, ast_window_frame));
+  ZETASQL_RETURN_IF_ERROR(CheckWindowSupport(resolved_function_call.get(),
+                                     ast_analytic_function_call, ast_order_by,
+                                     ast_window_frame));
 
   // Resolve PARTITION BY and ORDER BY.
-  ExprResolutionInfo over_expr_resolution_info(expr_resolution_info,
-                                               {.allows_analytic = false});
+  auto over_expr_resolution_info = std::make_unique<ExprResolutionInfo>(
+      expr_resolution_info,
+      ExprResolutionInfoOptions{.allows_analytic = false});
   WindowExprInfoList* partition_by_info = nullptr;  // Not owned.
   if (ast_partition_by != nullptr) {
     ZETASQL_RETURN_IF_ERROR(ResolveWindowPartitionByPreAggregation(
-        ast_partition_by, &over_expr_resolution_info, /*allow_ordinals=*/true,
-        "PARTITION BY", &partition_by_info));
+        ast_partition_by, over_expr_resolution_info.get(),
+        /*allow_ordinals=*/true, "PARTITION BY", &partition_by_info));
   }
 
   WindowExprInfoList* order_by_info = nullptr;  // Not owned.
@@ -250,7 +359,7 @@ absl::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
     }
 
     ZETASQL_RETURN_IF_ERROR(ResolveWindowOrderByPreAggregation(
-        ast_order_by, is_in_range_window, &over_expr_resolution_info,
+        ast_order_by, is_in_range_window, over_expr_resolution_info.get(),
         /*allow_ordinals=*/true, "Window ORDER BY", &order_by_info));
   }
 
@@ -265,9 +374,9 @@ absl::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
         ordering_expr_type = order_by_info->back()->type;
       }
     }
-    ZETASQL_RETURN_IF_ERROR(ResolveWindowFrame(
-        ast_window_frame, ordering_expr_type, &over_expr_resolution_info,
-        &resolved_window_frame));
+    ZETASQL_RETURN_IF_ERROR(ResolveWindowFrame(ast_window_frame, ordering_expr_type,
+                                       over_expr_resolution_info.get(),
+                                       &resolved_window_frame));
   }
 
   // Generate an implicit window frame if it is not given but is allowed.
@@ -289,29 +398,26 @@ absl::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
     }
   }
 
-  ResolvedNonScalarFunctionCallBase::NullHandlingModifier
-      resolved_null_handling_modifier_kind =
-          resolver_->ResolveNullHandlingModifier(
-              ast_analytic_function_call->function()->null_handling_modifier());
-  if (resolved_null_handling_modifier_kind !=
-      ResolvedNonScalarFunctionCallBase::DEFAULT_NULL_HANDLING) {
-    if (!resolver_->analyzer_options_.language().LanguageFeatureEnabled(
-            FEATURE_V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC)) {
-      return MakeSqlErrorAt(ast_analytic_function_call)
-             << "IGNORE NULLS and RESPECT NULLS in analytic functions are not "
-                "supported";
-    }
-    if (!resolved_function_call->function()->SupportsNullHandlingModifier()) {
-      return MakeSqlErrorAt(ast_analytic_function_call)
-             << "IGNORE NULLS and RESPECT NULLS are not allowed for analytic "
-                "function "
-             << resolved_function_call->function()->SQLName();
-    }
+  if (in_match_recognize_window_context_) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        *resolved_expr_out,
+        AddToMatchRecognizeMainAnalyticGroup(
+            ast_analytic_function_call->function(), expr_resolution_info,
+            std::move(resolved_function_call),
+            std::move(resolved_window_frame)));
+    return absl::OkStatus();
   }
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<const ResolvedAnalyticFunctionCall>
+          resolved_analytic_function_call,
+      FinalizeResolvedAnalyticFunctionCall(
+          ast_analytic_function_call, ast_analytic_function_call->function(),
+          expr_resolution_info, std::move(resolved_function_call),
+          std::move(resolved_where_expr), std::move(resolved_window_frame)));
 
   // Create a ResolvedColumn. If this call is a top-level SELECT column and has
   // an alias, use that alias.
-  ++num_analytic_functions_;
   IdString alias = resolver_->GetColumnAliasForTopLevelExpression(
       expr_resolution_info, ast_analytic_function_call);
   if (alias.empty() ||
@@ -319,24 +425,6 @@ absl::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
     alias = resolver_->MakeIdString(
         absl::StrCat("$analytic", num_analytic_functions_));
   }
-  std::unique_ptr<ResolvedAnalyticFunctionCall> resolved_analytic_function_call;
-  const bool is_distinct = ast_analytic_function_call->function()->distinct();
-  resolved_analytic_function_call = MakeResolvedAnalyticFunctionCall(
-      resolved_function_call->type(), resolved_function_call->function(),
-      resolved_function_call->signature(),
-      resolved_function_call->release_argument_list(),
-      resolved_function_call->release_generic_argument_list(),
-      resolved_function_call->error_mode(), is_distinct,
-      resolved_null_handling_modifier_kind, std::move(resolved_where_expr),
-      std::move(resolved_window_frame));
-  resolver_->MaybeRecordParseLocation(ast_analytic_function_call,
-                                      resolved_analytic_function_call.get());
-  ZETASQL_RETURN_IF_ERROR(resolver_->MaybeResolveCollationForFunctionCallBase(
-      /*error_location=*/ast_analytic_function_call,
-      resolved_analytic_function_call.get()));
-  ZETASQL_RETURN_IF_ERROR(resolver_->CheckAndPropagateAnnotations(
-      /*error_node=*/ast_analytic_function_call,
-      resolved_analytic_function_call.get()));
   const ResolvedColumn resolved_column(
       resolver_->AllocateColumnId(), kAnalyticId, alias,
       resolved_analytic_function_call->annotated_type());
@@ -369,6 +457,63 @@ absl::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
   *resolved_expr_out = resolver_->MakeColumnRef(resolved_column);
 
   return absl::OkStatus();
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedAnalyticFunctionCall>>
+AnalyticFunctionResolver::FinalizeResolvedAnalyticFunctionCall(
+    const ASTNode* ast_location, const ASTFunctionCall* ast_function_call,
+    ExprResolutionInfo* expr_resolution_info,
+    std::unique_ptr<const ResolvedFunctionCall> resolved_function_call,
+    std::unique_ptr<const ResolvedExpr> resolved_where_expr,
+    std::unique_ptr<const ResolvedWindowFrame> resolved_window_frame) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
+  ++num_analytic_functions_;
+
+  ResolvedNonScalarFunctionCallBase::NullHandlingModifier
+      resolved_null_handling_modifier_kind =
+          resolver_->ResolveNullHandlingModifier(
+              ast_function_call->null_handling_modifier());
+  if (resolved_null_handling_modifier_kind !=
+      ResolvedNonScalarFunctionCallBase::DEFAULT_NULL_HANDLING) {
+    if (!resolver_->analyzer_options_.language().LanguageFeatureEnabled(
+            FEATURE_NULL_HANDLING_MODIFIER_IN_ANALYTIC)) {
+      return MakeSqlErrorAt(ast_location)
+             << "IGNORE NULLS and RESPECT NULLS in analytic functions are not "
+                "supported";
+    }
+    if (!resolved_function_call->function()->SupportsNullHandlingModifier()) {
+      return MakeSqlErrorAt(ast_location)
+             << "IGNORE NULLS and RESPECT NULLS are not allowed for analytic "
+                "function "
+             << resolved_function_call->function()->SQLName();
+    }
+  }
+
+  auto builder = ToBuilder(std::move(resolved_function_call));
+
+  std::unique_ptr<ResolvedAnalyticFunctionCall> resolved_analytic_function_call;
+  const bool is_distinct = ast_function_call->distinct();
+  resolved_analytic_function_call = MakeResolvedAnalyticFunctionCall(
+      builder.type(), builder.function(), builder.signature(),
+      builder.release_argument_list(), builder.release_generic_argument_list(),
+      builder.error_mode(), is_distinct, resolved_null_handling_modifier_kind,
+      std::move(resolved_where_expr), std::move(resolved_window_frame));
+
+  if (ast_location->Is<ASTAnalyticFunctionCall>()) {
+    resolver_->MaybeRecordAnalyticFunctionCallParseLocation(
+        ast_location->GetAsOrDie<ASTAnalyticFunctionCall>(),
+        resolved_analytic_function_call.get());
+  } else {
+    resolver_->MaybeRecordParseLocation(ast_location,
+                                        resolved_analytic_function_call.get());
+  }
+  ZETASQL_RETURN_IF_ERROR(resolver_->MaybeResolveCollationForFunctionCallBase(
+      /*error_location=*/ast_location, resolved_analytic_function_call.get()));
+  ZETASQL_RETURN_IF_ERROR(resolver_->CheckAndPropagateAnnotations(
+      /*error_node=*/ast_location, resolved_analytic_function_call.get()));
+
+  return resolved_analytic_function_call;
 }
 
 absl::Status AnalyticFunctionResolver::CheckWindowSupport(
@@ -453,13 +598,14 @@ absl::Status AnalyticFunctionResolver::ResolveWindowPartitionByPreAggregation(
       new WindowExprInfoList);
   for (const ASTExpression* ast_partition_expr :
        ast_partition_by->partitioning_expressions()) {
-    ExprResolutionInfo partitioning_resolution_info(
-        expr_resolution_info, {.clause_name = clause_name});
+    auto partitioning_resolution_info = std::make_unique<ExprResolutionInfo>(
+        expr_resolution_info,
+        ExprResolutionInfoOptions{.clause_name = clause_name});
     std::unique_ptr<WindowExprInfo> partitioning_expr_info;
     const Type* partitioning_expr_type;
 
     ZETASQL_RETURN_IF_ERROR(ResolveWindowExpression(
-        ast_partition_expr, &partitioning_resolution_info, allow_ordinals,
+        ast_partition_expr, partitioning_resolution_info.get(), allow_ordinals,
         &partitioning_expr_info, &partitioning_expr_type));
     partition_by_info->emplace_back(partitioning_expr_info.release());
 
@@ -499,10 +645,11 @@ absl::Status AnalyticFunctionResolver::ResolveWindowOrderByPreAggregation(
     std::unique_ptr<WindowExprInfo> ordering_expr_info;
     const Type* ordering_expr_type = nullptr;
 
-    ExprResolutionInfo ordering_resolution_info(expr_resolution_info,
-                                                {.clause_name = clause_name});
+    auto ordering_resolution_info = std::make_unique<ExprResolutionInfo>(
+        expr_resolution_info,
+        ExprResolutionInfoOptions{.clause_name = clause_name});
     ZETASQL_RETURN_IF_ERROR(ResolveWindowExpression(
-        ast_ordering_expr->expression(), &ordering_resolution_info,
+        ast_ordering_expr->expression(), ordering_resolution_info.get(),
         allow_ordinals, &ordering_expr_info, &ordering_expr_type));
     ZETASQL_RET_CHECK(ordering_expr_type != nullptr);
     order_by_info->emplace_back(ordering_expr_info.release());
@@ -740,10 +887,11 @@ absl::Status AnalyticFunctionResolver::ResolveWindowFrameOffsetExpr(
 
   ZETASQL_RET_CHECK(ast_frame_expr->expression() != nullptr);
   static const char window_frame_clause_name[] = "window frame";
-  ExprResolutionInfo frame_expr_resolution_info(
-      expr_resolution_info, {.clause_name = window_frame_clause_name});
+  auto frame_expr_resolution_info = std::make_unique<ExprResolutionInfo>(
+      expr_resolution_info,
+      ExprResolutionInfoOptions{.clause_name = window_frame_clause_name});
   ZETASQL_RETURN_IF_ERROR(resolver_->ResolveExpr(ast_frame_expr->expression(),
-                                         &frame_expr_resolution_info,
+                                         frame_expr_resolution_info.get(),
                                          resolved_offset_expr));
 
   if ((*resolved_offset_expr)->node_kind() != RESOLVED_PARAMETER &&
@@ -1044,8 +1192,7 @@ absl::Status AnalyticFunctionResolver::ResolveWindowPartitionByPostAggregation(
 
   // Populate the <collation_list> based on <resolved_partition_by_exprs> if
   // the feature is enabled.
-  if (resolver_->language().LanguageFeatureEnabled(
-          FEATURE_V_1_3_COLLATION_SUPPORT)) {
+  if (resolver_->language().LanguageFeatureEnabled(FEATURE_COLLATION_SUPPORT)) {
     std::vector<ResolvedCollation> collation_list;
     bool empty = true;
     for (const auto& partition_by_expr :
@@ -1133,7 +1280,7 @@ absl::Status AnalyticFunctionResolver::ResolveWindowOrderByPostAggregation(
                                         resolved_order_by_item.get());
 
     if (resolver_->language().LanguageFeatureEnabled(
-            FEATURE_V_1_3_COLLATION_SUPPORT)) {
+            FEATURE_COLLATION_SUPPORT)) {
       ZETASQL_RETURN_IF_ERROR(
           CollationAnnotation::ResolveCollationForResolvedOrderByItem(
               resolved_order_by_item.get()));

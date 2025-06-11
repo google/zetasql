@@ -349,7 +349,7 @@ ARRAY<STRUCT<
     2020-12-31 10:00:00+00
   )}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [prepare_database]
 CREATE TABLE TestTableRangeDatetimeValues AS
 SELECT cast(1 as int64) as row_id,
@@ -441,7 +441,7 @@ ARRAY<STRUCT<
  }]
 ==
 
-[default required_features=V_1_1_ORDER_BY_IN_AGGREGATE]
+[default required_features=ORDER_BY_IN_AGGREGATE]
 [name=aggregation_order_by_array_agg]
 SELECT ARRAY_AGG(x ORDER BY x)
 FROM ((SELECT "abc" x) UNION ALL (SELECT "def") UNION ALL (SELECT "xyz"))
@@ -507,7 +507,7 @@ ARRAY<STRUCT<int64_val INT64, ARRAY<>, ARRAY<>, ARRAY<>, STRING>>[unknown order:
 ==
 
 [name=aggregation_order_by_array_asc]
-[required_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_3_ARRAY_ORDERING]
+[required_features=ORDER_BY_IN_AGGREGATE,ARRAY_ORDERING]
 SELECT ARRAY_AGG(int64_val ORDER BY array_val asc)
 FROM (SELECT 1 AS int64_val, [0] AS array_val
       UNION ALL
@@ -517,7 +517,7 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:1, 2]}]
 ==
 
 [name=aggregation_order_by_array_desc]
-[required_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_3_ARRAY_ORDERING]
+[required_features=ORDER_BY_IN_AGGREGATE,ARRAY_ORDERING]
 SELECT ARRAY_AGG(int64_val ORDER BY array_val desc)
 FROM (SELECT 1 AS int64_val, [0] AS array_val
       UNION ALL
@@ -579,7 +579,7 @@ ARRAY<STRUCT<int64_val INT64, ARRAY<>>>[unknown order:
 ==
 
 [name=array_concat_agg_order_by_array]
-[required_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_3_ARRAY_ORDERING]
+[required_features=ORDER_BY_IN_AGGREGATE,ARRAY_ORDERING]
 SELECT ARRAY_CONCAT_AGG(x ORDER BY x)
 FROM ((SELECT [6, 1] x) UNION ALL (SELECT [2]) UNION ALL (SELECT [5, 4]))
 --
@@ -680,7 +680,7 @@ ARRAY<STRUCT<b STRING, ARRAY<>>>[unknown order:
 ]
 ==
 
-[default required_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE]
+[default required_features=ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE]
 [name=aggregation_order_by_limit_test_table]
 SELECT int64_val,
        ARRAY_AGG(bool_val ORDER BY bool_val LIMIT 0),
@@ -991,7 +991,7 @@ GROUP BY int64_val
 ERROR: generic::out_of_range: Limit requires non-negative count
 ==
 
-[required_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE]
+[required_features=ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE]
 [name=aggregation_order_by_limit_same_values]
 SELECT key,
        ARRAY_AGG(int64_val LIMIT 0),
@@ -1056,7 +1056,7 @@ ARRAY<STRUCT<key INT64,
 NOTE: Reference implementation reports non-determinism.
 ==
 
-[required_features=V_1_1_LIMIT_IN_AGGREGATE]
+[required_features=LIMIT_IN_AGGREGATE]
 [name=aggregation_order_by_limit_only_same_values]
 SELECT key,
        ARRAY_AGG(int64_val LIMIT 0),
@@ -1166,7 +1166,7 @@ ARRAY<STRUCT<ARRAY<>,
   ]}]
 ==
 
-[required_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ORDER_BY_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,NULLS_FIRST_LAST_IN_ORDER_BY]
 [name=aggregation_order_by_with_nulls_first_last]
 SELECT MOD(IFNULL(int64_val, 0), 2),
        ARRAY_AGG(bool_val ORDER BY bool_val DESC NULLS FIRST),
@@ -1194,7 +1194,7 @@ ARRAY<STRUCT<INT64, ARRAY<>, ARRAY<>, ARRAY<>, STRING>>[unknown order:
 ]
 ==
 
-[required_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,NUMERIC_TYPE]
+[required_features=ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,NUMERIC_TYPE]
 [name=aggregation_order_by_numeric]
 SELECT ARRAY_AGG(numeric_val ORDER BY numeric_val ASC),
        ARRAY_CONCAT_AGG(array_val ORDER BY numeric_val ASC),
@@ -1314,7 +1314,7 @@ ARRAY<STRUCT<ARRAY<>,
   "def,foo,jkl"}]
 ==
 
-[required_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,BIGNUMERIC_TYPE]
+[required_features=ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,BIGNUMERIC_TYPE]
 [name=aggregation_order_by_bignumeric]
 SELECT ARRAY_AGG(bignumeric_val ORDER BY bignumeric_val ASC),
        ARRAY_CONCAT_AGG(array_val ORDER BY bignumeric_val ASC),
@@ -1438,7 +1438,7 @@ ARRAY<STRUCT<ARRAY<>,
 ]
 ==
 
-[required_features=RANGE_TYPE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE]
+[required_features=RANGE_TYPE,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE]
 [name=aggregation_order_by_range_date]
 SELECT ARRAY_AGG(range_date_val ORDER BY range_date_val ASC),
        ARRAY_CONCAT_AGG(array_val ORDER BY range_date_val ASC),
@@ -1600,7 +1600,7 @@ ARRAY<STRUCT<ARRAY<>,
 NOTE: Reference implementation reports non-determinism.
 ==
 
-[required_features=RANGE_TYPE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,CIVIL_TIME]
 [name=aggregation_order_by_range_datetime]
 SELECT ARRAY_AGG(range_datetime_val ORDER BY range_datetime_val ASC),
        ARRAY_CONCAT_AGG(array_val ORDER BY range_datetime_val ASC),
@@ -1769,7 +1769,7 @@ ARRAY<STRUCT<ARRAY<>,
 
 NOTE: Reference implementation reports non-determinism.
 ==
-[required_features=RANGE_TYPE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE]
+[required_features=RANGE_TYPE,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE]
 [name=aggregation_order_by_range_timestamp]
 SELECT ARRAY_AGG(range_timestamp_val ORDER BY range_timestamp_val ASC),
        ARRAY_CONCAT_AGG(array_val ORDER BY range_timestamp_val ASC),

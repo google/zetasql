@@ -135,15 +135,14 @@ absl::StatusOr<std::string> MakePropertyTypeName(
 GraphElementType::GraphElementType(
     const internal::GraphReference* graph_reference, ElementKind element_kind,
     const TypeFactory* factory,
-    absl::flat_hash_set<PropertyType> property_types,
-    int nesting_depth
-    )
+    absl::flat_hash_set<PropertyType> property_types, int nesting_depth,
+    bool is_dynamic)
     : ListBackedType(factory, TYPE_GRAPH_ELEMENT),
       graph_reference_(graph_reference),
       element_kind_(element_kind),
       property_types_(SortPropertyTypes(std::move(property_types))),
-      nesting_depth_(nesting_depth)
-{}
+      nesting_depth_(nesting_depth),
+      is_dynamic_(is_dynamic) {}
 
 absl::Span<const std::string> GraphElementType::graph_reference() const {
   return graph_reference_->path;
@@ -186,7 +185,13 @@ const GraphElementType::PropertyType* GraphElementType::FindPropertyTypeImpl(
 
 bool GraphElementType::IsSupportedType(
     const LanguageOptions& language_options) const {
-  if (!language_options.LanguageFeatureEnabled(FEATURE_V_1_4_SQL_GRAPH)) {
+  if (!language_options.LanguageFeatureEnabled(FEATURE_SQL_GRAPH)) {
+    return false;
+  }
+  if (is_dynamic() &&
+      (!language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE) ||
+       !language_options.LanguageFeatureEnabled(
+           FEATURE_SQL_GRAPH_DYNAMIC_ELEMENT_TYPE))) {
     return false;
   }
 
@@ -209,10 +214,11 @@ bool GraphElementType::CoercibleTo(const GraphElementType* to) const {
         return to_pt != nullptr &&
                from_pt.value_type->Equals(to_pt->value_type);
       });
+  bool is_dynamic_to_static = is_dynamic() && !to->is_dynamic();
   return absl::c_equal(graph_reference(), to->graph_reference(),
                        zetasql_base::CaseEqual) &&
          element_kind() == to->element_kind() &&
-         contains_all_static_properties_in_from_type;
+         contains_all_static_properties_in_from_type && !is_dynamic_to_static;
 }
 
 bool GraphElementType::EqualsForSameKind(const Type* that,
@@ -229,6 +235,12 @@ void GraphElementType::DebugStringImpl(bool /* details */,
                   *graph_reference_->path_string, ")<");
   stack->push_back(">");
   // Loops property types backwards.
+  if (is_dynamic_) {
+    stack->push_back("DYNAMIC");
+    if (!property_types_.empty()) {
+      stack->push_back(", ");
+    }
+  }
   for (auto itr = property_types_.rbegin(); itr != property_types_.rend();
        ++itr) {
     // No trailing coma.
@@ -286,6 +298,7 @@ absl::Status GraphElementType::SerializeToProtoAndDistinctFileDescriptorsImpl(
                             options, property_type_proto->mutable_value_type(),
                             file_descriptor_set_map));
   }
+  graph_element_type_proto->set_is_dynamic(is_dynamic_);
   return absl::OkStatus();
 }
 
@@ -310,6 +323,9 @@ absl::StatusOr<std::string> GraphElementType::TypeNameImpl(
 
   if (num_property_types_to_show < property_types_.size()) {
     absl::StrAppend(&ret, ", ...");
+  }
+  if (is_dynamic_) {
+    absl::StrAppend(&ret, ", DYNAMIC");
   }
   absl::StrAppend(&ret, ">");
   return ret;
@@ -408,6 +424,7 @@ bool GraphElementType::EqualsImpl(const GraphElementType* type1,
       });
   return absl::c_equal(type1->graph_reference(), type2->graph_reference(),
                        zetasql_base::CaseEqual) &&
+         type1->is_dynamic() == type2->is_dynamic() &&
          type1->element_kind() == type2->element_kind() &&
          has_equal_static_properties;
 }
@@ -416,6 +433,7 @@ absl::HashState GraphElementType::HashTypeParameter(
     absl::HashState state) const {
   return absl::HashState::combine(
       std::move(state),
+      is_dynamic_,
       element_kind_, property_types_);
 }
 
@@ -464,7 +482,7 @@ void GraphElementType::FormatValueContentDebugModeImpl(
     absl::StrAppend(result, CapitalizedName(), "{");
 
     // Adds name, identifier, labels, source/dest node identifier (for edge),
-    // in verbose mode.
+    // is_dynamic, in verbose mode.
     absl::StrAppend(result,
                     "$name:", ToStringLiteral(container->GetDefinitionName()),
                     ", ");
@@ -484,6 +502,7 @@ void GraphElementType::FormatValueContentDebugModeImpl(
                       ", $dest_node_id:",
                       ToBytesLiteral(container->GetDestNodeIdentifier()), ", ");
     }
+    absl::StrAppend(result, "$is_dynamic:", is_dynamic_, ", ");
   } else {
     absl::StrAppend(result, "{");
   }

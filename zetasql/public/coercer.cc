@@ -607,10 +607,10 @@ absl::StatusOr<const StructType*> Coercer::GetCommonStructSuperType(
     //
     //   SELECT [ NULL,
     //            (NULL, NULL),
-    //            struct<a int32_t, b int64_t>(1, 2) ]
+    //            struct<a int32, b int64>(1, 2) ]
     //
     // In this example, the second argument is dominant so the resulting
-    // type should be struct<int32_t, int64_t> with anonymous fields since
+    // type should be struct<int32, int64> with anonymous fields since
     // this dominant argument does not have field names.  If we did not
     // allow untyped NULLs to be dominant in the field argument sets,
     // then the field names from the third argument would leak through.
@@ -757,10 +757,12 @@ absl::StatusOr<const GraphElementType*> Coercer::GetCommonGraphElementSuperType(
   }
 
   std::vector<GraphElementType::PropertyType> property_type_collection;
+  bool is_dynamic = false;
   for (const auto& arg : arguments) {
     if (arg.type()->IsGraphElement()) {
       absl::c_copy(arg.type()->AsGraphElement()->property_types(),
                    std::back_inserter(property_type_collection));
+      is_dynamic = is_dynamic || arg.type()->AsGraphElement()->is_dynamic();
     }
   }
 
@@ -768,10 +770,17 @@ absl::StatusOr<const GraphElementType*> Coercer::GetCommonGraphElementSuperType(
   // inconsistent property types (property type with same name but different
   // value type).
   const GraphElementType* supertype;
+  if (is_dynamic) {
+    ZETASQL_RETURN_IF_ERROR(type_factory_->MakeDynamicGraphElementType(
+        dominant_graph_element_type->graph_reference(),
+        dominant_graph_element_type->element_kind(), property_type_collection,
+        &supertype));
+  } else {
     ZETASQL_RETURN_IF_ERROR(type_factory_->MakeGraphElementType(
         dominant_graph_element_type->graph_reference(),
         dominant_graph_element_type->element_kind(),
         std::move(property_type_collection), &supertype));
+  }
   return supertype;
 }
 
@@ -958,7 +967,7 @@ absl::StatusOr<const Type*> Coercer::GetCommonSuperTypeImpl(
     ZETASQL_RET_CHECK(!literal_types.empty());
 
     if (language_options_.LanguageFeatureEnabled(
-            FEATURE_V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES)) {
+            FEATURE_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES)) {
       ZETASQL_RETURN_IF_ERROR(UpdateLiteralTypesForStringAndBytesArgument(
           argument_set, treat_parameters_as_literals, &literal_types));
     }
@@ -1401,7 +1410,7 @@ absl::StatusOr<bool> Coercer::Context::StructCoercesToProtoMapEntry(
   if (from_struct->fields().size() != 2 || to_type_proto == nullptr ||
       !to_type_proto->descriptor()->options().map_entry() ||
       !language_options().LanguageFeatureEnabled(
-          LanguageFeature::FEATURE_V_1_3_PROTO_MAPS)) {
+          LanguageFeature::FEATURE_PROTO_MAPS)) {
     result->incr_non_matched_arguments();
     return false;
   }
@@ -1452,7 +1461,7 @@ bool Coercer::Context::CoercesFromLiteralForBuiltinSimpleTypes(
   // statements like `CAST("\x80" as BYTES)`.
   if (literal_value.type()->IsString() && to_type->IsBytes() &&
       language_options().LanguageFeatureEnabled(
-          FEATURE_V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES) &&
+          FEATURE_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES) &&
       (literal_value.is_null() ||
        IsValidStringLiteralToBytesImplicitCoercion(literal_value))) {
     return true;
@@ -1485,7 +1494,7 @@ absl::StatusOr<bool> Coercer::Context::ArrayCoercesTo(
   if (from_array->Equivalent(to_type)) return true;
 
   if (language_options().LanguageFeatureEnabled(
-          FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES) &&
+          FEATURE_CAST_DIFFERENT_ARRAY_TYPES) &&
       to_type->IsArray()) {
     const Type* from_element_type = from_array->element_type();
 
@@ -1523,7 +1532,7 @@ absl::StatusOr<bool> Coercer::Context::ArrayCoercesTo(
         // to ARRAY<MapEntryProto> if STRUCT<K,V> coerces to MapEntryProto.
         (to_element_type->IsProto() &&
          to_element_type->AsProto()->descriptor()->options().map_entry() &&
-         language_options().LanguageFeatureEnabled(FEATURE_V_1_3_PROTO_MAPS))) {
+         language_options().LanguageFeatureEnabled(FEATURE_PROTO_MAPS))) {
       return TypeCoercesTo(from_element_type, to_element_type, result);
     }
   }

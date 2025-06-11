@@ -926,7 +926,7 @@ drop temporary table foo;
      ^
 ==
 
-[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
 drop table foo-bar.baz;
 --
 ALTERNATION GROUP: <empty>
@@ -935,7 +935,7 @@ ERROR: Syntax error: Table name contains '-' character. The dashed identifier pa
 drop table foo-bar.baz;
            ^
 --
-ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
 --
 DropStatement TABLE [0-22] [drop table foo-bar.baz]
   PathExpression [11-22] [foo-bar.baz]

@@ -621,7 +621,7 @@ def Field(name,
 
 # You can use `tag_id=GetTempTagId()` until doing the final submit.
 # That will avoid merge conflicts when syncing in other changes.
-NEXT_NODE_TAG_ID = 298
+NEXT_NODE_TAG_ID = 300
 
 
 def GetTempTagId():
@@ -1513,7 +1513,7 @@ def main(unused_argv):
       <generic_argument_list> will be used. Only one of <argument_list> or
       <generic_argument_list> can be non-empty.
 
-      <collation_list> (only set when FEATURE_V_1_3_COLLATION_SUPPORT is
+      <collation_list> (only set when FEATURE_COLLATION_SUPPORT is
       enabled) is the operation collation to use.
       (broken link) lists the functions affected by
       collation, where this can show up.
@@ -1525,7 +1525,8 @@ def main(unused_argv):
               'function',
               SCALAR_FUNCTION,
               tag_id=2,
-              comment="""The matching Function from the Catalog."""),
+              comment="""The matching Function from the Catalog.""",
+          ),
           Field(
               'signature',
               SCALAR_FUNCTION_SIGNATURE,
@@ -1537,7 +1538,8 @@ def main(unused_argv):
               The function has the mode AGGREGATE iff it is an aggregate
               function, in which case this node must be either
               ResolvedAggregateFunctionCall or ResolvedAnalyticFunctionCall.
-                      """),
+                      """,
+          ),
           Field(
               'argument_list',
               'ResolvedExpr',
@@ -1563,7 +1565,8 @@ def main(unused_argv):
               semantic error (based on input data, not transient server
               problems), return NULL instead of an error. This is used for
               functions called using SAFE, as in SAFE.FUNCTION(...).
-                      """),
+                      """,
+          ),
           Field(
               'hint_list',
               'ResolvedOption',
@@ -1573,7 +1576,8 @@ def main(unused_argv):
               vector=True,
               comment="""
               Function call hints.
-                      """),
+                      """,
+          ),
           Field(
               'collation_list',
               SCALAR_RESOLVED_COLLATION,
@@ -1581,8 +1585,10 @@ def main(unused_argv):
               ignorable=IGNORABLE_DEFAULT,
               vector=True,
               java_to_string_method='toStringCommaSeparated',
-              is_constructor_arg=False),
-      ])
+              is_constructor_arg=False,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedFunctionCall',
@@ -1703,7 +1709,7 @@ def main(unused_argv):
               is_optional_constructor_arg=True,
               comment="""
               A scalar filtering expression to apply before supplying rows to
-              the function. Allowed only when FEATURE_V_1_4_AGGREGATE_FILTERING
+              the function. Allowed only when FEATURE_AGGREGATE_FILTERING
               is enabled.
             """,
           ),
@@ -1718,7 +1724,7 @@ def main(unused_argv):
       comment="""
       An aggregate function call.  The signature always has mode AGGREGATE.
 
-      FEATURE_V_1_4_MULTILEVEL_AGGREGATION enables multi-level aggregate
+      FEATURE_MULTILEVEL_AGGREGATION enables multi-level aggregate
       expressions (e.g. 'SUM(AVG(1 + X) GROUP BY key)' ). The GROUP BY modifier
       within an aggregate function body indicates the presence of a multi-level
       aggregate expression.
@@ -1740,7 +1746,7 @@ def main(unused_argv):
       modifiers are applied on the output rows from the initial aggregation,
       as input to the final aggregation.
 
-      FEATURE_V_1_4_AGGREGATE_FILTERING enables aggregate filtering.
+      FEATURE_AGGREGATE_FILTERING enables aggregate filtering.
       `where_expr` is applied before other aggregate function modifiers
       (including any inner grouping specified by the `group_by_list`).
       `having_expr` can only be present if `group_by_list` is also present,
@@ -1799,7 +1805,7 @@ def main(unused_argv):
               Group the stream of input values by columns in this list, and
               compute the aggregates defined in `group_by_aggregate_list`.
               Used only for multi-level aggregation, when
-              FEATURE_V_1_4_MULTILEVEL_AGGREGATION is enabled.
+              FEATURE_MULTILEVEL_AGGREGATION is enabled.
                       """,
               vector=True,
               is_optional_constructor_arg=True,
@@ -1812,7 +1818,7 @@ def main(unused_argv):
               comment="""
               Aggregate columns to compute over the grouping keys defined in
               `group_by_list`. Used only for multi-level aggregation, when
-              FEATURE_V_1_4_MULTILEVEL_AGGREGATION is enabled.
+              FEATURE_MULTILEVEL_AGGREGATION is enabled.
                       """,
               vector=True,
               is_optional_constructor_arg=True,
@@ -1826,7 +1832,7 @@ def main(unused_argv):
               comment="""
               A scalar filtering expression applied after computing columns in
               the `group_by_list` and `group_by_aggregate_list`. Allowed only
-              when FEATURE_V_1_4_AGGREGATE_FILTERING is enabled.
+              when FEATURE_AGGREGATE_FILTERING is enabled.
                       """,
           ),
       ],
@@ -2784,6 +2790,36 @@ value.
               Otherwise the sql_builder will generate JOIN ON.
               """,
           ),
+          Field(
+              'is_lateral',
+              SCALAR_BOOL,
+              tag_id=7,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True,
+              comment="""
+                Indicates whether this join is lateral. In a lateral join,
+                `rhs_scan` is evaluated for every row in `lhs_scan`, and can see
+                columns from `lhs_scan`.
+                """,
+          ),
+          Field(
+              'parameter_list',
+              'ResolvedColumnRef',
+              tag_id=8,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True,
+              comment="""
+              Used when `is_lateral` is true. The columns in this list are the
+              columns from `left_scan` and any outer columns that are referenced
+              in the derived `right_scan`. This list serves a similar function
+              to ResolvedSubqueryExpr::parameter_list. When not empty, any
+              references to further outside columns appear as correlated refs
+              on this list first.
+
+              When `is_lateral` is false, this list must always be empty.
+              """,
+          ),
       ],
   )
 
@@ -2793,7 +2829,7 @@ value.
       parent='ResolvedScan',
       comment="""
       Scan one or more (N) array values produced by evaluating N expressions,
-      merging them positionally. Without FEATURE_V_1_4_MULTIWAY_UNNEST, it must
+      merging them positionally. Without FEATURE_MULTIWAY_UNNEST, it must
       be exactly one array (N=1).
 
       If `input_scan` is NULL, this produces one row for each array offset.
@@ -2870,7 +2906,7 @@ value.
               comment="""
               Stores a builtin ENUM ARRAY_ZIP_MODE with three possible values:
               PAD, TRUNCATE or STRICT.
-              """
+              """,
           ),
       ],
       extra_defs_node_only="""
@@ -3050,7 +3086,7 @@ value.
       same number of elements as <group_by_list>.  Each element is the collation
       for the element in <group_by_list> with the same index, or can be empty to
       indicate default collation or when the type is not collatable.
-      <collation_list> is only set when FEATURE_V_1_3_COLLATION_SUPPORT is
+      <collation_list> is only set when FEATURE_COLLATION_SUPPORT is
       enabled.
       See (broken link).
 
@@ -3506,7 +3542,7 @@ value.
       ResolvedDeferredComputedColumn, depending on whether any side effects need
       to be captured.
 
-      If FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION is not set, the runtime
+      If FEATURE_ENFORCE_CONDITIONAL_EVALUATION is not set, the runtime
       type is always just ResolvedComputedColumn.
 
       See (broken link) for more details.
@@ -3518,7 +3554,8 @@ value.
 
   // Virtual getter to avoid changing ResolvedComputedColumnProto
   virtual const ResolvedExpr* expr() const = 0;
-      """)
+      """,
+  )
 
   gen.AddNode(
       name='ResolvedComputedColumnImpl',
@@ -3614,9 +3651,9 @@ value.
 
       <collation_name> is the ORDER BY COLLATE expression, and could be a string
       literal or query parameter.  <collation_name> can only be set when the
-      FEATURE_V_1_1_ORDER_BY_COLLATE is enabled.
+      FEATURE_ORDER_BY_COLLATE is enabled.
       See (broken link) for COLLATE clause.
-      <collation> (only set when FEATURE_V_1_3_COLLATION_SUPPORT is enabled) is
+      <collation> (only set when FEATURE_COLLATION_SUPPORT is enabled) is
       the derived collation to use.  It comes from the <column_ref> and COLLATE
       clause.  It is unset if COLLATE is present and set to a parameter.
       See (broken link) for general Collation Support.
@@ -3637,24 +3674,29 @@ value.
               'collation_name',
               'ResolvedExpr',
               tag_id=3,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'is_descending',
               SCALAR_BOOL,
               tag_id=4,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'null_order',
               SCALAR_NULL_ORDER_MODE,
               tag_id=5,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'collation',
               SCALAR_RESOLVED_COLLATION,
               tag_id=6,
               ignorable=IGNORABLE_DEFAULT,
-              is_constructor_arg=False)
-      ])
+              is_constructor_arg=False,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedColumnAnnotations',
@@ -3687,25 +3729,24 @@ value.
               ignorable=IGNORABLE_DEFAULT,
               comment="""
               <collation_name> can only be a string literal, and is only set
-              when FEATURE_V_1_3_COLLATION_SUPPORT is enabled. See
-              (broken link)."""),
-          Field(
-              'not_null',
-              SCALAR_BOOL,
-              tag_id=2,
-              ignorable=IGNORABLE_DEFAULT),
+              when FEATURE_COLLATION_SUPPORT is enabled. See
+              (broken link).""",
+          ),
+          Field('not_null', SCALAR_BOOL, tag_id=2, ignorable=IGNORABLE_DEFAULT),
           Field(
               'option_list',
               'ResolvedOption',
               tag_id=3,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'child_list',
               'ResolvedColumnAnnotations',
               tag_id=4,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'type_parameters',
               SCALAR_TYPE_PARAMETERS,
@@ -3716,14 +3757,16 @@ value.
               Instead we use child_list of this node (ResolvedColumnAnnotations)
               to store type parameters of subfields of STRUCT or ARRAY. Users
               can access the full type parameters with child_list by calling
-              ResolvedColumnDefinition.getFullTypeParameters() function.""")
+              ResolvedColumnDefinition.getFullTypeParameters() function.""",
+          ),
       ],
       extra_defs="""
         // Get the full TypeParameters object for these annotations given a
         // type, including parameters on nested fields.
         absl::StatusOr<TypeParameters> GetFullTypeParameters(
             const Type* type) const;
-      """)
+      """,
+  )
 
   gen.AddNode(
       name='ResolvedGeneratedColumnInfo',
@@ -4174,11 +4217,7 @@ value.
                                 matches 1:1 to <argument_list>, while its
                                 <FunctionSignature::arguments> list still has
                                 the full argument list.
-                                The analyzer only sets this field when
-                                it could be ambiguous for an engine to figure
-                                out the actual arguments provided, e.g., when
-                                there are arguments omitted from the call. When
-                                it is provided, engines may use this object to
+                                Engines may use this object to
                                 check for the argument names and omitted
                                 arguments. SQLBuilder may also need this object
                                 in cases when the named argument notation is
@@ -4188,10 +4227,8 @@ value.
           Field('tvf', TABLE_VALUED_FUNCTION, tag_id=2),
           Field('signature', TVF_SIGNATURE, tag_id=3),
           Field(
-              'argument_list',
-              'ResolvedFunctionArgument',
-              tag_id=5,
-              vector=True),
+              'argument_list', 'ResolvedFunctionArgument', tag_id=5, vector=True
+          ),
           Field(
               'column_index_list',
               SCALAR_INT,
@@ -4200,15 +4237,18 @@ value.
               vector=True,
               is_constructor_arg=True,
               to_string_method='ToStringCommaSeparated',
-              java_to_string_method='toStringCommaSeparatedForInt'),
+              java_to_string_method='toStringCommaSeparatedForInt',
+          ),
           Field('alias', SCALAR_STRING, tag_id=6, ignorable=IGNORABLE),
           Field(
               'function_call_signature',
               SCALAR_FUNCTION_SIGNATURE_PTR,
               tag_id=7,
-              ignorable=IGNORABLE_DEFAULT,
-              is_optional_constructor_arg=True)
-      ])
+              ignorable=IGNORABLE,
+              is_optional_constructor_arg=True,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedGroupRowsScan',
@@ -5937,7 +5977,7 @@ value.
       subqueries, so the ResolvedWithScan node can only occur as the outermost
       scan in a statement (e.g. a QueryStmt or CreateTableAsSelectStmt).
 
-      In ZetaSQL 1.1 (language option FEATURE_V_1_1_WITH_ON_SUBQUERY), WITH
+      In ZetaSQL 1.1 (language option FEATURE_WITH_ON_SUBQUERY), WITH
       is allowed on subqueries.  Then, ResolvedWithScan can occur anywhere in
       the tree.  The alias introduced by a ResolvedWithEntry is visible only
       in subsequent ResolvedWithEntry queries and in <query>.  The aliases used
@@ -5946,7 +5986,7 @@ value.
       unique, it is legal to collect all ResolvedWithEntries in the tree and
       treat them as if they were a single WITH clause at the outermost level.
 
-      In ZetaSQL 1.3 (language option FEATURE_V_1_3_WITH_RECURSIVE), WITH
+      In ZetaSQL 1.3 (language option FEATURE_WITH_RECURSIVE), WITH
       RECURSIVE is supported, which allows any <with_subquery> to reference
       any <with_query_name>, regardless of order, including WITH entries which
       reference themself. Circular dependency chains of WITH entries are allowed
@@ -5962,21 +6002,18 @@ value.
 
               """,
       fields=[
-          Field(
-              'with_entry_list',
-              'ResolvedWithEntry',
-              tag_id=2,
-              vector=True),
-          Field(
-              'query', 'ResolvedScan', tag_id=3, propagate_order=True),
+          Field('with_entry_list', 'ResolvedWithEntry', tag_id=2, vector=True),
+          Field('query', 'ResolvedScan', tag_id=3, propagate_order=True),
           Field(
               'recursive',
               SCALAR_BOOL,
               tag_id=4,
               ignorable=IGNORABLE,
               comment="""
-                True if the WITH clause uses the recursive keyword.""")
-      ])
+                True if the WITH clause uses the recursive keyword.""",
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedWithEntry',
@@ -6075,15 +6112,13 @@ value.
       collation for the element in <partition_by_list> with the same index, or
       can be empty to indicate default collation or when the type is not
       collatable. <collation_list> is only set when
-      FEATURE_V_1_3_COLLATION_SUPPORT is enabled.
+      FEATURE_COLLATION_SUPPORT is enabled.
       See (broken link).
               """,
       fields=[
           Field(
-              'partition_by_list',
-              'ResolvedColumnRef',
-              tag_id=2,
-              vector=True),
+              'partition_by_list', 'ResolvedColumnRef', tag_id=2, vector=True
+          ),
           Field(
               'hint_list',
               'ResolvedOption',
@@ -6427,7 +6462,7 @@ value.
 
       <query_parameter_list> is set for nested INSERTs where <query> is set and
       references non-target values (columns or field values) from the table. It
-      is only set when FEATURE_V_1_2_CORRELATED_REFS_IN_NESTED_DML is enabled.
+      is only set when FEATURE_CORRELATED_REFS_IN_NESTED_DML is enabled.
 
       If <returning> is present, the INSERT statement will return newly inserted
       rows. <returning> can only occur on top-level statements.
@@ -6754,7 +6789,8 @@ value.
               NOTE: We use the same GetField nodes as we do for queries, but
               they are not treated the same.  Here, they express a path inside
               an object that is being mutated, so they have reference semantics.
-                      """),
+                      """,
+          ),
           Field(
               'set_value',
               'ResolvedDMLValue',
@@ -6767,7 +6803,8 @@ value.
 
               This is mutually exclusive with all fields below, which are used
               for nested updates only.
-                      """),
+                      """,
+          ),
           Field(
               'element_column',
               'ResolvedColumnHolder',
@@ -6781,7 +6818,8 @@ value.
               element type.
 
               This column can be referenced inside the nested statements below.
-                      """),
+                      """,
+          ),
           Field(
               'array_update_list',
               'ResolvedUpdateArrayItem',
@@ -6792,13 +6830,14 @@ value.
               Array element modifications to apply. Each item runs on the value
               of <element_column> specified by ResolvedUpdateArrayItem.offset.
               This field is always empty if the analyzer option
-              FEATURE_V_1_2_ARRAY_ELEMENTS_WITH_SET is disabled.
+              FEATURE_ARRAY_ELEMENTS_WITH_SET is disabled.
 
               The engine must fail if two elements in this list have offset
               expressions that evaluate to the same value.
               TODO: Consider generalizing this to allow
               SET a[<expr1>].b = ..., a[<expr2>].c = ...
-                      """),
+                      """,
+          ),
           Field(
               'delete_list',
               'ResolvedDeleteStmt',
@@ -6812,7 +6851,8 @@ value.
               DELETEs are applied before INSERTs or UPDATEs.
 
               It is legal for the same input element to match multiple DELETEs.
-                      """),
+                      """,
+          ),
           Field(
               'update_list',
               'ResolvedUpdateStmt',
@@ -6826,7 +6866,8 @@ value.
               UPDATEs are applied after DELETEs and before INSERTs.
 
               It is an error if any element is matched by multiple UPDATEs.
-                      """),
+                      """,
+          ),
           Field(
               'insert_list',
               'ResolvedInsertStmt',
@@ -6841,8 +6882,10 @@ value.
 
               For nested UPDATEs, insert_mode will always be the default, and
               has no effect.
-                      """)
-      ])
+                      """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedUpdateArrayItem',
@@ -9615,29 +9658,46 @@ ResolvedArgumentRef(y)
               vector=True,
           ),
           Field(
-              'partition_by',
-              'ResolvedWindowPartitioning',
+              'analytic_function_group_list',
+              'ResolvedAnalyticFunctionGroup',
               tag_id=3,
+              vector=True,
               comment="""
-              Partitioning columns for this pattern matching operation.
-              Pattern matching occurs on individual partitions, just like
-              windowing functions.
+              Currently, there is always exactly one group, which holds the
+              PARTITION BY and ORDER BY for this MATCH_RECOGNIZE clause. It is
+              a list to avoid a breaking change in the future, if we decide to
+              support other windows on the DEFINE clause, e.g. FIRST_VALUE().
 
-              If this list is empty, the whole input table is a single
-              partition.
+              If the main group's `partition_by` is null, the whole input table
+              is a single partition.
 
               Partitioning columns are always part of the scan's output columns,
               along with the measures.
-              """,
-          ),
-          Field(
-              'order_by',
-              'ResolvedWindowOrdering',
-              tag_id=4,
-              comment="""
-              The ordering list can never be empty.
-              Collation & hints supported, just like in window specification.
-              However, ordinals are not allowed.
+
+              ORDER BY does not allow ordinals, same as with window functions.
+
+              The single analytic group defines the partitioning and ordering
+              for this MATCH_RECOGNIZE operation:
+              1. Pattern matching occurs on individual partitions, just like
+                 windowing functions. If it has no partitioning columns, the
+                 whole input table is a single partition.
+
+              2. Its ordering similarly defines the row order for this pattern
+                 matching operation.
+                 The ordering list can never be empty.
+                 Collation and hints are supported, just like in window
+                 specification.
+
+              When there are calls to the navigation operations PREV() and
+              NEXT() in the DEFINE clause, they are represented by
+              ResolvedAnalyticFunctionCalls to LAG() and LEAD() (respectively).
+              The group remains empty if there are no such calls.
+
+              These analytic calls are placed in the group to indicate that they
+              all see the exact same row order of the matching operation, even
+              when the ordering is partial (e.g. ties or non-determinism).
+
+              See (broken link) for details.
               """,
           ),
           Field(
@@ -9709,6 +9769,16 @@ ResolvedArgumentRef(y)
               """,
           ),
       ],
+      extra_defs="""
+  // TODO: Remove this once callers are migrated.
+  const ResolvedWindowPartitioning* partition_by() const {
+    return analytic_function_group_list(0)->partition_by();
+  }
+  // TODO: Remove this once callers are migrated.
+  const ResolvedWindowOrdering* order_by() const {
+    return analytic_function_group_list(0)->order_by();
+  }
+  """,
   )
 
   gen.AddNode(
@@ -10280,6 +10350,8 @@ ResolvedArgumentRef(y)
         [<dest_node_reference>]
         [<label_name_list>]
         [<property_definition_list]
+        [<dynamic_label>]
+        [<dynamic_properties>]
 
       <alias> identifier of the element table in the property graph.
       <key_list> has a set of references to ResolvedColumn from input_scan that
@@ -10291,6 +10363,10 @@ ResolvedArgumentRef(y)
       <label_name_list> is a list of label names.
       <property_definition_list> is a list of property definitions exposed by
       labels.
+      <dynamic_label> is the optional dynamic label definition, pointing to
+      the dynamic label STRING column.
+      <dynamic_properties> is the optional dynamic property definition, pointing
+      to the dynamic property JSON column.
           """,
       fields=[
           Field('alias', SCALAR_STRING, tag_id=2),
@@ -10338,6 +10414,20 @@ ResolvedArgumentRef(y)
               ignorable=IGNORABLE_DEFAULT,
               is_optional_constructor_arg=True,
               vector=True,
+          ),
+          Field(
+              'dynamic_label',
+              'ResolvedGraphDynamicLabelSpecification',
+              tag_id=9,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True,
+          ),
+          Field(
+              'dynamic_properties',
+              'ResolvedGraphDynamicPropertiesSpecification',
+              tag_id=10,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True,
           ),
       ],
   )
@@ -10442,6 +10532,37 @@ ResolvedArgumentRef(y)
   )
 
   gen.AddNode(
+      name='ResolvedGraphDynamicLabelSpecification',
+      tag_id=290,
+      parent='ResolvedArgument',
+      comment="""
+       ResolvedGraphDynamicLabelSpecification is a schema entity that defines
+       the dynamic label specification.
+       The dynamic label specification is a column reference, and the column
+       type needs to be of STRING. The `label_expr` field is a
+       ResolvedColumnRef type.
+     """,
+      fields=[
+          Field('label_expr', 'ResolvedExpr', tag_id=2),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedGraphDynamicPropertiesSpecification',
+      tag_id=291,
+      parent='ResolvedArgument',
+      comment="""
+       ResolvedGraphDynamicPropertiesSpecification is a schema entity that defines
+       the dynamic property specification.
+       The dynamic property specification is a column reference, and the column
+       type needs to be of JSON. `property_expr` is of ResolvedColumnRef type.
+     """,
+      fields=[
+          Field('property_expr', 'ResolvedExpr', tag_id=2),
+      ],
+  )
+
+  gen.AddNode(
       name='ResolvedGraphScanBase',
       tag_id=245,
       parent='ResolvedScan',
@@ -10483,7 +10604,7 @@ ResolvedArgumentRef(y)
 
       It produces columns of non-graph SQL type, either defined by
       <shape_expr_list> or from <input_scan> directly.
-      When FEATURE_V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT is enabled it may
+      When FEATURE_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT is enabled it may
       produce columns of graph element type.
 
       If <shape_expr_list> is not empty, it defines the output columns of
@@ -10498,6 +10619,56 @@ ResolvedArgumentRef(y)
               'ResolvedComputedColumn',
               tag_id=4,
               vector=True,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedGraphCallScan',
+      tag_id=299,
+      parent='ResolvedScan',
+      comment="""
+      Represents a GQL CALL operation, which with a subquery is equivalent to a
+      LATERAL JOIN.
+      * This operator must a direct child of a ResolvedGraphLinearScan.
+      * 'input_scan' is never nullptr, and must be a ResolvedSingleRowScan if it
+        is the first operator in the parent linear scan, or ResolvedGraphRefScan
+        otherwise.
+      * 'subquery' is never nullptr and must either be:
+         1. a ResolvedTVFScan, or
+         2. a ResolvedGraphTableScan whose 'input_scan' is a
+            ResolvedGraphLinearScan (since it's always a GQL linear query)
+            Its graph reference must be the same as the parent's.
+      * If 'optional' is true, this operator cannot be the first one in the
+        parent linear scan, and `input_scan` must be a ResolvedGraphRefScan.
+      """,
+      fields=[
+          Field('optional', SCALAR_BOOL, tag_id=2),
+          Field(
+              'subquery',
+              'ResolvedScan',
+              tag_id=3,
+              comment="""
+              The subquery or the TVF to apply.
+              """,
+          ),
+          Field('input_scan', 'ResolvedScan', tag_id=4),
+          Field(
+              'parameter_list',
+              'ResolvedColumnRef',
+              tag_id=5,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT,
+              comment="""
+              The columns from the `input_scan` which are visible to the inline
+              subquery. Equivalent to JoinScan::lateral_column_list. The columns
+              in this list are the columns from `input_scan` that are referenced
+              in the derived `subquery`. All correlated references in the subquery
+              must be listed here.
+
+              Note: In the general syntax, this will be the same columns from
+              the partitioning list, equivalent to FOR EACH PARTITION BY.
+              """,
           ),
       ],
   )
@@ -10699,7 +10870,15 @@ ResolvedArgumentRef(y)
               is_constructor_arg=False,
               vector=True,
           ),
-      ])
+          Field(
+              'cost_expr',
+              'ResolvedExpr',
+              tag_id=5,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedGraphGetElementProperty',
@@ -10708,6 +10887,8 @@ ResolvedArgumentRef(y)
       comment="""
       Get a property from the graph element in `expr`. `expr` must be of
       GraphElementType.
+      `property_name` must be evaluated to a STRING typed expression.
+      If `property` is populated, its name matches the value of `property_name`.
               """,
       fields=[
           Field('expr', 'ResolvedExpr', tag_id=2),
@@ -10716,6 +10897,13 @@ ResolvedArgumentRef(y)
               SCALAR_GRAPH_PROPERTY_DECLARATION,
               tag_id=3,
               ignorable=IGNORABLE_DEFAULT,
+          ),
+          Field(
+              'property_name',
+              'ResolvedExpr',
+              tag_id=4,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True,
           ),
       ])
 
@@ -10773,6 +10961,11 @@ ResolvedArgumentRef(y)
 
       A label is an element belonging to a property graph that has a unique
       name identifier.
+      A static label exposes all the properties declared by
+      that label, whereas a dynamic label has no association with the properties
+      and acts as an element filter.
+      `label_name` must be evaluated to a STRING typed expression. If `label` is
+      populated, its name matches the value of `label_name`.
               """,
       fields=[
           Field(
@@ -10781,6 +10974,12 @@ ResolvedArgumentRef(y)
               tag_id=2,
               ignorable=IGNORABLE_DEFAULT,
               comment='Points to a label in the catalog'),
+          Field(
+              'label_name',
+              'ResolvedExpr',
+              tag_id=3,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
       ])
 
   gen.AddNode(
@@ -10847,6 +11046,11 @@ ResolvedArgumentRef(y)
       `identifier` uniquely identifies a graph element in the graph.
       `label_list` contains all static labels.
       `property_list` contains all static properties and their definitions.
+      `dynamic_labels` is an expression that can be evaluated to a STRING or
+      ARRAY<STRING> typed value representing one or a list of dynamic labels.
+      `dynamic_properties` is an expression that can be evaluated to a JSON
+      typed value. Its top-level key/value pairs make up the dynamic properties
+      of the graph element.
 
       """,
       fields=[
@@ -10864,6 +11068,20 @@ ResolvedArgumentRef(y)
               ignorable=IGNORABLE_DEFAULT,
               vector=True,
               java_to_string_method='toStringCommaSeparatedForGraphElementLabel'
+          ),
+          Field(
+              'dynamic_labels',
+              'ResolvedExpr',
+              tag_id=5,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True
+          ),
+          Field(
+              'dynamic_properties',
+              'ResolvedExpr',
+              tag_id=6,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True
           ),
       ])
 
@@ -10938,6 +11156,19 @@ ResolvedArgumentRef(y)
       fields=[
           Field('path_mode', SCALAR_PATH_MODE, tag_id=2),
       ],
+  )
+
+  gen.AddNode(
+      name='ResolvedGraphPathCost',
+      tag_id=298,
+      parent='ResolvedArgument',
+      comment="""
+      This node defines the cost for a graph path. Currently it only defines the
+      value type of the cost. Value expressions are not yet supported at this
+      level. The actual cost for a path is the sum of the costs defined on graph
+      edge elements within the path.
+      """,
+      fields=[Field('cost_supertype', SCALAR_TYPE, tag_id=2)],
   )
 
   gen.AddNode(
@@ -11041,6 +11272,13 @@ ResolvedArgumentRef(y)
               'ResolvedGraphPathSearchPrefix',
               tag_id=10,
               is_optional_constructor_arg=True,
+          ),
+          Field(
+              'path_cost',
+              'ResolvedGraphPathCost',
+              tag_id=12,
+              is_optional_constructor_arg=True,
+              ignorable=IGNORABLE,
           ),
       ],
   )

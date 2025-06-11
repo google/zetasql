@@ -90,7 +90,7 @@ class NumericValue final {
   // allow_rounding is false and the result has more than the fractional digits
   // to keep, an error will be returned. This method
   // is not optimized for performance, and is much slower than
-  // FromScaledValue(int64_t), FromPackedInt and FromHighAndLowBits.
+  // FromScaledValue(int64), FromPackedInt and FromHighAndLowBits.
   static absl::StatusOr<NumericValue> FromScaledLittleEndianValue(
       absl::string_view little_endian_value, int source_scale,
       int fractional_digits_to_keep, bool allow_rounding, bool round_half_even);
@@ -221,7 +221,7 @@ class NumericValue final {
   friend H AbslHashValue(H h, const NumericValue& v);
 
   // Converts the NUMERIC value into a value of another number type. T can be
-  // one of int32_t, int64_t, uint32_t, uint64_t. Numeric values with fractional parts
+  // one of int32, int64, uint32, uint64. Numeric values with fractional parts
   // will be rounded to a whole integer with a half away from zero rounding
   // semantics. This method will return OUT_OF_RANGE error if an overflow occurs
   // during conversion.
@@ -300,7 +300,7 @@ class NumericValue final {
   // Returns the packed NUMERIC value.
   constexpr __int128 as_packed_int() const;
 
-  // Returns the packed uint64_t array in little endian order.
+  // Returns the packed uint64 array in little endian order.
   std::array<uint64_t, 2> ToPackedLittleEndianArray() const {
     return value_.number();
   }
@@ -732,7 +732,7 @@ class BigNumericValue final {
   friend H AbslHashValue(H h, const BigNumericValue& v);
 
   // Converts the BigNumericValue into a value of another number type. T can be
-  // one of int32_t, int64_t, uint32_t, uint64_t. Numeric values with fractional parts
+  // one of int32, int64, uint32, uint64. Numeric values with fractional parts
   // will be rounded to a whole integer with a half away from zero rounding
   // semantics. This method will return OUT_OF_RANGE error if an overflow occurs
   // during conversion.
@@ -757,7 +757,7 @@ class BigNumericValue final {
   // This method is much slower than AppendToString.
   void FormatAndAppend(FormatSpec spec, std::string* output) const;
 
-  // Returns the packed uint64_t array in little endian order.
+  // Returns the packed uint64 array in little endian order.
   constexpr const std::array<uint64_t, 4>& ToPackedLittleEndianArray() const;
 
   // Serialization and deserialization methods for BIGNUMERIC values that are
@@ -1214,7 +1214,7 @@ inline absl::StatusOr<T> NumericValue::To() const {
       std::is_same<T, int32_t>::value || std::is_same<T, int64_t>::value ||
           std::is_same<T, uint32_t>::value || std::is_same<T, uint64_t>::value,
       "In NumericValue::To<T>() T can only be one of "
-      "int32, int64_t, uint32_t or uint64");
+      "int32, int64, uint32 or uint64");
 
   __int128 rounded_value = static_cast<__int128>(
       FixedInt<64, 2>(as_packed_int()).DivAndRoundAwayFromZero(kScalingFactor));
@@ -1413,7 +1413,7 @@ template <bool round, int N>
   uint64_t remainder;
   value.DivMod(std::integral_constant<uint64_t, internal::k1e19>(), &value,
                &remainder);
-  // 10^38 > 2^64, so the highest uint64_t must be 0, even after adding 2^38.
+  // 10^38 > 2^64, so the highest uint64 must be 0, even after adding 2^38.
   ABSL_DCHECK_EQ(value.number()[N - 1], 0);
   FixedUint<64, N - 1> value_trunc(value);
   if (round && remainder >= (internal::k1e19 >> 1)) {
@@ -1428,7 +1428,7 @@ inline absl::StatusOr<T> BigNumericValue::To() const {
       std::is_same<T, int32_t>::value || std::is_same<T, int64_t>::value ||
           std::is_same<T, uint32_t>::value || std::is_same<T, uint64_t>::value,
       "In BigNumericValue::To<T>() T can only be one of "
-      "int32, int64_t, uint32_t or uint64");
+      "int32, int64, uint32 or uint64");
   bool is_negative = value_.is_negative();
   FixedUint<64, 4> abs_value = value_.abs();
   if (abs_value.number()[3] == 0) {

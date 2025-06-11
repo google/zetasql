@@ -55,7 +55,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
 ==
 
 [name=valid_extension]
-[required_features=V_1_2_PROTO_EXTENSIONS_WITH_NEW]
+[required_features=PROTO_EXTENSIONS_WITH_NEW]
 SELECT NEW zetasql_test__.TestExtraPB(
     'ext_value: 1' AS
     (zetasql_test__.TestExtraPBExtensionHolder.test_extra_proto_extension))
@@ -72,7 +72,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.TestExtraPB>>>[
 ==
 
 [name=extensions_and_regular_fields]
-[required_features=V_1_2_PROTO_EXTENSIONS_WITH_NEW]
+[required_features=PROTO_EXTENSIONS_WITH_NEW]
 SELECT NEW zetasql_test__.TestExtraPB(
     ["foo", "bar"] AS str_value,
     'ext_value: 1' AS
@@ -94,7 +94,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.TestExtraPB>>>[
 ==
 
 [name=multiple_extensions]
-[required_features=V_1_2_PROTO_EXTENSIONS_WITH_NEW]
+[required_features=PROTO_EXTENSIONS_WITH_NEW]
 SELECT NEW zetasql_test__.TestExtraPB(
     'ext_value: 1' AS
     (zetasql_test__.TestExtraPBExtensionHolder.test_extra_proto_extension),
@@ -117,7 +117,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.TestExtraPB>>>[
 ==
 
 [name=null_extension]
-[required_features=V_1_2_PROTO_EXTENSIONS_WITH_NEW]
+[required_features=PROTO_EXTENSIONS_WITH_NEW]
 SELECT NEW zetasql_test__.TestExtraPB(
     NULL AS
     (zetasql_test__.TestExtraPBExtensionHolder.test_extra_proto_extension))
@@ -126,7 +126,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.TestExtraPB>>>[{{}}]
 ==
 
 [name=null_extension_runtime]
-[required_features=V_1_2_PROTO_EXTENSIONS_WITH_NEW]
+[required_features=PROTO_EXTENSIONS_WITH_NEW]
 SELECT NEW zetasql_test__.TestExtraPB(
     COALESCE(CAST(NULL AS zetasql_test__.TestExtraPBExtensionHolder))
     AS (zetasql_test__.TestExtraPBExtensionHolder.test_extra_proto_extension))
@@ -135,7 +135,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.TestExtraPB>>>[{{}}]
 ==
 
 [name=extension_successful_implicit_narrowing_cast]
-[required_features=V_1_2_PROTO_EXTENSIONS_WITH_NEW]
+[required_features=PROTO_EXTENSIONS_WITH_NEW]
 SELECT NEW zetasql_test__.KitchenSinkPB(
     1 AS int64_key_1,
     2 AS int64_key_2,
@@ -151,7 +151,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
 ==
 
 [name=extension_failed_implicit_narrowing_cast]
-[required_features=V_1_2_PROTO_EXTENSIONS_WITH_NEW]
+[required_features=PROTO_EXTENSIONS_WITH_NEW]
 SELECT NEW zetasql_test__.KitchenSinkPB(
     1 AS int64_key_1,
     2 AS int64_key_2,
@@ -161,7 +161,7 @@ ERROR: generic::out_of_range: int32 out of range: 1311768467294899695
 ==
 
 [name=extension_invalid_value]
-[required_features=V_1_2_PROTO_EXTENSIONS_WITH_NEW]
+[required_features=PROTO_EXTENSIONS_WITH_NEW]
 SELECT NEW zetasql_test__.TestExtraPB(
     COALESCE('garbage_string') AS
     (zetasql_test__.TestExtraPBExtensionHolder.test_extra_proto_extension))
@@ -170,7 +170,7 @@ ERROR: generic::out_of_range: Error parsing proto: Message type "zetasql_test__.
 ==
 
 [name=extension_format_annotation]
-[required_features=V_1_2_PROTO_EXTENSIONS_WITH_NEW]
+[required_features=PROTO_EXTENSIONS_WITH_NEW]
 SELECT NEW zetasql_test__.KitchenSinkPB(
     1 AS int64_key_1,
     2 AS int64_key_2,
@@ -740,7 +740,7 @@ ARRAY<STRUCT<pb PROTO<zetasql_test__.MessageWithMapField>>>[
 ==
 
 [name=map_entry_key_null]
-[required_features=V_1_3_PROTO_MAPS]
+[required_features=PROTO_MAPS]
 SELECT NEW zetasql_test__.MessageWithMapField(
   [NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry(CAST(NULL AS STRING) AS key, 123 AS value)] AS string_int32_map
 ) as pb
@@ -749,7 +749,7 @@ ERROR: generic::out_of_range: Cannot write NULL to key or value of map field in 
 ==
 
 [name=map_entry_value_null]
-[required_features=V_1_3_PROTO_MAPS]
+[required_features=PROTO_MAPS]
 SELECT NEW zetasql_test__.MessageWithMapField(
   [NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry("foo" AS key, CAST(NULL AS INT32) AS value)] AS string_int32_map
 ) as pb
@@ -758,7 +758,7 @@ ERROR: generic::out_of_range: Cannot write NULL to key or value of map field in 
 ==
 
 [name=braced_proto_constructor]
-[required_features=V_1_3_BRACED_PROTO_CONSTRUCTORS]
+[required_features=BRACED_PROTO_CONSTRUCTORS]
 SELECT NEW zetasql_test__.KitchenSinkPB {
   int64_key_1: 1
   int64_key_2: 2

@@ -502,7 +502,7 @@ WHERE
 
 # TODO: Catalog qualifiers can be printed for tables when
 # SQLBuilder is overriden to do so, but we should have a more general solution.
-[language_features=V_1_3_DML_RETURNING]
+[language_features=DML_RETURNING]
 INSERT INTO nested_catalog.KeyValueNested (key, value) VALUES (1, "one")
 THEN RETURN key+1
 --
@@ -525,7 +525,7 @@ THEN RETURN
 
 # TODO: Catalog qualifiers can be printed for tables when
 # SQLBuilder is overriden to do so, but we should have a more general solution.
-[language_features=V_1_3_DML_RETURNING]
+[language_features=DML_RETURNING]
 UPDATE nested_catalog.KeyValueNested
 SET value = "3" WHERE key = 1
 THEN RETURN key+1
@@ -553,7 +553,7 @@ THEN RETURN
 
 # TODO: Catalog qualifiers can be printed for tables when
 # SQLBuilder is overriden to do so, but we should have a more general solution.
-[language_features=V_1_3_DML_RETURNING]
+[language_features=DML_RETURNING]
 DELETE FROM nested_catalog.KeyValueNested
 WHERE key = 1
 THEN RETURN key+1
@@ -577,7 +577,7 @@ THEN RETURN
 
 # TODO: Catalog qualifiers can be printed for tables when
 # SQLBuilder is overriden to do so, but we should have a more general solution.
-[language_features=V_1_3_DML_RETURNING]
+[language_features=DML_RETURNING]
 DELETE FROM nested_catalog.KeyValueNested AS T
 WHERE key = 1
 THEN RETURN T.key+1 AS my_key, key, T.key AS ref_key, 100 AS value

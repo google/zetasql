@@ -33,7 +33,7 @@ static constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 
 std::vector<FunctionTestCall> GetFunctionTestsInstr3() {
   return {
-      // instr(bytes, bytes, int64_t, int64_t) -> int64_t
+      // instr(bytes, bytes, int64, int64) -> int64
       {"instr", {NullBytes(), Bytes(""), 1ll, 1ll}, NullInt64()},
       {"instr", {NullBytes(), Bytes("x"), 1ll, 1ll}, NullInt64()},
       {"instr", {Bytes(""), NullBytes(), 1ll, 1ll}, NullInt64()},
@@ -233,7 +233,7 @@ std::vector<FunctionTestCall> GetFunctionTestsInstr3() {
 // Do not add cases here unless necessary.
 std::vector<FunctionTestCall> GetFunctionTestsInstrNoCollator() {
   return {
-      // instr(bytes, bytes, int64_t, int64_t) -> int64_t
+      // instr(bytes, bytes, int64, int64) -> int64
       {"instr", {"abca\0b\0c\0", "a\0b\0c"}, 4ll},
       {"instr", {"abca\0b\0c\0", "a\0b\0c", -7ll}, 0ll},
       {"instr", {"abca\0b\0c\0", "a\0b\0c", -1ll, 2ll}, 0ll},
@@ -566,7 +566,7 @@ GetFunctionTestsStringWithCollatorInitializerList() {
       {"split_with_collator",
        {"und:ci", "chlieb", ""},
        values::StringArray({"c", "h", "l", "i", "e", "b"})},
-      // instr_with_collator(collator, string, [int64, [int64]]) -> int64_t
+      // instr_with_collator(collator, string, [int64, [int64]]) -> int64
       // instr_with_collator also runs test cases for instr which cover all the
       // logic for regular instr for both binary and und:ci. These test
       // cases cover only case sensitivity and treatment of "ignorable collation
@@ -635,7 +635,7 @@ GetFunctionTestsStringWithCollatorInitializerList() {
       {"instr_with_collator", {"sk", "chlieb", "h", 2l, 1l}, 0l},
       {"instr_with_collator", {"sk", "chlieb", "l", 1l, 1l}, 3l},
       {"instr_with_collator", {"und:ci", "chlieb", "c", 1l, 1l}, 1l},
-      // strpos_with_collator(collator, string) -> int64_t
+      // strpos_with_collator(collator, string) -> int64
       // binary cases.
       {"strpos_with_collator", {"binary", "", "x"}, 0ll},
       {"strpos_with_collator", {"binary", "x", ""}, 1ll},

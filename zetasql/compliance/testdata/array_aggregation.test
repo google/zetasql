@@ -214,7 +214,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=array_agg_RANGE_datetime_basic]
 SELECT ARRAY_AGG(elem) FROM (
   SELECT CAST(NULL AS RANGE<DATETIME>) AS elem UNION ALL
@@ -261,7 +261,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,RANGE_TYPE]
+[required_features=ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,RANGE_TYPE]
 [name=array_agg_RANGE_date_with_limit]
 SELECT ARRAY_AGG(elem ORDER BY elem LIMIT 3) FROM (
   SELECT CAST(NULL AS RANGE<DATE>) AS elem UNION ALL
@@ -274,7 +274,7 @@ ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<RANGE<DATE>>[known order:NULL, [NULL, 2020-12-31), [NULL, NULL)]}
 ]
 ==
-[required_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,RANGE_TYPE,CIVIL_TIME]
 [name=array_agg_RANGE_datetime_with_limit]
 SELECT ARRAY_AGG(elem ORDER BY elem LIMIT 3) FROM (
   SELECT CAST(NULL AS RANGE<DATETIME>) AS elem UNION ALL
@@ -291,7 +291,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,RANGE_TYPE]
+[required_features=ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,RANGE_TYPE]
 [name=array_agg_RANGE_timestamp_with_limit]
 SELECT ARRAY_AGG(elem ORDER BY elem LIMIT 3) FROM (
   SELECT CAST(NULL AS RANGE<TIMESTAMP>) AS elem UNION ALL
@@ -372,7 +372,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=V_1_2_CIVIL_TIME,RANGE_TYPE]
+[required_features=CIVIL_TIME,RANGE_TYPE]
 [name=array_agg_RANGE_datetime_with_filter]
 SELECT ARRAY_AGG(elem) FROM (
   SELECT RANGE<DATETIME> '[2020-01-01 00:00:00, 2020-12-31 00:00:00)' AS elem UNION ALL
@@ -466,7 +466,7 @@ ARRAY<STRUCT<b ARRAY<>>>[
   {ARRAY<STRUCT<element INT64>>[unknown order:{2}, {1}, {3}]}
 ]
 ==
-[required_features=V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=ORDER_BY_IN_AGGREGATE]
 [name=array_agg_of_subquery_with_order_by]
 SELECT ARRAY_AGG((SELECT AS STRUCT a AS element) ORDER BY a) b
 FROM (
@@ -901,7 +901,7 @@ FROM (SELECT [1, 2] x) foo;
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[unknown order:1, 2]}]
 ==
-[required_features=V_1_1_LIMIT_IN_AGGREGATE]
+[required_features=LIMIT_IN_AGGREGATE]
 [name=array_concat_agg_simple_with_limit]
 SELECT ARRAY_CONCAT_AGG(x LIMIT 1)
 FROM (SELECT [1] x) foo;
@@ -910,7 +910,7 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[1]}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
-[required_features=V_1_1_LIMIT_IN_AGGREGATE,V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[required_features=LIMIT_IN_AGGREGATE,LIMIT_OFFSET_EXPRESSIONS]
 [name=array_concat_agg_simple_with_expression_limit]
 SELECT ARRAY_CONCAT_AGG(x LIMIT MOD(1, 2))
 FROM (SELECT [1] x) foo;
@@ -1144,7 +1144,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=array_concat_agg_range_datetime]
 SELECT ARRAY_CONCAT_AGG(x) FROM (
     SELECT [CAST(NULL AS RANGE<DATETIME>), RANGE<DATETIME> '[2020-01-01 12:00:00, 2020-12-31 14:00:00)', RANGE<DATETIME> '[2020-01-01 12:00:00, UNBOUNDED)'] x UNION ALL
@@ -1204,7 +1204,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=array_concat_agg_range_datetime_with_filter]
 SELECT ARRAY_CONCAT_AGG(x) FROM (
     SELECT [CAST(NULL AS RANGE<DATETIME>), RANGE<DATETIME> '[2020-01-01 12:00:00, 2020-12-31 14:00:00)', RANGE<DATETIME> '[2020-01-01 12:00:00, UNBOUNDED)'] x UNION ALL
@@ -1254,7 +1254,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=V_1_1_LIMIT_IN_AGGREGATE,RANGE_TYPE]
+[required_features=LIMIT_IN_AGGREGATE,RANGE_TYPE]
 [name=array_concat_agg_range_date_with_limit]
 SELECT ARRAY_CONCAT_AGG(x LIMIT 2) FROM (
     SELECT [CAST(NULL AS RANGE<DATE>), RANGE<DATE> '[2020-01-01, 2020-12-31)', RANGE<DATE> '[2020-01-01, UNBOUNDED)'] x UNION ALL
@@ -1273,7 +1273,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 
 NOTE: Reference implementation reports non-determinism.
 ==
-[required_features=V_1_1_LIMIT_IN_AGGREGATE,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=LIMIT_IN_AGGREGATE,RANGE_TYPE,CIVIL_TIME]
 [name=array_concat_agg_range_datetime_with_limit]
 SELECT ARRAY_CONCAT_AGG(x LIMIT 2) FROM (
     SELECT [CAST(NULL AS RANGE<DATETIME>), RANGE<DATETIME> '[2020-01-01 12:00:00, 2020-12-31 14:00:00)', RANGE<DATETIME> '[2020-01-01 12:00:00, UNBOUNDED)'] x UNION ALL
@@ -1292,7 +1292,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 
 NOTE: Reference implementation reports non-determinism.
 ==
-[required_features=V_1_1_LIMIT_IN_AGGREGATE,RANGE_TYPE]
+[required_features=LIMIT_IN_AGGREGATE,RANGE_TYPE]
 [name=array_concat_agg_range_timestamp_with_limit]
 SELECT ARRAY_CONCAT_AGG(x LIMIT 2) FROM (
     SELECT [CAST(NULL AS RANGE<TIMESTAMP>), RANGE<TIMESTAMP> '[2020-01-01 12:00:00+02, 2020-12-31 14:00:00+08)', RANGE<TIMESTAMP> '[2020-01-01 12:00:00+02, UNBOUNDED)'] x UNION ALL
@@ -1320,14 +1320,14 @@ ARRAY<STRUCT<ARRAY<>>>[
 
 NOTE: Reference implementation reports non-determinism.
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [name=array_agg_BOOL_ignore_nulls_with_unnest]
 SELECT ARRAY_AGG(elem IGNORE NULLS)
 FROM UNNEST(ARRAY<BOOL>[true, null, false, true, null]) elem;
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>[unknown order:true, true, false]}]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [name=array_agg_BOOL_ignore_nulls]
 SELECT ARRAY_AGG(elem IGNORE NULLS)
 FROM (SELECT true as elem
@@ -1342,7 +1342,7 @@ FROM (SELECT true as elem
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>[unknown order:true, true, false]}]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [name=array_agg_BOOL_respect_nulls]
 SELECT ARRAY_AGG(elem RESPECT NULLS)
 FROM (SELECT true as elem
@@ -1362,7 +1362,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 # This test is added because some engines disallow arrays with null elements
 # in operation/stage outputs. We can still test a query which transiently
 # stores arrays with null elements.
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_4_WITH_EXPRESSION]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,WITH_EXPRESSION]
 [name=array_agg_BOOL_respect_nulls_2]
 SELECT
   WITH(
@@ -1373,7 +1373,7 @@ FROM UNNEST([true, NULL]) AS x;
 --
 ARRAY<STRUCT<arr_len INT64, idx0 BOOL, idx1 BOOL>>[{2, NULL, true}]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [name=array_agg_INT64_ignore_nulls]
 SELECT ARRAY_AGG(elem IGNORE NULLS)
 FROM (SELECT 4 AS elem
@@ -1388,7 +1388,7 @@ FROM (SELECT 4 AS elem
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[unknown order:4, 4, 0]}]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [name=array_agg_INT64_respect_nulls]
 SELECT ARRAY_AGG(elem RESPECT NULLS)
 FROM (SELECT 4 AS elem
@@ -1403,7 +1403,7 @@ FROM (SELECT 4 AS elem
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[unknown order:NULL, 4, 4, 0, NULL]}]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_4_WITH_EXPRESSION]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,WITH_EXPRESSION]
 [name=array_agg_INT64_respect_nulls_2]
 SELECT
   WITH(
@@ -1416,7 +1416,7 @@ ARRAY<STRUCT<arr_len INT64, idx0 INT64, idx1 INT64>>[{2, NULL, 3}]
 ==
 # When all values to aggregate are NULL, then the result is a NULL
 # array.
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [name=array_agg_STRING_ignore_nulls]
 SELECT ARRAY_AGG(elem IGNORE NULLS)
 FROM (SELECT CAST(NULL AS STRING) AS elem
@@ -1425,7 +1425,7 @@ FROM (SELECT CAST(NULL AS STRING) AS elem
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>(NULL)}]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [name=array_agg_STRING_respect_nulls]
 SELECT ARRAY_AGG(elem RESPECT NULLS)
 FROM (SELECT CAST(NULL AS STRING) AS elem
@@ -1434,7 +1434,7 @@ FROM (SELECT CAST(NULL AS STRING) AS elem
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[unknown order:NULL, NULL]}]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_4_WITH_EXPRESSION]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,WITH_EXPRESSION]
 [name=array_agg_STRING_respect_nulls_2]
 SELECT
   WITH(
@@ -1445,7 +1445,7 @@ FROM UNNEST(["ab", NULL]) AS x;
 --
 ARRAY<STRUCT<arr_len INT64, idx0 STRING, idx1 STRING>>[{2, NULL, "ab"}]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [name=array_agg_STRUCT_ignore_nulls]
 SELECT ARRAY_AGG(elem IGNORE NULLS)
 FROM (SELECT STRUCT<a INT64, b STRING>(1, null) AS elem
@@ -1464,7 +1464,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [name=array_agg_STRUCT_respect_nulls]
 SELECT ARRAY_AGG(elem RESPECT NULLS)
 FROM (SELECT STRUCT<a INT64, b STRING>(1, null) AS elem
@@ -1484,7 +1484,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_4_WITH_EXPRESSION]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,WITH_EXPRESSION]
 [name=array_agg_STRUCT_respect_nulls_2]
 SELECT
   WITH(
@@ -1499,7 +1499,7 @@ ARRAY<STRUCT<
         idx1 STRUCT<a INT64, b STRING>
       >>[{2, NULL, {1, "a"}}]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [name=array_agg_PROTO_ignore_nulls]
 SELECT ARRAY_AGG(elem IGNORE NULLS)
 FROM (SELECT CAST("" AS `zetasql_test__.NullableInt`) AS elem
@@ -1512,7 +1512,7 @@ ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<PROTO<zetasql_test__.NullableInt>>[unknown order:{}, {value: 0}]}
 ]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [name=array_agg_PROTO_respect_nulls]
 SELECT ARRAY_AGG(elem RESPECT NULLS)
 FROM (SELECT CAST("" AS `zetasql_test__.NullableInt`) AS elem
@@ -1525,7 +1525,7 @@ ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<PROTO<zetasql_test__.NullableInt>>[unknown order:NULL, {}, {value: 0}]}
 ]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_4_WITH_EXPRESSION]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,WITH_EXPRESSION]
 [name=array_agg_PROTO_respect_nulls_2]
 SELECT
   WITH(
@@ -1541,7 +1541,7 @@ ARRAY<STRUCT<
       >>[{2, NULL, {value: 0}}]
 ==
 # Note that the LIMIT applies to the non-NULL aggregated values.
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE]
 [name=array_agg_DOUBLE_ignore_nulls_order_by_asc_limit]
 SELECT ARRAY_AGG(elem IGNORE NULLS ORDER BY elem ASC LIMIT 3)
 FROM (SELECT CAST(null AS DOUBLE) as elem
@@ -1565,7 +1565,7 @@ FROM (SELECT CAST(null AS DOUBLE) as elem
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<DOUBLE>[known order:-1, 0, 0]}]
 ==
 # Note that the LIMIT applies to the non-NULL aggregated values.
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE]
 [name=array_agg_DOUBLE_ignore_nulls_order_by_desc_limit]
 SELECT ARRAY_AGG(elem IGNORE NULLS ORDER BY elem DESC LIMIT 3)
 FROM (SELECT CAST(null AS DOUBLE) as elem
@@ -1588,7 +1588,7 @@ FROM (SELECT CAST(null AS DOUBLE) as elem
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<DOUBLE>[known order:4, 0, 0]}]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,RANGE_TYPE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE,RANGE_TYPE]
 [name=array_agg_RANGE_date_ignore_nulls]
 SELECT ARRAY_AGG(elem IGNORE NULLS)
 FROM (SELECT RANGE<DATE> '[2020-01-01, 2020-12-31)' AS elem
@@ -1612,7 +1612,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,RANGE_TYPE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE,RANGE_TYPE]
 [name=array_agg_RANGE_date_respect_nulls]
 SELECT ARRAY_AGG(elem RESPECT NULLS)
 FROM (SELECT RANGE<DATE> '[2020-01-01, 2020-12-31)' AS elem
@@ -1638,7 +1638,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_4_WITH_EXPRESSION,RANGE_TYPE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,WITH_EXPRESSION,RANGE_TYPE]
 [name=array_agg_RANGE_date_respect_nulls_2]
 SELECT
   WITH(
@@ -1655,7 +1655,7 @@ ARRAY<STRUCT<arr_len INT64, idx0 RANGE<DATE>, idx1 RANGE<DATE>>>[
   }
 ]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_2_CIVIL_TIME,RANGE_TYPE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE,CIVIL_TIME,RANGE_TYPE]
 [name=array_agg_RANGE_datetime_ignore_nulls]
 SELECT ARRAY_AGG(elem IGNORE NULLS)
 FROM (SELECT RANGE<DATETIME> '[2020-01-01 00:00:00, 2020-12-31 00:00:00)' AS elem
@@ -1679,7 +1679,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_2_CIVIL_TIME,RANGE_TYPE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE,CIVIL_TIME,RANGE_TYPE]
 [name=array_agg_RANGE_datetime_respect_nulls]
 SELECT ARRAY_AGG(elem RESPECT NULLS)
 FROM (SELECT RANGE<DATETIME> '[2020-01-01 00:00:00, 2020-12-31 00:00:00)' AS elem
@@ -1705,7 +1705,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_2_CIVIL_TIME,V_1_4_WITH_EXPRESSION,RANGE_TYPE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,CIVIL_TIME,WITH_EXPRESSION,RANGE_TYPE]
 [name=array_agg_RANGE_datetime_respect_nulls_2]
 SELECT
   WITH(
@@ -1722,7 +1722,7 @@ ARRAY<STRUCT<arr_len INT64, idx0 RANGE<DATETIME>, idx1 RANGE<DATETIME>>>[
   }
 ]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,RANGE_TYPE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE,RANGE_TYPE]
 [name=array_agg_RANGE_timestamp_ignore_nulls]
 SELECT ARRAY_AGG(elem IGNORE NULLS)
 FROM (SELECT RANGE<TIMESTAMP> '[2020-01-01 08:00:00+00, 2020-12-31 08:00:00+00)' AS elem
@@ -1755,7 +1755,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,RANGE_TYPE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE,RANGE_TYPE]
 [name=array_agg_RANGE_timestamp_respect_nulls]
 SELECT ARRAY_AGG(elem RESPECT NULLS)
 FROM (SELECT RANGE<TIMESTAMP> '[2020-01-01 08:00:00+00, 2020-12-31 08:00:00+00)' AS elem
@@ -1790,7 +1790,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_4_WITH_EXPRESSION,RANGE_TYPE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,WITH_EXPRESSION,RANGE_TYPE]
 [name=array_agg_RANGE_timestamp_respect_nulls_2]
 SELECT
   WITH(
@@ -1811,28 +1811,28 @@ ARRAY<STRUCT<
     2020-12-31 08:00:00+00
   )}]
 ==
-[required_features=V_1_1_LIMIT_IN_AGGREGATE]
+[required_features=LIMIT_IN_AGGREGATE]
 [name=array_agg_distinct_subquery_with_limit]
 select array_agg(distinct (x in (select y from unnest([1,2,3]) as y)) limit 123)
 from unnest([1,2,3]) as x
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>[true]}]
 ==
-[required_features=V_1_1_LIMIT_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE]
 [name=array_agg_distinct_subquery_with_limit_and_order_by]
 select array_agg(distinct array_includes([1,2,3], x) order by array_includes([1,2,3], x) limit 123)
 from unnest([1,2,3]) as x
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>[true]}]
 ==
-[required_features=V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=ORDER_BY_IN_AGGREGATE]
 [name=array_agg_distinct_subquery_with_order_by_two_vars]
 select array_agg(distinct x+y order by x+y)
 from unnest([1,2,3]) as x, unnest([5,6,7]) as y
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:6, 7, 8, 9, 10]}]
 ==
-[required_features=V_1_1_LIMIT_IN_AGGREGATE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[required_features=LIMIT_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [name=array_agg_with_correlated_column_and_limit]
 select w from
 unnest([1,2,3]) as w
@@ -1841,7 +1841,7 @@ order by w
 --
 ARRAY<STRUCT<w INT64>>[known order:{1}, {2}, {3}]
 ==
-[required_features=V_1_1_LIMIT_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[required_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [name=array_agg_with_correlated_column_and_limit_and_order_by]
 select w from
 unnest([1,2,3]) as w
@@ -1851,13 +1851,13 @@ order by w
 ARRAY<STRUCT<w INT64>>[known order:{1}, {2}, {3}]
 ==
 [parameters=1 as val]
-[required_features=V_1_1_LIMIT_IN_AGGREGATE]
+[required_features=LIMIT_IN_AGGREGATE]
 [name=array_agg_with_parameters_and_limit]
 select array_agg(@val limit 100) from (select 1)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[1]}]
 ==
-[required_features=V_1_1_LIMIT_IN_AGGREGATE]
+[required_features=LIMIT_IN_AGGREGATE]
 [name=array_agg_with_constants_and_limit]
 select array_agg(1 limit 100) from (select 1)
 --

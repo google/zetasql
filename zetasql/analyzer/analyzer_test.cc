@@ -40,6 +40,7 @@
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/literal_remover.h"
@@ -240,7 +241,7 @@ TEST_F(AnalyzerOptionsTest, AddQueryParameterCivilTimeTypes) {
   // it can be recognized as time or datetime.
   ZETASQL_EXPECT_OK(options_.AddQueryParameter("proto_with_time_1", proto_with_time));
 
-  options_.mutable_language()->EnableLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
+  options_.mutable_language()->EnableLanguageFeature(FEATURE_CIVIL_TIME);
   ZETASQL_EXPECT_OK(options_.AddQueryParameter("time_2", type_factory_.get_time()));
   ZETASQL_EXPECT_OK(options_.AddQueryParameter("time_struct_2", time_struct));
   ZETASQL_EXPECT_OK(options_.AddQueryParameter("time_array_2", time_array));
@@ -518,7 +519,7 @@ TEST_F(AnalyzerOptionsTest, SetDdlPseudoColumns) {
 TEST_F(AnalyzerOptionsTest, AnalyzeStatementWithPreRewriteCallback) {
   AnalyzerOptions options;
   options.mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS);
+      FEATURE_UNNEST_AND_FLATTEN_ARRAYS);
   SampleCatalog catalog(options.language());
   TypeFactory type_factory;
   std::unique_ptr<const AnalyzerOutput> output;
@@ -1073,32 +1074,50 @@ TEST_F(AnalyzerOptionsTest, DeprecationWarnings) {
   }
 }
 
-// When a built-in function that is required by a rewrite is hidden by a
-// non-built-in function, an error is returned.
-TEST_F(AnalyzerOptionsTest, BuiltInHiddenByNonBuiltIn) {
-  // Hides the built-in `IF` function by a user-defined `IF`, equilvalent SQL:
-  // ```sql
-  //   CREATE TEMP FUNCTION `IF`(a BOOL, b BOOL, c BOOL)
-  //   AS (
-  //     CASE a WHEN TRUE THEN FALSE ELSE TRUE END
-  //   );
-  // ```
+// Create a function named `if` that can shadow the built-in `if` function.
+std::unique_ptr<Function> CreateIfFunction(std::string function_group) {
   FunctionOptions function_options;
   function_options.set_evaluator([](const absl::Span<const Value> args) {
     bool condition = args[0].bool_value();
     return Value::Bool(!condition);
   });
+  return std::make_unique<Function>(
+      "if", function_group, Function::SCALAR,
+      std::vector<FunctionSignature>{
+          {types::BoolType(),
+           {types::BoolType(), types::BoolType(), types::BoolType()},
+           1}},
+      function_options);
+}
 
+// Create a function named `rewritten_function` with the given rewrite options,
+// to be rewritten by the BuiltinFunctionInliner rewriter.
+std::unique_ptr<Function> CreateRewrittenFunction(
+    std::string sql, bool allow_table_references,
+    std::vector<std::string> allowed_function_groups) {
+  FunctionSignatureOptions function_signature_options =
+      FunctionSignatureOptions().set_rewrite_options(
+          FunctionSignatureRewriteOptions()
+              .set_enabled(true)
+              .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+              .set_sql(sql)
+              .set_allow_table_references(allow_table_references)
+              .set_allowed_function_groups(allowed_function_groups));
+  return std::make_unique<Function>(
+      "rewritten_function", "ZetaSQL", Function::SCALAR,
+      std::vector<FunctionSignature>{
+          {types::BoolType(), {}, 1, function_signature_options}});
+}
+
+// When a built-in function that is required by a rewrite is hidden by a
+// non-built-in function, an error is returned.
+TEST_F(AnalyzerOptionsTest, BuiltInHiddenByNonBuiltIn) {
   SimpleCatalog catalog("catalog");
   ZetaSQLBuiltinFunctionOptions options;
   options.exclude_function_ids.insert(FN_IF);
   catalog.AddBuiltinFunctions(options);
-  catalog.AddOwnedFunction(
-      new Function("if", "test_group", Function::SCALAR,
-                   {{types::BoolType(),
-                     {types::BoolType(), types::BoolType(), types::BoolType()},
-                     1}},
-                   function_options));
+  // Hides the built-in `IF` function by a user-defined `IF`.
+  catalog.AddOwnedFunction(CreateIfFunction(/*function_group=*/""));
 
   // TYPEOF internally uses IF.
   std::string expr = R"sql(
@@ -1110,6 +1129,86 @@ TEST_F(AnalyzerOptionsTest, BuiltInHiddenByNonBuiltIn) {
   EXPECT_EQ(status.code(), absl::StatusCode::kInvalidArgument);
   EXPECT_EQ(status.message(),
             "Required built-in function \"`if`\" not available");
+}
+
+// By default, BuiltinFunctionInliner only allows SQL templates to reference
+// ZetaSQL-builtin functions.
+TEST_F(AnalyzerOptionsTest, BuiltinFunctionInlinerShadowed) {
+  SimpleCatalog catalog("catalog");
+  catalog.AddOwnedFunction(CreateRewrittenFunction(
+      "IF(true, true, true)", /*allow_table_references=*/false,
+      /*allowed_function_groups=*/{}));
+  // Mimic a UDF `IF`, which will be referenced when analyzing the SQL template
+  // for `rewritten_function`.
+  catalog.AddOwnedFunction(CreateIfFunction(/*function_group=*/""));
+
+  std::string expr = "rewritten_function()";
+  std::unique_ptr<const AnalyzerOutput> output;
+  absl::Status status =
+      AnalyzeExpression(expr, options_, &catalog, &type_factory_, &output);
+  EXPECT_EQ(status.code(), absl::StatusCode::kInvalidArgument);
+  EXPECT_THAT(status.message(),
+              HasSubstr("Required built-in function \"`IF`\" not available"));
+}
+
+// BuiltinFunctionInliner allows additional function groups, if specified in the
+// FunctionSignatureRewriteOptions.
+TEST_F(AnalyzerOptionsTest, BuiltinFunctionInlinerEngineBuiltin) {
+  SimpleCatalog catalog("catalog");
+  const std::string kFunctionGroup = "test_group";
+  catalog.AddOwnedFunction(CreateRewrittenFunction(
+      "IF(true, true, true)", /*allow_table_references=*/false,
+      /*allowed_function_groups=*/{"x", kFunctionGroup}));
+  // Mimic an engine-defined `IF`, which will be referenced when analyzing the
+  // SQL template for `rewritten_function`. This function is allowed by the
+  // `allowed_function_groups` option in the FunctionSignatureRewriteOptions.
+  catalog.AddOwnedFunction(CreateIfFunction(kFunctionGroup));
+
+  std::string expr = "rewritten_function()";
+  std::unique_ptr<const AnalyzerOutput> output;
+  ZETASQL_EXPECT_OK(
+      AnalyzeExpression(expr, options_, &catalog, &type_factory_, &output));
+}
+
+// By default, BuiltinFunctionInliner will not allow table references.
+TEST_F(AnalyzerOptionsTest, BuiltinFunctionInlinerDisallowTableReference) {
+  SimpleCatalog catalog("catalog");
+  catalog.AddOwnedFunction(
+      CreateRewrittenFunction("(SELECT T.x FROM test_table AS T)",
+                              /*allow_table_references=*/false,
+                              /*allowed_function_groups=*/{}));
+  auto table = std::make_unique<SimpleTable>("test_table");
+  ZETASQL_ASSERT_OK(table->AddColumn(
+      new SimpleColumn("test_table", "x", type_factory_.get_bool()),
+      /*is_owned=*/true));
+  catalog.AddOwnedTable(std::move(table));
+
+  std::string expr = "rewritten_function()";
+  std::unique_ptr<const AnalyzerOutput> output;
+  absl::Status status =
+      AnalyzeExpression(expr, options_, &catalog, &type_factory_, &output);
+  EXPECT_EQ(status.code(), absl::StatusCode::kInvalidArgument);
+  EXPECT_THAT(status.message(), HasSubstr("Table not found: test_table"));
+}
+
+// BuiltinFunctionInliner allows table references if indicated by the
+// FunctionSignatureRewriteOptions.
+TEST_F(AnalyzerOptionsTest, BuiltinFunctionInlinerAllowTableReference) {
+  SimpleCatalog catalog("catalog");
+  catalog.AddOwnedFunction(
+      CreateRewrittenFunction("(SELECT T.x FROM test_table AS T)",
+                              /*allow_table_references=*/true,
+                              /*allowed_function_groups=*/{}));
+  auto table = std::make_unique<SimpleTable>("test_table");
+  ZETASQL_ASSERT_OK(table->AddColumn(
+      new SimpleColumn("test_table", "x", type_factory_.get_bool()),
+      /*is_owned=*/true));
+  catalog.AddOwnedTable(std::move(table));
+
+  std::string expr = "rewritten_function()";
+  std::unique_ptr<const AnalyzerOutput> output;
+  ZETASQL_EXPECT_OK(
+      AnalyzeExpression(expr, options_, &catalog, &type_factory_, &output));
 }
 
 TEST_F(AnalyzerOptionsTest, ResolvedASTRewrites) {
@@ -1637,33 +1736,32 @@ TEST(AnalyzerSupportedFeaturesTest, EnableFeaturesForVersion) {
   // FEATURE_ANALYTIC_FUNCTIONS).
   AnalyzerOptions options;
   options.mutable_language()->EnableLanguageFeature(FEATURE_ANALYTIC_FUNCTIONS);
-  options.mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_1_ORDER_BY_COLLATE);
+  options.mutable_language()->EnableLanguageFeature(FEATURE_ORDER_BY_COLLATE);
 
   options.mutable_language()->SetLanguageVersion(VERSION_1_0);
   EXPECT_FALSE(
       options.language().LanguageFeatureEnabled(FEATURE_ANALYTIC_FUNCTIONS));
-  EXPECT_FALSE(options.language().LanguageFeatureEnabled(
-      FEATURE_V_1_1_ORDER_BY_COLLATE));
+  EXPECT_FALSE(
+      options.language().LanguageFeatureEnabled(FEATURE_ORDER_BY_COLLATE));
 
   options.mutable_language()->EnableLanguageFeature(FEATURE_ANALYTIC_FUNCTIONS);
   options.mutable_language()->SetLanguageVersion(VERSION_1_1);
   EXPECT_FALSE(
       options.language().LanguageFeatureEnabled(FEATURE_ANALYTIC_FUNCTIONS));
-  EXPECT_TRUE(options.language().LanguageFeatureEnabled(
-      FEATURE_V_1_1_ORDER_BY_COLLATE));
+  EXPECT_TRUE(
+      options.language().LanguageFeatureEnabled(FEATURE_ORDER_BY_COLLATE));
 
   options.mutable_language()->EnableLanguageFeature(FEATURE_ANALYTIC_FUNCTIONS);
   EXPECT_TRUE(
       options.language().LanguageFeatureEnabled(FEATURE_ANALYTIC_FUNCTIONS));
-  EXPECT_TRUE(options.language().LanguageFeatureEnabled(
-      FEATURE_V_1_1_ORDER_BY_COLLATE));
+  EXPECT_TRUE(
+      options.language().LanguageFeatureEnabled(FEATURE_ORDER_BY_COLLATE));
 
   options.mutable_language()->DisableAllLanguageFeatures();
   EXPECT_FALSE(
       options.language().LanguageFeatureEnabled(FEATURE_ANALYTIC_FUNCTIONS));
-  EXPECT_FALSE(options.language().LanguageFeatureEnabled(
-      FEATURE_V_1_1_ORDER_BY_COLLATE));
+  EXPECT_FALSE(
+      options.language().LanguageFeatureEnabled(FEATURE_ORDER_BY_COLLATE));
 
   // VERSION_CURRENT clears the features and adds back in the maximal set
   // of versioned features, but not the cross-version features.
@@ -1671,8 +1769,8 @@ TEST(AnalyzerSupportedFeaturesTest, EnableFeaturesForVersion) {
   options.mutable_language()->SetLanguageVersion(VERSION_CURRENT);
   EXPECT_FALSE(
       options.language().LanguageFeatureEnabled(FEATURE_ANALYTIC_FUNCTIONS));
-  EXPECT_TRUE(options.language().LanguageFeatureEnabled(
-      FEATURE_V_1_1_ORDER_BY_COLLATE));
+  EXPECT_TRUE(
+      options.language().LanguageFeatureEnabled(FEATURE_ORDER_BY_COLLATE));
 }
 
 // Test resolving a proto extension where the extension comes from
@@ -1876,7 +1974,7 @@ TEST(AnalyzerTest, StandaloneAggregateExpression) {
 TEST(AnalyzerTest, AstRewriting) {
   AnalyzerOptions options;
   options.mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS);
+      FEATURE_UNNEST_AND_FLATTEN_ARRAYS);
   SampleCatalog catalog(options.language());
   TypeFactory type_factory;
   std::unique_ptr<const AnalyzerOutput> output;
@@ -1902,7 +2000,7 @@ TEST(AnalyzerTest, AstRewritingLegacyAccessModeRespected) {
   options.set_fields_accessed_mode(
       AnalyzerOptions::FieldsAccessedMode::LEGACY_FIELDS_ACCESSED_MODE);
   options.mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS);
+      FEATURE_UNNEST_AND_FLATTEN_ARRAYS);
   SampleCatalog catalog(options.language());
   TypeFactory type_factory;
   std::unique_ptr<const AnalyzerOutput> output;
@@ -1925,7 +2023,7 @@ TEST(AnalyzerTest, AstRewritingClearAccessModeRespected) {
   options.set_fields_accessed_mode(
       AnalyzerOptions::FieldsAccessedMode::CLEAR_FIELDS);
   options.mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS);
+      FEATURE_UNNEST_AND_FLATTEN_ARRAYS);
   SampleCatalog catalog(options.language());
   TypeFactory type_factory;
   std::unique_ptr<const AnalyzerOutput> output;
@@ -1965,11 +2063,11 @@ TEST(AnalyzerTest, LanguageOptions) {
             analyzer_options.error_message_mode());
 
   EXPECT_FALSE(analyzer_options.language().LanguageFeatureEnabled(
-      FEATURE_V_1_1_ORDER_BY_COLLATE));
+      FEATURE_ORDER_BY_COLLATE));
   analyzer_options.mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_1_ORDER_BY_COLLATE);
+      FEATURE_ORDER_BY_COLLATE);
   EXPECT_TRUE(analyzer_options.language().LanguageFeatureEnabled(
-      FEATURE_V_1_1_ORDER_BY_COLLATE));
+      FEATURE_ORDER_BY_COLLATE));
 
   const AnalyzerOptions analyzer_options2(language_options);
   EXPECT_TRUE(
@@ -2278,9 +2376,9 @@ class AnalyzeGeneratedColumnTest : public testing::Test {
     // CREATE TABLE test_table (
     // A as (B+C),
     // B as (C+1),
-    // C int64_t,
+    // C int64,
     // D as (A+B+C),
-    // ID int64_t,
+    // ID int64,
     // ) PRIMARY KEY(ID)
     auto test_table = std::make_unique<SimpleTable>(
         "test_table", std::vector<SimpleTable::NameAndType>{});
@@ -2289,13 +2387,13 @@ class AnalyzeGeneratedColumnTest : public testing::Test {
     AddGeneratedColumnToTable("A", {"B", "C"}, "B+C", test_table.get());
     // Adding column B AS (C+1) to test_table.
     AddGeneratedColumnToTable("B", {"C"}, "C+1", test_table.get());
-    // Adding column C int64_t to test_table.
+    // Adding column C int64 to test_table.
     ZETASQL_ASSERT_OK(test_table->AddColumn(
         new SimpleColumn(test_table->Name(), "C", types::Int64Type()),
         /*is_owned=*/true));
     // Adding column D AS (A+B+C) to test_table.
     AddGeneratedColumnToTable("D", {"A", "B", "C"}, "A+B+C", test_table.get());
-    // Adding column ID int64_t to test_table.
+    // Adding column ID int64 to test_table.
     ZETASQL_ASSERT_OK(test_table->AddColumn(
         new SimpleColumn(test_table->Name(), "ID", types::Int64Type()),
         /*is_owned=*/true));
@@ -2313,7 +2411,7 @@ class AnalyzeGeneratedColumnTest : public testing::Test {
     // CREATE TABLE test_table (
     // A as (B+C),
     // B as (C+1),
-    // C int64_t,
+    // C int64,
     // D as (A+B+C),
     // ) PRIMARY KEY(A,C)
     auto test_table = std::make_unique<SimpleTable>(
@@ -2323,7 +2421,7 @@ class AnalyzeGeneratedColumnTest : public testing::Test {
     AddGeneratedColumnToTable("A", {"B", "C"}, "B+C", test_table.get());
     // Adding column B AS (C+1) to test_table.
     AddGeneratedColumnToTable("B", {"C"}, "C+1", test_table.get());
-    // Adding column C int64_t to test_table.
+    // Adding column C int64 to test_table.
     ZETASQL_ASSERT_OK(test_table->AddColumn(
         new SimpleColumn(test_table->Name(), "C", types::Int64Type()),
         /*is_owned=*/true));
@@ -2623,4 +2721,5 @@ FROM
   source AS withrefscan_3;)sql",
             formatted_sql);
 }
+
 }  // namespace zetasql

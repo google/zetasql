@@ -1,4 +1,4 @@
-[default language_features=V_1_3_BRACED_PROTO_CONSTRUCTORS]
+[default language_features=BRACED_PROTO_CONSTRUCTORS]
 [language_features=]
 # Braced constructors disabled
 SELECT NEW x {}

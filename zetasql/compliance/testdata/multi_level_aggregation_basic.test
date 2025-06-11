@@ -1,4 +1,3 @@
-==
 [prepare_database]
 CREATE TABLE Employees AS
   SELECT * FROM UNNEST([
@@ -44,7 +43,7 @@ ARRAY<STRUCT<dependent_id INT64, emp_id INT64, age INT64, relationship STRING>>[
 ]
 ==
 
-[required_features=V_1_4_MULTILEVEL_AGGREGATION]
+[required_features=MULTILEVEL_AGGREGATION]
 [name=multi_level_agg_emps_with_children_salary]
 SELECT
   SUM(ANY_VALUE(salary) GROUP BY emp_id),
@@ -55,7 +54,7 @@ WHERE relationship = "Child";
 ARRAY<STRUCT<INT64, DOUBLE>>[{530000, 176666.66666666666}]
 ==
 
-[required_features=V_1_4_MULTILEVEL_AGGREGATION]
+[required_features=MULTILEVEL_AGGREGATION]
 [name=multi_level_agg_emps_salary]
 SELECT
   SUM(ANY_VALUE(E1.salary) GROUP BY E1.emp_id),
@@ -65,13 +64,39 @@ FROM Employees AS E1, Employees AS E2, Employees AS E3
 ARRAY<STRUCT<INT64, DOUBLE>>[{760000, 126666.66666666667}]
 ==
 
-[required_features=V_1_4_MULTILEVEL_AGGREGATION,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=MULTILEVEL_AGGREGATION,ORDER_BY_IN_AGGREGATE]
 [name=multi_level_emps_metrics_by_dept]
 SELECT
   dept_id,
   SUM(ANY_VALUE(salary) GROUP BY emp_id),
   AVG(ANY_VALUE(salary) GROUP BY emp_id),
   ARRAY_AGG(ANY_VALUE(Employees.age) GROUP BY emp_id ORDER BY ANY_VALUE(Employees.age))
+FROM Employees LEFT JOIN Dependents USING (emp_id)
+GROUP BY dept_id;
+--
+ARRAY<STRUCT<dept_id INT64, INT64, DOUBLE, ARRAY<>>>[unknown order:
+  {
+    101,
+    420000,
+    140000,
+    ARRAY<INT64>[known order:28, 29, 45]
+  },
+  {
+    102,
+    340000,
+    113333.33333333333,
+    ARRAY<INT64>[known order:25, 37, 42]
+  }
+]
+==
+
+[required_features=MULTILEVEL_AGGREGATION,ORDER_BY_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[name=multi_level_emps_metrics_by_dept_ignore_nulls]
+SELECT
+  dept_id,
+  SUM(ANY_VALUE(salary) GROUP BY emp_id),
+  AVG(ANY_VALUE(salary) GROUP BY emp_id),
+  ARRAY_AGG(ANY_VALUE(Employees.age) IGNORE NULLS GROUP BY emp_id ORDER BY ANY_VALUE(Employees.age))
 FROM Employees LEFT JOIN Dependents USING (emp_id)
 GROUP BY dept_id;
 --

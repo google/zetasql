@@ -204,6 +204,7 @@ public abstract class TypeFactory implements Serializable {
   public static GraphElementType createGraphElementType(
       List<String> graphReference,
       ZetaSQLType.GraphElementTypeProto.ElementKind kind,
+      boolean isDynamic,
       Collection<PropertyType> propertyTypes) {
     if (graphReference.isEmpty()) {
       throw new IllegalArgumentException("Graph reference cannot be empty");
@@ -223,9 +224,7 @@ public abstract class TypeFactory implements Serializable {
       }
     }
     return new GraphElementType(
-        graphReference,
-        kind,
-        ImmutableSet.copyOf(propertyTypes));
+        graphReference, kind, isDynamic, ImmutableSet.copyOf(propertyTypes));
   }
 
   public static GraphPathType createGraphPathType(
@@ -517,6 +516,7 @@ public abstract class TypeFactory implements Serializable {
       return createGraphElementType(
           graphElementType.getGraphReferenceList(),
           graphElementType.getKind(),
+          graphElementType.getIsDynamic(),
           propertyTypes.build());
     }
 

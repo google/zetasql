@@ -378,8 +378,8 @@ public final class SimpleTable implements Table {
 
     String columnName = column.getName().toLowerCase();
     if (columnsMap.containsKey(columnName)) {
-      Preconditions.checkArgument(allowDuplicateColumnNames,
-          String.format("Duplicate column in %s: %s", getFullName(), column.getName()));
+      Preconditions.checkArgument(
+          allowDuplicateColumnNames, "Duplicate column in %s: %s", getFullName(), column.getName());
       columnsMap.remove(columnName);
       duplicateColumnNames.add(columnName);
     } else if (!duplicateColumnNames.contains(columnName)) {

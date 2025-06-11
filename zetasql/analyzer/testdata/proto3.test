@@ -880,7 +880,9 @@ QueryStmt
 SELECT TIMESTAMP_ADD(Proto3KitchenSink.timestamp_wkt, INTERVAL 10 MINUTE)
 FROM Proto3Table
 --
-ERROR: No matching signature for function TIMESTAMP_ADD for argument types: google.protobuf.Timestamp, INTERVAL INT64 DATE_TIME_PART. Supported signature: TIMESTAMP_ADD(TIMESTAMP, INTERVAL INT64 DATE_TIME_PART) [at 1:8]
+ERROR: No matching signature for function TIMESTAMP_ADD for argument types: google.protobuf.Timestamp, INTERVAL INT64 DATE_TIME_PART
+  Signature: TIMESTAMP_ADD(TIMESTAMP, INTERVAL INT64 DATE_TIME_PART)
+    Argument 1: Unable to coerce type google.protobuf.Timestamp to expected type TIMESTAMP [at 1:8]
 SELECT TIMESTAMP_ADD(Proto3KitchenSink.timestamp_wkt, INTERVAL 10 MINUTE)
        ^
 ==
@@ -956,7 +958,14 @@ QueryStmt
 SELECT Proto3KitchenSink.struct_wkt != STRUCT('abc')
 FROM Proto3Table
 --
-ERROR: No matching signature for operator != for argument types: google.protobuf.Struct, STRUCT<STRING>. Supported signatures: ANY != ANY; INT64 != UINT64; UINT64 != INT64 [at 1:8]
+ERROR: No matching signature for operator != for argument types: google.protobuf.Struct, STRUCT<STRING>
+  Signature: T1 != T1
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRUCT<STRING>, google.protobuf.Struct}
+  Signature: INT64 != UINT64
+    Argument 1: Unable to coerce type google.protobuf.Struct to expected type INT64
+  Signature: UINT64 != INT64
+    Argument 1: Unable to coerce type google.protobuf.Struct to expected type UINT64 [at 1:8]
 SELECT Proto3KitchenSink.struct_wkt != STRUCT('abc')
        ^
 ==
@@ -1146,10 +1155,10 @@ SELECT Proto3KitchenSink.field_that_doesnt_exist
                          ^
 ==
 
-# FEATURE_V_1_3_IGNORE_PROTO3_USE_DEFAULTS causes the use_defaults and
+# FEATURE_IGNORE_PROTO3_USE_DEFAULTS causes the use_defaults and
 # use_field_defaults annotations to be ignored for proto3 scalar fields.
 ##########################################################################
-[language_features={{|V_1_3_IGNORE_PROTO3_USE_DEFAULTS}}]
+[language_features={{|IGNORE_PROTO3_USE_DEFAULTS}}]
 SELECT Proto3KitchenSink.int32_val, Proto3KitchenSink.int64_val,
        Proto3KitchenSink.date
 FROM Proto3Table
@@ -1189,7 +1198,7 @@ QueryStmt
       +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1])
 ==
 
-[language_features={{|V_1_3_IGNORE_PROTO3_USE_DEFAULTS}}]
+[language_features={{|IGNORE_PROTO3_USE_DEFAULTS}}]
 SELECT Proto3KitchenSink.nullable_string, Proto3KitchenSink.nullable_date
 FROM Proto3Table
 --
@@ -1221,7 +1230,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1])
 --
-ALTERNATION GROUP: V_1_3_IGNORE_PROTO3_USE_DEFAULTS
+ALTERNATION GROUP: IGNORE_PROTO3_USE_DEFAULTS
 --
 QueryStmt
 +-output_column_list=
@@ -1250,7 +1259,7 @@ QueryStmt
       +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1])
 ==
 
-[language_features={{|V_1_3_IGNORE_PROTO3_USE_DEFAULTS}}]
+[language_features={{|IGNORE_PROTO3_USE_DEFAULTS}}]
 SELECT Proto3KitchenSink.repeated_int32_val, Proto3KitchenSink.repeated_date
 FROM Proto3Table
 --
@@ -1281,7 +1290,7 @@ QueryStmt
       +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1])
 ==
 
-[language_features={{|V_1_3_IGNORE_PROTO3_USE_DEFAULTS}}]
+[language_features={{|IGNORE_PROTO3_USE_DEFAULTS}}]
 SELECT Proto3KitchenSink.nested_value,
        Proto3KitchenSink.nested_value.nested_int64
 FROM Proto3Table
@@ -1317,7 +1326,7 @@ QueryStmt
       +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1])
 ==
 
-[language_features={{|V_1_3_IGNORE_PROTO3_USE_DEFAULTS}}]
+[language_features={{|IGNORE_PROTO3_USE_DEFAULTS}}]
 SELECT Proto3KitchenSink.nullable_nested_value.nested_int64,
        Proto3KitchenSink.nullable_nested_value.nested_repeated_int64,
        Proto3KitchenSink.nullable_nested_value.date
@@ -1374,7 +1383,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1])
 --
-ALTERNATION GROUP: V_1_3_IGNORE_PROTO3_USE_DEFAULTS
+ALTERNATION GROUP: IGNORE_PROTO3_USE_DEFAULTS
 --
 QueryStmt
 +-output_column_list=
@@ -1426,7 +1435,7 @@ QueryStmt
       +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1])
 ==
 
-[language_features={{|V_1_3_IGNORE_PROTO3_USE_DEFAULTS}}]
+[language_features={{|IGNORE_PROTO3_USE_DEFAULTS}}]
 SELECT Proto3KitchenSink.test_map
 FROM Proto3Table
 --
@@ -1451,7 +1460,7 @@ QueryStmt
 # TODO: We should be ignoring the proto3 defaults when the feature
 # flag is set, but we still obey them. This test is to demonstrate a problem
 # that is fixed in a subsequent CL.
-[language_features={{|V_1_3_IGNORE_PROTO3_USE_DEFAULTS}}]
+[language_features={{|IGNORE_PROTO3_USE_DEFAULTS}}]
 SELECT Proto3KitchenSink.small_message_no_use_defaults.*
 FROM Proto3Table;
 --
@@ -1485,7 +1494,7 @@ QueryStmt
         +-input_scan=
           +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1])
 --
-ALTERNATION GROUP: V_1_3_IGNORE_PROTO3_USE_DEFAULTS
+ALTERNATION GROUP: IGNORE_PROTO3_USE_DEFAULTS
 --
 QueryStmt
 +-output_column_list=

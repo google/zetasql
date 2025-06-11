@@ -212,30 +212,34 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
           .set_compute_result_type_callback(&ComputeMapFromArrayResultType)
           .set_pre_resolution_argument_constraint(
               &CheckMapFromArrayPreResolutionArguments)
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+          .AddRequiredLanguageFeature(FEATURE_MAP_TYPE));
 
   // MAP_ENTRIES_SORTED(MAP<K,V> input_map) -> ARRAY<STRUCT<K,V>>
   InsertFunction(
       functions, options, "map_entries_sorted", Function::SCALAR,
-      {
-          {ARG_TYPE_ARBITRARY, {ARG_MAP_TYPE_ANY_1_2}, FN_MAP_ENTRIES_SORTED},
-      },
+      {{ARG_TYPE_ARBITRARY,
+        {ARG_MAP_TYPE_ANY_1_2},
+        FN_MAP_ENTRIES_SORTED,
+        FunctionSignatureOptions().set_rejects_collation()}},
       FunctionOptions()
           .set_compute_result_type_callback(absl::bind_front(
               &ComputeMapEntriesFunctionResultType, kMapEntriesSorted,
               /*require_orderable_key=*/true))
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+          .AddRequiredLanguageFeature(FEATURE_MAP_TYPE));
 
   InsertFunction(
       functions, options, "map_entries_unsorted", Function::SCALAR,
       {
-          {ARG_TYPE_ARBITRARY, {ARG_MAP_TYPE_ANY_1_2}, FN_MAP_ENTRIES_UNSORTED},
+          {ARG_TYPE_ARBITRARY,
+           {ARG_MAP_TYPE_ANY_1_2},
+           FN_MAP_ENTRIES_UNSORTED,
+           FunctionSignatureOptions().set_rejects_collation()},
       },
       FunctionOptions()
           .set_compute_result_type_callback(absl::bind_front(
               &ComputeMapEntriesFunctionResultType, kMapEntriesUnsorted,
               /*require_orderable_key=*/false))
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+          .AddRequiredLanguageFeature(FEATURE_MAP_TYPE));
 
   const FunctionArgumentType input_map_argument_type{
       ARG_MAP_TYPE_ANY_1_2, FunctionArgumentTypeOptions().set_argument_name(
@@ -268,12 +272,14 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
                  .set_argument_name("default_value", kPositionalOnly)
                  .set_cardinality(FunctionEnums::OPTIONAL)}},
            FN_MAP_GET,
-           FunctionSignatureOptions().set_rewrite_options(
-               FunctionSignatureRewriteOptions()
-                   .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
-                   .set_sql(kMapGetSql))},
+           FunctionSignatureOptions()
+               .set_rejects_collation()
+               .set_rewrite_options(
+                   FunctionSignatureRewriteOptions()
+                       .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+                       .set_sql(kMapGetSql))},
       },
-      FunctionOptions().AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_MAP_TYPE));
 
   constexpr absl::string_view kMapContainsKeySql = R"sql(
       IF(
@@ -292,31 +298,36 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
             {ARG_TYPE_ANY_1, FunctionArgumentTypeOptions().set_argument_name(
                                  "lookup_key", kPositionalOnly)}},
            FN_MAP_CONTAINS_KEY,
-           FunctionSignatureOptions().set_rewrite_options(
-               FunctionSignatureRewriteOptions()
-                   .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
-                   .set_sql(kMapContainsKeySql))},
+           FunctionSignatureOptions()
+               .set_rejects_collation()
+               .set_rewrite_options(
+                   FunctionSignatureRewriteOptions()
+                       .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+                       .set_sql(kMapContainsKeySql))},
       },
-      FunctionOptions().AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_MAP_TYPE));
 
   constexpr absl::string_view kMapKeysSortedSql = R"sql(
       (SELECT FLATTEN(MAP_ENTRIES_SORTED(input_map).key))
     )sql";
-  InsertFunction(functions, options, "map_keys_sorted", Function::SCALAR,
-                 {
-                     {ARG_ARRAY_TYPE_ANY_1,
-                      {input_map_argument_type},
-                      FN_MAP_KEYS_SORTED,
-                      FunctionSignatureOptions().set_rewrite_options(
-                          FunctionSignatureRewriteOptions()
-                              .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
-                              .set_sql(kMapKeysSortedSql))},
-                 },
-                 FunctionOptions()
-                     .set_pre_resolution_argument_constraint(absl::bind_front(
-                         CheckOrderableMapArgumentConstraint, "MAP_KEYS_SORTED",
-                         /*map_arg_idx=*/0, KeyOrValueSelector::kKey))
-                     .AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+  InsertFunction(
+      functions, options, "map_keys_sorted", Function::SCALAR,
+      {
+          {ARG_ARRAY_TYPE_ANY_1,
+           {input_map_argument_type},
+           FN_MAP_KEYS_SORTED,
+           FunctionSignatureOptions()
+               .set_rejects_collation()
+               .set_rewrite_options(
+                   FunctionSignatureRewriteOptions()
+                       .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+                       .set_sql(kMapKeysSortedSql))},
+      },
+      FunctionOptions()
+          .set_pre_resolution_argument_constraint(absl::bind_front(
+              CheckOrderableMapArgumentConstraint, "MAP_KEYS_SORTED",
+              /*map_arg_idx=*/0, KeyOrValueSelector::kKey))
+          .AddRequiredLanguageFeature(FEATURE_MAP_TYPE));
 
   constexpr absl::string_view kMapKeysUnsortedSql = R"sql(
       (SELECT FLATTEN(MAP_ENTRIES_UNSORTED(input_map).key))
@@ -327,12 +338,14 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
           {ARG_ARRAY_TYPE_ANY_1,
            {input_map_argument_type},
            FN_MAP_KEYS_UNSORTED,
-           FunctionSignatureOptions().set_rewrite_options(
-               FunctionSignatureRewriteOptions()
-                   .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
-                   .set_sql(kMapKeysUnsortedSql))},
+           FunctionSignatureOptions()
+               .set_rejects_collation()
+               .set_rewrite_options(
+                   FunctionSignatureRewriteOptions()
+                       .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+                       .set_sql(kMapKeysUnsortedSql))},
       },
-      FunctionOptions().AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_MAP_TYPE));
 
   constexpr absl::string_view kMapValuesSortedSql = R"sql(
       (
@@ -344,21 +357,24 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
                   ORDER BY entries.value))
       )
     )sql";
-  InsertFunction(functions, options, "map_values_sorted", Function::SCALAR,
-                 {
-                     {ARG_ARRAY_TYPE_ANY_2,
-                      {input_map_argument_type},
-                      FN_MAP_VALUES_SORTED,
-                      FunctionSignatureOptions().set_rewrite_options(
-                          FunctionSignatureRewriteOptions()
-                              .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
-                              .set_sql(kMapValuesSortedSql))},
-                 },
-                 FunctionOptions()
-                     .set_pre_resolution_argument_constraint(absl::bind_front(
-                         CheckOrderableMapArgumentConstraint,
-                         "MAP_VALUES_SORTED", 0, KeyOrValueSelector::kValue))
-                     .AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+  InsertFunction(
+      functions, options, "map_values_sorted", Function::SCALAR,
+      {
+          {ARG_ARRAY_TYPE_ANY_2,
+           {input_map_argument_type},
+           FN_MAP_VALUES_SORTED,
+           FunctionSignatureOptions()
+               .set_rejects_collation()
+               .set_rewrite_options(
+                   FunctionSignatureRewriteOptions()
+                       .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+                       .set_sql(kMapValuesSortedSql))},
+      },
+      FunctionOptions()
+          .set_pre_resolution_argument_constraint(absl::bind_front(
+              CheckOrderableMapArgumentConstraint, "MAP_VALUES_SORTED", 0,
+              KeyOrValueSelector::kValue))
+          .AddRequiredLanguageFeature(FEATURE_MAP_TYPE));
 
   constexpr absl::string_view kMapValuesUnsortedSql = R"sql(
       (SELECT FLATTEN(MAP_ENTRIES_UNSORTED(input_map).value))
@@ -369,12 +385,14 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
           {ARG_ARRAY_TYPE_ANY_2,
            {input_map_argument_type},
            FN_MAP_VALUES_UNSORTED,
-           FunctionSignatureOptions().set_rewrite_options(
-               FunctionSignatureRewriteOptions()
-                   .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
-                   .set_sql(kMapValuesUnsortedSql))},
+           FunctionSignatureOptions()
+               .set_rejects_collation()
+               .set_rewrite_options(
+                   FunctionSignatureRewriteOptions()
+                       .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+                       .set_sql(kMapValuesUnsortedSql))},
       },
-      FunctionOptions().AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_MAP_TYPE));
 
   constexpr absl::string_view kMapValuesSortedByKeySql = R"sql(
       (SELECT FLATTEN(MAP_ENTRIES_SORTED(input_map).value))
@@ -385,16 +403,18 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
           {ARG_ARRAY_TYPE_ANY_2,
            {input_map_argument_type},
            FN_MAP_VALUES_SORTED_BY_KEY,
-           FunctionSignatureOptions().set_rewrite_options(
-               FunctionSignatureRewriteOptions()
-                   .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
-                   .set_sql(kMapValuesSortedByKeySql))},
+           FunctionSignatureOptions()
+               .set_rejects_collation()
+               .set_rewrite_options(
+                   FunctionSignatureRewriteOptions()
+                       .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+                       .set_sql(kMapValuesSortedByKeySql))},
       },
       FunctionOptions()
           .set_pre_resolution_argument_constraint(absl::bind_front(
               CheckOrderableMapArgumentConstraint, "MAP_VALUES_SORTED_BY_KEY",
               0, KeyOrValueSelector::kKey))
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+          .AddRequiredLanguageFeature(FEATURE_MAP_TYPE));
 
   constexpr absl::string_view kMapEmptySql = R"sql(
       (SELECT ARRAY_LENGTH(MAP_ENTRIES_UNSORTED(input_map)) = 0)
@@ -405,12 +425,14 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
           {type_factory->get_bool(),
            {input_map_argument_type},
            FN_MAP_EMPTY,
-           FunctionSignatureOptions().set_rewrite_options(
-               FunctionSignatureRewriteOptions()
-                   .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
-                   .set_sql(kMapEmptySql))},
+           FunctionSignatureOptions()
+               .set_rejects_collation()
+               .set_rewrite_options(
+                   FunctionSignatureRewriteOptions()
+                       .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+                       .set_sql(kMapEmptySql))},
       },
-      FunctionOptions().AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_MAP_TYPE));
 
   const FunctionArgumentTypeList arglist_map_and_kv_pairs = {
       input_map_argument_type,
@@ -422,19 +444,22 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
       {ARG_TYPE_ANY_2, FunctionArgumentType::REPEATED},
   };
   FunctionOptions map_insert_function_options =
-      FunctionOptions().AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE);
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_MAP_TYPE);
   InsertFunction(
       functions, options, "map_insert", Function::SCALAR,
-      {{ARG_MAP_TYPE_ANY_1_2, arglist_map_and_kv_pairs, FN_MAP_INSERT}},
+      {{ARG_MAP_TYPE_ANY_1_2, arglist_map_and_kv_pairs, FN_MAP_INSERT,
+        FunctionSignatureOptions().set_rejects_collation()}},
       map_insert_function_options);
   InsertFunction(functions, options, "map_insert_or_replace", Function::SCALAR,
                  {{ARG_MAP_TYPE_ANY_1_2, arglist_map_and_kv_pairs,
-                   FN_MAP_INSERT_OR_REPLACE}},
+                   FN_MAP_INSERT_OR_REPLACE,
+                   FunctionSignatureOptions().set_rejects_collation()}},
                  map_insert_function_options);
   InsertFunction(functions, options, "map_replace", Function::SCALAR,
                  {
                      {ARG_MAP_TYPE_ANY_1_2, arglist_map_and_kv_pairs,
-                      FN_MAP_REPLACE_KV_PAIRS},
+                      FN_MAP_REPLACE_KV_PAIRS,
+                      FunctionSignatureOptions().set_rejects_collation()},
                      {ARG_MAP_TYPE_ANY_1_2,
                       {input_map_argument_type,
                        ARG_TYPE_ANY_1,
@@ -443,7 +468,8 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
                            {ARG_TYPE_ANY_2}, ARG_TYPE_ANY_2,
                            FunctionArgumentTypeOptions().set_argument_name(
                                "value", kPositionalOnly))},
-                      FN_MAP_REPLACE_K_REPEATED_V_LAMBDA},
+                      FN_MAP_REPLACE_K_REPEATED_V_LAMBDA,
+                      FunctionSignatureOptions().set_rejects_collation()},
                  },
                  map_insert_function_options);
   InsertFunction(
@@ -451,21 +477,22 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
       {{type_factory->get_int64(),
         {input_map_argument_type},
         FN_MAP_CARDINALITY,
-        FunctionSignatureOptions().set_rewrite_options(
+        FunctionSignatureOptions().set_rejects_collation().set_rewrite_options(
             FunctionSignatureRewriteOptions()
                 .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
                 .set_sql(R"sql(
                     (SELECT ARRAY_LENGTH(MAP_ENTRIES_UNSORTED(input_map)))
                   )sql"))}},
-      FunctionOptions().AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_MAP_TYPE));
   InsertFunction(
       functions, options, "map_delete", Function::SCALAR,
       {{ARG_MAP_TYPE_ANY_1_2,
         {input_map_argument_type,
          ARG_TYPE_ANY_1,  // At least one key must be provided.
          {ARG_TYPE_ANY_1, FunctionArgumentType::REPEATED}},
-        FN_MAP_DELETE}},
-      FunctionOptions().AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+        FN_MAP_DELETE,
+        FunctionSignatureOptions().set_rejects_collation()}},
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_MAP_TYPE));
   InsertFunction(
       functions, options, "map_filter", Function::SCALAR,
       {{ARG_MAP_TYPE_ANY_1_2,
@@ -474,8 +501,9 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
              {ARG_TYPE_ANY_1, ARG_TYPE_ANY_2}, type_factory->get_bool(),
              FunctionArgumentTypeOptions().set_argument_name("condition",
                                                              kPositionalOnly))},
-        FN_MAP_FILTER}},
-      FunctionOptions().AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+        FN_MAP_FILTER,
+        FunctionSignatureOptions().set_rejects_collation()}},
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_MAP_TYPE));
 }
 
 }  // namespace zetasql

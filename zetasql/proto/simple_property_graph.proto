@@ -49,6 +49,8 @@ message SimpleGraphElementTableProto {
 
   optional SimpleGraphNodeTableReferenceProto source_node_table = 8;
   optional SimpleGraphNodeTableReferenceProto dest_node_table = 9;
+  optional SimpleGraphElementDynamicPropertiesProto dynamic_properties = 10;
+  optional SimpleGraphElementDynamicLabelProto dynamic_label = 11;
 }
 
 message SimpleGraphElementLabelProto {
@@ -72,4 +74,12 @@ message SimpleGraphPropertyDeclarationProto {
 message SimpleGraphPropertyDefinitionProto {
   optional string property_declaration_name = 1;
   optional string value_expression_sql = 2;
+}
+
+message SimpleGraphElementDynamicPropertiesProto {
+  optional string properties_expression = 1;
+}
+
+message SimpleGraphElementDynamicLabelProto {
+  optional string label_expression = 1;
 }

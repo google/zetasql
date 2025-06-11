@@ -11,7 +11,6 @@
 # TODO: Enable Java support when serialization for templated SQL
 # functions is implemented.
 [default no_java]
-[default also_show_signature_mismatch_details]
 
 select udf_templated_return_one();
 --
@@ -1092,17 +1091,6 @@ SELECT uda_any_and_string_args_return_string(key > 43, NULL)
 Analysis of function Templated_SQL_Function:uda_any_and_string_args_return_string failed [at 1:22]
 IF(LOGICAL_OR(a), x, x || '_suffix')
                      ^
-No matching signature for operator || for argument types: INT64, STRING. Supported signatures: STRING || STRING; BYTES || BYTES; ARRAY || ARRAY [at 1:22]
-IF(LOGICAL_OR(a), x, x || '_suffix')
-                     ^
---
-Signature Mismatch Details:
-ERROR: Invalid function uda_any_and_string_args_return_string [at 1:8]
-SELECT uda_any_and_string_args_return_string(key > 43, NULL)
-       ^
-Analysis of function Templated_SQL_Function:uda_any_and_string_args_return_string failed [at 1:22]
-IF(LOGICAL_OR(a), x, x || '_suffix')
-                     ^
 No matching signature for operator ||
   Argument types: INT64, STRING
   Signature: STRING || STRING
@@ -1218,17 +1206,6 @@ select udf_templated_arg_plus_integer("abc");
 Analysis of function Templated_SQL_Function:udf_templated_arg_plus_integer failed [at 1:1]
 x + 42
 ^
-No matching signature for operator + for argument types: STRING, INT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:1]
-x + 42
-^
---
-Signature Mismatch Details:
-ERROR: Invalid function udf_templated_arg_plus_integer [at 1:8]
-select udf_templated_arg_plus_integer("abc");
-       ^
-Analysis of function Templated_SQL_Function:udf_templated_arg_plus_integer failed [at 1:1]
-x + 42
-^
 No matching signature for operator +
   Argument types: STRING, INT64
   Signature: INT64 + INT64
@@ -1257,7 +1234,7 @@ a b c d e
 ==
 
 # Test that we propagate language options correctly, this should
-# be a parser error without V_1_3_LIKE_ANY_SOME_ALL
+# be a parser error without LIKE_ANY_SOME_ALL
 select udf_templated_like_any('y');
 --
 ERROR: Invalid function udf_templated_like_any [at 1:8]
@@ -1271,7 +1248,7 @@ x like any ('z')
        ^
 ==
 
-[language_features=V_1_3_LIKE_ANY_SOME_ALL]
+[language_features=LIKE_ANY_SOME_ALL]
 
 select udf_templated_like_any('y');
 --
@@ -1305,17 +1282,6 @@ select udf_templated_analysis_error();
 Analysis of function Templated_SQL_Function:udf_templated_analysis_error failed [at 1:1]
 'abc' + 42
 ^
-No matching signature for operator + for argument types: STRING, INT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:1]
-'abc' + 42
-^
---
-Signature Mismatch Details:
-ERROR: Invalid function udf_templated_analysis_error [at 1:8]
-select udf_templated_analysis_error();
-       ^
-Analysis of function Templated_SQL_Function:udf_templated_analysis_error failed [at 1:1]
-'abc' + 42
-^
 No matching signature for operator +
   Argument types: STRING, INT64
   Signature: INT64 + INT64
@@ -1333,23 +1299,6 @@ No matching signature for operator +
 select key, value, udf_call_udf_templated_analysis_error()
 from keyvalue;
 --
-ERROR: Invalid function udf_call_udf_templated_analysis_error [at 1:20]
-select key, value, udf_call_udf_templated_analysis_error()
-                   ^
-Analysis of function Templated_SQL_Function:udf_call_udf_templated_analysis_error failed [at 1:1]
-udf_templated_analysis_error() + 1
-^
-Invalid function udf_templated_analysis_error [at 1:1]
-udf_templated_analysis_error() + 1
-^
-Analysis of function Templated_SQL_Function:udf_templated_analysis_error failed [at 1:1]
-'abc' + 42
-^
-No matching signature for operator + for argument types: STRING, INT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:1]
-'abc' + 42
-^
---
-Signature Mismatch Details:
 ERROR: Invalid function udf_call_udf_templated_analysis_error [at 1:20]
 select key, value, udf_call_udf_templated_analysis_error()
                    ^
@@ -1397,29 +1346,6 @@ udf_templated_analysis_error() + 1
 Analysis of function Templated_SQL_Function:udf_templated_analysis_error failed [at 1:1]
 'abc' + 42
 ^
-No matching signature for operator + for argument types: STRING, INT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:1]
-'abc' + 42
-^
---
-Signature Mismatch Details:
-ERROR: Invalid function udf_call_udf_call_udf_templated_analysis_error [at 1:20]
-select key, value, udf_call_udf_call_udf_templated_analysis_error()
-                   ^
-Analysis of function Templated_SQL_Function:udf_call_udf_call_udf_templated_analysis_error failed [at 1:1]
-udf_call_udf_templated_analysis_error() + 1
-^
-Invalid function udf_call_udf_templated_analysis_error [at 1:1]
-udf_call_udf_templated_analysis_error() + 1
-^
-Analysis of function Templated_SQL_Function:udf_call_udf_templated_analysis_error failed [at 1:1]
-udf_templated_analysis_error() + 1
-^
-Invalid function udf_templated_analysis_error [at 1:1]
-udf_templated_analysis_error() + 1
-^
-Analysis of function Templated_SQL_Function:udf_templated_analysis_error failed [at 1:1]
-'abc' + 42
-^
 No matching signature for operator +
   Argument types: STRING, INT64
   Signature: INT64 + INT64
@@ -1437,35 +1363,6 @@ No matching signature for operator +
 select key, value, udf_call_udf_call_udf_call_udf_templated_analysis_error()
 from keyvalue;
 --
-ERROR: Invalid function udf_call_udf_call_udf_call_udf_templated_analysis_error [at 1:20]
-select key, value, udf_call_udf_call_udf_call_udf_templated_analysis_error()
-                   ^
-Analysis of function Templated_SQL_Function:udf_call_udf_call_udf_call_udf_templated_analysis_error failed [at 1:1]
-udf_call_udf_call_udf_templated_analysis_error() + 1
-^
-Invalid function udf_call_udf_call_udf_templated_analysis_error [at 1:1]
-udf_call_udf_call_udf_templated_analysis_error() + 1
-^
-Analysis of function Templated_SQL_Function:udf_call_udf_call_udf_templated_analysis_error failed [at 1:1]
-udf_call_udf_templated_analysis_error() + 1
-^
-Invalid function udf_call_udf_templated_analysis_error [at 1:1]
-udf_call_udf_templated_analysis_error() + 1
-^
-Analysis of function Templated_SQL_Function:udf_call_udf_templated_analysis_error failed [at 1:1]
-udf_templated_analysis_error() + 1
-^
-Invalid function udf_templated_analysis_error [at 1:1]
-udf_templated_analysis_error() + 1
-^
-Analysis of function Templated_SQL_Function:udf_templated_analysis_error failed [at 1:1]
-'abc' + 42
-^
-No matching signature for operator + for argument types: STRING, INT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:1]
-'abc' + 42
-^
---
-Signature Mismatch Details:
 ERROR: Invalid function udf_call_udf_call_udf_call_udf_templated_analysis_error [at 1:20]
 select key, value, udf_call_udf_call_udf_call_udf_templated_analysis_error()
                    ^
@@ -1710,7 +1607,7 @@ sum(x order by x)
       ^
 ==
 
-[language_features=TEMPLATE_FUNCTIONS,V_1_3_WITH_GROUP_ROWS]
+[language_features=TEMPLATE_FUNCTIONS,WITH_GROUP_ROWS]
 SELECT WrappedGroupRows(e) FROM UNNEST([1, 2, 3]) AS e
 
 --

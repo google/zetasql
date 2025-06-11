@@ -242,7 +242,7 @@ ARRAY<STRUCT<
   )}]
 ==
 
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [prepare_database]
 CREATE TABLE TableDatetimeRanges AS
 SELECT cast(1 as int64) as row_id,
@@ -1101,7 +1101,7 @@ ARRAY<STRUCT<
                {10, true, [2020-01-07, NULL), NULL}]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,NULLS_FIRST_LAST_IN_ORDER_BY]
 [name=lead_range_date_nulls_last]
 SELECT row_id, range_date_val,
        LEAD(range_date_val, 2) OVER (ORDER BY range_date_val NULLS LAST)
@@ -1391,7 +1391,7 @@ ARRAY<STRUCT<
                 NULL}]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,NULLS_FIRST_LAST_IN_ORDER_BY]
 [name=lead_range_timestamp_nulls_last]
 SELECT row_id, range_timestamp_val,
        LEAD(range_timestamp_val, 2) OVER (ORDER BY range_timestamp_val NULLS LAST)
@@ -1569,7 +1569,7 @@ ARRAY<STRUCT<
                 )}]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,CIVIL_TIME]
 [name=lead_range_datetime]
 SELECT row_id, range_datetime_val,
        LEAD(range_datetime_val, 2) OVER (ORDER BY row_id)
@@ -1628,7 +1628,7 @@ ARRAY<STRUCT<
                }]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,CIVIL_TIME]
 [name=lead_range_datetime_partition_by]
 SELECT row_id, bool_val, range_datetime_val,
        LEAD(range_datetime_val, 2) OVER (PARTITION BY bool_val ORDER BY row_id)
@@ -1697,7 +1697,7 @@ ARRAY<STRUCT<
                }]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,CIVIL_TIME,NULLS_FIRST_LAST_IN_ORDER_BY]
 [name=lead_range_datetime_nulls_last]
 SELECT row_id, range_datetime_val,
        LEAD(range_datetime_val, 2) OVER (ORDER BY range_datetime_val NULLS LAST)
@@ -1756,7 +1756,7 @@ ARRAY<STRUCT<
                {1, NULL, NULL}]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,CIVIL_TIME]
 [name=lead_range_datetime_default_expression]
 SELECT row_id, range_datetime_val,
        LEAD(range_datetime_val, 2, range<datetime> '[1000-01-01, 1100-01-01)') OVER (ORDER BY row_id)
@@ -1882,7 +1882,7 @@ WINDOW window_frame AS (ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOW...
 ==
 
 [name=order_by_nulls_last_analytic_lead]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT int64_val, LEAD(int64_val, 1) OVER (ORDER BY int64_val DESC NULLS LAST)
 FROM TestTable t
 --
@@ -1903,7 +1903,7 @@ NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=order_by_nulls_first_analytic_lead]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT int64_val, LEAD(int64_val, 1) OVER (ORDER BY int64_val DESC NULLS FIRST)
 FROM TestTable t
 --

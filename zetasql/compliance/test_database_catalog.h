@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "zetasql/compliance/test_driver.h"
+#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/language_options.h"
@@ -46,6 +47,10 @@ class TestDatabaseCatalog {
   SimpleCatalog* catalog() const { return catalog_.get(); }
   absl::Status SetTestDatabase(const TestDatabase& test_db);
   absl::Status SetLanguageOptions(const LanguageOptions& language_options);
+  // Populate the `table_as_value_with_measures` field for all tables with
+  // measure columns in `test_db`.
+  absl::Status AddTablesWithMeasures(const TestDatabase& test_db,
+                                     const LanguageOptions& language_options);
 
   absl::Status IsInitialized() const;
 
@@ -90,6 +95,7 @@ class TestDatabaseCatalog {
   std::unique_ptr<BuiltinFunctionCache> function_cache_;
   std::unique_ptr<SimpleCatalog> catalog_;
   TypeFactory* type_factory_;
+  std::vector<std::unique_ptr<const AnalyzerOutput>> analyzed_measure_outputs_;
 };
 
 }  // namespace zetasql

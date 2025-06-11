@@ -33,6 +33,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/base/path.h"
+#include "zetasql/common/measure_analysis_utils.h"
 #include "zetasql/compliance/test_driver.pb.h"
 #include "zetasql/public/functions/date_time_util.h"  
 #include "zetasql/public/language_options.h"
@@ -201,10 +202,40 @@ class TestTableOptions {
 struct TestTable {
   // The contents of the table, mapped into a Value object. Tables are
   // represented here as ARRAYs of STRUCTs where the STRUCT field names give
-  // the column names.
+  // the column names. Measure column values are not included in this
+  // representation.
   Value table_as_value;
-
   TestTableOptions options;
+
+  // Compliance testing for measures is currently difficult, because:
+  //
+  //   1) ZetaSQL Value support for measures is currently missing and
+  //      compliance tests represent column values as ZetaSQL Values. We work
+  //      around this by representing measure column values as NULL ZetaSQL
+  //      Values (of measure type).
+  //
+  //   2) It is currently impossible to define measures via SQL or use DDL to
+  //      add measure columns to a table.
+  //
+  // We work around limitation 1) by representing all measure column values as
+  // NULL ZetaSQL Values (of measure type).
+  //
+  // We work around limitation 2) by adding predefined tables with measure
+  // columns to the test database.
+  //
+  // The fields below are used to configure the addition of measure columns to
+  // the table.
+  // TODO: b/350555383 - Remove these workaround once we can define measures via
+  // SQL or use DDL to add measure columns to a table.
+
+  // Measure column definitions to add to the table.
+  std::vector<MeasureColumnDef> measure_column_defs;
+  // Row identity column indices for the table with measure columns.
+  std::vector<int> row_identity_columns;
+  // The contents of the table, mapped into a Value object. Unlike
+  // `table_as_value`, this representation also contains values for measure
+  // columns, and is only populated when the table has measure columns.
+  mutable std::optional<Value> table_as_value_with_measures;
 };
 
 // This describes the tables that should be present in the created database,
@@ -333,6 +364,15 @@ class TestDriver {
   // Supplies a TestDatabase. Must be called prior to ExecuteStatement().
   virtual absl::Status CreateDatabase(const TestDatabase& test_db) = 0;
 
+  // Supplies several "temporary" SQL constants that the driver should add to
+  // the catalog. This will be called after CreateDatabase but before
+  // ExecuteStatement.
+  virtual absl::Status AddSqlConstants(
+      absl::Span<const std::string> create_constant_stmts) {
+    return absl::UnimplementedError(
+        "Test driver does not support SQL Constants.");
+  }
+
   // Supplies several "temporary" Sql UDF definitions that the driver should add
   // to the catalog. This will be called after CreateDatabase but before
   // ExecuteStatement.
@@ -346,7 +386,7 @@ class TestDriver {
   // ExecuteStatement.
   virtual absl::Status AddViews(
       absl::Span<const std::string> create_view_stmts) {
-    return absl::UnimplementedError("Test driver does not support SQL UDFs.");
+    return absl::UnimplementedError("Test driver does not support SQL Views.");
   }
 
   // Supplies several property graph definitions that the driver should add to
@@ -370,7 +410,7 @@ class TestDriver {
   // returned row.
   //
   // For a DML statement, the returned value is a struct with two fields: an
-  // int64_t representing the number of rows/values (depending on whether the
+  // int64 representing the number of rows/values (depending on whether the
   // table is a value table) modified by the statement, and an array
   // representing the full contents of the table after applying the
   // statement. In this framework, DML statements do not have side effects.

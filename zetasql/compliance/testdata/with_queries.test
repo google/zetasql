@@ -51,7 +51,7 @@ ARRAY<STRUCT<b INT64>>[{2}]
 ==
 
 [name=with_on_table_subquery]
-[required_features=V_1_1_WITH_ON_SUBQUERY]
+[required_features=WITH_ON_SUBQUERY]
 select x,y
 from (with Q as (select 1 x, 2 y, 3 z) select y, x from Q)
 --
@@ -59,14 +59,14 @@ ARRAY<STRUCT<x INT64, y INT64>>[{1, 2}]
 ==
 
 [name=with_on_expr_subquery]
-[required_features=V_1_1_WITH_ON_SUBQUERY]
+[required_features=WITH_ON_SUBQUERY]
 select (with Q as (select 1 x, 2 y) select x from Q)
 --
 ARRAY<STRUCT<INT64>>[{1}]
 ==
 
 [name=with_on_in_subquery]
-[required_features=V_1_1_WITH_ON_SUBQUERY]
+[required_features=WITH_ON_SUBQUERY]
 select x, x in (with Q as (select 1 x, 2 y) select y from Q)
 from unnest([1,2,3]) x
 --
@@ -74,7 +74,7 @@ ARRAY<STRUCT<x INT64, BOOL>>[unknown order:{2, true}, {1, false}, {3, false}]
 ==
 
 [name=with_on_expr_subquery2]
-[required_features=V_1_1_WITH_ON_SUBQUERY]
+[required_features=WITH_ON_SUBQUERY]
 select (with Q as (select 1 x, 2 y) select x+z from Q)
 from (select 3 z)
 --
@@ -82,7 +82,7 @@ ARRAY<STRUCT<INT64>>[{4}]
 ==
 
 [name=with_on_set_op]
-[required_features=V_1_1_WITH_ON_SUBQUERY]
+[required_features=WITH_ON_SUBQUERY]
 with q1 as (select 1 x)
 select * from q1
 union all
@@ -96,7 +96,7 @@ ARRAY<STRUCT<x INT64>>[unknown order:{1}, {2}, {1}, {1}]
 ==
 
 [name=with_on_multiple_levels]
-[required_features=V_1_1_WITH_ON_SUBQUERY]
+[required_features=WITH_ON_SUBQUERY]
 with q1 as (select 1 x)
 select y, x
 from (with q2 as (select x+10 y from q1) select y from q2),
@@ -177,13 +177,13 @@ ARRAY<STRUCT<INT64>>[{15}]
 ==
 
 [name=bug119901615_b]
-[required_features=V_1_1_WITH_ON_SUBQUERY]
+[required_features=WITH_ON_SUBQUERY]
 SELECT 1 IN (WITH a AS (SELECT true as b, 15 as c) SELECT IF(b, c, -1) FROM a);
 --
 ARRAY<STRUCT<BOOL>>[{false}]
 ==
 [name=bug197119610]
-[required_features=V_1_1_WITH_ON_SUBQUERY]
+[required_features=WITH_ON_SUBQUERY]
 WITH table1 AS (SELECT 1 AS col1 )
     (WITH table2 AS (SELECT 1 AS col2)
      SELECT col2 FROM table2);

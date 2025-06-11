@@ -168,7 +168,7 @@ class ControlFlowNode {
   Kind kind() const { return kind_; }
   const ControlFlowGraph* graph() const { return graph_; }
   const EdgeMap& successors() const { return successors_; }
-  const std::vector<const ControlFlowEdge*> predecessors() const {
+  std::vector<const ControlFlowEdge*> predecessors() const {
     return predecessors_;
   }
 

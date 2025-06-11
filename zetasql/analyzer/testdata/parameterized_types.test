@@ -477,7 +477,7 @@ QueryStmt
 ==
 
 # Test cast from int Array to string Array with type parameters.
-[language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES,PARAMETERIZED_TYPES}}]
+[language_features={{|CAST_DIFFERENT_ARRAY_TYPES,PARAMETERIZED_TYPES}}]
 select cast([0,1,2] as ARRAY<STRING(12)>);
 --
 ALTERNATION GROUP: <empty>
@@ -486,7 +486,7 @@ ERROR: Parameterized types are not supported [at 1:36]
 select cast([0,1,2] as ARRAY<STRING(12)>);
                                    ^
 --
-ALTERNATION GROUP: V_1_1_CAST_DIFFERENT_ARRAY_TYPES,PARAMETERIZED_TYPES
+ALTERNATION GROUP: CAST_DIFFERENT_ARRAY_TYPES,PARAMETERIZED_TYPES
 --
 QueryStmt
 +-output_column_list=
@@ -504,7 +504,7 @@ QueryStmt
 ==
 
 # Test cast with a nested struct with subfields having type parameters.
-[language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES,PARAMETERIZED_TYPES,NUMERIC_TYPE,BIGNUMERIC_TYPE}}]
+[language_features={{|CAST_DIFFERENT_ARRAY_TYPES,PARAMETERIZED_TYPES,NUMERIC_TYPE,BIGNUMERIC_TYPE}}]
 select cast(struct(false, 2, struct(123, [5], struct(true, 1000)), "hello", ["123", "123456", "1"]) as
             STRUCT<BOOL, NUMERIC(8), STRUCT<BIGNUMERIC(MAX, 2), ARRAY<STRING(2)>, STRUCT<BOOL, NUMERIC(6, 1)>>, BYTES(10), ARRAY<STRING(5)>>);
 --
@@ -514,7 +514,7 @@ ERROR: Type not found: NUMERIC [at 2:26]
             STRUCT<BOOL, NUMERIC(8), STRUCT<BIGNUMERIC(MAX, 2), ARRAY<STRING(...
                          ^
 --
-ALTERNATION GROUP: V_1_1_CAST_DIFFERENT_ARRAY_TYPES,PARAMETERIZED_TYPES,NUMERIC_TYPE,BIGNUMERIC_TYPE
+ALTERNATION GROUP: CAST_DIFFERENT_ARRAY_TYPES,PARAMETERIZED_TYPES,NUMERIC_TYPE,BIGNUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=

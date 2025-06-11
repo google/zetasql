@@ -1,16 +1,16 @@
 # NOTE: CREATE MODEL tests are derived from those for CREATE TABLE AS SELECT and
 # CREATE VIEW tests.
-[default language_features=V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST,V_1_4_REMOTE_MODEL,V_1_3_REMOTE_FUNCTION]
+[default language_features=CREATE_MODEL_WITH_ALIASED_QUERY_LIST,REMOTE_MODEL,REMOTE_FUNCTION]
 
-[language_features={{V_1_4_REMOTE_MODEL,|V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST,|}}V_1_3_REMOTE_FUNCTION]
+[language_features={{REMOTE_MODEL,|CREATE_MODEL_WITH_ALIASED_QUERY_LIST,|}}REMOTE_FUNCTION]
 # Bare statement
 create model t1
 --
-ALTERNATION GROUP: V_1_4_REMOTE_MODEL,
+ALTERNATION GROUP: REMOTE_MODEL,
 --
 CreateModelStmt(name_path=t1)
 --
-ALTERNATION GROUP: V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST,
+ALTERNATION GROUP: CREATE_MODEL_WITH_ALIASED_QUERY_LIST,
 --
 ERROR: Either the AS SELECT clause or AS aliased query list is required for CREATE MODEL [at 2:1]
 create model t1
@@ -23,10 +23,10 @@ create model t1
 ^
 ==
 
-[language_features={{V_1_4_REMOTE_MODEL,|}}V_1_3_REMOTE_FUNCTION]
+[language_features={{REMOTE_MODEL,|}}REMOTE_FUNCTION]
 create model t1 input (i1 INT64, i2 FLOAT64) output (o1 BOOL)
 --
-ALTERNATION GROUP: V_1_4_REMOTE_MODEL,
+ALTERNATION GROUP: REMOTE_MODEL,
 --
 CreateModelStmt
 +-name_path=t1
@@ -43,12 +43,12 @@ create model t1 input (i1 INT64, i2 FLOAT64) output (o1 BOOL)
                 ^
 ==
 
-[language_features={{V_1_4_REMOTE_MODEL,|}}V_1_3_REMOTE_FUNCTION]
+[language_features={{REMOTE_MODEL,|}}REMOTE_FUNCTION]
 create model t1 input (i1 INT64, i2 FLOAT64) output (o1 BOOL)
 transform (a + b as t)
 --
 
-ALTERNATION GROUP: V_1_4_REMOTE_MODEL,
+ALTERNATION GROUP: REMOTE_MODEL,
 
 --
 ERROR: The TRANSFORM clause cannot be used without AS SELECT clause [at 2:1]
@@ -62,10 +62,10 @@ create model t1 input (i1 INT64, i2 FLOAT64) output (o1 BOOL)
                 ^
 ==
 
-[language_features={{V_1_4_REMOTE_MODEL,|}}V_1_3_REMOTE_FUNCTION]
+[language_features={{REMOTE_MODEL,|}}REMOTE_FUNCTION]
 create model t1 transform (a + b as t)
 --
-ALTERNATION GROUP: V_1_4_REMOTE_MODEL,
+ALTERNATION GROUP: REMOTE_MODEL,
 --
 ERROR: The TRANSFORM clause cannot be used without AS SELECT clause [at 1:17]
 create model t1 transform (a + b as t)
@@ -95,10 +95,10 @@ transform (a + b as t)
 ^
 ==
 
-[language_features={{V_1_4_REMOTE_MODEL,|}}V_1_3_REMOTE_FUNCTION]
+[language_features={{REMOTE_MODEL,|}}REMOTE_FUNCTION]
 create model t1 remote
 --
-ALTERNATION GROUP: V_1_4_REMOTE_MODEL,
+ALTERNATION GROUP: REMOTE_MODEL,
 --
 CreateModelStmt(name_path=t1, is_remote=TRUE)
 --
@@ -109,10 +109,10 @@ create model t1 remote
 ^
 ==
 
-[language_features={{V_1_4_REMOTE_MODEL,|}}V_1_3_REMOTE_FUNCTION]
+[language_features={{REMOTE_MODEL,|}}REMOTE_FUNCTION]
 create model t1 with connection connection1 as select 1 a
 --
-ALTERNATION GROUP: V_1_4_REMOTE_MODEL,
+ALTERNATION GROUP: REMOTE_MODEL,
 --
 ERROR: WITH CONNECTION clause can be specified only for remote models [at 1:17]
 create model t1 with connection connection1 as select 1 a
@@ -125,10 +125,10 @@ create model t1 with connection connection1 as select 1 a
                 ^
 ==
 
-[language_features={{V_1_4_REMOTE_MODEL,|}}V_1_3_REMOTE_FUNCTION]
+[language_features={{REMOTE_MODEL,|}}REMOTE_FUNCTION]
 create model t1 remote with connection connection1
 --
-ALTERNATION GROUP: V_1_4_REMOTE_MODEL,
+ALTERNATION GROUP: REMOTE_MODEL,
 --
 CreateModelStmt
 +-name_path=t1
@@ -143,10 +143,10 @@ create model t1 remote with connection connection1
 ^
 ==
 
-[language_features={{V_1_4_REMOTE_MODEL,|}}V_1_3_REMOTE_FUNCTION]
+[language_features={{REMOTE_MODEL,|}}REMOTE_FUNCTION]
 create model t1 options (abc = def)
 --
-ALTERNATION GROUP: V_1_4_REMOTE_MODEL,
+ALTERNATION GROUP: REMOTE_MODEL,
 --
 CreateModelStmt
 +-name_path=t1
@@ -1020,7 +1020,7 @@ as select * from t2;
 ==
 
 # Create model with transform and collation in the output column. Annotations should be accessed.
-[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 [no_java]
 CREATE MODEL m
 TRANSFORM(CAST(e AS INT64) k)

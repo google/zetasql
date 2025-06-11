@@ -65,14 +65,12 @@
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
-#include "absl/base/macros.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
 #include "absl/types/span.h"
-#include "zetasql/base/status.h"
+#include "google/protobuf/repeated_ptr_field.h"
 #include "zetasql/base/status_builder.h"
 
 namespace zetasql {
@@ -100,6 +98,12 @@ inline ::zetasql_base::StatusBuilder MakeSqlError() {
 // Returns MakeSqlError() annotated with <point> as the error location.
 inline ::zetasql_base::StatusBuilder MakeSqlErrorAtPoint(ParseLocationPoint point) {
   return MakeSqlError().AttachPayload(point.ToInternalErrorLocation());
+}
+
+// Returns MakeSqlError() annotated with start of the error location.
+inline ::zetasql_base::StatusBuilder MakeSqlErrorAtStart(
+    const ParseLocationRange& location) {
+  return MakeSqlErrorAtPoint(location.start());
 }
 
 // Returns MakeSqlError() annotated with the leftmost point in `range`. If
@@ -139,7 +143,7 @@ inline std::string ExtractingNotSupportedDatePart(
 }
 
 // Returns ErrorSources from <status>, if present.
-const std::optional<::google::protobuf::RepeatedPtrField<ErrorSource>> GetErrorSources(
+std::optional<::google::protobuf::RepeatedPtrField<ErrorSource>> GetErrorSources(
     const absl::Status& status);
 
 // Sets ErrorSources on <error_location_in> from <status>, including

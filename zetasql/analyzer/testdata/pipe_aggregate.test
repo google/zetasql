@@ -1,4 +1,4 @@
-[default language_features=PIPES,GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS,V_1_4_GROUPING_BUILTIN,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
+[default language_features=PIPES,GROUP_BY_ROLLUP,GROUPING_SETS,GROUPING_BUILTIN,SELECT_STAR_EXCEPT_REPLACE]
 select 1 x, 2 y
 |> AGGREGATE GROUP BY x, y
 --
@@ -1498,14 +1498,14 @@ GROUP BY key AS alias
 # columns.
 # TODO Enable java support for collation.
 [no_java]
-[language_features=PIPES{{|,V_1_3_ANNOTATION_FRAMEWORK|,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT}}]
+[language_features=PIPES{{|,ANNOTATION_FRAMEWORK|,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT}}]
 from CollatedTable
 |> AGGREGATE MAX(COALESCE(string_ci)) as max_ci
    GROUP BY COALESCE(string_ci) AS grouping_ci
 --
 ALTERNATION GROUPS:
     <empty>
-    ,V_1_3_ANNOTATION_FRAMEWORK
+    ,ANNOTATION_FRAMEWORK
 --
 QueryStmt
 +-output_column_list=
@@ -1526,7 +1526,7 @@ QueryStmt
           +-FunctionCall(ZetaSQL:coalesce(repeated(1) STRING) -> STRING)
             +-ColumnRef(type=STRING, column=CollatedTable.string_ci#1{Collation:"und:ci"})
 --
-ALTERNATION GROUP: ,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT
+ALTERNATION GROUP: ,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT
 --
 QueryStmt
 +-output_column_list=
@@ -1560,7 +1560,7 @@ QueryStmt
 # Literal replacement generally doesn't work correctly for expressions, it can't
 # replace all literals in the query, see reported bug b/284358915.
 [no_enable_literal_replacement]
-[language_features=PIPES,GROUP_BY_ROLLUP{{|,V_1_4_GROUPING_SETS}}]
+[language_features=PIPES,GROUP_BY_ROLLUP{{|,GROUPING_SETS}}]
 FROM KeyValue
 |> EXTEND STRUCT<f1 INT64, f2 STRING>(key, value) AS kv_struct1
 |> EXTEND STRUCT<f1 INT64, f2 STRING>(key+1, UPPER(value)) AS kv_struct2
@@ -1653,7 +1653,7 @@ ERROR: GROUP BY GROUPING SETS is unsupported [at 5:13]
    GROUP BY GROUPING SETS(
             ^
 --
-ALTERNATION GROUP: ,V_1_4_GROUPING_SETS,ROLLUP
+ALTERNATION GROUP: ,GROUPING_SETS,ROLLUP
 --
 QueryStmt
 +-output_column_list=
@@ -1716,7 +1716,7 @@ QueryStmt
             +-column_list=
               +-ColumnRef(type=STRING, column=$groupby.value#6)
 --
-ALTERNATION GROUP: ,V_1_4_GROUPING_SETS,CUBE
+ALTERNATION GROUP: ,GROUPING_SETS,CUBE
 --
 QueryStmt
 +-output_column_list=
@@ -1779,7 +1779,7 @@ QueryStmt
             +-column_list=
               +-ColumnRef(type=STRING, column=$groupby.value#6)
 --
-ALTERNATION GROUP: ,V_1_4_GROUPING_SETS,GROUPING SETS
+ALTERNATION GROUP: ,GROUPING_SETS,GROUPING SETS
 --
 QueryStmt
 +-output_column_list=
@@ -2044,7 +2044,7 @@ QueryStmt
 # Unsupported equivalent expressions in ROLLUP/CUBE/GROUPING SETS fail the
 # query. STRUCT<f1 INT64>(key) is not a supported expression type in equivalent
 # expression detection method.
-[language_features=PIPES,GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS,V_1_2_GROUP_BY_STRUCT]
+[language_features=PIPES,GROUP_BY_ROLLUP,GROUPING_SETS,GROUP_BY_STRUCT]
 FROM KeyValue
 |> AGGREGATE COUNT(*) GROUP BY {{ROLLUP|CUBE|GROUPING SETS}}
     (STRUCT<f1 INT64>(key).f1, STRUCT<f1 INT64>(key).f1, value, value)
@@ -2056,7 +2056,7 @@ ERROR: Unable to check whether multiple grouping set expressions are equivalent,
 
 # Equivalent expressions in non-grouping sets queries won't be deduplicated.
 [no_enable_literal_replacement]
-[language_features=PIPES,GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT{{|,V_1_4_GROUPING_SETS}}]
+[language_features=PIPES,GROUP_BY_ROLLUP,GROUP_BY_STRUCT{{|,GROUPING_SETS}}]
 FROM KeyValue
 |> AGGREGATE COUNT(*) GROUP BY STRUCT(key), STRUCT(key), value, value
 --
@@ -2338,7 +2338,7 @@ QueryStmt
 # Unsupported equivalent expressions can be added to EXTEND operator, and
 # referenced in the ROLLUP/CUBE/GROUPING SETS.
 [no_enable_literal_replacement]
-[language_features=PIPES,GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS,V_1_2_GROUP_BY_STRUCT]
+[language_features=PIPES,GROUP_BY_ROLLUP,GROUPING_SETS,GROUP_BY_STRUCT]
 FROM KeyValue
 |> EXTEND STRUCT(key) AS key_struct
 |> AGGREGATE COUNT(*) GROUP BY {{ROLLUP|CUBE|GROUPING SETS}}(key_struct, key_struct)
@@ -2720,7 +2720,7 @@ QueryStmt
                   +-ColumnRef(type=STRING, column=$groupby.$groupbycol2#4)
 ==
 
-[language_features=PIPES,V_1_4_MULTILEVEL_AGGREGATION,V_1_1_ORDER_BY_IN_AGGREGATE]
+[language_features=PIPES,MULTILEVEL_AGGREGATION,ORDER_BY_IN_AGGREGATE]
 FROM SimpleTypes
 |> AGGREGATE
   SUM(

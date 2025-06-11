@@ -1,4 +1,4 @@
-[default language_features=PIPES,V_1_3_OMIT_INSERT_COLUMN_LIST]
+[default language_features=PIPES,OMIT_INSERT_COLUMN_LIST]
 FROM KeyValue
 |> INSERT INTO KeyValue
 --
@@ -11,7 +11,7 @@ ERROR: Pipe INSERT not supported [at 2:1]
 # statement kinds are enabled.
 # TODO SQLBuilder doesn't work for pipe EXPORT DATA yet.
 [default no_run_sqlbuilder]
-[default language_features=PIPES,PIPE_INSERT,PIPE_FORK,PIPE_TEE,PIPE_IF,V_1_3_OMIT_INSERT_COLUMN_LIST,V_1_4_ENABLE_MEASURES,V_1_4_INSERT_ON_CONFLICT_CLAUSE,V_1_3_DML_RETURNING]
+[default language_features=PIPES,PIPE_INSERT,PIPE_FORK,PIPE_TEE,PIPE_IF,OMIT_INSERT_COLUMN_LIST,ENABLE_MEASURES,INSERT_ON_CONFLICT_CLAUSE,DML_RETURNING]
 [supported_statement_kinds={{QUERY|GENERALIZED_QUERY|QUERY,GENERALIZED_QUERY|INSERT}}]
 FROM KeyValue
 |> INSERT INTO KeyValue

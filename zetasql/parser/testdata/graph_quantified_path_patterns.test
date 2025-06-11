@@ -1,5 +1,5 @@
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
+[default language_features=SQL_GRAPH]
 
 # Quantification on a node pattern is not allowed
 select * from graph_table(
@@ -940,7 +940,7 @@ QueryStatement [0-76] [GRAPH aml...as result]
                     GraphElementPatternFiller [48-49] [b]
                       Identifier(b) [48-49] [b]
             GqlReturn [58-76] [return 1 as result]
-              Select [64-76] [1 as result]
+              Select [65-76] [1 as result]
                 SelectList [65-76] [1 as result]
                   SelectColumn [65-76] [1 as result]
                     IntLiteral(1) [65-66] [1]

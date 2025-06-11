@@ -299,7 +299,7 @@ const CastHashMap* InitializeZetaSQLCasts() {
   return map;
 }
 
-// Returns a single uint64_t that represents an (input kind, output kind) pair.
+// Returns a single uint64 that represents an (input kind, output kind) pair.
 // Useful for switching on a combination of two kinds.
 constexpr uint64_t FCT(TypeKind input_kind, TypeKind output_kind) {
   return ((static_cast<uint64_t>(input_kind) << 32) + output_kind);
@@ -334,7 +334,7 @@ absl::StatusOr<Value> NumericValueCast(const FromType& in) {
 // handles NULL Values but otherwise just wraps the ZetaSQL function
 // library function (which does not handle NULL values).
 // The function is invoked like:
-//   status = NumericToString<int32_t>(value)
+//   status = NumericToString<int32>(value)
 //
 // Crashes if the Value type does not correspond with <T>.
 template <typename T>
@@ -356,7 +356,7 @@ absl::StatusOr<Value> NumericToString(const Value& v,
 // handles NULL Values but otherwise just wraps the ZetaSQL function
 // library function (which does not handle NULL values).
 // The function is invoked like:
-//   status = StringToNumeric<int32_t>(value)
+//   status = StringToNumeric<int32>(value)
 //
 // Crashes if the Value <v> is not a string.
 template <typename T>
@@ -617,7 +617,20 @@ static absl::Status ValidateGraphElementValueImplicitCastAndAddStaticProperties(
            << " to " << to_type->ShortTypeName(language_options.product_mode());
   }
 
+  if (!language_options.LanguageFeatureEnabled(
+          FEATURE_SQL_GRAPH_DYNAMIC_ELEMENT_TYPE)) {
+    ZETASQL_RET_CHECK(!from_graph_type->is_dynamic() && !to_type->is_dynamic())
+        << "Dynamic graph element type is not supported";
+  }
+  if (from_graph_type->is_dynamic() && !to_type->is_dynamic()) {
+    return MakeSqlError()
+           << "Cannot cast dynamic graph element to static graph element";
+  }
+
   // The same static property name must have the same value type.
+  // Dynamic property with conflicting name in the from type shadows static
+  // property with the same name in the to type. The returned property value in
+  // the cast result is NULL with to type's property value type.
   for (const PropertyType& property_type : to_type->property_types()) {
     static_property_names.insert(property_type.name);
     if (absl::StatusOr<Value> from_property_val =
@@ -664,7 +677,7 @@ absl::StatusOr<Value> CastContext::CastValue(
   // exception for two-field structs whose fields are castable to the fields
   // of a map_entry protocol buffer (see (broken link)).
   if (language_options().LanguageFeatureEnabled(
-          LanguageFeature::FEATURE_V_1_3_PROTO_MAPS) &&
+          LanguageFeature::FEATURE_PROTO_MAPS) &&
       IsMapEntryCast(from_value.type(), to_type)) {
     return DoMapEntryCast(from_value, default_timezone(), language_options(),
                           to_type, canonicalize_zero_);
@@ -870,7 +883,7 @@ absl::StatusOr<Value> CastContext::CastValue(
       return to_value;
     }
     case FCT(TYPE_UINT64, TYPE_ENUM): {
-      // Static cast may turn out-of-bound uint64_t's to negative int64_t's which
+      // Static cast may turn out-of-bound uint64's to negative int64's which
       // will yield invalid enums.
       const Value to_value = Value::Enum(
           to_type->AsEnum(), static_cast<int64_t>(v.uint64_value()));
@@ -1069,7 +1082,7 @@ absl::StatusOr<Value> CastContext::CastValue(
       // no validation.
       return Value::Proto(to_type->AsProto(), absl::Cord(v.bytes_value()));
     case FCT(TYPE_BYTES, TYPE_TOKENLIST): {
-      auto tokenlist = tokens::TokenList::FromBytes(v.bytes_value());
+      auto tokenlist = tokens::TokenList::FromBytesUnvalidated(v.bytes_value());
       if (!tokenlist.IsValid()) {
         return MakeEvalError() << "Invalid tokenlist encoding";
       }
@@ -1395,6 +1408,16 @@ absl::StatusOr<Value> CastContext::CastValue(
       // identifiers.
       const auto* to_graph_type = to_type->AsGraphElement();
 
+      // See below for coercion rules between graph element types.
+      // --------------------------------------------------------------
+      // |           |         |  RESULT TYPE PROPERTIES    |         |
+      // | FROM TYPE | TO TYPE |    STATIC   |    DYNAMIC   | RESULT  |
+      // --------------------------------------------------------------
+      // | Static    | Static  | TO TYPE     | nullopt      | ALLOWED |
+      // | Static    | Dynamic | TO TYPE     | {}           | ALLOWED |
+      // | Dynamic   | Static  | N/A         | N/A          | ERROR   |
+      // | Dynamic   | Dynamic | TO TYPE     | FROM TYPE    | ALLOWED |
+      // --------------------------------------------------------------
       std::vector<Value::Property> to_type_static_properties;
       absl::flat_hash_set<absl::string_view> static_property_names;
       ZETASQL_RETURN_IF_ERROR(
@@ -1406,6 +1429,10 @@ absl::StatusOr<Value> CastContext::CastValue(
           .static_labels = {v.GetLabels().begin(), v.GetLabels().end()},
           .static_properties = to_type_static_properties};
 
+      // If casting from static to static graph element type, we do not need to
+      // compute the dynamic properties.
+      const auto* from_graph_type = v.type()->AsGraphElement();
+      if (!from_graph_type->is_dynamic() && !to_graph_type->is_dynamic()) {
         return v.IsEdge()
                    ? Value::MakeGraphEdge(
                          to_graph_type, v.GetIdentifier(),
@@ -1414,6 +1441,37 @@ absl::StatusOr<Value> CastContext::CastValue(
                    : Value::MakeGraphNode(to_graph_type, v.GetIdentifier(),
                                           labels_and_properties,
                                           v.GetDefinitionName());
+      }
+      // Dynamic properties of the casted type are computed from the from type's
+      // dynamic properties.
+      // - If the from type is static, the casted type uses an empty dynamic
+      //   properties JSON value.
+      // - If the from type is dynamic, dynamic properties with conflicting
+      //   names compared with static properties in the to type are dropped.
+      std::vector<Value::Property> from_type_dynamic_properties;
+      if (from_graph_type->is_dynamic()) {
+        for (const std::string& property_name : v.property_names()) {
+          if (!static_property_names.contains(property_name)) {
+            ZETASQL_ASSIGN_OR_RETURN(const Value from_type_property_val,
+                             v.FindValidPropertyValueByName(property_name));
+            from_type_dynamic_properties.push_back(
+                {property_name, from_type_property_val});
+          }
+        }
+      }
+      ZETASQL_ASSIGN_OR_RETURN(
+          const JSONValue json_value,
+          MakePropertiesJsonValue(absl::MakeSpan(from_type_dynamic_properties),
+                                  language_options()));
+      labels_and_properties.dynamic_properties = json_value.GetConstRef();
+      return v.IsEdge()
+                 ? Value::MakeGraphEdge(
+                       to_graph_type, v.GetIdentifier(), labels_and_properties,
+                       v.GetDefinitionName(), v.GetSourceNodeIdentifier(),
+                       v.GetDestNodeIdentifier())
+                 : Value::MakeGraphNode(to_graph_type, v.GetIdentifier(),
+                                        labels_and_properties,
+                                        v.GetDefinitionName());
     }
     case FCT(TYPE_GRAPH_PATH, TYPE_GRAPH_PATH): {
       const GraphPathType* to_path_type = to_type->AsGraphPath();

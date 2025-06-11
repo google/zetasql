@@ -191,6 +191,6 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ERROR: Syntax error: Expected end of input but got identifier "zz" [at 3:10]
+ERROR: Syntax error: Expected ";" or end of input but got identifier "zz" [at 3:10]
   key xy zz from KeyValue; select 3;
          ^

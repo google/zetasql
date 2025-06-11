@@ -66,19 +66,19 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> ResolveFunctionCall(
   // are just transforming a function call, and creating a new
   // ResolvedFunctionCall with already-resolved arguments.
   NameScope empty_name_scope;
-  QueryResolutionInfo query_resolution_info(resolver);
-  ExprResolutionInfo expr_resolution_info(&query_resolution_info,
-                                          &empty_name_scope,
-                                          {
-                                              .allows_aggregation = true,
-                                              .allows_analytic = false,
-                                          });
+  auto query_resolution_info = std::make_unique<QueryResolutionInfo>(resolver);
+  auto expr_resolution_info = std::make_unique<ExprResolutionInfo>(
+      query_resolution_info.get(), &empty_name_scope,
+      ExprResolutionInfoOptions{
+          .allows_aggregation = true,
+          .allows_analytic = false,
+      });
 
   std::unique_ptr<const ResolvedExpr> result;
   absl::Status status = resolver->ResolveFunctionCallWithResolvedArguments(
       &dummy_ast_function, dummy_arg_locations,
       /*match_internal_signatures=*/true, function_name, std::move(arguments),
-      std::move(named_arguments), &expr_resolution_info, &result);
+      std::move(named_arguments), expr_resolution_info.get(), &result);
 
   // We expect that the caller passes valid/coercible arguments. An error only
   // occurs if that contract is violated, so this is an internal error.
@@ -86,10 +86,10 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> ResolveFunctionCall(
 
   // The resolver inserts the actual function call for aggregate functions
   // into query_resolution_info, so we need to extract it if applicable.
-  if (query_resolution_info.aggregate_columns_to_compute().size() == 1) {
+  if (query_resolution_info->aggregate_columns_to_compute().size() == 1) {
     std::unique_ptr<ResolvedComputedColumnBase> col =
         absl::WrapUnique(const_cast<ResolvedComputedColumnBase*>(
-            query_resolution_info.release_aggregate_columns_to_compute()
+            query_resolution_info->release_aggregate_columns_to_compute()
                 .front()
                 .release()));
     ZETASQL_RET_CHECK(col->Is<ResolvedComputedColumn>());

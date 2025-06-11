@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
@@ -40,6 +41,10 @@ class MeasureType : public ContainerType {
 #endif  // SWIG
 
   const Type* result_type() const { return result_type_; }
+
+  std::vector<const Type*> ComponentTypes() const override {
+    return {result_type_};
+  }
 
   const MeasureType* AsMeasure() const override { return this; }
 
@@ -119,6 +124,11 @@ class MeasureType : public ContainerType {
   absl::Status SerializeToProtoAndDistinctFileDescriptorsImpl(
       const BuildFileDescriptorSetMapOptions& options, TypeProto* type_proto,
       FileDescriptorSetMap* file_descriptor_set_map) const override;
+
+  void ClearValueContent(const ValueContent& value) const override;
+
+  void CopyValueContent(const ValueContent& from,
+                        ValueContent* to) const override;
 
   // The type produced when evaluating the measure with `AGGREGATE()`.
   const Type* result_type_;

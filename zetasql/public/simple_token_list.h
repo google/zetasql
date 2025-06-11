@@ -169,8 +169,7 @@ class TokenList {
   std::string ToBytes() && { return std::move(data_); }
   const std::string& GetBytes() const { return data_; };
   // Constructs a TokenList from serialized bytes.
-  static TokenList FromBytes(std::string serialized) {
-    if (serialized.empty()) return TokenList();
+  static TokenList FromBytesUnvalidated(std::string serialized) {
     return TokenList(std::move(serialized));
   }
 
@@ -276,7 +275,7 @@ class TokenListBuilder {
   TokenList Build() {
     std::string serialized = proto_.SerializeAsString();
     proto_.Clear();
-    return TokenList::FromBytes(std::move(serialized));
+    return TokenList::FromBytesUnvalidated(std::move(serialized));
   }
 
   size_t max_byte_size() const { return proto_.ByteSizeLong(); }

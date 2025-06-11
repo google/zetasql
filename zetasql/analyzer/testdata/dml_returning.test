@@ -52,7 +52,7 @@ INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN WITH ACTION A...
                                                     ^
 ==
 
-[default language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE,DML_UPDATE_WITH_JOIN,V_1_3_PIVOT]
+[default language_features=DML_RETURNING,SELECT_STAR_EXCEPT_REPLACE,DML_UPDATE_WITH_JOIN,PIVOT]
 DELETE TestTable WHERE KitchenSink.int32_val = 1 THEN RETURN *
 --
 DeleteStmt
@@ -1189,7 +1189,7 @@ THEN RETURN Key
             ^
 ==
 
-[language_features=V_1_3_DML_RETURNING]
+[language_features=DML_RETURNING]
 INSERT INTO KeyValue (key, value) VALUES (1, "one")
 THEN RETURN * EXCEPT (KEY)
 --
@@ -1198,7 +1198,7 @@ THEN RETURN * EXCEPT (KEY)
             ^
 ==
 
-[language_features=V_1_3_DML_RETURNING]
+[language_features=DML_RETURNING]
 INSERT INTO KeyValue (key, value) VALUES (1, "one")
 THEN RETURN * REPLACE ("xxx" as value)
 --
@@ -1470,7 +1470,7 @@ InsertStmt
 +-column_access_list=WRITE,READ_WRITE
 ==
 
-[language_features=V_1_3_DML_RETURNING]
+[language_features=DML_RETURNING]
 UPDATE KeyValue SET value="a" WHERE key > 10 THEN RETURN * EXCEPT (key)
 --
 ERROR: SELECT * EXCEPT is not supported [at 1:58]
@@ -1637,7 +1637,7 @@ UpdateStmt
           +-Literal(type=STRING, value="a")
 ==
 
-[language_features=V_1_3_DML_RETURNING]
+[language_features=DML_RETURNING]
 DELETE KeyValue WHERE TRUE THEN RETURN * EXCEPT (key)
 --
 ERROR: SELECT * EXCEPT is not supported [at 1:40]
@@ -1645,7 +1645,7 @@ DELETE KeyValue WHERE TRUE THEN RETURN * EXCEPT (key)
                                        ^
 ==
 
-[language_features=V_1_3_DML_RETURNING]
+[language_features=DML_RETURNING]
 DELETE KeyValue WHERE TRUE THEN RETURN * REPLACE (1 AS key)
 --
 ERROR: SELECT * REPLACE is not supported [at 1:40]
@@ -2191,7 +2191,7 @@ THEN RETURN key, (SELECT COUNT(*) from KeyValue) as col2, SUM(key);
 ==
 
 # Window aggregates are not supported.
-[language_features=V_1_3_DML_RETURNING,ANALYTIC_FUNCTIONS]
+[language_features=DML_RETURNING,ANALYTIC_FUNCTIONS]
 DELETE TestTable WHERE KitchenSink.int32_val = 3
 THEN RETURN key, COUNT(key) OVER() AS total;
 --

@@ -1,4 +1,3 @@
-
 CLONE DATA INTO ds.tbl
 FROM ds.src
 --

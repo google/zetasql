@@ -52,7 +52,7 @@ ARRAY<STRUCT<
 ]
 ==
 
-[default required_features=V_1_4_GROUPING_SETS]
+[default required_features=GROUPING_SETS]
 [name=grouping_sets_single_column_grouping_set]
 SELECT a, b, COUNT(*)
 FROM simple_table
@@ -69,7 +69,7 @@ ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
 ]
 ==
 
-[default required_features=V_1_4_GROUPING_SETS]
+[default required_features=GROUPING_SETS]
 [name=grouping_sets_single_column_grouping_set_count_distinct]
 SELECT a, b, COUNT(DISTINCT c)
 FROM simple_table
@@ -418,7 +418,7 @@ ARRAY<STRUCT<a INT64, b STRING, INT64, ARRAY<>>>[known order:
 NOTE: Reference implementation reports non-determinism.
 ==
 
-[required_features=V_1_4_GROUPING_SETS,ANALYTIC_FUNCTIONS]
+[required_features=GROUPING_SETS,ANALYTIC_FUNCTIONS]
 [name=grouping_sets_with_analytic_functions]
 SELECT a, b,
   COUNT(*) OVER (
@@ -503,7 +503,7 @@ ARRAY<STRUCT<GROUPING SETS INT64, ROLLUP STRING, CUBE BOOL, INT64>>[known order:
 ==
 
 [name=grouping_sets_with_rollup_cube]
-[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[required_features=GROUP_BY_ROLLUP,GROUPING_SETS]
 SELECT a+1, b, c, d, COUNT(*) AS cnt
 FROM simple_table
 GROUP BY GROUPING SETS(a+1, ROLLUP(b, c), CUBE(d), ())
@@ -534,7 +534,7 @@ NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=grouping_sets_with_rollup_cube_on_multi_columns]
-[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[required_features=GROUP_BY_ROLLUP,GROUPING_SETS]
 SELECT a+1, b, c, d, COUNT(*) AS cnt
 FROM simple_table
 GROUP BY GROUPING SETS(a+1, ROLLUP(b, (c, d)), CUBE(a+1, (c, b)), ())
@@ -574,7 +574,7 @@ NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=grouping_sets_with_rollup_cube_mix_column_alias_ordinal_index]
-[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[required_features=GROUP_BY_ROLLUP,GROUPING_SETS]
 SELECT a+1, b AS x, c AS y, d, COUNT(*) AS cnt
 FROM simple_table
 GROUP BY GROUPING SETS(1, ROLLUP(x, (y, d)), CUBE(1, (3, 2)), ())
@@ -629,7 +629,7 @@ ARRAY<STRUCT<STRING, BOOL, DOUBLE>>[unknown order:
 ==
 
 [name=grouping_sets_with_all_post_aggregate_clauses]
-[required_features=V_1_3_QUALIFY,V_1_4_GROUPING_SETS,ANALYTIC_FUNCTIONS]
+[required_features=QUALIFY,GROUPING_SETS,ANALYTIC_FUNCTIONS]
 SELECT a, b, c, COUNT(*) OVER() AS cnt
 FROM simple_table
 GROUP BY GROUPING SETS(a, b, c)
@@ -642,7 +642,7 @@ ARRAY<STRUCT<a INT64, b STRING, c BOOL, cnt INT64>>[{NULL, NULL, true, 7}]
 ==
 
 [name=grouping_sets_with_having_clauses]
-[required_features=V_1_4_GROUPING_SETS,V_1_4_GROUPING_BUILTIN]
+[required_features=GROUPING_SETS,GROUPING_BUILTIN]
 SELECT a, b, c, COUNT(*)
 FROM simple_table
 GROUP BY GROUPING SETS(a, b, c)
@@ -658,7 +658,7 @@ ARRAY<STRUCT<a INT64, b STRING, c BOOL, INT64>>[known order:
 ==
 
 [name=grouping_sets_with_qualify_clauses]
-[required_features=V_1_3_QUALIFY,V_1_4_GROUPING_SETS,ANALYTIC_FUNCTIONS,V_1_4_GROUPING_BUILTIN]
+[required_features=QUALIFY,GROUPING_SETS,ANALYTIC_FUNCTIONS,GROUPING_BUILTIN]
 SELECT a, b, c, COUNT(*) OVER()
 FROM simple_table
 GROUP BY GROUPING SETS(a, b, c)
@@ -674,7 +674,7 @@ ARRAY<STRUCT<a INT64, b STRING, c BOOL, INT64>>[known order:
 ==
 
 [name=grouping_sets_with_pivot]
-[required_features=V_1_3_PIVOT,V_1_4_GROUPING_SETS]
+[required_features=PIVOT,GROUPING_SETS]
 SELECT a+1, foo, bar, COUNT(*) AS cnt
 FROM simple_table PIVOT(SUM(d) FOR b IN ('foo', 'bar'))
 GROUP BY GROUPING SETS(a+1, foo, bar)
@@ -696,7 +696,7 @@ NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=grouping_sets_with_unpivot]
-[required_features=V_1_3_UNPIVOT,V_1_4_GROUPING_SETS]
+[required_features=UNPIVOT,GROUPING_SETS]
 SELECT a+1, e, f, COUNT(*) AS cnt
 FROM simple_table UNPIVOT(e FOR f in (b))
 GROUP BY GROUPING SETS(a+1, e, f)
@@ -713,7 +713,7 @@ ARRAY<STRUCT<INT64, e STRING, f STRING, cnt INT64>>[known order:
 ==
 
 [name=grouping_sets_and_with_recursive]
-[required_features=V_1_3_WITH_RECURSIVE,V_1_4_GROUPING_SETS]
+[required_features=WITH_RECURSIVE,GROUPING_SETS]
 WITH RECURSIVE
   CTE_1 AS (
     (
@@ -870,7 +870,7 @@ ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
 ]
 ==
 
-[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[required_features=GROUP_BY_ROLLUP,GROUPING_SETS]
 [name=rollup_with_multi_columns]
 SELECT a, b, c, d, SUM(key)
 FROM simple_table
@@ -919,13 +919,13 @@ ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
 ]
 ==
 
-# The WHERE EXISTS clause is to make sure the V_1_4_GROUPING_SETS feature option
+# The WHERE EXISTS clause is to make sure the GROUPING_SETS feature option
 # required. Without the where clause, the query can be run by missing the
-# V_1_4_GROUPING_SETS feature option, which will cause
+# GROUPING_SETS feature option, which will cause
 # required_feature_integrity_test fail. It's intentional to test the query
-# behavior won't change when V_1_4_GROUPING_SETS is enabled. V_1_4_GROUPING_SETS
+# behavior won't change when GROUPING_SETS is enabled. GROUPING_SETS
 # uses a new code path to resolve the ROLLUP.
-[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[required_features=GROUP_BY_ROLLUP,GROUPING_SETS]
 [name=rollup_with_parenthesised_single_column_when_grouping_sets_enabled]
 SELECT a, b, SUM(key)
 FROM simple_table
@@ -947,8 +947,8 @@ ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
 ==
 
 # (a, b) is resolved as a struct when only GROUP_BY_ROLLUP is enabled, and is
-# resolved to a multi-column when V_1_4_GROUPING_SETS is enabled.
-[required_features=GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT]
+# resolved to a multi-column when GROUPING_SETS is enabled.
+[required_features=GROUP_BY_ROLLUP,GROUP_BY_STRUCT]
 [name=rollup_with_multi_columns_as_struct]
 SELECT SUM(key)
 FROM simple_table
@@ -970,7 +970,7 @@ ARRAY<STRUCT<INT64>>[known order:
 ]
 ==
 
-[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[required_features=GROUP_BY_ROLLUP,GROUPING_SETS]
 [name=rollup_with_multi_expression_columns]
 SELECT a+1, UPPER(b), c, d, SUM(key)
 FROM simple_table
@@ -997,7 +997,7 @@ ARRAY<STRUCT<INT64, STRING, c BOOL, d DOUBLE, INT64>>[known order:
 NOTE: Reference implementation reports non-determinism.
 ==
 
-[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[required_features=GROUP_BY_ROLLUP,GROUPING_SETS]
 [name=rollup_with_duplicate_multi_columns]
 SELECT a, b, UPPER(b), SUM(key)
 FROM simple_table
@@ -1029,7 +1029,7 @@ ARRAY<STRUCT<a INT64, b STRING, STRING, INT64>>[known order:
 ]
 ==
 
-[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[required_features=GROUP_BY_ROLLUP,GROUPING_SETS]
 [name=rollup_with_duplicate_columns_in_multi_columns]
 SELECT a+1, a-1, SUM(key)
 FROM simple_table
@@ -1047,7 +1047,7 @@ ARRAY<STRUCT<INT64, INT64, INT64>>[known order:
 ]
 
 ==
-[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[required_features=GROUP_BY_ROLLUP,GROUPING_SETS]
 [name=rollup_with_duplicate_mix_of_column_alias_ordinal_index_in_multi_columns]
 SELECT a+1, a-1, a*2 AS a2, SUM(key)
 FROM simple_table
@@ -1068,7 +1068,7 @@ ARRAY<STRUCT<INT64, INT64, a2 INT64, INT64>>[known order:
 ]
 ==
 
-[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[required_features=GROUP_BY_ROLLUP,GROUPING_SETS]
 [name=rollup_with_mix_of_column_alias_ordinal_index]
 SELECT a+1, a-1 AS x, b, SUM(key)
 FROM simple_table
@@ -1109,7 +1109,7 @@ ARRAY<STRUCT<a INT64, INT64, INT64>>[known order:
 ]
 ==
 
-[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[required_features=GROUP_BY_ROLLUP,GROUPING_SETS]
 [name=rollup_multi_column_expression_match]
 SELECT a, a+1, SUM(key)
 FROM simple_table
@@ -1130,7 +1130,7 @@ ARRAY<STRUCT<a INT64, INT64, INT64>>[known order:
 ]
 ==
 
-[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[required_features=GROUP_BY_ROLLUP,GROUPING_SETS]
 [name=rollup_with_subquery]
 SELECT SUM(key)
 FROM simple_table
@@ -1144,7 +1144,7 @@ ARRAY<STRUCT<INT64>>[known order:{15}, {15}, {15}]
 ==
 
 [name=rollup_with_collation_columns]
-[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[required_features=GROUP_BY_ROLLUP,GROUPING_SETS]
 SELECT
   UPPER(col_ci) AS col1, col_binary AS col_2, col AS col_3,
   COUNT(*) AS count
@@ -1166,7 +1166,7 @@ ARRAY<STRUCT<col1 STRING, col_2 STRING, col_3 INT64, count INT64>>[known order:
 ]
 ==
 
-[required_features=V_1_4_GROUPING_SETS,V_1_4_GROUPING_BUILTIN]
+[required_features=GROUPING_SETS,GROUPING_BUILTIN]
 [name=cube_simple_query]
 SELECT a, b, GROUPING(a), GROUPING(b), COUNT(*)
 FROM simple_table
@@ -1189,7 +1189,7 @@ ARRAY<STRUCT<a INT64, b STRING, INT64, INT64, INT64>>[known order:
 ]
 ==
 
-[required_features=V_1_4_GROUPING_SETS]
+[required_features=GROUPING_SETS]
 [name=cube_simple_query_no_grouping]
 SELECT a, b, COUNT(*)
 FROM simple_table
@@ -1213,7 +1213,7 @@ ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
 
 ==
 
-[required_features=V_1_4_GROUPING_SETS,V_1_4_GROUPING_BUILTIN]
+[required_features=GROUPING_SETS,GROUPING_BUILTIN]
 [name=cube_with_multi_columns_grouping_set]
 SELECT a, b, c, GROUPING(c), SUM(d)
 FROM simple_table
@@ -1238,7 +1238,7 @@ ARRAY<STRUCT<a INT64, b STRING, c BOOL, INT64, DOUBLE>>[known order:
 ]
 ==
 
-[required_features=V_1_4_GROUPING_SETS]
+[required_features=GROUPING_SETS]
 [name=cube_with_multi_columns_grouping_set_no_grouping]
 SELECT a, b, c, SUM(d)
 FROM simple_table
@@ -1264,7 +1264,7 @@ ARRAY<STRUCT<a INT64, b STRING, c BOOL, DOUBLE>>[known order:
 
 ==
 
-[required_features=V_1_4_GROUPING_SETS]
+[required_features=GROUPING_SETS]
 [name=cube_with_duplicated_columns_no_grouping]
 SELECT a, b, COUNT(*)
 FROM simple_table
@@ -1335,7 +1335,7 @@ ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
 ]
 ==
 
-[required_features=V_1_4_GROUPING_SETS]
+[required_features=GROUPING_SETS]
 [name=cube_with_duplicated_multi_columns]
 SELECT a, b, c, COUNT(*)
 FROM simple_table
@@ -1633,7 +1633,7 @@ ARRAY<STRUCT<a INT64, b STRING, c BOOL, INT64>>[known order:
 
 ==
 
-[required_features=V_1_4_GROUPING_SETS]
+[required_features=GROUPING_SETS]
 [name=cube_with_expressions]
 SELECT b, MAX(c)
 FROM simple_table
@@ -1677,7 +1677,7 @@ ARRAY<STRUCT<b STRING, BOOL>>[known order:
 ==
 
 [name=cube_with_collated_column]
-[required_features=V_1_4_GROUPING_SETS]
+[required_features=GROUPING_SETS]
 SELECT
   UPPER(col_ci) AS col1,
   col_no_collation AS col2,
@@ -1727,7 +1727,7 @@ ARRAY<STRUCT<col1 STRING, col2 STRING, count INT64>>[known order:
 ==
 
 [name=cube_with_analytic_functions]
-[required_features=V_1_4_GROUPING_SETS,ANALYTIC_FUNCTIONS]
+[required_features=GROUPING_SETS,ANALYTIC_FUNCTIONS]
 SELECT a, b,
   COUNT(*) OVER (
     PARTITION BY a
@@ -1763,7 +1763,7 @@ ARRAY<STRUCT<a INT64, b STRING, count INT64, sum INT64, max STRING>>[known order
 ==
 
 [name=cube_with_parenthesized_single_column]
-[required_features=V_1_4_GROUPING_SETS,ANALYTIC_FUNCTIONS]
+[required_features=GROUPING_SETS,ANALYTIC_FUNCTIONS]
 SELECT a, b,
   COUNT(*) OVER (
     PARTITION BY a
@@ -1962,7 +1962,7 @@ ARRAY<STRUCT<STRING, INT64, STRING>>[unknown order:
 ==
 
 [name=cube_with_post_aggregate_clauses]
-[required_features=V_1_3_QUALIFY,V_1_4_GROUPING_SETS,ANALYTIC_FUNCTIONS]
+[required_features=QUALIFY,GROUPING_SETS,ANALYTIC_FUNCTIONS]
 SELECT a, b, c, COUNT(*) OVER() AS cnt
 FROM simple_table
 GROUP BY CUBE(a, b, c)
@@ -1982,7 +1982,7 @@ ARRAY<STRUCT<a INT64, b STRING, c BOOL, cnt INT64>>[known order:
 ==
 
 [name=cube_with_having_clauses]
-[required_features=V_1_4_GROUPING_SETS]
+[required_features=GROUPING_SETS]
 SELECT a, b, COUNT(*)
 FROM simple_table
 GROUP BY CUBE(a, b)
@@ -2000,7 +2000,7 @@ ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
 ==
 
 [name=cube_with_qualify_clauses]
-[required_features=V_1_3_QUALIFY,V_1_4_GROUPING_SETS,ANALYTIC_FUNCTIONS,V_1_4_GROUPING_BUILTIN]
+[required_features=QUALIFY,GROUPING_SETS,ANALYTIC_FUNCTIONS,GROUPING_BUILTIN]
 SELECT a, b, COUNT(*) OVER()
 FROM simple_table
 GROUP BY CUBE(a, b)
@@ -2021,7 +2021,7 @@ ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
 ==
 
 [name=cube_with_pivot]
-[required_features=V_1_3_PIVOT,V_1_4_GROUPING_SETS]
+[required_features=PIVOT,GROUPING_SETS]
 SELECT a, foo, bar, COUNT(*) AS cnt
 FROM simple_table PIVOT(SUM(d) FOR b IN ('foo', 'bar'))
 GROUP BY CUBE(a, foo, bar)
@@ -2061,7 +2061,7 @@ NOTE: Reference implementation reports non-determinism.
 
 ==
 [name=cube_with_unpivot]
-[required_features=V_1_3_UNPIVOT,V_1_4_GROUPING_SETS]
+[required_features=UNPIVOT,GROUPING_SETS]
 SELECT a, e, f, COUNT(*) AS cnt
 FROM simple_table UNPIVOT(e FOR f in (b))
 GROUP BY CUBE(a, e, f)
@@ -2091,7 +2091,7 @@ ARRAY<STRUCT<a INT64, e STRING, f STRING, cnt INT64>>[known order:
 ==
 
 [name=cube_and_with_recursive]
-[required_features=V_1_3_WITH_RECURSIVE,V_1_4_GROUPING_SETS]
+[required_features=WITH_RECURSIVE,GROUPING_SETS]
 WITH RECURSIVE
   CTE_1 AS (
     (
@@ -2128,7 +2128,7 @@ ARRAY<STRUCT<it INT64, it1 INT64>>[known order:
 ]
 ==
 
-[required_features=V_1_4_GROUPING_SETS]
+[required_features=GROUPING_SETS]
 [name=cube_expression_match]
 SELECT a, a+1, SUM(key)
 FROM simple_table
@@ -2149,7 +2149,7 @@ ARRAY<STRUCT<a INT64, INT64, INT64>>[known order:
 ]
 
 ==
-[required_features=V_1_4_GROUPING_SETS]
+[required_features=GROUPING_SETS]
 [name=cube_multi_column_expression_match]
 SELECT a, a+1, SUM(key)
 FROM simple_table
@@ -2183,7 +2183,7 @@ ARRAY<STRUCT<a INT64, INT64, INT64>>[known order:
 
 ==
 
-[required_features=V_1_4_GROUPING_SETS]
+[required_features=GROUPING_SETS]
 [name=cube_with_subquery]
 SELECT SUM(key)
 FROM simple_table
@@ -2198,7 +2198,7 @@ ARRAY<STRUCT<INT64>>[known order:{15}, {15}, {15}, {15}]
 ==
 
 [name=cube_with_keyword_column_name]
-[required_features=V_1_4_GROUPING_SETS]
+[required_features=GROUPING_SETS]
 WITH T AS (
   SELECT 10 AS `GROUPING SETS`, "bar" AS `ROLLUP`, true AS `CUBE` UNION ALL
   SELECT 11 AS `GROUPING SETS`, "bar" AS `ROLLUP`, false AS `CUBE`
@@ -2265,7 +2265,7 @@ ARRAY<STRUCT<a INT64, b STRING, count INT64, sum INT64, max STRING>>[known order
 ==
 
 [name=rollup_with_qualify_clauses]
-[required_features=GROUP_BY_ROLLUP,ANALYTIC_FUNCTIONS,V_1_3_QUALIFY,V_1_4_GROUPING_BUILTIN]
+[required_features=GROUP_BY_ROLLUP,ANALYTIC_FUNCTIONS,QUALIFY,GROUPING_BUILTIN]
 SELECT a, UPPER(b), c, COUNT(*) OVER() AS cnt
 FROM simple_table
 GROUP BY ROLLUP(a, UPPER(b), c)
@@ -2291,7 +2291,7 @@ ARRAY<STRUCT<a INT64, STRING, c BOOL, cnt INT64>>[known order:
 ==
 
 [name=rollup_with_having_clause]
-[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_BUILTIN]
+[required_features=GROUP_BY_ROLLUP,GROUPING_BUILTIN]
 SELECT a, UPPER(b), c, COUNT(*) AS cnt
 FROM simple_table
 GROUP BY ROLLUP(a, UPPER(b), c)
@@ -2317,7 +2317,7 @@ ARRAY<STRUCT<a INT64, STRING, c BOOL, cnt INT64>>[known order:
 ==
 
 [name=rollup_with_all_post_aggregate_clauses]
-[required_features=GROUP_BY_ROLLUP,ANALYTIC_FUNCTIONS,V_1_3_QUALIFY]
+[required_features=GROUP_BY_ROLLUP,ANALYTIC_FUNCTIONS,QUALIFY]
 SELECT a, UPPER(b), c, COUNT(*) OVER() AS cnt
 FROM simple_table
 GROUP BY ROLLUP(a, UPPER(b), c)
@@ -2374,7 +2374,7 @@ ARRAY<STRUCT<GROUPING SETS INT64, ROLLUP STRING, CUBE BOOL, INT64>>[known order:
 ==
 
 [name=rollup_single_columns_with_pivot]
-[required_features=V_1_3_PIVOT,GROUP_BY_ROLLUP]
+[required_features=PIVOT,GROUP_BY_ROLLUP]
 SELECT a+1, foo, bar, COUNT(*) AS cnt
 FROM simple_table PIVOT(SUM(d) FOR b IN ('foo', 'bar'))
 GROUP BY ROLLUP(a+1, foo, bar)
@@ -2401,11 +2401,11 @@ ARRAY<STRUCT<INT64, foo DOUBLE, bar DOUBLE, cnt INT64>>[known order:
 NOTE: Reference implementation reports non-determinism.
 ==
 
-# Note: the GroupingSetRewriter will be triggered only when V_1_4_GROUPING_SETS
+# Note: the GroupingSetRewriter will be triggered only when GROUPING_SETS
 # is enabled. For ROLLUP test cases testing rewriter conflicts, we intentionally
-# test it w/o V_1_4_GROUPING_SETS being enabled.
+# test it w/o GROUPING_SETS being enabled.
 [name=rollup_multi_columns_with_pivot]
-[required_features=V_1_3_PIVOT,GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[required_features=PIVOT,GROUP_BY_ROLLUP,GROUPING_SETS]
 SELECT a+1, foo, bar, COUNT(*) AS cnt
 FROM simple_table PIVOT(SUM(d) FOR b IN ('foo', 'bar'))
 GROUP BY ROLLUP(a+1, (foo, bar))
@@ -2428,7 +2428,7 @@ NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=rollup_single_columns_with_unpivot]
-[required_features=V_1_3_UNPIVOT,GROUP_BY_ROLLUP]
+[required_features=UNPIVOT,GROUP_BY_ROLLUP]
 SELECT a+1, e, f, COUNT(*) AS cnt
 FROM simple_table UNPIVOT(e FOR f in (b))
 GROUP BY ROLLUP(a+1, e, f)
@@ -2451,7 +2451,7 @@ ARRAY<STRUCT<INT64, e STRING, f STRING, cnt INT64>>[known order:
 ==
 
 [name=rollup_multi_columns_with_unpivot]
-[required_features=V_1_3_UNPIVOT,GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[required_features=UNPIVOT,GROUP_BY_ROLLUP,GROUPING_SETS]
 SELECT a+1, e, f, COUNT(*) AS cnt
 FROM simple_table UNPIVOT(e FOR f in (b))
 GROUP BY ROLLUP(a+1, (e, f))
@@ -2470,7 +2470,7 @@ ARRAY<STRUCT<INT64, e STRING, f STRING, cnt INT64>>[known order:
 ==
 
 [name=rollup_and_with_recursive]
-[required_features=V_1_3_WITH_RECURSIVE,GROUP_BY_ROLLUP]
+[required_features=WITH_RECURSIVE,GROUP_BY_ROLLUP]
 WITH RECURSIVE
   CTE_1 AS (
     (
@@ -2505,7 +2505,7 @@ ARRAY<STRUCT<it INT64, it1 INT64>>[known order:
 ==
 
 [name=grouping_func_with_regular_group_by_query]
-[required_features=V_1_4_GROUPING_BUILTIN]
+[required_features=GROUPING_BUILTIN]
 SELECT a, UPPER(b), GROUPING(a), GROUPING(UPPER(b))
 FROM simple_table
 GROUP BY a, UPPER(b)
@@ -2522,7 +2522,7 @@ ARRAY<STRUCT<a INT64, STRING, INT64, INT64>>[known order:
 ==
 
 [name=grouping_func_with_single_column_rollup]
-[required_features=V_1_4_GROUPING_BUILTIN,GROUP_BY_ROLLUP]
+[required_features=GROUPING_BUILTIN,GROUP_BY_ROLLUP]
 SELECT a, UPPER(b), GROUPING(a), GROUPING(UPPER(b))
 FROM simple_table
 GROUP BY ROLLUP(a, UPPER(b))
@@ -2543,7 +2543,7 @@ ARRAY<STRUCT<a INT64, STRING, INT64, INT64>>[known order:
 ==
 
 [name=grouping_func_with_multi_column_rollup]
-[required_features=V_1_4_GROUPING_BUILTIN,GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[required_features=GROUPING_BUILTIN,GROUP_BY_ROLLUP,GROUPING_SETS]
 SELECT a, UPPER(b), c, GROUPING(a), GROUPING(UPPER(b)), GROUPING(c)
 FROM simple_table
 GROUP BY ROLLUP(a, (UPPER(b), c))
@@ -2563,7 +2563,7 @@ ARRAY<STRUCT<a INT64, STRING, c BOOL, INT64, INT64, INT64>>[known order:
 ==
 
 [name=grouping_func_with_cube]
-[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+[required_features=GROUPING_BUILTIN,GROUPING_SETS]
 SELECT a, UPPER(b), c, GROUPING(a), GROUPING(UPPER(b)), GROUPING(c)
 FROM simple_table
 GROUP BY CUBE(a, (UPPER(b), c))
@@ -2588,7 +2588,7 @@ ARRAY<STRUCT<a INT64, STRING, c BOOL, INT64, INT64, INT64>>[known order:
 ==
 
 [name=grouping_func_with_grouping_sets]
-[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+[required_features=GROUPING_BUILTIN,GROUPING_SETS]
 SELECT a, UPPER(b), c, GROUPING(a), GROUPING(UPPER(b)), GROUPING(c)
 FROM simple_table
 GROUP BY GROUPING SETS(a, (UPPER(b), c), ())
@@ -2608,7 +2608,7 @@ ARRAY<STRUCT<a INT64, STRING, c BOOL, INT64, INT64, INT64>>[known order:
 ==
 
 [name=grouping_func_in_having_clause]
-[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+[required_features=GROUPING_BUILTIN,GROUPING_SETS]
 SELECT a, UPPER(b), c, GROUPING(a), GROUPING(UPPER(b)), GROUPING(c)
 FROM simple_table
 GROUP BY GROUPING SETS(a, (UPPER(b), c), ())
@@ -2624,7 +2624,7 @@ ARRAY<STRUCT<a INT64, STRING, c BOOL, INT64, INT64, INT64>>[known order:
 ==
 
 [name=grouping_func_in_order_by_clause]
-[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+[required_features=GROUPING_BUILTIN,GROUPING_SETS]
 SELECT a, UPPER(b), c, GROUPING(a), GROUPING(UPPER(b)), GROUPING(c)
 FROM simple_table
 GROUP BY GROUPING SETS(a, (UPPER(b), c), ())
@@ -2644,7 +2644,7 @@ ARRAY<STRUCT<a INT64, STRING, c BOOL, INT64, INT64, INT64>>[known order:
 ==
 
 [name=grouping_func_in_qualify_clause]
-[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS,ANALYTIC_FUNCTIONS,V_1_3_QUALIFY]
+[required_features=GROUPING_BUILTIN,GROUPING_SETS,ANALYTIC_FUNCTIONS,QUALIFY]
 SELECT a, b, COUNT(*) OVER()
 FROM simple_table
 GROUP BY GROUPING SETS(a, b)
@@ -2660,7 +2660,7 @@ ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
 ==
 
 [name=grouping_func_with_alias]
-[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+[required_features=GROUPING_BUILTIN,GROUPING_SETS]
 SELECT a AS x, UPPER(b) AS y, c AS z
 FROM simple_table
 GROUP BY GROUPING SETS(x, (y, z), ())
@@ -2675,7 +2675,7 @@ ARRAY<STRUCT<x INT64, y STRING, z BOOL>>[known order:
 ==
 
 [name=grouping_func_inside_another_func]
-[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+[required_features=GROUPING_BUILTIN,GROUPING_SETS]
 SELECT a, UPPER(b), c, GROUPING(a) - 1, GROUPING(UPPER(b)) + 1, ABS(GROUPING(c))
 FROM simple_table
 GROUP BY GROUPING SETS(a, (UPPER(b), c), ())
@@ -2695,7 +2695,7 @@ ARRAY<STRUCT<a INT64, STRING, c BOOL, INT64, INT64, INT64>>[known order:
 ==
 
 [name=grouping_func_with_collation_columns]
-[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+[required_features=GROUPING_BUILTIN,GROUPING_SETS]
 SELECT
   UPPER(col_ci) AS col1, col_binary AS col_2, col AS col_3,
   GROUPING(col_ci), GROUPING(col_binary), GROUPING(col)
@@ -2720,7 +2720,7 @@ ARRAY<STRUCT<col1 STRING, col_2 STRING, col_3 INT64, INT64, INT64, INT64>>[known
 ==
 
 [name=grouping_sets_with_int_literals_and_ordinal_columns]
-[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+[required_features=GROUPING_BUILTIN,GROUPING_SETS]
 # 1 matches to the first column key, instead of the constant expression 1.
 WITH KeyValue AS (
   SELECT 1 AS key, 'a' AS value
@@ -2738,7 +2738,7 @@ ARRAY<STRUCT<key INT64, INT64, grp_key INT64>>[known order:
 ==
 
 [name=grouping_sets_with_cast_int_literals_and_ordinal_columns]
-[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+[required_features=GROUPING_BUILTIN,GROUPING_SETS]
 # 1 matches to the first column key, instead of the constant expression
 # CAST(true AS INT64).
 WITH KeyValue AS (
@@ -2757,7 +2757,7 @@ ARRAY<STRUCT<key INT64, INT64, grp_key INT64>>[known order:
 ==
 
 [name=grouping_sets_grouping_function_with_pre_group_by_expr]
-[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+[required_features=GROUPING_BUILTIN,GROUPING_SETS]
 SELECT a+1 AS a1, GROUPING(a+1)
 FROM simple_table
 GROUP BY GROUPING SETS(1, a+1, a1)
@@ -2777,7 +2777,7 @@ ARRAY<STRUCT<a1 INT64, INT64>>[known order:
 ==
 
 [name=grouping_sets_grouping_function_with_pre_group_by_expr_in_order_by]
-[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+[required_features=GROUPING_BUILTIN,GROUPING_SETS]
 SELECT a+1 AS a1, GROUPING(a+1)
 FROM simple_table
 GROUP BY GROUPING SETS(1, a+1, a1)
@@ -2797,7 +2797,7 @@ ARRAY<STRUCT<a1 INT64, INT64>>[unknown order:
 ==
 
 [name=grouping_sets_grouping_function_with_post_group_by_expr_in_order_by]
-[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+[required_features=GROUPING_BUILTIN,GROUPING_SETS]
 SELECT a+1 AS a1, GROUPING(a+1)
 FROM simple_table
 GROUP BY GROUPING SETS(1, a+1, a1)
@@ -2817,7 +2817,7 @@ ARRAY<STRUCT<a1 INT64, INT64>>[unknown order:
 ==
 
 [name=rollup_grouping_function_with_pre_group_by_expr_in_order_by]
-[required_features=V_1_4_GROUPING_BUILTIN,GROUP_BY_ROLLUP]
+[required_features=GROUPING_BUILTIN,GROUP_BY_ROLLUP]
 SELECT a+1 AS a1, GROUPING(a+1)
 FROM simple_table
 GROUP BY ROLLUP(1, a+1, b)
@@ -2840,7 +2840,7 @@ ARRAY<STRUCT<a1 INT64, INT64>>[unknown order:
 ==
 
 [name=cube_grouping_function_with_post_group_by_expr_in_order_by]
-[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+[required_features=GROUPING_BUILTIN,GROUPING_SETS]
 SELECT a+1 AS a1, GROUPING(a+1)
 FROM simple_table
 GROUP BY CUBE(1, a1, b)
@@ -2879,7 +2879,7 @@ ARRAY<STRUCT<a1 INT64, INT64>>[unknown order:
 ==
 
 [name=regular_group_by_grouping_function_with_pre_and_post_group_by_expr_in_order_by]
-[required_features=V_1_4_GROUPING_BUILTIN]
+[required_features=GROUPING_BUILTIN]
 SELECT a+1 AS a1, GROUPING(a+1)
 FROM simple_table
 GROUP BY 1
@@ -2889,7 +2889,7 @@ ARRAY<STRUCT<a1 INT64, INT64>>[unknown order:{11, 0}, {NULL, 0}, {124, 0}]
 ==
 
 [name=regular_group_by_grouping_function_with_pre_and_post_group_by_struct_field_expr]
-[required_features=V_1_4_GROUPING_BUILTIN]
+[required_features=GROUPING_BUILTIN]
 WITH T AS (
   SELECT STRUCT<a INT64, b STRING>(a, b) AS kv FROM simple_table
 )
@@ -2903,7 +2903,7 @@ ARRAY<STRUCT<a1 INT64, INT64>>[unknown order:{NULL, 0}, {10, 0}, {123, 0}]
 ==
 
 [name=regular_group_by_grouping_function_with_pre_and_post_group_by_dot_star_field_expr]
-[required_features=V_1_4_GROUPING_BUILTIN]
+[required_features=GROUPING_BUILTIN]
 WITH T AS (
   SELECT STRUCT<a INT64, b STRING>(a, b) AS kv FROM simple_table
 )
@@ -2923,7 +2923,7 @@ ARRAY<STRUCT<a INT64, b STRING, INT64, INT64>>[unknown order:
 ==
 
 [name=regular_group_by_grouping_function_with_pre_and_post_group_by_column_reference_in_order_by]
-[required_features=V_1_4_GROUPING_BUILTIN]
+[required_features=GROUPING_BUILTIN]
 SELECT a AS a1, GROUPING(a)
 FROM simple_table
 GROUP BY 1

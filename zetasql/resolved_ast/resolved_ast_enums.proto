@@ -359,6 +359,7 @@ message ResolvedGraphPathSearchPrefixEnums {
     PATH_SEARCH_PREFIX_TYPE_UNSPECIFIED = 0;
     ANY = 1;
     SHORTEST = 2;
+    CHEAPEST = 3;
   }
 }
 

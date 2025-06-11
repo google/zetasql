@@ -18,7 +18,7 @@ ZetaSQL supports the following Net functions.
   <tbody>
 
 <tr>
-  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#netformat_ip"><code>NET.FORMAT_IP</code></a>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#net_format_ip"><code>NET.FORMAT_IP</code></a>
 </td>
   <td>
     (Deprecated) Converts an
@@ -28,7 +28,7 @@ ZetaSQL supports the following Net functions.
 </tr>
 
 <tr>
-  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#netformat_packed_ip"><code>NET.FORMAT_PACKED_IP</code></a>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#net_format_packed_ip"><code>NET.FORMAT_PACKED_IP</code></a>
 </td>
   <td>
     (Deprecated) Converts an
@@ -116,7 +116,7 @@ ZetaSQL supports the following Net functions.
 </tr>
 
 <tr>
-  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#netparse_ip"><code>NET.PARSE_IP</code></a>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#net_parse_ip"><code>NET.PARSE_IP</code></a>
 </td>
   <td>
     (Deprecated) Converts an
@@ -126,7 +126,7 @@ ZetaSQL supports the following Net functions.
 </tr>
 
 <tr>
-  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#netparse_packed_ip"><code>NET.PARSE_PACKED_IP</code></a>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/net_functions.md#net_parse_packed_ip"><code>NET.PARSE_PACKED_IP</code></a>
 </td>
   <td>
     (Deprecated) Converts an

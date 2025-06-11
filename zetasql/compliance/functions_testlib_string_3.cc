@@ -27,7 +27,7 @@ static constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 
 std::vector<FunctionTestCall> GetFunctionTestsInstr1() {
   return {
-      // instr(string, string) -> int64_t
+      // instr(string, string) -> int64
       {"instr", {NullString(), ""}, NullInt64()},
       {"instr", {NullString(), "x"}, NullInt64()},
       {"instr", {"", NullString()}, NullInt64()},
@@ -42,7 +42,7 @@ std::vector<FunctionTestCall> GetFunctionTestsInstr1() {
       {"instr", {"\0abcedf", "abc"}, 2ll},
       {"instr", {"zгдl", "дl"}, 3ll},
 
-      // instr(bytes, bytes) -> int64_t
+      // instr(bytes, bytes) -> int64
       {"instr", {NullBytes(), Bytes("")}, NullInt64()},
       {"instr", {NullBytes(), Bytes("x")}, NullInt64()},
       {"instr", {Bytes(""), NullBytes()}, NullInt64()},
@@ -59,7 +59,7 @@ std::vector<FunctionTestCall> GetFunctionTestsInstr1() {
       {"instr", {Bytes("abca\0b\0c\0"), Bytes("a\0b\0c")}, 4ll},
       {"instr", {Bytes("zгдl"), Bytes("дl")}, 4ll},
 
-      // instr(string, string, int64_t) -> int64_t
+      // instr(string, string, int64) -> int64
       {"instr", {NullString(), "", 1ll}, NullInt64()},
       {"instr", {NullString(), "x", 1ll}, NullInt64()},
       {"instr", {"", NullString(), 1ll}, NullInt64()},

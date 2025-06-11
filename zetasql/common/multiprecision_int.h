@@ -26,8 +26,8 @@
 //
 // All classes defined in this library represent an integer by an array of
 // 32 or 64 bit words, in little endian order. For example, FixedInt<64, 4>
-// represents a 256-bit signed integer with 4 uint64_t words (with alias
-// Word=int64_t and UnsignedWord=uint64_t), and interprets the array
+// represents a 256-bit signed integer with 4 uint64 words (with alias
+// Word=int64 and UnsignedWord=uint64), and interprets the array
 // {0x1, 0x2, 0x3, 0x4} as 0x4000000000000000300000000000000020000000000000001.
 // Negative values are represented with 2's complement.
 //
@@ -110,7 +110,7 @@
 //        > UnsignedWord >= Word >= FixedUint/FixedInt
 //   For FixedUint on the left hand side, UnsignedWord = Word;
 //   for FixedInt on the left hand side, UnsignedWord is faster than Word.
-//   Note, constexpr int64_t/uint64 will not be converted to integral_constant.
+//   Note, constexpr int64/uint64 will not be converted to integral_constant.
 //   In C++, currently there is no reliable way to identify constexpr arguments.
 //
 // * Comparison among operators and functions:

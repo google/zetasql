@@ -1,4 +1,4 @@
-[default language_features=V_1_4_TTL]
+[default language_features=TTL]
 alter table T add row deletion policy {{|if not exists}} (c > 1000);
 --
 ALTERNATION GROUP: <empty>

@@ -1,0 +1,4 @@
+MODULE named_constant_duplicate;
+
+CREATE PUBLIC CONSTANT named_constant = 1;
+CREATE PUBLIC CONSTANT named_constant = 20 * 30;

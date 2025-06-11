@@ -22,6 +22,7 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/parser/parse_tree_generated.h"
 #include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
@@ -42,14 +43,15 @@ static void FindMinimalErrorLocation(const ASTNode* parent_node,
   // TODO This still won't find the real start character for
   // a parenthesized expression like (1+2).  It will point at the '1'.
   const ASTNode* node = parent_node;
+  ABSL_DCHECK(node != nullptr);
   while (node->num_children() > 0) {
     node = node->child(0);
     ABSL_DCHECK(node != nullptr);
-    if (node->GetParseLocationRange().start() < *error_location) {
+    if (node->location().start() < *error_location) {
       if (use_end_location) {
-        *error_location = node->GetParseLocationRange().end();
+        *error_location = node->location().end();
       } else {
-        *error_location = node->GetParseLocationRange().start();
+        *error_location = node->location().start();
       }
     }
   }
@@ -63,12 +65,26 @@ ParseLocationPoint GetErrorLocationPoint(const ASTNode* ast_node,
   if (ast_node != nullptr) {
     ParseLocationPoint error_location;
     if (use_end_location) {
-      error_location = ast_node->GetParseLocationRange().end();
+      error_location = ast_node->location().end();
     } else {
-      error_location = ast_node->GetParseLocationRange().start();
+      error_location = ast_node->location().start();
     }
     if (include_leftmost_child) {
       FindMinimalErrorLocation(ast_node, use_end_location, &error_location);
+    } else if (!use_end_location) {
+      const ASTFunctionCall* function_call =
+          ast_node->GetAsOrNull<ASTFunctionCall>();
+      if (const ASTAnalyticFunctionCall* analytic_function_call =
+              ast_node->GetAsOrNull<ASTAnalyticFunctionCall>();
+          analytic_function_call != nullptr) {
+        function_call = analytic_function_call->function();  // May be NULL.
+      }
+      if (function_call != nullptr && function_call->is_chained_call()) {
+        error_location = function_call->function()->location().start();
+      }
+      // TODO: If we had a location for the operator in
+      // ASTBinaryExpression, we could use it here so the error would
+      // point at the operator when the operator call is bad.
     }
     return error_location;
   }
@@ -120,6 +136,14 @@ absl::Status WrapNestedErrorStatus(const ASTNode* ast_location,
              SetErrorSourcesFromStatus(MakeInternalErrorLocation(ast_location),
                                        input_status, error_source_mode))
          << error_message;
+}
+
+::absl::Status MakeSqlErrorIfPresent(const ASTNode* ast_node) {
+  if (ast_node != nullptr) {
+    return MakeSqlErrorAt(ast_node);
+  } else {
+    return absl::OkStatus();
+  }
 }
 
 }  // namespace zetasql

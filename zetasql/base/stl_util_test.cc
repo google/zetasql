@@ -17,9 +17,9 @@
 #include <algorithm>
 #include <deque>
 #include <functional>
+#include <map>
 #include <set>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "gmock/gmock.h"
@@ -89,6 +89,16 @@ TEST(STLSetDifference, SimpleSet) {
   ASSERT_TRUE(c.count(2));
   std::set<int> d = STLSetDifference(a, b);
   ASSERT_TRUE(c == d);
+}
+
+TEST(STLDeleteContainerPairSecondPointers, Simple) {
+  std::map<int, InstanceCounter<std::string> *> m;
+  m.emplace(1, new InstanceCounter<std::string>());
+  m.emplace(2, new InstanceCounter<std::string>());
+  m.emplace(3, new InstanceCounter<std::string>());
+  EXPECT_EQ(3, InstanceCounter<std::string>::instance_count);
+  STLDeleteContainerPairSecondPointers(m.begin(), m.end());
+  EXPECT_EQ(0, InstanceCounter<std::string>::instance_count);
 }
 
 // We only test that vectors work for differencing since

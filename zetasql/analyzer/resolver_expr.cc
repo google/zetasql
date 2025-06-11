@@ -36,6 +36,8 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/base/varsetter.h"
+
 #include "google/protobuf/descriptor.pb.h"
 #include "zetasql/analyzer/analytic_function_resolver.h"
 #include "zetasql/analyzer/column_cycle_detector.h"
@@ -52,6 +54,7 @@
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/analyzer/resolver.h"
 #include "zetasql/analyzer/resolver_common_inl.h"
+#include "zetasql/common/constant_utils.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/internal_analyzer_options.h"
 #include "zetasql/common/internal_analyzer_output_properties.h"
@@ -62,6 +65,7 @@
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/annotation/collation.h"
+#include "zetasql/public/annotation/timestamp_precision.h"
 #include "zetasql/public/anon_function.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/cast.h"
@@ -88,16 +92,19 @@
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
+#include "zetasql/public/pico_time.h"
 #include "zetasql/public/property_graph.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/proto_util.h"
 #include "zetasql/public/select_with_mode.h"
 #include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/sql_constant.h"
 #include "zetasql/public/sql_function.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/templated_sql_function.h"
+#include "zetasql/public/timestamp_picos_value.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/annotation.h"
@@ -105,6 +112,7 @@
 #include "zetasql/public/types/collation.h"
 #include "zetasql/public/types/enum_type.h"
 #include "zetasql/public/types/proto_type.h"
+#include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/type_parameters.h"
@@ -118,6 +126,7 @@
 #include "zetasql/resolved_ast/target_syntax.h"
 #include "zetasql/base/case.h"
 #include "zetasql/base/string_numbers.h"  
+#include "absl/algorithm/container.h"
 #include "absl/base/attributes.h"
 #include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_map.h"
@@ -301,7 +310,7 @@ absl::Status CheckGraphElementExpr(const LanguageOptions& language_options,
     case AST_GROUPING_ITEM:
     case AST_PARTITION_BY: {
       if (language_options.LanguageFeatureEnabled(
-              FEATURE_V_1_4_SQL_GRAPH_ADVANCED_QUERY)) {
+              FEATURE_SQL_GRAPH_ADVANCED_QUERY)) {
         // When GQL syntax in enabled don't check for graph type in GQL return
         // items. The final return / the shape expr will be checked externally.
         return absl::OkStatus();
@@ -717,30 +726,61 @@ absl::Status Resolver::MakeResolvedDateOrTimeLiteral(
       break;
     }
     case TYPE_TIMESTAMP: {
-      if (language().LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
-        absl::Time timestamp;
-        if (functions::ConvertStringToTimestamp(
-                literal_string_value, default_time_zone(),
-                functions::kNanoseconds, /*allow_tz_in_str=*/true, &timestamp)
-                .ok()) {
-          *resolved_expr_out =
-              MakeResolvedLiteral(ast_expr, Value::Timestamp(timestamp),
-                                  /*set_has_explicit_type=*/true);
-          return absl::OkStatus();
-        }
+      functions::TimestampScale scale;
+      if (language().LanguageFeatureEnabled(FEATURE_TIMESTAMP_PICOS)) {
+        scale = functions::kPicoseconds;
+      } else if (language().LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
+        scale = functions::kNanoseconds;
       } else {
-        int64_t timestamp;
-        if (functions::ConvertStringToTimestamp(
-                literal_string_value, default_time_zone(),
-                functions::kMicroseconds, &timestamp)
-                .ok()) {
-          *resolved_expr_out = MakeResolvedLiteral(
-              ast_expr, Value::TimestampFromUnixMicros(timestamp),
-              /*set_has_explicit_type=*/true);
-          return absl::OkStatus();
-        }
+        scale = functions::kMicroseconds;
       }
-      break;
+
+      // All ZetaSQL Timestamps are internally stored with picosecond
+      // precision (with 0 padding if needed). We use scale when parsing the
+      // timestamp string to enforce the precision limit set by language feature
+      // flags.
+      PicoTime pico_time;
+      int precision = 0;
+      if (!functions::ConvertStringToTimestamp(
+               literal_string_value, default_time_zone(), scale,
+               /*allow_tz_in_str=*/true, &pico_time, &precision)
+               .ok()) {
+        break;
+      }
+
+      // Create Timestamp value.
+      Value timestamp_value = Value::Timestamp(TimestampPicosValue(pico_time));
+      if (language().LanguageFeatureEnabled(
+              FEATURE_TIMESTAMP_PRECISION_ANNOTATION)) {
+        ZETASQL_RET_CHECK(
+            language().LanguageFeatureEnabled(FEATURE_ANNOTATION_FRAMEWORK));
+
+        // Create annotation map with timestamp precision.
+        // TODO: Make API to create a new annotation map simpler.
+        const AnnotationMap* precision_annotation_map;
+        {
+          std::unique_ptr<AnnotationMap> annotation_map =
+              AnnotationMap::Create(type_factory_->get_timestamp());
+          annotation_map->SetAnnotation<TimestampPrecisionAnnotation>(
+              SimpleValue::Int64(precision));
+          ZETASQL_ASSIGN_OR_RETURN(
+              precision_annotation_map,
+              type_factory_->TakeOwnership(std::move(annotation_map)));
+        }
+
+        // Return timestamp with precision annotation.
+        *resolved_expr_out = MakeResolvedLiteral(
+            ast_expr,
+            {type_factory_->get_timestamp(), precision_annotation_map},
+            timestamp_value,
+            /*has_explicit_type=*/true);
+      } else {
+        // Create Timestamp value without precision.
+        *resolved_expr_out =
+            MakeResolvedLiteral(ast_expr, timestamp_value,
+                                /*set_has_explicit_type=*/true);
+      }
+      return absl::OkStatus();
     }
     case TYPE_TIME: {
       TimeValue time;
@@ -788,8 +828,9 @@ absl::Status Resolver::ResolveScalarExpr(
     const char* clause_name,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out,
     const Type* inferred_type) {
-  ExprResolutionInfo expr_resolution_info(name_scope, clause_name);
-  return ResolveExpr(ast_expr, &expr_resolution_info, resolved_expr_out,
+  auto expr_resolution_info =
+      std::make_unique<ExprResolutionInfo>(name_scope, clause_name);
+  return ResolveExpr(ast_expr, expr_resolution_info.get(), resolved_expr_out,
                      inferred_type);
 }
 
@@ -1129,15 +1170,17 @@ absl::Status Resolver::ResolveExpr(
 
     case AST_ANALYTIC_FUNCTION_CALL:
       if (!language().LanguageFeatureEnabled(FEATURE_ANALYTIC_FUNCTIONS)) {
-        return MakeSqlErrorAt(ast_expr) << "Analytic functions not supported";
+        return MakeSqlErrorAtLocalNode(ast_expr)
+               << "Analytic functions not supported";
       }
       if (generated_column_cycle_detector_ != nullptr) {
-        return MakeSqlErrorAt(ast_expr)
+        return MakeSqlErrorAtLocalNode(ast_expr)
                << "Analytic functions cannot be used inside generated columns";
       }
       if (default_expr_access_error_name_scope_.has_value()) {
-        return MakeSqlErrorAt(ast_expr) << "Analytic functions cannot be used "
-                                           "inside a column default expression";
+        return MakeSqlErrorAtLocalNode(ast_expr)
+               << "Analytic functions cannot be used "
+                  "inside a column default expression";
       }
       ZETASQL_RETURN_IF_ERROR(ResolveAnalyticFunctionCall(
           ast_expr->GetAsOrDie<ASTAnalyticFunctionCall>(),
@@ -1208,9 +1251,20 @@ absl::Status Resolver::ResolveExpr(
   }
 
   ZETASQL_RET_CHECK(resolved_expr_out->get() != nullptr);
+  if (resolved_expr_out->get()->GetParseLocationOrNULL() == nullptr) {
+    MaybeRecordParseLocation(
+        ast_expr, const_cast<ResolvedExpr*>(resolved_expr_out->get()));
+  }
+
+  // Note: This call checks that graph element types cannot be returned from
+  // most expressions.  This cannot currently detect when the expression
+  // occurred as the base argument in a chained function call, which is a hole.
+  // For graph element functions, it is acceptable, particularly since the
+  // feature flag below disables these error checks.
+  // If any other checks are added here, watch out for chained calls.
   if (resolved_expr_out->get()->type()->IsGraphElement() &&
       !language().LanguageFeatureEnabled(
-          FEATURE_V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT)) {
+          FEATURE_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT)) {
     return CheckGraphElementExpr(language(), ast_expr);
   }
   return absl::OkStatus();
@@ -1271,8 +1325,7 @@ absl::Status Resolver::ResolveLiteralExpr(
       const ASTStringLiteral* literal =
           ast_expr->GetAsOrDie<ASTStringLiteral>();
       if (literal->components().size() > 1 &&
-          !language().LanguageFeatureEnabled(
-              FEATURE_V_1_4_LITERAL_CONCATENATION)) {
+          !language().LanguageFeatureEnabled(FEATURE_LITERAL_CONCATENATION)) {
         return MakeSqlErrorAt(literal->components()[1])
                << "Concatenation of subsequent string literals is not "
                   "supported. Did you mean to use the || operator?";
@@ -1285,8 +1338,7 @@ absl::Status Resolver::ResolveLiteralExpr(
     case AST_BYTES_LITERAL: {
       const ASTBytesLiteral* literal = ast_expr->GetAsOrDie<ASTBytesLiteral>();
       if (literal->components().size() > 1 &&
-          !language().LanguageFeatureEnabled(
-              FEATURE_V_1_4_LITERAL_CONCATENATION)) {
+          !language().LanguageFeatureEnabled(FEATURE_LITERAL_CONCATENATION)) {
         return MakeSqlErrorAt(literal->components()[1])
                << "Concatenation of subsequent bytes literals is not "
                   "supported. Did you mean to use the || operator?";
@@ -1390,7 +1442,7 @@ absl::Status Resolver::ResolveLiteralExpr(
     }
 
     case AST_NULL_LITERAL: {
-      // NULL literals are always treated as int64_t.  Literal coercion rules
+      // NULL literals are always treated as int64.  Literal coercion rules
       // may make the NULL change type.
       *resolved_expr_out = MakeResolvedLiteral(
           ast_expr, Value::Null(type_factory_->get_int64()));
@@ -2203,7 +2255,7 @@ absl::Status Resolver::MaybeResolveProtoFieldAccess(
     // Note that proto3 does not allow TYPE_GROUP.
     if (!field->has_presence() &&
         language().LanguageFeatureEnabled(
-            FEATURE_V_1_3_DEPRECATED_DISALLOW_PROTO3_HAS_SCALAR_FIELD)) {
+            FEATURE_DEPRECATED_DISALLOW_PROTO3_HAS_SCALAR_FIELD)) {
       return MakeSqlErrorAt(identifier)
              << "Checking the presence of scalar field " << field->full_name()
              << " is not supported";
@@ -2245,7 +2297,7 @@ absl::Status Resolver::MaybeResolveProtoFieldAccess(
   // annotations, but accessing the field value would produce an error.
   if (!get_has_bit &&
       ((field_type->UsingFeatureV12CivilTimeType() &&
-        !language().LanguageFeatureEnabled(FEATURE_V_1_2_CIVIL_TIME)) ||
+        !language().LanguageFeatureEnabled(FEATURE_CIVIL_TIME)) ||
        (field_type->IsNumericType() &&
         !language().LanguageFeatureEnabled(FEATURE_NUMERIC_TYPE)))) {
     return MakeSqlErrorAt(identifier)
@@ -2368,6 +2420,9 @@ absl::Status Resolver::ResolveGraphElementPropertyAccess(
       *resolved_expr_out,
       ResolveGraphGetElementProperty(
           property_name_identifier, graph, graph_element_type, property_name,
+          /*supports_dynamic_properties=*/
+          language().LanguageFeatureEnabled(
+              FEATURE_SQL_GRAPH_DYNAMIC_ELEMENT_TYPE),
           std::move(resolved_lhs)));
 
   return absl::OkStatus();
@@ -2406,6 +2461,8 @@ absl::Status Resolver::ResolvePropertyNameArgument(
   const absl::Status status =
       graph->FindPropertyDeclarationByName(property_name, unused_prop_dcl);
   if (absl::IsNotFound(status)
+      // Undeclared property allowed for dynamic element type.
+      && !graph_element_type->is_dynamic()
   ) {
     return MakeSqlErrorAt(property_name_identifier)
            << "Property " << ToIdentifierLiteral(property_name)
@@ -2448,17 +2505,21 @@ absl::Status Resolver::ResolveGraphIsLabeledPredicate(
           ? GraphElementTable::Kind::kNode
           : GraphElementTable::Kind::kEdge;
 
+  ZETASQL_RETURN_IF_ERROR(ValidateGraphElementTablesDynamicLabelAndProperties(
+      language(), predicate, *graph));
+  absl::flat_hash_map<const GraphElementTable*, const GraphDynamicLabel*>
+      dynamic_labels;
   absl::flat_hash_set<const GraphElementLabel*> static_labels;
   ZETASQL_RETURN_IF_ERROR(FindAllLabelsApplicableToElementKind(
-      *graph, element_kind,
-      static_labels
-      ));
+      *graph, element_kind, static_labels, dynamic_labels));
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<const ResolvedGraphLabelExpr> label_expr,
       ResolveGraphLabelExpr(
-          predicate->label_expression(), element_kind, static_labels,
-          graph
-          ));
+          predicate->label_expression(), element_kind, static_labels, graph,
+          /*supports_dynamic_labels=*/
+          language().LanguageFeatureEnabled(
+              FEATURE_SQL_GRAPH_DYNAMIC_ELEMENT_TYPE),
+          /*element_table_contains_dynamic_label=*/!dynamic_labels.empty()));
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<const ResolvedGraphIsLabeledPredicate> output,
       ResolvedGraphIsLabeledPredicateBuilder()
@@ -2511,9 +2572,8 @@ absl::Status Resolver::ResolveFieldAccess(
   } else if (lhs_type->IsGraphElement()) {
     ZETASQL_RETURN_IF_ERROR(ResolveGraphElementPropertyAccess(
         identifier, std::move(resolved_lhs), resolved_expr_out));
-  } else if (lhs_type->IsArray() &&
-             language().LanguageFeatureEnabled(
-                 FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS)) {
+  } else if (lhs_type->IsArray() && language().LanguageFeatureEnabled(
+                                        FEATURE_UNNEST_AND_FLATTEN_ARRAYS)) {
     return MakeSqlErrorAt(identifier)
            << "Cannot access field " << identifier->GetAsIdString()
            << " on a value with type "
@@ -2624,7 +2684,7 @@ absl::Status Resolver::ResolveExtensionFieldAccess(
   }
 
   if ((field_type->UsingFeatureV12CivilTimeType() &&
-       !language().LanguageFeatureEnabled(FEATURE_V_1_2_CIVIL_TIME)) ||
+       !language().LanguageFeatureEnabled(FEATURE_CIVIL_TIME)) ||
       (field_type->IsNumericType() &&
        !language().LanguageFeatureEnabled(FEATURE_NUMERIC_TYPE))) {
     return MakeSqlErrorAt(ast_path_expr)
@@ -2973,9 +3033,8 @@ absl::Status Resolver::AddToFieldPathTrie(
       absl::StrAppend(&path_string, ")");
     }
   }
-  if (overlapping_oneof &&
-      !language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF)) {
+  if (overlapping_oneof && !language_options.LanguageFeatureEnabled(
+                               FEATURE_REPLACE_FIELDS_ALLOW_MULTI_ONEOF)) {
     return MakeSqlErrorAt(path_location) << absl::StrCat(
                "Modifying multiple fields from the same OneOf is unsupported "
                "by REPLACE_FIELDS(). Field path ",
@@ -3270,8 +3329,8 @@ absl::Status Resolver::ResolveReplaceFieldsExpression(
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
-  if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_REPLACE_FIELDS)) {
-    return MakeSqlErrorAt(ast_replace_fields)
+  if (!language().LanguageFeatureEnabled(FEATURE_REPLACE_FIELDS)) {
+    return MakeSqlErrorAtLocalNode(ast_replace_fields)
            << "REPLACE_FIELDS() is not supported";
   }
 
@@ -3293,7 +3352,7 @@ absl::Status Resolver::ResolveReplaceFieldsExpression(
   zetasql_base::GeneralTrie<const ASTNode*, nullptr> field_path_trie;
   // This map keeps track of the OneOf fields that are modified. Modifying
   // multiple fields from the same OneOf is unsupported when the language
-  // feature FEATURE_V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF is not enabled. This
+  // feature FEATURE_REPLACE_FIELDS_ALLOW_MULTI_ONEOF is not enabled. This
   // is not tracked in 'field_path_trie' because field path expressions do not
   // contain the OneOf name of modified OneOf fields.
   absl::flat_hash_map<std::string, std::string> oneof_path_to_full_path;
@@ -3377,13 +3436,13 @@ absl::Status Resolver::ResolveUnaryExpr(
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
-  const std::string& function_name =
+  absl::string_view function_name =
       FunctionResolver::UnaryOperatorToFunctionName(unary_expr->op());
 
   if (unary_expr->op() == ASTUnaryExpression::MINUS &&
       !unary_expr->child(0)->GetAsOrDie<ASTExpression>()->parenthesized()) {
     if (unary_expr->child(0)->node_kind() == AST_INT_LITERAL) {
-      // Try to parse this as a negative int64_t.
+      // Try to parse this as a negative int64.
       const ASTIntLiteral* literal =
           unary_expr->operand()->GetAsOrDie<ASTIntLiteral>();
       int64_t int64_value;
@@ -3539,7 +3598,7 @@ absl::Status Resolver::ResolveBinaryExpr(
         binary_expr, function_name, {binary_expr->lhs()},
         *kEmptyArgumentOptionMap, expr_resolution_info, &resolved_binary_expr));
   } else {
-    const std::string& function_name =
+    absl::string_view function_name =
         FunctionResolver::BinaryOperatorToFunctionName(
             binary_expr->op(), binary_expr->is_not(), &not_handled);
     ZETASQL_RETURN_IF_ERROR(ResolveFunctionCallByNameWithoutAggregatePropertyCheck(
@@ -3864,25 +3923,12 @@ absl::Status Resolver::ResolveLikeAnyAllExpressionHelper(
     const absl::Span<const ASTExpression* const> arguments,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
-  // not-like any/all behavior is documented here (broken link)
-  const bool new_behavior = language().LanguageFeatureEnabled(
-      FEATURE_V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL);
   ZETASQL_ASSIGN_OR_RETURN(std::string function_name,
-                   GetLikeAnyAllFunctionName(
-                       like_expr, like_expr->is_not() && new_behavior));
+                   GetLikeAnyAllFunctionName(like_expr, like_expr->is_not()));
   std::unique_ptr<const ResolvedExpr> resolved_like_expr;
   ZETASQL_RETURN_IF_ERROR(ResolveFunctionCallByNameWithoutAggregatePropertyCheck(
       like_expr->like_location(), function_name, arguments,
       *kEmptyArgumentOptionMap, expr_resolution_info, &resolved_like_expr));
-
-  // Do not wrap like_expr inside `NOT` if the resolved function is a
-  // $not_like_any|all variant. That's because like_expr's NOT operator is
-  // already considered while constructing $not_like_any|all resolved fun node.
-  if (!new_behavior && like_expr->is_not()) {
-    return MakeNotExpr(like_expr->like_location(),
-                       std::move(resolved_like_expr), expr_resolution_info,
-                       resolved_expr_out);
-  }
 
   *resolved_expr_out = std::move(resolved_like_expr);
   return absl::OkStatus();
@@ -3892,8 +3938,7 @@ absl::Status Resolver::ResolveLikeExprArray(
     const ASTLikeExpression* like_expr,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
-  if (!language().LanguageFeatureEnabled(
-          FEATURE_V_1_4_LIKE_ANY_SOME_ALL_ARRAY)) {
+  if (!language().LanguageFeatureEnabled(FEATURE_LIKE_ANY_SOME_ALL_ARRAY)) {
     ZETASQL_ASSIGN_OR_RETURN(std::string op_type,
                      GetLikeAnySomeAllOpTypeString(like_expr));
     return MakeSqlErrorAt(like_expr->like_location()) << absl::StrCat(
@@ -3937,7 +3982,7 @@ absl::Status Resolver::ResolveLikeExpr(
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   // Regular LIKE expressions (ex. X LIKE Y) are parsed as an
   // ASTBinaryExpression, not an ASTLikeExpression.
-  ZETASQL_RET_CHECK(language().LanguageFeatureEnabled(FEATURE_V_1_3_LIKE_ANY_SOME_ALL));
+  ZETASQL_RET_CHECK(language().LanguageFeatureEnabled(FEATURE_LIKE_ANY_SOME_ALL));
   std::unique_ptr<const ResolvedExpr> resolved_like_expr;
   if (like_expr->query() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(ResolveLikeExprSubquery(like_expr, expr_resolution_info,
@@ -3961,8 +4006,7 @@ absl::Status Resolver::ResolveLikeExprSubquery(
     const ASTLikeExpression* like_subquery_expr,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
-  if (!language().LanguageFeatureEnabled(
-          FEATURE_V_1_4_LIKE_ANY_SOME_ALL_SUBQUERY)) {
+  if (!language().LanguageFeatureEnabled(FEATURE_LIKE_ANY_SOME_ALL_SUBQUERY)) {
     ZETASQL_ASSIGN_OR_RETURN(std::string op_type,
                      GetLikeAnySomeAllOpTypeString(like_subquery_expr));
     return MakeSqlErrorAt(like_subquery_expr->like_location()) << absl::StrCat(
@@ -4229,6 +4273,11 @@ absl::Status Resolver::ResolveExprSubquery(
              << output_type->ShortTypeName(product_mode())
              << " because nested arrays are not supported";
     }
+    if (output_type->IsMeasureType()) {
+      return MakeSqlErrorAt(expr_subquery)
+             << "Cannot use array subquery with column of type "
+             << output_type->ShortTypeName(product_mode());
+    }
     ZETASQL_RETURN_IF_ERROR(type_factory_->MakeArrayType(output_type, &output_type));
   }
 
@@ -4315,7 +4364,7 @@ absl::Status Resolver::MakeDatePartEnumResolvedLiteralFromNames(
   }
 
   if (!date_part_arg_name.empty()) {
-    if (!language().LanguageFeatureEnabled(FEATURE_V_1_2_WEEK_WITH_WEEKDAY)) {
+    if (!language().LanguageFeatureEnabled(FEATURE_WEEK_WITH_WEEKDAY)) {
       return MakeSqlErrorAt(date_part_arg_ast_location)
              << "Date part arguments are not supported";
     }
@@ -4486,8 +4535,7 @@ absl::Status Resolver::ResolveProtoExtractExpression(
     const ASTExpression* field_extraction_type_ast_location,
     std::unique_ptr<const ResolvedExpr> resolved_proto_input,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
-  ZETASQL_RET_CHECK(
-      language().LanguageFeatureEnabled(FEATURE_V_1_3_EXTRACT_FROM_PROTO));
+  ZETASQL_RET_CHECK(language().LanguageFeatureEnabled(FEATURE_EXTRACT_FROM_PROTO));
   if (field_extraction_type_ast_location->node_kind() != AST_FUNCTION_CALL) {
     return MakeSqlErrorAt(field_extraction_type_ast_location)
            << "Invalid proto extraction function call syntax found. Extraction "
@@ -4521,7 +4569,7 @@ absl::Status Resolver::ResolveProtoExtractExpression(
     case ProtoExtractionType::kField:
     case ProtoExtractionType::kRaw: {
       // These EXTRACT types are supported by the base
-      // FEATURE_V_1_3_EXTRACT_FROM_PROTO.
+      // FEATURE_EXTRACT_FROM_PROTO.
       extraction_type_supported = true;
       break;
     }
@@ -4934,18 +4982,18 @@ absl::Status Resolver::GetFunctionNameAndArgumentsForAnonFunctions(
   const std::string upper_case_function_name =
       absl::AsciiStrToUpper(function->last_name()->GetAsString());
   if (is_binary_anon_function) {
-    if (function_call->arguments().size() != 2) {
-      size_t arg_size = function_call->arguments().size();
+    if (function_arguments->size() != 2) {
+      size_t arg_size = function_arguments->size();
       return MakeSqlErrorAt(function_call)
              << "Anonymized aggregate function " << upper_case_function_name
              << " expects exactly 2 arguments but found " << arg_size
              << (arg_size == 1 ? " argument" : " arguments");
     }
-  } else if (function_call->arguments().size() != 1) {
+  } else if (function_arguments->size() != 1) {
     return MakeSqlErrorAt(function_call)
            << "Anonymized aggregate function " << upper_case_function_name
            << " expects exactly 1 argument but found "
-           << function_call->arguments().size() << " arguments";
+           << function_arguments->size() << " arguments";
   }
   // Convert the CLAMPED BETWEEN lower and upper bound to
   // normal function call arguments, appended after the first
@@ -5066,6 +5114,69 @@ absl::Status Resolver::GetFunctionNameAndArgumentsForDPFunctions(
   return absl::OkStatus();
 }
 
+absl::Status Resolver::CheckChainedFunctionCall(
+    const ASTFunctionCall* function_call) {
+  if (function_call->is_chained_call()) {
+    if (!language().LanguageFeatureEnabled(FEATURE_CHAINED_FUNCTION_CALLS)) {
+      return MakeSqlErrorAt(function_call)
+             << "Chained function calls are not supported";
+    }
+
+    // Check if we have any modifiers not allowed on chained calls.
+    // Minus-one is for `is_chained_call`.
+    int modifiers_left = function_call->NumModifiers() - 1;
+
+    // These modifiers are not allowed, and have error messages.
+    // The tests show that for each of these, if the relevant feature is not
+    // enabled, we get the error for that missing feature first, so we don't
+    // need to worry about mentioning unsupported features in these.
+    if (function_call->group_by()) {
+      // This is disallowed because it doesn't act like it evaluates
+      // the function's base expression first.
+      return MakeSqlErrorAt(function_call)
+             << "Chained function call cannot use multi-level aggregation";
+    }
+    if (function_call->with_group_rows()) {
+      // This is disallowed because it doesn't act like it evaluates
+      // the function's base expression first.
+      return MakeSqlErrorAt(function_call)
+             << "Chained function call cannot use WITH GROUP ROWS";
+    }
+    if (function_call->clamped_between_modifier()) {
+      // This is disallowed because the parse only allows it on calls with
+      // at least one argument. It would seem weird if
+      // `(input).f(x CLAMPED BETWEEN y AND z)` worked but
+      // `(input).g(CLAMPED BETWEEN y AND z)` did not.
+      return MakeSqlErrorAt(function_call)
+             << "Chained function call cannot use CLAMPED BETWEEN";
+    }
+
+    // These modifiers are allowed for chained calls.  Later code will check if
+    // they are allowed on this specific function call (regardless of chained
+    // syntax).
+    // These modifiers are allowed because left-to-right evaluation (base
+    // expression first) logically makes sense for these calls.  Modifiers that
+    // involve unusual evaluation orders are disallowed in chained calls.
+    if (function_call->distinct()) --modifiers_left;
+    if (function_call->order_by()) --modifiers_left;
+    if (function_call->limit_offset()) --modifiers_left;
+    if (function_call->having_modifier()) --modifiers_left;
+    if (function_call->with_report_modifier()) --modifiers_left;
+    if (function_call->where_expr()) --modifiers_left;
+    if (function_call->null_handling_modifier() !=
+        ASTFunctionCall::DEFAULT_NULL_HANDLING) {
+      --modifiers_left;
+    }
+
+    // If any other modifiers were present, give a generic error.
+    if (modifiers_left != 0) {
+      return MakeSqlErrorAt(function_call)
+             << "Chained function call uses unsupported syntax feature";
+    }
+  }
+  return absl::OkStatus();
+}
+
 absl::Status Resolver::GetFunctionNameAndArguments(
     const ASTFunctionCall* function_call,
     std::vector<std::string>* function_name_path,
@@ -5074,7 +5185,14 @@ absl::Status Resolver::GetFunctionNameAndArguments(
     QueryResolutionInfo* query_resolution_info) {
   const ASTPathExpression* function = function_call->function();
   *function_name_path = function->ToIdentifierVector();
-  function_arguments->assign(function_call->arguments().begin(),
+
+  // Chained function calls like
+  //    (base_expression).function_name(args)
+  // work as usual since the base argument is already in `arguments[0]`.
+  ZETASQL_RETURN_IF_ERROR(CheckChainedFunctionCall(function_call));
+
+  function_arguments->insert(function_arguments->end(),
+                             function_call->arguments().begin(),
                              function_call->arguments().end());
 
   if (function->num_names() != 1 &&
@@ -5106,7 +5224,7 @@ absl::Status Resolver::GetFunctionNameAndArguments(
         // The catalog function for COUNT(*) has the name "$count_star" with
         // no arguments.
         function_name_path->back() = "$count_star";
-        function_arguments->clear();
+        function_arguments->pop_back();
       }
       break;
 
@@ -5163,7 +5281,7 @@ absl::Status Resolver::GetFunctionNameAndArguments(
     case FAMILY_PROPERTY_EXISTS:
       if (function_arguments->size() != 2) {
         return MakeSqlErrorAt(function_call)
-               << "PROPERTY_EXISTS should have exactlty two arguments";
+               << "PROPERTY_EXISTS should have exactly two arguments";
       }
       zetasql_base::InsertOrDie(argument_option_map, 1,
                        SpecialArgumentType::PROPERTY_NAME);
@@ -5301,8 +5419,8 @@ bool IsGroupingFunction(const Function* function) {
          function->IsZetaSQLBuiltin();
 }
 
-bool IsMatchRecognizeFunction(const Function* function) {
-  if (!function->IsZetaSQLBuiltin() || function->NumSignatures() != 1) {
+bool IsMatchRecognizeMeasuresFunction(const Function* function) {
+  if (function->NumSignatures() != 1 || !function->IsZetaSQLBuiltin()) {
     return false;
   }
   switch (function->signatures()[0].context_id()) {
@@ -5311,6 +5429,19 @@ bool IsMatchRecognizeFunction(const Function* function) {
     case FN_MATCH_NUMBER:
     case FN_MATCH_ROW_NUMBER:
     case FN_CLASSIFIER:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool IsMatchRecognizePhysicalNavigationFunction(const Function* function) {
+  if (function->NumSignatures() != 1 || !function->IsZetaSQLBuiltin()) {
+    return false;
+  }
+  switch (function->signatures()[0].context_id()) {
+    case FN_NEXT:
+    case FN_PREV:
       return true;
     default:
       return false;
@@ -5731,11 +5862,152 @@ static absl::Status CheckForMultiLevelAggregationSupport(
     const LanguageOptions& language_options) {
   if (MultiLevelAggregationPresent(ast_function) &&
       !language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_MULTILEVEL_AGGREGATION)) {
+          FEATURE_MULTILEVEL_AGGREGATION)) {
     return MakeSqlErrorAt(ast_function->group_by())
            << "Multi-level aggregation is not yet supported.";
   }
   return absl::OkStatus();
+}
+
+ABSL_ATTRIBUTE_NOINLINE
+absl::Status Resolver::TryMakeErrorSuggestionForChainedCallImpl(
+    const absl::Status& orig_status, const ASTFunctionCall* ast_function_call,
+    absl::Span<const std::string> alt_function_name,
+    absl::Span<const std::string> alt_prefix_path) {
+  // Suppress suggestions for paths ending with SAFE, since those
+  // probably only make sense as part of a function name, and we don't want
+  // to given suggestions about using SAFE on functions that don't support SAFE.
+  if (!alt_prefix_path.empty() &&
+      zetasql_base::CaseEqual(alt_prefix_path.back(), "SAFE")) {
+    return absl::OkStatus();
+  }
+
+  // Strip SAFE off the path to look up so we can find SAFE functions.
+  absl::Span<const std::string> alt_lookup_name = alt_function_name;
+  if (alt_lookup_name.size() > 1 &&
+      zetasql_base::CaseEqual(alt_lookup_name[0], "SAFE")) {
+    alt_lookup_name = alt_lookup_name.subspan(1);
+  }
+
+  const Function* function;
+  ResolvedFunctionCallBase::ErrorMode error_mode;
+  const absl::Status alt_lookup_status = LookupFunctionFromCatalog(
+      ast_function_call, alt_lookup_name,
+      FunctionNotFoundHandleMode::kReturnError, &function, &error_mode);
+
+  // The alternate name isn't a function, so we have no error suggestion to
+  // return.
+  if (!alt_lookup_status.ok()) {
+    return absl::OkStatus();
+  }
+
+  // The alternate name would be a valid function.
+  // Return the original error, but with a suggestion to add parentheses.
+
+  std::string alt_prefix;
+  if (!alt_prefix_path.empty()) {
+    // Parentheses go on the input path if not added on the function name.
+    bool parens = alt_function_name.size() == 1;
+    alt_prefix =
+        absl::StrCat(parens ? "(" : "", IdentifierPathToString(alt_prefix_path),
+                     parens ? ")" : "");
+  }
+
+  if (alt_function_name.size() == 1) {
+    return zetasql_base::StatusBuilder(orig_status)
+           << "Chained function calls require parentheses on input paths; "
+              "Did you mean "
+           << alt_prefix << "." << IdentifierPathToString(alt_function_name)
+           << "(...)?";
+  } else {
+    return zetasql_base::StatusBuilder(orig_status)
+           << "Calling multi-part function names in chained call syntax "
+              "requires parentheses; Did you mean "
+           << alt_prefix << ".(" << IdentifierPathToString(alt_function_name)
+           << ")(...)?";
+  }
+}
+
+ABSL_ATTRIBUTE_NOINLINE
+absl::Status Resolver::TryMakeErrorSuggestionForChainedCall(
+    const absl::Status& orig_status, const ASTFunctionCall* ast_function_call) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
+  if (!orig_status.ok() && ast_function_call->is_chained_call()) {
+    ZETASQL_RET_CHECK(!ast_function_call->arguments().empty());
+    const ASTExpression* base_expr = ast_function_call->arguments().front();
+    // If we have an ASTDotIdentifier base expression for a chained function
+    // call, like `(expr).identifier.function()`, see if `identifier.function`
+    // is a valid function.  If it is, suggest `.(identifier.function)()`.
+    if (base_expr->node_kind() == AST_DOT_IDENTIFIER &&
+        !base_expr->parenthesized() &&
+        ast_function_call->function()->num_names() == 1) {
+      const std::vector<std::string> alt_function_name = {
+          base_expr->GetAsOrDie<ASTDotIdentifier>()->name()->GetAsString(),
+          ast_function_call->function()->first_name()->GetAsString()};
+
+      ZETASQL_RETURN_IF_ERROR(TryMakeErrorSuggestionForChainedCallImpl(
+          orig_status, ast_function_call, alt_function_name,
+          /*alt_prefix_path=*/{}));
+    }
+  }
+
+  // Note: This returns OK if it didn't modify the error message.
+  // The caller must still handle the original error.
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::LookupFunctionFromCatalogWithChainedCallErrors(
+    const ASTFunctionCall* ast_function_call,
+    absl::Span<const std::string> function_name_path,
+    FunctionNotFoundHandleMode handle_mode,
+    ExprResolutionInfo* expr_resolution_info, const Function** function,
+    ResolvedFunctionCallBase::ErrorMode* error_mode) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
+  const absl::Status lookup_status = LookupFunctionFromCatalog(
+      ast_function_call, function_name_path,
+      FunctionNotFoundHandleMode::kReturnError, function, error_mode);
+
+  // If we have a chained call and we're going to give a function-not-found
+  // error, see if we can give a better error.
+
+  // For non-chained calls on a path, maybe the path was supposed to be
+  // partly a function name: `path.function()` could be `(path).function()`.
+  if (!lookup_status.ok() && !ast_function_call->is_chained_call() &&
+      function_name_path.size() >= 2 &&
+      language().LanguageFeatureEnabled(FEATURE_CHAINED_FUNCTION_CALLS)) {
+    // Try all suffixes of the path as function names, in increasing size order.
+    // This handles functions with >2 names, but the other cases below don't.
+    for (int name_start = function_name_path.size() - 1; name_start >= 1;
+         --name_start) {
+      ZETASQL_RETURN_IF_ERROR(TryMakeErrorSuggestionForChainedCallImpl(
+          lookup_status, ast_function_call,
+          function_name_path.subspan(name_start),
+          function_name_path.subspan(0, name_start)));
+    }
+  }
+
+  // For chained calls, consider interpretations of the base expression.
+  if (!lookup_status.ok() && ast_function_call->is_chained_call()) {
+    // If the base expression was an ASTDotIdentifier, see if we can give
+    // an error suggesting replacing `(expr).catalog.func()` with
+    // `(expr).(catalog.func)()`.
+    ZETASQL_RETURN_IF_ERROR(
+        TryMakeErrorSuggestionForChainedCall(lookup_status, ast_function_call));
+
+    // Try resolving the input expression, and if we find an error, return it.
+    // The input expression came first so we prefer giving its error.
+    //
+    // If there's no error there, discard the result and just return the
+    // `lookup_status` error below.
+    ZETASQL_RET_CHECK(!ast_function_call->arguments().empty());
+    std::unique_ptr<const ResolvedExpr> resolved_expr;
+    ZETASQL_RETURN_IF_ERROR(ResolveExpr(ast_function_call->arguments().front(),
+                                expr_resolution_info, &resolved_expr));
+  }
+
+  return lookup_status;
 }
 
 // TODO: The noinline attribute is to prevent the stack usage
@@ -5830,16 +6102,37 @@ absl::Status Resolver::ResolveFunctionCall(
 
   const Function* function;
   ResolvedFunctionCallBase::ErrorMode error_mode;
-  ZETASQL_RETURN_IF_ERROR(LookupFunctionFromCatalog(
+  ZETASQL_RETURN_IF_ERROR(LookupFunctionFromCatalogWithChainedCallErrors(
       ast_function, function_name_path,
-      FunctionNotFoundHandleMode::kReturnError, &function, &error_mode));
+      FunctionNotFoundHandleMode::kReturnError, expr_resolution_info, &function,
+      &error_mode));
 
-  if (IsMatchRecognizeFunction(function) &&
+  if (IsMatchRecognizeMeasuresFunction(function) &&
       !match_recognize_state_.has_value()) {
     return MakeSqlErrorAt(ast_function)
            << function->QualifiedSQLName()
            << " can only be used inside a MATCH_RECOGNIZE's MEASURES clause";
   }
+  const ASTFunctionCall* nearest_enclosing_physical_nav_op = nullptr;
+  if (IsMatchRecognizePhysicalNavigationFunction(function)) {
+    if (!expr_resolution_info->in_match_recognize_define) {
+      return MakeSqlErrorAt(ast_function)
+             << function->QualifiedSQLName()
+             << " must be directly inside a MATCH_RECOGNIZE's DEFINE clause, "
+                "without any enclosing subquery";
+    }
+    if (expr_resolution_info->nearest_enclosing_physical_nav_op != nullptr) {
+      // In the future, we can attach the location of the enclosing PREV() or
+      // NEXT() call to the error message metadata, for easier navigation.
+      return MakeSqlErrorAt(ast_function)
+             << function->QualifiedSQLName()
+             << " cannot be nested in another PREV() or NEXT() call";
+    }
+    nearest_enclosing_physical_nav_op = ast_function;
+  }
+  // Ensure we restore the original value when returning from this function.
+  zetasql_base::VarSetter setter(&expr_resolution_info->nearest_enclosing_physical_nav_op,
+                   nearest_enclosing_physical_nav_op);
 
   if (IsFilterFields(function->SQLName())) {
     return ResolveFilterFieldsFunctionCall(ast_function, function_arguments,
@@ -5879,38 +6172,23 @@ absl::Status Resolver::ResolveFunctionCall(
            << "IGNORE NULLS and RESPECT NULLS are not supported on scalar "
               "functions";
   }
-  if (ast_function->having_modifier() != nullptr) {
-    return MakeSqlErrorAt(ast_function->having_modifier())
-           << "HAVING MAX and HAVING MIN are not supported on scalar functions";
-  }
-  if (ast_function->clamped_between_modifier() != nullptr) {
-    return MakeSqlErrorAt(ast_function->clamped_between_modifier())
-           << "CLAMPED BETWEEN is not supported on scalar functions";
-  }
-  if (ast_function->order_by() != nullptr) {
-    return MakeSqlErrorAt(ast_function->order_by())
-           << "ORDER BY in arguments is not supported on scalar functions";
-  }
-  if (ast_function->limit_offset() != nullptr) {
-    return MakeSqlErrorAt(ast_function->limit_offset())
-           << "LIMIT in arguments is not supported on scalar functions";
-  }
-  if (ast_function->group_by() != nullptr) {
-    return MakeSqlErrorAt(ast_function->group_by())
-           << "GROUP BY in arguments is not supported on scalar functions";
-  }
-  if (ast_function->where_expr() != nullptr) {
-    return MakeSqlErrorAt(ast_function->where_expr())
-           << "WHERE in arguments is not supported on scalar functions";
-  }
-  if (ast_function->having_expr() != nullptr) {
-    return MakeSqlErrorAt(ast_function->having_expr())
-           << "HAVING in arguments is not supported on scalar functions";
-  }
-  if (ast_function->with_group_rows() != nullptr) {
-    return MakeSqlErrorAt(ast_function->with_group_rows())
-           << "WITH GROUP ROWS is not supported on scalar functions";
-  }
+  ZETASQL_RETURN_IF_ERROR(MakeSqlErrorIfPresent(ast_function->having_modifier()))
+      << "HAVING MAX and HAVING MIN are not supported on scalar functions";
+  ZETASQL_RETURN_IF_ERROR(
+      MakeSqlErrorIfPresent(ast_function->clamped_between_modifier()))
+      << "CLAMPED BETWEEN is not supported on scalar functions";
+  ZETASQL_RETURN_IF_ERROR(MakeSqlErrorIfPresent(ast_function->order_by()))
+      << "ORDER BY in arguments is not supported on scalar functions";
+  ZETASQL_RETURN_IF_ERROR(MakeSqlErrorIfPresent(ast_function->limit_offset()))
+      << "LIMIT in arguments is not supported on scalar functions";
+  ZETASQL_RETURN_IF_ERROR(MakeSqlErrorIfPresent(ast_function->group_by()))
+      << "GROUP BY in arguments is not supported on scalar functions";
+  ZETASQL_RETURN_IF_ERROR(MakeSqlErrorIfPresent(ast_function->where_expr()))
+      << "WHERE in arguments is not supported on scalar functions";
+  ZETASQL_RETURN_IF_ERROR(MakeSqlErrorIfPresent(ast_function->having_expr()))
+      << "HAVING in arguments is not supported on scalar functions";
+  ZETASQL_RETURN_IF_ERROR(MakeSqlErrorIfPresent(ast_function->with_group_rows()))
+      << "WITH GROUP ROWS is not supported on scalar functions";
 
   return ResolveFunctionCallImpl(
       ast_function, function, error_mode, function_arguments,
@@ -5985,31 +6263,26 @@ absl::Status Resolver::ResolveAnalyticFunctionCall(
     }
   }
 
-  if (analytic_function_call->function()->with_group_rows() != nullptr) {
     // TODO: support WITH GROUP ROWS on analytic functions.
-    return MakeSqlErrorAt(analytic_function_call->function()->with_group_rows())
-           << "WITH GROUP ROWS syntax is not supported on analytic functions";
-  }
+  ZETASQL_RETURN_IF_ERROR(MakeSqlErrorIfPresent(
+      analytic_function_call->function()->with_group_rows()))
+      << "WITH GROUP ROWS syntax is not supported on analytic functions";
 
-  if (analytic_function_call->function()->order_by() != nullptr) {
-    return MakeSqlErrorAt(analytic_function_call)
-           << "ORDER BY in arguments is not supported on analytic functions";
-  }
+  ZETASQL_RETURN_IF_ERROR(
+      MakeSqlErrorIfPresent(analytic_function_call->function()->order_by()))
+      << "ORDER BY in arguments is not supported on analytic functions";
 
-  if (analytic_function_call->function()->limit_offset() != nullptr) {
-    return MakeSqlErrorAt(analytic_function_call)
-           << "LIMIT in arguments is not supported on analytic functions";
-  }
+  ZETASQL_RETURN_IF_ERROR(
+      MakeSqlErrorIfPresent(analytic_function_call->function()->limit_offset()))
+      << "LIMIT in arguments is not supported on analytic functions";
 
-  if (analytic_function_call->function()->having_modifier() != nullptr) {
-    return MakeSqlErrorAt(analytic_function_call)
-           << "HAVING modifier is not supported on analytic functions";
-  }
-  if (analytic_function_call->function()->clamped_between_modifier() !=
-      nullptr) {
-    return MakeSqlErrorAt(analytic_function_call)
-           << "CLAMPED BETWEEN is not supported on analytic functions";
-  }
+  ZETASQL_RETURN_IF_ERROR(MakeSqlErrorIfPresent(
+      analytic_function_call->function()->having_modifier()))
+      << "HAVING modifier is not supported on analytic functions";
+
+  ZETASQL_RETURN_IF_ERROR(MakeSqlErrorIfPresent(
+      analytic_function_call->function()->clamped_between_modifier()))
+      << "CLAMPED BETWEEN is not supported on analytic functions";
 
   std::vector<std::string> function_name_path;
   std::vector<const ASTExpression*> function_arguments;
@@ -6026,9 +6299,11 @@ absl::Status Resolver::ResolveAnalyticFunctionCall(
   // arguments, so pre-emptively lookup the function in the catalog.
   const Function* function;
   ResolvedFunctionCallBase::ErrorMode error_mode;
-  ZETASQL_RETURN_IF_ERROR(LookupFunctionFromCatalog(
-      analytic_function_call, function_name_path,
-      FunctionNotFoundHandleMode::kReturnError, &function, &error_mode));
+  ZETASQL_RET_CHECK(analytic_function_call->function() != nullptr);
+  ZETASQL_RETURN_IF_ERROR(LookupFunctionFromCatalogWithChainedCallErrors(
+      analytic_function_call->function(), function_name_path,
+      FunctionNotFoundHandleMode::kReturnError, expr_resolution_info, &function,
+      &error_mode));
 
   if (IsMeasureAggFunction(function)) {
     return MakeSqlErrorAt(analytic_function_call)
@@ -6051,14 +6326,16 @@ absl::Status Resolver::ResolveAnalyticFunctionCall(
 
   std::vector<const ASTNode*> ast_arguments;
   {
-    ExprResolutionInfo analytic_arg_resolution_info(
+    auto analytic_arg_resolution_info = std::make_unique<ExprResolutionInfo>(
         expr_resolution_info,
-        {.name_scope = expr_resolution_info->analytic_name_scope,
-         .allows_analytic = expr_resolution_info->allows_analytic,
-         .clause_name = expr_resolution_info->clause_name});
+        ExprResolutionInfoOptions{
+            .name_scope = expr_resolution_info->analytic_name_scope,
+            .allows_analytic = expr_resolution_info->allows_analytic,
+            .clause_name = expr_resolution_info->clause_name});
     ZETASQL_RETURN_IF_ERROR(ResolveExpressionArguments(
-        &analytic_arg_resolution_info, function_arguments, argument_option_map,
-        &resolved_arguments, &ast_arguments));
+        analytic_arg_resolution_info.get(), function_arguments,
+        argument_option_map, &resolved_arguments, &ast_arguments,
+        analytic_function_call->function()));
   }
 
   if (expr_resolution_info->has_analytic) {
@@ -6079,14 +6356,14 @@ absl::Status Resolver::ResolveAnalyticFunctionCall(
   ABSL_DCHECK(expr_resolution_info->query_resolution_info != nullptr);
   if (side_effect_scope_depth_ > 0 &&
       language().LanguageFeatureEnabled(
-          FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION)) {
+          FEATURE_ENFORCE_CONDITIONAL_EVALUATION)) {
     return MakeSqlErrorAt(analytic_function_call)
            << "Analytic functions in side effect scopes are not yet "
               "implemented";
   }
   return expr_resolution_info->query_resolution_info->analytic_resolver()
       ->ResolveOverClauseAndCreateAnalyticColumn(
-          analytic_function_call, resolved_function_call.get(),
+          analytic_function_call, std::move(resolved_function_call),
           expr_resolution_info, resolved_expr_out);
 }
 
@@ -6150,7 +6427,7 @@ absl::Status Resolver::ResolveFormatClause(
     return absl::OkStatus();
   }
 
-  if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_FORMAT_IN_CAST)) {
+  if (!language().LanguageFeatureEnabled(FEATURE_FORMAT_IN_CAST)) {
     return MakeSqlErrorAt(cast->format())
            << "CAST with FORMAT is not supported";
   }
@@ -6244,8 +6521,7 @@ absl::Status Resolver::ResolveExplicitCast(
   std::unique_ptr<const ResolvedExpr> resolved_argument;
   ResolveTypeModifiersOptions options_for_cast = {.allow_type_parameters = true,
                                                   .allow_collation = true};
-  if (!language().LanguageFeatureEnabled(
-          FEATURE_V_1_4_COLLATION_IN_EXPLICIT_CAST)) {
+  if (!language().LanguageFeatureEnabled(FEATURE_COLLATION_IN_EXPLICIT_CAST)) {
     options_for_cast.allow_collation = false;
     options_for_cast.context = "cast";
   }
@@ -6432,6 +6708,30 @@ absl::StatusOr<TypeParameters> Resolver::ResolveTypeParameters(
   if (!child_parameter_list.empty()) {
     type_params.set_child_list(child_parameter_list);
   }
+
+  if (type_params.IsTimestampTypeParameters()) {
+    if (!analyzer_options_.language().LanguageFeatureEnabled(
+            FEATURE_TIMESTAMP_PRECISION)) {
+      return MakeSqlErrorAt(type_parameters)
+             << "Timestamp precision type parameter is not supported";
+    }
+    if (type_params.timestamp_type_parameters().has_precision()) {
+      auto precision = type_params.timestamp_type_parameters().precision();
+      if (precision == 12 &&
+          !analyzer_options_.language().LanguageFeatureEnabled(
+              FEATURE_TIMESTAMP_PICOS)) {
+        return MakeSqlErrorAt(type_parameters)
+               << "Timestamp precision " << precision << " is not supported";
+      }
+      if (precision == 9 &&
+          !analyzer_options_.language().LanguageFeatureEnabled(
+              FEATURE_TIMESTAMP_NANOS)) {
+        return MakeSqlErrorAt(type_parameters)
+               << "Timestamp precision " << precision << " is not supported";
+      }
+    }
+  }
+
   return type_params;
 }
 
@@ -6443,7 +6743,7 @@ absl::StatusOr<Collation> Resolver::ResolveTypeCollation(
   // this should have been checked when resolving collation for its element or
   // field type.
   if (collate != nullptr &&
-      !language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT)) {
+      !language().LanguageFeatureEnabled(FEATURE_COLLATION_SUPPORT)) {
     return MakeSqlErrorAt(collate)
            << "Type with collation name is not supported";
   }
@@ -6539,6 +6839,9 @@ absl::Status Resolver::ResolveCastWithResolvedArgument(
     resolved_cast->set_type_annotation_map(to_type_annotation_map);
   }
 
+  ZETASQL_RETURN_IF_ERROR(annotation_propagator_->CheckAndPropagateAnnotations(
+      ast_location, resolved_cast.get()));
+
   *resolved_argument = std::move(resolved_cast);
   return absl::OkStatus();
 }
@@ -6577,7 +6880,7 @@ absl::Status Resolver::ResolveArrayElement(
 
   if (resolved_lhs->type()->IsStruct() &&
       language().LanguageFeatureEnabled(
-          LanguageFeature::FEATURE_V_1_4_STRUCT_POSITIONAL_ACCESSOR)) {
+          LanguageFeature::FEATURE_STRUCT_POSITIONAL_ACCESSOR)) {
     return ResolveStructSubscriptElementAccess(
         std::move(args.back()), array_element->position(), expr_resolution_info,
         resolved_expr_out);
@@ -6688,9 +6991,8 @@ absl::Status Resolver::ResolveStructSubscriptElementAccess(
   absl::string_view position_name = "offset";
   std::unique_ptr<const ResolvedExpr> resolved_position;
 
-  if (!ast_function_call &&
-      language().LanguageFeatureEnabled(
-          LanguageFeature::FEATURE_V_1_4_BARE_ARRAY_ACCESS)) {
+  if (!ast_function_call && language().LanguageFeatureEnabled(
+                                LanguageFeature::FEATURE_BARE_ARRAY_ACCESS)) {
     ZETASQL_RETURN_IF_ERROR(
         ResolveExpr(field_position, expr_resolution_info, &resolved_position));
   } else if (!ast_function_call ||
@@ -6726,20 +7028,63 @@ absl::Status Resolver::ResolveStructSubscriptElementAccess(
               "SAFE_ORDINAL.";
   }
 
-  int64_t field_idx;
   int64_t position;
-
-  if (!resolved_position->Is<ResolvedLiteral>() ||
-      !resolved_position->type()->IsInteger() ||
-      resolved_position->GetAs<ResolvedLiteral>()->value().is_null()) {
-    return MakeSqlErrorAt(field_position)
-           << "Field element access is only supported for literal integer "
-              "positions";
+  if (language().LanguageFeatureEnabled(
+          FEATURE_ANALYSIS_CONSTANT_EXPRESSION_CONTEXTS)) {
+    if (resolved_position->Is<ResolvedLiteral>() &&
+        resolved_position->type()->IsInteger() &&
+        !resolved_position->GetAs<ResolvedLiteral>()->value().is_null()) {
+      auto* literal = resolved_position->GetAs<ResolvedLiteral>();
+      const_cast<ResolvedLiteral*>(literal)->set_preserve_in_literal_remover(
+          true);
+      position = literal->value().ToInt64();
+    } else if (resolved_position->Is<ResolvedConstant>()) {
+      auto* constant = resolved_position->GetAs<ResolvedConstant>();
+      if (!constant->constant()->type()->IsInteger()) {
+        return MakeSqlErrorAt(field_position)
+               << "Field element access only supports integer positions, but "
+                  "got a constant of type "
+               << constant->constant()->type()->DebugString();
+      }
+      if (!constant->constant()->HasValue() &&
+          analyzer_options_.constant_evaluator() != nullptr &&
+          constant->constant()->Is<SQLConstant>()) {
+        SQLConstant* sql_constant = const_cast<SQLConstant*>(
+            constant->constant()->GetAs<SQLConstant>());
+        ZETASQL_RETURN_IF_ERROR(sql_constant->SetEvaluationResult(
+            analyzer_options_.constant_evaluator()->Evaluate(
+                *sql_constant->constant_expression())));
+      }
+      if (!constant->constant()->HasValue()) {
+        return MakeSqlErrorAt(field_position)
+               << "Field access cannot be computed because the constant value "
+                  "is not available";
+      }
+      ZETASQL_ASSIGN_OR_RETURN(Value constant_value, constant->constant()->GetValue());
+      position = constant_value.ToInt64();
+    } else {
+      return MakeSqlErrorAt(field_position)
+             << "Field element access must be a non-null integer knowable at "
+                "compile time";
+    }
+  } else {
+    if (!resolved_position->Is<ResolvedLiteral>() ||
+        !resolved_position->type()->IsInteger() ||
+        resolved_position->GetAs<ResolvedLiteral>()->value().is_null()) {
+      return MakeSqlErrorAt(field_position)
+             << "Field element access is only supported for literal integer "
+                "positions";
+    }
+    auto* literal = resolved_position->GetAs<ResolvedLiteral>();
+    const_cast<ResolvedLiteral*>(literal)->set_preserve_in_literal_remover(
+        true);
+    position = literal->value().ToInt64();
   }
-  auto* literal = resolved_position->GetAs<ResolvedLiteral>();
-  const_cast<ResolvedLiteral*>(literal)->set_preserve_in_literal_remover(true);
-  position = literal->value().ToInt64();
-  field_idx = position - starting_position;
+
+  ZETASQL_RET_CHECK(IsAnalysisConstant(resolved_position.get()))
+      << resolved_position->DebugString();
+
+  int64_t field_idx = position - starting_position;
 
   if (field_idx < 0 ||
       field_idx >= resolved_struct->type()->AsStruct()->num_fields()) {
@@ -6859,14 +7204,14 @@ absl::Status Resolver::ResolveArrayElementAccess(
   }
 
   if (*unwrapped_ast_position_expr == nullptr) {
-    if (!language().LanguageFeatureEnabled(FEATURE_V_1_4_BARE_ARRAY_ACCESS)) {
+    if (!language().LanguageFeatureEnabled(FEATURE_BARE_ARRAY_ACCESS)) {
       return MakeSqlErrorAt(ast_position)
              << "Array element access with array[position] is not supported. "
                 "Use array[OFFSET(zero_based_offset)] or "
                 "array[ORDINAL(one_based_ordinal)]";
     }
     if (IsProtoMap(resolved_array->type())) {
-      if (language().LanguageFeatureEnabled(FEATURE_V_1_3_PROTO_MAPS)) {
+      if (language().LanguageFeatureEnabled(FEATURE_PROTO_MAPS)) {
         *function_name = kProtoMapAtKey;
       } else if (
           absl::GetFlag(
@@ -7024,7 +7369,7 @@ absl::Status Resolver::ResolveExtractExpression(
   arg_locations.push_back(extract_expression->rhs_expr());
 
   if (resolved_arguments[0]->type()->IsProto()) {
-    if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_EXTRACT_FROM_PROTO)) {
+    if (!language().LanguageFeatureEnabled(FEATURE_EXTRACT_FROM_PROTO)) {
       return MakeSqlErrorAt(extract_expression)
              << "EXTRACT from PROTO is not supported";
     }
@@ -7061,7 +7406,7 @@ absl::Status Resolver::ResolveExtractExpression(
   // argument for '$extract'.
   if (date_part == functions::DATE || date_part == functions::TIME) {
     if (date_part == functions::TIME &&
-        !language().LanguageFeatureEnabled(FEATURE_V_1_2_CIVIL_TIME)) {
+        !language().LanguageFeatureEnabled(FEATURE_CIVIL_TIME)) {
       return MakeSqlErrorAt(extract_expression->lhs_expr())
              << "Unknown date part 'TIME'";
     }
@@ -7076,7 +7421,7 @@ absl::Status Resolver::ResolveExtractExpression(
                     functions::DateTimestampPartToSQL(date_part));
     }
   } else if (date_part == functions::DATETIME) {
-    if (!language().LanguageFeatureEnabled(FEATURE_V_1_2_CIVIL_TIME)) {
+    if (!language().LanguageFeatureEnabled(FEATURE_CIVIL_TIME)) {
       return MakeSqlErrorAt(extract_expression->lhs_expr())
              << "Unknown date part 'DATETIME'";
     }
@@ -7200,7 +7545,7 @@ absl::Status Resolver::ResolveNewConstructor(
           ast_arg->optional_identifier()->GetAsIdString());
     } else if (ast_arg->optional_path_expression() != nullptr) {
       if (!language().LanguageFeatureEnabled(
-              FEATURE_V_1_2_PROTO_EXTENSIONS_WITH_NEW)) {
+              FEATURE_PROTO_EXTENSIONS_WITH_NEW)) {
         return MakeSqlErrorAt(ast_arg->optional_path_expression())
                << "NEW constructor does not support proto extensions";
       }
@@ -7597,7 +7942,7 @@ absl::Status Resolver::ResolveStructBracedConstructor(
     ast_struct_type = type_name->GetAsOrNull<ASTStructType>();
     ZETASQL_RET_CHECK_NE(ast_struct_type, nullptr)
         << " STRUCT Braced constructors are not allowed for type "
-        << ast_struct_type->DebugString() << ", which should a struct.";
+        << type_name->DebugString() << ", which should be a struct";
     ZETASQL_RET_CHECK(type_name->type_parameters() == nullptr)
         << "The parser does not support type parameters in braced STRUCT "
            "constructor syntax";
@@ -7634,7 +7979,7 @@ absl::Status Resolver::ResolveUpdateConstructorProtoExpression(
   bool is_child_of_braced_constructor =
       ast_update_constructor.parent() != nullptr &&
       ast_update_constructor.parent()->Is<ASTBracedConstructorFieldValue>();
-  if (!language().LanguageFeatureEnabled(FEATURE_V_1_4_UPDATE_CONSTRUCTOR)) {
+  if (!language().LanguageFeatureEnabled(FEATURE_UPDATE_CONSTRUCTOR)) {
     if (is_child_of_braced_constructor) {
       return MakeSqlErrorAt(ast_update_constructor.braced_constructor())
              << "Unexpected braced syntax after call to function '"
@@ -7672,13 +8017,13 @@ absl::Status Resolver::ResolveUpdateConstructorProtoExpression(
            << "UPDATE constructor should have a singular proto expression "
               "argument";
   }
-  if (function->HasModifiers()) {
+  if (function->HasModifiers(/*ignore_is_chained_call=*/true)) {
     return MakeSqlErrorAt(function)
            << "Found invalid UPDATE constructor syntax";
   }
-
   const ASTExpression* proto_expr = function->arguments(0);
   ZETASQL_RET_CHECK(proto_expr);
+
   if (proto_expr->Is<ASTExpressionWithAlias>()) {
     const ASTExpressionWithAlias* proto_expr_with_alias =
         proto_expr->GetAsOrDie<ASTExpressionWithAlias>();
@@ -7846,7 +8191,7 @@ absl::Status Resolver::ResolveArrayConstructor(
   if (array_type == nullptr) {
     if (resolved_elements.empty()) {
       // If neither array_type nor element is specified, empty array [] is
-      // always resolved as an ARRAY<int64_t>, which is similar to resolving
+      // always resolved as an ARRAY<int64>, which is similar to resolving
       // NULL. The coercion rules may make the empty array [] change type.
       ZETASQL_RETURN_IF_ERROR(type_factory_->MakeArrayType(type_factory_->get_int64(),
                                                    &array_type));
@@ -8098,7 +8443,7 @@ absl::Status Resolver::ResolveStructConstructorImpl(
              << " fields but constructor call has "
              << ast_field_expressions.size() << " fields";
     }
-    // The struct has an explicit type, for example STRUCT<int32_t, int64_t>(1, 2).
+    // The struct has an explicit type, for example STRUCT<int32, int64>(1, 2).
     struct_has_explicit_type = true;
     inferred_struct_type = struct_type;
   }
@@ -8256,10 +8601,10 @@ absl::Status Resolver::ResolveStructConstructorImpl(
         // literal, since that can implicitly coerce to any type and we have
         // no way to represent that in the field Value of a Struct Value.
         // For example, consider the literal struct 'STRUCT(NULL, NULL)'.
-        // If we create a Value of type STRUCT<int64_t, int64_t> then want to
-        // coerce that to STRUCT<int64_t, struct<string, int32_t>> then it will
-        // fail since the second field of type int64_t cannot coerce to the
-        // second field of the target type struct<string, int32_t>.
+        // If we create a Value of type STRUCT<int64, int64> then want to
+        // coerce that to STRUCT<int64, struct<string, int32>> then it will
+        // fail since the second field of type int64 cannot coerce to the
+        // second field of the target type struct<string, int32>.
         if (struct_type == nullptr) {
           // If struct_type == nullptr then we are not forcing this to be an
           // explicitly typed struct.  Otherwise, we *can* allow this to
@@ -8301,6 +8646,12 @@ absl::Status Resolver::ResolveStructConstructorImpl(
   if (struct_type == nullptr) {
     ZETASQL_RET_CHECK_EQ(struct_fields.size(), ast_field_expressions.size());
     ZETASQL_RETURN_IF_ERROR(type_factory_->MakeStructType(struct_fields, &struct_type));
+  }
+
+  if (absl::c_any_of(struct_type->fields(), [&](const StructField& field) {
+        return field.type->IsMeasureType();
+      })) {
+    return MakeSqlErrorAt(ast_location) << "STRUCT type cannot contain MEASURE";
   }
 
   if (is_struct_literal) {
@@ -8349,7 +8700,7 @@ static absl::Status CheckAggregateFilteringModifierSupport(
   if (ast_filter_expr == nullptr) {
     return absl::OkStatus();
   }
-  if (!language.LanguageFeatureEnabled(FEATURE_V_1_4_AGGREGATE_FILTERING)) {
+  if (!language.LanguageFeatureEnabled(FEATURE_AGGREGATE_FILTERING)) {
     return MakeSqlErrorAt(ast_filter_expr) << absl::StrFormat(
                "%s is not supported in function calls", modifier_name);
   }
@@ -8486,7 +8837,7 @@ absl::Status Resolver::ResolveAggregateFunctionOrderByModifiers(
   const bool is_multi_level_aggregate =
       MultiLevelAggregationPresent(ast_function_call);
 
-  if (IsMatchRecognizeFunction(function)) {
+  if (IsMatchRecognizeMeasuresFunction(function)) {
     ZETASQL_RET_CHECK(match_recognize_state_.has_value());
     ZETASQL_RET_CHECK(match_recognize_state_->match_row_number_column.IsInitialized());
     ZETASQL_RET_CHECK_EQ(function->NumSignatures(), 1);
@@ -8525,8 +8876,7 @@ absl::Status Resolver::ResolveAggregateFunctionOrderByModifiers(
   if (order_by_arguments == nullptr) {
     if (expr_resolution_info->in_horizontal_aggregation &&
         function->SupportsOrderingArguments()) {
-      if (!language().LanguageFeatureEnabled(
-              FEATURE_V_1_1_ORDER_BY_IN_AGGREGATE)) {
+      if (!language().LanguageFeatureEnabled(FEATURE_ORDER_BY_IN_AGGREGATE)) {
         return MakeSqlErrorAt(ast_function_call)
                << "ORDER BY in aggregate function is not supported and this "
                   "horizontal aggregate is evaluated in array order";
@@ -8565,8 +8915,7 @@ absl::Status Resolver::ResolveAggregateFunctionOrderByModifiers(
       }
 
       if (apply_implicit_ordering) {
-        if (!language().LanguageFeatureEnabled(
-                FEATURE_V_1_1_ORDER_BY_IN_AGGREGATE)) {
+        if (!language().LanguageFeatureEnabled(FEATURE_ORDER_BY_IN_AGGREGATE)) {
           return MakeSqlErrorAt(ast_function_call)
                  << function->QualifiedSQLName(/*capitalize_qualifier=*/true)
                  << " is not supported in the MEASURES clause of "
@@ -8584,7 +8933,7 @@ absl::Status Resolver::ResolveAggregateFunctionOrderByModifiers(
     return absl::OkStatus();
   }
 
-  if (!language().LanguageFeatureEnabled(FEATURE_V_1_1_ORDER_BY_IN_AGGREGATE)) {
+  if (!language().LanguageFeatureEnabled(FEATURE_ORDER_BY_IN_AGGREGATE)) {
     return MakeSqlErrorAt(order_by_arguments)
            << "ORDER BY in aggregate function is not supported";
   }
@@ -8753,7 +9102,7 @@ absl::Status Resolver::ResolveAggregateFunctionLimitModifier(
   if (limit_offset == nullptr) {
     return absl::OkStatus();
   }
-  if (!language().LanguageFeatureEnabled(FEATURE_V_1_1_LIMIT_IN_AGGREGATE)) {
+  if (!language().LanguageFeatureEnabled(FEATURE_LIMIT_IN_AGGREGATE)) {
     return MakeSqlErrorAt(limit_offset)
            << "LIMIT in aggregate function arguments is not supported";
   }
@@ -8772,10 +9121,11 @@ absl::Status Resolver::ResolveAggregateFunctionLimitModifier(
            << " does not support OFFSET in arguments";
   }
   ZETASQL_RET_CHECK(limit_offset->limit() != nullptr);
-  ExprResolutionInfo expr_resolution_info(empty_name_scope_.get(), "LIMIT");
+  auto expr_resolution_info =
+      std::make_unique<ExprResolutionInfo>(empty_name_scope_.get(), "LIMIT");
   return ResolveLimitOrOffsetExpr(limit_offset->limit(),
                                   /*clause_name=*/"LIMIT",
-                                  &expr_resolution_info, limit_expr);
+                                  expr_resolution_info.get(), limit_expr);
 }
 
 // When resolving a multi-level aggregate expression, the innermost aggregate
@@ -8992,8 +9342,7 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
   // Checks if there exists aggregate or analytic function after resolving
   // the aggregate arguments, ORDER BY modifier, and HAVING modifier.
   if (expr_resolution_info->has_aggregation) {
-    if (!language().LanguageFeatureEnabled(
-            FEATURE_V_1_4_MULTILEVEL_AGGREGATION)) {
+    if (!language().LanguageFeatureEnabled(FEATURE_MULTILEVEL_AGGREGATION)) {
       return MakeSqlErrorAt(ast_function_call)
              << "Aggregations of aggregations are not allowed";
     } else if (ast_function_call->group_by() == nullptr ||
@@ -9016,7 +9365,7 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
   if (resolved_null_handling_modifier !=
       ResolvedNonScalarFunctionCallBase::DEFAULT_NULL_HANDLING) {
     if (!analyzer_options_.language().LanguageFeatureEnabled(
-            FEATURE_V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE)) {
+            FEATURE_NULL_HANDLING_MODIFIER_IN_AGGREGATE)) {
       return MakeSqlErrorAt(ast_function_call)
              << "IGNORE NULLS and RESPECT NULLS in aggregate functions are not "
                 "supported";
@@ -9142,17 +9491,6 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
   ZETASQL_RETURN_IF_ERROR(CheckAndPropagateAnnotations(
       /*error_node=*/ast_function_call, resolved_agg_call.get()));
 
-  if (analyzing_expression_ &&
-      analyzer_options_.allow_aggregate_standalone_expression() &&
-      !query_resolution_info->is_nested_aggregation()) {
-    // For a standalone expression, leave the aggregate call inline rather than
-    // put it into a column.
-    *resolved_expr_out = std::move(resolved_agg_call);
-    ZETASQL_RET_CHECK(!multi_level_aggregate_info->scoped_aggregation_state()
-                   ->target_pattern_variable_ref.has_value());
-    return absl::OkStatus();
-  }
-
   if (expr_resolution_info->in_horizontal_aggregation) {
     auto& info = expr_resolution_info->horizontal_aggregation_info;
     if (info.has_value()) {
@@ -9192,11 +9530,38 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
       return MakeSqlErrorAt(ast_function_call)
              << "GROUPING function is not allowed in RETURN";
     }
+    if (analyzing_expression_) {
+      return MakeSqlErrorAt(ast_function_call)
+             << "GROUPING function is not supported in standalone expression "
+                "resolution";
+    }
     std::unique_ptr<ResolvedColumn> resolved_grouping_column;
     ZETASQL_RETURN_IF_ERROR(AddColumnToGroupingListFirstPass(
         ast_function_call, std::move(resolved_agg_call), expr_resolution_info,
         &resolved_grouping_column));
     *resolved_expr_out = MakeColumnRef(*resolved_grouping_column);
+    return absl::OkStatus();
+  }
+
+  // When analyzing standalone expressions, we want to inline the aggregate
+  // function call within the expression tree rather than adding it to
+  // QueryResolutionInfo. There are 2 cases where we don't want to do this:
+  //
+  // 1. If the aggregate function is an argument to a multi-level aggregate
+  //    function call.
+  // 2. If the aggregate function is nested within a subquery.
+  //
+  // QueryResolutionInfo stores the information to handle the first case; the
+  // second case is handled by checking for a previous scope.
+  if (analyzing_expression_ &&
+      analyzer_options_.allow_aggregate_standalone_expression() &&
+      !query_resolution_info->is_nested_aggregation() &&
+      expr_resolution_info->name_scope->previous_scope() == nullptr) {
+    // For a standalone expression, leave the aggregate call inline rather than
+    // put it into a column.
+    *resolved_expr_out = std::move(resolved_agg_call);
+    ZETASQL_RET_CHECK(!multi_level_aggregate_info->scoped_aggregation_state()
+                   ->target_pattern_variable_ref.has_value());
     return absl::OkStatus();
   }
 
@@ -9226,7 +9591,7 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
 
   std::unique_ptr<const ResolvedComputedColumnBase> computed_column;
   if (language().LanguageFeatureEnabled(
-          FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION) &&
+          FEATURE_ENFORCE_CONDITIONAL_EVALUATION) &&
       side_effect_scope_depth_ > 0) {
     ResolvedColumn side_effects_column(AllocateColumnId(), kAggregateId,
                                        MakeIdString("$side_effects"),
@@ -9292,7 +9657,8 @@ absl::Status Resolver::ResolveExpressionArguments(
     const absl::Span<const ASTExpression* const> arguments,
     const std::map<int, SpecialArgumentType>& argument_option_map,
     std::vector<std::unique_ptr<const ResolvedExpr>>* resolved_arguments_out,
-    std::vector<const ASTNode*>* ast_arguments_out) {
+    std::vector<const ASTNode*>* ast_arguments_out,
+    const ASTFunctionCall* inside_ast_function_call) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   // These reservations could be low for special cases like interval args
@@ -9306,6 +9672,9 @@ absl::Status Resolver::ResolveExpressionArguments(
     const SpecialArgumentType* special_argument_type =
         zetasql_base::FindOrNull(argument_option_map, idx);
     if (special_argument_type != nullptr) {
+      // Note: Special argument types assigned to argument 0 do not work in
+      // chained function calls.  The base argument is resolved as a standard
+      // expression before interpreting the function call.
       switch (*special_argument_type) {
         case SpecialArgumentType::INTERVAL:
           ZETASQL_RETURN_IF_ERROR(ResolveIntervalArgument(arg, expr_resolution_info,
@@ -9334,7 +9703,7 @@ absl::Status Resolver::ResolveExpressionArguments(
         }
       }
     } else if (arg->Is<ASTSequenceArg>()) {
-      if (!language().LanguageFeatureEnabled(FEATURE_V_1_4_SEQUENCE_ARG)) {
+      if (!language().LanguageFeatureEnabled(FEATURE_SEQUENCE_ARG)) {
         return MakeSqlErrorAt(arg) << "Sequence args are not supported";
       }
       resolved_arguments_out->push_back(nullptr);
@@ -9344,8 +9713,7 @@ absl::Status Resolver::ResolveExpressionArguments(
       // Report error at `lambda` even if `arg` itself is a named argument
       // because validation errors in this branch, if any, are related to
       // lambda, not the name of the argument.
-      if (!language().LanguageFeatureEnabled(
-              FEATURE_V_1_3_INLINE_LAMBDA_ARGUMENT)) {
+      if (!language().LanguageFeatureEnabled(FEATURE_INLINE_LAMBDA_ARGUMENT)) {
         return MakeSqlErrorAt(lambda) << "Lambda is not supported";
       }
       if (expr_resolution_info->in_horizontal_aggregation) {
@@ -9367,8 +9735,28 @@ absl::Status Resolver::ResolveExpressionArguments(
       resolved_arguments_out->push_back(nullptr);
       ast_arguments_out->push_back(lambda);
     } else {
-      ZETASQL_RETURN_IF_ERROR(ResolveExpressionArgument(arg, expr_resolution_info,
-                                                resolved_arguments_out));
+      absl::Status status = ResolveExpressionArgument(arg, expr_resolution_info,
+                                                      resolved_arguments_out);
+
+      // If the first argument inside a chained function call fails to resolve,
+      // try giving an error message suggesting a fix to the function call.
+      //
+      // For example, when the arg is the ASTDotIdentifier for `safe`,
+      //   `(expr).safe.sqrt()` should be `(expr).(safe.sqrt)()`.
+      //
+      // In this case, `sqrt` was also a valid function name without `safe`,
+      // so we didn't catch the error when looking up the function name.
+      // We catch it when resolving the ASTDotIdentifier `safe` fails.
+      if (!status.ok() && idx == 0 && inside_ast_function_call != nullptr &&
+          inside_ast_function_call->is_chained_call()) {
+        ZETASQL_RET_CHECK(!inside_ast_function_call->arguments().empty());
+        ZETASQL_RET_CHECK_EQ(arg, inside_ast_function_call->arguments().front());
+
+        ZETASQL_RETURN_IF_ERROR(TryMakeErrorSuggestionForChainedCall(
+            status, inside_ast_function_call));
+      }
+
+      ZETASQL_RETURN_IF_ERROR(status);
       ast_arguments_out->push_back(arg);
     }
   }
@@ -9380,7 +9768,7 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
     const ASTNode* ast_location,
     const std::vector<const ASTNode*>& arg_locations,
     bool match_internal_signatures,
-    const std::vector<std::string>& function_name_path,
+    absl::Span<const std::string> function_name_path,
     std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments,
     std::vector<NamedArgumentInfo> named_arguments,
     ExprResolutionInfo* expr_resolution_info,
@@ -9455,7 +9843,7 @@ absl::Status Resolver::ResolveProtoDefaultIfNull(
           resolved_field_access->field_descriptor()) &&
       (resolved_field_access->field_descriptor()->has_presence() ||
        !language().LanguageFeatureEnabled(
-           FEATURE_V_1_3_IGNORE_PROTO3_USE_DEFAULTS))) {
+           FEATURE_IGNORE_PROTO3_USE_DEFAULTS))) {
     return MakeSqlErrorAt(ast_location)
            << "The field accessed by PROTO_DEFAULT_IF_NULL must have a usable "
               "default value; Field "
@@ -9516,8 +9904,7 @@ Resolver::WrapInASideEffectCall(const ASTNode* ast_location,
 // and `function` is not the AGGREGATE function.
 static absl::Status EnsureNoMeasureTypedArguments(
     const Function* function, const std::vector<const ASTNode*>& arg_locations,
-    const std::vector<std::unique_ptr<const ResolvedExpr>>&
-        resolved_arguments) {
+    absl::Span<const std::unique_ptr<const ResolvedExpr>> resolved_arguments) {
   if (IsMeasureAggFunction(function)) {
     return absl::OkStatus();
   }
@@ -9534,6 +9921,58 @@ static absl::Status EnsureNoMeasureTypedArguments(
     }
   }
   return absl::OkStatus();
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
+Resolver::ResolveAsMatchRecognizePhysicalNavigationFunction(
+    const ASTNode* ast_location, const Function* function,
+    ExprResolutionInfo* expr_resolution_info,
+    std::unique_ptr<ResolvedFunctionCall> resolved_function_call) {
+  ZETASQL_RET_CHECK_EQ(function->NumSignatures(), 1);
+  ZETASQL_RET_CHECK(expr_resolution_info->in_match_recognize_define);
+  int64_t signature_id = function->GetSignature(0)->context_id();
+  switch (signature_id) {
+    case FN_NEXT:
+    case FN_PREV: {
+      ZETASQL_RET_CHECK(expr_resolution_info->query_resolution_info != nullptr);
+      ZETASQL_RET_CHECK(expr_resolution_info->query_resolution_info->analytic_resolver()
+                    ->in_match_recognize_window_context());
+
+      // Resolve as a function call to LEAD/LAG.
+      std::string replacement_function_name = "";
+      FunctionSignatureId replacement_signature_id;
+
+      if (signature_id == FN_NEXT) {
+        replacement_function_name = "lead";
+        replacement_signature_id = FN_LEAD;
+      } else {
+        ZETASQL_RET_CHECK_EQ(signature_id, FN_PREV);
+        replacement_function_name = "lag";
+        replacement_signature_id = FN_LAG;
+      }
+      const Function* replacement_function = nullptr;
+      ZETASQL_RET_CHECK_OK(catalog_->FindFunction({replacement_function_name},
+                                          &replacement_function,
+                                          analyzer_options_.find_options()));
+
+      resolved_function_call->set_function(replacement_function);
+      resolved_function_call->set_signature(FunctionSignature(
+          resolved_function_call->signature(), replacement_signature_id));
+
+      const ASTFunctionCall* ast_function_call =
+          ast_location->GetAsOrDie<ASTFunctionCall>();
+      return expr_resolution_info->query_resolution_info->analytic_resolver()
+          ->AddToMatchRecognizeMainAnalyticGroup(
+              ast_function_call, expr_resolution_info,
+              std::move(resolved_function_call),
+              /*resolved_window_frame=*/nullptr);
+      break;
+    }
+    default:
+      ZETASQL_RET_CHECK_FAIL() << "Expected a MATCH_RECOGNIZE special function, found: "
+                       << function->QualifiedSQLName(
+                              /*capitalize_qualifier=*/true);
+  }
 }
 
 absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
@@ -9630,7 +10069,8 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
   }
   if (function->IsAggregate()) {
     const ASTFunctionCall* ast_function_call =
-        ast_location->GetAsOrDie<ASTFunctionCall>();
+        ast_location->GetAsOrNull<ASTFunctionCall>();
+    ZETASQL_RET_CHECK(ast_function_call != nullptr);
     std::optional<ResolvedColumn> unconsumed_side_effect_column;
     ZETASQL_RETURN_IF_ERROR(FinishResolvingAggregateFunction(
         ast_function_call, &resolved_function_call, expr_resolution_info,
@@ -9639,7 +10079,7 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
         std::move(multi_level_aggregate_info), resolved_expr_out,
         unconsumed_side_effect_column));
     if (language().LanguageFeatureEnabled(
-            FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION) &&
+            FEATURE_ENFORCE_CONDITIONAL_EVALUATION) &&
         side_effect_scope_depth_ > 0 &&
         !IsGroupingFunction(function)
         // Horizontal aggregates control their own side effects.
@@ -9673,8 +10113,7 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
     // We handle the PROTO_DEFAULT_IF_NULL() function here so that it can be
     // resolved to a ResolvedGetProtoField.
     if (IsProtoDefaultIfNull(function)) {
-      if (!language().LanguageFeatureEnabled(
-              FEATURE_V_1_3_PROTO_DEFAULT_IF_NULL)) {
+      if (!language().LanguageFeatureEnabled(FEATURE_PROTO_DEFAULT_IF_NULL)) {
         return MakeSqlErrorAt(ast_location)
                << "The PROTO_DEFAULT_IF_NULL function is not supported";
       }
@@ -9686,15 +10125,16 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
         return MakeSqlErrorAt(ast_location)
                << "Horizontal aggregation expression must not include FLATTEN";
       }
-      ZETASQL_RET_CHECK(language().LanguageFeatureEnabled(
-          FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS))
+      ZETASQL_RET_CHECK(
+          language().LanguageFeatureEnabled(FEATURE_UNNEST_AND_FLATTEN_ARRAYS))
           << "The FLATTEN function is not supported";
       ZETASQL_RET_CHECK_EQ(1, resolved_function_call->argument_list_size());
       *resolved_expr_out =
           std::move(resolved_function_call->release_argument_list()[0]);
-    } else if (IsMatchRecognizeFunction(function)) {
+    } else if (IsMatchRecognizeMeasuresFunction(function)) {
       ZETASQL_RET_CHECK_EQ(function->NumSignatures(), 1);
       ZETASQL_RET_CHECK(match_recognize_state_.has_value());
+      ZETASQL_RET_CHECK(!expr_resolution_info->in_match_recognize_define);
       if (!expr_resolution_info->name_scope->allows_match_number_function()) {
         // MR state is initialized, but the namescope doesn't even allow
         // MATCH_NUMBER(). This means that the function is called from a
@@ -9703,7 +10143,8 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
                << function->SQLName() << " must be called directly from the "
                << "MEASURES clause, not from a subquery";
       }
-      switch (function->GetSignature(0)->context_id()) {
+      int64_t signature_id = function->GetSignature(0)->context_id();
+      switch (signature_id) {
         case FN_MATCH_NUMBER: {
           // Rewrite to a column ref, exposing the actual state.
           ZETASQL_RET_CHECK(
@@ -9747,6 +10188,11 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
               << "Expected a MATCH_RECOGNIZE special function, found: "
               << function->QualifiedSQLName(/*capitalize_qualifier=*/true);
       }
+    } else if (IsMatchRecognizePhysicalNavigationFunction(function)) {
+      ZETASQL_ASSIGN_OR_RETURN(*resolved_expr_out,
+                       ResolveAsMatchRecognizePhysicalNavigationFunction(
+                           ast_location, function, expr_resolution_info,
+                           std::move(resolved_function_call)));
     } else {
       *resolved_expr_out = std::move(resolved_function_call);
     }
@@ -9791,14 +10237,13 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
 
 absl::Status Resolver::LookupFunctionFromCatalog(
     const ASTNode* ast_location,
-    const std::vector<std::string>& function_name_path,
+    absl::Span<const std::string> function_name_path,
     FunctionNotFoundHandleMode handle_mode, const Function** function,
     ResolvedFunctionCallBase::ErrorMode* error_mode) const {
   *error_mode = ResolvedFunctionCallBase::DEFAULT_ERROR_MODE;
 
   // This is the function name path with SAFE stripped off, if applicable.
-  auto stripped_name =
-      absl::MakeSpan(function_name_path.data(), function_name_path.size());
+  absl::Span<const std::string> stripped_name = function_name_path;
   bool is_stripped = false;
 
   absl::Status find_status;
@@ -9809,8 +10254,8 @@ absl::Status Resolver::LookupFunctionFromCatalog(
       zetasql_base::CaseEqual(function_name_path[0], "SAFE")) {
     // Check this first because we don't want behavior to vary based
     // on feature flags, other than letting a query succeed.
-    if (!language().LanguageFeatureEnabled(FEATURE_V_1_2_SAFE_FUNCTION_CALL)) {
-      return MakeSqlErrorAt(ast_location)
+    if (!language().LanguageFeatureEnabled(FEATURE_SAFE_FUNCTION_CALL)) {
+      return MakeSqlErrorAtLocalNode(ast_location)
              << "Function calls with SAFE are not supported";
     }
 
@@ -9820,7 +10265,7 @@ absl::Status Resolver::LookupFunctionFromCatalog(
                                          analyzer_options_.find_options());
     if (find_status.ok()) {
       if (!(*function)->SupportsSafeErrorMode()) {
-        return MakeSqlErrorAt(ast_location)
+        return MakeSqlErrorAtLocalNode(ast_location)
                << "Function " << IdentifierPathToString(stripped_name)
                << " does not support SAFE error mode";
       }
@@ -9837,6 +10282,16 @@ absl::Status Resolver::LookupFunctionFromCatalog(
     all_required_features_are_enabled =
         (*function)->function_options().CheckAllRequiredFeaturesAreEnabled(
             language().GetEnabledLanguageFeatures());
+
+    // GROUPING isn't a real function since its argument isn't evaluated
+    // as an expression.  It shouldn't be allowed in chained call syntax.
+    const auto* ast_function = ast_location->GetAsOrNull<ASTFunctionCall>();
+    if (ast_function != nullptr && ast_function->is_chained_call() &&
+        IsGroupingFunction(*function)) {
+      return MakeSqlErrorAt(ast_function)
+             << "Function " << IdentifierPathToString(function_name_path)
+             << " does not support chained function calls";
+    }
   }
 
   // We return UNIMPLEMENTED errors from the Catalog directly to the caller.
@@ -9890,7 +10345,7 @@ absl::Status Resolver::LookupFunctionFromCatalog(
             function_suggestion, "?");
       }
     }
-    return MakeSqlErrorAt(ast_location) << error_message;
+    return MakeSqlErrorAtLocalNode(ast_location) << error_message;
   }
   return find_status;
 }
@@ -9932,14 +10387,13 @@ absl::Status Resolver::ResolveFunctionCallWithLiteralRetry(
   }
 
   // If initial resolution failed, then try marking the literals as explicitly
-  // typed so that we can avoid narrowing literal coercions that might fail due
-  // to overflow.  This allows us to handle cases like the following:
-  // select * from TestTable
-  //   where KitchenSink.int32_val BETWEEN -1 AND 5000000000 OR
-  //         KitchenSink.int32_val BETWEEN -4294967296 AND 10;
-  // OR
-  // select * from TestTable
-  //   where KitchenSink.int32_val < 5000000000;
+  // typed.  This blocks literal coercion, which fails for cases like
+  //   `where KitchenSink.int32_val BETWEEN -1 AND 5000000000`
+  // Then casts will be added, making this valid.
+  //
+  // The comment previous said this is also used for
+  //   `where KitchenSink.int32_val < 5000000000`
+  // but that no longer seems true.  This is now used only for BETWEEN.
   const std::vector<std::string> function_name_path{std::string(function_name)};
   const Function* function;
   ResolvedFunctionCallBase::ErrorMode error_mode;
@@ -10228,7 +10682,7 @@ absl::Status Resolver::ResolveFunctionCallImpl(
       (ast_function_call->group_by() == nullptr)) {
     ZETASQL_RETURN_IF_ERROR(ResolveExpressionArguments(
         expr_resolution_info, arguments, argument_option_map,
-        &resolved_arguments, &ast_arguments));
+        &resolved_arguments, &ast_arguments, ast_function_call));
     return ResolveFunctionCallWithResolvedArguments(
         ast_location, ast_arguments, /*match_internal_signatures=*/false,
         function, error_mode, std::move(resolved_arguments),
@@ -10238,7 +10692,29 @@ absl::Status Resolver::ResolveFunctionCallImpl(
         /*multi_level_aggregate_info=*/nullptr, resolved_expr_out);
   }
 
-  // Handle multi-level aggregates.
+  // At this point in the code, the following variants hold:
+  //
+  // 1. `function` is an aggregate function.
+  // 2. `ast_location` is an ASTFunctionCall (not an ASTAnalyticFunctionCall).
+  //    This means that the function call does not have the OVER clause and so
+  //    is not an aggregate function over an analytic window.
+  // 3. `ast_function_call->group_by()` is not null.
+  //
+  // Thus, the function call is a multi-level aggregate function.
+  //
+  // After this point, errors should use `ast_function_call` rather than
+  // `ast_location`.
+  ZETASQL_RET_CHECK(ast_function_call != nullptr);
+  ZETASQL_RET_CHECK(ast_function_call->group_by() != nullptr);
+
+  // If aggregation is not allowed in the current context, return an error.
+  // This is an 'early-catch' scenario when a multi-level aggregate is used in a
+  // context where it is not allowed (e.g. inside a UDF).
+  if (!expr_resolution_info->allows_aggregation) {
+    return MakeSqlErrorAt(ast_function_call)
+           << function->QualifiedSQLName(/*capitalize_qualifier=*/true)
+           << " not allowed in " << expr_resolution_info->clause_name;
+  }
 
   // Check if function supports multi-level aggregation.
   if (!function->SupportsGroupByModifier()) {
@@ -10252,7 +10728,7 @@ absl::Status Resolver::ResolveFunctionCallImpl(
         function->Is<AnonFunction>()
             ? " Anonymization / Differential Privacy Function "
             : " Function ";
-    return MakeSqlErrorAt(ast_location)
+    return MakeSqlErrorAt(ast_function_call)
            << absl::AsciiStrToUpper(function->SQLName()) << function_type
            << " does not support GROUP BY modifiers";
   }
@@ -10260,7 +10736,7 @@ absl::Status Resolver::ResolveFunctionCallImpl(
   // Precondition: Multi-level aggregation is currently only supported for
   // built-in aggregate functions.
   if (!function->IsZetaSQLBuiltin()) {
-    return MakeSqlErrorAt(ast_location)
+    return MakeSqlErrorAt(ast_function_call)
            << "GROUP BY modifiers are not yet supported on user-defined "
               "functions.";
   }
@@ -10346,8 +10822,6 @@ absl::Status Resolver::ResolveFunctionCallImpl(
   // Deliberately use `aggregate_name_scope` for resolving the modifiers; since
   // the normal `name_scope` may be marking non-grouping keys as target access
   // errors (see step 4), which is not correct when resolving grouping items.
-  ZETASQL_RET_CHECK(ast_function_call != nullptr);
-  ZETASQL_RET_CHECK(ast_function_call->group_by() != nullptr);
   auto grouping_item_expr_resolution_info =
       std::make_unique<ExprResolutionInfo>(
           expr_resolution_info,
@@ -10400,7 +10874,8 @@ absl::Status Resolver::ResolveFunctionCallImpl(
           post_grouping_name_scope.get());
   ZETASQL_RETURN_IF_ERROR(ResolveExpressionArguments(
       multi_level_aggregate_expr_resolution_info.get(), arguments,
-      argument_option_map, &resolved_arguments, &ast_arguments));
+      argument_option_map, &resolved_arguments, &ast_arguments,
+      ast_function_call));
 
   // GROUPING function cannot be within a multi-level aggregate.
   if (new_query_resolution_info->HasGroupingCall()) {
@@ -10416,7 +10891,7 @@ absl::Status Resolver::ResolveFunctionCallImpl(
       const ResolvedExpressionColumn* expression_column =
           expression_columns.front()->GetAs<ResolvedExpressionColumn>();
       ZETASQL_RET_CHECK(expression_column != nullptr);
-      return MakeSqlErrorAt(ast_location)
+      return MakeSqlErrorAt(ast_function_call)
              << "Expression column " << expression_column->name()
              << " cannot be an argument to a multi-level aggregate function.";
     }
@@ -10430,17 +10905,18 @@ absl::Status Resolver::ResolveFunctionCallImpl(
       std::make_unique<ExprResolutionInfo>(
           expr_resolution_info,
           ExprResolutionInfoOptions{
-              .allow_new_scopes = true,
-              .name_scope = post_grouping_name_scope.get()});
+              .name_scope = post_grouping_name_scope.get(),
+              .allow_new_scopes = true});
 
   return ResolveFunctionCallWithResolvedArguments(
-      ast_location, ast_arguments, /*match_internal_signatures=*/false,
+      ast_function_call, ast_arguments, /*match_internal_signatures=*/false,
       function, error_mode, std::move(resolved_arguments),
       std::move(named_arguments), post_grouping_expr_resolution_info.get(),
       std::move(with_group_rows_subquery),
       std::move(with_group_rows_correlation_references),
       std::move(new_query_resolution_info), resolved_expr_out);
 }
+
 IdString Resolver::GetColumnAliasForTopLevelExpression(
     ExprResolutionInfo* expr_resolution_info, const ASTExpression* ast_expr) {
   const IdString alias = expr_resolution_info->column_alias;
@@ -10463,6 +10939,7 @@ absl::Status Resolver::CoerceExprToBool(
                           kImplicitCoercion, make_error_msg, resolved_expr);
 }
 
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::CoerceExprToType(
     const ASTNode* ast_location, AnnotatedType annotated_target_type,
     CoercionMode mode, CoercionErrorMessageFunction make_error,
@@ -10709,7 +11186,7 @@ absl::Status Resolver::ResolveWithExpr(
     const Type* inferred_type) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   if (!analyzer_options_.language().LanguageFeatureEnabled(
-          FEATURE_V_1_4_WITH_EXPRESSION)) {
+          FEATURE_WITH_EXPRESSION)) {
     return MakeSqlErrorAt(with_expr) << "WITH expressions are not enabled.";
   }
   if (parent_expr_resolution_info->in_horizontal_aggregation) {
@@ -10740,23 +11217,24 @@ absl::Status Resolver::ResolveWithExpr(
     ZETASQL_RETURN_IF_ERROR(parent_expr_resolution_info->analytic_name_scope
                         ->CopyNameScopeWithOverridingNameTargets(
                             disallowed_access_targets, &analytic_scope));
-    ExprResolutionInfo resolution_info(
+    auto resolution_info = std::make_unique<ExprResolutionInfo>(
         parent_expr_resolution_info,
         ExprResolutionInfoOptions{
-            .allow_new_scopes = true,
             .name_scope = scalar_scope.get(),
             .aggregate_name_scope = aggregate_scope.get(),
             .analytic_name_scope = analytic_scope.get(),
+            .allow_new_scopes = true,
             .clause_name = "WITH expression",
             .top_level_ast_expr = with_expr,
             .column_alias = IdString(),
         });
-    ZETASQL_RETURN_IF_ERROR(ResolveExpr(ast_expr, &resolution_info, resolved_expr));
-    child_has_analytic = child_has_analytic || resolution_info.has_analytic;
+    ZETASQL_RETURN_IF_ERROR(
+        ResolveExpr(ast_expr, resolution_info.get(), resolved_expr));
+    child_has_analytic = child_has_analytic || resolution_info->has_analytic;
     child_has_aggregation =
-        child_has_aggregation || resolution_info.has_aggregation;
+        child_has_aggregation || resolution_info->has_aggregation;
     parent_expr_resolution_info->horizontal_aggregation_info =
-        resolution_info.horizontal_aggregation_info;
+        resolution_info->horizontal_aggregation_info;
     return absl::OkStatus();
   };
 

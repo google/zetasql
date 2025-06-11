@@ -66,12 +66,13 @@ using PropertySet = std::set<const GraphPropertyDeclaration*,
                              CompareByName<GraphPropertyDeclaration>>;
 using ElementTableSet =
     std::set<const GraphElementTable*, CompareByName<GraphElementTable>>;
+using DynamicPropertyMap = absl::flat_hash_map<const GraphElementTable*,
+                                               const GraphDynamicProperties*>;
 
 // Returns a set of static properties exposed by <element_tables>.
-absl::Status GetPropertySet(
-    const ElementTableSet& element_tables,
-    PropertySet& static_properties
-);
+absl::Status GetPropertySet(const ElementTableSet& element_tables,
+                            PropertySet& static_properties,
+                            DynamicPropertyMap& dynamic_properties);
 
 // Returns a set of tables satisfying <label_expr> and which have
 // the specified element_kind (node or edge).
@@ -113,9 +114,18 @@ struct GraphTableNamedVariables {
   // Contains all the singleton variables for this 'ast_node'
   std::shared_ptr<NameList> singleton_name_list = std::make_shared<NameList>();
   // Contains all the group variables for this 'ast_node'
-  // TODO: Today accessing group variables is disallowed.
-  // To be used for horizontal aggregation name scope in the future.
   std::shared_ptr<NameList> group_name_list = std::make_shared<NameList>();
+
+  // Used during the resolution of a CALL subquery, to keep the correlated
+  // variables from the outside scope. The subquery can have multiple linear
+  // operators, so these correlated names travel all along.
+  // Always nullptr (not just an empty list) unless we're inside the body of
+  // of a CALL.
+  //
+  // INVARIANT: Names in the other lists are not allowed to conflict with
+  // names in this list, unlike outer names which would simply be shadowed.
+  // i.e., this list is always disjoint with the other lists.
+  std::shared_ptr<NameList> correlated_name_list = nullptr;
 };
 
 // This class performs resolution for GraphTable during ZetaSQL analysis.
@@ -186,7 +196,8 @@ class GraphTableQueryResolver {
   // namelists.
   absl::StatusOr<GraphTableNamedVariables> CreateGraphNameLists(
       const ASTNode* node, std::shared_ptr<NameList> singleton_name_list,
-      std::shared_ptr<NameList> group_name_list);
+      std::shared_ptr<NameList> group_name_list,
+      std::shared_ptr<NameList> correlated_name_list);
 
   // Merges <child_namelist> and <parent_namelist> and outputs a new merged
   // graph namelist and a list of GraphMakeArrayVariables that record
@@ -374,6 +385,18 @@ class GraphTableQueryResolver {
       const ASTGqlFor& for_op, const NameScope* local_scope,
       ResolvedGraphWithNameList<const ResolvedScan> inputs);
 
+  // Resolves a GQL CALL operator on a subquery.
+  absl::StatusOr<ResolvedGraphWithNameList<const ResolvedScan>>
+  ResolveGqlInlineSubqueryCall(
+      const ASTGqlInlineSubqueryCall& call_op, const NameScope* local_scope,
+      ResolvedGraphWithNameList<const ResolvedScan> input);
+
+  // Resolves a GQL CALL operator on a named TVF.
+  absl::StatusOr<ResolvedGraphWithNameList<const ResolvedScan>>
+  ResolveGqlNamedCall(const ASTGqlNamedCall& call_op,
+                      const NameScope* local_scope,
+                      ResolvedGraphWithNameList<const ResolvedScan> input);
+
   // Builds a ProjectScan from GqlReturnOp. `working_name_list` is consumed as
   // the namelist of the current input scan. Updates `working_name_list` as the
   // namelist of the resulting scan.
@@ -397,8 +420,7 @@ class GraphTableQueryResolver {
   // Builds a graph element type for <table_kind> and <properties>.
   absl::StatusOr<const GraphElementType*> MakeGraphElementType(
       GraphElementTable::Kind table_kind, const PropertySet& properties,
-      TypeFactory* type_factory
-  );
+      TypeFactory* type_factory, bool is_dynamic = false);
 
   // Resolves the graph reference in graph_table_query_.
   absl::Status ResolveGraphReference(const ASTPathExpression* graph_ref);
@@ -423,7 +445,8 @@ class GraphTableQueryResolver {
   absl::StatusOr<ResolvedGraphWithNameList<const ResolvedGraphElementScan>>
   ResolveElementPattern(const ASTGraphElementPattern& ast_element_pattern,
                         const NameScope* input_scope,
-                        GraphTableNamedVariables input_graph_name_lists);
+                        GraphTableNamedVariables input_graph_name_lists,
+                        const Type* cost_supertype = nullptr);
 
   // Resolves path mode, which is a means to restrict the sequence of nodes and
   // edges in a path.
@@ -463,12 +486,23 @@ class GraphTableQueryResolver {
   // `create_path_column` indicates whether to create a column for a path
   // variable representing this path pattern. It is set to true for the path
   // that introduces a new path variable and all descendant patterns.
+  // `cost_supertype` is the supertype of all cost expressions for this path.
+  // It is only set if the path pattern contains at least one cost expression in
+  // its nesting structure. When set:
+  // - All descendant path patterns will populate `cost_type` with this type.
+  // - All edge cost expressions for this path will be cast to this type.
+  // Generally, this occurs via a two-pass resolution process, where
+  // `ResolvedPathPattern` is first called with nullptr for `cost_supertype`,
+  // then the resolvedAST is used to compute the supertype. The initial AST
+  // is then discarded and a second call to `ResolvedPathPattern` is made with
+  // the computed supertype populated.
   absl::StatusOr<ResolvedGraphWithNameList<const ResolvedGraphPathScan>>
   ResolvePathPattern(
       const ASTGraphPathPattern& ast_path_pattern, const NameScope* input_scope,
       GraphTableNamedVariables input_graph_name_lists, bool create_path_column,
       IdStringHashMapCase<const ASTGraphPathPattern* const>*
-          out_multiply_decl_forbidden_names_to_err_location = nullptr);
+          out_multiply_decl_forbidden_names_to_err_location = nullptr,
+      const Type* cost_supertype = nullptr);
 
   // Resolves the list of path patterns in a graph pattern: it produces the
   // cross product of paths produced from all path patterns it contains.
@@ -518,8 +552,8 @@ class GraphTableQueryResolver {
   absl::StatusOr<ResolvedGraphWithNameList<const ResolvedExpr>>
   ResolveMultiplyDeclaredVariables(
       const ASTNode& ast_location,
-      const GraphTableNamedVariables& left_name_list,
-      const GraphTableNamedVariables& right_name_list);
+      const GraphTableNamedVariables& input_name_list,
+      const GraphTableNamedVariables& local_name_list);
 
   // Resolves graph label filter.
   absl::StatusOr<std::unique_ptr<const ResolvedGraphLabelExpr>>
@@ -540,13 +574,23 @@ class GraphTableQueryResolver {
       std::vector<std::unique_ptr<const ResolvedComputedColumn>>* expr_list)
       const;
 
+  // Resolves the property specification for a dynamic graph element variable.
+  absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
+  ResolveGraphDynamicPropertyEquality(
+      const ASTNode* error_location, const PropertyGraph* graph,
+      const GraphElementType* element_type, absl::string_view property_name,
+      const NameScope* input_scope,
+      std::unique_ptr<const ResolvedExpr> resolved_element_expr,
+      std::unique_ptr<const ResolvedExpr> resolved_property_value_expr) const;
+
   // Resolves the property specification for a graph element variable.
+  // If `supports_dynamic_properties` is true, the element column may be a
+  // dynamic graph element type. Otherwise, it must be a static element type.
   absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
   ResolveGraphElementPropertySpecification(
       const ASTGraphPropertySpecification* ast_graph_property_specification,
-      const NameScope* input_scope,
-      const ResolvedColumn& element_column
-  ) const;
+      const NameScope* input_scope, const ResolvedColumn& element_column,
+      bool supports_dynamic_properties) const;
 
   // Resolves a single <ast_select_column> using <expr_resolotuion_info>. Adds
   // new name(s) and column(s) produced to <output_name/column_list>. For each
@@ -566,6 +610,16 @@ class GraphTableQueryResolver {
       const ASTWhereClause* ast_where_clause, const NameScope* input_scope,
       QueryResolutionInfo* query_resolution_info, bool allow_analytic,
       bool allow_horizontal_aggregate) const;
+
+  // if `ast_edge_cost` is not null, resolves it into a double expression using
+  // `input_scope` and returns the ResolvedExpr. If `ast_edge_cost` is null,
+  // returns an empty ResolvedExpr.
+  // If `cost_supertype` is not null, the resolved expression will be cast to
+  // this type.
+  absl::StatusOr<std::unique_ptr<const ResolvedExpr>> ResolveCostExpr(
+      const ASTExpression& ast_edge_cost, const NameScope* input_scope,
+      QueryResolutionInfo* query_resolution_info,
+      const Type* cost_supertype = nullptr) const;
 
   // Examines all path scans in `path_scans`, and for each one, records all
   // columns that are required for implementing path modes. Specifically,
@@ -625,7 +679,8 @@ class GraphTableQueryResolver {
 
   // Builds a list of column refs over `columns`.
   std::vector<std::unique_ptr<const ResolvedExpr>> BuildColumnRefs(
-      const ResolvedColumnList& columns);
+      const ResolvedColumnList& columns,
+      const absl::flat_hash_set<ResolvedColumn>& correlated_columns);
 
   // Builds an expression that is a conjunction of equality between all exprs.
   // <ast_location> and <variable> are only used for error reporting.
@@ -687,6 +742,11 @@ class GraphTableQueryResolver {
   //
   // 3) Nested quantifiers are not permitted.
   //
+  // If CHEAPEST is specified for a top-level path pattern, then the path
+  //   must include at least one edge cost expression. Furthermore, each
+  //   quantified edge or subpath pattern contained by the top-level path
+  //   pattern must include at least one cost expression.
+  //
   // 'struct PathInfo' maintains the current computed values of
   // each rule as it walks through and validates the pattern.
   struct PathInfo {
@@ -696,12 +756,20 @@ class GraphTableQueryResolver {
     int min_path_length = 0;
     // 'true' if there's a subpath that is already quantified.
     bool child_is_quantified = false;
+    // `true` if the path pattern contains at least one edge cost expression
+    // in its nesting structure. This is used in the context oF CHEAPEST path
+    // search prefix, which requires at least one edge cost expression in the
+    // entire path pattern, as well as at least one for every descendant
+    // quantified edge or subpath pattern.
+    bool has_edge_cost = false;
   };
   absl::Status ValidatePathPattern(const ASTGraphPattern* ast_graph_pattern,
                                    const NameScope* scope);
+
   absl::StatusOr<PathInfo> ValidatePathPatternInternal(
       const ASTGraphPathPattern* ast_path_pattern, const NameScope* scope,
-      const std::vector<const ASTGraphPathBase*>& ast_path_bases);
+      const std::vector<const ASTGraphPathBase*>& ast_path_bases,
+      IdStringHashMapCase<bool>& var_has_cost_map, bool in_cheapest = false);
 
   // Helper class used to resolve Graph set operation, aka. composite query
   // statement.

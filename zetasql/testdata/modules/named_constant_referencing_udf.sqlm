@@ -1,0 +1,7 @@
+MODULE named_constant_referencing_udf;
+
+CREATE PUBLIC CONSTANT named_constant_udf = udf(1234);
+CREATE PUBLIC CONSTANT named_constant_udf_templated = udf_templated(1234);
+
+CREATE PRIVATE FUNCTION udf(a INT32) AS (a * 10);
+CREATE PUBLIC FUNCTION udf_templated(a ANY TYPE) AS (a * 100);

@@ -17,17 +17,11 @@
 #ifndef ZETASQL_TOOLS_EXECUTE_QUERY_EXECUTE_QUERY_LOOP_H_
 #define ZETASQL_TOOLS_EXECUTE_QUERY_EXECUTE_QUERY_LOOP_H_
 
-#include <functional>
-#include <memory>
-#include <string>
-
 #include "zetasql/tools/execute_query/execute_query_prompt.h"
 #include "zetasql/tools/execute_query/execute_query_tool.h"
 #include "zetasql/tools/execute_query/execute_query_writer.h"
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
-#include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
 
 namespace zetasql {
 

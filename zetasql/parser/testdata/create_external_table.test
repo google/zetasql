@@ -1,4 +1,4 @@
-[default language_features=V_1_4_ORDERED_PRIMARY_KEYS]
+[default language_features=ORDERED_PRIMARY_KEYS]
 create external table t1
 options (a=b, c="def")
 --
@@ -715,7 +715,7 @@ create external table a.b.c.T(x int64)
                                       ^
 ==
 
-[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
 create external table t1-2
 options (a=b, c="def")
 --
@@ -725,7 +725,7 @@ ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `
 create external table t1-2
                       ^
 --
-ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
 --
 CreateExternalTableStatement [0-49] [create external..., c="def")]
   PathExpression [22-26] [t1-2]

@@ -218,13 +218,13 @@ static std::vector<FunctionTestCall> WrapFunctionTestWithFeature(
 std::vector<FunctionTestCall> WrapFeatureAdditionalStringFunctions(
     absl::Span<const FunctionTestCall> tests) {
   return WrapFunctionTestWithFeature(tests,
-                                     FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS);
+                                     FEATURE_ADDITIONAL_STRING_FUNCTIONS);
 }
 
 std::vector<FunctionTestCall> WrapFeatureAliasesForStringAndDateFunctions(
     absl::Span<const FunctionTestCall> tests) {
   return WrapFunctionTestWithFeature(
-      tests, FEATURE_V_1_4_ALIASES_FOR_STRING_AND_DATE_FUNCTIONS);
+      tests, FEATURE_ALIASES_FOR_STRING_AND_DATE_FUNCTIONS);
 }
 
 std::vector<FunctionTestCall> WrapFeatureLastDay(
@@ -232,7 +232,7 @@ std::vector<FunctionTestCall> WrapFeatureLastDay(
   std::vector<FunctionTestCall> wrapped_tests;
   for (auto call : tests) {
     QueryParamsWithResult::FeatureSet feature_set = {
-        FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS, FEATURE_V_1_2_CIVIL_TIME};
+        FEATURE_ADDITIONAL_STRING_FUNCTIONS, FEATURE_CIVIL_TIME};
     functions::DateTimestampPart date_part =
         static_cast<functions::DateTimestampPart>(
             call.params.param(1).enum_value());
@@ -243,7 +243,7 @@ std::vector<FunctionTestCall> WrapFeatureLastDay(
       case functions::WEEK_THURSDAY:
       case functions::WEEK_FRIDAY:
       case functions::WEEK_SATURDAY:
-        feature_set.insert(FEATURE_V_1_2_WEEK_WITH_WEEKDAY);
+        feature_set.insert(FEATURE_WEEK_WITH_WEEKDAY);
         break;
       default:
         break;
@@ -271,7 +271,7 @@ static std::vector<QueryParamsWithResult> WrapFeatureCollation(
   wrapped_tests.reserve(tests.size());
   for (auto& test_case : tests) {
     QueryParamsWithResult::FeatureSet feature_set = {
-        FEATURE_V_1_3_ANNOTATION_FRAMEWORK, FEATURE_V_1_3_COLLATION_SUPPORT};
+        FEATURE_ANNOTATION_FRAMEWORK, FEATURE_COLLATION_SUPPORT};
     wrapped_tests.emplace_back(test_case.WrapWithFeatureSet(feature_set));
   }
   return wrapped_tests;
@@ -550,7 +550,7 @@ std::vector<FunctionTestCall> ComplianceCodebasedTests::AddSafeFunctionCalls(
     if (!has_errors) continue;
 
     FunctionTestCall safe_call = call;
-    safe_call.params.AddRequiredFeature(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
+    safe_call.params.AddRequiredFeature(FEATURE_SAFE_FUNCTION_CALL);
     safe_call.function_name = absl::StrCat("safe.", call.function_name);
     safe_call.params.MutateResult(
         [](QueryParamsWithResult::Result& mutable_result) {
@@ -694,7 +694,7 @@ ComplianceCodebasedTests::GetFunctionTestsDateArithmetics(
       continue;
     }
     QueryParamsWithResult params = test.params;
-    params.AddRequiredFeature(FEATURE_V_1_3_DATE_ARITHMETICS);
+    params.AddRequiredFeature(FEATURE_DATE_ARITHMETICS);
     out.push_back(params);
   }
   return out;
@@ -1601,6 +1601,11 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonKeys, 1) {
   RunFunctionCallsWithNamedValueArguments(Shard(GetFunctionTestsJsonKeys()));
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonFlatten, 1) {
+  SetNamePrefix("JsonFlatten");
+  RunFunctionCalls(Shard(GetFunctionTestsJsonFlatten()));
+}
+
 SHARDED_TEST_F(ComplianceCodebasedTests, TestHash, 1) {
   SetNamePrefix("Hash");
   RunFunctionCalls(Shard(GetFunctionTestsHash()));
@@ -1949,7 +1954,7 @@ TEST_F(ComplianceCodebasedTests, TestProto) {
   // Set all required fields.
   p.set_int64_key_1(3);
   p.set_int64_key_2(0);
-  // Missing int32_t with default 77.
+  // Missing int32 with default 77.
   SetNamePrefix("ProtoInt32");
   RunStatementOnFeatures("SELECT @p0.int32_val a, @p0.has_int32_val b",
                          {/*arguments=*/{MakeProtoValue(&p)},
@@ -1958,7 +1963,7 @@ TEST_F(ComplianceCodebasedTests, TestProto) {
   // Set all required fields.
   p.set_int64_key_1(3);
   p.set_int64_key_2(0);
-  // int32_t set to 123.
+  // int32 set to 123.
   p.set_int32_val(123);
   SetNamePrefix("ProtoInt32");
   RunStatementOnFeatures("SELECT @p0.int32_val a, @p0.has_int32_val b",
@@ -2287,7 +2292,7 @@ SHARDED_TEST_F(ComplianceCodebasedTests,
 }
 
 // Date is considered a "civil time" type, and the reference implementation now
-// supports it with civil time code, but it predates FEATURE_V_1_2_CIVIL_TIME.
+// supports it with civil time code, but it predates FEATURE_CIVIL_TIME.
 SHARDED_TEST_F(ComplianceCodebasedTests,
                TestCivilTimeConstructionFunctions_DateFromTimestamp, 1) {
   RunFunctionCalls(Shard(GetFunctionTestsDateFromTimestamp()));
@@ -2625,6 +2630,11 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestsFromProtoDuration, 1) {
   RunFunctionCalls(Shard(GetFunctionTestsFromProtoDuration()));
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestsToProtoInterval, 1) {
+  SetNamePrefix("ToProtoInterval");
+  RunFunctionCalls(Shard(GetFunctionTestsToProtoInterval()));
+}
+
 SHARDED_TEST_F(ComplianceCodebasedTests, TestsCosineDistance, 1) {
   SetNamePrefix("CosineDistance");
   RunFunctionCalls(Shard(GetFunctionTestsCosineDistance()));
@@ -2691,8 +2701,7 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestEditDistance, 1) {
   std::vector<FunctionTestCall> tests_bytes =
       GetFunctionTestsEditDistanceBytes();
   for (auto& test_case : tests_bytes) {
-    test_case.params.AddRequiredFeature(
-        FEATURE_V_1_4_ENABLE_EDIT_DISTANCE_BYTES);
+    test_case.params.AddRequiredFeature(FEATURE_ENABLE_EDIT_DISTANCE_BYTES);
     if (test_case.params.params().size() == 3) {
       test_case.params.AddRequiredFeature(FEATURE_NAMED_ARGUMENTS);
     }
@@ -2705,7 +2714,7 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestEditDistance, 1) {
 // Wrap the proto field test cases with civil time typed values. If the type of
 // the parameter or the result of the test case is TIME or DATETIME, wrap the
 // test case so that the original expected result requires
-// FEATURE_V_1_2_CIVIL_TIME in the feature set, and an empty feature set should
+// FEATURE_CIVIL_TIME in the feature set, and an empty feature set should
 // expect to result in an error.
 ABSL_MUST_USE_RESULT static const std::vector<QueryParamsWithResult>
 WrapProtoFieldTestCasesForCivilTime(
@@ -2718,7 +2727,7 @@ WrapProtoFieldTestCasesForCivilTime(
     if (each.required_features().empty()) {
       if (each.param(0).type()->UsingFeatureV12CivilTimeType() ||
           each.result().type()->UsingFeatureV12CivilTimeType()) {
-        each.AddRequiredFeature(FEATURE_V_1_2_CIVIL_TIME);
+        each.AddRequiredFeature(FEATURE_CIVIL_TIME);
       }
     }
   }
@@ -3018,7 +3027,7 @@ ComplianceCodebasedTests::GetProtoFieldTests() {
       repeated_enum_packed, zetasql_test__::TESTENUMNEGATIVE,
       Value::Enum(enum_type, zetasql_test__::TESTENUMNEGATIVE)));
 
-  // Dates with default and alternate encodings, and as int32_t and int64_t,
+  // Dates with default and alternate encodings, and as int32 and int64,
   // and with different forms of the annotation.
   COLLECT_TEST(TEST_FIELD(date, 16101, Value::Date(0), Value::Date(16101)));
   COLLECT_TEST(TEST_FIELD(date, -16101, Value::Date(0), Value::Date(-16101)));
@@ -3093,12 +3102,12 @@ ComplianceCodebasedTests::GetProtoFieldTests() {
       TEST_REPEATED_FIELD(repeated_timestamp_micros_format, 1409338039111222,
                           Value::TimestampFromUnixMicros(1409338039111222)));
 
-  // Timestamps after 1970-01-01 are normal uint64_t values
+  // Timestamps after 1970-01-01 are normal uint64 values
   COLLECT_TEST(TEST_FIELD(timestamp_uint64, 1412453870568456,
                           Value::TimestampFromUnixMicros(0),
                           Value::TimestampFromUnixMicros(1412453870568456)));
-  // Timestamps before 1970-01-01 are very large uint64_t values which are
-  // bit casted to negative int64_t values
+  // Timestamps before 1970-01-01 are very large uint64 values which are
+  // bit casted to negative int64 values
   COLLECT_TEST(TEST_FIELD(timestamp_uint64,
                           absl::bit_cast<uint64_t>(-1394820405112092),
                           Value::TimestampFromUnixMicros(0),

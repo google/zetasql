@@ -150,7 +150,7 @@ absl::Status Resolver::ResolveDeleteStatementImpl(
   std::unique_ptr<NameScope> new_scope_owner;
   if (ast_statement->offset() != nullptr) {
     if (!language().LanguageFeatureEnabled(
-            FEATURE_V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET)) {
+            FEATURE_NESTED_UPDATE_DELETE_WITH_OFFSET)) {
       return MakeSqlErrorAt(ast_statement->offset())
              << "DELETE does not support WITH OFFSET";
     }
@@ -206,7 +206,7 @@ absl::Status Resolver::ResolveDeleteStatementImpl(
 
   std::unique_ptr<const ResolvedReturningClause> resolved_returning_clause;
   if (ast_statement->returning() != nullptr) {
-    if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_DML_RETURNING)) {
+    if (!language().LanguageFeatureEnabled(FEATURE_DML_RETURNING)) {
       return MakeSqlErrorAt(ast_statement->returning())
              << "THEN RETURN is not supported";
     }
@@ -684,8 +684,7 @@ absl::Status Resolver::ResolveInsertStatement(
       ZETASQL_RETURN_IF_ERROR(CheckValidValueTable(*target_path, *table));
       insert_columns.push_back(resolved_table_scan->column_list(0));
     } else {
-      if (language().LanguageFeatureEnabled(
-              FEATURE_V_1_3_OMIT_INSERT_COLUMN_LIST)) {
+      if (language().LanguageFeatureEnabled(FEATURE_OMIT_INSERT_COLUMN_LIST)) {
         // Implicitly expand column list to all writable non-pseudo columns.
         for (const NamedColumn& named_column : name_list->columns()) {
           const IdString column_name_id = named_column.name();
@@ -808,7 +807,7 @@ absl::Status Resolver::ResolveInsertStatementImpl(
 
   std::unique_ptr<const ResolvedReturningClause> resolved_returning_clause;
   if (ast_statement->returning() != nullptr) {
-    if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_DML_RETURNING)) {
+    if (!language().LanguageFeatureEnabled(FEATURE_DML_RETURNING)) {
       return MakeSqlErrorAt(ast_statement->returning())
              << "THEN RETURN is not supported";
     }
@@ -825,8 +824,7 @@ absl::Status Resolver::ResolveInsertStatementImpl(
 
   std::unique_ptr<const ResolvedOnConflictClause> resolved_on_conflict_clause;
   if (ast_statement->on_conflict() != nullptr) {
-    if (!language().LanguageFeatureEnabled(
-            FEATURE_V_1_4_INSERT_ON_CONFLICT_CLAUSE)) {
+    if (!language().LanguageFeatureEnabled(FEATURE_INSERT_ON_CONFLICT_CLAUSE)) {
       return MakeSqlErrorAt(ast_statement->on_conflict())
              << "ON CONFLICT is not supported";
     }
@@ -1249,11 +1247,12 @@ absl::Status Resolver::ResolveUpdateItem(
 
   const ASTGeneralizedPathExpression* target_path =
       GetTargetPath(ast_update_item);
-  ExprResolutionInfo target_no_aggregation(target_scope, "UPDATE clause");
+  auto target_no_aggregation =
+      std::make_unique<ExprResolutionInfo>(target_scope, "UPDATE clause");
   std::vector<UpdateTargetInfo> update_target_infos;
-  ZETASQL_RETURN_IF_ERROR(PopulateUpdateTargetInfos(ast_update_item, is_nested,
-                                            target_path, &target_no_aggregation,
-                                            &update_target_infos));
+  ZETASQL_RETURN_IF_ERROR(PopulateUpdateTargetInfos(
+      ast_update_item, is_nested, target_path, target_no_aggregation.get(),
+      &update_target_infos));
   ZETASQL_RET_CHECK(!update_target_infos.empty());
   // Look for an existing ResolvedUpdateItem node to merge with this update,
   // detecting conflicts in the process.
@@ -1315,7 +1314,7 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
       const auto* dot_generalized_field =
           path->GetAsOrDie<ASTDotGeneralizedField>();
       if (!language().LanguageFeatureEnabled(
-              FEATURE_V_1_2_PROTO_EXTENSIONS_WITH_SET)) {
+              FEATURE_PROTO_EXTENSIONS_WITH_SET)) {
         // Using "proto" in the error message is clearer than "generalized field
         // access", but we can't do that for external engines that don't support
         // protos at all.
@@ -1388,8 +1387,7 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
                << "array element";
       }
 
-      if (!language().LanguageFeatureEnabled(
-              FEATURE_V_1_2_ARRAY_ELEMENTS_WITH_SET)) {
+      if (!language().LanguageFeatureEnabled(FEATURE_ARRAY_ELEMENTS_WITH_SET)) {
         return MakeSqlErrorAt(array_element->position())
                << "UPDATE ... SET does not support array modification with []";
       }
@@ -1426,7 +1424,7 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
                << "use ORDINAL instead";
       } else if (function_name == kArrayAtOrdinal) {
         // 'info.array_offset' is 1-based. Subtract 1 to make it 0-based.
-        const std::string& subtraction_name =
+        absl::string_view subtraction_name =
             FunctionResolver::BinaryOperatorToFunctionName(
                 ASTBinaryExpression::MINUS, /*is_not=*/false,
                 /*not_handled=*/nullptr);
@@ -1886,12 +1884,12 @@ absl::Status Resolver::MergeWithUpdateItem(
 
     // The array element alias is visible for DELETE and UPDATE, but not
     // for INSERT. The visibility of other names depends on
-    // whether FEATURE_V_1_2_CORRELATED_REFS_IN_NESTED_DML is enabled.
+    // whether FEATURE_CORRELATED_REFS_IN_NESTED_DML is enabled.
     std::unique_ptr<NameScope> new_nested_dml_scope_owner;
     const NameScope* nested_dml_scope = nullptr;
     if (is_nested_insert) {
       if (language().LanguageFeatureEnabled(
-              FEATURE_V_1_2_CORRELATED_REFS_IN_NESTED_DML)) {
+              FEATURE_CORRELATED_REFS_IN_NESTED_DML)) {
         // Use the update scope for nested INSERT statements.
         nested_dml_scope = update_scope;
       } else {
@@ -1901,7 +1899,7 @@ absl::Status Resolver::MergeWithUpdateItem(
     } else {
       ZETASQL_RET_CHECK(is_nested_delete || is_nested_update);
       if (language().LanguageFeatureEnabled(
-              FEATURE_V_1_2_CORRELATED_REFS_IN_NESTED_DML)) {
+              FEATURE_CORRELATED_REFS_IN_NESTED_DML)) {
         // Construct the scope for nested DELETE and UPDATE statements by
         // stacking the target alias on top of 'update_scope'.
         new_nested_dml_scope_owner =
@@ -2010,10 +2008,11 @@ absl::Status Resolver::ResolveUpdateStatement(
     if (!language().LanguageFeatureEnabled(FEATURE_DML_UPDATE_WITH_JOIN)) {
       return MakeSqlErrorAt(ast_statement) << "Update with joins not supported";
     }
-    ZETASQL_RETURN_IF_ERROR(
-        ResolveTableExpression(ast_statement->from_clause()->table_expression(),
-                               empty_name_scope_.get(), empty_name_scope_.get(),
-                               &resolved_from_scan, &from_name_list));
+    ZETASQL_RETURN_IF_ERROR(ResolveTableExpression(
+        ast_statement->from_clause()->table_expression(),
+        empty_name_scope_.get(), empty_name_scope_.get(),
+        /*is_leftmost=*/true, /*on_rhs_of_right_or_full_join=*/false,
+        &resolved_from_scan, &from_name_list));
   }
 
   // With the exception of the target expression in the SET clause, the rest of
@@ -2061,7 +2060,7 @@ absl::Status Resolver::ResolveUpdateStatementImpl(
   std::unique_ptr<NameScope> new_update_scope_owner;
   if (ast_statement->offset() != nullptr) {
     if (!language().LanguageFeatureEnabled(
-            FEATURE_V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET)) {
+            FEATURE_NESTED_UPDATE_DELETE_WITH_OFFSET)) {
       return MakeSqlErrorAt(ast_statement->offset())
              << "UPDATE ... SET does not support WITH OFFSET";
     }
@@ -2119,7 +2118,7 @@ absl::Status Resolver::ResolveUpdateStatementImpl(
 
   std::unique_ptr<const ResolvedReturningClause> resolved_returning_clause;
   if (ast_statement->returning() != nullptr) {
-    if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_DML_RETURNING)) {
+    if (!language().LanguageFeatureEnabled(FEATURE_DML_RETURNING)) {
       return MakeSqlErrorAt(ast_statement->returning())
              << "THEN RETURN is not supported";
     }
@@ -2177,9 +2176,12 @@ absl::Status Resolver::ResolveMergeStatement(
 
   std::unique_ptr<const ResolvedScan> resolved_from_scan;
   std::shared_ptr<const NameList> source_name_list(new NameList);
+
   ZETASQL_RETURN_IF_ERROR(ResolveTableExpression(
       statement->table_expression(), empty_name_scope_.get(),
-      empty_name_scope_.get(), &resolved_from_scan, &source_name_list));
+      empty_name_scope_.get(), /*is_leftmost=*/true,
+      /*on_rhs_of_right_or_full_join=*/false, &resolved_from_scan,
+      &source_name_list));
   if (source_name_list->HasRangeVariable(alias)) {
     return MakeSqlErrorAt(statement->table_expression())
            << "Alias " << ToIdentifierLiteral(alias) << " in the source "
@@ -2377,8 +2379,7 @@ absl::Status Resolver::ResolveMergeInsertAction(
 
   resolved_insert_column_list->clear();
 
-  if (!language().LanguageFeatureEnabled(
-          FEATURE_V_1_3_OMIT_INSERT_COLUMN_LIST)) {
+  if (!language().LanguageFeatureEnabled(FEATURE_OMIT_INSERT_COLUMN_LIST)) {
     if (insert_column_list == nullptr) {
       return MakeSqlErrorAt(merge_action) << "Missing insert column list";
     }

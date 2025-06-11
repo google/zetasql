@@ -2152,7 +2152,7 @@ ARRAY<STRUCT<
 ]
 ==
 [prepare_database]
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 CREATE TABLE UuidTable AS
 SELECT CAST(1 AS int64) as row_id,
        CAST("1" AS string) as str_val,
@@ -3466,7 +3466,7 @@ ARRAY<STRUCT<
   }
 ]
 ==
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 [name=groupby_single_base_column_uuid]
 SELECT uuid_val, count(*) as cnt FROM UuidTable t
 GROUP BY uuid_val
@@ -4025,7 +4025,7 @@ ARRAY<STRUCT<
 ==
 
 [name=groupby_struct_distinct]
-[required_features=V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_STRUCT]
 SELECT distinct t
 FROM (
   SELECT AS STRUCT int32_val i32, int64_val i64
@@ -4050,7 +4050,7 @@ ARRAY<STRUCT<t STRUCT<i32 INT32, i64 INT64>>>[known order:
 ==
 
 [name=groupby_struct_agg_struct]
-[required_features=V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_STRUCT]
 SELECT t.i32, count(t), sum(t.i64)
 FROM (
   SELECT AS STRUCT int32_val i32, int64_val i64
@@ -4076,7 +4076,7 @@ ARRAY<STRUCT<i32 INT32, INT64, INT64>>[unknown order:
 ==
 
 [name=groupby_struct_agg]
-[required_features=V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_STRUCT]
 SELECT t.i32, sum(t.i64)
 FROM (
   SELECT AS STRUCT int32_val i32, int64_val i64
@@ -4103,7 +4103,7 @@ ARRAY<STRUCT<i32 INT32, INT64>>[unknown order:
 ==
 
 [name=groupby_array_agg]
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 SELECT s.a, COUNT(*)
 FROM ((SELECT NULL as a) UNION ALL
       (SELECT NULL) UNION ALL
@@ -4139,7 +4139,7 @@ ARRAY<STRUCT<a ARRAY<>, INT64>>[unknown order:
 ==
 
 [name=groupby_array_agg_no_nulls_in_arrays]
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 SELECT s.a, COUNT(*)
 FROM ((SELECT NULL as a) UNION ALL
       (SELECT NULL) UNION ALL
@@ -4165,7 +4165,7 @@ ARRAY<STRUCT<a ARRAY<>, INT64>>[unknown order:
 ==
 
 [name=groupby_array_struct]
-[required_features=V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_ARRAY,GROUP_BY_STRUCT]
 SELECT [(CAST(FLOOR(primary_key / 4) AS INT64), bool_val),
         (MOD(int64_val, 2), NOT(bool_val))] AS a,
        COUNT(*)
@@ -4207,7 +4207,7 @@ NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=groupby_array_struct_no_nulls_in_arrays]
-[required_features=V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_ARRAY,GROUP_BY_STRUCT]
 SELECT [(CAST(FLOOR(primary_key / 4) AS INT64), IFNULL(bool_val, false)),
         (IFNULL(MOD(int64_val, 2), -1), IFNULL(NOT(bool_val), false))] AS a,
        COUNT(*)
@@ -4249,7 +4249,7 @@ NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=groupby_struct_array]
-[required_features=V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_STRUCT,GROUP_BY_ARRAY]
 SELECT ([CAST(FLOOR(primary_key / 4) AS INT64), MOD(int64_val, 2)],
         bool_val) s,
        COUNT(*)
@@ -4300,7 +4300,7 @@ NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=groupby_struct_array_no_nulls_in_arrays]
-[required_features=V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_STRUCT,GROUP_BY_ARRAY]
 SELECT ([CAST(FLOOR(primary_key / 4) AS INT64), MOD(int64_val, 2)],
         bool_val) s,
        COUNT(*)

@@ -31,6 +31,7 @@ namespace macros {
 
 // Keep this cheap to copy.
 struct MacroInfo {
+
   // The contents of the source where this macro was defined. This is needed
   // when printing error messages to show the definition in its context.
   absl::string_view source_text;
@@ -65,6 +66,16 @@ struct MacroInfo {
   // Returns the body of this macro.
   absl::string_view body() const {
     return body_location.GetTextFrom(source_text);
+  }
+
+  // TODO: b/310027386 - Use default == operator once ZetaSQL builds with C++20.
+  friend bool operator==(const MacroInfo& lhs, const MacroInfo& rhs) {
+    return lhs.source_text == rhs.source_text && lhs.location == rhs.location &&
+           lhs.name_location == rhs.name_location &&
+           lhs.body_location == rhs.body_location &&
+           lhs.definition_start_offset == rhs.definition_start_offset &&
+           lhs.definition_start_line == rhs.definition_start_line &&
+           lhs.definition_start_column == rhs.definition_start_column;
   }
 };
 

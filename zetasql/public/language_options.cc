@@ -21,6 +21,7 @@
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.pb.h"
+#include "google/protobuf/descriptor.h"
 #include "zetasql/parser/keywords.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
@@ -36,147 +37,31 @@ namespace zetasql {
 
 LanguageOptions::LanguageFeatureSet
 LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
+  if (version == VERSION_CURRENT) {
+    version = VERSION_1_4;
+  }
+
   LanguageFeatureSet features;
-  switch (version) {
-    // Include versions in decreasing order here, falling through to include
-    // all features from previous versions.
-    case VERSION_CURRENT:
-    case VERSION_1_4:
-      // Add new features here that are "ideally_enabled" and not
-      // "in_development". Add features here when removing "in_development".
-      features.insert(FEATURE_V_1_4_UUID_TYPE);
-      features.insert(FEATURE_V_1_4_ARRAY_AGGREGATION_FUNCTIONS);
-      features.insert(FEATURE_V_1_4_BARE_ARRAY_ACCESS);
-      features.insert(FEATURE_V_1_4_WITH_EXPRESSION);
-      features.insert(FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS);
-      features.insert(FEATURE_V_1_4_STRUCT_POSITIONAL_ACCESSOR);
-      features.insert(FEATURE_V_1_4_LOAD_DATA_PARTITIONS);
-      features.insert(FEATURE_V_1_4_LOAD_DATA_TEMP_TABLE);
-      features.insert(FEATURE_V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH);
-      features.insert(FEATURE_V_1_4_CORRESPONDING);
-      features.insert(FEATURE_V_1_4_FIRST_AND_LAST_N);
-      features.insert(FEATURE_V_1_4_NULLIFZERO_ZEROIFNULL);
-      features.insert(FEATURE_V_1_4_ARRAY_FIND_FUNCTIONS);
-      features.insert(FEATURE_V_1_4_PI_FUNCTIONS);
-      features.insert(FEATURE_V_1_4_CORRESPONDING_FULL);
-      features.insert(FEATURE_V_1_4_BY_NAME);
-      features.insert(FEATURE_V_1_4_GROUP_BY_ALL);
-      features.insert(FEATURE_V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST);
-      features.insert(FEATURE_V_1_4_REMOTE_MODEL);
-      features.insert(FEATURE_V_1_4_LITERAL_CONCATENATION);
-      features.insert(FEATURE_V_1_4_ENABLE_FLOAT_DISTANCE_FUNCTIONS);
-      features.insert(FEATURE_V_1_4_DOT_PRODUCT);
-      features.insert(FEATURE_V_1_4_MANHATTAN_DISTANCE);
-      features.insert(FEATURE_V_1_4_L1_NORM);
-      features.insert(FEATURE_V_1_4_L2_NORM);
-      features.insert(FEATURE_V_1_4_ARRAY_ZIP);
-      features.insert(FEATURE_V_1_4_GROUPING_SETS);
-      features.insert(FEATURE_V_1_4_GROUPING_BUILTIN);
-      features.insert(FEATURE_V_1_4_MULTIWAY_UNNEST);
-      features.insert(FEATURE_V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES);
-      features.insert(FEATURE_V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF);
-      features.insert(FEATURE_V_1_4_JSON_ARRAY_VALUE_EXTRACTION_FUNCTIONS);
-      features.insert(FEATURE_V_1_4_JSON_MORE_VALUE_EXTRACTION_FUNCTIONS);
-      features.insert(FEATURE_V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION);
-      features.insert(FEATURE_V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS);
-      features.insert(FEATURE_V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS);
-      features.insert(FEATURE_V_1_4_SQL_GRAPH);
-      features.insert(FEATURE_V_1_4_SQL_GRAPH_ADVANCED_QUERY);
-      features.insert(FEATURE_V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT);
-      features.insert(FEATURE_V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION);
-      features.insert(FEATURE_V_1_4_SQL_GRAPH_RETURN_EXTENSIONS);
-      features.insert(FEATURE_V_1_4_SQL_GRAPH_PATH_MODE);
-      features.insert(FEATURE_V_1_4_SQL_GRAPH_PATH_TYPE);
-      features.insert(FEATURE_V_1_4_GROUP_BY_GRAPH_PATH);
-      features.insert(FEATURE_V_1_4_FOR_UPDATE);
-      features.insert(FEATURE_V_1_4_LIMIT_OFFSET_EXPRESSIONS);
-      features.insert(FEATURE_V_1_4_MATCH_RECOGNIZE);
-      features.insert(FEATURE_V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES);
-      features.insert(FEATURE_V_1_4_FROM_PROTO_DURATION);
-      features.insert(FEATURE_V_1_4_SIMPLIFY_PIVOT_REWRITE);
-      features.insert(FEATURE_V_1_4_MULTILEVEL_AGGREGATION);
-      features.insert(FEATURE_V_1_4_PIPE_NAMED_WINDOWS);
-      features.insert(FEATURE_V_1_4_PIPE_RECURSIVE_UNION);
-      features.insert(FEATURE_V_1_4_MULTILEVEL_AGGREGATION_IN_UDAS);
-      ABSL_FALLTHROUGH_INTENDED;
-    case VERSION_1_3:
-      // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are
-      // supposed to be stable and frozen, except possibly for bug fixes.
-      features.insert(FEATURE_V_1_3_PROTO_DEFAULT_IF_NULL);
-      features.insert(FEATURE_V_1_3_EXTRACT_FROM_PROTO);
-      features.insert(FEATURE_V_1_3_ARRAY_GREATEST_LEAST);
-      features.insert(FEATURE_V_1_3_ARRAY_ORDERING);
-      features.insert(FEATURE_V_1_3_OMIT_INSERT_COLUMN_LIST);
-      features.insert(FEATURE_V_1_3_IGNORE_PROTO3_USE_DEFAULTS);
-      features.insert(FEATURE_V_1_3_REPLACE_FIELDS);
-      features.insert(FEATURE_V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY);
-      features.insert(FEATURE_V_1_3_ALLOW_DASHES_IN_TABLE_NAME);
-      features.insert(FEATURE_V_1_3_CONCAT_MIXED_TYPES);
-      features.insert(FEATURE_V_1_3_WITH_RECURSIVE);
-      features.insert(FEATURE_V_1_3_PROTO_MAPS);
-      features.insert(FEATURE_V_1_3_ENUM_VALUE_DESCRIPTOR_PROTO);
-      features.insert(FEATURE_V_1_3_DECIMAL_ALIAS);
-      features.insert(FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS);
-      features.insert(FEATURE_V_1_3_ALLOW_CONSECUTIVE_ON);
-      features.insert(FEATURE_V_1_3_ALLOW_REGEXP_EXTRACT_OPTIONALS);
-      features.insert(FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS);
-      features.insert(FEATURE_V_1_3_DATE_ARITHMETICS);
-      features.insert(FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS);
-      features.insert(FEATURE_V_1_3_WITH_GROUP_ROWS);
-      features.insert(FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES);
-      features.insert(FEATURE_V_1_3_EXTENDED_GEOGRAPHY_PARSERS);
-      features.insert(FEATURE_V_1_3_INLINE_LAMBDA_ARGUMENT);
-      features.insert(FEATURE_V_1_3_PIVOT);
-      features.insert(FEATURE_V_1_3_ANNOTATION_FRAMEWORK);
-      features.insert(FEATURE_V_1_3_IS_DISTINCT);
-      features.insert(FEATURE_V_1_3_FORMAT_IN_CAST);
-      features.insert(FEATURE_V_1_3_UNPIVOT);
-      features.insert(FEATURE_V_1_3_DML_RETURNING);
-      features.insert(FEATURE_V_1_3_FILTER_FIELDS);
-      features.insert(FEATURE_V_1_3_QUALIFY);
-      features.insert(FEATURE_V_1_3_REPEAT);
-      features.insert(FEATURE_V_1_3_COLUMN_DEFAULT_VALUE);
-      features.insert(FEATURE_V_1_3_KLL_WEIGHTS);
-      features.insert(FEATURE_V_1_3_FOR_IN);
-      features.insert(FEATURE_V_1_3_CASE_STMT);
-      features.insert(FEATURE_V_1_3_ALLOW_SLASH_PATHS);
-      features.insert(FEATURE_V_1_3_TYPEOF_FUNCTION);
-      features.insert(FEATURE_V_1_3_SCRIPT_LABEL);
-      features.insert(FEATURE_V_1_3_REMOTE_FUNCTION);
-      features.insert(FEATURE_V_1_3_BRACED_PROTO_CONSTRUCTORS);
-      features.insert(FEATURE_V_1_3_LIKE_ANY_SOME_ALL);
-      ABSL_FALLTHROUGH_INTENDED;
-    case VERSION_1_2:
-      features.insert(FEATURE_V_1_2_ARRAY_ELEMENTS_WITH_SET);
-      features.insert(FEATURE_V_1_2_CIVIL_TIME);
-      features.insert(FEATURE_V_1_2_CORRELATED_REFS_IN_NESTED_DML);
-      features.insert(FEATURE_V_1_2_GENERATED_COLUMNS);
-      features.insert(FEATURE_V_1_2_GROUP_BY_ARRAY);
-      features.insert(FEATURE_V_1_2_GROUP_BY_STRUCT);
-      features.insert(FEATURE_V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET);
-      features.insert(FEATURE_V_1_2_PROTO_EXTENSIONS_WITH_NEW);
-      features.insert(FEATURE_V_1_2_PROTO_EXTENSIONS_WITH_SET);
-      features.insert(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
-      features.insert(FEATURE_V_1_2_WEEK_WITH_WEEKDAY);
-      ABSL_FALLTHROUGH_INTENDED;
-    case VERSION_1_1:
-      features.insert(FEATURE_V_1_1_ORDER_BY_COLLATE);
-      features.insert(FEATURE_V_1_1_WITH_ON_SUBQUERY);
-      features.insert(FEATURE_V_1_1_SELECT_STAR_EXCEPT_REPLACE);
-      features.insert(FEATURE_V_1_1_ORDER_BY_IN_AGGREGATE);
-      features.insert(FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES);
-      features.insert(FEATURE_V_1_1_ARRAY_EQUALITY);
-      features.insert(FEATURE_V_1_1_LIMIT_IN_AGGREGATE);
-      features.insert(FEATURE_V_1_1_HAVING_IN_AGGREGATE);
-      features.insert(FEATURE_V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC);
-      features.insert(FEATURE_V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE);
-      features.insert(FEATURE_V_1_1_FOR_SYSTEM_TIME_AS_OF);
-      ABSL_FALLTHROUGH_INTENDED;
-    case VERSION_1_0:
-      break;
-    case __LanguageVersion__switch_must_have_a_default__:
-      ABSL_LOG(ERROR) << "GetLanguageFeaturesForVersion called with " << version;
-      break;
+
+  const google::protobuf::EnumDescriptor* descriptor =
+      google::protobuf::GetEnumDescriptor<LanguageFeature>();
+  for (int i = 0; i < descriptor->value_count(); ++i) {
+    const google::protobuf::EnumValueDescriptor* value_descriptor = descriptor->value(i);
+    if (!value_descriptor->options().HasExtension(language_feature_options)) {
+      continue;
+    }
+    const LanguageFeatureOptions& options =
+        value_descriptor->options().GetExtension(language_feature_options);
+
+    if (options.in_development()) continue;
+    if (!options.ideally_enabled()) continue;
+    if (!options.has_language_version()) continue;
+
+    if (version >= options.language_version()) {
+      const LanguageFeature feature =
+          static_cast<LanguageFeature>(value_descriptor->number());
+      features.insert(feature);
+    }
   }
   return features;
 }
@@ -266,10 +151,16 @@ void LanguageOptions::Serialize(LanguageOptionsProto* proto) const {
 void LanguageOptions::EnableMaximumLanguageFeatures(bool for_development) {
   const google::protobuf::EnumDescriptor* descriptor =
       google::protobuf::GetEnumDescriptor<LanguageFeature>();
+  int previous_feature = -1;
   for (int i = 0; i < descriptor->value_count(); ++i) {
     const google::protobuf::EnumValueDescriptor* value_descriptor = descriptor->value(i);
     const LanguageFeature feature =
         static_cast<LanguageFeature>(value_descriptor->number());
+    if (feature == previous_feature) {
+      // This is an alias.
+      continue;
+    }
+    previous_feature = feature;
     const LanguageFeatureOptions& options =
         value_descriptor->options().GetExtension(language_feature_options);
     const bool enabled = options.ideally_enabled() &&
@@ -291,7 +182,7 @@ void LanguageOptions::EnableMaximumLanguageFeatures(bool for_development) {
 
 const LanguageOptions::KeywordSet& LanguageOptions::GetReservableKeywords() {
   static auto* reservable_keywords =
-      new KeywordSet{"QUALIFY", "MATCH_RECOGNIZE", "GRAPH_TABLE"};
+      new KeywordSet{"QUALIFY", "MATCH_RECOGNIZE", "GRAPH_TABLE", "PER"};
   return *reservable_keywords;
 }
 

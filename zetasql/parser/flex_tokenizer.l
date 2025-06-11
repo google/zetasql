@@ -25,7 +25,6 @@
 
 %{
 #include "zetasql/parser/flex_tokenizer.cc.inc"
-#include "zetasql/parser/token_codes.h"
 %}
 
 %option c++ 8bit noyywrap nounput case-insensitive never-interactive
@@ -228,6 +227,7 @@ call            return Tokens::KW_CALL;
 cascade         return Tokens::KW_CASCADE;
 case            return Tokens::KW_CASE;
 cast            return Tokens::KW_CAST;
+cheapest        return Tokens::KW_CHEAPEST;
 check           return Tokens::KW_CHECK;
 clamped         return Tokens::KW_CLAMPED;
 clone           return Tokens::KW_CLONE;
@@ -244,6 +244,7 @@ contains        return Tokens::KW_CONTAINS;
 continue        return Tokens::KW_CONTINUE;
 copy            return Tokens::KW_COPY;
 corresponding   return Tokens::KW_CORRESPONDING;
+cost            return Tokens::KW_COST;
 create          return Tokens::KW_CREATE;
 cross           return Tokens::KW_CROSS;
 cube            return Tokens::KW_CUBE;
@@ -400,6 +401,7 @@ past            return Tokens::KW_PAST;
 path            return Tokens::KW_PATH;
 paths           return Tokens::KW_PATHS;
 pattern         return Tokens::KW_PATTERN;
+per             return Tokens::KW_PER;
 percent         return Tokens::KW_PERCENT;
 pivot           return Tokens::KW_PIVOT;
 policies        return Tokens::KW_POLICIES;
@@ -511,6 +513,7 @@ window          return Tokens::KW_WINDOW;
 with            return Tokens::KW_WITH;
 within          return Tokens::KW_WITHIN;
 write           return Tokens::KW_WRITE;
+yield           return Tokens::KW_YIELD;
 zone            return Tokens::KW_ZONE;
  /* (broken link) end */
  /* KEYWORDS_END */

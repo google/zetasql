@@ -69,8 +69,127 @@ timestamp(3)
 --
 ALTERNATION GROUP: PARAMETERIZED_TYPES
 --
-ERROR: TIMESTAMP does not support type parameters [at 1:10]
+ERROR: Timestamp precision type parameter is not supported [at 1:10]
 timestamp(3)
+         ^
+==
+
+[language_features=PARAMETERIZED_TYPES,TIMESTAMP_PRECISION]
+timestamp(3)
+--
+TIMESTAMP(3)
+==
+
+# MAX is not supported
+[language_features=PARAMETERIZED_TYPES,TIMESTAMP_PRECISION]
+timestamp(MAX)
+--
+ERROR: TIMESTAMP precision must be 0, 3, 6, 9, or 12 [at 1:10]
+timestamp(MAX)
+         ^
+==
+
+[language_features=PARAMETERIZED_TYPES,TIMESTAMP_PRECISION{{|,TIMESTAMP_NANOS|,TIMESTAMP_NANOS,TIMESTAMP_PICOS}}]
+timestamp({{0|3|6|9|12}})
+--
+ALTERNATION GROUPS:
+    0
+    ,TIMESTAMP_NANOS,0
+    ,TIMESTAMP_NANOS,TIMESTAMP_PICOS,0
+--
+TIMESTAMP(0)
+--
+ALTERNATION GROUPS:
+    3
+    ,TIMESTAMP_NANOS,3
+    ,TIMESTAMP_NANOS,TIMESTAMP_PICOS,3
+--
+TIMESTAMP(3)
+--
+ALTERNATION GROUPS:
+    6
+    ,TIMESTAMP_NANOS,6
+    ,TIMESTAMP_NANOS,TIMESTAMP_PICOS,6
+--
+TIMESTAMP(6)
+--
+ALTERNATION GROUP: 9
+--
+ERROR: Timestamp precision 9 is not supported [at 1:10]
+timestamp(9)
+         ^
+--
+ALTERNATION GROUPS:
+    12
+    ,TIMESTAMP_NANOS,12
+--
+ERROR: Timestamp precision 12 is not supported [at 1:10]
+timestamp(12)
+         ^
+--
+ALTERNATION GROUPS:
+    ,TIMESTAMP_NANOS,9
+    ,TIMESTAMP_NANOS,TIMESTAMP_PICOS,9
+--
+TIMESTAMP(9)
+--
+ALTERNATION GROUP: ,TIMESTAMP_NANOS,TIMESTAMP_PICOS,12
+--
+TIMESTAMP(12)
+==
+
+[language_features=PARAMETERIZED_TYPES,TIMESTAMP_PRECISION{{|,TIMESTAMP_NANOS|,TIMESTAMP_NANOS,TIMESTAMP_PICOS}}]
+timestamp(
+    {{-1|2|13|1.5|BLAH|@p}})
+--
+ALTERNATION GROUPS:
+    -1
+    ,TIMESTAMP_NANOS,-1
+    ,TIMESTAMP_NANOS,TIMESTAMP_PICOS,-1
+--
+ERROR: Syntax error: Unexpected "-" [at 2:5]
+    -1)
+    ^
+--
+ALTERNATION GROUPS:
+    2
+    13
+    1.5
+    ,TIMESTAMP_NANOS,2
+    ,TIMESTAMP_NANOS,13
+    ,TIMESTAMP_NANOS,1.5
+    ,TIMESTAMP_NANOS,TIMESTAMP_PICOS,2
+    ,TIMESTAMP_NANOS,TIMESTAMP_PICOS,13
+    ,TIMESTAMP_NANOS,TIMESTAMP_PICOS,1.5
+--
+ERROR: TIMESTAMP precision must be 0, 3, 6, 9, or 12 [at 1:10]
+timestamp(
+         ^
+--
+ALTERNATION GROUPS:
+    BLAH
+    ,TIMESTAMP_NANOS,BLAH
+    ,TIMESTAMP_NANOS,TIMESTAMP_PICOS,BLAH
+--
+ERROR: Syntax error: Unexpected identifier "BLAH" [at 2:5]
+    BLAH)
+    ^
+--
+ALTERNATION GROUPS:
+    @p
+    ,TIMESTAMP_NANOS,@p
+    ,TIMESTAMP_NANOS,TIMESTAMP_PICOS,@p
+--
+ERROR: Syntax error: Unexpected "@" [at 2:5]
+    @p)
+    ^
+==
+
+[language_features=PARAMETERIZED_TYPES,TIMESTAMP_PRECISION{{|,TIMESTAMP_NANOS|,TIMESTAMP_NANOS,TIMESTAMP_PICOS}}]
+timestamp(3, 3)
+--
+ERROR: TIMESTAMP type can only have one parameter. Found 2 parameters [at 1:10]
+timestamp(3, 3)
          ^
 ==
 
@@ -726,13 +845,13 @@ ALTERNATION GROUP: PARAMETERIZED_TYPES,NUMERIC_TYPE,BIGNUMERIC_TYPE
 STRUCT<STRUCT<ARRAY<NUMERIC(4, 1)>, ARRAY<STRING(10)>, INT32, BIGNUMERIC(MAX, 2), INT64>>
 ==
 
-[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 string collate 'und:ci'
 --
 STRING COLLATE 'und:ci'
 ==
 
-[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 string collate 'und:ci' COLLATE 'binary'
 --
 ERROR: Syntax error: Expected end of input but got keyword COLLATE [at 1:25]
@@ -740,7 +859,7 @@ string collate 'und:ci' COLLATE 'binary'
                         ^
 ==
 
-[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 double collate 'und:ci'
 --
 ERROR: Type DOUBLE does not support collation name [at 1:8]
@@ -748,7 +867,7 @@ double collate 'und:ci'
        ^
 ==
 
-[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 range<date> collate 'und:ci'
 --
 ERROR: Range type does not support collation name [at 1:13]
@@ -756,7 +875,7 @@ range<date> collate 'und:ci'
             ^
 ==
 
-[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 range<string collate 'und:ci'>
 --
 ERROR: Unsupported type: RANGE<STRING> is not supported [at 1:7]
@@ -764,7 +883,7 @@ range<string collate 'und:ci'>
       ^
 ==
 
-[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 range<array<string collate 'und:ci'>>
 --
 ERROR: Unsupported type: RANGE<ARRAY<STRING>> is not supported [at 1:7]
@@ -772,7 +891,7 @@ range<array<string collate 'und:ci'>>
       ^
 ==
 
-[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 range<struct<x string collate 'und:ci', y int64>>
 --
 ERROR: Unsupported type: RANGE<STRUCT<x STRING, y INT64>> is not supported [at 1:7]
@@ -780,19 +899,19 @@ range<struct<x string collate 'und:ci', y int64>>
       ^
 ==
 
-[language_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=PARAMETERIZED_TYPES,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 string(100) collate 'ABC'
 --
 STRING(100) COLLATE 'ABC'
 ==
 
-[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 struct<string collate 'und:ci'>
 --
 STRUCT<STRING COLLATE 'und:ci'>
 ==
 
-[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 struct<string> collate 'und:ci'
 --
 ERROR: STRUCT<STRING> type cannot have collation by itself, it can only have collation on its field type [at 1:16]
@@ -800,7 +919,7 @@ struct<string> collate 'und:ci'
                ^
 ==
 
-[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 struct<double collate 'und:ci'>
 --
 ERROR: Type DOUBLE does not support collation name [at 1:15]
@@ -808,13 +927,13 @@ struct<double collate 'und:ci'>
               ^
 ==
 
-[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 array<string collate 'und:ci'>
 --
 ARRAY<STRING COLLATE 'und:ci'>
 ==
 
-[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 array<string> collate 'und:ci'
 --
 ERROR: ARRAY<STRING> type cannot have collation by itself, it can only have collation on its element type [at 1:15]
@@ -822,28 +941,28 @@ array<string> collate 'und:ci'
               ^
 ==
 
-[language_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=PARAMETERIZED_TYPES,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 array<string(100) collate 'ABC'>
 --
 ARRAY<STRING(100) COLLATE 'ABC'>
 ==
 
-[language_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=PARAMETERIZED_TYPES,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 array<struct<a string(100), b string collate 'ABC', c double, d string>>
 --
 ARRAY<STRUCT<a STRING(100), b STRING COLLATE 'ABC', c DOUBLE, d STRING>>
 ==
 
-[language_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=PARAMETERIZED_TYPES,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 struct<a array<string(100) collate 'ABC'>, b string, c struct<string(50) collate 'CDE'>>
 --
 STRUCT<a ARRAY<STRING(100) COLLATE 'ABC'>, b STRING, c STRUCT<STRING(50) COLLATE 'CDE'>>
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 time
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 TIME
 --
@@ -854,10 +973,10 @@ time
 ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 datetime
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 DATETIME
 --
@@ -910,36 +1029,36 @@ array<numeric>
       ^
 ==
 
-[language_features={{|NUMERIC_TYPE|V_1_3_DECIMAL_ALIAS|NUMERIC_TYPE,V_1_3_DECIMAL_ALIAS}}]
+[language_features={{|NUMERIC_TYPE|DECIMAL_ALIAS|NUMERIC_TYPE,DECIMAL_ALIAS}}]
 decimal
 --
 ALTERNATION GROUPS:
     <empty>
     NUMERIC_TYPE
-    V_1_3_DECIMAL_ALIAS
+    DECIMAL_ALIAS
 --
 ERROR: Type not found: decimal [at 1:1]
 decimal
 ^
 --
-ALTERNATION GROUP: NUMERIC_TYPE,V_1_3_DECIMAL_ALIAS
+ALTERNATION GROUP: NUMERIC_TYPE,DECIMAL_ALIAS
 --
 NUMERIC
 ==
 
-[language_features={{|NUMERIC_TYPE|V_1_3_DECIMAL_ALIAS|NUMERIC_TYPE,V_1_3_DECIMAL_ALIAS}}]
+[language_features={{|NUMERIC_TYPE|DECIMAL_ALIAS|NUMERIC_TYPE,DECIMAL_ALIAS}}]
 array<decimal>
 --
 ALTERNATION GROUPS:
     <empty>
     NUMERIC_TYPE
-    V_1_3_DECIMAL_ALIAS
+    DECIMAL_ALIAS
 --
 ERROR: Type not found: decimal [at 1:7]
 array<decimal>
       ^
 --
-ALTERNATION GROUP: NUMERIC_TYPE,V_1_3_DECIMAL_ALIAS
+ALTERNATION GROUP: NUMERIC_TYPE,DECIMAL_ALIAS
 --
 ARRAY<NUMERIC>
 ==
@@ -972,36 +1091,36 @@ array<bignumeric>
       ^
 ==
 
-[language_features={{|BIGNUMERIC_TYPE|V_1_3_DECIMAL_ALIAS|BIGNUMERIC_TYPE,V_1_3_DECIMAL_ALIAS}}]
+[language_features={{|BIGNUMERIC_TYPE|DECIMAL_ALIAS|BIGNUMERIC_TYPE,DECIMAL_ALIAS}}]
 bigdecimal
 --
 ALTERNATION GROUPS:
     <empty>
     BIGNUMERIC_TYPE
-    V_1_3_DECIMAL_ALIAS
+    DECIMAL_ALIAS
 --
 ERROR: Type not found: bigdecimal [at 1:1]
 bigdecimal
 ^
 --
-ALTERNATION GROUP: BIGNUMERIC_TYPE,V_1_3_DECIMAL_ALIAS
+ALTERNATION GROUP: BIGNUMERIC_TYPE,DECIMAL_ALIAS
 --
 BIGNUMERIC
 ==
 
-[language_features={{|BIGNUMERIC_TYPE|V_1_3_DECIMAL_ALIAS|BIGNUMERIC_TYPE,V_1_3_DECIMAL_ALIAS}}]
+[language_features={{|BIGNUMERIC_TYPE|DECIMAL_ALIAS|BIGNUMERIC_TYPE,DECIMAL_ALIAS}}]
 array<bigdecimal>
 --
 ALTERNATION GROUPS:
     <empty>
     BIGNUMERIC_TYPE
-    V_1_3_DECIMAL_ALIAS
+    DECIMAL_ALIAS
 --
 ERROR: Type not found: bigdecimal [at 1:7]
 array<bigdecimal>
       ^
 --
-ALTERNATION GROUP: BIGNUMERIC_TYPE,V_1_3_DECIMAL_ALIAS
+ALTERNATION GROUP: BIGNUMERIC_TYPE,DECIMAL_ALIAS
 --
 ARRAY<BIGNUMERIC>
 ==
@@ -1257,7 +1376,7 @@ STRUCT<x FUNCTION<()->INT64>>
          ^
 ==
 
-[language_features={{|V_1_4_MAP_TYPE}}]
+[language_features={{|MAP_TYPE}}]
 MAP<STRING, STRING>
 --
 
@@ -1267,30 +1386,30 @@ ERROR: MAP datatype is not supported [at 1:1]
 MAP<STRING, STRING>
 ^
 --
-ALTERNATION GROUP: V_1_4_MAP_TYPE
+ALTERNATION GROUP: MAP_TYPE
 --
 MAP<STRING, STRING>
 ==
 
-[language_features=V_1_4_MAP_TYPE]
+[language_features=MAP_TYPE]
 MAP<STRING, MAP<STRING, STRING>>
 --
 MAP<STRING, MAP<STRING, STRING>>
 ==
 
-[language_features=V_1_4_MAP_TYPE]
+[language_features=MAP_TYPE]
 MAP<STRING, MAP<STRING, STRING> >
 --
 MAP<STRING, MAP<STRING, STRING>>
 ==
 
-[language_features=V_1_4_MAP_TYPE]
+[language_features=MAP_TYPE]
 MAP<STRING, ARRAY<STRUCT<a STRING>>>
 --
 MAP<STRING, ARRAY<STRUCT<a STRING>>>
 ==
 
-[language_features=V_1_4_MAP_TYPE,GEOGRAPHY]
+[language_features=MAP_TYPE,GEOGRAPHY]
 MAP<GEOGRAPHY, STRING>
 --
 ERROR: MAP key type GEOGRAPHY is not groupable [at 1:1]
@@ -1298,7 +1417,7 @@ MAP<GEOGRAPHY, STRING>
 ^
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_ARRAY]
+[language_features=MAP_TYPE,GROUP_BY_ARRAY]
 MAP<STRUCT<a ARRAY<STRING>>, INT64>
 --
 ERROR: MAP key type STRUCT is not groupable [at 1:1]
@@ -1306,13 +1425,13 @@ MAP<STRUCT<a ARRAY<STRING>>, INT64>
 ^
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY]
+[language_features=MAP_TYPE,GROUP_BY_STRUCT,GROUP_BY_ARRAY]
 MAP<STRUCT<a ARRAY<STRING>>, INT64>
 --
 MAP<STRUCT<a ARRAY<STRING>>, INT64>
 ==
 
-[language_features=V_1_4_MAP_TYPE,PARAMETERIZED_TYPES]
+[language_features=MAP_TYPE,PARAMETERIZED_TYPES]
 MAP<STRING, STRING>(5)
 --
 ERROR: Type MAP<STRING, STRING> does not support type parameters [at 1:20]
@@ -1320,31 +1439,31 @@ MAP<STRING, STRING>(5)
                    ^
 ==
 
-[language_features=V_1_4_MAP_TYPE,PARAMETERIZED_TYPES]
+[language_features=MAP_TYPE,PARAMETERIZED_TYPES]
 MAP<STRING, STRING(5)>
 --
 MAP<STRING, STRING(5)>
 ==
 
-[language_features=V_1_4_MAP_TYPE,PARAMETERIZED_TYPES]
+[language_features=MAP_TYPE,PARAMETERIZED_TYPES]
 MAP<STRING(5), STRING>
 --
 MAP<STRING(5), STRING>
 ==
 
-[language_features=V_1_4_MAP_TYPE,PARAMETERIZED_TYPES]
+[language_features=MAP_TYPE,PARAMETERIZED_TYPES]
 MAP<STRING, STRUCT<a STRING(5)>>
 --
 MAP<STRING, STRUCT<a STRING(5)>>
 ==
 
-[language_features=V_1_4_MAP_TYPE,PARAMETERIZED_TYPES]
+[language_features=MAP_TYPE,PARAMETERIZED_TYPES]
 MAP<STRING, ARRAY<STRUCT<a STRING(5)>>>
 --
 MAP<STRING, ARRAY<STRUCT<a STRING(5)>>>
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=MAP_TYPE,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 MAP<STRING, STRING> collate 'und:ci'
 --
 ERROR: Collation is not supported on MAP or its key and value types [at 1:21]
@@ -1352,7 +1471,7 @@ MAP<STRING, STRING> collate 'und:ci'
                     ^
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=MAP_TYPE,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 MAP<STRING collate 'und:ci', STRING>
 --
 ERROR: Collation is not supported on MAP or its key and value types [at 1:5]
@@ -1360,7 +1479,7 @@ MAP<STRING collate 'und:ci', STRING>
     ^
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=MAP_TYPE,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 MAP<STRING, STRING collate 'und:ci'>
 --
 ERROR: Collation is not supported on MAP or its key and value types [at 1:13]
@@ -1368,7 +1487,7 @@ MAP<STRING, STRING collate 'und:ci'>
             ^
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=MAP_TYPE,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 MAP<STRING, ARRAY<STRUCT<a STRING collate 'und:ci'>>>
 --
 ERROR: Collation is not supported on MAP or its key and value types [at 1:13]
@@ -1376,7 +1495,7 @@ MAP<STRING, ARRAY<STRUCT<a STRING collate 'und:ci'>>>
             ^
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT]
+[language_features=MAP_TYPE,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,GROUP_BY_ARRAY,GROUP_BY_STRUCT]
 MAP<STRUCT<a ARRAY<STRING collate 'und:ci'>>, STRING>
 --
 ERROR: Collation is not supported on MAP or its key and value types [at 1:5]

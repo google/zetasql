@@ -27,7 +27,7 @@ ARRAY<STRUCT<Key INT64, Value BYTES>>[
 ==
 
 [prepare_database]
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 CREATE TABLE StringTable(
   primary_Key INT64,
   col_ci STRING COLLATE 'und:ci',
@@ -78,7 +78,7 @@ ARRAY<STRUCT<
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL]
 [name=like_all_string_nulls]
 SELECT
   Value,
@@ -99,7 +99,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[know
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL]
 [name=like_all_string_constant_patterns]
 SELECT
   Value,
@@ -116,7 +116,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL]
 [name=like_all_string_nonconstant_patterns]
 SELECT
   Value,
@@ -132,7 +132,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL>>[known order:
   {"Value2", true, false, true, false}
 ]
 ==
-[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL]
 [name=like_all_bytes_nulls]
 SELECT
   Value,
@@ -153,7 +153,7 @@ ARRAY<STRUCT<Value BYTES, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL]
 [name=like_all_bytes_constant_patterns]
 SELECT
   Value,
@@ -170,7 +170,7 @@ ARRAY<STRUCT<Value BYTES, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL]
 [name=like_all_bytes_nonconstant_patterns]
 SELECT
   Value,
@@ -191,7 +191,7 @@ ARRAY<STRUCT<Value BYTES, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_all_string_array_nulls]
 SELECT
   Value,
@@ -213,7 +213,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_all_string_array_constant_patterns]
 SELECT
   Value,
@@ -231,7 +231,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_all_string_array_nonconstant_patterns]
 SELECT
   Value,
@@ -247,7 +247,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL>>[known order:
   {"Value2", true, false, true, false}
 ]
 ==
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_all_bytes_array_nulls]
 SELECT
   Value,
@@ -269,7 +269,7 @@ ARRAY<STRUCT<Value BYTES, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_all_bytes_array_constant_patterns]
 SELECT
   Value,
@@ -286,7 +286,7 @@ ARRAY<STRUCT<Value BYTES, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_all_bytes_array_nonconstant_patterns]
 SELECT
   Value,
@@ -307,7 +307,7 @@ ARRAY<STRUCT<Value BYTES, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_all_string_array_function]
 SELECT
   Value,
@@ -322,23 +322,8 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
 ]
 
 ==
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
-[name=like_all_with_collation_ci_test_with_null_elements]
-# Test "LIKE ALL" with collation for NULL elements on either LHS or RHS list.
-SELECT
-  collate(NULL, 'und:ci') LIKE ALL (NULL, NULL),
-  collate(NULL, 'und:ci') LIKE ALL (NULL, 'abc'),
-  collate(NULL, 'und:ci') LIKE ALL ('abc', 'abc'),
-  collate('abc', 'und:ci') LIKE ALL (NULL, NULL),
-  collate('abc', 'und:ci') LIKE ALL (NULL, 'ABC'),
-  collate('abc', 'und:ci') LIKE ALL (NULL, 'xyz'),
---
-ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
-  {NULL, NULL, NULL, NULL, NULL, false}
-]
-==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
 [name=not_like_all_with_collation_ci_test_with_null_elements]
 # Test "NOT LIKE ALL" with collation for NULL elements on either LHS or RHS list.
 SELECT
@@ -356,7 +341,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
 [name=like_all_with_collation_ci_on_lhs_element]
 # Test "LIKE ALL" with LHS wrapped in collation.
 SELECT
@@ -370,7 +355,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{true, true, true, false, false}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
 [name=not_like_all_with_collation_ci_on_lhs_element]
 # Test "NOT LIKE ALL" with LHS wrapped in collation.
 SELECT
@@ -387,7 +372,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
 [name=like_all_with_collation_ci_on_one_of_the_rhs_element]
 # Test "LIKE ALL" with one of the elements in RHS wrapped in collation.
 SELECT
@@ -401,7 +386,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{true, true, true, false, false}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
 [name=not_like_all_with_collation_ci_on_one_of_the_rhs_element]
 # Test "NOT LIKE ALL" with one of the elements in RHS wrapped in collation.
 SELECT
@@ -418,7 +403,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
 [name=like_all_with_collation_ci_with_ignorable_character]
 # Test "LIKE ALL" with an ignorable character in the pattern.
 # \u070F is an ignorable character
@@ -431,7 +416,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{true, true, false}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
 [name=not_like_all_with_collation_ci_with_ignorable_character]
 # Test "NOT LIKE ALL" with an ignorable character in the pattern.
 # \u070F is an ignorable character
@@ -444,7 +429,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{false, false, true}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
 [name=like_all_with_column_collation_binary]
 # Test "LIKE ALL" with table column having binary collation.
 select primary_key, col_binary from StringTable WHERE col_binary LIKE ALL ('a')
@@ -460,7 +445,7 @@ ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[unknown order:
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
 [name=not_like_all_with_column_collation_binary]
 # Test "NOT LIKE ALL" with table column having binary collation.
 select primary_key, col_binary from StringTable WHERE col_binary NOT LIKE ALL ('a')
@@ -479,7 +464,7 @@ ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[unknown order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL]
 [name=like_all_string_constant_patterns_in_scalar_subquery]
 SELECT
   Value,
@@ -497,9 +482,9 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_SUBQUERY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
 [name=like_all_string_constant_patterns_in_non_paranthesized_scalar_subquery]
-# These subqueries need V_1_4_LIKE_ANY_SOME_ALL_SUBQUERY to be turned on.
+# These subqueries need LIKE_ANY_SOME_ALL_SUBQUERY to be turned on.
 SELECT
   Value,
   Value LIKE ALL (SELECT 'Value1'),
@@ -513,7 +498,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_all_string_constant_patterns_in_subquery_as_array_element]
 SELECT
   Value,
@@ -530,7 +515,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=not_like_all_string_constant_patterns_in_subquery_as_array_element]
 SELECT
   Value,
@@ -549,7 +534,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_all_array_with_collation_with_null_values]
 # Test "LIKE ALL ARRAY" with collation with NULL values in LHS or RHS list.
 SELECT
@@ -567,7 +552,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=not_like_all_array_with_collation_with_null_values]
 # Test "NOT LIKE ALL ARRAY" with collation with NULL values in LHS or RHS list.
 SELECT
@@ -581,11 +566,11 @@ SELECT
   'GOOGLE' NOT LIKE ALL UNNEST([collate('google', 'und:ci'), NULL]),
 --
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
-  {false, NULL, false, NULL, NULL, NULL, NULL, NULL}
+  {true, NULL, true, NULL, NULL, NULL, false, false}
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_all_array_with_collation]
 # Test "LIKE ALL ARRAY" with collation in LHS or RHS list.
 SELECT
@@ -604,7 +589,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=not_like_all_array_with_collation]
 # Test "NOT LIKE ALL ARRAY" with collation in LHS or RHS list.
 SELECT
@@ -619,11 +604,11 @@ SELECT
   collate('GooG', 'und:ci') NOT LIKE ALL UNNEST(['%p%', collate('x%a%', 'und:ci')]),
 --
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
-  {NULL, NULL, true, true, true, true, true, true, true}
+  {false, false, false, false, false, false, false, false, true}
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_all_array_with_arrayconact_function]
 # Test "LIKE ALL ARRAY" with ARRAY_CONCAT function.
 SELECT
@@ -640,7 +625,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=not_like_all_array_with_arrayconact_function]
 # Test "NOT LIKE ALL ARRAY" with ARRAY_CONCAT function.
 SELECT
@@ -657,7 +642,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_all_array_with_arrayconact_function_with_collation]
 # Test "LIKE ALL ARRAY" with ARRAY_CONCAT function with collation enabled.
 SELECT
@@ -674,7 +659,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=not_like_all_array_with_arrayconact_function_with_collation]
 # Test "NOT LIKE ALL ARRAY" with ARRAY_CONCAT function with collation enabled.
 SELECT
@@ -691,7 +676,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=not_like_all_array_with_scalar_subquery]
 SELECT
   Value,
@@ -705,12 +690,12 @@ FROM KeyValue ORDER BY Value;
 --
 ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
   {NULL, NULL, NULL, NULL, NULL, NULL, NULL},
-  {"Value1", false, true, NULL, true, false, true},
-  {"Value2", true, true, true, true, true, false}
+  {"Value1", false, false, false, false, false, true},
+  {"Value2", true, false, NULL, false, true, false}
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_SUBQUERY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
 [name=not_like_all_with_patterns_in_non_paranthesized_scalar_subquery]
 # TODO: Like any/all subquery is current not using the new
 # implementation of 'not like any/all' operator which needs to be fixed
@@ -729,7 +714,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_all_array_with_scalar_subquery_with_collation]
 SELECT
   Value,
@@ -752,7 +737,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=not_like_all_array_with_scalar_subquery_with_collation]
 SELECT
   Value,
@@ -775,7 +760,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=not_like_all_array_with_array_agg_function]
 SELECT
   'a' LIKE ALL UNNEST((SELECT ARRAY_AGG(x) FROM UNNEST(['b', NULL]) x)),
@@ -789,7 +774,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_all_array_with_array_agg_function]
 SELECT
   'a' NOT LIKE ALL UNNEST((SELECT ARRAY_AGG(x) FROM UNNEST(['b', NULL]) x)),
@@ -801,7 +786,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{NULL, false, false, true, false}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_all_array_with_array_agg_function_with_collation]
 SELECT
   'a' LIKE ALL UNNEST(
@@ -822,7 +807,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=not_like_all_array_with_array_agg_function_with_collation]
 SELECT
   'a' NOT LIKE ALL UNNEST(

@@ -16,6 +16,10 @@
 
 #include "zetasql/public/analyzer_options.h"
 
+#include <memory>
+#include <utility>
+
+#include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
@@ -33,16 +37,36 @@ TEST(AnalyzerOptionsTest, CollateFeatureValidation) {
   ZETASQL_EXPECT_OK(ValidateAnalyzerOptions(options));
 
   LanguageOptions language;
-  language.SetEnabledLanguageFeatures({FEATURE_V_1_3_COLLATION_SUPPORT});
+  language.SetEnabledLanguageFeatures({FEATURE_COLLATION_SUPPORT});
   options.set_language(language);
-  EXPECT_TRUE(options.language().LanguageFeatureEnabled(
-      FEATURE_V_1_3_COLLATION_SUPPORT));
-  EXPECT_FALSE(options.language().LanguageFeatureEnabled(
-      FEATURE_V_1_3_ANNOTATION_FRAMEWORK));
+  EXPECT_TRUE(
+      options.language().LanguageFeatureEnabled(FEATURE_COLLATION_SUPPORT));
+  EXPECT_FALSE(
+      options.language().LanguageFeatureEnabled(FEATURE_ANNOTATION_FRAMEWORK));
   EXPECT_THAT(ValidateAnalyzerOptions(options),
               StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("COLLATION_SUPPORT language feature requires "
                                  "the ANNOTATION_FRAMEWORK language feature")));
+}
+
+TEST(AnalyzerOptionsTest, SetColumnIdSequenceNumber) {
+  AnalyzerOptions options;
+  EXPECT_EQ(options.column_id_sequence_number(), nullptr);
+
+  zetasql_base::SequenceNumber sequence;
+  options.set_column_id_sequence_number(&sequence);
+  EXPECT_EQ(options.column_id_sequence_number(), &sequence);
+  EXPECT_EQ(options.column_id_sequence_number()->GetNext(), 0);
+}
+
+TEST(AnalyzerOptionsTest, SetSharedColumnIdSequenceNumber) {
+  AnalyzerOptions options;
+  EXPECT_EQ(options.column_id_sequence_number(), nullptr);
+
+  auto sequence = std::make_shared<zetasql_base::SequenceNumber>();
+  sequence->GetNext();
+  options.SetSharedColumnIdSequenceNumber(std::move(sequence));
+  EXPECT_EQ(options.column_id_sequence_number()->GetNext(), 1);
 }
 
 }  // namespace zetasql

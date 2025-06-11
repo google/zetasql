@@ -46,6 +46,7 @@
 #include "zetasql/public/multi_catalog.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
+#include "zetasql/public/prepared_expression_constant_evaluator.h"
 #include "zetasql/public/property_graph.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/simple_catalog_util.h"
@@ -260,7 +261,9 @@ void ReferenceDriver::AddTableInternal(const std::string& table_name,
   table_info.table_name = table_name;
   table_info.required_features = table.options.required_features();
   table_info.is_value_table = table.options.is_value_table();
-  table_info.array = array_value;
+  table_info.array = table.table_as_value_with_measures.has_value()
+                         ? table.table_as_value_with_measures.value()
+                         : table.table_as_value;
   table_info.table =
       const_cast<SimpleTable*>(dynamic_cast<const SimpleTable*>(catalog_table));
   ABSL_CHECK(table_info.table != nullptr);
@@ -271,6 +274,7 @@ void ReferenceDriver::AddTableInternal(const std::string& table_name,
 absl::Status ReferenceDriver::CreateDatabase(const TestDatabase& test_db) {
   ZETASQL_RETURN_IF_ERROR(catalog_.SetTestDatabase(test_db));
   ZETASQL_RETURN_IF_ERROR(catalog_.SetLanguageOptions(language_options_));
+  ZETASQL_RETURN_IF_ERROR(catalog_.AddTablesWithMeasures(test_db, language_options_));
 
   // Replace tables to the catalog.
   tables_.clear();
@@ -329,6 +333,26 @@ absl::Status ReferenceDriver::AddSqlUdfs(
   return AddSqlUdfs(create_function_stmts, FunctionOptions());
 }
 
+absl::Status ReferenceDriver::AddSqlConstants(
+    absl::Span<const std::string> create_constant_stmts) {
+  // Ensure the language options used allow CREATE CONSTANT in schema setup
+  LanguageOptions language = language_options_;
+  language.AddSupportedStatementKind(RESOLVED_CREATE_CONSTANT_STMT);
+  AnalyzerOptions analyzer_options(language);
+  analyzer_options.set_default_time_zone(default_time_zone_);
+  PreparedExpressionConstantEvaluator constant_evaluator(EvaluatorOptions{
+      .default_time_zone = default_time_zone_,
+  });
+  analyzer_options.set_constant_evaluator(&constant_evaluator);
+  for (const std::string& create_constant : create_constant_stmts) {
+    artifacts_.emplace_back();
+    ZETASQL_RETURN_IF_ERROR(
+        AddConstantFromCreateConstant(create_constant, analyzer_options,
+                                      artifacts_.back(), *catalog_.catalog()));
+  }
+  return absl::OkStatus();
+}
+
 absl::Status ReferenceDriver::AddSqlUdfs(
     absl::Span<const std::string> create_function_stmts,
     FunctionOptions function_options) {
@@ -343,7 +367,7 @@ absl::Status ReferenceDriver::AddSqlUdfs(
     artifacts_.emplace_back();
     ZETASQL_RETURN_IF_ERROR(AddFunctionFromCreateFunction(
         create_function, analyzer_options, /*allow_persistent_function=*/false,
-        function_options, artifacts_.back(), *catalog_.catalog(),
+        &function_options, artifacts_.back(), *catalog_.catalog(),
         *catalog_.catalog()));
   }
   return absl::OkStatus();
@@ -393,7 +417,6 @@ absl::StatusOr<AnalyzerOptions> ReferenceDriver::GetAnalyzerOptions(
   analyzer_options.set_enabled_rewrites(enabled_rewrites_);
   analyzer_options.set_error_message_mode(
       ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET);
-  analyzer_options.set_show_function_signature_mismatch_details(true);
   analyzer_options.set_default_time_zone(default_time_zone_);
 
   for (const auto& p : parameters) {

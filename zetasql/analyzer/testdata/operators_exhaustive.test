@@ -19,7 +19,6 @@
 
 # Arithmetic between UINT64 and signed ints is invalid.  Those error tests
 # follow this one.
-[default also_show_signature_mismatch_details]
 [language_features={{NUMERIC_TYPE|}}]
 select `int32` + `int32`,
        `int32` + `int64`,
@@ -366,11 +365,6 @@ QueryStmt
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for operator + for argument types: INT32, NUMERIC. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 6:8]
-       `int32` + `numeric`,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator +
   Argument types: INT32, NUMERIC
   Signature: INT64 + INT64
@@ -509,11 +503,6 @@ QueryStmt
 --
 ALTERNATION GROUP: NUMERIC_TYPE
 --
-ERROR: No matching signature for operator + for argument types: INT32, BIGNUMERIC. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE; NUMERIC + NUMERIC [at 1:8]
-select `int32` + `bignumeric`,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator +
   Argument types: INT32, BIGNUMERIC
   Signature: INT64 + INT64
@@ -529,11 +518,6 @@ select `int32` + `bignumeric`,
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for operator + for argument types: INT32, BIGNUMERIC. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
-select `int32` + `bignumeric`,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator +
   Argument types: INT32, BIGNUMERIC
   Signature: INT64 + INT64
@@ -550,11 +534,6 @@ select `int32` + `bignumeric`,
 select `int32` + `uint64`
 from SimpleTypes
 --
-ERROR: No matching signature for operator + for argument types: INT32, UINT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
-select `int32` + `uint64`
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator +
   Argument types: INT32, UINT64
   Signature: INT64 + INT64
@@ -571,11 +550,6 @@ select `int32` + `uint64`
 select `int64` + `uint64`
 from SimpleTypes
 --
-ERROR: No matching signature for operator + for argument types: INT64, UINT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
-select `int64` + `uint64`
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator +
   Argument types: INT64, UINT64
   Signature: INT64 + INT64
@@ -592,11 +566,6 @@ select `int64` + `uint64`
 select `uint64` + `int32`
 from SimpleTypes
 --
-ERROR: No matching signature for operator + for argument types: UINT64, INT32. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
-select `uint64` + `int32`
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator +
   Argument types: UINT64, INT32
   Signature: INT64 + INT64
@@ -613,11 +582,6 @@ select `uint64` + `int32`
 select `uint64` + `int64`
 from SimpleTypes
 --
-ERROR: No matching signature for operator + for argument types: UINT64, INT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
-select `uint64` + `int64`
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator +
   Argument types: UINT64, INT64
   Signature: INT64 + INT64
@@ -990,11 +954,6 @@ QueryStmt
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for operator - for argument types: INT32, NUMERIC. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE [at 6:8]
-       `int32` - `numeric`,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator -
   Argument types: INT32, NUMERIC
   Signature: INT64 - INT64
@@ -1133,11 +1092,6 @@ QueryStmt
 --
 ALTERNATION GROUP: NUMERIC_TYPE
 --
-ERROR: No matching signature for operator - for argument types: INT32, BIGNUMERIC. Supported signatures: INT64 - INT64; UINT64 - UINT64; NUMERIC - NUMERIC; DOUBLE - DOUBLE [at 1:8]
-select `int32` - `bignumeric`,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator -
   Argument types: INT32, BIGNUMERIC
   Signature: INT64 - INT64
@@ -1153,11 +1107,6 @@ select `int32` - `bignumeric`,
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for operator - for argument types: INT32, BIGNUMERIC. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE [at 1:8]
-select `int32` - `bignumeric`,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator -
   Argument types: INT32, BIGNUMERIC
   Signature: INT64 - INT64
@@ -1174,11 +1123,6 @@ select `int32` - `bignumeric`,
 select `int32` - `uint64`
 from SimpleTypes
 --
-ERROR: No matching signature for operator - for argument types: INT32, UINT64. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE [at 1:8]
-select `int32` - `uint64`
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator -
   Argument types: INT32, UINT64
   Signature: INT64 - INT64
@@ -1195,11 +1139,6 @@ select `int32` - `uint64`
 select `int64` - `uint64`
 from SimpleTypes
 --
-ERROR: No matching signature for operator - for argument types: INT64, UINT64. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE [at 1:8]
-select `int64` - `uint64`
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator -
   Argument types: INT64, UINT64
   Signature: INT64 - INT64
@@ -1216,11 +1155,6 @@ select `int64` - `uint64`
 select `uint64` - `int32`
 from SimpleTypes
 --
-ERROR: No matching signature for operator - for argument types: UINT64, INT32. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE [at 1:8]
-select `uint64` - `int32`
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator -
   Argument types: UINT64, INT32
   Signature: INT64 - INT64
@@ -1237,11 +1171,6 @@ select `uint64` - `int32`
 select `uint64` - `int64`
 from SimpleTypes
 --
-ERROR: No matching signature for operator - for argument types: UINT64, INT64. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE [at 1:8]
-select `uint64` - `int64`
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator -
   Argument types: UINT64, INT64
   Signature: INT64 - INT64
@@ -1614,11 +1543,6 @@ QueryStmt
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for operator * for argument types: INT32, NUMERIC. Supported signatures: INT64 * INT64; UINT64 * UINT64; DOUBLE * DOUBLE [at 6:8]
-       `int32` * `numeric`,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator *
   Argument types: INT32, NUMERIC
   Signature: INT64 * INT64
@@ -1757,11 +1681,6 @@ QueryStmt
 --
 ALTERNATION GROUP: NUMERIC_TYPE
 --
-ERROR: No matching signature for operator * for argument types: INT32, BIGNUMERIC. Supported signatures: INT64 * INT64; UINT64 * UINT64; DOUBLE * DOUBLE; NUMERIC * NUMERIC [at 1:8]
-select `int32` * `bignumeric`,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator *
   Argument types: INT32, BIGNUMERIC
   Signature: INT64 * INT64
@@ -1777,11 +1696,6 @@ select `int32` * `bignumeric`,
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for operator * for argument types: INT32, BIGNUMERIC. Supported signatures: INT64 * INT64; UINT64 * UINT64; DOUBLE * DOUBLE [at 1:8]
-select `int32` * `bignumeric`,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator *
   Argument types: INT32, BIGNUMERIC
   Signature: INT64 * INT64
@@ -1798,11 +1712,6 @@ select `int32` * `bignumeric`,
 select `int32` * `uint64`
 from SimpleTypes
 --
-ERROR: No matching signature for operator * for argument types: INT32, UINT64. Supported signatures: INT64 * INT64; UINT64 * UINT64; DOUBLE * DOUBLE [at 1:8]
-select `int32` * `uint64`
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator *
   Argument types: INT32, UINT64
   Signature: INT64 * INT64
@@ -1819,11 +1728,6 @@ select `int32` * `uint64`
 select `int64` * `uint64`
 from SimpleTypes
 --
-ERROR: No matching signature for operator * for argument types: INT64, UINT64. Supported signatures: INT64 * INT64; UINT64 * UINT64; DOUBLE * DOUBLE [at 1:8]
-select `int64` * `uint64`
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator *
   Argument types: INT64, UINT64
   Signature: INT64 * INT64
@@ -1840,11 +1744,6 @@ select `int64` * `uint64`
 select `uint64` * `int32`
 from SimpleTypes
 --
-ERROR: No matching signature for operator * for argument types: UINT64, INT32. Supported signatures: INT64 * INT64; UINT64 * UINT64; DOUBLE * DOUBLE [at 1:8]
-select `uint64` * `int32`
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator *
   Argument types: UINT64, INT32
   Signature: INT64 * INT64
@@ -1861,11 +1760,6 @@ select `uint64` * `int32`
 select `uint64` * `int64`
 from SimpleTypes
 --
-ERROR: No matching signature for operator * for argument types: UINT64, INT64. Supported signatures: INT64 * INT64; UINT64 * UINT64; DOUBLE * DOUBLE [at 1:8]
-select `uint64` * `int64`
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator *
   Argument types: UINT64, INT64
   Signature: INT64 * INT64
@@ -3089,11 +2983,6 @@ QueryStmt
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for operator + for argument types: NUMERIC, INT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 2:8]
-       numeric + 1,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator +
   Argument types: NUMERIC, INT64
   Signature: INT64 + INT64
@@ -3155,11 +3044,6 @@ QueryStmt
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for operator + for argument types: BIGNUMERIC, INT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
-select bignumeric + 1,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator +
   Argument types: BIGNUMERIC, INT64
   Signature: INT64 + INT64
@@ -4189,11 +4073,6 @@ QueryStmt
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for operator + for argument types: NUMERIC, INT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
-select numeric + 2000000000000,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator +
   Argument types: NUMERIC, INT64
   Signature: INT64 + INT64
@@ -4235,11 +4114,6 @@ QueryStmt
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for operator + for argument types: BIGNUMERIC, INT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
-select bignumeric + 2000000000000,
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator +
   Argument types: BIGNUMERIC, INT64
   Signature: INT64 + INT64

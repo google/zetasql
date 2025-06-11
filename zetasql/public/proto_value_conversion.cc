@@ -479,7 +479,10 @@ absl::Status MergeValueToProtoField(const Value& value,
               : reflection->MutableMessage(proto_out, field, message_factory);
       ValueProto value_proto;
       ZETASQL_RETURN_IF_ERROR(value.Serialize(&value_proto));
-      ZETASQL_RET_CHECK(submessage->ParseFromCord(value_proto.proto_value()));
+      if (!submessage->ParseFromCord(value_proto.proto_value())) {
+        return ::zetasql_base::OutOfRangeErrorBuilder()
+               << "Cannot parse value for field: " << field->full_name();
+      }
 
       return absl::OkStatus();
     }
@@ -998,8 +1001,8 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
           field->is_repeated()
               ? reflection->GetRepeatedString(proto, field, index)
               : reflection->GetString(proto, field);
-      *value_out =
-          Value::TokenList(tokens::TokenList::FromBytes(std::move(value)));
+      *value_out = Value::TokenList(
+          tokens::TokenList::FromBytesUnvalidated(std::move(value)));
       return absl::OkStatus();
     }
     case TypeKind::TYPE_RANGE: {

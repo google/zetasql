@@ -58,6 +58,7 @@ message ExpressionAttributeProto {
   enum ExpressionKind {
     DEFAULT = 0;
     GENERATED = 1;
+    MEASURE_EXPRESSION = 2;
   }
   optional ExpressionKind expression_kind = 9;
 }

@@ -44,7 +44,7 @@ absl::Time TimestampMaxBaseTime();
 
 // The range of values of the legacy timestamp types is from the beginning of
 // 1678-01-01 to the end of 2261-12-31 UTC.  These are the years fully
-// representable in nanos in an int64_t.  The bounds were computed with an online
+// representable in nanos in an int64.  The bounds were computed with an online
 // date converter, and verified with C library date formatting with TZ=UTC in
 // unittest.
 // TODO: Deprecated TIMESTAMP_XXX types, to be removed.

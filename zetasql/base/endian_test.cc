@@ -46,7 +46,7 @@ const uint64_t k64ValueLE{0xefcdab8967452301};
 const uint64_t k64IValueLE{0xefcdab89674523a1};
 const uint32_t k32ValueLE{0x67452301};
 const uint16_t k16ValueLE{0x2301};
-const uint8_t k8ValueLE = k8Value;
+const uint8 k8ValueLE = k8Value;
 const absl::uint128 k128ValueLE = absl::MakeUint128(k64IValueLE, k64ValueLE);
 
 const uint64_t k64ValueBE{kInitialNumber};
@@ -265,25 +265,25 @@ TEST(GenericLoadStore, Test64BitTypes) {
 
 
 TEST(EndianessTest, LittleEndian) {
-  // Check LittleEndian uint8_t.
+  // Check LittleEndian uint8.
   uint64_t comp = LittleEndian::FromHost<uint8_t>(k8Value);
   EXPECT_EQ(comp, k8Value);
   comp = LittleEndian::ToHost<uint8_t>(k8Value);
   EXPECT_EQ(comp, k8Value);
 
-  // Check LittleEndian uint16_t.
+  // Check LittleEndian uint16.
   comp = LittleEndian::FromHost16(k16Value);
   EXPECT_EQ(comp, k16ValueLE);
   comp = LittleEndian::ToHost16(k16ValueLE);
   EXPECT_EQ(comp, k16Value);
 
-  // Check LittleEndian uint32_t.
+  // Check LittleEndian uint32.
   comp = LittleEndian::FromHost32(k32Value);
   EXPECT_EQ(comp, k32ValueLE);
   comp = LittleEndian::ToHost32(k32ValueLE);
   EXPECT_EQ(comp, k32Value);
 
-  // Check LittleEndian uint64_t.
+  // Check LittleEndian uint64.
   comp = LittleEndian::FromHost64(k64Value);
   EXPECT_EQ(comp, k64ValueLE);
   comp = LittleEndian::ToHost64(k64ValueLE);
@@ -334,19 +334,19 @@ TEST(BigEndianTest, Load128) {
 }
 
 TEST(EndianessTest, BigEndian) {
-  // Check BigEndian uint16_t.
+  // Check BigEndian uint16.
   uint64_t comp = BigEndian::FromHost16(k16Value);
   EXPECT_EQ(comp, k16ValueBE);
   comp = BigEndian::ToHost16(k16ValueBE);
   EXPECT_EQ(comp, k16Value);
 
-  // Check BigEndian uint32_t.
+  // Check BigEndian uint32.
   comp = BigEndian::FromHost32(k32Value);
   EXPECT_EQ(comp, k32ValueBE);
   comp = BigEndian::ToHost32(k32ValueBE);
   EXPECT_EQ(comp, k32Value);
 
-  // Check BigEndian uint64_t.
+  // Check BigEndian uint64.
   comp = BigEndian::FromHost64(k64Value);
   EXPECT_EQ(comp, k64ValueBE);
   comp = BigEndian::ToHost64(k64ValueBE);

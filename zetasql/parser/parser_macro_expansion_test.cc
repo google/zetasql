@@ -16,10 +16,10 @@
 
 #include <memory>
 
-#include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/parser/parser_mode.h"
 #include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
@@ -64,9 +64,9 @@ static void RegisterMacros(absl::string_view source,
     ASSERT_TRUE(def_macro_stmt != nullptr);
     ZETASQL_ASSERT_OK(macro_catalog.RegisterMacro(
         {.source_text = source,
-         .location = def_macro_stmt->GetParseLocationRange(),
-         .name_location = def_macro_stmt->name()->GetParseLocationRange(),
-         .body_location = def_macro_stmt->body()->GetParseLocationRange()}));
+         .location = def_macro_stmt->location(),
+         .name_location = def_macro_stmt->name()->location(),
+         .body_location = def_macro_stmt->body()->location()}));
   }
 }
 
@@ -84,16 +84,16 @@ TEST(ParserMacroExpansionTest, ExpandsMacros) {
   ZETASQL_ASSERT_OK(ParseNextStatement(&resume_location, parser_options, &parser_output,
                                &at_end_of_input));
   EXPECT_TRUE(at_end_of_input);
-  EXPECT_EQ(parser_output->runtime_info().num_lexical_tokens(), 9);
+  EXPECT_EQ(parser_output->runtime_info().num_lexical_tokens(), 8);
 
   EXPECT_EQ(parser_output->statement()->DebugString(),
             R"(QueryStatement [0-13]
   Query [0-13]
     Select [0-13]
-      SelectList [7-13]
-        SelectColumn [7-13]
-          PathExpression [7-8]
-            Identifier(ax) [7-8]
+      SelectList [11-13]
+        SelectColumn [11-13]
+          PathExpression [11-12]
+            Identifier(ax) [11-12]
           Alias [8-13]
             Identifier(b2) [8-13]
 )");
@@ -113,7 +113,7 @@ TEST(ParserMacroExpansionTest, RecognizesOnlyOriginalDefineMacroStatements) {
   ZETASQL_ASSERT_OK(ParseNextStatement(&resume_location, parser_options, &parser_output,
                                &at_end_of_input));
   EXPECT_FALSE(at_end_of_input);
-  EXPECT_EQ(parser_output->runtime_info().num_lexical_tokens(), 7);
+  EXPECT_EQ(parser_output->runtime_info().num_lexical_tokens(), 6);
 
   EXPECT_EQ(parser_output->statement()->DebugString(),
             R"(DefineMacroStatement [0-16]
@@ -159,7 +159,7 @@ TEST(ParserMacroExpansionTest, DefineEmptyMacroNoSemiColon) {
   ZETASQL_ASSERT_OK(ParseNextStatement(&resume_location, parser_options, &parser_output,
                                &at_end_of_input));
   EXPECT_TRUE(at_end_of_input);
-  EXPECT_EQ(parser_output->runtime_info().num_lexical_tokens(), 5);
+  EXPECT_EQ(parser_output->runtime_info().num_lexical_tokens(), 4);
 
   EXPECT_EQ(parser_output->statement()->DebugString(),
             R"(DefineMacroStatement [0-18]
@@ -180,7 +180,7 @@ TEST(ParserMacroExpansionTest, DefineEmptyMacroWithSemiColon) {
   ZETASQL_ASSERT_OK(ParseNextStatement(&resume_location, parser_options, &parser_output,
                                &at_end_of_input));
   EXPECT_TRUE(at_end_of_input);
-  EXPECT_EQ(parser_output->runtime_info().num_lexical_tokens(), 6);
+  EXPECT_EQ(parser_output->runtime_info().num_lexical_tokens(), 5);
 
   EXPECT_EQ(parser_output->statement()->DebugString(),
             R"(DefineMacroStatement [0-18]
@@ -201,7 +201,7 @@ TEST(ParserMacroExpansionTest, DefineMacroWithKeywordAsName) {
   ZETASQL_ASSERT_OK(ParseNextStatement(&resume_location, parser_options, &parser_output,
                                &at_end_of_input));
   EXPECT_TRUE(at_end_of_input);
-  EXPECT_EQ(parser_output->runtime_info().num_lexical_tokens(), 6);
+  EXPECT_EQ(parser_output->runtime_info().num_lexical_tokens(), 5);
 
   EXPECT_EQ(parser_output->statement()->DebugString(),
             R"(DefineMacroStatement [0-20]
@@ -222,7 +222,7 @@ TEST(ParserMacroExpansionTest, MacroNameCanBeQuoted) {
   ZETASQL_ASSERT_OK(ParseNextStatement(&resume_location, parser_options, &parser_output,
                                &at_end_of_input));
   EXPECT_TRUE(at_end_of_input);
-  EXPECT_EQ(parser_output->runtime_info().num_lexical_tokens(), 6);
+  EXPECT_EQ(parser_output->runtime_info().num_lexical_tokens(), 5);
 
   EXPECT_EQ(parser_output->statement()->DebugString(),
             R"(DefineMacroStatement [0-22]

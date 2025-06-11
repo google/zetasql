@@ -8,7 +8,6 @@
 # function_default_argument.test, tvf_relation_args.test file and this file can
 # be updated at the same time.
 [default no_java]
-[default also_show_signature_mismatch_details]
 [default language_features=NAMED_ARGUMENTS,TABLE_VALUED_FUNCTIONS]
 select fn_named_args(format_string => "%x", date_string => "12/25/08")
 --
@@ -149,11 +148,6 @@ QueryStmt
 select fn_three_named_args_two_signatures(
     "%X", "12/25/08",  invalid_arg_name => "12/25/08");
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_THREE_NAMED_ARGS_TWO_SIGNATURES for argument types: STRING, STRING, invalid_arg_name => STRING. Supported signatures: FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, [format_string=>]STRING); FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, [date_string=>]STRING) [at 1:8]
-select fn_three_named_args_two_signatures(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_THREE_NAMED_ARGS_TWO_SIGNATURES
   Argument types: STRING, STRING, invalid_arg_name => STRING
   Signature: FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, [format_string=>]STRING)
@@ -169,11 +163,6 @@ select fn_three_named_args_two_signatures(
 select fn_three_named_args_two_signatures(
     "%X", format_string => "%X");
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_THREE_NAMED_ARGS_TWO_SIGNATURES for argument types: STRING, format_string => STRING. Supported signatures: FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, [format_string=>]STRING); FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, [date_string=>]STRING) [at 1:8]
-select fn_three_named_args_two_signatures(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_THREE_NAMED_ARGS_TWO_SIGNATURES
   Argument types: STRING, format_string => STRING
   Signature: FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, [format_string=>]STRING)
@@ -266,6 +255,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="12/25/08")
         +-column_index_list=[0, 1]
+        +-function_call_signature=(STRING format_string, STRING date_string) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Valid TVF call with two scalar optional named arguments.
@@ -292,6 +282,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="12/25/08")
         +-column_index_list=[0, 1]
+        +-function_call_signature=(optional(1) STRING format_string, optional(1) STRING date_string) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Valid TVF call with named arguments for a function with optional arguments
@@ -318,6 +309,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value=NULL)
         +-column_index_list=[0, 1]
+        +-function_call_signature=(optional(1) STRING format_string, optional(1) STRING date_string) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Valid TVF call with named arguments for a function with optional arguments
@@ -344,6 +336,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="12/25/08")
         +-column_index_list=[0, 1]
+        +-function_call_signature=(optional(1) STRING format_string, optional(1) STRING date_string) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Valid TVF call with a named argument for a function with an optional relation
@@ -374,6 +367,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=[$subquery1.x#1]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(optional(1) ANY TABLE any_relation_arg) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Invalid TVF call with a named argument for a function with an optional
@@ -422,6 +416,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="abc")
         +-column_index_list=[0, 1]
+        +-function_call_signature=(optional(1) ANY TABLE any_relation_arg, optional(1) STRING format_string) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Invalid TVF call with the STRING named argument provided but the relation
@@ -433,11 +428,6 @@ QueryStmt
 select * from tvf_named_optional_any_relation_arg_optional_scalar_arg(
     format_string => 'abc')
 --
-ERROR: No matching signature for tvf_named_optional_any_relation_arg_optional_scalar_arg for argument types: NULL, STRING. Supported signature: TVF_NAMED_OPTIONAL_ANY_RELATION_ARG_OPTIONAL_SCALAR_ARG([TABLE], [STRING]) [at 1:15]
-select * from tvf_named_optional_any_relation_arg_optional_scalar_arg(
-              ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_named_optional_any_relation_arg_optional_scalar_arg
   Argument types: NULL, STRING
   Signature: TVF_NAMED_OPTIONAL_ANY_RELATION_ARG_OPTIONAL_SCALAR_ARG([any_relation_arg => TABLE], [format_string => STRING])
@@ -482,6 +472,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value=NULL)
         +-column_index_list=[0, 1]
+        +-function_call_signature=(optional(1) ANY TABLE any_relation_arg, optional(1) STRING format_string) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Valid TVF call with one "any table" relation named argument.
@@ -509,6 +500,7 @@ QueryStmt
         |   |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         |   +-argument_column_list=KeyValue.[Key#1, Value#2]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(ANY TABLE any_relation_arg) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Valid TVF call with one relation named argument with required schema.
@@ -540,6 +532,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=$subquery1.[column_bool#1, column_bytes#2]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(TABLE<column_bool BOOL, column_bytes BYTES> schema_relation_arg) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Valid TVF call with one relation named argument with a value table.
@@ -569,6 +562,7 @@ QueryStmt
         |   |     +-TableScan(table=KeyValue)
         |   +-argument_column_list=[$subquery1.$col1#3]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(TABLE<PROTO<zetasql_test__.TestExtraPB>> value_table_relation_arg) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Valid TVF call with a combination of named scalar and relation arguments.
@@ -604,6 +598,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=$subquery1.[column_bool#1, column_bytes#2]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(STRING format_string, TABLE<column_bool BOOL, column_bytes BYTES> schema_relation_arg) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Valid TVF call with a combination of named and positional arguments.
@@ -639,6 +634,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=$subquery1.[column_bool#1, column_bytes#2]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(STRING format_string, TABLE<column_bool BOOL, column_bytes BYTES> schema_relation_arg) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Invalid function call with named arguments. The resolver returns an error if
@@ -647,11 +643,6 @@ select fn_named_args_error_if_positional(
     "%X",
     date_string => "12/25/08");
 --
-ERROR: Positional argument is invalid because this function restricts that this argument is referred to by name "format_string" only [at 2:5]
-    "%X",
-    ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS_ERROR_IF_POSITIONAL
   Argument types: STRING, date_string => STRING
   Signature: FN_NAMED_ARGS_ERROR_IF_POSITIONAL(format_string => STRING, date_string => STRING)
@@ -679,11 +670,6 @@ ERROR: Call to function sample_functions:fn_named_args_error_if_positional must 
 select fn_named_args_error_if_positional(
     "%X", "12/25/08");
 --
-ERROR: Positional argument is invalid because this function restricts that this argument is referred to by name "format_string" only [at 2:5]
-    "%X", "12/25/08");
-    ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS_ERROR_IF_POSITIONAL
   Argument types: STRING, STRING
   Signature: FN_NAMED_ARGS_ERROR_IF_POSITIONAL(format_string => STRING, date_string => STRING)
@@ -698,11 +684,6 @@ select fn_named_args_error_if_positional(
    "12/25/08",
    format_string=> "%X");
 --
-ERROR: Named argument `format_string` duplicates positional argument 1, which also provides `format_string` [at 3:4]
-   format_string=> "%X");
-   ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS_ERROR_IF_POSITIONAL
   Argument types: STRING, format_string => STRING
   Signature: FN_NAMED_ARGS_ERROR_IF_POSITIONAL(format_string => STRING, date_string => STRING)
@@ -717,11 +698,6 @@ select fn_named_args_error_if_positional_first_arg(
     "%X",
     date_string => "12/25/08");
 --
-ERROR: Positional argument is invalid because this function restricts that this argument is referred to by name "format_string" only [at 2:5]
-    "%X",
-    ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS_ERROR_IF_POSITIONAL_FIRST_ARG
   Argument types: STRING, date_string => STRING
   Signature: FN_NAMED_ARGS_ERROR_IF_POSITIONAL_FIRST_ARG(format_string => STRING, [date_string=>]STRING)
@@ -736,11 +712,6 @@ select fn_named_args_error_if_positional_second_arg(
     "%X",
     "12/25/08");
 --
-ERROR: Positional argument is invalid because this function restricts that this argument is referred to by name "date_string" only [at 3:5]
-    "12/25/08");
-    ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS_ERROR_IF_POSITIONAL_SECOND_ARG
   Argument types: STRING, STRING
   Signature: FN_NAMED_ARGS_ERROR_IF_POSITIONAL_SECOND_ARG(STRING, date_string => STRING)
@@ -755,11 +726,6 @@ select fn_named_args_error_if_positional(
     format_string => 1,
     date_string => "12/25/08");
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS_ERROR_IF_POSITIONAL for argument types: format_string => INT64, date_string => STRING. Supported signature: FN_NAMED_ARGS_ERROR_IF_POSITIONAL(format_string => STRING, date_string => STRING) [at 1:8]
-select fn_named_args_error_if_positional(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS_ERROR_IF_POSITIONAL
   Argument types: format_string => INT64, date_string => STRING
   Signature: FN_NAMED_ARGS_ERROR_IF_POSITIONAL(format_string => STRING, date_string => STRING)
@@ -774,11 +740,6 @@ select fn_named_optional_args_error_if_positional(
     format_string => 1,
     date_string => "12/25/08");
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPTIONAL_ARGS_ERROR_IF_POSITIONAL for argument types: format_string => INT64, date_string => STRING. Supported signature: FN_NAMED_OPTIONAL_ARGS_ERROR_IF_POSITIONAL(format_string => STRING, [date_string => STRING]) [at 1:8]
-select fn_named_optional_args_error_if_positional(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPTIONAL_ARGS_ERROR_IF_POSITIONAL
   Argument types: format_string => INT64, date_string => STRING
   Signature: FN_NAMED_OPTIONAL_ARGS_ERROR_IF_POSITIONAL(format_string => STRING, [date_string => STRING])
@@ -935,11 +896,6 @@ ERROR: Argument 'arg' to SAMPLE_FUNCTIONS:FN_OPTIONAL_NAMED_OPTIONAL_NOT_NULL_AR
 # function signature with the same name as one of the provided named arguments.
 select fn_named_args("%x", format_string => "%x")
 --
-ERROR: Named argument `format_string` duplicates positional argument 1, which also provides `format_string` [at 1:28]
-select fn_named_args("%x", format_string => "%x")
-                           ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS
   Argument types: STRING, format_string => STRING
   Signature: FN_NAMED_ARGS([format_string=>]STRING, [date_string=>]STRING)
@@ -953,11 +909,6 @@ select fn_named_args("%x", format_string => "%x")
 # function signature with the same name as one of the provided named arguments.
 select fn_named_args("%x", format_string => "%x", date_string => "12/25/08")
 --
-ERROR: Number of arguments does not match for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS. Supported signature: FN_NAMED_ARGS(STRING, STRING) [at 1:8]
-select fn_named_args("%x", format_string => "%x", date_string => "12/25/08")
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS
   Argument types: STRING, format_string => STRING, date_string => STRING
   Signature: FN_NAMED_ARGS([format_string=>]STRING, [date_string=>]STRING)
@@ -1000,11 +951,6 @@ ERROR: Function does not allow extra input column named "Key" for argument 1 of 
 select * from tvf_named_required_scalar_args(
     format_string => "%X")
 --
-ERROR: No matching signature for tvf_named_required_scalar_args for argument types: STRING. Supported signature: TVF_NAMED_REQUIRED_SCALAR_ARGS(STRING, STRING) [at 1:15]
-select * from tvf_named_required_scalar_args(
-              ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_named_required_scalar_args
   Argument types: STRING
   Signature: TVF_NAMED_REQUIRED_SCALAR_ARGS(format_string => STRING, date_string => STRING)
@@ -1038,11 +984,6 @@ select * from tvf_exactly_3_int64_args(first => 1, second => 2, third => 3)
 select *
 from tvf_named_optional_scalar_args("abc", "def", format_string => "hgi")
 --
-ERROR: No matching signature for tvf_named_optional_scalar_args for argument types: STRING, STRING, STRING. Supported signature: TVF_NAMED_OPTIONAL_SCALAR_ARGS([STRING], [STRING]) [at 2:6]
-from tvf_named_optional_scalar_args("abc", "def", format_string => "hgi")
-     ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_named_optional_scalar_args
   Argument types: STRING, STRING, STRING
   Signature: TVF_NAMED_OPTIONAL_SCALAR_ARGS([format_string => STRING], [date_string => STRING])
@@ -1057,11 +998,6 @@ from tvf_named_optional_scalar_args("abc", "def", format_string => "hgi")
 select *
 from tvf_named_optional_scalar_args("abc", "def", date_string => "hgi")
 --
-ERROR: No matching signature for tvf_named_optional_scalar_args for argument types: STRING, STRING, STRING. Supported signature: TVF_NAMED_OPTIONAL_SCALAR_ARGS([STRING], [STRING]) [at 2:6]
-from tvf_named_optional_scalar_args("abc", "def", date_string => "hgi")
-     ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_named_optional_scalar_args
   Argument types: STRING, STRING, STRING
   Signature: TVF_NAMED_OPTIONAL_SCALAR_ARGS([format_string => STRING], [date_string => STRING])
@@ -1076,11 +1012,6 @@ from tvf_named_optional_scalar_args("abc", "def", date_string => "hgi")
 select * from tvf_named_optional_any_relation_arg_optional_scalar_arg(
     (select 2 as y), any_relation_arg => (select 1 as x), format_string => 42)
 --
-ERROR: No matching signature for tvf_named_optional_any_relation_arg_optional_scalar_arg for argument types: TABLE<y INT64>, TABLE<x INT64>, INT64. Supported signature: TVF_NAMED_OPTIONAL_ANY_RELATION_ARG_OPTIONAL_SCALAR_ARG([TABLE], [STRING]) [at 1:15]
-select * from tvf_named_optional_any_relation_arg_optional_scalar_arg(
-              ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_named_optional_any_relation_arg_optional_scalar_arg
   Argument types: TABLE<y INT64>, TABLE<x INT64>, INT64
   Signature: TVF_NAMED_OPTIONAL_ANY_RELATION_ARG_OPTIONAL_SCALAR_ARG([any_relation_arg => TABLE], [format_string => STRING])
@@ -1103,11 +1034,6 @@ ERROR: Named argument name not found in signature for call to function tvf_one_r
 select fn_named_args(
     format_string => "%X", date_string => "12/24/08", date_string => "12/25/08")
 --
-ERROR: Number of arguments does not match for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS. Supported signature: FN_NAMED_ARGS(STRING, STRING) [at 1:8]
-select fn_named_args(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS
   Argument types: format_string => STRING, date_string => STRING, date_string => STRING
   Signature: FN_NAMED_ARGS([format_string=>]STRING, [date_string=>]STRING)
@@ -1120,11 +1046,6 @@ select fn_named_args(
 # signature.
 select fn_named_args(bad_name => "12/25/08")
 --
-ERROR: Number of arguments does not match for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS. Supported signature: FN_NAMED_ARGS(STRING, STRING) [at 1:8]
-select fn_named_args(bad_name => "12/25/08")
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS
   Argument types: bad_name => STRING
   Signature: FN_NAMED_ARGS([format_string=>]STRING, [date_string=>]STRING)
@@ -1138,11 +1059,6 @@ select fn_named_args(bad_name => "12/25/08")
 select fn_named_args(
     format_string => "%X", date_string => "12/25/08", bad_name => "12/25/08")
 --
-ERROR: Number of arguments does not match for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS. Supported signature: FN_NAMED_ARGS(STRING, STRING) [at 1:8]
-select fn_named_args(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS
   Argument types: format_string => STRING, date_string => STRING, bad_name => STRING
   Signature: FN_NAMED_ARGS([format_string=>]STRING, [date_string=>]STRING)
@@ -1156,11 +1072,6 @@ select fn_named_args(
 select fn_named_args(
     format_string => "%X", bad_name => "12/25/08")
 --
-ERROR: Named argument `bad_name` not found in signature for call to function sample_functions:fn_named_args [at 2:28]
-    format_string => "%X", bad_name => "12/25/08")
-                           ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS
   Argument types: format_string => STRING, bad_name => STRING
   Signature: FN_NAMED_ARGS([format_string=>]STRING, [date_string=>]STRING)
@@ -1180,11 +1091,6 @@ select fn_named_args(format_string => "%x", "12/25/08")
 # Invalid function call with a positional argument following a named argument.
 select fn_named_args(format_string => "%x", "12/25/08", date_string => "%X")
 --
-ERROR: Number of arguments does not match for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS. Supported signature: FN_NAMED_ARGS(STRING, STRING) [at 1:8]
-select fn_named_args(format_string => "%x", "12/25/08", date_string => "%X")
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS
   Argument types: format_string => STRING, STRING, date_string => STRING
   Signature: FN_NAMED_ARGS([format_string=>]STRING, [date_string=>]STRING)
@@ -1196,11 +1102,6 @@ select fn_named_args(format_string => "%x", "12/25/08", date_string => "%X")
 # Invalid function call missing a required argument.
 select fn_named_args(format_string => "%x")
 --
-ERROR: Number of arguments does not match for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS. Supported signature: FN_NAMED_ARGS(STRING, STRING) [at 1:8]
-select fn_named_args(format_string => "%x")
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS
   Argument types: format_string => STRING
   Signature: FN_NAMED_ARGS([format_string=>]STRING, [date_string=>]STRING)
@@ -1304,11 +1205,6 @@ QueryStmt
 # regular argument, and one with named argument of same type.
 select fn_regular_and_named_signatures("foo", "bar", date_string => "baz")
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REGULAR_AND_NAMED_SIGNATURES for argument types: STRING, STRING, date_string => STRING. Supported signatures: FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [STRING]); FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [date_string => STRING]) [at 1:8]
-select fn_regular_and_named_signatures("foo", "bar", date_string => "baz")
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REGULAR_AND_NAMED_SIGNATURES
   Argument types: STRING, STRING, date_string => STRING
   Signature: FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [STRING])
@@ -1323,11 +1219,6 @@ select fn_regular_and_named_signatures("foo", "bar", date_string => "baz")
 # regular argument, and one with named argument of same type.
 select fn_regular_and_named_signatures("foo", unknown_arg => "baz")
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REGULAR_AND_NAMED_SIGNATURES for argument types: STRING, unknown_arg => STRING. Supported signatures: FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [STRING]); FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [date_string => STRING]) [at 1:8]
-select fn_regular_and_named_signatures("foo", unknown_arg => "baz")
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REGULAR_AND_NAMED_SIGNATURES
   Argument types: STRING, unknown_arg => STRING
   Signature: FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [STRING])
@@ -1567,11 +1458,6 @@ SELECT fn_rep_opt("a0", "r0", "r1", a1 => "a1", "r2");
 # An invalid function call: the required named argument "a1" is omitted.
 SELECT fn_rep_opt("a0", "r0", "r1", "r2", o0 => "o0", o1 => "o1");
 --
-ERROR: Call to function sample_functions:fn_rep_opt does not include the required named argument 'a1' [at 1:8]
-SELECT fn_rep_opt("a0", "r0", "r1", "r2", o0 => "o0", o1 => "o1");
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REP_OPT
   Argument types: STRING, STRING, STRING, STRING, o0 => STRING, o1 => STRING
   Signature: FN_REP_OPT([a0=>]STRING, [[STRING, STRING, STRING], ...], [a1=>]STRING, [[o0=>]STRING], [[o1=>]STRING])
@@ -2363,11 +2249,6 @@ QueryStmt
 
 select fn_optional_t1_ret_t1();
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_OPTIONAL_T1_RET_T1 with no arguments. Supported signature: FN_OPTIONAL_T1_RET_T1([ANY]) [at 1:8]
-select fn_optional_t1_ret_t1();
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_OPTIONAL_T1_RET_T1 with no arguments
   Signature: FN_OPTIONAL_T1_RET_T1([T1])
     Unable to determine type for function return type of kind T1 [at 1:8]
@@ -2377,11 +2258,6 @@ select fn_optional_t1_ret_t1();
 
 select fn_repeated_t1_ret_t1();
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_RET_T1 with no arguments. Supported signature: FN_REPEATED_T1_RET_T1([ANY, ...]) [at 1:8]
-select fn_repeated_t1_ret_t1();
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_RET_T1 with no arguments
   Signature: FN_REPEATED_T1_RET_T1([T1, ...])
     Unable to determine type for function return type of kind T1 [at 1:8]
@@ -2435,11 +2311,6 @@ SELECT
   fn_repeated_t1_t2_with_optional_named_t1(1, "2", o1=>true);
 --
 
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1 for argument types: INT64, STRING, o1 => BOOL. Supported signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([[ANY, ANY], ...], [o1 => ANY]) [at 3:3]
-  fn_repeated_t1_t2_with_optional_named_t1(1, "2", o1=>true);
-  ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1
   Argument types: INT64, STRING, o1 => BOOL
   Signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([[T1, T2], ...], [o1 => T1])
@@ -2455,11 +2326,6 @@ SELECT
   fn_repeated_t1_t2_with_optional_named_t1(1, "2", 3, "4", o1=>true);
 --
 
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1 for argument types: INT64, STRING, INT64, STRING, o1 => BOOL. Supported signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([[ANY, ANY], ...], [o1 => ANY]) [at 3:3]
-  fn_repeated_t1_t2_with_optional_named_t1(1, "2", 3, "4", o1=>true);
-  ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1
   Argument types: INT64, STRING, INT64, STRING, o1 => BOOL
   Signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([[T1, T2], ...], [o1 => T1])
@@ -2475,11 +2341,6 @@ SELECT
   fn_repeated_t1_t2_with_optional_named_t1(1, "2", true, "3", o1=>1);
 --
 
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1 for argument types: INT64, STRING, BOOL, STRING, o1 => INT64. Supported signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([[ANY, ANY], ...], [o1 => ANY]) [at 3:3]
-  fn_repeated_t1_t2_with_optional_named_t1(1, "2", true, "3", o1=>1);
-  ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1
   Argument types: INT64, STRING, BOOL, STRING, o1 => INT64
   Signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([[T1, T2], ...], [o1 => T1])
@@ -2542,6 +2403,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=BOOL, value=true)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(ANY TABLE, BOOL, optional(0) STRING, optional(0) STRING o1) -> ANY TABLE
       | +-output_column_list=[tvf_optional_unnamed_named.x#2]
       +-SetOperationItem
       | +-scan=
@@ -2569,6 +2431,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=STRING, value="abc")
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(ANY TABLE, BOOL, optional(1) STRING, optional(0) STRING o1) -> ANY TABLE
       | +-output_column_list=[tvf_optional_unnamed_named.x#4]
       +-SetOperationItem
       | +-scan=
@@ -2599,6 +2462,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=STRING, value="def")
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(ANY TABLE, BOOL, optional(1) STRING, optional(1) STRING o1) -> ANY TABLE
       | +-output_column_list=[tvf_optional_unnamed_named.x#6]
       +-SetOperationItem
         +-scan=
@@ -2629,6 +2493,7 @@ QueryStmt
         |       |   +-expr=
         |       |     +-Literal(type=STRING, value="def")
         |       +-column_index_list=[0]
+        |       +-function_call_signature=(ANY TABLE, BOOL, optional(1) STRING, optional(1) STRING o1) -> ANY TABLE
         +-output_column_list=[tvf_optional_unnamed_named.x#8]
 ==
 
@@ -2694,6 +2559,7 @@ QueryStmt
         |         |             +-Literal(type=STRING, value="")
         |         +-Literal(type=ARRAY<STRING>, value=[""])
         +-column_index_list=[0, 1]
+        +-function_call_signature=(STRUCT<field1 ARRAY<STRING>, field2 ARRAY<STRING>> struct_arg1, STRUCT<field1 ARRAY<STRING>, field2 ARRAY<STRING>, field3 ARRAY<STRING>> struct_arg2) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Regression test for b/214174087. A templated UDA has a NOT AGGREGATE argument
@@ -3028,6 +2894,7 @@ QueryStmt
     |             |   +-expr=
     |             |     +-Literal(type=DOUBLE, value=15.3)
     |             +-column_index_list=[0]
+    |             +-function_call_signature=(optional(1) INT64 arg_1, optional(1) STRING arg_2, optional(1) DOUBLE arg_3, optional(1) STRUCT<INT64, STRING> arg_4, optional(1) STRING arg_5, optional(1) DOUBLE arg_6, optional(1) ARRAY<INT64> arg_7, optional(1) ARRAY<STRING> arg_8, optional(1) ARRAY<DOUBLE> arg_9, optional(1) DOUBLE arg_10) -> TABLE<column_bool BOOL, column_bytes BYTES>
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[int64#2, string#5, double#9], table=SimpleTypes, column_index_list=[1, 4, 8])
 ==
@@ -3038,11 +2905,6 @@ QueryStmt
 select (select column_bool from
   tvf_named_scalar_args_with_constraints()) from SimpleTypes;
 --
-ERROR: No matching signature for tvf_named_scalar_args_with_constraints for argument types: INT64, STRING, DOUBLE, NULL, NULL, NULL, NULL, NULL, NULL, DOUBLE. Supported signature: TVF_NAMED_SCALAR_ARGS_WITH_CONSTRAINTS([INT64], [STRING], [DOUBLE], [STRUCT], [ANY], [ANY], [ARRAY], [ARRAY], [ARRAY], [DOUBLE]) [at 2:3]
-  tvf_named_scalar_args_with_constraints()) from SimpleTypes;
-  ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_named_scalar_args_with_constraints
   Argument types: INT64, STRING, DOUBLE, NULL, NULL, NULL, NULL, NULL, NULL, DOUBLE
   Signature: TVF_NAMED_SCALAR_ARGS_WITH_CONSTRAINTS([arg_1 => INT64], [arg_2 => STRING], [arg_3 => DOUBLE], [arg_4 => STRUCT], [arg_5 => T1], [arg_6 => T2], [arg_7 => ARRAY<T3>], [arg_8 => ARRAY<T4>], [arg_9 => ARRAY<T5>], [arg_10 => DOUBLE])
@@ -3133,6 +2995,7 @@ QueryStmt
     |             |   +-expr=
     |             |     +-Literal(type=DOUBLE, value=3.14)
     |             +-column_index_list=[0]
+    |             +-function_call_signature=(optional(1) INT64 arg_1, optional(1) STRING arg_2, optional(1) DOUBLE arg_3, optional(1) STRUCT<INT64, STRING> arg_4, optional(1) INT64 arg_5, optional(1) INT64 arg_6, optional(1) ARRAY<INT64> arg_7, optional(1) ARRAY<INT64> arg_8, optional(1) ARRAY<INT64> arg_9, optional(1) DOUBLE arg_10) -> TABLE<column_bool BOOL, column_bytes BYTES>
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[int64#2, string#5], table=SimpleTypes, column_index_list=[1, 4])
 ==
@@ -3279,6 +3142,7 @@ QueryStmt
     |             |   +-expr=
     |             |     +-Literal(type=DOUBLE, value=3.14)
     |             +-column_index_list=[0]
+    |             +-function_call_signature=(optional(1) INT64 arg_1, optional(1) STRING arg_2, optional(1) DOUBLE arg_3, optional(1) STRUCT<INT64, STRING> arg_4, optional(1) STRING arg_5, optional(1) DOUBLE arg_6, optional(1) ARRAY<INT64> arg_7, optional(1) ARRAY<STRING> arg_8, optional(1) ARRAY<DOUBLE> arg_9, optional(1) DOUBLE arg_10) -> TABLE<column_bool BOOL, column_bytes BYTES>
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[int64#2, string#5, double#9], table=SimpleTypes, column_index_list=[1, 4, 8])
 ==

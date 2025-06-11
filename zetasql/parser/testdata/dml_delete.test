@@ -341,7 +341,7 @@ WHERE
   true
 ==
 
-[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
 delete db-1-2.T where true
 --
 ALTERNATION GROUP: <empty>
@@ -350,7 +350,7 @@ ERROR: Syntax error: Table name contains '-' character. The dashed identifier pa
 delete db-1-2.T where true
        ^
 --
-ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
 --
 DeleteStatement [0-26] [delete db-1-2.T where true]
   PathExpression [7-15] [db-1-2.T]

@@ -38,7 +38,7 @@ TEST(Compare64Test, Values) {
   EXPECT_GT(Compare64(2, 1), 0);
   EXPECT_LT(Compare64(-1, 1), 0);
 
-  // std::numeric_limits<int64_t>::max() - 1, kint64max
+  // std::numeric_limits<int64>::max() - 1, kint64max
   EXPECT_EQ(Compare64(std::numeric_limits<int64_t>::max(),
                       std::numeric_limits<int64_t>::max()),
             0);
@@ -52,7 +52,7 @@ TEST(Compare64Test, Values) {
                       std::numeric_limits<int64_t>::max()),
             0);
 
-  // int64_t::max, int64_t::max + 1, ..., uint64_t::max
+  // int64::max, int64::max + 1, ..., uint64::max
   EXPECT_LT(
       Compare64(std::numeric_limits<int64_t>::max(),
                 static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) + 1),
@@ -61,8 +61,8 @@ TEST(Compare64Test, Values) {
                       std::numeric_limits<uint64_t>::max()),
             0);
 
-  // int64_t::lowest, int64_t::lowest + 1, ..., 0, ...,
-  // int64_t::max, ..., uint64_t::max
+  // int64::lowest, int64::lowest + 1, ..., 0, ...,
+  // int64::max, ..., uint64::max
   EXPECT_LT(Compare64(std::numeric_limits<int64_t>::lowest(), 0), 0);
   EXPECT_LT(Compare64(std::numeric_limits<int64_t>::lowest() + 1, 0), 0);
   EXPECT_LT(Compare64(std::numeric_limits<int64_t>::lowest(),
@@ -72,7 +72,7 @@ TEST(Compare64Test, Values) {
                       std::numeric_limits<uint64_t>::max()),
             0);
 
-  // 0 ... int64_t::max, int64_t::max+1, ... uint64_t::max - 1, uint64_t::max
+  // 0 ... int64::max, int64::max+1, ... uint64::max - 1, uint64::max
   EXPECT_LT(Compare64(0, std::numeric_limits<int64_t>::max()), 0);
   EXPECT_GT(Compare64(std::numeric_limits<int64_t>::max(), 0), 0);
   EXPECT_LT(

@@ -1,4 +1,4 @@
-[default language_features=PIPES,V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT,PIPE_STATIC_DESCRIBE]
+[default language_features=PIPES,GROUP_BY_ARRAY,GROUP_BY_STRUCT,PIPE_STATIC_DESCRIBE]
 select 1 |> distinct;
 --
 QueryStmt
@@ -89,12 +89,12 @@ ERROR: Unrecognized name: Filename [at 4:10]
 ==
 
 # DISTINCT on a value table preserves is_value_table.
-[language_features={{PIPES,V_1_2_GROUP_BY_STRUCT|PIPES}}]
+[language_features={{PIPES,GROUP_BY_STRUCT|PIPES}}]
 from TestStructValueTable
 |> distinct
 |> where a > 0
 --
-ALTERNATION GROUP: PIPES,V_1_2_GROUP_BY_STRUCT
+ALTERNATION GROUP: PIPES,GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -1496,7 +1496,7 @@ QueryStmt
 # If collation is enabled, collation propagates through DISTINCT.
 # TODO Enable java support for collation.
 [no_java]
-[language_features=PIPES,V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT,PIPE_STATIC_DESCRIBE,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[language_features=PIPES,GROUP_BY_ARRAY,GROUP_BY_STRUCT,PIPE_STATIC_DESCRIBE,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 from CollatedTable
 |> DISTINCT
 |> WHERE string_ci = 'abc'
@@ -1506,7 +1506,7 @@ QueryStmt
 | +-$pipe_distinct.string_ci#5{Collation:"und:ci"} AS string_ci [STRING]
 | +-$pipe_distinct.string_binary#6{Collation:"binary"} AS string_binary [STRING]
 | +-$pipe_distinct.struct_with_string_ci#7<_,{Collation:"und:ci"}> AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
-| +-$pipe_distinct.array_with_string_ci#8[{Collation:"und:ci"}] AS array_with_string_ci [ARRAY<STRING>]
+| +-$pipe_distinct.array_with_string_ci#8<{Collation:"und:ci"}> AS array_with_string_ci [ARRAY<STRING>]
 +-query=
   +-FilterScan
     +-column_list=$pipe_distinct.[string_ci#5, string_binary#6, struct_with_string_ci#7, array_with_string_ci#8]
@@ -1519,7 +1519,7 @@ QueryStmt
     |     +-string_ci#5 := ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
     |     +-string_binary#6 := ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
     |     +-struct_with_string_ci#7 := ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>)
-    |     +-array_with_string_ci#8 := ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    |     +-array_with_string_ci#8 := ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}>)
     +-filter_expr=
       +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
         +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$pipe_distinct.string_ci#5{Collation:"und:ci"})

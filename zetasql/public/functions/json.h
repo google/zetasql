@@ -931,6 +931,30 @@ struct JSONKeysOptions {
 absl::StatusOr<std::vector<std::string>> JsonKeys(
     JSONValueConstRef input, const JSONKeysOptions& options);
 
+// Flattens a JSON `input` into a vector of JSON values.
+//
+// The function traverses the JSON structure and extracts all nested array
+// elements, stopping recursion only when encountering a non-array type.
+//
+// Example 1:
+// JsonFlatten(JSON '[1, 2, 3]')
+// Result: [JSON '1', JSON '2', JSON '3']
+//
+// Example 2:
+// JsonFlatten(JSON '[[[1, 2], 3], 4]')
+// Result: [JSON '1', JSON '2', JSON '3', JSON '4']
+//
+// Example 3:
+// JsonFlatten(JSON '[[1, 2], {"foo": [3, 4]}]')
+// Result: [JSON '1', JSON '2', JSON '{"foo": [3, 4]}']
+//
+// Example 4:
+// JsonFlatten([JSON '[[[1, 2], 3], 4], {"a": 10}', ["foo", true]'])
+// Result: [JSON '1', JSON '2', JSON '3', JSON '4', JSON '{"a": 10}',
+//          JSON '"foo"', JSON 'true']
+//
+std::vector<JSONValueConstRef> JsonFlatten(JSONValueConstRef input);
+
 }  // namespace functions
 }  // namespace zetasql
 #endif  // ZETASQL_PUBLIC_FUNCTIONS_JSON_H_

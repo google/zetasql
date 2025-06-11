@@ -1,0 +1,5 @@
+MODULE named_constant_circular_function;
+
+CREATE PRIVATE CONSTANT c1 = c3 + 1;
+CREATE PRIVATE FUNCTION c2(a INT64) AS (a * c1);
+CREATE PUBLIC CONSTANT c3 = c2(3);

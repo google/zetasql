@@ -63,6 +63,11 @@ class DefaultAnnotationSpec : public AnnotationSpec {
       const ResolvedMakeStruct& make_struct,
       StructAnnotationMap* result_annotation_map) override;
 
+  // Drops all annotations as we are casting to a new type. Subclasses can
+  // override this behavior if they want to annotate the output.
+  absl::Status CheckAndPropagateForCast(
+      const ResolvedCast& cast, AnnotationMap* result_annotation_map) override;
+
   // If the subquery is an array subquery, copies the element type of its
   // annotation map to <result_annotation_map>. Otherwise, copies the annotation
   // map of the subquery's column to <result_annotation_map>.

@@ -455,8 +455,8 @@ public class PreparedExpressionTest {
   public void testPrepareAndExecuteRespectsOptionsForDefaultCatalog() {
     try (PreparedExpression exp = new PreparedExpression("datetime('2021-04-30 00:01:02')")) {
       LanguageOptions languageOptions = new LanguageOptions();
-      languageOptions.enableLanguageFeature(LanguageFeature.FEATURE_V_1_2_CIVIL_TIME);
-      languageOptions.enableLanguageFeature(LanguageFeature.FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS);
+      languageOptions.enableLanguageFeature(LanguageFeature.FEATURE_CIVIL_TIME);
+      languageOptions.enableLanguageFeature(LanguageFeature.FEATURE_DATE_TIME_CONSTRUCTORS);
       AnalyzerOptions options = new AnalyzerOptions();
       options.setLanguageOptions(languageOptions);
       exp.prepare(options);

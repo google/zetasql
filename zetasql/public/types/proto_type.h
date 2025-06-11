@@ -457,7 +457,7 @@ absl::Status ProtoType::ValidateTypeAnnotations(
       case google::protobuf::FieldDescriptor::TYPE_INT32:
       case google::protobuf::FieldDescriptor::TYPE_SFIXED32:
       case google::protobuf::FieldDescriptor::TYPE_SINT32:
-        // DATE and DATE_DECIMAL are valid for int32_t.
+        // DATE and DATE_DECIMAL are valid for int32.
         if (field_format != FieldFormat::DATE &&
             field_format != FieldFormat::DATE_DECIMAL) {
           return MakeSqlError()
@@ -471,7 +471,7 @@ absl::Status ProtoType::ValidateTypeAnnotations(
       case google::protobuf::FieldDescriptor::TYPE_SINT64:
         {
           // DATE, DATE_DECIMAL, DATETIME, TIME and TIMESTAMP_* are valid for
-          // int64_t.
+          // int64.
           if (field_format != FieldFormat::DATE &&
               field_format != FieldFormat::DATE_DECIMAL &&
               field_format != FieldFormat::TIMESTAMP_SECONDS &&

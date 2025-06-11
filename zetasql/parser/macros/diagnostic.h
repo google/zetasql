@@ -48,7 +48,7 @@ struct DiagnosticOptions {
 // macro expansion.
 absl::Status MakeSqlErrorWithStackFrame(
     const ParseLocationPoint& location, absl::string_view message,
-    absl::string_view input_text, absl::Nullable<const StackFrame*> stack_frame,
+    absl::string_view input_text, const StackFrame* /*absl_nullable*/ stack_frame,
     int offset_in_original_input,
     const parser::macros::DiagnosticOptions& diagnostic_options);
 

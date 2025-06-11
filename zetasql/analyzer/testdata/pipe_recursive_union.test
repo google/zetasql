@@ -18,7 +18,7 @@ ERROR: Pipe RECURSIVE UNION is not supported [at 2:1]
 ^
 ==
 
-[default language_features=PIPES,V_1_4_PIPE_RECURSIVE_UNION,V_1_3_WITH_RECURSIVE,PIPE_STATIC_DESCRIBE,V_1_1_WITH_ON_SUBQUERY,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER,PIPE_WITH]
+[default language_features=PIPES,PIPE_RECURSIVE_UNION,WITH_RECURSIVE,PIPE_STATIC_DESCRIBE,WITH_ON_SUBQUERY,WITH_RECURSIVE_DEPTH_MODIFIER,PIPE_WITH]
 from keyvalue
 |> recursive union all (
   |> select key + 1 as key, value
@@ -618,7 +618,7 @@ QueryStmt
 ==
 
 # Recursive depth modifier is not enabled.
-[language_features=PIPES,V_1_4_PIPE_RECURSIVE_UNION]
+[language_features=PIPES,PIPE_RECURSIVE_UNION]
 from keyvalue
 |> recursive union all with depth max 10 (
   {{from t|}}
@@ -4525,3 +4525,30 @@ FROM KeyValue kv
 ERROR: Referencing the recursive table alias inside a RECURSIVE UNION subpipeline is not allowed [at 3:26]
      |> WITH t2 AS (FROM rec)
                          ^
+==
+
+# "step" is an invalid column reference.
+SELECT 1 AS a, 1 AS b, 1 AS step
+|> RECURSIVE UNION ALL (
+     |> SELECT b, a+b, step+1
+     |> WHERE step < 10
+   )
+|> SELECT step, a
+|> ORDER BY step;
+--
+ERROR: Unrecognized name: step [at 4:15]
+     |> WHERE step < 10
+              ^
+==
+
+# The recursive term cannot reference columns that are only present in the
+# non-recursive term.
+from keyvalue
+|> recursive union all (
+  |> select 1, ""
+  |> where key = 1
+) {{|as t}}
+--
+ERROR: Unrecognized name: key [at 4:12]
+  |> where key = 1
+           ^

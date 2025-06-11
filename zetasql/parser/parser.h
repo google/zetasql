@@ -25,10 +25,11 @@
 
 #include "zetasql/base/arena.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/warning_sink.h"
 #include "zetasql/parser/ast_node_kind.h"
-#include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/parser/parser_mode.h"
 #include "zetasql/parser/parser_runtime_info.h"
 #include "zetasql/parser/statement_properties.h"
 #include "zetasql/public/error_helpers.h"
@@ -36,10 +37,12 @@
 #include "zetasql/public/options.pb.h"
 #include "absl/base/attributes.h"
 #include "absl/base/macros.h"
+#include "absl/base/nullability.h"
 #include "absl/container/flat_hash_map.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "absl/types/variant.h"
 
 namespace zetasql {
@@ -57,6 +60,13 @@ class ParserOptions {
  public:
   ABSL_DEPRECATED("Use the constructor overload that accepts LanguageOptions.")
   ParserOptions();
+
+  ParserOptions(
+      std::shared_ptr<IdStringPool> id_string_pool,
+      std::shared_ptr<zetasql_base::UnsafeArena> arena, LanguageOptions language_options,
+      ErrorMessageOptions error_message_options,
+      parser::MacroExpansionMode macro_expansion_mode,
+      const parser::macros::MacroCatalog* /*absl_nullable*/ macro_catalog);
 
   explicit ParserOptions(
       LanguageOptions language_options,
@@ -80,6 +90,7 @@ class ParserOptions {
                 parser::MacroExpansionMode macro_expansion_mode =
                     parser::MacroExpansionMode::kNone,
                 const parser::macros::MacroCatalog* macro_catalog = nullptr);
+
   ~ParserOptions();
 
   // Sets an IdStringPool for storing strings used in parsing. If it is not set,
@@ -115,6 +126,14 @@ class ParserOptions {
 
   const LanguageOptions& language_options() const { return language_options_; }
 
+  const ErrorMessageOptions& error_message_options() const {
+    return error_message_options_;
+  }
+
+  ErrorMessageOptions& mutable_error_message_options() {
+    return error_message_options_;
+  }
+
   const parser::macros::MacroCatalog* macro_catalog() const {
     return macro_catalog_;
   }
@@ -135,6 +154,7 @@ class ParserOptions {
   LanguageOptions language_options_;
   parser::MacroExpansionMode macro_expansion_mode_;
   const parser::macros::MacroCatalog* macro_catalog_ = nullptr;
+  ErrorMessageOptions error_message_options_;
 };
 
 // Output of a parse operation. The output parse tree can be accessed via
@@ -149,8 +169,7 @@ class ParserOutput {
       std::variant<std::unique_ptr<ASTStatement>, std::unique_ptr<ASTScript>,
                    std::unique_ptr<ASTType>, std::unique_ptr<ASTExpression>>
           node,
-      std::unique_ptr<std::vector<absl::Status>> warnings,
-      std::unique_ptr<ParserRuntimeInfo> info = nullptr);
+      WarningSink warnings, std::unique_ptr<ParserRuntimeInfo> info = nullptr);
   ParserOutput(const ParserOutput&) = delete;
   ParserOutput& operator=(const ParserOutput&) = delete;
   ~ParserOutput();
@@ -188,7 +207,9 @@ class ParserOutput {
   // ParserOptions.
   const std::shared_ptr<zetasql_base::UnsafeArena>& arena() const { return arena_; }
 
-  const std::vector<absl::Status>& warnings() const { return *warnings_; }
+  absl::Span<absl::Status const> warnings() const {
+    return warnings_.warnings();
+  }
 
   const ParserRuntimeInfo& runtime_info() const {
     ABSL_DCHECK(runtime_info_ != nullptr);
@@ -214,7 +235,7 @@ class ParserOutput {
                std::unique_ptr<ASTType>, std::unique_ptr<ASTExpression>>
       node_;
 
-  std::unique_ptr<std::vector<absl::Status>> warnings_;
+  WarningSink warnings_;
 
   std::unique_ptr<ParserRuntimeInfo> runtime_info_;
 };

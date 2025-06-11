@@ -29,6 +29,8 @@
 #include "google/protobuf/descriptor.pb.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/public/proto/wire_format_annotation.pb.h"
+#include "zetasql/public/types/measure_type.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/base/case.h"
 #include "absl/container/btree_set.h"
 #include "absl/status/status.h"
@@ -93,6 +95,13 @@ class TypeToProtoConverter {
                                    int field_number,
                                    google::protobuf::FieldDescriptorProto::Label label,
                                    google::protobuf::DescriptorProto* in_message);
+  // Constructs a FieldDescriptorProto for the given field.
+  absl::Status MakeFieldDescriptor(const Type* field_type,
+                                   const std::string& field_name,
+                                   bool store_field_name_as_annotation,
+                                   int field_number,
+                                   google::protobuf::FieldDescriptorProto::Label label,
+                                   google::protobuf::FieldDescriptorProto* proto_field);
 
   // Make a proto to represent <struct_type> in <in_message>, which is
   // assumed to be an empty message.
@@ -140,7 +149,17 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
         store_field_name_as_annotation, field_number,
         google::protobuf::FieldDescriptorProto::LABEL_REPEATED, in_message);
   }
-  google::protobuf::FieldDescriptorProto* proto_field = in_message->add_field();
+  return MakeFieldDescriptor(field_type, field_name,
+                             store_field_name_as_annotation, field_number,
+                             label, in_message->add_field());
+}
+
+absl::Status TypeToProtoConverter::MakeFieldDescriptor(
+    const Type* field_type, const std::string& field_name,
+    bool store_field_name_as_annotation, int field_number,
+    google::protobuf::FieldDescriptorProto::Label label,
+    google::protobuf::FieldDescriptorProto* proto_field) {
+  ZETASQL_RET_CHECK_GE(field_number, 1);
   if (store_field_name_as_annotation) {
     proto_field->set_name(
         absl::StrCat(kGeneratedFieldNamePrefix, field_number));
@@ -333,6 +352,16 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
       proto_field->set_type_name(descriptor_proto->name());
       break;
     }
+    case TYPE_MEASURE: {
+      ZETASQL_RET_CHECK(!field_type->AsMeasure()->result_type()->IsMeasureType())
+          << "Measures of measures are not supported";
+      // We need the FieldDescriptorProto of the measure's result.
+      ZETASQL_RETURN_IF_ERROR(MakeFieldDescriptor(
+          field_type->AsMeasure()->result_type(), field_name,
+          store_field_name_as_annotation, field_number, label, proto_field));
+      proto_field->mutable_options()->SetExtension(zetasql::is_measure, true);
+      break;
+    }
     case TYPE_GRAPH_ELEMENT:
       // TODO: Implement this for GRAPH_ELEMENT.
       return absl::UnimplementedError(
@@ -349,10 +378,6 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
       // TODO: Implement proto type conversion for Map.
       return absl::UnimplementedError(
           "Proto type conversion for Map is not yet implemented.");
-    case TYPE_MEASURE:
-      // TODO: b/350555383 - Implement proto type conversion for Measure.
-      return absl::UnimplementedError(
-          "Proto type conversion for Measure is not implemented.");
     case __TypeKind__switch_must_have_a_default__:
     case TYPE_UNKNOWN:
       break;  // Error generated below.

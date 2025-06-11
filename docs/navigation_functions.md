@@ -729,7 +729,7 @@ interpolation.
 
 This function ignores NULL
 values if
-`RESPECT NULLS` is absent.  If `RESPECT NULLS` is present:
+`RESPECT NULLS` is absent. If `RESPECT NULLS` is present:
 
 + Interpolation between two `NULL` values returns `NULL`.
 + Interpolation between a `NULL` value and a non-`NULL` value returns the

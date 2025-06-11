@@ -57,7 +57,7 @@ T GetPayload(const absl::Status& status) {
     return T();
   }
   T proto;
-  if (!proto.ParseFromString(std::string(*payload))) {
+  if (!proto.ParseFromCord(*payload)) {
     proto.Clear();  // Prefer empty over partial??
   }
   return proto;

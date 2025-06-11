@@ -472,21 +472,36 @@ SELECT KEYS.KEYSET_CHAIN(@test_param_string, NULL, NULL)
 
 SELECT KEYS.KEYSET_CHAIN(CAST(NULL AS BYTES), NULL, NULL)
 --
-ERROR: No matching signature for function KEYS.KEYSET_CHAIN for argument types: BYTES, NULL, NULL. Supported signatures: KEYS.KEYSET_CHAIN(STRING, BYTES, BYTES); KEYS.KEYSET_CHAIN(STRING, BYTES) [at 1:8]
+ERROR: No matching signature for function KEYS.KEYSET_CHAIN
+  Argument types: BYTES, NULL, NULL
+  Signature: KEYS.KEYSET_CHAIN(STRING, BYTES, BYTES)
+    Argument 1: Unable to coerce type BYTES to expected type STRING
+  Signature: KEYS.KEYSET_CHAIN(STRING, BYTES)
+    Signature accepts at most 2 arguments, found 3 arguments [at 1:8]
 SELECT KEYS.KEYSET_CHAIN(CAST(NULL AS BYTES), NULL, NULL)
        ^
 ==
 
 SELECT KEYS.KEYSET_CHAIN(@test_param_string, CAST(NULL AS STRING))
 --
-ERROR: No matching signature for function KEYS.KEYSET_CHAIN for argument types: STRING, STRING. Supported signatures: KEYS.KEYSET_CHAIN(STRING, BYTES, BYTES); KEYS.KEYSET_CHAIN(STRING, BYTES) [at 1:8]
+ERROR: No matching signature for function KEYS.KEYSET_CHAIN
+  Argument types: STRING, STRING
+  Signature: KEYS.KEYSET_CHAIN(STRING, BYTES, BYTES)
+    Signature requires at least 3 arguments, found 2 arguments
+  Signature: KEYS.KEYSET_CHAIN(STRING, BYTES)
+    Argument 2: Unable to coerce type STRING to expected type BYTES [at 1:8]
 SELECT KEYS.KEYSET_CHAIN(@test_param_string, CAST(NULL AS STRING))
        ^
 ==
 
 SELECT KEYS.KEYSET_CHAIN(@test_param_string, CAST(NULL AS STRING), NULL)
 --
-ERROR: No matching signature for function KEYS.KEYSET_CHAIN for argument types: STRING, STRING, NULL. Supported signatures: KEYS.KEYSET_CHAIN(STRING, BYTES, BYTES); KEYS.KEYSET_CHAIN(STRING, BYTES) [at 1:8]
+ERROR: No matching signature for function KEYS.KEYSET_CHAIN
+  Argument types: STRING, STRING, NULL
+  Signature: KEYS.KEYSET_CHAIN(STRING, BYTES, BYTES)
+    Argument 2: Unable to coerce type STRING to expected type BYTES
+  Signature: KEYS.KEYSET_CHAIN(STRING, BYTES)
+    Signature accepts at most 2 arguments, found 3 arguments [at 1:8]
 SELECT KEYS.KEYSET_CHAIN(@test_param_string, CAST(NULL AS STRING), NULL)
        ^
 ==

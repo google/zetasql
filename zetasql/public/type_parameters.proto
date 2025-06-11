@@ -41,6 +41,7 @@ message TypeParametersProto {
     StringTypeParametersProto string_type_parameters = 1;
     NumericTypeParametersProto numeric_type_parameters = 2;
     ExtendedTypeParametersProto extended_type_parameters = 3;
+    TimestampTypeParametersProto timestamp_type_parameters = 4;
   }
   // Store type parameters for subfields for ARRAY/STRUCT types
   // For ARRAY:
@@ -71,6 +72,14 @@ message StringTypeParametersProto {
     // MAX.
     bool is_max_length = 2;
   }
+}
+
+// Type parameters for TIMESTAMP type.
+message TimestampTypeParametersProto {
+  // Indicates the precision of this TIMESTAMP type. The value must be one of
+  // 0, 3, 6, 9, 12, and must be less than or equal to the maximum precision
+  // supported by the system (see how this value is determined right below).
+  optional int64 precision = 1;
 }
 
 // Type parameters for NUMERIC and BIGNUMERIC type.

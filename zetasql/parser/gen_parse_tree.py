@@ -41,7 +41,7 @@ from zetasql.parser.generator_utils import UpperCamelCase
 
 # You can use `tag_id=GetTempTagId()` until doing the final submit.
 # That will avoid merge conflicts when syncing in other changes.
-NEXT_NODE_TAG_ID = 522
+NEXT_NODE_TAG_ID = 527
 
 
 def GetTempTagId():
@@ -2979,20 +2979,71 @@ def main(argv):
       applied.
               """,
           ),
+          Field(
+              'is_chained_call',
+              SCALAR_BOOL,
+              tag_id=17,
+              comment="""
+      If true, this function was called with chained call syntax.
+      For example,
+        `(base_expression).function_call(args)`
+      which is semantically similar to
+        `function_call(base_expression, args)`
+
+      `arguments` must have at least one element.  The first element is the
+      base expression.
+                """,
+          ),
       ],
       extra_public_defs="""
   // Convenience method that returns true if any modifiers are set. Useful for
   // places in the resolver where function call syntax is used for purposes
   // other than a function call (e.g., <array>[OFFSET(<expr>) or WEEK(MONDAY)]).
-  bool HasModifiers() const {
+  // Ignore `is_chained_call` if `ignore_is_chained_call` is true.
+  bool HasModifiers(bool ignore_is_chained_call=false) const {
     return distinct_ || null_handling_modifier_ != DEFAULT_NULL_HANDLING ||
            having_modifier_ != nullptr ||
            clamped_between_modifier_ != nullptr || order_by_ != nullptr ||
            limit_offset_ != nullptr || with_group_rows_ != nullptr ||
            group_by_ != nullptr || where_expr_ != nullptr ||
-           having_expr_ != nullptr || with_report_modifier_ != nullptr;
+           having_expr_ != nullptr || with_report_modifier_ != nullptr ||
+           (is_chained_call_ && !ignore_is_chained_call);
+  }
+
+  // Return the number of optional modifiers present on this call.
+  // Callers can use this to check that there are no unsupported modifiers by
+  // checking that the number of supported modifiers that are present and
+  // handled is equal to NumModifiers().
+  int NumModifiers() const {
+    return
+         (distinct_ ? 1 : 0) +
+         (null_handling_modifier_ != DEFAULT_NULL_HANDLING  ? 1 : 0) +
+         (having_modifier_ != nullptr  ? 1 : 0) +
+         (clamped_between_modifier_ != nullptr  ? 1 : 0) +
+         (order_by_ != nullptr  ? 1 : 0) +
+         (limit_offset_ != nullptr  ? 1 : 0) +
+         (with_group_rows_ != nullptr  ? 1 : 0) +
+         (group_by_ != nullptr  ? 1 : 0) +
+         (where_expr_ != nullptr  ? 1 : 0) +
+         (having_expr_ != nullptr  ? 1 : 0) +
+         (with_report_modifier_ != nullptr  ? 1 : 0) +
+         (is_chained_call_ ? 1 : 0);
   }
       """,
+  )
+
+  gen.AddNode(
+      name='ASTChainedBaseExpr',
+      tag_id=522,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'expr',
+              'ASTExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          )
+      ],
   )
 
   gen.AddNode(
@@ -3925,13 +3976,12 @@ def main(argv):
               'subquery',
               'ASTQuery',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
-          Field(
-              'alias',
-              'ASTAlias',
-              tag_id=3,
-              gen_setters_and_getters=False),
-      ])
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field('alias', 'ASTAlias', tag_id=3, gen_setters_and_getters=False),
+          Field('is_lateral', SCALAR_BOOL, tag_id=4),
+      ],
+  )
 
   gen.AddNode(
       name='ASTUnaryExpression',
@@ -5435,7 +5485,11 @@ def main(argv):
               Required, never NULL.
               The expression is has to be either an ASTFunctionCall or an
               ASTFunctionCallWithGroupRows.
-              """),
+
+              TODO As of April 2025, it appears
+              ASTFunctionCallWithGroupRows never occurs.  Simplify this?
+              """,
+          ),
           Field(
               'window_spec',
               'ASTWindowSpecification',
@@ -5443,7 +5497,8 @@ def main(argv):
               field_loader=FieldLoaderMethod.REQUIRED,
               private_comment="""
               Required, never NULL.
-              """),
+              """,
+          ),
       ],
       extra_public_defs="""
   // Exactly one of function() or function_with_group_rows() will be non-null.
@@ -5451,12 +5506,19 @@ def main(argv):
   // In the normal case, function() is non-null.
   //
   // The function_with_group_rows() case can only happen if
-  // FEATURE_V_1_3_WITH_GROUP_ROWS is enabled and one function call has both
+  // FEATURE_WITH_GROUP_ROWS is enabled and one function call has both
   // WITH GROUP ROWS and an OVER clause.
+  //
+  // TODO As of April 2025, it appears
+  // ASTFunctionCallWithGroupRows never occurs.  Simplify this?
   const ASTFunctionCall* function() const;
   const ASTFunctionCallWithGroupRows* function_with_group_rows() const;
-      """)
+      """,
+  )
 
+  # TODO As of April 2025, it appears this node is never used.
+  # It looks like this should be deleted, and ASTAnalyticFunctionCall should
+  # go back to always containing an ASTFunctionCall.
   gen.AddNode(
       name='ASTFunctionCallWithGroupRows',
       tag_id=144,
@@ -5985,20 +6047,17 @@ def main(argv):
               'name',
               'ASTPathExpression',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
           Field(
               'argument_entries',
               'ASTTVFArgument',
               tag_id=3,
-              field_loader=FieldLoaderMethod.REPEATING_WHILE_IS_NODE_KIND),
-          Field(
-              'hint',
-              'ASTHint',
-              tag_id=4),
-          Field(
-              'alias',
-              'ASTAlias',
-              tag_id=5),
+              field_loader=FieldLoaderMethod.REPEATING_WHILE_IS_NODE_KIND,
+          ),
+          Field('is_lateral', SCALAR_BOOL, tag_id=6),
+          Field('hint', 'ASTHint', tag_id=4),
+          Field('alias', 'ASTAlias', tag_id=5),
       ],
       extra_public_defs="""
   // Compatibility getters until callers are migrated to directly use the list
@@ -6006,7 +6065,8 @@ def main(argv):
   const ASTSampleClause* sample() const {
       return sample_clause();
   }
-      """)
+      """,
+  )
 
   gen.AddNode(
       name='ASTTableClause',
@@ -10686,6 +10746,26 @@ def main(argv):
               List of Labels exposed by this ElementTable, along with the
               Properties exposed by the Label. This list can never be empty.
               """),
+          Field(
+              'dynamic_label',
+              'ASTGraphDynamicLabel',
+              tag_id=8,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+              comment="""
+                If present, this is the dynamic label(s) exposed by
+                this ElementTable.
+              """,
+          ),
+          Field(
+              'dynamic_properties',
+              'ASTGraphDynamicProperties',
+              tag_id=9,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+              comment="""
+                If present, this is the dynamic properties exposed by
+                this ElementTable.
+              """,
+          ),
       ],
   )
 
@@ -10801,6 +10881,39 @@ def main(argv):
               If not NULL, it appends optional EXCEPT(<all_except_columns>)
               list to PROPERTIES [ARE] ALL COLUMNS.
               """),
+      ],
+  )
+  gen.AddNode(
+      name='ASTGraphDynamicLabel',
+      tag_id=511,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'label',
+              'ASTExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+              comment="""
+              Label expression.
+              """,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGraphDynamicProperties',
+      tag_id=512,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'properties',
+              'ASTExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+              comment="""
+              Properties expression.
+              """,
+          ),
       ],
   )
 
@@ -11058,17 +11171,20 @@ def main(argv):
               'variable_name',
               'ASTIdentifier',
               tag_id=2,
-              field_loader=FieldLoaderMethod.OPTIONAL),
+              field_loader=FieldLoaderMethod.OPTIONAL,
+          ),
           Field(
               'label_filter',
               'ASTGraphLabelFilter',
               tag_id=3,
-              field_loader=FieldLoaderMethod.OPTIONAL),
+              field_loader=FieldLoaderMethod.OPTIONAL,
+          ),
           Field(
               'where_clause',
               'ASTWhereClause',
               tag_id=4,
-              field_loader=FieldLoaderMethod.OPTIONAL),
+              field_loader=FieldLoaderMethod.OPTIONAL,
+          ),
           Field(
               'property_specification',
               'ASTGraphPropertySpecification',
@@ -11079,7 +11195,14 @@ def main(argv):
               'hint',
               'ASTHint',
               tag_id=6,
-              field_loader=FieldLoaderMethod.OPTIONAL),
+              field_loader=FieldLoaderMethod.OPTIONAL,
+          ),
+          Field(
+              'edge_cost',
+              'ASTExpression',
+              tag_id=7,
+              field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION,
+          ),
       ],
   )
 
@@ -11464,6 +11587,126 @@ def main(argv):
               tag_id=4,
               field_loader=FieldLoaderMethod.OPTIONAL,
           ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGqlCallBase',
+      tag_id=523,
+      parent='ASTGqlOperator',
+      is_abstract=True,
+      comment="""
+        Represents a GQL CALL operator.
+        Note that this is different from the pipe Call.
+      """,
+      fields=[
+          Field(
+              'optional',
+              SCALAR_BOOL,
+              tag_id=2,
+              visibility=Visibility.PROTECTED,
+          ),
+          Field(
+              'is_partitioning',
+              SCALAR_BOOL,
+              tag_id=3,
+              visibility=Visibility.PROTECTED,
+              comment="""
+                Indicates whether this call partitions the input working table.
+
+                When set, the `name_capture_list` defines the partitioning
+                columns. The target of this CALL operation (TVF or subquery) is
+                invoked for each partition. This is a FOR EACH PARTITION BY
+                operation (and if the list is empty, a simple TVF call).
+
+                Otherwise, the target is invoked for each row in the input
+                (like LATERAL join). The `name_capture_list` contains the
+                columns exposed to the derived subquery/TVF (i.e., these are the
+                columns which can be referenced "laterally").
+
+                Note that both cases can be viewed as similar, if we consider
+                that the "non-partitioning" case is still partitioning but by
+                a hidden row ID column which leads to each row being in its own
+                partition.
+              """,
+          ),
+          Field(
+              'name_capture_list',
+              'ASTIdentifierList',
+              tag_id=4,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+              visibility=Visibility.PROTECTED,
+              comment="""
+                The list of columns exposed to the target TVF or subquery of
+                this CALL. If `is_partitioning` is set, these are the
+                partitioning columns. Otherwise, these are the columns which can
+                be referenced "laterally".
+              """,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGqlNamedCall',
+      tag_id=524,
+      parent='ASTGqlCallBase',
+      comment="""
+        Represents a GQL CALL operator to a named TVF.
+      """,
+      fields=[
+          Field(
+              'tvf_call',
+              'ASTTVF',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'yield_clause',
+              'ASTYieldItemList',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+              comment="""
+                Represents the YIELD clause, if present.
+              """,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTYieldItemList',
+      tag_id=525,
+      parent='ASTNode',
+      comment="""
+        Represents the YIELD clause.
+      """,
+      fields=[
+          Field(
+              'yield_items',
+              'ASTExpressionWithOptAlias',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+              comment="""
+                The list of YIELD items in the YIELD clause. The grammar
+                guarantees that this list is never empty.
+              """,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTGqlInlineSubqueryCall',
+      tag_id=526,
+      parent='ASTGqlCallBase',
+      comment="""
+        Represents a GQL CALL operator to an inline subquery.
+      """,
+      fields=[
+          Field(
+              'subquery',
+              'ASTQuery',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          )
       ],
   )
 

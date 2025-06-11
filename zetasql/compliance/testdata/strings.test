@@ -31,39 +31,6 @@ ARRAY<STRUCT<STRING,
   "a`b"}]
 ==
 
-#Test that unaccepted escaped characters error out.
-[name=strings_unaccepted_escaped_characters_1]
-SELECT "a\qc"
---
-ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: \q [at 1:10]
-SELECT "a\qc"
-         ^
-==
-
-[name=strings_unaccepted_escaped_characters_2]
-SELECT "a\~b"
---
-ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: \~ [at 1:10]
-SELECT "a\~b"
-         ^
-==
-
-[name=strings_unaccepted_escaped_characters_3]
-SELECT "a\+b"
---
-ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: \+ [at 1:10]
-SELECT "a\+b"
-         ^
-==
-
-[name=strings_unaccepted_escaped_characters_4]
-SELECT "a\/b"
---
-ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: \/ [at 1:10]
-SELECT "a\/b"
-         ^
-==
-
 [name=strings_triple_single_quotes_1]
 SELECT '''abc''', '''abc\n'''
 --
@@ -84,14 +51,6 @@ def"""
 ARRAY<STRUCT<STRING>>[{"abc\ndef"}]
 ==
 
-[name=strings_triple_single_quotes_2]
-SELECT '''abc\'''
---
-ERROR: generic::invalid_argument: Syntax error: Unclosed triple-quoted string literal [at 1:8]
-SELECT '''abc\'''
-       ^
-==
-
 
 # Test using the other two quote types.
 [name=strings_unescaped_quote_types_1]
@@ -100,66 +59,10 @@ SELECT "a'b'''"
 ARRAY<STRUCT<STRING>>[{"a'b'''"}]
 ==
 
-[name=strings_unescaped_quote_types_2]
-SELECT 'a"b''''
---
-ERROR: generic::invalid_argument: Syntax error: Unclosed triple-quoted string literal [at 1:13]
-SELECT 'a"b''''
-            ^
-==
-
 [name=strings_unescaped_quote_types_3]
 SELECT '''a'b"'''
 --
 ARRAY<STRUCT<STRING>>[{"a'b\""}]
-==
-
-[name=strings_unescaped_quote_types_4]
-SELECT "a"b"
---
-ERROR: generic::invalid_argument: Syntax error: Unclosed bytes literal [at 1:11]
-SELECT "a"b"
-          ^
-==
-
-[name=strings_unescaped_quote_types_5]
-SELECT "a""b"
---
-ERROR: generic::invalid_argument: Syntax error: concatenated string literals must be separated by whitespace or comments [at 1:11]
-SELECT "a""b"
-          ^
-==
-
-[name=strings_unescaped_quote_types_6]
-SELECT 'a'b'
---
-ERROR: generic::invalid_argument: Syntax error: Unclosed bytes literal [at 1:11]
-SELECT 'a'b'
-          ^
-==
-
-[name=strings_unescaped_quote_types_7]
-SELECT 'a''b'
---
-ERROR: generic::invalid_argument: Syntax error: concatenated string literals must be separated by whitespace or comments [at 1:11]
-SELECT 'a''b'
-          ^
-==
-
-[name=strings_unescaped_quote_types_8]
-SELECT '''a'''b'''
---
-ERROR: generic::invalid_argument: Syntax error: Unclosed triple-quoted bytes literal [at 1:15]
-SELECT '''a'''b'''
-              ^
-==
-
-[name=strings_unescaped_quote_types_9]
-SELECT '''a''''''b'''
---
-ERROR: generic::invalid_argument: Syntax error: concatenated string literals must be separated by whitespace or comments [at 1:15]
-SELECT '''a''''''b'''
-              ^
 ==
 
 [name=strings_unescaped_quote_types_10]
@@ -173,14 +76,6 @@ ARRAY<STRUCT<STRING>>[{"a`b"}]
 SELECT "\123"
 --
 ARRAY<STRUCT<STRING>>[{"S"}]
-==
-
-[name=strings_octal_2]
-SELECT "\12"
---
-ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: Octal escape must be followed by 3 octal digits but saw: \12 [at 1:9]
-SELECT "\12"
-        ^
 ==
 
 [name=strings_octal_3]
@@ -202,14 +97,6 @@ SELECT "\x41B"
 ARRAY<STRUCT<STRING>>[{"AB"}]
 ==
 
-[name=strings_hex_3]
-SELECT "\x4"
---
-ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: Hex escape must be followed by 2 hex digits but saw: \x4 [at 1:9]
-SELECT "\x4"
-        ^
-==
-
 [name=strings_hex_4]
 SELECT "\x4167"
 --
@@ -226,14 +113,6 @@ ARRAY<STRUCT<STRING>>[{"A"}]
 SELECT "\X41B"
 --
 ARRAY<STRUCT<STRING>>[{"AB"}]
-==
-
-[name=strings_hex_7]
-SELECT "\X4"
---
-ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: Hex escape must be followed by 2 hex digits but saw: \X4 [at 1:9]
-SELECT "\X4"
-        ^
 ==
 
 [name=strings_hex_8]
@@ -256,14 +135,6 @@ SELECT "\uE282X"
 ARRAY<STRUCT<STRING>>[{"X"}]
 ==
 
-[name=strings_utf8_3]
-SELECT "\uE!82"
---
-ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: \u must be followed by 4 hex digits but saw: \uE!82 [at 1:9]
-SELECT "\uE!82"
-        ^
-==
-
 [name=strings_utf8_5]
 SELECT "\U0000E282"
 --
@@ -274,22 +145,6 @@ ARRAY<STRUCT<STRING>>[{""}]
 SELECT "\U0000E282X"
 --
 ARRAY<STRUCT<STRING>>[{"X"}]
-==
-
-[name=strings_utf8_7]
-SELECT "\UE282E282"
---
-ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: Value of \UE282E282 exceeds Unicode limit (0x0010FFFF) [at 1:9]
-SELECT "\UE282E282"
-        ^
-==
-
-[name=strings_utf8_8]
-SELECT "\U0!00E282"
---
-ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: \U must be followed by 8 hex digits but saw: \U0!00E282 [at 1:9]
-SELECT "\U0!00E282"
-        ^
 ==
 
 # Unicode can be unescaped in strings.
@@ -385,7 +240,7 @@ SELECT STRPOS(b"€", b"€") = 1, STRPOS(b"\xE2\x82\xAC", CAST("€" AS BYTES))
 ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{true, true, true}]
 ==
 
-[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[required_features=ADDITIONAL_STRING_FUNCTIONS]
 [name=substring]
 SELECT SUBSTRING("abc", 1), SUBSTRING("abc", 1, 1), SUBSTRING("\xE2\x82\xAC", 2, 1), SUBSTRING("abc", 0, 1), SUBSTRING("abc", -3, 5)
 --
@@ -398,15 +253,6 @@ ARRAY<STRUCT<STRING, STRING, STRING, STRING, STRING>>[
 SELECT OCTET_LENGTH("€"), OCTET_LENGTH("\xE2\x82\xAC"), OCTET_LENGTH(b"\xE2\x82\xAC"), OCTET_LENGTH(CAST("\xE2\x82\xAC" AS BYTES))
 --
 ARRAY<STRUCT<INT64, INT64, INT64, INT64>>[{3, 6, 3, 6}]
-==
-
-[name=strings_no_embedded_new_line]
-SELECT "a
-c"
---
-ERROR: generic::invalid_argument: Syntax error: Unclosed string literal [at 1:8]
-SELECT "a
-       ^
 ==
 
 [name=strings_comparison_case_sensitivity_1]
@@ -471,7 +317,7 @@ SELECT STRPOS("abc", "b")
 ARRAY<STRUCT<INT64>>[{2}]
 ==
 
-[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[required_features=ADDITIONAL_STRING_FUNCTIONS]
 [name=strings_function_instr]
 SELECT INSTR("abc", "b"), INSTR("abbba", "bb"), INSTR("abbba", "bb", 2, 2), INSTR("abbba", "bb", -2)
 --
@@ -490,21 +336,21 @@ SELECT UPPER("aBcDe")
 ARRAY<STRUCT<STRING>>[{"ABCDE"}]
 ==
 
-[required_features=V_1_4_ALIASES_FOR_STRING_AND_DATE_FUNCTIONS]
+[required_features=ALIASES_FOR_STRING_AND_DATE_FUNCTIONS]
 [name=strings_function_lcase]
 SELECT lcase("AbCdE")
 --
 ARRAY<STRUCT<STRING>>[{"abcde"}]
 ==
 
-[required_features=V_1_4_ALIASES_FOR_STRING_AND_DATE_FUNCTIONS]
+[required_features=ALIASES_FOR_STRING_AND_DATE_FUNCTIONS]
 [name=strings_function_ucase]
 SELECT ucase("aBcDe")
 --
 ARRAY<STRUCT<STRING>>[{"ABCDE"}]
 ==
 
-[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[required_features=ADDITIONAL_STRING_FUNCTIONS]
 [name=strings_function_initcap]
 SELECT INITCAP("abcd e", " c")
 --
@@ -814,14 +660,14 @@ SELECT REGEXP_REPLACE("abcabc", "[a|d]b?", "xyz")
 ARRAY<STRUCT<STRING>>[{"xyzcxyzc"}]
 ==
 
-[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[required_features=ADDITIONAL_STRING_FUNCTIONS]
 [name=strings_function_soundex]
 SELECT SOUNDEX(""), SOUNDEX(" I LOVE YOU TOO"), SOUNDEX("Ashcraft")
 --
 ARRAY<STRUCT<STRING, STRING, STRING>>[{"", "I413", "A261"}]
 ==
 
-[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[required_features=ADDITIONAL_STRING_FUNCTIONS]
 [name=strings_function_translate]
 SELECT TRANSLATE("abc", "abd", "xy"), TRANSLATE("abcabc", "ab", "\tд")
 --
@@ -1101,25 +947,6 @@ select
 --
 ARRAY<STRUCT<STRING, STRING>>[{'"foo"', "foo"}]
 ==
-[name=json_extract_non_literal_path]
-select
-  json_extract('{"a": "foo"}', path),
-  json_extract_scalar('{"a": "foo"}', path)
-from (select '$.a' as path union all select '$.b')
---
-ERROR: generic::invalid_argument: Argument 2 to JSON_EXTRACT must be a literal or query parameter [at 2:32]
-  json_extract('{"a": "foo"}', path),
-                               ^
-==
-[name=json_extract_subquery_path]
-select
-  json_extract('{"a": "foo"}', (select '$.a')),
-  json_extract_scalar('{"a": "foo"}', (select '$.a'))
---
-ERROR: generic::invalid_argument: Argument 2 to JSON_EXTRACT must be a literal or query parameter [at 2:32]
-  json_extract('{"a": "foo"}', (select '$.a')),
-                               ^
-==
 [name=json_extract_array_literal_path]
 select
   json_extract_array('{"a": ["foo"]}', '$.a')
@@ -1144,29 +971,13 @@ select
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>['"foo"']}]
 ==
-[name=json_extract_array_non_literal_path]
-select
-  json_extract_array('{"a": ["foo"]}', path)
-from (select '$.a' as path)
---
-ERROR: generic::invalid_argument: Argument 2 to JSON_EXTRACT_ARRAY must be a literal or query parameter [at 2:40]
-  json_extract_array('{"a": ["foo"]}', path)
-                                       ^
-==
 [name=json_extract_array_literal_null_path]
 select
   json_extract_array('{"a": ["foo"]}', NULL)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>(NULL)}]
 ==
-[name=json_extract_array_subquery_path]
-select
-  json_extract_array('{"a": ["foo"]}', (select '$.a'))
---
-ERROR: generic::invalid_argument: Argument 2 to JSON_EXTRACT_ARRAY must be a literal or query parameter [at 2:40]
-  json_extract_array('{"a": ["foo"]}', (select '$.a'))
-                                       ^
-==
+
 [name=json_extract_array_one_argument_valid]
 select
   json_extract_array('["foo","bar","baz"]')
@@ -1211,30 +1022,11 @@ select
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["foo"]}]
 ==
 [required_features=JSON_ARRAY_FUNCTIONS]
-[name=json_extract_string_array_non_literal_path]
-select
-  json_extract_string_array('{"a": ["foo"]}', path)
-from (select '$.a' as path)
---
-ERROR: generic::invalid_argument: Argument 2 to JSON_EXTRACT_STRING_ARRAY must be a literal or query parameter [at 2:47]
-  json_extract_string_array('{"a": ["foo"]}', path)
-                                              ^
-==
-[required_features=JSON_ARRAY_FUNCTIONS]
 [name=json_extract_string_array_literal_null_path]
 select
   json_extract_string_array('{"a": ["foo"]}', NULL)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>(NULL)}]
-==
-[required_features=JSON_ARRAY_FUNCTIONS]
-[name=json_extract_string_array_subquery_path]
-select
-  json_extract_string_array('{"a": ["foo"]}', (select '$.a'))
---
-ERROR: generic::invalid_argument: Argument 2 to JSON_EXTRACT_STRING_ARRAY must be a literal or query parameter [at 2:47]
-  json_extract_string_array('{"a": ["foo"]}', (select '$.a'))
-                                              ^
 ==
 [required_features=JSON_ARRAY_FUNCTIONS]
 [name=json_extract_string_array_one_argument_valid]
@@ -1494,3 +1286,9 @@ ARRAY<STRUCT<col1 STRING,
 SELECT split_substr("###tagA###tagB###tagC###", "##", -2, 3)
 --
 ARRAY<STRUCT<STRING>>[{"#tagC###"}]
+==
+[name=string_literal_concat]
+[required_features=LITERAL_CONCATENATION]
+SELECT 'abc' '123';
+--
+ARRAY<STRUCT<STRING>>[{"abc123"}]

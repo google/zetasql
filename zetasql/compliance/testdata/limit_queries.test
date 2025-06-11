@@ -438,7 +438,7 @@ SELECT a FROM (SELECT 1 a) LIMIT (1)
 --
 ARRAY<STRUCT<a INT64>>[{1}]
 ==
-[required_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[required_features=LIMIT_OFFSET_EXPRESSIONS]
 [name=limit_null]
 SELECT a FROM (SELECT 1 a) LIMIT NULL
 --
@@ -449,7 +449,7 @@ SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET (1)
 --
 ARRAY<STRUCT<a INT64>>[]
 ==
-[required_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[required_features=LIMIT_OFFSET_EXPRESSIONS]
 [name=offset_null]
 SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET NULL
 --
@@ -573,64 +573,92 @@ ARRAY<STRUCT<a STRING>>[]
 # ----------
 
 [name=expr_limit_0]
-[required_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[required_features=LIMIT_OFFSET_EXPRESSIONS]
 [parameters=0 as lmt]
 SELECT a FROM (SELECT 1 a) LIMIT MOD(@lmt, 2)
 --
 ARRAY<STRUCT<a INT64>>[]
 ==
 [name=expr_limit_1]
-[required_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[required_features=LIMIT_OFFSET_EXPRESSIONS]
 [parameters=1 as lmt]
 SELECT a FROM (SELECT 1 a) LIMIT MOD(@lmt, 2)
 --
 ARRAY<STRUCT<a INT64>>[{1}]
 ==
 [name=expr_limit_negative]
-[required_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[required_features=LIMIT_OFFSET_EXPRESSIONS]
 [parameters=1 as lmt]
 SELECT a FROM (SELECT 1 a) LIMIT MOD(@lmt, 2) - 2
 --
 ERROR: generic::out_of_range: Limit requires non-negative count and offset
 ==
 [name=expr_limit_null]
-[required_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[required_features=LIMIT_OFFSET_EXPRESSIONS]
 [parameters=NULL as lmt]
 SELECT a FROM (SELECT 1 a) LIMIT COALESCE(@lmt, NULL)
 --
 ERROR: generic::out_of_range: Limit requires non-null count and offset
 ==
 [name=expr_offset_0]
-[required_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[required_features=LIMIT_OFFSET_EXPRESSIONS]
 [parameters=0 as ofst]
 SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET MOD(@ofst, 2)
 --
 ARRAY<STRUCT<a INT64>>[{1}]
 ==
 [name=expr_offset_negative]
-[required_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[required_features=LIMIT_OFFSET_EXPRESSIONS]
 [parameters=1 as ofst]
 SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET MOD(@ofst, 2) - 2
 --
 ERROR: generic::out_of_range: Limit requires non-negative count and offset
 ==
 [name=expr_offset_null]
-[required_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[required_features=LIMIT_OFFSET_EXPRESSIONS]
 [parameters=NULL as ofst]
 SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET COALESCE(@ofst, NULL)
 --
 ERROR: generic::out_of_range: Limit requires non-null count and offset
 ==
 [name=expr_limit_1_offset_0]
-[required_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[required_features=LIMIT_OFFSET_EXPRESSIONS]
 [parameters=1 as lmt, 0 as ofst]
 SELECT a FROM (SELECT '*' a) LIMIT MOD(@lmt, 2) OFFSET MOD(@ofst, 2)
 --
 ARRAY<STRUCT<a STRING>>[{"*"}]
 ==
 [name=expr_limit_max_offset]
-[required_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[required_features=LIMIT_OFFSET_EXPRESSIONS]
 [parameters=9223372036854775806 as lmt, 2 as ofst]
 SELECT a FROM (SELECT '*' a) LIMIT MOD(@lmt, 9223372036854775807) + 1 OFFSET @ofst
 --
 ARRAY<STRUCT<a STRING>>[]
+==
+
+[required_features=ORDER_BY_COLLATE]
+[name=nondeterminism_detected_with_collation]
+SELECT count(*)
+FROM (
+  SELECT s
+  FROM UNNEST(["a", "A"]) AS s
+  ORDER BY s COLLATE "und:ci"
+  LIMIT 1
+)
+--
+ARRAY<STRUCT<INT64>>[{1}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+[required_features=ORDER_BY_COLLATE]
+[name=collation_does_not_cause_nondeterminism_for_identical_strings]
+SELECT count(*)
+FROM (
+  SELECT s
+  FROM UNNEST(["a", "a"]) AS s
+  ORDER BY s COLLATE "und:ci"
+  LIMIT 1
+)
+--
+ARRAY<STRUCT<INT64>>[{1}]

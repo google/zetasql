@@ -1,7 +1,6 @@
-[default language_features=V_1_4_SQL_GRAPH]
+[default language_features=SQL_GRAPH]
 [default no_test_extract_table_names]
 [default show_sqlbuilder_output]
-[default also_show_signature_mismatch_details]
 
 # SAME over GraphElementTypes with different property types (e.g. `a` and `b`
 # are node types with different properties) will cast them into common
@@ -36,7 +35,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.a#1]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Person)
+        |       | | | +-GraphLabel(parse_location=209-215, label=aml.Person)
         |       | | +-target_element_table_list=[aml.Person]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.e#2]
@@ -54,7 +53,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.b#3]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Account)
+        |       |   | +-GraphLabel(parse_location=230-237, label=aml.Account)
         |       |   +-target_element_table_list=[aml.Account]
         |       +-head=$element_table.a#1
         |       +-tail=$element_table.b#3
@@ -133,11 +132,6 @@ select * from graph_table(
 )
 
 --
-ERROR: No matching signature for function SAME for argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>. Supported signature: SAME([GRAPH_ELEMENT, ...]) [at 4:11]
-  columns(SAME(a, e) as same)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAME
   Argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>
   Signature: SAME([GRAPH_ELEMENT, ...])
@@ -178,11 +172,6 @@ select * from graph_table(
 )
 
 --
-ERROR: No matching signature for function SAME for argument types: INT64, INT64. Supported signature: SAME([GRAPH_ELEMENT, ...]) [at 4:11]
-  columns(SAME(1, 2) AS same)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAME
   Argument types: INT64, INT64
   Signature: SAME([GRAPH_ELEMENT, ...])
@@ -198,11 +187,6 @@ select * from graph_table(
 )
 
 --
-ERROR: No matching signature for function SAME for argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>, STRING. Supported signature: SAME([GRAPH_ELEMENT, ...]) [at 4:11]
-  columns(SAME(n, n.name) AS same)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAME
   Argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>, STRING
   Signature: SAME([GRAPH_ELEMENT, ...])
@@ -253,7 +237,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.a#1]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Person)
+        |       | | | +-GraphLabel(parse_location=47-53, label=aml.Person)
         |       | | +-target_element_table_list=[aml.Person]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.b#2]
@@ -271,7 +255,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.c#3]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Account)
+        |       |   | +-GraphLabel(parse_location=68-75, label=aml.Account)
         |       |   +-target_element_table_list=[aml.Account]
         |       +-head=$element_table.a#1
         |       +-tail=$element_table.c#3
@@ -390,11 +374,6 @@ select * from graph_table(
 --
 ALTERNATION GROUP: 1,,SOURCE
 --
-ERROR: No matching signature for operator IS SOURCE OF for argument types: INT64, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>. Supported signature: GRAPH_NODE IS SOURCE OF GRAPH_EDGE [at 4:11]
-  columns(1 IS  SOURCE OF b AS b_is_source_of_b)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator IS SOURCE OF
   Argument types: INT64, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>
   Signature: GRAPH_NODE IS SOURCE OF GRAPH_EDGE
@@ -404,11 +383,6 @@ ERROR: No matching signature for operator IS SOURCE OF
 --
 ALTERNATION GROUP: 1,,DESTINATION
 --
-ERROR: No matching signature for operator IS DESTINATION OF for argument types: INT64, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>. Supported signature: GRAPH_NODE IS DESTINATION OF GRAPH_EDGE [at 4:11]
-  columns(1 IS  DESTINATION OF b AS b_is_source_of_b)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator IS DESTINATION OF
   Argument types: INT64, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>
   Signature: GRAPH_NODE IS DESTINATION OF GRAPH_EDGE
@@ -418,11 +392,6 @@ ERROR: No matching signature for operator IS DESTINATION OF
 --
 ALTERNATION GROUP: 1,NOT,SOURCE
 --
-ERROR: No matching signature for operator IS SOURCE OF for argument types: INT64, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>. Supported signature: GRAPH_NODE IS SOURCE OF GRAPH_EDGE [at 4:11]
-  columns(1 IS NOT SOURCE OF b AS b_is_source_of_b)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator IS SOURCE OF
   Argument types: INT64, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>
   Signature: GRAPH_NODE IS SOURCE OF GRAPH_EDGE
@@ -432,11 +401,6 @@ ERROR: No matching signature for operator IS SOURCE OF
 --
 ALTERNATION GROUP: 1,NOT,DESTINATION
 --
-ERROR: No matching signature for operator IS DESTINATION OF for argument types: INT64, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>. Supported signature: GRAPH_NODE IS DESTINATION OF GRAPH_EDGE [at 4:11]
-  columns(1 IS NOT DESTINATION OF b AS b_is_source_of_b)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator IS DESTINATION OF
   Argument types: INT64, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>
   Signature: GRAPH_NODE IS DESTINATION OF GRAPH_EDGE
@@ -446,11 +410,6 @@ ERROR: No matching signature for operator IS DESTINATION OF
 --
 ALTERNATION GROUP: b,,SOURCE
 --
-ERROR: No matching signature for operator IS SOURCE OF for argument types: GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>. Supported signature: GRAPH_NODE IS SOURCE OF GRAPH_EDGE [at 4:11]
-  columns(b IS  SOURCE OF b AS b_is_source_of_b)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator IS SOURCE OF
   Argument types: GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>
   Signature: GRAPH_NODE IS SOURCE OF GRAPH_EDGE
@@ -460,11 +419,6 @@ ERROR: No matching signature for operator IS SOURCE OF
 --
 ALTERNATION GROUP: b,,DESTINATION
 --
-ERROR: No matching signature for operator IS DESTINATION OF for argument types: GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>. Supported signature: GRAPH_NODE IS DESTINATION OF GRAPH_EDGE [at 4:11]
-  columns(b IS  DESTINATION OF b AS b_is_source_of_b)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator IS DESTINATION OF
   Argument types: GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>
   Signature: GRAPH_NODE IS DESTINATION OF GRAPH_EDGE
@@ -474,11 +428,6 @@ ERROR: No matching signature for operator IS DESTINATION OF
 --
 ALTERNATION GROUP: b,NOT,SOURCE
 --
-ERROR: No matching signature for operator IS SOURCE OF for argument types: GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>. Supported signature: GRAPH_NODE IS SOURCE OF GRAPH_EDGE [at 4:11]
-  columns(b IS NOT SOURCE OF b AS b_is_source_of_b)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator IS SOURCE OF
   Argument types: GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>
   Signature: GRAPH_NODE IS SOURCE OF GRAPH_EDGE
@@ -488,11 +437,6 @@ ERROR: No matching signature for operator IS SOURCE OF
 --
 ALTERNATION GROUP: b,NOT,DESTINATION
 --
-ERROR: No matching signature for operator IS DESTINATION OF for argument types: GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>. Supported signature: GRAPH_NODE IS DESTINATION OF GRAPH_EDGE [at 4:11]
-  columns(b IS NOT DESTINATION OF b AS b_is_source_of_b)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator IS DESTINATION OF
   Argument types: GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>
   Signature: GRAPH_NODE IS DESTINATION OF GRAPH_EDGE
@@ -511,11 +455,6 @@ select * from graph_table(
 --
 ALTERNATION GROUP: SOURCE,1
 --
-ERROR: No matching signature for operator IS SOURCE OF for argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>, INT64. Supported signature: GRAPH_NODE IS SOURCE OF GRAPH_EDGE [at 4:11]
-  columns(a IS  SOURCE OF 1 AS a_is_source_of_a)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator IS SOURCE OF
   Argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>, INT64
   Signature: GRAPH_NODE IS SOURCE OF GRAPH_EDGE
@@ -525,11 +464,6 @@ ERROR: No matching signature for operator IS SOURCE OF
 --
 ALTERNATION GROUP: SOURCE,a
 --
-ERROR: No matching signature for operator IS SOURCE OF for argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>, GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>. Supported signature: GRAPH_NODE IS SOURCE OF GRAPH_EDGE [at 4:11]
-  columns(a IS  SOURCE OF a AS a_is_source_of_a)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator IS SOURCE OF
   Argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>, GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>
   Signature: GRAPH_NODE IS SOURCE OF GRAPH_EDGE
@@ -539,11 +473,6 @@ ERROR: No matching signature for operator IS SOURCE OF
 --
 ALTERNATION GROUP: DESTINATION,1
 --
-ERROR: No matching signature for operator IS DESTINATION OF for argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>, INT64. Supported signature: GRAPH_NODE IS DESTINATION OF GRAPH_EDGE [at 4:11]
-  columns(a IS  DESTINATION OF 1 AS a_is_source_of_a)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator IS DESTINATION OF
   Argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>, INT64
   Signature: GRAPH_NODE IS DESTINATION OF GRAPH_EDGE
@@ -553,11 +482,6 @@ ERROR: No matching signature for operator IS DESTINATION OF
 --
 ALTERNATION GROUP: DESTINATION,a
 --
-ERROR: No matching signature for operator IS DESTINATION OF for argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>, GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>. Supported signature: GRAPH_NODE IS DESTINATION OF GRAPH_EDGE [at 4:11]
-  columns(a IS  DESTINATION OF a AS a_is_source_of_a)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator IS DESTINATION OF
   Argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>, GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>
   Signature: GRAPH_NODE IS DESTINATION OF GRAPH_EDGE
@@ -567,11 +491,6 @@ ERROR: No matching signature for operator IS DESTINATION OF
 --
 ALTERNATION GROUP: NOT,SOURCE,1
 --
-ERROR: No matching signature for operator IS SOURCE OF for argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>, INT64. Supported signature: GRAPH_NODE IS SOURCE OF GRAPH_EDGE [at 4:11]
-  columns(a IS NOT SOURCE OF 1 AS a_is_source_of_a)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator IS SOURCE OF
   Argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>, INT64
   Signature: GRAPH_NODE IS SOURCE OF GRAPH_EDGE
@@ -580,13 +499,7 @@ ERROR: No matching signature for operator IS SOURCE OF
           ^
 --
 ALTERNATION GROUP: NOT,SOURCE,a
-
 --
-ERROR: No matching signature for operator IS SOURCE OF for argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>, GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>. Supported signature: GRAPH_NODE IS SOURCE OF GRAPH_EDGE [at 4:11]
-  columns(a IS NOT SOURCE OF a AS a_is_source_of_a)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator IS SOURCE OF
   Argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>, GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>
   Signature: GRAPH_NODE IS SOURCE OF GRAPH_EDGE
@@ -596,11 +509,6 @@ ERROR: No matching signature for operator IS SOURCE OF
 --
 ALTERNATION GROUP: NOT,DESTINATION,1
 --
-ERROR: No matching signature for operator IS DESTINATION OF for argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>, INT64. Supported signature: GRAPH_NODE IS DESTINATION OF GRAPH_EDGE [at 4:11]
-  columns(a IS NOT DESTINATION OF 1 AS a_is_source_of_a)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator IS DESTINATION OF
   Argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>, INT64
   Signature: GRAPH_NODE IS DESTINATION OF GRAPH_EDGE
@@ -610,17 +518,13 @@ ERROR: No matching signature for operator IS DESTINATION OF
 --
 ALTERNATION GROUP: NOT,DESTINATION,a
 --
-ERROR: No matching signature for operator IS DESTINATION OF for argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>, GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>. Supported signature: GRAPH_NODE IS DESTINATION OF GRAPH_EDGE [at 4:11]
-  columns(a IS NOT DESTINATION OF a AS a_is_source_of_a)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator IS DESTINATION OF
   Argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>, GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>
   Signature: GRAPH_NODE IS DESTINATION OF GRAPH_EDGE
     Argument 2: expected GRAPH_EDGE, found GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...> [at 4:11]
   columns(a IS NOT DESTINATION OF a AS a_is_source_of_a)
           ^
+
 ==
 
 select * from graph_table(
@@ -643,7 +547,7 @@ select * from graph_table(
 )
 
 --
-ERROR: PROPERTY_EXISTS should have exactlty two arguments [at 3:38]
+ERROR: PROPERTY_EXISTS should have exactly two arguments [at 3:38]
   match (n IS Person | Account Where PROPERTY_EXISTS(n))
                                      ^
 ==
@@ -674,7 +578,7 @@ ERROR: Property unknown is not defined in PropertyGraph aml [at 3:57]
 
 ==
 
-[language_features=V_1_4_SQL_GRAPH,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=SQL_GRAPH,INLINE_LAMBDA_ARGUMENT]
 
 select * from graph_table(
   aml
@@ -719,10 +623,11 @@ QueryStmt
         |       |   |   +-Literal(type=STRING, value="birthday")
         |       |   +-label_expr=
         |       |   | +-GraphLabelNaryExpr
+        |       |   |   +-parse_location=52-68
         |       |   |   +-op=OR
         |       |   |   +-operand_list=
-        |       |   |     +-GraphLabel(label=aml.Person)
-        |       |   |     +-GraphLabel(label=aml.Account)
+        |       |   |     +-GraphLabel(parse_location=52-58, label=aml.Person)
+        |       |   |     +-GraphLabel(parse_location=61-68, label=aml.Account)
         |       |   +-target_element_table_list=[aml.Account,aml.Person]
         |       +-head=$element_table.n#1
         |       +-tail=$element_table.n#1
@@ -799,7 +704,7 @@ QueryStmt
         |       |   |   +-ColumnRef(type=GRAPH_NODE(aml)<balance UINT64, id INT64>, column=$element_table.n#1)
         |       |   |   +-Literal(type=STRING, value="id")
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Account)
+        |       |   | +-GraphLabel(parse_location=58-65, label=aml.Account)
         |       |   +-target_element_table_list=[aml.Account]
         |       +-head=$element_table.n#1
         |       +-tail=$element_table.n#1
@@ -844,7 +749,7 @@ FROM
      aml_1.a_3 AS has_birthday;
 ==
 
-[language_features=V_1_4_SQL_GRAPH{{|,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=SQL_GRAPH{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select 1 from graph_table(
   aml
   match (n)
@@ -858,7 +763,7 @@ ERROR: Graph element typed expression is not allowed here [at 4:13]
   columns ([n] as array_of_n)
             ^
 --
-ALTERNATION GROUP: ,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 QueryStmt
 +-output_column_list=
@@ -937,7 +842,7 @@ FROM
      1 AS a_5;
 ==
 
-[language_features=V_1_4_SQL_GRAPH{{|,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=SQL_GRAPH{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 [no_run_sqlbuilder]
 select 1 from graph_table(
   aml
@@ -952,7 +857,7 @@ ERROR: Graph element typed expression is not allowed here [at 3:25]
   match (n where struct(n as e).e.id > 0)
                         ^
 --
-ALTERNATION GROUP: ,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 QueryStmt
 +-output_column_list=
@@ -1019,7 +924,7 @@ ERROR: Graph element typed expression is not allowed here [at 4:38]
                                      ^
 ==
 
-[language_features=V_1_4_SQL_GRAPH{{|,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=SQL_GRAPH{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select 1 from graph_table(
   aml
   match (n)
@@ -1032,7 +937,7 @@ ERROR: Graph element typed expression is not allowed here [at 4:13]
   columns ((n is null) as n_is_null)
             ^
 --
-ALTERNATION GROUP: ,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 QueryStmt
 +-output_column_list=
@@ -1111,7 +1016,7 @@ FROM
      1 AS a_5;
 ==
 
-[language_features=V_1_4_SQL_GRAPH{{|,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=SQL_GRAPH{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select 1 from graph_table(
   aml
   match (n)
@@ -1120,11 +1025,6 @@ select 1 from graph_table(
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for function IF for argument types: BOOL, GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>, GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>. Supported signature: IF(BOOL, ANY, ANY) [at 4:12]
-  columns (if(true, n, n) AS if_expr)
-           ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function IF
   Argument types: BOOL, GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>, GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>
   Signature: IF(BOOL, T1, T1)
@@ -1132,7 +1032,7 @@ ERROR: No matching signature for function IF
   columns (if(true, n, n) AS if_expr)
            ^
 --
-ALTERNATION GROUP: ,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 QueryStmt
 +-output_column_list=
@@ -1213,7 +1113,7 @@ FROM
      1 AS a_5;
 ==
 
-[language_features=V_1_4_SQL_GRAPH{{|,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=SQL_GRAPH{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select 1 from graph_table(
   aml
   match (n)
@@ -1222,11 +1122,6 @@ select 1 from graph_table(
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for aggregate function ARRAY_AGG for argument types: GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>. Supported signature: ARRAY_AGG(ANY) [at 4:33]
-  columns (array_length((SELECT array_agg(n) FROM (select 1))) as arr_length)
-                                ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for aggregate function ARRAY_AGG
   Argument types: GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>
   Signature: ARRAY_AGG(T1)
@@ -1234,7 +1129,7 @@ ERROR: No matching signature for aggregate function ARRAY_AGG
   columns (array_length((SELECT array_agg(n) FROM (select 1))) as arr_length)
                                 ^
 --
-ALTERNATION GROUP: ,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 QueryStmt
 +-output_column_list=
@@ -1354,11 +1249,6 @@ select gt.* from graph_table(
 ) gt
 
 --
-ERROR: No matching signature for function SAME for argument types: GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>, NULL. Supported signature: SAME([GRAPH_ELEMENT, ...]) [at 4:23]
-  columns(n.id as id, same(n, NULL) as same_node_with_nulls)
-                      ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAME
   Argument types: GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>, NULL
   Signature: SAME([GRAPH_ELEMENT, ...])
@@ -1373,17 +1263,13 @@ select gt.* from graph_table(
   columns(same(NULL, NULL, NULL) as same_with_nulls)
 ) gt
 --
-ERROR: No matching signature for function SAME for argument types: NULL, NULL, NULL. Supported signature: SAME([GRAPH_ELEMENT, ...]) [at 4:11]
-  columns(same(NULL, NULL, NULL) as same_with_nulls)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAME
   Argument types: NULL, NULL, NULL
   Signature: SAME([GRAPH_ELEMENT, ...])
     Argument 1: expected GRAPH_ELEMENT, found NULL [at 4:11]
   columns(same(NULL, NULL, NULL) as same_with_nulls)
           ^
+# POST-COMMENT FROM MISSING PART
 
 ==
 
@@ -1727,11 +1613,6 @@ select gt.* from graph_table(
   columns(all_different(n, e, m) as all_different)
 ) gt
 --
-ERROR: No matching signature for function ALL_DIFFERENT for argument types: GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>, GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>. Supported signature: ALL_DIFFERENT([GRAPH_ELEMENT, ...]) [at 4:11]
-  columns(all_different(n, e, m) as all_different)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function ALL_DIFFERENT
   Argument types: GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>, GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>, GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>
   Signature: ALL_DIFFERENT([GRAPH_ELEMENT, ...])
@@ -1739,6 +1620,7 @@ ERROR: No matching signature for function ALL_DIFFERENT
       Input types for <graph_element>: {GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>, GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>} [at 4:11]
   columns(all_different(n, e, m) as all_different)
           ^
+# POST-COMMENT FROM MISSING PART
 
 ==
 
@@ -1750,21 +1632,17 @@ select gt.* from graph_table(
 
 --
 
-ERROR: No matching signature for function ALL_DIFFERENT for argument types: NULL, GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>, GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>. Supported signature: ALL_DIFFERENT([GRAPH_ELEMENT, ...]) [at 4:11]
-  columns(all_different(NULL, n, m) as all_different)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function ALL_DIFFERENT
   Argument types: NULL, GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>, GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>
   Signature: ALL_DIFFERENT([GRAPH_ELEMENT, ...])
     Argument 1: expected GRAPH_ELEMENT, found NULL [at 4:11]
   columns(all_different(NULL, n, m) as all_different)
           ^
+# POST-COMMENT FROM MISSING PART
 
 ==
 
-[language_features=V_1_4_SQL_GRAPH,JSON_TYPE,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[language_features=SQL_GRAPH,JSON_TYPE,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [no_run_sqlbuilder]
 select * from graph_table(
   aml
@@ -1847,7 +1725,7 @@ QueryStmt
 
 ==
 
-[language_features=V_1_4_SQL_GRAPH,JSON_TYPE,NAMED_ARGUMENTS,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[language_features=SQL_GRAPH,JSON_TYPE,NAMED_ARGUMENTS,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 select * from graph_table(
   aml
   match (n) -[e]-> (m)
@@ -2182,13 +2060,15 @@ QueryStmt
         |       |   +-column_list=[$element_table.n#1]
         |       |   +-label_expr=
         |       |   | +-GraphLabelNaryExpr
+        |       |   |   +-parse_location=47-53
         |       |   |   +-op=AND
         |       |   |   +-operand_list=
-        |       |   |     +-GraphWildCardLabel
+        |       |   |     +-GraphWildCardLabel(parse_location=47-48)
         |       |   |     +-GraphLabelNaryExpr
+        |       |   |       +-parse_location=51-53
         |       |   |       +-op=NOT
         |       |   |       +-operand_list=
-        |       |   |         +-GraphWildCardLabel
+        |       |   |         +-GraphWildCardLabel(parse_location=52-53)
         |       |   +-target_element_table_list=[]
         |       +-head=$element_table.n#1
         |       +-tail=$element_table.n#1
@@ -2427,7 +2307,7 @@ ERROR: Operand to IS LABELED must be a graph element [at 4:11]
           ^
 ==
 
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[language_features=SQL_GRAPH,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 # <is labeled predicate> currently only supports column references
 SELECT * FROM GRAPH_TABLE(
   aml
@@ -2440,7 +2320,7 @@ ERROR: Operand to IS LABELED must be a column reference [at 5:11]
           ^
 ==
 
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[language_features=SQL_GRAPH,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 # <is labeled predicate> returns error if label is not applicable to LHS
 # based on inconsistent element types (node vs edge)
 SELECT * FROM GRAPH_TABLE(
@@ -2535,14 +2415,16 @@ QueryStmt
           |   | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.a#1)
           |   +-label_expr=
           |     +-GraphLabelNaryExpr
+          |       +-parse_location=108-130
           |       +-op=OR
           |       +-operand_list=
-          |         +-GraphWildCardLabel
+          |         +-GraphWildCardLabel(parse_location=108-109)
           |         +-GraphLabelNaryExpr
+          |           +-parse_location=113-129
           |           +-op=AND
           |           +-operand_list=
-          |             +-GraphLabel(label=aml.Account)
-          |             +-GraphLabel(label=aml.Person)
+          |             +-GraphLabel(parse_location=113-120, label=aml.Account)
+          |             +-GraphLabel(parse_location=123-129, label=aml.Person)
           +-false_pred#6 :=
           | +-GraphIsLabeledPredicate
           |   +-type=BOOL
@@ -2551,27 +2433,29 @@ QueryStmt
           |   | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.a#1)
           |   +-label_expr=
           |     +-GraphLabelNaryExpr
+          |       +-parse_location=172-176
           |       +-op=OR
           |       +-operand_list=
-          |         +-GraphWildCardLabel
+          |         +-GraphWildCardLabel(parse_location=172-173)
           |         +-GraphLabelNaryExpr
+          |           +-parse_location=174-176
           |           +-op=NOT
           |           +-operand_list=
-          |             +-GraphWildCardLabel
+          |             +-GraphWildCardLabel(parse_location=175-176)
           +-is_person#7 :=
           | +-GraphIsLabeledPredicate
           |   +-type=BOOL
           |   +-expr=
           |   | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.a#1)
           |   +-label_expr=
-          |     +-GraphLabel(label=aml.Person)
+          |     +-GraphLabel(parse_location=215-221, label=aml.Person)
           +-is_account#8 :=
             +-GraphIsLabeledPredicate
               +-type=BOOL
               +-expr=
               | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.a#1)
               +-label_expr=
-                +-GraphLabel(label=aml.Account)
+                +-GraphLabel(parse_location=259-266, label=aml.Account)
 
 [SQLBUILDER_TARGET_SYNTAX_MODE standard]
 [SQLBUILDER_OUTPUT]
@@ -2762,7 +2646,7 @@ FROM
 ==
 
 # TODO: b/348064840 - Add test cases for path variables
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 select gt.* from graph_table(
   aml
   match (n), (-[e]-){3}
@@ -2771,11 +2655,6 @@ select gt.* from graph_table(
 --
 ALTERNATION GROUP: source_node_id(n)
 --
-ERROR: No matching signature for function SOURCE_NODE_ID for argument types: GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>. Supported signature: SOURCE_NODE_ID(GRAPH_EDGE) [at 4:11]
-  columns(source_node_id(n) as output)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SOURCE_NODE_ID
   Argument types: GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>
   Signature: SOURCE_NODE_ID(GRAPH_EDGE)
@@ -2785,11 +2664,6 @@ ERROR: No matching signature for function SOURCE_NODE_ID
 --
 ALTERNATION GROUP: source_node_id(1)
 --
-ERROR: No matching signature for function SOURCE_NODE_ID for argument types: INT64. Supported signature: SOURCE_NODE_ID(GRAPH_EDGE) [at 4:11]
-  columns(source_node_id(1) as output)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SOURCE_NODE_ID
   Argument types: INT64
   Signature: SOURCE_NODE_ID(GRAPH_EDGE)
@@ -2799,11 +2673,6 @@ ERROR: No matching signature for function SOURCE_NODE_ID
 --
 ALTERNATION GROUP: source_node_id(e)
 --
-ERROR: No matching signature for function SOURCE_NODE_ID for argument types: ARRAY<GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>>. Supported signature: SOURCE_NODE_ID(GRAPH_EDGE) [at 4:11]
-  columns(source_node_id(e) as output)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SOURCE_NODE_ID
   Argument types: ARRAY<GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>>
   Signature: SOURCE_NODE_ID(GRAPH_EDGE)
@@ -2813,11 +2682,6 @@ ERROR: No matching signature for function SOURCE_NODE_ID
 --
 ALTERNATION GROUP: destination_node_id(n)
 --
-ERROR: No matching signature for function DESTINATION_NODE_ID for argument types: GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>. Supported signature: DESTINATION_NODE_ID(GRAPH_EDGE) [at 4:11]
-  columns(destination_node_id(n) as output)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DESTINATION_NODE_ID
   Argument types: GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>
   Signature: DESTINATION_NODE_ID(GRAPH_EDGE)
@@ -2827,11 +2691,6 @@ ERROR: No matching signature for function DESTINATION_NODE_ID
 --
 ALTERNATION GROUP: destination_node_id(1)
 --
-ERROR: No matching signature for function DESTINATION_NODE_ID for argument types: INT64. Supported signature: DESTINATION_NODE_ID(GRAPH_EDGE) [at 4:11]
-  columns(destination_node_id(1) as output)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DESTINATION_NODE_ID
   Argument types: INT64
   Signature: DESTINATION_NODE_ID(GRAPH_EDGE)
@@ -2841,11 +2700,6 @@ ERROR: No matching signature for function DESTINATION_NODE_ID
 --
 ALTERNATION GROUP: destination_node_id(e)
 --
-ERROR: No matching signature for function DESTINATION_NODE_ID for argument types: ARRAY<GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>>. Supported signature: DESTINATION_NODE_ID(GRAPH_EDGE) [at 4:11]
-  columns(destination_node_id(e) as output)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function DESTINATION_NODE_ID
   Argument types: ARRAY<GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, ...>>
   Signature: DESTINATION_NODE_ID(GRAPH_EDGE)
@@ -2969,7 +2823,7 @@ FROM
      aml_1.a_6 AS edge_name;
 ==
 
-[language_features=V_1_4_SQL_GRAPH,JSON_TYPE,JSON_MUTATOR_FUNCTIONS{{|,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=SQL_GRAPH,JSON_TYPE,JSON_MUTATOR_FUNCTIONS{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 [no_run_sqlbuilder]
 select 1 from graph_table(
   aml
@@ -2980,11 +2834,6 @@ select 1 from graph_table(
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for function JSON_ARRAY_APPEND for argument types: JSON, STRING, GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>. Supported signature: JSON_ARRAY_APPEND(JSON, STRING, ANY, [[STRING, ANY], ...], [append_each_element => BOOL]) [at 4:11]
-  columns(JSON_ARRAY_APPEND(JSON '[]', '$', a) AS json_array_append)
-          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function JSON_ARRAY_APPEND
   Argument types: JSON, STRING, GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>
   Signature: JSON_ARRAY_APPEND(JSON, STRING, ANY, [[STRING, ANY], ...], [append_each_element => BOOL])
@@ -2992,7 +2841,7 @@ ERROR: No matching signature for function JSON_ARRAY_APPEND
   columns(JSON_ARRAY_APPEND(JSON '[]', '$', a) AS json_array_append)
           ^
 --
-ALTERNATION GROUP: ,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 QueryStmt
 +-output_column_list=
@@ -3016,7 +2865,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.a#1]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Person)
+        |       |   | +-GraphLabel(parse_location=44-50, label=aml.Person)
         |       |   +-target_element_table_list=[aml.Person]
         |       +-head=$element_table.a#1
         |       +-tail=$element_table.a#1
@@ -3029,7 +2878,7 @@ QueryStmt
               +-Literal(type=BOOL, value=true)
 ==
 
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY{{|,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select 1 from graph_table(
   aml
   match (a:Person)
@@ -3041,11 +2890,6 @@ select 1 from graph_table(
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for aggregate function ANY_VALUE for argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>. Supported signature: ANY_VALUE(ANY) [at 4:10]
-  return ANY_VALUE(a) AS any_value,
-         ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for aggregate function ANY_VALUE
   Argument types: GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...>
   Signature: ANY_VALUE(T1)
@@ -3053,7 +2897,7 @@ ERROR: No matching signature for aggregate function ANY_VALUE
   return ANY_VALUE(a) AS any_value,
          ^
 --
-ALTERNATION GROUP: ,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 QueryStmt
 +-output_column_list=
@@ -3083,7 +2927,7 @@ QueryStmt
                   | |   | +-GraphNodeScan
                   | |   |   +-column_list=[$element_table.a#1]
                   | |   |   +-label_expr=
-                  | |   |   | +-GraphLabel(label=aml.Person)
+                  | |   |   | +-GraphLabel(parse_location=44-50, label=aml.Person)
                   | |   |   +-target_element_table_list=[aml.Person]
                   | |   +-head=$element_table.a#1
                   | |   +-tail=$element_table.a#1
@@ -3152,7 +2996,7 @@ FROM
      1 AS a_7;
 ==
 
-[language_features=V_1_4_SQL_GRAPH{{|,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=SQL_GRAPH{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select 1 from graph_table(
   aml
   match (a:Person)
@@ -3165,7 +3009,7 @@ ERROR: LEAST is not defined for arguments of type GRAPH_NODE(aml)<age UINT32, bi
           ^
 ==
 
-[language_features=V_1_4_SQL_GRAPH{{|,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=SQL_GRAPH{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select 1 from graph_table(
   aml
   match (a:Person)
@@ -3177,7 +3021,7 @@ ERROR: MAX is not defined for arguments of type GRAPH_NODE(aml)<age UINT32, birt
           ^
 ==
 
-[language_features=V_1_4_SQL_GRAPH,ANALYTIC_FUNCTIONS{{|,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=SQL_GRAPH,ANALYTIC_FUNCTIONS{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select 1 from (
 select FIRST_VALUE(a) OVER (ORDER BY a.id) from graph_table(
   aml
@@ -3193,7 +3037,7 @@ ERROR: Graph element typed expression is not allowed here [at 5:11]
   columns(a)
           ^
 --
-ALTERNATION GROUP: ,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 QueryStmt
 +-output_column_list=
@@ -3233,7 +3077,7 @@ QueryStmt
             |       |       | +-GraphNodeScan
             |       |       |   +-column_list=[$element_table.a#1]
             |       |       |   +-label_expr=
-            |       |       |   | +-GraphLabel(label=aml.Person)
+            |       |       |   | +-GraphLabel(parse_location=94-100, label=aml.Person)
             |       |       |   +-target_element_table_list=[aml.Person]
             |       |       +-head=$element_table.a#1
             |       |       +-tail=$element_table.a#1
@@ -3327,7 +3171,7 @@ FROM
      1 AS a_10;
 ==
 
-[language_features=V_1_4_SQL_GRAPH,NAMED_ARGUMENTS,TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS,TABLE_VALUED_FUNCTIONS{{|,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=SQL_GRAPH,NAMED_ARGUMENTS,TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS,TABLE_VALUED_FUNCTIONS{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select x.id from tvf_templated_select_any_scalar_arg((select a from graph_table(
   aml
   match (a:Person)
@@ -3340,7 +3184,7 @@ ERROR: Graph element typed expression is not allowed here [at 4:11]
   columns(a)
           ^
 --
-ALTERNATION GROUP: ,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 QueryStmt
 +-output_column_list=
@@ -3383,13 +3227,14 @@ QueryStmt
         |               |       | +-GraphNodeScan
         |               |       |   +-column_list=[$element_table.a#1]
         |               |       |   +-label_expr=
-        |               |       |   | +-GraphLabel(label=aml.Person)
+        |               |       |   | +-GraphLabel(parse_location=98-104, label=aml.Person)
         |               |       |   +-target_element_table_list=[aml.Person]
         |               |       +-head=$element_table.a#1
         |               |       +-tail=$element_table.a#1
         |               +-shape_expr_list=
         |                 +-a#2 := ColumnRef(type=GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, id INT64, name STRING>, column=$element_table.a#1)
         +-column_index_list=[0]
+        +-function_call_signature=(GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, id INT64, name STRING>) -> ANY TABLE
 
 With Templated SQL TVF signature:
   tvf_templated_select_any_scalar_arg(GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, id INT64, name STRING>) -> TABLE<x GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, id INT64, name STRING>>
@@ -3446,7 +3291,7 @@ FROM
      tvfscan_4.x.id AS id;
 ==
 
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_3_INLINE_LAMBDA_ARGUMENT,V_1_1_CAST_DIFFERENT_ARRAY_TYPES,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,INLINE_LAMBDA_ARGUMENT,CAST_DIFFERENT_ARRAY_TYPES,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 select ARRAY_LENGTH(arr) from graph_table(
   aml
   MATCH ANY ((x IS Person)-[y]->(z IS Account|Person)){3}
@@ -3480,7 +3325,7 @@ QueryStmt
         |       |   | +-GraphNodeScan
         |       |   | | +-column_list=[$element_table.x#1]
         |       |   | | +-label_expr=
-        |       |   | | | +-GraphLabel(label=aml.Person)
+        |       |   | | | +-GraphLabel(parse_location=68-74, label=aml.Person)
         |       |   | | +-target_element_table_list=[aml.Person]
         |       |   | +-GraphEdgeScan
         |       |   | | +-column_list=[$element_table.y#2]
@@ -3499,10 +3344,11 @@ QueryStmt
         |       |   |   +-column_list=[$element_table.z#3]
         |       |   |   +-label_expr=
         |       |   |   | +-GraphLabelNaryExpr
+        |       |   |   |   +-parse_location=87-101
         |       |   |   |   +-op=OR
         |       |   |   |   +-operand_list=
-        |       |   |   |     +-GraphLabel(label=aml.Account)
-        |       |   |   |     +-GraphLabel(label=aml.Person)
+        |       |   |   |     +-GraphLabel(parse_location=87-94, label=aml.Account)
+        |       |   |   |     +-GraphLabel(parse_location=95-101, label=aml.Person)
         |       |   |   +-target_element_table_list=[aml.Account,aml.Person]
         |       |   +-head=$path_scan.$head#7
         |       |   +-tail=$path_scan.$tail#8
@@ -3578,7 +3424,7 @@ FROM
      ARRAY_LENGTH(graphtablescan_6.a_5) AS a_7;
 ==
 
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_3_INLINE_LAMBDA_ARGUMENT,V_1_1_CAST_DIFFERENT_ARRAY_TYPES,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,INLINE_LAMBDA_ARGUMENT,CAST_DIFFERENT_ARRAY_TYPES,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 select * from graph_table(
   aml
   MATCH ANY ((x IS Person)-[y]->(z IS Account|Person)){3}
@@ -3609,7 +3455,7 @@ QueryStmt
         |       |   | +-GraphNodeScan
         |       |   | | +-column_list=[$element_table.x#1]
         |       |   | | +-label_expr=
-        |       |   | | | +-GraphLabel(label=aml.Person)
+        |       |   | | | +-GraphLabel(parse_location=52-58, label=aml.Person)
         |       |   | | +-target_element_table_list=[aml.Person]
         |       |   | +-GraphEdgeScan
         |       |   | | +-column_list=[$element_table.y#2]
@@ -3628,10 +3474,11 @@ QueryStmt
         |       |   |   +-column_list=[$element_table.z#3]
         |       |   |   +-label_expr=
         |       |   |   | +-GraphLabelNaryExpr
+        |       |   |   |   +-parse_location=71-85
         |       |   |   |   +-op=OR
         |       |   |   |   +-operand_list=
-        |       |   |   |     +-GraphLabel(label=aml.Account)
-        |       |   |   |     +-GraphLabel(label=aml.Person)
+        |       |   |   |     +-GraphLabel(parse_location=71-78, label=aml.Account)
+        |       |   |   |     +-GraphLabel(parse_location=79-85, label=aml.Person)
         |       |   |   +-target_element_table_list=[aml.Account,aml.Person]
         |       |   +-head=$path_scan.$head#7
         |       |   +-tail=$path_scan.$tail#8
@@ -3713,7 +3560,7 @@ FROM
 ==
 
 # Repro test for b/355707672
-[language_features=V_1_4_SQL_GRAPH,NAMED_ARGUMENTS,TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS,TABLE_VALUED_FUNCTIONS,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[language_features=SQL_GRAPH,NAMED_ARGUMENTS,TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS,TABLE_VALUED_FUNCTIONS,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,SQL_GRAPH_ADVANCED_QUERY]
 select (select x from graph_table(aml match (n:Person) return x))
 from tvf_templated_select_any_scalar_arg(1)
 --
@@ -3753,7 +3600,7 @@ QueryStmt
     |                       | |   | +-GraphNodeScan
     |                       | |   |   +-column_list=[$element_table.n#2]
     |                       | |   |   +-label_expr=
-    |                       | |   |   | +-GraphLabel(label=aml.Person)
+    |                       | |   |   | +-GraphLabel(parse_location=47-53, label=aml.Person)
     |                       | |   |   +-target_element_table_list=[aml.Person]
     |                       | |   +-head=$element_table.n#2
     |                       | |   +-tail=$element_table.n#2
@@ -3775,6 +3622,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=1)
         +-column_index_list=[0]
+        +-function_call_signature=(INT64) -> ANY TABLE
 
 With Templated SQL TVF signature:
   tvf_templated_select_any_scalar_arg(literal INT64) -> TABLE<x INT64>
@@ -3829,7 +3677,7 @@ FROM
      ) AS a_2;
 ==
 
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_PATH_TYPE,JSON_TYPE]
+[language_features=SQL_GRAPH,SQL_GRAPH_PATH_TYPE,JSON_TYPE]
 [no_run_sqlbuilder]
 select * from graph_table(
   aml
@@ -3903,7 +3751,7 @@ QueryStmt
               +-Literal(type=BOOL, value=false)
 ==
 
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_PATH_TYPE,JSON_TYPE,NAMED_ARGUMENTS]
+[language_features=SQL_GRAPH,SQL_GRAPH_PATH_TYPE,JSON_TYPE,NAMED_ARGUMENTS]
 select * from graph_table(
   aml
   match p=(n) -[e]-> (m)
@@ -4013,7 +3861,7 @@ FROM
      aml_1.a_6 AS js_p;
 ==
 
-[language_features=V_1_4_SQL_GRAPH{{|,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=SQL_GRAPH{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select * from graph_table(
   aml
   match (a) -[e]-> (b)
@@ -4026,14 +3874,14 @@ ERROR: Graph element typed expression is not allowed here [at 4:11]
   columns(a <= a as v)
           ^
 --
-ALTERNATION GROUP: ,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 ERROR: Less than is not defined for arguments of type GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING> [at 4:11]
   columns(a <= a as v)
           ^
 ==
 
-[language_features=V_1_4_SQL_GRAPH{{|,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=SQL_GRAPH{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select * from graph_table(
   aml
   match (a) -[e]-> (b)
@@ -4046,14 +3894,14 @@ ERROR: Graph element typed expression is not allowed here [at 4:11]
   columns(e <= e as v)
           ^
 --
-ALTERNATION GROUP: ,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 ERROR: Less than is not defined for arguments of type GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, targetAccountId INT64> [at 4:11]
   columns(e <= e as v)
           ^
 ==
 
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_PATH_TYPE]
+[language_features=SQL_GRAPH,SQL_GRAPH_PATH_TYPE]
 select * from graph_table(
   aml
   match p=(n) -[e]-> (m)

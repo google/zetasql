@@ -1,0 +1,61 @@
+[default required_features=CHAINED_FUNCTION_CALLS]
+[name=chained_call]
+select key, (key).upper().substr(1,3)
+from (select "aBcDeF" AS key)
+--
+ARRAY<STRUCT<key STRING, STRING>>[{"aBcDeF", "ABC"}]
+==
+
+[required_features=CHAINED_FUNCTION_CALLS,SAFE_FUNCTION_CALL]
+[name=safe_call]
+select val,
+       (val).(safe.sqrt)(),
+       abs(val).sqrt().sqrt()
+from unnest([16,0,null,-16]) AS val
+order by val
+--
+ARRAY<STRUCT<val INT64, DOUBLE, DOUBLE>>[known order:
+  {NULL, NULL, NULL},
+  {-16, NULL, 2},
+  {0, 0, 0},
+  {16, 4, 2}
+]
+==
+
+[required_features=CHAINED_FUNCTION_CALLS,SAFE_FUNCTION_CALL]
+[name=error_before_safe_call]
+select val,
+       sqrt(val).(safe.sqrt)().sqrt()
+from unnest([16,0,null,-16]) AS val
+order by val
+--
+ERROR: generic::out_of_range: Argument to SQRT cannot be negative: -16
+==
+
+[name=long_chain]
+select (value)
+          .upper()
+          .replace("A","Z")
+          .lower()
+          .substr(1,4)
+from (select "aAbcAadE" AS value)
+--
+ARRAY<STRUCT<STRING>>[{"zzbc"}]
+==
+
+[required_features=INLINE_LAMBDA_ARGUMENT,CHAINED_FUNCTION_CALLS]
+[name=chain_with_apply]
+select key, (key)
+              .apply(x -> cast(x as string))
+              .concat('!')
+              .apply(x -> concat('aBC', x, 'dEF'))
+              .lower()
+from UNNEST([123, 0, null, -10]) AS key
+order by key
+--
+ARRAY<STRUCT<key INT64, STRING>>[known order:
+  {NULL, NULL},
+  {-10, "abc-10!def"},
+  {0, "abc0!def"},
+  {123, "abc123!def"}
+]

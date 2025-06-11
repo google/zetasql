@@ -1,5 +1,5 @@
 [default reserve_graph_table]
-[default required_features=V_1_4_SQL_GRAPH]
+[default required_features=SQL_GRAPH]
 [load_proto_files=zetasql/testdata/test_schema.proto]
 [load_proto_names=zetasql_test__.KitchenSinkPB]
 [prepare_database]
@@ -387,7 +387,7 @@ order by 1
 --
 ARRAY<STRUCT<amount INT64>>[known order:{300}, {400}, {500}, {600}]
 ==
-[required_features=ANALYTIC_FUNCTIONS,V_1_4_SQL_GRAPH]
+[required_features=ANALYTIC_FUNCTIONS,SQL_GRAPH]
 [name=window_function_over_graph_table]
 select COUNT(gt.number) OVER (ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS x1
 from
@@ -928,7 +928,7 @@ ARRAY<STRUCT<aid INT64,
              aid2 INT64>>[{1010, 200, 1020, 300, 1030, 500, 1010}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=optional_columns]
 select a.account_id as id, a IS SOURCE OF t as is_src from
 graph_table(aml
@@ -946,7 +946,7 @@ ARRAY<STRUCT<id INT64, is_src BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=optional_columns_nested_subquery]
 select a.account_id from
 (
@@ -968,7 +968,7 @@ ARRAY<STRUCT<account_id INT64>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=optional_columns_select_star_in_subquery]
 select PROPERTY_EXISTS(t, amount) as has_amount from
 (
@@ -988,7 +988,7 @@ ARRAY<STRUCT<has_amount BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=optional_columns_element_dotstar]
 select a.*,t.* from
 graph_table(aml
@@ -1053,7 +1053,7 @@ ARRAY<STRUCT<
               500}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=optional_columns_multiply_declared]
 select a.account_id, a.account_kind, t.amount from
 (
@@ -1068,7 +1068,7 @@ ARRAY<STRUCT<account_id INT64, account_kind STRING, amount INT64>>[
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=optional_columns_graph_element_in_columns_clause]
 select acct1.account_id, acct1.account_kind from
 graph_table(aml
@@ -1085,7 +1085,7 @@ ARRAY<STRUCT<account_id INT64, account_kind STRING>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=optional_columns_union]
 SELECT a.name, a.account_kind FROM
 (
@@ -1118,7 +1118,7 @@ ARRAY<STRUCT<name STRING, account_kind STRING>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=optional_columns_group_by_graph_element]
 SELECT a.name, SUM(a.id) as total FROM
 graph_table(
@@ -1135,7 +1135,7 @@ ARRAY<STRUCT<name STRING, total INT64>>[known order:
 
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=optional_columns_group_by_graph_element_count_star]
 SELECT COUNT(*) as count FROM
 graph_table(
@@ -1148,7 +1148,7 @@ order by 1
 ARRAY<STRUCT<count INT64>>[known order:{1}, {1}, {1}, {1}, {1}, {1}]
 
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=graph_expression_functions_all_different_with_null_input]
 
 select all_different(gt.n, gt.m)
@@ -1161,7 +1161,7 @@ ON FALSE
 
 ERROR: generic::out_of_range: Input to the function ALL_DIFFERENT must not be null
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=graph_expression_functions_same_with_null_input]
 
 select same(gt.n, gt.m)
@@ -1174,7 +1174,7 @@ ON FALSE
 
 ERROR: generic::out_of_range: Input to the function SAME must not be null
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=graph_expression_functions_property_exists_with_null_input]
 
 select property_exists(gt.n, account_id)
@@ -1187,7 +1187,7 @@ ON FALSE
 --
 ARRAY<STRUCT<BOOL>>[{NULL}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=graph_expression_functions_is_source_of_with_null_input]
 
 select gt.n is source of gt.e
@@ -1200,7 +1200,7 @@ ON FALSE
 
 ERROR: generic::out_of_range: Input to the operator SOURCE must not be null
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=graph_expression_functions_is_destination_of_with_null_input]
 
 select m is destination of e
@@ -1304,7 +1304,7 @@ order by 1
 ARRAY<STRUCT<human_is_account BOOL>>[{false}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,JSON_TYPE,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,JSON_TYPE,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=graph_edge_to_json]
 # The exact format/content of identifier is engine dependent.
 select js.identifier is not null, js.kind, js.labels, js.properties, js.source_node_identifier is not null, js.destination_node_identifier is not null
@@ -1389,7 +1389,7 @@ ARRAY<STRUCT<BOOL, kind JSON, labels JSON, properties JSON, BOOL, BOOL>>[unknown
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=graph_edge_to_json_identifier_is_unique]
 select ARRAY_IS_DISTINCT(ARRAY(
   select id from
@@ -1402,7 +1402,7 @@ select ARRAY_IS_DISTINCT(ARRAY(
 ARRAY<STRUCT<BOOL>>[{true}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH]
+[required_features=SQL_GRAPH]
 [name=graph_node_labels_function]
 select id, account_id, node_labels from
 graph_table(aml
@@ -1447,7 +1447,7 @@ ARRAY<STRUCT<id INT64, account_id INT64, node_labels ARRAY<>>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH]
+[required_features=SQL_GRAPH]
 [name=graph_edge_labels_function]
 select id, account_id, edge_labels from
 graph_table(aml
@@ -1531,7 +1531,7 @@ ARRAY<STRUCT<id INT64, account_id INT64, edge_labels ARRAY<>>>[known order:
 ==
 
 [name=graph_labels_function_null_input]
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 select LABELS(gt.n)
 FROM graph_table(aml
   match (n IS Account) -[e]-> (m IS Account)
@@ -1600,7 +1600,7 @@ ARRAY<STRUCT<id INT64, account_id INT64, node_props ARRAY<>>>[known order:
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH]
+[required_features=SQL_GRAPH]
 [name=graph_edge_property_names_function]
 select id, account_id, edge_props from
 graph_table(aml
@@ -1684,7 +1684,7 @@ ARRAY<STRUCT<id INT64, account_id INT64, edge_props ARRAY<>>>[known order:
 ==
 
 [name=graph_property_names_function_null_input]
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 select PROPERTY_NAMES(gt.n)
 FROM graph_table(aml
   match (n IS Account) -[e]-> (m IS Account)
@@ -1695,7 +1695,7 @@ ON FALSE;
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>(NULL)}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH]
+[required_features=SQL_GRAPH]
 [name=graph_node_element_definition_name_function]
 select distinct node_names from
 graph_table(aml
@@ -1707,7 +1707,7 @@ order by node_names;
 ARRAY<STRUCT<node_names STRING>>[known order:{"Account"}, {"Person"}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH]
+[required_features=SQL_GRAPH]
 [name=graph_edge_element_definition_name_function]
 select distinct edge_names from
 graph_table(aml
@@ -1725,7 +1725,7 @@ ARRAY<STRUCT<edge_names STRING>>[known order:
 ==
 
 [name=graph_element_definition_name_function_null_input]
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 select ELEMENT_DEFINITION_NAME(gt.n)
 FROM graph_table(aml
   match (n IS Account) -[e]-> (m IS Account)
@@ -1737,7 +1737,7 @@ ARRAY<STRUCT<STRING>>[{NULL}]
 
 ==
 
-[required_features=V_1_3_TYPEOF_FUNCTION,V_1_4_SQL_GRAPH]
+[required_features=TYPEOF_FUNCTION,SQL_GRAPH]
 [name=graph_typeof]
 select distinct *
 from
@@ -1758,7 +1758,7 @@ ARRAY<STRUCT<a STRING, e STRING, human STRING, knows STRING>>[
 ]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=graph_is_labeled_null_node]
 select n is labeled Account
 FROM graph_table(aml
@@ -1770,7 +1770,7 @@ ON FALSE
 ARRAY<STRUCT<BOOL>>[{NULL}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=graph_is_labeled_null_edge]
 select e is labeled % | ! %
 FROM graph_table(aml
@@ -1783,7 +1783,7 @@ ARRAY<STRUCT<BOOL>>[{NULL}]
 
 ==
 
-[required_features=V_1_4_SQL_GRAPH]
+[required_features=SQL_GRAPH]
 [name=graph_is_labeled_node]
 SELECT labels, always_true, always_false, is_human, is_account
 FROM GRAPH_TABLE(
@@ -1907,7 +1907,7 @@ ARRAY<STRUCT<labels ARRAY<>,
              }]
 ==
 
-[required_features=V_1_4_SQL_GRAPH]
+[required_features=SQL_GRAPH]
 [name=graph_is_labeled_edge]
 SELECT *
 FROM GRAPH_TABLE(
@@ -1950,7 +1950,7 @@ ARRAY<STRUCT<account_id INT64, labels ARRAY<>, is_labeled BOOL>>[known order:
   }
 ]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=graph_element_id_null_input]
 
 select element_id(n), element_id(e)
@@ -1962,7 +1962,7 @@ ON FALSE
 --
 ARRAY<STRUCT<STRING, STRING>>[{NULL, NULL}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=graph_source_node_id_null_input]
 
 select source_node_id(e)
@@ -1974,7 +1974,7 @@ ON FALSE
 --
 ARRAY<STRUCT<STRING>>[{NULL}]
 ==
-[required_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=graph_destination_node_id_null_input]
 
 select destination_node_id(e)
@@ -1987,7 +1987,7 @@ ON FALSE
 ARRAY<STRUCT<STRING>>[{NULL}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH]
+[required_features=SQL_GRAPH]
 [name=graph_element_id_node_is_unique]
 SELECT
   ARRAY_IS_DISTINCT(
@@ -2002,7 +2002,7 @@ SELECT
 ARRAY<STRUCT<BOOL>>[{true}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH]
+[required_features=SQL_GRAPH]
 [name=graph_element_id_edge_is_unique]
 SELECT
   ARRAY_IS_DISTINCT(
@@ -2019,7 +2019,7 @@ SELECT
 ARRAY<STRUCT<BOOL>>[{true}]
 ==
 
-[required_features=V_1_4_SQL_GRAPH]
+[required_features=SQL_GRAPH]
 [name=graph_ddl_with_table_with_same_name_column]
 select table_with_same_name_column
 from graph_table( aml3

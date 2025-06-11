@@ -296,19 +296,19 @@ SELECT CAST(timestamp '2000-01-23 07:13:14+00' AS string)
 ARRAY<STRUCT<STRING>>[{"2000-01-22 23:13:14-08"}]
 ==
 [name=null_to_datetime]
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 SELECT CAST(null AS datetime)
 --
 ARRAY<STRUCT<DATETIME>>[{NULL}]
 ==
 [name=null_to_time]
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 SELECT CAST(null AS time)
 --
 ARRAY<STRUCT<TIME>>[{NULL}]
 ==
 [name=cast_string_to_time_and_back]
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 SELECT CAST(null AS TIME),
        CAST('12:34:56.123456' AS TIME),
        CAST(CAST(null AS TIME) AS STRING),
@@ -326,7 +326,7 @@ ARRAY<STRUCT<TIME, TIME, STRING, STRING, STRING, TIME>>[
 ]
 ==
 [name=cast_string_to_time_and_back_nanos]
-[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
+[required_features=CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT CAST(null AS TIME),
        CAST('12:34:56.123456789' AS TIME),
        CAST(CAST(null AS TIME) AS STRING),
@@ -344,7 +344,7 @@ ARRAY<STRUCT<TIME, TIME, STRING, STRING, STRING, TIME>>[
 ]
 ==
 [name=cast_string_to_datetime_and_back]
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 SELECT CAST(null AS DATETIME),
        CAST('2006-01-02 03:04:05.123456' AS DATETIME),
        CAST(CAST(null AS DATETIME) AS STRING),
@@ -364,7 +364,7 @@ ARRAY<STRUCT<DATETIME, DATETIME, STRING, STRING, STRING, DATETIME>>[
 ]
 ==
 [name=cast_string_to_datetime_and_back_nanos]
-[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
+[required_features=CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT CAST(null AS DATETIME),
        CAST('2006-01-02 03:04:05.123456789' AS DATETIME),
        CAST(CAST(null AS DATETIME) AS STRING),
@@ -569,7 +569,7 @@ SELECT CAST(NEW `zetasql_test__.PackedRepeatablePB`(
 ARRAY<STRUCT<BYTES>>[{b":\x03\x01\x00\x01"}]
 ==
 
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_bytes_to_string_all_formats]
 SELECT CAST(b'abc' as string FORMAT 'base2'),
        CAST(b'abc' as string FORMAT 'base8'),
@@ -595,7 +595,7 @@ ARRAY<STRUCT<STRING, STRING, STRING, STRING, STRING, STRING, STRING, STRING, STR
   }
 ]
 ==
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_bytes_to_string_base32]
 SELECT CAST(b'abc' as string FORMAT 'base32')
 --
@@ -603,7 +603,7 @@ ARRAY<STRUCT<STRING>>[{"MFRGG==="}]
 ==
 # Test that the error when evaluating the format string expression is propagated
 # correctly.
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_bytes_to_string_format_string_error_propagation]
 SELECT CAST(b'abc' as string FORMAT CAST(1/0 AS STRING))
 --
@@ -611,7 +611,7 @@ ERROR: generic::out_of_range: division by zero: 1 / 0
 ==
 
 # Test that input containing non-ascii characters fail for format 'ascii'.
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_bytes_to_string_format_ascii_with_invalid_input]
 SELECT CAST(b'àbc' as string FORMAT 'ascii');
 --
@@ -619,7 +619,7 @@ ERROR: generic::out_of_range: Failed to decode invalid ASCII string
 ==
 
 # Test when the format string is null.
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_bytes_to_string_format_is_null]
 SELECT CAST(b'abc' as string FORMAT CAST(NULL as STRING))
 --
@@ -627,7 +627,7 @@ ARRAY<STRUCT<STRING>>[{NULL}]
 ==
 
 # Test when the input is null.
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_bytes_to_string_input_is_null]
 SELECT CAST(CAST(NULL as BYTES) as string FORMAT 'utf8')
 --
@@ -637,7 +637,7 @@ ARRAY<STRUCT<STRING>>[{NULL}]
 # Test the case when format is invalid. Note that the format is an expression,
 # not a literal. When the format is a literal, the validation is done at
 # analysis time.
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_bytes_to_string_format_is_invalid]
 SELECT CAST(b'abc' as string FORMAT 'x' || 'y' || 'z')
 --
@@ -645,7 +645,7 @@ ERROR: generic::out_of_range: Invalid format 'xyz'
 ==
 
 # Test that the format is case insensitive
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_bytes_to_string_format_is_case_insensitive]
 SELECT CAST(b'abc' as string FORMAT 'bAsE2')
 --
@@ -654,7 +654,7 @@ ARRAY<STRUCT<STRING>>[{"011000010110001001100011"}]
 
 # Test that an error is generated when the input cannot be converted
 # to string using the given format
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_bytes_to_string_invalid_input_for_format_ut8]
 SELECT CAST(b'\xe2\x28\xa1' AS STRING FORMAT 'utf8')
 --
@@ -663,7 +663,7 @@ ERROR: generic::out_of_range: A string is not valid UTF-8.
 
 # Test that null is returned by SAFE_CAST when the input cannot be converted
 # to string using the given format
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_bytes_to_string_safe_cast_with_invalid_input]
 SELECT SAFE_CAST(b'\xe2\x28\xa1' AS STRING FORMAT 'utf8')
 --
@@ -671,7 +671,7 @@ ARRAY<STRUCT<STRING>>[{NULL}]
 ==
 
 # Test that null is returned by SAFE_CAST when the format string is invalid.
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_bytes_to_string_safe_cast_with_invalid_format]
 SELECT SAFE_CAST(b'abc' AS STRING FORMAT 'x' || 'y' || 'z')
 --
@@ -679,7 +679,7 @@ ARRAY<STRUCT<STRING>>[{NULL}]
 ==
 
 # Test that the format can be an expression.
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_bytes_to_string_expression_as_format]
 SELECT CAST(b'abc' as string FORMAT 'b' || 'A' || 'sE2')
 --
@@ -688,7 +688,7 @@ ARRAY<STRUCT<STRING>>[{"011000010110001001100011"}]
 ==
 
 # Test scanning a table.
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_bytes_to_string_with_format_table_scan]
 SELECT CAST(input as string FORMAT format_string), format_string
 FROM (
@@ -716,7 +716,7 @@ ARRAY<STRUCT<STRING, format_string STRING>>[known order:
 ==
 
 # Test using a parameter as the format string
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_bytes_to_string_with_parameter_as_format]
 [parameters='base2' f]
 SELECT CAST(b'abc' as string FORMAT @f)
@@ -724,7 +724,7 @@ SELECT CAST(b'abc' as string FORMAT @f)
 ARRAY<STRUCT<STRING>>[{"011000010110001001100011"}]
 ==
 
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_string_to_bytes_all_formats]
 SELECT CAST('011000010110001001100011' as bytes FORMAT 'base2'),
        CAST('30261143' as bytes FORMAT 'base8'),
@@ -741,7 +741,7 @@ ARRAY<STRUCT<BYTES, BYTES, BYTES, BYTES, BYTES, BYTES, BYTES, BYTES, BYTES>>[
 ]
 ==
 
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_string_to_bytes_base32]
 SELECT CAST('MFRGG===' as bytes FORMAT 'base32'),
 --
@@ -749,7 +749,7 @@ ARRAY<STRUCT<BYTES>>[{b"abc"}]
 ==
 
 # Test that cast using format 'ascii' fails for input containing non-ascii characters.
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_string_to_bytes_format_ascii_with_invalid_input]
 SELECT CAST('àbc' as bytes FORMAT 'ascii')
 --
@@ -757,7 +757,7 @@ ERROR: generic::out_of_range: Failed to decode invalid ASCII string
 ==
 
 # Test when the format string is null.
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_string_to_bytes_format_is_null]
 SELECT CAST('abc' as bytes FORMAT CAST(NULL as STRING)),
        CAST('abc' as bytes FORMAT NULL)
@@ -766,7 +766,7 @@ ARRAY<STRUCT<BYTES, BYTES>>[{NULL, NULL}]
 ==
 
 # Test when the input string is null.
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_string_to_bytes_input_is_null]
 SELECT CAST(CAST(NULL as STRING) as bytes FORMAT 'utf8')
 --
@@ -774,7 +774,7 @@ ARRAY<STRUCT<BYTES>>[{NULL}]
 ==
 
 # Test when the format string is invalid.
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_string_to_bytes_format_is_invalid]
 SELECT CAST('abc' as bytes FORMAT 'x' || 'y' || 'z')
 --
@@ -782,7 +782,7 @@ ERROR: generic::out_of_range: Invalid format 'xyz'
 ==
 
 # Test that the format is case insensitive
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_string_to_bytes_format_is_case_insensitive]
 SELECT CAST('011000010110001001100011' as bytes FORMAT 'BaSe2')
 --
@@ -791,7 +791,7 @@ ARRAY<STRUCT<BYTES>>[{b"abc"}]
 
 # Test that an error is generated when the input cannot be converted
 # to bytes using the given format
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_string_to_bytes_invalid_input_with_format]
 SELECT CAST('123' as bytes FORMAT 'base2')
 --
@@ -800,7 +800,7 @@ ERROR: generic::out_of_range: Failed to decode invalid base2 string due to chara
 
 # Test that null is returned by SAFE_CAST when the input cannot be converted
 # to bytes using the given format
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_string_to_bytes_safe_cast_invalid_input]
 SELECT SAFE_CAST('123' as bytes FORMAT 'base2')
 --
@@ -809,7 +809,7 @@ ARRAY<STRUCT<BYTES>>[{NULL}]
 
 # Test that null is returned by SAFE_CAST when the format string is invalid.
 # to bytes using the given format
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_string_to_bytes_safe_cast_invalid_format]
 SELECT SAFE_CAST('123' as bytes FORMAT 'x' || 'y' || 'z')
 --
@@ -818,7 +818,7 @@ ARRAY<STRUCT<BYTES>>[{NULL}]
 ==
 
 # Test scanning a table.
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_string_to_bytes_with_format_table_scan]
 SELECT CAST(input as bytes FORMAT format_string), format_string
 FROM (
@@ -841,7 +841,7 @@ ARRAY<STRUCT<BYTES, format_string STRING>>[known order:
 ==
 
 # Test using a parameter as the format string
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_string_to_bytes_with_parameter_as_format]
 [parameters='base8' f]
 SELECT CAST('30261143' as bytes FORMAT @f)
@@ -850,7 +850,7 @@ ARRAY<STRUCT<BYTES>>[{b"abc"}]
 ==
 
 # null is returned if the format string is null.
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_string_to_timestamp_format_is_null]
 SELECT CAST('1234' as timestamp FORMAT CAST(NULL as STRING)),
        CAST('1234' as timestamp FORMAT NULL)
@@ -859,7 +859,7 @@ ARRAY<STRUCT<TIMESTAMP, TIMESTAMP>>[{NULL, NULL}]
 ==
 
 # null is returned if the time zone expression is null.
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_string_to_timestamp_time_zone_is_null]
 SELECT CAST('1234' as timestamp FORMAT 'yyyy' AT TIME ZONE CAST(NULL as STRING)),
        CAST('1234' as timestamp FORMAT 'yyyy' AT TIME ZONE NULL)
@@ -870,7 +870,7 @@ ARRAY<STRUCT<TIMESTAMP, TIMESTAMP>>[{NULL, NULL}]
 # Test that errror is returned when given an invalid time zone. Note that the
 # time zone is an expression, not a literal. If it is a literal, the error
 # would have been caught at the analysis time.
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_string_to_timestamp_invalid_time_zone]
 SELECT CAST('1234' as timestamp FORMAT 'yyyy' at time zone 'a' || 'b' || 'c')
 --
@@ -880,7 +880,7 @@ ERROR: generic::out_of_range: Invalid time zone: abc
 # Test a simple case of string to date/datetime/time/timestamp with format.
 # For the case where time zone is not specified, it's covered by file
 # cast_timestamp_with_timezone.test.
-[required_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
+[required_features=FORMAT_IN_CAST,CIVIL_TIME]
 [name=cast_string_to_date_and_time_simple]
 SELECT
   CAST('1234-05-06' as date FORMAT 'yyyy-mm-dd'),
@@ -901,7 +901,7 @@ ARRAY<STRUCT<DATE, DATETIME, TIME, TIMESTAMP>>[
 ==
 
 # Test default value when casting string to date with format.
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_string_to_default_value_date]
 SELECT
   extract(year from d) = extract(year from CURRENT_DATE()),
@@ -913,7 +913,7 @@ ARRAY<STRUCT<BOOL, BOOL, STRING>>[{true, true, "01"}]
 ==
 
 # Test default value when casting string to datetime with format.
-[required_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
+[required_features=FORMAT_IN_CAST,CIVIL_TIME]
 [name=cast_string_to_default_value_datetime]
 SELECT
   extract(year from d) = extract(year from CURRENT_DATE()),
@@ -925,7 +925,7 @@ ARRAY<STRUCT<BOOL, BOOL, STRING>>[{true, true, "01 00:00:00.000000"}]
 ==
 
 # Test default value when casting string to time with format.
-[required_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
+[required_features=FORMAT_IN_CAST,CIVIL_TIME]
 [name=cast_string_to_default_value_time]
 SELECT CAST('' as time format '')
 --
@@ -933,7 +933,7 @@ ARRAY<STRUCT<TIME>>[{00:00:00}]
 ==
 
 # Test default value when casting string to timestamp with format.
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_string_to_default_value_timestamp]
 SELECT
   extract(year from d) = extract(year from CURRENT_DATE()),
@@ -948,7 +948,7 @@ ARRAY<STRUCT<BOOL, BOOL, STRING>>[{true, true, "01 00:00:00.000000"}]
 # timestamp with format.
 # For time zone 'America/Los_Angeles', on 2021-11-01, the hour offset is -07,
 # while on 2021-11-21, the hour offset is -08.
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_string_to_timestamp_dst]
 SELECT
   CAST('2021-11-01' as timestamp FORMAT 'YYYY-MM-DD' at time zone 'America/Los_Angeles'),
@@ -962,28 +962,28 @@ ARRAY<STRUCT<TIMESTAMP, TIMESTAMP>>[
 ]
 ==
 
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_string_to_date_invalid_format]
 SELECT CAST('1234-05-06' as date FORMAT 'yyyy' || 'mi')
 --
 ERROR: generic::out_of_range: Format element in category MINUTE ('MI') is not allowed for output type DATE
 ==
 
-[required_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
+[required_features=FORMAT_IN_CAST,CIVIL_TIME]
 [name=cast_string_to_datetime_invalid_format]
 SELECT CAST('1234-05-06' as datetime FORMAT 'yyyy' || 'mi' || 'tzh')
 --
 ERROR: generic::out_of_range: Format element in category TIME_ZONE ('TZH') is not allowed for output type DATETIME
 ==
 
-[required_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
+[required_features=FORMAT_IN_CAST,CIVIL_TIME]
 [name=cast_string_to_time_invalid_format]
 SELECT CAST('1234-05-06' as time FORMAT 'yyyy' || 'mi')
 --
 ERROR: generic::out_of_range: Format element in category YEAR ('YYYY') is not allowed for output type TIME
 ==
 
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_string_to_timestamp_invalid_format]
 SELECT CAST('1234-05-06' as timestamp FORMAT 'yyyy' || 'yyyy')
 --
@@ -991,7 +991,7 @@ ERROR: generic::out_of_range: Format element 'YYYY' appears more than once in th
 ==
 
 # Test the success case of cast date/time to string with format
-[required_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
+[required_features=FORMAT_IN_CAST,CIVIL_TIME]
 [name=cast_date_and_time_to_string_success]
 select cast(date'1234-05-06' as string format 'DD-MM YYYY'),
        cast(datetime '1234-05-06 07:08:09' as string
@@ -1011,7 +1011,7 @@ ARRAY<STRUCT<STRING, STRING, STRING, STRING>>[
 ==
 
 # Test the success case of cast date/time to string with null format
-[required_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
+[required_features=FORMAT_IN_CAST,CIVIL_TIME]
 [name=cast_date_and_time_to_string_with_null_format]
 select cast(date'1234-05-06' as string format cast(null as string)),
        cast(datetime '1234-05-06 07:08:09' as string format cast(null as string)),
@@ -1023,7 +1023,7 @@ ARRAY<STRUCT<STRING, STRING, STRING, STRING>>[{NULL, NULL, NULL, NULL}]
 ==
 
 # Test the case when timezone is null
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_timestamp_to_string_with_null_time_zone]
 select cast(timestamp '1234-05-06 07:08:09-10' as string
             format 'HH12:MI:SS PM DD/MM/YYYY  TZH:TZM' at time zone cast(null as string));
@@ -1031,28 +1031,28 @@ select cast(timestamp '1234-05-06 07:08:09-10' as string
 ARRAY<STRUCT<STRING>>[{NULL}]
 ==
 
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_date_to_string_invalid_format]
 SELECT CAST(DATE'1234-05-06' as string FORMAT 'yyyy' || 'mi')
 --
 ERROR: generic::out_of_range: DATE does not support 'MI'
 ==
 
-[required_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
+[required_features=FORMAT_IN_CAST,CIVIL_TIME]
 [name=cast_datetime_to_string_invalid_format]
 SELECT CAST(DATETIME'1234-05-06' as string FORMAT 'yyyy' || 'mi' || 'tzh')
 --
 ERROR: generic::out_of_range: DATETIME does not support 'TZH'
 ==
 
-[required_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
+[required_features=FORMAT_IN_CAST,CIVIL_TIME]
 [name=cast_time_to_string_invalid_format]
 SELECT CAST(TIME'01:02:03' as string FORMAT 'yyyy' || 'mi')
 --
 ERROR: generic::out_of_range: TIME does not support 'YYYY'
 ==
 
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_timestamp_to_string_invalid_format]
 SELECT CAST(TIMESTAMP'1234-05-06' as string FORMAT 'a' || 'b')
 --
@@ -1061,7 +1061,7 @@ ERROR: generic::out_of_range: Cannot find matched format element at 0
 
 # Test that when casting number to string, the output is null is the input is null, or
 # the format string is null.
-[required_features=V_1_3_FORMAT_IN_CAST]
+[required_features=FORMAT_IN_CAST]
 [name=cast_number_to_string_null]
 SELECT CAST(CAST(null as INT64) as string FORMAT '99'),
        CAST(1.23 as string FORMAT CAST(NULL as STRING));
@@ -1070,7 +1070,7 @@ ARRAY<STRUCT<STRING, STRING>>[{NULL, NULL}]
 ==
 
 # Test that the implementation is invoked.
-[required_features=V_1_3_FORMAT_IN_CAST,NUMERIC_TYPE,BIGNUMERIC_TYPE]
+[required_features=FORMAT_IN_CAST,NUMERIC_TYPE,BIGNUMERIC_TYPE]
 [name=cast_number_to_string_simple]
 select cast(cast(1.23 as int32) as STRING format '99.9'),
        cast(cast(1.23 as uint32) as STRING format '99.9'),
@@ -1399,42 +1399,42 @@ select safe_cast(9223372036854775808 as int64), 9223372036854775808
 ARRAY<STRUCT<INT64, UINT64>>[{NULL, 9223372036854775808}]
 ==
 [name=cast_invalid_literal_to_civil_time]
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 select cast('abc' as time)
 --
 ERROR: generic::out_of_range: Invalid time string "abc"
 ==
 
 [name=cast_overflowing_literal_to_civil_time]
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 select cast('24:00:00' as time)
 --
 ERROR: generic::out_of_range: Invalid time string "24:00:00"
 ==
 
 [name=cast_invalid_literal_to_datetime_with_civil_time_enabled]
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 select cast('abc' as datetime)
 --
 ERROR: generic::out_of_range: Invalid datetime string "abc"
 ==
 
 [name=cast_timestamp_to_datetime_with_civil_time_enabled]
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 select cast('2015-13-05 01:02:03' as datetime)
 --
 ERROR: generic::out_of_range: Invalid datetime string "2015-13-05 01:02:03"
 ==
 
 [name=cast_utc_timestamp_to_datetime_with_civil_time_enabled]
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 select cast('2006-01-02 01:02:03.123456 UTC' as datetime)
 --
 ERROR: generic::out_of_range: Invalid datetime string "2006-01-02 01:02:03.123456 UTC"
 ==
 
 [name=cast_array_with_literals_larger_than_target_element_type]
-[required_features=V_1_1_CAST_DIFFERENT_ARRAY_TYPES]
+[required_features=CAST_DIFFERENT_ARRAY_TYPES]
 select cast(ARRAY<INT64>[-21474836480|21474836470] as ARRAY<INT32>)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT32>[-10]}]
@@ -1453,14 +1453,14 @@ ARRAY<STRUCT<INT64>>[{NULL}]
 ==
 
 [name=cast_array_with_invalid_string_literals]
-[required_features=V_1_1_CAST_DIFFERENT_ARRAY_TYPES]
+[required_features=CAST_DIFFERENT_ARRAY_TYPES]
 select cast(["100", "abc"] as ARRAY<INT64>);
 --
 ERROR: generic::out_of_range: Bad int64 value: abc
 ==
 
 [name=safe_cast_array_with_invalid_string_literals]
-[required_features=V_1_1_CAST_DIFFERENT_ARRAY_TYPES]
+[required_features=CAST_DIFFERENT_ARRAY_TYPES]
 select safe_cast(["100", "abc"] as ARRAY<INT64>);
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>(NULL)}]
@@ -1575,7 +1575,7 @@ ARRAY<STRUCT<STRING>>[{"0"}]
 ==
 
 # Casting with type parameters and collation name succeeds.
-[required_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,V_1_4_COLLATION_IN_EXPLICIT_CAST]
+[required_features=PARAMETERIZED_TYPES,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,COLLATION_IN_EXPLICIT_CAST]
 [name=cast_string_type_parameters_and_collation_valid_input]
 select
   cast('abcde' as STRING(5) COLLATE 'und:ci') = 'ABCDE',
@@ -1585,7 +1585,7 @@ ARRAY<STRUCT<BOOL, BOOL>>[{true, false}]
 ==
 
 # Casting to STRING(L) fails if the casted string is longer than L.
-[required_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,V_1_4_COLLATION_IN_EXPLICIT_CAST]
+[required_features=PARAMETERIZED_TYPES,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,COLLATION_IN_EXPLICIT_CAST]
 [name=cast_string_type_parameters_and_collation_invalid_input]
 select cast('abcdef' as STRING(5) COLLATE 'und:ci');
 --
@@ -1593,7 +1593,7 @@ ERROR: generic::out_of_range: STRING(5) has maximum length 5 but got a value wit
 ==
 
 # Casting with type parameters and collation name succeeds.
-[required_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,V_1_4_COLLATION_IN_EXPLICIT_CAST]
+[required_features=PARAMETERIZED_TYPES,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,COLLATION_IN_EXPLICIT_CAST]
 [name=cast_array_type_parameters_and_collation_valid_input]
 select
   'hi' in unnest(cast(['h', 'HI'] as ARRAY<STRING(2) COLLATE 'und:ci'>)),
@@ -1604,7 +1604,7 @@ ARRAY<STRUCT<BOOL, BOOL>>[{true, false}]
 
 # Casting to an ARRAY fails if the elements of the ARRAY have type parameters
 # that are violated.
-[required_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,V_1_4_COLLATION_IN_EXPLICIT_CAST]
+[required_features=PARAMETERIZED_TYPES,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,COLLATION_IN_EXPLICIT_CAST]
 [name=cast_array_type_parameters_and_collation_invalid_input]
 select cast(['hello', 'hi'] as ARRAY<STRING(2) COLLATE 'und:ci'>);
 --
@@ -1612,7 +1612,7 @@ ERROR: generic::out_of_range: STRING(2) has maximum length 2 but got a value wit
 ==
 
 # Casting with type parameters and collation name succeeds.
-[required_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,V_1_4_COLLATION_IN_EXPLICIT_CAST]
+[required_features=PARAMETERIZED_TYPES,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,COLLATION_IN_EXPLICIT_CAST]
 [name=cast_struct_type_parameters_and_collation_valid_input]
 select
   cast(STRUCT<a BYTES, b STRING>(b'hey', 'abc') as STRUCT<a BYTES(4), b STRING COLLATE 'und:ci'>).b = 'ABC',
@@ -1623,7 +1623,7 @@ ARRAY<STRUCT<BOOL, BOOL>>[{true, false}]
 
 # Casting to an STRUCT fails if the field of the STRUCT have type parameters
 # that are violated.
-[required_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,V_1_4_COLLATION_IN_EXPLICIT_CAST]
+[required_features=PARAMETERIZED_TYPES,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,COLLATION_IN_EXPLICIT_CAST]
 [name=cast_struct_type_parameters_and_collation_invalid_input]
 select
   cast((b'hey', 'abc') as STRUCT<BYTES(2), STRING COLLATE 'und:ci'>);

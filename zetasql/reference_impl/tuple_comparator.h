@@ -77,7 +77,7 @@ class TupleComparator {
   bool InvolvesUncertainArrayComparisons(
       absl::Span<const TupleData* const> tuples) const;
 
-  const std::vector<const KeyArg*>& keys() const { return keys_; }
+  absl::Span<const KeyArg* const> keys() const { return keys_; }
 
  private:
   TupleComparator(absl::Span<const KeyArg* const> keys,
@@ -90,9 +90,13 @@ class TupleComparator {
                               extra_sort_key_slots.end()),
         collators_(collators) {}
 
+  // `compare_floating_point_approximately`, `has_approximate_comparison`, and
+  // `collator_caused_equality` are used in `IsUniquelyOrdered` only. See
+  // comments at `IsUniquelyOrdered` below.
   bool Compare(const TupleData& t1, const TupleData& t2,
                bool compare_floating_point_approximately,
-               bool* has_approximate_comparison) const;
+               bool* has_approximate_comparison,
+               bool* collator_caused_equality) const;
 
   const std::vector<const KeyArg*> keys_;
   const std::vector<int> slots_for_keys_;

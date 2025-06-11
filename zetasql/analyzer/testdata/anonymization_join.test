@@ -134,6 +134,7 @@ QueryStmt
         |   | +-TableScan(parse_location=116-147, table=SimpleTypesWithAnonymizationUid, alias="b")
         |   +-join_expr=
         |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |       +-parse_location=153-166
         |       +-ColumnRef(parse_location=153-158, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
         |       +-ColumnRef(parse_location=161-166, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
         +-aggregate_list=
@@ -147,9 +148,9 @@ select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64
 from SimpleTypesWithAnonymizationUid a
 inner join SimpleTypesWithAnonymizationUid b on a.uid = a.uid;
 
-Rewrite ERROR: Joins between tables containing private data must also explicitly join on the user id column in each table, add 'AND a.uid=b.uid' to the join ON expression [at 1:1]
-select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
-^
+Rewrite ERROR: Joins between tables containing private data must also explicitly join on the user id column in each table, add 'AND a.uid=b.uid' to the join ON expression [at 3:49]
+inner join SimpleTypesWithAnonymizationUid b on a.uid = a.uid;
+                                                ^
 ==
 
 # reject disjoint join condition
@@ -180,10 +181,13 @@ QueryStmt
         |   | +-TableScan(parse_location=116-147, column_list=[SimpleTypesWithAnonymizationUid.int64#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1], alias="b")
         |   +-join_expr=
         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+        |       +-parse_location=154-188
         |       +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |       | +-parse_location=154-167
         |       | +-ColumnRef(parse_location=154-159, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
         |       | +-ColumnRef(parse_location=162-167, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
         |       +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |         +-parse_location=171-188
         |         +-ColumnRef(parse_location=171-178, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
         |         +-ColumnRef(parse_location=181-188, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#14)
         +-aggregate_list=
@@ -197,9 +201,9 @@ select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64
 from SimpleTypesWithAnonymizationUid a
 inner join SimpleTypesWithAnonymizationUid b on (a.uid = a.uid or a.int64 = b.int64);
 
-Rewrite ERROR: Joins between tables containing private data must also explicitly join on the user id column in each table, add 'AND a.uid=b.uid' to the join ON expression [at 1:1]
-select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
-^
+Rewrite ERROR: Joins between tables containing private data must also explicitly join on the user id column in each table, add 'AND a.uid=b.uid' to the join ON expression [at 3:50]
+inner join SimpleTypesWithAnonymizationUid b on (a.uid = a.uid or a.int64 = b...
+                                                 ^
 ==
 
 # incomplete join condition
@@ -230,6 +234,7 @@ QueryStmt
         |   | +-TableScan(parse_location=116-147, column_list=[SimpleTypesWithAnonymizationUid.uid#23], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
         |   +-join_expr=
         |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |       +-parse_location=153-166
         |       +-ColumnRef(parse_location=153-158, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#23)
         |       +-ColumnRef(parse_location=161-166, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#23)
         +-aggregate_list=
@@ -243,9 +248,9 @@ select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64
 from SimpleTypesWithAnonymizationUid a
 inner join SimpleTypesWithAnonymizationUid b on b.uid = b.uid;
 
-Rewrite ERROR: Joins between tables containing private data must also explicitly join on the user id column in each table, add 'AND a.uid=b.uid' to the join ON expression [at 1:1]
-select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
-^
+Rewrite ERROR: Joins between tables containing private data must also explicitly join on the user id column in each table, add 'AND a.uid=b.uid' to the join ON expression [at 3:49]
+inner join SimpleTypesWithAnonymizationUid b on b.uid = b.uid;
+                                                ^
 ==
 
 # Reject join conditions that aren't trivial comparisions
@@ -897,6 +902,7 @@ QueryStmt
         |   | +-TableScan(parse_location=116-127, column_list=[SimpleTypes.int64#14], table=SimpleTypes, column_index_list=[1], alias="b")
         |   +-join_expr=
         |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |       +-parse_location=133-150
         |       +-ColumnRef(parse_location=133-140, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
         |       +-ColumnRef(parse_location=143-150, type=INT64, column=SimpleTypes.int64#14)
         +-aggregate_list=
@@ -1038,6 +1044,7 @@ QueryStmt
         |       | +-TableScan(parse_location=148-179, column_list=[SimpleTypesWithAnonymizationUid.uid#23], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
         |       +-join_expr=
         |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |           +-parse_location=185-198
         |           +-ColumnRef(parse_location=185-190, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
         |           +-ColumnRef(parse_location=193-198, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#23)
         +-aggregate_list=
@@ -1174,6 +1181,7 @@ QueryStmt
         |   | +-TableScan(parse_location=95-126, column_list=[SimpleTypesWithAnonymizationUid.int64#21], table=SimpleTypesWithAnonymizationUid, column_index_list=[1], alias="b")
         |   +-join_expr=
         |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |       +-parse_location=132-149
         |       +-ColumnRef(parse_location=132-139, type=INT64, column=SimpleTypes.int64#2)
         |       +-ColumnRef(parse_location=142-149, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#21)
         +-aggregate_list=
@@ -1229,6 +1237,7 @@ QueryStmt
         |       | +-TableScan(parse_location=147-178, column_list=[SimpleTypesWithAnonymizationUid.uid#23], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
         |       +-join_expr=
         |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |           +-parse_location=184-197
         |           +-ColumnRef(parse_location=184-189, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
         |           +-ColumnRef(parse_location=192-197, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#23)
         +-aggregate_list=
@@ -1279,6 +1288,7 @@ QueryStmt
         |   | +-TableScan(parse_location=101-132, column_list=[SimpleTypesWithAnonymizationUid.int64#21], table=SimpleTypesWithAnonymizationUid, column_index_list=[1], alias="b")
         |   +-join_expr=
         |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |       +-parse_location=138-155
         |       +-ColumnRef(parse_location=138-145, type=INT64, column=SimpleTypes.int64#2)
         |       +-ColumnRef(parse_location=148-155, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#21)
         +-aggregate_list=
@@ -1326,6 +1336,7 @@ QueryStmt
         |   | +-TableScan(parse_location=121-132, column_list=[SimpleTypes.int64#14], table=SimpleTypes, column_index_list=[1], alias="b")
         |   +-join_expr=
         |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |       +-parse_location=138-155
         |       +-ColumnRef(parse_location=138-145, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
         |       +-ColumnRef(parse_location=148-155, type=INT64, column=SimpleTypes.int64#14)
         +-aggregate_list=
@@ -1467,6 +1478,7 @@ QueryStmt
         |       | +-TableScan(parse_location=162-193, column_list=[SimpleTypesWithAnonymizationUid.uid#23], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
         |       +-join_expr=
         |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |           +-parse_location=199-212
         |           +-ColumnRef(parse_location=199-204, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
         |           +-ColumnRef(parse_location=207-212, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#23)
         +-aggregate_list=
@@ -1989,6 +2001,7 @@ QueryStmt
         |   | +-TableScan(parse_location=85-113, column_list=[KitchenSinkWithUidValueTable.value#2], table=KitchenSinkWithUidValueTable, column_index_list=[0], alias="t2")
         |   +-join_expr=
         |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |       +-parse_location=122-151
         |       +-GetProtoField
         |       | +-parse_location=125-135
         |       | +-type=STRING
@@ -2067,6 +2080,7 @@ QueryStmt
         |   |   |     +-TableScan(parse_location=85-113, column_list=[KitchenSinkWithUidValueTable.value#2], table=KitchenSinkWithUidValueTable, column_index_list=[0], alias="t2")
         |   |   +-join_expr=
         |   |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |   |       +-parse_location=122-151
         |   |       +-GetProtoField
         |   |       | +-parse_location=125-135
         |   |       | +-type=STRING
@@ -2163,6 +2177,7 @@ QueryStmt
         |       |   | +-TableScan(parse_location=122-150, column_list=[KitchenSinkWithUidValueTable.value#2], table=KitchenSinkWithUidValueTable, column_index_list=[0], alias="t2")
         |       |   +-join_expr=
         |       |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |       |       +-parse_location=163-192
         |       |       +-GetProtoField
         |       |       | +-parse_location=166-176
         |       |       | +-type=STRING
@@ -2179,6 +2194,7 @@ QueryStmt
         |       |         +-default_value="default_name"
         |       +-filter_expr=
         |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |           +-parse_location=203-227
         |           +-FunctionCall(ZetaSQL:mod(INT64, INT64) -> INT64)
         |           | +-parse_location=203-206
         |           | +-Cast(INT32 -> INT64)
@@ -2270,6 +2286,7 @@ QueryStmt
         |   |       |   |     +-TableScan(parse_location=122-150, column_list=[KitchenSinkWithUidValueTable.value#2], table=KitchenSinkWithUidValueTable, column_index_list=[0], alias="t2")
         |   |       |   +-join_expr=
         |   |       |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |   |       |       +-parse_location=163-192
         |   |       |       +-GetProtoField
         |   |       |       | +-parse_location=166-176
         |   |       |       | +-type=STRING
@@ -2286,6 +2303,7 @@ QueryStmt
         |   |       |         +-default_value="default_name"
         |   |       +-filter_expr=
         |   |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   |           +-parse_location=203-227
         |   |           +-FunctionCall(ZetaSQL:mod(INT64, INT64) -> INT64)
         |   |           | +-parse_location=203-206
         |   |           | +-Cast(INT32 -> INT64)
@@ -2369,6 +2387,7 @@ QueryStmt
         |       |   | +-TableScan(parse_location=105-133, column_list=[KitchenSinkWithUidValueTable.value#2], table=KitchenSinkWithUidValueTable, column_index_list=[0], alias="t2")
         |       |   +-join_expr=
         |       |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |       |       +-parse_location=146-175
         |       |       +-GetProtoField
         |       |       | +-parse_location=149-159
         |       |       | +-type=STRING
@@ -2385,6 +2404,7 @@ QueryStmt
         |       |         +-default_value="default_name"
         |       +-filter_expr=
         |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |           +-parse_location=186-189
         |           +-Literal(parse_location=186-187, type=INT64, value=1)
         |           +-Literal(parse_location=188-189, type=INT64, value=1)
         +-aggregate_list=

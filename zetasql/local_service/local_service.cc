@@ -1208,7 +1208,7 @@ absl::Status ZetaSqlLocalServiceImpl::AnalyzeImpl(
   std::unique_ptr<const AnalyzerOutput> output;
 
   if (request.has_sql_statement()) {
-    const std::string& sql = request.sql_statement();
+    absl::string_view sql = request.sql_statement();
 
     ZETASQL_RETURN_IF_ERROR(
         zetasql::AnalyzeStatement(sql, options, catalog, &factory, &output));
@@ -1242,7 +1242,7 @@ absl::Status ZetaSqlLocalServiceImpl::AnalyzeExpressionImpl(
     std::unique_ptr<const AnalyzerOutput> output;
     TypeFactory factory;
 
-    const std::string& sql = request.sql_expression();
+    absl::string_view sql = request.sql_expression();
 
     ZETASQL_RETURN_IF_ERROR(
         zetasql::AnalyzeExpression(sql, options, catalog, &factory, &output));
@@ -1537,7 +1537,7 @@ absl::Status ZetaSqlLocalServiceImpl::ParseStatementImpl(
   std::unique_ptr<ParserOutput> parser_output;
 
   if (request.has_sql_statement()) {
-    const std::string& sql = request.sql_statement();
+    absl::string_view sql = request.sql_statement();
 
     ZETASQL_RETURN_IF_ERROR(ParseStatement(sql, parser_options, &parser_output));
 
@@ -1566,7 +1566,7 @@ absl::Status ZetaSqlLocalServiceImpl::ParseScriptImpl(
   std::unique_ptr<ParserOutput> parser_output;
 
   if (request.has_sql_statement()) {
-    const std::string& sql = request.sql_statement();
+    absl::string_view sql = request.sql_statement();
 
     ZETASQL_RETURN_IF_ERROR(
         ParseScript(sql, parser_options,

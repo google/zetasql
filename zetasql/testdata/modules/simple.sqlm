@@ -1,0 +1,34 @@
+module simple_module;
+select 1 as a;                                              -- invalid stmt
+create public function foo(a int64) as (a+1);               -- GOOD
+create public aggregate function b1(b int32) as (sum(b));   -- GOOD
+create public function bar(b int32) as (b+1);               -- GOOD
+grant all on foo to 'mdbuser/user';                         -- invalid stmt
+create public function baz(c uint32) as (c+3);              -- GOOD
+create public function bat() as ('a');                      -- GOOD
+create public function baz(c uint64) as (c+3);              -- bad overload
+create private function abc(c uint32) as (c+3);             -- GOOD
+create function bad_no_modifier(c uint32) as (c+3);         -- BAD
+create temp function bad_temp_modifier(c uint32) as (c+3);  -- BAD
+create public function a.b.c(b int32) as (b + 5);           -- bad pathname
+create or replace public function b2(a int64) as (a);       -- bad OR REPLACE
+create public function if not exists b3(a int64) as (a);    -- bad IF !EXISTS
+create public function b4(a int32) language sql as (a);     -- bad LANGUAGE
+create public function b5(a int32) language sql as '1';   -- bad LANGUAGE
+create public function b6(a int32) returns int64 language sql as '1';   -- bad LANGUAGE
+create public function jsScalar1(a int32) returns int64 language js as '1';   -- GOOD non-sql
+create public function jsScalar2(a any type) returns int64 language js as '1';   -- GOOD templated non-sql
+create public function jsScalar3(a any type) returns int64 language js
+  as 'throw new Error("Error");';   -- GOOD (parsing) BAD (runtime)
+
+create public function m1(a float) as (a + 'a');  -- GOOD init
+                                                    --   but bad resolution
+abdsgklds;                                        -- bad PARSE ERROR
+-- TODO: This next statement is valid, but it is after the parse
+-- error so it currently gets ignored.  Fix this.  We should be able to
+-- detect the semi-colon at the end of the last statement, and pick up
+-- again with this statement.
+create public function def(c uint32) as (c+3);    -- GOOD but after
+                                                    --   parse error
+create private function b7(c uint32) as (c+3);;   -- bad but after
+                                                    --   parse error

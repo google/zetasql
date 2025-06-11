@@ -174,7 +174,14 @@ ERROR: Query parameter number 1 is not defined (0 provided) [at 1:1]
 
 ? = 5
 --
-ERROR: No matching signature for operator = for argument types: STRING, INT64. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:1]
+ERROR: No matching signature for operator = for argument types: STRING, INT64
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {INT64, STRING}
+  Signature: INT64 = UINT64
+    Argument 1: Unable to coerce type STRING to expected type INT64
+  Signature: UINT64 = INT64
+    Argument 1: Unable to coerce type STRING to expected type UINT64 [at 1:1]
 ? = 5
 ^
 ==
@@ -592,10 +599,10 @@ cast(timestamp '2011-01-01 12:34:56' as TIMESTAMP)
 Literal(parse_location=0-50, type=TIMESTAMP, value=2011-01-01 12:34:56+00, has_explicit_type=TRUE)
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 time '01:02:03.123456'
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 Literal(parse_location=0-22, type=TIME, value=01:02:03.123456, has_explicit_type=TRUE)
 --
@@ -606,10 +613,10 @@ time '01:02:03.123456'
 ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 time 'abc'
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 ERROR: Invalid TIME literal [at 1:1]
 time 'abc'
@@ -622,10 +629,10 @@ time 'abc'
 ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 time '01:02:03.123456abc'
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 ERROR: Invalid TIME literal [at 1:1]
 time '01:02:03.123456abc'
@@ -638,10 +645,10 @@ time '01:02:03.123456abc'
 ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 time '24:00:00'
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 ERROR: Invalid TIME literal [at 1:1]
 time '24:00:00'
@@ -654,10 +661,10 @@ time '24:00:00'
 ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 datetime '2006-01-02 03:04:05.123456'
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 Literal(parse_location=0-37, type=DATETIME, value=2006-01-02 03:04:05.123456, has_explicit_type=TRUE)
 --
@@ -668,10 +675,10 @@ datetime '2006-01-02 03:04:05.123456'
 ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 datetime 'abc'
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 ERROR: Invalid DATETIME literal [at 1:1]
 datetime 'abc'
@@ -684,10 +691,10 @@ datetime 'abc'
 ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 datetime '2006-01-02 03:04:05.123456abc'
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 ERROR: Invalid DATETIME literal [at 1:1]
 datetime '2006-01-02 03:04:05.123456abc'
@@ -700,10 +707,10 @@ datetime '2006-01-02 03:04:05.123456abc'
 ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 datetime '2006-13-02 03:04:05.123456'
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 ERROR: Invalid DATETIME literal [at 1:1]
 datetime '2006-13-02 03:04:05.123456'
@@ -716,10 +723,10 @@ datetime '2006-13-02 03:04:05.123456'
 ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 datetime '2006-13-02 03:04:05.123456 UTC'
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 ERROR: Invalid DATETIME literal [at 1:1]
 datetime '2006-13-02 03:04:05.123456 UTC'
@@ -821,6 +828,7 @@ FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
  sink)
 --
 MakeStruct
++-parse_location=0-134
 +-type=STRUCT<INT64, BOOL, ARRAY<DATE>, BOOL, STRING, BOOL, PROTO<zetasql_test__.KitchenSinkPB>>
 +-field_list=
   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
@@ -930,6 +938,7 @@ ERROR: Table not found: sink.repeated_date [at 1:23]
 (int64_key_1, has_date)
 --
 MakeStruct
++-parse_location=0-23
 +-type=STRUCT<INT64, BOOL>
 +-field_list=
   +-GetProtoField
@@ -1017,6 +1026,7 @@ value.xyz
  s)
 --
 MakeStruct
++-parse_location=0-26
 +-type=STRUCT<STRUCT<xxxXXX INT32, DOUBLE, s STRING>, INT32, STRING>
 +-field_list=
   +-ExpressionColumn(parse_location=1-6, type=STRUCT<xxxXXX INT32, DOUBLE, s STRING>, name="value")
@@ -1039,6 +1049,7 @@ MakeStruct
 (x, s)
 --
 MakeStruct
++-parse_location=0-6
 +-type=STRUCT<INT32, STRING>
 +-field_list=
   +-GetStructField
@@ -1136,6 +1147,7 @@ FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
 (int32_val, int32_val.int32_val)
 --
 MakeStruct
++-parse_location=0-32
 +-type=STRUCT<PROTO<zetasql_test__.KitchenSinkPB>, INT32>
 +-field_list=
   +-ExpressionColumn(parse_location=1-10, type=PROTO<zetasql_test__.KitchenSinkPB>, name="int32_val")
@@ -1265,7 +1277,7 @@ MakeProto
   +-int32_val1 := Literal(parse_location=65-67, type=INT32, value=17)
 ==
 
-[language_features={{|V_1_2_SAFE_FUNCTION_CALL}}]
+[language_features={{|SAFE_FUNCTION_CALL}}]
 safe.concat('abc')
 --
 ALTERNATION GROUP: <empty>
@@ -1274,14 +1286,14 @@ ERROR: Function calls with SAFE are not supported [at 1:1]
 safe.concat('abc')
 ^
 --
-ALTERNATION GROUP: V_1_2_SAFE_FUNCTION_CALL
+ALTERNATION GROUP: SAFE_FUNCTION_CALL
 --
 FunctionCall({SAFE_ERROR_MODE} ZetaSQL:concat(STRING, repeated(0) STRING) -> STRING)
 +-parse_location=0-18
 +-Literal(parse_location=12-17, type=STRING, value="abc")
 ==
 
-[language_features={{|V_1_2_SAFE_FUNCTION_CALL}}]
+[language_features={{|SAFE_FUNCTION_CALL}}]
 (select safe.sum(x) from unnest([1,2,3]) x)
 --
 ALTERNATION GROUP: <empty>
@@ -1290,7 +1302,7 @@ ERROR: Function calls with SAFE are not supported [at 1:9]
 (select safe.sum(x) from unnest([1,2,3]) x)
         ^
 --
-ALTERNATION GROUP: V_1_2_SAFE_FUNCTION_CALL
+ALTERNATION GROUP: SAFE_FUNCTION_CALL
 --
 SubqueryExpr
 +-parse_location=0-43
@@ -1313,7 +1325,7 @@ SubqueryExpr
           +-$agg1#2 :=
             +-AggregateFunctionCall({SAFE_ERROR_MODE} ZetaSQL:sum(INT64) -> INT64)
               +-parse_location=8-19
-              +-ColumnRef(type=INT64, column=$array.x#1)
+              +-ColumnRef(parse_location=17-18, type=INT64, column=$array.x#1)
 ==
 
 # When resolving standalone expressions, an expression column takes precedence
@@ -1374,7 +1386,7 @@ TestConstant64
 ^
 ==
 
-[language_features=V_1_3_WITH_GROUP_ROWS]
+[language_features=WITH_GROUP_ROWS]
 sum(x) with group rows(select x from group_rows())
 --
 ERROR: Aggregate function SUM not allowed in standalone expression [at 1:1]
@@ -1382,7 +1394,7 @@ sum(x) with group rows(select x from group_rows())
 ^
 ==
 
-[language_features=V_1_3_WITH_GROUP_ROWS]
+[language_features=WITH_GROUP_ROWS]
 (select sum(x) with group rows(select x from group_rows()) from (select 1 x))
 --
 SubqueryExpr
@@ -1435,7 +1447,7 @@ ERROR: Table-valued function not found: group_rows [at 1:16]
                ^
 ==
 
-[language_features=V_1_4_MULTILEVEL_AGGREGATION]
+[language_features=MULTILEVEL_AGGREGATION]
 [allow_aggregate_standalone_expression]
 [in_scope_expression_column_name=value]
 [in_scope_expression_column_type=int64]
@@ -1446,7 +1458,7 @@ FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
 +-Cast(INT64 -> DOUBLE)
 | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
 |   +-parse_location=0-36
-|   +-ColumnRef(type=INT64, column=$aggregate.$agg1#2)
+|   +-ColumnRef(parse_location=4-20, type=INT64, column=$aggregate.$agg1#2)
 |   +-group_by_list=
 |   | +-$groupbymod#1 := ExpressionColumn(parse_location=30-35, type=INT64, name="value")
 |   +-group_by_aggregate_list=
@@ -1458,9 +1470,9 @@ FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
   +-parse_location=39-82
   +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
     +-parse_location=43-66
-    +-ColumnRef(type=DOUBLE, column=$aggregate.$agg1#4)
+    +-ColumnRef(parse_location=43-53, type=DOUBLE, column=$aggregate.$agg1#4)
     +-Cast(INT64 -> DOUBLE)
-      +-ColumnRef(type=INT64, column=$aggregate.$agg2#5)
+      +-ColumnRef(parse_location=56-66, type=INT64, column=$aggregate.$agg2#5)
   +-group_by_list=
   | +-$groupbymod#3 := ExpressionColumn(parse_location=76-81, type=INT64, name="value")
   +-group_by_aggregate_list=
@@ -1474,7 +1486,7 @@ FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
         +-ExpressionColumn(parse_location=60-65, type=INT64, name="value")
 ==
 
-[language_features=V_1_4_MULTILEVEL_AGGREGATION]
+[language_features=MULTILEVEL_AGGREGATION]
 [allow_aggregate_standalone_expression]
 [in_scope_expression_column_name=value]
 [in_scope_expression_column_type=int64]
@@ -1488,3 +1500,109 @@ SUM(value GROUP BY value)
 ERROR: Expression column value cannot be an argument to a multi-level aggregate function. [at 6:1]
 SUM(value GROUP BY value)
 ^
+==
+
+[language_features=GROUPING_BUILTIN]
+[allow_aggregate_standalone_expression]
+[in_scope_expression_column_name=value]
+[in_scope_expression_column_type=int64]
+GROUPING(value)
+--
+ERROR: GROUPING function is not supported in standalone expression resolution [at 1:1]
+GROUPING(value)
+^
+==
+
+[language_features=GROUPING_BUILTIN,ORDER_BY_IN_AGGREGATE]
+[allow_aggregate_standalone_expression]
+[in_scope_expression_column_name=value]
+[in_scope_expression_column_type=int64]
+ARRAY_AGG(value ORDER BY value)
+--
+ERROR: Standalone expression resolution does not support aggregate function calls with the ORDER BY clause [at 1:1]
+ARRAY_AGG(value ORDER BY value)
+^
+==
+
+[allow_aggregate_standalone_expression]
+[in_scope_expression_column_name=price]
+[in_scope_expression_column_type=int64]
+SUM((SELECT price))
+--
+AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
++-parse_location=0-19
++-SubqueryExpr
+  +-parse_location=4-18
+  +-type=INT64
+  +-subquery_type=SCALAR
+  +-subquery=
+    +-ProjectScan
+      +-parse_location=5-17
+      +-column_list=[$expr_subquery.price#1]
+      +-expr_list=
+      | +-price#1 := ExpressionColumn(parse_location=12-17, type=INT64, name="price")
+      +-input_scan=
+        +-SingleRowScan
+==
+
+[allow_aggregate_standalone_expression]
+[in_scope_expression_column_name=price]
+[in_scope_expression_column_type=int64]
+SUM((SELECT SUM(price) FROM UNNEST([1])))
+--
+AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
++-parse_location=0-41
++-SubqueryExpr
+  +-parse_location=4-40
+  +-type=INT64
+  +-subquery_type=SCALAR
+  +-subquery=
+    +-ProjectScan
+      +-parse_location=5-39
+      +-column_list=[$aggregate.$agg1#2]
+      +-input_scan=
+        +-AggregateScan
+          +-column_list=[$aggregate.$agg1#2]
+          +-input_scan=
+          | +-ArrayScan
+          |   +-array_expr_list=
+          |   | +-Literal(parse_location=35-38, type=ARRAY<INT64>, value=[1])
+          |   +-element_column_list=[$array.$unnest1#1]
+          +-aggregate_list=
+            +-$agg1#2 :=
+              +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                +-parse_location=12-22
+                +-ExpressionColumn(parse_location=16-21, type=INT64, name="price")
+==
+
+[allow_aggregate_standalone_expression]
+[in_scope_expression_column_name=price]
+[in_scope_expression_column_type=int64]
+SUM(price) + (SELECT SUM(1) FROM UNNEST([1]))
+--
+FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
++-parse_location=0-45
++-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+| +-parse_location=0-10
+| +-ExpressionColumn(parse_location=4-9, type=INT64, name="price")
++-SubqueryExpr
+  +-parse_location=13-45
+  +-type=INT64
+  +-subquery_type=SCALAR
+  +-subquery=
+    +-ProjectScan
+      +-parse_location=14-44
+      +-column_list=[$aggregate.$agg1#2]
+      +-input_scan=
+        +-AggregateScan
+          +-column_list=[$aggregate.$agg1#2]
+          +-input_scan=
+          | +-ArrayScan
+          |   +-array_expr_list=
+          |   | +-Literal(parse_location=40-43, type=ARRAY<INT64>, value=[1])
+          |   +-element_column_list=[$array.$unnest1#1]
+          +-aggregate_list=
+            +-$agg1#2 :=
+              +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                +-parse_location=21-27
+                +-Literal(parse_location=25-26, type=INT64, value=1)

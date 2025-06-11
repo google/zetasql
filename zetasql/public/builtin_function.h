@@ -81,7 +81,7 @@ std::pair<const absl::flat_hash_map<std::string, const Function*>&,
           const absl::flat_hash_map<std::string, const Type*>&>
 GetBuiltinFunctionsAndTypesForDefaultOptions();
 
-const std::string FunctionSignatureIdToName(FunctionSignatureId id);
+std::string FunctionSignatureIdToName(FunctionSignatureId id);
 
 // If the function allows argument coercion, then checks the function
 // signatures to see if they are defined for floating point and

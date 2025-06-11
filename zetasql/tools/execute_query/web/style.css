@@ -36,6 +36,12 @@ body, input, textarea, select {
   font-size: 1rem;
 }
 
+@media (prefers-color-scheme: dark) {
+  body {
+    filter: invert(90%) hue-rotate(180deg) contrast(105%);
+  }
+}
+
 select {
   padding: 0.3em;
   border-radius: 0.3em;
@@ -76,6 +82,27 @@ main {
 #header a {
   text-decoration: none;
   color: #fff;
+}
+
+#header #share-link {
+  float: right;
+  font-size: 0.5em;
+  padding: 0.4em 0.6em;
+  background-color: #0f73b5;;
+  border-radius: 0.5em;
+  border: 1px solid #0f73b5;
+  color: #fff;
+  cursor: pointer;
+}
+
+#header #share-link:hover {
+  background-color: #c74dd1;
+  border-color: #1597ec;
+}
+
+#header #share-link:active {
+  border-color: #fff;
+  border-style: dashed;
 }
 
 .left-section {

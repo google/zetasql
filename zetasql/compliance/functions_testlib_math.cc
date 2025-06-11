@@ -68,7 +68,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsUnaryMinus() {
       {{Double(double_nan)}, Double(double_nan)},
       {{NullDouble()}, NullDouble()},
 
-      // int32_t
+      // int32
       {{Int32(-1)}, Int32(1)},
       {{Int32(int32min)}, NullInt32(), OUT_OF_RANGE},
       {{Int32(0)}, Int32(0)},
@@ -76,7 +76,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsUnaryMinus() {
       {{Int32(int32max)}, Int32(-int32max)},
       {{NullInt32()}, NullInt32()},
 
-      // int64_t
+      // int64
       {{Int64(-1)}, Int64(1)},
       {{Int64(int64min)}, NullInt64(), OUT_OF_RANGE},
       {{Int64(0)}, Int64(0)},
@@ -132,7 +132,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsUnaryMinus() {
 
 std::vector<QueryParamsWithResult> GetFunctionTestsCoercedAdd() {
   return {
-      // int32_t
+      // int32
       {{2, 3}, 5ll},
       {{int32min / 2, int32min / 2}, Int64(int32min)},
       {{1, int32max}, int32max + 1ll},
@@ -142,14 +142,14 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedAdd() {
       {{int32min, -1}, int32min - 1ll},
       {{int32max, int32min}, Int64(-1)},
 
-      // uint32_t
+      // uint32
       {{2u, 3u}, 5ull},
       {{1u, uint32max}, uint32max + 1ull},
       {{uint32max, 1u}, uint32max + 1ull},
       {{uint32max, uint32max}, uint32max * 2ull},
       {{uint32max, 0u}, Uint64(uint32max)},
 
-      // int32_t and uint32_t
+      // int32 and uint32
       {{1, 2u}, 3ll},
       {{2, 1u}, 3ll},
 
@@ -241,7 +241,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsAdd() {
       {{1.0, NullDouble()}, NullDouble()},
       {{NullDouble(), 2.0}, NullDouble()},
 
-      // int64_t
+      // int64
       {{2ll, 3ll}, 5ll},
       {{int64max / 2, int64max / 2}, (int64max / 2) * 2},
       {{int64min / 2, int64min / 2}, int64min},
@@ -253,7 +253,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsAdd() {
       {{int64min, -1ll}, NullInt64(), OUT_OF_RANGE},
       {{int64max, int64min}, -1ll},
 
-      // uint64_t
+      // uint64
       {{2ull, 3ull}, 5ull},
       {{uint64max / 2u, uint64max / 2u}, (uint64max / 2u) * 2},
       {{uint64max / 2u + 1u, uint64max / 2u + 1u}, NullUint64(), OUT_OF_RANGE},
@@ -335,7 +335,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedSubtract() {
   // operands.  TODO: Add tests for subtraction between
   // different types.
   return {
-      // int32_t
+      // int32
       {{5, 2}, 3ll},
       {{int32max / 2, -(int32max / 2)}, Int64((int32max / 2) * 2)},
       {{int32min / 2, -(int32min / 2)}, Int64(int32min)},
@@ -351,7 +351,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedSubtract() {
       {{int32min, int32min}, 0ll},
       {{int32max, int32min}, Int64(static_cast<int64_t>(int32max) - int32min)},
 
-      // uint32_t
+      // uint32
       {{5u, 3u}, 2ll},
       {{uint32max, uint32max}, 0ll},
       {{0u, 1u}, -1ll},
@@ -448,7 +448,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsSubtract() {
       {{1.0, NullDouble()}, NullDouble()},
       {{NullDouble(), 2.0}, NullDouble()},
 
-      // int64_t
+      // int64
       {{5ll, 2ll}, 3ll},
       {{int64max / 2, -(int64max / 2)}, (int64max / 2) * 2},
       {{int64min / 2, -(int64min / 2)}, int64min / 2 * 2},
@@ -462,7 +462,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsSubtract() {
       {{int64max, int64max}, 0ll},
       {{int64min, int64min}, 0ll},
 
-      // uint64_t
+      // uint64
       {{5ull, 3ull}, 2ll},
       {{uint64max, uint64max}, 0ll},
       {{uint64max, 0ull}, NullInt64(), OUT_OF_RANGE},
@@ -552,7 +552,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedMultiply() {
   // operands.  TODO: Add tests for multiplication between
   // different types.
   return {
-      // int32_t
+      // int32
       {{2, 2}, 4ll},
       {{3, -2}, -6ll},
       {{int32min / 2, 2}, Int64(int32min / 2 * 2)},
@@ -571,7 +571,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedMultiply() {
       {{int32min / 2, -2}, Int64(int32max + int64_t{1})},
       {{int32min / 2, 2}, Int64(int32min)},
 
-      // uint32_t
+      // uint32
       {{2u, 2u}, 4ull},
       {{uint32max / 2u, 2u}, Uint64(uint32max / 2u * 2u)},
       {{uint32max, 0u}, 0ull},
@@ -654,7 +654,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedMultiply() {
 
 std::vector<QueryParamsWithResult> GetFunctionTestsMultiply() {
   return {
-      // int64_t
+      // int64
       {{2ll, 2ll}, 4ll},
       {{3ll, -2ll}, -6ll},
       {{int64min / 2, 2ll}, int64min},
@@ -674,7 +674,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsMultiply() {
       {{int64min / 2, -2ll}, NullInt64(), OUT_OF_RANGE},
       {{int64min / 2, 2ll}, int64min},
 
-      // uint64_t
+      // uint64
       {{2ull, 2ull}, 4ull},
       {{uint64max / 2ull, 2ull}, uint64max / 2ull * 2ull},
       {{uint64max, 0ull}, 0ull},
@@ -759,7 +759,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedModulo() {
   // operands.  TODO: Add tests for MOD between
   // different types.
   return {
-      // int32_t
+      // int32
       {{5, 3}, 2ll},
       {{5, 5}, 0ll},
       {{-5, 3}, -2ll},
@@ -774,7 +774,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedModulo() {
       {{int32max, 0}, NullInt64(), OUT_OF_RANGE},
       {{int32min, 0}, NullInt64(), OUT_OF_RANGE},
 
-      // uint32_t
+      // uint32
       {{5u, 3u}, 2ull},
       {{5u, 5u}, 0ull},
       {{uint32max, 1u}, Uint64(uint64_t{0})},
@@ -798,7 +798,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedModulo() {
 
 std::vector<QueryParamsWithResult> GetFunctionTestsModulo() {
   return {
-      // int64_t
+      // int64
       {{5ll, 3ll}, 2ll},
       {{5ll, 5ll}, 0ll},
       {{-5ll, 3ll}, -2ll},
@@ -814,7 +814,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsModulo() {
       {{int64min, 0ll}, NullInt64(), OUT_OF_RANGE},
       {{int64max, 0ll}, NullInt64(), OUT_OF_RANGE},
 
-      // uint64_t
+      // uint64
       {{5ull, 3ull}, 2ull},
       {{5ull, 5ull}, 0ull},
       {{uint64max, 1ull}, 0ull},
@@ -901,16 +901,16 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedDivide() {
   // operands.  TODO: Add tests for division between
   // different types.
   return {
-      // int32_t
+      // int32
       {{6, 2}, 3.0},
 
-      // int64_t
+      // int64
       {{6ll, 2ll}, 3.0},
 
-      // uint32_t
+      // uint32
       {{6u, 2u}, 3.0},
 
-      // uint64_t
+      // uint64
       {{6ull, 2ull}, 3.0},
 
       // float
@@ -1165,7 +1165,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedDiv() {
   // operands.  TODO: Add tests for DIV between
   // different types.
   return {
-      // int32_t
+      // int32
       {{2, 3}, 0ll},
       {{5, 3}, 1ll},
       {{6, 3}, 2ll},
@@ -1189,7 +1189,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedDiv() {
       {{int32max, 0}, NullInt64(), OUT_OF_RANGE},
       {{int32min, 0}, NullInt64(), OUT_OF_RANGE},
 
-      // uint32_t
+      // uint32
       {{2u, 3u}, 0ull},
       {{5u, 3u}, 1ull},
       {{6u, 3u}, 2ull},
@@ -1217,7 +1217,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedDiv() {
 
 std::vector<QueryParamsWithResult> GetFunctionTestsDiv() {
   return {
-      // int64_t
+      // int64
       {{2ll, 3ll}, 0ll},
       {{5ll, 3ll}, 1ll},
       {{6ll, 3ll}, 2ll},
@@ -1241,7 +1241,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsDiv() {
       {{int64max, 0ll}, NullInt64(), OUT_OF_RANGE},
       {{int64min, 0ll}, NullInt64(), OUT_OF_RANGE},
 
-      // uint64_t
+      // uint64
       {{2ull, 3ull}, 0ull},
       {{5ull, 3ull}, 1ull},
       {{7ull, 3ull}, 2ull},
@@ -2057,14 +2057,14 @@ std::vector<FunctionTestCall> GetFunctionTestsPi(bool include_safe_calls) {
   std::vector<FunctionTestCall> all_tests;
 
   FunctionTestCall double_test = {"pi", /*arguments=*/{}, M_PI};
-  double_test.params.AddRequiredFeature(FEATURE_V_1_4_PI_FUNCTIONS);
+  double_test.params.AddRequiredFeature(FEATURE_PI_FUNCTIONS);
   all_tests.emplace_back(double_test);
 
   FunctionTestCall numeric_test = {
       "pi_numeric", /*arguments=*/{},
       NumericValue::FromString("3.141592654").value()};
   numeric_test.params.AddRequiredFeatures(
-      {FEATURE_NUMERIC_TYPE, FEATURE_V_1_4_PI_FUNCTIONS});
+      {FEATURE_NUMERIC_TYPE, FEATURE_PI_FUNCTIONS});
   all_tests.emplace_back(numeric_test);
 
   FunctionTestCall bignumeric_test{
@@ -2073,29 +2073,28 @@ std::vector<FunctionTestCall> GetFunctionTestsPi(bool include_safe_calls) {
       BigNumericValue::FromString("3.14159265358979323846264338327950288420")
           .value()};
   bignumeric_test.params.AddRequiredFeatures(
-      {FEATURE_BIGNUMERIC_TYPE, FEATURE_V_1_4_PI_FUNCTIONS});
+      {FEATURE_BIGNUMERIC_TYPE, FEATURE_PI_FUNCTIONS});
   all_tests.emplace_back(bignumeric_test);
 
   // Safe versions of the above tests
   FunctionTestCall safe_double_test = {"safe.pi", /*arguments=*/{}, M_PI};
   safe_double_test.params.AddRequiredFeatures(
-      {FEATURE_V_1_4_PI_FUNCTIONS, FEATURE_V_1_2_SAFE_FUNCTION_CALL});
+      {FEATURE_PI_FUNCTIONS, FEATURE_SAFE_FUNCTION_CALL});
 
   FunctionTestCall safe_numeric_test = {
       "safe.pi_numeric", /*arguments=*/{},
       NumericValue::FromString("3.141592654").value()};
   safe_numeric_test.params.AddRequiredFeatures(
-      {FEATURE_NUMERIC_TYPE, FEATURE_V_1_4_PI_FUNCTIONS,
-       FEATURE_V_1_2_SAFE_FUNCTION_CALL});
+      {FEATURE_NUMERIC_TYPE, FEATURE_PI_FUNCTIONS, FEATURE_SAFE_FUNCTION_CALL});
 
   FunctionTestCall safe_bignumeric_test{
       "safe.pi_bignumeric",
       /*arguments=*/{},
       BigNumericValue::FromString("3.14159265358979323846264338327950288420")
           .value()};
-  safe_bignumeric_test.params.AddRequiredFeatures(
-      {FEATURE_BIGNUMERIC_TYPE, FEATURE_V_1_4_PI_FUNCTIONS,
-       FEATURE_V_1_2_SAFE_FUNCTION_CALL});
+  safe_bignumeric_test.params.AddRequiredFeatures({FEATURE_BIGNUMERIC_TYPE,
+                                                   FEATURE_PI_FUNCTIONS,
+                                                   FEATURE_SAFE_FUNCTION_CALL});
 
   if (include_safe_calls) {
     all_tests.emplace_back(safe_double_test);

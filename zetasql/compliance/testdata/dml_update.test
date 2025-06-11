@@ -62,13 +62,13 @@ ARRAY<STRUCT<primary_key INT64, value INT64>>[
 # compliance tests that have nothing to do with array-valued primary keys.
 #
 # We must annotate this [prepare_database] statement with
-# [required_features=V_1_2_GROUP_BY_ARRAY] in order to pass the compliace test
+# [required_features=GROUP_BY_ARRAY] in order to pass the compliace test
 # framework's validation that the first column can be thought of as a primary
 # key. As a result, the table will only be created for drivers that support
-# V_1_2_GROUP_BY_ARRAY, and it will only be visible to tests that require
+# GROUP_BY_ARRAY, and it will only be visible to tests that require
 # that feature.
 [prepare_database]
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 CREATE TABLE TableArrayKey AS
 SELECT cast([1, 2, 3] as ARRAY<INT64>) as primary_key,
        cast(100 as int64) as int64_value
@@ -771,7 +771,7 @@ STRUCT<
 ==
 
 [name=update_first_array_element_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE TableArrayValue SET array_value[OFFSET(0)] = 100 WHERE array_value IS NOT NULL
 --
 STRUCT<
@@ -796,7 +796,7 @@ STRUCT<
 ==
 
 [name=update_first_array_element_to_null_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE TableArrayValue SET array_value[OFFSET(0)] = NULL WHERE array_value IS NOT NULL
 --
 STRUCT<
@@ -821,7 +821,7 @@ STRUCT<
 ==
 
 [name=update_second_array_element_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE TableArrayValue SET array_value[OFFSET(1)] = 100 WHERE array_value IS NOT NULL
 --
 STRUCT<
@@ -846,7 +846,7 @@ STRUCT<
 ==
 
 [name=update_array_element_with_set_nonliteral_offset]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE TableArrayValue
 SET array_value[OFFSET(primary_key)] = 100
 WHERE array_value IS NOT NULL
@@ -875,7 +875,7 @@ STRUCT<
 # ORDINAL vs. OFFSET is handled by the analyzer here, but it's still good to see
 # ORDINAL work end-to-end.
 [name=update_array_element_with_set_nonliteral_ordinal]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE TableArrayValue
 SET array_value[ORDINAL(primary_key)] = 100
 WHERE array_value IS NOT NULL
@@ -902,7 +902,7 @@ STRUCT<
 ==
 
 [name=update_two_array_elements_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE TableArrayValue
 SET array_value[OFFSET(0)] = 100,
     array_value[OFFSET(1)] = 200
@@ -930,7 +930,7 @@ STRUCT<
 ==
 
 [name=update_duplicate_array_elements_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE TableArrayValue
 SET array_value[OFFSET(0)] = 100,
     array_value[OFFSET(0)] = 200
@@ -940,14 +940,14 @@ ERROR: generic::out_of_range: Cannot perform multiple updates to offset 0 of an 
 ==
 
 [name=update_array_element_with_set_null_array]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE TableArrayValue SET array_value[OFFSET(1)] = 100 WHERE True
 --
 ERROR: generic::out_of_range: Cannot use [] to modify a NULL array of type ARRAY<INT64>
 ==
 
 [name=update_array_element_with_set_null_index]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE TableArrayValue
 SET array_value[OFFSET(NULL)] = 100
 WHERE array_value IS NOT NULL
@@ -956,7 +956,7 @@ ERROR: generic::out_of_range: Cannot SET a NULL offset of an ARRAY<INT64>
 ==
 
 [name=update_array_element_with_set_negative_index]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE TableArrayValue
 SET array_value[OFFSET(-1)] = 100
 WHERE array_value IS NOT NULL
@@ -967,7 +967,7 @@ ERROR: generic::out_of_range: Cannot SET array offset -1 of an ARRAY<INT64> of s
 # ORDINAL vs. OFFSET is handled by the analyzer here, but it's still good to see
 # ORDINAL work end-to-end.
 [name=update_array_element_with_set_negative_offset_with_ordinal]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE TableArrayValue
 SET array_value[ORDINAL(0)] = 100
 WHERE array_value IS NOT NULL
@@ -976,7 +976,7 @@ ERROR: generic::out_of_range: Cannot SET array offset -1 of an ARRAY<INT64> of s
 ==
 
 [name=update_array_element_with_set_index_too_large]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE TableArrayValue
 SET array_value[OFFSET(1000)] = 100
 WHERE array_value IS NOT NULL
@@ -987,7 +987,7 @@ ERROR: generic::out_of_range: Cannot SET array offset 1000 of an ARRAY<INT64> of
 # ORDINAL vs. OFFSET is handled by the analyzer here, but it's still good to see
 # ORDINAL work end-to-end.
 [name=update_array_element_with_set_offset_too_large_with_ordinal]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE TableArrayValue
 SET array_value[ORDINAL(1001)] = 100
 WHERE array_value IS NOT NULL
@@ -996,7 +996,7 @@ ERROR: generic::out_of_range: Cannot SET array offset 1000 of an ARRAY<INT64> of
 ==
 
 [name=update_array_element_with_set_index_barely_too_large]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE TableArrayValue
 SET array_value[OFFSET(3)] = 100
 WHERE array_value IS NOT NULL
@@ -1007,7 +1007,7 @@ ERROR: generic::out_of_range: Cannot SET array offset 3 of an ARRAY<INT64> of si
 # ORDINAL vs. OFFSET is handled by the analyzer here, but it's still good to see
 # ORDINAL work end-to-end.
 [name=update_array_element_with_set_offset_barely_too_large_with_ordinal]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE TableArrayValue
 SET array_value[ORDINAL(4)] = 100
 WHERE array_value IS NOT NULL
@@ -1017,7 +1017,7 @@ ERROR: generic::out_of_range: Cannot SET array offset 3 of an ARRAY<INT64> of si
 
 # Repeat the primary key tests above, but with an array as the primary key.
 [name=update_array_primary_key_to_itself]
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 [primary_key_mode=first_column_is_primary_key]
 [forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableArrayKey SET primary_key = primary_key WHERE True
@@ -1040,7 +1040,7 @@ STRUCT<
 
 # Repeat the primary key tests above, but with an array as the primary key.
 [name=update_array_primary_key_to_itself_no_pk_update]
-[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+[required_features=GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
 [primary_key_mode=first_column_is_primary_key]
 UPDATE TableArrayKey SET primary_key = primary_key WHERE True
 --
@@ -1048,7 +1048,7 @@ ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 ==
 
 [name=update_array_primary_key_to_another_row]
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 [primary_key_mode=first_column_is_primary_key]
 [forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableArrayKey SET primary_key = [10, 11, 12] WHERE primary_key[OFFSET(0)] = 1
@@ -1057,7 +1057,7 @@ ERROR: generic::out_of_range: Modification resulted in duplicate primary key ([1
 ==
 
 [name=update_array_primary_key_to_another_row_no_pk_update]
-[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+[required_features=GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
 [primary_key_mode=first_column_is_primary_key]
 UPDATE TableArrayKey SET primary_key = [10, 11, 12] WHERE primary_key[OFFSET(0)] = 1
 --
@@ -1065,7 +1065,7 @@ ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 ==
 
 [name=update_two_primary_array_keys_to_a_third_value]
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 [primary_key_mode=first_column_is_primary_key]
 [forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableArrayKey SET primary_key = [100, 101, 102] WHERE True
@@ -1074,7 +1074,7 @@ ERROR: generic::out_of_range: Modification resulted in duplicate primary key ([1
 ==
 
 [name=update_two_primary_array_keys_to_a_third_value_no_pk_update]
-[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+[required_features=GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
 [primary_key_mode=first_column_is_primary_key]
 UPDATE TableArrayKey SET primary_key = [100, 101, 102] WHERE True
 --
@@ -1082,7 +1082,7 @@ ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 ==
 
 [name=update_two_primary_array_keys_to_null]
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 [primary_key_mode=first_column_is_primary_key]
 [forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableArrayKey SET primary_key = NULL WHERE True
@@ -1091,7 +1091,7 @@ ERROR: generic::out_of_range: Modification resulted in duplicate primary key (NU
 ==
 
 [name=update_two_primary_array_keys_to_null_no_pk_update]
-[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+[required_features=GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
 [primary_key_mode=first_column_is_primary_key]
 UPDATE TableArrayKey SET primary_key = NULL WHERE True
 --
@@ -1105,7 +1105,7 @@ ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 # run this compliance test with DISALLOW_NULL_PRIMARY_KEYS is disabled.
 [name=update_two_primary_array_keys_with_null_element]
 [forbidden_features=DISALLOW_NULL_PRIMARY_KEYS,DISALLOW_PRIMARY_KEY_UPDATES]
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 [primary_key_mode=first_column_is_primary_key]
 UPDATE TableArrayKey SET primary_key = [1, NULL, 2] WHERE True
 --
@@ -1119,7 +1119,7 @@ ERROR: generic::out_of_range: Modification resulted in duplicate primary key ([1
 # run this compliance test with DISALLOW_NULL_PRIMARY_KEYS is disabled.
 [name=update_two_primary_array_keys_with_null_element_no_pk_update]
 [forbidden_features=DISALLOW_NULL_PRIMARY_KEYS]
-[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+[required_features=GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
 [primary_key_mode=first_column_is_primary_key]
 UPDATE TableArrayKey SET primary_key = [1, NULL, 2] WHERE True
 --
@@ -1159,7 +1159,7 @@ STRUCT<
 ==
 
 [name=modify_two_arrays_twice]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE TableArrayValue SET
   array_value[OFFSET(0)] = 1000,
   array_value[OFFSET(1)] = 2000,

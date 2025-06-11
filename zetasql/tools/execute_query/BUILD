@@ -15,6 +15,8 @@
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//zetasql/tools/execute_query:build_rules.bzl", "execute_query_test")
 
 package(
@@ -61,14 +63,12 @@ cc_test(
         "testdata/test.csv",
     ],
     deps = [
-        ":execute_query_proto_writer",
         ":execute_query_tool",
         ":execute_query_writer",
         "//zetasql/base:path",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/common:options_utils",
-        "//zetasql/parser:bison_parser_mode",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:builtin_function_options",
         "//zetasql/public:catalog",
@@ -121,25 +121,18 @@ cc_binary(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        ":execute_query_loop",
-        ":execute_query_prompt",
         ":execute_query_tool",
         ":execute_query_web",
         ":execute_query_writer",
         ":homedir",
         "//zetasql/base",
         "//zetasql/base:status",
-        "//zetasql/public:analyzer_options",
-        "//zetasql/public:catalog",
-        "//zetasql/public:language_options",
-        "//zetasql/public:simple_catalog",
         "@com_google_absl//absl/flags:config",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/flags:parse",
         "@com_google_absl//absl/flags:usage",
         "@com_google_absl//absl/functional:bind_front",
         "@com_google_absl//absl/log:initialize",
-        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
@@ -158,13 +151,11 @@ cc_library(
         "//zetasql/public:language_options",
         "//zetasql/public:parse_helpers",
         "//zetasql/public:parse_resume_location",
-        "@com_google_absl//absl/functional:bind_front",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings:str_format",
-        "@com_google_absl//absl/types:optional",
         "@com_google_googletest//:gtest",
     ],
 )
@@ -183,8 +174,6 @@ cc_test(
         "//zetasql/common/testing:status_payload_matchers",
         "//zetasql/public:options_cc_proto",
         "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/types:span",
         "@com_google_googletest//:gtest",
     ],
@@ -209,7 +198,6 @@ cc_test(
     deps = [
         ":execute_query_prompt_testutils",
         "//zetasql/base/testing:zetasql_gtest_main",
-        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest",
     ],
 )
@@ -277,7 +265,6 @@ cc_library(
         "//zetasql/public:evaluator_table_iterator",
         "//zetasql/public:type",
         "//zetasql/resolved_ast",
-        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:string_view",
         "@com_google_protobuf//:protobuf",
@@ -300,12 +287,9 @@ cc_test(
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
         "//zetasql/testdata:test_schema_cc_proto",
-        "@com_google_absl//absl/functional:bind_front",
         "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest",
-        "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -325,7 +309,6 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/types:optional",
     ],
 )
 
@@ -345,7 +328,6 @@ cc_test(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/types:optional",
         "@com_google_googletest//:gtest",
     ],
 )
@@ -407,12 +389,10 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/base:strings",
         "//zetasql/common:options_utils",
-        "//zetasql/parser:bison_parser_mode",
         "//zetasql/parser:parse_tree",
         "//zetasql/parser:parse_tree_serializer",
+        "//zetasql/parser:parser_mode",
         "//zetasql/parser/macros:macro_catalog",
-        "//zetasql/parser/macros:standalone_macro_expansion",
-        "//zetasql/parser/macros:standalone_macro_expansion_impl",
         "//zetasql/public:analyzer",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:analyzer_output",
@@ -452,7 +432,6 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings:str_format",
-        "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
         "@com_google_protobuf//:protobuf",
         "@com_google_riegeli//riegeli/bytes:fd_reader",

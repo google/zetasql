@@ -17,6 +17,7 @@
 
 package com.google.zetasql;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.zetasql.ZetaSQLOptions.ProductMode;
@@ -86,5 +87,10 @@ public class GraphPathType extends Type {
 
   GraphElementType getEdgeType() {
     return edgeType;
+  }
+
+  @Override
+  public ImmutableList<Type> componentTypes() {
+    return ImmutableList.of(nodeType, edgeType);
   }
 }

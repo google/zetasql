@@ -31,7 +31,14 @@ CreateDatabaseStmt(name_path=a.b.db)
 # Invalid option.
 create database db options(db_option=1+'2');
 --
-ERROR: No matching signature for operator + for argument types: INT64, STRING. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:38]
+ERROR: No matching signature for operator +
+  Argument types: INT64, STRING
+  Signature: INT64 + INT64
+    Argument 2: Unable to coerce type STRING to expected type INT64
+  Signature: UINT64 + UINT64
+    Argument 2: Unable to coerce type STRING to expected type UINT64
+  Signature: DOUBLE + DOUBLE
+    Argument 2: Unable to coerce type STRING to expected type DOUBLE [at 1:38]
 create database db options(db_option=1+'2');
                                      ^
 ==

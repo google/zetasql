@@ -27,13 +27,9 @@
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "absl/base/attributes.h"
-#include "absl/base/macros.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
-#include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 
 // This file includes interfaces and classes related to NON-templated SQL
 // Functions.  It includes a generic interface (SQLFunctionInterface), and a
@@ -112,7 +108,7 @@ class SQLFunctionInterface : public Function {
 // implementations of the interface's pure virtual functions by acting as
 // a container for the function's resolved function expression (which is
 // stored as a field within this class).
-class SQLFunction : public SQLFunctionInterface {
+class SQLFunction final : public SQLFunctionInterface {
  public:
   // The Function group name for SQLFunctions.
   static const char kSQLFunctionGroup[];
@@ -166,7 +162,7 @@ class SQLFunction : public SQLFunctionInterface {
   }
 
   const std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
-      aggregate_expression_list() const override {
+  aggregate_expression_list() const override {
     return aggregate_expression_list_;
   }
 
@@ -193,7 +189,7 @@ class SQLFunction : public SQLFunctionInterface {
   const std::vector<std::string> argument_names_;
   const std::optional<ParseResumeLocation> parse_resume_location_;
   const std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
-      aggregate_expression_list_ = nullptr;            // Not owned.
+      aggregate_expression_list_ = nullptr;  // Not owned.
 };
 
 }  // namespace zetasql

@@ -421,7 +421,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=INLINE_LAMBDA_ARGUMENT]
 SELECT SUM_DOUBLE_ARRAY(GENERATE_ARRAY(1, 2, 3));
 --
 QueryStmt

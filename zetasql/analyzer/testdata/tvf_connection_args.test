@@ -6,7 +6,6 @@
 #
 ################################################################################
 #
-[default also_show_signature_mismatch_details]
 [default language_features=TABLE_VALUED_FUNCTIONS]
 SELECT * FROM tvf_one_connection_arg_with_fixed_output(connection ``)
 --
@@ -15,7 +14,6 @@ SELECT * FROM tvf_one_connection_arg_with_fixed_output(connection ``)
                                                                   ^
 ==
 
-[default also_show_signature_mismatch_details]
 [default language_features=TABLE_VALUED_FUNCTIONS]
 SELECT * FROM tvf_one_connection_arg_with_fixed_output(connection default)
 --
@@ -25,7 +23,6 @@ SELECT * FROM tvf_one_connection_arg_with_fixed_output(connection default)
 ==
 
 
-[default also_show_signature_mismatch_details]
 [default language_features=TABLE_VALUED_FUNCTIONS]
 SELECT * FROM tvf_one_connection_arg_with_fixed_output(connection connection1)
 --
@@ -45,6 +42,7 @@ QueryStmt
         |   +-connection=
         |     +-Connection(connection=connection1)
         +-column_index_list=[0]
+        +-function_call_signature=(ANY CONNECTION) -> TABLE<string STRING>
 ==
 
 
@@ -67,6 +65,7 @@ QueryStmt
         |   +-connection=
         |     +-Connection(connection=NestedConnection)
         +-column_index_list=[0]
+        +-function_call_signature=(ANY CONNECTION) -> TABLE<string STRING>
 
 ==
 
@@ -89,6 +88,7 @@ QueryStmt
         |   +-connection=
         |     +-Connection(connection=connection2)
         +-column_index_list=[0]
+        +-function_call_signature=(ANY CONNECTION) -> TABLE<string STRING>
 
 ==
 
@@ -115,6 +115,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="SELECT 1")
         +-column_index_list=[0, 1]
+        +-function_call_signature=(ANY CONNECTION, STRING) -> TABLE<int64 INT64, string STRING>
 ==
 
 SELECT * FROM tvf_two_connections_with_fixed_output(
@@ -140,6 +141,7 @@ QueryStmt
         |   +-connection=
         |     +-Connection(connection=connection2)
         +-column_index_list=[0, 1]
+        +-function_call_signature=(ANY CONNECTION, ANY CONNECTION) -> TABLE<double DOUBLE, string STRING>
 ==
 
 ################################################################################
@@ -151,11 +153,6 @@ QueryStmt
 # A table cannot be passed instead of a connection.
 SELECT * FROM tvf_one_connection_arg_with_fixed_output(table keyvalue)
 --
-ERROR: No matching signature for tvf_one_connection_arg_with_fixed_output for argument types: TABLE<Key INT64, Value STRING>. Supported signature: TVF_ONE_CONNECTION_ARG_WITH_FIXED_OUTPUT(CONNECTION) [at 1:15]
-SELECT * FROM tvf_one_connection_arg_with_fixed_output(table keyvalue)
-              ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_one_connection_arg_with_fixed_output
   Argument types: TABLE<Key INT64, Value STRING>
   Signature: TVF_ONE_CONNECTION_ARG_WITH_FIXED_OUTPUT(CONNECTION)
@@ -175,32 +172,22 @@ ERROR: Connection not found: randomconnection [at 1:67]
 # Passing one connection to a TVF that expects two connections.
 SELECT * FROM tvf_two_connections_with_fixed_output(connection connection1)
 --
-ERROR: No matching signature for tvf_two_connections_with_fixed_output for argument types: CONNECTION. Supported signature: TVF_TWO_CONNECTIONS_WITH_FIXED_OUTPUT(CONNECTION, CONNECTION) [at 1:15]
-SELECT * FROM tvf_two_connections_with_fixed_output(connection connection1)
-              ^
-
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_two_connections_with_fixed_output
   Argument types: CONNECTION
   Signature: TVF_TWO_CONNECTIONS_WITH_FIXED_OUTPUT(CONNECTION, CONNECTION)
     Signature requires at least 2 arguments, found 1 argument [at 1:15]
 SELECT * FROM tvf_two_connections_with_fixed_output(connection connection1)
               ^
+
 ==
 
 # Passing connection to a TVF that does not accept a connection.
 select * from tvf_one_relation_arg_with_fixed_output(connection connection1)
 --
-ERROR: No matching signature for tvf_one_relation_arg_with_fixed_output for argument types: CONNECTION. Supported signature: TVF_ONE_RELATION_ARG_WITH_FIXED_OUTPUT(TABLE) [at 1:15]
-select * from tvf_one_relation_arg_with_fixed_output(connection connection1)
-              ^
-
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_one_relation_arg_with_fixed_output
   Argument types: CONNECTION
   Signature: TVF_ONE_RELATION_ARG_WITH_FIXED_OUTPUT(TABLE)
     Argument 1: expected TABLE, found CONNECTION [at 1:15]
 select * from tvf_one_relation_arg_with_fixed_output(connection connection1)
               ^
+

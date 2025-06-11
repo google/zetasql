@@ -306,8 +306,9 @@ class ElementTableCommonInternal {
       const Table* input_table, const std::vector<int>& key_cols,
       const absl::flat_hash_set<const GraphElementLabel*>& labels,
       std::vector<std::unique_ptr<const GraphPropertyDefinition>>
-          property_definitions
-  );
+          property_definitions,
+      std::unique_ptr<const GraphDynamicLabel> dynamic_label,
+      std::unique_ptr<const GraphDynamicProperties> dynamic_properties);
 
   std::string Name() const { return name_; }
 
@@ -337,6 +338,25 @@ class ElementTableCommonInternal {
   void AddPropertyDefinition(
       std::unique_ptr<const GraphPropertyDefinition> property_definition);
 
+  bool HasDynamicLabel() const { return dynamic_label_ != nullptr; }
+  absl::Status GetDynamicLabel(const GraphDynamicLabel*& dynamic_label) const {
+    if (dynamic_label_ != nullptr) {
+      dynamic_label = dynamic_label_.get();
+      return absl::OkStatus();
+    }
+    return absl::NotFoundError("No dynamic label defined.");
+  }
+
+  bool HasDynamicProperties() const { return dynamic_properties_ != nullptr; }
+  absl::Status GetDynamicProperties(
+      const GraphDynamicProperties*& dynamic_properties) const {
+    if (dynamic_properties_ != nullptr) {
+      dynamic_properties = dynamic_properties_.get();
+      return absl::OkStatus();
+    }
+    return absl::NotFoundError("No dynamic properties defined.");
+  }
+
   static absl::Status Deserialize(
       const SimpleGraphElementTableProto& proto, SimpleCatalog* catalog,
       const TypeDeserializer& type_deserializer,
@@ -348,8 +368,9 @@ class ElementTableCommonInternal {
       const Table*& input_table,
       absl::flat_hash_set<const GraphElementLabel*>& labels,
       std::vector<std::unique_ptr<const GraphPropertyDefinition>>&
-          property_definitions
-  );
+          property_definitions,
+      std::unique_ptr<const GraphDynamicLabel>& dynamic_label,
+      std::unique_ptr<const GraphDynamicProperties>& dynamic_properties);
 
  private:
   const std::string name_;
@@ -361,6 +382,8 @@ class ElementTableCommonInternal {
   absl::flat_hash_map<std::string,
                       std::unique_ptr<const GraphPropertyDefinition>>
       property_definitions_map_;
+  std::unique_ptr<const GraphDynamicLabel> dynamic_label_ = nullptr;
+  std::unique_ptr<const GraphDynamicProperties> dynamic_properties_ = nullptr;
 };
 
 ElementTableCommonInternal::ElementTableCommonInternal(
@@ -369,8 +392,9 @@ ElementTableCommonInternal::ElementTableCommonInternal(
     const Table* input_table, const std::vector<int>& key_cols,
     const absl::flat_hash_set<const GraphElementLabel*>& labels,
     std::vector<std::unique_ptr<const GraphPropertyDefinition>>
-        property_definitions
-    )
+        property_definitions,
+    std::unique_ptr<const GraphDynamicLabel> dynamic_label,
+    std::unique_ptr<const GraphDynamicProperties> dynamic_properties)
     : name_(std::move(name)),
       property_graph_name_path_(property_graph_name_path.begin(),
                                 property_graph_name_path.end()),
@@ -383,6 +407,12 @@ ElementTableCommonInternal::ElementTableCommonInternal(
   property_definitions_map_.reserve(property_definitions.size());
   for (auto& property_definition : property_definitions) {
     AddPropertyDefinition(std::move(property_definition));
+  }
+  if (dynamic_label != nullptr) {
+    dynamic_label_ = std::move(dynamic_label);
+  }
+  if (dynamic_properties != nullptr) {
+    dynamic_properties_ = std::move(dynamic_properties);
   }
 }
 
@@ -488,6 +518,24 @@ absl::Status SerializeElementTable(
         property_def.second->GetAs<SimpleGraphPropertyDefinition>()->Serialize(
             file_descriptor_set_map, proto->add_property_definitions()));
   }
+  if (element_table->HasDynamicLabel()) {
+    const GraphDynamicLabel* dynamic_label = nullptr;
+    ZETASQL_RETURN_IF_ERROR(element_table->GetDynamicLabel(dynamic_label));
+    if (dynamic_label != nullptr) {
+      ZETASQL_RETURN_IF_ERROR(
+          dynamic_label->GetAs<SimpleGraphDynamicLabel>()->Serialize(
+              proto->mutable_dynamic_label()));
+    }
+  }
+  if (element_table->HasDynamicProperties()) {
+    const GraphDynamicProperties* dynamic_properties = nullptr;
+    ZETASQL_RETURN_IF_ERROR(element_table->GetDynamicProperties(dynamic_properties));
+    if (dynamic_properties != nullptr) {
+      ZETASQL_RETURN_IF_ERROR(
+          dynamic_properties->GetAs<SimpleGraphDynamicProperties>()->Serialize(
+              proto->mutable_dynamic_properties()));
+    }
+  }
   return absl::OkStatus();
 }
 
@@ -497,13 +545,13 @@ SimpleGraphNodeTable::SimpleGraphNodeTable(
     const Table* input_table, const std::vector<int>& key_cols,
     const absl::flat_hash_set<const GraphElementLabel*>& labels,
     std::vector<std::unique_ptr<const GraphPropertyDefinition>>
-        property_definitions
-    )
+        property_definitions,
+    std::unique_ptr<const GraphDynamicLabel> dynamic_label,
+    std::unique_ptr<const GraphDynamicProperties> dynamic_properties)
     : element_internal_(std::make_unique<ElementTableCommonInternal>(
           std::move(name), property_graph_name_path, input_table, key_cols,
-          labels,
-          std::move(property_definitions)
-          )) {}
+          labels, std::move(property_definitions), std::move(dynamic_label),
+          std::move(dynamic_properties))) {}
 
 SimpleGraphNodeTable::~SimpleGraphNodeTable() = default;
 
@@ -566,8 +614,9 @@ absl::Status ElementTableCommonInternal::Deserialize(
     const Table*& input_table,
     absl::flat_hash_set<const GraphElementLabel*>& labels,
     std::vector<std::unique_ptr<const GraphPropertyDefinition>>&
-        property_definitions
-) {
+        property_definitions,
+    std::unique_ptr<const GraphDynamicLabel>& dynamic_label,
+    std::unique_ptr<const GraphDynamicProperties>& dynamic_properties) {
   // for labels in property graph with same name as the labels in
   // element table proto, use these labels instead of creating new ones
   for (const auto& label_name : proto.label_names()) {
@@ -594,6 +643,15 @@ absl::Status ElementTableCommonInternal::Deserialize(
   const std::vector<std::string> path =
       absl::StrSplit(proto.input_table_name(), '.');
   ZETASQL_RETURN_IF_ERROR(catalog->FindTable(path, &input_table));
+  if (proto.has_dynamic_label()) {
+    ZETASQL_ASSIGN_OR_RETURN(dynamic_label, SimpleGraphDynamicLabel::Deserialize(
+                                        proto.dynamic_label()));
+  }
+  if (proto.has_dynamic_properties()) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        dynamic_properties,
+        SimpleGraphDynamicProperties::Deserialize(proto.dynamic_properties()));
+  }
 
   return absl::OkStatus();
 }
@@ -610,19 +668,35 @@ SimpleGraphNodeTable::Deserialize(
   const Table* input_table;
   absl::flat_hash_set<const GraphElementLabel*> labels;
   std::vector<std::unique_ptr<const GraphPropertyDefinition>> property_defs;
+  std::unique_ptr<const GraphDynamicLabel> dynamic_label;
+  std::unique_ptr<const GraphDynamicProperties> dynamic_properties;
 
   ZETASQL_RET_CHECK_OK(ElementTableCommonInternal::Deserialize(
       proto, catalog, type_deserializer, unowned_labels,
-      unowned_property_declarations, input_table, labels,
-      property_defs
-      ));
+      unowned_property_declarations, input_table, labels, property_defs,
+      dynamic_label, dynamic_properties));
 
   return std::make_unique<SimpleGraphNodeTable>(
       proto.name(), ToVector(proto.property_graph_name_path()), input_table,
       std::vector<int>(proto.key_columns().begin(), proto.key_columns().end()),
-      labels,
-      std::move(property_defs)
-  );
+      labels, std::move(property_defs), std::move(dynamic_label),
+      std::move(dynamic_properties));
+}
+
+bool SimpleGraphNodeTable::HasDynamicLabel() const {
+  return element_internal_->HasDynamicLabel();
+}
+absl::Status SimpleGraphNodeTable::GetDynamicLabel(
+    const GraphDynamicLabel*& dynamic_label) const {
+  return element_internal_->GetDynamicLabel(dynamic_label);
+}
+
+bool SimpleGraphNodeTable::HasDynamicProperties() const {
+  return element_internal_->HasDynamicProperties();
+}
+absl::Status SimpleGraphNodeTable::GetDynamicProperties(
+    const GraphDynamicProperties*& dynamic_properties) const {
+  return element_internal_->GetDynamicProperties(dynamic_properties);
 }
 
 SimpleGraphEdgeTable::SimpleGraphEdgeTable(
@@ -633,13 +707,13 @@ SimpleGraphEdgeTable::SimpleGraphEdgeTable(
     std::vector<std::unique_ptr<const GraphPropertyDefinition>>
         property_definitions,
     std::unique_ptr<const GraphNodeTableReference> source_node,
-    std::unique_ptr<const GraphNodeTableReference> destination_node
-    )
+    std::unique_ptr<const GraphNodeTableReference> destination_node,
+    std::unique_ptr<const GraphDynamicLabel> dynamic_label,
+    std::unique_ptr<const GraphDynamicProperties> dynamic_properties)
     : element_internal_(std::make_unique<const ElementTableCommonInternal>(
           std::move(name), property_graph_name_path, input_table, key_cols,
-          labels,
-          std::move(property_definitions)
-          )),
+          labels, std::move(property_definitions), std::move(dynamic_label),
+          std::move(dynamic_properties))),
       source_node_(std::move(source_node)),
       destination_node_(std::move(destination_node)) {}
 
@@ -711,6 +785,22 @@ absl::Status SimpleGraphEdgeTable::Serialize(
   return absl::OkStatus();
 }
 
+bool SimpleGraphEdgeTable::HasDynamicLabel() const {
+  return element_internal_->HasDynamicLabel();
+}
+absl::Status SimpleGraphEdgeTable::GetDynamicLabel(
+    const GraphDynamicLabel*& dynamic_label) const {
+  return element_internal_->GetDynamicLabel(dynamic_label);
+}
+
+bool SimpleGraphEdgeTable::HasDynamicProperties() const {
+  return element_internal_->HasDynamicProperties();
+}
+absl::Status SimpleGraphEdgeTable::GetDynamicProperties(
+    const GraphDynamicProperties*& dynamic_properties) const {
+  return element_internal_->GetDynamicProperties(dynamic_properties);
+}
+
 absl::StatusOr<std::unique_ptr<SimpleGraphEdgeTable>>
 SimpleGraphEdgeTable::Deserialize(
     const SimpleGraphElementTableProto& proto, SimpleCatalog* catalog,
@@ -725,12 +815,13 @@ SimpleGraphEdgeTable::Deserialize(
   const Table* input_table;
   absl::flat_hash_set<const GraphElementLabel*> labels;
   std::vector<std::unique_ptr<const GraphPropertyDefinition>> property_defs;
+  std::unique_ptr<const GraphDynamicLabel> dynamic_label;
+  std::unique_ptr<const GraphDynamicProperties> dynamic_properties;
 
   ZETASQL_RET_CHECK(ElementTableCommonInternal::Deserialize(
                 proto, catalog, type_deserializer, unowned_labels,
                 unowned_property_declarations, input_table, labels,
-                property_defs
-                )
+                property_defs, dynamic_label, dynamic_properties)
                 .ok());
 
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const SimpleGraphNodeTableReference> source,
@@ -743,9 +834,8 @@ SimpleGraphEdgeTable::Deserialize(
   return std::make_unique<SimpleGraphEdgeTable>(
       proto.name(), ToVector(proto.property_graph_name_path()), input_table,
       std::vector<int>(proto.key_columns().begin(), proto.key_columns().end()),
-      labels, std::move(property_defs), std::move(source),
-      std::move(dest)
-  );
+      labels, std::move(property_defs), std::move(source), std::move(dest),
+      std::move(dynamic_label), std::move(dynamic_properties));
 }
 
 std::string SimpleGraphElementLabel::Name() const { return name_; }
@@ -867,6 +957,31 @@ SimpleGraphPropertyDefinition::Deserialize(
 
   return std::make_unique<SimpleGraphPropertyDefinition>(
       found->second, proto.value_expression_sql());
+}
+
+absl::Status SimpleGraphDynamicLabel::Serialize(
+    SimpleGraphElementDynamicLabelProto* proto) const {
+  proto->set_label_expression(label_expression_);
+  return absl::OkStatus();
+}
+
+absl::StatusOr<std::unique_ptr<SimpleGraphDynamicLabel>>
+SimpleGraphDynamicLabel::Deserialize(
+    const SimpleGraphElementDynamicLabelProto& proto) {
+  return std::make_unique<SimpleGraphDynamicLabel>(proto.label_expression());
+}
+
+absl::Status SimpleGraphDynamicProperties::Serialize(
+    SimpleGraphElementDynamicPropertiesProto* proto) const {
+  proto->set_properties_expression(properties_expression_);
+  return absl::OkStatus();
+}
+
+absl::StatusOr<std::unique_ptr<SimpleGraphDynamicProperties>>
+SimpleGraphDynamicProperties::Deserialize(
+    const SimpleGraphElementDynamicPropertiesProto& proto) {
+  return std::make_unique<SimpleGraphDynamicProperties>(
+      proto.properties_expression());
 }
 
 }  // namespace zetasql

@@ -61,7 +61,7 @@ bool RowEdgeList::IsMarked(int row_number, int edge_number) const {
   return bits_[GetBitIndex(row_number, edge_number)];
 }
 
-absl::Nullable<const Edge*> RowEdgeList::GetHighestPrecedenceMarkedEdge(
+const Edge* /*absl_nullable*/ RowEdgeList::GetHighestPrecedenceMarkedEdge(
     int row_number, NFAState state) const {
   for (const Edge& edge : nfa_.GetEdgesFrom(state)) {
     if (IsMarked(row_number, edge.edge_number)) {

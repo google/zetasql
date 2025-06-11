@@ -123,6 +123,28 @@ class InternalValue {
     });
   }
 
+  // Creates a measure value of the specified `measure_type`.
+  // `captured_values_as_struct` is a STRUCT-typed value, with uniquely named
+  // fields. Each field represents either a column used for grain-locking or a
+  // column referenced by the measure expression.
+  // Each index in `key_indices` is the index of the field in
+  // `captured_values_as_struct` that forms the grain-locking key for the
+  // measure.
+  // Preconditions:
+  // - `measure_type` must be a valid measure type.
+  // - `captured_values_as_struct` must be a valid, non-null struct with at
+  //   least one field and unique field names.
+  // - `key_indices` must be non-empty, with valid indices.
+  static absl::StatusOr<Value> MakeMeasure(
+      const MeasureType* measure_type, Value captured_values_as_struct,
+      std::vector<int> key_indices, const LanguageOptions& language_options);
+
+  // REQUIRES: measure type
+  static absl::StatusOr<Value> GetMeasureAsStructValue(
+      const Value& measure_value);
+  static absl::StatusOr<std::vector<int> > GetMeasureGrainLockingIndices(
+      const Value& measure_value);
+
   // Reexport FormatValueContentOptions for code that has visibility to this
   // class.
   using FormatValueContentOptions = Type::FormatValueContentOptions;

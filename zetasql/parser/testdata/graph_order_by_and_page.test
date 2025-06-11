@@ -4,8 +4,8 @@
 
 # Standalone ORDER BY statement.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -41,7 +41,7 @@ QueryStatement [0-80] [select gt....RETURN * ) gt]
                       Identifier(a) [56-57] [a]
                       Identifier(degree) [58-64] [degree]
               GqlReturn [67-75] [RETURN *]
-                Select [73-75] [*]
+                Select [74-75] [*]
                   SelectList [74-75] [*]
                     SelectColumn [74-75] [*]
                       Star(*) [74-75] [*]
@@ -64,8 +64,8 @@ FROM
 
 # Standalone ORDER BY statement: multiple ordering expressions.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -109,7 +109,7 @@ QueryStatement [0-98] [select gt....RETURN * ) gt]
                       Identifier(b) [70-71] [b]
                       Identifier(color) [72-77] [color]
               GqlReturn [85-93] [RETURN *]
-                Select [91-93] [*]
+                Select [92-93] [*]
                   SelectList [92-93] [*]
                     SelectColumn [92-93] [*]
                       Star(*) [92-93] [*]
@@ -134,8 +134,8 @@ FROM
 
 # Standalone ORDER BY statement: accepts GQL keywords ASCENDING / DESCENDING.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -179,7 +179,7 @@ QueryStatement [0-114] [select gt....RETURN * ) gt]
                       Identifier(b) [80-81] [b]
                       Identifier(color) [82-87] [color]
               GqlReturn [101-109] [RETURN *]
-                Select [107-109] [*]
+                Select [108-109] [*]
                   SelectList [108-109] [*]
                     SelectColumn [108-109] [*]
                       Star(*) [108-109] [*]
@@ -204,8 +204,8 @@ FROM
 
 # Standalone ORDER BY statement: accepts COLLATE and NULLS order clauses.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -254,7 +254,7 @@ QueryStatement [0-137] [select gt....RETURN * ) gt]
                       Identifier(degree) [99-105] [degree]
                     NullOrder(NULLS LAST) [111-121] [nulls last]
               GqlReturn [124-132] [RETURN *]
-                Select [130-132] [*]
+                Select [131-132] [*]
                   SelectList [131-132] [*]
                     SelectColumn [131-132] [*]
                       Star(*) [131-132] [*]
@@ -280,8 +280,8 @@ FROM
 # Standalone ORDER BY statement with LIMIT and OFFSET clauses.
 # Note: This is parsed as a single standalone statement.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -322,7 +322,7 @@ QueryStatement [0-92] [select gt....RETURN * ) gt]
                   GqlPageLimit [68-76] [limit 20]
                     IntLiteral(20) [74-76] [20]
               GqlReturn [79-87] [RETURN *]
-                Select [85-87] [*]
+                Select [86-87] [*]
                   SelectList [86-87] [*]
                     SelectColumn [86-87] [*]
                       Star(*) [86-87] [*]
@@ -346,8 +346,8 @@ FROM
 # Standalone ORDER BY statement with LIMIT and SKIP clauses.
 # Note: This is parsed as a single standalone statement.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -388,7 +388,7 @@ QueryStatement [0-90] [select gt....RETURN * ) gt]
                   GqlPageLimit [66-74] [limit 20]
                     IntLiteral(20) [72-74] [20]
               GqlReturn [77-85] [RETURN *]
-                Select [83-85] [*]
+                Select [84-85] [*]
                   SelectList [84-85] [*]
                     SelectColumn [84-85] [*]
                       Star(*) [84-85] [*]
@@ -415,8 +415,8 @@ FROM
 # as errors after parsing in order to prevent confusion, since in non-graph SQL 
 # queries, "ORDER BY/LIMIT/OFFSET" statements would have different semantics.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -459,7 +459,7 @@ QueryStatement [0-92] [select gt....RETURN * ) gt]
                   GqlPageOffset [67-76] [offset 10]
                     IntLiteral(10) [74-76] [10]
               GqlReturn [79-87] [RETURN *]
-                Select [85-87] [*]
+                Select [86-87] [*]
                   SelectList [86-87] [*]
                     SelectColumn [86-87] [*]
                       Star(*) [86-87] [*]
@@ -484,8 +484,8 @@ FROM
 
 # Consecutive standalone ORDER BY statements. The first is redundant.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -530,7 +530,7 @@ QueryStatement [0-90] [select gt....RETURN * ) gt]
                     PathExpression [73-74] [b]
                       Identifier(b) [73-74] [b]
               GqlReturn [77-85] [RETURN *]
-                Select [83-85] [*]
+                Select [84-85] [*]
                   SelectList [84-85] [*]
                     SelectColumn [84-85] [*]
                       Star(*) [84-85] [*]
@@ -556,8 +556,8 @@ FROM
 
 # Consecutive standalone ORDER BY statements. The first is not redundant.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -606,7 +606,7 @@ QueryStatement [0-99] [select gt....RETURN * ) gt]
                     PathExpression [82-83] [b]
                       Identifier(b) [82-83] [b]
               GqlReturn [86-94] [RETURN *]
-                Select [92-94] [*]
+                Select [93-94] [*]
                   SelectList [93-94] [*]
                     SelectColumn [93-94] [*]
                       Star(*) [93-94] [*]
@@ -633,8 +633,8 @@ FROM
 
 # Standalone OFFSET/LIMIT statement.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -670,7 +670,7 @@ QueryStatement [0-81] [select gt....RETURN * ) gt]
                   GqlPageLimit [57-65] [LIMIT 20]
                     IntLiteral(20) [63-65] [20]
               GqlReturn [68-76] [RETURN *]
-                Select [74-76] [*]
+                Select [75-76] [*]
                   SelectList [75-76] [*]
                     SelectColumn [75-76] [*]
                       Star(*) [75-76] [*]
@@ -693,8 +693,8 @@ FROM
 
 # Standalone OFFSET statement.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -728,7 +728,7 @@ QueryStatement [0-72] [select gt....RETURN * ) gt]
                   GqlPageOffset [47-56] [OFFSET 10]
                     IntLiteral(10) [54-56] [10]
               GqlReturn [59-67] [RETURN *]
-                Select [65-67] [*]
+                Select [66-67] [*]
                   SelectList [66-67] [*]
                     SelectColumn [66-67] [*]
                       Star(*) [66-67] [*]
@@ -751,8 +751,8 @@ FROM
 
 # Standalone LIMIT statement.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -786,7 +786,7 @@ QueryStatement [0-71] [select gt....RETURN * ) gt]
                   GqlPageLimit [47-55] [LIMIT 10]
                     IntLiteral(10) [53-55] [10]
               GqlReturn [58-66] [RETURN *]
-                Select [64-66] [*]
+                Select [65-66] [*]
                   SelectList [65-66] [*]
                     SelectColumn [65-66] [*]
                       Star(*) [65-66] [*]
@@ -811,8 +811,8 @@ FROM
 # Note: They are parsed as two different statements. We do not consider these
 # an error.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -851,7 +851,7 @@ QueryStatement [0-83] [select gt....RETURN * ) gt]
                   GqlPageOffset [58-67] [OFFSET 20]
                     IntLiteral(20) [65-67] [20]
               GqlReturn [70-78] [RETURN *]
-                Select [76-78] [*]
+                Select [77-78] [*]
                   SelectList [77-78] [*]
                     SelectColumn [77-78] [*]
                       Star(*) [77-78] [*]
@@ -884,8 +884,8 @@ FROM
 
 # ORDER BY statement after RETURN statement.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -915,7 +915,7 @@ QueryStatement [0-80] [select gt....degree ) gt]
                       GraphElementPatternFiller [42-43] [a]
                         Identifier(a) [42-43] [a]
               GqlReturn [47-75] [RETURN *   ORDER BY a.degree]
-                Select [53-55] [*]
+                Select [54-55] [*]
                   SelectList [54-55] [*]
                     SelectColumn [54-55] [*]
                       Star(*) [54-55] [*]
@@ -944,8 +944,8 @@ FROM
 
 # ORDER BY statement after RETURN statement: multiple ordering expressions.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -979,7 +979,7 @@ QueryStatement [0-98] [select gt....desc ) gt]
                       GraphElementPatternFiller [46-47] [b]
                         Identifier(b) [46-47] [b]
               GqlReturn [51-93] [RETURN *...color desc]
-                Select [57-59] [*]
+                Select [58-59] [*]
                   SelectList [58-59] [*]
                     SelectColumn [58-59] [*]
                       Star(*) [58-59] [*]
@@ -1015,8 +1015,8 @@ FROM
 # ORDER BY statement after RETURN statement:
 #   accepts GQL keywords ASCENDING / DESCENDING.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -1050,7 +1050,7 @@ QueryStatement [0-114] [select gt....descending ) gt]
                       GraphElementPatternFiller [46-47] [b]
                         Identifier(b) [46-47] [b]
               GqlReturn [51-109] [RETURN *...descending]
-                Select [57-59] [*]
+                Select [58-59] [*]
                   SelectList [58-59] [*]
                     SelectColumn [58-59] [*]
                       Star(*) [58-59] [*]
@@ -1086,8 +1086,8 @@ FROM
 # ORDER BY statement after RETURN statement:
 #   accepts COLLATE and NULLS order clauses.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -1121,7 +1121,7 @@ QueryStatement [0-137] [select gt....last ) gt]
                       GraphElementPatternFiller [46-47] [b]
                         Identifier(b) [46-47] [b]
               GqlReturn [51-132] [RETURN *...nulls last]
-                Select [57-59] [*]
+                Select [58-59] [*]
                   SelectList [58-59] [*]
                     SelectColumn [58-59] [*]
                       Star(*) [58-59] [*]
@@ -1161,8 +1161,8 @@ FROM
 
 # ORDER BY statement after RETURN statement with LIMIT and OFFSET clauses.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -1192,7 +1192,7 @@ QueryStatement [0-92] [select gt....limit 20 ) gt]
                       GraphElementPatternFiller [42-43] [a]
                         Identifier(a) [42-43] [a]
               GqlReturn [47-87] [RETURN *...10 limit 20]
-                Select [53-55] [*]
+                Select [54-55] [*]
                   SelectList [54-55] [*]
                     SelectColumn [54-55] [*]
                       Star(*) [54-55] [*]
@@ -1225,8 +1225,8 @@ FROM
 
 # ORDER BY statement after RETURN statement with LIMIT and SKIP clauses.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -1257,7 +1257,7 @@ QueryStatement [0-90] [select gt....limit 20 ) gt]
                       GraphElementPatternFiller [42-43] [a]
                         Identifier(a) [42-43] [a]
               GqlReturn [47-85] [RETURN *...10 limit 20]
-                Select [53-55] [*]
+                Select [54-55] [*]
                   SelectList [54-55] [*]
                     SelectColumn [54-55] [*]
                       Star(*) [54-55] [*]
@@ -1293,8 +1293,8 @@ FROM
 # This is an error because there cannot be more than one order+page statements
 # after RETURN.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -1311,8 +1311,8 @@ ERROR: Syntax error: Expected ")" or keyword NEXT but got keyword OFFSET [at 5:2
 
 # Consecutive ORDER BY statements after RETURN statement. This is an error.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -1330,8 +1330,8 @@ ERROR: Syntax error: Expected ")" or keyword NEXT but got keyword ORDER [at 6:3]
 
 # Consecutive ORDER BY statements after RETURN statement separated by NEXT.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -1368,7 +1368,7 @@ QueryStatement [0-117] [select gt....RETURN * ) gt]
                       GraphElementPatternFiller [46-47] [b]
                         Identifier(b) [46-47] [b]
               GqlReturn [51-81] [RETURN *   ORDER BY a LIMIT 10]
-                Select [57-59] [*]
+                Select [58-59] [*]
                   SelectList [58-59] [*]
                     SelectColumn [58-59] [*]
                       Star(*) [58-59] [*]
@@ -1387,7 +1387,7 @@ QueryStatement [0-117] [select gt....RETURN * ) gt]
                     PathExpression [100-101] [b]
                       Identifier(b) [100-101] [b]
               GqlReturn [104-112] [RETURN *]
-                Select [110-112] [*]
+                Select [111-112] [*]
                   SelectList [111-112] [*]
                     SelectColumn [111-112] [*]
                       Star(*) [111-112] [*]
@@ -1416,8 +1416,8 @@ FROM
 
 # OFFSET/LIMIT statement after RETURN statement.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -1447,7 +1447,7 @@ QueryStatement [0-81] [select gt....LIMIT 20 ) gt]
                       GraphElementPatternFiller [42-43] [a]
                         Identifier(a) [42-43] [a]
               GqlReturn [47-76] [RETURN *   OFFSET 10 LIMIT 20]
-                Select [53-55] [*]
+                Select [54-55] [*]
                   SelectList [54-55] [*]
                     SelectColumn [54-55] [*]
                       Star(*) [54-55] [*]
@@ -1476,8 +1476,8 @@ FROM
 
 # OFFSET statement after RETURN statement.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -1507,7 +1507,7 @@ QueryStatement [0-72] [select gt....OFFSET 10 ) gt]
                       GraphElementPatternFiller [42-43] [a]
                         Identifier(a) [42-43] [a]
               GqlReturn [47-67] [RETURN *   OFFSET 10]
-                Select [53-55] [*]
+                Select [54-55] [*]
                   SelectList [54-55] [*]
                     SelectColumn [54-55] [*]
                       Star(*) [54-55] [*]
@@ -1534,8 +1534,8 @@ FROM
 
 # LIMIT statement after RETURN statement.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -1565,7 +1565,7 @@ QueryStatement [0-71] [select gt....LIMIT 10 ) gt]
                       GraphElementPatternFiller [42-43] [a]
                         Identifier(a) [42-43] [a]
               GqlReturn [47-66] [RETURN *   LIMIT 10]
-                Select [53-55] [*]
+                Select [54-55] [*]
                   SelectList [54-55] [*]
                     SelectColumn [54-55] [*]
                       Star(*) [54-55] [*]
@@ -1593,8 +1593,8 @@ FROM
 # Two consecutive LIMIT and OFFSET statements after RETURN statement.
 # Note: This is a parsing error.
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml

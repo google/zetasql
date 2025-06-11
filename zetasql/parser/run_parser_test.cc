@@ -26,11 +26,11 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/parser/ast_node_kind.h"
-#include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/deidentify.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_visitor.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/parser/parser_mode.h"
 #include "zetasql/parser/statement_properties.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/language_options.h"
@@ -457,15 +457,14 @@ class RunParserTest : public ::testing::Test {
     // running against stack_overflow.test.
     std::stack<const ASTNode*> stack;
 
-    BasicValidateParseLocationRange(test_case.length(),
-                                    root->GetParseLocationRange());
+    BasicValidateParseLocationRange(test_case.length(), root->location());
     stack.push(root);
 
     while (!stack.empty()) {
       const ASTNode* node = stack.top();
       stack.pop();
 
-      const ParseLocationRange& range = node->GetParseLocationRange();
+      const ParseLocationRange& range = node->location();
       ParseLocationRange prev_child_range;
 
       // Verify that all children are within the range of the parent and come
@@ -473,7 +472,7 @@ class RunParserTest : public ::testing::Test {
       for (int i = 0; i < node->num_children(); i++) {
         const ASTNode* child = node->child(i);
 
-        const ParseLocationRange& child_range = child->GetParseLocationRange();
+        const ParseLocationRange& child_range = child->location();
         BasicValidateParseLocationRange(test_case.length(), child_range);
 
         // Verify that the child is contained entirely within its parent.
@@ -521,10 +520,8 @@ class RunParserTest : public ::testing::Test {
 
       ParseResumeLocation resume_location =
           ParseResumeLocation::FromStringView(script_text_);
-      resume_location.set_byte_position(node->statement_list()[0]
-                                            ->GetParseLocationRange()
-                                            .start()
-                                            .GetByteOffset());
+      resume_location.set_byte_position(
+          node->statement_list()[0]->location().start().GetByteOffset());
       bool end_of_input = false;
       for (const ASTStatement* statement : node->statement_list()) {
         ASSERT_FALSE(end_of_input)
@@ -571,9 +568,9 @@ class RunParserTest : public ::testing::Test {
         // Perform some sanity checks on the end position, since it's stripped
         // from the debug string output used in the comparison.
         const ParseLocationRange& reparsed_stmt_range =
-            parser_output->statement()->GetParseLocationRange();
+            parser_output->statement()->location();
         ASSERT_EQ(reparsed_stmt_range.start().GetByteOffset(),
-                  statement->GetParseLocationRange().start().GetByteOffset());
+                  statement->location().start().GetByteOffset());
         ASSERT_GE(reparsed_stmt_range.end().GetByteOffset(),
                   reparsed_stmt_range.start().GetByteOffset());
 
@@ -581,7 +578,7 @@ class RunParserTest : public ::testing::Test {
         // equal, when comments or whitespace follows the semi-colon at the end
         // of the statement.  In other cases, it's equal.
         ASSERT_LE(reparsed_stmt_range.end().GetByteOffset(),
-                  statement->GetParseLocationRange().end().GetByteOffset());
+                  statement->location().end().GetByteOffset());
       }
     }
 

@@ -1,6 +1,6 @@
-[default language_features=V_1_3_FILTER_FIELDS]
+[default language_features=FILTER_FIELDS]
 
-[language_features={{|V_1_3_FILTER_FIELDS}}]
+[language_features={{|FILTER_FIELDS}}]
 SELECT FILTER_FIELDS(KitchenSink, +int64_key_1, +int64_key_2)
 FROM TestTable
 --
@@ -10,7 +10,7 @@ ERROR: Function not found: FILTER_FIELDS [at 1:8]
 SELECT FILTER_FIELDS(KitchenSink, +int64_key_1, +int64_key_2)
        ^
 --
-ALTERNATION GROUP: V_1_3_FILTER_FIELDS
+ALTERNATION GROUP: FILTER_FIELDS
 --
 QueryStmt
 +-output_column_list=
@@ -518,7 +518,7 @@ ERROR: Duplicated named option [at 1:86]
 ==
 
 # Testing IsConstantExpression(FILTER_FIELDS)
-[language_features=V_1_3_PIVOT,V_1_3_FILTER_FIELDS]
+[language_features=PIVOT,FILTER_FIELDS]
 SELECT * FROM TestTable
 PIVOT(SUM(key) FOR Key IN
   (FILTER_FIELDS(KitchenSink, +int64_key_1, +int64_key_2), 1));

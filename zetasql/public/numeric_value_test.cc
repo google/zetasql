@@ -1931,7 +1931,7 @@ TEST_F(NumericValueTest, RoundTripFromInt64) {
 static constexpr Error kUint32OutOfRange("uint32 out of range: ");
 template <typename T>
 
-    const NumericUnaryOpTestData<T, ErrorOr<int64_t>>
+    const NumericUnaryOpTestData<T, ErrorOr<uint32_t>>
     kToUint32ValueTestData[] = {
         {uint32_t{0}, uint32_t{0}},
         {123, uint32_t{123}},

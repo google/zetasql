@@ -140,8 +140,10 @@ class SimpleGraphNodeTable : public GraphNodeTable {
       const Table* input_table, const std::vector<int>& key_cols,
       const absl::flat_hash_set<const GraphElementLabel*>& labels,
       std::vector<std::unique_ptr<const GraphPropertyDefinition>>
-          property_definitions
-  );
+          property_definitions,
+      std::unique_ptr<const GraphDynamicLabel> dynamic_label = nullptr,
+      std::unique_ptr<const GraphDynamicProperties> dynamic_properties =
+          nullptr);
 
   ~SimpleGraphNodeTable() override;
 
@@ -170,6 +172,14 @@ class SimpleGraphNodeTable : public GraphNodeTable {
   absl::Status GetLabels(
       absl::flat_hash_set<const GraphElementLabel*>& output) const override;
 
+  bool HasDynamicLabel() const override;
+  absl::Status GetDynamicLabel(
+      const GraphDynamicLabel*& dynamic_label) const override;
+
+  bool HasDynamicProperties() const override;
+  absl::Status GetDynamicProperties(
+      const GraphDynamicProperties*& dynamic_properties) const override;
+
   absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
                          SimpleGraphElementTableProto* proto) const;
 
@@ -196,8 +206,10 @@ class SimpleGraphEdgeTable : public GraphEdgeTable {
       std::vector<std::unique_ptr<const GraphPropertyDefinition>>
           property_definitions,
       std::unique_ptr<const GraphNodeTableReference> source_node,
-      std::unique_ptr<const GraphNodeTableReference> destination_node
-  );
+      std::unique_ptr<const GraphNodeTableReference> destination_node,
+      std::unique_ptr<const GraphDynamicLabel> dynamic_label = nullptr,
+      std::unique_ptr<const GraphDynamicProperties> dynamic_properties =
+          nullptr);
 
   ~SimpleGraphEdgeTable() override;
 
@@ -233,6 +245,13 @@ class SimpleGraphEdgeTable : public GraphEdgeTable {
   absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
                          SimpleGraphElementTableProto* proto) const;
 
+  bool HasDynamicLabel() const override;
+  absl::Status GetDynamicLabel(
+      const GraphDynamicLabel*& dynamic_label) const override;
+
+  bool HasDynamicProperties() const override;
+  absl::Status GetDynamicProperties(
+      const GraphDynamicProperties*& dynamic_properties) const override;
   static absl::StatusOr<std::unique_ptr<SimpleGraphEdgeTable>> Deserialize(
       const SimpleGraphElementTableProto& proto, SimpleCatalog* catalog,
       const TypeDeserializer& type_deserializer,
@@ -395,6 +414,79 @@ class SimpleGraphPropertyDefinition : public GraphPropertyDefinition {
   // the deserialization code.
   // TODO: remove this field once we are able to store unique_ptrs on
   // the AnalyzerOutput.
+  const ResolvedExpr* resolved_expr_;
+  friend class InternalPropertyGraph;
+};
+class SimpleGraphDynamicLabel : public GraphDynamicLabel {
+ public:
+  explicit SimpleGraphDynamicLabel(absl::string_view label_expression)
+      : label_expression_(label_expression) {};
+
+  absl::string_view label_expression() const override {
+    return label_expression_;
+  }
+
+  absl::StatusOr<const ResolvedExpr*> GetValueExpression() const override {
+    if (resolved_expr_ == nullptr) {
+      return zetasql_base::UnimplementedErrorBuilder()
+             << "SimpleCatalog does not resolve the dynamic label.";
+    }
+    return resolved_expr_;
+  };
+
+  template <class GraphDynamicLabelSubclass>
+  bool Is() const {
+    return dynamic_cast<const GraphDynamicLabelSubclass*>(this) != nullptr;
+  }
+  template <class GraphDynamicLabelSubclass>
+  const GraphDynamicLabelSubclass* GetAs() const {
+    return static_cast<const GraphDynamicLabelSubclass*>(this);
+  }
+
+  absl::Status Serialize(SimpleGraphElementDynamicLabelProto* proto) const;
+
+  static absl::StatusOr<std::unique_ptr<SimpleGraphDynamicLabel>> Deserialize(
+      const SimpleGraphElementDynamicLabelProto& proto);
+
+ private:
+  const std::string label_expression_;
+  const ResolvedExpr* resolved_expr_;
+  friend class InternalPropertyGraph;
+};
+
+class SimpleGraphDynamicProperties : public GraphDynamicProperties {
+ public:
+  explicit SimpleGraphDynamicProperties(absl::string_view properties_expression)
+      : properties_expression_(properties_expression) {}
+
+  absl::string_view properties_expression() const override {
+    return properties_expression_;
+  }
+
+  absl::StatusOr<const ResolvedExpr*> GetValueExpression() const override {
+    if (resolved_expr_ == nullptr) {
+      return zetasql_base::UnimplementedErrorBuilder()
+             << "SimpleCatalog does not resolve the dynamic properties.";
+    }
+    return resolved_expr_;
+  };
+
+  template <class GraphDynamicPropertiesSubclass>
+  bool Is() const {
+    return dynamic_cast<const GraphDynamicPropertiesSubclass*>(this) != nullptr;
+  }
+  template <class GraphDynamicPropertiesSubclass>
+  const GraphDynamicPropertiesSubclass* GetAs() const {
+    return static_cast<const GraphDynamicPropertiesSubclass*>(this);
+  }
+
+  absl::Status Serialize(SimpleGraphElementDynamicPropertiesProto* proto) const;
+
+  static absl::StatusOr<std::unique_ptr<SimpleGraphDynamicProperties>>
+  Deserialize(const SimpleGraphElementDynamicPropertiesProto& proto);
+
+ private:
+  const std::string properties_expression_;
   const ResolvedExpr* resolved_expr_;
   friend class InternalPropertyGraph;
 };

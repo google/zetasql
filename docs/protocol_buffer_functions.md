@@ -106,7 +106,7 @@ ENUM_VALUE_DESCRIPTOR_PROTO(proto_enum)
 **Description**
 
 Gets the enum value descriptor proto
-(<code>proto2.EnumValueDescriptorProto</code>) for an enum.
+(`proto2.EnumValueDescriptorProto`) for an enum.
 
 **Definitions**
 

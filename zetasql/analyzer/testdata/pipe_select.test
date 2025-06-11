@@ -1,4 +1,4 @@
-[default language_features=PIPES,ANALYTIC_FUNCTIONS,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
+[default language_features=PIPES,ANALYTIC_FUNCTIONS,SELECT_STAR_EXCEPT_REPLACE]
 select 1 x, 2 y
 |> select *, x+y as z
 |> select x, z
@@ -682,7 +682,7 @@ QueryStmt
 
 # This shows a pipe SELECT with an inferred table type passed in (for a
 # braced proto constructor).
-[language_features=PIPES,V_1_3_BRACED_PROTO_CONSTRUCTORS]
+[language_features=PIPES,BRACED_PROTO_CONSTRUCTORS]
 SELECT NEW zetasql_test__.KitchenSinkPB {
   int64_key_1: 1
   int64_key_2: 2
@@ -736,7 +736,7 @@ ERROR: Protocol buffer zetasql_test__.KitchenSinkPB.Nested does not have a field
 
 # This shows type inferrence is not currently passed through pipe WHERE
 # to pipe SELECT.
-[language_features=PIPES,V_1_3_BRACED_PROTO_CONSTRUCTORS]
+[language_features=PIPES,BRACED_PROTO_CONSTRUCTORS]
 SELECT NEW zetasql_test__.KitchenSinkPB {
   int64_key_1: 1
   int64_key_2: 2

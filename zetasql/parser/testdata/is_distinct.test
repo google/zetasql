@@ -1,4 +1,4 @@
-[default language_features=V_1_3_IS_DISTINCT]
+[default language_features=IS_DISTINCT]
 SELECT 1 IS {{NOT|}} DISTINCT FROM 2;
 --
 ALTERNATION GROUP: NOT

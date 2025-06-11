@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <ctime>
 #include <string>
+#include <utility>
 
 #include "absl/numeric/int128.h"
 #include "absl/status/statusor.h"
@@ -97,6 +98,18 @@ class PicoTime final {
 
   static constexpr PicoTime MaxValue() {
     return PicoTime(253402300799, kNumPicosPerSecond - 1);
+  }
+
+  // Returns the value of the PicoTime as a pair of {seconds, picoseconds}. The
+  // picoseconds value is non-negative, and is in the range of [0,
+  // 999999999999].
+  //
+  // For example, if the PicoTime is "1234-01-02 03:04:05.123456789321+00", the
+  // return value is {second value of timestamp "1234-01-02 03:04:05",
+  // 123456789321}.
+  std::pair<int64_t, int64_t> SecondsAndPicoseconds() const {
+    timespec ts = absl::ToTimespec(time_);
+    return {ts.tv_sec, ts.tv_nsec * 1000 + picos_};
   }
 
   // Comparison operators.

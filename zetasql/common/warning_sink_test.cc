@@ -18,20 +18,33 @@
 
 #include "zetasql/common/errors.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/parse_location.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/strings/string_view.h"
 
 using ::testing::SizeIs;
 
 namespace zetasql {
 
-TEST(WarningSinkTest, AddDuplicates) {
-  WarningSink sink;
+constexpr absl::string_view kFakeFile1 = "Frozen1";
+constexpr absl::string_view kFakeFile2 = "Frozen2";
+
+TEST(WarningSinkTest, AddDuplicatesLocationIgnored) {
+  WarningSink sink(/*consider_location=*/false);
   ZETASQL_ASSERT_OK(sink.AddWarning(DeprecationWarning::UNKNOWN,
                             MakeSqlError() << "Into the ..."));
   EXPECT_THAT(sink.warnings(), SizeIs(1));
   ZETASQL_ASSERT_OK(sink.AddWarning(DeprecationWarning::UNKNOWN,
                             MakeSqlError() << "Into the ..."));
+  EXPECT_THAT(sink.warnings(), SizeIs(1));
+  auto location1 = ParseLocationPoint::FromByteOffset(kFakeFile1, 2);
+  ZETASQL_ASSERT_OK(sink.AddWarning(DeprecationWarning::UNKNOWN,
+                            MakeSqlErrorAtPoint(location1) << "Into the ..."));
+  EXPECT_THAT(sink.warnings(), SizeIs(1));
+  auto location2 = ParseLocationPoint::FromByteOffset(kFakeFile2, 2);
+  ZETASQL_ASSERT_OK(sink.AddWarning(DeprecationWarning::UNKNOWN,
+                            MakeSqlErrorAtPoint(location2) << "Into the ..."));
   EXPECT_THAT(sink.warnings(), SizeIs(1));
   ZETASQL_ASSERT_OK(sink.AddWarning(DeprecationWarning::UNKNOWN,
                             MakeSqlError() << "Into the ... oh-own"));
@@ -39,6 +52,41 @@ TEST(WarningSinkTest, AddDuplicates) {
   ZETASQL_ASSERT_OK(sink.AddWarning(DeprecationWarning::QUERY_TOO_COMPLEX,
                             MakeSqlError() << "Into the ..."));
   EXPECT_THAT(sink.warnings(), SizeIs(3));
+  sink.Reset();
+  EXPECT_THAT(sink.warnings(), SizeIs(0));
+  ZETASQL_ASSERT_OK(sink.AddWarning(DeprecationWarning::UNKNOWN,
+                            MakeSqlError() << "Into the ..."));
+  EXPECT_THAT(sink.warnings(), SizeIs(1));
+}
+
+TEST(WarningSinkTest, AddDuplicatesLocationConsidered) {
+  WarningSink sink(/*consider_location=*/true);
+  ZETASQL_ASSERT_OK(sink.AddWarning(DeprecationWarning::UNKNOWN,
+                            MakeSqlError() << "Into the ..."));
+  EXPECT_THAT(sink.warnings(), SizeIs(1));
+  ZETASQL_ASSERT_OK(sink.AddWarning(DeprecationWarning::UNKNOWN,
+                            MakeSqlError() << "Into the ..."));
+  EXPECT_THAT(sink.warnings(), SizeIs(1));
+  auto location1 = ParseLocationPoint::FromByteOffset(kFakeFile1, 2);
+  ZETASQL_ASSERT_OK(sink.AddWarning(DeprecationWarning::UNKNOWN,
+                            MakeSqlErrorAtPoint(location1) << "Into the ..."));
+  EXPECT_THAT(sink.warnings(), SizeIs(2));
+  auto location2 = ParseLocationPoint::FromByteOffset(kFakeFile2, 2);
+  ZETASQL_ASSERT_OK(sink.AddWarning(DeprecationWarning::UNKNOWN,
+                            MakeSqlErrorAtPoint(location2) << "Into the ..."));
+  EXPECT_THAT(sink.warnings(), SizeIs(3));
+  ZETASQL_ASSERT_OK(sink.AddWarning(DeprecationWarning::UNKNOWN,
+                            MakeSqlErrorAtPoint(location1) << "Into the ..."));
+  EXPECT_THAT(sink.warnings(), SizeIs(3));
+  ZETASQL_ASSERT_OK(sink.AddWarning(DeprecationWarning::UNKNOWN,
+                            MakeSqlErrorAtPoint(location2) << "Into the ..."));
+  EXPECT_THAT(sink.warnings(), SizeIs(3));
+  ZETASQL_ASSERT_OK(sink.AddWarning(DeprecationWarning::UNKNOWN,
+                            MakeSqlError() << "Into the ... oh-own"));
+  EXPECT_THAT(sink.warnings(), SizeIs(4));
+  ZETASQL_ASSERT_OK(sink.AddWarning(DeprecationWarning::QUERY_TOO_COMPLEX,
+                            MakeSqlError() << "Into the ..."));
+  EXPECT_THAT(sink.warnings(), SizeIs(5));
   sink.Reset();
   EXPECT_THAT(sink.warnings(), SizeIs(0));
   ZETASQL_ASSERT_OK(sink.AddWarning(DeprecationWarning::UNKNOWN,

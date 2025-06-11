@@ -1,5 +1,3 @@
-[default also_show_signature_mismatch_details]
-
 SELECT LENGTH([1,2], e->e>0);
 --
 ERROR: Lambda is not supported [at 1:22]
@@ -7,7 +5,7 @@ SELECT LENGTH([1,2], e->e>0);
                      ^
 ==
 
-[default language_features=V_1_3_INLINE_LAMBDA_ARGUMENT,NAMED_ARGUMENTS]
+[default language_features=INLINE_LAMBDA_ARGUMENT,NAMED_ARGUMENTS]
 SELECT e -> e > 0;
 --
 ERROR: Syntax error: Expected end of input but got "->" [at 1:10]
@@ -96,11 +94,6 @@ SELECT LENGTH([1,2], (e, e>0) -> e > 0) AS a_1;
 # NULL cannot be used for lambda
 SELECT fn_array_filter(ARRAY<INT64>[1, 2], NULL) AS a_1;
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER for argument types: ARRAY<INT64>, NULL. Supported signatures: FN_ARRAY_FILTER(ARRAY, FUNCTION<ANY->BOOL>); FN_ARRAY_FILTER(ARRAY, FUNCTION<(ANY, INT64)->BOOL>) [at 1:8]
-SELECT fn_array_filter(ARRAY<INT64>[1, 2], NULL) AS a_1;
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER
   Argument types: ARRAY<INT64>, NULL
   Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<T1->BOOL>)
@@ -115,11 +108,6 @@ SELECT fn_array_filter(ARRAY<INT64>[1, 2], NULL) AS a_1;
 # TODO: Enhance the error msg with why each signature doesn't match.
 SELECT fn_array_filter(ARRAY<INT64>[1, 2], e->e+1) AS a_1;
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER for argument types: ARRAY<INT64>, LAMBDA. Supported signatures: FN_ARRAY_FILTER(ARRAY, FUNCTION<ANY->BOOL>); FN_ARRAY_FILTER(ARRAY, FUNCTION<(ANY, INT64)->BOOL>) [at 1:8]
-SELECT fn_array_filter(ARRAY<INT64>[1, 2], e->e+1) AS a_1;
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER
   Argument types: ARRAY<INT64>, LAMBDA
   Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<T1->BOOL>)
@@ -133,11 +121,6 @@ SELECT fn_array_filter(ARRAY<INT64>[1, 2], e->e+1) AS a_1;
 # No matching signature for transform.
 SELECT fn_array_filter(1, (e, i) -> e > i);
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER for argument types: INT64, LAMBDA. Supported signatures: FN_ARRAY_FILTER(ARRAY, FUNCTION<ANY->BOOL>); FN_ARRAY_FILTER(ARRAY, FUNCTION<(ANY, INT64)->BOOL>) [at 1:8]
-SELECT fn_array_filter(1, (e, i) -> e > i);
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER
   Argument types: INT64, LAMBDA
   Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<T1->BOOL>)
@@ -211,11 +194,6 @@ QueryStmt
 
 SELECT fn_array_filter(null, e -> e > 0) AS a_1;
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER for argument types: NULL, LAMBDA. Supported signatures: FN_ARRAY_FILTER(ARRAY, FUNCTION<ANY->BOOL>); FN_ARRAY_FILTER(ARRAY, FUNCTION<(ANY, INT64)->BOOL>) [at 1:8]
-SELECT fn_array_filter(null, e -> e > 0) AS a_1;
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER
   Argument types: NULL, LAMBDA
   Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<T1->BOOL>)
@@ -228,11 +206,6 @@ SELECT fn_array_filter(null, e -> e > 0) AS a_1;
 
 SELECT fn_array_filter([], e -> e > 0) AS a_1;
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER for argument types: [], LAMBDA. Supported signatures: FN_ARRAY_FILTER(ARRAY, FUNCTION<ANY->BOOL>); FN_ARRAY_FILTER(ARRAY, FUNCTION<(ANY, INT64)->BOOL>) [at 1:8]
-SELECT fn_array_filter([], e -> e > 0) AS a_1;
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER
   Argument types: [], LAMBDA
   Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<T1->BOOL>)
@@ -595,11 +568,6 @@ QueryStmt
 # No matching signature for transform
 SELECT fn_array_transform(1, (e) -> e + 1 );
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_TRANSFORM for argument types: INT64, LAMBDA. Supported signatures: FN_ARRAY_TRANSFORM(ARRAY, FUNCTION<ANY->ANY>); FN_ARRAY_TRANSFORM(ARRAY, FUNCTION<(ANY, INT64)->ANY>) [at 1:8]
-SELECT fn_array_transform(1, (e) -> e + 1 );
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_TRANSFORM
   Argument types: INT64, LAMBDA
   Signature: FN_ARRAY_TRANSFORM(ARRAY<T1>, FUNCTION<T1->T2>)
@@ -706,11 +674,6 @@ QueryStmt
 # current behaviour without lambda.
 SELECT fn_fp_ArrayT_T([1, 2], 1.0);
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_FP_ARRAYT_T for argument types: ARRAY<INT64>, DOUBLE. Supported signature: FN_FP_ARRAYT_T(ARRAY, ANY) [at 1:8]
-SELECT fn_fp_ArrayT_T([1, 2], 1.0);
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_FP_ARRAYT_T
   Argument types: ARRAY<INT64>, DOUBLE
   Signature: FN_FP_ARRAYT_T(ARRAY<T1>, T1)
@@ -751,11 +714,6 @@ QueryStmt
 # See the comment of test of fn_fp_ArrayT_T.
 SELECT fn_fp_ArrayT_T_LAMBDA([1, 2], 1.0, e->e>0);
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_FP_ARRAYT_T_LAMBDA for argument types: ARRAY<INT64>, DOUBLE, LAMBDA. Supported signature: FN_FP_ARRAYT_T_LAMBDA(ARRAY, ANY, FUNCTION<ANY->BOOL>) [at 1:8]
-SELECT fn_fp_ArrayT_T_LAMBDA([1, 2], 1.0, e->e>0);
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_FP_ARRAYT_T_LAMBDA
   Argument types: ARRAY<INT64>, DOUBLE, LAMBDA
   Signature: FN_FP_ARRAYT_T_LAMBDA(ARRAY<T1>, T1, FUNCTION<T1->BOOL>)
@@ -792,11 +750,6 @@ QueryStmt
 
 SELECT fn_fp_T_LAMBDA_RET_T(1, e->"abc");
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_FP_T_LAMBDA_RET_T for argument types: INT64, LAMBDA. Supported signature: FN_FP_T_LAMBDA_RET_T(ANY, FUNCTION<ANY->ANY>) [at 1:8]
-SELECT fn_fp_T_LAMBDA_RET_T(1, e->"abc");
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_FP_T_LAMBDA_RET_T
   Argument types: INT64, LAMBDA
   Signature: FN_FP_T_LAMBDA_RET_T(T1, FUNCTION<T1->T1>)
@@ -895,11 +848,6 @@ SELECT fn_fp_named_then_lambda(format_string => "123", (e) -> e);
 
 SELECT fn_fp_named_then_lambda((e) -> e, format_string => "123");
 --
-ERROR: Named argument `format_string` duplicates positional argument 1, which also provides `format_string` [at 1:42]
-SELECT fn_fp_named_then_lambda((e) -> e, format_string => "123");
-                                         ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_FP_NAMED_THEN_LAMBDA
   Argument types: LAMBDA, format_string => STRING
   Signature: FN_FP_NAMED_THEN_LAMBDA([format_string=>]STRING, FUNCTION<INT64->T1>)
@@ -1551,11 +1499,6 @@ QueryStmt
 # No matching signature error for nested lambda usage.
 SELECT fn_array_filter([1], e -> LENGTH(fn_array_filter([e], (e1, e2, e3)->TRUE)) > 0);
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER for argument types: ARRAY<INT64>, LAMBDA. Supported signatures: FN_ARRAY_FILTER(ARRAY, FUNCTION<ANY->BOOL>); FN_ARRAY_FILTER(ARRAY, FUNCTION<(ANY, INT64)->BOOL>) [at 1:8]
-SELECT fn_array_filter([1], e -> LENGTH(fn_array_filter([e], (e1, e2, e3)->TR...
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER
   Argument types: ARRAY<INT64>, LAMBDA
   Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<T1->BOOL>)
@@ -1574,11 +1517,6 @@ SELECT fn_array_filter([1], e -> LENGTH(fn_array_filter([e], (e1, e2, e3)->TR...
 # No matching signature error, error in lambda body.
 SELECT fn_array_filter([1], e -> f);
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER for argument types: ARRAY<INT64>, LAMBDA. Supported signatures: FN_ARRAY_FILTER(ARRAY, FUNCTION<ANY->BOOL>); FN_ARRAY_FILTER(ARRAY, FUNCTION<(ANY, INT64)->BOOL>) [at 1:8]
-SELECT fn_array_filter([1], e -> f);
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER
   Argument types: ARRAY<INT64>, LAMBDA
   Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<T1->BOOL>)
@@ -1592,11 +1530,6 @@ SELECT fn_array_filter([1], e -> f);
 # No matching signature error for nested lambda with signature mismatch in body.
 SELECT fn_array_filter([1], e -> LENGTH(fn_array_filter([e], e->e > "")) > 0);
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER for argument types: ARRAY<INT64>, LAMBDA. Supported signatures: FN_ARRAY_FILTER(ARRAY, FUNCTION<ANY->BOOL>); FN_ARRAY_FILTER(ARRAY, FUNCTION<(ANY, INT64)->BOOL>) [at 1:8]
-SELECT fn_array_filter([1], e -> LENGTH(fn_array_filter([e], e->e > "")) > 0);
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER
   Argument types: ARRAY<INT64>, LAMBDA
   Signature: FN_ARRAY_FILTER(ARRAY<T1>, FUNCTION<T1->BOOL>)
@@ -1619,7 +1552,7 @@ SELECT fn_array_filter([1], e -> LENGTH(fn_array_filter([e], e->e > "")) > 0);
        ^
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
 SELECT fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(
   MAP_FROM_ARRAY([('a', 1)]), e -> 1);
 --
@@ -1646,15 +1579,10 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
 SELECT fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(
   MAP_FROM_ARRAY([(1, "a")]), e -> 1);
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL for argument types: MAP<INT64, STRING>, LAMBDA. Supported signature: FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL(MAP, FUNCTION<ANY->ANY>) [at 1:8]
-SELECT fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL
   Argument types: MAP<INT64, STRING>, LAMBDA
   Signature: FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL(MAP<T1, T2>, FUNCTION<T1->T2>)
@@ -1663,15 +1591,10 @@ SELECT fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(
        ^
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
 SELECT fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(
   MAP_FROM_ARRAY([('a', 1)]), e -> CONCAT(e, 'a'));
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL for argument types: MAP<STRING, INT64>, LAMBDA. Supported signature: FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL(MAP, FUNCTION<ANY->ANY>) [at 1:8]
-SELECT fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL
   Argument types: MAP<STRING, INT64>, LAMBDA
   Signature: FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL(MAP<T1, T2>, FUNCTION<T1->T2>)
@@ -1680,15 +1603,10 @@ SELECT fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(
        ^
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
 SELECT
   fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(NULL, e -> CONCAT(e, 'a'));
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL for argument types: NULL, LAMBDA. Supported signature: FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL(MAP, FUNCTION<ANY->ANY>) [at 2:3]
-  fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(NULL, e -> CONCAT(e, 'a'));
-  ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL
   Argument types: NULL, LAMBDA
   Signature: FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL(MAP<T1, T2>, FUNCTION<T1->T2>)

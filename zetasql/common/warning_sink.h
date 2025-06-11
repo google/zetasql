@@ -17,8 +17,9 @@
 #ifndef ZETASQL_COMMON_WARNING_SINK_H_
 #define ZETASQL_COMMON_WARNING_SINK_H_
 
+#include <cstdint>
 #include <string>
-#include <utility>
+#include <tuple>
 #include <vector>
 
 #include "zetasql/public/deprecation_warning.pb.h"
@@ -33,9 +34,17 @@ namespace zetasql {
 // sql statement.
 class WarningSink {
  public:
-  WarningSink();
+  // `consider_location` controls whether the warning location is considered
+  // when deduplicating. When true, two warnings with the same code and message
+  // but different locations will be considered different warnings and not
+  // de-duplicated. This is useful when warnings will be displayed in a
+  // graphical user interface or when warnings have fix suggestions attached.
+  explicit WarningSink(bool consider_location);
+
   WarningSink(const WarningSink&) = delete;
   WarningSink& operator=(const WarningSink&) = delete;
+  WarningSink(WarningSink&&) = default;
+  WarningSink& operator=(WarningSink&&) = default;
 
   // Add a warning. If a warning with the same `kind` and `warning.message()` is
   // already added, this is a no-op.
@@ -58,10 +67,14 @@ class WarningSink {
   void Reset();
 
  private:
-  // Unique warnings set is keyed on kind and message (not including location)
-  // to de-duplicate warnings.
-  absl::flat_hash_set<std::pair<DeprecationWarning::Kind, std::string>>
+  // Unique warnings set is keyed on kind, message, and location to
+  // de-duplicate warnings.
+  absl::flat_hash_set<
+      std::tuple<DeprecationWarning::Kind, std::string, int64_t, std::string>>
       unique_warnings_;
+
+  // Whether to include location in the uniqueness key.
+  bool consider_location_;
 
   // Storage of record for warning statuses.
   std::vector<absl::Status> warnings_;

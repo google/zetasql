@@ -1889,15 +1889,47 @@ from T
 --
 ALTERNATION GROUP: ignore
 --
-ERROR: Syntax error: Expected ")" but got keyword IGNORE [at 2:5]
-  f(ignore nulls) over ()
-    ^
+QueryStatement [0-39]
+  Query [0-39]
+    Select [0-39]
+      SelectList [9-32]
+        SelectColumn [9-32]
+          AnalyticFunctionCall [9-32]
+            FunctionCall [9-24]
+              PathExpression [9-10]
+                Identifier(f) [9-10]
+            WindowSpecification [30-32]
+      FromClause [33-39]
+        TablePathExpression [38-39]
+          PathExpression [38-39]
+            Identifier(T) [38-39]
+--
+SELECT
+  f(IGNORE NULLS) OVER ()
+FROM
+  T
 --
 ALTERNATION GROUP: respect
 --
-ERROR: Syntax error: Expected ")" but got keyword RESPECT [at 2:5]
-  f(respect nulls) over ()
-    ^
+QueryStatement [0-40]
+  Query [0-40]
+    Select [0-40]
+      SelectList [9-33]
+        SelectColumn [9-33]
+          AnalyticFunctionCall [9-33]
+            FunctionCall [9-25]
+              PathExpression [9-10]
+                Identifier(f) [9-10]
+            WindowSpecification [31-33]
+      FromClause [34-40]
+        TablePathExpression [39-40]
+          PathExpression [39-40]
+            Identifier(T) [39-40]
+--
+SELECT
+  f(RESPECT NULLS) OVER ()
+FROM
+  T
 ==
 
 select f(a, b order by c {{ignore|respect}} nulls) over () from T

@@ -31,11 +31,9 @@
 #include <vector>
 
 #include "zetasql/common/options_utils.h"
-#include "zetasql/parser/bison_parser_mode.h"
-#include "zetasql/parser/macros/standalone_macro_expansion.h"
-#include "zetasql/parser/macros/standalone_macro_expansion_impl.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/parser/parser_mode.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/builtin_function_options.h"
@@ -708,8 +706,6 @@ absl::Status InitializeExecuteQueryConfig(ExecuteQueryConfig& config) {
   config.mutable_analyzer_options().set_error_message_mode(
       ERROR_MESSAGE_WITH_PAYLOAD);
 
-  config.mutable_analyzer_options()
-      .set_show_function_signature_mismatch_details(true);
   config.mutable_analyzer_options().set_prune_unused_columns(
       absl::GetFlag(FLAGS_prune_unused_columns));
 
@@ -808,11 +804,9 @@ static absl::StatusOr<bool> RegisterMacro(absl::string_view sql,
         parser_output->statement()->GetAsOrNull<ASTDefineMacroStatement>();
     ZETASQL_RETURN_IF_ERROR(config.mutable_macro_catalog().RegisterMacro(
         {.source_text = config.macro_sources().back(),
-         .location = define_macro_statement->GetParseLocationRange(),
-         .name_location =
-             define_macro_statement->name()->GetParseLocationRange(),
-         .body_location =
-             define_macro_statement->body()->GetParseLocationRange()}));
+         .location = define_macro_statement->location(),
+         .name_location = define_macro_statement->name()->location(),
+         .body_location = define_macro_statement->body()->location()}));
 
     std::string macro_name = define_macro_statement->name()->GetAsString();
     ZETASQL_RETURN_IF_ERROR(
@@ -952,7 +946,8 @@ static absl::Status HandleDDL(
   switch (resolved_node->node_kind()) {
     case RESOLVED_CREATE_FUNCTION_STMT: {
       const auto* stmt = resolved_node->GetAs<ResolvedCreateFunctionStmt>();
-      ZETASQL_ASSIGN_OR_RETURN(auto function, MakeFunctionFromCreateFunction(*stmt));
+      ZETASQL_ASSIGN_OR_RETURN(auto function, MakeFunctionFromCreateFunction(
+                                          *stmt, /*function_options=*/nullptr));
 
       if (!config.wrapper_catalog()->AddOwnedFunctionIfNotPresent(&function)) {
         return zetasql_base::InvalidArgumentErrorBuilder() << "Function already exists";

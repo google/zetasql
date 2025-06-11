@@ -242,7 +242,7 @@ void IntervalValue::SumAggregator::Add(IntervalValue value) {
 }
 
 absl::StatusOr<IntervalValue> IntervalValue::SumAggregator::GetSum() const {
-  // It is unlikely that months/days will overflow int64_t, and that nanos will
+  // It is unlikely that months/days will overflow int64, and that nanos will
   // overflow int128 - but check it nevertheless.
   if (months_ > std::numeric_limits<int64_t>::max() ||
       months_ < std::numeric_limits<int64_t>::min() ||
@@ -276,7 +276,7 @@ absl::StatusOr<IntervalValue> IntervalValue::SumAggregator::GetAverage(
   FixedInt<64, 3> nanos = adjusted_nanos;
   nanos /= FixedInt<64, 3>(count);
 
-  // It is unlikely that months/days will overflow int64_t, and that nanos will
+  // It is unlikely that months/days will overflow int64, and that nanos will
   // overflow int128 - but check it nevertheless.
   if (months > std::numeric_limits<int64_t>::max() ||
       months < std::numeric_limits<int64_t>::min() ||
@@ -961,7 +961,7 @@ class ISO8601Parser {
                << ": Cannot convert '" << digits_ << "' to integer";
       }
       // number couldn't have been negative, so no worries about underflow
-      // of int64_t::min
+      // of int64::min
       if (sign) number = -number;
       c = GetChar();
       if (!in_time_part) {

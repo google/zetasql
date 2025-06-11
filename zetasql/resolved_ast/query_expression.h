@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "zetasql/analyzer/query_resolver_helper.h"
+#include "gtest/gtest_prod.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -32,8 +33,60 @@
 
 namespace zetasql {
 
-// SQLBuilder representation of a SQL query. Holds internal state while
+// `SQLBuilder` representation of a SQL query. Holds internal state while
 // traversing a ResolvedAST.
+//
+// `QueryExpression` (QE) is a class that stores the SQL clauses, parts of the
+// final SQL query, in various fields. For example, it has fields to store the
+// SELECT list (SELECT clauses and aliases), the GROUP BY list (GROUP BY
+// columns), FROM and WHERE clauses, and so on. These clauses are stored without
+// their leading keyword such as SELECT or WHERE, and such.
+//
+// QE provides a `GetSQLQuery` method that takes all the various clauses
+// collected in QE, and combines them to create the final and correct SQL query.
+//
+// QE also maintains a state-machine to make sure that the clause fields are set
+// in the right combination and order. `SQLBuilder` checks this state-machine to
+// determine whether some clauses can be set at particular times, and to make
+// some decisions about query generation.
+//
+// One of these decisions is to wrap the current clauses of QE as
+// a subquery. `SQLBuilder` calls the `Wrap(alias)` method on QE for this
+// purpose. Calling `Wrap` generates an SQL query for the current state of the
+// QE object by calling `GetSQLQuery`, and sets it as the FROM clause of the QE
+// object (with the given alias), resetting all other clauses. In other words,
+// this makes the current to-be-generated query a subquery, and lets
+// `SQLBuilder` set the QE clause fields again.
+//
+// `SQLBuilder` does this with QE again and again as it recursively traverses
+// the ResolvedAST. After the traversal is over, it makes a final call to
+// `GetSQLQuery` to get the final SQL query, with possibly many layers of nested
+// subqueries.
+//
+// The `GetSQLQuery` method (indirectly) orchestrates the assembly of the final
+// SQL query. It generates strings for individual clauses (e.g., SELECT, FROM,
+// WHERE) using the fields filled in by `SQLBuilder` and combines them.
+//
+// The SQL generation logic for individual clauses is largely reusable for Pipe
+// syntax due to significant overlap between Standard SQL syntax and Pipe
+// syntax.
+//
+// `GetSQLQuery` delegates to the following methods for Standard and Pipe Syntax
+// respectively:
+//   - `GetStandardSQLQuery`: This method uses the clause-specific appenders to
+//     construct a query in Standard SQL syntax.
+//   - `GetPipeSQLQuery`: This method uses the same appenders but combines the
+//     clause strings using the `|>` operator (pipe syntax). It also handles
+//     cases where a query cannot be formed in Pipe syntax and falls back to
+//     Standard SQL.
+//
+// `GetSQLQuery` acts as a dispatcher, invoking either
+// `GetStandardSQLQuery` or `GetPipeSQLQuery` based on the desired syntax
+// (controlled by `target_syntax_mode_`).
+//
+// The `WrapForPipeSyntaxMode` method, similar to the `Wrap` method,
+// appends the `|>` operator to the current query instead of creating nested
+// subqueries, to produce Pipe syntax SQL.
 class QueryExpression {
  public:
   // A list of pairs of SQL string and alias.
@@ -42,11 +95,6 @@ class QueryExpression {
 
   static constexpr absl::string_view kPipe = " |> ";
 
-  QueryExpression() {}
-  QueryExpression(const QueryExpression&) = delete;
-  QueryExpression& operator=(const QueryExpression&) = delete;
-  ~QueryExpression() {}
-
   // Controls the target syntax mode of the SQLBuilder. By default, the
   // SQLBuilder will output the Standard syntax with nested subqueries.
   // Setting to kPipe will output the Pipe syntax with flattened subqueries.
@@ -54,6 +102,13 @@ class QueryExpression {
     kStandard,
     kPipe,
   };
+
+  QueryExpression() : target_syntax_mode_(TargetSyntaxMode::kStandard) {}
+  explicit QueryExpression(TargetSyntaxMode target_syntax_mode)
+      : target_syntax_mode_(target_syntax_mode) {}
+  QueryExpression(const QueryExpression&) = delete;
+  QueryExpression& operator=(const QueryExpression&) = delete;
+  ~QueryExpression() = default;
 
   enum QueryType {
     kDefaultQueryType = 0,
@@ -66,46 +121,41 @@ class QueryExpression {
   absl::StatusOr<QueryType> GetQueryType() const;
 
   // Returns the SQL query represented by this QueryExpression.
-  std::string GetSQLQuery() const {
-    return GetSQLQuery(TargetSyntaxMode::kStandard);
-  }
+  std::string GetSQLQuery() const { return GetSQLQuery(target_syntax_mode_); };
 
   // Returns the SQL query represented by this QueryExpression in the given
   // target syntax mode.
   std::string GetSQLQuery(TargetSyntaxMode target_syntax_mode) const;
 
-  // Returns the SQL query represented by this QueryExpression in the given
-  // target syntax mode, with the given FROM clause SQL.
-  std::string GetSQLQuery(TargetSyntaxMode target_syntax_mode,
-                          absl::string_view from_clause_sql) const;
-
   // Mutates the QueryExpression, wrapping its previous form as a subquery in
-  // the from_ clause, with the given <alias>.
+  // the from_ clause, with the given `alias`.
+  //
+  // Example Usage:
+  // Assume we have a QueryExpression representing the SQL query:
+  // "SELECT Key FROM KeyValue"
+  //
+  // 1. After calling Wrap("alias", kStandard), FromClause()
+  // will return: "(SELECT Key FROM KeyValue) AS alias"
+  //
+  // 2. After calling Wrap("alias", kPipe), FromClause() will return:
+  // "KeyValue |> SELECT Key |> AS alias"
   void Wrap(absl::string_view alias) {
-    Wrap(alias, TargetSyntaxMode::kStandard);
+    WrapImpl(alias, target_syntax_mode_, target_syntax_mode_);
   }
 
-  // Mutates the QueryExpression, wrapping its previous form as a subquery (in
-  // the given target syntax) in the from_ clause, with the given <alias>.
-  void Wrap(absl::string_view alias, TargetSyntaxMode target_syntax_mode);
-
-  // Mutates the QueryExpression, wrapping its previous form as a subquery (in
-  // the mixed syntax mode) in the from_ clause, with the given <alias>.
-  // Must be called when in Pipe syntax mode, wraps the FROM clause to be
-  // useable in Standard syntax mode.
-  void WrapInMixedSyntaxMode(absl::string_view alias);
-
-  // Wraps the given SQL string in parens as a subquery with the given <alias>.
-  static std::string WrapSubquery(absl::string_view sql,
-                                  absl::string_view alias);
-
-  // Concatenates the given SQL string as a subquery with the given <alias>
-  // using |>, that is, this function returns `<sql> |> <alias>`.
-  // The leading "FROM " is dropped from the SQL.
-  static std::string PipeSubquery(absl::string_view sql,
-                                  absl::string_view alias);
-
-  static bool StartsWithWithSelectOrFrom(absl::string_view sql);
+  // Mutates the QueryExpression, wrapping its previous form as a subquery in
+  // Pipe SQL syntax in the from_ clause, with the given `alias`.
+  // Wraps the FROM clause to be usable in Standard syntax mode.
+  //
+  // Example Usage:
+  // Assume we have a QueryExpression representing the SQL query:
+  // "SELECT Key FROM KeyValue"
+  //
+  // After calling WrapForPipeSyntaxMode("alias"), FromClause() will
+  // return: "(SELECT Key FROM KeyValue) |> AS alias"
+  void WrapForPipeSyntaxMode(absl::string_view alias) {
+    WrapImpl(alias, TargetSyntaxMode::kStandard, TargetSyntaxMode::kPipe);
+  }
 
   // The below TrySet... methods return true if we are able to set the concerned
   // clause in QueryExpression successfully. Otherwise return false with the
@@ -267,8 +317,9 @@ class QueryExpression {
   std::string GetFromClausePipeSQL() const;
 
   // Returns the FROM clause SQL where the subquery is in the Pipe syntax, but
-  // FROM clause is useable in the Standard syntax.
-  std::string GetFromClauseMixedSQL() const;
+  // FROM clause is usable in the Standard syntax:
+  // `FROM (<subquery in pipe syntax>)`
+  std::string GetFromClauseStandardWrappingPipeSQL() const;
 
   // Appenders for each clause. If the clause exists, they create the SQL for
   // the clause and append it to <sql>. They return true if the clause SQL is
@@ -288,13 +339,46 @@ class QueryExpression {
   bool TryAppendLockModeClause(std::string& sql) const;
 
   // Returns the SQL query in the Standard syntax.
-  std::string GetStandardSQLQuery(absl::string_view from_clause_sql) const;
+  std::string GetStandardSQLQuery(
+      TargetSyntaxMode from_clause_syntax_mode) const;
 
   // Returns the SQL query in the Pipe syntax.
   std::string GetPipeSQLQuery() const;
 
  private:
+  FRIEND_TEST(QueryExpressionWrapTest1, TestWrapImpl1);
+  FRIEND_TEST(QueryExpressionWrapTest2, TestWrapImpl2);
+  // Mutates the QueryExpression, wrapping its previous form as a subquery in
+  // the given target syntax, in the from_ clause, with the given `alias`.
+  // The subquery is formatted in the `subquery_target_syntax_mode`, whereas
+  // the final wrapped query is formatted in the `target_syntax_mode`.
+  //
+  // Example Usage:
+  // Assume we have a QueryExpression representing the SQL query:
+  // "SELECT Key FROM KeyValue"
+  //
+  // 1. Wrap with all modes as Standard SQL:
+  // After calling WrapImpl("alias", kStandard, kStandard), FromClause()
+  // will return: "(SELECT Key FROM KeyValue) AS alias"
+  //
+  // 2. Wrap with all modes as Pipe SQL:
+  // After calling WrapImpl("alias", kPipe, kPipe), FromClause() will return:
+  // "KeyValue |> SELECT Key |> AS alias"
+  //
+  // 3. Wrap a Pipe SQL subquery in Standard SQL query:
+  // After calling WrapImpl("alias", kPipe, kStandard), FromClause() will
+  // return: "(FROM KeyValue |> SELECT Key) AS alias"
+  //
+  // 4. Wrap a Standard SQL subquery in Pipe SQL query:
+  // After calling WrapImpl("alias", kStandard, kPipe), FromClause() will
+  // return: "(SELECT Key FROM KeyValue) |> AS alias"
+  void WrapImpl(absl::string_view alias,
+                TargetSyntaxMode subquery_target_syntax_mode,
+                TargetSyntaxMode target_syntax_mode);
+
   void ClearAllClauses();
+
+  TargetSyntaxMode target_syntax_mode_;
 
   // Fields below define the text associated with different clauses of a SQL
   // query. Some principles:
@@ -386,6 +470,10 @@ class QueryExpression {
 // unique.
 template <typename T>
 bool HasDuplicateAliases(const absl::flat_hash_map<int, T>& aliases);
+
+bool StartsWithSelectOrFromOrWith(absl::string_view sql);
+bool StartsWithSelectOrFrom(absl::string_view sql);
+bool StartsWithWith(absl::string_view sql);
 
 }  // namespace zetasql
 

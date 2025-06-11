@@ -1,4 +1,4 @@
-[default language_features=V_1_4_MULTILEVEL_AGGREGATION,V_1_3_WITH_GROUP_ROWS,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_HAVING_IN_AGGREGATE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,ANALYTIC_FUNCTIONS,V_1_3_QUALIFY,V_1_4_GROUPING_BUILTIN,V_1_2_GROUP_BY_STRUCT,V_1_4_ENFORCE_CONDITIONAL_EVALUATION,V_1_3_PIVOT]
+[default language_features=MULTILEVEL_AGGREGATION,WITH_GROUP_ROWS,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,HAVING_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE,ANALYTIC_FUNCTIONS,QUALIFY,GROUPING_BUILTIN,GROUP_BY_STRUCT,ENFORCE_CONDITIONAL_EVALUATION,PIVOT]
 [default show_sqlbuilder_output]
 
 # Test file for multi-level aggregate queries that fail because corresponding
@@ -110,7 +110,7 @@ Rewrite ERROR: generic::unimplemented: Aggregate functions with GROUP BY modifie
 ==
 
 # Multi-level aggregation does not support anonymized aggregates.
-[language_features=V_1_4_MULTILEVEL_AGGREGATION,ANONYMIZATION]
+[language_features=MULTILEVEL_AGGREGATION,ANONYMIZATION]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [no_expect_error_location]
 SELECT
@@ -123,7 +123,7 @@ ERROR: ANON_COUNT(*) Anonymization / Differential Privacy Function  does not sup
 ==
 
 # Multi-level aggregation does not support anonymized aggregates.
-[language_features=V_1_4_MULTILEVEL_AGGREGATION,ANONYMIZATION]
+[language_features=MULTILEVEL_AGGREGATION,ANONYMIZATION]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [no_expect_error_location]
 SELECT WITH ANONYMIZATION
@@ -136,7 +136,7 @@ ERROR: ANON_SUM Anonymization / Differential Privacy Function  does not support 
 ==
 
 # Multi-level aggregates cannot contain nested anonymized aggregates.
-[language_features=V_1_4_MULTILEVEL_AGGREGATION,ANONYMIZATION]
+[language_features=MULTILEVEL_AGGREGATION,ANONYMIZATION]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [no_expect_error_location]
 SELECT
@@ -149,7 +149,7 @@ ERROR: Multi-level aggregate function does not support ANON_SUM as a nested aggr
 ==
 
 # Multi-level aggregates cannot contain nested anonymized aggregates.
-[language_features=V_1_4_MULTILEVEL_AGGREGATION,ANONYMIZATION,V_1_1_ORDER_BY_IN_AGGREGATE]
+[language_features=MULTILEVEL_AGGREGATION,ANONYMIZATION,ORDER_BY_IN_AGGREGATE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [no_expect_error_location]
 SELECT
@@ -162,7 +162,7 @@ ERROR: Multi-level aggregate function does not support ANON_SUM as a nested aggr
 ==
 
 # Multi-level aggregates cannot contain nested anonymized aggregates.
-[language_features=V_1_4_MULTILEVEL_AGGREGATION,ANONYMIZATION]
+[language_features=MULTILEVEL_AGGREGATION,ANONYMIZATION]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [no_expect_error_location]
 SELECT
@@ -175,7 +175,7 @@ ERROR: Multi-level aggregate function does not support ANON_SUM as a nested aggr
 ==
 
 # Multi-level aggregation does not work with differential privacy.
-[language_features=V_1_4_MULTILEVEL_AGGREGATION,DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS]
+[language_features=MULTILEVEL_AGGREGATION,DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [no_expect_error_location]
 SELECT WITH DIFFERENTIAL_PRIVACY
@@ -188,7 +188,7 @@ ERROR: COUNT Anonymization / Differential Privacy Function  does not support GRO
 ==
 
 # Multi-level aggregation does not work with aggregation threshold.
-[language_features=V_1_4_MULTILEVEL_AGGREGATION,AGGREGATION_THRESHOLD]
+[language_features=MULTILEVEL_AGGREGATION,AGGREGATION_THRESHOLD]
 [enabled_ast_rewrites=DEFAULTS,+AGGREGATION_THRESHOLD]
 [no_expect_error_location]
 SELECT WITH AGGREGATION_THRESHOLD
@@ -196,7 +196,9 @@ OPTIONS (threshold = 50, privacy_unit_column = int64)
   COUNT(int64 GROUP BY int64)
 from SimpleTypes;
 --
-ERROR: AggregationThresholdAggregateScan does not support aggregate functions with GROUP BY modifiers.
+ERROR: Aggregation Threshold Aggregation does not support aggregate functions with GROUP BY modifiers [at 3:3]
+  COUNT(int64 GROUP BY int64)
+  ^
 ==
 
 # This is an unfortunate consequence of deferring multi-level aggregate

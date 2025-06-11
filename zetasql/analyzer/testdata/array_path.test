@@ -1,5 +1,5 @@
 [default enabled_ast_rewrites=DEFAULTS]
-[default language_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS,JSON_TYPE,V_1_3_PROTO_DEFAULT_IF_NULL,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[default language_features=UNNEST_AND_FLATTEN_ARRAYS,JSON_TYPE,PROTO_DEFAULT_IF_NULL,INLINE_LAMBDA_ARGUMENT,CHAINED_FUNCTION_CALLS]
 
 select value
 from ArrayTypes t, unnest(t.ProtoArray.int32_val1) value
@@ -1724,7 +1724,8 @@ QueryStmt
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="t")
 ==
 
-select flatten(t.ProtoArray.str_value) as value
+# FLATTEN works the same in chained call syntax.
+select {{flatten(t.ProtoArray.str_value)|(t.ProtoArray.str_value).flatten()}} as value
 from ArrayTypes t
 --
 QueryStmt
@@ -2151,10 +2152,45 @@ select flatten() as value
        ^
 ==
 
+# Valid chained call.
+select [1,2].flatten()
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=ARRAY<INT64>, value=[1, 2])
+    +-input_scan=
+      +-SingleRowScan
+==
+
+select [1,2].flatten(5)
+--
+ERROR: Number of arguments does not match for function FLATTEN. Supported signature: FLATTEN(ARRAY) [at 1:8]
+select [1,2].flatten(5)
+       ^
+==
+
+select "abc".flatten()
+--
+ERROR: No matching signature for function FLATTEN
+  Argument types: STRING (from chained function call input)
+  Signature: FLATTEN(ARRAY<T1>)
+    Argument 1: expected array type but found STRING [at 1:14]
+select "abc".flatten()
+             ^
+==
+
 select flatten(struct(3 as x, 4 as y)) as value
 from ArrayTypes t
 --
-ERROR: No matching signature for function FLATTEN for argument types: STRUCT<x INT64, y INT64>. Supported signature: FLATTEN(ARRAY) [at 1:8]
+ERROR: No matching signature for function FLATTEN
+  Argument types: STRUCT<x INT64, y INT64>
+  Signature: FLATTEN(ARRAY<T1>)
+    Argument 1: expected array type but found STRUCT<x INT64, y INT64> [at 1:8]
 select flatten(struct(3 as x, 4 as y)) as value
        ^
 ==
@@ -3045,7 +3081,10 @@ SELECT FLATTEN([
   ].a[OFFSET(1)][OFFSET(0)]
 )
 --
-ERROR: No matching signature for operator ARRAY[OFFSET()] for argument types: INT64, INT64. Supported signature: ARRAY[OFFSET(INT64)] [at 4:18]
+ERROR: No matching signature for operator ARRAY[OFFSET()]
+  Argument types: INT64, INT64
+  Signature: ARRAY<T1>[OFFSET(INT64)]
+    Argument 1: expected array type but found INT64 [at 4:18]
   ].a[OFFSET(1)][OFFSET(0)]
                  ^
 ==
@@ -3067,7 +3106,10 @@ SELECT FLATTEN([
   ].a.b[OFFSET(0)].c
 )
 --
-ERROR: No matching signature for operator ARRAY[OFFSET()] for argument types: STRUCT<c ARRAY<INT64>>, INT64. Supported signature: ARRAY[OFFSET(INT64)] [at 4:9]
+ERROR: No matching signature for operator ARRAY[OFFSET()]
+  Argument types: STRUCT<c ARRAY<INT64>>, INT64
+  Signature: ARRAY<T1>[OFFSET(INT64)]
+    Argument 1: expected array type but found STRUCT<c ARRAY<INT64>> [at 4:9]
   ].a.b[OFFSET(0)].c
         ^
 ==

@@ -483,7 +483,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST(StringToTimestampTests, ParseTimestampSecondsSinceEpochTests) {
   // These tests validate results by comparing the parsed string result vs.
-  // converting that int64_t seconds to timestamp using
+  // converting that int64 seconds to timestamp using
   // ConvertTimestampToStringWithoutTruncation().
   TestParseSecondsSinceEpoch(types::kTimestampMin / 1000000);
   TestParseSecondsSinceEpoch(-31536000000);
@@ -1332,7 +1332,7 @@ void RunParseDatetimeTest(const ParseDatetimeTest& test) {
   datetime = std::nullopt;
   if (parse_status.ok()) {
     // Convert the parsed TIMESTAMP to DATETIME.  We first convert the
-    // int64_t timestamp to absl::Time, and then absl::Time to DatetimeValue
+    // int64 timestamp to absl::Time, and then absl::Time to DatetimeValue
     absl::Time parsed_time = absl::FromUnixMicros(parsed_timestamp);
     ZETASQL_ASSERT_OK(ConvertTimestampToDatetime(parsed_time, absl::UTCTimeZone(),
                                          &parsed_datetime));

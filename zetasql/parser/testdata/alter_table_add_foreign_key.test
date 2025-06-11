@@ -286,7 +286,7 @@ AlterTableStatement [0-97]
 ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) MATCH FULL ON UPDATE CASCADE ON DELETE CASCADE ENFORCED
 ==
 
-[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
 ALTER TABLE foo-bar-123.baz ADD FOREIGN KEY (A) REFERENCES T(B);
 --
 ALTERNATION GROUP: <empty>
@@ -295,7 +295,7 @@ ERROR: Syntax error: Table name contains '-' character. The dashed identifier pa
 ALTER TABLE foo-bar-123.baz ADD FOREIGN KEY (A) REFERENCES T(B);
             ^
 --
-ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
 --
 AlterTableStatement [0-63]
   PathExpression [12-27]

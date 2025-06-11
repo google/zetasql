@@ -78,7 +78,7 @@ final class AnnotationMapTestConstants {
     AnnotationMap annotationMap = AnnotationMap.create(SIMPLE_ARRAY_TYPE);
 
     annotationMap.setAnnotation(COLLATION_ANNOTATION_ID, TEST_SIMPLE_VALUE1);
-    annotationMap.asArrayMap().getElement().setAnnotation(SAMPLE_ANNOTATION_ID, TEST_SIMPLE_VALUE2);
+    annotationMap.asStructMap().getField(0).setAnnotation(SAMPLE_ANNOTATION_ID, TEST_SIMPLE_VALUE2);
 
     return annotationMap;
   }
@@ -95,8 +95,8 @@ final class AnnotationMapTestConstants {
     annotationMap
         .asStructMap()
         .getField(1)
-        .asArrayMap()
-        .getElement()
+        .asStructMap()
+        .getField(0)
         .setAnnotation(COLLATION_ANNOTATION_ID, TEST_SIMPLE_VALUE1);
 
     return annotationMap;
@@ -110,15 +110,15 @@ final class AnnotationMapTestConstants {
     annotationMap.setAnnotation(COLLATION_ANNOTATION_ID, TEST_SIMPLE_VALUE1);
     // Set annotation for the "a STRING" field
     annotationMap
-        .asArrayMap()
-        .getElement()
+        .asStructMap()
+        .getField(0)
         .asStructMap()
         .getField(0)
         .setAnnotation(SAMPLE_ANNOTATION_ID, TEST_SIMPLE_VALUE2);
     // Set annotation for the ARRAY<INT64> field
     annotationMap
-        .asArrayMap()
-        .getElement()
+        .asStructMap()
+        .getField(0)
         .asStructMap()
         .getField(1)
         .setAnnotation(COLLATION_ANNOTATION_ID, TEST_SIMPLE_VALUE1);

@@ -994,7 +994,7 @@ bool StringFormatEvaluator::ProcessPattern() {
       int64_t precision_value;
       if (!absl::SimpleAtoi(absl::ClippedSubstr(precision, 1),
                             &precision_value)) {
-        // Overflowing int64_t.
+        // Overflowing int64.
         precision_value = std::numeric_limits<int64_t>::max();
       }
       status_.Update(ValidatePrecisionValue(precision_value, spec_char));
@@ -1261,7 +1261,7 @@ template <bool GROUPING>
 absl::FormatConvertResult<absl::FormatConversionCharSet::kIntegral> ConvertInt(
     uint64_t magnitude, bool negative, const absl::FormatConversionSpec& conv,
     absl::FormatSink* sink) {
-  constexpr int kMaxDigits = 23;  // Octal std::numeric_limits<uint64_t>::max()
+  constexpr int kMaxDigits = 23;  // Octal std::numeric_limits<uint64>::max()
                                   // has at most 22 digits + \0
   char buffer[kMaxDigits];
   char sep = ',';
@@ -1311,7 +1311,7 @@ absl::FormatConvertResult<absl::FormatConversionCharSet::kIntegral> ConvertInt(
 
   // The number of separator characters in printed value.
   int separators = (sig_digits - leading_digits) / group_size;
-  // 6 separators for std::numeric_limits<uint64_t>::max() in base 10
+  // 6 separators for std::numeric_limits<uint64>::max() in base 10
   ABSL_DCHECK_LE(separators, 6);
   // The number of leading zeros that satisfy the required precision.
   int precision_digits = 0;

@@ -119,7 +119,8 @@ Resolver::Resolver(Catalog* catalog, TypeFactory* type_factory,
       coercer_(type_factory, &analyzer_options_.language(), catalog),
       empty_name_list_(new NameList),
       empty_name_scope_(new NameScope(*empty_name_list_)),
-      id_string_pool_(analyzer_options_.id_string_pool().get()) {
+      id_string_pool_(analyzer_options_.id_string_pool().get()),
+      warning_sink_(/*consider_location=*/false) {
   function_resolver_ =
       std::make_unique<FunctionResolver>(catalog, type_factory, this);
   annotation_propagator_ =
@@ -284,7 +285,7 @@ absl::Status Resolver::AddAdditionalDeprecationWarningsForCalledFunction(
 
 absl::Status Resolver::AddDeprecationWarning(const ASTNode* ast_location,
                                              DeprecationWarning::Kind kind,
-                                             const std::string& message) {
+                                             absl::string_view message) {
   return warning_sink_.AddWarning(kind, MakeSqlErrorAt(ast_location)
                                             << message);
 }
@@ -305,13 +306,22 @@ absl::Status Resolver::ResolveStandaloneExpr(
   if (analyzer_options_.allow_aggregate_standalone_expression()) {
     std::unique_ptr<QueryResolutionInfo> query_resolution_info(
         new QueryResolutionInfo(this));
-    ExprResolutionInfoOptions options;
-    options.allows_aggregation = true;
-    options.clause_name = "standalone expression";
-    ExprResolutionInfo expr_resolution_info(query_resolution_info.get(),
-                                            empty_name_scope_.get(), options);
+    auto expr_resolution_info = std::make_unique<ExprResolutionInfo>(
+        query_resolution_info.get(), empty_name_scope_.get(),
+        ExprResolutionInfoOptions{.allows_aggregation = true,
+                                  .clause_name = "standalone expression"});
     ZETASQL_RETURN_IF_ERROR(
-        ResolveExpr(ast_expr, &expr_resolution_info, resolved_expr_out));
+        ResolveExpr(ast_expr, expr_resolution_info.get(), resolved_expr_out));
+    // Columns in the `ORDER BY` clause of an aggregate function call are
+    // pushed into a ProjectScan, and are thus not available in the standalone
+    // expression resolution.
+    if (!query_resolution_info
+             ->select_list_columns_to_compute_before_aggregation()
+             ->empty()) {
+      return MakeSqlErrorAt(ast_expr)
+             << "Standalone expression resolution does not support aggregate "
+                "function calls with the ORDER BY clause";
+    }
   } else {
     ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_expr, empty_name_scope_.get(),
                                       "standalone expression",
@@ -419,13 +429,13 @@ absl::Status Resolver::ResolveQueryStatementWithFunctionArguments(
   return absl::OkStatus();
 }
 
-absl::Status Resolver::ResolveTypeName(const std::string& type_name,
+absl::Status Resolver::ResolveTypeName(absl::string_view type_name,
                                        const Type** type) {
   TypeModifiers type_modifiers;
   return ResolveTypeName(type_name, type, &type_modifiers);
 }
 
-absl::Status Resolver::ResolveTypeNameInternal(const std::string& type_name,
+absl::Status Resolver::ResolveTypeNameInternal(absl::string_view type_name,
                                                const Type** type,
                                                TypeModifiers* type_modifiers) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
@@ -439,7 +449,7 @@ absl::Status Resolver::ResolveTypeNameInternal(const std::string& type_name,
   return absl::OkStatus();
 }
 
-absl::Status Resolver::ResolveTypeName(const std::string& type_name,
+absl::Status Resolver::ResolveTypeName(absl::string_view type_name,
                                        const Type** type,
                                        TypeModifiers* type_modifiers) {
   // Reset state because ResolveTypeName is a public entry-point.
@@ -672,7 +682,8 @@ std::unique_ptr<ResolvedColumnRef> Resolver::MakeColumnRefWithCorrelation(
           (column_set != correlated_columns_sets.back());
       if (!zetasql_base::InsertIfNotPresent(column_set, column, is_already_correlated)) {
         // is_already_correlated should always be computed consistently.
-        ABSL_DCHECK_EQ((*column_set)[column], is_already_correlated);
+        ABSL_DCHECK_EQ((*column_set)[column], is_already_correlated)
+            << column.DebugString();
       }
     }
   }
@@ -1756,7 +1767,7 @@ Resolver::ResolveParameterLiterals(
       case AST_INT_LITERAL: {
         if (resolved_value.type_kind() == TYPE_UINT64) {
           // If someone uses a truly huge parameter, it will 'flip over'
-          // to being parsed as a uint64_t.
+          // to being parsed as a uint64.
           return MakeSqlErrorAt(type_parameter)
                  << "Integer type parameters must fall in the domain of INT64. "
                  << "Supplied value '" << resolved_value.uint64_value()
@@ -1869,9 +1880,12 @@ absl::Status Resolver::ResolveMapType(
         << "Type parameters are not allowed directly on MAP";
   }
 
-  ZETASQL_RET_CHECK(resolved_type_modifiers != nullptr);
-  *resolved_type_modifiers = TypeModifiers::MakeTypeModifiers(
-      std::move(resolved_type_params), Collation{});
+  if (resolve_type_modifier_options.allow_type_parameters ||
+      resolve_type_modifier_options.allow_collation) {
+    ZETASQL_RET_CHECK(resolved_type_modifiers != nullptr);
+    *resolved_type_modifiers = TypeModifiers::MakeTypeModifiers(
+        std::move(resolved_type_params), Collation{});
+  }
 
   return absl::OkStatus();
 }
@@ -1879,7 +1893,7 @@ absl::Status Resolver::ResolveMapType(
 absl::Status Resolver::MaybeResolveCollationForFunctionCallBase(
     const ASTNode* error_location, ResolvedFunctionCallBase* function_call) {
   ZETASQL_RET_CHECK_NE(function_call, nullptr);
-  if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT)) {
+  if (!language().LanguageFeatureEnabled(FEATURE_COLLATION_SUPPORT)) {
     return absl::OkStatus();
   }
   // Aggregate and analytic function calls with is_distinct should resolve the
@@ -1918,7 +1932,7 @@ absl::Status Resolver::MaybeResolveCollationForFunctionCallBase(
 absl::Status Resolver::MaybeResolveCollationForSubqueryExpr(
     const ASTNode* error_location, ResolvedSubqueryExpr* subquery_expr) {
   ZETASQL_RET_CHECK_NE(subquery_expr, nullptr);
-  if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT) ||
+  if (!language().LanguageFeatureEnabled(FEATURE_COLLATION_SUPPORT) ||
       subquery_expr->subquery_type() != ResolvedSubqueryExpr::IN) {
     return absl::OkStatus();
   }
@@ -2227,7 +2241,7 @@ absl::Status Resolver::FindTable(const ASTPathExpression* name,
   return status;
 }
 
-void Resolver::FindColumnIndex(const Table* table, const std::string& name,
+void Resolver::FindColumnIndex(const Table* table, absl::string_view name,
                                int* index, bool* duplicate) {
   ABSL_DCHECK(table != nullptr);
   ABSL_DCHECK(index != nullptr);
@@ -2368,7 +2382,7 @@ absl::Status Resolver::ValidateAndResolveDefaultCollate(
     const ASTCollate* ast_collate, const ASTNode* ast_location,
     std::unique_ptr<const ResolvedExpr>* resolved_collate) {
   ZETASQL_RET_CHECK_NE(nullptr, ast_collate);
-  ZETASQL_RET_CHECK(language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT));
+  ZETASQL_RET_CHECK(language().LanguageFeatureEnabled(FEATURE_COLLATION_SUPPORT));
   return ResolveCollate(ast_collate, resolved_collate);
 }
 
@@ -2377,7 +2391,7 @@ absl::Status Resolver::ValidateAndResolveCollate(
     const Type* column_type,
     std::unique_ptr<const ResolvedExpr>* resolved_collate) {
   ZETASQL_RET_CHECK_NE(nullptr, ast_collate);
-  ZETASQL_RET_CHECK(language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT));
+  ZETASQL_RET_CHECK(language().LanguageFeatureEnabled(FEATURE_COLLATION_SUPPORT));
   if (!column_type->IsString()) {
     return MakeSqlErrorAt(ast_location)
            << "COLLATE can only be applied to columns or expressions of type "

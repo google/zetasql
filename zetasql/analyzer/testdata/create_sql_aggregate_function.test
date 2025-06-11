@@ -1,4 +1,3 @@
-
 create function myfunc() as (count(*));
 --
 ERROR: Aggregate function COUNT(*) not allowed in SQL function body [at 1:30]
@@ -531,7 +530,7 @@ CreateFunctionStmt
 
 # Aggregate UDF using ORDER BY modifiers on the aggregate.
 # Currently not supported, so we give an error.
-[language_features=CREATE_AGGREGATE_FUNCTION,ANALYTIC_FUNCTIONS,V_1_1_ORDER_BY_IN_AGGREGATE]
+[language_features=CREATE_AGGREGATE_FUNCTION,ANALYTIC_FUNCTIONS,ORDER_BY_IN_AGGREGATE]
 create aggregate function myfunc(x bytes) as ( array_agg(x order by x) )
 --
 ERROR: Function body with aggregate functions with ORDER BY not currently supported [at 1:48]
@@ -539,7 +538,7 @@ create aggregate function myfunc(x bytes) as ( array_agg(x order by x) )
                                                ^
 ==
 
-[language_features=CREATE_AGGREGATE_FUNCTION,ANALYTIC_FUNCTIONS,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_ORDER_BY_COLLATE]
+[language_features=CREATE_AGGREGATE_FUNCTION,ANALYTIC_FUNCTIONS,ORDER_BY_IN_AGGREGATE,ORDER_BY_COLLATE]
 create aggregate function myfunc(x bytes, y string) as (
   array_agg(x order by y collate 'EN-US' desc)
 )
@@ -550,7 +549,7 @@ ERROR: Function body with aggregate functions with ORDER BY not currently suppor
 ==
 
 # Aggregate UDF using LIMIT modifiers on the aggregate.
-[language_features=CREATE_AGGREGATE_FUNCTION,ANALYTIC_FUNCTIONS,V_1_1_LIMIT_IN_AGGREGATE]
+[language_features=CREATE_AGGREGATE_FUNCTION,ANALYTIC_FUNCTIONS,LIMIT_IN_AGGREGATE]
 create aggregate function myfunc(x bytes) as ( array_agg(x limit 10) )
 --
 CreateFunctionStmt
@@ -572,17 +571,17 @@ CreateFunctionStmt
 ==
 
 # Limit only accepts constants, which doesn't include arguments currently.
-[language_features={{CREATE_AGGREGATE_FUNCTION,ANALYTIC_FUNCTIONS,V_1_1_LIMIT_IN_AGGREGATE|CREATE_AGGREGATE_FUNCTION,ANALYTIC_FUNCTIONS,V_1_1_LIMIT_IN_AGGREGATE,V_1_4_LIMIT_OFFSET_EXPRESSIONS}}]
+[language_features={{CREATE_AGGREGATE_FUNCTION,ANALYTIC_FUNCTIONS,LIMIT_IN_AGGREGATE|CREATE_AGGREGATE_FUNCTION,ANALYTIC_FUNCTIONS,LIMIT_IN_AGGREGATE,LIMIT_OFFSET_EXPRESSIONS}}]
 create aggregate function myfunc(x bytes, y int64 NOT AGGREGATE) as
 ( array_agg(x limit y) )
 --
-ALTERNATION GROUP: CREATE_AGGREGATE_FUNCTION,ANALYTIC_FUNCTIONS,V_1_1_LIMIT_IN_AGGREGATE
+ALTERNATION GROUP: CREATE_AGGREGATE_FUNCTION,ANALYTIC_FUNCTIONS,LIMIT_IN_AGGREGATE
 --
 ERROR: LIMIT expects an integer literal or parameter [at 2:21]
 ( array_agg(x limit y) )
                     ^
 --
-ALTERNATION GROUP: CREATE_AGGREGATE_FUNCTION,ANALYTIC_FUNCTIONS,V_1_1_LIMIT_IN_AGGREGATE,V_1_4_LIMIT_OFFSET_EXPRESSIONS
+ALTERNATION GROUP: CREATE_AGGREGATE_FUNCTION,ANALYTIC_FUNCTIONS,LIMIT_IN_AGGREGATE,LIMIT_OFFSET_EXPRESSIONS
 --
 CreateFunctionStmt
 +-name_path=myfunc
@@ -967,7 +966,7 @@ ERROR: To write SQL functions, omit the LANGUAGE clause and write the function b
            ^
 ==
 
-[language_features=CREATE_AGGREGATE_FUNCTION,V_1_1_ORDER_BY_IN_AGGREGATE]
+[language_features=CREATE_AGGREGATE_FUNCTION,ORDER_BY_IN_AGGREGATE]
 # Shows b/199542166
 CREATE TEMP AGGREGATE FUNCTION PackInOrder(foo STRING, delimiter STRING)
 RETURNS STRING
@@ -980,7 +979,7 @@ ERROR: An aggregate function that has both DISTINCT and ORDER BY arguments can o
                                                   ^
 ==
 
-[language_features=CREATE_AGGREGATE_FUNCTION,V_1_4_GROUPING_BUILTIN]
+[language_features=CREATE_AGGREGATE_FUNCTION,GROUPING_BUILTIN]
 CREATE TEMP AGGREGATE FUNCTION MyGroupingFunc(x STRING)
 RETURNS BOOL
 AS (
@@ -992,7 +991,7 @@ CREATE TEMP AGGREGATE FUNCTION MyGroupingFunc(x STRING)
 ^
 ==
 
-[language_features=CREATE_AGGREGATE_FUNCTION,V_1_4_GROUPING_BUILTIN]
+[language_features=CREATE_AGGREGATE_FUNCTION,GROUPING_BUILTIN]
 CREATE TEMP AGGREGATE FUNCTION MyAggFunc(x STRING, y INT64, z int32 NOT AGGREGATE)
 RETURNS BOOL
 AS (

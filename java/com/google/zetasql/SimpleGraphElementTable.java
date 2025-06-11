@@ -38,6 +38,8 @@ public abstract class SimpleGraphElementTable implements GraphElementTable {
   protected final List<Integer> keyColumns;
   protected final Map<String, GraphElementLabel> labelMap;
   protected final Map<String, GraphPropertyDefinition> propertyDefMap;
+  protected final GraphDynamicLabel dynamicLabel;
+  protected final GraphDynamicProperties dynamicProperties;
 
   public SimpleGraphElementTable(
       String name,
@@ -45,7 +47,9 @@ public abstract class SimpleGraphElementTable implements GraphElementTable {
       Table table,
       List<Integer> keyColumns,
       Set<GraphElementLabel> labels,
-      Set<GraphPropertyDefinition> propertyDefinitions) {
+      Set<GraphPropertyDefinition> propertyDefinitions,
+      GraphDynamicLabel dynamicLabel,
+      GraphDynamicProperties dynamicProperties) {
     this.name = name;
     this.propertyGraphNamePath = ImmutableList.copyOf(propertyGraphNamePath);
     this.table = table;
@@ -56,6 +60,9 @@ public abstract class SimpleGraphElementTable implements GraphElementTable {
 
     labels.forEach(this::addLabel);
     propertyDefinitions.forEach(this::addPropertyDefinition);
+
+    this.dynamicLabel = dynamicLabel;
+    this.dynamicProperties = dynamicProperties;
   }
 
   public void addLabel(GraphElementLabel label) {
@@ -67,6 +74,7 @@ public abstract class SimpleGraphElementTable implements GraphElementTable {
         Ascii.toLowerCase(propertyDefinition.getDeclaration().getName()), propertyDefinition);
   }
 
+  @SuppressWarnings("PatternMatchingInstanceof")
   public SimpleGraphElementTableProto serialize(
       FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
     SimpleGraphElementTableProto.Builder proto =
@@ -92,6 +100,25 @@ public abstract class SimpleGraphElementTable implements GraphElementTable {
             "Cannot serialize non-SimpleGraphPropertyDefinition " + name);
       }
     }
+
+    if (hasDynamicLabel()) {
+      if (dynamicLabel instanceof SimpleGraphDynamicLabel) {
+        SimpleGraphDynamicLabel simpleDynamicLabel = (SimpleGraphDynamicLabel) dynamicLabel;
+        proto.setDynamicLabel(simpleDynamicLabel.serialize());
+      } else {
+        throw new IllegalArgumentException("Cannot serialize non-SimpleGraphDynamicLabel ");
+      }
+    }
+    if (hasDynamicProperties()) {
+      if (dynamicProperties instanceof SimpleGraphDynamicProperties) {
+        SimpleGraphDynamicProperties simpleDynamicProperties =
+            (SimpleGraphDynamicProperties) dynamicProperties;
+        proto.setDynamicProperties(simpleDynamicProperties.serialize());
+      } else {
+        throw new IllegalArgumentException("Cannot serialize non-SimpleGraphDynamicProperties ");
+      }
+    }
+
     return proto.build();
   }
 
@@ -137,5 +164,25 @@ public abstract class SimpleGraphElementTable implements GraphElementTable {
   @Override
   public Set<GraphElementLabel> getLabels() {
     return ImmutableSet.copyOf(labelMap.values());
+  }
+
+  @Override
+  public boolean hasDynamicLabel() {
+    return dynamicLabel != null;
+  }
+
+  @Override
+  public boolean hasDynamicProperties() {
+    return dynamicProperties != null;
+  }
+
+  @Override
+  public GraphDynamicLabel getDynamicLabel() {
+    return dynamicLabel;
+  }
+
+  @Override
+  public GraphDynamicProperties getDynamicProperties() {
+    return dynamicProperties;
   }
 }

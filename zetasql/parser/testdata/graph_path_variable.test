@@ -1,5 +1,5 @@
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_PATH_TYPE]
+[default language_features=SQL_GRAPH,SQL_GRAPH_PATH_TYPE]
 [default no_test_get_parse_tokens]
 
 # Empty path isn't allowed
@@ -8,7 +8,7 @@ select * from graph_table(aml
   RETURN SUM(a.account_id) as col1
 )
 --
-ERROR: Syntax error: Expected "(" or "-" or "<" or -> but got "," [at 3:13]
+ERROR: Syntax error: Unexpected "," [at 3:13]
   MATCH p = , (a)
             ^
 
@@ -44,7 +44,7 @@ QueryStatement [0-89] [select * from...as col1 )]
                       GraphElementPatternFiller [50-51] [b]
                         Identifier(b) [50-51] [b]
               GqlReturn [55-87] [RETURN SUM...count_id) as col1]
-                Select [61-87] [SUM(a.account_id) as col1]
+                Select [62-87] [SUM(a.account_id) as col1]
                   SelectList [62-87] [SUM(a.account_id) as col1]
                     SelectColumn [62-87] [SUM(a.account_id) as col1]
                       FunctionCall [62-79] [SUM(a.account_id)]
@@ -98,7 +98,7 @@ QueryStatement [0-65] [select * from...ETURN 1 as a )]
                       GraphElementPatternFiller [44-45] [a]
                         Identifier(a) [44-45] [a]
               GqlReturn [50-63] [RETURN 1 as a]
-                Select [56-63] [1 as a]
+                Select [57-63] [1 as a]
                   SelectList [57-63] [1 as a]
                     SelectColumn [57-63] [1 as a]
                       IntLiteral(1) [57-58] [1]
@@ -127,7 +127,7 @@ select * from graph_table(aml
   RETURN 1 as a
 )
 --
-ERROR: Syntax error: Expected "(" or "-" or "<" or -> but got "=" [at 2:9]
+ERROR: Syntax error: Unexpected "=" [at 2:9]
   MATCH = (a)
         ^
 
@@ -139,7 +139,7 @@ select * from graph_table(aml
   RETURN 1 as a
 )
 --
-ERROR: Syntax error: Expected "(" or "-" or "<" or -> but got "=" [at 2:10]
+ERROR: Syntax error: Expected ")" but got "=" [at 2:10]
   MATCH (= (a))
          ^
 
@@ -190,7 +190,7 @@ QueryStatement [0-95] [select * from...as col1 )]
                         GraphElementPatternFiller [55-56] [b]
                           Identifier(b) [55-56] [b]
               GqlReturn [61-93] [RETURN SUM...count_id) as col1]
-                Select [67-93] [SUM(a.account_id) as col1]
+                Select [68-93] [SUM(a.account_id) as col1]
                   SelectList [68-93] [SUM(a.account_id) as col1]
                     SelectColumn [68-93] [SUM(a.account_id) as col1]
                       FunctionCall [68-85] [SUM(a.account_id)]
@@ -250,7 +250,7 @@ QueryStatement [0-91] [select * from...as col1 )]
                       GraphElementPatternFiller [51-52] [b]
                         Identifier(b) [51-52] [b]
               GqlReturn [57-89] [RETURN SUM...count_id) as col1]
-                Select [63-89] [SUM(a.account_id) as col1]
+                Select [64-89] [SUM(a.account_id) as col1]
                   SelectList [64-89] [SUM(a.account_id) as col1]
                     SelectColumn [64-89] [SUM(a.account_id) as col1]
                       FunctionCall [64-81] [SUM(a.account_id)]
@@ -311,7 +311,7 @@ QueryStatement [0-97] [select * from...as col1 )]
                         GraphElementPatternFiller [56-57] [b]
                           Identifier(b) [56-57] [b]
               GqlReturn [63-95] [RETURN SUM...count_id) as col1]
-                Select [69-95] [SUM(a.account_id) as col1]
+                Select [70-95] [SUM(a.account_id) as col1]
                   SelectList [70-95] [SUM(a.account_id) as col1]
                     SelectColumn [70-95] [SUM(a.account_id) as col1]
                       FunctionCall [70-87] [SUM(a.account_id)]
@@ -385,7 +385,7 @@ QueryStatement [0-111] [select * from...as col1 )]
                         GraphElementPatternFiller [70-71] [d]
                           Identifier(d) [70-71] [d]
               GqlReturn [77-109] [RETURN SUM...count_id) as col1]
-                Select [83-109] [SUM(a.account_id) as col1]
+                Select [84-109] [SUM(a.account_id) as col1]
                   SelectList [84-109] [SUM(a.account_id) as col1]
                     SelectColumn [84-109] [SUM(a.account_id) as col1]
                       FunctionCall [84-101] [SUM(a.account_id)]
@@ -455,7 +455,7 @@ QueryStatement [0-76] [select * from...ETURN 1 as r )]
                       GraphElementPatternFiller [56-57] [b]
                         Identifier(b) [56-57] [b]
               GqlReturn [61-74] [RETURN 1 as r]
-                Select [67-74] [1 as r]
+                Select [68-74] [1 as r]
                   SelectList [68-74] [1 as r]
                     SelectColumn [68-74] [1 as r]
                       IntLiteral(1) [68-69] [1]
@@ -511,7 +511,7 @@ QueryStatement [0-82] [select * from...ETURN 1 as r )]
                       GraphElementPatternFiller [62-63] [b]
                         Identifier(b) [62-63] [b]
               GqlReturn [67-80] [RETURN 1 as r]
-                Select [73-80] [1 as r]
+                Select [74-80] [1 as r]
                   SelectList [74-80] [1 as r]
                     SelectColumn [74-80] [1 as r]
                       IntLiteral(1) [74-75] [1]
@@ -575,7 +575,7 @@ QueryStatement [0-121] [select * from...ETURN 1 as r )]
                       GraphElementPatternFiller [101-102] [a]
                         Identifier(a) [101-102] [a]
               GqlReturn [106-119] [RETURN 1 as r]
-                Select [112-119] [1 as r]
+                Select [113-119] [1 as r]
                   SelectList [113-119] [1 as r]
                     SelectColumn [113-119] [1 as r]
                       IntLiteral(1) [113-114] [1]
@@ -635,7 +635,7 @@ QueryStatement [0-102] [select * from...ETURN 1 as r )]
                     PathExpression [44-71] [hint_on_match_graph_pattern]
                       Identifier(hint_on_match_graph_pattern) [44-71] [hint_on_match_graph_pattern]
               GqlReturn [87-100] [RETURN 1 as r]
-                Select [93-100] [1 as r]
+                Select [94-100] [1 as r]
                   SelectList [94-100] [1 as r]
                     SelectColumn [94-100] [1 as r]
                       IntLiteral(1) [94-95] [1]
@@ -707,7 +707,7 @@ QueryStatement [0-136] [select * from...ETURN 1 as r )]
                     PathExpression [44-71] [hint_on_match_graph_pattern]
                       Identifier(hint_on_match_graph_pattern) [44-71] [hint_on_match_graph_pattern]
               GqlReturn [121-134] [RETURN 1 as r]
-                Select [127-134] [1 as r]
+                Select [128-134] [1 as r]
                   SelectList [128-134] [1 as r]
                     SelectColumn [128-134] [1 as r]
                       IntLiteral(1) [128-129] [1]
@@ -740,6 +740,6 @@ select * from graph_table(aml
   RETURN 1 as r
 )
 --
-ERROR: Syntax error: Expected "(" or "-" or "<" or -> but got "@" [at 2:13]
+ERROR: Syntax error: Unexpected "@" [at 2:13]
   MATCH p = @{key=hint_on_nothing} (a)-(b)
             ^

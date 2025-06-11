@@ -19,10 +19,12 @@
 
 #include <stddef.h>
 
+#include <any>
 #include <functional>
 #include <optional>
 #include <set>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -32,7 +34,16 @@
 #include "zetasql/parser/ast_node_internal.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/public/parse_location.h"
-#include "zetasql/base/status.h"
+#include "absl/base/attributes.h"
+#include "absl/base/log_severity.h"
+#include "absl/base/macros.h"
+#include "absl/container/inlined_vector.h"
+#include "zetasql/base/check.h"
+#include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
+#include "zetasql/base/ret_check.h"
 
 // This header file has the definition of ASTNode, the superclass of all
 // AST classes. It should not be included directly. Include parse_tree.h.
@@ -50,6 +61,7 @@
 namespace zetasql {
 
 class ParseTreeVisitor;
+class ParseTreeStatusVisitor;
 class NonRecursiveParseTreeVisitor;
 class VisitResult;
 
@@ -58,6 +70,10 @@ absl::string_view SchemaObjectKindToName(SchemaObjectKind schema_object_kind);
 
 // Checks whether SchemaObjectKind can be snapshotted or not.
 bool SchemaObjectAllowedForSnapshot(SchemaObjectKind schema_object_kind);
+
+// TODO: C++23 -- When "deducing this" is available in relevant toolchians,
+// change member functions of ASTNode that currently `return this;` so that they
+// return the type of the object they are called on rather than `ASTNode*`.
 
 // Base class for all AST nodes.
 class ASTNode : public zetasql_base::ArenaOnlyGladiator {
@@ -78,14 +94,15 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
   void set_parent(ASTNode* parent) { parent_ = parent; }
   ASTNode* parent() const { return parent_; }
 
-  // Adds all nodes in 'children' to the child list. Elements in 'children' are
-  // allowed to be NULL, in which case they are ignored.
-  void AddChildren(absl::Span<ASTNode* const> children);
-
-  // Adds 'child' to the list of children. 'child' must be non-NULL.
+  // Appends a child to the back of the children list. This should not be called
+  // directly from the parser, instead use functions provided by
+  // parser_internal.h that help add children while also extending the location
+  // range of the parent node.
   void AddChild(ASTNode* child);
 
-  // Adds 'child' to front of the list of children. 'child' must be non-NULL.
+  // Adds 'child' to front of the list of children and extends the location
+  // range of this node by setting the start location of this to the start
+  // location of 'child'.
   void AddChildFront(ASTNode* child);
 
   // This must be called after adding all children, to initialize the fields
@@ -210,9 +227,15 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
       NonRecursiveParseTreeVisitor* visitor) const;
 
   // Accept the visitor.
+  virtual absl::Status Accept(ParseTreeStatusVisitor& visitor,
+                              std::any& output) const = 0;
+  ABSL_DEPRECATED("Re-base your visitor on ParseTreeStatusVisitor.")
   virtual void Accept(ParseTreeVisitor* visitor, void* data) const = 0;
 
   // Visit children in order.
+  absl::Status ChildrenAccept(ParseTreeStatusVisitor& visitor,
+                              std::any& output) const;
+  ABSL_DEPRECATED("Re-base your visitor on ParseTreeStatusVisitor.")
   void ChildrenAccept(ParseTreeVisitor* visitor, void* data) const;
 
   // Returns a multiline tree dump. Parse locations are represented as integer
@@ -224,11 +247,29 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
   // than raw integer values.
   std::string DebugString(absl::string_view sql, int max_depth = 512) const;
 
-  void set_start_location(const ParseLocationPoint& point) {
-    parse_location_range_.set_start(point);
+  const ParseLocationRange& location() const { return parse_location_range_; }
+  const ParseLocationPoint& start_location() const {
+    return location().start();
   }
-  void set_end_location(const ParseLocationPoint& point) {
+  const ParseLocationPoint& end_location() const { return location().end(); }
+
+  // Sets the location range of this node and returns `this` to allow a chained
+  // function or to be used in a return statement.
+  ASTNode* set_location(const ParseLocationRange& range) {
+    parse_location_range_ = range;
+    return this;
+  }
+  // Sets the start location of this node and returns `this` to allow a chained
+  // function or to be used in a return statement.
+  ASTNode* set_start_location(const ParseLocationPoint& point) {
+    parse_location_range_.set_start(point);
+    return this;
+  }
+  // Sets the end location of this node and returns `this` to allow a chained
+  // function or to be used in a return statement.
+  ASTNode* set_end_location(const ParseLocationPoint& point) {
     parse_location_range_.set_end(point);
+    return this;
   }
 
   virtual bool IsTableExpression() const { return false; }
@@ -247,9 +288,8 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
 
   std::string GetNodeKindString() const;
 
-  const ParseLocationRange& GetParseLocationRange() const {
-    return parse_location_range_;
-  }
+  ABSL_DEPRECATED("Inline me!")
+  const ParseLocationRange& GetParseLocationRange() const { return location(); }
 
   // If both the start and end positions have the same filename (this is
   // normally expected), then gets the position span of this node in the form:

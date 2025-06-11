@@ -1,5 +1,5 @@
 # Flipping FOR UPDATE feature on and off.
-[default language_features={{|V_1_4_FOR_UPDATE}}]
+[default language_features={{|FOR_UPDATE}}]
 select * from KeyValue
 for update
 --
@@ -9,7 +9,7 @@ ERROR: FOR UPDATE is not supported [at 2:1]
 for update
 ^
 --
-ALTERNATION GROUP: V_1_4_FOR_UPDATE
+ALTERNATION GROUP: FOR_UPDATE
 --
 QueryStmt
 +-output_column_list=
@@ -1524,7 +1524,7 @@ QueryStmt
 
 # FOR UPDATE shouldn't apply to any TableScan nodes as all TableScan nodes are
 # below the WITH statement.
-[language_features=V_1_4_FOR_UPDATE,V_1_1_WITH_ON_SUBQUERY]
+[language_features=FOR_UPDATE,WITH_ON_SUBQUERY]
 select
   *
 from (
@@ -1559,7 +1559,7 @@ QueryStmt
               +-WithRefScan(column_list=[kv1.key#3], with_query_name="kv1")
 ==
 
-[default language_features=V_1_4_FOR_UPDATE,PIPES]
+[default language_features=FOR_UPDATE,PIPES]
 
 # FOR UPDATE with pipe syntax.
 from

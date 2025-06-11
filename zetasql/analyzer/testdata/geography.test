@@ -1,4 +1,3 @@
-[default also_show_signature_mismatch_details]
 [default language_features=GEOGRAPHY]
 
 select * from GeographyTable
@@ -107,11 +106,6 @@ QueryStmt
 
 select st_makeline(st_geogpoint(0, 0), [st_geogpoint(1, 1)])
 --
-ERROR: No matching signature for function ST_MAKELINE for argument types: GEOGRAPHY, ARRAY<GEOGRAPHY>. Supported signatures: ST_MAKELINE(GEOGRAPHY, GEOGRAPHY); ST_MAKELINE(ARRAY<GEOGRAPHY>) [at 1:8]
-select st_makeline(st_geogpoint(0, 0), [st_geogpoint(1, 1)])
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function ST_MAKELINE
   Argument types: GEOGRAPHY, ARRAY<GEOGRAPHY>
   Signature: ST_MAKELINE(GEOGRAPHY, GEOGRAPHY)
@@ -125,11 +119,6 @@ select st_makeline(st_geogpoint(0, 0), [st_geogpoint(1, 1)])
 select st_makeline([1,2])
 --
 
-ERROR: No matching signature for function ST_MAKELINE for argument types: ARRAY<INT64>. Supported signatures: ST_MAKELINE(GEOGRAPHY, GEOGRAPHY); ST_MAKELINE(ARRAY<GEOGRAPHY>) [at 1:8]
-select st_makeline([1,2])
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function ST_MAKELINE
   Argument types: ARRAY<INT64>
   Signature: ST_MAKELINE(GEOGRAPHY, GEOGRAPHY)
@@ -143,11 +132,6 @@ select st_makeline([1,2])
 # No automatic coercion to array
 select st_makepolygonoriented(geo1) from GeographyTable
 --
-ERROR: No matching signature for function ST_MAKEPOLYGONORIENTED for argument types: GEOGRAPHY. Supported signature: ST_MAKEPOLYGONORIENTED(ARRAY<GEOGRAPHY>) [at 1:8]
-select st_makepolygonoriented(geo1) from GeographyTable
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function ST_MAKEPOLYGONORIENTED
   Argument types: GEOGRAPHY
   Signature: ST_MAKEPOLYGONORIENTED(ARRAY<GEOGRAPHY>)
@@ -460,11 +444,6 @@ QueryStmt
 
 select st_distance(geo2) from GeographyTable
 --
-ERROR: Number of arguments does not match for function ST_DISTANCE. Supported signature: ST_DISTANCE(GEOGRAPHY, GEOGRAPHY, [BOOL]) [at 1:8]
-select st_distance(geo2) from GeographyTable
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function ST_DISTANCE
   Argument types: GEOGRAPHY
   Signature: ST_DISTANCE(GEOGRAPHY, GEOGRAPHY, [BOOL])
@@ -697,11 +676,6 @@ select count(*) over(order by geo1) from GeographyTable
 # Function signature errors
 select st_geogpoint(1.1, 2.2, 3)
 --
-ERROR: Number of arguments does not match for function ST_GEOGPOINT. Supported signature: ST_GEOGPOINT(DOUBLE, DOUBLE) [at 1:8]
-select st_geogpoint(1.1, 2.2, 3)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function ST_GEOGPOINT
   Argument types: DOUBLE, DOUBLE, INT64
   Signature: ST_GEOGPOINT(DOUBLE, DOUBLE)
@@ -710,10 +684,10 @@ select st_geogpoint(1.1, 2.2, 3)
        ^
 ==
 
-[language_features=GEOGRAPHY,NAMED_ARGUMENTS{{,V_1_3_EXTENDED_GEOGRAPHY_PARSERS|}}]
+[language_features=GEOGRAPHY,NAMED_ARGUMENTS{{,EXTENDED_GEOGRAPHY_PARSERS|}}]
 select st_geogfromtext('point(0 0)', planar => TRUE)
 --
-ALTERNATION GROUP: ,V_1_3_EXTENDED_GEOGRAPHY_PARSERS
+ALTERNATION GROUP: ,EXTENDED_GEOGRAPHY_PARSERS
 --
 QueryStmt
 +-output_column_list=
@@ -733,11 +707,6 @@ QueryStmt
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for function ST_GEOGFROMTEXT for argument types: STRING, planar => BOOL. Supported signature: ST_GEOGFROMTEXT(STRING, [BOOL]) [at 1:8]
-select st_geogfromtext('point(0 0)', planar => TRUE)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function ST_GEOGFROMTEXT
   Argument types: STRING, planar => BOOL
   Signature: ST_GEOGFROMTEXT(STRING, [BOOL])
@@ -746,7 +715,7 @@ select st_geogfromtext('point(0 0)', planar => TRUE)
        ^
 ==
 
-[language_features=GEOGRAPHY,NAMED_ARGUMENTS,V_1_3_EXTENDED_GEOGRAPHY_PARSERS]
+[language_features=GEOGRAPHY,NAMED_ARGUMENTS,EXTENDED_GEOGRAPHY_PARSERS]
 select
   # Permutation of named arguments produce same resolved AST.
   st_geogfromtext('point(0 0)', planar => true, make_valid => false, oriented => true),
@@ -841,7 +810,7 @@ QueryStmt
 
 ==
 
-[language_features=GEOGRAPHY,NAMED_ARGUMENTS,V_1_3_EXTENDED_GEOGRAPHY_PARSERS]
+[language_features=GEOGRAPHY,NAMED_ARGUMENTS,EXTENDED_GEOGRAPHY_PARSERS]
 select st_geogfromtext('point(0 0)', planar => x) from unnest([true, false]) x
 --
 ERROR: Argument 'planar' to ST_GEOGFROMTEXT must be a literal or query parameter [at 1:38]
@@ -850,15 +819,10 @@ select st_geogfromtext('point(0 0)', planar => x) from unnest([true, false]) x
 ==
 
 # Invalid signature: omitted required argument
-[language_features=GEOGRAPHY,NAMED_ARGUMENTS,V_1_3_EXTENDED_GEOGRAPHY_PARSERS]
+[language_features=GEOGRAPHY,NAMED_ARGUMENTS,EXTENDED_GEOGRAPHY_PARSERS]
 select st_bufferwithtolerance(st_geogpoint(1,2),
   tolerance_meters => 100, endcap => "flat", side => "left");
 --
-ERROR: Call to function ZetaSQL:st_bufferwithtolerance does not include required positional argument number 2 [at 1:8]
-select st_bufferwithtolerance(st_geogpoint(1,2),
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function ST_BUFFERWITHTOLERANCE
   Argument types: GEOGRAPHY, tolerance_meters => INT64, endcap => STRING, side => STRING
   Signature: ST_BUFFERWITHTOLERANCE(GEOGRAPHY, DOUBLE, [tolerance_meters=>]DOUBLE, [[use_spheroid=>]BOOL], [endcap => STRING], [side => STRING])

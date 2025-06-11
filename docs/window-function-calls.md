@@ -10,7 +10,7 @@ different from an aggregate function, which returns a single result for
 _a group_ of rows.
 
 A window function includes an `OVER` clause, which defines a window of rows
-around the row being evaluated.  For each row, the window function result
+around the row being evaluated. For each row, the window function result
 is computed using the selected window of rows as input, possibly
 doing aggregation.
 
@@ -45,6 +45,7 @@ A window function computes results over a group of rows. You can use the
 following syntax to build a window function:
 
 +  `function_name`: The function that performs a window operation.
+
    For example, the numbering function `RANK()` could be used here.
 +  `argument_list`: Arguments that are specific to the function.
    Some functions have them, some don't.
@@ -156,6 +157,7 @@ Important: If you use a named window, special rules apply to
    +  If this optional clause isn't used, all rows in the input table
       comprise a single partition.
 +  `ORDER BY`: Defines how rows are ordered within a partition.
+
    This clause is optional in most situations, but is required in some
    cases for [navigation functions][navigation-functions-reference].
 +  [`window_frame_clause`][window-frame-clause-def]: For aggregate analytic
@@ -359,7 +361,7 @@ the window frame will only include rows from within that partition.
 You can't use a window frame clause with some
 [navigation functions][navigation-functions-reference] and
 [numbering functions][numbering-functions-reference],
-such as  `RANK()`.
+such as `RANK()`.
 
 **Examples using the window frame clause**
 

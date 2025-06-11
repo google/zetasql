@@ -258,8 +258,6 @@ SELECT CURRENT_TIMESTAMP() AS now;
  *---------------------------------------------*/
 ```
 
-[timestamp-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
-
 ## `EXTRACT`
 
 ```zetasql
@@ -287,8 +285,9 @@ Allowed `part` values are:
    of the week.
 + `DAY`
 + `DAYOFYEAR`
-+ `WEEK`: Returns the week number of the date in the range [0, 53].  Weeks begin
-  with Sunday, and dates prior to the first Sunday of the year are in week 0.
++ `WEEK`: Returns the week number of the date in the range [0, 53]. Weeks begin
+  with Sunday, and dates prior to the first Sunday of the year are in week
+  0.
 + `WEEK(<WEEKDAY>)`: Returns the week number of `timestamp_expression` in the
   range [0, 53]. Weeks begin on `WEEKDAY`. `datetime`s prior to the first
   `WEEKDAY` of the year are in week 0. Valid values for `WEEKDAY` are `SUNDAY`,
@@ -304,8 +303,8 @@ Allowed `part` values are:
   week-numbering year, which is the Gregorian calendar year containing the
   Thursday of the week to which `date_expression` belongs.
 + `DATE`
-+ <code>DATETIME</code>
-+ <code>TIME</code>
++ `DATETIME`
++ `TIME`
 
 Returned values truncate lower order time periods. For example, when extracting
 seconds, `EXTRACT` truncates the millisecond and microsecond values.
@@ -586,7 +585,7 @@ function:
 + Unspecified fields. Any unspecified field is initialized from `1970-01-01
   00:00:00.0`. This initialization value uses the time zone specified by the
   function's time zone argument, if present. If not, the initialization value
-  uses the default time zone, which is implementation defined.  For instance, if the year
+  uses the default time zone, which is implementation defined. For instance, if the year
   is unspecified then it defaults to `1970`, and so on.
 + Case insensitivity. Names, such as `Monday`, `February`, and so on, are
   case insensitive.
@@ -631,8 +630,6 @@ SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
  | 2008-12-25 07:30:00.000 America/Los_Angeles |
  *---------------------------------------------*/
 ```
-
-[timestamp-format]: #format_timestamp
 
 [timestamp-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
 
@@ -756,8 +753,6 @@ SELECT TIMESTAMP(DATE "2008-12-25") AS timestamp_date;
  | 2008-12-25 00:00:00.000 America/Los_Angeles |
  *---------------------------------------------*/
 ```
-
-[timestamp-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#timestamp_literals
 
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
 

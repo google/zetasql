@@ -1366,6 +1366,44 @@ FROM
   T
 ==
 
+# WITH REPORT without an argument.
+select anon_count(WITH REPORT),
+       anon_count(WITH REPORT(format=xyz))
+from t
+--
+QueryStatement [0-81] [select anon_count...z)) from t]
+  Query [0-81] [select anon_count...z)) from t]
+    Select [0-81] [select anon_count...z)) from t]
+      SelectList [7-74] [anon_count...format=xyz))]
+        SelectColumn [7-30] [anon_count(WITH REPORT)]
+          FunctionCall [7-30] [anon_count(WITH REPORT)]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            WithReportModifier [18-29] [WITH REPORT]
+        SelectColumn [39-74] [anon_count...format=xyz))]
+          FunctionCall [39-74] [anon_count...format=xyz))]
+            PathExpression [39-49] [anon_count]
+              Identifier(anon_count) [39-49] [anon_count]
+            WithReportModifier [50-73] [WITH REPORT(format=xyz)]
+              OptionsList [61-73] [(format=xyz)]
+                OptionsEntry [62-72] [format=xyz]
+                  Identifier(format) [62-68] [format]
+                  PathExpression [69-72] [xyz]
+                    Identifier(xyz) [69-72] [xyz]
+      FromClause [75-81] [from t]
+        TablePathExpression [80-81] [t]
+          PathExpression [80-81] [t]
+            Identifier(t) [80-81] [t]
+--
+SELECT
+  anon_count(
+    WITH REPORT),
+  anon_count(
+    WITH REPORT(format = xyz))
+FROM
+  t
+==
+
 # WITH REPORT with/without FORMAT with leading identifier or star argument and
 # optionally multiple arguments.
 select anon_count({{*|expr}} {{|clamped between 1 and 2}}
@@ -2525,3 +2563,37 @@ select sum(value having count(*) > 10) from T
 ERROR: Syntax error: Expected keyword MAX or keyword MIN but got identifier "count" [at 1:25]
 select sum(value having count(*) > 10) from T
                         ^
+==
+
+# Test these modifiers without having an argument.
+select sum(distinct),
+       sum(ignore nulls),
+       sum(respect nulls),
+       sum(distinct ignore nulls),
+--
+QueryStatement [0-109] [select sum...ignore nulls),]
+  Query [0-109] [select sum...ignore nulls),]
+    Select [0-109] [select sum...ignore nulls),]
+      SelectList [7-109] [sum(distinct...ignore nulls),]
+        SelectColumn [7-20] [sum(distinct)]
+          FunctionCall(distinct=true) [7-20] [sum(distinct)]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+        SelectColumn [29-46] [sum(ignore nulls)]
+          FunctionCall [29-46] [sum(ignore nulls)]
+            PathExpression [29-32] [sum]
+              Identifier(sum) [29-32] [sum]
+        SelectColumn [55-73] [sum(respect nulls)]
+          FunctionCall [55-73] [sum(respect nulls)]
+            PathExpression [55-58] [sum]
+              Identifier(sum) [55-58] [sum]
+        SelectColumn [82-108] [sum(distinct ignore nulls)]
+          FunctionCall(distinct=true) [82-108] [sum(distinct ignore nulls)]
+            PathExpression [82-85] [sum]
+              Identifier(sum) [82-85] [sum]
+--
+SELECT
+  sum(DISTINCT),
+  sum(IGNORE NULLS),
+  sum(RESPECT NULLS),
+  sum(DISTINCT IGNORE NULLS)

@@ -85,6 +85,10 @@ class AnalyzerTestCase;
 //       - if true, shows both the original resolved AST and the resolved AST
 //         produced by re-analyzing the output of SQLBuilder, if they are
 //         different. Has no effect if run_sqlbuilder is false.
+//   sqlbuilder_target_syntax_map_mode
+//       - The value is one of the enums from SQLBuildTargetSyntax.  This target
+//         syntax override will be applied to relevant resolved nodes in the
+//         TargetSyntaxMap while testing the SQLBuilder.
 //   language_features - comma-separated list of LanguageFeature enum names,
 //                       indicating enabled features, without the
 //                       FEATURE_ prefix.
@@ -138,7 +142,7 @@ class AnalyzerTestCase;
 //         Example:
 //           ==
 //           [prepare_database=database1]
-//           CREATE FUNCTION Add2(x int64_t) as (x + 2);
+//           CREATE FUNCTION Add2(x int64) as (x + 2);
 //           --
 //           <Resulting Resolved AST>
 //           ==
@@ -155,7 +159,7 @@ class AnalyzerTestCase;
 //           [prepare_database=database2]
 //           [use_database=database1]
 //           [language_features]
-//           CREATE FUNCTION Add4(x int64_t) as Add2(Add2(x));
+//           CREATE FUNCTION Add4(x int64) as Add2(Add2(x));
 //           --
 //           <Resulting Resolved AST>
 //           ==
@@ -211,6 +215,7 @@ extern const char* const kShowResolvedAST;
 extern const char* const kShowStrictMode;
 extern const char* const kShowSqlBuilderOutput;
 extern const char* const kShowSqlBuilderResolvedASTDiff;
+extern const char* const kSqlBuilderTargetSyntaxMapMode;
 extern const char* const kStatementContext;
 extern const char* const kSupportedStatementKinds;
 extern const char* const kTestExtractTableNames;
@@ -235,7 +240,6 @@ extern const char* const kAdditionalAllowedAnonymizationOptions;
 extern const char* const kSuppressFunctions;
 extern const char* const kOptionNamesToIgnoreInLiteralReplacement;
 extern const char* const kScrubLimitOffsetInLiteralReplacement;
-extern const char* const kAlsoShowSignatureMismatchDetails;
 extern const char* const kReplaceTableNotFoundErrorWithTvfErrorIfApplicable;
 extern const char* const kIdStringAllowUnicodeCharacters;
 extern const char* const kDisallowDuplicateOptions;
@@ -247,6 +251,7 @@ extern const char* const kSqlBuilderTargetSyntaxMode;
 extern const char* const kSqlBuilderTargetSyntaxModePipe;
 extern const char* const kSqlBuilderTargetSyntaxModeStandard;
 extern const char* const kSqlBuilderTargetSyntaxModeBoth;
+extern const char* const kUseConstantEvaluator;
 
 // set_flag
 // Causes a command line flag to be set to a particular value during the run

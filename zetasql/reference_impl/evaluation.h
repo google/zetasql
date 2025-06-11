@@ -108,6 +108,11 @@ struct EvaluationOptions {
   // Note that rows are considered modified even if the new row happens to be
   // the same as the old as long as they match the WHERE clause.
   bool return_all_rows_for_dml = true;
+
+  // If true, the reference implementation will exhaust all input rows to an
+  // EXISTS subquery even after seeing the first row, to flag non-determinism
+  // if some subsequent row produces an error.
+  bool return_early_from_exists_subquery = false;
 };
 
 class ProtoFieldReader;

@@ -10,7 +10,6 @@
 # tvf_no_args_value_table_with_anonymization_uid - int32_val1
 # tvf_no_args_value_table_with_nested_anonymization_uid - nested_value.nested_int64
 
-[default also_show_signature_mismatch_details]
 [default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,TABLE_VALUED_FUNCTIONS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 
@@ -30,7 +29,7 @@ QueryStmt
       +-DifferentialPrivacyAggregateScan
         +-column_list=[$aggregate.$agg1#3]
         +-input_scan=
-        | +-TVFScan(parse_location=90-101, tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        | +-TVFScan(parse_location=90-101, tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
         +-aggregate_list=
           +-$agg1#3 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -64,18 +63,19 @@ QueryStmt
         |   +-tvf=tvf_one_templated_arg_with_anonymization_uid((ANY TYPE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
         |   +-signature=(BOOL) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         |   +-argument_list=
-        |     +-FunctionArgument
-        |       +-expr=
-        |         +-SubqueryExpr
-        |           +-type=BOOL
-        |           +-subquery_type=SCALAR
-        |           +-subquery=
-        |             +-ProjectScan
-        |               +-column_list=[$expr_subquery.bool_column#1]
-        |               +-expr_list=
-        |               | +-bool_column#1 := Literal(type=BOOL, value=true, has_explicit_type=TRUE)
-        |               +-input_scan=
-        |                 +-SingleRowScan
+        |   | +-FunctionArgument
+        |   |   +-expr=
+        |   |     +-SubqueryExpr
+        |   |       +-type=BOOL
+        |   |       +-subquery_type=SCALAR
+        |   |       +-subquery=
+        |   |         +-ProjectScan
+        |   |           +-column_list=[$expr_subquery.bool_column#1]
+        |   |           +-expr_list=
+        |   |           | +-bool_column#1 := Literal(type=BOOL, value=true, has_explicit_type=TRUE)
+        |   |           +-input_scan=
+        |   |             +-SingleRowScan
+        |   +-function_call_signature=(BOOL) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         +-aggregate_list=
           +-$agg1#13 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -113,6 +113,7 @@ QueryStmt
         |   |   |           +-input_scan=
         |   |   |             +-SingleRowScan
         |   |   +-column_index_list=[6]
+        |   |   +-function_call_signature=(BOOL) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         |   +-group_by_list=
         |   | +-$uid#17 := ColumnRef(type=INT64, column=tvf_one_templated_arg_with_anonymization_uid.column_int64#14)
         |   +-aggregate_list=
@@ -149,18 +150,19 @@ QueryStmt
         |   +-tvf=tvf_one_templated_arg_with_anonymization_uid((ANY TYPE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
         |   +-signature=(BOOL) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         |   +-argument_list=
-        |     +-FunctionArgument
-        |       +-expr=
-        |         +-SubqueryExpr
-        |           +-type=BOOL
-        |           +-subquery_type=SCALAR
-        |           +-subquery=
-        |             +-ProjectScan
-        |               +-column_list=[$expr_subquery.bool_column#13]
-        |               +-expr_list=
-        |               | +-bool_column#13 := Literal(type=BOOL, value=true, has_explicit_type=TRUE)
-        |               +-input_scan=
-        |                 +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        |   | +-FunctionArgument
+        |   |   +-expr=
+        |   |     +-SubqueryExpr
+        |   |       +-type=BOOL
+        |   |       +-subquery_type=SCALAR
+        |   |       +-subquery=
+        |   |         +-ProjectScan
+        |   |           +-column_list=[$expr_subquery.bool_column#13]
+        |   |           +-expr_list=
+        |   |           | +-bool_column#13 := Literal(type=BOOL, value=true, has_explicit_type=TRUE)
+        |   |           +-input_scan=
+        |   |             +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        |   +-function_call_signature=(BOOL) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         +-aggregate_list=
           +-$agg1#25 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -198,6 +200,7 @@ QueryStmt
         |   |   |           +-input_scan=
         |   |   |             +-TableScan(table=SimpleTypesWithAnonymizationUid)
         |   |   +-column_index_list=[6]
+        |   |   +-function_call_signature=(BOOL) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         |   +-group_by_list=
         |   | +-$uid#29 := ColumnRef(type=INT64, column=tvf_one_templated_arg_with_anonymization_uid.column_int64#26)
         |   +-aggregate_list=
@@ -234,13 +237,14 @@ QueryStmt
         |   +-tvf=tvf_one_relation_arg_with_anonymization_uid((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
         |   +-signature=(TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, timestamp_seconds TIMESTAMP, timestamp_millis TIMESTAMP, timestamp_micros TIMESTAMP, timestamp_nanos TIMESTAMP, timestamp TIMESTAMP, numeric NUMERIC, bignumeric BIGNUMERIC, json JSON, uuid UUID>) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         |   +-argument_list=
-        |     +-FunctionArgument
-        |       +-scan=
-        |       | +-ProjectScan
-        |       |   +-column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19]
-        |       |   +-input_scan=
-        |       |     +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
-        |       +-argument_column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19]
+        |   | +-FunctionArgument
+        |   |   +-scan=
+        |   |   | +-ProjectScan
+        |   |   |   +-column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19]
+        |   |   |   +-input_scan=
+        |   |   |     +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
+        |   |   +-argument_column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19]
+        |   +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         +-aggregate_list=
           +-$agg1#31 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -273,6 +277,7 @@ QueryStmt
         |   |   |   |     +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
         |   |   |   +-argument_column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19]
         |   |   +-column_index_list=[6]
+        |   |   +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         |   +-group_by_list=
         |   | +-$uid#35 := ColumnRef(type=INT64, column=tvf_one_relation_arg_with_anonymization_uid.column_int64#32)
         |   +-aggregate_list=
@@ -308,10 +313,11 @@ QueryStmt
         |   +-tvf=tvf_one_relation_arg_with_anonymization_uid((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
         |   +-signature=(TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, timestamp_seconds TIMESTAMP, timestamp_millis TIMESTAMP, timestamp_micros TIMESTAMP, timestamp_nanos TIMESTAMP, timestamp TIMESTAMP, numeric NUMERIC, bignumeric BIGNUMERIC, json JSON, uuid UUID>) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         |   +-argument_list=
-        |     +-FunctionArgument
-        |       +-scan=
-        |       | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
-        |       +-argument_column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19]
+        |   | +-FunctionArgument
+        |   |   +-scan=
+        |   |   | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
+        |   |   +-argument_column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19]
+        |   +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         +-aggregate_list=
           +-$agg1#31 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -341,6 +347,7 @@ QueryStmt
         |   |   |   | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
         |   |   |   +-argument_column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19]
         |   |   +-column_index_list=[6]
+        |   |   +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         |   +-group_by_list=
         |   | +-$uid#35 := ColumnRef(type=INT64, column=tvf_one_relation_arg_with_anonymization_uid.column_int64#32)
         |   +-aggregate_list=
@@ -377,13 +384,14 @@ QueryStmt
         |   +-tvf=tvf_one_relation_arg_with_anonymization_uid((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
         |   +-signature=(TABLE<column_bool BOOL, column_bytes BYTES>) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         |   +-argument_list=
-        |     +-FunctionArgument
-        |       +-scan=
-        |       | +-ProjectScan
-        |       |   +-column_list=tvf_no_args.[column_bool#1, column_bytes#2]
-        |       |   +-input_scan=
-        |       |     +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
-        |       +-argument_column_list=tvf_no_args.[column_bool#1, column_bytes#2]
+        |   | +-FunctionArgument
+        |   |   +-scan=
+        |   |   | +-ProjectScan
+        |   |   |   +-column_list=tvf_no_args.[column_bool#1, column_bytes#2]
+        |   |   |   +-input_scan=
+        |   |   |     +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        |   |   +-argument_column_list=tvf_no_args.[column_bool#1, column_bytes#2]
+        |   +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         +-aggregate_list=
           +-$agg1#14 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -413,9 +421,10 @@ QueryStmt
         |   |   |   | +-ProjectScan
         |   |   |   |   +-column_list=tvf_no_args.[column_bool#1, column_bytes#2]
         |   |   |   |   +-input_scan=
-        |   |   |   |     +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+        |   |   |   |     +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
         |   |   |   +-argument_column_list=tvf_no_args.[column_bool#1, column_bytes#2]
         |   |   +-column_index_list=[6]
+        |   |   +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         |   +-group_by_list=
         |   | +-$uid#18 := ColumnRef(type=INT64, column=tvf_one_relation_arg_with_anonymization_uid.column_int64#15)
         |   +-aggregate_list=
@@ -454,25 +463,27 @@ QueryStmt
         |   +-tvf=tvf_one_relation_arg_with_anonymization_uid((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
         |   +-signature=(TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         |   +-argument_list=
-        |     +-FunctionArgument
-        |       +-scan=
-        |       | +-ProjectScan
-        |       |   +-column_list=tvf_one_relation_arg_with_anonymization_uid.[column_bool#3, column_bytes#4, column_date#5, column_double#6, column_float#7, column_int32#8, column_int64#9, column_string#10, column_time#11, column_uint32#12, column_uint64#13]
-        |       |   +-input_scan=
-        |       |     +-TVFScan
-        |       |       +-column_list=tvf_one_relation_arg_with_anonymization_uid.[column_bool#3, column_bytes#4, column_date#5, column_double#6, column_float#7, column_int32#8, column_int64#9, column_string#10, column_time#11, column_uint32#12, column_uint64#13]
-        |       |       +-tvf=tvf_one_relation_arg_with_anonymization_uid((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
-        |       |       +-signature=(TABLE<column_bool BOOL, column_bytes BYTES>) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
-        |       |       +-argument_list=
-        |       |       | +-FunctionArgument
-        |       |       |   +-scan=
-        |       |       |   | +-ProjectScan
-        |       |       |   |   +-column_list=tvf_no_args.[column_bool#1, column_bytes#2]
-        |       |       |   |   +-input_scan=
-        |       |       |   |     +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
-        |       |       |   +-argument_column_list=tvf_no_args.[column_bool#1, column_bytes#2]
-        |       |       +-column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        |       +-argument_column_list=tvf_one_relation_arg_with_anonymization_uid.[column_bool#3, column_bytes#4, column_date#5, column_double#6, column_float#7, column_int32#8, column_int64#9, column_string#10, column_time#11, column_uint32#12, column_uint64#13]
+        |   | +-FunctionArgument
+        |   |   +-scan=
+        |   |   | +-ProjectScan
+        |   |   |   +-column_list=tvf_one_relation_arg_with_anonymization_uid.[column_bool#3, column_bytes#4, column_date#5, column_double#6, column_float#7, column_int32#8, column_int64#9, column_string#10, column_time#11, column_uint32#12, column_uint64#13]
+        |   |   |   +-input_scan=
+        |   |   |     +-TVFScan
+        |   |   |       +-column_list=tvf_one_relation_arg_with_anonymization_uid.[column_bool#3, column_bytes#4, column_date#5, column_double#6, column_float#7, column_int32#8, column_int64#9, column_string#10, column_time#11, column_uint32#12, column_uint64#13]
+        |   |   |       +-tvf=tvf_one_relation_arg_with_anonymization_uid((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
+        |   |   |       +-signature=(TABLE<column_bool BOOL, column_bytes BYTES>) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
+        |   |   |       +-argument_list=
+        |   |   |       | +-FunctionArgument
+        |   |   |       |   +-scan=
+        |   |   |       |   | +-ProjectScan
+        |   |   |       |   |   +-column_list=tvf_no_args.[column_bool#1, column_bytes#2]
+        |   |   |       |   |   +-input_scan=
+        |   |   |       |   |     +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        |   |   |       |   +-argument_column_list=tvf_no_args.[column_bool#1, column_bytes#2]
+        |   |   |       +-column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        |   |   |       +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
+        |   |   +-argument_column_list=tvf_one_relation_arg_with_anonymization_uid.[column_bool#3, column_bytes#4, column_date#5, column_double#6, column_float#7, column_int32#8, column_int64#9, column_string#10, column_time#11, column_uint32#12, column_uint64#13]
+        |   +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         +-aggregate_list=
           +-$agg1#25 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -512,11 +523,13 @@ QueryStmt
         |   |   |   |       |   | +-ProjectScan
         |   |   |   |       |   |   +-column_list=tvf_no_args.[column_bool#1, column_bytes#2]
         |   |   |   |       |   |   +-input_scan=
-        |   |   |   |       |   |     +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+        |   |   |   |       |   |     +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
         |   |   |   |       |   +-argument_column_list=tvf_no_args.[column_bool#1, column_bytes#2]
         |   |   |   |       +-column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        |   |   |   |       +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         |   |   |   +-argument_column_list=tvf_one_relation_arg_with_anonymization_uid.[column_bool#3, column_bytes#4, column_date#5, column_double#6, column_float#7, column_int32#8, column_int64#9, column_string#10, column_time#11, column_uint32#12, column_uint64#13]
         |   |   +-column_index_list=[6]
+        |   |   +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         |   +-group_by_list=
         |   | +-$uid#29 := ColumnRef(type=INT64, column=tvf_one_relation_arg_with_anonymization_uid.column_int64#26)
         |   +-aggregate_list=
@@ -558,14 +571,15 @@ QueryStmt
         |   +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
         |   +-signature=(TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, uid INT64, numeric NUMERIC>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         |   +-argument_list=
-        |     +-FunctionArgument
-        |       +-scan=
-        |       | +-ProjectScan
-        |       |   +-parse_location=90-135
-        |       |   +-column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12]
-        |       |   +-input_scan=
-        |       |     +-TableScan(parse_location=104-135, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-        |       +-argument_column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12]
+        |   | +-FunctionArgument
+        |   |   +-scan=
+        |   |   | +-ProjectScan
+        |   |   |   +-parse_location=90-135
+        |   |   |   +-column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12]
+        |   |   |   +-input_scan=
+        |   |   |     +-TableScan(parse_location=104-135, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+        |   |   +-argument_column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12]
+        |   +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-aggregate_list=
           +-$agg1#15 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -605,10 +619,11 @@ QueryStmt
         |   +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
         |   +-signature=(TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, uid INT64, numeric NUMERIC>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         |   +-argument_list=
-        |     +-FunctionArgument
-        |       +-scan=
-        |       | +-TableScan(parse_location=95-126, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-        |       +-argument_column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12]
+        |   | +-FunctionArgument
+        |   |   +-scan=
+        |   |   | +-TableScan(parse_location=95-126, column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+        |   |   +-argument_column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12]
+        |   +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-aggregate_list=
           +-$agg1#15 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -648,22 +663,23 @@ QueryStmt
         |   +-tvf=tvf_one_relation_arg_with_anonymization_uid((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
         |   +-signature=(TABLE<$col1 INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         |   +-argument_list=
-        |     +-FunctionArgument
-        |       +-scan=
-        |       | +-ProjectScan
-        |       |   +-parse_location=95-173
-        |       |   +-column_list=[$aggregate.$agg1#13]
-        |       |   +-input_scan=
-        |       |     +-DifferentialPrivacyAggregateScan
-        |       |       +-column_list=[$aggregate.$agg1#13]
-        |       |       +-input_scan=
-        |       |       | +-TableScan(parse_location=142-173, table=SimpleTypesWithAnonymizationUid)
-        |       |       +-aggregate_list=
-        |       |         +-$agg1#13 :=
-        |       |           +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
-        |       |             +-parse_location=128-133
-        |       |             +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
-        |       +-argument_column_list=[$aggregate.$agg1#13]
+        |   | +-FunctionArgument
+        |   |   +-scan=
+        |   |   | +-ProjectScan
+        |   |   |   +-parse_location=95-173
+        |   |   |   +-column_list=[$aggregate.$agg1#13]
+        |   |   |   +-input_scan=
+        |   |   |     +-DifferentialPrivacyAggregateScan
+        |   |   |       +-column_list=[$aggregate.$agg1#13]
+        |   |   |       +-input_scan=
+        |   |   |       | +-TableScan(parse_location=142-173, table=SimpleTypesWithAnonymizationUid)
+        |   |   |       +-aggregate_list=
+        |   |   |         +-$agg1#13 :=
+        |   |   |           +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |   |   |             +-parse_location=128-133
+        |   |   |             +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
+        |   |   +-argument_column_list=[$aggregate.$agg1#13]
+        |   +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         +-aggregate_list=
           +-$agg1#25 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -721,15 +737,16 @@ QueryStmt
         |       |   +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
         |       |   +-signature=(TABLE<bool_column BOOL>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         |       |   +-argument_list=
-        |       |     +-FunctionArgument
-        |       |       +-scan=
-        |       |       | +-ProjectScan
-        |       |       |   +-column_list=[$subquery1.bool_column#26]
-        |       |       |   +-expr_list=
-        |       |       |   | +-bool_column#26 := Literal(type=BOOL, value=true, has_explicit_type=TRUE)
-        |       |       |   +-input_scan=
-        |       |       |     +-TableScan(table=SimpleTypesWithAnonymizationUid)
-        |       |       +-argument_column_list=[$subquery1.bool_column#26]
+        |       |   | +-FunctionArgument
+        |       |   |   +-scan=
+        |       |   |   | +-ProjectScan
+        |       |   |   |   +-column_list=[$subquery1.bool_column#26]
+        |       |   |   |   +-expr_list=
+        |       |   |   |   | +-bool_column#26 := Literal(type=BOOL, value=true, has_explicit_type=TRUE)
+        |       |   |   |   +-input_scan=
+        |       |   |   |     +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        |       |   |   +-argument_column_list=[$subquery1.bool_column#26]
+        |       |   +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
         |       +-aggregate_list=
         |         +-$agg1#29 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
         +-output_column_list=[$aggregate.$agg1#29]
@@ -783,15 +800,16 @@ QueryStmt
         |       |   +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
         |       |   +-signature=(TABLE<bool_column BOOL>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         |       |   +-argument_list=
-        |       |     +-FunctionArgument
-        |       |       +-scan=
-        |       |       | +-ProjectScan
-        |       |       |   +-column_list=[$subquery1.bool_column#26]
-        |       |       |   +-expr_list=
-        |       |       |   | +-bool_column#26 := Literal(type=BOOL, value=true, has_explicit_type=TRUE)
-        |       |       |   +-input_scan=
-        |       |       |     +-TableScan(table=SimpleTypesWithAnonymizationUid)
-        |       |       +-argument_column_list=[$subquery1.bool_column#26]
+        |       |   | +-FunctionArgument
+        |       |   |   +-scan=
+        |       |   |   | +-ProjectScan
+        |       |   |   |   +-column_list=[$subquery1.bool_column#26]
+        |       |   |   |   +-expr_list=
+        |       |   |   |   | +-bool_column#26 := Literal(type=BOOL, value=true, has_explicit_type=TRUE)
+        |       |   |   |   +-input_scan=
+        |       |   |   |     +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        |       |   |   +-argument_column_list=[$subquery1.bool_column#26]
+        |       |   +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
         |       +-aggregate_list=
         |         +-$agg1#29 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
         +-output_column_list=[$aggregate.$agg1#29]
@@ -821,22 +839,23 @@ QueryStmt
         |   +-tvf=tvf_one_relation_arg_with_anonymization_uid((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
         |   +-signature=(TABLE<$col1 INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         |   +-argument_list=
-        |     +-FunctionArgument
-        |       +-scan=
-        |       | +-ProjectScan
-        |       |   +-parse_location=95-153
-        |       |   +-column_list=[$aggregate.$agg1#20]
-        |       |   +-input_scan=
-        |       |     +-DifferentialPrivacyAggregateScan
-        |       |       +-column_list=[$aggregate.$agg1#20]
-        |       |       +-input_scan=
-        |       |       | +-TableScan(parse_location=142-153, table=SimpleTypes)
-        |       |       +-aggregate_list=
-        |       |         +-$agg1#20 :=
-        |       |           +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
-        |       |             +-parse_location=128-133
-        |       |             +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
-        |       +-argument_column_list=[$aggregate.$agg1#20]
+        |   | +-FunctionArgument
+        |   |   +-scan=
+        |   |   | +-ProjectScan
+        |   |   |   +-parse_location=95-153
+        |   |   |   +-column_list=[$aggregate.$agg1#20]
+        |   |   |   +-input_scan=
+        |   |   |     +-DifferentialPrivacyAggregateScan
+        |   |   |       +-column_list=[$aggregate.$agg1#20]
+        |   |   |       +-input_scan=
+        |   |   |       | +-TableScan(parse_location=142-153, table=SimpleTypes)
+        |   |   |       +-aggregate_list=
+        |   |   |         +-$agg1#20 :=
+        |   |   |           +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |   |   |             +-parse_location=128-133
+        |   |   |             +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
+        |   |   +-argument_column_list=[$aggregate.$agg1#20]
+        |   +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         +-aggregate_list=
           +-$agg1#32 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -866,7 +885,7 @@ QueryStmt
       +-DifferentialPrivacyAggregateScan
         +-column_list=[$aggregate.$agg1#12]
         +-input_scan=
-        | +-TVFScan(tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
+        | +-TVFScan(tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
         +-aggregate_list=
           +-$agg1#12 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -886,7 +905,7 @@ QueryStmt
         | +-AggregateScan
         |   +-column_list=[$aggregate.$agg1_partial#15, $group_by.$uid#16]
         |   +-input_scan=
-        |   | +-TVFScan(column_list=[tvf_no_args_with_anonymization_uid.column_int64#13], tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[6])
+        |   | +-TVFScan(column_list=[tvf_no_args_with_anonymization_uid.column_int64#13], tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[6], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
         |   +-group_by_list=
         |   | +-$uid#16 := ColumnRef(type=INT64, column=tvf_no_args_with_anonymization_uid.column_int64#13)
         |   +-aggregate_list=
@@ -921,7 +940,7 @@ QueryStmt
       +-DifferentialPrivacyAggregateScan
         +-column_list=[$aggregate.$agg1#3]
         +-input_scan=
-        | +-TVFScan(tvf=NullarySelectWithUserId(() -> TABLE<a INT64, b INT64>), signature=() -> TABLE<a INT64, b INT64>)
+        | +-TVFScan(tvf=NullarySelectWithUserId(() -> TABLE<a INT64, b INT64>), signature=() -> TABLE<a INT64, b INT64>, function_call_signature=() -> TABLE<a INT64, b INT64>)
         +-aggregate_list=
           +-$agg1#3 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -941,7 +960,7 @@ QueryStmt
         | +-AggregateScan
         |   +-column_list=[$aggregate.$agg1_partial#6, $group_by.$uid#7]
         |   +-input_scan=
-        |   | +-TVFScan(column_list=[NullarySelectWithUserId.a#4], tvf=NullarySelectWithUserId(() -> TABLE<a INT64, b INT64>), signature=() -> TABLE<a INT64, b INT64>, column_index_list=[0])
+        |   | +-TVFScan(column_list=[NullarySelectWithUserId.a#4], tvf=NullarySelectWithUserId(() -> TABLE<a INT64, b INT64>), signature=() -> TABLE<a INT64, b INT64>, column_index_list=[0], function_call_signature=() -> TABLE<a INT64, b INT64>)
         |   +-group_by_list=
         |   | +-$uid#7 := ColumnRef(type=INT64, column=NullarySelectWithUserId.a#4)
         |   +-aggregate_list=
@@ -979,7 +998,7 @@ QueryStmt
       +-DifferentialPrivacyAggregateScan
         +-column_list=[$groupby.column_int32#13, $groupby.column_string#14, $aggregate.$agg1#12]
         +-input_scan=
-        | +-TVFScan(column_list=tvf_no_args_with_anonymization_uid.[column_int32#6, column_string#8], tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[5, 7])
+        | +-TVFScan(column_list=tvf_no_args_with_anonymization_uid.[column_int32#6, column_string#8], tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[5, 7], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
         +-group_by_list=
         | +-column_int32#13 := ColumnRef(type=INT32, column=tvf_no_args_with_anonymization_uid.column_int32#6)
         | +-column_string#14 := ColumnRef(type=STRING, column=tvf_no_args_with_anonymization_uid.column_string#8)
@@ -1004,7 +1023,7 @@ QueryStmt
         | +-AggregateScan
         |   +-column_list=[$aggregate.$agg1_partial#17, $groupby.column_int32_partial#18, $groupby.column_string_partial#19, $group_by.$uid#20]
         |   +-input_scan=
-        |   | +-TVFScan(column_list=tvf_no_args_with_anonymization_uid.[column_int32#6, column_int64#15, column_string#8], tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[5, 6, 7])
+        |   | +-TVFScan(column_list=tvf_no_args_with_anonymization_uid.[column_int32#6, column_int64#15, column_string#8], tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[5, 6, 7], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
         |   +-group_by_list=
         |   | +-column_int32_partial#18 := ColumnRef(type=INT32, column=tvf_no_args_with_anonymization_uid.column_int32#6)
         |   | +-column_string_partial#19 := ColumnRef(type=STRING, column=tvf_no_args_with_anonymization_uid.column_string#8)
@@ -1042,7 +1061,7 @@ QueryStmt
       +-DifferentialPrivacyAggregateScan
         +-column_list=[$aggregate.$agg1#12]
         +-input_scan=
-        | +-TVFScan(column_list=[tvf_no_args_with_anonymization_uid.column_int64#7], tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[6])
+        | +-TVFScan(column_list=[tvf_no_args_with_anonymization_uid.column_int64#7], tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[6], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
         +-aggregate_list=
           +-$agg1#12 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -1063,7 +1082,7 @@ QueryStmt
         | +-AggregateScan
         |   +-column_list=[$aggregate.$agg1_partial#14, $group_by.$uid#15]
         |   +-input_scan=
-        |   | +-TVFScan(column_list=[tvf_no_args_with_anonymization_uid.column_int64#7], tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[6])
+        |   | +-TVFScan(column_list=[tvf_no_args_with_anonymization_uid.column_int64#7], tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[6], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
         |   +-group_by_list=
         |   | +-$uid#15 := ColumnRef(type=INT64, column=tvf_no_args_with_anonymization_uid.column_int64#7)
         |   +-aggregate_list=
@@ -1101,7 +1120,7 @@ QueryStmt
         | +-JoinScan
         |   +-column_list=[tvf_no_args_with_anonymization_uid.column_int64#7, SimpleTypesWithAnonymizationUid.uid#22]
         |   +-left_scan=
-        |   | +-TVFScan(column_list=[tvf_no_args_with_anonymization_uid.column_int64#7], tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[6], alias="a")
+        |   | +-TVFScan(column_list=[tvf_no_args_with_anonymization_uid.column_int64#7], tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[6], alias="a", function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
         |   +-right_scan=
         |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#22], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
         |   +-join_expr=
@@ -1130,7 +1149,7 @@ QueryStmt
         |   | +-JoinScan
         |   |   +-column_list=[tvf_no_args_with_anonymization_uid.column_int64#7, SimpleTypesWithAnonymizationUid.uid#22]
         |   |   +-left_scan=
-        |   |   | +-TVFScan(column_list=[tvf_no_args_with_anonymization_uid.column_int64#7], tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[6], alias="a")
+        |   |   | +-TVFScan(column_list=[tvf_no_args_with_anonymization_uid.column_int64#7], tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[6], alias="a", function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
         |   |   +-right_scan=
         |   |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#22], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
         |   |   +-join_expr=
@@ -1176,7 +1195,7 @@ QueryStmt
         | +-JoinScan
         |   +-parse_location=86-96
         |   +-left_scan=
-        |   | +-TVFScan(parse_location=47-81, tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, alias="a")
+        |   | +-TVFScan(parse_location=47-81, tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, alias="a", function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
         |   +-right_scan=
         |     +-TableScan(parse_location=97-128, table=SimpleTypesWithAnonymizationUid, alias="b")
         +-aggregate_list=
@@ -1211,7 +1230,7 @@ QueryStmt
         +-input_scan=
         | +-JoinScan
         |   +-left_scan=
-        |   | +-TVFScan(tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, alias="a")
+        |   | +-TVFScan(tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, alias="a", function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
         |   +-right_scan=
         |     +-TableScan(table=SimpleTypes, alias="b")
         +-aggregate_list=
@@ -1236,7 +1255,7 @@ QueryStmt
         |   | +-JoinScan
         |   |   +-column_list=[tvf_no_args_with_anonymization_uid.column_int64#32]
         |   |   +-left_scan=
-        |   |   | +-TVFScan(column_list=[tvf_no_args_with_anonymization_uid.column_int64#32], tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[6], alias="a")
+        |   |   | +-TVFScan(column_list=[tvf_no_args_with_anonymization_uid.column_int64#32], tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[6], alias="a", function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
         |   |   +-right_scan=
         |   |     +-TableScan(table=SimpleTypes, alias="b")
         |   +-group_by_list=
@@ -1273,7 +1292,7 @@ QueryStmt
         +-input_scan=
         | +-JoinScan
         |   +-left_scan=
-        |   | +-TVFScan(tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, alias="a")
+        |   | +-TVFScan(tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, alias="a", function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
         |   +-right_scan=
         |     +-TableScan(table=SimpleTypesWithAnonymizationUid, alias="b")
         +-aggregate_list=
@@ -1298,7 +1317,7 @@ QueryStmt
         |   | +-JoinScan
         |   |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#16]
         |   |   +-left_scan=
-        |   |   | +-TVFScan(tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, alias="a")
+        |   |   | +-TVFScan(tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, alias="a", function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
         |   |   +-right_scan=
         |   |     +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#16], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
         |   +-group_by_list=
@@ -1335,7 +1354,7 @@ QueryStmt
       +-DifferentialPrivacyAggregateScan
         +-column_list=[$aggregate.$agg1#2]
         +-input_scan=
-        | +-TVFScan(parse_location=47-88, tvf=tvf_no_args_with_nested_anonymization_uid(() -> TABLE<user_info PROTO<zetasql_test__.TestExtraPB>>), signature=() -> TABLE<user_info PROTO<zetasql_test__.TestExtraPB>>)
+        | +-TVFScan(parse_location=47-88, tvf=tvf_no_args_with_nested_anonymization_uid(() -> TABLE<user_info PROTO<zetasql_test__.TestExtraPB>>), signature=() -> TABLE<user_info PROTO<zetasql_test__.TestExtraPB>>, function_call_signature=() -> TABLE<user_info PROTO<zetasql_test__.TestExtraPB>>)
         +-aggregate_list=
           +-$agg1#2 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -1364,7 +1383,7 @@ QueryStmt
       +-DifferentialPrivacyAggregateScan
         +-column_list=[$aggregate.$agg1#2]
         +-input_scan=
-        | +-TVFScan(tvf=tvf_no_args_value_table_with_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>)
+        | +-TVFScan(tvf=tvf_no_args_value_table_with_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>, function_call_signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>)
         +-aggregate_list=
           +-$agg1#2 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -1395,7 +1414,7 @@ QueryStmt
         |   |   |     +-field_descriptor=int32_val1
         |   |   |     +-default_value=0
         |   |   +-input_scan=
-        |   |     +-TVFScan(column_list=[tvf_no_args_value_table_with_anonymization_uid.$value#3], tvf=tvf_no_args_value_table_with_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>, column_index_list=[0])
+        |   |     +-TVFScan(column_list=[tvf_no_args_value_table_with_anonymization_uid.$value#3], tvf=tvf_no_args_value_table_with_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>, column_index_list=[0], function_call_signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>)
         |   +-group_by_list=
         |   | +-$uid#7 := ColumnRef(type=INT32, column=$project.$int32_val1#4)
         |   +-aggregate_list=
@@ -1427,7 +1446,7 @@ QueryStmt
       +-DifferentialPrivacyAggregateScan
         +-column_list=[$aggregate.$agg1#2]
         +-input_scan=
-        | +-TVFScan(tvf=tvf_no_args_value_table_with_nested_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>), signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>)
+        | +-TVFScan(tvf=tvf_no_args_value_table_with_nested_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>), signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>, function_call_signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>)
         +-aggregate_list=
           +-$agg1#2 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -1463,7 +1482,7 @@ QueryStmt
         |   |   |     +-field_descriptor=nested_int64
         |   |   |     +-default_value=88
         |   |   +-input_scan=
-        |   |     +-TVFScan(column_list=[tvf_no_args_value_table_with_nested_anonymization_uid.$value#3], tvf=tvf_no_args_value_table_with_nested_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>), signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>, column_index_list=[0])
+        |   |     +-TVFScan(column_list=[tvf_no_args_value_table_with_nested_anonymization_uid.$value#3], tvf=tvf_no_args_value_table_with_nested_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>), signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>, column_index_list=[0], function_call_signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>)
         |   +-group_by_list=
         |   | +-$uid#8 := ColumnRef(type=INT64, column=$project.$nested_int64#5)
         |   +-aggregate_list=
@@ -1499,7 +1518,7 @@ QueryStmt
       +-DifferentialPrivacyAggregateScan
         +-column_list=$aggregate.[$agg1#2, $agg2#3, $agg3#4]
         +-input_scan=
-        | +-TVFScan(column_list=[tvf_no_args_value_table_with_nested_anonymization_uid.$col0#1], tvf=tvf_no_args_value_table_with_nested_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>), signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>, column_index_list=[0])
+        | +-TVFScan(column_list=[tvf_no_args_value_table_with_nested_anonymization_uid.$col0#1], tvf=tvf_no_args_value_table_with_nested_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>), signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>, column_index_list=[0], function_call_signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>)
         +-aggregate_list=
           +-$agg1#2 :=
           | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -1573,7 +1592,7 @@ QueryStmt
         |   |   |     +-field_descriptor=nested_int64
         |   |   |     +-default_value=88
         |   |   +-input_scan=
-        |   |     +-TVFScan(column_list=[tvf_no_args_value_table_with_nested_anonymization_uid.$col0#1], tvf=tvf_no_args_value_table_with_nested_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>), signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>, column_index_list=[0])
+        |   |     +-TVFScan(column_list=[tvf_no_args_value_table_with_nested_anonymization_uid.$col0#1], tvf=tvf_no_args_value_table_with_nested_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>), signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>, column_index_list=[0], function_call_signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>)
         |   +-group_by_list=
         |   | +-$uid#13 := ColumnRef(type=INT64, column=$project.$nested_int64#6)
         |   +-aggregate_list=
@@ -1656,7 +1675,7 @@ QueryStmt
         |     +-AggregateScan
         |       +-column_list=[$groupby.int32_val1#3, $aggregate.$agg1#2]
         |       +-input_scan=
-        |       | +-TVFScan(column_list=[tvf_no_args_value_table_with_anonymization_uid.$col0#1], tvf=tvf_no_args_value_table_with_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>, column_index_list=[0])
+        |       | +-TVFScan(column_list=[tvf_no_args_value_table_with_anonymization_uid.$col0#1], tvf=tvf_no_args_value_table_with_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>, column_index_list=[0], function_call_signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>)
         |       +-group_by_list=
         |       | +-int32_val1#3 :=
         |       |   +-GetProtoField
@@ -1703,7 +1722,7 @@ QueryStmt
         |   |       |   |     +-field_descriptor=int32_val1
         |   |       |   |     +-default_value=0
         |   |       |   +-input_scan=
-        |   |       |     +-TVFScan(column_list=[tvf_no_args_value_table_with_anonymization_uid.$col0#1], tvf=tvf_no_args_value_table_with_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>, column_index_list=[0])
+        |   |       |     +-TVFScan(column_list=[tvf_no_args_value_table_with_anonymization_uid.$col0#1], tvf=tvf_no_args_value_table_with_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>, column_index_list=[0], function_call_signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>)
         |   |       +-group_by_list=
         |   |       | +-int32_val1#3 := ColumnRef(type=INT32, column=$project.$int32_val1#5)
         |   |       +-aggregate_list=
@@ -1759,7 +1778,7 @@ QueryStmt
         |       |   |     +-field_descriptor=int32_val1
         |       |   |     +-default_value=0
         |       |   +-input_scan=
-        |       |     +-TVFScan(column_list=[tvf_no_args_value_table_with_anonymization_uid.$col0#1], tvf=tvf_no_args_value_table_with_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>, column_index_list=[0])
+        |       |     +-TVFScan(column_list=[tvf_no_args_value_table_with_anonymization_uid.$col0#1], tvf=tvf_no_args_value_table_with_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>, column_index_list=[0], function_call_signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>)
         |       +-group_by_list=
         |       | +-int32_val1#4 := ColumnRef(type=INT32, column=$subquery2.int32_val1#2)
         |       +-aggregate_list=
@@ -1805,7 +1824,7 @@ QueryStmt
         |   |       |       |     +-field_descriptor=int32_val1
         |   |       |       |     +-default_value=0
         |   |       |       +-input_scan=
-        |   |       |         +-TVFScan(column_list=[tvf_no_args_value_table_with_anonymization_uid.$col0#1], tvf=tvf_no_args_value_table_with_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>, column_index_list=[0])
+        |   |       |         +-TVFScan(column_list=[tvf_no_args_value_table_with_anonymization_uid.$col0#1], tvf=tvf_no_args_value_table_with_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>, column_index_list=[0], function_call_signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>)
         |   |       +-group_by_list=
         |   |       | +-int32_val1#4 := ColumnRef(type=INT32, column=$subquery2.int32_val1#2)
         |   |       +-aggregate_list=
@@ -1849,7 +1868,7 @@ QueryStmt
         |     +-AggregateScan
         |       +-column_list=[$groupby.nested_int64#3, $aggregate.$agg1#2]
         |       +-input_scan=
-        |       | +-TVFScan(column_list=[tvf_no_args_value_table_with_nested_anonymization_uid.$col0#1], tvf=tvf_no_args_value_table_with_nested_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>), signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>, column_index_list=[0])
+        |       | +-TVFScan(column_list=[tvf_no_args_value_table_with_nested_anonymization_uid.$col0#1], tvf=tvf_no_args_value_table_with_nested_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>), signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>, column_index_list=[0], function_call_signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>)
         |       +-group_by_list=
         |       | +-nested_int64#3 :=
         |       |   +-GetProtoField
@@ -1906,7 +1925,7 @@ QueryStmt
         |   |       |   |     +-field_descriptor=nested_int64
         |   |       |   |     +-default_value=88
         |   |       |   +-input_scan=
-        |   |       |     +-TVFScan(column_list=[tvf_no_args_value_table_with_nested_anonymization_uid.$col0#1], tvf=tvf_no_args_value_table_with_nested_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>), signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>, column_index_list=[0])
+        |   |       |     +-TVFScan(column_list=[tvf_no_args_value_table_with_nested_anonymization_uid.$col0#1], tvf=tvf_no_args_value_table_with_nested_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>), signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>, column_index_list=[0], function_call_signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>)
         |   |       +-group_by_list=
         |   |       | +-nested_int64#3 := ColumnRef(type=INT64, column=$project.$nested_int64#6)
         |   |       +-aggregate_list=
@@ -1950,7 +1969,7 @@ QueryStmt
         |     +-AggregateScan
         |       +-column_list=[$aggregate.$agg1#2]
         |       +-input_scan=
-        |       | +-TVFScan(tvf=tvf_no_args_value_table_with_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>, alias="t")
+        |       | +-TVFScan(tvf=tvf_no_args_value_table_with_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>, alias="t", function_call_signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>)
         |       +-aggregate_list=
         |         +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
         +-aggregate_list=
@@ -1983,7 +2002,7 @@ QueryStmt
         |     +-DifferentialPrivacyAggregateScan
         |       +-column_list=[$aggregate.$agg1#2]
         |       +-input_scan=
-        |       | +-TVFScan(tvf=tvf_no_args_value_table_with_nested_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>), signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>, alias="t")
+        |       | +-TVFScan(tvf=tvf_no_args_value_table_with_nested_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>), signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>, alias="t", function_call_signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>)
         |       +-aggregate_list=
         |         +-$agg1#2 :=
         |           +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -2013,7 +2032,7 @@ QueryStmt
       +-DifferentialPrivacyAggregateScan
         +-column_list=[$aggregate.$agg1#2]
         +-input_scan=
-        | +-TVFScan(tvf=tvf_no_args_value_table_with_invalid_nested_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>), signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>)
+        | +-TVFScan(tvf=tvf_no_args_value_table_with_invalid_nested_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>), signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>, function_call_signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>)
         +-aggregate_list=
           +-$agg1#2 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -2049,20 +2068,21 @@ QueryStmt
         |   +-tvf=tvf_one_templated_arg_with_anonymization_uid((ANY TYPE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
         |   +-signature=(BOOL) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         |   +-argument_list=
-        |     +-FunctionArgument
-        |       +-expr=
-        |         +-SubqueryExpr
-        |           +-parse_location=137-175
-        |           +-type=BOOL
-        |           +-subquery_type=SCALAR
-        |           +-subquery=
-        |             +-ProjectScan
-        |               +-parse_location=137-175
-        |               +-column_list=[$expr_subquery.bool_column#1]
-        |               +-expr_list=
-        |               | +-bool_column#1 := Literal(parse_location=144-160, type=BOOL, value=true, has_explicit_type=TRUE)
-        |               +-input_scan=
-        |                 +-SingleRowScan
+        |   | +-FunctionArgument
+        |   |   +-expr=
+        |   |     +-SubqueryExpr
+        |   |       +-parse_location=137-175
+        |   |       +-type=BOOL
+        |   |       +-subquery_type=SCALAR
+        |   |       +-subquery=
+        |   |         +-ProjectScan
+        |   |           +-parse_location=137-175
+        |   |           +-column_list=[$expr_subquery.bool_column#1]
+        |   |           +-expr_list=
+        |   |           | +-bool_column#1 := Literal(parse_location=144-160, type=BOOL, value=true, has_explicit_type=TRUE)
+        |   |           +-input_scan=
+        |   |             +-SingleRowScan
+        |   +-function_call_signature=(BOOL) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         +-aggregate_list=
           +-$agg1#13 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -2109,6 +2129,7 @@ QueryStmt
         |   |   |           +-input_scan=
         |   |   |             +-SingleRowScan
         |   |   +-column_index_list=[6]
+        |   |   +-function_call_signature=(BOOL) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         |   +-group_by_list=
         |   | +-$uid#17 := ColumnRef(type=INT64, column=tvf_one_templated_arg_with_anonymization_uid.column_int64#14)
         |   +-aggregate_list=

@@ -16,12 +16,15 @@
 
 #include "zetasql/compliance/test_database_catalog.h"
 
+#include <iterator>
 #include <memory>
 #include <set>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "zetasql/common/internal_value.h"
+#include "zetasql/common/measure_analysis_utils.h"
 #include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/compliance/test_driver.h"
 #include "zetasql/compliance/test_util.h"
@@ -32,6 +35,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/struct_type.h"
 #include "absl/container/flat_hash_set.h"
 #include "zetasql/base/check.h"
 #include "absl/log/log.h"
@@ -160,14 +164,13 @@ absl::Status TestDatabaseCatalog::LoadProtoEnumTypes(
   return absl::OkStatus();
 }
 
-void TestDatabaseCatalog::AddTable(const std::string& table_name,
-                                   const TestTable& table) {
+static std::unique_ptr<SimpleTable> MakeSimpleTable(
+    const std::string& table_name, const TestTable& table) {
   const Value& array_value = table.table_as_value;
   ABSL_CHECK(array_value.type()->IsArray())
       << table_name << " " << array_value.DebugString(true);
   auto element_type = array_value.type()->AsArray()->element_type();
-  SimpleTable* simple_table = nullptr;
-
+  std::unique_ptr<SimpleTable> simple_table;
   if (!table.options.is_value_table()) {
     // Non-value tables are represented as arrays of structs.
     const StructType* row_type = element_type->AsStruct();
@@ -183,16 +186,105 @@ void TestDatabaseCatalog::AddTable(const std::string& table_name,
            {row_type->field(i).type,
             column_annotations.empty() ? nullptr : column_annotations[i]}});
     }
-    simple_table = new SimpleTable(table_name, columns);
+    simple_table = std::make_unique<SimpleTable>(table_name, columns);
   } else {
     // We got a value table. Create a table with a single column named "value".
-    simple_table = new SimpleTable(table_name, {{"value", element_type}});
+    ABSL_CHECK(table.measure_column_defs.empty());
+    std::vector<SimpleTable::NameAndAnnotatedType> columns;
+    columns.push_back(
+        std::make_pair("value", AnnotatedType(element_type, nullptr)));
+    simple_table =
+        std::make_unique<SimpleTable>(table_name, std::move(columns));
     simple_table->set_is_value_table(true);
   }
   if (!table.options.userid_column().empty()) {
     ZETASQL_CHECK_OK(simple_table->SetAnonymizationInfo(table.options.userid_column()));
   }
-  catalog_->AddOwnedTable(simple_table);
+  return simple_table;
+}
+
+void TestDatabaseCatalog::AddTable(const std::string& table_name,
+                                   const TestTable& table) {
+  if (!table.measure_column_defs.empty()) {
+    return;
+  }
+  std::unique_ptr<SimpleTable> simple_table =
+      MakeSimpleTable(table_name, table);
+  catalog_->AddOwnedTable(simple_table.release());
+}
+
+absl::Status TestDatabaseCatalog::AddTablesWithMeasures(
+    const TestDatabase& test_db, const LanguageOptions& language_options) {
+  ZETASQL_RETURN_IF_ERROR(IsInitialized());
+  for (const auto& [table_name, table] : test_db.tables) {
+    if (table.measure_column_defs.empty()) {
+      continue;
+    }
+    ZETASQL_RET_CHECK(!table.row_identity_columns.empty());
+    ZETASQL_RET_CHECK(!table.options.is_value_table());
+    const Value& array_value = table.table_as_value;
+    ZETASQL_RET_CHECK(array_value.type()->IsArray())
+        << table_name << " " << array_value.DebugString(true);
+    auto element_type = array_value.type()->AsArray()->element_type();
+    std::unique_ptr<SimpleTable> simple_table =
+        MakeSimpleTable(table_name, table);
+    ZETASQL_RET_CHECK_OK(
+        simple_table->SetRowIdentityColumns(table.row_identity_columns));
+    AnalyzerOptions analyzer_options(language_options);
+    ZETASQL_ASSIGN_OR_RETURN(
+        auto measure_expr_analyzer_outputs,
+        AddMeasureColumnsToTable(*simple_table, table.measure_column_defs,
+                                 *type_factory_, *catalog_, analyzer_options));
+    analyzed_measure_outputs_.insert(
+        analyzed_measure_outputs_.end(),
+        std::make_move_iterator(measure_expr_analyzer_outputs.begin()),
+        std::make_move_iterator(measure_expr_analyzer_outputs.end()));
+    ZETASQL_RET_CHECK(element_type->IsStruct());
+    const StructType* row_as_struct_type = element_type->AsStruct();
+    std::vector<StructField> new_row_fields = row_as_struct_type->fields();
+    for (int i = row_as_struct_type->num_fields();
+         i < simple_table->NumColumns(); ++i) {
+      const Column* column = simple_table->GetColumn(i);
+      ZETASQL_RET_CHECK(column->GetType()->IsMeasureType());
+      new_row_fields.push_back({column->Name(), column->GetType()});
+    }
+
+    const StructType* new_row_as_struct_type = nullptr;
+    ZETASQL_RET_CHECK_OK(
+        type_factory_->MakeStructType(new_row_fields, &new_row_as_struct_type));
+
+    std::vector<Value> new_rows_as_struct_values;
+    for (const Value& row : array_value.elements()) {
+      std::vector<Value> new_row_values;
+      for (const Value& column_in_row : row.fields()) {
+        new_row_values.push_back(column_in_row);
+      }
+      // Add measure values.
+      for (int i = row_as_struct_type->num_fields(); i < new_row_fields.size();
+           ++i) {
+        ABSL_CHECK(new_row_fields[i].type->IsMeasureType());
+        ZETASQL_ASSIGN_OR_RETURN(Value measure_value,
+                         InternalValue::MakeMeasure(
+                             new_row_fields[i].type->AsMeasure(), row,
+                             table.row_identity_columns, language_options));
+        new_row_values.push_back(measure_value);
+      }
+
+      auto new_row_as_struct_value =
+          Value::MakeStruct(new_row_as_struct_type, new_row_values);
+      ZETASQL_RET_CHECK_OK(new_row_as_struct_value.status());
+      new_rows_as_struct_values.push_back(std::move(*new_row_as_struct_value));
+    }
+    const ArrayType* new_array_type = nullptr;
+    ZETASQL_RET_CHECK_OK(
+        type_factory_->MakeArrayType(new_row_as_struct_type, &new_array_type));
+    auto new_array_value =
+        Value::MakeArray(new_array_type, new_rows_as_struct_values);
+    ZETASQL_RET_CHECK_OK(new_array_value.status());
+    table.table_as_value_with_measures = std::move(*new_array_value);
+    catalog_->AddOwnedTable(simple_table.release());
+  }
+  return absl::OkStatus();
 }
 
 absl::Status TestDatabaseCatalog::FindTable(

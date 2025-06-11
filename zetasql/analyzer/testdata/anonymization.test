@@ -1,6 +1,5 @@
 # Specify WITH ANONYMIZATION but no FROM clause
 [default language_features=ANONYMIZATION,NUMERIC_TYPE]
-[default also_show_signature_mismatch_details]
 
 select with anonymization sum();
 --
@@ -1895,6 +1894,7 @@ QueryStmt
         |       +-group_by_list=
         |       | +-x#14 :=
         |       |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |       |     +-parse_location=91-97
         |       |     +-Literal(parse_location=91-93, type=INT64, value=10)
         |       |     +-ColumnRef(parse_location=94-97, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
         |       +-aggregate_list=
@@ -1941,6 +1941,7 @@ QueryStmt
         |       +-group_by_list=
         |       | +-x#14 :=
         |       |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |       |     +-parse_location=91-97
         |       |     +-Literal(parse_location=91-93, type=INT64, value=10)
         |       |     +-ColumnRef(parse_location=94-97, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
         |       +-aggregate_list=
@@ -2760,7 +2761,7 @@ QueryStmt
         |           |       +-column_ref=
         |           |         +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
         |           +-analytic_function_list=
-        |             +-$analytic1#14 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)(parse_location=82-110)
+        |             +-$analytic1#14 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)(parse_location=82-86)
         +-aggregate_list=
           +-$agg1#15 :=
             +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
@@ -3166,7 +3167,7 @@ QueryStmt
         |   +-weight_column=
         |     +-ColumnHolder(column=$sample_weight.weight#13)
         +-group_by_list=
-        | +-weight#15 := ColumnRef(type=DOUBLE, column=$sample_weight.weight#13)
+        | +-weight#15 := ColumnRef(parse_location=67-73, type=DOUBLE, column=$sample_weight.weight#13)
         +-aggregate_list=
           +-$agg1#14 :=
             +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
@@ -3206,7 +3207,7 @@ QueryStmt
         |   |   +-weight_column=
         |   |     +-ColumnHolder(column=$sample_weight.weight#13)
         |   +-group_by_list=
-        |   | +-weight_partial#19 := ColumnRef(type=DOUBLE, column=$sample_weight.weight#13)
+        |   | +-weight_partial#19 := ColumnRef(parse_location=67-73, type=DOUBLE, column=$sample_weight.weight#13)
         |   | +-$uid#20 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#16)
         |   +-aggregate_list=
         |     +-$agg1_partial#18 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
@@ -6785,7 +6786,7 @@ ERROR: GROUP BY ROLLUP is not supported in anonymization queries [at 3:14]
              ^
 ==
 
-[language_features=ANONYMIZATION,NUMERIC_TYPE,V_1_4_GROUPING_SETS]
+[language_features=ANONYMIZATION,NUMERIC_TYPE,GROUPING_SETS]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT WITH ANONYMIZATION int64, double, ANON_SUM(int32)
     FROM SimpleTypesWithAnonymizationUid
@@ -6796,7 +6797,7 @@ ERROR: GROUP BY CUBE is not supported in anonymization queries [at 3:14]
              ^
 ==
 
-[language_features=ANONYMIZATION,NUMERIC_TYPE,V_1_4_GROUPING_SETS]
+[language_features=ANONYMIZATION,NUMERIC_TYPE,GROUPING_SETS]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT WITH ANONYMIZATION int64, double, ANON_SUM(int32)
     FROM SimpleTypesWithAnonymizationUid
@@ -6852,11 +6853,6 @@ select with anonymization anon_sum(* clampED Between 10 and 100)
 select with anonymization anon_count(* clampED Between 10 and "100" with report(forMAT=PRoto))
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator ANON_COUNT(*) for argument types: INT64, STRING. Supported signature: ANON_COUNT(* [CLAMPED BETWEEN INT64 AND INT64] WITH REPORT(FORMAT=PROTO)) [at 1:27]
-select with anonymization anon_count(* clampED Between 10 and "100" with repo...
-                          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for aggregate operator ANON_COUNT(*)
   Argument types: INT64, STRING
   Signature: ANON_COUNT(* [CLAMPED BETWEEN INT64 AND INT64] WITH REPORT(FORMAT=PROTO))
@@ -6870,11 +6866,6 @@ select with anonymization anon_count(* clampED Between 10 and "100" with repo...
 select with anonymization anon_count(* clampED Between bool and 100 with report(forMAT=JSon))
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator ANON_COUNT(*) for argument types: BOOL, INT64. Supported signature: ANON_COUNT(* [CLAMPED BETWEEN INT64 AND INT64] WITH REPORT(FORMAT=JSON)) [at 1:27]
-select with anonymization anon_count(* clampED Between bool and 100 with repo...
-                          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for aggregate operator ANON_COUNT(*)
   Argument types: BOOL, INT64
   Signature: ANON_COUNT(* [CLAMPED BETWEEN INT64 AND INT64] WITH REPORT(FORMAT=JSON))
@@ -7020,6 +7011,25 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
+==
+
+# WITH REPORT is parsable without any arguments but there are no current
+# functions where that is valid.
+[language_features=ANONYMIZATION,JSON_TYPE]
+select with anonymization anon_sum(with report{{|(format=jSon)}})
+from SimpleTypesWithAnonymizationUid;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Anonymized aggregate function ANON_SUM expects exactly 1 argument but found 0 arguments [at 1:27]
+select with anonymization anon_sum(with report)
+                          ^
+--
+ALTERNATION GROUP: (format=jSon)
+--
+ERROR: Anonymized aggregate function ANON_SUM expects exactly 1 argument but found 0 arguments [at 1:27]
+select with anonymization anon_sum(with report(format=jSon))
+                          ^
 ==
 
 [language_features=ANONYMIZATION,JSON_TYPE]
@@ -7730,11 +7740,6 @@ select with anonymization ANON_QUANTILES(*, 4 CLAMPED BETWEEN 2 AND 3 WITH RE...
 select with anonymization ANON_QUANTILES(int64, 4 CLAMPED BETWEEN bool AND 3 WITH REPORT(FORMAT=PROTO))
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator ANON_QUANTILES for argument types: INT64, INT64, BOOL, INT64. Supported signature: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH REPORT(FORMAT=PROTO)) [at 1:27]
-select with anonymization ANON_QUANTILES(int64, 4 CLAMPED BETWEEN bool AND 3 ...
-                          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for aggregate operator ANON_QUANTILES
   Argument types: INT64, INT64, BOOL, INT64
   Signature: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH REPORT(FORMAT=PROTO))
@@ -7748,11 +7753,6 @@ select with anonymization ANON_QUANTILES(int64, 4 CLAMPED BETWEEN bool AND 3 ...
 select with anonymization ANON_QUANTILES(double, 4 CLAMPED BETWEEN bool AND 3 WITH REPORT(FORMAT=PROTO))
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator ANON_QUANTILES for argument types: DOUBLE, INT64, BOOL, INT64. Supported signature: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH REPORT(FORMAT=PROTO)) [at 1:27]
-select with anonymization ANON_QUANTILES(double, 4 CLAMPED BETWEEN bool AND 3...
-                          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for aggregate operator ANON_QUANTILES
   Argument types: DOUBLE, INT64, BOOL, INT64
   Signature: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH REPORT(FORMAT=PROTO))
@@ -7766,11 +7766,6 @@ select with anonymization ANON_QUANTILES(double, 4 CLAMPED BETWEEN bool AND 3...
 select with anonymization ANON_QUANTILES(int64, 4 CLAMPED BETWEEN 2 AND bool WITH REPORT(FORMAT=PROTO))
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator ANON_QUANTILES for argument types: INT64, INT64, INT64, BOOL. Supported signature: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH REPORT(FORMAT=PROTO)) [at 1:27]
-select with anonymization ANON_QUANTILES(int64, 4 CLAMPED BETWEEN 2 AND bool ...
-                          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for aggregate operator ANON_QUANTILES
   Argument types: INT64, INT64, INT64, BOOL
   Signature: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH REPORT(FORMAT=PROTO))
@@ -7784,11 +7779,6 @@ select with anonymization ANON_QUANTILES(int64, 4 CLAMPED BETWEEN 2 AND bool ...
 select with anonymization ANON_QUANTILES(double, 4 CLAMPED BETWEEN 2 AND bool WITH REPORT(FORMAT=PROTO))
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator ANON_QUANTILES for argument types: DOUBLE, INT64, INT64, BOOL. Supported signature: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH REPORT(FORMAT=PROTO)) [at 1:27]
-select with anonymization ANON_QUANTILES(double, 4 CLAMPED BETWEEN 2 AND bool...
-                          ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for aggregate operator ANON_QUANTILES
   Argument types: DOUBLE, INT64, INT64, BOOL
   Signature: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH REPORT(FORMAT=PROTO))
@@ -8366,7 +8356,7 @@ QueryStmt
 ==
 
 # Regresssion: b/282900415, non-subquery select expr in select list
-[language_features=ANONYMIZATION,NUMERIC_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=ANONYMIZATION,NUMERIC_TYPE,INLINE_LAMBDA_ARGUMENT]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT WITH ANONYMIZATION
   int32,
@@ -8501,7 +8491,7 @@ QueryStmt
 ==
 
 # Regresssion: b/282900415, non-subquery, not selected, select expr in select list
-[language_features=ANONYMIZATION,NUMERIC_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=ANONYMIZATION,NUMERIC_TYPE,INLINE_LAMBDA_ARGUMENT]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 SELECT WITH ANONYMIZATION
@@ -8536,6 +8526,7 @@ QueryStmt
     |           +-argument_list=[$lambda_arg.e#17]
     |           +-body=
     |             +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    |               +-parse_location=61-68
     |               +-ColumnRef(parse_location=61-62, type=STRING, column=$lambda_arg.e#17)
     |               +-Literal(parse_location=65-68, type=STRING, value="x")
     +-input_scan=
@@ -8613,6 +8604,7 @@ QueryStmt
     |         |           |   |     +-ColumnHolder(column=$array_offset.off#28)
     |         |           |   +-filter_expr=
     |         |           |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    |         |           |       +-parse_location=61-68
     |         |           |       +-ColumnRef(type=STRING, column=$array.element#27)
     |         |           |       +-Literal(parse_location=65-68, type=STRING, value="x")
     |         |           +-order_by_item_list=
@@ -9004,7 +8996,7 @@ Rewrite ERROR: Reading the table SimpleTypesWithAnonymizationUid containing user
 ==
 
 # GROUPING function is unsupported in with anonymization clause.
-[language_features=ANONYMIZATION,V_1_4_GROUPING_BUILTIN]
+[language_features=ANONYMIZATION,GROUPING_BUILTIN]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT WITH ANONYMIZATION GROUPING(int64), int64, ANON_SUM(int32)
 FROM SimpleTypesWithAnonymizationUid
@@ -9016,7 +9008,7 @@ SELECT WITH ANONYMIZATION GROUPING(int64), int64, ANON_SUM(int32)
 ==
 
 # GROUPING function is unsupported in the same select list with anonymization.
-[language_features=ANONYMIZATION,V_1_4_GROUPING_BUILTIN]
+[language_features=ANONYMIZATION,GROUPING_BUILTIN]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT WITH ANONYMIZATION int64, GROUPING(int64), ANON_SUM(int32)
 FROM SimpleTypesWithAnonymizationUid
@@ -9028,7 +9020,7 @@ SELECT WITH ANONYMIZATION int64, GROUPING(int64), ANON_SUM(int32)
 ==
 
 # GROUPING function is unsupported in the same query with the anonymization.
-[language_features=ANONYMIZATION,V_1_4_GROUPING_BUILTIN]
+[language_features=ANONYMIZATION,GROUPING_BUILTIN]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT WITH ANONYMIZATION int64, ANON_SUM(int32)
 FROM SimpleTypesWithAnonymizationUid
@@ -9041,7 +9033,7 @@ GROUP BY int64, double HAVING GROUPING(int64) = 0;
 
 # GROUPING function should be allowed in a subquery.
 # GROUPING function should be allowed in a subquery.
-[language_features=ANONYMIZATION,V_1_4_GROUPING_BUILTIN]
+[language_features=ANONYMIZATION,GROUPING_BUILTIN]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT
   WITH ANONYMIZATION int64, ANON_SUM(int32),
@@ -9154,7 +9146,7 @@ QueryStmt
 ==
 
 # GROUPING function should be allowed in the with clause.
-[language_features=ANONYMIZATION,V_1_4_GROUPING_BUILTIN]
+[language_features=ANONYMIZATION,GROUPING_BUILTIN]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 WITH T AS (
   SELECT uid, int64, GROUPING(int64) AS grp
@@ -9266,7 +9258,7 @@ QueryStmt
               +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#28)
 ==
 
-[language_features=ANONYMIZATION,V_1_4_GROUPING_BUILTIN{{|,V_1_4_ENFORCE_CONDITIONAL_EVALUATION}}]
+[language_features=ANONYMIZATION,GROUPING_BUILTIN{{|,ENFORCE_CONDITIONAL_EVALUATION}}]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [no_run_sqlbuilder]
 # The anonymization rewrite combined conditional evaluation leads to a
@@ -9496,7 +9488,7 @@ QueryStmt
         +-anonymization_option_list=
           +-max_groups_contributed := Literal(type=INT64, value=1)
 --
-ALTERNATION GROUP: ,V_1_4_ENFORCE_CONDITIONAL_EVALUATION,epsilon=1e20, k_threshold=1
+ALTERNATION GROUP: ,ENFORCE_CONDITIONAL_EVALUATION,epsilon=1e20, k_threshold=1
 --
 QueryStmt
 +-output_column_list=
@@ -9620,7 +9612,7 @@ QueryStmt
           +-epsilon := Literal(type=DOUBLE, value=1e+20)
           +-k_threshold := Literal(type=INT64, value=1)
 --
-ALTERNATION GROUP: ,V_1_4_ENFORCE_CONDITIONAL_EVALUATION,max_groups_contributed = 1
+ALTERNATION GROUP: ,ENFORCE_CONDITIONAL_EVALUATION,max_groups_contributed = 1
 --
 QueryStmt
 +-output_column_list=
@@ -9753,7 +9745,7 @@ QueryStmt
 
 ==
 
-[language_features=ANONYMIZATION,V_1_1_ORDER_BY_IN_AGGREGATE]
+[language_features=ANONYMIZATION,ORDER_BY_IN_AGGREGATE]
 [enabled_ast_rewrites={{DEFAULTS,+ANONYMIZATION,+ORDER_BY_AND_LIMIT_IN_AGGREGATE|DEFAULTS,+ORDER_BY_AND_LIMIT_IN_AGGREGATE}}]
 # Making sure that ORDER_BY_AND_LIMIT_IN_AGGREGATE rewrite won't step into
 # differentially private aggregates.

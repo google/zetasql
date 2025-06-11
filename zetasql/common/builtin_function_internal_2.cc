@@ -14,13 +14,7 @@
 // limitations under the License.
 //
 
-#include <ctype.h>
-
-#include <algorithm>
-#include <memory>
-#include <set>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -36,15 +30,12 @@
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
-#include "absl/container/flat_hash_map.h"
-#include "absl/container/flat_hash_set.h"
 #include "absl/functional/bind_front.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -168,7 +159,7 @@ static std::string NoMatchingSignatureForExtractFunction(
 }
 
 static std::string ExtractSignatureText(
-    const std::string& explicit_datepart_name,
+    absl::string_view explicit_datepart_name,
     const LanguageOptions& language_options, const Function& function,
     const FunctionSignature& signature) {
   return absl::StrCat(
@@ -180,7 +171,7 @@ static std::string ExtractSignatureText(
 }
 
 static std::string ExtractSupportedSignatures(
-    const std::string& explicit_datepart_name,
+    absl::string_view explicit_datepart_name,
     const LanguageOptions& language_options, const Function& function) {
   std::string supported_signatures;
   for (const FunctionSignature& signature : function.signatures()) {
@@ -335,7 +326,7 @@ void GetDatetimeConversionFunctions(
   FunctionSignatureOptions date_time_constructor_options =
       FunctionSignatureOptions()
           .set_constraints(&NoStringLiterals)
-          .AddRequiredLanguageFeature(FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS);
+          .AddRequiredLanguageFeature(FEATURE_DATE_TIME_CONSTRUCTORS);
   InsertFunction(functions, options, "date", SCALAR,
                  {
                      {date_type,
@@ -419,7 +410,7 @@ void GetDatetimeConversionFunctions(
                    {timestamp_type},
                    FN_TIMESTAMP_FROM_TIMESTAMP,
                    FunctionSignatureOptions().AddRequiredLanguageFeature(
-                       FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS)}});
+                       FEATURE_DATE_TIME_CONSTRUCTORS)}});
   InsertSimpleFunction(
       functions, options, "timestamp_seconds", SCALAR,
       {{timestamp_type, {int64_type}, FN_TIMESTAMP_FROM_INT64_SECONDS}});
@@ -462,10 +453,10 @@ void GetTimeAndDatetimeConstructionAndConversionFunctions(
       FunctionArgumentType::OPTIONAL;
 
   FunctionOptions time_and_datetime_function_options =
-      FunctionOptions().AddRequiredLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_CIVIL_TIME);
   FunctionSignatureOptions date_time_constructor_options =
       FunctionSignatureOptions().AddRequiredLanguageFeature(
-          FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS);
+          FEATURE_DATE_TIME_CONSTRUCTORS);
 
   InsertFunction(functions, options, "time", SCALAR,
                  {{time_type,
@@ -556,7 +547,7 @@ void GetDatetimeCurrentFunctions(TypeFactory* type_factory,
   const Type* datetime_type = type_factory->get_datetime();
   const Type* time_type = type_factory->get_time();
   FunctionOptions require_civil_time_types(function_is_stable);
-  require_civil_time_types.AddRequiredLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
+  require_civil_time_types.AddRequiredLanguageFeature(FEATURE_CIVIL_TIME);
   InsertSimpleFunction(
       functions, options, "current_datetime", SCALAR,
       {{datetime_type, {{string_type, OPTIONAL}}, FN_CURRENT_DATETIME}},
@@ -601,7 +592,7 @@ FunctionOptions SetDateAddSubFunctionOptions(
       .set_get_sql_callback(absl::bind_front(&DateAddOrSubFunctionSQL,
                                              std::string(function_name)));
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_ALIASES_FOR_STRING_AND_DATE_FUNCTIONS)) {
+          FEATURE_ALIASES_FOR_STRING_AND_DATE_FUNCTIONS)) {
     function_options.set_alias_name(alias_name);
   }
   return function_options;
@@ -620,12 +611,11 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
   const Function::Mode SCALAR = Function::SCALAR;
 
   FunctionOptions require_civil_time_types;
-  require_civil_time_types.AddRequiredLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
+  require_civil_time_types.AddRequiredLanguageFeature(FEATURE_CIVIL_TIME);
 
   FunctionSignatureOptions extended_datetime_signatures =
       FunctionSignatureOptions()
-          .AddRequiredLanguageFeature(
-              FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)
+          .AddRequiredLanguageFeature(FEATURE_EXTENDED_DATE_TIME_SIGNATURES)
           .set_is_aliased_signature(true)
           .set_constraints(&NoLiteralOrParameterString<0>);
 
@@ -778,14 +768,13 @@ void GetDatetimeDiffTruncLastFunctions(
       FunctionArgumentType::OPTIONAL;
 
   FunctionOptions require_civil_time_types;
-  require_civil_time_types.AddRequiredLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
+  require_civil_time_types.AddRequiredLanguageFeature(FEATURE_CIVIL_TIME);
 
   const Type* diff_type = int64_type;
 
   FunctionSignatureOptions extended_datetime_signatures =
       FunctionSignatureOptions()
-          .AddRequiredLanguageFeature(
-              FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)
+          .AddRequiredLanguageFeature(FEATURE_EXTENDED_DATE_TIME_SIGNATURES)
           .set_is_aliased_signature(true)
           .set_constraints(&NoLiteralOrParameterString<0, 1>);
 
@@ -902,9 +891,8 @@ void GetDatetimeDiffTruncLastFunctions(
           &CheckDateDatetimeTimeTimestampTruncArguments, "TIMESTAMP_TRUNC")));
 
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS) &&
-      options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_2_CIVIL_TIME)) {
+          FEATURE_ADDITIONAL_STRING_FUNCTIONS) &&
+      options.language_options.LanguageFeatureEnabled(FEATURE_CIVIL_TIME)) {
     InsertSimpleFunction(
         functions, options, "last_day", SCALAR,
         {{date_type, {date_type, {datepart_type, OPTIONAL}}, FN_LAST_DAY_DATE},
@@ -935,8 +923,7 @@ void GetDatetimeBucketFunctions(TypeFactory* type_factory,
 
   FunctionSignatureOptions extended_datetime_signatures =
       FunctionSignatureOptions()
-          .AddRequiredLanguageFeature(
-              FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)
+          .AddRequiredLanguageFeature(FEATURE_EXTENDED_DATE_TIME_SIGNATURES)
           .set_is_aliased_signature(true)
           .set_constraints(&NoLiteralOrParameterString<0, 2>);
 
@@ -971,7 +958,7 @@ void GetDatetimeBucketFunctions(TypeFactory* type_factory,
            FN_TIMESTAMP_BUCKET,
            extended_datetime_signatures},
       },
-      FunctionOptions().AddRequiredLanguageFeature(FEATURE_V_1_2_CIVIL_TIME));
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_CIVIL_TIME));
   InsertFunction(
       functions, options, "timestamp_bucket", SCALAR,
       {
@@ -1003,12 +990,11 @@ void GetDatetimeFormatFunctions(TypeFactory* type_factory,
       FunctionArgumentType::OPTIONAL;
 
   FunctionOptions require_civil_time_types;
-  require_civil_time_types.AddRequiredLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
+  require_civil_time_types.AddRequiredLanguageFeature(FEATURE_CIVIL_TIME);
 
   FunctionSignatureOptions extended_datetime_signatures =
       FunctionSignatureOptions()
-          .AddRequiredLanguageFeature(
-              FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)
+          .AddRequiredLanguageFeature(FEATURE_EXTENDED_DATE_TIME_SIGNATURES)
           .set_is_aliased_signature(true)
           .set_constraints(&NoLiteralOrParameterString<1>);
 
@@ -1159,13 +1145,12 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
   has_interval_type_argument.set_constraints(&CheckHasIntervalTypeArgument);
   FunctionSignatureOptions date_arithmetics_options =
       FunctionSignatureOptions().AddRequiredLanguageFeature(
-          FEATURE_V_1_3_DATE_ARITHMETICS);
+          FEATURE_DATE_ARITHMETICS);
   FunctionSignatureOptions interval_options =
       FunctionSignatureOptions().AddRequiredLanguageFeature(
           FEATURE_INTERVAL_TYPE);
   FunctionSignatureOptions civil_time_options =
-      FunctionSignatureOptions().AddRequiredLanguageFeature(
-          FEATURE_V_1_2_CIVIL_TIME);
+      FunctionSignatureOptions().AddRequiredLanguageFeature(FEATURE_CIVIL_TIME);
 
   // Note that the '$' prefix is used in function names for those that do not
   // support function call syntax.  Otherwise, syntax like ADD(<op1>, <op2>)
@@ -1448,48 +1433,54 @@ void GetBitwiseFunctions(TypeFactory* type_factory,
                         {int64_type, {bytes_type}, FN_BIT_COUNT_BYTES}});
 }
 
-void GetAggregateFunctions(TypeFactory* type_factory,
-                           const ZetaSQLBuiltinFunctionOptions& options,
-                           NameToFunctionMap* functions) {
-  const Type* int32_type = type_factory->get_int32();
+namespace {
+
+void GetAnyAggregateFunctions(TypeFactory* type_factory,
+                              const ZetaSQLBuiltinFunctionOptions& options,
+                              NameToFunctionMap* functions) {
+  InsertSimpleFunction(functions, options, "any_value", Function::AGGREGATE,
+                       {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1}, FN_ANY_VALUE}},
+                       DefaultAggregateFunctionOptions());
+}
+
+void GetCountFunctions(TypeFactory* type_factory,
+                       const ZetaSQLBuiltinFunctionOptions& options,
+                       NameToFunctionMap* functions) {
   const Type* int64_type = type_factory->get_int64();
-  const Type* uint32_type = type_factory->get_uint32();
-  const Type* uint64_type = type_factory->get_uint64();
-  const Type* double_type = type_factory->get_double();
-  const Type* string_type = type_factory->get_string();
-  const Type* bytes_type = type_factory->get_bytes();
   const Type* bool_type = type_factory->get_bool();
-  const Type* numeric_type = type_factory->get_numeric();
-  const Type* bignumeric_type = type_factory->get_bignumeric();
-  const Type* interval_type = type_factory->get_interval();
+
+  InsertFunction(functions, options, "count", Function::AGGREGATE,
+                 {{int64_type, {ARG_TYPE_ANY_1}, FN_COUNT}},
+                 DefaultAggregateFunctionOptions());
+
+  InsertSimpleFunction(functions, options, "$count_star", Function::AGGREGATE,
+                       {{int64_type, {}, FN_COUNT_STAR}},
+                       DefaultAggregateFunctionOptions()
+                           .set_sql_name("count(*)")
+                           .set_get_sql_callback(&CountStarFunctionSQL));
+
+  InsertFunction(functions, options, "countif", Function::AGGREGATE,
+                 {{int64_type, {bool_type}, FN_COUNTIF}},
+                 DefaultAggregateFunctionOptions());
+}
+
+void GetSumAvgFunctions(TypeFactory* type_factory,
+                        const ZetaSQLBuiltinFunctionOptions& options,
+                        NameToFunctionMap* functions) {
+  const Type* const int64_type = type_factory->get_int64();
+  const Type* const uint64_type = type_factory->get_uint64();
+  const Type* const double_type = type_factory->get_double();
+  const Type* const numeric_type = type_factory->get_numeric();
+  const Type* const bignumeric_type = type_factory->get_bignumeric();
+  const Type* const interval_type = type_factory->get_interval();
 
   FunctionSignatureOptions has_numeric_type_argument;
   has_numeric_type_argument.set_constraints(&CheckHasNumericTypeArgument);
   FunctionSignatureOptions has_bignumeric_type_argument;
   has_bignumeric_type_argument.set_constraints(&CheckHasBigNumericTypeArgument);
 
-  const Function::Mode AGGREGATE = Function::AGGREGATE;
-
-  InsertSimpleFunction(functions, options, "any_value", AGGREGATE,
-                       {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1}, FN_ANY_VALUE}},
-                       DefaultAggregateFunctionOptions());
-
-  InsertFunction(functions, options, "count", AGGREGATE,
-                 {{int64_type, {ARG_TYPE_ANY_1}, FN_COUNT}},
-                 DefaultAggregateFunctionOptions());
-
-  InsertSimpleFunction(functions, options, "$count_star", AGGREGATE,
-                       {{int64_type, {}, FN_COUNT_STAR}},
-                       DefaultAggregateFunctionOptions()
-                           .set_sql_name("count(*)")
-                           .set_get_sql_callback(&CountStarFunctionSQL));
-
-  InsertFunction(functions, options, "countif", AGGREGATE,
-                 {{int64_type, {bool_type}, FN_COUNTIF}},
-                 DefaultAggregateFunctionOptions());
-
   // Let INT32 -> INT64, UINT32 -> UINT64, and FLOAT -> DOUBLE.
-  InsertFunction(functions, options, "sum", AGGREGATE,
+  InsertFunction(functions, options, "sum", Function::AGGREGATE,
                  {{int64_type, {int64_type}, FN_SUM_INT64},
                   {uint64_type, {uint64_type}, FN_SUM_UINT64},
                   {double_type, {double_type}, FN_SUM_DOUBLE},
@@ -1504,7 +1495,7 @@ void GetAggregateFunctions(TypeFactory* type_factory,
                   {interval_type, {interval_type}, FN_SUM_INTERVAL}},
                  DefaultAggregateFunctionOptions());
 
-  InsertFunction(functions, options, "avg", AGGREGATE,
+  InsertFunction(functions, options, "avg", Function::AGGREGATE,
                  {{double_type, {int64_type}, FN_AVG_INT64},
                   {double_type, {uint64_type}, FN_AVG_UINT64},
                   {double_type, {double_type}, FN_AVG_DOUBLE},
@@ -1518,6 +1509,16 @@ void GetAggregateFunctions(TypeFactory* type_factory,
                    has_bignumeric_type_argument},
                   {interval_type, {interval_type}, FN_AVG_INTERVAL}},
                  DefaultAggregateFunctionOptions());
+}
+
+void GetBitwiseAggregateFunctions(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions) {
+  const Type* const int32_type = type_factory->get_int32();
+  const Type* const int64_type = type_factory->get_int64();
+  const Type* const uint32_type = type_factory->get_uint32();
+  const Type* const uint64_type = type_factory->get_uint64();
+  const Type* const bytes_type = type_factory->get_bytes();
 
   const Type* bitwise_agg_mode_type = types::BitwiseAggModeEnumType();
   const FunctionArgumentType bitwise_agg_mode_arg(
@@ -1530,9 +1531,9 @@ void GetAggregateFunctions(TypeFactory* type_factory,
 
   const FunctionSignatureOptions bitwise_agg_bytes_options =
       FunctionSignatureOptions().AddRequiredLanguageFeature(
-          FEATURE_V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES);
+          FEATURE_BITWISE_AGGREGATE_BYTES_SIGNATURES);
 
-  InsertFunction(functions, options, "bit_and", AGGREGATE,
+  InsertFunction(functions, options, "bit_and", Function::AGGREGATE,
                  {{int32_type, {int32_type}, FN_BIT_AND_INT32},
                   {int64_type, {int64_type}, FN_BIT_AND_INT64},
                   {uint32_type, {uint32_type}, FN_BIT_AND_UINT32},
@@ -1543,7 +1544,7 @@ void GetAggregateFunctions(TypeFactory* type_factory,
                    bitwise_agg_bytes_options}},
                  DefaultAggregateFunctionOptions());
 
-  InsertFunction(functions, options, "bit_or", AGGREGATE,
+  InsertFunction(functions, options, "bit_or", Function::AGGREGATE,
                  {{int32_type, {int32_type}, FN_BIT_OR_INT32},
                   {int64_type, {int64_type}, FN_BIT_OR_INT64},
                   {uint32_type, {uint32_type}, FN_BIT_OR_UINT32},
@@ -1554,7 +1555,7 @@ void GetAggregateFunctions(TypeFactory* type_factory,
                    bitwise_agg_bytes_options}},
                  DefaultAggregateFunctionOptions());
 
-  InsertFunction(functions, options, "bit_xor", AGGREGATE,
+  InsertFunction(functions, options, "bit_xor", Function::AGGREGATE,
                  {{int32_type, {int32_type}, FN_BIT_XOR_INT32},
                   {int64_type, {int64_type}, FN_BIT_XOR_INT64},
                   {uint32_type, {uint32_type}, FN_BIT_XOR_UINT32},
@@ -1564,18 +1565,28 @@ void GetAggregateFunctions(TypeFactory* type_factory,
                    FN_BIT_XOR_BYTES,
                    bitwise_agg_bytes_options}},
                  DefaultAggregateFunctionOptions());
-  InsertFunction(functions, options, "logical_and", AGGREGATE,
+}
+
+void GetLogicalAggregateFunctions(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions) {
+  const Type* const bool_type = type_factory->get_bool();
+  InsertFunction(functions, options, "logical_and", Function::AGGREGATE,
                  {{bool_type, {bool_type}, FN_LOGICAL_AND}},
                  DefaultAggregateFunctionOptions());
 
-  InsertFunction(functions, options, "logical_or", AGGREGATE,
+  InsertFunction(functions, options, "logical_or", Function::AGGREGATE,
                  {{bool_type, {bool_type}, FN_LOGICAL_OR}},
                  DefaultAggregateFunctionOptions());
+}
 
+void GetMinMaxFunctions(TypeFactory* type_factory,
+                        const ZetaSQLBuiltinFunctionOptions& options,
+                        NameToFunctionMap* functions) {
   // Resolution will verify that argument types are valid (not proto, struct,
   // or array).
   InsertFunction(
-      functions, options, "min", AGGREGATE,
+      functions, options, "min", Function::AGGREGATE,
       {{ARG_TYPE_ANY_1,
         {ARG_TYPE_ANY_1},
         FN_MIN,
@@ -1584,18 +1595,24 @@ void GetAggregateFunctions(TypeFactory* type_factory,
           absl::bind_front(&CheckMinMaxArguments, "MIN")));
 
   InsertFunction(
-      functions, options, "max", AGGREGATE,
+      functions, options, "max", Function::AGGREGATE,
       {{ARG_TYPE_ANY_1,
         {ARG_TYPE_ANY_1},
         FN_MAX,
         FunctionSignatureOptions().set_uses_operation_collation()}},
       DefaultAggregateFunctionOptions().set_pre_resolution_argument_constraint(
           absl::bind_front(&CheckMinMaxArguments, "MAX")));
+}
+
+void GetGroupingFunctions(TypeFactory* type_factory,
+                          const ZetaSQLBuiltinFunctionOptions& options,
+                          NameToFunctionMap* functions) {
+  const Type* const int64_type = type_factory->get_int64();
 
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_GROUPING_BUILTIN)) {
+          FEATURE_GROUPING_BUILTIN)) {
     InsertFunction(
-        functions, options, "grouping", AGGREGATE,
+        functions, options, "grouping", Function::AGGREGATE,
         {{int64_type, {ARG_TYPE_ANY_1}, FN_GROUPING}},
         DefaultAggregateFunctionOptions()
             .set_post_resolution_argument_constraint(
@@ -1608,13 +1625,20 @@ void GetAggregateFunctions(TypeFactory* type_factory,
             .set_supports_having_modifier(false)
             .set_supports_group_by_modifier(false));
   }
+}
+
+void GetMergeFunctions(TypeFactory* type_factory,
+                       const ZetaSQLBuiltinFunctionOptions& options,
+                       NameToFunctionMap* functions) {
+  const Type* const string_type = type_factory->get_string();
+  const Type* const bytes_type = type_factory->get_bytes();
 
   FunctionArgumentTypeOptions non_null_non_agg;
   non_null_non_agg.set_is_not_aggregate();
   non_null_non_agg.set_must_be_non_null();
 
   InsertFunction(
-      functions, options, "string_agg", AGGREGATE,
+      functions, options, "string_agg", Function::AGGREGATE,
       {{string_type, {string_type}, FN_STRING_AGG_STRING},
        // Resolution will verify that the second argument must be a literal.
        {string_type,
@@ -1631,7 +1655,7 @@ void GetAggregateFunctions(TypeFactory* type_factory,
           .set_supports_limit(true));
 
   InsertFunction(
-      functions, options, "array_agg", AGGREGATE,
+      functions, options, "array_agg", Function::AGGREGATE,
       {{{ARG_ARRAY_TYPE_ANY_1,
          FunctionArgumentTypeOptions().set_uses_array_element_for_collation()},
         {ARG_TYPE_ANY_1},
@@ -1643,12 +1667,20 @@ void GetAggregateFunctions(TypeFactory* type_factory,
           .set_supports_limit(true));
 
   InsertSimpleFunction(
-      functions, options, "array_concat_agg", AGGREGATE,
+      functions, options, "array_concat_agg", Function::AGGREGATE,
       {{ARG_ARRAY_TYPE_ANY_1, {ARG_ARRAY_TYPE_ANY_1}, FN_ARRAY_CONCAT_AGG}},
       DefaultAggregateFunctionOptions()
           .set_pre_resolution_argument_constraint(&CheckArrayConcatArguments)
           .set_supports_order_by(true)
           .set_supports_limit(true));
+}
+
+void GetPercentileFunctions(TypeFactory* type_factory,
+                            const ZetaSQLBuiltinFunctionOptions& options,
+                            NameToFunctionMap* functions) {
+  const Type* const double_type = type_factory->get_double();
+  const Type* const numeric_type = type_factory->get_numeric();
+  const Type* const bignumeric_type = type_factory->get_bignumeric();
 
   FunctionSignatureOptions all_args_are_numeric_or_bignumeric;
   all_args_are_numeric_or_bignumeric.set_constraints(
@@ -1669,7 +1701,7 @@ void GetAggregateFunctions(TypeFactory* type_factory,
           .set_supports_distinct_modifier(false);
 
   InsertFunction(
-      functions, options, "percentile_cont", AGGREGATE,
+      functions, options, "percentile_cont", Function::AGGREGATE,
       {
           {double_type,
            {double_type, {double_type, non_null_non_agg_between_0_and_1}},
@@ -1687,7 +1719,7 @@ void GetAggregateFunctions(TypeFactory* type_factory,
       disallowed_order_and_frame_allowed_null_handling);
 
   InsertFunction(
-      functions, options, "percentile_disc", AGGREGATE,
+      functions, options, "percentile_disc", Function::AGGREGATE,
       {{ARG_TYPE_ANY_1,
         {{ARG_TYPE_ANY_1, comparable},
          {double_type, non_null_non_agg_between_0_and_1}},
@@ -1708,6 +1740,22 @@ void GetAggregateFunctions(TypeFactory* type_factory,
             .set_uses_operation_collation()
             .set_constraints(&CheckLastArgumentHasNumericOrBigNumericType)}},
       disallowed_order_and_frame_allowed_null_handling);
+}
+
+}  // namespace
+
+void GetAggregateFunctions(TypeFactory* type_factory,
+                           const ZetaSQLBuiltinFunctionOptions& options,
+                           NameToFunctionMap* functions) {
+  GetAnyAggregateFunctions(type_factory, options, functions);
+  GetCountFunctions(type_factory, options, functions);
+  GetSumAvgFunctions(type_factory, options, functions);
+  GetBitwiseAggregateFunctions(type_factory, options, functions);
+  GetLogicalAggregateFunctions(type_factory, options, functions);
+  GetMinMaxFunctions(type_factory, options, functions);
+  GetGroupingFunctions(type_factory, options, functions);
+  GetMergeFunctions(type_factory, options, functions);
+  GetPercentileFunctions(type_factory, options, functions);
 }
 
 void GetApproxFunctions(TypeFactory* type_factory,
@@ -2034,26 +2082,17 @@ void GetAnalyticFunctions(TypeFactory* type_factory,
                  required_order_allowed_frame_and_null_handling);
 }
 
-absl::Status GetBooleanFunctions(TypeFactory* type_factory,
-                                 const ZetaSQLBuiltinFunctionOptions& options,
-                                 NameToFunctionMap* functions) {
-  const Type* bool_type = type_factory->get_bool();
-  const Type* byte_type = type_factory->get_bytes();
-  const Type* int64_type = type_factory->get_int64();
-  const Type* uint64_type = type_factory->get_uint64();
-  const Type* string_type = type_factory->get_string();
-  const ArrayType* array_string_type;
-  ZETASQL_RETURN_IF_ERROR(type_factory->MakeArrayType(string_type, &array_string_type));
-  const ArrayType* array_byte_type;
-  ZETASQL_RETURN_IF_ERROR(type_factory->MakeArrayType(byte_type, &array_byte_type));
+namespace {
 
-  const Function::Mode SCALAR = Function::SCALAR;
-
-  const FunctionArgumentType::ArgumentCardinality REPEATED =
-      FunctionArgumentType::REPEATED;
+void GetEqualityFunctions(TypeFactory* type_factory,
+                          const ZetaSQLBuiltinFunctionOptions& options,
+                          NameToFunctionMap* functions) {
+  const Type* const bool_type = type_factory->get_bool();
+  const Type* const int64_type = type_factory->get_int64();
+  const Type* const uint64_type = type_factory->get_uint64();
 
   InsertFunction(
-      functions, options, "$equal", SCALAR,
+      functions, options, "$equal", Function::SCALAR,
       {
           {bool_type,
            {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
@@ -2067,15 +2106,13 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
            FN_EQUAL_GRAPH_NODE,
            FunctionSignatureOptions()
                .set_is_hidden(true)
-               .AddRequiredLanguageFeature(
-                   LanguageFeature::FEATURE_V_1_4_SQL_GRAPH)},
+               .AddRequiredLanguageFeature(LanguageFeature::FEATURE_SQL_GRAPH)},
           {bool_type,
            {ARG_TYPE_GRAPH_EDGE, ARG_TYPE_GRAPH_EDGE},
            FN_EQUAL_GRAPH_EDGE,
            FunctionSignatureOptions()
                .set_is_hidden(true)
-               .AddRequiredLanguageFeature(
-                   LanguageFeature::FEATURE_V_1_4_SQL_GRAPH)},
+               .AddRequiredLanguageFeature(LanguageFeature::FEATURE_SQL_GRAPH)},
       },
       FunctionOptions()
           .set_supports_safe_error_mode(false)
@@ -2087,7 +2124,7 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
           .set_get_sql_callback(absl::bind_front(&InfixFunctionSQL, "=")));
 
   InsertFunction(
-      functions, options, "$not_equal", SCALAR,
+      functions, options, "$not_equal", Function::SCALAR,
       {
           {bool_type,
            {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
@@ -2101,15 +2138,13 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
            FN_NOT_EQUAL_GRAPH_NODE,
            FunctionSignatureOptions()
                .set_is_hidden(true)
-               .AddRequiredLanguageFeature(
-                   LanguageFeature::FEATURE_V_1_4_SQL_GRAPH)},
+               .AddRequiredLanguageFeature(LanguageFeature::FEATURE_SQL_GRAPH)},
           {bool_type,
            {ARG_TYPE_GRAPH_EDGE, ARG_TYPE_GRAPH_EDGE},
            FN_NOT_EQUAL_GRAPH_EDGE,
            FunctionSignatureOptions()
                .set_is_hidden(true)
-               .AddRequiredLanguageFeature(
-                   LanguageFeature::FEATURE_V_1_4_SQL_GRAPH)},
+               .AddRequiredLanguageFeature(LanguageFeature::FEATURE_SQL_GRAPH)},
       },
       FunctionOptions()
           .set_supports_safe_error_mode(false)
@@ -2119,13 +2154,21 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
           .set_no_matching_signature_callback(
               &NoMatchingSignatureForComparisonOperator)
           .set_get_sql_callback(absl::bind_front(&InfixFunctionSQL, "!=")));
+}
+
+void GetDistinctFunctions(TypeFactory* type_factory,
+                          const ZetaSQLBuiltinFunctionOptions& options,
+                          NameToFunctionMap* functions) {
+  const Type* const bool_type = type_factory->get_bool();
+  const Type* const int64_type = type_factory->get_int64();
+  const Type* const uint64_type = type_factory->get_uint64();
 
   // Add $is_distinct_from/$is_not_distinct_from functions to the catalog
   // unconditionally so that rewriters can generate calls to them, even if the
   // IS NOT DISTINCT FROM syntax is not supported at the query level. The pivot
   // rewriter makes use of this.
   InsertFunction(
-      functions, options, "$is_distinct_from", SCALAR,
+      functions, options, "$is_distinct_from", Function::SCALAR,
       {{bool_type,
         {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
         FN_DISTINCT,
@@ -2141,7 +2184,7 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
               absl::bind_front(&CheckArgumentsSupportGrouping, "Grouping")));
 
   InsertFunction(
-      functions, options, "$is_not_distinct_from", SCALAR,
+      functions, options, "$is_not_distinct_from", Function::SCALAR,
       {{bool_type,
         {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
         FN_NOT_DISTINCT,
@@ -2155,9 +2198,17 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
           .set_supports_safe_error_mode(false)
           .set_post_resolution_argument_constraint(
               absl::bind_front(&CheckArgumentsSupportGrouping, "Grouping")));
+}
+
+void GetInequalityFunctions(TypeFactory* type_factory,
+                            const ZetaSQLBuiltinFunctionOptions& options,
+                            NameToFunctionMap* functions) {
+  const Type* const bool_type = type_factory->get_bool();
+  const Type* const int64_type = type_factory->get_int64();
+  const Type* const uint64_type = type_factory->get_uint64();
 
   InsertFunction(
-      functions, options, "$less", SCALAR,
+      functions, options, "$less", Function::SCALAR,
       {{bool_type,
         {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
         FN_LESS,
@@ -2174,7 +2225,7 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
           .set_get_sql_callback(absl::bind_front(&InfixFunctionSQL, "<")));
 
   InsertFunction(
-      functions, options, "$less_or_equal", SCALAR,
+      functions, options, "$less_or_equal", Function::SCALAR,
       {{bool_type,
         {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
         FN_LESS_OR_EQUAL,
@@ -2191,7 +2242,7 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
           .set_get_sql_callback(absl::bind_front(&InfixFunctionSQL, "<=")));
 
   InsertFunction(
-      functions, options, "$greater_or_equal", SCALAR,
+      functions, options, "$greater_or_equal", Function::SCALAR,
       {{bool_type,
         {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
         FN_GREATER_OR_EQUAL,
@@ -2210,7 +2261,7 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
           .set_get_sql_callback(absl::bind_front(&InfixFunctionSQL, ">=")));
 
   InsertFunction(
-      functions, options, "$greater", SCALAR,
+      functions, options, "$greater", Function::SCALAR,
       {{bool_type,
         {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
         FN_GREATER,
@@ -2225,6 +2276,14 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
               &NoMatchingSignatureForComparisonOperator)
           .set_sql_name(">")
           .set_get_sql_callback(absl::bind_front(&InfixFunctionSQL, ">")));
+}
+
+void GetBetweenFunctions(TypeFactory* type_factory,
+                         const ZetaSQLBuiltinFunctionOptions& options,
+                         NameToFunctionMap* functions) {
+  const Type* const bool_type = type_factory->get_bool();
+  const Type* const int64_type = type_factory->get_int64();
+  const Type* const uint64_type = type_factory->get_uint64();
 
   // Historically, BETWEEN had only one function signature where all
   // arguments must be coercible to the same type.  The implication is that
@@ -2240,7 +2299,7 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
   if (!options.language_options.LanguageFeatureEnabled(
           FEATURE_BETWEEN_UINT64_INT64)) {
     InsertFunction(
-        functions, options, "$between", SCALAR,
+        functions, options, "$between", Function::SCALAR,
         {{bool_type,
           {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
           FN_BETWEEN,
@@ -2252,7 +2311,7 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
             .set_get_sql_callback(&BetweenFunctionSQL));
   } else {
     InsertFunction(
-        functions, options, "$between", SCALAR,
+        functions, options, "$between", Function::SCALAR,
         {{bool_type,
           {int64_type, uint64_type, uint64_type},
           FN_BETWEEN_INT64_UINT64_UINT64},
@@ -2281,9 +2340,17 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
                 absl::bind_front(&CheckArgumentsSupportComparison, "BETWEEN"))
             .set_get_sql_callback(&BetweenFunctionSQL));
   }
+}
+
+void GetLikeFunctions(TypeFactory* type_factory,
+                      const ZetaSQLBuiltinFunctionOptions& options,
+                      NameToFunctionMap* functions) {
+  const Type* const bool_type = type_factory->get_bool();
+  const Type* const byte_type = type_factory->get_bytes();
+  const Type* const string_type = type_factory->get_string();
 
   InsertFunction(
-      functions, options, "$like", SCALAR,
+      functions, options, "$like", Function::SCALAR,
       {{bool_type,
         {string_type, string_type},
         FN_STRING_LIKE,
@@ -2296,15 +2363,17 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
           .set_get_sql_callback(absl::bind_front(&InfixFunctionSQL, "LIKE")));
 
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_3_LIKE_ANY_SOME_ALL)) {
+          FEATURE_LIKE_ANY_SOME_ALL)) {
     // Supports both LIKE ANY and LIKE SOME.
     InsertFunction(
-        functions, options, "$like_any", SCALAR,
+        functions, options, "$like_any", Function::SCALAR,
         {{bool_type,
-          {string_type, {string_type, REPEATED}},
+          {string_type, {string_type, FunctionArgumentType::REPEATED}},
           FN_STRING_LIKE_ANY,
           FunctionSignatureOptions().set_uses_operation_collation()},
-         {bool_type, {byte_type, {byte_type, REPEATED}}, FN_BYTE_LIKE_ANY}},
+         {bool_type,
+          {byte_type, {byte_type, FunctionArgumentType::REPEATED}},
+          FN_BYTE_LIKE_ANY}},
         FunctionOptions()
             .set_supports_safe_error_mode(false)
             .set_post_resolution_argument_constraint(
@@ -2316,12 +2385,14 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
             .set_get_sql_callback(&LikeAnyFunctionSQL));
 
     InsertFunction(
-        functions, options, "$like_all", SCALAR,
+        functions, options, "$like_all", Function::SCALAR,
         {{bool_type,
-          {string_type, {string_type, REPEATED}},
+          {string_type, {string_type, FunctionArgumentType::REPEATED}},
           FN_STRING_LIKE_ALL,
           FunctionSignatureOptions().set_uses_operation_collation()},
-         {bool_type, {byte_type, {byte_type, REPEATED}}, FN_BYTE_LIKE_ALL}},
+         {bool_type,
+          {byte_type, {byte_type, FunctionArgumentType::REPEATED}},
+          FN_BYTE_LIKE_ALL}},
         FunctionOptions()
             .set_supports_safe_error_mode(false)
             .set_post_resolution_argument_constraint(
@@ -2332,53 +2403,62 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
             .set_hide_supported_signatures(true)
             .set_get_sql_callback(&LikeAllFunctionSQL));
 
-    if (options.language_options.LanguageFeatureEnabled(
-            FEATURE_V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL)) {
-      InsertFunction(
-          functions, options, "$not_like_any", SCALAR,
-          {{bool_type,
-            {string_type, {string_type, REPEATED}},
-            FN_STRING_NOT_LIKE_ANY,
-            FunctionSignatureOptions().set_uses_operation_collation()},
-           {bool_type,
-            {byte_type, {byte_type, REPEATED}},
-            FN_BYTE_NOT_LIKE_ANY}},
-          FunctionOptions()
-              .set_supports_safe_error_mode(false)
-              .set_post_resolution_argument_constraint(absl::bind_front(
-                  &CheckArgumentsSupportEquality, "NOT LIKE ANY"))
-              .set_no_matching_signature_callback(
-                  &NoMatchingSignatureForLikeExprFunction)
-              .set_sql_name("not like any")
-              .set_hide_supported_signatures(true)
-              .set_get_sql_callback(&NotLikeAnyFunctionSQL));
+    InsertFunction(
+        functions, options, "$not_like_any", Function::SCALAR,
+        {{bool_type,
+          {string_type, {string_type, FunctionArgumentType::REPEATED}},
+          FN_STRING_NOT_LIKE_ANY,
+          FunctionSignatureOptions().set_uses_operation_collation()},
+         {bool_type,
+          {byte_type, {byte_type, FunctionArgumentType::REPEATED}},
+          FN_BYTE_NOT_LIKE_ANY}},
+        FunctionOptions()
+            .set_supports_safe_error_mode(false)
+            .set_post_resolution_argument_constraint(absl::bind_front(
+                &CheckArgumentsSupportEquality, "NOT LIKE ANY"))
+            .set_no_matching_signature_callback(
+                &NoMatchingSignatureForLikeExprFunction)
+            .set_sql_name("not like any")
+            .set_hide_supported_signatures(true)
+            .set_get_sql_callback(&NotLikeAnyFunctionSQL));
 
-      InsertFunction(
-          functions, options, "$not_like_all", SCALAR,
-          {{bool_type,
-            {string_type, {string_type, REPEATED}},
-            FN_STRING_NOT_LIKE_ALL,
-            FunctionSignatureOptions().set_uses_operation_collation()},
-           {bool_type,
-            {byte_type, {byte_type, REPEATED}},
-            FN_BYTE_NOT_LIKE_ALL}},
-          FunctionOptions()
-              .set_supports_safe_error_mode(false)
-              .set_post_resolution_argument_constraint(absl::bind_front(
-                  &CheckArgumentsSupportEquality, "NOT LIKE ALL"))
-              .set_no_matching_signature_callback(
-                  &NoMatchingSignatureForLikeExprFunction)
-              .set_sql_name("not like all")
-              .set_hide_supported_signatures(true)
-              .set_get_sql_callback(&NotLikeAllFunctionSQL));
-    }
+    InsertFunction(
+        functions, options, "$not_like_all", Function::SCALAR,
+        {{bool_type,
+          {string_type, {string_type, FunctionArgumentType::REPEATED}},
+          FN_STRING_NOT_LIKE_ALL,
+          FunctionSignatureOptions().set_uses_operation_collation()},
+         {bool_type,
+          {byte_type, {byte_type, FunctionArgumentType::REPEATED}},
+          FN_BYTE_NOT_LIKE_ALL}},
+        FunctionOptions()
+            .set_supports_safe_error_mode(false)
+            .set_post_resolution_argument_constraint(absl::bind_front(
+                &CheckArgumentsSupportEquality, "NOT LIKE ALL"))
+            .set_no_matching_signature_callback(
+                &NoMatchingSignatureForLikeExprFunction)
+            .set_sql_name("not like all")
+            .set_hide_supported_signatures(true)
+            .set_get_sql_callback(&NotLikeAllFunctionSQL));
   }
+}
+
+absl::Status GetLikeArrayFunctions(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions) {
+  const Type* const bool_type = type_factory->get_bool();
+  const Type* const byte_type = type_factory->get_bytes();
+  const Type* const string_type = type_factory->get_string();
+  const ArrayType* array_string_type;
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeArrayType(string_type, &array_string_type));
+  const ArrayType* array_byte_type;
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeArrayType(byte_type, &array_byte_type));
 
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_LIKE_ANY_SOME_ALL_ARRAY)) {
+          FEATURE_LIKE_ANY_SOME_ALL_ARRAY)) {
     // Supports both LIKE ANY and LIKE SOME arrays.
     InsertFunction(
-        functions, options, "$like_any_array", SCALAR,
+        functions, options, "$like_any_array", Function::SCALAR,
         {{bool_type,
           {string_type,
            {array_string_type, FunctionArgumentTypeOptions()
@@ -2400,7 +2480,7 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
             .set_get_sql_callback(&LikeAnyArrayFunctionSQL));
 
     InsertFunction(
-        functions, options, "$like_all_array", SCALAR,
+        functions, options, "$like_all_array", Function::SCALAR,
         {{bool_type,
           {string_type,
            {array_string_type, FunctionArgumentTypeOptions()
@@ -2421,64 +2501,64 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
             .set_hide_supported_signatures(true)
             .set_get_sql_callback(&LikeAllArrayFunctionSQL));
 
-    if (options.language_options.LanguageFeatureEnabled(
-            FEATURE_V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL)) {
-      InsertFunction(
-          functions, options, "$not_like_any_array", SCALAR,
-          {{bool_type,
-            {string_type,
-             {array_string_type, FunctionArgumentTypeOptions()
-                                     .set_uses_array_element_for_collation()}},
-            FN_STRING_ARRAY_NOT_LIKE_ANY,
-            FunctionSignatureOptions().set_uses_operation_collation()},
-           {bool_type,
-            {byte_type, array_byte_type},
-            FN_BYTE_ARRAY_NOT_LIKE_ANY}},
-          FunctionOptions()
-              .set_supports_safe_error_mode(false)
-              .set_pre_resolution_argument_constraint(
-                  // Verifies for <expr> NOT LIKE ANY|SOME UNNEST(<array_expr>)
-                  // * Argument to UNNEST is an array.
-                  // * <expr> and elements of <array_expr> are comparable.
-                  &CheckLikeExprArrayArguments)
-              .set_no_matching_signature_callback(
-                  &NoMatchingSignatureForLikeExprArrayFunction)
-              .set_sql_name("not like any unnest")
-              .set_hide_supported_signatures(true)
-              .set_get_sql_callback(&NotLikeAnyArrayFunctionSQL));
+    InsertFunction(
+        functions, options, "$not_like_any_array", Function::SCALAR,
+        {{bool_type,
+          {string_type,
+           {array_string_type, FunctionArgumentTypeOptions()
+                                   .set_uses_array_element_for_collation()}},
+          FN_STRING_ARRAY_NOT_LIKE_ANY,
+          FunctionSignatureOptions().set_uses_operation_collation()},
+         {bool_type, {byte_type, array_byte_type}, FN_BYTE_ARRAY_NOT_LIKE_ANY}},
+        FunctionOptions()
+            .set_supports_safe_error_mode(false)
+            .set_pre_resolution_argument_constraint(
+                // Verifies for <expr> NOT LIKE ANY|SOME UNNEST(<array_expr>)
+                // * Argument to UNNEST is an array.
+                // * <expr> and elements of <array_expr> are comparable.
+                &CheckLikeExprArrayArguments)
+            .set_no_matching_signature_callback(
+                &NoMatchingSignatureForLikeExprArrayFunction)
+            .set_sql_name("not like any unnest")
+            .set_hide_supported_signatures(true)
+            .set_get_sql_callback(&NotLikeAnyArrayFunctionSQL));
 
-      InsertFunction(
-          functions, options, "$not_like_all_array", SCALAR,
-          {{bool_type,
-            {string_type,
-             {array_string_type, FunctionArgumentTypeOptions()
-                                     .set_uses_array_element_for_collation()}},
-            FN_STRING_ARRAY_NOT_LIKE_ALL,
-            FunctionSignatureOptions().set_uses_operation_collation()},
-           {bool_type,
-            {byte_type, array_byte_type},
-            FN_BYTE_ARRAY_NOT_LIKE_ALL}},
-          FunctionOptions()
-              .set_supports_safe_error_mode(false)
-              .set_pre_resolution_argument_constraint(
-                  // Verifies for <expr> NOT LIKE ALL UNNEST(<array_expr>)
-                  // * Argument to UNNEST is an array.
-                  // * <expr> and elements of <array_expr> are comparable.
-                  &CheckLikeExprArrayArguments)
-              .set_no_matching_signature_callback(
-                  &NoMatchingSignatureForLikeExprArrayFunction)
-              .set_sql_name("not like all unnest")
-              .set_hide_supported_signatures(true)
-              .set_get_sql_callback(&NotLikeAllArrayFunctionSQL));
-    }
+    InsertFunction(
+        functions, options, "$not_like_all_array", Function::SCALAR,
+        {{bool_type,
+          {string_type,
+           {array_string_type, FunctionArgumentTypeOptions()
+                                   .set_uses_array_element_for_collation()}},
+          FN_STRING_ARRAY_NOT_LIKE_ALL,
+          FunctionSignatureOptions().set_uses_operation_collation()},
+         {bool_type, {byte_type, array_byte_type}, FN_BYTE_ARRAY_NOT_LIKE_ALL}},
+        FunctionOptions()
+            .set_supports_safe_error_mode(false)
+            .set_pre_resolution_argument_constraint(
+                // Verifies for <expr> NOT LIKE ALL UNNEST(<array_expr>)
+                // * Argument to UNNEST is an array.
+                // * <expr> and elements of <array_expr> are comparable.
+                &CheckLikeExprArrayArguments)
+            .set_no_matching_signature_callback(
+                &NoMatchingSignatureForLikeExprArrayFunction)
+            .set_sql_name("not like all unnest")
+            .set_hide_supported_signatures(true)
+            .set_get_sql_callback(&NotLikeAllArrayFunctionSQL));
   }
+  return absl::OkStatus();
+}
+
+void GetInFunctions(TypeFactory* type_factory,
+                    const ZetaSQLBuiltinFunctionOptions& options,
+                    NameToFunctionMap* functions) {
+  const Type* const bool_type = type_factory->get_bool();
 
   // TODO: Do we want to support IN for non-compatible integers, i.e.,
   // '<uint64col> IN (<int32col>, <int64col>)'?
   InsertFunction(
-      functions, options, "$in", SCALAR,
+      functions, options, "$in", Function::SCALAR,
       {{bool_type,
-        {ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1, REPEATED}},
+        {ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1, FunctionArgumentType::REPEATED}},
         FN_IN,
         FunctionSignatureOptions().set_uses_operation_collation()}},
       FunctionOptions()
@@ -2492,7 +2572,7 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
   // TODO: Do we want to support:
   //   '<uint64col>' IN UNNEST(<int64_array>)'?
   InsertFunction(
-      functions, options, "$in_array", SCALAR,
+      functions, options, "$in_array", Function::SCALAR,
       {{bool_type,
         {ARG_TYPE_ANY_1,
          {ARG_ARRAY_TYPE_ANY_1, FunctionArgumentTypeOptions()
@@ -2511,6 +2591,20 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
           .set_sql_name("in unnest")
           .set_hide_supported_signatures(true)
           .set_get_sql_callback(&InArrayFunctionSQL));
+}
+
+}  // namespace
+
+absl::Status GetBooleanFunctions(TypeFactory* type_factory,
+                                 const ZetaSQLBuiltinFunctionOptions& options,
+                                 NameToFunctionMap* functions) {
+  GetEqualityFunctions(type_factory, options, functions);
+  GetDistinctFunctions(type_factory, options, functions);
+  GetInequalityFunctions(type_factory, options, functions);
+  GetBetweenFunctions(type_factory, options, functions);
+  GetLikeFunctions(type_factory, options, functions);
+  ZETASQL_RETURN_IF_ERROR(GetLikeArrayFunctions(type_factory, options, functions));
+  GetInFunctions(type_factory, options, functions);
   return absl::OkStatus();
 }
 

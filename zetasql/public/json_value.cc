@@ -522,7 +522,7 @@ bool JSONValueConstRef::IsArray() const { return impl_->value.is_array(); }
 
 bool JSONValueConstRef::IsInt64() const {
   // is_number_integer() returns true for both signed and unsigned values. We
-  // need to make sure that the value fits int64_t if it is unsigned.
+  // need to make sure that the value fits int64 if it is unsigned.
   return impl_->value.is_number_integer() &&
          (!impl_->value.is_number_unsigned() ||
           impl_->value.get<int64_t>() >= 0);

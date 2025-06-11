@@ -104,7 +104,7 @@ absl::Status ProtoUtil::CheckIsSupportedFieldFormat(
          << (field == nullptr ? absl::StrCat(format) : field->DebugString());
 }
 
-// Takes a Value of TYPE_TIMESTAMP and produces an int64_t result adjusted
+// Takes a Value of TYPE_TIMESTAMP and produces an int64 result adjusted
 // appropriately given the <format> (seconds, millis, micros, nanos).
 static absl::Status TimestampValueToAdjustedInt64(FieldFormat::Format format,
                                                   const Value& timestamp,

@@ -26,11 +26,11 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/public/simple_token_list.h"
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/timestamp_picos_value.h"
-#include "zetasql/public/token_list.h"  
 #include "zetasql/public/uuid_value.h"
 #include "zetasql/public/value_content.h"
 #include "zetasql/base/case.h"
@@ -56,6 +56,7 @@ namespace zetasql {
 
 class ProtoType;
 class Type;
+class StructType;
 
 struct ValueEqualityCheckOptions;
 
@@ -289,6 +290,9 @@ class BigNumericRef final
   BigNumericValue value_;
 };
 
+// -------------------------------------------------------------
+// TimestampPicosRef is ref count wrapper around TimestampPicosValue.
+// -------------------------------------------------------------
 class TimestampPicosRef final
     : public zetasql_base::refcount::CompactReferenceCounted<TimestampPicosRef, int64_t> {
  public:
@@ -488,6 +492,57 @@ class ValueContentMapRef final
 
  private:
   const std::unique_ptr<ValueContentMap> map_;
+};
+
+// Interface for the Measure type to access measure value content.
+class ValueContentMeasure {
+ public:
+  virtual ~ValueContentMeasure() = default;
+  virtual uint64_t physical_byte_size() const = 0;
+  // The captured list of values required to evaluate the measure.
+  virtual const ValueContentOrderedList* GetCapturedValues() const = 0;
+  // A `StructType` representing the captured list of values required to
+  // evaluate the measure.
+  virtual const StructType* GetCapturedValuesStructType() const = 0;
+  // Indexes into the captured list of values representing the keys used to
+  // grain-lock the measure. Must be non-empty.
+  virtual const std::vector<int>& KeyIndices() const = 0;
+
+  template <typename SUBTYPE>
+  bool Is() const {
+    return dynamic_cast<const SUBTYPE*>(this) != nullptr;
+  }
+
+  template <typename SUBTYPE>
+  const SUBTYPE* GetAs() const {
+    return static_cast<const SUBTYPE*>(this);
+  }
+};
+
+// -------------------------------------------------------
+// ValueContentMeasureRef is a ref count wrapper around a pointer to
+// ValueContentMeasure.
+// -------------------------------------------------------
+class ValueContentMeasureRef final
+    : public zetasql_base::refcount::CompactReferenceCounted<ValueContentMeasureRef,
+                                               int64_t> {
+ public:
+  explicit ValueContentMeasureRef(
+      std::unique_ptr<ValueContentMeasure> measure_value_content)
+      : measure_value_content_(std::move(measure_value_content)) {}
+
+  ValueContentMeasureRef(const ValueContentMeasureRef&) = delete;
+  ValueContentMeasureRef& operator=(const ValueContentMeasureRef&) = delete;
+
+  ValueContentMeasure* value() const { return measure_value_content_.get(); }
+
+  uint64_t physical_byte_size() const {
+    return sizeof(ValueContentMeasureRef) +
+           measure_value_content_->physical_byte_size();
+  }
+
+ private:
+  const std::unique_ptr<ValueContentMeasure> measure_value_content_;
 };
 
 }  // namespace internal

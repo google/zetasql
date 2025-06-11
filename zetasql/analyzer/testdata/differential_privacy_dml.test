@@ -1,4 +1,3 @@
-[default also_show_signature_mismatch_details]
 [default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 

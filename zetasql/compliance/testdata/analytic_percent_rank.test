@@ -172,7 +172,7 @@ ARRAY<STRUCT<str_val STRING, int64_val INT64, DOUBLE>>[unknown order:
 ]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,V_1_1_ORDER_BY_COLLATE]
+[required_features=ANALYTIC_FUNCTIONS,ORDER_BY_COLLATE]
 [name=percent_rank_collate]
 SELECT str_val, int64_val,
        PERCENT_RANK() OVER (ORDER BY str_val COLLATE "en_US", int64_val DESC)

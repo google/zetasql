@@ -296,4 +296,68 @@ known_errors {
   label: "multi_level_aggregation_complex_test:multi_level_agg_with_order_by_and_limit_1"
   label: "multi_level_aggregation_complex_test:multi_level_agg_with_order_by_and_limit_2"
   label: "multi_level_aggregation_complex_test:multi_level_agg_many_clauses"
+  label: "multi_level_aggregation_basic_test:multi_level_emps_metrics_by_dept_ignore_nulls"
+  label: "multi_level_aggregation_complex_test:multi_level_agg_with_order_by_modifier_ignore_nulls"
+  label: "multi_level_aggregation_complex_test:multi_level_agg_with_order_by_and_limit_1_ignore_nulls"
+  label: "multi_level_aggregation_complex_test:multi_level_agg_with_order_by_and_limit_2_ignore_nulls"
+  label: "multi_level_aggregation_complex_test:multi_level_agg_many_clauses_ignore_nulls"
+  label: "multi_level_aggregation_complex_test:multi_level_agg_many_clauses_nullable_ignore_nulls"
+}
+
+known_errors {
+  mode: ALLOW_UNIMPLEMENTED
+  reason: "GROUP BY modifiers are not supported in ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter"
+  label: "call_sql_udas_with_multi_level_agg_test:call_array_agg_sum_with_non_aggregate_args"
+  label: "call_sql_udas_with_multi_level_agg_test:call_udf_calling_udas"
+  label: "call_sql_tvfs_with_multi_level_agg_test:call_multiple_aggs_with_ordering_tvf"
+  label: "call_sql_tvfs_with_multi_level_agg_test:call_templated_multiple_aggs_with_ordering_tvf"
+  label: "multi_level_aggregation_complex_test:multi_level_agg_many_clauses"
+  label: "multi_level_aggregation_complex_test:multi_level_agg_with_order_by_and_limit_1"
+  label: "multi_level_aggregation_complex_test:multi_level_agg_with_order_by_and_limit_2"
+  label: "multi_level_aggregation_complex_test:multi_level_agg_with_order_by_modifier"
+  label: "multi_level_aggregation_basic_test:multi_level_emps_metrics_by_dept"
+  label: "multi_level_aggregation_basic_test:multi_level_emps_metrics_by_dept_ignore_nulls"
+  label: "multi_level_aggregation_complex_test:multi_level_agg_with_order_by_modifier_ignore_nulls"
+  label: "multi_level_aggregation_complex_test:multi_level_agg_with_order_by_and_limit_1_ignore_nulls"
+  label: "multi_level_aggregation_complex_test:multi_level_agg_with_order_by_and_limit_2_ignore_nulls"
+  label: "multi_level_aggregation_complex_test:multi_level_agg_many_clauses_ignore_nulls"
+  label: "multi_level_aggregation_complex_test:multi_level_agg_many_clauses_nullable_ignore_nulls"
+}
+
+known_errors {
+  mode: ALLOW_UNIMPLEMENTED
+  reason: "The function inliner does not yet support TVFs with correlated argument references"
+  label: "lateral_join_on_tvf_test:lateral_join_with_tvf"
+  label: "lateral_join_on_tvf_test:lateral_left_join_with_tvf"
+}
+
+known_errors {
+  mode: ALLOW_UNIMPLEMENTED
+  reason: "WITH clauses under subquery in DML statement is not supported yet"
+  label: "graph_table_gql_extended_test:delete_dml_exists_graph_subquery_set_op_after_next"
+}
+
+known_errors {
+  mode: ALLOW_UNIMPLEMENTED
+  reason: "SIMPLE path mode not supported"
+  label: "graph_table_gql_extended_test:path_is_simple_quantified_with_path_mode"
+  label: "graph_table_gql_extended_test:path_is_simple_with_path_mode"
+  label: "graph_table_gql_extended_test:simple_path_mode_with_array_edges"
+  label: "graph_table_gql_extended_test:simple_path_mode_with_array_edges_and_duplicate_scalar_nodes"
+  label: "graph_table_gql_extended_test:simple_path_mode_with_array_edges_of_different_types"
+  label: "graph_table_gql_extended_test:simple_path_mode_with_array_edges_over_quantified_paths"
+  label: "graph_table_gql_extended_test:simple_path_mode_with_duplicate_scalar_nodes"
+  label: "graph_table_gql_extended_test:simple_path_mode_with_scalar_and_array_edges"
+  label: "graph_table_gql_extended_test:simple_path_mode_with_scalar_and_array_edges_of_different_types"
+  label: "graph_table_gql_extended_test:simple_path_mode_with_scalar_and_long_array_edges_of_different_types"
+  label: "graph_table_gql_extended_test:simple_path_mode_with_scalar_edges"
+  label: "graph_table_gql_extended_test:simple_path_mode_with_scalar_edges_of_different_types"
+  label: "graph_table_gql_extended_test:simple_path_mode_with_scalar_edges_within_quantified_paths"
+}
+
+known_errors {
+  mode: ALLOW_ERROR_OR_WRONG_ANSWER
+  reason: "MATCH ANY with ties is nondeterministic"
+  label: "graph_table_gql_extended_test:any_with_ties_counting_hops"
+  label: "graph_table_gql_extended_test:shortest_with_ties"
 }

@@ -36,6 +36,7 @@ import com.google.protobuf.Timestamp;
 import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.ZetaSQLType.TypeProto;
 import com.google.zetasql.ZetaSQLValue.ValueProto;
+import com.google.zetasql.ZetaSQLValue.ValueProto.TimestampPicos;
 import com.google.zetasqltest.TestProto3Proto.TestProto3Enum;
 
 import java.io.ByteArrayOutputStream;
@@ -1692,7 +1693,7 @@ public class ValueTest {
       assertThat(e).hasMessageThat().isEqualTo("Cannot coerce TYPE_TIMESTAMP to double");
     }
 
-    // Check deserialization of nanos.
+    // Check deserialization of nanos timestamp.
     ValueProto nanoTimestampMax =
         ValueProto.newBuilder()
             .setTimestampValue(
@@ -1705,6 +1706,48 @@ public class ValueTest {
       checkSerializeAndDeserialize(timestampMax);
     } catch (IllegalArgumentException e) {
       fail(e.toString());
+    }
+
+    // Check deserialization of picos timestamp.
+    ValueProto picoTimestampMax =
+        ValueProto.newBuilder()
+            .setTimestampPicosValue(
+                TimestampPicos.newBuilder().setSeconds(253402300800L - 1).setPicos(999999999999L))
+            .build();
+    try {
+      Value timestampMax =
+          Value.deserialize(
+              TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP), picoTimestampMax);
+      checkSerializeAndDeserialize(timestampMax);
+    } catch (IllegalArgumentException e) {
+      fail(e.toString());
+    }
+  }
+
+  @Test
+  public void testInvalidTimestampValue() {
+    ValueProto picosTooBig =
+        ValueProto.newBuilder()
+            .setTimestampPicosValue(
+                TimestampPicos.newBuilder().setSeconds(253402300800L - 1).setPicos(1000000000000L))
+            .build();
+    try {
+      Value.deserialize(TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP), picosTooBig);
+      fail("Expected Invalid value for TIMESTAMP exception.");
+    } catch (IllegalArgumentException e) {
+      assertThat(e).hasMessageThat().contains("Invalid value for TIMESTAMP");
+    }
+
+    ValueProto picosTooSmall =
+        ValueProto.newBuilder()
+            .setTimestampPicosValue(
+                TimestampPicos.newBuilder().setSeconds(253402300800L - 1).setPicos(-1))
+            .build();
+    try {
+      Value.deserialize(TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP), picosTooSmall);
+      fail("Expected Invalid value for TIMESTAMP exception.");
+    } catch (IllegalArgumentException e) {
+      assertThat(e).hasMessageThat().contains("Invalid value for TIMESTAMP");
     }
   }
 
@@ -3155,7 +3198,7 @@ public class ValueTest {
             "The number of fields of ValueProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(ValueProto.getDescriptor().getFields())
-        .hasSize(28);
+        .hasSize(29);
     assertWithMessage(
             "The number of fields of ValueProto::Array has changed, "
                 + "please also update the serialization code accordingly.")
@@ -3201,6 +3244,81 @@ public class ValueTest {
     assertThat(value).isEqualTo(anotherValue);
     assertThat(value.hashCode()).isEqualTo(anotherValue.hashCode());
     checkSerializeAndDeserialize(value, anotherValue);
+  }
+
+  private static String bytesToHex(byte[] bytes) {
+    if (bytes == null) {
+      return null;
+    }
+    StringBuilder stringBuilder = new StringBuilder(bytes.length * 2);
+    for (byte b : bytes) {
+      stringBuilder.append(String.format("%02x", b));
+    }
+    return stringBuilder.toString();
+  }
+
+  private static class TimestampPicosValueTestCase {
+    public final Long seconds;
+    public final Long picos;
+
+    public TimestampPicosValueTestCase(Long seconds, Long picos) {
+      this.seconds = seconds;
+      this.picos = picos;
+    }
+  }
+
+  private static class TimestampPicosValueSerializationTestCase
+      extends TimestampPicosValueTestCase {
+    // Expected serialization result, represented as hex string.
+    public final String expectedSerializedResult;
+
+    public TimestampPicosValueSerializationTestCase(
+        Long seconds, Long picos, String expectedSerializedResult) {
+      super(seconds, picos);
+      this.expectedSerializedResult = expectedSerializedResult;
+    }
+  }
+
+  @Test
+  public void testTimestampPicosSerialization() {
+    ImmutableList<TimestampPicosValueSerializationTestCase> tests =
+        ImmutableList.of(
+            // Min value
+            new TimestampPicosValueSerializationTestCase(
+                -62135596800L, 0L, "000090ade64e5f9fd7f2ffffffffffff"),
+            // Max value
+            new TimestampPicosValueSerializationTestCase(
+                253402300799L, 999_999_999_999L, "ffff977bab4a5cf7a835000000000000"),
+            new TimestampPicosValueSerializationTestCase(
+                1234L, 12345678L, "4e816304516204000000000000000000"));
+
+    for (TimestampPicosValueSerializationTestCase test : tests) {
+      TimestampPicos value =
+          TimestampPicos.newBuilder().setSeconds(test.seconds).setPicos(test.picos).build();
+      ByteString result = Value.serializeTimestampPicos(value);
+      assertThat(bytesToHex(result.toByteArray())).isEqualTo(test.expectedSerializedResult);
+    }
+  }
+
+  @Test
+  public void testTimestampPicosDeserialization() {
+    ImmutableList<TimestampPicosValueTestCase> tests =
+        ImmutableList.of(
+            // Min value
+            new TimestampPicosValueTestCase(-62135596800L, 0L),
+            // Max value
+            new TimestampPicosValueTestCase(253402300799L, 999_999_999_999L),
+            new TimestampPicosValueTestCase(1234L, 12345678L));
+
+    for (TimestampPicosValueTestCase test : tests) {
+      TimestampPicos value =
+          TimestampPicos.newBuilder().setSeconds(test.seconds).setPicos(test.picos).build();
+
+      ByteString serialized = Value.serializeTimestampPicos(value);
+      value = Value.deserializeTimestampPicos(serialized);
+      assertThat(value.getSeconds()).isEqualTo(test.seconds);
+      assertThat(value.getPicos()).isEqualTo(test.picos);
+    }
   }
 
   private static TypeProto typeProtoFromText(String textProto) {

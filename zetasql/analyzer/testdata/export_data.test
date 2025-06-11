@@ -342,7 +342,7 @@ ExportDataStmt
 # EXPORT DATA with a column of an unselectable type.
 # TODO Measures don't work in java yet.
 [no_java]
-[language_features=V_1_4_ENABLE_MEASURES]
+[language_features=ENABLE_MEASURES]
 EXPORT DATA
 AS
 SELECT key, measure_count_star

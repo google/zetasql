@@ -61,6 +61,11 @@ std::string NumericTypeParametersDebugString(
   return absl::Substitute("(precision=$0,scale=$1)", precision, scale);
 }
 
+std::string TimestampTypeParametersDebugString(
+    const TimestampTypeParametersProto& parameters) {
+  return absl::Substitute("(precision=$0)", parameters.precision());
+}
+
 std::string ChildTypeParametersDebugString(
     const std::vector<TypeParameters>& child_list) {
   return absl::StrCat(
@@ -80,6 +85,9 @@ std::string TypeParameters::DebugString() const {
   }
   if (IsNumericTypeParameters()) {
     return NumericTypeParametersDebugString(numeric_type_parameters());
+  }
+  if (IsTimestampTypeParameters()) {
+    return TimestampTypeParametersDebugString(timestamp_type_parameters());
   }
 
   // Extended type may has child_list.
@@ -106,6 +114,9 @@ TypeParameters::TypeParameters(
     const NumericTypeParametersProto& numeric_parameters)
     : type_parameters_holder_(numeric_parameters) {}
 TypeParameters::TypeParameters(
+    const TimestampTypeParametersProto& timestamp_parameters)
+    : type_parameters_holder_(timestamp_parameters) {}
+TypeParameters::TypeParameters(
     const ExtendedTypeParameters& extended_parameters,
     std::vector<TypeParameters> child_list)
     : type_parameters_holder_(extended_parameters),
@@ -124,6 +135,12 @@ absl::StatusOr<TypeParameters> TypeParameters::MakeNumericTypeParameters(
   ZETASQL_RETURN_IF_ERROR(ValidateNumericTypeParameters(numeric_type_parameters));
   return TypeParameters(numeric_type_parameters);
 }
+absl::StatusOr<TypeParameters> TypeParameters::MakeTimestampTypeParameters(
+    const TimestampTypeParametersProto& timestamp_type_parameters) {
+  ZETASQL_RETURN_IF_ERROR(ValidateTimestampTypeParameters(timestamp_type_parameters));
+  return TypeParameters(timestamp_type_parameters);
+}
+
 TypeParameters TypeParameters::MakeExtendedTypeParameters(
     const ExtendedTypeParameters& extended_type_parameters,
     std::vector<TypeParameters> child_list) {
@@ -144,6 +161,16 @@ absl::Status TypeParameters::ValidateStringTypeParameters(
         << "max_length must be larger than 0, actual max_length: "
         << string_type_parameters.max_length();
   }
+  return absl::OkStatus();
+}
+
+absl::Status TypeParameters::ValidateTimestampTypeParameters(
+    const TimestampTypeParametersProto& timestamp_type_parameters) {
+  ZETASQL_RET_CHECK(timestamp_type_parameters.has_precision());
+  int64_t precision = timestamp_type_parameters.precision();
+  ZETASQL_RET_CHECK_GE(precision, 0);
+  ZETASQL_RET_CHECK_LE(precision, 12);
+  ZETASQL_RET_CHECK_EQ(precision % 3, 0);
   return absl::OkStatus();
 }
 
@@ -183,6 +210,10 @@ absl::Status TypeParameters::Serialize(TypeParametersProto* proto) const {
     *proto->mutable_numeric_type_parameters() = numeric_type_parameters();
     return absl::OkStatus();
   }
+  if (IsTimestampTypeParameters()) {
+    *proto->mutable_timestamp_type_parameters() = timestamp_type_parameters();
+    return absl::OkStatus();
+  }
   if (IsExtendedTypeParameters()) {
     ZETASQL_RETURN_IF_ERROR(extended_type_parameters().Serialize(
         proto->mutable_extended_type_parameters()));
@@ -209,6 +240,10 @@ absl::StatusOr<TypeParameters> TypeParameters::Deserialize(
   if (proto.has_numeric_type_parameters()) {
     return TypeParameters::MakeNumericTypeParameters(
         proto.numeric_type_parameters());
+  }
+  if (proto.has_timestamp_type_parameters()) {
+    return TypeParameters::MakeTimestampTypeParameters(
+        proto.timestamp_type_parameters());
   }
   // STRUCT, ARRAY, RANGE, or ExtendedType can have empty child_list if
   // sub-fields don't have any type parameters.

@@ -1,0 +1,11 @@
+-- This imported module has a parse error.
+MODULE module_test_errors_imported_b;
+
+-- Valid
+CREATE PUBLIC FUNCTION foo(a INT64) AS (a);
+
+-- Parse error
+CREATE PRIVATE FUNCTINO bat(a INT64) AS (a);
+
+-- Other (valid) statement that is currently ignored due to the parse error.
+CREATE PUBLIC FUNCTION bot(a INT64) AS (a);

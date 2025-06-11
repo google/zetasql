@@ -31,6 +31,7 @@
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
@@ -171,7 +172,7 @@ absl::StatusOr<TestDatabase> DeserializeTestDatabase(
   }
 
   for (const TestTVFProto& tvf : proto.tvfs()) {
-    const std::string& name = tvf.name();
+    absl::string_view name = tvf.name();
     auto [_, is_new] = db.tvfs.emplace(name, tvf.create_stmt());
     if (!is_new) {
       return zetasql_base::InvalidArgumentErrorBuilder()
@@ -180,7 +181,7 @@ absl::StatusOr<TestDatabase> DeserializeTestDatabase(
   }
 
   for (const TestPropertyGraphProto& graph : proto.property_graphs()) {
-    const std::string& name = graph.name();
+    absl::string_view name = graph.name();
     auto [_, is_new] =
         db.property_graph_defs.emplace(name, graph.create_stmt());
     if (!is_new) {

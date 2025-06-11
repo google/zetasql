@@ -48,6 +48,8 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/graph_element_type.h"
 #include "zetasql/public/types/map_type.h"
+#include "zetasql/public/types/measure_type.h"
+#include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/value_equality_check_options.h"
 #include "zetasql/public/types/value_representations.h"
@@ -61,6 +63,7 @@
 #include "absl/hash/hash.h"
 #include "zetasql/base/check.h"
 #include "absl/log/log.h"
+#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
@@ -74,6 +77,7 @@
 #include "absl/strings/substitute.h"
 #include "absl/time/civil_time.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_view.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -85,6 +89,7 @@ ABSL_FLAG(bool, zetasql_allow_proto3_unknown_enum_values, true,
 using zetasql::types::BigNumericArrayType;
 using zetasql::types::BoolArrayType;
 using zetasql::types::BytesArrayType;
+using zetasql::types::DateArrayType;
 using zetasql::types::DoubleArrayType;
 using zetasql::types::FloatArrayType;
 using zetasql::types::Int32ArrayType;
@@ -180,14 +185,14 @@ Value::Value(TypeKind type_kind, int64_t value) : metadata_(type_kind) {
 
 Value::Value(absl::Time t) {
   ABSL_CHECK(functions::IsValidTime(t));
-  timestamp_seconds_ = absl::ToUnixSeconds(t);
-  const int32_t subsecond_nanos =
-      (t - absl::FromUnixSeconds(timestamp_seconds_)) / absl::Nanoseconds(1);
-  metadata_ = Metadata(TypeKind::TYPE_TIMESTAMP, subsecond_nanos);
+  TimestampPicosValue timestamp_picos_value =
+      TimestampPicosValue::Create(t).value();
+  metadata_ = Metadata(TypeKind::TYPE_TIMESTAMP);
+  timestamp_picos_ptr_ = new internal::TimestampPicosRef(timestamp_picos_value);
 }
 
-Value::Value(const TimestampPicosValue& t)
-    : metadata_(TypeKind::TYPE_TIMESTAMP_PICOS),
+Value::Value(const TimestampPicosValue& t, TypeKind type_kind)
+    : metadata_(type_kind),
       timestamp_picos_ptr_(new internal::TimestampPicosRef(t)) {}
 
 Value::Value(TimeValue time)
@@ -344,6 +349,10 @@ absl::StatusOr<Value> Value::MakeGraphElement(
       << "Invalid source node identifier";
   ZETASQL_RET_CHECK_EQ(graph_element_type->IsNode(), dest_node_identifier.empty())
       << "Invalid destination node identifier";
+  ZETASQL_RET_CHECK_EQ(graph_element_type->is_dynamic(),
+               labels_and_properties.dynamic_properties.has_value())
+      << "Dynamic properties JSON value must be provided for dynamic graph "
+         "element types";
 
   ValidPropertyNameToIndexMap property_name_to_index;
   std::vector<Value> property_values(
@@ -364,11 +373,26 @@ absl::StatusOr<Value> Value::MakeGraphElement(
     property_values[field_index] = std::move(value);
     property_name_to_index.emplace(name, field_index);
   }
+  int property_index =
+      static_cast<int>(graph_element_type->property_types().size());
+  if (labels_and_properties.dynamic_properties.has_value()) {
+    for (auto& [k, v] :
+         labels_and_properties.dynamic_properties->GetMembers()) {
+        if (!property_name_to_index.contains(std::string(k))) {
+        property_name_to_index.emplace(k, property_index++);
+        // Dynamic properties are copied into GraphElementValue as JSON-typed
+        // values.
+        property_values.emplace_back(Value::Json(JSONValue::CopyFrom(v)));
+      }
+    }
+  }
 
   // We keep the original case but sort labels case-insensitively.
   CaseInsensitiveLabelSet label_name_set(
       labels_and_properties.static_labels.begin(),
       labels_and_properties.static_labels.end());
+  label_name_set.insert(labels_and_properties.dynamic_labels.begin(),
+                        labels_and_properties.dynamic_labels.end());
   std::vector<std::string> sorted_labels(label_name_set.begin(),
                                          label_name_set.end());
   absl::c_sort(sorted_labels, zetasql_base::CaseLess());
@@ -653,6 +677,8 @@ uint64_t Value::physical_byte_size() const {
     physical_size += container_ptr_->physical_byte_size();
   } else if (DoesTypeUseValueMap()) {
     physical_size += map_ptr_->physical_byte_size();
+  } else if (DoesTypeUseValueMeasure()) {
+    physical_size += measure_ptr_->physical_byte_size();
   } else {
     physical_size +=
         type()->GetValueContentExternallyAllocatedByteSize(GetContent());
@@ -700,8 +726,7 @@ absl::CivilDay Value::ToCivilDay() const {
 absl::Time Value::ToTime() const {
   ABSL_CHECK(!is_null()) << "Null value";
   ABSL_CHECK_EQ(TYPE_TIMESTAMP, metadata_.type_kind()) << "Not a timestamp value";
-  return absl::FromUnixSeconds(timestamp_seconds_) +
-         absl::Nanoseconds(subsecond_nanos());
+  return timestamp_picos_ptr_->value().ToAbslTime();
 }
 
 int64_t Value::ToUnixMicros() const { return absl::ToUnixMicros(ToTime()); }
@@ -723,6 +748,12 @@ absl::Status Value::ToUnixNanos(int64_t* nanos) const {
                       absl::StrCat("Timestamp value in Unix epoch nanoseconds "
                                    "exceeds 64 bit: ",
                                    DebugString()));
+}
+
+const TimestampPicosValue& Value::ToUnixPicos() const {
+  ABSL_DCHECK_EQ(TYPE_TIMESTAMP, metadata_.type_kind()) << "Not a timestamp";
+  ABSL_DCHECK(!is_null()) << "Null value";
+  return timestamp_picos_ptr_->value();
 }
 
 ValueContent Value::extended_value() const {
@@ -1195,7 +1226,8 @@ std::string Value::DebugString(bool verbose) const {
   if (is_null()) {
     result = "NULL";
   } else {
-    if (DoesTypeUseValueList() || DoesTypeUseValueMap()) {
+    if (DoesTypeUseValueList() || DoesTypeUseValueMap() ||
+        DoesTypeUseValueMeasure()) {
       add_type_prefix = false;
     }
     Type::FormatValueContentOptions options;
@@ -1604,7 +1636,7 @@ bool Value::ParseInteger(absl::string_view input, Value* value) {
     *value = Value::Int64(int64_value);
     return true;
   }
-  // Could not parse into int64_t, try uint64_t.
+  // Could not parse into int64, try uint64.
   if (functions::StringToNumeric(input, &uint64_value, nullptr)) {
     *value = Value::Uint64(uint64_value);
     return true;
@@ -1747,12 +1779,29 @@ Value TimestampArray(absl::Span<const absl::Time> values) {
   return Value::Array(TimestampArrayType(), value_vector);
 }
 
+Value TimestampArray(absl::Span<const TimestampPicosValue> values) {
+  std::vector<Value> value_vector;
+  for (const auto& v : values) {
+    value_vector.push_back(Value::Timestamp(v));
+  }
+  return Value::Array(TimestampArrayType(), value_vector);
+}
+
 Value TimestampPicosArray(absl::Span<const TimestampPicosValue> values) {
   std::vector<Value> value_vector;
   for (const auto& v : values) {
     value_vector.push_back(Value::TimestampPicos(v));
   }
   return Value::Array(TimestampPicosArrayType(), value_vector);
+}
+
+Value DateArray(absl::Span<const absl::CivilDay> values) {
+  std::vector<Value> value_vector;
+  value_vector.reserve(values.size());
+  for (const auto& v : values) {
+    value_vector.push_back(Date(v));
+  }
+  return Value::Array(DateArrayType(), value_vector);
 }
 
 }  // namespace values
@@ -1781,7 +1830,7 @@ absl::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
         auto status_or_value =
             Deserialize(element, type->AsArray()->element_type());
         ZETASQL_RETURN_IF_ERROR(status_or_value.status());
-        elements.push_back(status_or_value.value());
+        elements.push_back(std::move(status_or_value.value()));
       }
       return MakeArray(type->AsArray(), std::move(elements));
     }
@@ -2043,5 +2092,89 @@ Value::TypedMap::end_internal() const {
 
 Value::TypedMap::~TypedMap() {
 }
+
+absl::StatusOr<std::unique_ptr<Value::TypedMeasure>>
+Value::TypedMeasure::Create(Value captured_values_as_struct,
+                            std::vector<int> key_indices,
+                            const LanguageOptions& language_options) {
+  // Lambda to validate `captured_values_as_struct`.
+  auto validate_captured_values = [](const Value& captured_values_as_struct) {
+    if (!captured_values_as_struct.is_valid() ||
+        captured_values_as_struct.is_null() ||
+        !captured_values_as_struct.type()->IsStruct() ||
+        captured_values_as_struct.type()->AsStruct()->num_fields() <= 0) {
+      return absl::InvalidArgumentError(
+          "Measure must capture a non-null STRUCT-typed value with at least "
+          "one field");
+    }
+    absl::flat_hash_set<std::string> field_names;
+    for (const StructField& field :
+         captured_values_as_struct.type()->AsStruct()->fields()) {
+      if (field.name.empty()) {
+        return absl::InvalidArgumentError(
+            "Captured measure value must contain non-empty field names");
+      }
+      if (!field_names.insert(field.name).second) {
+        return absl::InvalidArgumentError(
+            "Captured measure value must contain unique field names");
+      }
+    }
+    return absl::OkStatus();
+  };
+  // Lambda to validate `key_indices`.
+  auto validate_key_indices =
+      [&captured_values_as_struct,
+       &language_options](absl::Span<const int> key_indices) -> absl::Status {
+    if (key_indices.empty()) {
+      return absl::InvalidArgumentError(
+          "Measure value creation requires a non-empty list of key indices");
+    }
+    const StructType* captured_values_struct_type =
+        captured_values_as_struct.type()->AsStruct();
+    for (int key_index : key_indices) {
+      if (key_index < 0 ||
+          key_index >= captured_values_struct_type->num_fields()) {
+        return absl::InvalidArgumentError(
+            "Key index for measure value creation is invalid");
+      }
+      const Type* key_type = captured_values_struct_type->field(key_index).type;
+      if (!key_type->SupportsGrouping(language_options)) {
+        return absl::InvalidArgumentError(
+            absl::StrCat("Key type does not support grouping: ",
+                         key_type->ShortTypeName(PRODUCT_INTERNAL)));
+      }
+    }
+    return absl::OkStatus();
+  };
+
+  ZETASQL_RETURN_IF_ERROR(validate_captured_values(captured_values_as_struct));
+  ZETASQL_RETURN_IF_ERROR(validate_key_indices(key_indices));
+  return absl::WrapUnique(new TypedMeasure(std::move(captured_values_as_struct),
+                                           std::move(key_indices)));
+}
+
+Value::TypedMeasure::TypedMeasure(Value captured_values_as_struct,
+                                  std::vector<int> key_indices)
+    : captured_values_as_struct_(std::move(captured_values_as_struct)),
+      key_indices_(std::move(key_indices)) {}
+
+uint64_t Value::TypedMeasure::physical_byte_size() const {
+  return sizeof(TypedMeasure) +
+         captured_values_as_struct_.physical_byte_size() +
+         (key_indices_.size() * sizeof(decltype(key_indices_)::value_type));
+};
+
+const internal::ValueContentOrderedList*
+Value::TypedMeasure::GetCapturedValues() const {
+  return captured_values_as_struct_.container_ptr_->value();
+};
+
+const StructType* Value::TypedMeasure::GetCapturedValuesStructType() const {
+  return captured_values_as_struct_.type()->AsStruct();
+}
+
+const std::vector<int>& Value::TypedMeasure::KeyIndices() const {
+  return key_indices_;
+};
 
 }  // namespace zetasql

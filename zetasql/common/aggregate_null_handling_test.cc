@@ -36,7 +36,7 @@ class AggregateNullHandlingTest : public ::testing::Test {
  public:
   void SetUp() override {
     analyzer_options_.mutable_language()->EnableLanguageFeature(
-        FEATURE_V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE);
+        FEATURE_NULL_HANDLING_MODIFIER_IN_AGGREGATE);
   }
 
  protected:

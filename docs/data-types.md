@@ -1178,11 +1178,10 @@ The generated type has this format:
 GRAPH_ELEMENT<T>
 ```
 
-A graph element can be one of two kinds: a node or edge.
-A graph element is similar to the struct type, except that fields are
-graph properties, and you can only access graph properties by name.
-A graph element can represent nodes or edges from multiple node or edge tables
-if multiple such tables match the given label expression.
+A graph element is either a node or an edge, representing data from a
+matching node or edge table based on its label. Each graph element holds a
+set of properties that can be accessed with a case-insensitive name,
+similar to fields of a struct.
 
 **Example**
 
@@ -1193,6 +1192,22 @@ In the following example, `n` represents a graph element in the
 GRAPH FinGraph
 MATCH (n:Person)
 RETURN n.name
+```
+
+In the following example, the [`TYPEOF`][type-of] function is used to inspect the
+set of properties defined in the graph element type.
+
+```zetasql
+GRAPH FinGraph
+MATCH (n:Person)
+RETURN TYPEOF(n) AS t
+LIMIT 1
+
+/*----------------------------------------------+
+ | t                                            |
+ +----------------------------------------------+
+ | GRAPH_NODE(FinGraph)<Id INT64, ..., DYNAMIC> |
+ +---------------------------------------------*/
 ```
 
 [graph-query]: https://github.com/google/zetasql/blob/master/docs/graph-intro.md
@@ -2820,6 +2835,61 @@ are done using Unix-style timestamps, which don't reflect leap seconds. Leap
 seconds are only observable through functions that measure real-world time. In
 these functions, it's possible for a timestamp second to be skipped or repeated
 when there is a leap second.
+
+#### Daylight saving time
+
+A timestamp is unaffected by daylight saving time (DST) because it represents a
+point in time. When you display a timestamp as a civil time,
+with a timezone that observes DST, the following rules apply:
+
++ During the transition from standard time to DST, one hour is skipped. A
+  civil time from the skipped hour is treated the same as if it were written
+  an hour later. For example, in the `America/Los_Angeles` time zone, the hour
+  between 2 AM and 3 AM on May 10, 2024 is skipped on a clock. The times
+  2:30 AM and 3:30 AM on that date are treated as the same point in time:
+
+  ```zetasql
+  SELECT
+  FORMAT_TIMESTAMP("%c %Z", "2024-03-10 02:30:00 America/Los_Angeles", "UTC") AS two_thirty,
+  FORMAT_TIMESTAMP("%c %Z", "2024-03-10 03:30:00 America/Los_Angeles", "UTC") AS three_thirty;
+
+  /*------------------------------+------------------------------+
+   | two_thirty                   | three_thirty                 |
+   +------------------------------+------------------------------+
+   | Sun Mar 10 10:30:00 2024 UTC | Sun Mar 10 10:30:00 2024 UTC |
+   +------------------------------+------------------------------*/
+  ```
++ When there's ambiguity in how to represent a civil time in a particular
+  timezone because of DST, the later time is chosen:
+
+  ```zetasql
+  SELECT
+  FORMAT_TIMESTAMP("%c %Z", "2024-03-10 10:30:00 UTC", "America/Los_Angeles") as ten_thirty;
+
+  /*--------------------------------+
+   | ten_thirty                     |
+   +--------------------------------+
+   | Sun Mar 10 03:30:00 2024 UTC-7 |
+   +--------------------------------*/
+  ```
++ During the transition from DST to standard time, one hour is repeated. A
+  civil time that shows a time during that hour is treated as if it's the
+  later instance of that time. For example, in the `America/Los_Angeles` time
+  zone, the hour between 2 AM and 3 AM on November 3, 2024, is repeated on a
+  clock. The time 2:30 AM on that date is treated as the later instance
+  of that time.
+
+  ```zetasql
+  SELECT
+  FORMAT_TIMESTAMP("%c %Z", "2024-11-03 01:30:00 America/Los_Angeles", "UTC") as one_thirty,
+  FORMAT_TIMESTAMP("%c %Z", "2024-11-03 02:30:00 America/Los_Angeles", "UTC") as two_thirty;
+
+  /*------------------------------+------------------------------+
+   | one_thirty                   | two_thirty                   |
+   +------------------------------+------------------------------+
+   | Sun Nov 3 08:30:00 2024 UTC  | Sun Nov 3 10:30:00 2024 UTC  |
+   +------------------------------+------------------------------*/
+  ```
 
 [rfc-3339-format]: https://datatracker.ietf.org/doc/html/rfc3339#page-10
 

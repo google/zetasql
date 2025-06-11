@@ -385,6 +385,7 @@ absl::Status GetNextStatementProperties(
     case AST_SYSTEM_VARIABLE_ASSIGNMENT:
     case AST_VARIABLE_DECLARATION:
     case AST_WHILE_STATEMENT:
+    case AST_CASE_STATEMENT:
       statement_properties->statement_category = StatementProperties::OTHER;
       break;
     case kUnknownASTNodeKind:

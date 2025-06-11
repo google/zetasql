@@ -1022,7 +1022,7 @@ QueryStmt
                         +-WindowFrameExpr(boundary_type=CURRENT ROW)
 ==
 
-[language_features=ANALYTIC_FUNCTIONS{{|,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY}}]
+[language_features=ANALYTIC_FUNCTIONS{{|,NULLS_FIRST_LAST_IN_ORDER_BY}}]
 select
   row_number() over (
     order by key nulls {{first|last}}, mod(key, 2) desc nulls last
@@ -1041,7 +1041,7 @@ ERROR: NULLS FIRST and NULLS LAST are not supported [at 3:18]
     order by key nulls last, mod(key, 2) desc nulls last
                  ^
 --
-ALTERNATION GROUP: ,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY,first
+ALTERNATION GROUP: ,NULLS_FIRST_LAST_IN_ORDER_BY,first
 --
 QueryStmt
 +-output_column_list=
@@ -1079,7 +1079,7 @@ QueryStmt
             +-analytic_function_list=
               +-$analytic1#4 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
 --
-ALTERNATION GROUP: ,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY,last
+ALTERNATION GROUP: ,NULLS_FIRST_LAST_IN_ORDER_BY,last
 --
 QueryStmt
 +-output_column_list=

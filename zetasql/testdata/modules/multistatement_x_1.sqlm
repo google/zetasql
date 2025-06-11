@@ -1,0 +1,1 @@
+module x;create public function foo(a int64) as (a+1);create public function bar(b int32) as (b+1);create public function baz(c uint32) as (c+3)

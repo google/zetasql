@@ -1,0 +1,5 @@
+MODULE named_constant_circular_constant;
+
+CREATE PRIVATE CONSTANT c1 = c3 + 1;
+CREATE PRIVATE CONSTANT c2 = c1 + 1;
+CREATE PUBLIC CONSTANT c3 = c2;

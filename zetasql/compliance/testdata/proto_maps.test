@@ -40,7 +40,7 @@ ARRAY<STRUCT<pb PROTO<zetasql_test__.MessageWithMapField>>>[
 ]
 ==
 
-[default required_features=V_1_3_PROTO_MAPS]
+[default required_features=PROTO_MAPS]
 [name=map_entry_key_null]
 SELECT NEW zetasql_test__.MessageWithMapField(
   [NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry(CAST(NULL AS STRING) AS key, 123 AS value)] AS string_int32_map
@@ -305,7 +305,7 @@ ARRAY<STRUCT<
 ==
 
 [name=proto_modify_map_and_braced_constructors]
-[required_features=V_1_3_PROTO_MAPS,V_1_3_BRACED_PROTO_CONSTRUCTORS]
+[required_features=PROTO_MAPS,BRACED_PROTO_CONSTRUCTORS]
 SELECT NEW zetasql_test__.MessageWithMapField {
   string_int32_map: PROTO_MODIFY_MAP(input.string_int32_map, "to_be_replaced", 5)
 } AS result

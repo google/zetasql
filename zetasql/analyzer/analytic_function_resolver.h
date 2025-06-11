@@ -19,10 +19,13 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
+#include "zetasql/parser/ast_node.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/public/function.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -161,6 +164,41 @@ class AnalyticFunctionResolver {
   // is the SELECT list, which is resolved before ORDER BY.
   void DisableNamedWindowRefs(const char* clause_name);
 
+  // Sets the current match recognize window context, based on the PARTITION BY
+  // and ORDER BY clauses of the current MATCH_RECOGNIZE clause.
+  //
+  // Returns the partitioning columns (since they'll be output by the
+  // ResolvedMatchRecognizeScan).
+  //
+  // REQUIRES: The current MATCH_RECOGNIZE window context cannot be already set.
+  //
+  // All window functions resolved with this AnalyticFunctionResolver will be
+  // based on this window specification, unless they specify otherwise.
+  // Analytic functions in the DEFINE clause should be called after setting this
+  // window context to leverage it.
+  absl::Status SetMatchRecognizeWindowContext(
+      const ASTPartitionBy* ast_partition_by, const ASTOrderBy* ast_order_by,
+      ExprResolutionInfo* expr_resolution_info,
+      std::vector<ResolvedColumn>& out_partitioning_columns);
+
+  bool in_match_recognize_window_context() const {
+    return in_match_recognize_window_context_;
+  }
+
+  // Adds the given ResolvedFunctionCall to the main analytic group of the
+  // current MATCH_RECOGNIZE window context and returns the resolved expression.
+  // This is very similar to `ResolveOverClauseAndCreateAnalyticColumn()`, but
+  // without an OVER clause, it adds the new call to the main analytic group,
+  // sharing the same window of the current MATCH_RECOGNIZE window context.
+  //
+  // REQUIRES: The current MATCH_RECOGNIZE window context must be already set.
+  absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
+  AddToMatchRecognizeMainAnalyticGroup(
+      const ASTFunctionCall* ast_function_call,
+      ExprResolutionInfo* expr_resolution_info,
+      std::unique_ptr<const ResolvedFunctionCall> resolved_call,
+      std::unique_ptr<const ResolvedWindowFrame> resolved_window_frame);
+
   // Resolves and validates the OVER clause. The analytic function call is
   // resolved to a column reference in <resolved_expr_out>. The
   // ResolvedAnalyticFunctionCall and resolved expressions for PARTITION BY
@@ -168,7 +206,7 @@ class AnalyticFunctionResolver {
   // Note that the argument list in <resolved_function_call> will be released.
   absl::Status ResolveOverClauseAndCreateAnalyticColumn(
       const ASTAnalyticFunctionCall* ast_analytic_function_call,
-      ResolvedFunctionCall* resolved_function_call,
+      std::unique_ptr<const ResolvedFunctionCall> resolved_function_call,
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
@@ -422,11 +460,31 @@ class AnalyticFunctionResolver {
       const ASTOrderBy* ast_order_by, const ASTWindowFrame* ast_window_frame,
       WindowExprInfoList* order_by_info);
 
+  // Finalizes the resolved analytic function call by putting it all together,
+  // resolving the final pieces like NULL handling modifier, collation, and
+  // annotations. Returns the ResolvedAnalyticFunctionCall and the resolved
+  // column assigned to it.
+  absl::StatusOr<std::unique_ptr<const ResolvedAnalyticFunctionCall>>
+  FinalizeResolvedAnalyticFunctionCall(
+      const ASTNode* ast_location, const ASTFunctionCall* ast_function_call,
+      ExprResolutionInfo* expr_resolution_info,
+      std::unique_ptr<const ResolvedFunctionCall> resolved_function_call,
+      std::unique_ptr<const ResolvedExpr> resolved_where_expr,
+      std::unique_ptr<const ResolvedWindowFrame> resolved_window_frame);
+
   // Records whether the last call to CreateAnalyticScan() was successful.
   // We need this for sanity checks, i.e. if all the resolutions were
   // successful, then ensure that all the computed window expressions are
   // attached to the final resolved tree.
   bool is_create_analytic_scan_successful_ = false;
+
+  // Indicates whether the current resolution is in the context of a
+  // MATCH_RECOGNIZE clause. If this is true, `analytic_function_groups_` will
+  // not be empty and the first group is always the "main" group, defining the
+  // M_R window. This group is not part of the map
+  // `ast_window_spec_to_function_group_map_` as it comes from the PARTITION BY
+  // and ORDER BY clauses of the MATCH_RECOGNIZE clause.
+  bool in_match_recognize_window_context_ = false;
 };
 
 }  // namespace zetasql

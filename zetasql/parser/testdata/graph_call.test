@@ -1,0 +1,527 @@
+[default reserve_graph_table]
+[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+
+# Omitted capture list
+select gt.* from
+graph_table(aml
+  match (n)
+  call {
+    match (n)->(m)
+    return blah
+  }
+  return n, blah
+) gt
+--
+
+QueryStatement [23-137] [select gt....blah ) gt]
+  Query [23-137] [select gt....blah ) gt]
+    Select [23-137] [select gt....blah ) gt]
+      SelectList [30-34] [gt.*]
+        SelectColumn [30-34] [gt.*]
+          DotStar [30-34] [gt.*]
+            PathExpression [30-32] [gt]
+              Identifier(gt) [30-32] [gt]
+      FromClause [35-137] [from graph_table...blah ) gt]
+        GraphTableQuery [40-137] [graph_table...blah ) gt]
+          PathExpression [52-55] [aml]
+            Identifier(aml) [52-55] [aml]
+          GqlOperatorList [58-132] [match (n)...return n, blah]
+            GqlOperatorList [58-132] [match (n)...return n, blah]
+              GqlMatch [58-67] [match (n)]
+                GraphPattern [64-67] [(n)]
+                  GraphPathPattern [64-67] [(n)]
+                    GraphNodePattern [64-67] [(n)]
+                      GraphElementPatternFiller [65-66] [n]
+                        Identifier(n) [65-66] [n]
+              GqlInlineSubqueryCall [70-115] [call {...return blah   }]
+                Query [75-115] [{     match...return blah   }]
+                  GqlQuery [75-115] [{     match...return blah   }]
+                    GraphTableQuery [75-115] [{     match...return blah   }]
+                      GqlOperatorList [81-111] [match (n)->(m)     return blah]
+                        GqlOperatorList [81-111] [match (n)->(m)     return blah]
+                          GqlMatch [81-95] [match (n)->(m)]
+                            GraphPattern [87-95] [(n)->(m)]
+                              GraphPathPattern [87-95] [(n)->(m)]
+                                GraphNodePattern [87-90] [(n)]
+                                  GraphElementPatternFiller [88-89] [n]
+                                    Identifier(n) [88-89] [n]
+                                GraphEdgePattern [90-92] [->]
+                                GraphNodePattern [92-95] [(m)]
+                                  GraphElementPatternFiller [93-94] [m]
+                                    Identifier(m) [93-94] [m]
+                          GqlReturn [100-111] [return blah]
+                            Select [107-111] [blah]
+                              SelectList [107-111] [blah]
+                                SelectColumn [107-111] [blah]
+                                  PathExpression [107-111] [blah]
+                                    Identifier(blah) [107-111] [blah]
+              GqlReturn [118-132] [return n, blah]
+                Select [125-132] [n, blah]
+                  SelectList [125-132] [n, blah]
+                    SelectColumn [125-126] [n]
+                      PathExpression [125-126] [n]
+                        Identifier(n) [125-126] [n]
+                    SelectColumn [128-132] [blah]
+                      PathExpression [128-132] [blah]
+                        Identifier(blah) [128-132] [blah]
+          Alias [135-137] [gt]
+            Identifier(gt) [135-137] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    CALL {
+      MATCH
+        (n)
+        ->
+        (m)
+      RETURN
+        blah
+    }
+    RETURN
+      n,
+      blah
+  ) AS gt
+==
+
+# Explicit capture list
+select gt.* from
+graph_table(aml
+  match (n)
+  call (x, y, `$quoted #id`, `NULL`) {
+    match (n)->(m)
+    return blah
+  }
+  return n, blah
+) gt
+--
+
+QueryStatement [0-144] [select gt....blah ) gt]
+  Query [0-144] [select gt....blah ) gt]
+    Select [0-144] [select gt....blah ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-144] [from graph_table...blah ) gt]
+        GraphTableQuery [17-144] [graph_table...blah ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-139] [match (n)...return n, blah]
+            GqlOperatorList [35-139] [match (n)...return n, blah]
+              GqlMatch [35-44] [match (n)]
+                GraphPattern [41-44] [(n)]
+                  GraphPathPattern [41-44] [(n)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+              GqlInlineSubqueryCall [47-122] [call (x, y...return blah   }]
+                Query [82-122] [{     match...return blah   }]
+                  GqlQuery [82-122] [{     match...return blah   }]
+                    GraphTableQuery [82-122] [{     match...return blah   }]
+                      GqlOperatorList [88-118] [match (n)->(m)     return blah]
+                        GqlOperatorList [88-118] [match (n)->(m)     return blah]
+                          GqlMatch [88-102] [match (n)->(m)]
+                            GraphPattern [94-102] [(n)->(m)]
+                              GraphPathPattern [94-102] [(n)->(m)]
+                                GraphNodePattern [94-97] [(n)]
+                                  GraphElementPatternFiller [95-96] [n]
+                                    Identifier(n) [95-96] [n]
+                                GraphEdgePattern [97-99] [->]
+                                GraphNodePattern [99-102] [(m)]
+                                  GraphElementPatternFiller [100-101] [m]
+                                    Identifier(m) [100-101] [m]
+                          GqlReturn [107-118] [return blah]
+                            Select [114-118] [blah]
+                              SelectList [114-118] [blah]
+                                SelectColumn [114-118] [blah]
+                                  PathExpression [114-118] [blah]
+                                    Identifier(blah) [114-118] [blah]
+                IdentifierList [52-81] [(x, y, `$quoted #id`, `NULL`)]
+                  Identifier(x) [53-54] [x]
+                  Identifier(y) [56-57] [y]
+                  Identifier(`$quoted #id`) [59-72] [`$quoted #id`]
+                  Identifier(`NULL`) [74-80] [`NULL`]
+              GqlReturn [125-139] [return n, blah]
+                Select [132-139] [n, blah]
+                  SelectList [132-139] [n, blah]
+                    SelectColumn [132-133] [n]
+                      PathExpression [132-133] [n]
+                        Identifier(n) [132-133] [n]
+                    SelectColumn [135-139] [blah]
+                      PathExpression [135-139] [blah]
+                        Identifier(blah) [135-139] [blah]
+          Alias [142-144] [gt]
+            Identifier(gt) [142-144] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    CALL (x, y, `$quoted #id`, `NULL`) {
+      MATCH
+        (n)
+        ->
+        (m)
+      RETURN
+        blah
+    }
+    RETURN
+      n,
+      blah
+  ) AS gt
+==
+
+
+# Explicit, empty capture list
+select gt.* from
+graph_table(aml
+  match (n)
+  call () {
+    match (n)->(m)
+    return blah
+  }
+  return n, blah
+) gt
+--
+
+QueryStatement [0-117] [select gt....blah ) gt]
+  Query [0-117] [select gt....blah ) gt]
+    Select [0-117] [select gt....blah ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-117] [from graph_table...blah ) gt]
+        GraphTableQuery [17-117] [graph_table...blah ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-112] [match (n)...return n, blah]
+            GqlOperatorList [35-112] [match (n)...return n, blah]
+              GqlMatch [35-44] [match (n)]
+                GraphPattern [41-44] [(n)]
+                  GraphPathPattern [41-44] [(n)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+              GqlInlineSubqueryCall [47-95] [call () {...return blah   }]
+                Query [55-95] [{     match...return blah   }]
+                  GqlQuery [55-95] [{     match...return blah   }]
+                    GraphTableQuery [55-95] [{     match...return blah   }]
+                      GqlOperatorList [61-91] [match (n)->(m)     return blah]
+                        GqlOperatorList [61-91] [match (n)->(m)     return blah]
+                          GqlMatch [61-75] [match (n)->(m)]
+                            GraphPattern [67-75] [(n)->(m)]
+                              GraphPathPattern [67-75] [(n)->(m)]
+                                GraphNodePattern [67-70] [(n)]
+                                  GraphElementPatternFiller [68-69] [n]
+                                    Identifier(n) [68-69] [n]
+                                GraphEdgePattern [70-72] [->]
+                                GraphNodePattern [72-75] [(m)]
+                                  GraphElementPatternFiller [73-74] [m]
+                                    Identifier(m) [73-74] [m]
+                          GqlReturn [80-91] [return blah]
+                            Select [87-91] [blah]
+                              SelectList [87-91] [blah]
+                                SelectColumn [87-91] [blah]
+                                  PathExpression [87-91] [blah]
+                                    Identifier(blah) [87-91] [blah]
+                IdentifierList [52-54] [()]
+              GqlReturn [98-112] [return n, blah]
+                Select [105-112] [n, blah]
+                  SelectList [105-112] [n, blah]
+                    SelectColumn [105-106] [n]
+                      PathExpression [105-106] [n]
+                        Identifier(n) [105-106] [n]
+                    SelectColumn [108-112] [blah]
+                      PathExpression [108-112] [blah]
+                        Identifier(blah) [108-112] [blah]
+          Alias [115-117] [gt]
+            Identifier(gt) [115-117] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    CALL () {
+      MATCH
+        (n)
+        ->
+        (m)
+      RETURN
+        blah
+    }
+    RETURN
+      n,
+      blah
+  ) AS gt
+==
+
+# Specifies a different graph
+select gt.* from
+graph_table(aml
+  match (n)
+  call (x, y, `$quoted #id`, `NULL`) {
+    graph other_graph
+    match (n)->(m)
+    return blah
+  }
+  return n, blah
+) gt
+--
+
+QueryStatement [0-166] [select gt....blah ) gt]
+  Query [0-166] [select gt....blah ) gt]
+    Select [0-166] [select gt....blah ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-166] [from graph_table...blah ) gt]
+        GraphTableQuery [17-166] [graph_table...blah ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-161] [match (n)...return n, blah]
+            GqlOperatorList [35-161] [match (n)...return n, blah]
+              GqlMatch [35-44] [match (n)]
+                GraphPattern [41-44] [(n)]
+                  GraphPathPattern [41-44] [(n)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+              GqlInlineSubqueryCall [47-144] [call (x, y...return blah   }]
+                Query [82-144] [{     graph...return blah   }]
+                  GqlQuery [82-144] [{     graph...return blah   }]
+                    GraphTableQuery [82-144] [{     graph...return blah   }]
+                      PathExpression [94-105] [other_graph]
+                        Identifier(other_graph) [94-105] [other_graph]
+                      GqlOperatorList [110-140] [match (n)->(m)     return blah]
+                        GqlOperatorList [110-140] [match (n)->(m)     return blah]
+                          GqlMatch [110-124] [match (n)->(m)]
+                            GraphPattern [116-124] [(n)->(m)]
+                              GraphPathPattern [116-124] [(n)->(m)]
+                                GraphNodePattern [116-119] [(n)]
+                                  GraphElementPatternFiller [117-118] [n]
+                                    Identifier(n) [117-118] [n]
+                                GraphEdgePattern [119-121] [->]
+                                GraphNodePattern [121-124] [(m)]
+                                  GraphElementPatternFiller [122-123] [m]
+                                    Identifier(m) [122-123] [m]
+                          GqlReturn [129-140] [return blah]
+                            Select [136-140] [blah]
+                              SelectList [136-140] [blah]
+                                SelectColumn [136-140] [blah]
+                                  PathExpression [136-140] [blah]
+                                    Identifier(blah) [136-140] [blah]
+                IdentifierList [52-81] [(x, y, `$quoted #id`, `NULL`)]
+                  Identifier(x) [53-54] [x]
+                  Identifier(y) [56-57] [y]
+                  Identifier(`$quoted #id`) [59-72] [`$quoted #id`]
+                  Identifier(`NULL`) [74-80] [`NULL`]
+              GqlReturn [147-161] [return n, blah]
+                Select [154-161] [n, blah]
+                  SelectList [154-161] [n, blah]
+                    SelectColumn [154-155] [n]
+                      PathExpression [154-155] [n]
+                        Identifier(n) [154-155] [n]
+                    SelectColumn [157-161] [blah]
+                      PathExpression [157-161] [blah]
+                        Identifier(blah) [157-161] [blah]
+          Alias [164-166] [gt]
+            Identifier(gt) [164-166] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    CALL (x, y, `$quoted #id`, `NULL`) {
+      GRAPH other_graph
+      MATCH
+        (n)
+        ->
+        (m)
+      RETURN
+        blah
+    }
+    RETURN
+      n,
+      blah
+  ) AS gt
+==
+
+# Capture list cannot contain expressions. Must be simple identifiers
+select gt.* from
+graph_table(aml
+  match (n)
+  call (
+    {{1|@p|?|a + 1|(a)|f(x)|,}}
+  ) {
+    match (n)->(m)
+    return blah
+  }
+  return n, blah
+) gt
+--
+
+ALTERNATION GROUP: 1
+--
+ERROR: Syntax error: Unexpected integer literal "1" [at 5:5]
+    1
+    ^
+--
+ALTERNATION GROUP: @p
+--
+ERROR: Syntax error: Unexpected "@" [at 5:5]
+    @p
+    ^
+--
+ALTERNATION GROUP: ?
+--
+ERROR: Syntax error: Unexpected "?" [at 5:5]
+    ?
+    ^
+--
+ALTERNATION GROUP: a + 1
+--
+ERROR: Syntax error: Expected ")" or "," but got "+" [at 5:7]
+    a + 1
+      ^
+--
+ALTERNATION GROUP: (a)
+--
+ERROR: Syntax error: Unexpected "(" [at 5:5]
+    (a)
+    ^
+--
+ALTERNATION GROUP: f(x)
+--
+ERROR: Syntax error: Expected ")" or "," but got "(" [at 5:6]
+    f(x)
+     ^
+--
+ALTERNATION GROUP: ,
+--
+ERROR: Syntax error: Unexpected "," [at 5:5]
+    ,
+    ^
+==
+
+# Capture list with trailing comma (Not yet supported)
+select gt.* from
+graph_table(aml
+  match (n)
+  call (
+    a,
+  ) {
+    match (n)->(m)
+    return blah
+  }
+  return n, blah
+) gt
+--
+ERROR: Syntax error: Unexpected ")" [at 6:3]
+  ) {
+  ^
+==
+
+# Test with OPTIONAL
+select gt.* from
+graph_table(aml
+  match (n)
+  optional call () {
+    match (n)->(m)
+    return blah
+  }
+  return n, blah
+) gt
+--
+QueryStatement [0-126] [select gt....blah ) gt]
+  Query [0-126] [select gt....blah ) gt]
+    Select [0-126] [select gt....blah ) gt]
+      SelectList [7-11] [gt.*]
+        SelectColumn [7-11] [gt.*]
+          DotStar [7-11] [gt.*]
+            PathExpression [7-9] [gt]
+              Identifier(gt) [7-9] [gt]
+      FromClause [12-126] [from graph_table...blah ) gt]
+        GraphTableQuery [17-126] [graph_table...blah ) gt]
+          PathExpression [29-32] [aml]
+            Identifier(aml) [29-32] [aml]
+          GqlOperatorList [35-121] [match (n)...return n, blah]
+            GqlOperatorList [35-121] [match (n)...return n, blah]
+              GqlMatch [35-44] [match (n)]
+                GraphPattern [41-44] [(n)]
+                  GraphPathPattern [41-44] [(n)]
+                    GraphNodePattern [41-44] [(n)]
+                      GraphElementPatternFiller [42-43] [n]
+                        Identifier(n) [42-43] [n]
+              GqlInlineSubqueryCall [47-104] [optional call...eturn blah   }]
+                Query [64-104] [{     match...return blah   }]
+                  GqlQuery [64-104] [{     match...return blah   }]
+                    GraphTableQuery [64-104] [{     match...return blah   }]
+                      GqlOperatorList [70-100] [match (n)->(m)     return blah]
+                        GqlOperatorList [70-100] [match (n)->(m)     return blah]
+                          GqlMatch [70-84] [match (n)->(m)]
+                            GraphPattern [76-84] [(n)->(m)]
+                              GraphPathPattern [76-84] [(n)->(m)]
+                                GraphNodePattern [76-79] [(n)]
+                                  GraphElementPatternFiller [77-78] [n]
+                                    Identifier(n) [77-78] [n]
+                                GraphEdgePattern [79-81] [->]
+                                GraphNodePattern [81-84] [(m)]
+                                  GraphElementPatternFiller [82-83] [m]
+                                    Identifier(m) [82-83] [m]
+                          GqlReturn [89-100] [return blah]
+                            Select [96-100] [blah]
+                              SelectList [96-100] [blah]
+                                SelectColumn [96-100] [blah]
+                                  PathExpression [96-100] [blah]
+                                    Identifier(blah) [96-100] [blah]
+                IdentifierList [61-63] [()]
+              GqlReturn [107-121] [return n, blah]
+                Select [114-121] [n, blah]
+                  SelectList [114-121] [n, blah]
+                    SelectColumn [114-115] [n]
+                      PathExpression [114-115] [n]
+                        Identifier(n) [114-115] [n]
+                    SelectColumn [117-121] [blah]
+                      PathExpression [117-121] [blah]
+                        Identifier(blah) [117-121] [blah]
+          Alias [124-126] [gt]
+            Identifier(gt) [124-126] [gt]
+--
+SELECT
+  gt.*
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (n)
+    OPTIONAL CALL () {
+      MATCH
+        (n)
+        ->
+        (m)
+      RETURN
+        blah
+    }
+    RETURN
+      n,
+      blah
+  ) AS gt

@@ -596,11 +596,14 @@ FROM
       assertscan_5.a_2 AS a_2
     FROM
       (
+        SELECT
+          assertscan_5.a_1 AS a_1,
+          assertscan_5.a_2 AS a_2
         FROM
           (
             SELECT
-              assertscan_5.a_1 AS a_1,
-              assertscan_5.a_2 AS a_2
+              assertscan_4.a_1 AS a_1,
+              assertscan_4.a_2 AS a_2
             FROM
               (
                 SELECT
@@ -608,34 +611,25 @@ FROM
                   assertscan_4.a_2 AS a_2
                 FROM
                   (
+                    SELECT
+                      keyvalue_3.a_1 AS a_1,
+                      keyvalue_3.a_2 AS a_2
                     FROM
                       (
                         SELECT
-                          assertscan_4.a_1 AS a_1,
-                          assertscan_4.a_2 AS a_2
+                          KeyValue.Key AS a_1,
+                          KeyValue.Value AS a_2
                         FROM
-                          (
-                            SELECT
-                              keyvalue_3.a_1 AS a_1,
-                              keyvalue_3.a_2 AS a_2
-                            FROM
-                              (
-                                FROM
-                                  (
-                                    SELECT
-                                      KeyValue.Key AS a_1,
-                                      KeyValue.Value AS a_2
-                                    FROM
-                                      KeyValue
-                                  ) AS keyvalue_3
-                                |> ASSERT(keyvalue_3.a_1) = 10, "key=10"
-                              )
-                          ) AS assertscan_4
-                      ) AS assertscan_4
-                    |> ASSERT(assertscan_4.a_1) = 11, IFNULL(assertscan_4.a_2, "NULL")
-                  )
-              ) AS assertscan_5
+                          KeyValue
+                        |> AS keyvalue_3
+                        |> ASSERT(keyvalue_3.a_1) = 10, "key=10"
+                      )
+                  ) AS assertscan_4
+                |> AS assertscan_4
+                |> ASSERT(assertscan_4.a_1) = 11, IFNULL(assertscan_4.a_2, "NULL")
+              )
           ) AS assertscan_5
+        |> AS assertscan_5
         |> ASSERT(assertscan_5.a_1) = 11, CONCAT(IFNULL(CAST(assertscan_5.a_1 AS STRING), "NULL"), " ", IFNULL(assertscan_5.a_2,
                "NULL"))
       )

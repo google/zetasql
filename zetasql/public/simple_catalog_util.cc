@@ -25,8 +25,8 @@
 #include "zetasql/common/internal_property_graph.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_options.h"
-#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/constant_evaluator.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
@@ -36,14 +36,14 @@
 #include "zetasql/public/sql_constant.h"
 #include "zetasql/public/sql_function.h"
 #include "zetasql/public/sql_tvf.h"
-#include "zetasql/public/sql_view.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/templated_sql_function.h"
 #include "zetasql/public/templated_sql_tvf.h"
-#include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "absl/base/nullability.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
@@ -60,10 +60,10 @@ namespace zetasql {
 static absl::StatusOr<std::unique_ptr<Function>>
 MakeFunctionFromCreateFunctionImpl(
     const ResolvedCreateFunctionStmt& create_function_stmt,
-    std::optional<FunctionOptions> function_options,
+    const FunctionOptions* /*absl_nullable*/ function_options,
     bool legacy_joined_name_path = false) {
   FunctionOptions options;
-  if (function_options.has_value()) {
+  if (function_options != nullptr) {
     options = *function_options;
   } else {
     // User-defined functions often use CamelCase. Upper casing that makes it
@@ -111,7 +111,7 @@ MakeFunctionFromCreateFunctionImpl(
 absl::Status AddFunctionFromCreateFunction(
     absl::string_view create_sql_stmt, const AnalyzerOptions& analyzer_options,
     bool allow_persistent_function,
-    std::optional<FunctionOptions> function_options,
+    const FunctionOptions* /*absl_nullable*/ function_options,
     std::unique_ptr<const AnalyzerOutput>& analyzer_output,
     Catalog& resolving_catalog, SimpleCatalog& catalog) {
   ZETASQL_RET_CHECK(analyzer_options.language().SupportsStatementKind(
@@ -140,9 +140,9 @@ absl::Status AddFunctionFromCreateFunction(
 
 absl::StatusOr<std::unique_ptr<Function>> MakeFunctionFromCreateFunction(
     const ResolvedCreateFunctionStmt& create_function_stmt,
-    std::optional<FunctionOptions> function_options) {
+    const FunctionOptions* /*absl_nullable*/ function_options) {
   return MakeFunctionFromCreateFunctionImpl(create_function_stmt,
-                                            std::move(function_options));
+                                            function_options);
 }
 
 absl::Status AddTVFFromCreateTableFunction(
@@ -375,13 +375,57 @@ static absl::Status AddElementTable(
     labels.insert(label);
   }
 
+  // Dynamic properties.
+  std::unique_ptr<SimpleGraphDynamicProperties>
+      element_table_dynamic_properties;
+  if (resolved_element_table->dynamic_properties() != nullptr) {
+    const ResolvedExpr* dynamic_properties_expr =
+        resolved_element_table->dynamic_properties()->property_expr();
+    ZETASQL_RET_CHECK(dynamic_properties_expr->Is<ResolvedColumnRef>());
+    ZETASQL_RET_CHECK(dynamic_properties_expr->type()->IsJson());
+
+    // CAVEAT: If the original properties specification in the DDL is a path
+    // expression, we only restore the last name in the path as the SQL
+    // expression of the dynamic properties.
+    // Note that column name can not be internal here as it must be catalog
+    // table column.
+    std::string dynamic_properties_col_name;
+    const Column* unused = nullptr;
+    ZETASQL_RETURN_IF_ERROR(GetColumnAndNameFromColumnRef(
+        *dynamic_properties_expr, table, unused, dynamic_properties_col_name));
+    element_table_dynamic_properties =
+        std::make_unique<SimpleGraphDynamicProperties>(
+            dynamic_properties_col_name);
+  }
+
+  // Dynamic labels.
+  std::unique_ptr<SimpleGraphDynamicLabel> element_table_dynamic_label;
+  if (resolved_element_table->dynamic_label() != nullptr) {
+    const ResolvedExpr* dynamic_label_expr =
+        resolved_element_table->dynamic_label()->label_expr();
+    ZETASQL_RET_CHECK(dynamic_label_expr->Is<ResolvedColumnRef>());
+    ZETASQL_RET_CHECK(dynamic_label_expr->type()->IsString());
+
+    // CAVEAT: If the original label specification in the DDL is a path
+    // expression, we only restore the last name in the path as the SQL
+    // expression of the dynamic label.
+    // Note that column name can not be internal here as it must be catalog
+    // table column.
+    std::string dynamic_label_col_name;
+    const Column* unused = nullptr;
+    ZETASQL_RETURN_IF_ERROR(GetColumnAndNameFromColumnRef(
+        *dynamic_label_expr, table, unused, dynamic_label_col_name));
+    element_table_dynamic_label =
+        std::make_unique<SimpleGraphDynamicLabel>(dynamic_label_col_name);
+  }
+
   std::unique_ptr<const ElementTableType> element_table;
   if constexpr (std::is_same_v<ElementTableType, GraphNodeTable>) {
     element_table = std::make_unique<SimpleGraphNodeTable>(
         resolved_element_table->alias(), graph.NamePath(), table,
-        std::move(key_indices), std::move(labels),
-        std::move(property_defs)
-    );
+        std::move(key_indices), std::move(labels), std::move(property_defs),
+        std::move(element_table_dynamic_label),
+        std::move(element_table_dynamic_properties));
     graph.AddNodeTable(std::move(element_table));
     return absl::OkStatus();
   }
@@ -412,9 +456,9 @@ static absl::Status AddElementTable(
     element_table = std::make_unique<SimpleGraphEdgeTable>(
         resolved_element_table->alias(), graph.NamePath(), table,
         std::move(key_indices), std::move(labels), std::move(property_defs),
-        std::move(source_node),
-        std::move(dest_node)
-    );
+        std::move(source_node), std::move(dest_node),
+        std::move(element_table_dynamic_label),
+        std::move(element_table_dynamic_properties));
     graph.AddEdgeTable(std::move(element_table));
     return absl::OkStatus();
   }
@@ -465,7 +509,7 @@ static absl::Status ResolveGraphPropertyDefinitions(
     SimpleCatalog* catalog,
     std::vector<std::unique_ptr<const AnalyzerOutput>>& artifacts) {
   // Force graph features on for schema setup.
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_SQL_GRAPH);
+  language_options.EnableLanguageFeature(FEATURE_SQL_GRAPH);
   ZETASQL_RETURN_IF_ERROR(language_options.EnableReservableKeyword("GRAPH_TABLE"));
   AnalyzerOptions options(language_options);
   options.CreateDefaultArenasIfNotSet();
@@ -512,6 +556,40 @@ static absl::Status ResolveGraphPropertyDefinitions(
           analyzer_output->resolved_expr());
       artifacts.push_back(std::move(analyzer_output));
     }
+
+    if (element_table->HasDynamicProperties()) {
+      const GraphDynamicProperties* dynamic_prop = nullptr;
+      ZETASQL_RETURN_IF_ERROR(element_table->GetDynamicProperties(dynamic_prop));
+      ZETASQL_RET_CHECK_NE(dynamic_prop, nullptr);
+      ZETASQL_RET_CHECK(dynamic_prop->Is<SimpleGraphDynamicProperties>());
+
+      std::unique_ptr<const AnalyzerOutput> analyzer_output;
+      ZETASQL_RETURN_IF_ERROR(AnalyzeExpression(
+          dynamic_prop->properties_expression(), options, catalog,
+          catalog->type_factory(), &analyzer_output));
+      InternalPropertyGraph::InternalSetResolvedExpr(
+          const_cast<SimpleGraphDynamicProperties*>(
+              dynamic_prop->GetAs<SimpleGraphDynamicProperties>()),
+          analyzer_output->resolved_expr());
+      artifacts.push_back(std::move(analyzer_output));
+    }
+
+    if (element_table->HasDynamicLabel()) {
+      const GraphDynamicLabel* dynamic_label = nullptr;
+      ZETASQL_RETURN_IF_ERROR(element_table->GetDynamicLabel(dynamic_label));
+      ZETASQL_RET_CHECK_NE(dynamic_label, nullptr);
+      ZETASQL_RET_CHECK(dynamic_label->Is<SimpleGraphDynamicLabel>());
+
+      std::unique_ptr<const AnalyzerOutput> analyzer_output;
+      ZETASQL_RETURN_IF_ERROR(
+          AnalyzeExpression(dynamic_label->label_expression(), options, catalog,
+                            catalog->type_factory(), &analyzer_output));
+      InternalPropertyGraph::InternalSetResolvedExpr(
+          const_cast<SimpleGraphDynamicLabel*>(
+              dynamic_label->GetAs<SimpleGraphDynamicLabel>()),
+          analyzer_output->resolved_expr());
+      artifacts.push_back(std::move(analyzer_output));
+    }
   }
 
   return absl::OkStatus();
@@ -544,6 +622,32 @@ absl::Status AddPropertyGraphFromCreatePropertyGraphStmt(
                                                       std::move(graph)))
       << absl::StrJoin(resolved_create->name_path(), ".");
 
+  return absl::OkStatus();
+}
+
+absl::Status AddConstantFromCreateConstant(
+    absl::string_view create_constant_stmt,
+    const AnalyzerOptions& analyzer_options,
+    std::unique_ptr<const AnalyzerOutput>& analyzer_output,
+    SimpleCatalog& catalog) {
+  ZETASQL_RET_CHECK(analyzer_options.language().SupportsStatementKind(
+      RESOLVED_CREATE_CONSTANT_STMT));
+  ZETASQL_RETURN_IF_ERROR(AnalyzeStatement(create_constant_stmt, analyzer_options,
+                                   &catalog, catalog.type_factory(),
+                                   &analyzer_output))
+      << create_constant_stmt;
+  const ResolvedStatement* resolved = analyzer_output->resolved_statement();
+  ZETASQL_RET_CHECK(resolved->Is<ResolvedCreateConstantStmt>());
+  const ResolvedCreateConstantStmt* stmt =
+      resolved->GetAs<ResolvedCreateConstantStmt>();
+  std::vector<std::string> name_path = stmt->name_path();
+  ConstantEvaluator* evaluator = analyzer_options.constant_evaluator();
+  ZETASQL_RET_CHECK(evaluator != nullptr);
+  ZETASQL_ASSIGN_OR_RETURN(Value const_value, evaluator->Evaluate(*stmt->expr()));
+  std::unique_ptr<SimpleConstant> constant;
+  ZETASQL_RETURN_IF_ERROR(
+      SimpleConstant::Create(std::move(name_path), const_value, &constant));
+  ZETASQL_RET_CHECK(catalog.AddOwnedConstantIfNotPresent(std::move(constant)));
   return absl::OkStatus();
 }
 

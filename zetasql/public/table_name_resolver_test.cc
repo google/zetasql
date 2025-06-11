@@ -91,7 +91,7 @@ TEST(TableNameResolver, ScriptStatementsWithFindTables) {
   analyzer_options.mutable_language()->AddSupportedStatementKind(
       RESOLVED_ASSIGNMENT_STMT);
   analyzer_options.mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_1_FOR_SYSTEM_TIME_AS_OF);
+      FEATURE_FOR_SYSTEM_TIME_AS_OF);
   TableNamesSet tables;
   ASSERT_EQ(expected_table_refs.size(),
             parser_output->script()->statement_list().size());
@@ -128,7 +128,7 @@ TEST(TableNameResolver, ScriptStatementWithTimeTravel) {
   analyzer_options.mutable_language()->AddSupportedStatementKind(
       RESOLVED_ASSIGNMENT_STMT);
   analyzer_options.mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_1_FOR_SYSTEM_TIME_AS_OF);
+      FEATURE_FOR_SYSTEM_TIME_AS_OF);
   TableNamesSet tables;
   ASSERT_EQ(expected_table_refs.size(),
             parser_output->script()->statement_list().size());
@@ -350,8 +350,7 @@ TEST(TableNameResolver,
   analyzer_options.CreateDefaultArenasIfNotSet();
   analyzer_options.mutable_language()->AddSupportedStatementKind(
       RESOLVED_CREATE_PROPERTY_GRAPH_STMT);
-  analyzer_options.mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_4_SQL_GRAPH);
+  analyzer_options.mutable_language()->EnableLanguageFeature(FEATURE_SQL_GRAPH);
   std::string sql =
       R"sql(CREATE PROPERTY GRAPH pg1
               NODE TABLES (
@@ -372,8 +371,7 @@ TEST(TableNameResolver,
   analyzer_options.CreateDefaultArenasIfNotSet();
   analyzer_options.mutable_language()->AddSupportedStatementKind(
       RESOLVED_CREATE_PROPERTY_GRAPH_STMT);
-  analyzer_options.mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_4_SQL_GRAPH);
+  analyzer_options.mutable_language()->EnableLanguageFeature(FEATURE_SQL_GRAPH);
   std::string sql =
       R"sql(CREATE PROPERTY GRAPH pg1
               NODE TABLES (
@@ -399,8 +397,7 @@ TEST(TableNameResolver,
 TEST(TableNameResolver, ExtractTableNamesFromGraphQuery) {
   AnalyzerOptions analyzer_options;
   analyzer_options.CreateDefaultArenasIfNotSet();
-  analyzer_options.mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_4_SQL_GRAPH);
+  analyzer_options.mutable_language()->EnableLanguageFeature(FEATURE_SQL_GRAPH);
   ZETASQL_ASSERT_OK(analyzer_options.mutable_language()->EnableReservableKeyword(
       "GRAPH_TABLE"));
 
@@ -422,10 +419,9 @@ TEST(TableNameResolver, ExtractTableNamesFromGraphQuery) {
 TEST(TableNameResolver, ExtractTableNamesFromStandaloneGqlQuery) {
   AnalyzerOptions analyzer_options;
   analyzer_options.CreateDefaultArenasIfNotSet();
+  analyzer_options.mutable_language()->EnableLanguageFeature(FEATURE_SQL_GRAPH);
   analyzer_options.mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_4_SQL_GRAPH);
-  analyzer_options.mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_4_SQL_GRAPH_ADVANCED_QUERY);
+      FEATURE_SQL_GRAPH_ADVANCED_QUERY);
 
   std::string sql =
       R"sql(GRAPH gph1

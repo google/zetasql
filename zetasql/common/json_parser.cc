@@ -135,7 +135,7 @@ bool JSONParser::ParseString() {
 constexpr absl::string_view kReplacementCharacter = "\uFFFD";
 
 // Converts a unicode escaped or Latin-1 escaped character to a decimal value
-// stored in a char32_t for use in UTF8 encoding utility.  We assume that str
+// stored in a char32 for use in UTF8 encoding utility.  We assume that str
 // begins with \uhhhh or \xhh and converts that from the hex number to a decimal
 // value.
 //

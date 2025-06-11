@@ -60,27 +60,28 @@ TEST(SqlFormatterTest, InvalidSingleStatement) {
   // formatted_sql is always filled in.
   std::string formatted_sql;
 
+  constexpr absl::string_view kExpectedError =
+      "Syntax error: Expected \";\" or end of input but got keyword HAVING "
+      "[at 1:36]";
+
   // Without semicolon.
   EXPECT_THAT(FormatSql("select f1 as a from T having a > 5 having a > 5",
                         &formatted_sql),
-              StatusIs(_, HasSubstr("Syntax error: Expected end of input but "
-                                    "got keyword HAVING [at 1:36]")));
+              StatusIs(_, HasSubstr(kExpectedError)));
   EXPECT_EQ("select f1 as a from T having a > 5 having a > 5;",
             formatted_sql);
 
   // With semicolon as the last char.
   EXPECT_THAT(FormatSql("select f1 as a from T having a > 5 having a > 5;",
                         &formatted_sql),
-              StatusIs(_, HasSubstr("Syntax error: Expected end of input but "
-                                    "got keyword HAVING [at 1:36]")));
+              StatusIs(_, HasSubstr(kExpectedError)));
   EXPECT_EQ("select f1 as a from T having a > 5 having a > 5;",
             formatted_sql);
 
   // With semicolon and trailing whitespaces.
   EXPECT_THAT(FormatSql("select f1 as a from T having a > 5 having a > 5;    ",
                         &formatted_sql),
-              StatusIs(_, HasSubstr("Syntax error: Expected end of input but "
-                                    "got keyword HAVING [at 1:36]")));
+              StatusIs(_, HasSubstr(kExpectedError)));
   EXPECT_EQ("select f1 as a from T having a > 5 having a > 5;",
             formatted_sql);
 
@@ -90,8 +91,8 @@ TEST(SqlFormatterTest, InvalidSingleStatement) {
                 &formatted_sql),
       StatusIs(_,
                HasSubstr(
-                   "Syntax error: Expected end of input but got keyword HAVING "
-                   "[at 1:36]\n"
+                   "Syntax error: Expected \";\" or end of input but got "
+                   "keyword HAVING [at 1:36]\n"
                    "select f1 as a from T having a > 5 having a > 5; # foo\n"
                    "                                   ^\n"
                    "Syntax error: Unexpected end of statement [at 1:55]\n"
@@ -108,14 +109,14 @@ TEST(SqlFormatterTest, InvalidSingleStatement) {
 
   // Semicolon in string.
   EXPECT_THAT(FormatSql("select ' ; ' as a as b;", &formatted_sql),
-              StatusIs(_, HasSubstr("Syntax error: Expected end of input but "
-                                    "got keyword AS [at 1:19]")));
+              StatusIs(_, HasSubstr("Syntax error: Expected \";\" or end of "
+                                    "input but got keyword AS [at 1:19]")));
   EXPECT_EQ("select ' ; ' as a as b;", formatted_sql);
 
   EXPECT_THAT(
       FormatSql("select a group by 1 where a < 'xxx;yyy';", &formatted_sql),
-      StatusIs(_, HasSubstr("Syntax error: Expected end of input but got "
-                            "keyword WHERE [at 1:21]")));
+      StatusIs(_, HasSubstr("Syntax error: Expected \";\" or end of "
+                            "input but got keyword WHERE [at 1:21]")));
   EXPECT_EQ("select a group by 1 where a < 'xxx;yyy';", formatted_sql);
 }
 
@@ -158,8 +159,8 @@ TEST(SqlFormatterTest, InvalidMultipleStatements) {
               "foo is not a supported object type [at 1:7]\n"
               " drop foo.bar;  define table t1 (a=1,b=\"a\",c=1.4,d=true) ;\n"
               "      ^\n"
-              "Syntax error: Expected end of input but got keyword HAVING [at "
-              "2:42]\n"
+              "Syntax error: Expected \";\" or end of input but got keyword "
+              "HAVING [at 2:42]\n"
               " select sum(f1) as a from T having a > 5 having a > 5;select 1\n"
               "                                         ^")));
   EXPECT_EQ("drop foo.bar;\n"

@@ -112,9 +112,9 @@ absl::StatusOr<bool> FunctionSignatureMatchesWithStatus(
 // of times each repeated argument repeats and the number of optional arguments
 // present if true.
 bool SignatureArgumentCountMatches(
-    const FunctionSignature& signature, int input_arguments_size,
-    int* repetitions, int* optionals,
-    SignatureMatchResult* signature_match_result);
+    const FunctionSignature& signature,
+    absl::Span<const InputArgumentType> input_arguments, int* repetitions,
+    int* optionals, SignatureMatchResult* signature_match_result);
 
 }  // namespace zetasql
 

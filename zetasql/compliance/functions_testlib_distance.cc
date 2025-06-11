@@ -374,7 +374,7 @@ std::vector<FunctionTestCall> GetFunctionTestsCosineDistance() {
        1.0,
        kDistanceFloatMargin},
 
-      // Sparse int64_t key array
+      // Sparse int64 key array
       {"cosine_distance",
        {MakeArray({{1, 1.0}, {2, 2.0}}), MakeArray({{1, 3.0}, {2, 4.0}})},
        0.01613008990009257,
@@ -405,7 +405,7 @@ std::vector<FunctionTestCall> GetFunctionTestsCosineDistance() {
         MakeArray({{1, -6.0e-140}, {2, 5.0e-140}})},
        1.0,
        kDistanceFloatMargin},
-      // Sparse int64_t key array custom struct field names
+      // Sparse int64 key array custom struct field names
       {"cosine_distance",
        {MakeArrayCustomStructFieldNames({{1, 1.0}, {2, 2.0}}, "key", ""),
         MakeArrayCustomStructFieldNames({{1, 3.0}, {2, 4.0}}, "", "value")},
@@ -560,7 +560,7 @@ std::vector<FunctionTestCall> GetFunctionTestsCosineDistance() {
 
   for (auto& test_case : float_array_tests) {
     test_case.params.AddRequiredFeature(
-        FEATURE_V_1_4_ENABLE_FLOAT_DISTANCE_FUNCTIONS);
+        FEATURE_ENABLE_FLOAT_DISTANCE_FUNCTIONS);
     tests.emplace_back(test_case);
   }
 
@@ -894,7 +894,7 @@ std::vector<FunctionTestCall> GetFunctionTestsEuclideanDistance() {
        5e140,
        kDistanceFloatMargin},
 
-      // Sparse int64_t key array
+      // Sparse int64 key array
       {"euclidean_distance",
        {MakeArray({{1, 1.0}, {2, 2.0}}), MakeArray({{1, 3.0}, {2, 4.0}})},
        2.8284271247461903,
@@ -903,14 +903,14 @@ std::vector<FunctionTestCall> GetFunctionTestsEuclideanDistance() {
        {MakeArray({{1, 5.0}, {2, 6.0}}), MakeArray({{1, 7.0}, {2, 9.0}})},
        3.6055512754639891,
        kDistanceFloatMargin},
-      // Sparse int64_t key array with significantly different floating point
+      // Sparse int64 key array with significantly different floating point
       // values.
       {"euclidean_distance",
        {MakeArray({{1, 7.0e-140}, {2, 4.0e140}}),
         MakeArray({{1, 3.0e140}, {2, 9.0e-140}})},
        5e140,
        kDistanceFloatMargin},
-      // Sparse int64_t key array custom struct field names.
+      // Sparse int64 key array custom struct field names.
       {"euclidean_distance",
        {MakeArrayCustomStructFieldNames({{1, 1.0}, {2, 2.0}}, "key", ""),
         MakeArrayCustomStructFieldNames({{1, 3.0}, {2, 4.0}}, "", "value")},
@@ -1025,7 +1025,7 @@ std::vector<FunctionTestCall> GetFunctionTestsEuclideanDistance() {
 
   for (auto& test_case : float_array_tests) {
     test_case.params.AddRequiredFeature(
-        FEATURE_V_1_4_ENABLE_FLOAT_DISTANCE_FUNCTIONS);
+        FEATURE_ENABLE_FLOAT_DISTANCE_FUNCTIONS);
     tests.emplace_back(test_case);
   }
 
@@ -1415,15 +1415,15 @@ std::vector<FunctionTestCall> GetFunctionTestsDotProduct() {
   tests.reserve(double_array_tests.size() + float_array_tests.size() +
                 int64_array_tests.size());
   for (auto& test_case : double_array_tests) {
-    test_case.params.AddRequiredFeature(FEATURE_V_1_4_DOT_PRODUCT);
+    test_case.params.AddRequiredFeature(FEATURE_DOT_PRODUCT);
     tests.emplace_back(test_case);
   }
   for (auto& test_case : float_array_tests) {
-    test_case.params.AddRequiredFeature(FEATURE_V_1_4_DOT_PRODUCT);
+    test_case.params.AddRequiredFeature(FEATURE_DOT_PRODUCT);
     tests.emplace_back(test_case);
   }
   for (auto& test_case : int64_array_tests) {
-    test_case.params.AddRequiredFeature(FEATURE_V_1_4_DOT_PRODUCT);
+    test_case.params.AddRequiredFeature(FEATURE_DOT_PRODUCT);
     tests.emplace_back(test_case);
   }
 
@@ -1906,15 +1906,15 @@ std::vector<FunctionTestCall> GetFunctionTestsManhattanDistance() {
   tests.reserve(double_array_tests.size() + float_array_tests.size() +
                 int64_array_tests.size());
   for (auto& test_case : double_array_tests) {
-    test_case.params.AddRequiredFeature(FEATURE_V_1_4_MANHATTAN_DISTANCE);
+    test_case.params.AddRequiredFeature(FEATURE_MANHATTAN_DISTANCE);
     tests.emplace_back(test_case);
   }
   for (auto& test_case : float_array_tests) {
-    test_case.params.AddRequiredFeature(FEATURE_V_1_4_MANHATTAN_DISTANCE);
+    test_case.params.AddRequiredFeature(FEATURE_MANHATTAN_DISTANCE);
     tests.emplace_back(test_case);
   }
   for (auto& test_case : int64_array_tests) {
-    test_case.params.AddRequiredFeature(FEATURE_V_1_4_MANHATTAN_DISTANCE);
+    test_case.params.AddRequiredFeature(FEATURE_MANHATTAN_DISTANCE);
     tests.emplace_back(test_case);
   }
 
@@ -2058,15 +2058,15 @@ std::vector<FunctionTestCall> GetFunctionTestsL1Norm() {
   tests.reserve(double_array_tests.size() + float_array_tests.size() +
                 int64_array_tests.size());
   for (auto& test_case : double_array_tests) {
-    test_case.params.AddRequiredFeature(FEATURE_V_1_4_L1_NORM);
+    test_case.params.AddRequiredFeature(FEATURE_L1_NORM);
     tests.emplace_back(test_case);
   }
   for (auto& test_case : float_array_tests) {
-    test_case.params.AddRequiredFeature(FEATURE_V_1_4_L1_NORM);
+    test_case.params.AddRequiredFeature(FEATURE_L1_NORM);
     tests.emplace_back(test_case);
   }
   for (auto& test_case : int64_array_tests) {
-    test_case.params.AddRequiredFeature(FEATURE_V_1_4_L1_NORM);
+    test_case.params.AddRequiredFeature(FEATURE_L1_NORM);
     tests.emplace_back(test_case);
   }
 
@@ -2225,15 +2225,15 @@ std::vector<FunctionTestCall> GetFunctionTestsL2Norm() {
   tests.reserve(double_array_tests.size() + float_array_tests.size() +
                 int64_array_tests.size());
   for (auto& test_case : double_array_tests) {
-    test_case.params.AddRequiredFeature(FEATURE_V_1_4_L2_NORM);
+    test_case.params.AddRequiredFeature(FEATURE_L2_NORM);
     tests.emplace_back(test_case);
   }
   for (auto& test_case : float_array_tests) {
-    test_case.params.AddRequiredFeature(FEATURE_V_1_4_L2_NORM);
+    test_case.params.AddRequiredFeature(FEATURE_L2_NORM);
     tests.emplace_back(test_case);
   }
   for (auto& test_case : int64_array_tests) {
-    test_case.params.AddRequiredFeature(FEATURE_V_1_4_L2_NORM);
+    test_case.params.AddRequiredFeature(FEATURE_L2_NORM);
     tests.emplace_back(test_case);
   }
 

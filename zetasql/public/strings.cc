@@ -960,8 +960,7 @@ static absl::Status AddIdentifierPathSegment(
 static absl::StatusOr<bool> IsSlashPath(
     absl::string_view str, const LanguageOptions& language_options) {
   if (str.empty() || str[0] != '/') return false;
-  if (!language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_3_ALLOW_SLASH_PATHS)) {
+  if (!language_options.LanguageFeatureEnabled(FEATURE_ALLOW_SLASH_PATHS)) {
     return MakeSqlError() << "Path starts with an invalid character '/'";
   }
   return true;
@@ -988,7 +987,7 @@ absl::Status ParseIdentifierPath(absl::string_view str,
   absl::string_view::const_iterator segment_start = p;
   absl::string_view::const_iterator end = str.end();
   std::vector<std::string> temp_out;
-  // If the paths starts with '/' and FEATURE_V_1_3_ALLOW_SLASH_PATHS is
+  // If the paths starts with '/' and FEATURE_ALLOW_SLASH_PATHS is
   // enabled, then the first segment of the path can contain slash, dash, and
   // colon.
   ZETASQL_ASSIGN_OR_RETURN(bool allow_slash_path_segment,
@@ -1068,8 +1067,7 @@ absl::Status ParseIdentifierPath(absl::string_view str,
   // The slashed path should return error if a segment has a reserved keyword
   // for example /CREATE/abc.
   const bool is_quoted = !str.empty() && str[0] == '`';
-  if (language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_3_ALLOW_SLASH_PATHS) &&
+  if (language_options.LanguageFeatureEnabled(FEATURE_ALLOW_SLASH_PATHS) &&
       !temp_out.empty() && !is_quoted) {
     absl::string_view first_seg = temp_out[0];
     std::vector<std::string> slash_path = absl::StrSplit(first_seg, '/');

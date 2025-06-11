@@ -1,5 +1,5 @@
 [default enabled_ast_rewrites=DEFAULTS]
-[default language_features=V_1_2_SAFE_FUNCTION_CALL]
+[default language_features=SAFE_FUNCTION_CALL]
 
 SELECT ARRAY_FIRST([])
 --
@@ -140,14 +140,20 @@ Rewrite ERROR: generic::unimplemented: SAFE mode calls to ARRAY_FIRST are not su
 
 SELECT ARRAY_FIRST([1, 3], [2, 4])
 --
-ERROR: Number of arguments does not match for function ARRAY_FIRST. Supported signature: ARRAY_FIRST(ARRAY) [at 1:8]
+ERROR: No matching signature for function ARRAY_FIRST
+  Argument types: ARRAY<INT64>, ARRAY<INT64>
+  Signature: ARRAY_FIRST(ARRAY<T1>)
+    Signature accepts at most 1 argument, found 2 arguments [at 1:8]
 SELECT ARRAY_FIRST([1, 3], [2, 4])
        ^
 ==
 
 SELECT ARRAY_FIRST(STRUCT(1 AS a))
 --
-ERROR: No matching signature for function ARRAY_FIRST for argument types: STRUCT<a INT64>. Supported signature: ARRAY_FIRST(ARRAY) [at 1:8]
+ERROR: No matching signature for function ARRAY_FIRST
+  Argument types: STRUCT<a INT64>
+  Signature: ARRAY_FIRST(ARRAY<T1>)
+    Argument 1: expected array type but found STRUCT<a INT64> [at 1:8]
 SELECT ARRAY_FIRST(STRUCT(1 AS a))
        ^
 ==
@@ -425,9 +431,9 @@ QueryStmt
       +-SingleRowScan
 ==
 
-# The langugage feature V_1_4_ARRAY_AGGREGATION_FUNCTIONS is added temporarily.
+# The langugage feature ARRAY_AGGREGATION_FUNCTIONS is added temporarily.
 # It will be removed once UDF naming conflicts are cleaned up.
-[language_features=V_1_2_SAFE_FUNCTION_CALL{{|,V_1_4_ARRAY_AGGREGATION_FUNCTIONS}}]
+[language_features=SAFE_FUNCTION_CALL{{|,ARRAY_AGGREGATION_FUNCTIONS}}]
 SELECT {{|SAFE.}}ARRAY_SUM([CAST(1.0 AS FLOAT), CAST('NAN' AS FLOAT), CAST('+inf' AS FLOAT)])
 --
 ALTERNATION GROUP: <empty>
@@ -442,7 +448,7 @@ ERROR: Function not found: ARRAY_SUM; Did you mean SAFE.array_agg? [at 1:8]
 SELECT SAFE.ARRAY_SUM([CAST(1.0 AS FLOAT), CAST('NAN' AS FLOAT), CAST('+inf' ...
        ^
 --
-ALTERNATION GROUP: ,V_1_4_ARRAY_AGGREGATION_FUNCTIONS,
+ALTERNATION GROUP: ,ARRAY_AGGREGATION_FUNCTIONS,
 --
 QueryStmt
 +-output_column_list=
@@ -510,7 +516,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: ,V_1_4_ARRAY_AGGREGATION_FUNCTIONS,SAFE.
+ALTERNATION GROUP: ,ARRAY_AGGREGATION_FUNCTIONS,SAFE.
 --
 QueryStmt
 +-output_column_list=
@@ -581,7 +587,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_2_SAFE_FUNCTION_CALL{{|,V_1_4_ARRAY_AGGREGATION_FUNCTIONS}}]
+[language_features=SAFE_FUNCTION_CALL{{|,ARRAY_AGGREGATION_FUNCTIONS}}]
 SELECT {{|SAFE.}}ARRAY_AVG([CAST(1.0 AS FLOAT), CAST('NAN' AS FLOAT), CAST('+inf' AS FLOAT)])
 --
 ALTERNATION GROUP: <empty>
@@ -596,7 +602,7 @@ ERROR: Function not found: ARRAY_AVG; Did you mean SAFE.array_agg? [at 1:8]
 SELECT SAFE.ARRAY_AVG([CAST(1.0 AS FLOAT), CAST('NAN' AS FLOAT), CAST('+inf' ...
        ^
 --
-ALTERNATION GROUP: ,V_1_4_ARRAY_AGGREGATION_FUNCTIONS,
+ALTERNATION GROUP: ,ARRAY_AGGREGATION_FUNCTIONS,
 --
 QueryStmt
 +-output_column_list=
@@ -664,7 +670,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: ,V_1_4_ARRAY_AGGREGATION_FUNCTIONS,SAFE.
+ALTERNATION GROUP: ,ARRAY_AGGREGATION_FUNCTIONS,SAFE.
 --
 QueryStmt
 +-output_column_list=
@@ -735,7 +741,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_2_SAFE_FUNCTION_CALL,V_1_4_ARRAY_AGGREGATION_FUNCTIONS]
+[language_features=SAFE_FUNCTION_CALL,ARRAY_AGGREGATION_FUNCTIONS]
 SELECT {{|SAFE.}}ARRAY_MIN(["hello", "zetasql"])
 --
 ALTERNATION GROUP: <empty>
@@ -905,7 +911,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_4_ARRAY_AGGREGATION_FUNCTIONS]
+[language_features=ARRAY_AGGREGATION_FUNCTIONS]
 SELECT ARRAY_MAX([])
 --
 QueryStmt
@@ -990,7 +996,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_2_SAFE_FUNCTION_CALL,V_1_4_ARRAY_AGGREGATION_FUNCTIONS]
+[language_features=SAFE_FUNCTION_CALL,ARRAY_AGGREGATION_FUNCTIONS]
 SELECT ARRAY_MAX([4.5])
 --
 QueryStmt

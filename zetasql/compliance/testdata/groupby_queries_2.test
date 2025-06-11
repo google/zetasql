@@ -2471,20 +2471,20 @@ ARRAY<STRUCT<INT64, INT64>>[{0, 0}]
 ==
 
 [name=group_by_empty_columns]
-[required_features=V_1_4_GROUPING_SETS]
+[required_features=GROUPING_SETS]
 SELECT COUNT(primary_key), SUM(distinct_1) FROM TableDistincts GROUP BY ();
 --
 ARRAY<STRUCT<INT64, INT64>>[{16, 16}]
 ==
 
 [name=group_by_empty_columns_select_literals]
-[required_features=V_1_4_GROUPING_SETS]
+[required_features=GROUPING_SETS]
 SELECT 1, "a" FROM TableDistincts GROUP BY ();
 --
 ARRAY<STRUCT<INT64, STRING>>[{1, "a"}]
 ==
 [name=group_by_empty_columns_as_scalar_subquery]
-[required_features=V_1_4_GROUPING_SETS]
+[required_features=GROUPING_SETS]
 SELECT
   primary_key,
   (SELECT "a" FROM TableDistincts GROUP BY ()) AS scalar_subquery

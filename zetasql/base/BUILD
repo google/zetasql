@@ -68,6 +68,7 @@ cc_library(
     hdrs = ["check.h"],
     deps = [
         ":logging",
+        ":status",
     ],
 )
 
@@ -214,7 +215,6 @@ cc_test(
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
-        "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -223,7 +223,7 @@ cc_library(
     name = "enum_utils",
     hdrs = ["enum_utils.h"],
     deps = [
-        "@com_google_protobuf//:cc_wkt_protos",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -759,7 +759,6 @@ cc_library(
     name = "file_util_oss",
     hdrs = ["file_util_oss.h"],
     deps = [
-        ":logging",
         ":path",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",

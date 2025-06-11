@@ -1,8 +1,8 @@
-[default language_features=V_1_1_ORDER_BY_IN_AGGREGATE]
+[default language_features=ORDER_BY_IN_AGGREGATE]
 [default enabled_ast_rewrites=DEFAULTS,+ORDER_BY_AND_LIMIT_IN_AGGREGATE]
 
 [no_enable_literal_replacement]
-[language_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_HAVING_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_2_GROUP_BY_ARRAY,V_1_3_ARRAY_ORDERING]
+[language_features=ORDER_BY_IN_AGGREGATE,HAVING_IN_AGGREGATE,LIMIT_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE,GROUP_BY_ARRAY,ARRAY_ORDERING]
 # Simple ARRAY_AGG with ORDER BY with all the features.
 # no_enable_literal_replacement: Distinct and ORDER BY must match exactly, we
 # cannot replace just one literal with parameter
@@ -637,7 +637,7 @@ QueryStmt
 
 ==
 
-[language_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE]
+[language_features=ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE]
 
 # Slight different ARRAY_CONCAT_AGGs in the same AggregateScan
 SELECT ARRAY_CONCAT_AGG(KitchenSink.repeated_string_val ORDER BY ARRAY_LENGTH(KitchenSink.repeated_string_val) LIMIT 2),
@@ -1064,7 +1064,7 @@ QueryStmt
                       +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#6)
 ==
 
-[language_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE]
+[language_features=ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE]
 
 # ARRAY_CONCAT_AGG with limits
 SELECT ARRAY_CONCAT_AGG(KitchenSink.repeated_string_val LIMIT 2),

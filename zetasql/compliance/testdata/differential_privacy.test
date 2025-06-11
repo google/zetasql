@@ -1690,7 +1690,7 @@ ARRAY<STRUCT<DOUBLE>>[{11}]
 
 # Public groups without group by
 [name=differential_privacy_public_groups_without_group_by]
-[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,NAMED_ARGUMENTS,V_1_1_WITH_ON_SUBQUERY]
+[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,NAMED_ARGUMENTS,WITH_ON_SUBQUERY]
 [labels=differential_privacy]
 SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, group_selection_strategy=PUBLIC_GROUPS)
   COUNT(int64_val)
@@ -1701,7 +1701,7 @@ ARRAY<STRUCT<INT64>>[{8}]
 
 # Public groups with group by
 [name=differential_privacy_public_groups_with_group_by]
-[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,NAMED_ARGUMENTS,V_1_1_WITH_ON_SUBQUERY]
+[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,NAMED_ARGUMENTS,WITH_ON_SUBQUERY]
 [labels=differential_privacy]
 SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, group_selection_strategy=PUBLIC_GROUPS)
   int64_val, COUNT(*, contribution_bounds_per_group => (0, 1))
@@ -1722,7 +1722,7 @@ ARRAY<STRUCT<int64_val INT64, INT64>>[unknown order:
 
 # Public groups with group by
 [name=differential_privacy_public_groups_with_group_by_and_max_groups_contributed]
-[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,NAMED_ARGUMENTS,V_1_1_WITH_ON_SUBQUERY]
+[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,NAMED_ARGUMENTS,WITH_ON_SUBQUERY]
 [labels=anonymization]
 SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, group_selection_strategy=PUBLIC_GROUPS, max_groups_contributed=3)
   int64_val, COUNT(*, contribution_bounds_per_group => (0, 1))
@@ -1826,7 +1826,7 @@ ARRAY<STRUCT<int64_val INT64, INT64>>[]
 # Engines should report an error if min_privacy_units_per_group is set
 # simultaneously with the PUBLIC_GROUPS groups selection strategy.
 [name=differential_privacy_public_groups_and_min_privacy_units_per_group_set]
-[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,DIFFERENTIAL_PRIVACY_MIN_PRIVACY_UNITS_PER_GROUP,NAMED_ARGUMENTS,V_1_1_WITH_ON_SUBQUERY]
+[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,DIFFERENTIAL_PRIVACY_MIN_PRIVACY_UNITS_PER_GROUP,NAMED_ARGUMENTS,WITH_ON_SUBQUERY]
 [labels=differential_privacy]
 SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta = 1.0, min_privacy_units_per_group=2, group_selection_strategy = PUBLIC_GROUPS, max_groups_contributed=NULL)
   SUM(double_val, contribution_bounds_per_group => (0.0, 2.0))
@@ -1900,7 +1900,7 @@ ARRAY<STRUCT<
 
 # Approx bounds with not enough data returns NULL.
 [name=differential_privacy_approx_bounds_on_no_data_returns_null]
-[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,NAMED_ARGUMENTS,V_1_1_WITH_ON_SUBQUERY]
+[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,NAMED_ARGUMENTS,WITH_ON_SUBQUERY]
 [labels=differential_privacy]
 SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1, delta=0, group_selection_strategy=PUBLIC_GROUPS, max_groups_contributed=3)
   int64_val, COUNT(*)

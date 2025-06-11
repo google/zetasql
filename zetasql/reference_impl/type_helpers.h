@@ -61,7 +61,7 @@ absl::StatusOr<const StructType*> CreatePrimaryKeyType(
 // Creates the DML output struct type corresponding to a DML statement on a
 // table whose corresponding array type is 'table_array_type'.
 //
-// The returned type is a struct with two fields: an int64_t representing the
+// The returned type is a struct with two fields: an int64 representing the
 // number of rows modified by the statement, and an array of structs, where each
 // element of the array represents a row of the modified table.
 absl::StatusOr<const StructType*> CreateDMLOutputType(
@@ -74,7 +74,7 @@ absl::StatusOr<const StructType*> CreateDMLOutputType(
 // returning clause is ignored from the DML output struct type.
 // and
 //
-// The returned type is a struct with three fields: an int64_t representing the
+// The returned type is a struct with three fields: an int64 representing the
 // number of rows modified by the statement, and an array of structs, where each
 // element of the array represents a row of the modified table.
 absl::StatusOr<const StructType*> CreateDMLOutputTypeWithReturning(

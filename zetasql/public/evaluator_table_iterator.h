@@ -202,7 +202,7 @@ class EvaluatorTableIterator {
 //   values.
 // - Comparisons are allowed between types that are directly comparable with =
 //   or < operators without even implicit casts. For example, comparison between
-//   int64_t and uint64_t is allowed.
+//   int64 and uint64 is allowed.
 // Value::SqlLessThan() and Value::SqlEquals() implement comparison with these
 // semantics.
 class ColumnFilter {

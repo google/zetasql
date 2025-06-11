@@ -68,9 +68,8 @@ GraphPathType::GraphPathType(const TypeFactory* factory,
 
 bool GraphPathType::IsSupportedType(
     const LanguageOptions& language_options) const {
-  if (!language_options.LanguageFeatureEnabled(FEATURE_V_1_4_SQL_GRAPH) ||
-      !language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_SQL_GRAPH_PATH_TYPE)) {
+  if (!language_options.LanguageFeatureEnabled(FEATURE_SQL_GRAPH) ||
+      !language_options.LanguageFeatureEnabled(FEATURE_SQL_GRAPH_PATH_TYPE)) {
     return false;
   }
 
@@ -99,8 +98,7 @@ void GraphPathType::DebugStringImpl(bool /* details */,
 bool GraphPathType::SupportsGroupingImpl(
     const LanguageOptions& language_options,
     const Type** no_grouping_type) const {
-  if (language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_GROUP_BY_GRAPH_PATH)) {
+  if (language_options.LanguageFeatureEnabled(FEATURE_GROUP_BY_GRAPH_PATH)) {
     return true;
   }
   if (no_grouping_type != nullptr) {
@@ -112,8 +110,7 @@ bool GraphPathType::SupportsGroupingImpl(
 bool GraphPathType::SupportsPartitioningImpl(
     const LanguageOptions& language_options,
     const Type** no_partitioning_type) const {
-  if (language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_GROUP_BY_GRAPH_PATH)) {
+  if (language_options.LanguageFeatureEnabled(FEATURE_GROUP_BY_GRAPH_PATH)) {
     return true;
   }
   if (no_partitioning_type != nullptr) {

@@ -7,7 +7,7 @@
 # 6. Unordered array input in multiway UNNEST.
 # 7. Array inputs of literals or column references, with and without explicit alias.
 # 8. Array inputs with collation, with the same or different collations.
-[default required_features=V_1_4_MULTIWAY_UNNEST]
+[default required_features=MULTIWAY_UNNEST]
 [load_proto_files=zetasql/testdata/test_schema.proto]
 [load_proto_names=zetasql_test__.KitchenSinkPB]
 
@@ -713,7 +713,7 @@ ERROR: generic::out_of_range: UNNEST does not allow NULL mode argument
 
 # Zipping literal arrays with equal length, with only one of the arrays having collation.
 [name=multiway_unnest_two_literal_arrays_equal_length_with_collation_strict_mode]
-[required_features=V_1_4_MULTIWAY_UNNEST,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[required_features=MULTIWAY_UNNEST,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 SELECT arr1 = 'a', arr2 = 'a'
 FROM UNNEST(
   [COLLATE('a', 'und:ci'), COLLATE('A', 'und:ci'), COLLATE('B', 'und:ci')] AS arr1,
@@ -731,7 +731,7 @@ ARRAY<STRUCT<BOOL, BOOL>>[known order:
 
 # Zipping literal arrays with different length, with only one of the arrays having collation.
 [name=multiway_unnest_two_literal_arrays_unequal_length_with_collation_truncate_mode]
-[required_features=V_1_4_MULTIWAY_UNNEST,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[required_features=MULTIWAY_UNNEST,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 SELECT arr1 = 'a', arr2 = 'a'
 FROM UNNEST(
   [COLLATE('a', 'und:ci'), COLLATE('A', 'und:ci'), COLLATE('B', 'und:ci')] AS arr1,
@@ -745,7 +745,7 @@ ARRAY<STRUCT<BOOL, BOOL>>[known order:{true, true}, {true, false}]
 
 # Zipping literal arrays with different length, with only one of the arrays having collation.
 [name=multiway_unnest_two_literal_arrays_unequal_length_with_collation_pad_mode]
-[required_features=V_1_4_MULTIWAY_UNNEST,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[required_features=MULTIWAY_UNNEST,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 SELECT arr1 = 'a', arr2 = 'a'
 FROM UNNEST(
   [COLLATE('a', 'und:ci'), COLLATE('A', 'und:ci')] AS arr1,
@@ -763,7 +763,7 @@ ARRAY<STRUCT<BOOL, BOOL>>[known order:
 
 # Zipping column referenced arrays with different length, with only one of the arrays having collation.
 [name=multiway_unnest_three_unequal_arrays_column_ref_with_collation_strict_mode]
-[required_features=V_1_4_MULTIWAY_UNNEST,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[required_features=MULTIWAY_UNNEST,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 WITH T AS (
   SELECT [COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('B', 'und:ci')] AS collated_array,
   ['a', 'b', 'B'] AS str_array,
@@ -782,7 +782,7 @@ ERROR: generic::out_of_range: Unnested arrays under STRICT mode must have equal 
 
 # Zipping column referenced arrays with different length, with only one of the arrays having collation.
 [name=multiway_unnest_three_unequal_arrays_column_ref_with_collation_truncate_mode]
-[required_features=V_1_4_MULTIWAY_UNNEST,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[required_features=MULTIWAY_UNNEST,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 WITH T AS (
   SELECT [COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('B', 'und:ci')] AS collated_array,
   ['a', 'b', 'B'] AS str_array,
@@ -804,7 +804,7 @@ ARRAY<STRUCT<BOOL, BOOL, arr3 DOUBLE>>[known order:
 
 # Zipping column referenced arrays with different length, with only one of the arrays having collation.
 [name=multiway_unnest_three_unequal_arrays_column_ref_with_collation_pad_mode]
-[required_features=V_1_4_MULTIWAY_UNNEST,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[required_features=MULTIWAY_UNNEST,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 WITH T AS (
   SELECT [COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('B', 'und:ci')] AS collated_array,
   ['a', 'b', 'B'] AS str_array,
@@ -827,7 +827,7 @@ ARRAY<STRUCT<BOOL, BOOL, arr3 DOUBLE>>[known order:
 
 # Zipping column referenced arrays with same length, with the same collation.
 [name=multiway_unnest_three_equal_arrays_column_ref_with_same_collation]
-[required_features=V_1_4_MULTIWAY_UNNEST,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[required_features=MULTIWAY_UNNEST,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 WITH T AS (
   SELECT [COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('B', 'und:ci')] AS collated_array1,
   [COLLATE('x', 'und:ci'), COLLATE('Y', 'und:ci'), COLLATE('y', 'und:ci')] AS collated_array2,
@@ -849,7 +849,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL>>[known order:
 
 # Zipping column referenced arrays with same length, with different collation.
 [name=multiway_unnest_three_equal_arrays_column_ref_with_different_collation]
-[required_features=V_1_4_MULTIWAY_UNNEST,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[required_features=MULTIWAY_UNNEST,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 WITH T AS (
   SELECT [COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('B', 'und:ci')] AS collated_array1,
   [COLLATE('x', 'und:cs'), COLLATE('Y', 'und:cs'), COLLATE('y', 'und:cs')] AS collated_array2,
@@ -868,4 +868,37 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL>>[known order:
   {true, false, false}
 ]
 ==
-
+# b/423700272
+[name=multiway_unnest_with_join_expr]
+SELECT a FROM (SELECT NULL)
+LEFT JOIN UNNEST(ARRAY[1] AS a, ARRAY[0] AS b) ON false
+--
+ARRAY<STRUCT<a INT64>>[{NULL}]
+==
+[name=multiway_unnest_with_join_expr_on_vars]
+select * from (SELECT null) JOIN
+   UNNEST(ARRAY[1] AS a, ARRAY[0] AS b)
+   ON b = 0
+--
+ARRAY<STRUCT<INT64, a INT64, b INT64>>[{NULL, 1, 0}]
+==
+[name=multiway_unnest_with_join_expr_on_vars_and_offset]
+select * from (SELECT null) JOIN
+   UNNEST(ARRAY[1] AS a, ARRAY[0] AS b) with offset
+   ON b = 0 and offset = 0
+--
+ARRAY<STRUCT<INT64, a INT64, b INT64, offset INT64>>[{NULL, 1, 0, 0}]
+==
+[name=multiway_unnest_with_left_join_expr_on_vars_and_offset_no_results]
+select * from (SELECT null) LEFT JOIN
+   UNNEST(ARRAY[1] AS a, ARRAY[0] AS b) with offset
+   ON b = 3 and offset = 0
+--
+ARRAY<STRUCT<INT64, a INT64, b INT64, offset INT64>>[{NULL, NULL, NULL, NULL}]
+==
+[name=multiway_unnest_with_left_join_expr_on_vars_and_offset_with_results]
+select * from (SELECT null) LEFT JOIN
+   UNNEST(ARRAY[1] AS a, ARRAY[0] AS b) with offset
+   ON b = 0 and offset = 0
+--
+ARRAY<STRUCT<INT64, a INT64, b INT64, offset INT64>>[{NULL, 1, 0, 0}]

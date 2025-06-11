@@ -37,6 +37,18 @@ import org.junit.runners.JUnit4;
 public class MapTypeTest {
 
   @Test
+  public void testComponentTypes() {
+    assertThat(
+            TypeFactory.createMapType(
+                    TypeFactory.createSimpleType(TypeKind.TYPE_INT32),
+                    TypeFactory.createSimpleType(TypeKind.TYPE_BOOL))
+                .componentTypes())
+        .containsExactly(
+            TypeFactory.createSimpleType(TypeKind.TYPE_INT32),
+            TypeFactory.createSimpleType(TypeKind.TYPE_BOOL));
+  }
+
+  @Test
   public void testSerializationAndDeserialization() {
     TypeFactory factory = TypeFactory.nonUniqueNames();
     checkTypeSerializationAndDeserialization(
@@ -165,7 +177,11 @@ public class MapTypeTest {
     assertThat(map3.debugString(true))
         .isEqualTo(
             "MAP<ENUM<zetasql.TypeKind, file name: " + typeProtoPath + ", <TypeKind>>, INT64>");
-    assertThat(map4.debugString(true)).isEqualTo("MAP<ARRAY<PROTO<zetasql.TypeProto, file name: " + typeProtoPath + ", <TypeProto>>>, INT64>");
+    assertThat(map4.debugString(true))
+        .isEqualTo(
+            "MAP<ARRAY<PROTO<zetasql.TypeProto, file name: "
+                + typeProtoPath
+                + ", <TypeProto>>>, INT64>");
   }
 
   @Test

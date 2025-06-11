@@ -19,7 +19,7 @@ package com.google.zetasql.parser;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.zetasql.ZetaSQLOptions.LanguageFeature.FEATURE_V_1_3_ALLOW_DASHES_IN_TABLE_NAME;
+import static com.google.zetasql.ZetaSQLOptions.LanguageFeature.FEATURE_ALLOW_DASHES_IN_TABLE_NAME;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 
@@ -108,14 +108,14 @@ public class EndToEndTest {
   @Test
   public void testQueryStatementLanguageOptions1() {
     String queryString = "select 1 from dashed-table-name";
-    // FEATURE_V_1_3_ALLOW_DASHES_IN_TABLE_NAME disabled
+    // FEATURE_ALLOW_DASHES_IN_TABLE_NAME disabled
     assertThrows(SqlException.class, () -> Parser.parseStatement(queryString, languageOptions));
   }
 
   @Test
   public void testQueryStatementLanguageOptions2() {
     String queryString = "select 1 from dashed-table-name";
-    languageOptions.enableLanguageFeature(FEATURE_V_1_3_ALLOW_DASHES_IN_TABLE_NAME);
+    languageOptions.enableLanguageFeature(FEATURE_ALLOW_DASHES_IN_TABLE_NAME);
     try {
       Parser.parseStatement(queryString, languageOptions);
     } catch (SqlException e) {

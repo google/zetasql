@@ -296,14 +296,20 @@ select ntile(null) over (order by value) from keyvalue;
 
 select ntile("1") over (order by value) from keyvalue;
 --
-ERROR: No matching signature for analytic function NTILE for argument types: STRING. Supported signature: NTILE(INT64) [at 1:8]
+ERROR: No matching signature for analytic function NTILE
+  Argument types: STRING
+  Signature: NTILE(INT64)
+    Argument 1: Unable to coerce type STRING to expected type INT64 [at 1:8]
 select ntile("1") over (order by value) from keyvalue;
        ^
 ==
 
 select ntile(true) over (order by value) from keyvalue;
 --
-ERROR: No matching signature for analytic function NTILE for argument types: BOOL. Supported signature: NTILE(INT64) [at 1:8]
+ERROR: No matching signature for analytic function NTILE
+  Argument types: BOOL
+  Signature: NTILE(INT64)
+    Argument 1: Unable to coerce type BOOL to expected type INT64 [at 1:8]
 select ntile(true) over (order by value) from keyvalue;
        ^
 ==
@@ -358,13 +364,17 @@ select {{lead()|lag()}} over (order by key) from keyvalue
 --
 ALTERNATION GROUP: lead()
 --
-ERROR: Number of arguments does not match for analytic function LEAD. Supported signature: LEAD(ANY, [INT64], [ANY]) [at 1:8]
+ERROR: No matching signature for analytic function LEAD with no arguments
+  Signature: LEAD(T1, [INT64], [T1])
+    Signature requires at least 1 argument, found 0 arguments [at 1:8]
 select lead() over (order by key) from keyvalue
        ^
 --
 ALTERNATION GROUP: lag()
 --
-ERROR: Number of arguments does not match for analytic function LAG. Supported signature: LAG(ANY, [INT64], [ANY]) [at 1:8]
+ERROR: No matching signature for analytic function LAG with no arguments
+  Signature: LAG(T1, [INT64], [T1])
+    Signature requires at least 1 argument, found 0 arguments [at 1:8]
 select lag() over (order by key) from keyvalue
        ^
 ==
@@ -507,13 +517,17 @@ from simpletypes;
 --
 ALTERNATION GROUP: first_value
 --
-ERROR: Number of arguments does not match for analytic function FIRST_VALUE. Supported signature: FIRST_VALUE(ANY) [at 1:8]
+ERROR: No matching signature for analytic function FIRST_VALUE with no arguments
+  Signature: FIRST_VALUE(T1)
+    Signature requires at least 1 argument, found 0 arguments [at 1:8]
 select first_value() over (order by int64)
        ^
 --
 ALTERNATION GROUP: last_value
 --
-ERROR: Number of arguments does not match for analytic function LAST_VALUE. Supported signature: LAST_VALUE(ANY) [at 1:8]
+ERROR: No matching signature for analytic function LAST_VALUE with no arguments
+  Signature: LAST_VALUE(T1)
+    Signature requires at least 1 argument, found 0 arguments [at 1:8]
 select last_value() over (order by int64)
        ^
 ==
@@ -643,7 +657,10 @@ QueryStmt
 select first_value(uint32, 1) over (order by int64)
 from simpletypes;
 --
-ERROR: Number of arguments does not match for analytic function FIRST_VALUE. Supported signature: FIRST_VALUE(ANY) [at 1:8]
+ERROR: No matching signature for analytic function FIRST_VALUE
+  Argument types: UINT32, INT64
+  Signature: FIRST_VALUE(T1)
+    Signature accepts at most 1 argument, found 2 arguments [at 1:8]
 select first_value(uint32, 1) over (order by int64)
        ^
 ==
@@ -697,14 +714,19 @@ QueryStmt
 
 select nth_value() over (order by int32) from simpletypes;
 --
-ERROR: Number of arguments does not match for analytic function NTH_VALUE. Supported signature: NTH_VALUE(ANY, INT64) [at 1:8]
+ERROR: No matching signature for analytic function NTH_VALUE with no arguments
+  Signature: NTH_VALUE(T1, INT64)
+    Signature requires at least 2 arguments, found 0 arguments [at 1:8]
 select nth_value() over (order by int32) from simpletypes;
        ^
 ==
 
 select nth_value(uint32) over (order by int32) from simpletypes;
 --
-ERROR: Number of arguments does not match for analytic function NTH_VALUE. Supported signature: NTH_VALUE(ANY, INT64) [at 1:8]
+ERROR: No matching signature for analytic function NTH_VALUE
+  Argument types: UINT32
+  Signature: NTH_VALUE(T1, INT64)
+    Signature requires at least 2 arguments, found 1 argument [at 1:8]
 select nth_value(uint32) over (order by int32) from simpletypes;
        ^
 ==
@@ -801,14 +823,14 @@ QueryStmt
 ==
 
 # IGNORE NULLS are allowed.
-[language_features=ANALYTIC_FUNCTIONS{{,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
+[language_features=ANALYTIC_FUNCTIONS{{,NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
 select
   first_value(uint32 ignore nulls) over (order by int32),
   last_value(uint32 ignore nulls) over (order by int32),
   nth_value(uint32, @test_param_int64 ignore nulls) over (order by int32)
 from simpletypes;
 --
-ALTERNATION GROUP: ,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC
+ALTERNATION GROUP: ,NULL_HANDLING_MODIFIER_IN_ANALYTIC
 --
 QueryStmt
 +-output_column_list=
@@ -888,14 +910,14 @@ ERROR: IGNORE NULLS and RESPECT NULLS in analytic functions are not supported [a
 ==
 
 # RESPECT NULLS are allowed.
-[language_features=ANALYTIC_FUNCTIONS{{,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
+[language_features=ANALYTIC_FUNCTIONS{{,NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
 select
   nth_value(uint32, @test_param_int64 respect nulls) over (order by int32),
   last_value(uint32 respect nulls) over (order by int32),
   first_value(uint32 respect nulls) over (order by int32)
 from simpletypes;
 --
-ALTERNATION GROUP: ,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC
+ALTERNATION GROUP: ,NULL_HANDLING_MODIFIER_IN_ANALYTIC
 --
 QueryStmt
 +-output_column_list=
@@ -1550,10 +1572,10 @@ select percentile_disc(distinct key, 0) over () from keyvalue;
 ==
 
 # IGNORE NULLS and percentile=-0.0 are allowed for percentile_cont and percentile_disc.
-[language_features=ANALYTIC_FUNCTIONS{{,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
+[language_features=ANALYTIC_FUNCTIONS{{,NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
 select percentile_{{cont|disc}}(key, -0.0 ignore nulls) over () from keyvalue;
 --
-ALTERNATION GROUP: ,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC,cont
+ALTERNATION GROUP: ,NULL_HANDLING_MODIFIER_IN_ANALYTIC,cont
 --
 QueryStmt
 +-output_column_list=
@@ -1576,7 +1598,7 @@ QueryStmt
                   +-Literal(type=DOUBLE, value=-0)
                   +-null_handling_modifier=IGNORE_NULLS
 --
-ALTERNATION GROUP: ,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC,disc
+ALTERNATION GROUP: ,NULL_HANDLING_MODIFIER_IN_ANALYTIC,disc
 --
 QueryStmt
 +-output_column_list=
@@ -1612,10 +1634,10 @@ select percentile_disc(key, -0.0 ignore nulls) over () from keyvalue;
 ==
 
 # RESPECT NULLS is allowed for percentile_cont.
-[language_features=ANALYTIC_FUNCTIONS{{,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
+[language_features=ANALYTIC_FUNCTIONS{{,NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
 select percentile_{{cont|disc}}(key, 1 respect nulls) over () from keyvalue;
 --
-ALTERNATION GROUP: ,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC,cont
+ALTERNATION GROUP: ,NULL_HANDLING_MODIFIER_IN_ANALYTIC,cont
 --
 QueryStmt
 +-output_column_list=
@@ -1638,7 +1660,7 @@ QueryStmt
                   +-Literal(type=DOUBLE, value=1)
                   +-null_handling_modifier=RESPECT_NULLS
 --
-ALTERNATION GROUP: ,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC,disc
+ALTERNATION GROUP: ,NULL_HANDLING_MODIFIER_IN_ANALYTIC,disc
 --
 QueryStmt
 +-output_column_list=
@@ -1855,7 +1877,7 @@ QueryStmt
 ==
 
 # IGNORE NULLS and RESPECT NULLS are not allowed for IS_FIRST() and IS_LAST().
-[language_features=ANALYTIC_FUNCTIONS,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC]
+[language_features=ANALYTIC_FUNCTIONS,NULL_HANDLING_MODIFIER_IN_ANALYTIC]
 select {{is_first|is_last}}(2
                             respect nulls) over () from keyvalue;
 --
@@ -1873,7 +1895,7 @@ select is_last(2
 ==
 
 [enabled_ast_rewrites=DEFAULTS,+IS_FIRST_IS_LAST_FUNCTION]
-[language_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[language_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 select is_first(2) over (partition by key order by value{{| DESC}}{{| NULLS FIRST| NULLS LAST}})
 from keyvalue
 --
@@ -2368,7 +2390,7 @@ QueryStmt
 ==
 
 [enabled_ast_rewrites=DEFAULTS,+IS_FIRST_IS_LAST_FUNCTION]
-[language_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[language_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 select is_last(2) over (partition by key order by value{{| DESC}}{{| NULLS FIRST| NULLS LAST}})
 from keyvalue
 --
@@ -2923,7 +2945,7 @@ QueryStmt
 
 # Test the rewrite with SAFE - Note that the ERROR() call is replaced by a NULL
 # literal.
-[language_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY,V_1_2_SAFE_FUNCTION_CALL]
+[language_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY,SAFE_FUNCTION_CALL]
 [enabled_ast_rewrites=DEFAULTS,+IS_FIRST_IS_LAST_FUNCTION]
 select SAFE.{{is_first|is_last}}(2) over (partition by key order by value)
 from keyvalue

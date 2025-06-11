@@ -57,11 +57,10 @@ The generated type has this format:
 GRAPH_ELEMENT<T>
 ```
 
-A graph element can be one of two kinds: a node or edge.
-A graph element is similar to the struct type, except that fields are
-graph properties, and you can only access graph properties by name.
-A graph element can represent nodes or edges from multiple node or edge tables
-if multiple such tables match the given label expression.
+A graph element is either a node or an edge, representing data from a
+matching node or edge table based on its label. Each graph element holds a
+set of properties that can be accessed with a case-insensitive name,
+similar to fields of a struct.
 
 **Example**
 
@@ -72,6 +71,22 @@ In the following example, `n` represents a graph element in the
 GRAPH FinGraph
 MATCH (n:Person)
 RETURN n.name
+```
+
+In the following example, the [`TYPEOF`][type-of] function is used to inspect the
+set of properties defined in the graph element type.
+
+```zetasql
+GRAPH FinGraph
+MATCH (n:Person)
+RETURN TYPEOF(n) AS t
+LIMIT 1
+
+/*----------------------------------------------+
+ | t                                            |
+ +----------------------------------------------+
+ | GRAPH_NODE(FinGraph)<Id INT64, ..., DYNAMIC> |
+ +---------------------------------------------*/
 ```
 
 [graph-query]: https://github.com/google/zetasql/blob/master/docs/graph-intro.md

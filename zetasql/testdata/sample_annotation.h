@@ -31,7 +31,7 @@ namespace zetasql {
 // the tests.
 class SampleAnnotation : public AnnotationSpec {
  public:
-  SampleAnnotation() {}
+  SampleAnnotation() = default;
 
   static int GetId() {
     return static_cast<int>(AnnotationKind::kSampleAnnotation);
@@ -74,6 +74,11 @@ class SampleAnnotation : public AnnotationSpec {
   absl::Status CheckAndPropagateForRecursiveScan(
       const ResolvedRecursiveScan& recursive_scan,
       const std::vector<AnnotationMap*>& result_annotation_maps) override {
+    return absl::OkStatus();
+  }
+
+  absl::Status CheckAndPropagateForCast(
+      const ResolvedCast& cast, AnnotationMap* result_annotation_map) override {
     return absl::OkStatus();
   }
 };

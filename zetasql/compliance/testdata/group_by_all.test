@@ -116,7 +116,7 @@ ARRAY<STRUCT<primary_key INT64,
 ]
 ==
 
-[default required_features=V_1_4_GROUP_BY_ALL]
+[default required_features=GROUP_BY_ALL]
 [name=group_by_all_one_groupable_one_aggregate_1]
 SELECT primary_key, count(*) as cnt
 FROM TableLarge t
@@ -311,7 +311,7 @@ ORDER BY `ALL`
 ARRAY<STRUCT<INT64>>[known order:{4}, {4}, {4}, {4}]
 ==
 
-[required_features=V_1_4_GROUP_BY_ALL,V_1_3_QUALIFY,ANALYTIC_FUNCTIONS]
+[required_features=GROUP_BY_ALL,QUALIFY,ANALYTIC_FUNCTIONS]
 [name=group_by_all_window_function_1]
 SELECT distinct_1, row_number() over () AS a
 FROM TableAll WHERE true
@@ -321,7 +321,7 @@ QUALIFY a = 1
 ARRAY<STRUCT<distinct_1 INT64, a INT64>>[{1, 1}]
 ==
 
-[required_features=V_1_4_GROUP_BY_ALL,V_1_3_QUALIFY,ANALYTIC_FUNCTIONS]
+[required_features=GROUP_BY_ALL,QUALIFY,ANALYTIC_FUNCTIONS]
 [name=group_by_all_window_function_2]
 SELECT distinct_1, SUM(distinct_2), row_number() over () AS a
 FROM TableAll WHERE true
@@ -331,7 +331,7 @@ QUALIFY a = 1
 ARRAY<STRUCT<distinct_1 INT64, INT64, a INT64>>[{1, 24, 1}]
 ==
 
-[required_features=V_1_4_GROUP_BY_ALL,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
+[required_features=GROUP_BY_ALL,SELECT_STAR_EXCEPT_REPLACE]
 [name=group_by_all_select_except]
 SELECT * EXCEPT (a)
 FROM (
@@ -342,7 +342,7 @@ GROUP BY ALL
 ARRAY<STRUCT<b INT64>>[{2}]
 ==
 
-[required_features=V_1_4_GROUP_BY_ALL,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
+[required_features=GROUP_BY_ALL,SELECT_STAR_EXCEPT_REPLACE]
 [name=group_by_all_select_replace]
 SELECT * REPLACE (0 AS a)
 FROM (
@@ -434,7 +434,7 @@ ARRAY<STRUCT<x STRUCT<
 [unknown order:{{1, 2, 3}}, {{2, 2, 3}}, {{1, 1, 3}}, {{2, 2, 3}}]
 ==
 
-[required_features=V_1_4_GROUP_BY_ALL,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[required_features=GROUP_BY_ALL,INLINE_LAMBDA_ARGUMENT]
 [name=group_by_all_correlated_path_expr_2]
 SELECT
   (
@@ -459,7 +459,7 @@ ARRAY<STRUCT<x STRUCT<current_key INT64, ARRAY<>, INT64>>>[unknown order:
 ]
 ==
 
-[required_features=V_1_4_GROUP_BY_ALL,V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_ALL,GROUP_BY_STRUCT]
 [name=group_by_all_column_ref_as_prefix_1]
 # We can't order by STRUCT, so the output row order of this test can't be
 # determined on purpose.
@@ -482,7 +482,7 @@ ARRAY<STRUCT<b1 STRUCT<c1 INT64, c2 INT64>,
 ]
 ==
 
-[required_features=V_1_4_GROUP_BY_ALL,V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_ALL,GROUP_BY_STRUCT]
 [name=group_by_all_path_expression_as_prefix_1]
 # We can't order by STRUCT, so the output row order of this test can't be
 # determined on purpose.
@@ -504,7 +504,7 @@ ARRAY<STRUCT<b1 STRUCT<c1 INT64, c2 INT64>,
 ]
 ==
 
-[required_features=V_1_4_GROUP_BY_ALL,V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_ALL,GROUP_BY_STRUCT]
 [name=group_by_all_path_expression_as_prefix_2]
 # We can't order by STRUCT, so the output row order of this test can't be
 # determined on purpose.
@@ -539,7 +539,7 @@ ARRAY<STRUCT<STRUCT<c1 INT64, c2 INT64>,
                }]
 ==
 
-[required_features=V_1_4_GROUP_BY_ALL,V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_ALL,GROUP_BY_STRUCT]
 [name=group_by_all_complex_expression_as_prefix]
 # We can't order by STRUCT, so the output row order of this test can't be
 # determined on purpose.
@@ -562,7 +562,7 @@ ARRAY<STRUCT<b1 STRUCT<c1 INT64, c2 INT64>,
 ==
 
 # Regression test for b/310705631
-[required_features=V_1_2_GROUP_BY_ARRAY,V_1_4_GROUP_BY_ALL]
+[required_features=GROUP_BY_ARRAY,GROUP_BY_ALL]
 [name=group_by_all_implicit_unnest_table_array_path_regression_test]
 WITH Table5 AS (SELECT [1, 2, 3] AS arr_col)
 SELECT

@@ -17,17 +17,17 @@
 #include "zetasql/parser/parse_tree.h"
 
 #include <algorithm>
+#include <any>
+#include <cstddef>
 #include <functional>
-#include <limits>
 #include <optional>
 #include <queue>
 #include <set>
-#include <stack>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/common/utf_util.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree_errors.h"
@@ -35,19 +35,20 @@
 // This is not a header -- it is a generated part of this source file.
 #include "zetasql/parser/parse_tree_accept_methods.inc"  
 #include "zetasql/parser/visit_result.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/strings.h"
 #include "absl/base/attributes.h"
-#include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 ABSL_FLAG(bool, output_asc_explicitly, false,
@@ -59,35 +60,16 @@ namespace zetasql {
 
 ASTNode::~ASTNode() {}
 
-// Expands parse_location_range to include expand_range.
-void ASTNode::ExpandLocationRangeEnd(const ParseLocationRange& expand_range) {
-  if (GetParseLocationRange().end() < expand_range.end()) {
-    set_end_location(expand_range.end());
-  }
-}
-
 void ASTNode::AddChild(ASTNode* child) {
   ABSL_DCHECK(child != nullptr);
   children_.push_back(child);
   child->set_parent(this);
-  ExpandLocationRangeEnd(child->GetParseLocationRange());
 }
 
 void ASTNode::AddChildFront(ASTNode* child) {
   ABSL_DCHECK(child != nullptr);
   children_.insert(children_.begin(), child);
   child->set_parent(this);
-  ExpandLocationRangeEnd(child->GetParseLocationRange());
-}
-
-void ASTNode::AddChildren(absl::Span<ASTNode* const> children) {
-  for (ASTNode* child : children) {
-    if (child != nullptr) {
-      children_.push_back(child);
-      child->set_parent(this);
-      ExpandLocationRangeEnd(child->GetParseLocationRange());
-    }
-  }
 }
 
 absl::Status ASTNode::TraverseNonRecursiveHelper(
@@ -133,10 +115,27 @@ void ASTNode::Accept(ParseTreeVisitor* visitor, void* data) const {
   visitor->visit(this, data);
 }
 
+absl::Status ASTNode::Accept(ParseTreeStatusVisitor& visitor,
+                             std::any& output) const {
+  if (!ThreadHasEnoughStack()) {
+    return absl::ResourceExhaustedError(
+        "Parse tree is too deep to visit in available stack space.");
+  }
+  return visitor.Visit(this, output);
+}
+
 void ASTNode::ChildrenAccept(ParseTreeVisitor* visitor, void* data) const {
   for (int i = 0; i < children_.size(); ++i) {
     children_[i]->Accept(visitor, data);
   }
+}
+
+absl::Status ASTNode::ChildrenAccept(ParseTreeStatusVisitor& visitor,
+                                     std::any& output) const {
+  for (int i = 0; i < children_.size(); ++i) {
+    ZETASQL_RETURN_IF_ERROR(children_[i]->Accept(visitor, output));
+  }
+  return absl::OkStatus();
 }
 
 std::string ASTNode::GetNodeKindString() const {
@@ -150,9 +149,19 @@ std::string ASTNode::SingleNodeDebugString() const {
 // This function is not inlined, to minimize the stack usage of Dump().
 ABSL_ATTRIBUTE_NOINLINE bool ASTNode::Dumper::DumpNode() {
   out_->append(current_depth_ * 2, ' ');
-  const ParseLocationRange& range = node_->GetParseLocationRange();
+  const ParseLocationRange& range = node_->location();
   absl::StrAppend(out_, node_->SingleNodeDebugString(), " [", range.GetString(),
                   "]");
+  /*
+  // This can be uncommented to add "parenthesized" markers into the ASTNode
+  // debug strings to make debugging parenthesization issues easier.
+  if ((node_->IsExpression() &&
+       node_->GetAsOrDie<ASTExpression>()->parenthesized()) ||
+      (node_->IsQueryExpression() &&
+       node_->GetAsOrDie<ASTQueryExpression>()->parenthesized())) {
+    absl::StrAppend(out_, " parenthesized");
+  }
+  */
 
   // Show the actual text indicated by the position range, but only if the
   // position range falls entirely within the bounds of the input string and
@@ -722,8 +731,19 @@ std::string ASTParameterExpr::SingleNodeDebugString() const {
 }
 
 std::string ASTFunctionCall::SingleNodeDebugString() const {
-  return absl::StrCat(ASTNode::SingleNodeDebugString(),
-                      distinct() ? "(distinct=true)" : "");
+  std::vector<std::string> modifiers;
+  if (distinct()) {
+    modifiers.push_back("distinct=true");
+  }
+  if (is_chained_call()) {
+    modifiers.push_back("is_chained_call=true");
+  }
+  if (modifiers.empty()) {
+    return ASTNode::SingleNodeDebugString();
+  } else {
+    return absl::StrCat(ASTNode::SingleNodeDebugString(), "(",
+                        absl::StrJoin(modifiers, ", "), ")");
+  }
 }
 
 std::string ASTWindowFrame::SingleNodeDebugString() const {

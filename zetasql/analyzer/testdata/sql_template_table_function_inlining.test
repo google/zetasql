@@ -1,5 +1,5 @@
 [default enabled_ast_rewrites=ALL]
-[default language_features=TABLE_VALUED_FUNCTIONS,V_1_4_WITH_EXPRESSION]
+[default language_features=TABLE_VALUED_FUNCTIONS,WITH_EXPRESSION]
 [default no_java]
 
 SELECT *
@@ -40,6 +40,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="b")
         +-column_index_list=[0, 1, 2]
+        +-function_call_signature=(INT64 x, ANY TABLE arg0, STRING y) -> ANY TABLE
 
 With Templated SQL TVF signature:
   UnaryAbTableArgWithScalarArgsTempl(literal INT64, TABLE<a INT64, b STRING, c DATE>, literal STRING) -> TABLE<a INT64, b STRING, c DATE>
@@ -152,6 +153,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=DATE, value=2020-08-22, has_explicit_type=TRUE)
         +-column_index_list=[0, 1, 2]
+        +-function_call_signature=(DATE ignored_param) -> ANY TABLE
 
 With Templated SQL TVF signature:
   CallsUnaryAbTableArgWithScalarArgsTempl(literal DATE) -> TABLE<a INT64, b STRING, c DATE>
@@ -188,6 +190,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="b")
         +-column_index_list=[0, 1, 2]
+        +-function_call_signature=(INT64 x, ANY TABLE arg0, STRING y) -> ANY TABLE
 
 With Templated SQL TVF signature:
   UnaryAbTableArgWithScalarArgsTempl(literal INT64, TABLE<a INT64, b STRING, c DATE>, literal STRING) -> TABLE<a INT64, b STRING, c DATE>
@@ -325,6 +328,7 @@ QueryStmt
         |           +-input_scan=
         |             +-SingleRowScan
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64) -> ANY TABLE
 
 With Templated SQL TVF signature:
   definer_rights_templated_tvf(INT64) -> TABLE<Key INT64, Value STRING>
@@ -425,6 +429,7 @@ QueryStmt
         |   | +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
         |   +-argument_column_list=TwoIntegers.[key#1, value#2]
         +-column_index_list=[0]
+        +-function_call_signature=(ANY TABLE) -> ANY TABLE
 
 With Templated SQL TVF signature:
   tvf_templated_select_relation_arg_columns_unused(TABLE<key INT64, value INT64>) -> TABLE<result INT64>

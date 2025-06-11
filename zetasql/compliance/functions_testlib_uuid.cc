@@ -49,7 +49,7 @@ std::vector<FunctionTestCall> GetFunctionTestsUuidComparisons() {
   };
 
   for (auto& call : uuid_test_cases) {
-    call.params.AddRequiredFeature(FEATURE_V_1_4_UUID_TYPE);
+    call.params.AddRequiredFeature(FEATURE_UUID_TYPE);
   }
   return uuid_test_cases;
 }

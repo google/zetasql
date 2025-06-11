@@ -498,7 +498,7 @@ ARRAY<STRUCT<ENUM_col ENUM<zetasql_test__.TestEnum>>>[unknown order:
 ==
 
 [name=distinct_array]
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 SELECT DISTINCT s.a
 FROM ((select NULL as a) union all
       (select NULL) union all
@@ -525,7 +525,7 @@ ARRAY<STRUCT<a ARRAY<>>>[unknown order:
 ==
 
 [name=distinct_array_no_nulls]
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 SELECT DISTINCT s.a
 FROM ((select NULL as a) union all
       (select NULL) union all

@@ -168,7 +168,7 @@ std::string IdentifierPathToString(absl::Span<const IdString> path,
 //   "abc.`def.ghi`" => {"abc", "def.ghi"}
 //   "123" => error
 //
-// If FEATURE_V_1_3_ALLOW_SLASH_PATHS is enabled in <language_options>, then
+// If FEATURE_ALLOW_SLASH_PATHS is enabled in <language_options>, then
 // this function also supports paths that start with '/' and that may also
 // contain '-' or ':' in the first path component.
 //

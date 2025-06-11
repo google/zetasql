@@ -1,4 +1,4 @@
-[default language_features=V_1_3_BRACED_PROTO_CONSTRUCTORS,V_1_1_CAST_DIFFERENT_ARRAY_TYPES,V_1_2_PROTO_EXTENSIONS_WITH_NEW,V_1_1_WITH_ON_SUBQUERY,V_1_3_WITH_RECURSIVE,V_1_4_STRUCT_BRACED_CONSTRUCTORS]
+[default language_features=BRACED_PROTO_CONSTRUCTORS,CAST_DIFFERENT_ARRAY_TYPES,PROTO_EXTENSIONS_WITH_NEW,WITH_ON_SUBQUERY,WITH_RECURSIVE,STRUCT_BRACED_CONSTRUCTORS]
 
 [language_features=]
 SELECT STRUCT {}
@@ -793,7 +793,7 @@ UPDATE StructWithKitchenSinkTable SET t = {
 ==
 
 # Infer the type of submessages in REPLACE_FIELDS.
-[language_features=V_1_3_BRACED_PROTO_CONSTRUCTORS,V_1_3_REPLACE_FIELDS,V_1_4_STRUCT_BRACED_CONSTRUCTORS]
+[language_features=BRACED_PROTO_CONSTRUCTORS,REPLACE_FIELDS,STRUCT_BRACED_CONSTRUCTORS]
 SELECT
   REPLACE_FIELDS(STRUCT {a: 1, b: STRUCT {c: 1}},
                  { c:2 } AS b)
@@ -914,7 +914,7 @@ SELECT CAST( { a: 1, b: {c: 'foo'}} AS STRUCT<a INT32, b STRUCT<STRING>>);
                          ^
 ==
 
-[language_features=V_1_3_BRACED_PROTO_CONSTRUCTORS,V_1_4_STRUCT_BRACED_CONSTRUCTORS,V_1_2_GENERATED_COLUMNS]
+[language_features=BRACED_PROTO_CONSTRUCTORS,STRUCT_BRACED_CONSTRUCTORS,GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 CREATE TABLE T (
   IntColumn INT32,
@@ -935,7 +935,7 @@ CreateTableStmt
           +-Literal(type=STRUCT<a INT32, b STRING>, value={a:1, b:"foo"})
 ==
 
-[language_features=V_1_3_BRACED_PROTO_CONSTRUCTORS,V_1_4_STRUCT_BRACED_CONSTRUCTORS,V_1_2_GENERATED_COLUMNS]
+[language_features=BRACED_PROTO_CONSTRUCTORS,STRUCT_BRACED_CONSTRUCTORS,GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 CREATE TABLE T (
   IntColumn INT32,
@@ -961,7 +961,7 @@ CreateTableStmt
 ==
 
 # Braced constructor types inferred in default column value.
-[language_features=V_1_3_BRACED_PROTO_CONSTRUCTORS,V_1_4_STRUCT_BRACED_CONSTRUCTORS,V_1_3_COLUMN_DEFAULT_VALUE]
+[language_features=BRACED_PROTO_CONSTRUCTORS,STRUCT_BRACED_CONSTRUCTORS,COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 CREATE TABLE T (
   IntColumn INT32,
@@ -984,7 +984,7 @@ CreateTableStmt
 ==
 
 # Need to do coercion with generated column.
-[language_features=V_1_3_BRACED_PROTO_CONSTRUCTORS,V_1_4_STRUCT_BRACED_CONSTRUCTORS,V_1_2_GENERATED_COLUMNS]
+[language_features=BRACED_PROTO_CONSTRUCTORS,STRUCT_BRACED_CONSTRUCTORS,GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 CREATE TABLE T (
   IntColumn INT32,
@@ -1033,7 +1033,7 @@ CREATE FUNCTION myfunc (  ) AS ({a: 3, b: 'foo'});
 ==
 
 ## Braced constructor type inferred in aggregate SQL function body.
-[language_features=V_1_3_BRACED_PROTO_CONSTRUCTORS,V_1_4_STRUCT_BRACED_CONSTRUCTORS,CREATE_AGGREGATE_FUNCTION,TEMPLATE_FUNCTIONS]
+[language_features=BRACED_PROTO_CONSTRUCTORS,STRUCT_BRACED_CONSTRUCTORS,CREATE_AGGREGATE_FUNCTION,TEMPLATE_FUNCTIONS]
 CREATE AGGREGATE FUNCTION myfunc (  ) RETURNS STRUCT<int32_val1 INT32, int32_val2 INT32> AS ({int32_val1: 3, int32_val2: 5});
 --
 CreateFunctionStmt
@@ -1049,7 +1049,7 @@ CreateFunctionStmt
 ==
 
 # Braced constructor type without a return type in an aggregate SQL function body is an error.
-[language_features=V_1_3_BRACED_PROTO_CONSTRUCTORS,V_1_4_STRUCT_BRACED_CONSTRUCTORS,CREATE_AGGREGATE_FUNCTION,TEMPLATE_FUNCTIONS]
+[language_features=BRACED_PROTO_CONSTRUCTORS,STRUCT_BRACED_CONSTRUCTORS,CREATE_AGGREGATE_FUNCTION,TEMPLATE_FUNCTIONS]
 CREATE AGGREGATE FUNCTION myfunc (  ) AS ({int32_val1: 3 int32_val2: 5});
 --
 ERROR: Unable to infer a type for braced constructor [at 1:43]
@@ -1589,7 +1589,7 @@ QueryStmt
 
 # Similar to b/259000660.
 # TVF using braced constructor should also work.
-[language_features=V_1_3_BRACED_PROTO_CONSTRUCTORS,V_1_4_STRUCT_BRACED_CONSTRUCTORS,TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS]
+[language_features=BRACED_PROTO_CONSTRUCTORS,STRUCT_BRACED_CONSTRUCTORS,TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS]
 WITH
   T AS (
     SELECT CAST(v as INT32) v
@@ -1649,6 +1649,7 @@ QueryStmt
         |       |   | +-WithRefScan(column_list=[T.v#3], with_query_name="T")
         |       |   +-argument_column_list=[T.v#3]
         |       +-column_index_list=[0]
+        |       +-function_call_signature=(ANY TABLE) -> ANY TABLE
         +-order_by_item_list=
           +-OrderByItem
             +-column_ref=

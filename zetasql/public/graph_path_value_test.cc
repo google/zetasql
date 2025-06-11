@@ -211,6 +211,18 @@ TEST(GraphPathValueTest, DebugStrings) {
             R"({node:{p0:"foo"}, edge:{p1:1}, node:{p0:"foo"}})");
   EXPECT_EQ(path.DebugString(),
             R"({node:{p0:"foo"}, edge:{p1:1}, node:{p0:"foo"}})");
+  EXPECT_EQ(
+      path.FullDebugString(),
+      R"(GraphPath{node:GraphNode{$name:"NodeTable", $id:b"n1", $labels:["label1"], $is_dynamic:0, p0:String("foo")}
+ property_name_to_index: {
+  p0: 0
+ }, edge:GraphEdge{$name:"EdgeTable", $id:b"e1", $labels:["label1"], $source_node_id:b"n1", $dest_node_id:b"n1", $is_dynamic:0, p1:Int32(1)}
+ property_name_to_index: {
+  p1: 0
+ }, node:GraphNode{$name:"NodeTable", $id:b"n1", $labels:["label1"], $is_dynamic:0, p0:String("foo")}
+ property_name_to_index: {
+  p0: 0
+ }})");
 }
 
 TEST(GraphPathValueTest, Comparisons) {

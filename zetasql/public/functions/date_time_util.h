@@ -31,18 +31,19 @@
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "absl/base/attributes.h"
 #include "absl/base/macros.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/civil_time.h"
 #include "absl/time/time.h"
 #include "zetasql/base/status.h"
 
-// ZetaSQL dates are represented as an int32_t value, indicating the offset
+// ZetaSQL dates are represented as an int32 value, indicating the offset
 // in days from the epoch 1970-01-01.  ZetaSQL dates are not timezone aware,
 // and do not correspond to any particular 24 hour period.
 //
 // ZetaSQL timestamps are unix timestamps (scaled to include fractional
-// seconds), are stored as an int64_t value, and identify a specific point in
+// seconds), are stored as an int64 value, and identify a specific point in
 // time as an offset in appropriate <scale> units from the epoch
 // 1970-01-01 00:00:00+00.  Valid timestamp <scale> values are seconds(0),
 // milliseconds(3), microseconds(6), and nanoseconds(9).
@@ -85,7 +86,7 @@ ABSL_MUST_USE_RESULT bool IsValidDay(absl::civil_year_t year, int month,
                                      int day);
 
 // Checks that a timestamp value falls between 0001-01-01 and 9999-12-31 UTC
-// for timestamps with at most microseconds scale.  For nanoseconds, all int64_t
+// for timestamps with at most microseconds scale.  For nanoseconds, all int64
 // values are considered valid.
 ABSL_MUST_USE_RESULT bool IsValidTimestamp(int64_t timestamp,
                                            TimestampScale scale);
@@ -110,16 +111,16 @@ ABSL_MUST_USE_RESULT bool IsValidTime(absl::Time time);
 absl::Status MakeTimeZone(absl::string_view timezone_string,
                           absl::TimeZone* timezone);
 
-// Creates a absl::Time from an int64_t based timestamp value.
+// Creates a absl::Time from an int64 based timestamp value.
 ABSL_DEPRECATED("Use MakeTimeFromInt64() instead.")
 ABSL_MUST_USE_RESULT absl::Time MakeTime(int64_t timestamp,
                                          TimestampScale scale);
 
-// Creates a absl::Time from an int64_t based timestamp value.
+// Creates a absl::Time from an int64 based timestamp value.
 absl::StatusOr<absl::Time> MakeTimeFromInt64(int64_t timestamp,
                                              TimestampScale scale);
 
-// Converts a absl::Time value into an int64_t timestamp for the given <scale>.
+// Converts a absl::Time value into an int64 timestamp for the given <scale>.
 // Returns false if the value is outside the representable range.
 ABSL_MUST_USE_RESULT bool FromTime(absl::Time base_time, TimestampScale scale,
                                    int64_t* output);
@@ -294,6 +295,11 @@ absl::Status FormatTimestampToString(
     absl::string_view format_str, int64_t timestamp, absl::TimeZone timezone,
     const FormatDateTimestampOptions& format_options, std::string* out);
 
+absl::Status FormatTimestampToString(
+    absl::string_view format_string, const PicoTime& timestamp,
+    absl::TimeZone timezone, const FormatDateTimestampOptions& format_options,
+    std::string* out);
+
 absl::Status FormatDatetimeToStringWithOptions(
     absl::string_view format_string, const DatetimeValue& datetime,
     const FormatDateTimestampOptions& format_options, std::string* out);
@@ -378,7 +384,14 @@ absl::Status ConvertStringToTimestamp(absl::string_view str,
 
 absl::Status ConvertStringToTimestamp(absl::string_view str,
                                       absl::TimeZone default_timezone,
-                                      bool allow_tz_in_str, PicoTime* output);
+                                      bool allow_tz_in_str, PicoTime* output,
+                                      int* precision = nullptr);
+
+absl::Status ConvertStringToTimestamp(absl::string_view str,
+                                      absl::TimeZone default_timezone,
+                                      TimestampScale scale,
+                                      bool allow_tz_in_str, PicoTime* output,
+                                      int* precision = nullptr);
 
 // Converts the string representation of a time to a time value of the specified
 // <scale>. Returns error status if there are more fractional digits than
@@ -471,41 +484,89 @@ absl::Status ExtractFromDate(DateTimestampPart part, int32_t date,
 // <timezone_string>.  Returns error status if the input timestamp or timezone
 // is invalid.  Extracting the DATE part from a timestamp effectively converts
 // a timestamp to a date.
+ABSL_DEPRECATED("int32_t* output type is deprecated; use int64_t* instead")
+// TODO: Remove with int32_t output type dependencies.
 absl::Status ExtractFromTimestamp(DateTimestampPart part, int64_t timestamp,
                                   TimestampScale scale, absl::TimeZone timezone,
                                   int32_t* output);
 
 absl::Status ExtractFromTimestamp(DateTimestampPart part, int64_t timestamp,
+                                  TimestampScale scale, absl::TimeZone timezone,
+                                  int64_t* output);
+
+ABSL_DEPRECATED("int32_t* output type is deprecated; use int64_t* instead")
+// TODO: Remove with int32_t output type dependencies.
+absl::Status ExtractFromTimestamp(DateTimestampPart part, int64_t timestamp,
                                   TimestampScale scale,
                                   absl::string_view timezone_string,
                                   int32_t* output);
 
+absl::Status ExtractFromTimestamp(DateTimestampPart part, int64_t timestamp,
+                                  TimestampScale scale,
+                                  absl::string_view timezone_string,
+                                  int64_t* output);
+
+ABSL_DEPRECATED("int32_t* output type is deprecated; use int64_t* instead")
+// TODO: Remove with int32_t output type dependencies.
 absl::Status ExtractFromTimestamp(DateTimestampPart part, absl::Time base_time,
                                   absl::TimeZone timezone, int32_t* output);
 
 absl::Status ExtractFromTimestamp(DateTimestampPart part, absl::Time base_time,
+                                  absl::TimeZone timezone, int64_t* output);
+
+ABSL_DEPRECATED("int32_t* output type is deprecated; use int64_t* instead")
+// TODO: Remove with int32_t output type dependencies.
+absl::Status ExtractFromTimestamp(DateTimestampPart part, absl::Time base_time,
                                   absl::string_view timezone_string,
                                   int32_t* output);
 
+absl::Status ExtractFromTimestamp(DateTimestampPart part, absl::Time base_time,
+                                  absl::string_view timezone_string,
+                                  int64_t* output);
+
+// TODO: b/412458859 - Change int32_t to int64_t.
 absl::StatusOr<int32_t> ExtractFromTimestamp(DateTimestampPart part,
                                              const PicoTime& timestamp,
                                              absl::string_view timezone_string);
 
+// TODO: b/412458859 - Change int32_t to int64_t.
 absl::StatusOr<int32_t> ExtractFromTimestamp(DateTimestampPart part,
                                              const PicoTime& timestamp,
                                              absl::TimeZone timezone);
 
 // Extracts a DateTimestampPart from the given TIME value. Returns error status
 // if the input TIME value is invalid.
+ABSL_DEPRECATED("int32_t* output type is deprecated; use int64_t* instead")
+// TODO: b/412458859 - Remove with int32_t output type dependencies.
 absl::Status ExtractFromTime(DateTimestampPart part, const TimeValue& time,
                              int32_t* output);
+absl::Status ExtractFromTime(DateTimestampPart part, const TimeValue& time,
+                             int64_t* output);
+
+// TODO: b/412458859 - Remove with int32_t output type dependencies.
+inline absl::Status ExtractFromTime32(DateTimestampPart part,
+                                      const TimeValue& time, int32_t* output) {
+  return ExtractFromTime(part, time, output);
+}
 
 // Extracts a DateTimestampPart from the given DATETIME value. Returns error
 // status if the input DATETIME value is invalid. Extracting the DATE part from
 // a DATETIME value effectively converts a DATETIME to a date.
+ABSL_DEPRECATED("int32_t* output type is deprecated; use int64_t* instead")
+// TODO: b/412458859 - Remove with int32_t output type dependencies.
 absl::Status ExtractFromDatetime(DateTimestampPart part,
                                  const DatetimeValue& datetime,
                                  int32_t* output);
+absl::Status ExtractFromDatetime(DateTimestampPart part,
+                                 const DatetimeValue& datetime,
+                                 int64_t* output);
+
+// TODO: b/412458859 - Remove with int32_t output type dependencies.
+inline absl::Status ExtractFromDatetime32(DateTimestampPart part,
+                                          const DatetimeValue& datetime,
+                                          int32_t* output) {
+  return ExtractFromDatetime(part, datetime, output);
+}
 
 // Extracts a TIME from the given DATETIME value. Returns error
 // status if the input DATETIME value is invalid.
@@ -556,7 +617,7 @@ absl::Status ConvertTimestampToTime(absl::Time base_time,
 // Returns error status:
 // 1. if the input date value is invalid.
 // 2. if the input date value is invalid or if the resulting
-// <output> timestamp value does not fit into an int64_t (when <scale> is
+// <output> timestamp value does not fit into an int64 (when <scale> is
 // nanoseconds).
 absl::Status ConvertDateToTimestamp(int32_t date, TimestampScale scale,
                                     absl::TimeZone timezone, int64_t* output);
@@ -693,7 +754,7 @@ absl::Status AddDatetime(DatetimeValue datetime,
 //   DiffDatetimes("2001-02-02 01:00:00", "2001-02-01 00:59:59", HOUR) --> 25
 // Returns error status if either of the input datetime values is invalid (out
 // of range), or the DateTimestampPart does not apply to a Datetime type, or the
-// result overflows an int64_t type (e.g., the difference in nanos between max and
+// result overflows an int64 type (e.g., the difference in nanos between max and
 // min nano datetime).
 // <part> can only be one of YEAR, QUARTER, MONTH, WEEK, WEEK_*, DAY, HOUR,
 // MINUTE, SECOND, MILLISECOND, MICROSECOND and NANOSECOND.
@@ -759,7 +820,7 @@ absl::Status LastDayOfDatetime(const DatetimeValue& datetime,
 // Returns the number of whole <part> differences between the two
 // timestamps (i.e., the number of whole hours, seconds, etc.).
 // Returns error status if either the specified date part is unsupported
-// (YEAR, DAY, etc.), or the result overflows an int64_t type (i.e., the
+// (YEAR, DAY, etc.), or the result overflows an int64 type (i.e., the
 // difference in nanos between max and min nano timestamps).  Does not
 // range check the arguments.
 absl::Status TimestampDiff(int64_t timestamp1, int64_t timestamp2,
@@ -770,6 +831,10 @@ absl::Status TimestampDiff(int64_t timestamp1, int64_t timestamp2,
 // absl::Time as input.
 absl::Status TimestampDiff(absl::Time timestamp1, absl::Time timestamp2,
                            DateTimestampPart part, int64_t* output);
+
+absl::StatusOr<absl::int128> TimestampDiff(const PicoTime& pico_time1,
+                                           const PicoTime& pico_time2,
+                                           DateTimestampPart part);
 
 // Interval difference between timestamps: timestamp1 - timestamp2
 absl::StatusOr<IntervalValue> IntervalDiffTimestamps(absl::Time timestamp1,
@@ -804,9 +869,9 @@ absl::StatusOr<IntervalValue> IntervalDiffTimestamps(absl::Time timestamp1,
 //          kTimestampNanosMax + kint64min > kTimestampNanosMin
 //
 // Adding a valid non-NANOS interval to an non-NANOS Timestamp value can only
-// guarantee there is no arithmetic int64_t overflow. But the result timestamp
+// guarantee there is no arithmetic int64 overflow. But the result timestamp
 // may still be invalid (out of range).
-// Adding a NANOSECOND interval to a TIMESTAMP_NANOS value may cause int64_t
+// Adding a NANOSECOND interval to a TIMESTAMP_NANOS value may cause int64
 // arithmetic overflow and it will be reported as an error as well.
 //
 // Note - the timezone is irrelevant for the computations, and is only used
@@ -819,6 +884,10 @@ absl::Status AddTimestamp(int64_t timestamp, TimestampScale scale,
                           absl::string_view timezone_string,
                           DateTimestampPart part, int64_t interval,
                           int64_t* output);
+
+absl::StatusOr<PicoTime> AddTimestamp(const PicoTime& pico_time,
+                                      DateTimestampPart part,
+                                      absl::int128 interval);
 
 // The 2 functions below take absl::Time as input parameter and output
 // parameter. We don't need TimestampScale as input parameter.
@@ -857,6 +926,10 @@ absl::Status SubTimestamp(int64_t timestamp, TimestampScale scale,
                           absl::string_view timezone_string,
                           DateTimestampPart part, int64_t interval,
                           int64_t* output);
+
+absl::StatusOr<PicoTime> SubTimestamp(const PicoTime& pico_time,
+                                      DateTimestampPart part,
+                                      absl::int128 interval);
 
 // Same as the 2 function above except these 2 functions below take absl::Time
 // as input parameter and output parameter. We don't need TimestampScale as
@@ -956,6 +1029,10 @@ absl::Status TimestampTrunc(int64_t timestamp,
                             absl::string_view timezone_string,
                             DateTimestampPart part, int64_t* output);
 
+absl::StatusOr<PicoTime> TimestampTrunc(const PicoTime& timestamp,
+                                        absl::TimeZone timezone,
+                                        DateTimestampPart part);
+
 // The 2 functions below have same contract as the 2 above except the
 // following:
 // 1. It takes absl::Time as input and output.
@@ -1025,7 +1102,11 @@ ABSL_MUST_USE_RESULT int64_t CurrentTimestamp();
 
 // Given a timestamp as a absl::Time and an initial scale, returns the narrowest
 // scale that can still accurately represent the timestamp.
+// TODO: Change the signature to return the result as the return
+// value.
 void NarrowTimestampScaleIfPossible(absl::Time time, TimestampScale* scale);
+
+TimestampScale NarrowTimestampScaleIfPossible(PicoTime time);
 
 inline bool IntervalUnaryMinus(IntervalValue in, IntervalValue* out,
                                absl::Status* error) {

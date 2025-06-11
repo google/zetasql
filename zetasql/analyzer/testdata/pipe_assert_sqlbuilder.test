@@ -17,14 +17,12 @@ FROM
       keyvalue_3.a_2 AS a_2
     FROM
       (
+        SELECT
+          KeyValue.Key AS a_1,
+          KeyValue.Value AS a_2
         FROM
-          (
-            SELECT
-              KeyValue.Key AS a_1,
-              KeyValue.Value AS a_2
-            FROM
-              KeyValue
-          ) AS keyvalue_3
+          KeyValue
+        |> AS keyvalue_3
         |> ASSERT(keyvalue_3.a_1) = 10, "key = 10"
       )
   ) AS assertscan_4;
@@ -59,14 +57,12 @@ FROM
       keyvalue_3.a_2 AS a_2
     FROM
       (
+        SELECT
+          KeyValue.Key AS a_1,
+          KeyValue.Value AS a_2
         FROM
-          (
-            SELECT
-              KeyValue.Key AS a_1,
-              KeyValue.Value AS a_2
-            FROM
-              KeyValue
-          ) AS keyvalue_3
+          KeyValue
+        |> AS keyvalue_3
         |> ASSERT(keyvalue_3.a_1) = 10, "payload1"
       )
   ) AS assertscan_4;
@@ -101,14 +97,12 @@ FROM
       keyvalue_3.a_2 AS a_2
     FROM
       (
+        SELECT
+          KeyValue.Key AS a_1,
+          KeyValue.Value AS a_2
         FROM
-          (
-            SELECT
-              KeyValue.Key AS a_1,
-              KeyValue.Value AS a_2
-            FROM
-              KeyValue
-          ) AS keyvalue_3
+          KeyValue
+        |> AS keyvalue_3
         |> ASSERT(keyvalue_3.a_1) = 10, CONCAT(IFNULL(CAST(keyvalue_3.a_1 AS STRING), "NULL"), " ", "payload2")
       )
   ) AS assertscan_4;
@@ -144,30 +138,26 @@ FROM
       assertscan_4.a_2 AS a_2
     FROM
       (
+        SELECT
+          assertscan_4.a_1 AS a_1,
+          assertscan_4.a_2 AS a_2
         FROM
           (
             SELECT
-              assertscan_4.a_1 AS a_1,
-              assertscan_4.a_2 AS a_2
+              keyvalue_3.a_1 AS a_1,
+              keyvalue_3.a_2 AS a_2
             FROM
               (
                 SELECT
-                  keyvalue_3.a_1 AS a_1,
-                  keyvalue_3.a_2 AS a_2
+                  KeyValue.Key AS a_1,
+                  KeyValue.Value AS a_2
                 FROM
-                  (
-                    FROM
-                      (
-                        SELECT
-                          KeyValue.Key AS a_1,
-                          KeyValue.Value AS a_2
-                        FROM
-                          KeyValue
-                      ) AS keyvalue_3
-                    |> ASSERT(keyvalue_3.a_1) = 10, "payload1"
-                  )
-              ) AS assertscan_4
+                  KeyValue
+                |> AS keyvalue_3
+                |> ASSERT(keyvalue_3.a_1) = 10, "payload1"
+              )
           ) AS assertscan_4
+        |> AS assertscan_4
         |> ASSERT(assertscan_4.a_1) = 20, "payload2"
       )
   ) AS assertscan_5;
@@ -210,30 +200,26 @@ FROM
       projectscan_5.a_2 AS a_2
     FROM
       (
+        SELECT
+          assertscan_4.a_1 AS a_1,
+          assertscan_4.a_2 AS a_2
         FROM
           (
             SELECT
-              assertscan_4.a_1 AS a_1,
-              assertscan_4.a_2 AS a_2
+              keyvalue_3.a_1 AS a_1,
+              keyvalue_3.a_2 AS a_2
             FROM
               (
                 SELECT
-                  keyvalue_3.a_1 AS a_1,
-                  keyvalue_3.a_2 AS a_2
+                  KeyValue.Key AS a_1,
+                  KeyValue.Value AS a_2
                 FROM
-                  (
-                    FROM
-                      (
-                        SELECT
-                          KeyValue.Key AS a_1,
-                          KeyValue.Value AS a_2
-                        FROM
-                          KeyValue
-                      ) AS keyvalue_3
-                    |> ASSERT(keyvalue_3.a_1) = 10, "payload1"
-                  )
-              ) AS assertscan_4
-          ) AS projectscan_5
+                  KeyValue
+                |> AS keyvalue_3
+                |> ASSERT(keyvalue_3.a_1) = 10, "payload1"
+              )
+          ) AS assertscan_4
+        |> AS projectscan_5
         |> ASSERT(projectscan_5.a_1) = 20, "payload2"
       )
   ) AS assertscan_6;

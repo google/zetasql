@@ -624,8 +624,7 @@ std::vector<FunctionTestCall> GetFunctionTestsRegexp2(
 
   if (include_feature_set) {
     for (auto& call : test_calls) {
-      call.params.AddRequiredFeature(
-          FEATURE_V_1_3_ALLOW_REGEXP_EXTRACT_OPTIONALS);
+      call.params.AddRequiredFeature(FEATURE_ALLOW_REGEXP_EXTRACT_OPTIONALS);
     }
   }
 
@@ -634,7 +633,7 @@ std::vector<FunctionTestCall> GetFunctionTestsRegexp2(
 
 std::vector<FunctionTestCall> GetFunctionTestsRegexpInstr() {
   std::vector<FunctionTestCall> test_calls = {
-      // regexp_instr(string, string) -> int64_t
+      // regexp_instr(string, string) -> int64
       {"regexp_instr", {"", NullString()}, NullInt64()},
       {"regexp_instr", {NullString(), ""}, NullInt64()},
       {"regexp_instr", {"", ""}, 0ll},

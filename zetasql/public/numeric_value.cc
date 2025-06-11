@@ -1054,8 +1054,8 @@ double NumericValue::ToDouble() const {
       binary_scaling_factor = static_cast<double>(uint128{1} << 96);
     }
   }
-  // FixedUint<64, 2> / std::integral_constant<uint64_t, *> is much faster than
-  // uint128 / uint64_t.
+  // FixedUint<64, 2> / std::integral_constant<uint64, *> is much faster than
+  // uint128 / uint64.
   FixedUint<64, 2> tmp(abs_value);
   uint64_t remainder;
   tmp.DivMod(NumericValue::kScalingFactor, &tmp, &remainder);
@@ -1119,7 +1119,7 @@ bool ScaleAndRoundAwayFromZero(S scale, double value, T* result) {
     abs_result <<= parts.exponent;
   }
   static_assert(sizeof(T) > sizeof(S) + sizeof(uint64_t));
-  // Because sizeof(T) is bigger than sizeof(S) + sizeof(uint64_t), the sign bit
+  // Because sizeof(T) is bigger than sizeof(S) + sizeof(uint64), the sign bit
   // of abs_result cannot be 1 when parts.exponent = 0. Same for the cases
   // where parts.exponent != 0. Therefore, we do not need to check overflow in
   // negation.
@@ -2091,7 +2091,7 @@ absl::StatusOr<FixedInt<64, 4>> FixedIntFromScaledValue(
   // when rounding.
   bool has_scale_down_remainder_discarded = false;
   // Compute dividend /= pow(10, scale_down_digits) by repeating
-  // dividend /= uint64_t divisor. When scale_down_digits > 19, this loop is not
+  // dividend /= uint64 divisor. When scale_down_digits > 19, this loop is not
   // as efficient as fixed_int_internal::LongDiv, but this method is not
   // expected to be called in a performance-critical path.
   while (scale_down_digits > 0) {

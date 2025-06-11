@@ -14,9 +14,12 @@
 // limitations under the License.
 //
 
-#ifndef ZETASQL_PUBLIC_TOKEN_LIST_H_
-#define ZETASQL_PUBLIC_TOKEN_LIST_H_
+syntax = "proto2";
 
-#include "zetasql/public/simple_token_list.h"
+package zetasql_test__;
 
-#endif  // ZETASQL_PUBLIC_TOKEN_LIST_H_
+import "depends/on/nonexistent/file.proto";
+
+extend SimpleMessage {
+  repeated int value = 1;
+}

@@ -1,4 +1,4 @@
-[default language_features=PIPES,ANALYTIC_FUNCTIONS,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
+[default language_features=PIPES,ANALYTIC_FUNCTIONS,SELECT_STAR_EXCEPT_REPLACE]
 select 1 x
 |> window sum(x) OVER (), count(*) OVER () AS c
 --
@@ -805,14 +805,14 @@ ERROR: Cannot use analytic functions inside SELECT * REPLACE [at 3:14]
 # columns.
 # TODO Enable java support for collation.
 [no_java]
-[language_features=PIPES,ANALYTIC_FUNCTIONS{{|,V_1_3_ANNOTATION_FRAMEWORK|,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT}}]
+[language_features=PIPES,ANALYTIC_FUNCTIONS{{|,ANNOTATION_FRAMEWORK|,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT}}]
 from CollatedTable
 |> SELECT string_ci
 |> WINDOW MAX(COALESCE(string_ci)) OVER () AS newcol
 --
 ALTERNATION GROUPS:
     <empty>
-    ,V_1_3_ANNOTATION_FRAMEWORK
+    ,ANNOTATION_FRAMEWORK
 --
 QueryStmt
 +-output_column_list=
@@ -847,7 +847,7 @@ The pipe WINDOW operator is deprecated; Use EXTEND instead [at 3:1]
 ^
 [zetasql.DeprecationWarning] { kind: PIPE_WINDOW }
 --
-ALTERNATION GROUP: ,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT
+ALTERNATION GROUP: ,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT
 --
 QueryStmt
 +-output_column_list=

@@ -1,4 +1,4 @@
-[default language_features=CREATE_AGGREGATE_FUNCTION,TEMPLATE_FUNCTIONS,V_1_4_MULTILEVEL_AGGREGATION,V_1_4_MULTILEVEL_AGGREGATION_IN_UDAS,V_1_2_GROUP_BY_STRUCT,V_1_3_INLINE_LAMBDA_ARGUMENT,V_1_4_WITH_EXPRESSION]
+[default language_features=CREATE_AGGREGATE_FUNCTION,TEMPLATE_FUNCTIONS,MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_IN_UDAS,GROUP_BY_STRUCT,INLINE_LAMBDA_ARGUMENT,WITH_EXPRESSION]
 [default show_sqlbuilder_output]
 [default enabled_ast_rewrites=ALL]
 
@@ -1874,3 +1874,93 @@ RETURNS INT64 AS (
     )
     GROUP BY key)
 );
+==
+
+[language_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_IN_UDAS,CREATE_AGGREGATE_FUNCTION]
+CREATE AGGREGATE FUNCTION MLAWithSubqueryArgumentContainingMLA(key INT64, arr1 ARRAY<INT64> NOT AGGREGATE) AS (
+  CORR(
+    key,
+    (SELECT MAX(key GROUP BY key) FROM UNNEST(arr1))
+    GROUP BY key
+  )
+);
+--
+CreateFunctionStmt
++-name_path=MLAWithSubqueryArgumentContainingMLA
++-return_type=DOUBLE
++-argument_name_list=[key, arr1]
++-signature=(INT64 key, ARRAY<INT64> {is_not_aggregate: true} arr1) -> DOUBLE
++-is_aggregate=TRUE
++-language="SQL"
++-code="CORR(\n    key,\n    (SELECT MAX(key GROUP BY key) FROM UNNEST(arr1))\n    GROUP BY key\n  )"
++-aggregate_expression_list=
+| +-$agg1#5 :=
+|   +-AggregateFunctionCall(ZetaSQL:corr(DOUBLE, DOUBLE) -> DOUBLE)
+|     +-Cast(INT64 -> DOUBLE)
+|     | +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#1)
+|     +-Cast(INT64 -> DOUBLE)
+|       +-SubqueryExpr
+|         +-type=INT64
+|         +-subquery_type=SCALAR
+|         +-parameter_list=
+|         | +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#1)
+|         +-subquery=
+|           +-ProjectScan
+|             +-column_list=[$aggregate.$agg1#4]
+|             +-input_scan=
+|               +-AggregateScan
+|                 +-column_list=[$aggregate.$agg1#4]
+|                 +-input_scan=
+|                 | +-ArrayScan
+|                 |   +-array_expr_list=
+|                 |   | +-ArgumentRef(type=ARRAY<INT64>, name="arr1", argument_kind=NOT_AGGREGATE)
+|                 |   +-element_column_list=[$array.$unnest1#2]
+|                 +-aggregate_list=
+|                   +-$agg1#4 :=
+|                     +-AggregateFunctionCall(ZetaSQL:max(INT64) -> INT64)
+|                       +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#1, is_correlated=TRUE)
+|                       +-group_by_list=
+|                         +-$groupbymod#3 := ColumnRef(type=INT64, column=$group_by_list.$groupbymod#1, is_correlated=TRUE)
+|     +-group_by_list=
+|       +-$groupbymod#1 := ArgumentRef(parse_location=195-198, type=INT64, name="key", argument_kind=AGGREGATE)
++-function_expression=
+  +-ColumnRef(type=DOUBLE, column=$aggregate.$agg1#5)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE AGGREGATE FUNCTION MLAWithSubqueryArgumentContainingMLA(key INT64, arr1 ARRAY< INT64 > NOT AGGREGATE)
+RETURNS DOUBLE AS (
+  CORR(CAST(key AS DOUBLE), CAST((
+      SELECT
+        MAX(key
+          GROUP BY key) AS a_2
+      FROM
+        UNNEST(arr1) AS a_1
+    ) AS DOUBLE)
+    GROUP BY key)
+);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+CREATE AGGREGATE FUNCTION MLAWithSubqueryArgumentContainingMLA(key INT64, arr1 ARRAY< INT64 > NOT AGGREGATE)
+RETURNS DOUBLE AS (
+  CORR(CAST(key AS DOUBLE), CAST((
+      FROM
+        UNNEST(arr1) AS a_1
+      |> AGGREGATE
+           MAX(key
+             GROUP BY key) AS a_2) AS DOUBLE)
+    GROUP BY key)
+);
+==
+
+# ORDER BY in UDA is not supported (even in nested multi-level aggregate
+# function).
+[language_features=CREATE_AGGREGATE_FUNCTION,TEMPLATE_FUNCTIONS,MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_IN_UDAS,ORDER_BY_IN_AGGREGATE]
+CREATE AGGREGATE FUNCTION InvalidUdaOrderBy(arg INT64, key INT64) AS (
+  SUM(ARRAY_AGG(arg ORDER BY arg, key)[OFFSET(0)] GROUP BY key)
+);
+--
+ERROR: Function body with aggregate functions with ORDER BY not currently supported [at 2:3]
+  SUM(ARRAY_AGG(arg ORDER BY arg, key)[OFFSET(0)] GROUP BY key)
+  ^

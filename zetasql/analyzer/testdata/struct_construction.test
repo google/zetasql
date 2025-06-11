@@ -1046,7 +1046,7 @@ QueryStmt
 ==
 
 # TODO: The literal should have has_explicit_type = true.
-[language_features=V_1_2_CIVIL_TIME]
+[language_features=CIVIL_TIME]
 select struct(datetime '2011-01-01 00:00:00')
 --
 QueryStmt
@@ -1062,7 +1062,7 @@ QueryStmt
 ==
 
 # TODO: The literal should have has_explicit_type = true.
-[language_features=V_1_2_CIVIL_TIME]
+[language_features=CIVIL_TIME]
 select struct(time '12:01:59')
 --
 QueryStmt

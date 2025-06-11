@@ -1,4 +1,4 @@
-[default language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[default language_features=SQL_GRAPH,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [default no_test_extract_table_names]
 
 # Traversal hints from a quantified path
@@ -484,7 +484,7 @@ ERROR: Nested quantifiers are not allowed [at 3:9]
 
 # Begin group variables tests
 
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION{{|,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 
 select * from graph_table(
   aml
@@ -582,7 +582,7 @@ QueryStmt
                       +-GraphRefScan(column_list=[$element_table.e#5])
 ==
 
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION{{|,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 
 select * from graph_table(
   aml
@@ -682,7 +682,7 @@ QueryStmt
                       +-GraphRefScan(column_list=$element_table.[a#4, b#6])
 ==
 
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION{{|,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 
 # Joining to a quantified path with group variables
 select * from graph_table(
@@ -794,7 +794,7 @@ QueryStmt
                       +-GraphRefScan(column_list=$element_table.[head#1, a#5])
 ==
 
-[default language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 
 # Not allowed to multiply declare group variables
 select * from graph_table(
@@ -967,7 +967,7 @@ ERROR: Variable name: e is ambiguous group variable in the GraphPattern [at 3:9]
 
 ==
 
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_1_ORDER_BY_IN_AGGREGATE{{|,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,ORDER_BY_IN_AGGREGATE{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 
 # Simple group variable access
 SELECT * FROM GRAPH_TABLE(
@@ -998,18 +998,18 @@ QueryStmt
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.a#1]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Account)
+        |       | | | +-GraphLabel(parse_location=76-83, label=aml.Account)
         |       | | +-target_element_table_list=[aml.Account]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.e#2]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Transfer)
+        |       | | | +-GraphLabel(parse_location=88-96, label=aml.Transfer)
         |       | | +-target_element_table_list=[aml.Transfer]
         |       | | +-orientation=RIGHT
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.b#3]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Account)
+        |       |   | +-GraphLabel(parse_location=102-109, label=aml.Account)
         |       |   +-target_element_table_list=[aml.Account]
         |       +-head=$path_scan.$head#7
         |       +-tail=$path_scan.$tail#8
@@ -1029,7 +1029,7 @@ QueryStmt
               +-ColumnRef(type=ARRAY<GRAPH_EDGE(aml)<accountId INT64, amount UINT64, targetAccountId INT64>>, column=$element_table.e#5)
 ==
 
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_1_ORDER_BY_IN_AGGREGATE{{|,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,ORDER_BY_IN_AGGREGATE{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 
 # Without restricting the types
 SELECT * FROM GRAPH_TABLE(
@@ -1111,7 +1111,7 @@ QueryStmt
 
 ==
 
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_1_ORDER_BY_IN_AGGREGATE{{|,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,ORDER_BY_IN_AGGREGATE{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 
 # Using all the group variables
 SELECT * FROM GRAPH_TABLE(
@@ -1200,7 +1200,7 @@ QueryStmt
                 +-ColumnRef(type=ARRAY<GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>>, column=$element_table.b#6)
 ==
 
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_1_ORDER_BY_IN_AGGREGATE{{|,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,ORDER_BY_IN_AGGREGATE{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 
 # Using group variables in horizontal aggregation
 SELECT * FROM GRAPH_TABLE(
@@ -1267,7 +1267,7 @@ QueryStmt
                   | |   | | | +-GraphEdgeScan
                   | |   | | | | +-column_list=[$element_table.e#3]
                   | |   | | | | +-label_expr=
-                  | |   | | | | | +-GraphLabel(label=aml.Transfer)
+                  | |   | | | | | +-GraphLabel(parse_location=99-107, label=aml.Transfer)
                   | |   | | | | +-target_element_table_list=[aml.Transfer]
                   | |   | | | | +-orientation=RIGHT
                   | |   | | | +-GraphNodeScan
@@ -1368,7 +1368,7 @@ QueryStmt
 
 ==
 
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_1_ORDER_BY_IN_AGGREGATE{{|,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,ORDER_BY_IN_AGGREGATE{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 
 # Using group variables in horizontal aggregation in filter
 SELECT * FROM GRAPH_TABLE(
@@ -1438,7 +1438,7 @@ QueryStmt
                   | |   | | | +-GraphEdgeScan
                   | |   | | | | +-column_list=[$element_table.e#3]
                   | |   | | | | +-label_expr=
-                  | |   | | | | | +-GraphLabel(label=aml.Transfer)
+                  | |   | | | | | +-GraphLabel(parse_location=116-124, label=aml.Transfer)
                   | |   | | | | +-target_element_table_list=[aml.Transfer]
                   | |   | | | | +-orientation=RIGHT
                   | |   | | | +-GraphNodeScan
@@ -1572,7 +1572,7 @@ QueryStmt
                       +-GraphRefScan(column_list=[$element_table.a#1, $element_table.giver#5, $element_table.e#6, $element_table.b#10, $graph_table.total#14, $graph_table.givers#16])
 ==
 
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_1_ORDER_BY_IN_AGGREGATE{{|,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,ORDER_BY_IN_AGGREGATE{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 
 # Querying aml_multi since there's just one node table
 SELECT * FROM GRAPH_TABLE(
@@ -1846,7 +1846,7 @@ QueryStmt
         |       |   | +-GraphNodeScan
         |       |   | | +-column_list=[$element_table.a#9]
         |       |   | | +-label_expr=
-        |       |   | | | +-GraphLabel(label=aml.Person)
+        |       |   | | | +-GraphLabel(parse_location=59-65, label=aml.Person)
         |       |   | | +-target_element_table_list=[aml.Person]
         |       |   | +-GraphPathScan
         |       |   |   +-column_list=[$element_table.b#10]
@@ -1854,7 +1854,7 @@ QueryStmt
         |       |   |   | +-GraphNodeScan
         |       |   |   |   +-column_list=[$element_table.b#10]
         |       |   |   |   +-label_expr=
-        |       |   |   |   | +-GraphLabel(label=aml.Account)
+        |       |   |   |   | +-GraphLabel(parse_location=73-80, label=aml.Account)
         |       |   |   |   +-target_element_table_list=[aml.Account]
         |       |   |   +-head=$element_table.b#10
         |       |   |   +-tail=$element_table.b#10
@@ -1894,9 +1894,10 @@ QueryStmt
         |       | | +-column_list=[$element_table.a#1]
         |       | | +-label_expr=
         |       | | | +-GraphLabelNaryExpr
+        |       | | |   +-parse_location=50-52
         |       | | |   +-op=NOT
         |       | | |   +-operand_list=
-        |       | | |     +-GraphWildCardLabel
+        |       | | |     +-GraphWildCardLabel(parse_location=51-52)
         |       | | +-target_element_table_list=[]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.e#2]
@@ -1939,7 +1940,7 @@ QueryStmt
           +-one#9 := Literal(type=INT64, value=1)
 ==
 
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,UNNEST_AND_FLATTEN_ARRAYS]
 # Flattening group variable
 select gt.* from
 graph_table(aml
@@ -2090,18 +2091,18 @@ QueryStmt
                 | +-GraphNodeScan
                 | | +-column_list=[$element_table.a#1]
                 | | +-label_expr=
-                | | | +-GraphLabel(label=aml.Account)
+                | | | +-GraphLabel(parse_location=74-81, label=aml.Account)
                 | | +-target_element_table_list=[aml.Account]
                 | +-GraphEdgeScan
                 | | +-column_list=[$element_table.e#2]
                 | | +-label_expr=
-                | | | +-GraphLabel(label=aml.Transfer)
+                | | | +-GraphLabel(parse_location=86-94, label=aml.Transfer)
                 | | +-target_element_table_list=[aml.Transfer]
                 | | +-orientation=RIGHT
                 | +-GraphNodeScan
                 |   +-column_list=[$element_table.b#3]
                 |   +-label_expr=
-                |   | +-GraphLabel(label=aml.Account)
+                |   | +-GraphLabel(parse_location=100-107, label=aml.Account)
                 |   +-target_element_table_list=[aml.Account]
                 +-head=$path_scan.$head#7
                 +-tail=$path_scan.$tail#8

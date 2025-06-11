@@ -30,7 +30,7 @@ namespace functions {
 inline int64_t Compare64(int64_t x, uint64_t y) {
   if (x < 0 || y > static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))
     return -1;
-  // Else, both are non-negative int64_t values, subtraction result fits in int64_t.
+  // Else, both are non-negative int64 values, subtraction result fits in int64.
   return x - static_cast<int64_t>(y);
 }
 

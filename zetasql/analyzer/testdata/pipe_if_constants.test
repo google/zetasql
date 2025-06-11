@@ -204,7 +204,10 @@ ERROR: Operands of NOT cannot be literal NULL [at 2:11]
 --
 ALTERNATION GROUP: 5
 --
-ERROR: No matching signature for operator NOT for argument types: INT64. Supported signature: NOT (BOOL) [at 2:7]
+ERROR: No matching signature for operator NOT
+  Argument types: INT64
+  Signature: NOT (BOOL)
+    Argument 1: Unable to coerce type INT64 to expected type BOOL [at 2:7]
 |> IF NOT 5
       ^
 ==

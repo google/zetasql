@@ -1,7 +1,6 @@
 # All the test_param_* typed parameters used in the queries could be found
 # defined in zetasql/analyzer/run_analyzer_test.cc
 
-[default also_show_signature_mismatch_details]
 
 select 1 from TestTable where KitchenSink.bool_val = @test_param_bool;
 --
@@ -86,11 +85,6 @@ QueryStmt
 
 select * from TestTable where @test_param_string = @test_param_bytes;
 --
-ERROR: No matching signature for operator = for argument types: STRING, BYTES. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:31]
-select * from TestTable where @test_param_string = @test_param_bytes;
-                              ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: STRING, BYTES
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
@@ -458,11 +452,6 @@ select fn_on_{{int32|uint32|uint64}}(@test_param_int64)
 --
 ALTERNATION GROUP: int32
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32 for argument types: INT64. Supported signature: FN_ON_INT32(INT32) [at 1:8]
-select fn_on_int32(@test_param_int64)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32
   Argument types: INT64
   Signature: FN_ON_INT32(INT32)
@@ -472,11 +461,6 @@ select fn_on_int32(@test_param_int64)
 --
 ALTERNATION GROUP: uint32
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_UINT32 for argument types: INT64. Supported signature: FN_ON_UINT32(UINT32) [at 1:8]
-select fn_on_uint32(@test_param_int64)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_UINT32
   Argument types: INT64
   Signature: FN_ON_UINT32(UINT32)
@@ -486,11 +470,6 @@ select fn_on_uint32(@test_param_int64)
 --
 ALTERNATION GROUP: uint64
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_UINT64 for argument types: INT64. Supported signature: FN_ON_UINT64(UINT64) [at 1:8]
-select fn_on_uint64(@test_param_int64)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_UINT64
   Argument types: INT64
   Signature: FN_ON_UINT64(UINT64)
@@ -501,11 +480,6 @@ select fn_on_uint64(@test_param_int64)
 
 select fn_on_float(@test_param_double)
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_FLOAT for argument types: DOUBLE. Supported signature: FN_ON_FLOAT(FLOAT) [at 1:8]
-select fn_on_float(@test_param_double)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_FLOAT
   Argument types: DOUBLE
   Signature: FN_ON_FLOAT(FLOAT)
@@ -520,11 +494,6 @@ select fn_on_{{float|double|bool|int32|int64|uint32|uint64}}(@test_param_string)
 --
 ALTERNATION GROUP: float
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_FLOAT for argument types: STRING. Supported signature: FN_ON_FLOAT(FLOAT) [at 1:8]
-select fn_on_float(@test_param_string)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_FLOAT
   Argument types: STRING
   Signature: FN_ON_FLOAT(FLOAT)
@@ -534,11 +503,6 @@ select fn_on_float(@test_param_string)
 --
 ALTERNATION GROUP: double
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_DOUBLE for argument types: STRING. Supported signature: FN_ON_DOUBLE(DOUBLE) [at 1:8]
-select fn_on_double(@test_param_string)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_DOUBLE
   Argument types: STRING
   Signature: FN_ON_DOUBLE(DOUBLE)
@@ -548,11 +512,6 @@ select fn_on_double(@test_param_string)
 --
 ALTERNATION GROUP: bool
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BOOL for argument types: STRING. Supported signature: FN_ON_BOOL(BOOL) [at 1:8]
-select fn_on_bool(@test_param_string)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BOOL
   Argument types: STRING
   Signature: FN_ON_BOOL(BOOL)
@@ -562,11 +521,6 @@ select fn_on_bool(@test_param_string)
 --
 ALTERNATION GROUP: int32
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32 for argument types: STRING. Supported signature: FN_ON_INT32(INT32) [at 1:8]
-select fn_on_int32(@test_param_string)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32
   Argument types: STRING
   Signature: FN_ON_INT32(INT32)
@@ -576,11 +530,6 @@ select fn_on_int32(@test_param_string)
 --
 ALTERNATION GROUP: int64
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT64 for argument types: STRING. Supported signature: FN_ON_INT64(INT64) [at 1:8]
-select fn_on_int64(@test_param_string)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT64
   Argument types: STRING
   Signature: FN_ON_INT64(INT64)
@@ -590,11 +539,6 @@ select fn_on_int64(@test_param_string)
 --
 ALTERNATION GROUP: uint32
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_UINT32 for argument types: STRING. Supported signature: FN_ON_UINT32(UINT32) [at 1:8]
-select fn_on_uint32(@test_param_string)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_UINT32
   Argument types: STRING
   Signature: FN_ON_UINT32(UINT32)
@@ -604,11 +548,6 @@ select fn_on_uint32(@test_param_string)
 --
 ALTERNATION GROUP: uint64
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_UINT64 for argument types: STRING. Supported signature: FN_ON_UINT64(UINT64) [at 1:8]
-select fn_on_uint64(@test_param_string)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_UINT64
   Argument types: STRING
   Signature: FN_ON_UINT64(UINT64)
@@ -621,11 +560,6 @@ select fn_on_bool(@test_param_{{int32|int64|uint32|uint64}})
 --
 ALTERNATION GROUP: int32
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BOOL for argument types: INT32. Supported signature: FN_ON_BOOL(BOOL) [at 1:8]
-select fn_on_bool(@test_param_int32)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BOOL
   Argument types: INT32
   Signature: FN_ON_BOOL(BOOL)
@@ -635,11 +569,6 @@ select fn_on_bool(@test_param_int32)
 --
 ALTERNATION GROUP: int64
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BOOL for argument types: INT64. Supported signature: FN_ON_BOOL(BOOL) [at 1:8]
-select fn_on_bool(@test_param_int64)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BOOL
   Argument types: INT64
   Signature: FN_ON_BOOL(BOOL)
@@ -649,11 +578,6 @@ select fn_on_bool(@test_param_int64)
 --
 ALTERNATION GROUP: uint32
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BOOL for argument types: UINT32. Supported signature: FN_ON_BOOL(BOOL) [at 1:8]
-select fn_on_bool(@test_param_uint32)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BOOL
   Argument types: UINT32
   Signature: FN_ON_BOOL(BOOL)
@@ -663,11 +587,6 @@ select fn_on_bool(@test_param_uint32)
 --
 ALTERNATION GROUP: uint64
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BOOL for argument types: UINT64. Supported signature: FN_ON_BOOL(BOOL) [at 1:8]
-select fn_on_bool(@test_param_uint64)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BOOL
   Argument types: UINT64
   Signature: FN_ON_BOOL(BOOL)
@@ -681,11 +600,6 @@ select fn_on_TestEnum(@test_param_{{uint32|uint64}})
 --
 ALTERNATION GROUP: uint32
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_TESTENUM for argument types: UINT32. Supported signature: FN_ON_TESTENUM(zetasql_test__.TestEnum) [at 1:8]
-select fn_on_TestEnum(@test_param_uint32)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_TESTENUM
   Argument types: UINT32
   Signature: FN_ON_TESTENUM(zetasql_test__.TestEnum)
@@ -695,11 +609,6 @@ select fn_on_TestEnum(@test_param_uint32)
 --
 ALTERNATION GROUP: uint64
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_TESTENUM for argument types: UINT64. Supported signature: FN_ON_TESTENUM(zetasql_test__.TestEnum) [at 1:8]
-select fn_on_TestEnum(@test_param_uint64)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_TESTENUM
   Argument types: UINT64
   Signature: FN_ON_TESTENUM(zetasql_test__.TestEnum)
@@ -732,16 +641,11 @@ QueryStmt
 
 # Implicit coercion of non-empty array parameters (and literals) is now
 # supported.
-[language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
 select fn_on_int64_array_returns_int64(@test_param_array)
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT64_ARRAY_RETURNS_INT64 for argument types: ARRAY<INT32>. Supported signature: FN_ON_INT64_ARRAY_RETURNS_INT64(ARRAY<INT64>) [at 1:8]
-select fn_on_int64_array_returns_int64(@test_param_array)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT64_ARRAY_RETURNS_INT64
   Argument types: ARRAY<INT32>
   Signature: FN_ON_INT64_ARRAY_RETURNS_INT64(ARRAY<INT64>)
@@ -749,7 +653,7 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT64_ARRAY_RET
 select fn_on_int64_array_returns_int64(@test_param_array)
        ^
 --
-ALTERNATION GROUP: V_1_1_CAST_DIFFERENT_ARRAY_TYPES
+ALTERNATION GROUP: CAST_DIFFERENT_ARRAY_TYPES
 --
 QueryStmt
 +-output_column_list=
@@ -767,14 +671,9 @@ QueryStmt
 ==
 
 # INT64 parameters don't implicitly coerce to INT32, even inside arrays.
-[language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
 select fn_on_int32_array_returns_int32(@test_param_array_int64)
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32 for argument types: ARRAY<INT64>. Supported signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>) [at 1:8]
-select fn_on_int32_array_returns_int32(@test_param_array_int64)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32
   Argument types: ARRAY<INT64>
   Signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>)
@@ -784,16 +683,11 @@ select fn_on_int32_array_returns_int32(@test_param_array_int64)
 ==
 
 # Supertyping of non-empty array parameters (and literals) is now supported.
-[language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
 select array_concat([TestEnum], @test_param_array_int64) From EnumTable
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for function ARRAY_CONCAT for argument types: ARRAY<zetasql_test__.TestEnum>, ARRAY<INT64>. Supported signature: ARRAY_CONCAT(ARRAY, [ARRAY, ...]) [at 1:8]
-select array_concat([TestEnum], @test_param_array_int64) From EnumTable
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function ARRAY_CONCAT
   Argument types: ARRAY<zetasql_test__.TestEnum>, ARRAY<INT64>
   Signature: ARRAY_CONCAT(ARRAY<T1>, [ARRAY<T1>, ...])
@@ -801,7 +695,7 @@ ERROR: No matching signature for function ARRAY_CONCAT
 select array_concat([TestEnum], @test_param_array_int64) From EnumTable
        ^
 --
-ALTERNATION GROUP: V_1_1_CAST_DIFFERENT_ARRAY_TYPES
+ALTERNATION GROUP: CAST_DIFFERENT_ARRAY_TYPES
 --
 QueryStmt
 +-output_column_list=
@@ -821,7 +715,7 @@ QueryStmt
 ==
 
 # A test involving IN UNNEST inspired by b/24130693 (fixed).
-[language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
 select struct(cast(1 as int32)) IN UNNEST(@test_param_array_struct_int64)
 --
 QueryStmt
@@ -841,7 +735,7 @@ QueryStmt
 
 # Another test involving IN UNNEST inspired by b/24130693 (fixed). The query
 # fails because there is no common supertype of a parameter INT64 and a UINT64.
-[language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
 select cast(1 as uint64) IN UNNEST(@test_param_array_int64)
 --
 ERROR: No matching signature for operator IN UNNEST for argument types: UINT64, ARRAY<INT64> [at 1:26]
@@ -850,7 +744,7 @@ select cast(1 as uint64) IN UNNEST(@test_param_array_int64)
 ==
 
 # Another test involving IN UNNEST inspired by b/24130693 (fixed).
-[language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
 select cast(1 as int32) IN UNNEST(@test_param_array_int64)
 --
 QueryStmt
@@ -869,7 +763,7 @@ QueryStmt
 ==
 
 # Another test involving IN UNNEST inspired by b/24130693 (fixed).
-[language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
 select "TESTENUM0" IN UNNEST(@test_param_array_enum)
 --
 QueryStmt
@@ -889,13 +783,13 @@ QueryStmt
 
 # Another test involving IN UNNEST inspired by b/24130693 (fixed).
 # This doesn't work because supertype rules are strict when everything is a parameter.
-[language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
 select
   {{@test_param_int64|@test_param_string}} in unnest(@test_param_array_enum)
 --
 ALTERNATION GROUPS:
     @test_param_int64
-    V_1_1_CAST_DIFFERENT_ARRAY_TYPES,@test_param_int64
+    CAST_DIFFERENT_ARRAY_TYPES,@test_param_int64
 --
 ERROR: No matching signature for operator IN UNNEST for argument types: INT64, ARRAY<zetasql_test__.TestEnum> [at 2:21]
   @test_param_int64 in unnest(@test_param_array_enum)
@@ -903,7 +797,7 @@ ERROR: No matching signature for operator IN UNNEST for argument types: INT64, A
 --
 ALTERNATION GROUPS:
     @test_param_string
-    V_1_1_CAST_DIFFERENT_ARRAY_TYPES,@test_param_string
+    CAST_DIFFERENT_ARRAY_TYPES,@test_param_string
 --
 ERROR: No matching signature for operator IN UNNEST for argument types: STRING, ARRAY<zetasql_test__.TestEnum> [at 2:22]
   @test_param_string in unnest(@test_param_array_enum)
@@ -911,7 +805,7 @@ ERROR: No matching signature for operator IN UNNEST for argument types: STRING, 
 ==
 
 # Another test involving IN UNNEST inspired by b/24130693 (fixed).
-[language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
 select TestEnum in unnest(@test_param_array_enum) from TestTable
 --
 QueryStmt
@@ -929,7 +823,7 @@ QueryStmt
       +-TableScan(column_list=[TestTable.TestEnum#2], table=TestTable, column_index_list=[1])
 ==
 
-[language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
 select @test_param_int64 in unnest(array_concat([TestEnum], [])) from TestTable
 --
 QueryStmt
@@ -952,7 +846,7 @@ QueryStmt
 ==
 
 # Another test involving IN UNNEST inspired by b/24130693 (fixed).
-[language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
 select null in unnest(@test_param_array_int64)
 --
 QueryStmt
@@ -971,7 +865,7 @@ QueryStmt
 ==
 
 # Another test involving IN UNNEST inspired by b/24130693 (fixed).
-[language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
 select null in unnest(@test_param_array_string)
 --
 QueryStmt
@@ -1091,11 +985,6 @@ QueryStmt
 --
 ALTERNATION GROUP: fn_on_struct_int32_date
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_STRUCT_INT32_DATE for argument types: STRUCT<a INT32, b STRING>. Supported signature: FN_ON_STRUCT_INT32_DATE(STRUCT<a INT32, b DATE>) [at 1:8]
-select fn_on_struct_int32_date(@test_param_struct)
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_STRUCT_INT32_DATE
   Argument types: STRUCT<a INT32, b STRING>
   Signature: FN_ON_STRUCT_INT32_DATE(STRUCT<a INT32, b DATE>)
@@ -1104,10 +993,10 @@ select fn_on_struct_int32_date(@test_param_struct)
        ^
 ==
 
-[language_features={{V_1_1_CAST_DIFFERENT_ARRAY_TYPES|}}]
+[language_features={{CAST_DIFFERENT_ARRAY_TYPES|}}]
 select cast(@test_param_array as {{array<string>|array<int32>}})
 --
-ALTERNATION GROUP: V_1_1_CAST_DIFFERENT_ARRAY_TYPES,array<string>
+ALTERNATION GROUP: CAST_DIFFERENT_ARRAY_TYPES,array<string>
 --
 QueryStmt
 +-output_column_list=
@@ -1123,7 +1012,7 @@ QueryStmt
       +-SingleRowScan
 --
 ALTERNATION GROUPS:
-    V_1_1_CAST_DIFFERENT_ARRAY_TYPES,array<int32>
+    CAST_DIFFERENT_ARRAY_TYPES,array<int32>
     array<int32>
 --
 QueryStmt
@@ -1214,7 +1103,7 @@ QueryStmt
 # comes from user input. It detects breakage after removing resolving query
 # parameter in AnalyzeSubstitute as part of fixing b/233941129.
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=INLINE_LAMBDA_ARGUMENT]
 SELECT ARRAY_FILTER(@lambda, e->e=2)
 --
 ERROR: Query parameter 'lambda' not found [at 1:21]

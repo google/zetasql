@@ -18,6 +18,7 @@
 package com.google.zetasql;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.zetasql.ZetaSQLOptions.ProductMode;
 import com.google.zetasql.ZetaSQLType.ArrayTypeProto;
 import com.google.zetasql.ZetaSQLType.TypeKind;
@@ -44,6 +45,11 @@ public class ArrayType extends Type {
 
   public Type getElementType() {
     return elementType;
+  }
+
+  @Override
+  public ImmutableList<Type> componentTypes() {
+    return ImmutableList.of(elementType);
   }
 
   @Override

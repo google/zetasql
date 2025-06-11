@@ -34,7 +34,6 @@
 #include "google/protobuf/descriptor.h"
 #include "zetasql/common/float_margin.h"
 #include "zetasql/public/options.pb.h"
-#include "zetasql/public/token_list.h"  
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/timestamp_util.h"
 #include "zetasql/public/types/value_equality_check_options.h"
@@ -44,8 +43,6 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/hash/hash.h"
-#include "zetasql/base/check.h"
-#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -130,9 +127,9 @@ class Type {
   // DEPRECATED, use UsingFeatureV12CivilTimeType() instead.
   //
   // Civil time types are TIME and DATETIME, which are controlled by the
-  // language option FEATURE_V_1_2_CIVIL_TIME.
+  // language option FEATURE_CIVIL_TIME.
   // Technically, DATE is also a "civil time" type, but it's always available
-  // and not controlled by FEATURE_V_1_2_CIVIL_TIME.
+  // and not controlled by FEATURE_CIVIL_TIME.
   bool IsFeatureV12CivilTimeType() const {
     return kind_ == TYPE_TIME || kind_ == TYPE_DATETIME;
   }
@@ -144,7 +141,7 @@ class Type {
   //
   // ProtoType will always return false. The proto itself is always a valid
   // type to pass around as a value, even if it contains civil time fields.
-  // Extracting those fields may give an error if FEATURE_V_1_2_CIVIL_TIME is
+  // Extracting those fields may give an error if FEATURE_CIVIL_TIME is
   // not enabled.
   virtual bool UsingFeatureV12CivilTimeType() const {
     return kind_ == TYPE_TIME || kind_ == TYPE_DATETIME;
@@ -242,7 +239,7 @@ class Type {
 
   // Returns true if the type supports grouping with respect to the
   // 'language_options'. E.g. struct type supports grouping if the
-  // FEATURE_V_1_2_GROUP_BY_STRUCT option is enabled.
+  // FEATURE_GROUP_BY_STRUCT option is enabled.
   // When this returns false and 'type_description' is not null, also returns in
   // 'type_description' a description of the type that does not support
   // grouping. e.g. "DOUBLE", "STRUCT containing DOUBLE", etc.
@@ -254,7 +251,7 @@ class Type {
 
   // Returns true of type supports partitioning with respect to the
   // 'language_options'. E.g. struct type supports partitioning if the
-  // FEATURE_V_1_2_GROUP_BY_STRUCT option is enabled.
+  // FEATURE_GROUP_BY_STRUCT option is enabled.
   // When this returns false and 'type_description' is not null, also returns in
   // 'type_description' a description of the type that does not support
   // partitioning. e.g. "DOUBLE", "STRUCT containing DOUBLE", etc.
@@ -322,7 +319,7 @@ class Type {
 
   // Returns true if type supports equality with respect to the
   // 'language_options'. E.g. array type supports equality if the
-  // FEATURE_V_1_1_ARRAY_EQUALITY option is enabled.
+  // FEATURE_ARRAY_EQUALITY option is enabled.
   virtual bool SupportsEquality(const LanguageOptions& language_options) const;
 
   // Compare types for equality.  Equal types can be used interchangeably
@@ -538,6 +535,20 @@ class Type {
   // Any pseudo-fields are not counted. Always returns false for arrays.
   virtual bool HasAnyFields() const { return false; }
 
+  // Returns the component types of this composite type, in a
+  // deterministic order. The type must always return its component types in
+  // the same order.
+  // Otherwise, returns an empty vector.
+  //
+  // This function is used to create `AnnotationMap`s with the correct
+  // structure.
+  //
+  // ARRAY and RANGE:           have exactly one component type.
+  // MAP and GRAPH_PATH:        have 2 component types.
+  // STRUCT and GRAPH_ELEMENT:  have N component types.
+  // Non-composite, e.g. INT64: have no component types (return an empty list).
+  virtual std::vector<const Type*> ComponentTypes() const { return {}; }
+
   // Returns true if this type is enabled given 'language_options'.
   // Checks for ProductMode, TimestampMode, and supported LanguageFeatures.
   virtual bool IsSupportedType(
@@ -660,14 +671,11 @@ class Type {
   // built-in types should not update the hash state.
   virtual absl::HashState HashTypeParameter(absl::HashState state) const = 0;
 
-  // Applicable to proto types only, used from ArrayType::EqualElementMultiSet.
-  // Returns true if the proto type has any floating point fields.
-  virtual bool HasFloatingPointFields() const {
-    ABSL_CHECK_EQ(kind(), TYPE_PROTO);  // Crash OK
-    // This should only be called for proto types, and is implemented there.
-    ABSL_LOG(FATAL)
-        << "HasFloatingPointFields() should only be called for proto types";
-  }
+  // Applicable to ProtoType only, used from ArrayType::EqualElementMultiSet and
+  // other call sites that depend on hashing.
+  // Returns true if the ProtoType has any floating point fields.
+  // Always returns false for instances which are not ProtoType.
+  virtual bool HasFloatingPointFields() const;
 
   // Internal implementation for Serialize methods.  This will append
   // Type information to <type_proto>, so the caller should make sure
@@ -987,7 +995,7 @@ class TypeStore final {
   void Ref() const;
   void Unref() const;
 
-  // Use our own ref counter because SimpleReferenceCounted uses int32_t for its
+  // Use our own ref counter because SimpleReferenceCounted uses int32 for its
   // counter, which could be not enough to count references from all values.
   // Ref count is 1 for type factory that creates it.
   mutable std::atomic<int64_t> ref_count_{1};

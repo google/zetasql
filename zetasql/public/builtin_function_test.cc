@@ -291,11 +291,11 @@ TEST(SimpleBuiltinFunctionTests, SanityTests) {
       case FN_APPROX_DOT_PRODUCT_FLOAT_WITH_PROTO_OPTIONS:
       case FN_APPROX_DOT_PRODUCT_DOUBLE_WITH_PROTO_OPTIONS:
         continue;
-      // FEATURE_V_1_4_ENABLE_MEASURES is marked ideally_enabled=false, and so
+      // FEATURE_ENABLE_MEASURES is marked ideally_enabled=false, and so
       // is not included in the available functions with the options used by
       // this test.
       // TODO: b/350555383 - Remove this case to re-enable the test once
-      // FEATURE_V_1_4_ENABLE_MEASURES is ideally enabled. We can't simply
+      // FEATURE_ENABLE_MEASURES is ideally enabled. We can't simply
       // enable the feature above, as `FunctionSignatureIdToName` also
       // constructs a map of functions, but without these features.
       case FN_AGG:
@@ -520,7 +520,7 @@ TEST(SimpleBuiltinFunctionTests,
   {
     NameToFunctionMap functions;
     NameToTypeMap types;
-    // FEATURE_V_1_2_CIVIL_TIME is not enabled, the function timestamp() should
+    // FEATURE_CIVIL_TIME is not enabled, the function timestamp() should
     // have only two signatures.
     options.language_options.DisableAllLanguageFeatures();
     ZETASQL_EXPECT_OK(
@@ -539,10 +539,9 @@ TEST(SimpleBuiltinFunctionTests,
   {
     NameToFunctionMap functions;
     NameToTypeMap types;
-    // Enabling FEATURE_V_1_2_CIVIL_TIME should allow all three signatures to be
+    // Enabling FEATURE_CIVIL_TIME should allow all three signatures to be
     // included for the function timestamp().
-    options.language_options.SetEnabledLanguageFeatures(
-        {FEATURE_V_1_2_CIVIL_TIME});
+    options.language_options.SetEnabledLanguageFeatures({FEATURE_CIVIL_TIME});
     ZETASQL_EXPECT_OK(
         GetBuiltinFunctionsAndTypes(options, type_factory, functions, types));
     std::unique_ptr<Function>* function =
@@ -748,7 +747,7 @@ TEST(SimpleFunctionTests, TestCheckArgumentConstraints) {
         LanguageOptions());
     LanguageOptions language_options;
 
-    language_options.EnableLanguageFeature(FEATURE_V_1_1_ARRAY_EQUALITY);
+    language_options.EnableLanguageFeature(FEATURE_ARRAY_EQUALITY);
     const absl::Status array_type_status = post_constraints(
         dummy_signature,
         {InputArgumentType(array_type), InputArgumentType(array_type)},
@@ -1017,10 +1016,12 @@ TEST(SimpleFunctionTests,
     // to determine whether or not its signatures are correct, and that
     // there is no unintended argument coercion being allowed (particularly
     // for unsigned integer arguments).
-    // TODO: Fix FunctionMayHaveUnintendedArgumentCoercion so that
-    // it doesn't detect false positives. Temporarily, skip the divide function
-    // as the method incorrectly detects an unintended coercion for the
-    // following divide signatures : (DOUBLE, DOUBLE), (INTERVAL, INT64).
+    // TODO - Fix FunctionMayHaveUnintendedArgumentCoercion so that
+    // it doesn't detect false positives.
+
+    // The divide function triggers a false positive, as the method incorrectly
+    // detects an unintended coercion for the following divide signatures :
+    // (DOUBLE, DOUBLE), (INTERVAL, INT64).
     if (function->Name() == "$divide") continue;
     EXPECT_FALSE(FunctionMayHaveUnintendedArgumentCoercion(function))
         << function->DebugString();

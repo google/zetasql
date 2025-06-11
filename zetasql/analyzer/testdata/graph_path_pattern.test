@@ -1,4 +1,4 @@
-[default language_features=V_1_4_SQL_GRAPH]
+[default language_features=SQL_GRAPH]
 [default no_test_extract_table_names]
 [default show_sqlbuilder_output]
 
@@ -43,7 +43,7 @@ QueryStmt
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.b#2]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.PersonOwnAccount)
+        |       | | | +-GraphLabel(parse_location=52-68, label=aml.PersonOwnAccount)
         |       | | +-target_element_table_list=[aml.PersonOwnAccount]
         |       | | +-orientation=RIGHT
         |       | +-GraphNodeScan
@@ -170,7 +170,7 @@ QueryStmt
         |       | | | +-GraphLabelNaryExpr
         |       | | |   +-op=AND
         |       | | |   +-operand_list=
-        |       | | |     +-GraphLabel(label=aml.Account)
+        |       | | |     +-GraphLabel(parse_location=47-54, label=aml.Account)
         |       | | |     +-GraphLabelNaryExpr
         |       | | |       +-op=OR
         |       | | |       +-operand_list=
@@ -199,7 +199,7 @@ QueryStmt
         |       |   | +-GraphLabelNaryExpr
         |       |   |   +-op=AND
         |       |   |   +-operand_list=
-        |       |   |     +-GraphLabel(label=aml.Account)
+        |       |   |     +-GraphLabel(parse_location=47-54, label=aml.Account)
         |       |   |     +-GraphLabelNaryExpr
         |       |   |       +-op=OR
         |       |   |       +-operand_list=
@@ -308,8 +308,8 @@ QueryStmt
         |       | | | +-GraphLabelNaryExpr
         |       | | |   +-op=AND
         |       | | |   +-operand_list=
-        |       | | |     +-GraphLabel(label=aml.Person)
-        |       | | |     +-GraphLabel(label=aml.Account)
+        |       | | |     +-GraphLabel(parse_location=47-53, label=aml.Person)
+        |       | | |     +-GraphLabel(parse_location=64-71, label=aml.Account)
         |       | | |     +-GraphLabelNaryExpr
         |       | | |       +-op=OR
         |       | | |       +-operand_list=
@@ -338,8 +338,8 @@ QueryStmt
         |       | | | +-GraphLabelNaryExpr
         |       | | |   +-op=AND
         |       | | |   +-operand_list=
-        |       | | |     +-GraphLabel(label=aml.Person)
-        |       | | |     +-GraphLabel(label=aml.Account)
+        |       | | |     +-GraphLabel(parse_location=47-53, label=aml.Person)
+        |       | | |     +-GraphLabel(parse_location=64-71, label=aml.Account)
         |       | | |     +-GraphLabelNaryExpr
         |       | | |       +-op=OR
         |       | | |       +-operand_list=
@@ -368,8 +368,8 @@ QueryStmt
         |       |   | +-GraphLabelNaryExpr
         |       |   |   +-op=AND
         |       |   |   +-operand_list=
-        |       |   |     +-GraphLabel(label=aml.Person)
-        |       |   |     +-GraphLabel(label=aml.Account)
+        |       |   |     +-GraphLabel(parse_location=47-53, label=aml.Person)
+        |       |   |     +-GraphLabel(parse_location=64-71, label=aml.Account)
         |       |   |     +-GraphLabelNaryExpr
         |       |   |       +-op=OR
         |       |   |       +-operand_list=
@@ -488,13 +488,13 @@ QueryStmt
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.a#2]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.PersonOwnAccount)
+        |       | | | +-GraphLabel(parse_location=48-64, label=aml.PersonOwnAccount)
         |       | | +-target_element_table_list=[aml.PersonOwnAccount]
         |       | | +-orientation=RIGHT
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.b#3]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Account)
+        |       |   | +-GraphLabel(parse_location=74-81, label=aml.Account)
         |       |   +-target_element_table_list=[aml.Account]
         |       +-head=$element_table.$element1#1
         |       +-tail=$element_table.b#3
@@ -569,12 +569,12 @@ QueryStmt
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.a#1]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Person)
+        |       | | | +-GraphLabel(parse_location=47-53, label=aml.Person)
         |       | | +-target_element_table_list=[aml.Person]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.b#2]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.PersonOwnAccount)
+        |       | | | +-GraphLabel(parse_location=62-78, label=aml.PersonOwnAccount)
         |       | | +-target_element_table_list=[aml.PersonOwnAccount]
         |       | | +-orientation=RIGHT
         |       | +-GraphNodeScan
@@ -759,7 +759,7 @@ QueryStmt
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.a#2]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Transfer)
+        |       | | | +-GraphLabel(parse_location=48-56, label=aml.Transfer)
         |       | | +-target_element_table_list=[aml.Transfer]
         |       | | +-orientation=RIGHT
         |       | +-GraphNodeScan
@@ -777,7 +777,7 @@ QueryStmt
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.b#4]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Transfer)
+        |       | | | +-GraphLabel(parse_location=68-76, label=aml.Transfer)
         |       | | +-target_element_table_list=[aml.Transfer]
         |       | | +-orientation=LEFT
         |       | +-GraphNodeScan
@@ -883,7 +883,7 @@ QueryStmt
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element2#2]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Transfer)
+        |       | | | +-GraphLabel(parse_location=46-54, label=aml.Transfer)
         |       | | +-target_element_table_list=[aml.Transfer]
         |       | | +-orientation=RIGHT
         |       | +-GraphNodeScan
@@ -901,7 +901,7 @@ QueryStmt
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element4#4]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Transfer)
+        |       | | | +-GraphLabel(parse_location=63-71, label=aml.Transfer)
         |       | | +-target_element_table_list=[aml.Transfer]
         |       | | +-orientation=RIGHT
         |       | +-GraphNodeScan
@@ -1007,7 +1007,7 @@ QueryStmt
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element2#2]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Transfer)
+        |       | | | +-GraphLabel(parse_location=46-54, label=aml.Transfer)
         |       | | +-target_element_table_list=[aml.Transfer]
         |       | | +-orientation=ANY
         |       | +-GraphNodeScan
@@ -1025,7 +1025,7 @@ QueryStmt
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element4#4]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Transfer)
+        |       | | | +-GraphLabel(parse_location=62-70, label=aml.Transfer)
         |       | | +-target_element_table_list=[aml.Transfer]
         |       | | +-orientation=ANY
         |       | +-GraphNodeScan
@@ -1130,7 +1130,7 @@ QueryStmt
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element2#2]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Transfer)
+        |       | | | +-GraphLabel(parse_location=47-55, label=aml.Transfer)
         |       | | +-target_element_table_list=[aml.Transfer]
         |       | | +-orientation=LEFT
         |       | +-GraphNodeScan
@@ -1148,7 +1148,7 @@ QueryStmt
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element4#4]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Transfer)
+        |       | | | +-GraphLabel(parse_location=64-72, label=aml.Transfer)
         |       | | +-target_element_table_list=[aml.Transfer]
         |       | | +-orientation=LEFT
         |       | +-GraphNodeScan
@@ -1251,7 +1251,7 @@ QueryStmt
         |       | | |   | +-property=name(STRING)
         |       | | |   +-Literal(type=STRING, value="Alice")
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Person)
+        |       | | | +-GraphLabel(parse_location=47-53, label=aml.Person)
         |       | | +-target_element_table_list=[aml.Person]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element1#2]
@@ -1269,7 +1269,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.$element2#3]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Account)
+        |       | | | +-GraphLabel(parse_location=85-92, label=aml.Account)
         |       | | +-target_element_table_list=[aml.Account]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element3#4]
@@ -1287,7 +1287,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.$element4#5]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Account)
+        |       | | | +-GraphLabel(parse_location=101-108, label=aml.Account)
         |       | | +-target_element_table_list=[aml.Account]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element5#6]
@@ -1305,7 +1305,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.b#7]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Person)
+        |       |   | +-GraphLabel(parse_location=119-125, label=aml.Person)
         |       |   +-target_element_table_list=[aml.Person]
         |       +-head=$element_table.a#1
         |       +-tail=$element_table.b#7
@@ -1417,7 +1417,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.$element1#1]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Person)
+        |       | | | +-GraphLabel(parse_location=45-51, label=aml.Person)
         |       | | +-target_element_table_list=[aml.Person]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element2#2]
@@ -1435,7 +1435,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.$element3#3]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Account)
+        |       |   | +-GraphLabel(parse_location=60-67, label=aml.Account)
         |       |   +-target_element_table_list=[aml.Account]
         |       +-head=$element_table.$element1#1
         |       +-tail=$element_table.$element3#3
@@ -1502,7 +1502,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.$element1#1]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Person)
+        |       | | | +-GraphLabel(parse_location=45-51, label=aml.Person)
         |       | | +-target_element_table_list=[aml.Person]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element2#2]
@@ -1520,7 +1520,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.$element3#3]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Account)
+        |       |   | +-GraphLabel(parse_location=59-66, label=aml.Account)
         |       |   +-target_element_table_list=[aml.Account]
         |       +-head=$element_table.$element1#1
         |       +-tail=$element_table.$element3#3
@@ -1587,7 +1587,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.$element1#1]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Person)
+        |       | | | +-GraphLabel(parse_location=45-51, label=aml.Person)
         |       | | +-target_element_table_list=[aml.Person]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element2#2]
@@ -1605,7 +1605,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.$element3#3]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Account)
+        |       |   | +-GraphLabel(parse_location=60-67, label=aml.Account)
         |       |   +-target_element_table_list=[aml.Account]
         |       +-head=$element_table.$element1#1
         |       +-tail=$element_table.$element3#3
@@ -1682,7 +1682,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.$element1#1]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Account)
+        |       | | | +-GraphLabel(parse_location=45-52, label=aml.Account)
         |       | | +-target_element_table_list=[aml.Account]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element2#2]
@@ -1700,7 +1700,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.$element3#3]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Account)
+        |       |   | +-GraphLabel(parse_location=61-68, label=aml.Account)
         |       |   +-target_element_table_list=[aml.Account]
         |       +-head=$element_table.$element1#1
         |       +-tail=$element_table.$element3#3
@@ -1767,7 +1767,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.$element1#1]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Account)
+        |       | | | +-GraphLabel(parse_location=45-52, label=aml.Account)
         |       | | +-target_element_table_list=[aml.Account]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element2#2]
@@ -1785,7 +1785,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.$element3#3]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Account)
+        |       |   | +-GraphLabel(parse_location=60-67, label=aml.Account)
         |       |   +-target_element_table_list=[aml.Account]
         |       +-head=$element_table.$element1#1
         |       +-tail=$element_table.$element3#3
@@ -1852,7 +1852,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.$element1#1]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Account)
+        |       | | | +-GraphLabel(parse_location=45-52, label=aml.Account)
         |       | | +-target_element_table_list=[aml.Account]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element2#2]
@@ -1870,7 +1870,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.$element3#3]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Account)
+        |       |   | +-GraphLabel(parse_location=61-68, label=aml.Account)
         |       |   +-target_element_table_list=[aml.Account]
         |       +-head=$element_table.$element1#1
         |       +-tail=$element_table.$element3#3
@@ -1946,7 +1946,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.$element1#1]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Person)
+        |       | | | +-GraphLabel(parse_location=45-51, label=aml.Person)
         |       | | +-target_element_table_list=[aml.Person]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element2#2]
@@ -1964,7 +1964,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.$element3#3]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Person)
+        |       |   | +-GraphLabel(parse_location=60-66, label=aml.Person)
         |       |   +-target_element_table_list=[aml.Person]
         |       +-head=$element_table.$element1#1
         |       +-tail=$element_table.$element3#3
@@ -2031,7 +2031,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.$element1#1]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Person)
+        |       | | | +-GraphLabel(parse_location=45-51, label=aml.Person)
         |       | | +-target_element_table_list=[aml.Person]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element2#2]
@@ -2049,7 +2049,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.$element3#3]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Person)
+        |       |   | +-GraphLabel(parse_location=59-65, label=aml.Person)
         |       |   +-target_element_table_list=[aml.Person]
         |       +-head=$element_table.$element1#1
         |       +-tail=$element_table.$element3#3
@@ -2116,7 +2116,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.$element1#1]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Person)
+        |       | | | +-GraphLabel(parse_location=45-51, label=aml.Person)
         |       | | +-target_element_table_list=[aml.Person]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element2#2]
@@ -2134,7 +2134,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.$element3#3]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Person)
+        |       |   | +-GraphLabel(parse_location=60-66, label=aml.Person)
         |       |   +-target_element_table_list=[aml.Person]
         |       +-head=$element_table.$element1#1
         |       +-tail=$element_table.$element3#3
@@ -2209,18 +2209,18 @@ QueryStmt
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.a#1]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Person)
+        |       | | | +-GraphLabel(parse_location=47-53, label=aml.Person)
         |       | | +-target_element_table_list=[aml.Person]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element1#2]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Transfer)
+        |       | | | +-GraphLabel(parse_location=61-69, label=aml.Transfer)
         |       | | +-target_element_table_list=[aml.Transfer]
         |       | | +-orientation=LEFT
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.b#3]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Account)
+        |       |   | +-GraphLabel(parse_location=78-85, label=aml.Account)
         |       |   +-target_element_table_list=[aml.Account]
         |       +-head=$element_table.a#1
         |       +-tail=$element_table.b#3
@@ -2287,18 +2287,18 @@ QueryStmt
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.a#1]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Person)
+        |       | | | +-GraphLabel(parse_location=47-53, label=aml.Person)
         |       | | +-target_element_table_list=[aml.Person]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element1#2]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Transfer)
+        |       | | | +-GraphLabel(parse_location=60-68, label=aml.Transfer)
         |       | | +-target_element_table_list=[aml.Transfer]
         |       | | +-orientation=ANY
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.b#3]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Account)
+        |       |   | +-GraphLabel(parse_location=77-84, label=aml.Account)
         |       |   +-target_element_table_list=[aml.Account]
         |       +-head=$element_table.a#1
         |       +-tail=$element_table.b#3
@@ -2365,18 +2365,18 @@ QueryStmt
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.a#1]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Person)
+        |       | | | +-GraphLabel(parse_location=47-53, label=aml.Person)
         |       | | +-target_element_table_list=[aml.Person]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element1#2]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Transfer)
+        |       | | | +-GraphLabel(parse_location=60-68, label=aml.Transfer)
         |       | | +-target_element_table_list=[aml.Transfer]
         |       | | +-orientation=RIGHT
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.b#3]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Account)
+        |       |   | +-GraphLabel(parse_location=78-85, label=aml.Account)
         |       |   +-target_element_table_list=[aml.Account]
         |       +-head=$element_table.a#1
         |       +-tail=$element_table.b#3
@@ -2457,10 +2457,11 @@ QueryStmt
         |       | | +-column_list=[$element_table.a#1]
         |       | | +-label_expr=
         |       | | | +-GraphLabelNaryExpr
+        |       | | |   +-parse_location=47-63
         |       | | |   +-op=OR
         |       | | |   +-operand_list=
-        |       | | |     +-GraphLabel(label=aml.Person)
-        |       | | |     +-GraphLabel(label=aml.Account)
+        |       | | |     +-GraphLabel(parse_location=47-53, label=aml.Person)
+        |       | | |     +-GraphLabel(parse_location=56-63, label=aml.Account)
         |       | | +-target_element_table_list=[aml.Account,aml.Person]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element1#2]
@@ -2478,7 +2479,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.b#3]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Account)
+        |       |   | +-GraphLabel(parse_location=74-81, label=aml.Account)
         |       |   +-target_element_table_list=[aml.Account]
         |       +-head=$element_table.a#1
         |       +-tail=$element_table.b#3
@@ -2546,10 +2547,11 @@ QueryStmt
         |       | | +-column_list=[$element_table.a#1]
         |       | | +-label_expr=
         |       | | | +-GraphLabelNaryExpr
+        |       | | |   +-parse_location=47-63
         |       | | |   +-op=OR
         |       | | |   +-operand_list=
-        |       | | |     +-GraphLabel(label=aml.Person)
-        |       | | |     +-GraphLabel(label=aml.Account)
+        |       | | |     +-GraphLabel(parse_location=47-53, label=aml.Person)
+        |       | | |     +-GraphLabel(parse_location=56-63, label=aml.Account)
         |       | | +-target_element_table_list=[aml.Account,aml.Person]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element1#2]
@@ -2567,7 +2569,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.b#3]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Account)
+        |       |   | +-GraphLabel(parse_location=73-80, label=aml.Account)
         |       |   +-target_element_table_list=[aml.Account]
         |       +-head=$element_table.a#1
         |       +-tail=$element_table.b#3
@@ -2635,10 +2637,11 @@ QueryStmt
         |       | | +-column_list=[$element_table.a#1]
         |       | | +-label_expr=
         |       | | | +-GraphLabelNaryExpr
+        |       | | |   +-parse_location=47-63
         |       | | |   +-op=OR
         |       | | |   +-operand_list=
-        |       | | |     +-GraphLabel(label=aml.Person)
-        |       | | |     +-GraphLabel(label=aml.Account)
+        |       | | |     +-GraphLabel(parse_location=47-53, label=aml.Person)
+        |       | | |     +-GraphLabel(parse_location=56-63, label=aml.Account)
         |       | | +-target_element_table_list=[aml.Account,aml.Person]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element1#2]
@@ -2656,7 +2659,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.b#3]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Account)
+        |       |   | +-GraphLabel(parse_location=74-81, label=aml.Account)
         |       |   +-target_element_table_list=[aml.Account]
         |       +-head=$element_table.a#1
         |       +-tail=$element_table.b#3

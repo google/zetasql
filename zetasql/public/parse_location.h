@@ -32,7 +32,6 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 
@@ -44,6 +43,9 @@ class InternalErrorLocation;
 // The <filename> is informational, and only used for error messaging.
 class ParseLocationPoint {
  public:
+  ParseLocationPoint(const ParseLocationPoint& other) = default;
+  ParseLocationPoint& operator=(const ParseLocationPoint& other) = default;
+
   ParseLocationPoint() : byte_offset_(-1) {}
 
   // Creates a ParseLocationPoint from a filename and byte offset.
@@ -110,6 +112,11 @@ class ParseLocationPoint {
     return !(lhs == rhs);
   }
 
+  ABSL_DEPRECATED(
+      "This operator is misleading because it defines an order that is "
+      "inconsistent with the order the location ranges are seen by the parser "
+      "when there are multiple files involved such as cases introduced by "
+      "macro expnsion. Compare by explicitly accessing the members.")
   friend bool operator<(const ParseLocationPoint& lhs,
                         const ParseLocationPoint& rhs) {
     if (lhs.filename_ == rhs.filename_) {
@@ -126,13 +133,14 @@ class ParseLocationPoint {
  private:
   absl::string_view filename_;
   int byte_offset_;
-
-  // Intentionally copyable.
 };
 
 // A half-open range of ParseLocationPoints [start(), end()).
 class ParseLocationRange {
  public:
+  ParseLocationRange(const ParseLocationRange& other) = default;
+  ParseLocationRange& operator=(const ParseLocationRange& other) = default;
+
   ParseLocationRange() = default;
   ParseLocationRange(ParseLocationPoint start, ParseLocationPoint end)
       : start_(start), end_(end) {}
@@ -140,8 +148,8 @@ class ParseLocationRange {
   void set_start(ParseLocationPoint start) { start_ = start; }
   void set_end(ParseLocationPoint end) { end_ = end; }
 
-  ParseLocationPoint start() const { return start_; }
-  ParseLocationPoint end() const { return end_; }
+  const ParseLocationPoint& start() const { return start_; }
+  const ParseLocationPoint& end() const { return end_; }
 
   ParseLocationPoint& mutable_start() { return start_; }
   ParseLocationPoint& mutable_end() { return end_; }
@@ -243,8 +251,6 @@ class ParseLocationRange {
  private:
   ParseLocationPoint start_;
   ParseLocationPoint end_;
-
-  // Intentionally copyable.
 };
 
 // Translates ParseLocationPoints to offsets and line/column numbers. For

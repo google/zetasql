@@ -2910,12 +2910,12 @@ group by nested_value.nested_int64
          ^
 ==
 
-[language_features={{V_1_2_GROUP_BY_STRUCT|}}]
+[language_features={{GROUP_BY_STRUCT|}}]
 select f
 from TestNestedStructValueTable
 group by f
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT
+ALTERNATION GROUP: GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -2943,13 +2943,13 @@ group by f
          ^
 ==
 
-[language_features={{V_1_2_GROUP_BY_STRUCT|}}]
+[language_features={{GROUP_BY_STRUCT|}}]
 select f
 from TestNestedStructValueTable as f
 group by f
 
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT
+ALTERNATION GROUP: GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -2972,12 +2972,12 @@ group by f
          ^
 ==
 
-[language_features={{V_1_2_GROUP_BY_STRUCT|}}]
+[language_features={{GROUP_BY_STRUCT|}}]
 select TestNestedStructValueTable
 from TestNestedStructValueTable
 group by TestNestedStructValueTable
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT
+ALTERNATION GROUP: GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -3000,12 +3000,12 @@ group by TestNestedStructValueTable
          ^
 ==
 
-[language_features={{V_1_2_GROUP_BY_STRUCT|}}]
+[language_features={{GROUP_BY_STRUCT|}}]
 select f.d
 from TestNestedStructValueTable
 group by f.d
 --
-ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT
+ALTERNATION GROUP: GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -3141,7 +3141,7 @@ select f.d
 ==
 
 # Test reference fields within group by struct
-[language_features=V_1_2_GROUP_BY_STRUCT]
+[language_features=GROUP_BY_STRUCT]
 select f.d.b
 from TestNestedStructValueTable
 group by f.d
@@ -3178,7 +3178,7 @@ QueryStmt
 ==
 
 # Test reference fields NOT within group by struct, should be invalid
-[language_features=V_1_2_GROUP_BY_STRUCT]
+[language_features=GROUP_BY_STRUCT]
 select e from TestNestedStructValueTable group by f.d
 --
 ERROR: SELECT list expression references column e which is neither grouped nor aggregated [at 1:8]
@@ -3187,7 +3187,7 @@ select e from TestNestedStructValueTable group by f.d
 ==
 
 # Test reference sibling of the group by struct.
-[language_features=V_1_2_GROUP_BY_STRUCT]
+[language_features=GROUP_BY_STRUCT]
 select f.c from TestNestedStructValueTable group by f.d
 --
 ERROR: SELECT list expression references f.c which is neither grouped nor aggregated [at 1:8]

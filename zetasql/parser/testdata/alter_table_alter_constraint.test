@@ -104,7 +104,7 @@ AlterTableStatement [0-71]
 ALTER TABLE foo ALTER CONSTRAINT bar SET OPTIONS(opt_a = 1, opt_b = 2)
 ==
 
-[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
 ALTER TABLE foo-123.bar ALTER CONSTRAINT baz ENFORCED
 --
 ALTERNATION GROUP: <empty>
@@ -113,7 +113,7 @@ ERROR: Syntax error: Table name contains '-' character. The dashed identifier pa
 ALTER TABLE foo-123.bar ALTER CONSTRAINT baz ENFORCED
             ^
 --
-ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
 --
 AlterTableStatement [0-53]
   PathExpression [12-23]

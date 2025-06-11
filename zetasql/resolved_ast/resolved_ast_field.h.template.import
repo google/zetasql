@@ -66,8 +66,6 @@ import directive. Example:
   void add_{{field.name}}({{field.element_storage_type}} v) {
     {{field.member_name}}.emplace_back(std::move(v));
   }
-  # if not is_from_builder
-  # endif
   void set_{{field.name}}({{field.setter_arg_type}} v) {
     {{field.member_name}} = std::move(v);
   }
@@ -96,8 +94,6 @@ import directive. Example:
     {{field.member_name}}.swap(tmp);
     return tmp;
   }
-  # if not is_from_builder and field.release_return_type
-  # endif
   # endif
  # else
   # if field.is_node_ptr
@@ -115,8 +111,6 @@ import directive. Example:
   }
    # endif
 
-  # if not is_from_builder
-  # endif
   # endif
 
   # if not field.is_node_ptr
@@ -131,8 +125,6 @@ import directive. Example:
     return std::move({{field.member_name}});
   }
 
-  # if not is_from_builder
-  # endif
   # endif
  # endif
 {% endmacro %}

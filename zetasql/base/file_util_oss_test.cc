@@ -17,6 +17,11 @@
 #include "zetasql/base/file_util_oss.h"
 
 #include <sys/stat.h>
+#include <cstdlib>
+#include <filesystem>  // NOLINT
+#include <string>
+#include <system_error>  // NOLINT
+#include <vector>
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -153,6 +158,59 @@ TEST(FileUtilTest, SetContentsSucceed) {
   std::string actual_contents;
   ZETASQL_EXPECT_OK(GetContents(filespec, &actual_contents));
   EXPECT_EQ(contents, actual_contents);
+}
+
+TEST(FileUtilTest, RecursivelyCreateDir) {
+  const std::string directory = absl::StrCat(TestTmpDir(), "/test_dir");
+  const std::string file = absl::StrCat(directory, "/test_file");
+
+  // Create file fails before parent directory is created.
+  absl::Status s = SetContents(file, "test");
+  EXPECT_FALSE(s.ok());
+
+  // Success after directory created.
+  ZETASQL_ASSERT_OK(RecursivelyCreateDir(directory));
+  ZETASQL_EXPECT_OK(SetContents(file, "test"));
+}
+
+TEST(FileUtilTest, RecursivelyCreateDirDeep) {
+  const std::string directory = absl::StrCat(TestTmpDir(), "/a/b/c/d");
+  const std::string file = absl::StrCat(directory, "/test_file");
+
+  // Create file fails before parent directory is created.
+  absl::Status s = SetContents(file, "test");
+  EXPECT_FALSE(s.ok());
+
+  // Success after directory created.
+  ZETASQL_ASSERT_OK(RecursivelyCreateDir(directory));
+  ZETASQL_EXPECT_OK(SetContents(file, "test"));
+}
+
+TEST(FileUtilTest, RecursivelyCreateDirError) {
+  const std::string path = absl::StrCat(TestTmpDir(), "/test_thing");
+  ZETASQL_ASSERT_OK(SetContents(path, "test"));
+  // File with the same name exists, should fail.
+  absl::Status s = RecursivelyCreateDir(path);
+  EXPECT_FALSE(s.ok());
+}
+
+TEST(FileUtilTest, CopySuccess) {
+  const std::string file_a = absl::StrCat(TestTmpDir(), "/file_a");
+  const std::string file_b = absl::StrCat(TestTmpDir(), "/file_b");
+  ZETASQL_ASSERT_OK(SetContents(file_a, "test"));
+  ZETASQL_ASSERT_OK(Copy(file_a, file_b));
+  std::string file_b_content;
+  ZETASQL_ASSERT_OK(GetContents(file_b, &file_b_content));
+  EXPECT_EQ("test", file_b_content);
+}
+
+TEST(FileUtilTest, CopyError) {
+  // Parent directory doesn't exist, cannot copy file.
+  const std::string file_a = absl::StrCat(TestTmpDir(), "/file_a");
+  const std::string file_b = absl::StrCat(TestTmpDir(), "/no_exist_dir/file_b");
+  ZETASQL_ASSERT_OK(SetContents(file_a, "test"));
+  absl::Status s = Copy(file_a, file_b);
+  EXPECT_FALSE(s.ok());
 }
 
 }  // namespace zetasql::internal

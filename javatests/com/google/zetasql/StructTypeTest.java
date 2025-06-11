@@ -24,6 +24,7 @@ import static com.google.zetasql.TypeTestBase.checkTypeSerializationAndDeseriali
 import static com.google.zetasql.TypeTestBase.checkTypeSerializationAndDeserializationExistingPools;
 import static com.google.zetasql.TypeTestBase.getDescriptorPoolWithTypeProtoAndTypeKind;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.zetasql.ZetaSQLOptions.ProductMode;
 import com.google.zetasql.ZetaSQLType.StructFieldProto;
@@ -39,6 +40,21 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 
 public class StructTypeTest {
+
+  @Test
+  public void testComponentTypes() {
+    assertThat(
+            TypeFactory.createStructType(
+                    ImmutableList.of(
+                        new StructType.StructField(
+                            "a", TypeFactory.createSimpleType(TypeKind.TYPE_INT32)),
+                        new StructType.StructField(
+                            "b", TypeFactory.createSimpleType(TypeKind.TYPE_INT64))))
+                .componentTypes())
+        .containsExactly(
+            TypeFactory.createSimpleType(TypeKind.TYPE_INT32),
+            TypeFactory.createSimpleType(TypeKind.TYPE_INT64));
+  }
 
   @Test
   public void testSerializationAndDeserializationZeroFields() {

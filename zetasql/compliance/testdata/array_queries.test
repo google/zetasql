@@ -446,7 +446,7 @@ ARRAY<STRUCT<elem BOOL>>[unknown order:
 ]
 ==
 
-[required_features=V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH]
+[required_features=SINGLE_TABLE_NAME_ARRAY_PATH]
 [name=select_bool_array_unnest_from_table_name_array_path]
 SELECT elem FROM AllArraysTable.bool_arrcol elem
 --
@@ -504,7 +504,7 @@ ARRAY<STRUCT<elem INT32>>[unknown order:
 ]
 ==
 
-[required_features=V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH]
+[required_features=SINGLE_TABLE_NAME_ARRAY_PATH]
 [name=select_int32_array_unnest_from_table_name_array_path]
 SELECT elem FROM AllArraysTable.int32_arrcol elem
 --
@@ -562,7 +562,7 @@ ARRAY<STRUCT<elem UINT32>>[unknown order:
 ]
 ==
 
-[required_features=V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH]
+[required_features=SINGLE_TABLE_NAME_ARRAY_PATH]
 [name=select_uint32_array_unnest_from_table_name_array_path]
 SELECT elem FROM AllArraysTable.uint32_arrcol elem
 --
@@ -621,7 +621,7 @@ ARRAY<STRUCT<elem INT64>>[unknown order:
 ]
 ==
 
-[required_features=V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH]
+[required_features=SINGLE_TABLE_NAME_ARRAY_PATH]
 [name=select_int64_array_unnest_from_table_name_array_path]
 SELECT elem FROM AllArraysTable.int64_arrcol elem
 --
@@ -1237,7 +1237,7 @@ ARRAY<STRUCT<ARRAY<>>>[unknown order:
 # false
 # ==
 
-[required_features=V_1_1_ARRAY_EQUALITY]
+[required_features=ARRAY_EQUALITY]
 [name=select_array_equality_literals]
 SELECT [] = [],
        [1,2,3] = [1,2,3],
@@ -1252,14 +1252,14 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_1_ARRAY_EQUALITY]
+[required_features=ARRAY_EQUALITY]
 [name=select_array_equality_empty_array_null]
 SELECT [] = cast(NULL AS ARRAY<INT64>)
 --
 ARRAY<STRUCT<BOOL>>[{NULL}]
 ==
 
-[required_features=V_1_1_ARRAY_EQUALITY]
+[required_features=ARRAY_EQUALITY]
 [name=select_array_equality_join_on_array_types]
 SELECT *
 FROM AllArraysTable a JOIN AllArraysTable b
@@ -1455,7 +1455,7 @@ ARRAY<STRUCT<
 ]
 ==
 
-[required_features=V_1_1_ARRAY_EQUALITY]
+[required_features=ARRAY_EQUALITY]
 [name=select_array_equality_all_array_types]
 SELECT bool_arrcol = bool_arrcol,
        int32_arrcol = int32_arrcol,
@@ -1487,7 +1487,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, B
 
 # In this test, the arrays have no guaranteed order, so the result of equality
 # is not knowable. This query should be marked as non-deterministic.
-[required_features=V_1_1_ARRAY_EQUALITY]
+[required_features=ARRAY_EQUALITY]
 [name=array_equality_on_incidentally_different_ordered_arrays]
 SELECT a, b, a = b
 FROM (
@@ -1508,7 +1508,7 @@ NOTE: Reference implementation reports non-determinism.
 
 # In this test, the arrays have no guaranteed order, so the result of equality
 # is not knowable. This query should be marked as non-deterministic.
-[required_features=V_1_3_IS_DISTINCT,V_1_2_GROUP_BY_ARRAY]
+[required_features=IS_DISTINCT,GROUP_BY_ARRAY]
 [name=array_distinct_from_on_incidentally_different_ordered_arrays]
 SELECT a, b, a IS NOT DISTINCT FROM b
 FROM (
@@ -1531,7 +1531,7 @@ NOTE: Reference implementation reports non-determinism.
 # are the same 'set', but the array lengths are different. This is
 # deterministic, so the reference implementation should not signal that this
 # result is non-deterministic.
-[required_features=V_1_1_ARRAY_EQUALITY]
+[required_features=ARRAY_EQUALITY]
 [name=array_equality_on_incidentally_different_ordered_arrays_of_different_lenths]
 SELECT a, b, a = b
 FROM (
@@ -1552,7 +1552,7 @@ ARRAY<STRUCT<a ARRAY<>, b ARRAY<>, BOOL>>[
 # same length, but the sets of values are different. This is
 # deterministic, but its more expensive to compute than we probably want in
 # the equality operator, so we let this be a false positive for now.
-[required_features=V_1_1_ARRAY_EQUALITY]
+[required_features=ARRAY_EQUALITY]
 [name=array_equality_on_incidentally_different_ordered_arrays_of_different_value_sets]
 SELECT a, b, a = b
 FROM (
@@ -1573,7 +1573,7 @@ NOTE: Reference implementation reports non-determinism.
 
 # In this test, the arrays have no guaranteed order, so the result of equality
 # is not knowable. This query should be marked as non-deterministic.
-[required_features=V_1_1_ARRAY_EQUALITY]
+[required_features=ARRAY_EQUALITY]
 [name=array_equality_on_incidentally_different_ordered_arrays_nested_in_structs]
 SELECT a, b, a = b
 FROM (
@@ -1601,7 +1601,7 @@ NOTE: Reference implementation reports non-determinism.
 
 # In this test, the arrays have no guaranteed order, so the result of equality
 # is not knowable. This query should be marked as non-deterministic.
-[required_features=V_1_1_ARRAY_EQUALITY]
+[required_features=ARRAY_EQUALITY]
 [name=array_equality_on_incidentally_different_ordered_arrays_embeed_in_ordered_arrays]
 SELECT a, b, a = b
 FROM (
@@ -1632,7 +1632,7 @@ NOTE: Reference implementation reports non-determinism.
 
 # In this test, the arrays have no guaranteed order, so the result of inequality
 # is not knowable. This query should be marked as non-deterministic.
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 [name=array_inequality_on_incidentally_different_ordered_arrays]
 SELECT a, b, a < b
 FROM (
@@ -1654,7 +1654,7 @@ NOTE: Reference implementation reports non-determinism.
 # In this test, the arrays have no guaranteed order and which elements are the
 # prefix of the array is unknowable. The result of inequality is likewise
 # unknowable. This query should be marked as non-deterministic.
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 [name=array_inequality_on_incidentally_different_ordered_arrays_of_different_lenths]
 SELECT a, b, a < b
 FROM (
@@ -1676,7 +1676,7 @@ NOTE: Reference implementation reports non-determinism.
 # In this test, the arrays have no guaranteed order and which elements are the
 # prefix of the array is unknowable. The result of inequality is likewise
 # unknowable. This query should be marked as non-deterministic.
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 [name=array_lessequal_on_incidentally_different_ordered_arrays_of_different_lenths]
 SELECT a, b, a <= b
 FROM (
@@ -1701,7 +1701,7 @@ NOTE: Reference implementation reports non-determinism.
 # reference implementation does not report this as non-deterministic. This is
 # deterministic, but its more expensive to compute than we probably want in
 # the equality operator, so we let this be a false positive for now.
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 [name=array_inequality_on_incidentally_different_ordered_arrays_of_disjoint_value_ranges]
 SELECT a, b, a < b
 FROM (
@@ -1723,7 +1723,7 @@ NOTE: Reference implementation reports non-determinism.
 # In this test, the arrays have no guaranteed internal order, so the order
 # between the output rows is unknowable. The result rows in this query should
 # have unknown order.
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 [name=array_order_by_on_incidentally_different_ordered_arrays]
 SELECT a
 FROM (
@@ -1741,7 +1741,7 @@ ARRAY<STRUCT<a ARRAY<>>>[unknown order:
 
 # In this test, the arrays have no guaranteed internal order, but the leading
 # column in the order by key does. The row order of the final output is known.
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 [name=array_order_by_on_incidentally_different_ordered_arrays_with_ordered_prefix]
 SELECT a
 FROM (
@@ -1760,7 +1760,7 @@ ARRAY<STRUCT<a ARRAY<>>>[known order:
 # In this test, the arrays have no guaranteed internal order, though the
 # trailing column in the order by key does. The result rows in this query
 # should have unknown order.
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 [name=array_order_by_on_incidentally_different_ordered_arrays_with_ordered_suffix]
 SELECT a
 FROM (
@@ -1779,7 +1779,7 @@ ARRAY<STRUCT<a ARRAY<>>>[unknown order:
 # In this test, the arrays have no guaranteed internal order and the leading
 # column in the order by provides no useful information. The result rows in
 # this query should have unknown order.
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 [name=array_order_by_on_incidentally_different_ordered_arrays_with_unordered_prefix]
 SELECT a
 FROM (
@@ -1797,7 +1797,7 @@ ARRAY<STRUCT<a ARRAY<>>>[unknown order:
 
 # In this test, the arrays have no guarenteed internal order, so whether the two
 # rows group  is not knowable.
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 [name=array_group_by_on_incidentally_different_ordered_arrays_nested_in_structs]
 SELECT a
 FROM (
@@ -1817,7 +1817,7 @@ NOTE: Reference implementation reports non-determinism.
 
 # In this test, the arrays have no guarenteed internal order, so whether the two
 # rows group  is not knowable.
-[required_features=V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_ARRAY,GROUP_BY_STRUCT]
 [name=array_group_by_on_incidentally_different_ordered_arrays_embedded_in_ordered_arrays]
 SELECT a
 FROM (
@@ -1843,7 +1843,7 @@ NOTE: Reference implementation reports non-determinism.
 
 # In this test, the arrays have no guarenteed internal order, so whether the two
 # rows group  is not knowable.
-[required_features=V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_ARRAY,GROUP_BY_STRUCT]
 [name=array_group_by_on_incidentally_different_ordered_arrays]
 SELECT a
 FROM (

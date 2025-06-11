@@ -1,5 +1,5 @@
 # Table with UID in the WITH clause, anonymization in the outer SELECT
-[default language_features=ANONYMIZATION,V_1_1_WITH_ON_SUBQUERY,V_1_3_WITH_RECURSIVE]
+[default language_features=ANONYMIZATION,WITH_ON_SUBQUERY,WITH_RECURSIVE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 
 WITH t as (select *
@@ -419,6 +419,7 @@ QueryStmt
     |           |   +-expr_list=
     |           |   | +-$col1#17 :=
     |           |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |           |   |     +-parse_location=104-111
     |           |   |     +-ColumnRef(parse_location=104-109, type=INT64, column=t1.int64#15)
     |           |   |     +-Literal(parse_location=110-111, type=INT64, value=1)
     |           |   +-input_scan=

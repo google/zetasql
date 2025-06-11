@@ -40,6 +40,8 @@ class GraphNodeTable;
 class GraphPropertyDefinition;
 class GraphElementLabel;
 class GraphPropertyDeclaration;
+class GraphDynamicLabel;
+class GraphDynamicProperties;
 
 ABSL_DEPRECATED(
     "Do not use this function. It exists only as a bridge until all callers of "
@@ -216,6 +218,21 @@ class GraphElementTable {
   virtual absl::Status GetLabels(
       absl::flat_hash_set<const GraphElementLabel*>& output) const = 0;
 
+  // Returns true if this GraphElementTable has a dynamic label.
+  virtual bool HasDynamicLabel() const { return false; }
+  // Returns the dynamic label of this GraphElementTable.
+  virtual absl::Status GetDynamicLabel(
+      const GraphDynamicLabel*& dynamic_label) const {
+    ABSL_LOG(FATAL) << "Not implemented";  // Crash OK
+  }
+
+  // Returns true if this GraphElementTable has dynamic properties.
+  virtual bool HasDynamicProperties() const { return false; }
+  // Returns the dynamic properties of this GraphElementTable.
+  virtual absl::Status GetDynamicProperties(
+      const GraphDynamicProperties*& dynamic_properties) const {
+    ABSL_LOG(FATAL) << "Not implemented";  // Crash OK
+  }
   // Returns whether or not this GraphElementTable is a specific
   // interface or implementation.
   template <class GraphElementTableSubclass>
@@ -397,6 +414,54 @@ class GraphPropertyDefinition {
   template <class GraphPropertyDefinitionSubclass>
   const GraphPropertyDefinitionSubclass* GetAs() const {
     return static_cast<const GraphPropertyDefinitionSubclass*>(this);
+  }
+};
+
+class GraphDynamicLabel {
+ public:
+  virtual ~GraphDynamicLabel() = default;
+
+  // IMPORTANT: Intended for debugging only. DO NOT USE THIS FUNCTION for actual
+  // logic. It is ambiguous as it may contain dots, as part of a path
+  // expression.
+  //
+  // Returns a SQL expression of the dynamic label column, as part of its
+  // definition.
+  virtual absl::string_view label_expression() const = 0;
+
+  virtual absl::StatusOr<const ResolvedExpr*> GetValueExpression() const = 0;
+
+  template <class GraphDynamicLabelSubclass>
+  bool Is() const {
+    return dynamic_cast<const GraphDynamicLabelSubclass*>(this) != nullptr;
+  }
+  template <class GraphDynamicLabelSubclass>
+  const GraphDynamicLabelSubclass* GetAs() const {
+    return static_cast<const GraphDynamicLabelSubclass*>(this);
+  }
+};
+
+class GraphDynamicProperties {
+ public:
+  virtual ~GraphDynamicProperties() = default;
+
+  // IMPORTANT: Intended for debugging only. DO NOT USE THIS FUNCTION for actual
+  // logic. It is ambiguous as it may contain dots, as part of a path
+  // expression.
+  //
+  // Returns a SQL expression of the dynamic properties column, as part of its
+  // definition.
+  virtual absl::string_view properties_expression() const = 0;
+
+  virtual absl::StatusOr<const ResolvedExpr*> GetValueExpression() const = 0;
+
+  template <class GraphDynamicPropertiesSubclass>
+  bool Is() const {
+    return dynamic_cast<const GraphDynamicPropertiesSubclass*>(this) != nullptr;
+  }
+  template <class GraphDynamicPropertiesSubclass>
+  const GraphDynamicPropertiesSubclass* GetAs() const {
+    return static_cast<const GraphDynamicPropertiesSubclass*>(this);
   }
 };
 

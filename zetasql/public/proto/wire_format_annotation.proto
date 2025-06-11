@@ -85,6 +85,10 @@ extend google.protobuf.FieldOptions {
   //
   // See (broken link) for details
   optional bool is_hidden_column = 337961191;
+
+  // Indicate that when the containing proto is converted to a SQL table,
+  // the column for this field will become a measure column.
+  optional bool is_measure = 535801544;
 }
 
 enum TableType {

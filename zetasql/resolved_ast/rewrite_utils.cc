@@ -34,6 +34,7 @@
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/functions/differential_privacy.pb.h"
 #include "zetasql/public/input_argument_type.h"
+#include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type.h"
@@ -368,6 +369,20 @@ absl::StatusOr<std::unique_ptr<const ResolvedNode>> RemapColumnsImpl(
     ColumnFactory* column_factory, ColumnReplacementMap& column_map) {
   ColumnRemappingResolvedASTRewriter rewriter(column_map, column_factory);
   return rewriter.VisitAll(std::move(input_tree));
+}
+
+ResolvedColumnList RemapColumnList(const ResolvedColumnList& column_list,
+                                   ColumnReplacementMap& column_map) {
+  ResolvedColumnList new_output_column_list;
+  for (const auto& col : column_list) {
+    auto it = column_map.find(col);
+    if (it != column_map.end()) {
+      new_output_column_list.push_back(it->second);
+    } else {
+      new_output_column_list.push_back(col);
+    }
+  }
+  return new_output_column_list;
 }
 
 // TODO: Propagate annotations correctly for this function, if
@@ -1455,11 +1470,62 @@ FunctionCallBuilder::NestedBinaryOp(
   return absl::WrapUnique(result.release()->GetAs<ResolvedFunctionCall>());
 }
 
+absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
+FunctionCallBuilder::CreateTypedLiteralZero(const Type* type) {
+  ZETASQL_RET_CHECK(type->IsNumerical());
+  switch (type->kind()) {
+    case TYPE_INT64:
+      return MakeResolvedLiteral(type, Value::Int64(0));
+    case TYPE_UINT64:
+      return MakeResolvedLiteral(type, Value::Uint64(0));
+    case TYPE_DOUBLE:
+      return MakeResolvedLiteral(type, Value::Double(0));
+    case TYPE_NUMERIC:
+      return MakeResolvedLiteral(type, Value::Numeric(NumericValue(0)));
+    case TYPE_BIGNUMERIC:
+      return MakeResolvedLiteral(type, Value::BigNumeric(BigNumericValue(0)));
+    default: {
+      ZETASQL_RET_CHECK_FAIL() << "Unexpected argument type in CreateTypedLiteralZero: "
+                       << type->DebugString();
+    }
+  }
+}
+
 absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
 FunctionCallBuilder::NestedBinaryInt64Add(
     std::vector<std::unique_ptr<const ResolvedExpr>> expressions) {
   return NestedBinaryOp("$add", FN_ADD_INT64, std::move(expressions),
                         types::Int64Type());
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
+FunctionCallBuilder::NestedBinaryAdd(
+    const Type* type,
+    std::vector<std::unique_ptr<const ResolvedExpr>> expressions) {
+  ZETASQL_RET_CHECK(type->IsNumerical());
+  FunctionSignatureId function_signature_id;
+  switch (type->kind()) {
+    case TYPE_INT64:
+      function_signature_id = FN_ADD_INT64;
+      break;
+    case TYPE_UINT64:
+      function_signature_id = FN_ADD_UINT64;
+      break;
+    case TYPE_DOUBLE:
+      function_signature_id = FN_ADD_DOUBLE;
+      break;
+    case TYPE_NUMERIC:
+      function_signature_id = FN_ADD_NUMERIC;
+      break;
+    case TYPE_BIGNUMERIC:
+      function_signature_id = FN_ADD_BIGNUMERIC;
+      break;
+    default:
+      ZETASQL_RET_CHECK_FAIL() << "Unexpected argument type in NestedBinaryAdd: "
+                       << type->DebugString();
+  }
+  return NestedBinaryOp("$add", function_signature_id, std::move(expressions),
+                        type);
 }
 
 // Construct a ResolvedAnalyticFunctionCall for ROW_NUMBER()
@@ -1535,14 +1601,15 @@ absl::StatusOr<const zetasql::Type*> GetCommonGraphElementSuperType(
   return coercer.GetCommonSuperType(types);
 }
 
-// Returns a cast of the given expr to the given type, or the expr itself if the
-// types are already the same.
+// Returns a cast of the given expr to the given type, or the expr itself if
+// the types are already the same.
 absl::StatusOr<std::unique_ptr<const ResolvedExpr>> CastGraphElementIfNeeded(
     std::unique_ptr<const ResolvedExpr> expr, const Type* to_type) {
   ZETASQL_RET_CHECK(expr != nullptr);
   ZETASQL_RET_CHECK(to_type != nullptr);
 
-  // The to_type is already the same as the expr type, return the expr directly.
+  // The to_type is already the same as the expr type, return the expr
+  // directly.
   if (expr->type()->Equals(to_type)) {
     return std::move(expr);
   }
@@ -1897,7 +1964,8 @@ static absl::StatusOr<const FunctionSignature*> GetModSignature(
     switch (mod_signature_id) {
       case FN_MOD_NUMERIC:
         return absl::InvalidArgumentError(
-            "The provided catalog does not have the FN_MOD_NUMERIC signature. "
+            "The provided catalog does not have the FN_MOD_NUMERIC "
+            "signature. "
             "Did you forget to enable FEATURE_NUMERIC_TYPE?");
       case FN_MOD_BIGNUMERIC:
         return absl::InvalidArgumentError(
@@ -2257,7 +2325,7 @@ FunctionCallBuilder::PathLast(std::unique_ptr<const ResolvedExpr> path) {
 
 absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
 FunctionCallBuilder::PathNodes(
-    absl::Nonnull<std::unique_ptr<const ResolvedExpr>> path) {
+    /*absl_nonnull*/ std::unique_ptr<const ResolvedExpr> path) {
   ZETASQL_RET_CHECK(path->type()->IsGraphPath());
   const ArrayType* return_type;
   ZETASQL_RETURN_IF_ERROR(type_factory_.MakeArrayType(
@@ -2538,8 +2606,8 @@ class CorrelatedColumnRefCollector : public ResolvedASTVisitor {
     // ) from OuterTable
     //
     //  Here for the visited node, OuterTable.col is returned as a correlated
-    //  column; however Table.col will NOT be returned because Table.col is only
-    //  correlated in the inner subquery of the visited node.
+    //  column; however Table.col will NOT be returned because Table.col is
+    //  only correlated in the inner subquery of the visited node.
     if (ref->is_correlated()) {
       if (!uncorrelated_column_ids_.contains(col.column_id())) {
         correlated_columns_.insert(col);
@@ -2669,7 +2737,7 @@ FunctionCallBuilder::ExtractForDpApproxCountDistinct(
 
 absl::StatusOr<std::unique_ptr<const ResolvedAnalyticFunctionCall>>
 FunctionCallBuilder::IsFirstK(
-    absl::Nonnull<std::unique_ptr<const ResolvedExpr>> arg_k) {
+    /*absl_nonnull*/ std::unique_ptr<const ResolvedExpr> arg_k) {
   ZETASQL_RET_CHECK(arg_k->type()->IsInt64());
   ZETASQL_RET_CHECK(arg_k->Is<ResolvedLiteral>() || arg_k->Is<ResolvedParameter>());
   const Function* analytic_function = nullptr;

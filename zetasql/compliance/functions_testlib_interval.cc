@@ -31,12 +31,15 @@
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
+#include "google/protobuf/util/time_util.h"
 
 namespace zetasql {
 
 constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 
 namespace {
+
+using ::google::protobuf::util::TimeUtil;
 
 std::vector<QueryParamsWithResult> WrapFeatureIntervalType(
     absl::Span<const QueryParamsWithResult> params) {
@@ -53,8 +56,8 @@ std::vector<QueryParamsWithResult> WrapFeaturesIntervalAndCivilTimeTypes(
   std::vector<QueryParamsWithResult> wrapped_params;
   wrapped_params.reserve(params.size());
   for (const auto& param : params) {
-    wrapped_params.emplace_back(param.WrapWithFeatureSet(
-        {FEATURE_V_1_2_CIVIL_TIME, FEATURE_INTERVAL_TYPE}));
+    wrapped_params.emplace_back(
+        param.WrapWithFeatureSet({FEATURE_CIVIL_TIME, FEATURE_INTERVAL_TYPE}));
   }
   return wrapped_params;
 }
@@ -106,6 +109,8 @@ Value FromString(absl::string_view str) {
 Value SecondsNanos(int64_t seconds, __int128 nanos) {
   return Nanos(seconds * IntervalValue::kNanosInSecond + nanos);
 }
+
+Value NullProtoDuration() { return Value::Null(ProtoDurationType()); }
 
 }  // namespace
 
@@ -1223,14 +1228,10 @@ std::vector<FunctionTestCall> GetFunctionTestsToSecondsInterval() {
 }
 
 std::vector<FunctionTestCall> GetFunctionTestsFromProtoDuration() {
-  const int64_t kDurationMinSeconds = -315576000000;
-  const int64_t kDurationMaxSeconds = 315576000000;
-  const int32_t kDurationMinNanoseconds = -999999999;
-  const int32_t kDurationMaxNanoseconds = 999999999;
-
   // Tests cases where the timestamp scale is MICROSECONDS (currently determined
   // based on the FEATURE_TIMESTAMP_NANOS language feature flag).
   std::vector<FunctionTestCall> tests_scale_micro = {
+      {"from_proto", {NullProtoDuration()}, NullInterval()},
       {"from_proto", {ProtoDuration(0, 0)}, Seconds(0)},
       {"from_proto", {ProtoDuration(0, 10)}, Micros(0)},
       {"from_proto", {ProtoDuration(0, -10)}, Micros(0)},
@@ -1245,15 +1246,17 @@ std::vector<FunctionTestCall> GetFunctionTestsFromProtoDuration() {
        {ProtoDuration(-123456, -123456)},
        SecondsNanos(-123456, -123000)},
       {"from_proto",
-       {ProtoDuration(kDurationMaxSeconds, kDurationMaxNanoseconds)},
-       SecondsNanos(kDurationMaxSeconds, 999999000)},
+       {ProtoDuration(TimeUtil::kDurationMaxSeconds,
+                      TimeUtil::kDurationMaxNanoseconds)},
+       SecondsNanos(TimeUtil::kDurationMaxSeconds, 999999000)},
       {"from_proto",
-       {ProtoDuration(kDurationMinSeconds, kDurationMinNanoseconds)},
-       SecondsNanos(kDurationMinSeconds, -999999000)},
+       {ProtoDuration(TimeUtil::kDurationMinSeconds,
+                      TimeUtil::kDurationMinNanoseconds)},
+       SecondsNanos(TimeUtil::kDurationMinSeconds, -999999000)},
   };
   for (FunctionTestCall& test : tests_scale_micro) {
     test.params.AddRequiredFeatures(
-        {FEATURE_INTERVAL_TYPE, FEATURE_V_1_4_FROM_PROTO_DURATION});
+        {FEATURE_INTERVAL_TYPE, FEATURE_FROM_AND_TO_PROTO_INTERVAL});
   }
 
   // Tests cases where the timestamp precision is set to NANOSECONDS.
@@ -1271,15 +1274,19 @@ std::vector<FunctionTestCall> GetFunctionTestsFromProtoDuration() {
        {ProtoDuration(-123456, -123456)},
        SecondsNanos(-123456, -123456)},
       {"from_proto",
-       {ProtoDuration(kDurationMaxSeconds, kDurationMaxNanoseconds)},
-       SecondsNanos(kDurationMaxSeconds, kDurationMaxNanoseconds)},
+       {ProtoDuration(TimeUtil::kDurationMaxSeconds,
+                      TimeUtil::kDurationMaxNanoseconds)},
+       SecondsNanos(TimeUtil::kDurationMaxSeconds,
+                    TimeUtil::kDurationMaxNanoseconds)},
       {"from_proto",
-       {ProtoDuration(kDurationMinSeconds, kDurationMinNanoseconds)},
-       SecondsNanos(kDurationMinSeconds, kDurationMinNanoseconds)},
+       {ProtoDuration(TimeUtil::kDurationMinSeconds,
+                      TimeUtil::kDurationMinNanoseconds)},
+       SecondsNanos(TimeUtil::kDurationMinSeconds,
+                    TimeUtil::kDurationMinNanoseconds)},
   };
   for (FunctionTestCall& test : tests_scale_nano) {
     test.params.AddRequiredFeatures({FEATURE_INTERVAL_TYPE,
-                                     FEATURE_V_1_4_FROM_PROTO_DURATION,
+                                     FEATURE_FROM_AND_TO_PROTO_INTERVAL,
                                      FEATURE_TIMESTAMP_NANOS});
   }
 
@@ -1287,6 +1294,63 @@ std::vector<FunctionTestCall> GetFunctionTestsFromProtoDuration() {
   tests.reserve(tests_scale_micro.size() + tests_scale_nano.size());
   tests.insert(tests.end(), tests_scale_micro.begin(), tests_scale_micro.end());
   tests.insert(tests.end(), tests_scale_nano.begin(), tests_scale_nano.end());
+  return tests;
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsToProtoInterval() {
+  std::vector<FunctionTestCall> tests = {
+      {"to_proto", {NullInterval()}, NullProtoDuration()},
+      {"to_proto", {Nanos(0)}, ProtoDuration(0, 0)},
+      {"to_proto", {Nanos(10)}, ProtoDuration(0, 10)},
+      {"to_proto", {Nanos(-10)}, ProtoDuration(0, -10)},
+      {"to_proto", {Nanos(12345)}, ProtoDuration(0, 12345)},
+      {"to_proto", {Nanos(-12345)}, ProtoDuration(0, -12345)},
+      {"to_proto", {Seconds(10)}, ProtoDuration(10, 0)},
+      {"to_proto", {Seconds(-10)}, ProtoDuration(-10, 0)},
+      {"to_proto", {SecondsNanos(10, 10)}, ProtoDuration(10, 10)},
+      {"to_proto", {SecondsNanos(-10, -10)}, ProtoDuration(-10, -10)},
+      {"to_proto",
+       {SecondsNanos(123456, 123456)},
+       ProtoDuration(123456, 123456)},
+      {"to_proto",
+       {SecondsNanos(-123456, -123456)},
+       ProtoDuration(-123456, -123456)},
+
+      // Testcases resulting in maximum/minimum value of a Duration proto.
+      {"to_proto",
+       {SecondsNanos(TimeUtil::kDurationMaxSeconds,
+                     TimeUtil::kDurationMaxNanoseconds)},
+       ProtoDuration(TimeUtil::kDurationMaxSeconds,
+                     TimeUtil::kDurationMaxNanoseconds)},
+      {"to_proto",
+       {SecondsNanos(TimeUtil::kDurationMinSeconds,
+                     TimeUtil::kDurationMinNanoseconds)},
+       ProtoDuration(TimeUtil::kDurationMinSeconds,
+                     TimeUtil::kDurationMinNanoseconds)},
+
+      // Intervals with NANOS-only part, but the interval value is larger /
+      // smaller than the range of a Duration proto.
+      {"to_proto",
+       {SecondsNanos(TimeUtil::kDurationMaxSeconds + 1, 0)},
+       NullProtoDuration(),
+       OUT_OF_RANGE},
+      {"to_proto",
+       {SecondsNanos(TimeUtil::kDurationMinSeconds - 1, 0)},
+       NullProtoDuration(),
+       OUT_OF_RANGE},
+
+      // Intervals with MONTHS or DAYS part are not allowed.
+      {"to_proto", {Years(1)}, NullProtoDuration(), OUT_OF_RANGE},
+      {"to_proto", {Years(-1)}, NullProtoDuration(), OUT_OF_RANGE},
+      {"to_proto", {Months(1)}, NullProtoDuration(), OUT_OF_RANGE},
+      {"to_proto", {Months(-1)}, NullProtoDuration(), OUT_OF_RANGE},
+      {"to_proto", {Days(1)}, NullProtoDuration(), OUT_OF_RANGE},
+      {"to_proto", {Days(-1)}, NullProtoDuration(), OUT_OF_RANGE},
+  };
+  for (FunctionTestCall& test : tests) {
+    test.params.AddRequiredFeatures(
+        {FEATURE_INTERVAL_TYPE, FEATURE_FROM_AND_TO_PROTO_INTERVAL});
+  }
   return tests;
 }
 

@@ -24,17 +24,15 @@
 
 #include "zetasql/base/arena.h"
 #include "zetasql/common/errors.h"
-#include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/macros/flex_token_provider.h"
 #include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/macros/macro_expander.h"
+#include "zetasql/parser/parser_mode.h"
 #include "zetasql/parser/tm_token.h"
 #include "zetasql/parser/token_with_location.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
-#include "absl/base/macros.h"
-#include "absl/container/flat_hash_map.h"
 #include "zetasql/base/check.h"
 #include "absl/log/log.h"
 #include "absl/memory/memory.h"
@@ -49,44 +47,39 @@ namespace zetasql {
 // Implementation of the wrapper calls forward-declared in parser_internal.h.
 // This workaround is to avoid creating an interface and incurring a v-table
 // lookup on every token.
-namespace parser_internal {
-using zetasql::parser::BisonParserMode;
+namespace parser {
+namespace internal {
 using zetasql::parser::LookaheadTransformer;
+using zetasql::parser::ParserMode;
 using parser::Token;
 
-void SetForceTerminate(LookaheadTransformer* lookahead_transformer,
-                       int* end_offset) {
-  return lookahead_transformer->SetForceTerminate(end_offset);
+void PushParserMode(LookaheadTransformer& lookahead_transformer,
+                    ParserMode mode) {
+  return lookahead_transformer.PushParserMode(mode);
 }
-void PushBisonParserMode(LookaheadTransformer* lookahead_transformer,
-                         BisonParserMode mode) {
-  return lookahead_transformer->PushBisonParserMode(mode);
+void PopParserMode(LookaheadTransformer& lookahead_transformer) {
+  return lookahead_transformer.PopParserMode();
 }
-void PopBisonParserMode(LookaheadTransformer* lookahead_transformer) {
-  return lookahead_transformer->PopBisonParserMode();
-}
-Token GetNextToken(LookaheadTransformer* lookahead_transformer,
+Token GetNextToken(LookaheadTransformer& lookahead_transformer,
                    absl::string_view* text, ParseLocationRange* location) {
-  return lookahead_transformer->GetNextToken(text, location);
+  return lookahead_transformer.GetNextToken(text, location);
 }
 absl::Status OverrideNextTokenLookback(
-    LookaheadTransformer* lookahead_transformer, bool parser_lookahead_is_empty,
+    LookaheadTransformer& lookahead_transformer, bool parser_lookahead_is_empty,
     Token expected_next_token, Token lookback_token) {
-  return lookahead_transformer->OverrideNextTokenLookback(
+  return lookahead_transformer.OverrideNextTokenLookback(
       parser_lookahead_is_empty, expected_next_token, lookback_token);
 }
 
 absl::Status OverrideCurrentTokenLookback(
-    LookaheadTransformer* lookahead_transformer, Token new_token_kind) {
-  return lookahead_transformer->OverrideCurrentTokenLookback(new_token_kind);
+    LookaheadTransformer& lookahead_transformer, Token new_token_kind) {
+  return lookahead_transformer.OverrideCurrentTokenLookback(new_token_kind);
 }
-}  // namespace parser_internal
+}  // namespace internal
 
-namespace parser {
 // Include the helpful type aliases in the namespace within the C++ file so
 // that they are useful for free helper functions as well as class member
 // functions.
-using TokenKind ABSL_DEPRECATED("Inline me!") = Token;
 using Location = ParseLocationRange;
 using DiagnosticOptions = macros::DiagnosticOptions;
 using FlexTokenProvider = macros::FlexTokenProvider;
@@ -160,24 +153,32 @@ static absl::Status MakeError(absl::string_view error_message,
   return MakeSqlErrorAtPoint(yylloc.start()) << error_message;
 }
 
-static bool IsValidPreviousTokenBeforeScriptLabel(const Token previous_token) {
-  switch (previous_token) {
-    case Token::SEMICOLON:
-    case Token::LB_END_OF_STATEMENT_LEVEL_HINT:
-    case Token::LB_OPEN_STATEMENT_BLOCK:
-    case Token::LB_BEGIN_AT_STATEMENT_START:
-    case Token::KW_ELSE:
-    case Token::KW_THEN:
-    case Token::MODE_NEXT_SCRIPT_STATEMENT:
-    case Token::MODE_NEXT_STATEMENT_KIND:
-    case Token::MODE_SCRIPT:
-      return true;
-    default:
-      return false;
+static Token GetLookbackToken(
+    const std::optional<TokenWithOverrideError>& lookback_slot) {
+  if (!lookback_slot.has_value()) {
+    return Token::UNAVAILABLE;
   }
+  if (lookback_slot->lookback_override != Token::UNAVAILABLE) {
+    return lookback_slot->lookback_override;
+  }
+  return lookback_slot->token.kind;
 }
 
-static bool IsValidPreviousTokenToSqlStatement(Token token) {
+bool LookaheadTransformer::IsValidPreviousTokenToSqlStatement(
+    const std::optional<TokenWithOverrideError>& lookback_slot) const {
+  if (!lookback_slot.has_value()) {
+    switch (mode_) {
+      case ParserMode::kNextScriptStatement:
+      case ParserMode::kNextStatementKind:
+      case ParserMode::kNextStatement:
+      case ParserMode::kScript:
+      case ParserMode::kStatement:
+        return true;
+      default:
+        return false;
+    }
+  }
+  Token token = GetLookbackToken(lookback_slot);
   switch (token) {
     case Token::SEMICOLON:
     case Token::LB_EXPLAIN_SQL_STATEMENT:
@@ -186,23 +187,17 @@ static bool IsValidPreviousTokenToSqlStatement(Token token) {
     case Token::LB_BEGIN_AT_STATEMENT_START:
     case Token::KW_ELSE:
     case Token::KW_THEN:
-    case Token::MODE_NEXT_SCRIPT_STATEMENT:
-    case Token::MODE_NEXT_STATEMENT_KIND:
-    case Token::MODE_NEXT_STATEMENT:
-    case Token::MODE_SCRIPT:
-    case Token::MODE_STATEMENT:
       return true;
     default:
       return false;
   }
 }
 
-static bool IsValidLookbackToStartQuery(Token lookback1, Token lookback2,
-                                        Token lookback3) {
-  if (IsValidPreviousTokenToSqlStatement(lookback1)) {
+bool LookaheadTransformer::IsValidLookbackToStartQuery() const {
+  if (IsValidPreviousTokenToSqlStatement(lookback_1_)) {
     return true;
   }
-  switch (lookback1) {
+  switch (Lookback1()) {
     case Token::LB_PAREN_OPENS_QUERY:
       return true;
     case Token::LB_AS_BEFORE_QUERY:
@@ -223,38 +218,41 @@ static bool IsValidLookbackToStartQuery(Token lookback1, Token lookback2,
     case Token::KW_CORRESPONDING:
       return
           // Case ... UNION ALL CORRESPONDING ● SELECT
-          lookback2 == Token::LB_SET_OP_QUANTIFIER ||
+          Lookback2() == Token::LB_SET_OP_QUANTIFIER ||
           // Case ... UNION ALL STRICT CORRESPONDING ● SELECT
-          (lookback2 == Token::KW_STRICT &&
-           lookback3 == Token::LB_SET_OP_QUANTIFIER);
+          (Lookback2() == Token::KW_STRICT &&
+           Lookback3() == Token::LB_SET_OP_QUANTIFIER);
     default:
       return false;
   }
 }
 
-// Returns whether the token in `token_with_location` is a SCRIPT_LABEL token.
-// It is a script label token if:
-// - `IsValidPreviousTokenBeforeScriptLabel(previous_token)` returns true.
-// - The token itself is a keyword or identifier.
-// - The token is followed by a colon, and the followed by one of the tokens in
-//   [BEGIN, WHILE, LOOP, REPEAT, FOR].
-//
-// `previous_token`: the token the lookahead_transformer sees before
-// `token_with_location`.
-static bool IsScriptLabel(Token lookback,
-                          const TokenWithLocation& token_with_location,
-                          Token lookahead_1, Token lookahead_2) {
-  if (!IsValidPreviousTokenBeforeScriptLabel(lookback)) {
-    return false;
+bool LookaheadTransformer::IsCurrentTokenScriptLabel() const {
+  // When lookback_1_ is unset we are at the beginning of the input. A script
+  // label is allowed at the beginning of the input, or if the previous token
+  // is one of the following.
+  if (lookback_1_.has_value()) {
+    switch (Lookback1()) {
+      case Token::SEMICOLON:
+      case Token::LB_END_OF_STATEMENT_LEVEL_HINT:
+      case Token::LB_OPEN_STATEMENT_BLOCK:
+      case Token::LB_BEGIN_AT_STATEMENT_START:
+      case Token::KW_ELSE:
+      case Token::KW_THEN:
+        break;
+      default:
+        return false;
+    }
   }
-  const Token token = token_with_location.kind;
+
+  const Token token = current_token_->token.kind;
   if (!IsIdentifierOrKeyword(token)) {
     return false;
   }
-  if (lookahead_1 != Token::COLON) {
+  if (Lookahead1() != Token::COLON) {
     return false;
   }
-  switch (lookahead_2) {
+  switch (Lookahead2()) {
     case Token::KW_BEGIN:
     case Token::KW_WHILE:
     case Token::KW_LOOP:
@@ -305,7 +303,7 @@ void LookaheadTransformer::FetchNextToken(
   next.emplace();
   absl::StatusOr<TokenWithLocation> next_token =
       macro_expander_->GetNextToken();
-  if (mode_ != BisonParserMode::kTokenizerPreserveComments) {
+  if (mode_ != ParserMode::kTokenizerPreserveComments) {
     // Skip comment tokens if we do not need to preserve comments.
     while (next_token.ok() && next_token->kind == Token::COMMENT) {
       next_token = macro_expander_->GetNextToken();
@@ -431,8 +429,8 @@ Token LookaheadTransformer::ApplyTokenDisambiguation(
   const Location& location = token_with_location.location;
 
   switch (mode_) {
-    case BisonParserMode::kTokenizer:
-    case BisonParserMode::kTokenizerPreserveComments:
+    case ParserMode::kTokenizer:
+    case ParserMode::kTokenizerPreserveComments:
       // Tokenizer modes are used to extract tokens for error messages among
       // other things. The rules below are mostly intended to support the bison
       // parser, and aren't necessary in tokenizer mode.
@@ -475,7 +473,7 @@ Token LookaheadTransformer::ApplyTokenDisambiguation(
         default:
           return token;
       }
-    case BisonParserMode::kMacroBody:
+    case ParserMode::kMacroBody:
       switch (token) {
         case Token::SEMICOLON:
         case Token::EOI:
@@ -508,8 +506,7 @@ Token LookaheadTransformer::ApplyTokenDisambiguation(
   // WARNING: This transformation must come before other transformations for
   // keywords and identifiers because it force-emits the SCRIPT_LABEL token,
   // even if a keyword is present.
-  if (IsScriptLabel(Lookback1(), token_with_location, Lookahead1(),
-                    Lookahead2())) {
+  if (IsCurrentTokenScriptLabel()) {
     if (IsReservedKeywordToken(token)) {
       return SetOverrideErrorAndReturnEof(
           absl::StrCat("Reserved keyword '", token_with_location.text,
@@ -562,7 +559,7 @@ Token LookaheadTransformer::ApplyTokenDisambiguation(
 
   switch (token) {
     case Token::KW_TABLE:
-      if (IsValidLookbackToStartQuery(Lookback1(), Lookback2(), Lookback3())) {
+      if (IsValidLookbackToStartQuery()) {
         return Token::KW_TABLE_FOR_TABLE_CLAUSE;
       }
       if (Lookback1() == Token::LPAREN) {
@@ -656,7 +653,7 @@ Token LookaheadTransformer::ApplyTokenDisambiguation(
         // whether a top level statement or nested DML. The first few tokens
         // include several unreserved keywords and identifiers
         bool insert_starts_statement =
-            IsValidPreviousTokenToSqlStatement(Lookback2()) ||
+            IsValidPreviousTokenToSqlStatement(lookback_2_) ||
             Lookback2() == Token::LB_OPEN_NESTED_DML;
         // Ideally we would like to treat UPDATE and REPLACE as if they were
         // reserved keyword here so they work like KW_IGNORE. However, the hard
@@ -675,7 +672,7 @@ Token LookaheadTransformer::ApplyTokenDisambiguation(
       }
       break;
     case Token::KW_EXPLAIN:
-      if (IsValidPreviousTokenToSqlStatement(Lookback1())) {
+      if (IsValidPreviousTokenToSqlStatement(lookback_1_)) {
         current_token_->lookback_override = Token::LB_EXPLAIN_SQL_STATEMENT;
       }
       break;
@@ -828,7 +825,7 @@ Token LookaheadTransformer::ApplyTokenDisambiguation(
       return current_token_->token.kind;
     }
     case Token::LPAREN: {
-      if (IsValidLookbackToStartQuery(Lookback1(), Lookback2(), Lookback3())) {
+      if (IsValidLookbackToStartQuery()) {
         current_token_->lookback_override = Token::LB_PAREN_OPENS_QUERY;
       }
       PushState(Token::LPAREN);
@@ -1054,36 +1051,15 @@ void LookaheadTransformer::PopulateLookaheads() {
 }
 
 Token LookaheadTransformer::Lookback1() const {
-  if (lookback_1_.has_value()) {
-    if (lookback_1_->lookback_override != Token::UNAVAILABLE) {
-      return lookback_1_->lookback_override;
-    } else {
-      return lookback_1_->token.kind;
-    }
-  }
-  return Token::UNAVAILABLE;
+  return GetLookbackToken(lookback_1_);
 }
 
 Token LookaheadTransformer::Lookback2() const {
-  if (lookback_2_.has_value()) {
-    if (lookback_2_->lookback_override != Token::UNAVAILABLE) {
-      return lookback_2_->lookback_override;
-    } else {
-      return lookback_2_->token.kind;
-    }
-  }
-  return Token::UNAVAILABLE;
+  return GetLookbackToken(lookback_2_);
 }
 
 Token LookaheadTransformer::Lookback3() const {
-  if (lookback_3_.has_value()) {
-    if (lookback_3_->lookback_override != Token::UNAVAILABLE) {
-      return lookback_3_->lookback_override;
-    } else {
-      return lookback_3_->token.kind;
-    }
-  }
-  return Token::UNAVAILABLE;
+  return GetLookbackToken(lookback_3_);
 }
 
 Token LookaheadTransformer::GetNextToken(absl::string_view* text,
@@ -1133,43 +1109,9 @@ static const MacroCatalog* empty_macro_catalog() {
   return empty_macro_catalog;
 }
 
-using StartTokenMap = absl::flat_hash_map<BisonParserMode, Token>;
-static const StartTokenMap& GetStartTokenMap() {
-  static const StartTokenMap* kStartTokenMap([] {
-    using Mode = BisonParserMode;
-    StartTokenMap* ret = new StartTokenMap();
-    ret->emplace(Mode::kStatement, Token::MODE_STATEMENT);
-    ret->emplace(Mode::kScript, Token::MODE_SCRIPT);
-    ret->emplace(Mode::kNextStatement, Token::MODE_NEXT_STATEMENT);
-    ret->emplace(Mode::kNextScriptStatement, Token::MODE_NEXT_SCRIPT_STATEMENT);
-    ret->emplace(Mode::kNextStatementKind, Token::MODE_NEXT_STATEMENT_KIND);
-    ret->emplace(Mode::kExpression, Token::MODE_EXPRESSION);
-    ret->emplace(Mode::kType, Token::MODE_TYPE);
-    return ret;
-  }());
-  return *kStartTokenMap;
-}
-
-static std::optional<TokenWithLocation> MakeStartModeToken(
-    BisonParserMode mode, absl::string_view filename, int start_offset) {
-  switch (mode) {
-    case BisonParserMode::kTokenizer:
-    case BisonParserMode::kTokenizerPreserveComments:
-    case BisonParserMode::kMacroBody:
-      // These modes do no have a start token.
-      return std::nullopt;
-    default:
-      return TokenWithLocation{
-          .kind = GetStartTokenMap().at(mode),
-          .location = {
-              ParseLocationPoint::FromByteOffset(filename, start_offset),
-              ParseLocationPoint::FromByteOffset(filename, start_offset)}};
-  }
-}
-
 absl::StatusOr<std::unique_ptr<LookaheadTransformer>>
 LookaheadTransformer::Create(
-    BisonParserMode mode, absl::string_view filename, absl::string_view input,
+    ParserMode mode, absl::string_view filename, absl::string_view input,
     int start_offset, const LanguageOptions& language_options,
     MacroExpansionMode macro_expansion_mode,
     const macros::MacroCatalog* macro_catalog, zetasql_base::UnsafeArena* arena,
@@ -1196,22 +1138,16 @@ LookaheadTransformer::Create(
     ZETASQL_RET_CHECK(macro_catalog == nullptr);
     macro_expander = std::make_unique<NoOpExpander>(std::move(token_provider));
   }
-  return absl::WrapUnique(new LookaheadTransformer(
-      mode, MakeStartModeToken(mode, filename, start_offset), language_options,
-      std::move(macro_expander)));
+  return absl::WrapUnique(new LookaheadTransformer(mode, language_options,
+                                                   std::move(macro_expander)));
 }
 
 LookaheadTransformer::LookaheadTransformer(
-    BisonParserMode mode, std::optional<TokenWithLocation> start_token,
-    const LanguageOptions& language_options,
+    ParserMode mode, const LanguageOptions& language_options,
     std::unique_ptr<MacroExpanderBase> expander)
     : mode_(mode),
       language_options_(language_options),
       macro_expander_(std::move(expander)) {
-  if (start_token.has_value()) {
-    num_inserted_tokens_++;
-    lookahead_1_.emplace(TokenWithOverrideError{.token = *start_token});
-  }
   // Actively fetch lookaheads.
   PopulateLookaheads();
 }
@@ -1231,38 +1167,17 @@ absl::Status LookaheadTransformer::GetNextToken(ParseLocationRange* location,
   return GetOverrideError();
 }
 
-void LookaheadTransformer::SetForceTerminate(int* end_byte_offset) {
-  if (end_byte_offset != nullptr) {
-    if (!current_token_.has_value()) {
-      // If no tokens have been returned, set `end_byte_offset` to 0 to indicate
-      // nothing has been consumed.
-      *end_byte_offset = 0;
-    } else if (!current_token_->error.ok()) {
-      // The most recently returned token errored, set `end_byte_offset` to -1
-      // to terminate the whole parsing. This is because we currently lose the
-      // token location information when the underlying macro expander errors.
-      *end_byte_offset = -1;
-    } else if (Lookahead1IsRealEndOfInput()) {
-      // The next token is a real YYEOF, set `end_byte_offset` to the end of the
-      // input. For example, the input is ";  ", instead of pointing the end of
-      // ';', we want to set the end to include the whitespaces, i.e. the whole
-      // ";  ".
-      *end_byte_offset = lookahead_1_->token.location.end().GetByteOffset();
-    } else {
-      // The next token is not end of file, just use the end location of the
-      // current token.
-      *end_byte_offset = current_token_->token.location.end().GetByteOffset();
-    }
+bool LookaheadTransformer::IsAtEoi() const {
+  if (!current_token_.has_value() || !current_token_->error.ok()) {
+    return false;  // Either the token stream hasn't started or errored.
   }
-  force_terminate_ = true;
-  // Ensure that the lookahead buffers immediately reflects the termination so
-  // that future calls to Lookahead1 and Lookahead2 correctly return YYEOF
-  // rather than the original cached token kind. The error is set to be the same
-  // as the error of the most recently returned token.
-  TokenWithOverrideError template_token = {.error = GetOverrideError()};
-  ResetToEof(template_token, lookahead_1_);
-  ResetToEof(template_token, lookahead_2_);
-  ResetToEof(template_token, lookahead_3_);
+  if (current_token_->token.kind == Token::EOI) {
+    return true;
+  }
+  if (Lookahead1() == Token::EOI) {
+    return lookahead_1_->error.ok();
+  }
+  return false;
 }
 
 void LookaheadTransformer::ResetToEof(
@@ -1272,12 +1187,12 @@ void LookaheadTransformer::ResetToEof(
   lookahead->token.kind = Token::EOI;
 }
 
-void LookaheadTransformer::PushBisonParserMode(BisonParserMode mode) {
+void LookaheadTransformer::PushParserMode(ParserMode mode) {
   restore_modes_.push(mode_);
   mode_ = mode;
 }
 
-void LookaheadTransformer::PopBisonParserMode() {
+void LookaheadTransformer::PopParserMode() {
   ABSL_DCHECK(!restore_modes_.empty());
   mode_ = restore_modes_.top();
   restore_modes_.pop();

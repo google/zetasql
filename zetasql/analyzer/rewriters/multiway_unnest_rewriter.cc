@@ -282,12 +282,42 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
       ZETASQL_ASSIGN_OR_RETURN(input_scan, ResolvedASTDeepCopyVisitor::Copy(
                                        original_array_scan->input_scan()));
     }
+    std::unique_ptr<const ResolvedExpr> join_expr;
+    if (original_array_scan->join_expr() != nullptr) {
+      ZETASQL_ASSIGN_OR_RETURN(auto join_expr_copy,
+                       ResolvedASTDeepCopyVisitor::Copy<const ResolvedExpr>(
+                           original_array_scan->join_expr()));
+      // Within the join_expr we'd like to refer to the original array columns
+      // by their pre-rewrite names. But those don't exist until we're outside
+      // the ArrayScan. If is_outer=True this join_expr must be done inside the
+      // ArrayScan so we create new variables inside this new join_expr.
+      auto with_expr_builder =
+          ResolvedWithExprBuilder().set_type(join_expr_copy->type());
+      ZETASQL_ASSIGN_OR_RETURN(auto column_replacement_map,
+                       BuildColumnReplacementVector(state, array_element_col));
+      ColumnReplacementMap prewritten_to_inside_with_column_map;
+      for (auto&& [pre_rewrite_col, expr] : column_replacement_map) {
+        const ResolvedColumn new_col = column_factory_.MakeCol(
+            "$array", "$with_expr_field", expr->annotated_type());
+        prewritten_to_inside_with_column_map.emplace(pre_rewrite_col, new_col);
+        with_expr_builder.add_assignment_list(
+            ResolvedComputedColumnBuilder().set_column(new_col).set_expr(
+                std::move(expr)));
+      }
+      ZETASQL_ASSIGN_OR_RETURN(join_expr, std::move(with_expr_builder)
+                                      .set_expr(RemapSpecifiedColumns(
+                                          std::move(join_expr_copy),
+                                          prewritten_to_inside_with_column_map))
+                                      .Build());
+    }
 
     return ResolvedArrayScanBuilder()
         .set_column_list(column_list)
         .set_input_scan(std::move(input_scan))
         .add_array_expr_list(std::move(with_expr))
         .add_element_column_list(array_element_col)
+        .set_is_outer(original_array_scan->is_outer())
+        .set_join_expr(std::move(join_expr))
         .Build();
   }
 
@@ -715,26 +745,21 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
     return final_scan;
   }
 
-  // Build a ProjectScan doing a struct expansion against the output of
-  // UNNEST(ARRAY(SELECT AS STRUCT arr1, arr2 [ , ... ], offset)):
-  //   ARRAY<STRUCT<arr1, arr2 [ , ... ], offset>>
-  absl::StatusOr<std::unique_ptr<const ResolvedProjectScan>>
-  BuildStructExpansionWithColumnReplacement(
-      std::unique_ptr<const ResolvedArrayScan> array_scan, State& state) {
-    ZETASQL_RET_CHECK_EQ(array_scan->element_column_list_size(), 1);
+  // Map pre-written columns to expressions of `struct_column`.
+  absl::StatusOr<std::vector<
+      std::pair<ResolvedColumn, std::unique_ptr<const ResolvedExpr>>>>
+  BuildColumnReplacementVector(State& state, ResolvedColumn struct_column) {
     const StructType* struct_type = state.struct_type();
     ZETASQL_RET_CHECK_EQ(state.element_column_count() + 1, struct_type->num_fields());
 
-    ResolvedColumnList column_list = state.input_scan_columns();
-    int expr_list_size = state.HasPreRewrittenArrayOffsetColumn()
-                             ? struct_type->num_fields()
-                             : struct_type->num_fields() - 1;
-    std::vector<std::unique_ptr<const ResolvedComputedColumn>> expr_list(
-        expr_list_size);
+    std::vector<std::pair<ResolvedColumn, std::unique_ptr<const ResolvedExpr>>>
+        result;
+    result.reserve(state.HasPreRewrittenArrayOffsetColumn()
+                       ? struct_type->num_fields()
+                       : struct_type->num_fields() - 1);
     for (int i = 0; i < struct_type->num_fields(); ++i) {
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> expr,
-                       BuildGetStructFieldExpr(
-                           struct_type, i, array_scan->element_column_list(0)));
+                       BuildGetStructFieldExpr(struct_type, i, struct_column));
 
       ResolvedColumn pre_rewrite_column;
       if (i < struct_type->num_fields() - 1) {
@@ -749,8 +774,31 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
         }
         pre_rewrite_column = state.pre_rewritten_array_offset_column();
       }
-      expr_list[i] =
-          MakeResolvedComputedColumn(pre_rewrite_column, std::move(expr));
+      result.push_back(std::make_pair(pre_rewrite_column, std::move(expr)));
+    }
+    return result;
+  }
+
+  // Build a ProjectScan doing a struct expansion against the output of
+  // UNNEST(ARRAY(SELECT AS STRUCT arr1, arr2 [ , ... ], offset)):
+  //   ARRAY<STRUCT<arr1, arr2 [ , ... ], offset>>
+  absl::StatusOr<std::unique_ptr<const ResolvedProjectScan>>
+  BuildStructExpansionWithColumnReplacement(
+      std::unique_ptr<const ResolvedArrayScan> array_scan, State& state) {
+    ZETASQL_RET_CHECK_EQ(array_scan->element_column_list_size(), 1);
+    const StructType* struct_type = state.struct_type();
+    ZETASQL_RET_CHECK_EQ(state.element_column_count() + 1, struct_type->num_fields());
+
+    ZETASQL_ASSIGN_OR_RETURN(auto column_replacement_map,
+                     BuildColumnReplacementVector(
+                         state, array_scan->element_column_list(0)));
+    ResolvedColumnList column_list = state.input_scan_columns();
+    std::vector<std::unique_ptr<const ResolvedComputedColumn>> expr_list;
+    expr_list.reserve(column_replacement_map.size());
+    for (auto&& [pre_rewrite_column, expr] :
+         std::move(column_replacement_map)) {
+      expr_list.push_back(
+          MakeResolvedComputedColumn(pre_rewrite_column, std::move(expr)));
       column_list.push_back(pre_rewrite_column);
     }
 

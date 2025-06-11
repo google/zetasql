@@ -208,6 +208,11 @@ struct ParseElementInfo {
   const char* data;
   const char* end_of_data;
   int position;
+
+  // May be used to remember an uninterpreted numeric value parsed during the
+  // function's main loop so that the value does not need to be re-parsed later
+  // by code responsible for interpreting the value.
+  std::optional<int> pre_parsed_value = std::nullopt;
 };
 
 struct DateParseContext {
@@ -509,41 +514,6 @@ absl::Status ParseWeekdayFromElement(const ParseElementInfo& weekday_element,
   return absl::OkStatus();
 }
 
-// This helper currently assumes that the week value will parse correctly.
-// This is currently enforced in the main loop, which already parses the week
-// number between 0 and 53.  TODO: Memoize the week value during
-// the parsing in the main loop, and remove the need to reparse and remove
-// this method.
-static absl::Status ParseWeek(const ParseElementInfo& week_element, int* week,
-                              absl::Weekday* week_start_day) {
-  const char* data = nullptr;
-  // Week number of the year (0-53)
-  data = ParseInt(week_element.data, week_element.end_of_data, 2, 0, 53, week);
-  ZETASQL_RET_CHECK_NE(data, nullptr);
-
-  if (week_element.fmt == 'U') {
-    *week_start_day = absl::Weekday::sunday;
-  } else if (week_element.fmt == 'W') {
-    *week_start_day = absl::Weekday::monday;
-  } else {
-    ZETASQL_RET_CHECK_FAIL() << "Unexpected week parse element %" << week_element.fmt;
-  }
-  return absl::OkStatus();
-}
-
-// This helper currently assumes that the dayofyear value will parse correctly.
-// This is currently enforced in the main loop, which already parses the
-// dayofyear.  TODO: Memoize the dayofyear value during parsing in
-// the main loop, and remove the need to reparse and remove this method.
-static absl::Status ParseDayOfYear(const ParseElementInfo& dayofyear_element,
-                                   int max_days_in_year, int* dayofyear) {
-  const char* data =
-      ParseInt(dayofyear_element.data, dayofyear_element.end_of_data, 3, 1,
-               max_days_in_year, dayofyear);
-  ZETASQL_RET_CHECK_NE(data, nullptr);
-  return absl::OkStatus();
-}
-
 // This helper currently assumes that the ISO year value will parse correctly.
 // This is currently enforced in the main loop, which already parses the
 // ISO year.  TODO: Memoize the ISO year value during parsing in
@@ -552,7 +522,7 @@ static absl::Status ParseISOYear(const ParseElementInfo& year_element,
                                  int* iso_year) {
   if (year_element.fmt == 'G') {
     // For the call into ParseInt, we are passing '20' to indicate the number
-    // of digits to parse, which is more than will fit into an int64_t. Note
+    // of digits to parse, which is more than will fit into an int64. Note
     // that we're actually limiting the range of valid values from [0-99999]
     // anyway though, so the ability to parse a large number of digits is not
     // really needed.
@@ -691,9 +661,8 @@ static absl::Status ComputeDateFromISOYearAndDayOfYear(
     return absl::OkStatus();
   }
 
-  int dayofyear;
-  ZETASQL_RETURN_IF_ERROR(ParseDayOfYear(dayofyear_element.value(),
-                                 /*max_days_in_year=*/371, &dayofyear));
+  ZETASQL_RET_CHECK(dayofyear_element.has_value());
+  int dayofyear = *dayofyear_element->pre_parsed_value;
   // ISO years have either 364 or 371 days, so we need to validate that the
   // ISO day of year is valid for this particular ISO Year.
   if (dayofyear > 364) {
@@ -754,9 +723,8 @@ static absl::Status ComputeDateFromYearAndDayOfYear(
     return absl::OkStatus();
   }
 
-  int dayofyear;
-  ZETASQL_RETURN_IF_ERROR(ParseDayOfYear(dayofyear_element.value(),
-                                 /*max_days_in_year=*/366, &dayofyear));
+  ZETASQL_RET_CHECK(dayofyear_element->pre_parsed_value.has_value());
+  int dayofyear = *dayofyear_element->pre_parsed_value;
   if (dayofyear == 366) {
     if (!date_time_util_internal::IsLeapYear(year)) {
       return MakeEvalError()
@@ -775,11 +743,11 @@ static absl::Status ComputeDateFromYearWeekAndWeekday(
     int64_t year, const ParseElementInfo& week_element,
     const std::optional<ParseElementInfo> weekday_element,
     absl::CivilDay* civil_day) {
-  int week = -1;
-  absl::Weekday week_start_day = absl::Weekday::sunday;
-  ZETASQL_RETURN_IF_ERROR(ParseWeek(week_element, &week, &week_start_day));
-  ZETASQL_RET_CHECK_GE(week, 0);
-  ZETASQL_RET_CHECK_LE(week, 53);
+  int week = *week_element.pre_parsed_value;
+  absl::Weekday week_start_day =
+      week_element.fmt == 'U' ? absl::Weekday::sunday : absl::Weekday::monday;
+  ZETASQL_RET_CHECK(week_element.fmt == 'W' || week_element.fmt == 'U')
+      << "Unexpected week parse element %" << week_element.fmt;
 
   ZETASQL_RETURN_IF_ERROR(CheckWeekNumberValidityForYear(year, week, week_element.fmt));
 
@@ -1361,7 +1329,7 @@ static absl::Status ParseTime(absl::string_view format,
           // Only %E0S to %E12S is supported (0-12 subseconds digits).
           if (const char* np = ParseInt(fmt, end_of_fmt, 2, 0,
                                         static_cast<int32_t>(scale), &n)) {
-            if (*np++ == 'S') {
+            if (np < end_of_fmt && *np++ == 'S') {
               data = ParseInt(data, end_of_data, 2, 0, 60, &tm.tm_sec);
               if (n > 0) {
                 data = ParseSubSecondsIfStartingWithPoint(
@@ -1413,17 +1381,14 @@ static absl::Status ParseTime(absl::string_view format,
           continue;
         }
         if (fmt < end_of_fmt && *fmt == 'U') {
-          // TODO: We should memoize the week number here and below
-          // in the <date_parse_context> so that we do not have to re-parse it
-          // later.  We could probably do the same for a lot of the new
-          // 'version2' elements for week/weekday/dayofyear/etc.
-          int week_number;
           // Week number 00-53.  '%OU' is treated like '%U' in en_US locale.
           date_parse_context.non_iso_week_present = true;
           date_parse_context.non_iso_date_part_present = true;
           date_parse_context.elements.push_back(
               {'U', data, end_of_data, current_element_position});
-          data = ParseInt(data, end_of_data, 2, 0, 53, &week_number);
+          data = ParseInt(
+              data, end_of_data, /*max_width=*/2, /*min=*/0, /*max=*/53,
+              &date_parse_context.elements.back().pre_parsed_value.emplace());
           fmt += 1;
           continue;
         }
@@ -1438,12 +1403,13 @@ static absl::Status ParseTime(absl::string_view format,
           continue;
         }
         if (fmt < end_of_fmt && *fmt == 'W') {
-          int week_number;
           // Week number 0-53.  '%OW' is treated like '%W' in en_US locale.
           date_parse_context.iso_week_present = true;
           date_parse_context.elements.push_back(
               {'W', data, end_of_data, current_element_position});
-          data = ParseInt(data, end_of_data, 2, 0, 53, &week_number);
+          data = ParseInt(
+              data, end_of_data, 2, 0, 53,
+              &date_parse_context.elements.back().pre_parsed_value.emplace());
           fmt += 1;
           continue;
         }
@@ -1478,7 +1444,10 @@ static absl::Status ParseTime(absl::string_view format,
         date_parse_context.non_iso_date_part_present = true;
         date_parse_context.elements.push_back(
             {*(fmt - 1), data, end_of_data, current_element_position});
-        break;
+        data = ParseInt(
+            data, end_of_data, /*max_width=*/2, /*min=*/0, /*max=*/53,
+            &date_parse_context.elements.back().pre_parsed_value.emplace());
+        continue;
       case 'V':  // ISO 8601 week number 01-53
         date_parse_context.iso_week_present = true;
         date_parse_context.elements.push_back(
@@ -1499,16 +1468,18 @@ static absl::Status ParseTime(absl::string_view format,
         date_parse_context.iso_dayofyear_present = true;
         date_parse_context.elements.push_back(
             {*(fmt - 1), data, end_of_data, current_element_position});
-        // ParseTM doesn't support this part, so parse the ISO day value
-        // to advance 'data' and continue.
-        int iso_dayofyear;
-        data = ParseInt(data, end_of_data, 3, 1, 371, &iso_dayofyear);
+        data = ParseInt(
+            data, end_of_data, 3, 1, 371,
+            &date_parse_context.elements.back().pre_parsed_value.emplace());
         continue;
       case 'j':  // Day of year (non-ISO)
         date_parse_context.non_iso_date_part_present = true;
         date_parse_context.elements.push_back(
             {*(fmt - 1), data, end_of_data, current_element_position});
-        break;
+        data = ParseInt(
+            data, end_of_data, 3, 1, 366,
+            &date_parse_context.elements.back().pre_parsed_value.emplace());
+        continue;
       case 't':
       case 'n': {
         data = ConsumeWhitespace(data, end_of_data);
@@ -1528,7 +1499,7 @@ static absl::Status ParseTime(absl::string_view format,
         // implementation, we consume and ignore a large number of digits
         // here.  Technically, strptime will consume an arbitrarily large
         // number of digits, but we will only consume enough to more than
-        // cover an int64_t (even though we only support a range of 10k years.
+        // cover an int64 (even though we only support a range of 10k years.
         date_parse_context.iso_year_present = true;
         date_parse_context.elements.push_back(
             {*(fmt - 1), data, end_of_data, current_element_position});

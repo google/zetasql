@@ -47,15 +47,6 @@ class AnonymizationRewriter : public Rewriter {
   }
 
   std::string Name() const override { return "AnonymizationRewriter"; }
-
-  // This rewriter is provided an unfiltered Catalog by the ZetaSQL analyzer,
-  // and so filtering must be done by the rewriter itself to ensure that
-  // non-builtin Catalog objects are not referenced.
-  // TODO: b/388929260 - Determine if filtering is actually required, and either
-  // apply it or justify here why it's not required.
-  bool ProvideUnfilteredCatalogToBuiltinRewriter() const override {
-    return true;
-  }
 };
 
 absl::StatusOr<RewriteForAnonymizationOutput> RewriteForAnonymization(

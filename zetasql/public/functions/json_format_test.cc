@@ -25,15 +25,22 @@
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/compliance/functions_testlib.h"
+#include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/pico_time.h"
+#include "zetasql/public/timestamp_picos_value.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "absl/time/time.h"
 #include "zetasql/base/map_util.h"
 
 namespace zetasql {
@@ -166,6 +173,75 @@ TEST(JsonFormatTest, CanonicalizeZeroLegacyDouble0Test) {
 TEST(JsonFormatTest, CanonicalizeZeroLegacyDoubleNonZeroTest) {
   CanonicalizeZeroLegacyTest(values::Double(5), "5");
 }
+
+struct PicosTestCase {
+  TimestampPicosValue input;
+  std::string expected_output;
+};
+
+using PicosTest = ::testing::TestWithParam<PicosTestCase>;
+
+TEST_P(PicosTest, JsonFromTimestamp) {
+  const PicosTestCase& test_case = GetParam();
+  std::string actual_output;
+  auto status = JsonFromTimestamp(test_case.input, &actual_output,
+                                  /*quote_output_string=*/false);
+  ZETASQL_EXPECT_OK(status);
+  EXPECT_EQ(actual_output, test_case.expected_output);
+
+  // Test the case when quote_output_string=true.
+  actual_output.clear();
+  status = JsonFromTimestamp(test_case.input, &actual_output,
+                             /*quote_output_string=*/true);
+  ZETASQL_EXPECT_OK(status);
+  std::string expected_quoted_output =
+      absl::StrCat("\"", test_case.expected_output, "\"");
+  EXPECT_EQ(actual_output, expected_quoted_output);
+}
+
+TimestampPicosValue TimestampPicosFromStr(absl::string_view str) {
+  // Test cases use consistently same timezone.
+  PicoTime pico_time;
+  ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
+      str, absl::UTCTimeZone(), /* allow_tz_in_str= */ true, &pico_time));
+  return TimestampPicosValue(pico_time);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    PicosTestSuite, PicosTest,
+    ::testing::ValuesIn<PicosTestCase>({
+        {TimestampPicosFromStr("2017-06-25 12:34:56.123456"),
+         "2017-06-25T12:34:56.123456Z"},
+        {TimestampPicosFromStr("2017-06-25 05:13:00"), "2017-06-25T05:13:00Z"},
+        {TimestampPicosFromStr("2017-06-25 23:34:56.123456789123"),
+         "2017-06-25T23:34:56.123456789123Z"},
+        {TimestampPicosFromStr("2017-06-25 23:34:56.12345678912"),
+         "2017-06-25T23:34:56.123456789120Z"},
+        {TimestampPicosFromStr("2017-06-25 23:34:56.1234567891"),
+         "2017-06-25T23:34:56.123456789100Z"},
+        {TimestampPicosFromStr("2017-06-25 23:34:56.123456789"),
+         "2017-06-25T23:34:56.123456789Z"},
+        {TimestampPicosFromStr("2017-06-25 23:34:56.12345678"),
+         "2017-06-25T23:34:56.123456780Z"},
+        {TimestampPicosFromStr("2017-06-25 23:34:56.1234567"),
+         "2017-06-25T23:34:56.123456700Z"},
+        {TimestampPicosFromStr("2017-06-25 23:34:56.123456"),
+         "2017-06-25T23:34:56.123456Z"},
+        {TimestampPicosFromStr("2017-06-25 12:34:56.12345"),
+         "2017-06-25T12:34:56.123450Z"},
+        {TimestampPicosFromStr("2017-06-25 12:34:56.123"),
+         "2017-06-25T12:34:56.123Z"},
+        {TimestampPicosFromStr("2017-06-25 12:34:56.12"),
+         "2017-06-25T12:34:56.120Z"},
+        {TimestampPicosFromStr("2017-06-25 12:34:56.1"),
+         "2017-06-25T12:34:56.100Z"},
+        {TimestampPicosFromStr("2017-06-25 12:34:00"), "2017-06-25T12:34:00Z"},
+        {TimestampPicosFromStr("2017-06-25 12:00:00"), "2017-06-25T12:00:00Z"},
+        {TimestampPicosFromStr("1918-11-11"), "1918-11-11T00:00:00Z"},
+        {TimestampPicosFromStr("0001-01-01"), "0001-01-01T00:00:00Z"},
+        {TimestampPicosFromStr("9999-12-31 23:59:59.999999999999"),
+         "9999-12-31T23:59:59.999999999999Z"},
+    }));
 
 }  // namespace
 }  // namespace functions

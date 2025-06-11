@@ -22,7 +22,6 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
-#include <map>
 #include <memory>
 #include <optional>
 #include <set>
@@ -33,7 +32,6 @@
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.pb.h"
-#include "google/protobuf/descriptor.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/public/language_options.h"
@@ -42,14 +40,12 @@
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/map_type.h"
-#include "zetasql/public/types/measure_type.h"
 #include "zetasql/public/types/range_type.h"
 #include "zetasql/public/types/simple_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
-#include "absl/base/macros.h"
 #include "absl/base/optimization.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
@@ -58,7 +54,6 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
-#include "absl/types/variant.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -169,7 +164,7 @@ struct TypeKindInfo {
   // Date/time related types can only be coerced from STRING, we prefer coercing
   // from STRING to the closest of these date/time types before coercing to
   // date/time types that are earlier in the list. When
-  // FEATURE_V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES is enabled, STRING
+  // FEATURE_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES is enabled, STRING
   // literals can also coerce to BYTES, at a lower precedence than to other
   // related types.
   int cost = 0;
@@ -702,13 +697,13 @@ bool Type::SupportsOrdering() const {
 }
 
 // Array type equality support is controlled by the language option
-// FEATURE_V_1_1_ARRAY_EQUALITY. To test if 'type' supports equality,
+// FEATURE_ARRAY_EQUALITY. To test if 'type' supports equality,
 // checks the type recursively as array types can be nested under
 // struct types or vice versa.
 bool Type::SupportsEquality(
     const LanguageOptions& language_options) const {
   if (this->IsArray()) {
-    if (language_options.LanguageFeatureEnabled(FEATURE_V_1_1_ARRAY_EQUALITY)) {
+    if (language_options.LanguageFeatureEnabled(FEATURE_ARRAY_EQUALITY)) {
       return this->AsArray()->element_type()->SupportsEquality(
           language_options);
     } else {
@@ -747,16 +742,12 @@ bool Type::SupportsReturning(const LanguageOptions& language_options,
     case TYPE_GRAPH_ELEMENT:
     case TYPE_GRAPH_PATH:
       if (type_description != nullptr) {
-        *type_description =
-            TypeKindToString(this->kind(), language_options.product_mode(),
-                             !language_options.LanguageFeatureEnabled(
-                                 FEATURE_V_1_4_DISABLE_FLOAT32));
+        *type_description = TypeKindToString(
+            this->kind(), language_options.product_mode(),
+            !language_options.LanguageFeatureEnabled(FEATURE_DISABLE_FLOAT32));
       }
       return false;
     case TYPE_MEASURE:
-      // TODO: b/350555383 - We probably want to allow returning Measure in some
-      // places which are disallowed when SupportsReturning() is false, for
-      // example in the output column list from a TVF or View.
       if (type_description != nullptr) {
         *type_description = "MEASURE";
       }
@@ -775,6 +766,13 @@ absl::HashState Type::Hash(absl::HashState state) const {
   state = HashTypeParameter(std::move(state));
   // Hash a type's kind.
   return absl::HashState::combine(std::move(state), kind());
+}
+
+bool Type::HasFloatingPointFields() const {
+  // This should only be called for ProtoType, and is implemented there.
+  ABSL_LOG(ERROR)
+      << "HasFloatingPointFields() should only be called for proto types";
+  return false;
 }
 
 absl::Status Type::TypeMismatchError(const ValueProto& value_proto) const {

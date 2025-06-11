@@ -147,8 +147,6 @@ SELECT CURRENT_DATETIME() as now;
  *----------------------------*/
 ```
 
-[datetime-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
-
 [datetime-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
 
 ## `DATETIME`
@@ -627,8 +625,9 @@ Allowed `part` values are:
    of the week.
 + `DAY`
 + `DAYOFYEAR`
-+ `WEEK`: Returns the week number of the date in the range [0, 53].  Weeks begin
-  with Sunday, and dates prior to the first Sunday of the year are in week 0.
++ `WEEK`: Returns the week number of the date in the range [0, 53]. Weeks begin
+  with Sunday, and dates prior to the first Sunday of the year are in week
+  0.
 + `WEEK(<WEEKDAY>)`: Returns the week number of `datetime_expression` in the
   range [0, 53]. Weeks begin on `WEEKDAY`.
   `datetime`s prior to the first `WEEKDAY` of the year are in week 0. Valid
@@ -1002,8 +1001,6 @@ SELECT PARSE_DATETIME('%A, %B %e, %Y','Wednesday, December 19, 2018')
  | 2018-12-19 00:00:00 |
  *---------------------*/
 ```
-
-[datetime-format]: #format_datetime
 
 [datetime-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
 

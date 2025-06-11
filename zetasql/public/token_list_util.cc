@@ -21,6 +21,8 @@
 #include <vector>
 
 #include "zetasql/public/simple_token_list.h"
+#include "zetasql/public/simple_token_list.h"
+#include "zetasql/public/simple_token_list.h"
 #include "zetasql/public/value.h"
 #include "absl/status/statusor.h"
 #include "zetasql/base/status_macros.h"
@@ -56,7 +58,7 @@ absl::StatusOr<std::vector<std::string>> StringArrayFromTokenList(
 
 Value TokenListFromBytes(std::string bytes) {
   return zetasql::Value::TokenList(
-      tokens::TokenList::FromBytes(std::move(bytes)));
+      tokens::TokenList::FromBytesUnvalidated(std::move(bytes)));
 }
 
 }  // namespace zetasql

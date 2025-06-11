@@ -409,7 +409,8 @@ rows. Returns `NULL` when `expression`
 or `expression2` is
 `NULL` for all rows in the group.
 
-`ANY_VALUE` behaves as if `IGNORE NULLS` is specified;
+If `expression` contains any non-NULL values, then `ANY_VALUE` behaves as if
+`IGNORE NULLS` is specified;
 rows for which `expression` is `NULL` aren't considered and won't be
 selected.
 
@@ -1152,7 +1153,7 @@ To count the number of non-distinct values of an expression for which a
 certain condition is satisfied, consider using the
 [`COUNTIF`][countif] function.
 
-This function with <code>DISTINCT</code> supports specifying [collation][collation].
+This function with `DISTINCT` supports specifying [collation][collation].
 
 [collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 

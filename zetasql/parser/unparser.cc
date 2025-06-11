@@ -353,6 +353,9 @@ void Unparser::visitASTConnectionClause(const ASTConnectionClause* node,
 }
 
 void Unparser::visitASTTVF(const ASTTVF* node, void* data) {
+  if (node->is_lateral()) {
+    print("LATERAL ");
+  }
   node->name()->Accept(this, data);
   print("(");
   UnparseVectorWithSeparator(node->argument_entries(), data, ",");
@@ -1967,6 +1970,9 @@ void Unparser::visitASTForSystemTime(const ASTForSystemTime* node, void* data) {
 }
 
 void Unparser::visitASTTableSubquery(const ASTTableSubquery* node, void* data) {
+  if (node->is_lateral()) {
+    println("LATERAL");
+  }
   visitASTChildren(node, data);
 }
 
@@ -2885,12 +2891,36 @@ void Unparser::visitASTExpressionWithAlias(const ASTExpressionWithAlias* node,
 
 void Unparser::visitASTFunctionCall(const ASTFunctionCall* node, void* data) {
   PrintOpenParenIfNeeded(node);
-  node->function()->Accept(this, data);
+  absl::Span<const ASTExpression* const> arguments = node->arguments();
+  if (node->is_chained_call() && !arguments.empty()) {
+    const ASTExpression* base_expr = arguments[0];
+    arguments = arguments.subspan(1);
+
+    // Int and float literals don't work before chained calls without
+    // using parentheses.  This avoids weirdness with the dots.
+    bool force_paren = (base_expr->node_kind() == AST_INT_LITERAL ||
+                        base_expr->node_kind() == AST_FLOAT_LITERAL);
+
+    if (force_paren) print("(");
+    base_expr->Accept(this, data);
+    if (force_paren) print(")");
+    print(".");
+  }
+  if (node->is_chained_call() && node->function()->num_names() > 1) {
+    // In a chained function call, when calling a function with a multi-part
+    // name, we use generalized path syntax. e.g. "(-1).(safe.sqrt)()",
+    // instead of "(-1).sqrt()".
+    print("(");
+    node->function()->Accept(this, data);
+    print(")");
+  } else {
+    node->function()->Accept(this, data);
+  }
   print("(");
   {
     Formatter::Indenter indenter(&formatter_);
     if (node->distinct()) print("DISTINCT");
-    UnparseVectorWithSeparator(node->arguments(), data, ",");
+    UnparseVectorWithSeparator(arguments, data, ",");
     switch (node->null_handling_modifier()) {
       case ASTFunctionCall::DEFAULT_NULL_HANDLING:
         break;
@@ -2936,6 +2966,18 @@ void Unparser::visitASTFunctionCall(const ASTFunctionCall* node, void* data) {
     node->with_group_rows()->Accept(this, data);
   }
   PrintCloseParenIfNeeded(node);
+}
+
+void Unparser::visitASTChainedBaseExpr(const ASTChainedBaseExpr* node,
+                                       void* data) {
+  // Int and float literals don't work before chained calls without
+  // using parentheses.  This avoids weirdness with the dots.
+  bool force_paren = (node->expr()->node_kind() == AST_INT_LITERAL ||
+                      node->expr()->node_kind() == AST_FLOAT_LITERAL);
+
+  if (force_paren) print("(");
+  node->expr()->Accept(this, data);
+  if (force_paren) print(")");
 }
 
 void Unparser::visitASTWithGroupRows(const ASTWithGroupRows* node, void* data) {
@@ -5179,6 +5221,40 @@ void Unparser::visitASTGraphElementTable(const ASTGraphElementTable* node,
   println();
   visitASTGraphElementLabelAndPropertiesList(node->label_properties_list(),
                                              data);
+  if (node->dynamic_label() != nullptr) {
+    visitASTGraphDynamicLabel(node->dynamic_label(), data);
+  }
+  if (node->dynamic_properties() != nullptr) {
+    visitASTGraphDynamicProperties(node->dynamic_properties(), data);
+  }
+}
+
+void Unparser::visitASTGraphDynamicLabel(const ASTGraphDynamicLabel* node,
+                                         void* data) {
+  if (node->label() == nullptr) {
+    return;
+  }
+  println();
+  {
+    Formatter::Indenter indenter(&formatter_);
+    print("DYNAMIC LABEL (");
+    node->label()->Accept(this, data);
+    print(")");
+  }
+}
+
+void Unparser::visitASTGraphDynamicProperties(
+    const ASTGraphDynamicProperties* node, void* data) {
+  if (node->properties() == nullptr) {
+    return;
+  }
+  println();
+  {
+    Formatter::Indenter indenter(&formatter_);
+    print("DYNAMIC PROPERTIES (");
+    node->properties()->Accept(this, data);
+    print(")");
+  }
 }
 
 void Unparser::visitASTGraphNodeTableReference(
@@ -5298,6 +5374,48 @@ void Unparser::visitASTGqlFor(const ASTGqlFor* node, void* data) {
   }
 }
 
+void Unparser::VisitASTGqlCallBase(const ASTGqlCallBase* node, void* data) {
+  if (node->optional()) {
+    print("OPTIONAL ");
+  }
+  print("CALL ");
+  if (node->is_partitioning()) {
+    print("PER ");
+  }
+  if (node->name_capture_list() != nullptr) {
+    // The name capture list is required for inline subqueries, but is caught
+    // in the analyzer.
+    print("(");
+    node->name_capture_list()->Accept(this, data);
+    print(") ");
+  }
+}
+
+void Unparser::visitASTGqlInlineSubqueryCall(
+    const ASTGqlInlineSubqueryCall* node, void* data) {
+  VisitASTGqlCallBase(node, data);
+  println("{");
+
+  {
+    Formatter::Indenter indenter(&formatter_);
+    node->subquery()->Accept(this, data);
+  }
+  println("}");
+}
+
+void Unparser::visitASTGqlNamedCall(const ASTGqlNamedCall* node, void* data) {
+  VisitASTGqlCallBase(node, data);
+  node->tvf_call()->Accept(this, data);
+  if (node->yield_clause() != nullptr) {
+    node->yield_clause()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTYieldItemList(const ASTYieldItemList* node, void* data) {
+  print("YIELD ");
+  UnparseVectorWithSeparator(node->yield_items(), data, ", ");
+}
+
 void Unparser::visitASTGqlLet(const ASTGqlLet* node, void* data) {
   print("LET");
   println();
@@ -5310,12 +5428,6 @@ void Unparser::visitASTGqlQuery(const ASTGqlQuery* node, void* data) {
     print("GRAPH ");
     node->graph_table()->graph_reference()->Accept(this, data);
     println();
-  } else {
-    const auto node_kind =
-        node->parent()->GetAsOrDie<ASTQuery>()->parent()->node_kind();
-    // only a subuqery can omit the graph reference
-    ABSL_DCHECK(node_kind == AST_EXPRESSION_SUBQUERY ||
-           node_kind == AST_IN_EXPRESSION);
   }
   ABSL_DCHECK(node->graph_table()->graph_op()->Is<ASTGqlOperatorList>());
   node->graph_table()->graph_op()->Accept(this, data);
@@ -5483,6 +5595,10 @@ void Unparser::visitASTGraphElementPatternFiller(
   } else if (node->property_specification() != nullptr) {
     ABSL_DCHECK(node->where_clause() == nullptr);
     node->property_specification()->Accept(this, data);
+  }
+  if (node->edge_cost() != nullptr) {
+    print("COST ");
+    node->edge_cost()->Accept(this, data);
   }
 }
 
@@ -5692,12 +5808,26 @@ void Unparser::visitASTGraphPathSearchPrefix(
       }
       break;
     }
+    case ASTGraphPathSearchPrefix::PathSearchPrefixType::CHEAPEST: {
+      if (node->path_count() == nullptr) {
+        print("ANY CHEAPEST ");
+      } else {
+        print("CHEAPEST ");
+        node->path_count()->Accept(this, data);
+        print(" ");
+      }
+      break;
+    }
     case ASTGraphPathSearchPrefix::PathSearchPrefixType::ALL: {
       print("ALL ");
       break;
     }
     case ASTGraphPathSearchPrefix::PathSearchPrefixType::ALL_SHORTEST: {
       print("ALL SHORTEST ");
+      break;
+    }
+    case ASTGraphPathSearchPrefix::PathSearchPrefixType::ALL_CHEAPEST: {
+      print("ALL CHEAPEST ");
       break;
     }
     default: {

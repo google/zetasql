@@ -49,6 +49,7 @@
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "absl/algorithm/container.h"
+#include "absl/base/no_destructor.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/functional/bind_front.h"
 #include "zetasql/base/check.h"
@@ -147,14 +148,14 @@ void GetStringFunctions(TypeFactory* type_factory,
 
   FunctionArgumentTypeOptions concat_option_1;
   if (options.language_options.LanguageFeatureEnabled(
-          zetasql::FEATURE_V_1_3_CONCAT_MIXED_TYPES)) {
+          zetasql::FEATURE_CONCAT_MIXED_TYPES)) {
     concat_option_1.set_allow_coercion_from(&CanStringConcatCoerceFrom);
   }
 
   FunctionArgumentTypeOptions concat_option_n;
   concat_option_n.set_cardinality(REPEATED);
   if (options.language_options.LanguageFeatureEnabled(
-          zetasql::FEATURE_V_1_3_CONCAT_MIXED_TYPES)) {
+          zetasql::FEATURE_CONCAT_MIXED_TYPES)) {
     concat_option_n.set_allow_coercion_from(&CanStringConcatCoerceFrom);
   }
 
@@ -174,7 +175,7 @@ void GetStringFunctions(TypeFactory* type_factory,
 
   FunctionOptions lower_options;
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_ALIASES_FOR_STRING_AND_DATE_FUNCTIONS)) {
+          FEATURE_ALIASES_FOR_STRING_AND_DATE_FUNCTIONS)) {
     lower_options.set_alias_name("lcase");
   }
 
@@ -185,7 +186,7 @@ void GetStringFunctions(TypeFactory* type_factory,
 
   FunctionOptions upper_options;
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_ALIASES_FOR_STRING_AND_DATE_FUNCTIONS)) {
+          FEATURE_ALIASES_FOR_STRING_AND_DATE_FUNCTIONS)) {
     upper_options.set_alias_name("ucase");
   }
 
@@ -223,7 +224,7 @@ void GetStringFunctions(TypeFactory* type_factory,
 
   FunctionOptions substr_options;
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS)) {
+          FEATURE_ADDITIONAL_STRING_FUNCTIONS)) {
     substr_options.set_alias_name("substring");
   }
   InsertSimpleFunction(functions, options, "substr", SCALAR,
@@ -305,7 +306,7 @@ void GetStringFunctions(TypeFactory* type_factory,
 
   FunctionSignatureOptions date_time_constructor_options =
       FunctionSignatureOptions().AddRequiredLanguageFeature(
-          FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS);
+          FEATURE_DATE_TIME_CONSTRUCTORS);
   std::vector<FunctionSignatureOnHeap> string_signatures{
       {string_type,
        {timestamp_type, {string_type, OPTIONAL}},
@@ -314,8 +315,7 @@ void GetStringFunctions(TypeFactory* type_factory,
                                {date_type},
                                FN_STRING_FROM_DATE,
                                date_time_constructor_options});
-  if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_2_CIVIL_TIME)) {
+  if (options.language_options.LanguageFeatureEnabled(FEATURE_CIVIL_TIME)) {
     string_signatures.push_back({string_type,
                                  {time_type},
                                  FN_STRING_FROM_TIME,
@@ -404,7 +404,7 @@ void GetStringFunctions(TypeFactory* type_factory,
                        {{string_type, {int64_type}, FN_CHR_STRING}});
 
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS)) {
+          FEATURE_ADDITIONAL_STRING_FUNCTIONS)) {
     InsertFunction(functions, options, "instr", SCALAR,
                    {{int64_type,
                      {string_type,
@@ -437,7 +437,7 @@ void GetStringFunctions(TypeFactory* type_factory,
   }
 
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_3_COLLATION_SUPPORT)) {
+          FEATURE_COLLATION_SUPPORT)) {
     InsertFunction(
         functions, options, "collate", SCALAR,
         {{string_type,
@@ -470,7 +470,7 @@ void GetStringFunctions(TypeFactory* type_factory,
        FN_EDIT_DISTANCE},
   };
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_ENABLE_EDIT_DISTANCE_BYTES)) {
+          FEATURE_ENABLE_EDIT_DISTANCE_BYTES)) {
     edit_distance_signature.push_back(
         {int64_type,
          {bytes_type,
@@ -519,7 +519,7 @@ void GetRegexFunctions(TypeFactory* type_factory,
   FunctionArgumentTypeList regexp_extract_bytes_args = {bytes_type, bytes_type};
   FunctionOptions regexp_extract_options;
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_3_ALLOW_REGEXP_EXTRACT_OPTIONALS)) {
+          FEATURE_ALLOW_REGEXP_EXTRACT_OPTIONALS)) {
     regexp_extract_string_args.insert(
         regexp_extract_string_args.end(),
         {{int64_type, OPTIONAL}, {int64_type, OPTIONAL}});
@@ -700,8 +700,7 @@ absl::Status GetProto3ConversionFunctions(
        FN_TO_PROTO_IDEMPOTENT_STRING}};
   std::vector<FunctionSignatureOnHeap> to_proto_signatures(
       to_proto_signatures_proxies.begin(), to_proto_signatures_proxies.end());
-  if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_2_CIVIL_TIME)) {
+  if (options.language_options.LanguageFeatureEnabled(FEATURE_CIVIL_TIME)) {
     from_proto_signatures.push_back(
         {time_type, {proto_time_of_day_type}, FN_FROM_PROTO_TIME_OF_DAY});
     from_proto_signatures.push_back(
@@ -714,11 +713,16 @@ absl::Status GetProto3ConversionFunctions(
   }
   if (options.language_options.LanguageFeatureEnabled(FEATURE_INTERVAL_TYPE) &&
       options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_FROM_PROTO_DURATION)) {
+          FEATURE_FROM_AND_TO_PROTO_INTERVAL)) {
     from_proto_signatures.push_back(
         {interval_type, {proto_duration_type}, FN_FROM_PROTO_DURATION});
     from_proto_signatures.push_back(
         {interval_type, {interval_type}, FN_FROM_PROTO_IDEMPOTENT_INTERVAL});
+    to_proto_signatures.push_back(
+        {proto_duration_type, {interval_type}, FN_TO_PROTO_INTERVAL});
+    to_proto_signatures.push_back({proto_duration_type,
+                                   {proto_duration_type},
+                                   FN_TO_PROTO_IDEMPOTENT_DURATION});
   }
   InsertFunction(functions, options, "from_proto", SCALAR,
                  from_proto_signatures,
@@ -738,7 +742,7 @@ void GetErrorHandlingFunctions(TypeFactory* type_factory,
   const Type* string_type = type_factory->get_string();
 
   // The signature is declared as
-  //   ERROR(string) -> int64_t
+  //   ERROR(string) -> int64
   // but this is special-cased in the resolver so that the result can be
   // coerced to anything, similar to untyped NULL.  This allows using this
   // in expressions like IF(<condition>, <value>, ERROR("message"))
@@ -834,7 +838,7 @@ void GetConditionalFunctions(TypeFactory* type_factory,
 
   bool uses_operation_collation_for_nullif =
       options.language_options.LanguageFeatureEnabled(
-          zetasql::FEATURE_V_1_4_USE_OPERATION_COLLATION_FOR_NULLIF);
+          zetasql::FEATURE_USE_OPERATION_COLLATION_FOR_NULLIF);
   // NULLIF(expr1, expr2): NULL if expr1 = expr2, otherwise returns expr1.
   InsertFunction(
       functions, options, "nullif", SCALAR,
@@ -847,7 +851,7 @@ void GetConditionalFunctions(TypeFactory* type_factory,
           absl::bind_front(&CheckArgumentsSupportEquality, "NULLIF")));
 
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_NULLIFZERO_ZEROIFNULL)) {
+          FEATURE_NULLIFZERO_ZEROIFNULL)) {
     // ZEROIFNULL(expr): if expr is not null, returns expr, else 0.
     InsertFunction(
         functions, options, "zeroifnull", SCALAR,
@@ -889,8 +893,9 @@ void GetConditionalFunctions(TypeFactory* type_factory,
       functions, options, "$case_with_value", SCALAR,
       {{ARG_TYPE_ANY_1,
         {{ARG_TYPE_ANY_2,
-          FunctionArgumentTypeOptions().set_argument_collation_mode(
-              FunctionEnums::AFFECTS_OPERATION)},
+          FunctionArgumentTypeOptions()
+              .set_argument_collation_mode(FunctionEnums::AFFECTS_OPERATION)
+              .set_must_support_equality(true)},
          {ARG_TYPE_ANY_2,
           FunctionArgumentTypeOptions()
               .set_argument_collation_mode(FunctionEnums::AFFECTS_OPERATION)
@@ -909,10 +914,7 @@ void GetConditionalFunctions(TypeFactory* type_factory,
           .set_may_suppress_side_effects(true)
           .set_sql_name("case")
           .set_hide_supported_signatures(true)
-          .set_get_sql_callback(&CaseWithValueFunctionSQL)
-          .set_pre_resolution_argument_constraint(
-              absl::bind_front(&CheckFirstArgumentSupportsEquality,
-                               "CASE (with value comparison)")));
+          .set_get_sql_callback(&CaseWithValueFunctionSQL));
 
   InsertSimpleFunction(
       functions, options, "$case_no_value", SCALAR,
@@ -929,7 +931,7 @@ void GetConditionalFunctions(TypeFactory* type_factory,
               &NoMatchingSignatureForCaseNoValueFunction));
 
   // Internal function $with_side_effects(expression ANY_1, payload BYTES).
-  // Enabled only when FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION is on.
+  // Enabled only when FEATURE_ENFORCE_CONDITIONAL_EVALUATION is on.
   //
   // If the payload is not NULL, applies the side effect (e.g. raise the error
   // described by the payload). Otherwise, returns the first argument. This is
@@ -957,7 +959,7 @@ void GetConditionalFunctions(TypeFactory* type_factory,
       FunctionOptions()
           .set_supports_safe_error_mode(false)
           .AddRequiredLanguageFeature(
-              LanguageFeature::FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION));
+              LanguageFeature::FEATURE_ENFORCE_CONDITIONAL_EVALUATION));
 }
 
 void GetMiscellaneousFunctions(TypeFactory* type_factory,
@@ -980,7 +982,7 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                          {ARG_PROTO_MAP_ANY, ARG_PROTO_MAP_KEY_ANY},
                          FN_PROTO_MAP_CONTAINS_KEY}},
                        FunctionOptions().AddRequiredLanguageFeature(
-                           LanguageFeature::FEATURE_V_1_3_PROTO_MAPS));
+                           LanguageFeature::FEATURE_PROTO_MAPS));
 
   // Is a particular key present in a proto map?
   std::initializer_list<FunctionArgumentTypeProxy> modify_map_args = {
@@ -993,7 +995,7 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
       functions, options, "proto_modify_map", SCALAR,
       {{ARG_PROTO_MAP_ANY, modify_map_args, FN_PROTO_MODIFY_MAP}},
       FunctionOptions()
-          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_V_1_3_PROTO_MAPS)
+          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_PROTO_MAPS)
           .set_pre_resolution_argument_constraint(
               [](absl::Span<const InputArgumentType> args,
                  const LanguageOptions& opts) -> absl::Status {
@@ -1033,7 +1035,7 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   // CONCAT/ARRAY_CONCAT function calls based on the types of the arguments.
   FunctionArgumentTypeOptions concat_option;
   if (options.language_options.LanguageFeatureEnabled(
-          zetasql::FEATURE_V_1_3_CONCAT_MIXED_TYPES)) {
+          zetasql::FEATURE_CONCAT_MIXED_TYPES)) {
     concat_option.set_allow_coercion_from(&CanStringConcatCoerceFrom);
   }
 
@@ -1050,8 +1052,8 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
         {ARG_TYPE_GRAPH_PATH, ARG_TYPE_GRAPH_PATH},
         FN_CONCAT_OP_PATH,
         FunctionSignatureOptions()
-            .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH)
-            .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH_PATH_TYPE)}},
+            .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH)
+            .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH_PATH_TYPE)}},
       FunctionOptions()
           .set_supports_safe_error_mode(false)
           .set_sql_name("||")
@@ -1109,15 +1111,14 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                        {{string_type, {}, FN_GENERATE_UUID}},
                        function_is_volatile);
 
-  InsertSimpleFunction(functions, options, "new_uuid", SCALAR,
-                       {{uuid_type, {}, FN_NEW_UUID}},
-                       FunctionOptions()
-                           .set_volatility(FunctionEnums::VOLATILE)
-                           .AddRequiredLanguageFeature(
-                               LanguageFeature::FEATURE_V_1_4_UUID_TYPE));
+  InsertSimpleFunction(
+      functions, options, "new_uuid", SCALAR, {{uuid_type, {}, FN_NEW_UUID}},
+      FunctionOptions()
+          .set_volatility(FunctionEnums::VOLATILE)
+          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_UUID_TYPE));
 
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_3_PROTO_DEFAULT_IF_NULL)) {
+          FEATURE_PROTO_DEFAULT_IF_NULL)) {
     // This signature is declared as taking input of any type, however it
     // actually takes input of all non-Proto types.
     //
@@ -1138,7 +1139,7 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   }
 
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_3_ENUM_VALUE_DESCRIPTOR_PROTO)) {
+          FEATURE_ENUM_VALUE_DESCRIPTOR_PROTO)) {
     const Type* enum_value_descriptor_proto_type = nullptr;
     ZETASQL_CHECK_OK(type_factory->MakeProtoType(
         google::protobuf::EnumValueDescriptorProto::descriptor(),
@@ -1153,6 +1154,31 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                          FunctionOptions().set_compute_result_type_callback(
                              &GetOrMakeEnumValueDescriptorType));
   }
+
+  auto apply_rewrite_options =
+      FunctionSignatureRewriteOptions()
+          .set_enabled(true)
+          .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+          .set_sql(R"sql(transform(value))sql");
+
+  // APPLY(value, lambda) -> lambda(value)
+  InsertFunction(
+      functions, options, "apply", Function::SCALAR,
+      {{ARG_TYPE_ANY_2,
+        {{ARG_TYPE_ANY_1, FunctionArgumentTypeOptions().set_argument_name(
+                              "value", kPositionalOnly)},
+         FunctionArgumentType::Lambda(
+             {ARG_TYPE_ANY_1}, ARG_TYPE_ANY_2,
+             FunctionArgumentTypeOptions().set_argument_name("transform",
+                                                             kPositionalOnly))},
+        FN_APPLY,
+        FunctionSignatureOptions()
+            .AddRequiredLanguageFeature(FEATURE_INLINE_LAMBDA_ARGUMENT)
+            .AddRequiredLanguageFeature(FEATURE_CHAINED_FUNCTION_CALLS)
+            .set_rewrite_options(std::move(apply_rewrite_options))}},
+      FunctionOptions().set_supports_safe_error_mode(
+          options.language_options.LanguageFeatureEnabled(
+              FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
 }
 
 // This function requires <type_factory>, <functions> to be not nullptr.
@@ -1221,26 +1247,26 @@ void GetSubscriptFunctions(TypeFactory* type_factory,
   // array[SAFE_KEY(key)] gets the array element corresponding to a key if
   // present, or else NULL.
   // In both cases, if the array or the arg is NULL, the result is NULL.
-  InsertSimpleFunction(functions, options, "$proto_map_at_key", SCALAR,
-                       {{ARG_PROTO_MAP_VALUE_ANY,
-                         {ARG_PROTO_MAP_ANY, ARG_PROTO_MAP_KEY_ANY},
-                         FN_PROTO_MAP_AT_KEY}},
-                       FunctionOptions()
-                           .set_supports_safe_error_mode(false)
-                           .set_sql_name("array[key()]")
-                           .set_get_sql_callback(&ProtoMapAtKeySQL)
-                           .AddRequiredLanguageFeature(
-                               LanguageFeature::FEATURE_V_1_3_PROTO_MAPS));
-  InsertSimpleFunction(functions, options, "$safe_proto_map_at_key", SCALAR,
-                       {{ARG_PROTO_MAP_VALUE_ANY,
-                         {ARG_PROTO_MAP_ANY, ARG_PROTO_MAP_KEY_ANY},
-                         FN_SAFE_PROTO_MAP_AT_KEY}},
-                       FunctionOptions()
-                           .set_supports_safe_error_mode(false)
-                           .set_sql_name("array[safe_key()]")
-                           .set_get_sql_callback(&SafeProtoMapAtKeySQL)
-                           .AddRequiredLanguageFeature(
-                               LanguageFeature::FEATURE_V_1_3_PROTO_MAPS));
+  InsertSimpleFunction(
+      functions, options, "$proto_map_at_key", SCALAR,
+      {{ARG_PROTO_MAP_VALUE_ANY,
+        {ARG_PROTO_MAP_ANY, ARG_PROTO_MAP_KEY_ANY},
+        FN_PROTO_MAP_AT_KEY}},
+      FunctionOptions()
+          .set_supports_safe_error_mode(false)
+          .set_sql_name("array[key()]")
+          .set_get_sql_callback(&ProtoMapAtKeySQL)
+          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_PROTO_MAPS));
+  InsertSimpleFunction(
+      functions, options, "$safe_proto_map_at_key", SCALAR,
+      {{ARG_PROTO_MAP_VALUE_ANY,
+        {ARG_PROTO_MAP_ANY, ARG_PROTO_MAP_KEY_ANY},
+        FN_SAFE_PROTO_MAP_AT_KEY}},
+      FunctionOptions()
+          .set_supports_safe_error_mode(false)
+          .set_sql_name("array[safe_key()]")
+          .set_get_sql_callback(&SafeProtoMapAtKeySQL)
+          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_PROTO_MAPS));
 
   // The analyzer translates the subscript operator to a generic $subscript
   // function call for all types not handled above. Using KEY, OFFSET, and
@@ -1261,19 +1287,21 @@ void GetSubscriptFunctions(TypeFactory* type_factory,
     subscript_function_signatures.push_back(
         {json_type, {json_type, string_type}, FN_JSON_SUBSCRIPT_STRING});
   }
-  if (options.language_options.LanguageFeatureEnabled(FEATURE_V_1_4_MAP_TYPE)) {
+  if (options.language_options.LanguageFeatureEnabled(FEATURE_MAP_TYPE)) {
     subscript_function_signatures.push_back(
         {ARG_TYPE_ANY_2,
          {ARG_MAP_TYPE_ANY_1_2, ARG_TYPE_ANY_1},
          FN_MAP_SUBSCRIPT,
-         FunctionSignatureOptions().AddRequiredLanguageFeature(
-             FEATURE_V_1_4_MAP_TYPE)});
+         FunctionSignatureOptions()
+             .set_rejects_collation()
+             .AddRequiredLanguageFeature(FEATURE_MAP_TYPE)});
     subscript_with_key_function_signatures.push_back(
         {ARG_TYPE_ANY_2,
          {ARG_MAP_TYPE_ANY_1_2, ARG_TYPE_ANY_1},
          FN_MAP_SUBSCRIPT_WITH_KEY,
-         FunctionSignatureOptions().AddRequiredLanguageFeature(
-             FEATURE_V_1_4_MAP_TYPE)});
+         FunctionSignatureOptions()
+             .set_rejects_collation()
+             .AddRequiredLanguageFeature(FEATURE_MAP_TYPE)});
   }
 
   InsertFunction(functions, options, "$subscript", Function::SCALAR,
@@ -1318,421 +1346,656 @@ void GetSubscriptFunctions(TypeFactory* type_factory,
                                           /*offset_or_ordinal=*/"ORDINAL")));
 }
 
-absl::Status GetJSONFunctions(TypeFactory* type_factory,
-                              const ZetaSQLBuiltinFunctionOptions& options,
-                              NameToFunctionMap* functions,
-                              NameToTypeMap* types) {
-  const Type* int32_type = types::Int32Type();
-  const Type* int64_type = types::Int64Type();
-  const Type* uint32_type = types::Uint32Type();
-  const Type* uint64_type = types::Uint64Type();
-  const Type* double_type = types::DoubleType();
-  const Type* float_type = types::FloatType();
-  const Type* bool_type = type_factory->get_bool();
-  const Type* string_type = type_factory->get_string();
-  const Type* json_type = types::JsonType();
-  const ArrayType* array_int32_type = types::Int32ArrayType();
-  const ArrayType* array_int64_type = types::Int64ArrayType();
-  const ArrayType* array_uint32_type = types::Uint32ArrayType();
-  const ArrayType* array_uint64_type = types::Uint64ArrayType();
-  const ArrayType* array_double_type = types::DoubleArrayType();
-  const ArrayType* array_float_type = types::FloatArrayType();
-  const ArrayType* array_bool_type = types::BoolArrayType();
-  const ArrayType* array_string_type = types::StringArrayType();
-  const ArrayType* array_json_type = types::JsonArrayType();
-  const EnumType* unsupported_fields_type = types::UnsupportedFieldsEnumType();
+namespace {
 
-  const Function::Mode SCALAR = Function::SCALAR;
-  const FunctionArgumentType::ArgumentCardinality REPEATED =
-      FunctionArgumentType::REPEATED;
-
-  FunctionArgumentTypeOptions json_path_argument_options;
-  FunctionArgumentTypeOptions repeated_json_path_argument_options(REPEATED);
-  FunctionArgumentTypeOptions optional_json_path_argument_options(
-      FunctionArgumentType::OPTIONAL);
-  optional_json_path_argument_options.set_default(Value::String("$"));
-  if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_ENABLE_CONSTANT_EXPRESSION_IN_JSON_PATH)) {
-    json_path_argument_options.set_must_be_constant_expression();
-    repeated_json_path_argument_options.set_must_be_constant_expression();
-    optional_json_path_argument_options.set_must_be_constant_expression();
-  } else {
-    json_path_argument_options.set_must_be_constant();
-    repeated_json_path_argument_options.set_must_be_constant();
-    optional_json_path_argument_options.set_must_be_constant();
+absl::Status GetJsonParseFunctions(
+    const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions, NameToTypeMap* types) {
+  if (!options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
+    return absl::OkStatus();
   }
 
-  FunctionArgumentType json_path_argument =
-      FunctionArgumentType(string_type, json_path_argument_options);
-  FunctionArgumentType repeated_json_path_argument =
-      FunctionArgumentType(string_type, repeated_json_path_argument_options);
-  FunctionArgumentType optional_json_path_argument =
-      FunctionArgumentType(string_type, optional_json_path_argument_options);
+  const Type* const bool_type = types::BoolType();
+  const Type* const string_type = types::StringType();
+  const Type* const json_type = types::JsonType();
+  const EnumType* const unsupported_fields_type =
+      types::UnsupportedFieldsEnumType();
 
-  std::vector<FunctionSignatureOnHeap> json_extract_signatures = {
-      {string_type,
-       {string_type, json_path_argument},
-       FN_JSON_EXTRACT,
-       FunctionSignatureOptions().set_rejects_collation()}};
-  std::vector<FunctionSignatureOnHeap> json_query_signatures = {
-      {string_type,
-       {string_type, json_path_argument},
-       FN_JSON_QUERY,
-       FunctionSignatureOptions().set_rejects_collation()}};
-  std::vector<FunctionSignatureOnHeap> json_extract_scalar_signatures = {
-      {string_type,
-       {string_type, optional_json_path_argument},
-       FN_JSON_EXTRACT_SCALAR,
-       FunctionSignatureOptions().set_rejects_collation()}};
-  std::vector<FunctionSignatureOnHeap> json_value_signatures = {
-      {string_type,
-       {string_type, optional_json_path_argument},
-       FN_JSON_VALUE,
-       FunctionSignatureOptions().set_rejects_collation()}};
-
-  std::vector<FunctionSignatureOnHeap> json_extract_array_signatures = {
-      {array_string_type,
-       {string_type, optional_json_path_argument},
-       FN_JSON_EXTRACT_ARRAY,
-       FunctionSignatureOptions().set_rejects_collation()}};
-  std::vector<FunctionSignatureOnHeap> json_extract_string_array_signatures = {
-      {array_string_type,
-       {string_type, optional_json_path_argument},
-       FN_JSON_EXTRACT_STRING_ARRAY,
-       FunctionSignatureOptions().set_rejects_collation()}};
-  std::vector<FunctionSignatureOnHeap> json_query_array_signatures = {
-      {array_string_type,
-       {string_type, optional_json_path_argument},
-       FN_JSON_QUERY_ARRAY,
-       FunctionSignatureOptions().set_rejects_collation()}};
-  std::vector<FunctionSignatureOnHeap> json_value_array_signatures = {
-      {array_string_type,
-       {string_type, optional_json_path_argument},
-       FN_JSON_VALUE_ARRAY,
-       FunctionSignatureOptions().set_rejects_collation()}};
-
-  if (options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
-    json_extract_signatures.push_back(
-        {json_type, {json_type, json_path_argument}, FN_JSON_EXTRACT_JSON});
-    json_query_signatures.push_back(
-        {json_type, {json_type, json_path_argument}, FN_JSON_QUERY_JSON});
-    json_extract_scalar_signatures.push_back(
-        {string_type,
-         {json_type, optional_json_path_argument},
-         FN_JSON_EXTRACT_SCALAR_JSON});
-    json_value_signatures.push_back({string_type,
-                                     {json_type, optional_json_path_argument},
-                                     FN_JSON_VALUE_JSON});
-    json_extract_array_signatures.push_back(
-        {array_json_type,
-         {json_type, optional_json_path_argument},
-         FN_JSON_EXTRACT_ARRAY_JSON});
-    json_extract_string_array_signatures.push_back(
-        {array_string_type,
-         {json_type, optional_json_path_argument},
-         FN_JSON_EXTRACT_STRING_ARRAY_JSON});
-    json_query_array_signatures.push_back(
-        {array_json_type,
-         {json_type, optional_json_path_argument},
-         FN_JSON_QUERY_ARRAY_JSON});
-    json_value_array_signatures.push_back(
-        {array_string_type,
-         {json_type, optional_json_path_argument},
-         FN_JSON_VALUE_ARRAY_JSON});
-
-    {
-      std::vector<FunctionSignatureOnHeap> signatures = {
-          {json_type,
-           {ARG_TYPE_ANY_1,
-            {bool_type,
-             FunctionArgumentTypeOptions()
-                 .set_cardinality(FunctionEnums::OPTIONAL)
-                 .set_argument_name("stringify_wide_numbers", kNamedOnly)
-                 .set_default(values::Bool(false))}},
-           FN_TO_JSON},
-      };
-      if (options.language_options.LanguageFeatureEnabled(
-              FEATURE_TO_JSON_UNSUPPORTED_FIELDS)) {
-        signatures.push_back(
-            {json_type,
-             {ARG_TYPE_ANY_1,
-              {bool_type,
-               FunctionArgumentTypeOptions()
-                   .set_cardinality(FunctionEnums::OPTIONAL)
-                   .set_argument_name("stringify_wide_numbers", kNamedOnly)
-                   .set_default(values::Bool(false))},
-              {
-                  unsupported_fields_type,
-                  FunctionArgumentTypeOptions()
-                      .set_cardinality(FunctionEnums::OPTIONAL)
-                      .set_argument_name("unsupported_fields", kNamedOnly)
-                      .set_default(
-                          values::Enum(unsupported_fields_type,
-                                       functions::UnsupportedFieldsEnum::FAIL)),
-              }},
-             FN_TO_JSON_UNSUPPORTED_FIELDS});
-
-        ZETASQL_RETURN_IF_ERROR(InsertFunctionAndTypes(
-            functions, types, options, "to_json", SCALAR, signatures,
-            /*function_options=*/{}, {unsupported_fields_type}));
-      } else {
-        InsertFunction(functions, options, "to_json", SCALAR, signatures);
-      }
-    }
-    InsertFunction(
-        functions, options, "safe_to_json", SCALAR,
-        {{json_type, {ARG_TYPE_ANY_1}, FN_SAFE_TO_JSON}},
-        FunctionOptions().AddRequiredLanguageFeature(FEATURE_JSON_TYPE));
-    InsertFunction(
-        functions, options, "parse_json", SCALAR,
-        {{json_type,
-          {string_type,
-           FunctionArgumentType(
-               string_type,
-               FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
-                   .set_argument_name("wide_number_mode", kNamedOnly)
-                   .set_default(Value::String("exact")))},
-          FN_PARSE_JSON}});
-
-    if (options.language_options.LanguageFeatureEnabled(
-            FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS)) {
-      zetasql::FunctionOptions function_options;
-      if (options.language_options.product_mode() == PRODUCT_INTERNAL) {
-        function_options.set_alias_name("double");
-      }
-      InsertFunction(functions, options, "int64", SCALAR,
-                     {{int64_type, {json_type}, FN_JSON_TO_INT64}});
-      InsertFunction(functions, options, "float64", SCALAR,
-                     {{double_type,
-                       {json_type,
-                        {string_type,
-                         FunctionArgumentTypeOptions()
-                             .set_cardinality(FunctionEnums::OPTIONAL)
-                             .set_argument_name("wide_number_mode", kNamedOnly)
-                             .set_default(Value::String("round"))}},
-                       FN_JSON_TO_DOUBLE}},
-                     function_options);
-      InsertFunction(functions, options, "bool", SCALAR,
-                     {{bool_type, {json_type}, FN_JSON_TO_BOOL}});
-      InsertFunction(functions, options, "json_type", SCALAR,
-                     {{string_type, {json_type}, FN_JSON_TYPE}});
-    }
-
-    if (options.language_options.LanguageFeatureEnabled(
-            FEATURE_JSON_LAX_VALUE_EXTRACTION_FUNCTIONS)) {
-      InsertFunction(functions, options, "lax_bool", SCALAR,
-                     {{bool_type, {json_type}, FN_JSON_LAX_TO_BOOL}});
-      InsertFunction(functions, options, "lax_int64", SCALAR,
-                     {{int64_type, {json_type}, FN_JSON_LAX_TO_INT64}});
-      zetasql::FunctionOptions function_options;
-      if (options.language_options.product_mode() == PRODUCT_INTERNAL) {
-        function_options.set_alias_name("lax_double");
-      }
-      InsertFunction(functions, options, "lax_float64", SCALAR,
-                     {{double_type, {json_type}, FN_JSON_LAX_TO_DOUBLE}},
-                     function_options);
-      InsertFunction(functions, options, "lax_string", SCALAR,
-                     {{string_type, {json_type}, FN_JSON_LAX_TO_STRING}});
-    }
-
-    if (options.language_options.LanguageFeatureEnabled(
-            FEATURE_V_1_4_JSON_ARRAY_VALUE_EXTRACTION_FUNCTIONS)) {
-      InsertFunction(functions, options, "bool_array", SCALAR,
-                     {{array_bool_type, {json_type}, FN_JSON_TO_BOOL_ARRAY}});
-
-      InsertFunction(
-          functions, options, "float64_array", SCALAR,
-          {{array_double_type,
-            {json_type,
-             {string_type,
+  std::vector<FunctionSignatureOnHeap> signatures = {
+      {json_type,
+       {ARG_TYPE_ANY_1,
+        {bool_type, FunctionArgumentTypeOptions()
+                        .set_cardinality(FunctionEnums::OPTIONAL)
+                        .set_argument_name("stringify_wide_numbers", kNamedOnly)
+                        .set_default(values::Bool(false))}},
+       FN_TO_JSON},
+  };
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_TO_JSON_UNSUPPORTED_FIELDS)) {
+    signatures.push_back(
+        {json_type,
+         {ARG_TYPE_ANY_1,
+          {bool_type,
+           FunctionArgumentTypeOptions()
+               .set_cardinality(FunctionEnums::OPTIONAL)
+               .set_argument_name("stringify_wide_numbers", kNamedOnly)
+               .set_default(values::Bool(false))},
+          {
+              unsupported_fields_type,
               FunctionArgumentTypeOptions()
                   .set_cardinality(FunctionEnums::OPTIONAL)
-                  .set_argument_name("wide_number_mode", kNamedOnly)
-                  .set_default(Value::String("round"))}},
-            FN_JSON_TO_FLOAT64_ARRAY}},
-          zetasql::FunctionOptions().set_alias_name(
-              options.language_options.product_mode() == PRODUCT_INTERNAL
-                  ? "double_array"
-                  : ""));
+                  .set_argument_name("unsupported_fields", kNamedOnly)
+                  .set_default(
+                      values::Enum(unsupported_fields_type,
+                                   functions::UnsupportedFieldsEnum::FAIL)),
+          }},
+         FN_TO_JSON_UNSUPPORTED_FIELDS});
 
-      InsertFunction(functions, options, "int64_array", SCALAR,
-                     {{array_int64_type, {json_type}, FN_JSON_TO_INT64_ARRAY}});
-
-      InsertFunction(
-          functions, options, "string_array", SCALAR,
-          {{array_string_type, {json_type}, FN_JSON_TO_STRING_ARRAY}});
-
-      if (options.language_options.LanguageFeatureEnabled(
-              FEATURE_JSON_LAX_VALUE_EXTRACTION_FUNCTIONS)) {
-        InsertFunction(
-            functions, options, "lax_bool_array", SCALAR,
-            {{array_bool_type, {json_type}, FN_JSON_LAX_TO_BOOL_ARRAY}});
-        InsertFunction(
-            functions, options, "lax_float64_array", SCALAR,
-            {{array_double_type, {json_type}, FN_JSON_LAX_TO_FLOAT64_ARRAY}},
-            zetasql::FunctionOptions().set_alias_name(
-                options.language_options.product_mode() == PRODUCT_INTERNAL
-                    ? "lax_double_array"
-                    : ""));
-        InsertFunction(
-            functions, options, "lax_int64_array", SCALAR,
-            {{array_int64_type, {json_type}, FN_JSON_LAX_TO_INT64_ARRAY}});
-        InsertFunction(
-            functions, options, "lax_string_array", SCALAR,
-            {{array_string_type, {json_type}, FN_JSON_LAX_TO_STRING_ARRAY}});
-      }
-    }
-
-    if (options.language_options.LanguageFeatureEnabled(
-            FEATURE_V_1_4_JSON_MORE_VALUE_EXTRACTION_FUNCTIONS)) {
-      InsertFunction(functions, options, "int32", SCALAR,
-                     {{int32_type, {json_type}, FN_JSON_TO_INT32}});
-      InsertFunction(functions, options, "uint32", SCALAR,
-                     {{uint32_type, {json_type}, FN_JSON_TO_UINT32}});
-      InsertFunction(functions, options, "uint64", SCALAR,
-                     {{uint64_type, {json_type}, FN_JSON_TO_UINT64}});
-
-      if (!options.language_options.LanguageFeatureEnabled(
-              FEATURE_V_1_4_DISABLE_FLOAT32)) {
-        InsertFunction(
-            functions, options, "float32", SCALAR,
-            {{float_type,
-              {json_type,
-               {string_type,
-                FunctionArgumentTypeOptions()
-                    .set_cardinality(FunctionEnums::OPTIONAL)
-                    .set_argument_name("wide_number_mode", kNamedOnly)
-                    .set_default(Value::String("round"))}},
-              FN_JSON_TO_FLOAT32}},
-            zetasql::FunctionOptions().set_alias_name(
-                options.language_options.product_mode() == PRODUCT_INTERNAL
-                    ? "float"
-                    : ""));
-      }
-
-      if (options.language_options.LanguageFeatureEnabled(
-              FEATURE_JSON_LAX_VALUE_EXTRACTION_FUNCTIONS)) {
-        InsertFunction(functions, options, "lax_int32", SCALAR,
-                       {{int32_type, {json_type}, FN_JSON_LAX_TO_INT32}});
-        InsertFunction(functions, options, "lax_uint32", SCALAR,
-                       {{uint32_type, {json_type}, FN_JSON_LAX_TO_UINT32}});
-        InsertFunction(functions, options, "lax_uint64", SCALAR,
-                       {{uint64_type, {json_type}, FN_JSON_LAX_TO_UINT64}});
-
-        if (!options.language_options.LanguageFeatureEnabled(
-                FEATURE_V_1_4_DISABLE_FLOAT32)) {
-          InsertFunction(
-              functions, options, "lax_float32", SCALAR,
-              {{float_type, {json_type}, FN_JSON_LAX_TO_FLOAT32}},
-              zetasql::FunctionOptions().set_alias_name(
-                  options.language_options.product_mode() == PRODUCT_INTERNAL
-                      ? "lax_float"
-                      : ""));
-        }
-      }
-
-      if (options.language_options.LanguageFeatureEnabled(
-              FEATURE_V_1_4_JSON_ARRAY_VALUE_EXTRACTION_FUNCTIONS)) {
-        InsertFunction(
-            functions, options, "int32_array", SCALAR,
-            {{array_int32_type, {json_type}, FN_JSON_TO_INT32_ARRAY}});
-        InsertFunction(
-            functions, options, "uint32_array", SCALAR,
-            {{array_uint32_type, {json_type}, FN_JSON_TO_UINT32_ARRAY}});
-        InsertFunction(
-            functions, options, "uint64_array", SCALAR,
-            {{array_uint64_type, {json_type}, FN_JSON_TO_UINT64_ARRAY}});
-
-        if (!options.language_options.LanguageFeatureEnabled(
-                FEATURE_V_1_4_DISABLE_FLOAT32)) {
-          InsertFunction(
-              functions, options, "float32_array", SCALAR,
-              {{array_float_type,
-                {json_type,
-                 {string_type,
-                  FunctionArgumentTypeOptions()
-                      .set_cardinality(FunctionEnums::OPTIONAL)
-                      .set_argument_name("wide_number_mode", kNamedOnly)
-                      .set_default(Value::String("round"))}},
-                FN_JSON_TO_FLOAT32_ARRAY}},
-              zetasql::FunctionOptions().set_alias_name(
-                  options.language_options.product_mode() == PRODUCT_INTERNAL
-                      ? "float_array"
-                      : ""));
-        }
-
-        if (options.language_options.LanguageFeatureEnabled(
-                FEATURE_JSON_LAX_VALUE_EXTRACTION_FUNCTIONS)) {
-          InsertFunction(
-              functions, options, "lax_int32_array", SCALAR,
-              {{array_int32_type, {json_type}, FN_JSON_LAX_TO_INT32_ARRAY}});
-          InsertFunction(
-              functions, options, "lax_uint32_array", SCALAR,
-              {{array_uint32_type, {json_type}, FN_JSON_LAX_TO_UINT32_ARRAY}});
-          InsertFunction(
-              functions, options, "lax_uint64_array", SCALAR,
-              {{array_uint64_type, {json_type}, FN_JSON_LAX_TO_UINT64_ARRAY}});
-
-          if (!options.language_options.LanguageFeatureEnabled(
-                  FEATURE_V_1_4_DISABLE_FLOAT32)) {
-            InsertFunction(
-                functions, options, "lax_float32_array", SCALAR,
-                {{array_float_type, {json_type}, FN_JSON_LAX_TO_FLOAT32_ARRAY}},
-                zetasql::FunctionOptions().set_alias_name(
-                    options.language_options.product_mode() == PRODUCT_INTERNAL
-                        ? "lax_float_array"
-                        : ""));
-          }
-        }
-      }
-    }
+    ZETASQL_RETURN_IF_ERROR(InsertFunctionAndTypes(
+        functions, types, options, "to_json", Function::SCALAR, signatures,
+        /*function_options=*/{}, {unsupported_fields_type}));
+  } else {
+    InsertFunction(functions, options, "to_json", Function::SCALAR, signatures);
   }
 
   InsertFunction(
-      functions, options, "json_array", SCALAR,
+      functions, options, "safe_to_json", Function::SCALAR,
+      {{json_type, {ARG_TYPE_ANY_1}, FN_SAFE_TO_JSON}},
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_JSON_TYPE));
+  InsertFunction(
+      functions, options, "parse_json", Function::SCALAR,
       {{json_type,
-        {{ARG_TYPE_ARBITRARY,
-          FunctionArgumentTypeOptions().set_cardinality(REPEATED)}},
+        {string_type,
+         FunctionArgumentType(
+             string_type,
+             FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
+                 .set_argument_name("wide_number_mode", kNamedOnly)
+                 .set_default(Value::String("exact")))},
+        FN_PARSE_JSON}});
+
+  return absl::OkStatus();
+}
+
+void GetJsonValueExtractionFunctions(
+    const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions) {
+  if (!options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
+    return;
+  }
+  if (!options.language_options.LanguageFeatureEnabled(
+          FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS)) {
+    return;
+  }
+
+  const Type* const int64_type = types::Int64Type();
+  const Type* const double_type = types::DoubleType();
+  const Type* const bool_type = types::BoolType();
+  const Type* const string_type = types::StringType();
+  const Type* const json_type = types::JsonType();
+
+  zetasql::FunctionOptions function_options;
+  if (options.language_options.product_mode() == PRODUCT_INTERNAL) {
+    function_options.set_alias_name("double");
+  }
+  InsertFunction(functions, options, "int64", Function::SCALAR,
+                 {{int64_type, {json_type}, FN_JSON_TO_INT64}});
+  InsertFunction(
+      functions, options, "float64", Function::SCALAR,
+      {{double_type,
+        {json_type,
+         {string_type, FunctionArgumentTypeOptions()
+                           .set_cardinality(FunctionEnums::OPTIONAL)
+                           .set_argument_name("wide_number_mode", kNamedOnly)
+                           .set_default(Value::String("round"))}},
+        FN_JSON_TO_DOUBLE}},
+      function_options);
+  InsertFunction(functions, options, "bool", Function::SCALAR,
+                 {{bool_type, {json_type}, FN_JSON_TO_BOOL}});
+  InsertFunction(functions, options, "json_type", Function::SCALAR,
+                 {{string_type, {json_type}, FN_JSON_TYPE}});
+}
+
+void GetJsonLaxValueExtractionFunctions(
+    const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions) {
+  if (!options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
+    return;
+  }
+  if (!options.language_options.LanguageFeatureEnabled(
+          FEATURE_JSON_LAX_VALUE_EXTRACTION_FUNCTIONS)) {
+    return;
+  }
+
+  const Type* const int64_type = types::Int64Type();
+  const Type* const double_type = types::DoubleType();
+  const Type* const bool_type = types::BoolType();
+  const Type* const string_type = types::StringType();
+  const Type* const json_type = types::JsonType();
+
+  InsertFunction(functions, options, "lax_bool", Function::SCALAR,
+                 {{bool_type, {json_type}, FN_JSON_LAX_TO_BOOL}});
+  InsertFunction(functions, options, "lax_int64", Function::SCALAR,
+                 {{int64_type, {json_type}, FN_JSON_LAX_TO_INT64}});
+  zetasql::FunctionOptions function_options;
+  if (options.language_options.product_mode() == PRODUCT_INTERNAL) {
+    function_options.set_alias_name("lax_double");
+  }
+  InsertFunction(functions, options, "lax_float64", Function::SCALAR,
+                 {{double_type, {json_type}, FN_JSON_LAX_TO_DOUBLE}},
+                 function_options);
+  InsertFunction(functions, options, "lax_string", Function::SCALAR,
+                 {{string_type, {json_type}, FN_JSON_LAX_TO_STRING}});
+}
+
+void GetJsonArrayValueExtractionFunctions(
+    const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions) {
+  if (!options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
+    return;
+  }
+  if (!options.language_options.LanguageFeatureEnabled(
+          FEATURE_JSON_ARRAY_VALUE_EXTRACTION_FUNCTIONS)) {
+    return;
+  }
+
+  const Type* const string_type = types::StringType();
+  const Type* const json_type = types::JsonType();
+  const ArrayType* const array_int64_type = types::Int64ArrayType();
+  const ArrayType* const array_double_type = types::DoubleArrayType();
+  const ArrayType* const array_bool_type = types::BoolArrayType();
+  const ArrayType* const array_string_type = types::StringArrayType();
+
+  InsertFunction(functions, options, "bool_array", Function::SCALAR,
+                 {{array_bool_type, {json_type}, FN_JSON_TO_BOOL_ARRAY}});
+
+  InsertFunction(
+      functions, options, "float64_array", Function::SCALAR,
+      {{array_double_type,
+        {json_type,
+         {string_type, FunctionArgumentTypeOptions()
+                           .set_cardinality(FunctionEnums::OPTIONAL)
+                           .set_argument_name("wide_number_mode", kNamedOnly)
+                           .set_default(Value::String("round"))}},
+        FN_JSON_TO_FLOAT64_ARRAY}},
+      zetasql::FunctionOptions().set_alias_name(
+          options.language_options.product_mode() == PRODUCT_INTERNAL
+              ? "double_array"
+              : ""));
+
+  InsertFunction(functions, options, "int64_array", Function::SCALAR,
+                 {{array_int64_type, {json_type}, FN_JSON_TO_INT64_ARRAY}});
+
+  InsertFunction(functions, options, "string_array", Function::SCALAR,
+                 {{array_string_type, {json_type}, FN_JSON_TO_STRING_ARRAY}});
+}
+
+void GetJsonLaxArrayValueExtractionFunctions(
+    const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions) {
+  if (!options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
+    return;
+  }
+  if (!options.language_options.LanguageFeatureEnabled(
+          FEATURE_JSON_ARRAY_VALUE_EXTRACTION_FUNCTIONS)) {
+    return;
+  }
+  if (!options.language_options.LanguageFeatureEnabled(
+          FEATURE_JSON_LAX_VALUE_EXTRACTION_FUNCTIONS)) {
+    return;
+  }
+
+  const Type* const json_type = types::JsonType();
+  const ArrayType* const array_int64_type = types::Int64ArrayType();
+  const ArrayType* const array_double_type = types::DoubleArrayType();
+  const ArrayType* const array_bool_type = types::BoolArrayType();
+  const ArrayType* const array_string_type = types::StringArrayType();
+
+  InsertFunction(functions, options, "lax_bool_array", Function::SCALAR,
+                 {{array_bool_type, {json_type}, FN_JSON_LAX_TO_BOOL_ARRAY}});
+  InsertFunction(
+      functions, options, "lax_float64_array", Function::SCALAR,
+      {{array_double_type, {json_type}, FN_JSON_LAX_TO_FLOAT64_ARRAY}},
+      zetasql::FunctionOptions().set_alias_name(
+          options.language_options.product_mode() == PRODUCT_INTERNAL
+              ? "lax_double_array"
+              : ""));
+  InsertFunction(functions, options, "lax_int64_array", Function::SCALAR,
+                 {{array_int64_type, {json_type}, FN_JSON_LAX_TO_INT64_ARRAY}});
+  InsertFunction(
+      functions, options, "lax_string_array", Function::SCALAR,
+      {{array_string_type, {json_type}, FN_JSON_LAX_TO_STRING_ARRAY}});
+}
+
+void GetMoreJsonValueExtractionFunctions(
+    const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions) {
+  if (!options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
+    return;
+  }
+  if (!options.language_options.LanguageFeatureEnabled(
+          FEATURE_JSON_MORE_VALUE_EXTRACTION_FUNCTIONS)) {
+    return;
+  }
+
+  const Type* const int32_type = types::Int32Type();
+  const Type* const uint32_type = types::Uint32Type();
+  const Type* const uint64_type = types::Uint64Type();
+  const Type* const float_type = types::FloatType();
+  const Type* const string_type = types::StringType();
+  const Type* const json_type = types::JsonType();
+
+  InsertFunction(functions, options, "int32", Function::SCALAR,
+                 {{int32_type, {json_type}, FN_JSON_TO_INT32}});
+  InsertFunction(functions, options, "uint32", Function::SCALAR,
+                 {{uint32_type, {json_type}, FN_JSON_TO_UINT32}});
+  InsertFunction(functions, options, "uint64", Function::SCALAR,
+                 {{uint64_type, {json_type}, FN_JSON_TO_UINT64}});
+
+  if (!options.language_options.LanguageFeatureEnabled(
+          FEATURE_DISABLE_FLOAT32)) {
+    InsertFunction(
+        functions, options, "float32", Function::SCALAR,
+        {{float_type,
+          {json_type,
+           {string_type, FunctionArgumentTypeOptions()
+                             .set_cardinality(FunctionEnums::OPTIONAL)
+                             .set_argument_name("wide_number_mode", kNamedOnly)
+                             .set_default(Value::String("round"))}},
+          FN_JSON_TO_FLOAT32}},
+        zetasql::FunctionOptions().set_alias_name(
+            options.language_options.product_mode() == PRODUCT_INTERNAL
+                ? "float"
+                : ""));
+  }
+}
+
+void GetMoreJsonLaxValueExtractionFunctions(
+    const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions) {
+  if (!options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
+    return;
+  }
+  if (!options.language_options.LanguageFeatureEnabled(
+          FEATURE_JSON_MORE_VALUE_EXTRACTION_FUNCTIONS)) {
+    return;
+  }
+  if (!options.language_options.LanguageFeatureEnabled(
+          FEATURE_JSON_LAX_VALUE_EXTRACTION_FUNCTIONS)) {
+    return;
+  }
+
+  const Type* const int32_type = types::Int32Type();
+  const Type* const uint32_type = types::Uint32Type();
+  const Type* const uint64_type = types::Uint64Type();
+  const Type* const float_type = types::FloatType();
+  const Type* const json_type = types::JsonType();
+
+  InsertFunction(functions, options, "lax_int32", Function::SCALAR,
+                 {{int32_type, {json_type}, FN_JSON_LAX_TO_INT32}});
+  InsertFunction(functions, options, "lax_uint32", Function::SCALAR,
+                 {{uint32_type, {json_type}, FN_JSON_LAX_TO_UINT32}});
+  InsertFunction(functions, options, "lax_uint64", Function::SCALAR,
+                 {{uint64_type, {json_type}, FN_JSON_LAX_TO_UINT64}});
+
+  if (!options.language_options.LanguageFeatureEnabled(
+          FEATURE_DISABLE_FLOAT32)) {
+    InsertFunction(
+        functions, options, "lax_float32", Function::SCALAR,
+        {{float_type, {json_type}, FN_JSON_LAX_TO_FLOAT32}},
+        zetasql::FunctionOptions().set_alias_name(
+            options.language_options.product_mode() == PRODUCT_INTERNAL
+                ? "lax_float"
+                : ""));
+  }
+}
+
+void GetMoreJsonArrayValueExtractionFunctions(
+    const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions) {
+  if (!options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
+    return;
+  }
+  if (!options.language_options.LanguageFeatureEnabled(
+          FEATURE_JSON_MORE_VALUE_EXTRACTION_FUNCTIONS)) {
+    return;
+  }
+  if (!options.language_options.LanguageFeatureEnabled(
+          FEATURE_JSON_ARRAY_VALUE_EXTRACTION_FUNCTIONS)) {
+    return;
+  }
+
+  const Type* const string_type = types::StringType();
+  const Type* const json_type = types::JsonType();
+  const ArrayType* const array_int32_type = types::Int32ArrayType();
+  const ArrayType* const array_uint32_type = types::Uint32ArrayType();
+  const ArrayType* const array_uint64_type = types::Uint64ArrayType();
+  const ArrayType* const array_float_type = types::FloatArrayType();
+
+  InsertFunction(functions, options, "int32_array", Function::SCALAR,
+                 {{array_int32_type, {json_type}, FN_JSON_TO_INT32_ARRAY}});
+  InsertFunction(functions, options, "uint32_array", Function::SCALAR,
+                 {{array_uint32_type, {json_type}, FN_JSON_TO_UINT32_ARRAY}});
+  InsertFunction(functions, options, "uint64_array", Function::SCALAR,
+                 {{array_uint64_type, {json_type}, FN_JSON_TO_UINT64_ARRAY}});
+
+  if (!options.language_options.LanguageFeatureEnabled(
+          FEATURE_DISABLE_FLOAT32)) {
+    InsertFunction(
+        functions, options, "float32_array", Function::SCALAR,
+        {{array_float_type,
+          {json_type,
+           {string_type, FunctionArgumentTypeOptions()
+                             .set_cardinality(FunctionEnums::OPTIONAL)
+                             .set_argument_name("wide_number_mode", kNamedOnly)
+                             .set_default(Value::String("round"))}},
+          FN_JSON_TO_FLOAT32_ARRAY}},
+        zetasql::FunctionOptions().set_alias_name(
+            options.language_options.product_mode() == PRODUCT_INTERNAL
+                ? "float_array"
+                : ""));
+  }
+}
+
+void GetMoreJsonLaxArrayValueExtractionFunctions(
+    const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions) {
+  if (!options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
+    return;
+  }
+  if (!options.language_options.LanguageFeatureEnabled(
+          FEATURE_JSON_MORE_VALUE_EXTRACTION_FUNCTIONS)) {
+    return;
+  }
+  if (!options.language_options.LanguageFeatureEnabled(
+          FEATURE_JSON_ARRAY_VALUE_EXTRACTION_FUNCTIONS)) {
+    return;
+  }
+  if (!options.language_options.LanguageFeatureEnabled(
+          FEATURE_JSON_LAX_VALUE_EXTRACTION_FUNCTIONS)) {
+    return;
+  }
+
+  const Type* const json_type = types::JsonType();
+  const ArrayType* const array_int32_type = types::Int32ArrayType();
+  const ArrayType* const array_uint32_type = types::Uint32ArrayType();
+  const ArrayType* const array_uint64_type = types::Uint64ArrayType();
+  const ArrayType* const array_float_type = types::FloatArrayType();
+
+  InsertFunction(functions, options, "lax_int32_array", Function::SCALAR,
+                 {{array_int32_type, {json_type}, FN_JSON_LAX_TO_INT32_ARRAY}});
+  InsertFunction(
+      functions, options, "lax_uint32_array", Function::SCALAR,
+      {{array_uint32_type, {json_type}, FN_JSON_LAX_TO_UINT32_ARRAY}});
+  InsertFunction(
+      functions, options, "lax_uint64_array", Function::SCALAR,
+      {{array_uint64_type, {json_type}, FN_JSON_LAX_TO_UINT64_ARRAY}});
+
+  if (!options.language_options.LanguageFeatureEnabled(
+          FEATURE_DISABLE_FLOAT32)) {
+    InsertFunction(
+        functions, options, "lax_float32_array", Function::SCALAR,
+        {{array_float_type, {json_type}, FN_JSON_LAX_TO_FLOAT32_ARRAY}},
+        zetasql::FunctionOptions().set_alias_name(
+            options.language_options.product_mode() == PRODUCT_INTERNAL
+                ? "lax_float_array"
+                : ""));
+  }
+}
+
+struct PathArguments {
+  static PathArguments Init(const ZetaSQLBuiltinFunctionOptions& options) {
+    FunctionArgumentTypeOptions json_path_argument_options;
+    FunctionArgumentTypeOptions repeated_json_path_argument_options(
+        FunctionArgumentType::REPEATED);
+    FunctionArgumentTypeOptions optional_json_path_argument_options(
+        FunctionArgumentType::OPTIONAL);
+    optional_json_path_argument_options.set_default(Value::String("$"));
+    if (options.language_options.LanguageFeatureEnabled(
+            FEATURE_ENABLE_CONSTANT_EXPRESSION_IN_JSON_PATH)) {
+      json_path_argument_options.set_must_be_constant_expression();
+      repeated_json_path_argument_options.set_must_be_constant_expression();
+      optional_json_path_argument_options.set_must_be_constant_expression();
+    } else {
+      json_path_argument_options.set_must_be_constant();
+      repeated_json_path_argument_options.set_must_be_constant();
+      optional_json_path_argument_options.set_must_be_constant();
+    }
+
+    const Type* const string_type = types::StringType();
+
+    return {.json_path =
+                FunctionArgumentType(string_type, json_path_argument_options),
+            .repeated_json_path = FunctionArgumentType(
+                string_type, repeated_json_path_argument_options),
+            .optional_json_path = FunctionArgumentType(
+                string_type, optional_json_path_argument_options)};
+  }
+
+  FunctionArgumentType json_path;
+  FunctionArgumentType repeated_json_path;
+  FunctionArgumentType optional_json_path;
+};
+
+void GetJsonArrayFunctions(const PathArguments& path_arguments,
+                           const ZetaSQLBuiltinFunctionOptions& options,
+                           NameToFunctionMap* functions) {
+  const Type* const bool_type = types::BoolType();
+  const Type* const json_type = types::JsonType();
+
+  InsertFunction(
+      functions, options, "json_array", Function::SCALAR,
+      {{json_type,
+        {{ARG_TYPE_ARBITRARY, FunctionArgumentTypeOptions().set_cardinality(
+                                  FunctionArgumentType::REPEATED)}},
         FN_JSON_ARRAY}},
       FunctionOptions()
           .AddRequiredLanguageFeature(FEATURE_JSON_TYPE)
           .AddRequiredLanguageFeature(FEATURE_JSON_CONSTRUCTOR_FUNCTIONS));
 
-  InsertFunction(functions, options, "json_extract", SCALAR,
-                 json_extract_signatures);
-  InsertFunction(functions, options, "json_query", SCALAR,
-                 json_query_signatures);
-  InsertFunction(functions, options, "json_extract_scalar", SCALAR,
-                 json_extract_scalar_signatures);
-  InsertFunction(functions, options, "json_value", SCALAR,
-                 json_value_signatures);
+  InsertFunction(
+      functions, options, "json_array_insert", Function::SCALAR,
+      {{json_type,
+        {json_type,
+         // Ensure at least one repetition ...
+         path_arguments.json_path,
+         {ARG_TYPE_ARBITRARY, FunctionArgumentTypeOptions()},
+         // ... Then any number of additional pairs of args.
+         path_arguments.repeated_json_path,
+         {ARG_TYPE_ARBITRARY, FunctionArgumentTypeOptions().set_cardinality(
+                                  FunctionArgumentType::REPEATED)},
+         {bool_type, FunctionArgumentTypeOptions()
+                         .set_cardinality(FunctionEnums::OPTIONAL)
+                         .set_must_be_constant()
+                         .set_argument_name("insert_each_element", kNamedOnly)
+                         .set_default(Value::Bool(true))}},
+        FN_JSON_ARRAY_INSERT}},
+      FunctionOptions()
+          .AddRequiredLanguageFeature(FEATURE_JSON_TYPE)
+          .AddRequiredLanguageFeature(FEATURE_JSON_MUTATOR_FUNCTIONS));
 
-  InsertFunction(functions, options, "json_extract_array", SCALAR,
+  InsertFunction(
+      functions, options, "json_array_append", Function::SCALAR,
+      {{json_type,
+        {json_type,
+         // Ensure at least one repetition ...
+         path_arguments.json_path,
+         {ARG_TYPE_ARBITRARY, FunctionArgumentTypeOptions()},
+         // ... Then any number of additional pairs of args.
+         path_arguments.repeated_json_path,
+         {ARG_TYPE_ARBITRARY, FunctionArgumentTypeOptions().set_cardinality(
+                                  FunctionArgumentType::REPEATED)},
+         {bool_type, FunctionArgumentTypeOptions()
+                         .set_cardinality(FunctionEnums::OPTIONAL)
+                         .set_must_be_constant()
+                         .set_argument_name("append_each_element", kNamedOnly)
+                         .set_default(Value::Bool(true))}},
+        FN_JSON_ARRAY_APPEND}},
+      FunctionOptions()
+          .AddRequiredLanguageFeature(FEATURE_JSON_TYPE)
+          .AddRequiredLanguageFeature(FEATURE_JSON_MUTATOR_FUNCTIONS));
+}
+
+void GetJsonExtractFunctions(const PathArguments& path_arguments,
+                             const ZetaSQLBuiltinFunctionOptions& options,
+                             NameToFunctionMap* functions) {
+  const Type* const string_type = types::StringType();
+  const Type* const json_type = types::JsonType();
+  const ArrayType* const array_string_type = types::StringArrayType();
+  const ArrayType* const array_json_type = types::JsonArrayType();
+
+  std::vector<FunctionSignatureOnHeap> json_extract_signatures = {
+      {string_type,
+       {string_type, path_arguments.json_path},
+       FN_JSON_EXTRACT,
+       FunctionSignatureOptions().set_rejects_collation()}};
+  std::vector<FunctionSignatureOnHeap> json_extract_scalar_signatures = {
+      {string_type,
+       {string_type, path_arguments.optional_json_path},
+       FN_JSON_EXTRACT_SCALAR,
+       FunctionSignatureOptions().set_rejects_collation()}};
+  std::vector<FunctionSignatureOnHeap> json_extract_array_signatures = {
+      {array_string_type,
+       {string_type, path_arguments.optional_json_path},
+       FN_JSON_EXTRACT_ARRAY,
+       FunctionSignatureOptions().set_rejects_collation()}};
+  std::vector<FunctionSignatureOnHeap> json_extract_string_array_signatures = {
+      {array_string_type,
+       {string_type, path_arguments.optional_json_path},
+       FN_JSON_EXTRACT_STRING_ARRAY,
+       FunctionSignatureOptions().set_rejects_collation()}};
+  if (options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
+    json_extract_signatures.push_back({json_type,
+                                       {json_type, path_arguments.json_path},
+                                       FN_JSON_EXTRACT_JSON});
+    json_extract_scalar_signatures.push_back(
+        {string_type,
+         {json_type, path_arguments.optional_json_path},
+         FN_JSON_EXTRACT_SCALAR_JSON});
+    json_extract_array_signatures.push_back(
+        {array_json_type,
+         {json_type, path_arguments.optional_json_path},
+         FN_JSON_EXTRACT_ARRAY_JSON});
+    json_extract_string_array_signatures.push_back(
+        {array_string_type,
+         {json_type, path_arguments.optional_json_path},
+         FN_JSON_EXTRACT_STRING_ARRAY_JSON});
+  }
+
+  InsertFunction(functions, options, "json_extract", Function::SCALAR,
+                 json_extract_signatures);
+  InsertFunction(functions, options, "json_extract_scalar", Function::SCALAR,
+                 json_extract_scalar_signatures);
+  InsertFunction(functions, options, "json_extract_array", Function::SCALAR,
                  json_extract_array_signatures);
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_JSON_ARRAY_FUNCTIONS)) {
+    InsertFunction(functions, options, "json_extract_string_array",
+                   Function::SCALAR, json_extract_string_array_signatures);
+  }
+}
+
+void GetJsonQueryFunctions(const PathArguments& path_arguments,
+                           const ZetaSQLBuiltinFunctionOptions& options,
+                           NameToFunctionMap* functions) {
+  const Type* const string_type = types::StringType();
+  const Type* const json_type = types::JsonType();
+
+  std::vector<FunctionSignatureOnHeap> json_query_signatures = {
+      {string_type,
+       {string_type, path_arguments.json_path},
+       FN_JSON_QUERY,
+       FunctionSignatureOptions().set_rejects_collation()}};
+  if (options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
+    json_query_signatures.push_back(
+        {json_type, {json_type, path_arguments.json_path}, FN_JSON_QUERY_JSON});
+  }
+  InsertFunction(functions, options, "json_query", Function::SCALAR,
+                 json_query_signatures);
 
   if (options.language_options.LanguageFeatureEnabled(
           FEATURE_JSON_ARRAY_FUNCTIONS)) {
-    InsertFunction(functions, options, "json_extract_string_array", SCALAR,
-                   json_extract_string_array_signatures);
-    InsertFunction(functions, options, "json_query_array", SCALAR,
+    const ArrayType* const array_string_type = types::StringArrayType();
+    const ArrayType* const array_json_type = types::JsonArrayType();
+    std::vector<FunctionSignatureOnHeap> json_query_array_signatures = {
+        {array_string_type,
+         {string_type, path_arguments.optional_json_path},
+         FN_JSON_QUERY_ARRAY,
+         FunctionSignatureOptions().set_rejects_collation()}};
+    if (options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
+      json_query_array_signatures.push_back(
+          {array_json_type,
+           {json_type, path_arguments.optional_json_path},
+           FN_JSON_QUERY_ARRAY_JSON});
+    }
+    InsertFunction(functions, options, "json_query_array", Function::SCALAR,
                    json_query_array_signatures);
-    InsertFunction(functions, options, "json_value_array", SCALAR,
+  }
+}
+
+void GetJsonValueFunctions(const PathArguments& path_arguments,
+                           const ZetaSQLBuiltinFunctionOptions& options,
+                           NameToFunctionMap* functions) {
+  const Type* const string_type = types::StringType();
+  const Type* const json_type = types::JsonType();
+
+  std::vector<FunctionSignatureOnHeap> json_value_signatures = {
+      {string_type,
+       {string_type, path_arguments.optional_json_path},
+       FN_JSON_VALUE,
+       FunctionSignatureOptions().set_rejects_collation()}};
+  if (options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
+    json_value_signatures.push_back(
+        {string_type,
+         {json_type, path_arguments.optional_json_path},
+         FN_JSON_VALUE_JSON});
+  }
+  InsertFunction(functions, options, "json_value", Function::SCALAR,
+                 json_value_signatures);
+
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_JSON_ARRAY_FUNCTIONS)) {
+    const ArrayType* const array_string_type = types::StringArrayType();
+    std::vector<FunctionSignatureOnHeap> json_value_array_signatures = {
+        {array_string_type,
+         {string_type, path_arguments.optional_json_path},
+         FN_JSON_VALUE_ARRAY,
+         FunctionSignatureOptions().set_rejects_collation()}};
+    if (options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
+      json_value_array_signatures.push_back(
+          {array_string_type,
+           {json_type, path_arguments.optional_json_path},
+           FN_JSON_VALUE_ARRAY_JSON});
+    }
+    InsertFunction(functions, options, "json_value_array", Function::SCALAR,
                    json_value_array_signatures);
   }
+}
+
+void GetJsonObjectManipulationFunctions(
+    const PathArguments& path_arguments,
+    const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions) {
+  const Type* const int64_type = types::Int64Type();
+  const Type* const bool_type = types::BoolType();
+  const Type* const string_type = types::StringType();
+  const Type* const json_type = types::JsonType();
+  const ArrayType* const array_string_type = types::StringArrayType();
+  const ArrayType* const array_json_type = types::JsonArrayType();
 
   InsertFunction(
-      functions, options, "to_json_string", SCALAR,
+      functions, options, "to_json_string", Function::SCALAR,
       {{string_type,
         {ARG_TYPE_ANY_1, {bool_type, FunctionArgumentType::OPTIONAL}},
         FN_TO_JSON_STRING,
         FunctionSignatureOptions().set_propagates_collation(false)}});
 
   InsertFunction(
-      functions, options, "json_object", SCALAR,
+      functions, options, "json_object", Function::SCALAR,
       {{json_type,
-        {{string_type, FunctionArgumentTypeOptions().set_cardinality(REPEATED)},
-         {ARG_TYPE_ARBITRARY,
-          FunctionArgumentTypeOptions().set_cardinality(REPEATED)}},
+        {{string_type, FunctionArgumentTypeOptions().set_cardinality(
+                           FunctionArgumentType::REPEATED)},
+         {ARG_TYPE_ARBITRARY, FunctionArgumentTypeOptions().set_cardinality(
+                                  FunctionArgumentType::REPEATED)}},
         FN_JSON_OBJECT},
        {json_type,
         {{array_string_type}, {ARG_ARRAY_TYPE_ANY_1}},
@@ -1742,42 +2005,41 @@ absl::Status GetJSONFunctions(TypeFactory* type_factory,
           .AddRequiredLanguageFeature(FEATURE_JSON_CONSTRUCTOR_FUNCTIONS));
 
   InsertFunction(
-      functions, options, "json_remove", SCALAR,
+      functions, options, "json_remove", Function::SCALAR,
       {{json_type,
-        {json_type, json_path_argument, repeated_json_path_argument},
+        {json_type, path_arguments.json_path,
+         path_arguments.repeated_json_path},
         FN_JSON_REMOVE}},
       FunctionOptions()
           .AddRequiredLanguageFeature(FEATURE_JSON_TYPE)
           .AddRequiredLanguageFeature(FEATURE_JSON_MUTATOR_FUNCTIONS));
 
-  FunctionArgumentType first_json_path = json_path_argument;
   FunctionArgumentType first_set_value{ARG_TYPE_ARBITRARY};
-  FunctionArgumentType remaining_json_paths = repeated_json_path_argument;
   FunctionArgumentType remaining_set_values{
-      ARG_TYPE_ARBITRARY,
-      FunctionArgumentTypeOptions().set_cardinality(REPEATED)};
+      ARG_TYPE_ARBITRARY, FunctionArgumentTypeOptions().set_cardinality(
+                              FunctionArgumentType::REPEATED)};
   FunctionArgumentType create_if_missing{
       bool_type, FunctionArgumentTypeOptions()
                      .set_cardinality(FunctionEnums::OPTIONAL)
                      .set_must_be_constant()
                      .set_argument_name("create_if_missing", kNamedOnly)
                      .set_default(Value::Bool(true))};
-
   InsertFunction(
-      functions, options, "json_set", SCALAR,
+      functions, options, "json_set", Function::SCALAR,
       {{json_type,
-        {json_type, first_json_path, first_set_value, remaining_json_paths,
-         remaining_set_values, create_if_missing},
+        {json_type, path_arguments.json_path, first_set_value,
+         path_arguments.repeated_json_path, remaining_set_values,
+         create_if_missing},
         FN_JSON_SET}},
       FunctionOptions()
           .AddRequiredLanguageFeature(FEATURE_JSON_TYPE)
           .AddRequiredLanguageFeature(FEATURE_JSON_MUTATOR_FUNCTIONS));
 
   InsertFunction(
-      functions, options, "json_strip_nulls", SCALAR,
+      functions, options, "json_strip_nulls", Function::SCALAR,
       {{json_type,
         {json_type,
-         optional_json_path_argument,
+         path_arguments.optional_json_path,
          {bool_type, FunctionArgumentTypeOptions()
                          .set_cardinality(FunctionEnums::OPTIONAL)
                          .set_must_be_constant()
@@ -1794,56 +2056,14 @@ absl::Status GetJSONFunctions(TypeFactory* type_factory,
           .AddRequiredLanguageFeature(FEATURE_JSON_MUTATOR_FUNCTIONS));
 
   InsertFunction(
-      functions, options, "json_array_insert", SCALAR,
-      {{json_type,
-        {json_type,
-         // Ensure at least one repetition ...
-         json_path_argument,
-         {ARG_TYPE_ARBITRARY, FunctionArgumentTypeOptions()},
-         // ... Then any number of additional pairs of args.
-         repeated_json_path_argument,
-         {ARG_TYPE_ARBITRARY,
-          FunctionArgumentTypeOptions().set_cardinality(REPEATED)},
-         {bool_type, FunctionArgumentTypeOptions()
-                         .set_cardinality(FunctionEnums::OPTIONAL)
-                         .set_must_be_constant()
-                         .set_argument_name("insert_each_element", kNamedOnly)
-                         .set_default(Value::Bool(true))}},
-        FN_JSON_ARRAY_INSERT}},
-      FunctionOptions()
-          .AddRequiredLanguageFeature(FEATURE_JSON_TYPE)
-          .AddRequiredLanguageFeature(FEATURE_JSON_MUTATOR_FUNCTIONS));
-
-  InsertFunction(
-      functions, options, "json_array_append", SCALAR,
-      {{json_type,
-        {json_type,
-         // Ensure at least one repetition ...
-         json_path_argument,
-         {ARG_TYPE_ARBITRARY, FunctionArgumentTypeOptions()},
-         // ... Then any number of additional pairs of args.
-         repeated_json_path_argument,
-         {ARG_TYPE_ARBITRARY,
-          FunctionArgumentTypeOptions().set_cardinality(REPEATED)},
-         {bool_type, FunctionArgumentTypeOptions()
-                         .set_cardinality(FunctionEnums::OPTIONAL)
-                         .set_must_be_constant()
-                         .set_argument_name("append_each_element", kNamedOnly)
-                         .set_default(Value::Bool(true))}},
-        FN_JSON_ARRAY_APPEND}},
-      FunctionOptions()
-          .AddRequiredLanguageFeature(FEATURE_JSON_TYPE)
-          .AddRequiredLanguageFeature(FEATURE_JSON_MUTATOR_FUNCTIONS));
-
-  InsertFunction(
-      functions, options, "json_contains", SCALAR,
+      functions, options, "json_contains", Function::SCALAR,
       {{bool_type, {json_type, json_type}, FN_JSON_CONTAINS}},
       FunctionOptions()
           .AddRequiredLanguageFeature(FEATURE_JSON_TYPE)
           .AddRequiredLanguageFeature(FEATURE_JSON_CONTAINS_FUNCTION));
 
   InsertFunction(
-      functions, options, "json_keys", SCALAR,
+      functions, options, "json_keys", Function::SCALAR,
       {{array_string_type,
         {json_type,
          {int64_type,
@@ -1859,40 +2079,81 @@ absl::Status GetJSONFunctions(TypeFactory* type_factory,
       FunctionOptions()
           .AddRequiredLanguageFeature(FEATURE_JSON_TYPE)
           .AddRequiredLanguageFeature(FEATURE_JSON_KEYS_FUNCTION));
+
+  InsertFunction(
+      functions, options, "json_flatten", Function::SCALAR,
+      {{array_json_type, {json_type}, FN_JSON_FLATTEN}},
+      FunctionOptions()
+          .AddRequiredLanguageFeature(FEATURE_JSON_TYPE)
+          .AddRequiredLanguageFeature(FEATURE_JSON_FLATTEN_FUNCTION));
+}
+
+}  // namespace
+
+absl::Status GetJSONFunctions(TypeFactory* type_factory,
+                              const ZetaSQLBuiltinFunctionOptions& options,
+                              NameToFunctionMap* functions,
+                              NameToTypeMap* types) {
+  ZETASQL_RETURN_IF_ERROR(GetJsonParseFunctions(options, functions, types));
+  GetJsonValueExtractionFunctions(options, functions);
+  GetJsonLaxValueExtractionFunctions(options, functions);
+  GetJsonArrayValueExtractionFunctions(options, functions);
+  GetJsonLaxArrayValueExtractionFunctions(options, functions);
+  GetMoreJsonValueExtractionFunctions(options, functions);
+  GetMoreJsonLaxValueExtractionFunctions(options, functions);
+  GetMoreJsonArrayValueExtractionFunctions(options, functions);
+  GetMoreJsonLaxArrayValueExtractionFunctions(options, functions);
+
+  PathArguments path_arguments = PathArguments::Init(options);
+  GetJsonArrayFunctions(path_arguments, options, functions);
+  GetJsonExtractFunctions(path_arguments, options, functions);
+  GetJsonQueryFunctions(path_arguments, options, functions);
+  GetJsonValueFunctions(path_arguments, options, functions);
+  GetJsonObjectManipulationFunctions(path_arguments, options, functions);
+
   return absl::OkStatus();
 }
 
-absl::Status GetNumericFunctions(TypeFactory* type_factory,
-                                 const ZetaSQLBuiltinFunctionOptions& options,
-                                 NameToFunctionMap* functions,
-                                 NameToTypeMap* types) {
-  const Type* bool_type = type_factory->get_bool();
-  const Type* int32_type = type_factory->get_int32();
-  const Type* int64_type = type_factory->get_int64();
-  const Type* uint32_type = type_factory->get_uint32();
-  const Type* uint64_type = type_factory->get_uint64();
-  const Type* float_type = type_factory->get_float();
-  const Type* double_type = type_factory->get_double();
-  const Type* numeric_type = type_factory->get_numeric();
-  const Type* bignumeric_type = type_factory->get_bignumeric();
-  const Type* string_type = type_factory->get_string();
-  const Type* rounding_mode_type = types::RoundingModeEnumType();
+namespace {
 
-  const Function::Mode SCALAR = Function::SCALAR;
-  const FunctionArgumentType::ArgumentCardinality REPEATED =
-      FunctionArgumentType::REPEATED;
-  const FunctionArgumentType::ArgumentCardinality OPTIONAL =
-      FunctionArgumentType::OPTIONAL;
+const FunctionSignatureOptions& HasFloatingPointArgument() {
+  static const absl::NoDestructor<FunctionSignatureOptions> kArgument([] {
+    return FunctionSignatureOptions().set_constraints(
+        &CheckHasFloatingPointArgument);
+  }());
+  return *kArgument;
+}
 
-  FunctionSignatureOptions has_floating_point_argument;
-  has_floating_point_argument.set_constraints(&CheckHasFloatingPointArgument);
-  FunctionSignatureOptions has_numeric_type_argument;
-  has_numeric_type_argument.set_constraints(&CheckHasNumericTypeArgument);
-  FunctionSignatureOptions has_bignumeric_type_argument;
-  has_bignumeric_type_argument.set_constraints(&CheckHasBigNumericTypeArgument);
+const FunctionSignatureOptions& HasNumericTypeArgument() {
+  static const absl::NoDestructor<FunctionSignatureOptions> kArgument([] {
+    return FunctionSignatureOptions().set_constraints(
+        &CheckHasNumericTypeArgument);
+  }());
+  return *kArgument;
+}
+
+const FunctionSignatureOptions& HasBigNumericTypeArgument() {
+  static const absl::NoDestructor<FunctionSignatureOptions> kArgument([] {
+    return FunctionSignatureOptions().set_constraints(
+        &CheckHasBigNumericTypeArgument);
+  }());
+  return *kArgument;
+}
+
+void GetNumericAbsSignFunctions(TypeFactory* type_factory,
+                                const ZetaSQLBuiltinFunctionOptions& options,
+                                NameToFunctionMap* functions) {
+  const Type* const int32_type = type_factory->get_int32();
+  const Type* const int64_type = type_factory->get_int64();
+  const Type* const uint32_type = type_factory->get_uint32();
+  const Type* const uint64_type = type_factory->get_uint64();
+  const Type* const float_type = type_factory->get_float();
+  const Type* const double_type = type_factory->get_double();
+  const Type* const numeric_type = type_factory->get_numeric();
+  const Type* const bignumeric_type = type_factory->get_bignumeric();
 
   InsertSimpleFunction(
-      functions, options, "abs", SCALAR,
+      functions, options, "abs", Function::SCALAR,
       {{int32_type, {int32_type}, FN_ABS_INT32},
        {int64_type, {int64_type}, FN_ABS_INT64},
        {uint32_type, {uint32_type}, FN_ABS_UINT32},
@@ -1902,7 +2163,7 @@ absl::Status GetNumericFunctions(TypeFactory* type_factory,
        {numeric_type, {numeric_type}, FN_ABS_NUMERIC},
        {bignumeric_type, {bignumeric_type}, FN_ABS_BIGNUMERIC}});
 
-  InsertFunction(functions, options, "sign", SCALAR,
+  InsertFunction(functions, options, "sign", Function::SCALAR,
                  {{int32_type, {int32_type}, FN_SIGN_INT32},
                   {int64_type, {int64_type}, FN_SIGN_INT64},
                   {uint32_type, {uint32_type}, FN_SIGN_UINT32},
@@ -1912,232 +2173,287 @@ absl::Status GetNumericFunctions(TypeFactory* type_factory,
                   {numeric_type,
                    {numeric_type},
                    FN_SIGN_NUMERIC,
-                   has_numeric_type_argument},
+                   HasNumericTypeArgument()},
                   {bignumeric_type,
                    {bignumeric_type},
                    FN_SIGN_BIGNUMERIC,
-                   has_bignumeric_type_argument}});
+                   HasBigNumericTypeArgument()}});
+}
+
+absl::Status GetNumericRoundTruncFunctions(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions, NameToTypeMap* types) {
+  const Type* const int64_type = type_factory->get_int64();
+  const Type* const float_type = type_factory->get_float();
+  const Type* const double_type = type_factory->get_double();
+  const Type* const numeric_type = type_factory->get_numeric();
+  const Type* const bignumeric_type = type_factory->get_bignumeric();
+  const Type* const rounding_mode_type = types::RoundingModeEnumType();
 
   // Only add in the third argument ROUND functions if the feature is enabled.
   if (options.language_options.LanguageFeatureEnabled(
           FEATURE_ROUND_WITH_ROUNDING_MODE)) {
     ZETASQL_RETURN_IF_ERROR(InsertFunctionAndTypes(
-        functions, types, options, "round", SCALAR,
+        functions, types, options, "round", Function::SCALAR,
         {{float_type, {float_type}, FN_ROUND_FLOAT},
          {double_type, {double_type}, FN_ROUND_DOUBLE},
          {numeric_type,
           {numeric_type},
           FN_ROUND_NUMERIC,
-          has_numeric_type_argument},
+          HasNumericTypeArgument()},
          {bignumeric_type,
           {bignumeric_type},
           FN_ROUND_BIGNUMERIC,
-          has_bignumeric_type_argument},
+          HasBigNumericTypeArgument()},
          {float_type, {float_type, int64_type}, FN_ROUND_WITH_DIGITS_FLOAT},
          {double_type, {double_type, int64_type}, FN_ROUND_WITH_DIGITS_DOUBLE},
          {numeric_type,
           {numeric_type, int64_type},
           FN_ROUND_WITH_DIGITS_NUMERIC,
-          has_numeric_type_argument},
+          HasNumericTypeArgument()},
          {bignumeric_type,
           {bignumeric_type, int64_type},
           FN_ROUND_WITH_DIGITS_BIGNUMERIC,
-          has_bignumeric_type_argument},
+          HasBigNumericTypeArgument()},
          {numeric_type,
           {numeric_type, int64_type, rounding_mode_type},
           FN_ROUND_WITH_ROUNDING_MODE_NUMERIC,
-          has_numeric_type_argument},
+          HasNumericTypeArgument()},
          {bignumeric_type,
           {bignumeric_type, int64_type, rounding_mode_type},
           FN_ROUND_WITH_ROUNDING_MODE_BIGNUMERIC,
-          has_bignumeric_type_argument}},
+          HasBigNumericTypeArgument()}},
         /* function_options=*/{}, {rounding_mode_type}));
   } else {
     InsertFunction(
-        functions, options, "round", SCALAR,
+        functions, options, "round", Function::SCALAR,
         {{float_type, {float_type}, FN_ROUND_FLOAT},
          {double_type, {double_type}, FN_ROUND_DOUBLE},
          {numeric_type,
           {numeric_type},
           FN_ROUND_NUMERIC,
-          has_numeric_type_argument},
+          HasNumericTypeArgument()},
          {bignumeric_type,
           {bignumeric_type},
           FN_ROUND_BIGNUMERIC,
-          has_bignumeric_type_argument},
+          HasBigNumericTypeArgument()},
          {float_type, {float_type, int64_type}, FN_ROUND_WITH_DIGITS_FLOAT},
          {double_type, {double_type, int64_type}, FN_ROUND_WITH_DIGITS_DOUBLE},
          {numeric_type,
           {numeric_type, int64_type},
           FN_ROUND_WITH_DIGITS_NUMERIC,
-          has_numeric_type_argument},
+          HasNumericTypeArgument()},
          {bignumeric_type,
           {bignumeric_type, int64_type},
           FN_ROUND_WITH_DIGITS_BIGNUMERIC,
-          has_bignumeric_type_argument}});
+          HasBigNumericTypeArgument()}});
   }
   InsertFunction(
-      functions, options, "trunc", SCALAR,
+      functions, options, "trunc", Function::SCALAR,
       {{float_type, {float_type}, FN_TRUNC_FLOAT},
        {double_type, {double_type}, FN_TRUNC_DOUBLE},
        {numeric_type,
         {numeric_type},
         FN_TRUNC_NUMERIC,
-        has_numeric_type_argument},
+        HasNumericTypeArgument()},
        {bignumeric_type,
         {bignumeric_type},
         FN_TRUNC_BIGNUMERIC,
-        has_bignumeric_type_argument},
+        HasBigNumericTypeArgument()},
        {float_type, {float_type, int64_type}, FN_TRUNC_WITH_DIGITS_FLOAT},
        {double_type, {double_type, int64_type}, FN_TRUNC_WITH_DIGITS_DOUBLE},
        {numeric_type,
         {numeric_type, int64_type},
         FN_TRUNC_WITH_DIGITS_NUMERIC,
-        has_numeric_type_argument},
+        HasNumericTypeArgument()},
        {bignumeric_type,
         {bignumeric_type, int64_type},
         FN_TRUNC_WITH_DIGITS_BIGNUMERIC,
-        has_bignumeric_type_argument}});
-  InsertFunction(functions, options, "ceil", SCALAR,
+        HasBigNumericTypeArgument()}});
+  return absl::OkStatus();
+}
+
+void GetNumericCielFloorFunctions(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions) {
+  const Type* const float_type = type_factory->get_float();
+  const Type* const double_type = type_factory->get_double();
+  const Type* const numeric_type = type_factory->get_numeric();
+  const Type* const bignumeric_type = type_factory->get_bignumeric();
+
+  InsertFunction(functions, options, "ceil", Function::SCALAR,
                  {{float_type, {float_type}, FN_CEIL_FLOAT},
                   {double_type, {double_type}, FN_CEIL_DOUBLE},
                   {numeric_type,
                    {numeric_type},
                    FN_CEIL_NUMERIC,
-                   has_numeric_type_argument},
+                   HasNumericTypeArgument()},
                   {bignumeric_type,
                    {bignumeric_type},
                    FN_CEIL_BIGNUMERIC,
-                   has_bignumeric_type_argument}},
+                   HasBigNumericTypeArgument()}},
                  FunctionOptions().set_alias_name("ceiling"));
-  InsertFunction(functions, options, "floor", SCALAR,
+  InsertFunction(functions, options, "floor", Function::SCALAR,
                  {{float_type, {float_type}, FN_FLOOR_FLOAT},
                   {double_type, {double_type}, FN_FLOOR_DOUBLE},
                   {numeric_type,
                    {numeric_type},
                    FN_FLOOR_NUMERIC,
-                   has_numeric_type_argument},
+                   HasNumericTypeArgument()},
                   {bignumeric_type,
                    {bignumeric_type},
                    FN_FLOOR_BIGNUMERIC,
-                   has_bignumeric_type_argument}});
+                   HasBigNumericTypeArgument()}});
+}
 
-  InsertSimpleFunction(functions, options, "is_inf", SCALAR,
+void GetNumericNanInfFunctions(TypeFactory* type_factory,
+                               const ZetaSQLBuiltinFunctionOptions& options,
+                               NameToFunctionMap* functions) {
+  const Type* const bool_type = type_factory->get_bool();
+  const Type* const double_type = type_factory->get_double();
+
+  InsertSimpleFunction(functions, options, "is_inf", Function::SCALAR,
                        {{bool_type, {double_type}, FN_IS_INF}});
-  InsertSimpleFunction(functions, options, "is_nan", SCALAR,
+  InsertSimpleFunction(functions, options, "is_nan", Function::SCALAR,
                        {{bool_type, {double_type}, FN_IS_NAN}});
+}
+
+void GetNumericDivisionFunctions(TypeFactory* type_factory,
+                                 const ZetaSQLBuiltinFunctionOptions& options,
+                                 NameToFunctionMap* functions) {
+  const Type* const int64_type = type_factory->get_int64();
+  const Type* const uint64_type = type_factory->get_uint64();
+  const Type* const float_type = type_factory->get_float();
+  const Type* const double_type = type_factory->get_double();
+  const Type* const numeric_type = type_factory->get_numeric();
+  const Type* const bignumeric_type = type_factory->get_bignumeric();
 
   InsertSimpleFunction(
-      functions, options, "ieee_divide", SCALAR,
+      functions, options, "ieee_divide", Function::SCALAR,
       {{double_type, {double_type, double_type}, FN_IEEE_DIVIDE_DOUBLE},
        {float_type, {float_type, float_type}, FN_IEEE_DIVIDE_FLOAT}});
-
-  InsertFunction(
-      functions, options, "greatest", SCALAR,
-      {{ARG_TYPE_ANY_1,
-        {{ARG_TYPE_ANY_1, REPEATED}},
-        FN_GREATEST,
-        FunctionSignatureOptions().set_uses_operation_collation()}},
-      FunctionOptions().set_pre_resolution_argument_constraint(
-          absl::bind_front(&CheckGreatestLeastArguments, "GREATEST")));
-
-  InsertFunction(functions, options, "least", SCALAR,
-                 {{ARG_TYPE_ANY_1,
-                   {{ARG_TYPE_ANY_1, REPEATED}},
-                   FN_LEAST,
-                   FunctionSignatureOptions().set_uses_operation_collation()}},
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     absl::bind_front(&CheckGreatestLeastArguments, "LEAST")));
-
-  InsertFunction(functions, options, "mod", SCALAR,
+  InsertFunction(functions, options, "mod", Function::SCALAR,
                  {{int64_type, {int64_type, int64_type}, FN_MOD_INT64},
                   {uint64_type, {uint64_type, uint64_type}, FN_MOD_UINT64},
                   {numeric_type,
                    {numeric_type, numeric_type},
                    FN_MOD_NUMERIC,
-                   has_numeric_type_argument},
+                   HasNumericTypeArgument()},
                   {bignumeric_type,
                    {bignumeric_type, bignumeric_type},
                    FN_MOD_BIGNUMERIC,
-                   has_bignumeric_type_argument}});
+                   HasBigNumericTypeArgument()}});
 
-  InsertFunction(functions, options, "div", SCALAR,
+  InsertFunction(functions, options, "div", Function::SCALAR,
                  {{int64_type, {int64_type, int64_type}, FN_DIV_INT64},
                   {uint64_type, {uint64_type, uint64_type}, FN_DIV_UINT64},
                   {numeric_type,
                    {numeric_type, numeric_type},
                    FN_DIV_NUMERIC,
-                   has_numeric_type_argument},
+                   HasNumericTypeArgument()},
                   {bignumeric_type,
                    {bignumeric_type, bignumeric_type},
                    FN_DIV_BIGNUMERIC,
-                   has_bignumeric_type_argument}});
+                   HasBigNumericTypeArgument()}});
+}
+
+void GetNumericGreatestLeastFunctions(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions) {
+  InsertFunction(
+      functions, options, "greatest", Function::SCALAR,
+      {{ARG_TYPE_ANY_1,
+        {{ARG_TYPE_ANY_1, FunctionArgumentType::REPEATED}},
+        FN_GREATEST,
+        FunctionSignatureOptions().set_uses_operation_collation()}},
+      FunctionOptions().set_pre_resolution_argument_constraint(
+          absl::bind_front(&CheckGreatestLeastArguments, "GREATEST")));
+
+  InsertFunction(functions, options, "least", Function::SCALAR,
+                 {{ARG_TYPE_ANY_1,
+                   {{ARG_TYPE_ANY_1, FunctionArgumentType::REPEATED}},
+                   FN_LEAST,
+                   FunctionSignatureOptions().set_uses_operation_collation()}},
+                 FunctionOptions().set_pre_resolution_argument_constraint(
+                     absl::bind_front(&CheckGreatestLeastArguments, "LEAST")));
+}
+
+void GetNumericSafeFunctions(TypeFactory* type_factory,
+                             const ZetaSQLBuiltinFunctionOptions& options,
+                             NameToFunctionMap* functions) {
+  const Type* const int32_type = type_factory->get_int32();
+  const Type* const int64_type = type_factory->get_int64();
+  const Type* const uint64_type = type_factory->get_uint64();
+  const Type* const float_type = type_factory->get_float();
+  const Type* const double_type = type_factory->get_double();
+  const Type* const numeric_type = type_factory->get_numeric();
+  const Type* const bignumeric_type = type_factory->get_bignumeric();
 
   // The SAFE versions of arithmetic operators (+, -, *, /, <unary minus>) have
   // the same signatures as the operators themselves.
-  InsertFunction(functions, options, "safe_add", SCALAR,
+  InsertFunction(functions, options, "safe_add", Function::SCALAR,
                  {{int64_type, {int64_type, int64_type}, FN_SAFE_ADD_INT64},
                   {uint64_type, {uint64_type, uint64_type}, FN_SAFE_ADD_UINT64},
                   {double_type,
                    {double_type, double_type},
                    FN_SAFE_ADD_DOUBLE,
-                   has_floating_point_argument},
+                   HasFloatingPointArgument()},
                   {numeric_type,
                    {numeric_type, numeric_type},
                    FN_SAFE_ADD_NUMERIC,
-                   has_numeric_type_argument},
+                   HasNumericTypeArgument()},
                   {bignumeric_type,
                    {bignumeric_type, bignumeric_type},
                    FN_SAFE_ADD_BIGNUMERIC,
-                   has_bignumeric_type_argument}});
+                   HasBigNumericTypeArgument()}});
 
   InsertFunction(
-      functions, options, "safe_subtract", SCALAR,
+      functions, options, "safe_subtract", Function::SCALAR,
       {{int64_type, {int64_type, int64_type}, FN_SAFE_SUBTRACT_INT64},
        {int64_type, {uint64_type, uint64_type}, FN_SAFE_SUBTRACT_UINT64},
        {numeric_type,
         {numeric_type, numeric_type},
         FN_SAFE_SUBTRACT_NUMERIC,
-        has_numeric_type_argument},
+        HasNumericTypeArgument()},
        {bignumeric_type,
         {bignumeric_type, bignumeric_type},
         FN_SAFE_SUBTRACT_BIGNUMERIC,
-        has_bignumeric_type_argument},
+        HasBigNumericTypeArgument()},
        {double_type,
         {double_type, double_type},
         FN_SAFE_SUBTRACT_DOUBLE,
-        has_floating_point_argument}});
+        HasFloatingPointArgument()}});
 
   InsertFunction(
-      functions, options, "safe_multiply", SCALAR,
+      functions, options, "safe_multiply", Function::SCALAR,
       {{int64_type, {int64_type, int64_type}, FN_SAFE_MULTIPLY_INT64},
        {uint64_type, {uint64_type, uint64_type}, FN_SAFE_MULTIPLY_UINT64},
        {double_type,
         {double_type, double_type},
         FN_SAFE_MULTIPLY_DOUBLE,
-        has_floating_point_argument},
+        HasFloatingPointArgument()},
        {numeric_type,
         {numeric_type, numeric_type},
         FN_SAFE_MULTIPLY_NUMERIC,
-        has_numeric_type_argument},
+        HasNumericTypeArgument()},
        {bignumeric_type,
         {bignumeric_type, bignumeric_type},
         FN_SAFE_MULTIPLY_BIGNUMERIC,
-        has_bignumeric_type_argument}});
+        HasBigNumericTypeArgument()}});
 
   InsertFunction(
-      functions, options, "safe_divide", SCALAR,
+      functions, options, "safe_divide", Function::SCALAR,
       {{double_type, {double_type, double_type}, FN_SAFE_DIVIDE_DOUBLE},
        {numeric_type,
         {numeric_type, numeric_type},
         FN_SAFE_DIVIDE_NUMERIC,
-        has_numeric_type_argument},
+        HasNumericTypeArgument()},
        {bignumeric_type,
         {bignumeric_type, bignumeric_type},
         FN_SAFE_DIVIDE_BIGNUMERIC,
-        has_bignumeric_type_argument}});
+        HasBigNumericTypeArgument()}});
 
-  InsertFunction(functions, options, "safe_negate", SCALAR,
+  InsertFunction(functions, options, "safe_negate", Function::SCALAR,
                  {{int32_type, {int32_type}, FN_SAFE_UNARY_MINUS_INT32},
                   {int64_type, {int64_type}, FN_SAFE_UNARY_MINUS_INT64},
                   {float_type, {float_type}, FN_SAFE_UNARY_MINUS_FLOAT},
@@ -2145,93 +2461,146 @@ absl::Status GetNumericFunctions(TypeFactory* type_factory,
                   {numeric_type,
                    {numeric_type},
                    FN_SAFE_UNARY_MINUS_NUMERIC,
-                   has_numeric_type_argument},
+                   HasNumericTypeArgument()},
                   {bignumeric_type,
                    {bignumeric_type},
                    FN_SAFE_UNARY_MINUS_BIGNUMERIC,
-                   has_bignumeric_type_argument}},
+                   HasBigNumericTypeArgument()}},
                  FunctionOptions().set_arguments_are_coercible(false));
+}
 
-  InsertFunction(functions, options, "pow", SCALAR,
+void GetNumericExponentiationFunctions(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions) {
+  const Type* const double_type = type_factory->get_double();
+  const Type* const numeric_type = type_factory->get_numeric();
+  const Type* const bignumeric_type = type_factory->get_bignumeric();
+
+  InsertFunction(functions, options, "pow", Function::SCALAR,
                  {{double_type, {double_type, double_type}, FN_POW_DOUBLE},
                   {numeric_type,
                    {numeric_type, numeric_type},
                    FN_POW_NUMERIC,
-                   has_numeric_type_argument},
+                   HasNumericTypeArgument()},
                   {bignumeric_type,
                    {bignumeric_type, bignumeric_type},
                    FN_POW_BIGNUMERIC,
-                   has_bignumeric_type_argument}},
+                   HasBigNumericTypeArgument()}},
                  FunctionOptions().set_alias_name("power"));
-  InsertFunction(functions, options, "sqrt", SCALAR,
+  InsertFunction(
+      functions, options, "exp", Function::SCALAR,
+      {{double_type, {double_type}, FN_EXP_DOUBLE},
+       {numeric_type, {numeric_type}, FN_EXP_NUMERIC, HasNumericTypeArgument()},
+       {bignumeric_type,
+        {bignumeric_type},
+        FN_EXP_BIGNUMERIC,
+        HasBigNumericTypeArgument()}});
+}
+
+void GetNumericRootFunctions(TypeFactory* type_factory,
+                             const ZetaSQLBuiltinFunctionOptions& options,
+                             NameToFunctionMap* functions) {
+  const Type* const double_type = type_factory->get_double();
+  const Type* const numeric_type = type_factory->get_numeric();
+  const Type* const bignumeric_type = type_factory->get_bignumeric();
+
+  InsertFunction(functions, options, "sqrt", Function::SCALAR,
                  {{double_type, {double_type}, FN_SQRT_DOUBLE},
                   {numeric_type,
                    {numeric_type},
                    FN_SQRT_NUMERIC,
-                   has_numeric_type_argument},
+                   HasNumericTypeArgument()},
                   {bignumeric_type,
                    {bignumeric_type},
                    FN_SQRT_BIGNUMERIC,
-                   has_bignumeric_type_argument}});
+                   HasBigNumericTypeArgument()}});
   if (options.language_options.LanguageFeatureEnabled(FEATURE_CBRT_FUNCTIONS)) {
-    InsertFunction(functions, options, "cbrt", SCALAR,
+    InsertFunction(functions, options, "cbrt", Function::SCALAR,
                    {{double_type, {double_type}, FN_CBRT_DOUBLE},
                     {numeric_type,
                      {numeric_type},
                      FN_CBRT_NUMERIC,
-                     has_numeric_type_argument},
+                     HasNumericTypeArgument()},
                     {bignumeric_type,
                      {bignumeric_type},
                      FN_CBRT_BIGNUMERIC,
-                     has_bignumeric_type_argument}});
+                     HasBigNumericTypeArgument()}});
   }
-  InsertFunction(functions, options, "exp", SCALAR,
-                 {{double_type, {double_type}, FN_EXP_DOUBLE},
-                  {numeric_type,
-                   {numeric_type},
-                   FN_EXP_NUMERIC,
-                   has_numeric_type_argument},
-                  {bignumeric_type,
-                   {bignumeric_type},
-                   FN_EXP_BIGNUMERIC,
-                   has_bignumeric_type_argument}});
-  InsertFunction(functions, options, "ln", SCALAR,
+}
+
+void GetNumericLogarithmFunctions(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions) {
+  const Type* const double_type = type_factory->get_double();
+  const Type* const numeric_type = type_factory->get_numeric();
+  const Type* const bignumeric_type = type_factory->get_bignumeric();
+
+  InsertFunction(functions, options, "ln", Function::SCALAR,
                  {{double_type, {double_type}, FN_NATURAL_LOGARITHM_DOUBLE},
                   {numeric_type,
                    {numeric_type},
                    FN_NATURAL_LOGARITHM_NUMERIC,
-                   has_numeric_type_argument},
+                   HasNumericTypeArgument()},
                   {bignumeric_type,
                    {bignumeric_type},
                    FN_NATURAL_LOGARITHM_BIGNUMERIC,
-                   has_bignumeric_type_argument}});
-  InsertFunction(functions, options, "log", SCALAR,
-                 {{double_type,
-                   {double_type, {double_type, OPTIONAL}},
-                   FN_LOGARITHM_DOUBLE},
-                  {numeric_type,
-                   {numeric_type, {numeric_type, OPTIONAL}},
-                   FN_LOGARITHM_NUMERIC,
-                   has_numeric_type_argument},
-                  {bignumeric_type,
-                   {bignumeric_type, {bignumeric_type, OPTIONAL}},
-                   FN_LOGARITHM_BIGNUMERIC,
-                   has_bignumeric_type_argument}});
-  InsertFunction(functions, options, "log10", SCALAR,
+                   HasBigNumericTypeArgument()}});
+  InsertFunction(
+      functions, options, "log", Function::SCALAR,
+      {{double_type,
+        {double_type, {double_type, FunctionArgumentType::OPTIONAL}},
+        FN_LOGARITHM_DOUBLE},
+       {numeric_type,
+        {numeric_type, {numeric_type, FunctionArgumentType::OPTIONAL}},
+        FN_LOGARITHM_NUMERIC,
+        HasNumericTypeArgument()},
+       {bignumeric_type,
+        {bignumeric_type, {bignumeric_type, FunctionArgumentType::OPTIONAL}},
+        FN_LOGARITHM_BIGNUMERIC,
+        HasBigNumericTypeArgument()}});
+  InsertFunction(functions, options, "log10", Function::SCALAR,
                  {{double_type, {double_type}, FN_DECIMAL_LOGARITHM_DOUBLE},
                   {numeric_type,
                    {numeric_type},
                    FN_DECIMAL_LOGARITHM_NUMERIC,
-                   has_numeric_type_argument},
+                   HasNumericTypeArgument()},
                   {bignumeric_type,
                    {bignumeric_type},
                    FN_DECIMAL_LOGARITHM_BIGNUMERIC,
-                   has_bignumeric_type_argument}});
+                   HasBigNumericTypeArgument()}});
+}
 
-  InsertSimpleFunction(functions, options, "parse_numeric", SCALAR,
+void GetNumericParseFunctions(TypeFactory* type_factory,
+                              const ZetaSQLBuiltinFunctionOptions& options,
+                              NameToFunctionMap* functions) {
+  const Type* const numeric_type = type_factory->get_numeric();
+  const Type* const bignumeric_type = type_factory->get_bignumeric();
+  const Type* const string_type = type_factory->get_string();
+
+  InsertSimpleFunction(functions, options, "parse_numeric", Function::SCALAR,
                        {{numeric_type, {string_type}, FN_PARSE_NUMERIC}});
-  InsertSimpleFunction(functions, options, "parse_bignumeric", SCALAR,
+  InsertSimpleFunction(functions, options, "parse_bignumeric", Function::SCALAR,
                        {{bignumeric_type, {string_type}, FN_PARSE_BIGNUMERIC}});
+}
+
+}  // namespace
+
+absl::Status GetNumericFunctions(TypeFactory* type_factory,
+                                 const ZetaSQLBuiltinFunctionOptions& options,
+                                 NameToFunctionMap* functions,
+                                 NameToTypeMap* types) {
+  GetNumericAbsSignFunctions(type_factory, options, functions);
+  ZETASQL_RETURN_IF_ERROR(
+      GetNumericRoundTruncFunctions(type_factory, options, functions, types));
+  GetNumericCielFloorFunctions(type_factory, options, functions);
+  GetNumericNanInfFunctions(type_factory, options, functions);
+  GetNumericDivisionFunctions(type_factory, options, functions);
+  GetNumericGreatestLeastFunctions(type_factory, options, functions);
+  GetNumericSafeFunctions(type_factory, options, functions);
+  GetNumericExponentiationFunctions(type_factory, options, functions);
+  GetNumericRootFunctions(type_factory, options, functions);
+  GetNumericLogarithmFunctions(type_factory, options, functions);
+  GetNumericParseFunctions(type_factory, options, functions);
   return absl::OkStatus();
 }
 
@@ -2282,8 +2651,7 @@ void GetTrigonometricFunctions(TypeFactory* type_factory,
                        {{double_type, {double_type}, FN_SECH_DOUBLE}});
   InsertSimpleFunction(functions, options, "coth", SCALAR,
                        {{double_type, {double_type}, FN_COTH_DOUBLE}});
-  if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_PI_FUNCTIONS)) {
+  if (options.language_options.LanguageFeatureEnabled(FEATURE_PI_FUNCTIONS)) {
     constexpr absl::string_view kPiDoubleTemplate = R"sql(
     3.1415926535897931
     )sql";
@@ -2974,7 +3342,7 @@ void GetGeographyFunctions(TypeFactory* type_factory,
   // Extended signatures for ST_GeogFromText/FromGeoJson/etc.
   FunctionSignatureOptions extended_parser_signatures =
       FunctionSignatureOptions().AddRequiredLanguageFeature(
-          FEATURE_V_1_3_EXTENDED_GEOGRAPHY_PARSERS);
+          FEATURE_EXTENDED_GEOGRAPHY_PARSERS);
 
   FunctionArgumentType oriented_argument_type{
       bool_type, const_with_mandatory_name_and_default_value(
@@ -3121,24 +3489,21 @@ void GetTypeOfFunction(TypeFactory* type_factory,
                        const ZetaSQLBuiltinFunctionOptions& options,
                        NameToFunctionMap* functions) {
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_3_TYPEOF_FUNCTION)) {
+          FEATURE_TYPEOF_FUNCTION)) {
     InsertFunction(
         functions, options, "typeof", Function::SCALAR,
-        {
-            {type_factory->get_string(),
-             {ARG_TYPE_ARBITRARY},
-             FN_TYPEOF,
-             SetRewriter(REWRITE_TYPEOF_FUNCTION)
-                 .set_propagates_collation(false)},
-            // TODO: Remove these signatures.
-            {type_factory->get_string(),
-             {ARG_TYPE_GRAPH_ELEMENT},
-             FN_TYPEOF_GRAPH_ELEMENT,
-             SetRewriter(REWRITE_TYPEOF_FUNCTION)
-                 .set_propagates_collation(false)
-                 .set_is_hidden(true)
-                 .AddRequiredLanguageFeature(FEATURE_V_1_4_SQL_GRAPH)}
-        });
+        {{type_factory->get_string(),
+          {ARG_TYPE_ARBITRARY},
+          FN_TYPEOF,
+          SetRewriter(REWRITE_TYPEOF_FUNCTION).set_propagates_collation(false)},
+         // TODO: Remove these signatures.
+         {type_factory->get_string(),
+          {ARG_TYPE_GRAPH_ELEMENT},
+          FN_TYPEOF_GRAPH_ELEMENT,
+          SetRewriter(REWRITE_TYPEOF_FUNCTION)
+              .set_propagates_collation(false)
+              .set_is_hidden(true)
+              .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH)}});
   }
 }
 
@@ -3148,8 +3513,7 @@ void GetFilterFieldsFunction(TypeFactory* type_factory,
   // Create function with no signatures for filter fields function, which has
   // special handling in the analyzer.
   const std::vector<FunctionSignatureOnHeap> empty_signatures;
-  if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_3_FILTER_FIELDS)) {
+  if (options.language_options.LanguageFeatureEnabled(FEATURE_FILTER_FIELDS)) {
     const FunctionOptions fn_options;
     InsertFunction(functions, options, "filter_fields", Function::SCALAR,
                    empty_signatures, fn_options);

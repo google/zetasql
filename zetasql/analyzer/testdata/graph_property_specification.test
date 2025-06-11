@@ -1,4 +1,4 @@
-[default language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_3_BRACED_PROTO_CONSTRUCTORS]
+[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,BRACED_PROTO_CONSTRUCTORS]
 [default no_test_extract_table_names]
 # No unparser due to SQLBuilder visitor not implemented for GraphMakeElement
 
@@ -43,7 +43,7 @@ QueryStmt
                   | |   |   |   | +-property=id(INT64)
                   | |   |   |   +-Literal(type=INT64, value=10)
                   | |   |   +-label_expr=
-                  | |   |   | +-GraphLabel(label=aml.Person)
+                  | |   |   | +-GraphLabel(parse_location=171-177, label=aml.Person)
                   | |   |   +-target_element_table_list=[aml.Person]
                   | |   +-head=$element_table.n#1
                   | |   +-tail=$element_table.n#1
@@ -266,12 +266,12 @@ QueryStmt
                   | |   | | |   | +-property=id(INT64)
                   | |   | | |   +-Literal(type=INT64, value=10)
                   | |   | | +-label_expr=
-                  | |   | | | +-GraphLabel(label=aml.Person)
+                  | |   | | | +-GraphLabel(parse_location=44-50, label=aml.Person)
                   | |   | | +-target_element_table_list=[aml.Person]
                   | |   | +-GraphEdgeScan
                   | |   | | +-column_list=[$element_table.b#2]
                   | |   | | +-label_expr=
-                  | |   | | | +-GraphLabel(label=aml.PersonOwnAccount)
+                  | |   | | | +-GraphLabel(parse_location=68-84, label=aml.PersonOwnAccount)
                   | |   | | +-target_element_table_list=[aml.PersonOwnAccount]
                   | |   | | +-orientation=RIGHT
                   | |   | +-GraphNodeScan
@@ -351,7 +351,7 @@ QueryStmt
                   | |   | | |   | +-property=id(INT64)
                   | |   | | |   +-Literal(type=INT64, value=10)
                   | |   | | +-label_expr=
-                  | |   | | | +-GraphLabel(label=aml.Person)
+                  | |   | | | +-GraphLabel(parse_location=47-53, label=aml.Person)
                   | |   | | +-target_element_table_list=[aml.Person]
                   | |   | +-GraphEdgeScan
                   | |   | | +-column_list=[$element_table.b#2]
@@ -364,7 +364,7 @@ QueryStmt
                   | |   | | |   | +-property=personId(INT64)
                   | |   | | |   +-Literal(type=INT64, value=10)
                   | |   | | +-label_expr=
-                  | |   | | | +-GraphLabel(label=aml.PersonOwnAccount)
+                  | |   | | | +-GraphLabel(parse_location=71-87, label=aml.PersonOwnAccount)
                   | |   | | +-target_element_table_list=[aml.PersonOwnAccount]
                   | |   | | +-orientation=RIGHT
                   | |   | +-GraphNodeScan
@@ -444,7 +444,7 @@ QueryStmt
                   | |   |   |   | +-property=id(INT64)
                   | |   |   |   +-Literal(type=INT64, value=NULL)
                   | |   |   +-label_expr=
-                  | |   |   | +-GraphLabel(label=aml.Person)
+                  | |   |   | +-GraphLabel(parse_location=47-53, label=aml.Person)
                   | |   |   +-target_element_table_list=[aml.Person]
                   | |   +-head=$element_table.n#1
                   | |   +-tail=$element_table.n#1
@@ -506,7 +506,7 @@ QueryStmt
                   | |   | +-GraphNodeScan
                   | |   |   +-column_list=[$element_table.n#1]
                   | |   |   +-label_expr=
-                  | |   |   | +-GraphLabel(label=aml.Person)
+                  | |   |   | +-GraphLabel(parse_location=45-51, label=aml.Person)
                   | |   |   +-target_element_table_list=[aml.Person]
                   | |   +-head=$element_table.n#1
                   | |   +-tail=$element_table.n#1
@@ -551,7 +551,7 @@ QueryStmt
                   | |                     | |   |   |     | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, id INT64, name STRING>, column=$element_table.n#1, is_correlated=TRUE)
                   | |                     | |   |   |     +-property=name(STRING)
                   | |                     | |   |   +-label_expr=
-                  | |                     | |   |   | +-GraphLabel(label=aml.Person)
+                  | |                     | |   |   | +-GraphLabel(parse_location=134-140, label=aml.Person)
                   | |                     | |   |   +-target_element_table_list=[aml.Person]
                   | |                     | |   +-head=$element_table.m#2
                   | |                     | |   +-tail=$element_table.m#2
@@ -631,7 +631,7 @@ QueryStmt
                   | |   |   |     | +-property=name(STRING)
                   | |   |   |     +-Literal(type=STRING, value="suffix")
                   | |   |   +-label_expr=
-                  | |   |   | +-GraphLabel(label=aml.Person)
+                  | |   |   | +-GraphLabel(parse_location=47-53, label=aml.Person)
                   | |   |   +-target_element_table_list=[aml.Person]
                   | |   +-head=$element_table.n#1
                   | |   +-tail=$element_table.n#1
@@ -672,7 +672,14 @@ GRAPH_TABLE(aml
 ) gt
 --
 
-ERROR: No matching signature for operator = for argument types: STRING, INT64. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 3:24]
+ERROR: No matching signature for operator = for argument types: STRING, INT64
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {INT64, STRING}
+  Signature: INT64 = UINT64
+    Argument 1: Unable to coerce type STRING to expected type INT64
+  Signature: UINT64 = INT64
+    Argument 1: Unable to coerce type STRING to expected type UINT64 [at 3:24]
   MATCH (n IS Person { name: 123 })
                        ^
 
@@ -722,7 +729,7 @@ QueryStmt
                   | |   |   |   | +-property=id(INT64)
                   | |   |   |   +-Literal(type=UINT64, value=123, has_explicit_type=TRUE)
                   | |   |   +-label_expr=
-                  | |   |   | +-GraphLabel(label=aml.Person)
+                  | |   |   | +-GraphLabel(parse_location=47-53, label=aml.Person)
                   | |   |   +-target_element_table_list=[aml.Person]
                   | |   +-head=$element_table.n#1
                   | |   +-tail=$element_table.n#1
@@ -784,7 +791,7 @@ QueryStmt
                   | |   |   |   | +-property=age(UINT32)
                   | |   |   |   +-Literal(type=UINT32, value=100)
                   | |   |   +-label_expr=
-                  | |   |   | +-GraphLabel(label=aml.Person)
+                  | |   |   | +-GraphLabel(parse_location=47-53, label=aml.Person)
                   | |   |   +-target_element_table_list=[aml.Person]
                   | |   +-head=$element_table.n#1
                   | |   +-tail=$element_table.n#1
@@ -813,7 +820,14 @@ GRAPH_TABLE(aml
 
 --
 
-ERROR: No matching signature for operator = for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 3:24]
+ERROR: No matching signature for operator = for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRING, BYTES}
+  Signature: INT64 = UINT64
+    Argument 1: Unable to coerce type BYTES to expected type INT64
+  Signature: UINT64 = INT64
+    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 3:24]
   MATCH (n IS Person { data: "\001" })
                        ^
 
@@ -863,7 +877,7 @@ QueryStmt
                   | |   |   |   | +-property=data(BYTES)
                   | |   |   |   +-Literal(type=BYTES, value=b"\x01")
                   | |   |   +-label_expr=
-                  | |   |   | +-GraphLabel(label=aml.Person)
+                  | |   |   | +-GraphLabel(parse_location=47-53, label=aml.Person)
                   | |   |   +-target_element_table_list=[aml.Person]
                   | |   +-head=$element_table.n#1
                   | |   +-tail=$element_table.n#1

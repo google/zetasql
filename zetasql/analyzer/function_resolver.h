@@ -109,7 +109,7 @@ class FunctionResolver {
       const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
       bool match_internal_signatures,
-      const std::vector<std::string>& function_name_path, bool is_analytic,
+      absl::Span<const std::string> function_name_path, bool is_analytic,
       std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
       std::vector<NamedArgumentInfo> named_arguments,
       const Type* expected_result_type,
@@ -202,7 +202,7 @@ class FunctionResolver {
       std::unique_ptr<const ResolvedExpr>* argument) const;
 
   // Map an operator id from the parse tree to a ZetaSQL function name.
-  static const std::string& UnaryOperatorToFunctionName(
+  static absl::string_view UnaryOperatorToFunctionName(
       ASTUnaryExpression::Op op);
 
   // Map a binary operator id from the parse tree to a ZetaSQL function name.
@@ -213,7 +213,7 @@ class FunctionResolver {
   //
   // <not_handled> may be nullptr in code paths where <is_not> is known to
   // be false.
-  static const std::string& BinaryOperatorToFunctionName(
+  static absl::string_view BinaryOperatorToFunctionName(
       ASTBinaryExpression::Op op, bool is_not, bool* not_handled);
 
   // Returns the Coercer from <resolver_>.
@@ -256,9 +256,9 @@ class FunctionResolver {
   // against <signature> to match the order of the arguments in the signature,
   // or returns an error if the signature does not match.
   //
-  // If `show_mismatch_details` is true, returns mismatch message for the
-  // provided signature and returns error if the call cannot possibly match any
-  // signature. If nothing wrong happens, empty mismatch message is returned.
+  // Returns mismatch message for the provided signature and returns error if
+  // the call cannot possibly match any signature. If nothing wrong happens,
+  // empty mismatch message is returned.
   //
   // <num_repeated_args_repetitions> should be the number of repetitions of
   // the repeated arguments. It is determined by the
@@ -288,7 +288,6 @@ class FunctionResolver {
       absl::Span<const NamedArgumentInfo> named_arguments,
       int num_repeated_args_repetitions,
       bool always_include_omitted_named_arguments_in_index_mapping,
-      bool show_mismatch_details,
       std::vector<ArgIndexEntry>* index_mapping) const;
 
   // Reorders the given <input_argument_types> with respect to the given

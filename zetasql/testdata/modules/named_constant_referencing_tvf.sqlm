@@ -1,0 +1,14 @@
+MODULE named_constant_referencing_tvf;
+
+CREATE PUBLIC CONSTANT named_constant_tvf =
+    (SELECT foo FROM tvf(1234) ORDER BY 1 LIMIT 1);
+CREATE PUBLIC CONSTANT named_constant_tvf_templated =
+    (SELECT foo FROM tvf_templated(1234) ORDER BY 1 LIMIT 1);
+
+CREATE PRIVATE TABLE FUNCTION tvf(a INT32) AS (
+  SELECT a * a / 2 AS foo UNION ALL
+  SELECT a UNION ALL
+  SELECT -a
+);
+CREATE PUBLIC TABLE FUNCTION tvf_templated(a ANY TYPE)
+    AS (SELECT a - 1 AS foo);

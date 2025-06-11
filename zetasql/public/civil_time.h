@@ -347,7 +347,7 @@ class DatetimeValue {
 
   // It's impossible to encode all fields for Datetime with nano precision in a
   // single 8 byte integer, so there is no factory function for building a
-  // DatetimeValue from a single int64_t.
+  // DatetimeValue from a single int64.
 
   // Return a debug string like:
   //   "2006-01-02 03:04:05.123456789"

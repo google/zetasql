@@ -344,7 +344,7 @@ AlterTableStatement [0-68]
 ALTER TABLE constraint ADD CONSTRAINT IF NOT EXISTS int64 CHECK(a > 0) ENFORCED
 ==
 
-[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
 alter table foo-123.bar ADD constraint a_is_positive check(a>0);
 --
 ALTERNATION GROUP: <empty>
@@ -353,7 +353,7 @@ ERROR: Syntax error: Table name contains '-' character. The dashed identifier pa
 alter table foo-123.bar ADD constraint a_is_positive check(a>0);
             ^
 --
-ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
 --
 AlterTableStatement [0-63]
   PathExpression [12-23]

@@ -20,18 +20,20 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-#include <cstdio>
+#include <cstdlib>
+#include <filesystem>  // NOLINT
 #include <fstream>
 #include <iostream>
+#include <string>
+#include <system_error>  // NOLINT
 #include <vector>
 
 #include "absl/status/status.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
-#include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/logging.h"
 #include "zetasql/base/path.h"
 #include "re2/re2.h"
 
@@ -165,6 +167,34 @@ inline std::string TestSrcRootDir() {
 
 // The path in bazel where we expect to find inputs like `.test` files.
 inline std::string TestTmpDir() { return getenv("TEST_TMPDIR"); }
+
+inline absl::Status RecursivelyCreateDir(absl::string_view directory) {
+  std::error_code ec;
+  std::filesystem::create_directories(directory, ec);
+  if (ec) {
+    // Always return kUnknown for now because there is no need to distinguish
+    // the underlying error. May be updated to check `ec` and produce different
+    // codes, if required in the future.
+    return absl::Status(
+        absl::StatusCode::kUnknown,
+        absl::StrCat("Error creating directory: ", ec.message()));
+  }
+  return absl::OkStatus();
+};
+
+inline absl::Status Copy(absl::string_view from, absl::string_view to) {
+  std::error_code ec;
+  std::filesystem::copy(from, to, ec);
+  if (ec) {
+    // Always return kUnknown for now because there is no need to distinguish
+    // the underlying error. May be updated to check `ec` and produce different
+    // codes, if required in the future.
+    return absl::Status(
+        absl::StatusCode::kUnknown,
+        absl::StrCat("Error copying file: ", ec.message()));
+  }
+  return absl::OkStatus();
+};
 
 }  // namespace zetasql::internal
 

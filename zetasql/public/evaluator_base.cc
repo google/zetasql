@@ -424,6 +424,7 @@ class Evaluator {
     evaluation_options.max_intermediate_byte_size =
         evaluator_options_.max_intermediate_byte_size;
     evaluation_options.return_all_rows_for_dml = false;
+    evaluation_options.return_early_from_exists_subquery = true;
 
     auto context = std::make_unique<EvaluationContext>(evaluation_options);
 

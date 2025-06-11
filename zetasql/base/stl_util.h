@@ -41,6 +41,18 @@ void STLDeleteContainerPointers(ForwardIterator begin, ForwardIterator end) {
   }
 }
 
+// Calls delete (non-array version) on the SECOND item (pointer) in each pair in
+// the range [begin, end).
+template <typename ForwardIterator>
+void STLDeleteContainerPairSecondPointers(ForwardIterator begin,
+                                          ForwardIterator end) {
+  while (begin != end) {
+    auto temp = begin;
+    ++begin;
+    delete temp->second;
+  }
+}
+
 // Deletes all the elements in an STL container and clears the container. This
 // function is suitable for use with a vector, set, hash_set, or any other STL
 // container which defines sensible begin(), end(), and clear() methods.

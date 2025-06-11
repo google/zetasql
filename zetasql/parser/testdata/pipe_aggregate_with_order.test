@@ -376,7 +376,7 @@ GROUP AND ORDER BY x
 
 # Test order modifiers on the GROUP BY inside graph queries.
 [reserve_graph_table]
-[language_features=V_1_4_SQL_GRAPH{{|,PIPES}}]
+[language_features=SQL_GRAPH{{|,PIPES}}]
 select * from GRAPH_TABLE(aml
   MATCH (a)
   RETURN a GROUP AND ORDER BY x)
@@ -387,7 +387,7 @@ ERROR: Syntax error: Expected keyword BY but got keyword AND [at 3:18]
 ==
 
 [reserve_graph_table]
-[language_features=V_1_4_SQL_GRAPH{{|,PIPES}}]
+[language_features=SQL_GRAPH{{|,PIPES}}]
 select * from GRAPH_TABLE(aml
   MATCH (a)
   RETURN a GROUP BY x, y {{ASC|NULLS FIRST}})

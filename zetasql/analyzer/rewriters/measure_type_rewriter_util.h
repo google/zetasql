@@ -42,12 +42,16 @@ namespace zetasql {
 struct MeasureExpansionInfo {
   // Measure expression stored in `measure_catalog_column`.
   const ResolvedExpr* measure_expr = nullptr;
-  // The `STRUCT` typed column that will be used to replace the measure column.
+  // `STRUCT` typed column that will be projected alongside the measure column.
   ResolvedColumn struct_column;
-  // A list of renamed measure columns resulting from the original measure
-  // column requiring expansion. Only populated for measure columns that
-  // originate from a GrainScan.
-  std::vector<ResolvedColumn> renamed_measure_columns;
+  // The set of measure columns that are renamed from this measure column.
+  absl::btree_set<ResolvedColumn> renamed_measure_columns;
+  // Indicates whether this measure column is directly or indirectly invoked
+  // via the `AGG` function. Direct invocation means that the column id for this
+  // measure column is an argument to an `AGG` function call. Indirect
+  // invocation means that some other measure column that is renamed from this
+  // measure column is invoked via the `AGG` function.
+  bool is_invoked = false;
 };
 
 using MeasureExpansionInfoMap =
@@ -73,21 +77,16 @@ class GrainScanInfo {
   // columns that need to be projected from a grain scan:
   //
   // 1. Columns that must be projected to preserve query semantics. This
-  //    includes non-measure columns that are already projected AND measure
-  //    columns that are already projected but NOT invoked via the AGGREGATE
-  //    function.
-  //
-  //    (Measure columns that are already projected from the grain scan AND
-  //    invoked via the AGGREGATE function will NOT be projected, but rewritten
-  //    to a STRUCT column instead).
+  //    includes all columns that are already projected by the grain scan.
   //
   // 2. Columns that are not yet projected from the grain scan, but need to be
   //    projected to support measure expansion. This includes columns referenced
-  //    by the measure expression and any row identity columns.
+  //    by a measure expression that needs to be expanded, and any row identity
+  //    columns.
   struct ColumnToProject {
     // The `ResolvedColumn` to project. This may be an existing column already
-    // projected from the grain scan, or a new column to project.
-    // of type 1 or type 2 above).
+    // projected from the grain scan (type 1 above), or a new column to project
+    // (type 2 above).
     ResolvedColumn resolved_column;
     // Indicates whether `resolved_column` is a row identity column.
     bool is_row_identity_column = false;
@@ -109,7 +108,7 @@ class GrainScanInfo {
                                        bool mark_row_identity_column);
 
   // Add a `STRUCT` typed column to compute. This `STRUCT` typed column will be
-  // projected and used to replace a measure column that needs to be expanded.
+  // projected alongside the measure column that needs to be expanded.
   void AddStructComputedColumn(
       std::unique_ptr<const ResolvedComputedColumn> struct_computed_column) {
     struct_computed_columns_.push_back(std::move(struct_computed_column));
@@ -172,45 +171,57 @@ class GrainScanInfo {
       struct_computed_columns_;
 };
 
+struct ResolvedTableScanComparator {
+  bool operator()(const ResolvedTableScan* a,
+                  const ResolvedTableScan* b) const {
+    return a->alias() < b->alias();
+  }
+};
+
+using GrainScanInfoMap =
+    absl::btree_map<const ResolvedTableScan*, GrainScanInfo,
+                    ResolvedTableScanComparator>;
+
 // Traverses the ResolvedAST to gather information about grain scans that need
 // to be rewritten.
 //
 // Returns a mapping from a grain scan to the `GrainScanInfo` needed to rewrite
-// it. Also populates `measure_expansion_info_map` with partial information
-// about measure columns that need to be expanded (only measure columns that
-// originate from a grain scan are added to `measure_expansion_info_map`).
-absl::StatusOr<absl::flat_hash_map<const ResolvedTableScan*, GrainScanInfo>>
-GetGrainScanInfo(const ResolvedNode* input,
-                 MeasureExpansionInfoMap& measure_expansion_info_map,
-                 ColumnFactory& column_factory);
+// it. Also populates `measure_expansion_info_map` with information about
+// measure columns.
+absl::StatusOr<GrainScanInfoMap> GetGrainScanInfo(
+    const ResolvedNode* input,
+    MeasureExpansionInfoMap& measure_expansion_info_map,
+    ColumnFactory& column_factory);
 
-// Populate both `grain_scan_info` and `measure_expansion_info_map` with
-// information about the STRUCT-typed columns that will replace measure columns
-// that need to be expanded.
+// Populate both `grain_scan_info_map` and `measure_expansion_info_map` with
+// information about the STRUCT-typed columns that will be projected alongside
+// the measure columns that need to be expanded.
 //
-// `grain_scan_info` will be updated to project the `STRUCT` typed columns and
-// any columns needed to construct the `STRUCT` typed columns.
+// `GrainScanInfo` objects in `grain_scan_info_map` will be updated to project
+// the `STRUCT` typed columns as well as any columns needed to construct the
+// `STRUCT` typed columns.
 //
 // `MeasureExpansionInfo` values in `measure_expansion_info_map` will have their
-// `struct_column` field populated. Renamed measure columns will also be added
-// as keys to `measure_expansion_info_map`.
+// `struct_column` field populated.
 absl::Status PopulateStructColumnInfo(
-    const ResolvedTableScan* grain_scan, GrainScanInfo& grain_scan_info,
+    GrainScanInfoMap& grain_scan_info_map,
     MeasureExpansionInfoMap& measure_expansion_info_map,
-    TypeFactory& type_factory, IdStringPool& id_string_pool);
+    TypeFactory& type_factory, IdStringPool& id_string_pool,
+    ColumnFactory& column_factory);
 
 // Rewrite the ResolvedAST to expand measure columns. This includes:
 //
 // 1. Rewriting grain scans to project columns needed for measure expansion
 //    using a specially-constructed STRUCT-typed column.
-// 2. Replacing measure columns with their corresponding STRUCT-typed columns.
+// 2. Augmenting the column list of any scan that projects a measure column that
+//    needs to be expanded with the corresponding STRUCT-typed column for that
+//    measure column.
 // 3. Rewriting measure expressions to use-multi-level aggregation to grain-lock
 //    and also reference columns from the STRUCT-typed columns.
 absl::StatusOr<std::unique_ptr<const ResolvedNode>> RewriteMeasures(
     std::unique_ptr<const ResolvedNode> input,
-    absl::flat_hash_map<const ResolvedTableScan*, GrainScanInfo>
-        grain_scan_info_map,
-    const Function* any_value_fn, ColumnFactory& column_factory,
+    GrainScanInfoMap grain_scan_info_map, const Function* any_value_fn,
+    ColumnFactory& column_factory,
     MeasureExpansionInfoMap& measure_expansion_info_map);
 
 }  // namespace zetasql

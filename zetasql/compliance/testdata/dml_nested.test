@@ -29,13 +29,13 @@ ARRAY<STRUCT<primary_key INT64, int64_value INT64, array_value ARRAY<>>>[
 # Use a new table in case some engines don't support array-valued primary keys.
 #
 # We must annotate this [prepare_database] statement with
-# [required_features=V_1_2_GROUP_BY_ARRAY] in order to pass the compliace test
+# [required_features=GROUP_BY_ARRAY] in order to pass the compliace test
 # framework's validation that the first column can be thought of as a primary
 # key. As a result, the table will only be created for drivers that support
-# V_1_2_GROUP_BY_ARRAY, and it will only be visible to tests that require
+# GROUP_BY_ARRAY, and it will only be visible to tests that require
 # that feature.
 [prepare_database]
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 CREATE TABLE TableWithArrayKey AS
 SELECT cast([1, 2] as ARRAY<INT64>) as primary_key,
        cast(100 as int64) as int64_value
@@ -282,7 +282,7 @@ STRUCT<
 
 # Same as above, but with another column in the table.
 [name=delete_using_other_column]
-[required_features=V_1_2_CORRELATED_REFS_IN_NESTED_DML]
+[required_features=CORRELATED_REFS_IN_NESTED_DML]
 UPDATE BasicTable SET
   (DELETE array_value WHERE array_value = primary_key + 3)
 WHERE primary_key = 10
@@ -336,7 +336,7 @@ STRUCT<
 ==
 
 [name=delete_with_offset]
-[required_features=V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET]
+[required_features=NESTED_UPDATE_DELETE_WITH_OFFSET]
 UPDATE BasicTable SET
   (DELETE array_value WITH OFFSET WHERE offset = 1)
 WHERE array_value IS NOT NULL
@@ -363,7 +363,7 @@ STRUCT<
 ==
 
 [name=delete_with_nontrivial_offset]
-[required_features=V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET,V_1_2_CORRELATED_REFS_IN_NESTED_DML]
+[required_features=NESTED_UPDATE_DELETE_WITH_OFFSET,CORRELATED_REFS_IN_NESTED_DML]
 UPDATE BasicTable SET
   (DELETE array_value WITH OFFSET WHERE offset = (primary_key / 10) - 1)
 WHERE array_value IS NOT NULL
@@ -390,7 +390,7 @@ STRUCT<
 ==
 
 [name=delete_with_null_offset]
-[required_features=V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET]
+[required_features=NESTED_UPDATE_DELETE_WITH_OFFSET]
 UPDATE BasicTable SET
   (DELETE array_value WITH OFFSET WHERE offset IS NULL)
 WHERE array_value IS NOT NULL
@@ -417,7 +417,7 @@ STRUCT<
 ==
 
 [name=delete_with_out_of_range_offsets]
-[required_features=V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET]
+[required_features=NESTED_UPDATE_DELETE_WITH_OFFSET]
 UPDATE BasicTable SET
   (DELETE array_value WITH OFFSET WHERE offset < 0 OR offset > 1000)
 WHERE array_value IS NOT NULL
@@ -445,7 +445,7 @@ STRUCT<
 
 [name=delete_from_primary_key]
 [primary_key_mode=first_column_is_primary_key]
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 [forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (DELETE primary_key WHERE primary_key = 1 ASSERT_ROWS_MODIFIED 1)
@@ -474,7 +474,7 @@ STRUCT<
 
 [name=delete_from_primary_key_no_pk_updates]
 [primary_key_mode=first_column_is_primary_key]
-[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+[required_features=GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (DELETE primary_key WHERE primary_key = 1 ASSERT_ROWS_MODIFIED 1)
 WHERE True
@@ -484,7 +484,7 @@ ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 
 [name=delete_causes_primary_key_collision]
 [primary_key_mode=first_column_is_primary_key]
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 [forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (DELETE primary_key WHERE primary_key = 4 ASSERT_ROWS_MODIFIED 1)
@@ -495,7 +495,7 @@ ERROR: generic::out_of_range: Modification resulted in duplicate primary key ([1
 
 [name=delete_causes_primary_key_collision_no_pk_updates]
 [primary_key_mode=first_column_is_primary_key]
-[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+[required_features=GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (DELETE primary_key WHERE primary_key = 4 ASSERT_ROWS_MODIFIED 1)
 WHERE ARRAY_LENGTH(primary_key) = 4
@@ -645,7 +645,7 @@ STRUCT<
 
 # Same as above, but with an extension field.
 [name=nested_delete_repeated_extension_proto_field]
-[required_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
+[required_features=PROTO_EXTENSIONS_WITH_SET]
 UPDATE ProtoTable SET
   (DELETE proto_value.(zetasql_test__.KitchenSinkExtension.repeated_extension) x
    WHERE x.value = "value1")
@@ -735,7 +735,7 @@ STRUCT<
 ==
 
 [name=deletes_with_different_offsets]
-[required_features=V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET]
+[required_features=NESTED_UPDATE_DELETE_WITH_OFFSET]
 UPDATE BasicTable SET
   (DELETE array_value WITH OFFSET WHERE offset = 0 ASSERT_ROWS_MODIFIED 1),
   (DELETE array_value WITH OFFSET WHERE offset = 2 ASSERT_ROWS_MODIFIED 1)
@@ -755,7 +755,7 @@ STRUCT<
 ==
 
 [name=deletes_with_same_offset_twice]
-[required_features=V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET]
+[required_features=NESTED_UPDATE_DELETE_WITH_OFFSET]
 UPDATE BasicTable SET
   (DELETE array_value WITH OFFSET WHERE offset = 0 ASSERT_ROWS_MODIFIED 1),
   (DELETE array_value WITH OFFSET WHERE offset = 0 ASSERT_ROWS_MODIFIED 0)
@@ -931,7 +931,7 @@ STRUCT<
 
 # Same as above, but with another column in the table.
 [name=update_from_other_column]
-[required_features=V_1_2_CORRELATED_REFS_IN_NESTED_DML]
+[required_features=CORRELATED_REFS_IN_NESTED_DML]
 UPDATE BasicTable SET
   (UPDATE array_value
    SET array_value = primary_key * 10
@@ -988,7 +988,7 @@ STRUCT<
 ==
 
 [name=update_with_offset]
-[required_features=V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET]
+[required_features=NESTED_UPDATE_DELETE_WITH_OFFSET]
 UPDATE BasicTable SET
   (UPDATE array_value WITH OFFSET
    SET array_value = array_value + 1
@@ -1017,7 +1017,7 @@ STRUCT<
 ==
 
 [name=update_with_offset_using_offset]
-[required_features=V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET]
+[required_features=NESTED_UPDATE_DELETE_WITH_OFFSET]
 UPDATE BasicTable SET
   (UPDATE array_value WITH OFFSET
    SET array_value = array_value + offset
@@ -1046,7 +1046,7 @@ STRUCT<
 ==
 
 [name=update_with_nontrivial_offset]
-[required_features=V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET,V_1_2_CORRELATED_REFS_IN_NESTED_DML]
+[required_features=NESTED_UPDATE_DELETE_WITH_OFFSET,CORRELATED_REFS_IN_NESTED_DML]
 UPDATE BasicTable SET
   (UPDATE array_value WITH OFFSET
    SET array_value = array_value + 1
@@ -1075,7 +1075,7 @@ STRUCT<
 ==
 
 [name=update_with_null_offset]
-[required_features=V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET]
+[required_features=NESTED_UPDATE_DELETE_WITH_OFFSET]
 UPDATE BasicTable SET
   (UPDATE array_value WITH OFFSET
    SET array_value = array_value + 1
@@ -1104,7 +1104,7 @@ STRUCT<
 ==
 
 [name=update_with_out_of_range_offsets]
-[required_features=V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET]
+[required_features=NESTED_UPDATE_DELETE_WITH_OFFSET]
 UPDATE BasicTable SET
   (UPDATE array_value WITH OFFSET
    SET array_value = array_value + 1
@@ -1136,7 +1136,7 @@ STRUCT<
 # ok.
 [name=update_primary_key]
 [primary_key_mode=first_column_is_primary_key]
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 [forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (UPDATE primary_key SET primary_key = 4 WHERE primary_key = 3),
@@ -1171,7 +1171,7 @@ STRUCT<
 # ok.
 [name=update_primary_key_no_pk_updates]
 [primary_key_mode=first_column_is_primary_key]
-[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+[required_features=GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (UPDATE primary_key SET primary_key = 4 WHERE primary_key = 3),
   (UPDATE primary_key SET primary_key = 5 WHERE primary_key = 4)
@@ -1182,7 +1182,7 @@ ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 
 [name=update_causes_primary_key_collision]
 [primary_key_mode=first_column_is_primary_key]
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 [forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (UPDATE primary_key SET primary_key = 4 WHERE primary_key = 3)
@@ -1193,7 +1193,7 @@ ERROR: generic::out_of_range: Modification resulted in duplicate primary key ([1
 
 [name=update_causes_primary_key_collision_no_pk_updates]
 [primary_key_mode=first_column_is_primary_key]
-[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+[required_features=GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (UPDATE primary_key SET primary_key = 4 WHERE primary_key = 3)
 WHERE int64_value = 200
@@ -1358,7 +1358,7 @@ STRUCT<
 
 # Same as above, but with an extension field.
 [name=nested_update_repeated_extension_proto_field]
-[required_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
+[required_features=PROTO_EXTENSIONS_WITH_SET]
 UPDATE ProtoTable SET
   (UPDATE proto_value.(zetasql_test__.KitchenSinkExtension.repeated_extension) x
    SET x = CAST('value: "new_value"' AS zetasql_test__.KitchenSinkExtension)
@@ -1402,7 +1402,7 @@ STRUCT<
 ==
 
 [name=nested_update_extension_subfield_of_repeated_proto_field]
-[required_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
+[required_features=PROTO_EXTENSIONS_WITH_SET]
 UPDATE ProtoTable SET
   (UPDATE proto_value.nested_repeated_value
    SET nested_repeated_value.
@@ -1448,7 +1448,7 @@ STRUCT<
 ==
 
 [name=nested_update_containing_array_element_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE ArrayOfStructsTable SET
   (UPDATE array_value
    SET array_value.array_value2[OFFSET(0)] = 10000
@@ -1556,7 +1556,7 @@ STRUCT<
 ==
 
 [name=updates_with_different_offsets]
-[required_features=V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET]
+[required_features=NESTED_UPDATE_DELETE_WITH_OFFSET]
 UPDATE BasicTable SET
   (UPDATE array_value WITH OFFSET
    SET array_value = 500
@@ -1590,7 +1590,7 @@ STRUCT<
 ==
 
 [name=updates_with_same_offset_twice]
-[required_features=V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET]
+[required_features=NESTED_UPDATE_DELETE_WITH_OFFSET]
 UPDATE BasicTable SET
   (UPDATE array_value WITH OFFSET
    SET array_value = 500
@@ -1718,7 +1718,7 @@ STRUCT<
 
 # Same as above, but with another column in the table.
 [name=insert_using_other_column]
-[required_features=V_1_2_CORRELATED_REFS_IN_NESTED_DML]
+[required_features=CORRELATED_REFS_IN_NESTED_DML]
 UPDATE BasicTable T SET
   (INSERT array_value VALUES
     (100),
@@ -1784,7 +1784,7 @@ STRUCT<
 # ok.
 [name=insert_into_primary_key]
 [primary_key_mode=first_column_is_primary_key]
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 [forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (INSERT primary_key VALUES (4))
@@ -1818,7 +1818,7 @@ STRUCT<
 # ok.
 [name=insert_into_primary_key_no_pk_updates]
 [primary_key_mode=first_column_is_primary_key]
-[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+[required_features=GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (INSERT primary_key VALUES (4))
 WHERE True
@@ -1828,7 +1828,7 @@ ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 
 [name=insert_causes_primary_key_collision]
 [primary_key_mode=first_column_is_primary_key]
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 [forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (INSERT primary_key VALUES (4))
@@ -1839,7 +1839,7 @@ ERROR: generic::out_of_range: Modification resulted in duplicate primary key ([1
 
 [name=insert_causes_primary_key_collision_no_pk_updates]
 [primary_key_mode=first_column_is_primary_key]
-[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+[required_features=GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (INSERT primary_key VALUES (4))
 WHERE ARRAY_LENGTH(primary_key) = 3
@@ -1974,7 +1974,7 @@ STRUCT<
 ==
 
 [name=insert_query_using_other_column]
-[required_features=V_1_2_CORRELATED_REFS_IN_NESTED_DML]
+[required_features=CORRELATED_REFS_IN_NESTED_DML]
 UPDATE BasicTable T SET
   (INSERT array_value SELECT int64_value)
 WHERE primary_key = 10
@@ -2001,7 +2001,7 @@ STRUCT<
 ==
 
 [name=insert_query_using_same_array_column]
-[required_features=V_1_2_CORRELATED_REFS_IN_NESTED_DML]
+[required_features=CORRELATED_REFS_IN_NESTED_DML]
 UPDATE BasicTable T SET
   (INSERT array_value SELECT * FROM T.array_value)
 WHERE primary_key = 10
@@ -2028,7 +2028,7 @@ STRUCT<
 ==
 
 [name=insert_query_using_nested_reference]
-[required_features=V_1_2_CORRELATED_REFS_IN_NESTED_DML]
+[required_features=CORRELATED_REFS_IN_NESTED_DML]
 UPDATE ArrayOfStructsTable T SET
   (UPDATE array_value x SET
      (INSERT array_value2 SELECT T.primary_key + x.int64_value)
@@ -2067,7 +2067,7 @@ STRUCT<
 
 [name=insert_query_causes_primary_key_collision]
 [primary_key_mode=first_column_is_primary_key]
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 [forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (INSERT primary_key (SELECT 4))
@@ -2078,7 +2078,7 @@ ERROR: generic::out_of_range: Modification resulted in duplicate primary key ([1
 
 [name=insert_query_causes_primary_key_collision_no_pk_updates]
 [primary_key_mode=first_column_is_primary_key]
-[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+[required_features=GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (INSERT primary_key (SELECT 4))
 WHERE ARRAY_LENGTH(primary_key) = 3
@@ -2207,7 +2207,7 @@ STRUCT<
 
 # Same as above, but with an extension field.
 [name=nested_insert_repeated_extension_proto_field]
-[required_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
+[required_features=PROTO_EXTENSIONS_WITH_SET]
 UPDATE ProtoTable SET
   (INSERT proto_value.(zetasql_test__.KitchenSinkExtension.repeated_extension)
    VALUES (CAST('value: "new_value1"' AS zetasql_test__.KitchenSinkExtension)),
@@ -2329,7 +2329,7 @@ STRUCT<
 # The offset for the nested UPDATE is relative to the original array (before the
 # nested DELETE).
 [name=nested_delete_and_update_with_offset]
-[required_features=V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET]
+[required_features=NESTED_UPDATE_DELETE_WITH_OFFSET]
 UPDATE BasicTable SET
   (DELETE array_value WITH OFFSET
    WHERE offset = 0
@@ -2367,7 +2367,7 @@ STRUCT<
 # UPDATE matches an element that has already been deleted, and in that case
 # the nested UPDATE does not count as an element modification.
 [name=nested_delete_and_update_with_same_offset_twice]
-[required_features=V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET]
+[required_features=NESTED_UPDATE_DELETE_WITH_OFFSET]
 UPDATE BasicTable SET
   (DELETE array_value WITH OFFSET
    WHERE offset = 0
@@ -2404,7 +2404,7 @@ STRUCT<
 # ok.
 [name=nested_delete_and_update_intermediate_primary_key_collision]
 [primary_key_mode=first_column_is_primary_key]
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 [forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (DELETE primary_key WHERE primary_key = 4 ASSERT_ROWS_MODIFIED 1),
@@ -2440,7 +2440,7 @@ STRUCT<
 # ok.
 [name=nested_delete_and_update_intermediate_primary_key_collision_no_pk_updates]
 [primary_key_mode=first_column_is_primary_key]
-[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+[required_features=GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (DELETE primary_key WHERE primary_key = 4 ASSERT_ROWS_MODIFIED 1),
   (UPDATE primary_key SET primary_key = 5 WHERE primary_key = 3
@@ -2482,7 +2482,7 @@ STRUCT<
 # ok.
 [name=nested_delete_and_insert_intermediate_primary_key_collision]
 [primary_key_mode=first_column_is_primary_key]
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 [forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (DELETE primary_key WHERE primary_key = 4 ASSERT_ROWS_MODIFIED 1),
@@ -2517,7 +2517,7 @@ STRUCT<
 # ok.
 [name=nested_delete_and_insert_intermediate_primary_key_collision_no_pk_updates]
 [primary_key_mode=first_column_is_primary_key]
-[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+[required_features=GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (DELETE primary_key WHERE primary_key = 4 ASSERT_ROWS_MODIFIED 1),
   (INSERT primary_key VALUES (4) ASSERT_ROWS_MODIFIED 1)
@@ -2559,7 +2559,7 @@ STRUCT<
 # ok.
 [name=nested_update_and_insert_intermediate_primary_key_collision]
 [primary_key_mode=first_column_is_primary_key]
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 [forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (UPDATE primary_key SET primary_key = 3 WHERE primary_key = 4
@@ -2595,7 +2595,7 @@ STRUCT<
 # ok.
 [name=nested_update_and_insert_intermediate_primary_key_collision_no_pk_updates]
 [primary_key_mode=first_column_is_primary_key]
-[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+[required_features=GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (UPDATE primary_key SET primary_key = 3 WHERE primary_key = 4
    ASSERT_ROWS_MODIFIED 1),

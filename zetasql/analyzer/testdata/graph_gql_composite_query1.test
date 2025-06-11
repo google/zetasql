@@ -1,4 +1,4 @@
-[default language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_1_WITH_ON_SUBQUERY]
+[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,WITH_ON_SUBQUERY]
 [default no_test_extract_table_names]
 [default no_run_sqlbuilder]
 # No unparser due to SQLBuilder visitor not implemented for GraphMakeElement
@@ -60,7 +60,7 @@ ERROR: GQL set operation requires all input queries to have identical column nam
 
 # Set operation for 2 inputs
 # Error when column type does not support grouping
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY{{|,V_1_2_GROUP_BY_STRUCT}}]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY{{|,GROUP_BY_STRUCT}}]
 select gt.* from
 graph_table(aml
   match (n)
@@ -72,7 +72,7 @@ graph_table(aml
 --
 ALTERNATION GROUPS:
     UNION,ALL
-    ,V_1_2_GROUP_BY_STRUCT,UNION,ALL
+    ,GROUP_BY_STRUCT,UNION,ALL
 --
 QueryStmt
 +-output_column_list=
@@ -208,7 +208,7 @@ ERROR: Column struct_col in EXCEPT DISTINCT has type that does not support set o
   EXCEPT DISTINCT
   ^
 --
-ALTERNATION GROUP: ,V_1_2_GROUP_BY_STRUCT,UNION,DISTINCT
+ALTERNATION GROUP: ,GROUP_BY_STRUCT,UNION,DISTINCT
 --
 QueryStmt
 +-output_column_list=
@@ -314,7 +314,7 @@ QueryStmt
                 |   +-output_column_list=$graph_table.[name#6, number#7, struct_col#8]
                 +-column_match_mode=CORRESPONDING
 --
-ALTERNATION GROUP: ,V_1_2_GROUP_BY_STRUCT,INTERSECT,ALL
+ALTERNATION GROUP: ,GROUP_BY_STRUCT,INTERSECT,ALL
 --
 QueryStmt
 +-output_column_list=
@@ -420,7 +420,7 @@ QueryStmt
                 |   +-output_column_list=$graph_table.[name#6, number#7, struct_col#8]
                 +-column_match_mode=CORRESPONDING
 --
-ALTERNATION GROUP: ,V_1_2_GROUP_BY_STRUCT,INTERSECT,DISTINCT
+ALTERNATION GROUP: ,GROUP_BY_STRUCT,INTERSECT,DISTINCT
 --
 QueryStmt
 +-output_column_list=
@@ -526,7 +526,7 @@ QueryStmt
                 |   +-output_column_list=$graph_table.[name#6, number#7, struct_col#8]
                 +-column_match_mode=CORRESPONDING
 --
-ALTERNATION GROUP: ,V_1_2_GROUP_BY_STRUCT,EXCEPT,ALL
+ALTERNATION GROUP: ,GROUP_BY_STRUCT,EXCEPT,ALL
 --
 QueryStmt
 +-output_column_list=
@@ -632,7 +632,7 @@ QueryStmt
                 |   +-output_column_list=$graph_table.[name#6, number#7, struct_col#8]
                 +-column_match_mode=CORRESPONDING
 --
-ALTERNATION GROUP: ,V_1_2_GROUP_BY_STRUCT,EXCEPT,DISTINCT
+ALTERNATION GROUP: ,GROUP_BY_STRUCT,EXCEPT,DISTINCT
 --
 QueryStmt
 +-output_column_list=
@@ -2361,3 +2361,535 @@ QueryStmt
                 |   |         +-GraphRefScan(column_list=[$graph_table.col1#3, $graph_table.col1#3, $graph_table.col1#3, $graph_table.cnt#2, $element_table.m#6])
                 |   +-output_column_list=[$graph_table.name#7]
                 +-column_match_mode=CORRESPONDING
+==
+
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,WITH_ON_SUBQUERY,ANALYTIC_FUNCTIONS]
+# Repro b/406227171:
+# 1. The last rewritten scan in WithScan needs to remap column ids back to the
+# original scan using ProjectScan::expr_list;
+# 2. Within WithScan, all rewritten composite queries need to have output
+# column_list with new column ids.
+SELECT
+  a_5
+FROM
+  GRAPH_TABLE(
+    aml
+    RETURN
+      "abc" AS a_2
+    ORDER BY a_2 DESC
+    NEXT
+    RETURN
+      1 AS a_5,
+      1 AS a_6,
+      1 AS a_7
+    ORDER BY a_6 DESC, a_7 DESC
+    EXCEPT DISTINCT
+    ORDER BY a_2
+    RETURN
+      1 AS a_5,
+      1 AS a_6,
+      1 AS a_7
+    NEXT
+    RETURN
+      a_5,
+      IS_LAST(611880678332734517) OVER () AS a_10
+  ) AS gt
+--
+QueryStmt
++-output_column_list=
+| +-$graph_set_op.a_5#8 AS a_5 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_set_op.a_5#8]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_set_op.a_5#8, $analytic.a_10#12]
+        +-property_graph=aml
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_set_op.a_5#8, $analytic.a_10#12]
+            +-scan_list=
+              +-GraphLinearScan
+              | +-column_list=[$graph_table.a_2#1]
+              | +-scan_list=
+              |   +-OrderByScan
+              |     +-column_list=[$graph_table.a_2#1]
+              |     +-is_ordered=TRUE
+              |     +-input_scan=
+              |     | +-ProjectScan
+              |     |   +-column_list=[$graph_table.a_2#1]
+              |     |   +-expr_list=
+              |     |   | +-a_2#1 := Literal(type=STRING, value="abc")
+              |     |   +-input_scan=
+              |     |     +-SingleRowScan
+              |     +-order_by_item_list=
+              |       +-OrderByItem
+              |         +-column_ref=
+              |         | +-ColumnRef(type=STRING, column=$graph_table.a_2#1)
+              |         +-is_descending=TRUE
+              +-SetOperationScan
+              | +-column_list=$graph_set_op.[a_5#8, a_6#9, a_7#10]
+              | +-op_type=EXCEPT_DISTINCT
+              | +-input_item_list=
+              | | +-SetOperationItem
+              | | | +-scan=
+              | | | | +-GraphLinearScan
+              | | | |   +-column_list=$graph_table.[a_5#2, a_6#3, a_7#4]
+              | | | |   +-scan_list=
+              | | | |     +-OrderByScan
+              | | | |       +-column_list=$graph_table.[a_5#2, a_6#3, a_7#4]
+              | | | |       +-is_ordered=TRUE
+              | | | |       +-input_scan=
+              | | | |       | +-ProjectScan
+              | | | |       |   +-column_list=$graph_table.[a_2#1, a_5#2, a_6#3, a_7#4]
+              | | | |       |   +-expr_list=
+              | | | |       |   | +-a_5#2 := Literal(type=INT64, value=1)
+              | | | |       |   | +-a_6#3 := Literal(type=INT64, value=1)
+              | | | |       |   | +-a_7#4 := Literal(type=INT64, value=1)
+              | | | |       |   +-input_scan=
+              | | | |       |     +-GraphRefScan(column_list=[$graph_table.a_2#1])
+              | | | |       +-order_by_item_list=
+              | | | |         +-OrderByItem
+              | | | |         | +-column_ref=
+              | | | |         | | +-ColumnRef(type=INT64, column=$graph_table.a_6#3)
+              | | | |         | +-is_descending=TRUE
+              | | | |         +-OrderByItem
+              | | | |           +-column_ref=
+              | | | |           | +-ColumnRef(type=INT64, column=$graph_table.a_7#4)
+              | | | |           +-is_descending=TRUE
+              | | | +-output_column_list=$graph_table.[a_5#2, a_6#3, a_7#4]
+              | | +-SetOperationItem
+              | |   +-scan=
+              | |   | +-GraphLinearScan
+              | |   |   +-column_list=$graph_table.[a_5#5, a_6#6, a_7#7]
+              | |   |   +-scan_list=
+              | |   |     +-OrderByScan
+              | |   |     | +-column_list=[$graph_table.a_2#1]
+              | |   |     | +-is_ordered=TRUE
+              | |   |     | +-input_scan=
+              | |   |     | | +-GraphRefScan(column_list=[$graph_table.a_2#1])
+              | |   |     | +-order_by_item_list=
+              | |   |     |   +-OrderByItem
+              | |   |     |     +-column_ref=
+              | |   |     |       +-ColumnRef(type=STRING, column=$graph_table.a_2#1)
+              | |   |     +-ProjectScan
+              | |   |       +-column_list=$graph_table.[a_5#5, a_6#6, a_7#7]
+              | |   |       +-expr_list=
+              | |   |       | +-a_5#5 := Literal(type=INT64, value=1)
+              | |   |       | +-a_6#6 := Literal(type=INT64, value=1)
+              | |   |       | +-a_7#7 := Literal(type=INT64, value=1)
+              | |   |       +-input_scan=
+              | |   |         +-GraphRefScan(column_list=[$graph_table.a_2#1])
+              | |   +-output_column_list=$graph_table.[a_5#5, a_6#6, a_7#7]
+              | +-column_match_mode=CORRESPONDING
+              +-GraphLinearScan
+                +-column_list=[$graph_set_op.a_5#8, $analytic.a_10#12]
+                +-scan_list=
+                  +-ProjectScan
+                    +-column_list=[$graph_set_op.a_5#8, $analytic.a_10#12]
+                    +-input_scan=
+                      +-AnalyticScan
+                        +-column_list=[$graph_set_op.a_5#8, $graph_set_op.a_6#9, $graph_set_op.a_7#10, $analytic.a_10#12]
+                        +-input_scan=
+                        | +-GraphRefScan(column_list=$graph_set_op.[a_5#8, a_6#9, a_7#10])
+                        +-function_group_list=
+                          +-AnalyticFunctionGroup
+                            +-analytic_function_list=
+                              +-a_10#12 :=
+                                +-AnalyticFunctionCall(ZetaSQL:is_last(INT64) -> BOOL)
+                                  +-Literal(type=INT64, value=611880678332734517)
+==
+
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,WITH_ON_SUBQUERY,ANALYTIC_FUNCTIONS]
+# Repro b/388054705:
+# 1. The last rewritten scan in WithScan needs to remap column ids back to the
+# original scan using ProjectScan::expr_list;
+# 2. Within WithScan, all rewritten composite queries need to have output
+# column_list with new column ids.
+SELECT
+  gt
+FROM
+  GRAPH_TABLE(
+    aml
+    RETURN
+      "" AS a_2
+    NEXT
+    RETURN
+      a_2,
+      LOGICAL_OR (true) OVER () AS a_5
+    NEXT
+    RETURN
+      a_2
+    UNION ALL
+    RETURN
+      a_2
+  ) AS gt
+--
+QueryStmt
++-output_column_list=
+| +-$query.gt#8 AS gt [STRUCT<a_2 STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.gt#8]
+    +-expr_list=
+    | +-gt#8 :=
+    |   +-MakeStruct
+    |     +-type=STRUCT<a_2 STRING>
+    |     +-field_list=
+    |       +-ColumnRef(type=STRING, column=$graph_set_op.a_2#6)
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_set_op.a_2#6]
+        +-property_graph=aml
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_set_op.a_2#6]
+            +-scan_list=
+              +-GraphLinearScan
+              | +-column_list=[$graph_table.a_2#1]
+              | +-scan_list=
+              |   +-ProjectScan
+              |     +-column_list=[$graph_table.a_2#1]
+              |     +-expr_list=
+              |     | +-a_2#1 := Literal(type=STRING, value="")
+              |     +-input_scan=
+              |       +-SingleRowScan
+              +-GraphLinearScan
+              | +-column_list=[$graph_table.a_2#1, $analytic.a_5#3]
+              | +-scan_list=
+              |   +-ProjectScan
+              |     +-column_list=[$graph_table.a_2#1, $analytic.a_5#3]
+              |     +-input_scan=
+              |       +-AnalyticScan
+              |         +-column_list=[$graph_table.a_2#1, $analytic.a_5#3]
+              |         +-input_scan=
+              |         | +-GraphRefScan(column_list=[$graph_table.a_2#1])
+              |         +-function_group_list=
+              |           +-AnalyticFunctionGroup
+              |             +-analytic_function_list=
+              |               +-a_5#3 :=
+              |                 +-AnalyticFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+              |                   +-Literal(type=BOOL, value=true)
+              |                   +-window_frame=
+              |                     +-WindowFrame(frame_unit=ROWS)
+              |                       +-start_expr=
+              |                       | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+              |                       +-end_expr=
+              |                         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+              +-SetOperationScan
+                +-column_list=[$graph_set_op.a_2#6]
+                +-op_type=UNION_ALL
+                +-input_item_list=
+                | +-SetOperationItem
+                | | +-scan=
+                | | | +-GraphLinearScan
+                | | |   +-column_list=[$graph_table.a_2#4]
+                | | |   +-scan_list=
+                | | |     +-ProjectScan
+                | | |       +-column_list=[$graph_table.a_2#4]
+                | | |       +-expr_list=
+                | | |       | +-a_2#4 := ColumnRef(type=STRING, column=$graph_table.a_2#1)
+                | | |       +-input_scan=
+                | | |         +-GraphRefScan(column_list=[$graph_table.a_2#1, $analytic.a_5#3])
+                | | +-output_column_list=[$graph_table.a_2#4]
+                | +-SetOperationItem
+                |   +-scan=
+                |   | +-GraphLinearScan
+                |   |   +-column_list=[$graph_table.a_2#5]
+                |   |   +-scan_list=
+                |   |     +-ProjectScan
+                |   |       +-column_list=[$graph_table.a_2#5]
+                |   |       +-expr_list=
+                |   |       | +-a_2#5 := ColumnRef(type=STRING, column=$graph_table.a_2#1)
+                |   |       +-input_scan=
+                |   |         +-GraphRefScan(column_list=[$graph_table.a_2#1, $analytic.a_5#3])
+                |   +-output_column_list=[$graph_table.a_2#5]
+                +-column_match_mode=CORRESPONDING
+==
+
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,WITH_ON_SUBQUERY,ANALYTIC_FUNCTIONS]
+# Repro b/381871411:
+# 1. The last rewritten scan in WithScan needs to remap column ids back to the
+# original scan using ProjectScan::expr_list;
+# 2. Within WithScan, all rewritten composite queries need to have output
+# column_list with new column ids.
+SELECT
+  gt.a_7 AS a_7
+FROM GRAPH_TABLE(
+  aml
+  RETURN
+    2 AS a_5
+  NEXT
+  RETURN
+    a_5 AS a_4,
+  LOGICAL_AND (true) OVER (
+    PARTITION BY a_5
+    ORDER BY a_5 DESC, a_5, a_5 DESC
+    RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
+  ) AS a_6
+  NEXT
+  RETURN
+    2 AS a_7
+  UNION DISTINCT
+  LET a_9 = 1
+  RETURN
+    3 AS a_7
+) AS gt
+--
+QueryStmt
++-output_column_list=
+| +-$graph_set_op.a_7#7 AS a_7 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_set_op.a_7#7]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_set_op.a_7#7]
+        +-property_graph=aml
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_set_op.a_7#7]
+            +-scan_list=
+              +-GraphLinearScan
+              | +-column_list=[$graph_table.a_5#1]
+              | +-scan_list=
+              |   +-ProjectScan
+              |     +-column_list=[$graph_table.a_5#1]
+              |     +-expr_list=
+              |     | +-a_5#1 := Literal(type=INT64, value=2)
+              |     +-input_scan=
+              |       +-SingleRowScan
+              +-GraphLinearScan
+              | +-column_list=[$graph_table.a_5#1, $analytic.a_6#3]
+              | +-scan_list=
+              |   +-ProjectScan
+              |     +-column_list=[$graph_table.a_5#1, $analytic.a_6#3]
+              |     +-input_scan=
+              |       +-AnalyticScan
+              |         +-column_list=[$graph_table.a_5#1, $analytic.a_6#3]
+              |         +-input_scan=
+              |         | +-GraphRefScan(column_list=[$graph_table.a_5#1])
+              |         +-function_group_list=
+              |           +-AnalyticFunctionGroup
+              |             +-partition_by=
+              |             | +-WindowPartitioning
+              |             |   +-partition_by_list=
+              |             |     +-ColumnRef(type=INT64, column=$graph_table.a_5#1)
+              |             +-order_by=
+              |             | +-WindowOrdering
+              |             |   +-order_by_item_list=
+              |             |     +-OrderByItem
+              |             |     | +-column_ref=
+              |             |     | | +-ColumnRef(type=INT64, column=$graph_table.a_5#1)
+              |             |     | +-is_descending=TRUE
+              |             |     +-OrderByItem
+              |             |     | +-column_ref=
+              |             |     |   +-ColumnRef(type=INT64, column=$graph_table.a_5#1)
+              |             |     +-OrderByItem
+              |             |       +-column_ref=
+              |             |       | +-ColumnRef(type=INT64, column=$graph_table.a_5#1)
+              |             |       +-is_descending=TRUE
+              |             +-analytic_function_list=
+              |               +-a_6#3 :=
+              |                 +-AnalyticFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
+              |                   +-Literal(type=BOOL, value=true)
+              |                   +-window_frame=
+              |                     +-WindowFrame(frame_unit=RANGE)
+              |                       +-start_expr=
+              |                       | +-WindowFrameExpr(boundary_type=CURRENT ROW)
+              |                       +-end_expr=
+              |                         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+              +-SetOperationScan
+                +-column_list=[$graph_set_op.a_7#7]
+                +-op_type=UNION_DISTINCT
+                +-input_item_list=
+                | +-SetOperationItem
+                | | +-scan=
+                | | | +-GraphLinearScan
+                | | |   +-column_list=[$graph_table.a_7#4]
+                | | |   +-scan_list=
+                | | |     +-ProjectScan
+                | | |       +-column_list=[$graph_table.a_7#4]
+                | | |       +-expr_list=
+                | | |       | +-a_7#4 := Literal(type=INT64, value=2)
+                | | |       +-input_scan=
+                | | |         +-GraphRefScan(column_list=[$graph_table.a_5#1, $analytic.a_6#3])
+                | | +-output_column_list=[$graph_table.a_7#4]
+                | +-SetOperationItem
+                |   +-scan=
+                |   | +-GraphLinearScan
+                |   |   +-column_list=[$graph_table.a_7#6]
+                |   |   +-scan_list=
+                |   |     +-ProjectScan
+                |   |     | +-column_list=[$graph_table.a_5#1, $analytic.a_6#3]
+                |   |     | +-expr_list=
+                |   |     | | +-a_9#5 := Literal(type=INT64, value=1)
+                |   |     | +-input_scan=
+                |   |     |   +-GraphRefScan(column_list=[$graph_table.a_5#1, $analytic.a_6#3])
+                |   |     +-ProjectScan
+                |   |       +-column_list=[$graph_table.a_7#6]
+                |   |       +-expr_list=
+                |   |       | +-a_7#6 := Literal(type=INT64, value=3)
+                |   |       +-input_scan=
+                |   |         +-GraphRefScan(column_list=[$graph_table.a_5#1, $analytic.a_6#3])
+                |   +-output_column_list=[$graph_table.a_7#6]
+                +-column_match_mode=CORRESPONDING
+==
+
+# Repro b/416029077: In the "column-remapping" ProjectScan::expr_list,
+# duplicate column ids should be removed. The output column list keeps the dup.
+GRAPH aml
+RETURN 1 AS a
+NEXT
+RETURN 2 AS b
+UNION ALL
+RETURN 2 AS b
+NEXT
+RETURN
+  b,
+  b AS c
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.b#5 AS b [INT64]
+| +-$graph_table.c#6 AS c [INT64]
++-query=
+  +-GraphTableScan
+    +-column_list=$graph_table.[b#5, c#6]
+    +-property_graph=aml
+    +-input_scan=
+      +-GraphLinearScan
+        +-column_list=$graph_table.[b#5, c#6]
+        +-scan_list=
+          +-GraphLinearScan
+          | +-column_list=[$graph_table.a#1]
+          | +-scan_list=
+          |   +-ProjectScan
+          |     +-column_list=[$graph_table.a#1]
+          |     +-expr_list=
+          |     | +-a#1 := Literal(type=INT64, value=1)
+          |     +-input_scan=
+          |       +-SingleRowScan
+          +-SetOperationScan
+          | +-column_list=[$graph_set_op.b#4]
+          | +-op_type=UNION_ALL
+          | +-input_item_list=
+          | | +-SetOperationItem
+          | | | +-scan=
+          | | | | +-GraphLinearScan
+          | | | |   +-column_list=[$graph_table.b#2]
+          | | | |   +-scan_list=
+          | | | |     +-ProjectScan
+          | | | |       +-column_list=[$graph_table.b#2]
+          | | | |       +-expr_list=
+          | | | |       | +-b#2 := Literal(type=INT64, value=2)
+          | | | |       +-input_scan=
+          | | | |         +-GraphRefScan(column_list=[$graph_table.a#1])
+          | | | +-output_column_list=[$graph_table.b#2]
+          | | +-SetOperationItem
+          | |   +-scan=
+          | |   | +-GraphLinearScan
+          | |   |   +-column_list=[$graph_table.b#3]
+          | |   |   +-scan_list=
+          | |   |     +-ProjectScan
+          | |   |       +-column_list=[$graph_table.b#3]
+          | |   |       +-expr_list=
+          | |   |       | +-b#3 := Literal(type=INT64, value=2)
+          | |   |       +-input_scan=
+          | |   |         +-GraphRefScan(column_list=[$graph_table.a#1])
+          | |   +-output_column_list=[$graph_table.b#3]
+          | +-column_match_mode=CORRESPONDING
+          +-GraphLinearScan
+            +-column_list=$graph_table.[b#5, c#6]
+            +-scan_list=
+              +-ProjectScan
+                +-column_list=$graph_table.[b#5, c#6]
+                +-expr_list=
+                | +-b#5 := ColumnRef(type=INT64, column=$graph_set_op.b#4)
+                | +-c#6 := ColumnRef(type=INT64, column=$graph_set_op.b#4)
+                +-input_scan=
+                  +-GraphRefScan(column_list=[$graph_set_op.b#4])
+==
+
+# Repro b/416029077: In the "column-remapping" ProjectScan::expr_list,
+# duplicate column ids should be removed. The output column list keeps the dup.
+GRAPH aml
+RETURN 1 AS a
+NEXT
+RETURN 2 AS b
+UNION ALL
+RETURN 2 AS b
+NEXT
+RETURN
+  b,
+  b AS c,
+  COUNT(*) AS cnt
+  GROUP BY b
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.b#6 AS b [INT64]
+| +-$graph_table.b#6 AS c [INT64]
+| +-$graph_table.cnt#5 AS cnt [INT64]
++-query=
+  +-GraphTableScan
+    +-column_list=$graph_table.[b#6, b#6, cnt#5]
+    +-property_graph=aml
+    +-input_scan=
+      +-GraphLinearScan
+        +-column_list=$graph_table.[b#6, b#6, cnt#5]
+        +-scan_list=
+          +-GraphLinearScan
+          | +-column_list=[$graph_table.a#1]
+          | +-scan_list=
+          |   +-ProjectScan
+          |     +-column_list=[$graph_table.a#1]
+          |     +-expr_list=
+          |     | +-a#1 := Literal(type=INT64, value=1)
+          |     +-input_scan=
+          |       +-SingleRowScan
+          +-SetOperationScan
+          | +-column_list=[$graph_set_op.b#4]
+          | +-op_type=UNION_ALL
+          | +-input_item_list=
+          | | +-SetOperationItem
+          | | | +-scan=
+          | | | | +-GraphLinearScan
+          | | | |   +-column_list=[$graph_table.b#2]
+          | | | |   +-scan_list=
+          | | | |     +-ProjectScan
+          | | | |       +-column_list=[$graph_table.b#2]
+          | | | |       +-expr_list=
+          | | | |       | +-b#2 := Literal(type=INT64, value=2)
+          | | | |       +-input_scan=
+          | | | |         +-GraphRefScan(column_list=[$graph_table.a#1])
+          | | | +-output_column_list=[$graph_table.b#2]
+          | | +-SetOperationItem
+          | |   +-scan=
+          | |   | +-GraphLinearScan
+          | |   |   +-column_list=[$graph_table.b#3]
+          | |   |   +-scan_list=
+          | |   |     +-ProjectScan
+          | |   |       +-column_list=[$graph_table.b#3]
+          | |   |       +-expr_list=
+          | |   |       | +-b#3 := Literal(type=INT64, value=2)
+          | |   |       +-input_scan=
+          | |   |         +-GraphRefScan(column_list=[$graph_table.a#1])
+          | |   +-output_column_list=[$graph_table.b#3]
+          | +-column_match_mode=CORRESPONDING
+          +-GraphLinearScan
+            +-column_list=$graph_table.[b#6, b#6, cnt#5]
+            +-scan_list=
+              +-ProjectScan
+                +-column_list=$graph_table.[b#6, b#6, cnt#5]
+                +-input_scan=
+                  +-AggregateScan
+                    +-column_list=$graph_table.[b#6, cnt#5]
+                    +-input_scan=
+                    | +-GraphRefScan(column_list=[$graph_set_op.b#4])
+                    +-group_by_list=
+                    | +-b#6 := ColumnRef(type=INT64, column=$graph_set_op.b#4)
+                    +-aggregate_list=
+                      +-cnt#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+==
+

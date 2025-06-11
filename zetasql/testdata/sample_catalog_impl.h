@@ -24,15 +24,16 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/common/measure_analysis_utils.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/language_options.h"
-#include "zetasql/public/measure_expression.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "absl/base/nullability.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/node_hash_map.h"
 #include "absl/status/status.h"
@@ -100,7 +101,7 @@ class SampleCatalogImpl {
 
   absl::Status AddTableWithMeasures(
       AnalyzerOptions& analyzer_options, absl::string_view table_name,
-      const std::vector<std::pair<std::string, const Type*>>& columns,
+      std::vector<const Column*> columns_not_owned,
       std::optional<absl::flat_hash_set<int>> row_identity_column_indices,
       std::vector<MeasureColumnDef> measures);
 
@@ -138,6 +139,7 @@ class SampleCatalogImpl {
 
   void LoadMultiSrcDstEdgePropertyGraphs();
   void LoadCompositeKeyPropertyGraphs();
+  void LoadPropertyGraphWithDynamicLabelAndProperties();
 
   // Loads several table-valued functions into the sample catalog. For a full
   // list of the signatures added, please see the beginning of the method
@@ -196,7 +198,7 @@ class SampleCatalogImpl {
   void AddSqlDefinedFunctionFromCreate(
       absl::string_view create_function,
       const LanguageOptions& language_options, bool inline_sql_functions = true,
-      std::optional<FunctionOptions> function_options = std::nullopt);
+      const FunctionOptions* /*absl_nullable*/ function_options = nullptr);
 
   void LoadSqlFunctions(const LanguageOptions& language_options);
 

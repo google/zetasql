@@ -1,8 +1,8 @@
-[default language_features=V_1_1_ORDER_BY_IN_AGGREGATE]
+[default language_features=ORDER_BY_IN_AGGREGATE]
 [default enabled_ast_rewrites=DEFAULTS,+ORDER_BY_AND_LIMIT_IN_AGGREGATE]
 
 [no_enable_literal_replacement]
-[language_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_HAVING_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[language_features=ORDER_BY_IN_AGGREGATE,HAVING_IN_AGGREGATE,LIMIT_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 # Simple ARRAY_AGG with ORDER BY with all the features.
 # no_enable_literal_replacement: Distinct and ORDER BY must match exactly, we
 # cannot replace just one literal with parameter
@@ -685,7 +685,7 @@ QueryStmt
                       +-ColumnRef(type=BYTES, column=$array.b#5)
 ==
 
-[language_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE]
+[language_features=ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE]
 
 # STRING_AGG with limits
 SELECT STRING_AGG(a, ", " LIMIT 2), STRING_AGG(a, "," ORDER BY CHAR_LENGTH(a)+1 LIMIT 3)
@@ -937,7 +937,7 @@ QueryStmt
 
 ==
 
-[language_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE]
+[language_features=ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE]
 
 # STRING_AGG one arg
 SELECT STRING_AGG(a LIMIT 2), STRING_AGG(a ORDER BY CHAR_LENGTH(a)+1 LIMIT 3)

@@ -1234,7 +1234,7 @@ FROM
   t1
 ==
 
-[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
 create view p-g-123.d456.v1 as select * from t2;
 --
 ALTERNATION GROUP: <empty>
@@ -1243,7 +1243,7 @@ ERROR: Syntax error: Table name contains '-' character. The dashed identifier pa
 create view p-g-123.d456.v1 as select * from t2;
             ^
 --
-ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
 --
 CreateViewStatement [0-47] [create view...* from t2]
   PathExpression [12-27] [p-g-123.d456.v1]
@@ -1267,7 +1267,7 @@ FROM
   t2
 ==
 
-[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
 create materialized view p-b-c.d_123.mv1 as select sum(m1) from t2 group by d1, d2;
 --
 ALTERNATION GROUP: <empty>
@@ -1276,7 +1276,7 @@ ERROR: Syntax error: Table name contains '-' character. The dashed identifier pa
 create materialized view p-b-c.d_123.mv1 as select sum(m1) from t2 group by d...
                          ^
 --
-ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
 --
 CreateMaterializedViewStatement [0-82] [create materializ...by d1, d2]
   PathExpression [25-40] [p-b-c.d_123.mv1]

@@ -1,6 +1,4 @@
-[default also_show_signature_mismatch_details]
-
-[default language_features=V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
+[default language_features=IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
 select 1 from SimpleTypes
 where int32 = 5
    or int64 = 6
@@ -190,7 +188,7 @@ select NULL = KitchenSink from ComplexTypes;
        ^
 ==
 
-[language_features={{|V_1_1_ARRAY_EQUALITY}}]
+[language_features={{|ARRAY_EQUALITY}}]
 select Int32Array = Int32Array from ComplexTypes;
 --
 ALTERNATION GROUP: <empty>
@@ -199,7 +197,7 @@ ERROR: Equality is not defined for arguments of type ARRAY<INT32> [at 1:8]
 select Int32Array = Int32Array from ComplexTypes;
        ^
 --
-ALTERNATION GROUP: V_1_1_ARRAY_EQUALITY
+ALTERNATION GROUP: ARRAY_EQUALITY
 --
 QueryStmt
 +-output_column_list=
@@ -216,7 +214,7 @@ QueryStmt
       +-TableScan(column_list=[ComplexTypes.Int32Array#4], table=ComplexTypes, column_index_list=[3])
 ==
 
-[language_features={{|V_1_3_ARRAY_ORDERING}}]
+[language_features={{|ARRAY_ORDERING}}]
 select Int32Array < Int32Array from ComplexTypes;
 --
 ALTERNATION GROUP: <empty>
@@ -225,7 +223,7 @@ ERROR: Less than is not defined for arguments of type ARRAY<INT32> [at 1:8]
 select Int32Array < Int32Array from ComplexTypes;
        ^
 --
-ALTERNATION GROUP: V_1_3_ARRAY_ORDERING
+ALTERNATION GROUP: ARRAY_ORDERING
 --
 QueryStmt
 +-output_column_list=
@@ -242,7 +240,7 @@ QueryStmt
       +-TableScan(column_list=[ComplexTypes.Int32Array#4], table=ComplexTypes, column_index_list=[3])
 ==
 
-[language_features={{|V_1_3_ARRAY_ORDERING}}]
+[language_features={{|ARRAY_ORDERING}}]
 select Int32Array <= Int32Array from ComplexTypes;
 --
 ALTERNATION GROUP: <empty>
@@ -251,7 +249,7 @@ ERROR: Less than is not defined for arguments of type ARRAY<INT32> [at 1:8]
 select Int32Array <= Int32Array from ComplexTypes;
        ^
 --
-ALTERNATION GROUP: V_1_3_ARRAY_ORDERING
+ALTERNATION GROUP: ARRAY_ORDERING
 --
 QueryStmt
 +-output_column_list=
@@ -268,7 +266,7 @@ QueryStmt
       +-TableScan(column_list=[ComplexTypes.Int32Array#4], table=ComplexTypes, column_index_list=[3])
 ==
 
-[language_features={{|V_1_3_ARRAY_ORDERING}}]
+[language_features={{|ARRAY_ORDERING}}]
 select Int32Array > Int32Array from ComplexTypes;
 --
 ALTERNATION GROUP: <empty>
@@ -277,7 +275,7 @@ ERROR: Greater than is not defined for arguments of type ARRAY<INT32> [at 1:8]
 select Int32Array > Int32Array from ComplexTypes;
        ^
 --
-ALTERNATION GROUP: V_1_3_ARRAY_ORDERING
+ALTERNATION GROUP: ARRAY_ORDERING
 --
 QueryStmt
 +-output_column_list=
@@ -294,7 +292,7 @@ QueryStmt
       +-TableScan(column_list=[ComplexTypes.Int32Array#4], table=ComplexTypes, column_index_list=[3])
 ==
 
-[language_features={{|V_1_3_ARRAY_ORDERING}}]
+[language_features={{|ARRAY_ORDERING}}]
 select Int32Array >= Int32Array from ComplexTypes;
 --
 ALTERNATION GROUP: <empty>
@@ -303,7 +301,7 @@ ERROR: Greater than is not defined for arguments of type ARRAY<INT32> [at 1:8]
 select Int32Array >= Int32Array from ComplexTypes;
        ^
 --
-ALTERNATION GROUP: V_1_3_ARRAY_ORDERING
+ALTERNATION GROUP: ARRAY_ORDERING
 --
 QueryStmt
 +-output_column_list=
@@ -321,7 +319,7 @@ QueryStmt
 ==
 
 # Arrays of uncomparable elements are uncomparable.
-[language_features={{|V_1_3_ARRAY_ORDERING}}]
+[language_features={{|ARRAY_ORDERING}}]
 select [KitchenSink] > [KitchenSink] from ComplexTypes
 --
 ERROR: Greater than is not defined for arguments of type ARRAY<PROTO<zetasql_test__.KitchenSinkPB>> [at 1:8]
@@ -337,7 +335,7 @@ select (KitchenSink, 0) = (KitchenSink, 0) from ComplexTypes
        ^
 ==
 
-[language_features={{|V_1_1_ARRAY_EQUALITY}}]
+[language_features={{|ARRAY_EQUALITY}}]
 select (Int32Array, 0) = (Int32Array, 0) from ComplexTypes
 --
 ALTERNATION GROUP: <empty>
@@ -346,7 +344,7 @@ ERROR: Equality is not defined for arguments of type STRUCT<ARRAY<INT32>, INT64>
 select (Int32Array, 0) = (Int32Array, 0) from ComplexTypes
        ^
 --
-ALTERNATION GROUP: V_1_1_ARRAY_EQUALITY
+ALTERNATION GROUP: ARRAY_EQUALITY
 --
 QueryStmt
 +-output_column_list=
@@ -500,7 +498,7 @@ select KitchenSink <> KitchenSink from ComplexTypes;
        ^
 ==
 
-[language_features={{|V_1_1_ARRAY_EQUALITY}}]
+[language_features={{|ARRAY_EQUALITY}}]
 select Int32Array != Int32Array from ComplexTypes;
 --
 ALTERNATION GROUP: <empty>
@@ -509,7 +507,7 @@ ERROR: Inequality is not defined for arguments of type ARRAY<INT32> [at 1:8]
 select Int32Array != Int32Array from ComplexTypes;
        ^
 --
-ALTERNATION GROUP: V_1_1_ARRAY_EQUALITY
+ALTERNATION GROUP: ARRAY_EQUALITY
 --
 QueryStmt
 +-output_column_list=
@@ -1103,11 +1101,6 @@ QueryStmt
 select * from TestTable
 where KitchenSink.uint64_val>>KitchenSink.uint64_val > 2
 --
-ERROR: No matching signature for operator >> for argument types: UINT64, UINT64. Supported signatures: INT32 >> INT64; INT64 >> INT64; UINT32 >> INT64; UINT64 >> INT64; BYTES >> INT64 [at 2:29]
-where KitchenSink.uint64_val>>KitchenSink.uint64_val > 2
-                            ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator >>
   Argument types: UINT64, UINT64
   Signature: INT32 >> INT64
@@ -1411,11 +1404,6 @@ QueryStmt
 select * from TestTable
 where KitchenSink.uint64_val>>KitchenSink.uint64_val > 2;
 --
-ERROR: No matching signature for operator >> for argument types: UINT64, UINT64. Supported signatures: INT32 >> INT64; INT64 >> INT64; UINT32 >> INT64; UINT64 >> INT64; BYTES >> INT64 [at 2:29]
-where KitchenSink.uint64_val>>KitchenSink.uint64_val > 2;
-                            ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator >>
   Argument types: UINT64, UINT64
   Signature: INT32 >> INT64
@@ -1491,11 +1479,6 @@ select TestStruct>>2 from ComplexTypes;
 
 select 1 + '1';
 --
-ERROR: No matching signature for operator + for argument types: INT64, STRING. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
-select 1 + '1';
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator +
   Argument types: INT64, STRING
   Signature: INT64 + INT64
@@ -1527,6 +1510,13 @@ select 5 = null
 ERROR: Operands of = cannot be literal NULL [at 1:12]
 select 5 = null
            ^
+==
+
+SELECT b"abc" = NULL
+--
+ERROR: Operands of = cannot be literal NULL [at 1:17]
+SELECT b"abc" = NULL
+                ^
 ==
 
 select null = 6
@@ -1649,11 +1639,6 @@ QueryStmt
 select -uint32
 from SimpleTypes
 --
-ERROR: No matching signature for operator - for argument types: UINT32. Supported signatures: -(INT32); -(INT64); -(FLOAT); -(DOUBLE) [at 1:8]
-select -uint32
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator -
   Argument types: UINT32
   Signature: -(INT32)
@@ -1671,11 +1656,6 @@ select -uint32
 select -uint64
 from SimpleTypes
 --
-ERROR: No matching signature for operator - for argument types: UINT64. Supported signatures: -(INT32); -(INT64); -(FLOAT); -(DOUBLE) [at 1:8]
-select -uint64
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator -
   Argument types: UINT64
   Signature: -(INT32)
@@ -1724,11 +1704,6 @@ QueryStmt
 
 select -bool from SimpleTypes
 --
-ERROR: No matching signature for operator - for argument types: BOOL. Supported signatures: -(INT32); -(INT64); -(FLOAT); -(DOUBLE) [at 1:8]
-select -bool from SimpleTypes
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator -
   Argument types: BOOL
   Signature: -(INT32)
@@ -1915,11 +1890,6 @@ QueryStmt
 
 select NOT 0
 --
-ERROR: No matching signature for operator NOT for argument types: INT64. Supported signature: NOT (BOOL) [at 1:8]
-select NOT 0
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator NOT
   Argument types: INT64
   Signature: NOT (BOOL)
@@ -2279,11 +2249,6 @@ select bytes {{<|<=|>|>=|=|!=|LIKE}} '\x80' from SimpleTypes
 --
 ALTERNATION GROUP: <
 --
-ERROR: No matching signature for operator < for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY < ANY; INT64 < UINT64; UINT64 < INT64 [at 1:8]
-select bytes < '\x80' from SimpleTypes
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator < for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 < T1
     Unable to find common supertype for templated argument <T1>
@@ -2297,11 +2262,6 @@ select bytes < '\x80' from SimpleTypes
 --
 ALTERNATION GROUP: <=
 --
-ERROR: No matching signature for operator <= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY <= ANY; INT64 <= UINT64; UINT64 <= INT64 [at 1:8]
-select bytes <= '\x80' from SimpleTypes
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator <= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 <= T1
     Unable to find common supertype for templated argument <T1>
@@ -2315,11 +2275,6 @@ select bytes <= '\x80' from SimpleTypes
 --
 ALTERNATION GROUP: >
 --
-ERROR: No matching signature for operator > for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY > ANY; INT64 > UINT64; UINT64 > INT64 [at 1:8]
-select bytes > '\x80' from SimpleTypes
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator > for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 > T1
     Unable to find common supertype for templated argument <T1>
@@ -2333,11 +2288,6 @@ select bytes > '\x80' from SimpleTypes
 --
 ALTERNATION GROUP: >=
 --
-ERROR: No matching signature for operator >= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY >= ANY; INT64 >= UINT64; UINT64 >= INT64 [at 1:8]
-select bytes >= '\x80' from SimpleTypes
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator >= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 >= T1
     Unable to find common supertype for templated argument <T1>
@@ -2351,11 +2301,6 @@ select bytes >= '\x80' from SimpleTypes
 --
 ALTERNATION GROUP: =
 --
-ERROR: No matching signature for operator = for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:8]
-select bytes = '\x80' from SimpleTypes
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator = for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 = T1
     Unable to find common supertype for templated argument <T1>
@@ -2369,11 +2314,6 @@ select bytes = '\x80' from SimpleTypes
 --
 ALTERNATION GROUP: !=
 --
-ERROR: No matching signature for operator != for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY != ANY; INT64 != UINT64; UINT64 != INT64 [at 1:8]
-select bytes != '\x80' from SimpleTypes
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator != for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: T1 != T1
     Unable to find common supertype for templated argument <T1>
@@ -2387,11 +2327,6 @@ select bytes != '\x80' from SimpleTypes
 --
 ALTERNATION GROUP: LIKE
 --
-ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: STRING LIKE STRING; BYTES LIKE BYTES [at 1:8]
-select bytes LIKE '\x80' from SimpleTypes
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
   Signature: STRING LIKE STRING
     Argument 1: Unable to coerce type BYTES to expected type STRING
@@ -2933,7 +2868,7 @@ SELECT 1 IS  DISTINCT FROM 2;
 ==
 
 # IS DISTINCT FROM - simple example
-[language_features=V_1_3_IS_DISTINCT]
+[language_features=IS_DISTINCT]
 [show_sqlbuilder_output]
 SELECT 1 IS {{NOT|}} DISTINCT FROM 2;
 --
@@ -2991,16 +2926,11 @@ SELECT
 ==
 
 # IS DISTINCT FROM - mismatched types
-[language_features=V_1_3_IS_DISTINCT]
+[language_features=IS_DISTINCT]
 SELECT 'test' IS {{NOT|}} DISTINCT FROM 2;
 --
 ALTERNATION GROUP: NOT
 --
-ERROR: No matching signature for operator IS NOT DISTINCT FROM for argument types: STRING, INT64. Supported signatures: ANY IS NOT DISTINCT FROM ANY; INT64 IS NOT DISTINCT FROM UINT64; UINT64 IS NOT DISTINCT FROM INT64 [at 1:8]
-SELECT 'test' IS NOT DISTINCT FROM 2;
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator IS NOT DISTINCT FROM
   Argument types: STRING, INT64
   Signature: T1 IS NOT DISTINCT FROM T1
@@ -3015,11 +2945,6 @@ SELECT 'test' IS NOT DISTINCT FROM 2;
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for operator IS DISTINCT FROM for argument types: STRING, INT64. Supported signatures: ANY IS DISTINCT FROM ANY; INT64 IS DISTINCT FROM UINT64; UINT64 IS DISTINCT FROM INT64 [at 1:8]
-SELECT 'test' IS  DISTINCT FROM 2;
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for operator IS DISTINCT FROM
   Argument types: STRING, INT64
   Signature: T1 IS DISTINCT FROM T1
@@ -3034,7 +2959,7 @@ SELECT 'test' IS  DISTINCT FROM 2;
 ==
 
 # IS DISTINCT FROM - NULL coercion of rhs
-[language_features=V_1_3_IS_DISTINCT]
+[language_features=IS_DISTINCT]
 SELECT 'test' IS DISTINCT FROM NULL;
 --
 QueryStmt
@@ -3053,7 +2978,7 @@ QueryStmt
 ==
 
 # IS DISTINCT FROM - NULL coercion of lhs
-[language_features=V_1_3_IS_DISTINCT]
+[language_features=IS_DISTINCT]
 SELECT NULL IS DISTINCT FROM 'test';
 --
 QueryStmt
@@ -3072,7 +2997,7 @@ QueryStmt
 ==
 
 # IS DISTINCT FROM - TIMESTAMP coercion
-[language_features=V_1_3_IS_DISTINCT]
+[language_features=IS_DISTINCT]
 SELECT CURRENT_TIMESTAMP() IS DISTINCT FROM '2020-01-03';
 --
 QueryStmt
@@ -3091,7 +3016,7 @@ QueryStmt
 ==
 
 # IS DISTINCT FROM - INT64/FLOAT64 coercion
-[language_features=V_1_3_IS_DISTINCT]
+[language_features=IS_DISTINCT]
 SELECT 2.3 + 1 IS DISTINCT FROM 12345;
 --
 QueryStmt
@@ -3112,7 +3037,7 @@ QueryStmt
 ==
 
 # IS DISTINCT FROM - INT64/UINT64 signature
-[language_features=V_1_3_IS_DISTINCT]
+[language_features=IS_DISTINCT]
 SELECT 12345 * 2 IS DISTINCT FROM CAST(10000 AS UINT64);
 --
 QueryStmt
@@ -3133,7 +3058,7 @@ QueryStmt
 ==
 
 # IS DISTINCT FROM - UINT64/INT64 signature
-[language_features=V_1_3_IS_DISTINCT]
+[language_features=IS_DISTINCT]
 SELECT CAST(10000 AS UINT64) IS DISTINCT FROM 12345 * 2;
 --
 QueryStmt
@@ -3154,7 +3079,7 @@ QueryStmt
 ==
 
 # IS DISTINCT FROM - enum->int64 coercion.
-[language_features=V_1_3_IS_DISTINCT]
+[language_features=IS_DISTINCT]
 SELECT
   CAST('TESTENUM0' AS `zetasql_test__.TestEnum`)
   IS DISTINCT FROM
@@ -3176,7 +3101,7 @@ QueryStmt
 ==
 
 # IS DISTINCT FROM - type which doesn't support equality
-[language_features=V_1_3_IS_DISTINCT,GEOGRAPHY]
+[language_features=IS_DISTINCT,GEOGRAPHY]
 SELECT geo1 IS DISTINCT FROM geo2 FROM GeographyTable;
 --
 ERROR: Grouping is not defined for arguments of type GEOGRAPHY [at 1:8]
@@ -3185,7 +3110,7 @@ SELECT geo1 IS DISTINCT FROM geo2 FROM GeographyTable;
 ==
 
 # IS DISTINCT FROM - type supports equality, but is not groupable.
-[language_features=V_1_3_IS_DISTINCT,V_1_1_ARRAY_EQUALITY]
+[language_features=IS_DISTINCT,ARRAY_EQUALITY]
 SELECT [1, 2, 3] IS DISTINCT FROM [4, 5, 6];
 --
 ERROR: Grouping is not defined for arguments of type ARRAY<INT64> [at 1:8]
@@ -3194,7 +3119,7 @@ SELECT [1, 2, 3] IS DISTINCT FROM [4, 5, 6];
 ==
 
 # IS DISTINCT FROM - FLOAT64 NaN/Inf values
-[language_features=V_1_3_IS_DISTINCT]
+[language_features=IS_DISTINCT]
 SELECT IEEE_DIVIDE(1,0) IS DISTINCT FROM IEEE_DIVIDE(0,0);
 --
 QueryStmt
@@ -3216,7 +3141,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_3_IS_DISTINCT]
+[language_features=IS_DISTINCT]
 [show_sqlbuilder_output]
 SELECT (1 IS DISTINCT FROM 2) IS TRUE;
 --

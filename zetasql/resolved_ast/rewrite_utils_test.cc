@@ -149,6 +149,25 @@ TEST(RewriteUtilsTest, ShallowCopyAndReplaceSpecifiedColumns) {
   }
 }
 
+TEST(RewriteUtilsTest, RemapSpecifiedColumnsInColumnList) {
+  IdStringPool id_string_pool;
+  ColumnFactory factory(0, id_string_pool,
+                        std::make_unique<zetasql_base::SequenceNumber>());
+  ResolvedColumnList columns;
+  columns.emplace_back(factory.MakeCol("t", "c1", types::Int64Type()));
+  columns.emplace_back(factory.MakeCol("t", "c2", types::StringType()));
+  EXPECT_EQ(columns[0].column_id(), 1);
+  EXPECT_EQ(columns[0].name(), "c1");
+  EXPECT_EQ(columns[1].column_id(), 2);
+
+  ColumnReplacementMap map;
+  map[columns[0]] = factory.MakeCol("t", "c3", types::DoubleType());
+  ResolvedColumnList output = RemapColumnList(columns, map);
+  EXPECT_EQ(output[0].column_id(), 3);
+  EXPECT_EQ(output[0].name(), "c3");
+  EXPECT_EQ(output[1].column_id(), 2);
+}
+
 TEST(RewriteUtilsTest, RemoveUnusedColumnRefs) {
   const Type* type = types::BoolType();
   zetasql_base::SequenceNumber sequence;
@@ -281,9 +300,9 @@ static AnalyzerOptions MakeAnalyzerOptions() {
   AnalyzerOptions options;
   options.mutable_language()->SetSupportsAllStatementKinds();
   options.mutable_language()->EnableLanguageFeature(
-      LanguageFeature::FEATURE_V_1_3_COLLATION_SUPPORT);
+      LanguageFeature::FEATURE_COLLATION_SUPPORT);
   options.mutable_language()->EnableLanguageFeature(
-      LanguageFeature::FEATURE_V_1_3_ANNOTATION_FRAMEWORK);
+      LanguageFeature::FEATURE_ANNOTATION_FRAMEWORK);
   return options;
 }
 
@@ -353,7 +372,7 @@ TEST_F(FunctionCallBuilderTest, MakeArrayWithAnnotation) {
 
   EXPECT_EQ(make_arr_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
 FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
-+-type_annotation_map=[{Collation:"und:ci"}]
++-type_annotation_map=<{Collation:"und:ci"}>
 +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
 | +-type_annotation_map={Collation:"und:ci"}
 | +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
@@ -1105,7 +1124,7 @@ TEST_F(FunctionCallBuilderTest, ArrayLengthWithSameCollationTest) {
   EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
 FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
 +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
-  +-type_annotation_map=[{Collation:"und:ci"}]
+  +-type_annotation_map=<{Collation:"und:ci"}>
   +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
   | +-type_annotation_map={Collation:"und:ci"}
   | +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
@@ -1135,7 +1154,7 @@ TEST_F(FunctionCallBuilderTest, ArrayAtOffsetTest) {
 FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
 +-type_annotation_map={Collation:"und:ci"}
 +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
-| +-type_annotation_map=[{Collation:"und:ci"}]
+| +-type_annotation_map=<{Collation:"und:ci"}>
 | +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
 | | +-type_annotation_map={Collation:"und:ci"}
 | | +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
@@ -1195,9 +1214,9 @@ TEST_F(FunctionCallBuilderTest, ArraySliceWithSameCollationTest) {
 
   EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
 FunctionCall(ZetaSQL:array_slice(ARRAY<STRING> array_to_slice, INT64 start_offset, INT64 end_offset) -> ARRAY<STRING>)
-+-type_annotation_map=[{Collation:"und:ci"}]
++-type_annotation_map=<{Collation:"und:ci"}>
 +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
-| +-type_annotation_map=[{Collation:"und:ci"}]
+| +-type_annotation_map=<{Collation:"und:ci"}>
 | +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
 | | +-type_annotation_map={Collation:"und:ci"}
 | | +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)

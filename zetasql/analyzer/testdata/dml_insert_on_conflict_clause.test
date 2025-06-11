@@ -1,4 +1,3 @@
-
 # Tests for ON CONFLICT clause in INSERT DML
 
 INSERT INTO KeyValue(Key) VALUES(1) ON CONFLICT DO NOTHING;
@@ -15,7 +14,7 @@ INSERT OR REPLACE INTO KeyValue(Key) VALUES(1) ON CONFLICT DO UPDATE SET Key ...
                                                ^
 ==
 
-[default language_features=V_1_4_INSERT_ON_CONFLICT_CLAUSE,V_1_3_DML_RETURNING]
+[default language_features=INSERT_ON_CONFLICT_CLAUSE,DML_RETURNING]
 
 INSERT INTO KeyValue(Key) VALUES(1) ON CONFLICT {{|(Key)|(Key, value)|(Key, Key)|(`Key`, `Key`)}}
 DO NOTHING;

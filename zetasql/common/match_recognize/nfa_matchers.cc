@@ -151,9 +151,8 @@ std::unique_ptr<NFA> RenumberStates(const NFA& nfa) {
     for (const NFAEdge& edge : nfa.GetEdgesFrom(old_nfa_state)) {
       NFAEdge new_edge(edge);
       new_edge.target = state_map[edge.target.value()];
-      ABSL_CHECK(new_nfa  // Crash OK
-                ->AddEdge(state_map[old_nfa_state.value()], new_edge)
-                .ok());
+      ZETASQL_CHECK_OK(new_nfa  // Crash OK
+                   ->AddEdge(state_map[old_nfa_state.value()], new_edge));
     }
   }
   new_nfa->SetAsStartState(state_map[nfa.start_state().value()]);

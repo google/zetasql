@@ -545,7 +545,7 @@ namespace {
 static absl::Status IsValidMapTypeKeyAndValue(
     const LanguageOptions& language_options, const Type* key_type,
     const Type* value_type) {
-  if (!language_options.LanguageFeatureEnabled(FEATURE_V_1_4_MAP_TYPE)) {
+  if (!language_options.LanguageFeatureEnabled(FEATURE_MAP_TYPE)) {
     return absl::InvalidArgumentError("MAP datatype is not supported");
   }
 
@@ -581,13 +581,13 @@ absl::Status TypeFactory::MakeGraphElementType(
   return MakeGraphElementTypeFromVector(
       graph_reference, element_kind,
       {property_types.begin(), property_types.end()},
-      result);
+      /*is_dynamic=*/false, result);
 }
 
 absl::Status TypeFactory::MakeGraphElementTypeFromVector(
     absl::Span<const std::string> graph_reference,
     GraphElementType::ElementKind element_kind,
-    std::vector<GraphElementType::PropertyType> property_types,
+    std::vector<GraphElementType::PropertyType> property_types, bool is_dynamic,
     const GraphElementType** result) {
   *result = nullptr;
   if (graph_reference.empty()) {
@@ -623,9 +623,19 @@ absl::Status TypeFactory::MakeGraphElementTypeFromVector(
       FindOrCreateCatalogName(graph_reference);
   *result = TakeOwnershipLocked(new GraphElementType(
       cached_graph_reference, element_kind, this, std::move(property_type_set),
-      max_nesting_depth + 1
-      ));
+      max_nesting_depth + 1, is_dynamic));
   return absl::OkStatus();
+}
+
+absl::Status TypeFactory::MakeDynamicGraphElementType(
+    absl::Span<const std::string> graph_reference,
+    GraphElementType::ElementKind element_kind,
+    absl::Span<const GraphElementType::PropertyType> static_property_types,
+    const GraphElementType** result) {
+  return MakeGraphElementTypeFromVector(
+      graph_reference, element_kind,
+      {static_property_types.begin(), static_property_types.end()},
+      /*is_dynamic=*/true, result);
 }
 
 absl::Status TypeFactory::MakeGraphPathType(const GraphElementType* node_type,
@@ -839,6 +849,9 @@ absl::Status TypeFactory::GetProtoFieldTypeWithKind(
     return ::zetasql_base::UnimplementedErrorBuilder()
            << "Unsupported type found: "
            << Type::TypeKindToString(kind, PRODUCT_INTERNAL);
+  }
+  if (field_descr->options().GetExtension(zetasql::is_measure)) {
+    ZETASQL_ASSIGN_OR_RETURN(*type, MakeMeasureType(*type));
   }
   if (field_descr->is_repeated()) {
     const ArrayType* array_type;
@@ -1606,7 +1619,7 @@ const RangeType* RangeTypeFromSimpleTypeKind(TypeKind type_kind) {
 
 }  // namespace types
 
-void TypeFactory::AddDependency(absl::Nonnull<const Type*> other_type) {
+void TypeFactory::AddDependency(const Type* /*absl_nonnull*/ other_type) {
   ABSL_DCHECK_NE(other_type, nullptr);
   const internal::TypeStore* other_store = other_type->type_store_;
 

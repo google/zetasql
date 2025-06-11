@@ -1,0 +1,460 @@
+[default required_features=ENABLE_MEASURES]
+[prepare_database]
+[prepare_database_additional_features=ENABLE_MEASURES]
+# TODO: b/350555383 - Remove ENABLE_MEASURES from
+# prepare_database_additional_features once measures are enabled by default.
+# TODO: b/350555383 - Remove PlaceHolderTable once we support creating Measures
+# in compliance tests.
+# The use of PlaceholderTable is a workaround for creating tables with Measures
+# in compliance tests. There is currently no way to create measures via SQL or
+# DDL. As a result, compliance testing for measures requires pre-loading the
+# catalog with tables containing measures. This is done in the
+# `SQLTestBase::StepCreateDatabase()` method, which is only run when there is a
+# non-empty test database. So we create PlaceHolderTable to ensure the test
+# database is non-empty.
+CREATE TABLE PlaceholderTable AS SELECT 1 AS key;
+--
+ARRAY<STRUCT<key INT64>>[{1}]
+==
+[name=measure_aggregation]
+SELECT
+  AGG(measure_sum_price),
+  AGG(measure_ratio_price_to_quantity),
+  AGG(measure_country_count),
+  AGG(measure_avg_monthly_price),
+  AGG(measure_array_agg_distinct_country),
+  AGG(measure_array_agg_nullable_str_ignore_nulls),
+  AGG(measure_sum_price_via_subquery),
+  AGG(measure_sum_price_via_aggregate_subquery),
+  AGG(measure_sum_price_plus_one_via_subquery)
+FROM MeasureTable_SingleKey;
+--
+ARRAY<STRUCT<INT64, DOUBLE, INT64, DOUBLE, ARRAY<>, ARRAY<>, INT64, INT64, INT64>>[
+  {550,
+   2.2,
+   3,
+   275,
+   ARRAY<STRING>[unknown order:"Canada", "Mexico", "USA"],
+   ARRAY<STRING>[unknown order:
+     "not_null",
+     "not_null",
+     "not_null",
+     "not_null",
+     "not_null",
+     "not_null"
+   ],
+   550,
+   550,
+   551}
+]
+==
+
+[name=measure_aggregation_with_inner_joins]
+SELECT
+  AGG(T1.measure_sum_price),
+  AGG(T2.measure_ratio_price_to_quantity),
+  AGG(T1.measure_country_count),
+  AGG(T2.measure_avg_monthly_price),
+  AGG(T1.measure_array_agg_distinct_country),
+  AGG(T2.measure_array_agg_nullable_str_ignore_nulls),
+  AGG(T1.measure_sum_price_via_subquery),
+  AGG(T2.measure_sum_price_via_aggregate_subquery),
+  AGG(T1.measure_sum_price_plus_one_via_subquery)
+FROM MeasureTable_SingleKey AS T1
+INNER JOIN MeasureTable_SingleKey AS T2 USING (key);
+--
+ARRAY<STRUCT<INT64, DOUBLE, INT64, DOUBLE, ARRAY<>, ARRAY<>, INT64, INT64, INT64>>[
+  {550,
+   2.2,
+   3,
+   275,
+   ARRAY<STRING>[unknown order:"Mexico", "Canada", "USA"],
+   ARRAY<STRING>[unknown order:
+     "not_null",
+     "not_null",
+     "not_null",
+     "not_null",
+     "not_null",
+     "not_null"
+   ],
+   550,
+   550,
+   551}
+]
+==
+
+[name=basic_measure_aggregation_with_cross_joins]
+SELECT
+  AGG(T1.measure_sum_price),
+  AGG(T2.measure_sum_price),
+  AGG(T1.measure_ratio_price_to_quantity),
+  AGG(T2.measure_country_count),
+  AGG(T2.measure_avg_monthly_price),
+  AGG(T1.measure_array_agg_distinct_country),
+  AGG(T2.measure_array_agg_nullable_str_ignore_nulls),
+  AGG(T1.measure_sum_price_via_subquery),
+  AGG(T2.measure_sum_price_via_aggregate_subquery),
+  AGG(T1.measure_sum_price_plus_one_via_subquery)
+FROM MeasureTable_SingleKey AS T1, MeasureTable_SingleKey AS T2;
+--
+ARRAY<STRUCT<INT64,
+             INT64,
+             DOUBLE,
+             INT64,
+             DOUBLE,
+             ARRAY<>,
+             ARRAY<>,
+             INT64,
+             INT64,
+             INT64>>
+[{550,
+  550,
+  2.2,
+  3,
+  275,
+  ARRAY<STRING>[unknown order:"Canada", "Mexico", "USA"],
+  ARRAY<STRING>[unknown order:
+    "not_null",
+    "not_null",
+    "not_null",
+    "not_null",
+    "not_null",
+    "not_null"
+  ],
+  550,
+  550,
+  551}]
+==
+
+[name=measure_aggregation_with_where]
+SELECT
+  AGG(measure_sum_price),
+  AGG(measure_ratio_price_to_quantity),
+  AGG(measure_country_count),
+  AGG(measure_avg_monthly_price),
+  AGG(measure_array_agg_distinct_country),
+  AGG(measure_array_agg_nullable_str_ignore_nulls),
+  AGG(measure_sum_price_via_subquery),
+  AGG(measure_sum_price_via_aggregate_subquery),
+  AGG(measure_sum_price_plus_one_via_subquery)
+FROM MeasureTable_SingleKey
+WHERE country = 'USA';
+--
+ARRAY<STRUCT<INT64, DOUBLE, INT64, DOUBLE, ARRAY<>, ARRAY<>, INT64, INT64, INT64>>[
+  {
+    60,
+    1.2,
+    1,
+    30,
+    ARRAY<STRING>["USA"],
+    ARRAY<STRING>[unknown order:"not_null", "not_null"],
+    60,
+    60,
+    61
+  }
+]
+==
+
+[name=measure_aggregation_with_group_by]
+SELECT
+  country,
+  AGG(measure_sum_price),
+  AGG(measure_ratio_price_to_quantity),
+  AGG(measure_country_count),
+  AGG(measure_avg_monthly_price),
+  AGG(measure_array_agg_distinct_country),
+  AGG(measure_array_agg_nullable_str_ignore_nulls),
+  AGG(measure_sum_price_via_subquery),
+  AGG(measure_sum_price_via_aggregate_subquery),
+  AGG(measure_sum_price_plus_one_via_subquery)
+FROM MeasureTable_SingleKey
+GROUP BY country
+ORDER BY 1, 2, 3, 4, 5;
+--
+ARRAY<STRUCT<country STRING,
+             INT64,
+             DOUBLE,
+             INT64,
+             DOUBLE,
+             ARRAY<>,
+             ARRAY<>,
+             INT64,
+             INT64,
+             INT64>>
+[known order:{
+               "Canada",
+               220,
+               2.2,
+               1,
+               110,
+               ARRAY<STRING>["Canada"],
+               ARRAY<STRING>[unknown order:"not_null", "not_null"],
+               220,
+               220,
+               221
+             },
+             {
+               "Mexico",
+               270,
+               2.7,
+               1,
+               135,
+               ARRAY<STRING>["Mexico"],
+               ARRAY<STRING>[unknown order:"not_null", "not_null"],
+               270,
+               270,
+               271
+             },
+             {
+               "USA",
+               60,
+               1.2,
+               1,
+               30,
+               ARRAY<STRING>["USA"],
+               ARRAY<STRING>[unknown order:"not_null", "not_null"],
+               60,
+               60,
+               61
+             }]
+==
+
+[name=measure_aggregation_with_group_by_and_cross_join]
+# Since this is a cross join and the grouping key is from `T2`, each group of
+# rows has all the rows from `T1`. As a result, any measure from T1 will produce
+# the same result for each grouping key.
+SELECT
+  T2.country,
+  AGG(T1.measure_sum_price) AS agg1,
+  AGG(T2.measure_sum_price) AS agg2,
+  AGG(T1.measure_ratio_price_to_quantity) AS agg3,
+  AGG(T2.measure_ratio_price_to_quantity) AS agg4,
+  AGG(T1.measure_country_count) AS agg5,
+  AGG(T2.measure_country_count) AS agg6,
+  AGG(T1.measure_avg_monthly_price) AS agg7,
+  AGG(T2.measure_avg_monthly_price) AS agg8,
+  AGG(T2.measure_sum_price_via_subquery) AS agg9,
+  AGG(T2.measure_sum_price_via_aggregate_subquery) AS agg10,
+  AGG(T2.measure_sum_price_plus_one_via_subquery) AS agg11
+FROM MeasureTable_SingleKey AS T1, MeasureTable_SingleKey AS T2
+GROUP BY T2.country
+ORDER BY 1, 2, 3, 4, 5, 6, 7, 8, 9;
+--
+ARRAY<STRUCT<country STRING,
+             agg1 INT64,
+             agg2 INT64,
+             agg3 DOUBLE,
+             agg4 DOUBLE,
+             agg5 INT64,
+             agg6 INT64,
+             agg7 DOUBLE,
+             agg8 DOUBLE,
+             agg9 INT64,
+             agg10 INT64,
+             agg11 INT64>>
+[known order:
+  {"Canada", 550, 220, 2.2, 2.2, 3, 1, 275, 110, 220, 220, 221},
+  {"Mexico", 550, 270, 2.2, 2.7, 3, 1, 275, 135, 270, 270, 271},
+  {"USA", 550, 60, 2.2, 1.2, 3, 1, 275, 30, 60, 60, 61}
+]
+==
+
+[name=measure_aggregation_with_group_by_having_and_inner_join]
+# Using an `INNER JOIN` instead of a `CROSS JOIN` to avoid the scenario
+# described in the test case above.
+SELECT
+  T1.country,
+  AGG(T1.measure_sum_price),
+  AGG(T2.measure_sum_price),
+  AGG(T1.measure_ratio_price_to_quantity) AS price_to_quantity,
+  AGG(T2.measure_ratio_price_to_quantity),
+  AGG(T2.measure_country_count),
+  AGG(T1.measure_avg_monthly_price),
+  AGG(T1.measure_sum_price_via_subquery),
+  AGG(T2.measure_sum_price_via_aggregate_subquery),
+  AGG(T1.measure_sum_price_plus_one_via_subquery)
+FROM MeasureTable_SingleKey AS T1
+INNER JOIN MeasureTable_SingleKey AS T2 USING (key)
+GROUP BY T1.country
+HAVING price_to_quantity > 2
+ORDER BY 1, 2, 3, 4, 5, 6, 7;
+--
+ARRAY<STRUCT<
+        country STRING,
+        INT64,
+        INT64,
+        price_to_quantity DOUBLE,
+        DOUBLE,
+        INT64,
+        DOUBLE,
+        INT64,
+        INT64,
+        INT64
+      >>
+[known order:
+  {"Canada", 220, 220, 2.2, 2.2, 1, 110, 220, 220, 221},
+  {"Mexico", 270, 270, 2.7, 2.7, 1, 135, 270, 270, 271}
+]
+==
+
+[name=measure_aggregation_in_order_by]
+SELECT
+  country,
+FROM MeasureTable_SingleKey
+GROUP BY country
+ORDER BY AGG(measure_sum_price) DESC;
+--
+ARRAY<STRUCT<country STRING>>[known order:{"Mexico"}, {"Canada"}, {"USA"}]
+==
+
+[name=measure_aggregation_with_scalar_operations]
+SELECT
+  country,
+  AGG(measure_sum_price) + 100 AS sum_price_plus_100,
+  AGG(measure_ratio_price_to_quantity) * AGG(measure_ratio_price_to_quantity) AS ratio_price_to_quantity_squared
+FROM MeasureTable_SingleKey
+GROUP BY country
+ORDER BY 1;
+--
+ARRAY<STRUCT<
+        country STRING,
+        sum_price_plus_100 INT64,
+        ratio_price_to_quantity_squared DOUBLE
+      >>
+[known order:
+  {"Canada", 320, 4.8400000000000007},
+  {"Mexico", 370, 7.2900000000000009},
+  {"USA", 160, 1.44}
+]
+==
+
+[name=measure_aggregated_in_correlated_subquery]
+SELECT
+  OuterTable.country,
+  (
+    SELECT
+      AGG(InnerTable.measure_sum_price) AS inner_measure_sum_price
+    FROM MeasureTable_SingleKey AS InnerTable
+    WHERE InnerTable.country = OuterTable.country
+  )
+FROM MeasureTable_SingleKey AS OuterTable
+GROUP BY OuterTable.country
+ORDER BY 1;
+--
+ARRAY<STRUCT<country STRING, INT64>>[known order:
+  {"Canada", 220},
+  {"Mexico", 270},
+  {"USA", 60}
+]
+==
+
+[name=measures_with_grouping_sets]
+[required_features=ENABLE_MEASURES,GROUPING_SETS,GROUPING_BUILTIN]
+
+SELECT
+  country,
+  date_str,
+  GROUPING(country) AS country_is_aggregated,
+  GROUPING(date_str) AS date_str_is_aggregated,
+  AGG(measure_sum_price),
+  AGG(measure_sum_price_via_subquery),
+  AGG(measure_sum_price_via_aggregate_subquery),
+  AGG(measure_sum_price_plus_one_via_subquery)
+FROM MeasureTable_SingleKey
+GROUP BY GROUPING SETS (country, date_str)
+ORDER BY 5, 6, 7, 8;
+--
+ARRAY<STRUCT<
+        country STRING,
+        date_str STRING,
+        country_is_aggregated INT64,
+        date_str_is_aggregated INT64,
+        INT64,
+        INT64,
+        INT64,
+        INT64
+      >>
+[known order:
+  {"USA", NULL, 0, 1, 60, 60, 60, 61},
+  {"Canada", NULL, 0, 1, 220, 220, 220, 221},
+  {NULL, "Feb 2024", 1, 0, 260, 260, 260, 261},
+  {"Mexico", NULL, 0, 1, 270, 270, 270, 271},
+  {NULL, "Jan 2024", 1, 0, 290, 290, 290, 291}
+]
+==
+
+[name=measure_propagating_past_subquery_in_from]
+SELECT
+  country,
+  AGG(measure_sum_price)
+FROM (
+  SELECT
+    country,
+    measure_sum_price
+  FROM MeasureTable_SingleKey
+  WHERE country = 'USA'
+)
+GROUP BY country;
+--
+ARRAY<STRUCT<country STRING, INT64>>[{"USA", 60}]
+==
+
+[name=measure_propagation_past_analytic_scan]
+[required_features=ENABLE_MEASURES,ANALYTIC_FUNCTIONS]
+SELECT
+  country,
+  AGG(measure_sum_price),
+  COUNT(total_price)
+FROM (
+  SELECT
+    country,
+    measure_sum_price,
+    SUM(price) OVER () AS total_price
+  FROM MeasureTable_SingleKey
+)
+GROUP BY country
+ORDER BY 2;
+--
+ARRAY<STRUCT<country STRING, INT64, INT64>>[known order:
+  {"USA", 60, 3},
+  {"Canada", 220, 4},
+  {"Mexico", 270, 3}
+]
+==
+
+[name=measure_exprs_with_clauses_non_deterministic]
+SELECT
+  AGG(measure_array_agg_distinct_country),
+  AGG(measure_array_agg_nullable_str_ignore_nulls),
+  AGG(measure_array_agg_country_limit_one)
+FROM MeasureTable_SingleKey
+GROUP BY country
+ORDER BY country;
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>>>[known order:
+  {
+    ARRAY<STRING>["Canada"],
+    ARRAY<STRING>[unknown order:"not_null", "not_null"],
+    ARRAY<STRING>["Canada"]
+  },
+  {
+    ARRAY<STRING>["Mexico"],
+    ARRAY<STRING>[unknown order:"not_null", "not_null"],
+    ARRAY<STRING>["Mexico"]
+  },
+  {
+    ARRAY<STRING>["USA"],
+    ARRAY<STRING>[unknown order:"not_null", "not_null"],
+    ARRAY<STRING>["USA"]
+  }
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+[name=measure_pseudo_column_count_star]
+SELECT
+  AGG(measure_pseudo_column_sum_price),
+FROM MeasureTable_SingleKey
+--
+ARRAY<STRUCT<INT64>>[{550}]

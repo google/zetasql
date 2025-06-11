@@ -99,7 +99,7 @@ ARRAY<STRUCT<
  {4, NULL, NULL}]
 ==
 [prepare_database]
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 CREATE TABLE TimeDatetimeTable AS
 SELECT
   1 AS row_id,
@@ -200,7 +200,7 @@ ARRAY<STRUCT<
 ]
 ==
 [prepare_database]
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 CREATE TABLE UuidTable AS
 SELECT
   1 as row_id,
@@ -279,7 +279,7 @@ ARRAY<STRUCT<
  {10, "d", [NULL, NULL)}]
 ==
 
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [prepare_database]
 CREATE TABLE DatetimeRangeTable
 (
@@ -507,7 +507,7 @@ ARRAY<STRUCT<
 ==
 # With the consecutive feature on, this query will be equivalent to the case
 # join_8.
-[required_features=V_1_3_ALLOW_CONSECUTIVE_ON]
+[required_features=ALLOW_CONSECUTIVE_ON]
 [name=join_9]
 SELECT * FROM R JOIN S JOIN DateTimestampTable d ON S.id = d.row_id ON R.id = S.id
 --
@@ -972,7 +972,7 @@ ARRAY<STRUCT<
              {NULL, 4, NULL, NULL}]
 ==
 [name=time_key_inner_join]
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 SELECT t1.time_val, t1.row_id, t2.time_val, t2.row_id FROM
 (SELECT row_id, time_val FROM TimeDatetimeTable) AS t1
 INNER JOIN
@@ -989,7 +989,7 @@ ARRAY<STRUCT<time_val TIME, row_id INT64, time_val TIME, row_id INT64>>[known or
 ]
 ==
 [name=time_key_left_join]
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 SELECT t1.time_val, t1.row_id, t2.time_val, t2.row_id FROM
 (SELECT row_id, time_val FROM TimeDatetimeTable) AS t1
 LEFT JOIN
@@ -1007,7 +1007,7 @@ ARRAY<STRUCT<time_val TIME, row_id INT64, time_val TIME, row_id INT64>>[known or
 ]
 ==
 [name=datetime_key_inner_join]
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 SELECT t1.datetime_val, t1.row_id, t2.datetime_val, t2.row_id FROM
 (SELECT row_id, datetime_val FROM TimeDatetimeTable) AS t1
 INNER JOIN
@@ -1030,7 +1030,7 @@ ARRAY<STRUCT<
 ]
 ==
 [name=datetime_key_left_join]
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 SELECT t1.datetime_val, t1.row_id, t2.datetime_val, t2.row_id FROM
 (SELECT row_id, datetime_val FROM TimeDatetimeTable) AS t1
 LEFT JOIN
@@ -1131,7 +1131,7 @@ ARRAY<STRUCT<
   }
 ]
 ==
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 [name=uuid_key_join]
 SELECT t1.uuid_val, t1.row_id, t2.uuid_val, t2.row_id
 FROM (
@@ -1151,7 +1151,7 @@ ARRAY<STRUCT<uuid_val UUID, row_id INT64, uuid_val UUID, row_id INT64>>[
   }
 ]
 ==
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 [name=uuid_key_left_join]
 SELECT t1.uuid_val, t1.row_id, t2.uuid_val, t2.row_id
 FROM (
@@ -1236,7 +1236,7 @@ ARRAY<STRUCT<
              {NULL, 5, NULL, NULL}]
 ==
 
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=datetime_range_inner_join]
 SELECT t1.datetime_range_val, t1.id, t2.datetime_range_val, t2.id
 FROM (
@@ -1270,7 +1270,7 @@ ARRAY<STRUCT<
              {[NULL, NULL), 4, [NULL, NULL), 10}]
 ==
 
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=datetime_range_left_join]
 SELECT t1.datetime_range_val, t1.id, t2.datetime_range_val, t2.id
 FROM (

@@ -120,7 +120,7 @@ bool MapType::SupportsOrdering(const LanguageOptions& language_options,
 bool MapType::SupportsEquality() const { return false; }
 
 bool MapType::IsSupportedType(const LanguageOptions& language_options) const {
-  return language_options.LanguageFeatureEnabled(FEATURE_V_1_4_MAP_TYPE) &&
+  return language_options.LanguageFeatureEnabled(FEATURE_MAP_TYPE) &&
          key_type_->IsSupportedType(language_options) &&
          key_type_->SupportsGrouping(language_options) &&
          value_type_->IsSupportedType(language_options);
@@ -475,6 +475,7 @@ void MapType::FormatValueContentDebugModeImpl(
 void MapType::FormatValueContentSqlModeImpl(
     const internal::ValueContentMap* value_content_map,
     const FormatValueContentOptions& options, std::string* result) const {
+  // TODO: b/413134417 - Use MAP literal syntax once it is implemented.
   absl::StrAppend(result, "MAP_FROM_ARRAY(");
 
   // Include explicit type for the ARRAY<STRUCT<K, V>> argument to
@@ -485,9 +486,13 @@ void MapType::FormatValueContentSqlModeImpl(
   //    here, because there are no array entries to infer the type from.
   if (options.mode == Type::FormatValueContentOptions::Mode::kSQLExpression ||
       value_content_map->num_elements() == 0) {
-    absl::StrAppend(result, "ARRAY<STRUCT<",
-                    key_type_->TypeName(options.product_mode), ", ",
-                    value_type_->TypeName(options.product_mode), ">>");
+    absl::StrAppend(
+        result, "ARRAY<STRUCT<",
+        key_type_->TypeName(options.product_mode, options.use_external_float32),
+        ", ",
+        value_type_->TypeName(options.product_mode,
+                              options.use_external_float32),
+        ">>");
   }
 
   absl::StrAppend(

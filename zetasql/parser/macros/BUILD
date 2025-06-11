@@ -12,6 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 cc_library(
     name = "quoting",
@@ -51,6 +54,23 @@ cc_library(
     deps = [
         "//zetasql/public:parse_location",
         "@com_google_absl//absl/container:node_hash_map",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "macro_catalog_test",
+    srcs = ["macro_catalog_test.cc"],
+    deps = [
+        ":macro_catalog",
+        "//zetasql/base:check",
+        "//zetasql/base:status",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/parser",
+        "//zetasql/parser:parser_mode",
+        "//zetasql/public:language_options",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
@@ -111,7 +131,6 @@ cc_library(
     deps = [
         "//zetasql/parser:keywords",
         "//zetasql/parser:token",
-        "//zetasql/parser:token_codes",
         "//zetasql/parser:token_with_location",
         "@com_google_absl//absl/strings",
     ],
@@ -152,6 +171,7 @@ cc_library(
         "//zetasql/public:parse_location",
         "@com_google_absl//absl/base:nullability",
         "@com_google_absl//absl/container:btree",
+        "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
@@ -175,8 +195,8 @@ cc_test(
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/parser",
-        "//zetasql/parser:bison_parser_mode",
         "//zetasql/parser:lookahead_transformer",  # build_cleaner: keep
+        "//zetasql/parser:parser_mode",
         "//zetasql/parser:token",
         "//zetasql/parser:token_with_location",
         "//zetasql/public:error_location_cc_proto",

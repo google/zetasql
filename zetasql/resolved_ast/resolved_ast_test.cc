@@ -63,7 +63,7 @@ using ::zetasql_base::testing::StatusIs;
 
 class ResolvedASTTest : public ::testing::Test {
  public:
-  // Make a new ResolvedColumn with int32_t type.
+  // Make a new ResolvedColumn with int32 type.
   ResolvedColumn MakeColumn() {
     return ResolvedColumn(
         ++column_id_, zetasql::IdString::MakeGlobal("MakeColumn"),

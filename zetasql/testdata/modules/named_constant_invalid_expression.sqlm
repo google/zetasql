@@ -1,0 +1,5 @@
+MODULE named_constant_invalid_expression;
+
+CREATE PUBLIC CONSTANT evaluation_error_named_constant = 1 / 0;
+
+CREATE PUBLIC CONSTANT resolution_error_named_constant = 1 / "foo";

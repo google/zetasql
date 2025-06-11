@@ -64,6 +64,8 @@ const char* const kSqlBuilderPositionalParameterMode =
 const char* const kShowSqlBuilderOutput = "show_sqlbuilder_output";
 const char* const kShowSqlBuilderResolvedASTDiff =
     "show_sqlbuilder_resolved_ast_diff";
+const char* const kSqlBuilderTargetSyntaxMapMode =
+    "sqlbuilder_target_syntax_map_mode";
 const char* const kInScopeExpressionColumnName =
     "in_scope_expression_column_name";
 const char* const kInScopeExpressionColumnType =
@@ -101,8 +103,6 @@ const char* const kOptionNamesToIgnoreInLiteralReplacement =
 const char* const kScrubLimitOffsetInLiteralReplacement =
     "scrub_limit_offset_in_literal_replacement";
 const char* const kSetFlag = "set_flag";
-const char* const kAlsoShowSignatureMismatchDetails =
-    "also_show_signature_mismatch_details";
 const char* const kReplaceTableNotFoundErrorWithTvfErrorIfApplicable =
     "replace_table_not_found_error_with_tvf_error_if_applicable";
 const char* const kIdStringAllowUnicodeCharacters =
@@ -118,6 +118,7 @@ const char* const kSqlBuilderTargetSyntaxMode =
 const char* const kSqlBuilderTargetSyntaxModePipe = "pipe";
 const char* const kSqlBuilderTargetSyntaxModeStandard = "standard";
 const char* const kSqlBuilderTargetSyntaxModeBoth = "both";
+const char* const kUseConstantEvaluator = "use_constant_evaluator";
 
 void RegisterAnalyzerTestOptions(
     file_based_test_driver::TestCaseOptions* test_case_options) {
@@ -149,6 +150,7 @@ void RegisterAnalyzerTestOptions(
                                     "question_mark");
   test_case_options->RegisterBool(kShowSqlBuilderOutput, false);
   test_case_options->RegisterBool(kShowSqlBuilderResolvedASTDiff, false);
+  test_case_options->RegisterString(kSqlBuilderTargetSyntaxMapMode, "");
   test_case_options->RegisterString(kLanguageFeatures, "");
   test_case_options->RegisterString(kInScopeExpressionColumnName, "");
   test_case_options->RegisterString(kInScopeExpressionColumnType,
@@ -178,7 +180,6 @@ void RegisterAnalyzerTestOptions(
                                     "");
   test_case_options->RegisterBool(kScrubLimitOffsetInLiteralReplacement, true);
   test_case_options->RegisterString(kSetFlag, "");
-  test_case_options->RegisterBool(kAlsoShowSignatureMismatchDetails, false);
   test_case_options->RegisterBool(
       kReplaceTableNotFoundErrorWithTvfErrorIfApplicable, true);
   test_case_options->RegisterBool(kIdStringAllowUnicodeCharacters, false);
@@ -192,6 +193,7 @@ void RegisterAnalyzerTestOptions(
   test_case_options->RegisterBool(kEnhancedErrorRedaction, false);
   test_case_options->RegisterString(kSqlBuilderTargetSyntaxMode,
                                     kSqlBuilderTargetSyntaxModeBoth);
+  test_case_options->RegisterBool(kUseConstantEvaluator, false);
 }
 
 std::vector<std::pair<std::string, const zetasql::Type*>> GetQueryParameters(

@@ -229,7 +229,7 @@ TEST(ParseDateTimeInternalTests, ParseInt) {
   const std::string k_int64min_str = absl::StrCat(k_int64min);
   const std::string k_int64max_str = absl::StrCat(k_int64max);
   // We append this digit to the end of <k_int64min_str>/<k_int64max_str> to
-  // make the output string represent an out of range number of type int64_t.
+  // make the output string represent an out of range number of type int64.
   std::string digit_to_add = "0";
   TestParseInt<int64_t>(
       absl::StrCat(k_int64min_str, digit_to_add),
@@ -240,7 +240,7 @@ TEST(ParseDateTimeInternalTests, ParseInt) {
       static_cast<int>(k_int64max_str.size() + digit_to_add.size()), k_int64min,
       k_int64max, EXPECT_ERROR);
 
-  // <k_int64min> and <k_int64max> are overflow for int32_t type.
+  // <k_int64min> and <k_int64max> are overflow for int32 type.
   TestParseInt<int>(k_int64min_str, static_cast<int>(k_int64min_str.size()),
                     k_int64min, k_int64max, EXPECT_ERROR);
   TestParseInt<int>(k_int64max_str, static_cast<int>(k_int64max_str.size()),

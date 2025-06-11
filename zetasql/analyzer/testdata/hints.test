@@ -2133,7 +2133,7 @@ select fn_on_int64(kv1.Key) @{ h1= @bad_param } from KeyValue as kv1
 #
 # Hints on LIKE ANY/SOME/ALL
 #
-[language_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_SUBQUERY]
+[language_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
 select '1' LIKE {{ANY|SOME|ALL}} @{a = d,b = c} (select '1')
 --
 ALTERNATION GROUP: ANY
@@ -2155,7 +2155,7 @@ select '1' LIKE ALL @{a = d,b = c} (select '1')
                     ^
 ==
 
-[language_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_SUBQUERY]
+[language_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
 select *
 from TestTable T
 where T.KitchenSink.string_val

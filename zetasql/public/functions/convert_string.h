@@ -22,8 +22,8 @@
 //   template <typename T>
 //   bool StringToNumeric(absl::string_view value, T* out, absl::Status* error);
 //
-// Here T must be one of the following seven types: bool, int32_t, int64_t, uint32_t,
-// uint64_t, float, double.
+// Here T must be one of the following seven types: bool, int32, int64, uint32,
+// uint64, float, double.
 // On error both functions return false and update *error.
 
 #ifndef ZETASQL_PUBLIC_FUNCTIONS_CONVERT_STRING_H_

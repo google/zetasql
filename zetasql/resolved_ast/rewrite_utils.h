@@ -35,6 +35,7 @@
 #include "zetasql/resolved_ast/column_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
+#include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "absl/base/nullability.h"
 #include "absl/container/flat_hash_map.h"
@@ -165,6 +166,11 @@ absl::StatusOr<std::unique_ptr<const T>> RemapSpecifiedColumns(
 absl::StatusOr<std::unique_ptr<const ResolvedNode>> RemapColumnsImpl(
     std::unique_ptr<const ResolvedNode> input_tree,
     ColumnFactory* column_factory, ColumnReplacementMap& column_map);
+
+// Returns a new column list based on `column_list` replaced with new column ids
+// if specified by the column replacement map.
+ResolvedColumnList RemapColumnList(const ResolvedColumnList& column_list,
+                                   ColumnReplacementMap& column_map);
 
 // Helper function used when deep copying a plan. Takes a 'scan' and
 // replaces all of its ResolvedColumns, including in child scans recursively.
@@ -542,6 +548,20 @@ class FunctionCallBuilder {
   NestedBinaryInt64Add(
       std::vector<std::unique_ptr<const ResolvedExpr>> expressions);
 
+  // Construct a ResolvedFunctionCall which is a nested series of binary
+  // addition:
+  //  ((expressions[0] ADD expressions[1]) ADD ... ADD expressions[N-1])
+  // where N is the number of expressions.
+  //
+  // Requires: N >= 2 and all expressions return the same numerical type.
+  // Supported numerical types are: INT64, UINT64, DOUBLE, NUMERIC, BIGNUMERIC.
+  //
+  // The signature for the built-in function "$add" must be available in
+  // <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> NestedBinaryAdd(
+      const Type* type,
+      std::vector<std::unique_ptr<const ResolvedExpr>> expressions);
+
   // Construct a ResolvedAnalyticFunctionCall for ROW_NUMBER()
   absl::StatusOr<std::unique_ptr<const ResolvedAnalyticFunctionCall>>
   RowNumber();
@@ -771,7 +791,7 @@ class FunctionCallBuilder {
   // The signature for the built-in function "nodes" must be
   // available in <catalog> or an error status is returned.
   absl::StatusOr<std::unique_ptr<const ResolvedExpr>> PathNodes(
-      absl::Nonnull<std::unique_ptr<const ResolvedExpr>> path);
+      /*absl_nonnull*/ std::unique_ptr<const ResolvedExpr> path);
 
   // Constructs a ResolvedFunctionCall for EDGES(path).
   //
@@ -793,6 +813,11 @@ class FunctionCallBuilder {
       std::optional<functions::DifferentialPrivacyEnums::ReportFormat>
           report_format);
 
+  // Constructs a ResolvedLiteral for 0 with the given type.
+  // Requires that `type` is a numerical type.
+  absl::StatusOr<std::unique_ptr<const ResolvedExpr>> CreateTypedLiteralZero(
+      const Type* type);
+
   // Constructs a ResolvedAnalyticFunctionCall that applies the window function
   // IS_FIRST(k) to the input expression.
   //
@@ -802,7 +827,7 @@ class FunctionCallBuilder {
   // The signature for the built-in function `IS_FIRST` must be
   // available in `catalog` or an error status is returned.
   absl::StatusOr<std::unique_ptr<const ResolvedAnalyticFunctionCall>> IsFirstK(
-      absl::Nonnull<std::unique_ptr<const ResolvedExpr>> arg_k);
+      /*absl_nonnull*/ std::unique_ptr<const ResolvedExpr> arg_k);
 
   // Constructs a ResolvedFunctionCall for
   // `<left_expr> IS NOT DISTINCT FROM <right_expr>`.

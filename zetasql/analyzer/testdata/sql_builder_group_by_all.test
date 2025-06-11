@@ -1,6 +1,6 @@
 [default show_sqlbuilder_output]
 [default no_show_resolved_ast]
-[default language_features=V_1_4_GROUP_BY_ALL]
+[default language_features=GROUP_BY_ALL]
 
 select kv.key, key{{| AS alias}} from KeyValue kv where true
 GROUP BY ALL
@@ -193,7 +193,7 @@ FROM
      CAST(aggregatescan_2.a_1 AS DOUBLE) AS a_3;
 ==
 
-[language_features=V_1_4_GROUP_BY_ALL,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
+[language_features=GROUP_BY_ALL,SELECT_STAR_EXCEPT_REPLACE]
 # SELECT with EXCEPT
 SELECT * EXCEPT (a)
 FROM (
@@ -228,7 +228,7 @@ SELECT
      aggregatescan_5.a_4 AS b;
 ==
 
-[language_features=V_1_4_GROUP_BY_ALL,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
+[language_features=GROUP_BY_ALL,SELECT_STAR_EXCEPT_REPLACE]
 # SELECT with REPLACE
 SELECT * REPLACE (0 AS a)
 FROM (
@@ -566,7 +566,7 @@ SELECT
      aggregatescan_12.a_11 AS a_11;
 ==
 
-[language_features=V_1_4_GROUP_BY_ALL,V_1_2_GROUP_BY_STRUCT]
+[language_features=GROUP_BY_ALL,GROUP_BY_STRUCT]
 WITH T AS (
   SELECT STRUCT(1 AS a1, STRUCT(STRUCT(1 AS c1, 1 AS c2) AS b1, 1 AS b2) AS a2) AS x, 1 AS y
 )
@@ -624,7 +624,7 @@ FROM
      aggregatescan_7.a_6 AS a_6;
 ==
 
-[language_features=V_1_4_GROUP_BY_ALL,V_1_2_GROUP_BY_STRUCT]
+[language_features=GROUP_BY_ALL,GROUP_BY_STRUCT]
 SELECT (SELECT x.a2.b1), [x.a2.b1.c1, x.a2.b2], x.a2, SUM(y)
 FROM (
   SELECT STRUCT(1 AS a1, STRUCT(STRUCT(1 AS c1, 1 AS c2) AS b1, 1 AS b2) AS a2) AS x, 1 AS y
@@ -679,7 +679,7 @@ SELECT
      aggregatescan_6.a_5 AS a_5;
 ==
 
-[language_features=V_1_4_GROUP_BY_ALL,V_1_2_GROUP_BY_STRUCT]
+[language_features=GROUP_BY_ALL,GROUP_BY_STRUCT]
 WITH T AS (
   SELECT STRUCT(1 AS a1, STRUCT(STRUCT(1 AS c1, 1 AS c2) AS b1, 1 AS b2) AS a2) AS x, 1 AS y
 )

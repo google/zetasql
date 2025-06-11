@@ -20,6 +20,7 @@
 #include <string>
 
 #include "zetasql/common/utf_util.h"
+#include "absl/numeric/int128.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -35,6 +36,7 @@ constexpr char ArithmeticType<uint64_t>::kName[];
 constexpr char ArithmeticType<float>::kName[];
 constexpr char ArithmeticType<double>::kName[];
 constexpr char ArithmeticType<long double>::kName[];
+constexpr char ArithmeticType<absl::int128>::kName[];
 
 absl::Status CreateFunctionError(absl::string_view msg) {
   // 'msg' could potentially contain invalid UTF-8 characters. As example
@@ -94,6 +96,9 @@ template std::string BinaryOverflowMessage<float>(
     float in1, float in2, absl::string_view operator_symbol);
 template std::string BinaryOverflowMessage<double>(
     double in1, double in2, absl::string_view operator_symbol);
+template std::string BinaryOverflowMessage<absl::int128>(
+    absl::int128 in1, absl::int128 in2, absl::string_view operator_symbol);
+
 // This override is introduced because StrCat does not support long double.
 template <>
 std::string BinaryOverflowMessage<long double>(

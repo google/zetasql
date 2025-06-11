@@ -95,6 +95,9 @@ be used in a `MATCH` statement.
   ( [ <span class="var">path_mode</span> ] <span class="var">path_pattern</span> [ <span class="var">where_clause</span> ] )
 
 <span class="var">path_term</span>:
+  { <span class="var">path_primary</span> | <span class="var">quantified_path_primary</span> }
+
+<span class="var">path_primary</span>:
   {
     <span class="var">element_pattern</span>
     | <span class="var">subpath_pattern</span>
@@ -136,10 +139,12 @@ path, or any shortest path. For more information, see [Path search prefix][searc
   ```
 + `path_term`: An [element pattern][element-pattern-definition] or a
   [subpath pattern][graph-subpaths] in a path pattern.
-+ `element_pattern`: A node pattern or an edge pattern. To learn more, see
-  [Element pattern definition][element-pattern-definition].
 + `subpath_pattern`: A path pattern enclosed in parentheses. To learn
   more, see [Graph subpath pattern][graph-subpaths].
++ `quantified_path_primary`: The quantified path pattern to add to the
+  graph query. To learn more, see [Quantified path pattern][quantified-paths].
++ `element_pattern`: A node pattern or an edge pattern. To learn more, see
+  [Element pattern definition][element-pattern-definition].
 + `where_clause`: A `WHERE` clause, which filters the matched results. For
   example:
 
@@ -246,6 +251,8 @@ RETURN
 [gql-match]: https://github.com/google/zetasql/blob/master/docs/graph-query-statements.md#gql_match
 
 [horizontal-aggregation]: https://github.com/google/zetasql/blob/master/docs/graph-gql-functions.md
+
+[quantified-paths]: #quantified_paths
 
 ## Element pattern 
 <a id="element_pattern_definition"></a>
@@ -439,6 +446,9 @@ An element pattern is either a node pattern or an edge pattern.
   (s:Singer)-[has_friend:Knows]->
   (s2:Singer WHERE s2.singer_name = 'Mahan Lomond')
   ```
+
+<a id="property_filters"></a>
+
 + `property_filters`: Filters the nodes or edges that were matched. It contains
   a key value map of element properties and their values. Property filters can
   appear in both node and edge patterns.
@@ -458,12 +468,14 @@ An element pattern is either a node pattern or an edge pattern.
   property filter list.
 
   + `element_property_name`: An identifier that represents the name of the
-    element property.
+    element property. The property that is identified must be defined in the
+    graph element.
 
   + `element_property_value`: A scalar expression that represents the value for
-    the element property. This value can be a `NULL` literal, but the `NULL`
-    literal is interpreted as `= NULL`, not `IS NULL` when the
-    element property filter is applied.
+    the element property. It must be equal to the property value for the filter
+    to match. This value can be a `NULL` literal, but the `NULL` literal is
+    interpreted as `= NULL`, not `IS NULL` when the element property filter is
+    applied.
 
   Examples:
 
@@ -1363,8 +1375,10 @@ operators (AND, OR, NOT) and parentheses for grouping.
 
 #### Details
 
-A label exposes a set of properties. When a node or edge carries a certain label,
-the properties exposed by that label are accessible through the node or edge.
+If a label in defined in the schema, it exposes a set of properties
+with declared names and data types. When a node or edge carries this
+label, the properties exposed by that label are always accessible through
+the node or edge.
 
 #### Examples
 

@@ -1,0 +1,29 @@
+-- This imported module has some initialization errors.
+MODULE module_test_errors_imported_c;
+
+-- Catalog initialization error - SELECT statements are invalid inside modules.
+SELECT * FROM some_table;
+
+-- Valid
+CREATE PUBLIC FUNCTION foo(a INT64) AS (a);
+
+-- UDF init error (not PRIVATE and not PUBLIC)
+CREATE FUNCTION udf_init_error(a INT64) AS (a);
+
+-- Templated UDF initialization error
+CREATE TEMP FUNCTION templated_udf_init_error(a ANY TYPE) AS (a);
+
+-- UDA initialization error
+CREATE FUNCTION uda_init_error(a INT64) AS (SUM(a));
+
+-- Templated UDA initialization error
+CREATE FUNCTION templated_uda_init_error(a ANY TYPE) AS (SUM(a));
+
+-- TVF initialization error
+CREATE TABLE FUNCTION tvf_init_error(a INT64) AS (SELECT a);
+
+-- Templated TVF initialization error
+CREATE TABLE FUNCTION templated_tvf_init_error(a ANY TYPE) AS (SELECT a);
+
+-- Constant initialization error
+CREATE CONSTANT constant_init_error = "constant_init_error";

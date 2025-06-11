@@ -24,6 +24,7 @@
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/annotation/collation.h"
+#include "zetasql/public/annotation/timestamp_precision.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type_factory.h"
@@ -31,6 +32,7 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -46,13 +48,32 @@ AnnotationPropagator::AnnotationPropagator(
 void AnnotationPropagator::InitializeAnnotationSpecs(
     const AnalyzerOptions& analyzer_options) {
   if (!analyzer_options.language().LanguageFeatureEnabled(
-          FEATURE_V_1_3_ANNOTATION_FRAMEWORK)) {
+          FEATURE_ANNOTATION_FRAMEWORK)) {
     return;
   }
 
   if (analyzer_options.language().LanguageFeatureEnabled(
-          FEATURE_V_1_3_COLLATION_SUPPORT)) {
+          FEATURE_COLLATION_SUPPORT)) {
     owned_annotation_specs_.push_back(std::make_unique<CollationAnnotation>());
+  }
+
+  if (analyzer_options.language().LanguageFeatureEnabled(
+          FEATURE_TIMESTAMP_PRECISION_ANNOTATION)) {
+    int default_precision = -1;
+    if (analyzer_options.language().LanguageFeatureEnabled(
+            FEATURE_TIMESTAMP_PICOS)) {
+      ABSL_DCHECK(analyzer_options.language().LanguageFeatureEnabled(
+          FEATURE_TIMESTAMP_NANOS));
+      default_precision = 12;
+    } else if (analyzer_options.language().LanguageFeatureEnabled(
+                   FEATURE_TIMESTAMP_NANOS)) {
+      default_precision = 9;
+    } else {
+      default_precision = 6;
+    }
+    ABSL_DCHECK_GE(default_precision, 0);
+    owned_annotation_specs_.push_back(
+        std::make_unique<TimestampPrecisionAnnotation>(default_precision));
   }
 
   // Copy ZetaSQL annotation specs to combined_annotation_specs_
@@ -105,6 +126,11 @@ static absl::Status CheckAndPropagateAnnotationsImpl(
         ZETASQL_RETURN_IF_ERROR(annotation_spec->CheckAndPropagateForFunctionCallBase(
             *function_call, annotation_map));
       } break;
+      case RESOLVED_CAST: {
+        auto* cast = resolved_node->GetAs<ResolvedCast>();
+        ZETASQL_RETURN_IF_ERROR(
+            annotation_spec->CheckAndPropagateForCast(*cast, annotation_map));
+      } break;
       case RESOLVED_SUBQUERY_EXPR: {
         auto* subquery_expr = resolved_node->GetAs<ResolvedSubqueryExpr>();
         ZETASQL_RETURN_IF_ERROR(annotation_spec->CheckAndPropagateForSubqueryExpr(
@@ -120,7 +146,7 @@ static absl::Status CheckAndPropagateAnnotationsImpl(
 absl::Status AnnotationPropagator::CheckAndPropagateAnnotations(
     const ASTNode* error_node, ResolvedNode* resolved_node) {
   if (!analyzer_options_.language().LanguageFeatureEnabled(
-          FEATURE_V_1_3_ANNOTATION_FRAMEWORK)) {
+          FEATURE_ANNOTATION_FRAMEWORK)) {
     return absl::OkStatus();
   }
   if (resolved_node->IsExpression()) {
@@ -202,7 +228,7 @@ absl::Status AnnotationPropagator::CheckAndPropagateAnnotations(
 absl::Status AnnotationPropagator::CheckAndPropagateAnnotationsForRecursiveScan(
     ResolvedRecursiveScan* recursive_scan, const ASTNode* error_node) {
   if (!analyzer_options_.language().LanguageFeatureEnabled(
-          FEATURE_V_1_4_COLLATION_IN_WITH_RECURSIVE)) {
+          FEATURE_COLLATION_IN_WITH_RECURSIVE)) {
     // Disable collation propagation through ResolvedRecursiveScan.
     for (const ResolvedSetOperationItem* item :
          {recursive_scan->non_recursive_term(),

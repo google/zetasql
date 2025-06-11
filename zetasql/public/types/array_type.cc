@@ -183,13 +183,13 @@ void ArrayType::DebugStringImpl(bool details, TypeOrStringVector* stack,
 
 bool ArrayType::SupportsOrdering(const LanguageOptions& language_options,
                                  std::string* type_description) const {
-  if (language_options.LanguageFeatureEnabled(FEATURE_V_1_3_ARRAY_ORDERING) &&
+  if (language_options.LanguageFeatureEnabled(FEATURE_ARRAY_ORDERING) &&
       element_type()->SupportsOrdering(language_options,
                                        /*type_description=*/nullptr)) {
     return true;
   }
   if (type_description != nullptr) {
-    if (language_options.LanguageFeatureEnabled(FEATURE_V_1_3_ARRAY_ORDERING)) {
+    if (language_options.LanguageFeatureEnabled(FEATURE_ARRAY_ORDERING)) {
       // If the ARRAY ordering feature is on, then arrays with orderable
       // elements are also orderable.  So return a <type_description> that
       // also indicates the type of the unorderable element.
@@ -214,7 +214,7 @@ bool ArrayType::SupportsEquality() const {
 
 bool ArrayType::SupportsGroupingImpl(const LanguageOptions& language_options,
                                      const Type** no_grouping_type) const {
-  if (!language_options.LanguageFeatureEnabled(FEATURE_V_1_2_GROUP_BY_ARRAY)) {
+  if (!language_options.LanguageFeatureEnabled(FEATURE_GROUP_BY_ARRAY)) {
     if (no_grouping_type != nullptr) {
       *no_grouping_type = this;
     }
@@ -234,7 +234,7 @@ bool ArrayType::SupportsGroupingImpl(const LanguageOptions& language_options,
 bool ArrayType::SupportsPartitioningImpl(
     const LanguageOptions& language_options,
     const Type** no_partitioning_type) const {
-  if (!language_options.LanguageFeatureEnabled(FEATURE_V_1_2_GROUP_BY_ARRAY)) {
+  if (!language_options.LanguageFeatureEnabled(FEATURE_GROUP_BY_ARRAY)) {
     if (no_partitioning_type != nullptr) {
       *no_partitioning_type = this;
     }

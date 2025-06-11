@@ -40,26 +40,31 @@
 #include "zetasql/public/annotation.pb.h"
 #include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/type.h"
+#include "absl/base/attributes.h"
+#include "absl/base/macros.h"
+#include "absl/base/nullability.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 
 namespace zetasql {
 
 class AnnotationSpec;
-class ArrayAnnotationMap;
 class StructAnnotationMap;
 class ArrayType;
 class StructType;
+
+ABSL_DEPRECATED("Inline me!")
+typedef StructAnnotationMap ArrayAnnotationMap;
 
 // Maps from AnnotationSpec ID to SimpleValue.
 class AnnotationMap {
  public:
   // Creates an instance of AnnotationMap. Returns a StructAnnotationMap
-  // instance if <type> is a STRUCT. Returns an ArrayAnnotationMap if <type>
-  // is an ARRAY.
+  // instance if <type> is a STRUCT.
   static std::unique_ptr<AnnotationMap> Create(const Type* type);
 
   AnnotationMap(const AnnotationMap&) = delete;
@@ -105,11 +110,16 @@ class AnnotationMap {
   }
 
   virtual bool IsStructMap() const { return false; }
+  ABSL_DEPRECATED("Please switch to use StructMap")
   virtual bool IsArrayMap() const { return false; }
+
   virtual StructAnnotationMap* AsStructMap() { return nullptr; }
   virtual const StructAnnotationMap* AsStructMap() const { return nullptr; }
-  virtual ArrayAnnotationMap* AsArrayMap() { return nullptr; }
-  virtual const ArrayAnnotationMap* AsArrayMap() const { return nullptr; }
+
+  ABSL_DEPRECATED("Inline me!")
+  StructAnnotationMap* AsArrayMap() { return AsStructMap(); }
+  ABSL_DEPRECATED("Inline me!")
+  const StructAnnotationMap* AsArrayMap() const { return AsStructMap(); }
 
   virtual std::string DebugString() const {
     return DebugStringInternal(/*annotation_spec_id=*/{});
@@ -191,25 +201,21 @@ class AnnotationMap {
   // Returns true if this AnnotationMap has compatible nested structure with
   // <type>. The structures are compatible when they meet one of the conditions
   // below:
-  // * This instance and <type> both are non-STRUCT/non-ARRAY.
-  // * This instance is a StructAnnotationMap and <type> is a STRUCT (and the
-  //   number of fields matches).
-  // * This instance is an ArrayAnnotationMap and <type> is an ARRAY.
-  // * The StructAnnotationMap field or ArrayAnnotationMap element is either
-  //   NULL or is compatible by recursively following these rules. When it is
-  //   NULL, it indicates that the annotation map is empty on all the nested
-  //   levels, and therefore such maps are compatible with any Type (including
-  //   structs and arrays).
+  // * This instance and <type> both are non-composite.
+  // * This instance is a StructAnnotationMap and <type> is composite, and the
+  //   corresponding component annotation maps and component types match.
+  // * The StructAnnotationMap field is either NULL or is compatible by
+  //   recursively following these rules. When it is NULL, it indicates that the
+  //   annotation map is empty on all the nested levels, and therefore such maps
+  //   are compatible with any Type (including composite ones).
   bool HasCompatibleStructure(const Type* type) const;
 
   // Returns a clone of this instance.
   std::unique_ptr<AnnotationMap> Clone() const;
 
   // Normalizes AnnotationMap by replacing empty annotation maps with NULL.
-  // After normalization, on all the nested levels:
-  //  * For a StructAnnotationMap, each one of its fields is either null or
-  //    non-empty.
-  //  * For an ArrayAnnotationMap, its element is either null or non-empty.
+  // After normalization, on all the nested levels. For a StructAnnotationMap,
+  // each one of its fields is either null or non-empty.
   void Normalize() { NormalizeInternal(); }
 
   // Returns true if this instance is in the simplest form described in
@@ -224,17 +230,15 @@ class AnnotationMap {
       const AnnotationMapProto& proto);
 
  protected:
-  AnnotationMap() {}
+  AnnotationMap() = default;
 
  private:
   friend class AnnotationTest;
   friend class StructAnnotationMap;
-  friend class ArrayAnnotationMap;
   friend class TypeFactory;
 
   // Returns estimated size of memory owned by this AnnotationMap. The estimated
-  // size includes size of the fields if this instance is a StructAnnotationMap
-  // and size of the element if this instance is an ArrayAnnotationMap.
+  // size includes size of the fields if this instance is a StructAnnotationMap.
   int64_t GetEstimatedOwnedMemoryBytesSize() const;
 
   // Decides if two AnnotationMap instances are equal.
@@ -257,7 +261,7 @@ class AnnotationMap {
   // Returns true if <lhs> has compatible nested structure with <rhs>. The
   // structures are compatible when they meet one of the conditions below:
   // * <lhs> and <rhs> are AnnotationMap, or StructAnnotationMap (with the same
-  //   number of fields), or ArrayAnnotationMap.
+  //   number of fields).
   // * <lhs> or <rhs> is either NULL or they are compatible recursively.
   static bool HasCompatibleStructure(const AnnotationMap* lhs,
                                      const AnnotationMap* rhs);
@@ -279,9 +283,31 @@ class AnnotationMap {
 // Represents annotations of a STRUCT type. In addition to the annotation on the
 // whole type, this class also keeps an AnnotationMap for each field of the
 // STRUCT type.
+//
+// TODO: We should rename this to `CompositeAnnotationMap`.
 class StructAnnotationMap : public AnnotationMap {
  public:
   bool IsStructMap() const override { return true; }
+
+  // Adding ArrayMap's methods here to ease the migration of callers to only
+  // use StructAnnotationMap (which will be renamed to CompositeAnnotationMap).
+  //
+  // TODO: Remove all legacy ArrayMap methods once all callers are
+  // migrated to use StructAnnotationMap.
+  ABSL_DEPRECATED("Inline me!")
+  bool IsArrayMap() const override { return num_fields() == 1; }
+
+  ABSL_DEPRECATED("Inline me!")
+  const AnnotationMap* element() const { return field(0); }
+
+  ABSL_DEPRECATED("Inline me!")
+  AnnotationMap* mutable_element() { return mutable_field(0); }
+
+  ABSL_DEPRECATED("Inline me!")
+  absl::Status CloneIntoElement(const AnnotationMap* from) {
+    return CloneIntoField(0, from);
+  }
+
   StructAnnotationMap* AsStructMap() override { return this; }
   const StructAnnotationMap* AsStructMap() const override { return this; }
 
@@ -309,7 +335,13 @@ class StructAnnotationMap : public AnnotationMap {
   friend class AnnotationTest;
   // Accessed only by AnnotationMap.
   StructAnnotationMap() = default;
+  // Leaving this temporarily to ease the migration of callers.
+  // Eventually this should be removed in favor of the more generic constructor
+  // that takes a span of component types.
+  ABSL_DEPRECATED("Use the constructor that takes a span of component types.")
   explicit StructAnnotationMap(const StructType* struct_type);
+
+  explicit StructAnnotationMap(absl::Span<const Type* const> component_types);
 
   // AnnotationMap on each struct field. Number of fields always match the
   // number of fields of the struct type that is used to create this
@@ -317,42 +349,6 @@ class StructAnnotationMap : public AnnotationMap {
   // indicates that the AnnotationMap for the field (and all its children if
   // applicable) is empty.
   std::vector<std::unique_ptr<AnnotationMap>> fields_;
-};
-
-// Represents annotation of an ARRAY type. In addition to the annotation on the
-// whole type, this class also keeps an AnnotationMap for the ARRAY's element
-// type.
-class ArrayAnnotationMap : public AnnotationMap {
- public:
-  bool IsArrayMap() const override { return true; }
-  ArrayAnnotationMap* AsArrayMap() override { return this; }
-  const ArrayAnnotationMap* AsArrayMap() const override { return this; }
-
-  AnnotationMap* mutable_element() { return element_.get(); }
-  const AnnotationMap* element() const { return element_.get(); }
-
-  // Clones <from> and overwrites what's in the array element.
-  // If <from> is nullptr, the array element is set to NULL.
-  // Returns an error if the array element and <from> don't have compatible
-  // structure as defined in AnnotationMap::HasCompatibleStructure(lhs, rhs)
-  absl::Status CloneIntoElement(const AnnotationMap* from);
-
-  std::string DebugStringInternal(
-      std::optional<int> annotation_spec_id) const override;
-
-  absl::Status Serialize(AnnotationMapProto* proto) const override;
-
- private:
-  friend class AnnotationMap;
-  friend class AnnotationTest;
-  // Accessed only by AnnotationMap.
-  ArrayAnnotationMap() = default;
-  explicit ArrayAnnotationMap(const ArrayType* array_type);
-
-  // AnnotationMap on array element. The unique_ptr can be null, which indicates
-  // that the AnnotationMap for the element (and all its children if applicable)
-  // is empty.
-  std::unique_ptr<AnnotationMap> element_;
 };
 
 // Holds unowned pointers to Type and AnnotationMap. <annotation_map> could be
@@ -368,7 +364,7 @@ struct AnnotatedType {
 
   // Maps from AnnotationSpec ID to annotation value. Could be null to indicate
   // the <type> doesn't have annotation.
-  const AnnotationMap* annotation_map = nullptr;
+  const AnnotationMap* /*absl_nullable*/ annotation_map = nullptr;
 
  private:
   // Friend classes that are allowed to access default constructor.
@@ -376,6 +372,7 @@ struct AnnotatedType {
   AnnotatedType() = default;
 };
 
+class ResolvedCast;
 class ResolvedColumnRef;
 class ResolvedFunctionCallBase;
 class ResolvedGetStructField;
@@ -446,6 +443,10 @@ class AnnotationSpec {
       const ResolvedRecursiveScan& recursive_scan,
       const std::vector<AnnotationMap*>& result_annotation_maps) = 0;
 
+  // Propagates annotations from the cast to <result_annotation_map>.
+  virtual absl::Status CheckAndPropagateForCast(
+      const ResolvedCast& cast, AnnotationMap* result_annotation_map) = 0;
+
   // TODO: add more functions to handle different resolved nodes.
 };
 
@@ -456,6 +457,8 @@ enum class AnnotationKind {
   // Annotation ID for the SampleAnnotation, which is used for testing
   // purposes only.
   kSampleAnnotation = 2,
+  // Annotation ID for zetasql::TimestampPrecisionAnnotation.
+  kTimestampPrecision = 3,
   // Annotation ID up to kMaxBuiltinAnnotationKind are reserved for zetasql
   // built-in annotations.
   kMaxBuiltinAnnotationKind = 10000,

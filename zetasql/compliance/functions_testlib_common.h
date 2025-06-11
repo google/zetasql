@@ -209,7 +209,7 @@ struct ComparisonTest {
 // construction. In case both output are errors, the <output_type> *must* be
 // explicitly specified (or the constructors will crash).
 // <required_features> specifies any language features (in addition to
-// FEATURE_V_1_2_CIVIL_TIME or FEATURE_TIMESTAMP_NANOS) that are required.
+// FEATURE_CIVIL_TIME or FEATURE_TIMESTAMP_NANOS) that are required.
 struct CivilTimeTestCase {
   CivilTimeTestCase(const std::vector<ValueConstructor>& input,
                     const absl::StatusOr<Value>& expected_output,
@@ -263,7 +263,7 @@ struct NormalizeTestCase {
   const bool is_casefold;
 };
 
-const std::string EscapeKey(bool sql_standard_mode, absl::string_view key);
+std::string EscapeKey(bool sql_standard_mode, absl::string_view key);
 
 Value StringToBytes(const Value& value);
 

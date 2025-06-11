@@ -20,11 +20,13 @@
 
 #include <algorithm>
 #include <memory>
+#include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
 
 #include "zetasql/analyzer/name_scope.h"
+#include "zetasql/common/graph_element_utils.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/id_string.h"
@@ -39,6 +41,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/hash/hash.h"
 #include "zetasql/base/check.h"
+#include "absl/log/log.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
@@ -312,9 +315,18 @@ static const ResolvedExpr* UnwindFieldAccesses(
   while (resolved_expr->node_kind() == RESOLVED_GRAPH_GET_ELEMENT_PROPERTY) {
     const ResolvedGraphGetElementProperty* get_element_property =
         resolved_expr->GetAs<ResolvedGraphGetElementProperty>();
-    name_path->mutable_name_path()->push_back(
-        id_string_pool->Make(get_element_property->property()->Name()));
-    resolved_expr = get_element_property->expr();
+    if (absl::StatusOr<std::string> property_name =
+            GetPropertyName(get_element_property);
+        property_name.ok()) {
+      name_path->mutable_name_path()->push_back(
+          id_string_pool->Make(*property_name));
+      resolved_expr = get_element_property->expr();
+    } else {
+      // If we fail to get the property name then we stop unwinding.
+      ABSL_DCHECK(false) << "Failed to get the property name out of expression: "
+                    << resolved_expr->DebugString();
+      break;
+    }
   }
   std::reverse(name_path->mutable_name_path()->begin(),
                name_path->mutable_name_path()->end());

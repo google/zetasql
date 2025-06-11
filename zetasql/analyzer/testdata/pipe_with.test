@@ -50,7 +50,7 @@ QueryStmt
 ==
 
 # Pipe WITH can be used in a subquery without setting
-# V_1_1_WITH_ON_SUBQUERY.
+# WITH_ON_SUBQUERY.
 [language_features=PIPES{{|,PIPE_WITH}}]
 FROM (
   SELECT 1
@@ -93,7 +93,7 @@ QueryStmt
           +-WithRefScan(column_list=t.[Key#4, Value#5], with_query_name="t")
 ==
 
-[default language_features=PIPES,PIPE_WITH,PIPE_IF,V_1_1_WITH_ON_SUBQUERY,V_1_3_WITH_RECURSIVE,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER]
+[default language_features=PIPES,PIPE_WITH,PIPE_IF,WITH_ON_SUBQUERY,WITH_RECURSIVE,WITH_RECURSIVE_DEPTH_MODIFIER]
 SELECT 1 x
 |> WITH t AS (SELECT 2 x, 3 y)
 |> JOIN t USING (x)
@@ -646,7 +646,7 @@ QueryStmt
 ==
 
 # RECURSIVE query, which requires the WITH_RECURSIVE feature too.
-[language_features=PIPES{{|,PIPE_WITH}}{{|,V_1_3_WITH_RECURSIVE}}]
+[language_features=PIPES{{|,PIPE_WITH}}{{|,WITH_RECURSIVE}}]
 select 1
 |> WITH RECURSIVE
       t1 AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM t1 WHERE n < 20)
@@ -654,7 +654,7 @@ select 1
 --
 ALTERNATION GROUPS:
     <empty>
-    ,V_1_3_WITH_RECURSIVE
+    ,WITH_RECURSIVE
 --
 ERROR: Pipe WITH not supported [at 2:1]
 |> WITH RECURSIVE
@@ -666,7 +666,7 @@ ERROR: RECURSIVE is not supported in the WITH clause [at 2:4]
 |> WITH RECURSIVE
    ^
 --
-ALTERNATION GROUP: ,PIPE_WITH,,V_1_3_WITH_RECURSIVE
+ALTERNATION GROUP: ,PIPE_WITH,,WITH_RECURSIVE
 --
 QueryStmt
 +-output_column_list=
@@ -728,7 +728,7 @@ QueryStmt
 ==
 
 # RECURSIVE WITH DEPTH, which requires the DEPTH feature.
-[language_features=PIPES{{|,PIPE_WITH}}{{|,V_1_3_WITH_RECURSIVE}}{{|,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER}}]
+[language_features=PIPES{{|,PIPE_WITH}}{{|,WITH_RECURSIVE}}{{|,WITH_RECURSIVE_DEPTH_MODIFIER}}]
 SELECT "abc" str
 |> WITH RECURSIVE Fibonacci AS (
       SELECT 0 AS x, 1 AS y
@@ -740,9 +740,9 @@ SELECT "abc" str
 --
 ALTERNATION GROUPS:
     <empty>
-    ,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER
-    ,V_1_3_WITH_RECURSIVE,
-    ,V_1_3_WITH_RECURSIVE,,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER
+    ,WITH_RECURSIVE_DEPTH_MODIFIER
+    ,WITH_RECURSIVE,
+    ,WITH_RECURSIVE,,WITH_RECURSIVE_DEPTH_MODIFIER
 --
 ERROR: Pipe WITH not supported [at 2:1]
 |> WITH RECURSIVE Fibonacci AS (
@@ -750,19 +750,19 @@ ERROR: Pipe WITH not supported [at 2:1]
 --
 ALTERNATION GROUPS:
     ,PIPE_WITH,,
-    ,PIPE_WITH,,,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER
+    ,PIPE_WITH,,,WITH_RECURSIVE_DEPTH_MODIFIER
 --
 ERROR: RECURSIVE is not supported in the WITH clause [at 2:4]
 |> WITH RECURSIVE Fibonacci AS (
    ^
 --
-ALTERNATION GROUP: ,PIPE_WITH,,V_1_3_WITH_RECURSIVE,
+ALTERNATION GROUP: ,PIPE_WITH,,WITH_RECURSIVE,
 --
 ERROR: Recursion depth modifier is not supported [at 6:7]
     ) WITH DEPTH
       ^
 --
-ALTERNATION GROUP: ,PIPE_WITH,,V_1_3_WITH_RECURSIVE,,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER
+ALTERNATION GROUP: ,PIPE_WITH,,WITH_RECURSIVE,,WITH_RECURSIVE_DEPTH_MODIFIER
 --
 QueryStmt
 +-output_column_list=

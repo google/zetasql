@@ -31,6 +31,7 @@
 #include "zetasql/parser/parser.h"
 #include "zetasql/proto/options.pb.h"
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/constant_evaluator.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/options.pb.h"
@@ -40,6 +41,7 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/base/case.h"
 #include "absl/base/attributes.h"
+#include "absl/base/nullability.h"
 #include "absl/container/btree_map.h"
 #include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
@@ -136,7 +138,7 @@ struct AllowedHintsAndOptions {
 
   // Add a differential_privacy option. <type> may be NULL to indicate that all
   // Types are allowed.
-  void AddDifferentialPrivacyOption(const std::string& name, const Type* type);
+  void AddDifferentialPrivacyOption(absl::string_view name, const Type* type);
 
   // Add a hint.
   // <qualifier> may be empty to add this hint only unqualified, but hints
@@ -537,12 +539,13 @@ class AnalyzerOptions {
     return data_->ddl_pseudo_columns_callback;
   }
 
-  void set_column_id_sequence_number(zetasql_base::SequenceNumber* sequence) {
-    data_->column_id_sequence_number = sequence;
-  }
-  zetasql_base::SequenceNumber* column_id_sequence_number() const {
+  void set_column_id_sequence_number(zetasql_base::SequenceNumber* sequence);
+  zetasql_base::SequenceNumber* /*absl_nullable*/ column_id_sequence_number() const {
     return data_->column_id_sequence_number;
   }
+
+  void SetSharedColumnIdSequenceNumber(
+      std::shared_ptr<zetasql_base::SequenceNumber> sequence);
 
   // Sets an IdStringPool for storing strings used in parsing and analysis.
   // If it is not set, then analysis will create a new IdStringPool for every
@@ -684,13 +687,6 @@ class AnalyzerOptions {
   }
   bool preserve_unnecessary_cast() const {
     return data_->preserve_unnecessary_cast;
-  }
-
-  void set_show_function_signature_mismatch_details(bool value) {
-    data_->show_function_signature_mismatch_details = value;
-  }
-  bool show_function_signature_mismatch_details() const {
-    return data_->show_function_signature_mismatch_details;
   }
 
   void set_replace_table_not_found_error_with_tvf_error_if_applicable(
@@ -842,6 +838,15 @@ class AnalyzerOptions {
     };
   }
 
+  // Returns the ConstantEvaluator to use for this AnalyzerOptions, if any.
+  // If provided, this will be used to evaluate SQL constants at analysis time.
+  ConstantEvaluator* /*absl_nullable*/ constant_evaluator() const {
+    return data_->constant_evaluator;
+  }
+  void set_constant_evaluator(ConstantEvaluator* constant_evaluator) {
+    data_->constant_evaluator = constant_evaluator;
+  }
+
  private:
   // Defined in zetasql/common/internal_analyzer_options.h.
   friend class InternalAnalyzerOptions;
@@ -909,6 +914,11 @@ class AnalyzerOptions {
     // This can be used to analyze multiple queries and ensure that
     // all resolved ASTs have non-overlapping column_ids.
     zetasql_base::SequenceNumber* column_id_sequence_number = nullptr;  // Not owned.
+
+    // Provided for clients that would like to tie the lifetime of the
+    // SequenceNumber to the lifetime of the AnalyzerOptions. Must be shared_ptr
+    // because AnalyzerOptions must be copyable.
+    std::shared_ptr<zetasql_base::SequenceNumber> shared_column_id_sequence_number;
 
     // Allocate parts of the parse tree and resolved AST in this arena.
     // The arena will also be referenced in AnalyzerOutput to keep it alive.
@@ -1033,8 +1043,6 @@ class AnalyzerOptions {
     // same.
     bool preserve_unnecessary_cast = false;
 
-    bool show_function_signature_mismatch_details = true;
-
     // If true, and a Catalog FindTable lookup for a Table name fails, then
     // check the name to see if it is a valid TVF name. If it is a valid TVF
     // name, then emit an error that the TVF was invoked without parens, rather
@@ -1064,6 +1072,10 @@ class AnalyzerOptions {
     //
     // Ignored when error_message_stability does not enable redaction.
     bool enhanced_error_redaction = false;
+
+    // Constant evaluator to use for SQLConstant evaluation.
+    // If nullptr, do not evaluate SQLConstant at analysis time.
+    ConstantEvaluator* constant_evaluator = nullptr;
   };
   std::unique_ptr<Data> data_;
 

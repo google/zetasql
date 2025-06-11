@@ -4,7 +4,6 @@
 # each user only contributes to one group.
 # We can't run the unparser because the rewrite generates TABLESAMPLE and the
 # TABLESAMPLE feature is not turned on.
-[default also_show_signature_mismatch_details]
 [default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [no_run_sqlbuilder]
@@ -357,6 +356,7 @@ QueryStmt
           +-max_groups_contributed=
             +-parse_location=41-69
             +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+              +-parse_location=66-69
               +-Literal(parse_location=66-67, type=INT64, value=1)
               +-Literal(parse_location=68-69, type=INT64, value=2)
 [REPLACED_LITERALS]

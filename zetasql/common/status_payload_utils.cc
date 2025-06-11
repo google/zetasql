@@ -56,7 +56,7 @@ std::string PayloadToString(absl::string_view type_url,
       google::protobuf::MessageFactory* factory =
           google::protobuf::MessageFactory::generated_factory();
       auto msg = absl::WrapUnique(factory->GetPrototype(desc)->New());
-      if (msg->ParseFromString(std::string(payload))) {
+      if (msg->ParseFromCord(payload)) {
         return absl::StrCat("[", descriptor_full_name, "] { ",
                             msg->ShortDebugString(), " }");
       }

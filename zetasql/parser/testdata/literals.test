@@ -234,6 +234,57 @@ select """\U123"""
           ^
 ==
 
+#Test that unaccepted escaped characters error out.
+SELECT "a\qc"
+--
+ERROR: Syntax error: Illegal escape sequence: \q [at 1:10]
+SELECT "a\qc"
+         ^
+==
+
+SELECT "a\~b"
+--
+ERROR: Syntax error: Illegal escape sequence: \~ [at 1:10]
+SELECT "a\~b"
+         ^
+==
+
+SELECT "a\+b"
+--
+ERROR: Syntax error: Illegal escape sequence: \+ [at 1:10]
+SELECT "a\+b"
+         ^
+==
+
+SELECT "a\/b"
+--
+ERROR: Syntax error: Illegal escape sequence: \/ [at 1:10]
+SELECT "a\/b"
+         ^
+==
+
+#UTF-8 Tests
+SELECT "\uE!82"
+--
+ERROR: Syntax error: Illegal escape sequence: \u must be followed by 4 hex digits but saw: \uE!82 [at 1:9]
+SELECT "\uE!82"
+        ^
+==
+
+SELECT "\UE282E282"
+--
+ERROR: Syntax error: Illegal escape sequence: Value of \UE282E282 exceeds Unicode limit (0x0010FFFF) [at 1:9]
+SELECT "\UE282E282"
+        ^
+==
+
+SELECT "\U0!00E282"
+--
+ERROR: Syntax error: Illegal escape sequence: \U must be followed by 8 hex digits but saw: \U0!00E282 [at 1:9]
+SELECT "\U0!00E282"
+        ^
+==
+
 select """line1
 line2
 line3""",
@@ -661,6 +712,13 @@ select 'ab\37AA'
           ^
 ==
 
+SELECT b"\12"
+--
+ERROR: Syntax error: Illegal escape sequence: Octal escape must be followed by 3 octal digits but saw: \12 [at 1:10]
+SELECT b"\12"
+         ^
+==
+
 # Invalid escape sequence, \c not valid.
 select 'ab\cA'
 --
@@ -800,6 +858,21 @@ select 'abc\xFG'
 ERROR: Syntax error: Illegal escape sequence: Hex escape must be followed by 2 hex digits but saw: \xFG [at 1:12]
 select 'abc\xFG'
            ^
+==
+
+SELECT "\x4"
+--
+ERROR: Syntax error: Illegal escape sequence: Hex escape must be followed by 2 hex digits but saw: \x4 [at 1:9]
+SELECT "\x4"
+        ^
+==
+
+#Test hex
+SELECT "\X4"
+--
+ERROR: Syntax error: Illegal escape sequence: Hex escape must be followed by 2 hex digits but saw: \X4 [at 1:9]
+SELECT "\X4"
+        ^
 ==
 
 select 'abc\u'
@@ -1234,6 +1307,20 @@ select b'''\x5''' as OneHexByteRequiresTwoDigits
            ^
 ==
 
+SELECT b"\x4"
+--
+ERROR: Syntax error: Illegal escape sequence: Hex escape must be followed by 2 hex digits but saw: \x4 [at 1:10]
+SELECT b"\x4"
+         ^
+==
+
+SELECT b"\X4"
+--
+ERROR: Syntax error: Illegal escape sequence: Hex escape must be followed by 2 hex digits but saw: \X4 [at 1:10]
+SELECT b"\X4"
+         ^
+==
+
 select b'\01'   as OneOctalByteRequiresThreeDigits
 --
 ERROR: Syntax error: Illegal escape sequence: Octal escape must be followed by 3 octal digits but saw: \01 [at 1:10]
@@ -1246,6 +1333,14 @@ select b'''\01''' as OneOctalByteRequiresThreeDigits
 ERROR: Syntax error: Illegal escape sequence: Octal escape must be followed by 3 octal digits but saw: \01 [at 1:12]
 select b'''\01''' as OneOctalByteRequiresThreeDigits
            ^
+==
+
+# Test octals.
+SELECT "\12"
+--
+ERROR: Syntax error: Illegal escape sequence: Octal escape must be followed by 3 octal digits but saw: \12 [at 1:9]
+SELECT "\12"
+        ^
 ==
 
 select b'\u0042';
@@ -1276,11 +1371,26 @@ select b'''\U00000042'''
            ^
 ==
 
+SELECT b"\uE282"
+--
+ERROR: Syntax error: Illegal escape sequence: Unicode escape sequence \u cannot be used in bytes literals [at 1:10]
+SELECT b"\uE282"
+         ^
+==
+
 select b'...
          ...'
 --
 ERROR: Syntax error: Unclosed bytes literal [at 1:8]
 select b'...
+       ^
+==
+
+SELECT b"a
+c"
+--
+ERROR: Syntax error: Unclosed bytes literal [at 1:8]
+SELECT b"a
        ^
 ==
 

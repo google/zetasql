@@ -30,7 +30,6 @@
 
 #include "zetasql/base/arena.h"
 #include "zetasql/base/testing/status_matchers.h"
-#include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/macros/diagnostic.h"
 #include "zetasql/parser/macros/flex_token_provider.h"
 #include "zetasql/parser/macros/macro_catalog.h"
@@ -38,6 +37,7 @@
 #include "zetasql/parser/macros/standalone_macro_expansion.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/parser/parser_mode.h"
 #include "zetasql/parser/tm_token.h"
 #include "zetasql/parser/token_with_location.h"
 #include "zetasql/public/error_location.pb.h"
@@ -159,7 +159,7 @@ static void PrintTo(const ExpansionOutput& expansion_output, std::ostream* os) {
   *os << "}\n";
 }
 
-absl::Nullable<StackFrame*> CreateChainedStackFrames(
+StackFrame* /*absl_nullable*/ CreateChainedStackFrames(
     std::vector<StackFrame> stack_frames,
     std::vector<std::unique_ptr<StackFrame>>& stack_frame_container) {
   std::reverse(stack_frames.begin(), stack_frames.end());
@@ -190,8 +190,7 @@ MATCHER(FrameEq, "") {
                             ::testing::get<1>(arg), result_listener);
 }
 
-std::vector<StackFrame> GetStackFrames(
-    absl::Nullable<StackFrame*> stack_frame) {
+std::vector<StackFrame> GetStackFrames(StackFrame* /*absl_nullable*/ stack_frame) {
   std::vector<StackFrame> stack_frames;
   while (stack_frame != nullptr) {
     stack_frames.push_back(*stack_frame);
@@ -324,11 +323,7 @@ static void RegisterMacros(absl::string_view source,
 // change unexpectedly. If it does, it may indicate that the size of the
 // StackFrame struct has increased unexpectedly, which could have performance
 // implications.
-// ErrorSource is excluded from the size calculation because its size is varied
-// depending on the build configuration.
-TEST(StackFrameTest, SizeOfStackFrame) {
-  EXPECT_EQ(sizeof(StackFrame) - sizeof(ErrorSource), 88);
-}
+TEST(StackFrameTest, SizeOfStackFrame) { EXPECT_EQ(sizeof(StackFrame), 152); }
 
 TEST(MacroExpanderTest, ExpandsEmptyMacros) {
   MacroCatalog macro_catalog;
@@ -560,13 +555,14 @@ TEST(MacroExpanderTest,
   EXPECT_THAT(ExpandMacros("\na$empty()1", macro_catalog,
                            /*is_strict=*/false),
               IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
-                  {Token::IDENTIFIER, MakeLocation(1, 2), "a1", "\n"},
+                  {Token::IDENTIFIER, MakeLocation(10, 11), "a1", "\n"},
                   {Token::EOI, MakeLocation(11, 11), "", ""}})));
 
   EXPECT_THAT(ExpandMacros("\na$empty()$int", macro_catalog,
                            /*is_strict=*/false),
               IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
-                  {Token::IDENTIFIER, MakeLocation(1, 2), "a123", "\n"},
+                  {Token::IDENTIFIER, MakeLocation(kDefsFileName, 114, 117),
+                   "a123", "\n"},
                   {Token::EOI, MakeLocation(14, 14), "", ""}})));
 
   EXPECT_THAT(ExpandMacros("\n$identifier$empty()1", macro_catalog,
@@ -628,7 +624,8 @@ TEST(MacroExpanderTest, CanExpandWithoutArgsWithSplicing) {
                    macro_catalog, /*is_strict=*/false),
       IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
           {Token::KW_SELECT, MakeLocation(0, 6), "select", ""},
-          {Token::IDENTIFIER, MakeLocation(7, 11), "tbl_123456", " "},
+          {Token::IDENTIFIER, MakeLocation(kDefsFileName, 78, 81), "tbl_123456",
+           " "},
           {Token::IDENTIFIER, MakeLocation(kDefsFileName, 142, 144), "pq", " ",
            MakeLocation(19, 35)},
           {Token::IDENTIFIER, MakeLocation(kDefsFileName, 145, 148), "abcxyz",
@@ -655,10 +652,13 @@ TEST(MacroExpanderTest, KeywordsCanSpliceToFormIdentifiers) {
                    macro_catalog, /*is_strict=*/false),
       IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
           // Note: spliced tokens take the first unexpanded location
-          {Token::IDENTIFIER, MakeLocation(0, 4), "FROM123", ""},
-          {Token::IDENTIFIER, MakeLocation(21, 25), "FROM123", "  "},
-          {Token::IDENTIFIER, MakeLocation(34, 38), "FROM123", "  "},
-          {Token::IDENTIFIER, MakeLocation(61, 65), "FROM2", "  "},
+          {Token::IDENTIFIER, MakeLocation(kDefsFileName, 20, 23), "FROM123",
+           ""},
+          {Token::IDENTIFIER, MakeLocation(kDefsFileName, 20, 23), "FROM123",
+           "  "},
+          {Token::IDENTIFIER, MakeLocation(kDefsFileName, 20, 23), "FROM123",
+           "  "},
+          {Token::IDENTIFIER, MakeLocation(73, 74), "FROM2", "  "},
           {Token::EOI, MakeLocation(74, 74), "", ""}})));
 }
 
@@ -741,7 +741,8 @@ TEST(MacroExpanderTest, CanHandleUnicode) {
   EXPECT_THAT(ExpandMacros("'$😀$unicode'", macro_catalog,
                            /*is_strict=*/false),
               IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
-                  {Token::STRING_LITERAL, MakeLocation(0, 15), "'$😀😀'", ""},
+                  {Token::STRING_LITERAL, MakeLocation(kDefsFileName, 21, 27),
+                   "'$😀😀'", ""},
                   {Token::EOI, MakeLocation(15, 15), "", ""},
               })));
 }
@@ -760,7 +761,8 @@ TEST(MacroExpanderTest, ExpandsWithinQuotedIdentifiers_SingleToken) {
                    macro_catalog, /*is_strict=*/false),
       IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
           {Token::KW_SELECT, MakeLocation(0, 6), "select", ""},
-          {Token::IDENTIFIER, MakeLocation(7, 52), "`abxyz456bq`", " "},
+          {Token::IDENTIFIER, MakeLocation(kDefsFileName, 24, 27),
+           "`abxyz456bq`", " "},
           {Token::EOI, MakeLocation(52, 52), "", ""},
       })));
 }
@@ -779,7 +781,8 @@ TEST(MacroExpanderTest, ExpandsWithinQuotedIdentifiers_SingleToken_WithSpaces) {
                    macro_catalog, /*is_strict=*/false),
       IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
           {Token::KW_SELECT, MakeLocation(0, 6), "select", ""},
-          {Token::IDENTIFIER, MakeLocation(7, 56), "`  abxyz456bq  `", " "},
+          {Token::IDENTIFIER, MakeLocation(kDefsFileName, 24, 27),
+           "`  abxyz456bq  `", " "},
           {Token::EOI, MakeLocation(57, 57), "", "\n"},
       })));
 }
@@ -800,8 +803,8 @@ TEST(MacroExpanderTest, ExpandsWithinQuotedIdentifiers_MultipleTokens) {
 
       IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
           {Token::KW_SELECT, MakeLocation(0, 6), "select", ""},
-          {Token::IDENTIFIER, MakeLocation(7, 60), "`  abxyz123 456bq  cd\t\t`",
-           "\n"},
+          {Token::IDENTIFIER, MakeLocation(kDefsFileName, 24, 27),
+           "`  abxyz123 456bq  cd\t\t`", "\n"},
           {Token::EOI, MakeLocation(61, 61), "", "\n"},
       })));
 }
@@ -891,35 +894,38 @@ TEST(MacroExpanderTest, ExpansionOfWhitespaceAndEmptyStringsIntoAnotherString) {
   MacroCatalog macro_catalog;
   RegisterMacros(R"sql(DEFINE MACRO m "" "";)sql", macro_catalog);
 
-  EXPECT_THAT(
-      ExpandMacros("SELECT ''' $m '''", macro_catalog,
-                   /*is_strict=*/false),
-      IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
-          {Token::KW_SELECT, MakeLocation(0, 6), "SELECT", ""},
-          {Token::STRING_LITERAL, MakeLocation(7, 17), R"sql(''' ''')sql", " "},
-          {Token::STRING_LITERAL, MakeLocation(kDefsFileName, 15, 17),
-           R"sql("")sql", " ", MakeLocation(11, 13)},
-          {Token::STRING_LITERAL, MakeLocation(7, 17), R"sql(''' ''')sql", " "},
-          {Token::STRING_LITERAL, MakeLocation(kDefsFileName, 18, 20),
-           R"sql("")sql", " ", MakeLocation(11, 13)},
-          {Token::STRING_LITERAL, MakeLocation(7, 17), R"sql(''' ''')sql", " "},
-          {Token::EOI, MakeLocation(17, 17), "", ""}})));
+  EXPECT_THAT(ExpandMacros("SELECT ''' $m '''", macro_catalog,
+                           /*is_strict=*/false),
+              IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
+                  {Token::KW_SELECT, MakeLocation(0, 6), "SELECT", ""},
+                  {Token::STRING_LITERAL, MakeLocation(kDefsFileName, 15, 17),
+                   R"sql(''' ''')sql", " "},
+                  {Token::STRING_LITERAL, MakeLocation(kDefsFileName, 15, 17),
+                   R"sql("")sql", " ", MakeLocation(11, 13)},
+                  {Token::STRING_LITERAL, MakeLocation(kDefsFileName, 15, 17),
+                   R"sql(''' ''')sql", " "},
+                  {Token::STRING_LITERAL, MakeLocation(kDefsFileName, 18, 20),
+                   R"sql("")sql", " ", MakeLocation(11, 13)},
+                  {Token::STRING_LITERAL, MakeLocation(kDefsFileName, 15, 17),
+                   R"sql(''' ''')sql", " "},
+                  {Token::EOI, MakeLocation(17, 17), "", ""}})));
 }
 
 TEST(MacroExpanderTest, SeparateParenthesesAreNotArgLists) {
   MacroCatalog macro_catalog;
   RegisterMacros("DEFINE MACRO m   bc   ;", macro_catalog);
 
-  EXPECT_THAT(ExpandMacros("a$m (x, y)", macro_catalog,
-                           /*is_strict=*/false),
-              IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
-                  {Token::IDENTIFIER, MakeLocation(0, 1), "abc", ""},
-                  {Token::LPAREN, MakeLocation(4, 5), "(", " "},
-                  {Token::IDENTIFIER, MakeLocation(5, 6), "x", ""},
-                  {Token::COMMA, MakeLocation(6, 7), ",", ""},
-                  {Token::IDENTIFIER, MakeLocation(8, 9), "y", " "},
-                  {Token::RPAREN, MakeLocation(9, 10), ")", ""},
-                  {Token::EOI, MakeLocation(10, 10), "", ""}})));
+  EXPECT_THAT(
+      ExpandMacros("a$m (x, y)", macro_catalog,
+                   /*is_strict=*/false),
+      IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
+          {Token::IDENTIFIER, MakeLocation(kDefsFileName, 17, 19), "abc", ""},
+          {Token::LPAREN, MakeLocation(4, 5), "(", " "},
+          {Token::IDENTIFIER, MakeLocation(5, 6), "x", ""},
+          {Token::COMMA, MakeLocation(6, 7), ",", ""},
+          {Token::IDENTIFIER, MakeLocation(8, 9), "y", " "},
+          {Token::RPAREN, MakeLocation(9, 10), ")", ""},
+          {Token::EOI, MakeLocation(10, 10), "", ""}})));
 }
 
 TEST(MacroExpanderTest,
@@ -996,8 +1002,8 @@ TEST(MacroExpanderTest, ExpandsArgs) {
                            macro_catalog, /*is_strict=*/false),
               IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
                   {Token::KW_SELECT, MakeLocation(0, 6), "select", ""},
-                  {Token::STRING_LITERAL, MakeLocation(kDefsFileName, 436, 440),
-                   "'x'", " ", MakeLocation(7, 26)},
+                  {Token::STRING_LITERAL, MakeLocation(22, 23), "'x'", " ",
+                   MakeLocation(7, 26)},
                   {Token::IDENTIFIER, MakeLocation(37, 38), "b89", " ",
                    MakeLocation(27, 49)},
                   {Token::COMMA, MakeLocation(49, 50), ",", ""},
@@ -1013,8 +1019,8 @@ TEST(MacroExpanderTest, ExpandsArgs) {
                    MakeLocation(51, 72)},
                   {Token::KW_FROM, MakeLocation(kDefsFileName, 102, 106),
                    "FROM", " ", MakeLocation(76, 97)},
-                  {Token::IDENTIFIER, MakeLocation(kDefsFileName, 107, 111),
-                   "tbl_123", " ", MakeLocation(76, 97)},
+                  {Token::IDENTIFIER, MakeLocation(91, 94), "tbl_123", " ",
+                   MakeLocation(76, 97)},
                   {Token::EOI, MakeLocation(98, 98), "", " "},
               })));
 }
@@ -1101,12 +1107,13 @@ TEST(MacroExpanderTest, UnknownArgsAreLeftUntouched) {
               {Token::MACRO_ARGUMENT_REFERENCE, MakeLocation(11, 13), "$1", ""},
               {Token::IDENTIFIER, MakeLocation(kDefsFileName, 77, 78), "x", "",
                MakeLocation(13, 38)},
-              {Token::STRING_LITERAL, MakeLocation(40, 67), "'x'", "  "},
+              {Token::STRING_LITERAL, MakeLocation(kDefsFileName, 77, 78),
+               "'x'", "  "},
               {Token::STRING_LITERAL, MakeLocation(kDefsFileName, 162, 169),
                "'\ty\t'", " ", MakeLocation(68, 91)},
               {Token::MACRO_ARGUMENT_REFERENCE, MakeLocation(92, 94), "$1",
                "\t"},
-              {Token::STRING_LITERAL, MakeLocation(95, 99), "'$2'", "\n"},
+              {Token::STRING_LITERAL, MakeLocation(96, 98), "'$2'", "\n"},
               {Token::EOI, MakeLocation(99, 99), "", ""}}),
           HasWarnings(ElementsAre(
               StatusIs(_, Eq("Invocation of macro 'unknown_not_in_a_literal' "
@@ -1313,7 +1320,10 @@ TEST_P(PositiveNestedLiteralTest, PositiveNestedLiteralTestParameterized) {
         ExpandMacros(unexpanded_sql, catalog,
                      /*is_strict=*/false),
         IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
-            {final_token_kind, MakeLocation(0, unexpanded_length),
+            {final_token_kind,
+             MakeLocation(kDefsFileName,
+                          static_cast<int>(macro_prefix.length()),
+                          static_cast<int>(macro_def_source.length())),
              QuoteText("1", outer_quoting), ""},
             {Token::EOI, MakeLocation(unexpanded_length, unexpanded_length), "",
              ""},
@@ -1329,7 +1339,10 @@ TEST_P(PositiveNestedLiteralTest, PositiveNestedLiteralTestParameterized) {
         ExpandMacros(unexpanded_sql, catalog,
                      /*is_strict=*/false),
         IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
-            {final_token_kind, MakeLocation(0, unexpanded_length),
+            {final_token_kind,
+             MakeLocation(kDefsFileName,
+                          static_cast<int>(macro_prefix.length()),
+                          static_cast<int>(macro_def_source.length())),
              QuoteText("", outer_quoting), ""},
             {final_token_kind,
              MakeLocation(kDefsFileName,
@@ -1339,7 +1352,10 @@ TEST_P(PositiveNestedLiteralTest, PositiveNestedLiteralTestParameterized) {
              MakeLocation(unexpanded_start_offset,
                           unexpanded_start_offset +
                               static_cast<int>(invocation.length()))},
-            {final_token_kind, MakeLocation(0, unexpanded_length),
+            {final_token_kind,
+             MakeLocation(kDefsFileName,
+                          static_cast<int>(macro_prefix.length()),
+                          static_cast<int>(macro_def_source.length())),
              QuoteText("", outer_quoting), " "},
             {Token::EOI, MakeLocation(unexpanded_length, unexpanded_length), "",
              ""},
@@ -1902,6 +1918,19 @@ TEST_P(MacroExpanderParameterizedTest,
           HasWarnings(IsEmpty()))));
 }
 
+TEST_P(MacroExpanderParameterizedTest, HandlesInfiniteRecursion) {
+  MacroCatalog macro_catalog;
+  RegisterMacros(
+      "DEFINE MACRO a $b();\n"
+      "DEFINE MACRO b $a();\n",
+      macro_catalog);
+
+  EXPECT_THAT(ExpandMacros("$a()", macro_catalog,
+                           /*is_strict=*/GetParam()),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Cycle detected in macro expansion")));
+}
+
 static void PrintTo(const Expansion& expansion, std::ostream* os) {
   *os << absl::StrFormat("{macro_name: %s, invocation: %s, expansion: %s}",
                          expansion.macro_name, expansion.full_match,
@@ -2117,6 +2146,27 @@ TEST_P(MacroExpanderParameterizedTest,
       }));
 }
 
+// Repro for b/415799606, where macro expansion has a cycle but in a manner that
+// doesn't run out of stack space. Cycle detector should catch this case.
+TEST_P(MacroExpanderParameterizedTest, FailsOnCycle) {
+  MacroCatalog macro_catalog;
+  RegisterMacros(
+      "DEFINE MACRO B $1;"
+      "DEFINE MACRO A $A($B($1));",
+      macro_catalog);
+  EXPECT_THAT(ExpandMacros("$A($B(0));", macro_catalog,
+                           /*is_strict=*/GetParam()),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Cycle detected in macro expansion")));
+}
+
+TEST_P(MacroExpanderParameterizedTest, ShouldNotDetectCycleInMacroExpansion) {
+  MacroCatalog macro_catalog;
+  RegisterMacros("DEFINE MACRO A $1;", macro_catalog);
+  ZETASQL_EXPECT_OK(ExpandMacros("$A($A($A(0)));", macro_catalog,
+                         /*is_strict=*/GetParam()));
+}
+
 INSTANTIATE_TEST_SUITE_P(MacroExpanderParameterizedTest,
                          MacroExpanderParameterizedTest, Bool());
 
@@ -2166,7 +2216,7 @@ TEST(MacroExpanderStackFramesTest, ExpandsIdentifiersSplicedWithIntLiterals) {
                            /*is_strict=*/false),
               IsOkAndHolds(TokensWithFrameEq(std::vector<TokenWithLocation>{
                   {.kind = Token::IDENTIFIER,
-                   .location = MakeLocation(1, 2),
+                   .location = MakeLocation(kDefsFileName, 114, 117),
                    .text = "a123",
                    .preceding_whitespaces = "\n",
                    .stack_frame = CreateChainedStackFrames(
@@ -2207,7 +2257,7 @@ TEST(MacroExpanderStackFramesTest, ExpandsWithQuotedIdentifiers_SingleToken) {
       IsOkAndHolds(TokensWithFrameEq(std::vector<TokenWithLocation>{
           {Token::KW_SELECT, MakeLocation(0, 6), "select", ""},
           {.kind = Token::IDENTIFIER,
-           .location = MakeLocation(7, 52),
+           .location = MakeLocation(kDefsFileName, 24, 27),
            .text = "`abxyz456bq`",
            .preceding_whitespaces = " ",
            .stack_frame = CreateChainedStackFrames(
@@ -2481,8 +2531,8 @@ TEST(MacroExpanderStackFramesTest,
                    /*is_strict=*/false),
       IsOkAndHolds(TokensWithFrameEq(std::vector<TokenWithLocation>{
           {Token::KW_SELECT, MakeLocation(0, 6), "select", ""},
-          {Token::STRING_LITERAL, MakeLocation(25, 31), "\"12\"", " ",
-           MakeLocation(7, 43),
+          {Token::STRING_LITERAL, MakeLocation(kDefsFileName, 15, 16), "\"12\"",
+           " ", MakeLocation(7, 43),
            CreateChainedStackFrames(
                {{"macro:x", FrameType::kMacroInvocation, MakeLocation(26, 28)},
                 {"arg:$1", FrameType::kMacroArg, MakeLocation(25, 31)},
@@ -2495,8 +2545,8 @@ TEST(MacroExpanderStackFramesTest,
                 {"macro:repeat1", FrameType::kMacroInvocation,
                  MakeLocation(7, 43)}},
                stack_frame_container)},
-          {Token::STRING_LITERAL, MakeLocation(25, 31), "\"12\"", " ",
-           MakeLocation(7, 43),
+          {Token::STRING_LITERAL, MakeLocation(kDefsFileName, 15, 16), "\"12\"",
+           " ", MakeLocation(7, 43),
            CreateChainedStackFrames(
                {{"macro:x", FrameType::kMacroInvocation, MakeLocation(26, 28)},
                 {"arg:$1", FrameType::kMacroArg, MakeLocation(25, 31)},
@@ -2521,7 +2571,7 @@ TEST(MacroExpanderStackFramesTest,
                 {"macro:repeat1", FrameType::kMacroInvocation,
                  MakeLocation(7, 43)}},
                stack_frame_container)},
-          {Token::IDENTIFIER, MakeLocation(34, 35), "a1", "",
+          {Token::IDENTIFIER, MakeLocation(kDefsFileName, 15, 16), "a1", "",
            MakeLocation(7, 43),
            CreateChainedStackFrames(
                {{"macro:x", FrameType::kMacroInvocation, MakeLocation(35, 37)},
@@ -2585,7 +2635,7 @@ TEST(MacroExpanderStackFramesTest,
                  MakeLocation(7, 43)}},
                stack_frame_container)},
 
-          {Token::IDENTIFIER, MakeLocation(34, 35), "a1", "",
+          {Token::IDENTIFIER, MakeLocation(kDefsFileName, 15, 16), "a1", "",
            MakeLocation(7, 43),
            CreateChainedStackFrames(
                {{"macro:x", FrameType::kMacroInvocation, MakeLocation(35, 37)},
@@ -2637,8 +2687,8 @@ TEST(MacroExpanderStackFramesTest,
                 {"macro:repeat1", FrameType::kMacroInvocation,
                  MakeLocation(7, 43)}},
                stack_frame_container)},
-          {Token::STRING_LITERAL, MakeLocation(25, 31), "\"12\"", " ",
-           MakeLocation(7, 43),
+          {Token::STRING_LITERAL, MakeLocation(kDefsFileName, 15, 16), "\"12\"",
+           " ", MakeLocation(7, 43),
            CreateChainedStackFrames(
                {{"macro:x", FrameType::kMacroInvocation, MakeLocation(26, 28)},
                 {"arg:$1", FrameType::kMacroArg, MakeLocation(25, 31)},
@@ -2651,8 +2701,8 @@ TEST(MacroExpanderStackFramesTest,
                 {"macro:repeat1", FrameType::kMacroInvocation,
                  MakeLocation(7, 43)}},
                stack_frame_container)},
-          {Token::STRING_LITERAL, MakeLocation(25, 31), "\"12\"", " ",
-           MakeLocation(7, 43),
+          {Token::STRING_LITERAL, MakeLocation(kDefsFileName, 15, 16), "\"12\"",
+           " ", MakeLocation(7, 43),
            CreateChainedStackFrames(
                {{"macro:x", FrameType::kMacroInvocation, MakeLocation(26, 28)},
                 {"arg:$1", FrameType::kMacroArg, MakeLocation(25, 31)},
@@ -2677,7 +2727,7 @@ TEST(MacroExpanderStackFramesTest,
                 {"macro:repeat1", FrameType::kMacroInvocation,
                  MakeLocation(7, 43)}},
                stack_frame_container)},
-          {Token::IDENTIFIER, MakeLocation(34, 35), "a1", "",
+          {Token::IDENTIFIER, MakeLocation(kDefsFileName, 15, 16), "a1", "",
            MakeLocation(7, 43),
            CreateChainedStackFrames(
                {{"macro:x", FrameType::kMacroInvocation, MakeLocation(35, 37)},
@@ -2740,7 +2790,7 @@ TEST(MacroExpanderStackFramesTest,
                 {"macro:repeat1", FrameType::kMacroInvocation,
                  MakeLocation(7, 43)}},
                stack_frame_container)},
-          {Token::IDENTIFIER, MakeLocation(34, 35), "a1", "",
+          {Token::IDENTIFIER, MakeLocation(kDefsFileName, 15, 16), "a1", "",
            MakeLocation(7, 43),
            CreateChainedStackFrames(
                {{"macro:x", FrameType::kMacroInvocation, MakeLocation(35, 37)},

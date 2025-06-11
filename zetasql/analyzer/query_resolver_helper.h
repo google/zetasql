@@ -19,6 +19,7 @@
 
 #include <stddef.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <limits>
 #include <map>
@@ -281,7 +282,7 @@ struct QueryGroupByAndAggregateInfo {
   // expressions.  Second pass resolution of expressions will use these
   // computed columns for the given aggregate expression.
   // Not owned.
-  // The ResolvedComputedColumns are owned by <aggregate_columns_>.
+  // The ResolvedComputedColumns are owned by `aggregate_columns_to_compute`.
   std::map<const ASTFunctionCall*, const ResolvedComputedColumnBase*>
       aggregate_expr_map;
 
@@ -318,9 +319,9 @@ struct QueryGroupByAndAggregateInfo {
 
   // Aggregate function calls that must be computed.
   // This is built up as expressions are resolved.  During expression
-  // resolution, aggregate functions are moved into <aggregate_columns_> and
-  // replaced by a ResolvedColumnRef pointing at the ResolvedColumn created
-  // here.
+  // resolution, aggregate functions are moved into
+  // `aggregate_columns_to_compute` and replaced by a ResolvedColumnRef pointing
+  // at the ResolvedColumn created here.
   std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>
       aggregate_columns_to_compute;
 
@@ -834,6 +835,23 @@ class QueryResolutionInfo {
     ABSL_DCHECK(scoped_aggregate_columns_to_compute().begin()->first.empty());
     return std::move(
         release_scoped_aggregate_columns_to_compute().at(IdString()));
+  }
+
+  // Returns the ASTFunctionCall for the given aggregate `column`, or nullptr if
+  // column is not an aggregate column (or not found).
+  const ASTFunctionCall* GetASTFunctionCallForAggregateColumn(
+      const ResolvedComputedColumnBase* column) const {
+    auto it = std::find_if(
+        group_by_info_.aggregate_expr_map.begin(),
+        group_by_info_.aggregate_expr_map.end(),
+        [column](const std::pair<const ASTFunctionCall*,
+                                 const ResolvedComputedColumnBase*>& entry) {
+          return entry.second == column;
+        });
+    if (it == group_by_info_.aggregate_expr_map.end()) {
+      return nullptr;
+    }
+    return it->first;
   }
 
   // Pins this QueryResolutionInfo to the row range as specified by

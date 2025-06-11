@@ -393,7 +393,16 @@ QueryStmt
 
 select -(0x8000000000000000)
 --
-ERROR: No matching signature for operator - for argument types: UINT64. Supported signatures: -(INT32); -(INT64); -(FLOAT); -(DOUBLE) [at 1:8]
+ERROR: No matching signature for operator -
+  Argument types: UINT64
+  Signature: -(INT32)
+    Argument 1: Unable to coerce type UINT64 to expected type INT32
+  Signature: -(INT64)
+    Argument 1: Unable to coerce type UINT64 to expected type INT64
+  Signature: -(FLOAT)
+    Argument 1: Unable to coerce type UINT64 to expected type FLOAT
+  Signature: -(DOUBLE)
+    Argument 1: Unable to coerce type UINT64 to expected type DOUBLE [at 1:8]
 select -(0x8000000000000000)
        ^
 ==
@@ -1939,11 +1948,11 @@ SELECT JSON '0.142857142857142857142857142857142857'
        ^
 ==
 
-[language_features={{BIGNUMERIC_TYPE,V_1_3_DECIMAL_ALIAS|BIGNUMERIC_TYPE|V_1_3_DECIMAL_ALIAS|}}]
+[language_features={{BIGNUMERIC_TYPE,DECIMAL_ALIAS|BIGNUMERIC_TYPE|DECIMAL_ALIAS|}}]
 SELECT BIGDECIMAL '1'
 --
 ALTERNATION GROUPS:
-    BIGNUMERIC_TYPE,V_1_3_DECIMAL_ALIAS
+    BIGNUMERIC_TYPE,DECIMAL_ALIAS
     BIGNUMERIC_TYPE
 --
 QueryStmt
@@ -1958,7 +1967,7 @@ QueryStmt
       +-SingleRowScan
 --
 ALTERNATION GROUPS:
-    V_1_3_DECIMAL_ALIAS
+    DECIMAL_ALIAS
     <empty>
 --
 ERROR: BIGDECIMAL literals are not supported [at 1:8]
@@ -1966,11 +1975,11 @@ SELECT BIGDECIMAL '1'
        ^
 ==
 
-[language_features={{NUMERIC_TYPE,V_1_3_DECIMAL_ALIAS|NUMERIC_TYPE|V_1_3_DECIMAL_ALIAS|}}]
+[language_features={{NUMERIC_TYPE,DECIMAL_ALIAS|NUMERIC_TYPE|DECIMAL_ALIAS|}}]
 SELECT DECIMAL '1'
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,V_1_3_DECIMAL_ALIAS
+    NUMERIC_TYPE,DECIMAL_ALIAS
     NUMERIC_TYPE
 --
 QueryStmt
@@ -1985,7 +1994,7 @@ QueryStmt
       +-SingleRowScan
 --
 ALTERNATION GROUPS:
-    V_1_3_DECIMAL_ALIAS
+    DECIMAL_ALIAS
     <empty>
 --
 ERROR: DECIMAL literals are not supported [at 1:8]
@@ -1993,11 +2002,11 @@ SELECT DECIMAL '1'
        ^
 ==
 
-[language_features={{NUMERIC_TYPE,V_1_3_DECIMAL_ALIAS|NUMERIC_TYPE|V_1_3_DECIMAL_ALIAS|}}]
+[language_features={{NUMERIC_TYPE,DECIMAL_ALIAS|NUMERIC_TYPE|DECIMAL_ALIAS|}}]
 SELECT DECIMAL ''
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,V_1_3_DECIMAL_ALIAS
+    NUMERIC_TYPE,DECIMAL_ALIAS
     NUMERIC_TYPE
 --
 ERROR: Invalid DECIMAL literal: "" [at 1:8]
@@ -2005,7 +2014,7 @@ SELECT DECIMAL ''
        ^
 --
 ALTERNATION GROUPS:
-    V_1_3_DECIMAL_ALIAS
+    DECIMAL_ALIAS
     <empty>
 --
 ERROR: DECIMAL literals are not supported [at 1:8]
@@ -2013,11 +2022,11 @@ SELECT DECIMAL ''
        ^
 ==
 
-[language_features={{BIGNUMERIC_TYPE,V_1_3_DECIMAL_ALIAS|BIGNUMERIC_TYPE|V_1_3_DECIMAL_ALIAS|}}]
+[language_features={{BIGNUMERIC_TYPE,DECIMAL_ALIAS|BIGNUMERIC_TYPE|DECIMAL_ALIAS|}}]
 SELECT BIGDECIMAL ''
 --
 ALTERNATION GROUPS:
-    BIGNUMERIC_TYPE,V_1_3_DECIMAL_ALIAS
+    BIGNUMERIC_TYPE,DECIMAL_ALIAS
     BIGNUMERIC_TYPE
 --
 ERROR: Invalid BIGDECIMAL literal: "" [at 1:8]
@@ -2025,7 +2034,7 @@ SELECT BIGDECIMAL ''
        ^
 --
 ALTERNATION GROUPS:
-    V_1_3_DECIMAL_ALIAS
+    DECIMAL_ALIAS
     <empty>
 --
 ERROR: BIGDECIMAL literals are not supported [at 1:8]
@@ -2082,7 +2091,7 @@ QueryStmt
 ==
 
 [show_sqlbuilder_output]
-[language_features={{|V_1_4_LITERAL_CONCATENATION}}]
+[language_features={{|LITERAL_CONCATENATION}}]
 select 'x' "y"
 --
 
@@ -2092,7 +2101,7 @@ ERROR: Concatenation of subsequent string literals is not supported. Did you mea
 select 'x' "y"
            ^
 --
-ALTERNATION GROUP: V_1_4_LITERAL_CONCATENATION
+ALTERNATION GROUP: LITERAL_CONCATENATION
 --
 QueryStmt
 +-output_column_list=
@@ -2117,7 +2126,7 @@ SELECT
 ==
 
 [show_sqlbuilder_output]
-[language_features={{|V_1_4_LITERAL_CONCATENATION}}]
+[language_features={{|LITERAL_CONCATENATION}}]
 select b'x' b"y"
 --
 ALTERNATION GROUP: <empty>
@@ -2126,7 +2135,7 @@ ERROR: Concatenation of subsequent bytes literals is not supported. Did you mean
 select b'x' b"y"
             ^
 --
-ALTERNATION GROUP: V_1_4_LITERAL_CONCATENATION
+ALTERNATION GROUP: LITERAL_CONCATENATION
 --
 QueryStmt
 +-output_column_list=

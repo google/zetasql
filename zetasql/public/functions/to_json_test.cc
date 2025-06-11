@@ -55,7 +55,7 @@ constexpr absl::StatusCode kUnimplemented = absl::StatusCode::kUnimplemented;
 TEST(ToJsonTest, Compliance) {
   const std::vector<FunctionTestCall> tests = GetFunctionTestsToJson();
   const QueryParamsWithResult::FeatureSet default_feature_set = {
-      FEATURE_V_1_2_CIVIL_TIME, FEATURE_TIMESTAMP_NANOS};
+      FEATURE_CIVIL_TIME, FEATURE_TIMESTAMP_NANOS};
 
   for (const FunctionTestCall& test : tests) {
     if (std::any_of(test.params.params().begin(), test.params.params().end(),
@@ -133,6 +133,8 @@ TEST(ToJsonTest, LegacyCanonicalizeZeroFloat) {
 
 TEST(ToJsonTest, GraphNode) {
   zetasql::LanguageOptions language_options;
+  language_options.EnableLanguageFeature(
+      FEATURE_SQL_GRAPH_ELEMENT_DEFINITION_NAME_IN_JSON_RESULT);
   const Value p0_value = Value::String("v0");
   const Value p1_value = Value::Int32(1);
   const Value node = test_values::GraphNode(
@@ -146,6 +148,7 @@ TEST(ToJsonTest, GraphNode) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue expectation,
                        JSONValue::ParseJSONString(absl::Substitute(
                            R"json({
+    "element_definition_name":"ElementTable",
     "identifier": "$0",
     "kind": "node",
     "labels": ["label_1", "label_2"],
@@ -161,6 +164,8 @@ TEST(ToJsonTest, GraphNode) {
 
 TEST(ToJsonTest, GraphEdge) {
   LanguageOptions language_options;
+  language_options.EnableLanguageFeature(
+      FEATURE_SQL_GRAPH_ELEMENT_DEFINITION_NAME_IN_JSON_RESULT);
   const Value p0_value = Value::String("v0");
   const Value p1_value = Value::Int32(1);
   const Value edge = test_values::GraphEdge(
@@ -175,6 +180,7 @@ TEST(ToJsonTest, GraphEdge) {
       JSONValue expectation,
       JSONValue::ParseJSONString(absl::Substitute(
           R"json({
+    "element_definition_name":"ElementTable",
     "identifier": "$0",
     "kind": "edge",
     "labels": ["label_1", "label_2"],
@@ -191,8 +197,92 @@ TEST(ToJsonTest, GraphEdge) {
             values::Json(std::move(expectation)));
 }
 
+TEST(ToJsonTest, DynamicGraphNode) {
+  zetasql::LanguageOptions language_options;
+  language_options.EnableLanguageFeature(
+      FEATURE_SQL_GRAPH_ELEMENT_DEFINITION_NAME_IN_JSON_RESULT);
+  const Value p0_value = Value::String("v0");
+  const Value p1_value = Value::Int32(1);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue dynamic_properties,
+                       JSONValue::ParseJSONString(R"json({
+    "P1": "random string value",
+    "p3": 3
+  })json"));
+  const Value node = test_values::DynamicGraphNode(
+      {"graph_name"}, "id", {{"P0", p0_value}, {"p1", p1_value}},
+      dynamic_properties.GetConstRef(), /*static_labels=*/{"label_1"},
+      /*dynamic_labels=*/{"label_1", "lABeL_1", "lABeL_2"}, "ElementTable");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      JSONValue output,
+      ToJson(node, /*stringify_wide_numbers=*/false, language_options,
+             /*canonicalize_zero=*/false, kUnsupportFieldsDefault));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue expectation,
+                       JSONValue::ParseJSONString(absl::Substitute(
+                           R"json({
+    "element_definition_name":"ElementTable",
+    "identifier": "$0",
+    "kind": "node",
+    "labels": ["label_1", "lABeL_2"],
+    "properties": {
+      "P0": "v0",
+      "p1": 1,
+      "p3": 3
+    }
+  })json",
+                           absl::Base64Escape("id"))));
+  EXPECT_EQ(values::Json(std::move(output)),
+            values::Json(std::move(expectation)));
+}
+
+TEST(ToJsonTest, DynamicGraphEdge) {
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(
+      FEATURE_SQL_GRAPH_ELEMENT_DEFINITION_NAME_IN_JSON_RESULT);
+  const Value p0_value = Value::String("v0");
+  const Value p1_value = Value::Int32(1);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue dynamic_properties,
+                       JSONValue::ParseJSONString(R"json({
+    "P1": "random string value",
+    "p3": 3
+  })json"));
+  const Value edge = test_values::DynamicGraphEdge(
+      {"graph_name"}, "id", {{"P0", p0_value}, {"p1", p1_value}},
+      dynamic_properties.GetConstRef(),
+      /*static_labels=*/{"label_1"},
+      /*dynamic_labels=*/{"label_1", "lABeL_1", "lABeL_2"}, "ElementTable",
+      "src_node_id", "dst_node_id");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      JSONValue output,
+      ToJson(edge, /*stringify_wide_numbers=*/false, language_options,
+             /*canonicalize_zero=*/false, kUnsupportFieldsDefault));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      JSONValue expectation,
+      JSONValue::ParseJSONString(absl::Substitute(
+          R"json({
+    "element_definition_name":"ElementTable",
+    "identifier": "$0",
+    "kind": "edge",
+    "labels": ["label_1", "lABeL_2"],
+    "properties": {
+      "P0": "v0",
+      "p1": 1,
+      "p3": 3
+    },
+    "source_node_identifier": "$1",
+    "destination_node_identifier": "$2"
+  })json",
+          absl::Base64Escape("id"), absl::Base64Escape("src_node_id"),
+          absl::Base64Escape("dst_node_id"))));
+  EXPECT_EQ(values::Json(std::move(output)),
+            values::Json(std::move(expectation)));
+}
+
 TEST(ToJsonTest, GraphPath) {
   LanguageOptions language_options;
+  language_options.EnableLanguageFeature(
+      FEATURE_SQL_GRAPH_ELEMENT_DEFINITION_NAME_IN_JSON_RESULT);
   const Value p0_value = Value::String("v0");
   const Value p1_value = Value::Int32(1);
   const Value node1 = test_values::GraphNode(
@@ -220,6 +310,7 @@ TEST(ToJsonTest, GraphPath) {
       JSONValue::ParseJSONString(absl::Substitute(
           R"json([
     {
+      "element_definition_name":"ElementTable",
       "identifier": "$0",
       "kind": "node",
       "labels": ["label_1", "label_2"],
@@ -229,6 +320,7 @@ TEST(ToJsonTest, GraphPath) {
       }
     },
     {
+      "element_definition_name":"ElementTable",
       "identifier": "$1",
       "kind": "edge",
       "labels": ["label_1", "label_2"],
@@ -240,6 +332,7 @@ TEST(ToJsonTest, GraphPath) {
       "destination_node_identifier": "$3"
     },
     {
+      "element_definition_name":"ElementTable",
       "identifier": "$4",
       "kind": "node",
       "labels": ["label_1", "label_2"],

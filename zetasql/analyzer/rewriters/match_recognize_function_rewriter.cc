@@ -73,7 +73,7 @@ class MatchRecognizeFunctionVisitor : public ResolvedASTRewriteVisitor {
     ResolvedAggregateFunctionCallBuilder builder = ToBuilder(std::move(node));
 
     if (!analyzer_options_.language().LanguageFeatureEnabled(
-            FEATURE_V_1_1_HAVING_IN_AGGREGATE)) {
+            FEATURE_HAVING_IN_AGGREGATE)) {
       return absl::UnimplementedError(
           "The rewrite for MATCH_RECOGNIZE FIRST() and LAST() requires support "
           "for HAVING MIN/MAX in aggregates");

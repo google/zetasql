@@ -16,7 +16,6 @@
 
 #include "zetasql/tools/execute_query/execute_query_prompt.h"
 
-#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -32,8 +31,6 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
-#include "absl/strings/escaping.h"
-#include "absl/strings/str_format.h"
 #include "absl/types/span.h"
 
 using testing::AllOf;

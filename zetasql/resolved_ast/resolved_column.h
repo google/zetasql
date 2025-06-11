@@ -25,6 +25,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/serialization.pb.h"
+#include "absl/base/nullability.h"
 #include "absl/hash/hash.h"
 #include "absl/status/statusor.h"
 
@@ -122,7 +123,7 @@ class ResolvedColumn {
 
   const Type* type() const { return annotated_type_.type; }
 
-  const AnnotationMap* type_annotation_map() const {
+  const AnnotationMap* /*absl_nullable*/ type_annotation_map() const {
     return annotated_type_.annotation_map;
   }
 

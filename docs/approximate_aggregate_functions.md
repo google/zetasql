@@ -394,8 +394,6 @@ UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
 
 [hll-functions]: https://github.com/google/zetasql/blob/master/docs/hll_functions.md
 
-[kll-functions]: https://github.com/google/zetasql/blob/master/docs/kll_functions.md#kll_quantile_functions
-
 [aggregate-functions-reference]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md
 
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md

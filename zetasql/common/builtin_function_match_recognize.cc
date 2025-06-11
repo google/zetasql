@@ -39,6 +39,15 @@ static FunctionSignatureOptions SetRewriter(ResolvedASTRewrite rewriter) {
 void GetMatchRecognizeFunctions(TypeFactory* type_factory,
                                 const ZetaSQLBuiltinFunctionOptions& options,
                                 NameToFunctionMap* functions) {
+  const FunctionArgumentType::ArgumentCardinality OPTIONAL =
+      FunctionArgumentType::OPTIONAL;
+
+  auto optional_non_null_non_agg_constant = FunctionArgumentTypeOptions()
+                                                .set_cardinality(OPTIONAL)
+                                                .set_is_not_aggregate()
+                                                .set_must_be_constant()
+                                                .set_must_be_non_null();
+
   FunctionOptions nav_agg_options =
       FunctionOptions()
           .set_supports_safe_error_mode(false)
@@ -51,7 +60,7 @@ void GetMatchRecognizeFunctions(TypeFactory* type_factory,
           .set_supports_window_framing(false)
           .set_window_ordering_support(FunctionEnums::ORDER_UNSUPPORTED)
           .set_supports_group_by_modifier(false)
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_MATCH_RECOGNIZE);
+          .AddRequiredLanguageFeature(FEATURE_MATCH_RECOGNIZE);
 
   // FIRST<T>(T) -> T
   // This is a navigation function used only inside MATCH_RECOGNZIE.
@@ -71,12 +80,34 @@ void GetMatchRecognizeFunctions(TypeFactory* type_factory,
                    SetRewriter(REWRITE_MATCH_RECOGNIZE_FUNCTION)}},
                  nav_agg_options);
 
-  // MATCH_NUMBER() -> int64_t
+  // NEXT() is a navigation function used only inside MATCH_RECOGNZIE.
+  // Currently operates just like LEAD(), and is resolved as such.
+  // Note that it's marked as SCALAR, but not allowed to be nested.
+  InsertFunction(
+      functions, options, "next", Function::SCALAR,
+      {{ARG_TYPE_ANY_1,
+        {ARG_TYPE_ANY_1,
+         {type_factory->get_int64(), optional_non_null_non_agg_constant}},
+        FN_NEXT}},
+      nav_agg_options);
+
+  // PREV() is a navigation function used only inside MATCH_RECOGNZIE.
+  // Currently operates just like LAG(), and is resolved as such.
+  // Note that it's marked as SCALAR, but not allowed to be nested.
+  InsertFunction(
+      functions, options, "prev", Function::SCALAR,
+      {{ARG_TYPE_ANY_1,
+        {ARG_TYPE_ANY_1,
+         {type_factory->get_int64(), optional_non_null_non_agg_constant}},
+        FN_PREV}},
+      nav_agg_options);
+
+  // MATCH_NUMBER() -> int64
   InsertFunction(functions, options, "match_number", Function::SCALAR,
                  {{type_factory->get_int64(), {}, FN_MATCH_NUMBER}},
                  nav_agg_options);
 
-  // MATCH_ROW_NUMBER() -> int64_t
+  // MATCH_ROW_NUMBER() -> int64
   InsertFunction(functions, options, "match_row_number", Function::SCALAR,
                  {{type_factory->get_int64(), {}, FN_MATCH_ROW_NUMBER}},
                  nav_agg_options);

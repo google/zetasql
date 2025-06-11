@@ -1,0 +1,63 @@
+[default required_features=LATERAL_JOIN,CREATE_TABLE_FUNCTION,TABLE_VALUED_FUNCTIONS]
+
+[prepare_database]
+CREATE TABLE R AS
+  SELECT 1 AS id, 1 AS a, cast("a1" as string) as str UNION ALL
+  SELECT 2, 2, "a2"
+--
+ARRAY<STRUCT<id INT64, a INT64, str STRING>>[{1, 1, "a1"}, {2, 2, "a2"}]
+==
+[prepare_database]
+CREATE TABLE S AS
+  SELECT 1 AS id, 2 AS a, cast("b21" as string) as str UNION ALL
+  SELECT 2, 2, "b22" UNION ALL
+  SELECT 3, 3, "b3"
+--
+ARRAY<STRUCT<id INT64, a INT64, str STRING>>[
+  {1, 2, "b21"},
+  {2, 2, "b22"},
+  {3, 3, "b3"}
+]
+==
+
+[prepare_database]
+CREATE TABLE FUNCTION tvf(c INT64) AS (
+  SELECT * FROM (
+    SELECT 1 AS id, 1 AS category, "from_tvf_v1_1" AS a UNION ALL
+    SELECT 1 AS id, 1 AS category, "from_tvf_v1_2" AS a UNION ALL
+    SELECT 1 AS id, 2 AS category, "from_tvf_v1_3" AS a UNION ALL
+    SELECT 2 AS id, 2 AS category, "from_tvf_v2_1" AS a UNION ALL
+    SELECT 2 AS id, 3 AS category, "from_tvf_v2_2" AS a UNION ALL
+    SELECT 2 AS id, 2 AS category, "from_tvf_v2_3" AS a
+  ) AS t
+  WHERE t.category = c
+)
+==
+
+[name=lateral_join_with_tvf]
+SELECT S.*, L.*
+FROM S, LATERAL(select * from tvf(S.id)) AS L
+ORDER BY S.id, L.id
+--
+ARRAY<STRUCT<id INT64, a INT64, str STRING, id INT64, category INT64, a STRING>>[unknown order:
+  {1, 2, "b21", 1, 1, "from_tvf_v1_2"},
+  {1, 2, "b21", 1, 1, "from_tvf_v1_1"},
+  {2, 2, "b22", 1, 2, "from_tvf_v1_3"},
+  {2, 2, "b22", 2, 2, "from_tvf_v2_3"},
+  {2, 2, "b22", 2, 2, "from_tvf_v2_1"},
+  {3, 3, "b3", 2, 3, "from_tvf_v2_2"}
+]
+==
+
+[name=lateral_left_join_with_tvf]
+SELECT S.*, L.*
+FROM S LEFT JOIN LATERAL(select * from tvf(S.id * 2)) AS L ON true
+ORDER BY S.id, L.id
+--
+ARRAY<STRUCT<id INT64, a INT64, str STRING, id INT64, category INT64, a STRING>>[unknown order:
+  {1, 2, "b21", 1, 2, "from_tvf_v1_3"},
+  {1, 2, "b21", 2, 2, "from_tvf_v2_1"},
+  {1, 2, "b21", 2, 2, "from_tvf_v2_3"},
+  {2, 2, "b22", NULL, NULL, NULL},
+  {3, 3, "b3", NULL, NULL, NULL}
+]

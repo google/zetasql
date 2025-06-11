@@ -153,7 +153,7 @@ absl::Status GetDistanceFunctions(TypeFactory* type_factory,
        FN_COSINE_DISTANCE_SPARSE_STRING}};
 
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_ENABLE_FLOAT_DISTANCE_FUNCTIONS)) {
+          FEATURE_ENABLE_FLOAT_DISTANCE_FUNCTIONS)) {
     cosine_signatures.push_back(
         {types::DoubleType(),
          {types::FloatArrayType(), types::FloatArrayType()},
@@ -212,7 +212,7 @@ absl::Status GetDistanceFunctions(TypeFactory* type_factory,
        FN_EUCLIDEAN_DISTANCE_SPARSE_STRING}};
 
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_ENABLE_FLOAT_DISTANCE_FUNCTIONS)) {
+          FEATURE_ENABLE_FLOAT_DISTANCE_FUNCTIONS)) {
     euclidean_signatures.push_back(
         {types::DoubleType(),
          {types::FloatArrayType(), types::FloatArrayType()},
@@ -312,7 +312,7 @@ absl::Status GetDistanceFunctions(TypeFactory* type_factory,
 
   FunctionSignatureOptions dot_product_signature_options =
       SetDefinitionForInlining(dot_product_sql, true)
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_DOT_PRODUCT);
+          .AddRequiredLanguageFeature(FEATURE_DOT_PRODUCT);
 
   std::vector<FunctionSignatureOnHeap> dot_product_signatures = {
       {types::DoubleType(),
@@ -391,7 +391,7 @@ absl::Status GetDistanceFunctions(TypeFactory* type_factory,
 
   FunctionSignatureOptions manhattan_distance_signature_options =
       SetDefinitionForInlining(manhattan_distance_sql, true)
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_MANHATTAN_DISTANCE);
+          .AddRequiredLanguageFeature(FEATURE_MANHATTAN_DISTANCE);
 
   std::vector<FunctionSignatureOnHeap> manhattan_distance_signatures = {
       {types::DoubleType(),
@@ -442,7 +442,7 @@ absl::Status GetDistanceFunctions(TypeFactory* type_factory,
 
   FunctionSignatureOptions l1_norm_signature_options =
       SetDefinitionForInlining(l1_norm_sql, true)
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_L1_NORM);
+          .AddRequiredLanguageFeature(FEATURE_L1_NORM);
 
   std::vector<FunctionSignatureOnHeap> l1_norm_signatures = {
       {types::DoubleType(),
@@ -469,7 +469,7 @@ absl::Status GetDistanceFunctions(TypeFactory* type_factory,
 
   FunctionSignatureOptions l2_norm_signature_options =
       SetDefinitionForInlining(l2_norm_sql, true)
-          .AddRequiredLanguageFeature(FEATURE_V_1_4_L2_NORM);
+          .AddRequiredLanguageFeature(FEATURE_L2_NORM);
 
   std::vector<FunctionSignatureOnHeap> l2_norm_signatures = {
       {types::DoubleType(),

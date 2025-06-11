@@ -1,6 +1,6 @@
 # Script containing a single statement, with terminating semi-colon.
 [default mode=script]
-[default language_features=V_1_3_REPEAT,V_1_3_FOR_IN]
+[default language_features=REPEAT,FOR_IN]
 SELECT 3{{;|}}
 --
 ALTERNATION GROUP: ;
@@ -45,8 +45,8 @@ Script [0-0] []
 \-- Comment
 
 --
-Script [0-0] []
-  StatementList [0-0] []
+Script [11-11] []
+  StatementList [11-11] []
 --
 ==
 
@@ -523,7 +523,7 @@ ERROR: Syntax error: DEFINE MACRO statements cannot be composed from other expan
 ==
 
 [macro_expansion_mode=lenient]
-[language_features=V_1_3_FOR_IN]
+[language_features=FOR_IN]
 # Cannot create macros except at the top level
 FOR x IN (SELECT 0) DO
   {{SELECT 1;|}}
@@ -556,7 +556,7 @@ ERROR: Syntax error: DEFINE MACRO statements cannot be composed from other expan
 ==
 
 [macro_expansion_mode=lenient]
-[language_features=V_1_3_REPEAT]
+[language_features=REPEAT]
 # Cannot create macros except at the top level
 REPEAT
   {{SELECT 1;|}}
@@ -590,7 +590,7 @@ ERROR: Syntax error: DEFINE MACRO statements cannot be composed from other expan
 ==
 
 [macro_expansion_mode=lenient]
-[language_features=V_1_3_REPEAT]
+[language_features=REPEAT]
 # Macro definitions cannot be composed from other expansions
 DEFINE MACRO defm /*comment*/ DEFINE MACRO m 1;
 IF true THEN
@@ -604,7 +604,7 @@ ERROR: Syntax error: Unexpected "$defm" [at 5:3]
 ==
 
 [macro_expansion_mode=lenient]
-[language_features=V_1_3_REPEAT]
+[language_features=REPEAT]
 # Macro definitions cannot be composed from other expansions
 DEFINE MACRO defm /*comment*/ DEFINE MACRO m 1;
 FOR x IN (SELECT 0) DO
@@ -618,7 +618,7 @@ ERROR: Syntax error: Unexpected "$defm" [at 5:3]
 ==
 
 [macro_expansion_mode=lenient]
-[language_features=V_1_3_REPEAT]
+[language_features=REPEAT]
 # Macro definitions cannot be composed from other expansions
 DEFINE MACRO defm /*comment*/ DEFINE MACRO m 1;
 REPEAT
@@ -633,7 +633,7 @@ ERROR: Syntax error: Unexpected identifier "defm" [at 5:3]
 ==
 
 [macro_expansion_mode=lenient]
-[language_features=V_1_3_REPEAT]
+[language_features=REPEAT]
 # Macro definitions cannot be composed from other expansions, with hints
 DEFINE MACRO defm @{hint=1} /*comment*/ DEFINE MACRO m 1;
 IF true THEN
@@ -647,7 +647,7 @@ ERROR: Syntax error: Unexpected "$defm" [at 5:3]
 ==
 
 [macro_expansion_mode=lenient]
-[language_features=V_1_3_REPEAT]
+[language_features=REPEAT]
 # Macro definitions cannot be composed from other expansions, with hints
 DEFINE MACRO defm @{hint=1} /*comment*/ DEFINE MACRO m 1;
 FOR x IN (SELECT 0) DO
@@ -661,7 +661,7 @@ ERROR: Syntax error: Unexpected "$defm" [at 5:3]
 ==
 
 [macro_expansion_mode=lenient]
-[language_features=V_1_3_REPEAT]
+[language_features=REPEAT]
 # Macro definitions cannot be composed from other expansions, with hints
 DEFINE MACRO defm @{hint=1} /*comment*/ DEFINE MACRO m 1;
 REPEAT

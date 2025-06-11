@@ -20,7 +20,7 @@
 #include <string>
 
 #include "zetasql/parser/ast_node.h"
-#include "zetasql/parser/bison_parser.h"
+#include "zetasql/parser/ast_node_factory.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/parse_location.h"
 
@@ -138,7 +138,7 @@ namespace parser {
 //      clause_list =
 //           [ASTOnClause(cond1), ASTOnClause(cond2), ASTOnClause(cond3)])
 //
-// it will be flattend into this list:
+// it will be flattened into this list:
 //
 //   [t1, JOIN, t2, JOIN, t3, JOIN, t4,
 //    ASTOnClause(cond1), ASTOnClause(cond2), ASTOnClause(cond3)]
@@ -400,8 +400,8 @@ ASTNode* JoinRuleAction(const ParseLocationRange& start_location,
                         ASTJoin::JoinHint join_hint, ASTNode* opt_hint,
                         ASTNode* table_primary,
                         ASTNode* opt_on_or_using_clause_list,
-                        ASTLocation* join_location, BisonParser* parser,
-                        ErrorInfo* error_info);
+                        ASTLocation* join_location,
+                        ASTNodeFactory& node_factory, ErrorInfo* error_info);
 
 // The action to run when the grammar rule
 //   from_clause_contents: from_clause_contents "," table_primary
@@ -411,13 +411,14 @@ ASTNode* JoinRuleAction(const ParseLocationRange& start_location,
 ASTNode* CommaJoinRuleAction(const ParseLocationRange& start_location,
                              const ParseLocationRange& end_location,
                              ASTNode* lhs, ASTNode* table_primary,
-                             ASTLocation* comma_location, BisonParser* parser,
+                             ASTLocation* comma_location,
+                             ASTNodeFactory& node_factory,
                              ErrorInfo* error_info);
 
 // Performs the transformation algorithm on the expression 'node'.
 // On success, returns the created ASTNode. Returns nullptr on failure,
 // and 'error_info' will contain the error information.
-ASTNode* TransformJoinExpression(ASTNode* node, BisonParser* parser,
+ASTNode* TransformJoinExpression(ASTNode* node, ASTNodeFactory& node_factory,
                                  ErrorInfo* error_info);
 
 }  // namespace parser

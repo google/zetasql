@@ -1,4 +1,4 @@
-[default required_features=ANALYTIC_FUNCTIONS,V_1_3_QUALIFY]
+[default required_features=ANALYTIC_FUNCTIONS,QUALIFY]
 [prepare_database]
 CREATE TABLE t1 AS
   SELECT * FROM UNNEST([

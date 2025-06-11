@@ -51,7 +51,7 @@ enum class CollatorLegacyUnicodeMode {
 //     zetasql::MakeSqlCollator("en_US:ci");
 // ZETASQL_RETURN_IF_ERROR(collator);
 // absl::Status error;
-// int64_t compare_result = (*collator)->CompareUtf8(s1, s2, &error);
+// int64 compare_result = (*collator)->CompareUtf8(s1, s2, &error);
 class ZetaSqlCollator {
  public:
   ZetaSqlCollator(const ZetaSqlCollator&) = delete;

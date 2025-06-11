@@ -39,6 +39,7 @@
 #include "zetasql/public/value.h"
 #include "absl/base/optimization.h"
 #include "absl/container/btree_set.h"
+#include "absl/container/inlined_vector.h"
 #include "absl/functional/function_ref.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
@@ -1668,6 +1669,56 @@ absl::StatusOr<std::vector<std::string>> JsonKeys(
   JsonKeysTreeWalker walker(input, options);
   walker.Process();
   return walker.ConsumeResult();
+}
+
+std::vector<JSONValueConstRef> JsonFlatten(JSONValueConstRef input) {
+  // Avoid the overhead of setting up traversal for these trivial cases.
+  if (!input.IsArray()) {
+    return {input};
+  }
+  if (input.GetArraySize() == 0) {
+    return {};
+  }
+
+  // Stores every non-array value visited during traversal.
+  std::vector<JSONValueConstRef> result;
+  result.reserve(input.GetArraySize());
+
+  // The stack stores `ArrayContext`s (an array and position into that array).
+  // Every time we encounter a new array, we mark the current position and
+  // push a new context onto the stack. Once an array is fully traversed, we
+  // pop it off the stack and pick back up from the previous position. This
+  // allows us to enforce ordering expectations while maintaining efficient
+  // traversal of shallow/scalar arrays.
+  struct ArrayContext {
+    JSONValueConstRef array;
+    size_t index;
+  };
+  std::stack<ArrayContext, absl::InlinedVector<ArrayContext, 10>> stack;
+  stack.push({input, 0});
+
+  while (!stack.empty()) {
+    ArrayContext& top = stack.top();
+    while (top.index < top.array.GetArraySize()) {
+      JSONValueConstRef element = top.array.GetArrayElement(top.index++);
+      if (top.index >= top.array.GetArraySize()) {
+        // Pop the current array context off the stack once we have visited all
+        // of its elements.
+        stack.pop();
+      }
+
+      if (!element.IsArray()) {
+        result.push_back(element);
+      } else if (element.GetArraySize() > 0) {
+        // Push a new context onto the stack, and break out of this loop so we
+        // start traversing the nested array.
+        stack.push({element, 0});
+        break;
+      }
+    }
+  }
+
+  return result;
 }
 
 }  // namespace functions

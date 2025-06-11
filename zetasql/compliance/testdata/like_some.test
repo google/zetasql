@@ -27,7 +27,7 @@ ARRAY<STRUCT<Key INT64, Value BYTES>>[
 ==
 
 [prepare_database]
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
 CREATE TABLE StringTable(
   primary_Key INT64,
   col_ci STRING COLLATE 'und:ci',
@@ -78,7 +78,7 @@ ARRAY<STRUCT<
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL]
 [name=like_some_string_nulls]
 SELECT
   Value,
@@ -97,7 +97,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL]
 [name=like_some_string_simple]
 SELECT
   Value,
@@ -116,7 +116,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL]
 [name=like_some_string_nonconstant_patterns]
 SELECT
   Value,
@@ -133,7 +133,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL]
 [name=like_some_string_invalid]
 SELECT
   Value,
@@ -143,7 +143,7 @@ FROM KeyValue ORDER BY Value;
 ERROR: generic::out_of_range: LIKE pattern ends with a backslash
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL]
 [name=like_some_bytes_nulls]
 SELECT
   Value,
@@ -162,7 +162,7 @@ ARRAY<STRUCT<Value BYTES, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL]
 [name=like_some_bytes_simple]
 SELECT
   Value,
@@ -181,7 +181,7 @@ ARRAY<STRUCT<Value BYTES, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL]
 [name=like_some_bytes_nonconstant_patterns]
 SELECT
   Value,
@@ -198,7 +198,7 @@ ARRAY<STRUCT<Value BYTES, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL]
 [name=like_some_bytes_invalid]
 SELECT
   Value,
@@ -208,7 +208,7 @@ FROM KeyValueBytes ORDER BY Value;
 ERROR: generic::out_of_range: LIKE pattern ends with a backslash
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_some_string_array_nulls]
 SELECT
   Value,
@@ -228,7 +228,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_some_string_array_simple]
 SELECT
   Value,
@@ -248,7 +248,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_some_string_array_nonconstant_patterns]
 SELECT
   Value,
@@ -265,7 +265,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_some_string_array_invalid]
 SELECT
   Value,
@@ -275,7 +275,7 @@ FROM KeyValue ORDER BY Value;
 ERROR: generic::out_of_range: LIKE pattern ends with a backslash
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_some_bytes_array_nulls]
 SELECT
   Value,
@@ -295,7 +295,7 @@ ARRAY<STRUCT<Value BYTES, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_some_bytes_array_simple]
 SELECT
   Value,
@@ -315,7 +315,7 @@ ARRAY<STRUCT<Value BYTES, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_some_bytes_array_nonconstant_patterns]
 SELECT
   Value,
@@ -332,7 +332,7 @@ ARRAY<STRUCT<Value BYTES, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_some_bytes_array_invalid]
 SELECT
   Value,
@@ -342,7 +342,7 @@ FROM KeyValueBytes ORDER BY Value;
 ERROR: generic::out_of_range: LIKE pattern ends with a backslash
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_some_string_array_function]
 SELECT
   Value,
@@ -357,7 +357,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
 [name=like_some_with_collation_ci_test_with_null_elements]
 # Test "LIKE SOME" with collation for NULL elements on either LHS or RHS list.
 SELECT
@@ -370,7 +370,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{NULL, NULL, NULL, NULL, true}]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL]
 [name=not_like_some_with_null_elements]
 # Test "NOT LIKE SOME" for NULL elements on either LHS or RHS list.
 SELECT
@@ -383,7 +383,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{NULL, NULL, true, false, true}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
 [name=not_like_some_with_collation_ci_test_with_null_elements]
 # Test "NOT LIKE SOME" with collation for NULL elements on either LHS or RHS list.
 SELECT
@@ -400,7 +400,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
 [name=like_some_with_collation_ci_on_lhs_element]
 # Test "LIKE SOME" with LHS wrapped in collation.
 SELECT
@@ -414,7 +414,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{true, true, true, true, false}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
 [name=not_like_some_with_collation_ci_on_lhs_element]
 # Test "NOT LIKE SOME" with LHS wrapped in collation.
 SELECT
@@ -431,7 +431,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
 [name=like_some_with_collation_ci_on_one_of_the_rhs_element]
 # Test "LIKE SOME" with one of the elements in RHS wrapped in collation.
 SELECT
@@ -445,7 +445,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{true, true, true, false, true}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
 [name=not_like_some_with_collation_ci_on_one_of_the_rhs_element]
 # Test "NOT LIKE SOME" with one of the elements in RHS wrapped in collation.
 SELECT
@@ -459,7 +459,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{true, true, false, true, true}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
 [name=like_some_with_collation_ci_with_ignorable_character]
 # Test "LIKE SOME" with an ignorable character in the pattern.
 # \u070F is an ignorable character
@@ -472,7 +472,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{true, true, false}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
 [name=not_like_some_with_collation_ci_with_ignorable_character]
 # Test "NOT LIKE SOME" with an ignorable character in the pattern.
 # \u070F is an ignorable character
@@ -486,7 +486,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{true, true, true, false}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
 [name=like_some_with_column_collation_binary]
 # Test "LIKE SOME" with table column having binary collation.
 select primary_key, col_binary from StringTable WHERE col_binary LIKE SOME ('a')
@@ -502,7 +502,7 @@ ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[unknown order:
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
 [name=not_like_some_with_column_collation_binary]
 # Test "NOT LIKE SOME" with table column having binary collation.
 select primary_key, col_binary from StringTable WHERE col_binary NOT LIKE SOME ('a')
@@ -521,7 +521,7 @@ ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[unknown order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL]
 [name=like_some_string_constant_patterns_in_scalar_subquery]
 SELECT
   Value,
@@ -539,7 +539,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_SUBQUERY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
 [name=like_some_string_constant_patterns_in_non_paranthesized_scalar_subquery]
 SELECT
   Value,
@@ -554,7 +554,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_some_string_constant_patterns_in_subquery_as_array_element]
 SELECT
   Value,
@@ -571,7 +571,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 
 ==
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=not_like_some_string_constant_patterns_in_subquery_as_array_elements]
 SELECT
   NULL NOT LIKE SOME UNNEST(['abc', NULL]),
@@ -583,7 +583,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{NULL, NULL, true, false, true}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_some_array_with_collation_with_null_values]
 # Test "LIKE SOME ARRAY" with collation with NULL values in LHS or RHS list.
 SELECT
@@ -601,7 +601,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=not_like_some_array_with_collation_with_null_values]
 # Test "NOT LIKE SOME ARRAY" with collation with NULL values in LHS or RHS list.
 SELECT
@@ -615,11 +615,11 @@ SELECT
   'GOOGLE' NOT LIKE SOME UNNEST([collate('google', 'und:ci'), NULL]),
 --
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
-  {true, NULL, true, NULL, NULL, NULL, false, false}
+  {false, NULL, false, NULL, NULL, NULL, NULL, NULL}
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_some_array_with_collation]
 # Test "LIKE SOME ARRAY" with collation in LHS or RHS list.
 SELECT
@@ -638,7 +638,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=not_like_some_array_with_collation]
 # Test "NOT LIKE SOME ARRAY" with collation in LHS or RHS list.
 SELECT
@@ -653,11 +653,11 @@ SELECT
   collate('GooG', 'und:ci') NOT LIKE SOME UNNEST(['%p%', collate('x%a%', 'und:ci')]),
 --
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
-  {false, false, false, false, false, false, false, false, true}
+  {NULL, NULL, true, true, true, true, true, true, true}
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_some_array_with_arrayconact_function]
 # Test "LIKE SOME ARRAY" with ARRAY_CONCAT function.
 SELECT
@@ -674,7 +674,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=not_like_some_array_with_arrayconact_function]
 # Test "NOT LIKE SOME ARRAY" with ARRAY_CONCAT function.
 SELECT
@@ -691,7 +691,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_some_array_with_arrayconact_function_with_collation]
 # Test "LIKE SOME ARRAY" with ARRAY_CONCAT function with collation enabled.
 SELECT
@@ -708,7 +708,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=not_like_some_array_with_arrayconact_function_with_collation]
 # Test "NOT LIKE SOME ARRAY" with ARRAY_CONCAT function with collation enabled.
 SELECT
@@ -725,7 +725,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL]
 [name=not_like_some_with_scalar_subquery]
 SELECT
   Value,
@@ -744,7 +744,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_SUBQUERY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
 [name=not_like_some_with_patterns_in_non_paranthesized_scalar_subquery]
 # TODO: Like any/all subquery is current not using the new
 # implementation of 'not like any/all' operator which needs to be fixed
@@ -763,7 +763,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_some_array_with_scalar_subquery_with_collation]
 SELECT
   Value,
@@ -786,7 +786,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=not_like_some_array_with_scalar_subquery_with_collation]
 SELECT
   Value,
@@ -809,7 +809,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=not_some_any_array_with_array_agg_function]
 SELECT
   'a' LIKE SOME UNNEST((SELECT ARRAY_AGG(x) FROM UNNEST(['b', NULL]) x)),
@@ -821,7 +821,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{NULL, true, true, false, true}]
 ==
 
-[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_some_array_with_array_agg_function]
 SELECT
   'a' NOT LIKE SOME UNNEST((SELECT ARRAY_AGG(x) FROM UNNEST(['b', NULL]) x)),
@@ -833,7 +833,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{true, NULL, true, true, true}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_some_array_with_array_agg_function_with_collation]
 SELECT
   'a' LIKE SOME UNNEST(
@@ -854,7 +854,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=not_like_some_array_with_array_agg_function_with_collation]
 SELECT
   'a' NOT LIKE SOME UNNEST(
@@ -875,4 +875,3 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
   {true, NULL, true, true, false, true, false}
 ]
-==

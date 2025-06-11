@@ -16,19 +16,35 @@
 
 #include "zetasql/common/warning_sink.h"
 
+#include <cstdint>
+#include <string>
+
 #include "zetasql/common/status_payload_utils.h"
+#include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/deprecation_warning.pb.h"
 #include "absl/status/status.h"
 #include "absl/types/span.h"
 
 namespace zetasql {
 
-WarningSink::WarningSink() = default;
+WarningSink::WarningSink(bool consider_location)
+    : consider_location_(consider_location) {}
 
 absl::Status WarningSink::AddWarning(DeprecationWarning::Kind kind,
                                      absl::Status warning) {
-  // If the warning already exists, return early.
-  if (!unique_warnings_.emplace(kind, warning.message()).second) {
+  int64_t byte_offset = -1;
+  std::string filename = "";
+  if (consider_location_) {
+    // If the warning already exists, return early.
+    InternalErrorLocation location;
+    if (internal::HasPayloadWithType<InternalErrorLocation>(warning)) {
+      location = internal::GetPayload<InternalErrorLocation>(warning);
+    }
+    byte_offset = location.byte_offset();
+    filename = location.filename();
+  }
+  if (!unique_warnings_.emplace(kind, warning.message(), byte_offset, filename)
+           .second) {
     return absl::OkStatus();
   }
   DeprecationWarning warning_proto;

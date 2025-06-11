@@ -188,6 +188,7 @@ referenced in the `USING` clause:
    clause by index.
 
    ```zetasql
+   DECLARE y INT64;
    -- y = 1 * (3 + 2) = 5
    EXECUTE IMMEDIATE "SELECT ? * (? + 2)" INTO y USING 1, 3;
    ```
@@ -196,6 +197,7 @@ referenced in the `USING` clause:
    the query parameter syntax.
 
    ```zetasql
+   DECLARE y INT64;
    -- y = 1 * (3 + 2) = 5
    EXECUTE IMMEDIATE "SELECT @a * (@b + 2)" INTO y USING 1 as a, 3 as b;
    ```
@@ -226,7 +228,7 @@ the different ways that you can reference variables, save values to
 variables, and use expressions.
 
 ```zetasql
--- create some variables
+-- Create some variables.
 DECLARE book_name STRING DEFAULT 'Ulysses';
 DECLARE book_year INT64 DEFAULT 1922;
 DECLARE first_date INT64;
@@ -235,30 +237,27 @@ DECLARE first_date INT64;
 EXECUTE IMMEDIATE
   "CREATE TEMP TABLE Books (title STRING, publish_date INT64)";
 
--- Add a row for Hamlet (less secure)
+-- Add a row for Hamlet (less secure).
 EXECUTE IMMEDIATE
   "INSERT INTO Books (title, publish_date) VALUES('Hamlet', 1599)";
 
--- add a row for Ulysses, using the variables declared and the ? placeholder
+-- Add a row for Ulysses, using the variables declared and the ? placeholder.
 EXECUTE IMMEDIATE
   "INSERT INTO Books (title, publish_date) VALUES(?, ?)"
   USING book_name, book_year;
 
--- add a row for Emma, using the identifier placeholder
+-- Add a row for Emma, using the identifier placeholder.
 EXECUTE IMMEDIATE
   "INSERT INTO Books (title, publish_date) VALUES(@name, @year)"
   USING 1815 as year, "Emma" as name;
 
--- add a row for Middlemarch, using an expression
+-- Add a row for Middlemarch, using an expression.
 EXECUTE IMMEDIATE
   CONCAT(
     "INSERT INTO Books (title, publish_date)", "VALUES('Middlemarch', 1871)"
   );
 
--- save the publish date of the earliest book, Hamlet, to a variable called
--- first_date
-EXECUTE IMMEDIATE "SELECT MIN(publish_date) FROM Books LIMIT 1" INTO first_date;
-
+-- The table looks similar to the following:
 /*------------------+------------------*
  | title            | publish_date     |
  +------------------+------------------+
@@ -267,6 +266,10 @@ EXECUTE IMMEDIATE "SELECT MIN(publish_date) FROM Books LIMIT 1" INTO first_date;
  | Emma             | 1815             |
  | Middlemarch      | 1871             |
  *------------------+------------------*/
+
+-- Save the publish date of the earliest book, Hamlet, to a variable called
+-- first_date.
+EXECUTE IMMEDIATE "SELECT MIN(publish_date) FROM Books LIMIT 1" INTO first_date;
 ```
 
 ## `BEGIN...END` 

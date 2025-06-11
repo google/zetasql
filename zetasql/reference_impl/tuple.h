@@ -825,7 +825,7 @@ class TupleDataOrderedQueue {
   MemoryAccountant* accountant_;
 
   using Comparator = std::function<bool(const TupleData*, const TupleData*)>;
-  // The key and value TupleData are the same. The int64_t is the memory
+  // The key and value TupleData are the same. The int64 is the memory
   // reservation of the TupleData for 'accountant_'.
   using ValueEntry = std::pair<int64_t, std::unique_ptr<TupleData>>;
   // We use multimap because it is a sorted container that allows duplicates

@@ -21,21 +21,20 @@
 #include <memory>
 #include <optional>
 #include <stack>
-#include <utility>
 #include <vector>
 
 #include "zetasql/base/arena.h"
-#include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/macros/macro_expander.h"
+#include "zetasql/parser/parser_mode.h"
 #include "zetasql/parser/tm_token.h"
-#include "zetasql/parser/token_codes.h"
 #include "zetasql/parser/token_with_location.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
 #include "absl/base/attributes.h"
 #include "absl/base/macros.h"
 #include "zetasql/base/check.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -66,7 +65,7 @@ struct TokenWithOverrideError {
 class LookaheadTransformer final {
  public:
   static absl::StatusOr<std::unique_ptr<LookaheadTransformer>> Create(
-      BisonParserMode mode, absl::string_view filename, absl::string_view input,
+      ParserMode mode, absl::string_view filename, absl::string_view input,
       int start_offset, const LanguageOptions& language_options,
       MacroExpansionMode macro_expansion_mode,
       const macros::MacroCatalog* macro_catalog, zetasql_base::UnsafeArena* arena,
@@ -79,14 +78,10 @@ class LookaheadTransformer final {
   // - An error is reported through `GetOverrideError()` if the most recently
   //   returned token exists and produces an error.
   //
-  // - If `SetForceTerminate()` has been called, subsequent calls to
-  //   `GetNextToken()` will always return Token::EOI.
-  //
   // - If a previous call to `GetNextToken()` returned Token::EOI, which can
   //   be because
-  //   - `SetForceTerminate()` has been called.
-  //   - Or the previous token errors.
-  //   - Or the previous token is a real end of input.
+  //   - The previous token errors.
+  //   - The previous token is a real end of input.
   //
   //   all future calls to `GetNextToken()` return Token::EOI and
   //   `GetOverrideError()` returns the same error, if any.
@@ -95,9 +90,7 @@ class LookaheadTransformer final {
   //   call, returns Token::EOI.
   //
   // Output parameters:
-  // - The output parameters are undefined if
-  //   - The lookahead_transformer has been SetForceTerminate.
-  //   - Or the returned token has an error.
+  // - The output parameters are undefined if the returned token has an error.
   // - Otherwise, they will be updated with the text and location of the
   //   returned token.
   Token GetNextToken(absl::string_view* text, Location* yylloc);
@@ -116,42 +109,17 @@ class LookaheadTransformer final {
   // in `location`. Returns an error if the tokenizer sets override_error.
   absl::Status GetNextToken(ParseLocationRange* location, Token* token);
 
-  // Ensures that the next token returned will be EOF, even if we're not at the
-  // end of the input.
-  //
-  // `end_byte_offset`, if is not nullptr, will be populated with the end offset
-  // for the statement:
-  // (1) 0 if no tokens have been returned.
-  // (2) -1 if the most recently returned token errors.
-  // (3) the end location of the most recently returned token if
-  //     - the most recently returned token is Token::EOI with no error.
-  //     - or the lookahead1 is not a Token::EOI or a Token::EOI with an
-  //       error.
-  // (4) the end location of the lookahead1 otherwise, i.e. lookahead1 is a
-  //     Token::EOI without errors.
-  //
-  // Explanations:
-  // - For (2): We currently lose the token location when the underlying token
-  //   errors (see ConsumeNextToken()), so we can only set it to -1 to denote
-  //   the end of all the statements.
-  //   TODO: b/329291322 - Update the macro expander to return
-  //   `TokenWithOverrideError` instead.
-  //
-  // - For (3): When the input ends in a semicolon, we need the returned
-  //   `end_byte_offset` points to the end of the semicolon plus whitespaces,
-  //   not just the semicolon.
-  //
-  // Future calls to `GetNextToken` will always return Token::EOI. An error
-  // is returned if and only if the most recently returned token, if exists, has
-  // an error.
-  void SetForceTerminate(int* end_byte_offset);
+  // Indicates that there is no more input. Either GetNextToken already returned
+  // EOI, or the next token will be EOI. This function will return false if the
+  // current token or the next token (if EOI) has an associated error.
+  bool IsAtEoi() const;
 
   // Some sorts of statements need to change the mode after the parser consumes
   // the preamble of the statement. DEFINE MACRO is an example, it wants to
   // consume the macro body as raw tokens.
-  void PushBisonParserMode(BisonParserMode mode);
-  // Restore the BisonParserMode to its value before the previous Push.
-  void PopBisonParserMode();
+  void PushParserMode(ParserMode mode);
+  // Restore the ParserMode to its value before the previous Push.
+  void PopParserMode();
 
   // This function is called by the Bison or Textmapper parsers before they
   // (maybe) consume `expected_next_token` and will set an alternative lookback
@@ -184,9 +152,7 @@ class LookaheadTransformer final {
  private:
   using StateType = Token;
 
-  LookaheadTransformer(BisonParserMode mode,
-                       std::optional<TokenWithLocation> start_token,
-                       const LanguageOptions& language_options,
+  LookaheadTransformer(ParserMode mode, const LanguageOptions& language_options,
                        std::unique_ptr<macros::MacroExpanderBase> expander);
 
   LookaheadTransformer(const LookaheadTransformer&) = delete;
@@ -277,10 +243,10 @@ class LookaheadTransformer final {
   // is Token::EOI but it does not represent the real end of input.
   bool Lookahead1IsRealEndOfInput() const;
 
-  // This determines the first token returned to the bison parser, which
-  // determines the mode that we'll run in.
-  BisonParserMode mode_;
-  std::stack<BisonParserMode> restore_modes_;
+  // This determines the first token returned to the parser, which determines
+  // the mode that we'll run in.
+  ParserMode mode_;
+  std::stack<ParserMode> restore_modes_;
 
   const LanguageOptions& language_options_;
 
@@ -304,6 +270,26 @@ class LookaheadTransformer final {
   // Returns whether the given `token_kind` can appear before "." in a path
   // expression.
   bool LookbackTokenCanBeBeforeDotInPathExpression(Token token_kind) const;
+
+  // Returns whether the lookback token from `lookback_slot` is a token that is
+  // expected to precede a SQL statement.
+  bool IsValidPreviousTokenToSqlStatement(
+      const std::optional<TokenWithOverrideError>& lookback_slot) const;
+
+  // Returns whether the current token lookbacks are consistent with the tokens
+  // leading up to the first token of a query.
+  bool IsValidLookbackToStartQuery() const;
+
+  // Returns whether the current token is a SCRIPT_LABEL token.
+  //
+  // It is a script label token if:
+  // - We are in a mode that allows script statements.
+  // - We are at the beginning of the input, or the previous token is one
+  //   expected to precede a script label.
+  // - The token itself is a keyword or identifier.
+  // - The token is followed by a colon, and the colon is followed by one of the
+  //   tokens in [BEGIN, WHILE, LOOP, REPEAT, FOR].
+  bool IsCurrentTokenScriptLabel() const;
 
   // Fuses `lookahead_1_` into `current_token_` with the new token kind
   // `fused_token_kind`. The lookahead buffers are advanced accordingly.

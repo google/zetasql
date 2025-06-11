@@ -680,7 +680,7 @@ ARRAY<STRUCT<
  {8, false, NULL, NULL},
  {9, false, NULL, NULL}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [prepare_database]
 CREATE TABLE TableWithDatetimeRange AS
 SELECT
@@ -788,13 +788,13 @@ SELECT COUNT(DISTINCT val) FROM TableEmpty
 ARRAY<STRUCT<INT64>>[{0}]
 ==
 [name=aggregation_distinct_count_5]
-[required_features=V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_STRUCT]
 SELECT COUNT(DISTINCT struct_col.b_struct) FROM TableWithStruct
 --
 ARRAY<STRUCT<INT64>>[{4}]
 ==
 [name=aggregation_distinct_count_6]
-[required_features=V_1_2_GROUP_BY_ARRAY]
+[required_features=GROUP_BY_ARRAY]
 SELECT COUNT(DISTINCT s.a)
 FROM ((select NULL as a) union all
       (select NULL) union all
@@ -833,7 +833,7 @@ FROM TableWithRange
 --
 ARRAY<STRUCT<INT64, INT64>>[{4, 4}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_distinct_count_range_datetime]
 SELECT COUNT(DISTINCT datetime_range_val)
 FROM TableWithDatetimeRange
@@ -851,7 +851,7 @@ ARRAY<STRUCT<bool_val BOOL, INT64, INT64>>[unknown order:
   {true, 2, 2}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_distinct_count_range_datetime_group_by]
 SELECT bool_val, COUNT(DISTINCT datetime_range_val)
 FROM TableWithDatetimeRange
@@ -868,7 +868,7 @@ HAVING bool_val
 --
 ARRAY<STRUCT<bool_val BOOL, INT64, INT64>>[{true, 2, 2}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_distinct_count_range_datetime_group_by_having]
 SELECT bool_val, COUNT(DISTINCT datetime_range_val)
 FROM TableWithDatetimeRange
@@ -930,7 +930,7 @@ ARRAY<STRUCT<
                 2,
                 2}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_distinct_count_range_datetime_group_by_range_datetime]
 SELECT datetime_range_val, COUNT(datetime_range_val), COUNT(*)
 FROM TableWithDatetimeRange
@@ -1003,7 +1003,7 @@ ARRAY<STRUCT<
                 2,
                 2}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_distinct_count_range_datetime_group_by_having_range]
 SELECT datetime_range_val, COUNT(datetime_range_val), COUNT(*)
 FROM TableWithDatetimeRange
@@ -1071,7 +1071,7 @@ ARRAY<STRUCT<INT64, int32_val INT32>>[known order:
 ]
 ==
 [name=aggregation_distinct_countif_group_by_struct]
-[required_features=V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_STRUCT]
 SELECT COUNTIF(DISTINCT struct_col.a), struct_col
 FROM TableWithStruct
 GROUP BY struct_col
@@ -1095,7 +1095,7 @@ ARRAY<STRUCT<INT64,
 ]
 ==
 [name=aggregation_distinct_group_by_struct_subquery]
-[required_features=V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_STRUCT]
 SELECT key, COUNT(DISTINCT struct_col)
 FROM (
   SELECT STRUCT(bool_val as key1) as key,
@@ -1130,7 +1130,7 @@ FROM TableWithRange
 --
 ARRAY<STRUCT<INT64, INT64>>[{1, 1}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_distinct_countif_range_datetime]
 SELECT COUNTIF(DISTINCT datetime_range_val > RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)')
 FROM TableWithDatetimeRange
@@ -1149,7 +1149,7 @@ ARRAY<STRUCT<bool_val BOOL, INT64, INT64>>[unknown order:
   {true, 1, 1}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_distinct_countif_range_datetime_group_by]
 SELECT bool_val, COUNTIF(DISTINCT datetime_range_val > RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)')
 FROM TableWithDatetimeRange
@@ -1167,7 +1167,7 @@ HAVING bool_val
 --
 ARRAY<STRUCT<bool_val BOOL, INT64, INT64>>[{true, 1, 1}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_distinct_countif_range_datetime_group_by_having]
 SELECT bool_val, COUNTIF(DISTINCT datetime_range_val > RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)')
 FROM TableWithDatetimeRange
@@ -1382,7 +1382,7 @@ ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
   }
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_distinct_array_agg_range_datetime_all_null]
 SELECT ARRAY_AGG(DISTINCT x)
 FROM (
@@ -1424,7 +1424,7 @@ ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_distinct_array_agg_range_datetime]
 SELECT ARRAY_AGG(DISTINCT datetime_range_val)
 FROM TableWithDatetimeRange
@@ -1439,7 +1439,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,RANGE_TYPE]
+[required_features=ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,RANGE_TYPE]
 [name=aggregation_distinct_array_agg_range_date_timestamp_order_by_limit]
 SELECT ARRAY_AGG(DISTINCT date_range_val ORDER BY date_range_val LIMIT 2),
   ARRAY_AGG(DISTINCT timestamp_range_val ORDER BY timestamp_range_val LIMIT 2)
@@ -1456,7 +1456,7 @@ ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_distinct_array_agg_range_datetime_order_by_limit]
 SELECT ARRAY_AGG(DISTINCT datetime_range_val ORDER BY datetime_range_val LIMIT 2)
 FROM TableWithDatetimeRange
@@ -1468,7 +1468,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,RANGE_TYPE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE,RANGE_TYPE]
 [name=aggregation_distinct_array_agg_range_date_timestamp_ignore_nulls]
 SELECT ARRAY_AGG(DISTINCT date_range_val IGNORE NULLS),
   ARRAY_AGG(DISTINCT timestamp_range_val IGNORE NULLS)
@@ -1498,7 +1498,7 @@ ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE,RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_distinct_array_agg_range_datetime_ignore_nulls]
 SELECT ARRAY_AGG(DISTINCT datetime_range_val IGNORE NULLS)
 FROM TableWithDatetimeRange
@@ -1512,7 +1512,7 @@ ARRAY<STRUCT<ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,RANGE_TYPE]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE,RANGE_TYPE]
 [name=aggregation_distinct_array_agg_range_date_timestamp_respect_nulls]
 SELECT ARRAY_AGG(DISTINCT date_range_val RESPECT NULLS),
   ARRAY_AGG(DISTINCT timestamp_range_val RESPECT NULLS)
@@ -1544,7 +1544,7 @@ ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=NULL_HANDLING_MODIFIER_IN_AGGREGATE,RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_distinct_array_agg_range_datetime_respect_nulls]
 SELECT ARRAY_AGG(DISTINCT datetime_range_val RESPECT NULLS)
 FROM TableWithDatetimeRange
@@ -1583,7 +1583,7 @@ ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
    ]}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_distinct_array_agg_range_datetime_with_filter]
 SELECT ARRAY_AGG(DISTINCT datetime_range_val)
 FROM TableWithDatetimeRange
@@ -1883,7 +1883,7 @@ ARRAY<STRUCT<RANGE<TIMESTAMP>, RANGE<TIMESTAMP>>>[
 ]
 ==
 [name=aggregation_distinct_min_max_range_datetime]
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 SELECT MIN(DISTINCT datetime_range_val), MAX(DISTINCT datetime_range_val)
 FROM TableWithDatetimeRange
 --
@@ -1964,7 +1964,7 @@ ARRAY<STRUCT<bool_val BOOL, RANGE<TIMESTAMP>, RANGE<TIMESTAMP>>>[unknown order:
 ]
 ==
 [name=aggregation_distinct_min_max_range_datetime_with_groupby]
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 SELECT bool_val,
        MIN(DISTINCT datetime_range_val), MAX(DISTINCT datetime_range_val)
 FROM TableWithDatetimeRange GROUP BY bool_val;
@@ -2055,7 +2055,7 @@ ARRAY<STRUCT<row_id INT64, RANGE<TIMESTAMP>, RANGE<TIMESTAMP>>>[known order:
 ]
 ==
 [name=aggregation_distinct_min_max_range_datetime_with_groupby_and_having]
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 SELECT row_id,
        MIN(DISTINCT datetime_range_val), MAX(DISTINCT datetime_range_val)
 FROM TableWithDatetimeRange
@@ -2087,7 +2087,7 @@ ARRAY<STRUCT<row_id INT64, RANGE<DATETIME>, RANGE<DATETIME>>>[known order:
 ]
 ==
 [name=aggregation_distinct_min_max_array_null_nan]
-[required_features=V_1_3_ARRAY_ORDERING,V_1_2_GROUP_BY_ARRAY]
+[required_features=ARRAY_ORDERING,GROUP_BY_ARRAY]
 SELECT MIN(DISTINCT x), MAX(DISTINCT x)
 FROM (
   (SELECT ARRAY<FLOAT64>[1] x)
@@ -2669,7 +2669,7 @@ ARRAY<STRUCT<RANGE<DATE>, RANGE<TIMESTAMP>>>[
    )}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_distinct_any_value_range_datetime]
 SELECT ANY_VALUE(DISTINCT range_datetime_val)
 FROM (
@@ -2725,7 +2725,7 @@ ARRAY<STRUCT<bool_val BOOL, RANGE<TIMESTAMP>>>[unknown order:
    )}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_distinct_any_value_range_datetime_group_by]
 SELECT bool_val, ANY_VALUE(DISTINCT range_datetime_val)
 FROM (
@@ -2784,7 +2784,7 @@ ARRAY<STRUCT<bool_val BOOL, RANGE<TIMESTAMP>>>[
    )}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_distinct_any_value_range_datetime_group_by_having]
 SELECT bool_val, ANY_VALUE(DISTINCT range_datetime_val)
 FROM (
@@ -2840,7 +2840,7 @@ ARRAY<STRUCT<RANGE<TIMESTAMP>>>[unknown order:
    )}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=aggregation_distinct_any_value_range_datetime_group_by_range]
 SELECT ANY_VALUE(DISTINCT range_datetime_val)
 FROM (

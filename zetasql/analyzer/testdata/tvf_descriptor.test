@@ -7,7 +7,7 @@
 ################################################################################
 # TODO: Enable Java support.
 [default no_java]
-[default language_features=TABLE_VALUED_FUNCTIONS,TABLESAMPLE,TABLESAMPLE_FROM_TABLE_VALUED_FUNCTIONS,V_1_1_WITH_ON_SUBQUERY]
+[default language_features=TABLE_VALUED_FUNCTIONS,TABLESAMPLE,TABLESAMPLE_FROM_TABLE_VALUED_FUNCTIONS,WITH_ON_SUBQUERY]
 select * from tvf_one_descriptor_resolved_names_one_relation_arg_ambiguous_naming(
     descriptor(int64a), (select cast(42 as int64) as int64a, cast(60 as int64) as int64a))
 --
@@ -43,6 +43,7 @@ QueryStmt
         |   |     +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
         |   +-argument_column_list=KeyValue.[Key#1, Key#1]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64, TABLE<int64a INT64, int64b INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 select * from tvf_one_relation_arg_one_descriptor(
@@ -74,6 +75,7 @@ QueryStmt
         |   +-descriptor_arg=
         |     +-Descriptor(descriptor_column_name_list=[test_col])
         +-column_index_list=[0, 1]
+        +-function_call_signature=(TABLE<int64a INT64>, INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 select * from tvf_two_relations_arg_two_descriptors_resolved_names(
@@ -118,6 +120,7 @@ QueryStmt
         |   +-descriptor_arg=
         |     +-Descriptor(descriptor_column_list=[$subquery2.int64b#2], descriptor_column_name_list=[int64b])
         +-column_index_list=[0, 1]
+        +-function_call_signature=(TABLE<int64a INT64>, TABLE<int64b INT64>, INT64, INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 select * from tvf_one_relation_arg_one_descriptor_resolved_names(
@@ -149,6 +152,7 @@ QueryStmt
         |   +-descriptor_arg=
         |     +-Descriptor(descriptor_column_list=[$subquery1.int64a#1], descriptor_column_name_list=[int64a])
         +-column_index_list=[0, 1]
+        +-function_call_signature=(TABLE<int64a INT64>, INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 select * from tvf_one_descriptor_resolved_names_one_relation_arg(
@@ -181,6 +185,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=$subquery1.[int64a#1, int64b#2]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64, TABLE<int64a INT64, int64b INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 select * from tvf_one_descriptor_resolved_names_one_relation_arg(
@@ -213,6 +218,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=$subquery1.[int64a#1, int64b#2]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64, TABLE<int64a INT64, int64b INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 select * from tvf_one_descriptor_resolved_names_one_relation_arg(
@@ -245,6 +251,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=$subquery1.[int64a#1, int64b#2]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64, TABLE<int64a INT64, int64b INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 select * from tvf_one_descriptor_resolved_names_one_relation_arg(
@@ -287,6 +294,7 @@ QueryStmt
         |   +-descriptor_arg=
         |     +-Descriptor(descriptor_column_name_list=[int64b])
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64, TABLE<int64a INT64>, INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 select * from tvf_one_relation_arg_one_descriptor_resolved_names(
@@ -325,6 +333,9 @@ from tvf_one_relation_arg_one_descriptor(
     (select 42 as int64a),
     model onedoublemodel)
 --
-ERROR: No matching signature for tvf_one_relation_arg_one_descriptor for argument types: TABLE<int64a INT64>, MODEL. Supported signature: TVF_ONE_RELATION_ARG_ONE_DESCRIPTOR(TABLE<int64a INT64>, DESCRIPTOR) [at 2:6]
+ERROR: No matching signature for tvf_one_relation_arg_one_descriptor
+  Argument types: TABLE<int64a INT64>, MODEL
+  Signature: TVF_ONE_RELATION_ARG_ONE_DESCRIPTOR(TABLE<int64a INT64>, DESCRIPTOR)
+    Argument 2: expected DESCRIPTOR, found MODEL [at 2:6]
 from tvf_one_relation_arg_one_descriptor(
      ^

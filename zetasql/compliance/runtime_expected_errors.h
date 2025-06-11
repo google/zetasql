@@ -28,14 +28,14 @@ namespace zetasql {
 
 // RuntimeExpectedErrorMatcher() returns a  matcher that matches all
 // legitimate runtime errors for queries.
-// E.g., int64_t overflow (multiplying or adding two int64_t could overflow). It's
+// E.g., int64 overflow (multiplying or adding two int64 could overflow). It's
 // difficult to prevent this type of error while generating random queries.
 std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
     std::string matcher_name);
 
 // RuntimeExpectedErrorMatcher() returns a  matcher that matches all
 // legitimate runtime errors for dml statements.
-// E.g., int64_t overflow (multiplying or adding two int64_t could overflow). It's
+// E.g., int64 overflow (multiplying or adding two int64 could overflow). It's
 // difficult to prevent this type of error while generating random queries.
 std::unique_ptr<MatcherCollection<absl::Status>>
 RuntimeDMLExpectedErrorMatcher(std::string matcher_name);

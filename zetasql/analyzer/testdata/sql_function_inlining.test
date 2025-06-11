@@ -1,6 +1,6 @@
 # This file tests the rewrite rule that inlines SQL functions
 [default enabled_ast_rewrites=ALL,-WITH_EXPR]
-[default language_features=V_1_2_SAFE_FUNCTION_CALL,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[default language_features=SAFE_FUNCTION_CALL,INLINE_LAMBDA_ARGUMENT,LATERAL_JOIN]
 
 ################################################################################
 ## Non Error Nullary
@@ -1132,6 +1132,339 @@ QueryStmt
           +-SingleRowScan
 ==
 
+# Show the WITH_EXPR rewrite in this case to repro b/234774120
+[enabled_ast_rewrites=ALL,{{|-WITH_EXPR}}]
+SELECT
+  ReferencesArgsInsideLateralJoin(CAST(a + rand() AS INT64), CAST(b + rand() AS INT64))
+FROM (SELECT 1 AS a, 2 AS b);
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-FunctionCall(Lazy_resolution_function:ReferencesArgsInsideLateralJoin(INT64 a, INT64 b) -> INT64)
+    |     +-Cast(DOUBLE -> INT64)
+    |     | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    |     |   +-Cast(INT64 -> DOUBLE)
+    |     |   | +-ColumnRef(type=INT64, column=$subquery1.a#1)
+    |     |   +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
+    |     +-Cast(DOUBLE -> INT64)
+    |       +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    |         +-Cast(INT64 -> DOUBLE)
+    |         | +-ColumnRef(type=INT64, column=$subquery1.b#2)
+    |         +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=$subquery1.[a#1, b#2]
+        +-expr_list=
+        | +-a#1 := Literal(type=INT64, value=1)
+        | +-b#2 := Literal(type=INT64, value=2)
+        +-input_scan=
+          +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-SubqueryExpr
+    |     +-type=INT64
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT64, column=$subquery1.a#1)
+    |     | +-ColumnRef(type=INT64, column=$subquery1.b#2)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$with_expr.injected#13]
+    |         +-expr_list=
+    |         | +-injected#13 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=INT64
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.a#11)
+    |         |     | +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.b#12)
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#4]
+    |         |         +-expr_list=
+    |         |         | +-$col1#4 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |         |         |     +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.a#11, is_correlated=TRUE)
+    |         |         |     +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.a#11, is_correlated=TRUE)
+    |         |         +-input_scan=
+    |         |           +-JoinScan
+    |         |             +-column_list=[t.$col1#5, t2.$col1#6]
+    |         |             +-left_scan=
+    |         |             | +-ProjectScan
+    |         |             |   +-column_list=[t.$col1#5]
+    |         |             |   +-expr_list=
+    |         |             |   | +-$col1#5 := Literal(type=INT64, value=1)
+    |         |             |   +-input_scan=
+    |         |             |     +-SingleRowScan
+    |         |             +-right_scan=
+    |         |             | +-ProjectScan
+    |         |             |   +-column_list=[t2.$col1#6]
+    |         |             |   +-expr_list=
+    |         |             |   | +-$col1#6 :=
+    |         |             |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |         |             |   |     +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.a#11, is_correlated=TRUE)
+    |         |             |   |     +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.b#12, is_correlated=TRUE)
+    |         |             |   +-input_scan=
+    |         |             |     +-ProjectScan
+    |         |             |       +-column_list=[t1.x#7, t2.$col1#8]
+    |         |             |       +-input_scan=
+    |         |             |         +-JoinScan
+    |         |             |           +-column_list=[t1.x#7, t2.$col1#8]
+    |         |             |           +-join_type=LEFT
+    |         |             |           +-left_scan=
+    |         |             |           | +-ProjectScan
+    |         |             |           |   +-column_list=[t1.x#7]
+    |         |             |           |   +-expr_list=
+    |         |             |           |   | +-x#7 := Literal(type=INT64, value=1)
+    |         |             |           |   +-input_scan=
+    |         |             |           |     +-SingleRowScan
+    |         |             |           +-right_scan=
+    |         |             |           | +-ProjectScan
+    |         |             |           |   +-column_list=[t2.$col1#8]
+    |         |             |           |   +-expr_list=
+    |         |             |           |   | +-$col1#8 :=
+    |         |             |           |   |   +-SubqueryExpr
+    |         |             |           |   |     +-type=BOOL
+    |         |             |           |   |     +-subquery_type=SCALAR
+    |         |             |           |   |     +-parameter_list=
+    |         |             |           |   |     | +-ColumnRef(type=INT64, column=t1.x#7, is_correlated=TRUE)
+    |         |             |           |   |     | +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.a#11, is_correlated=TRUE)
+    |         |             |           |   |     | +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.b#12, is_correlated=TRUE)
+    |         |             |           |   |     +-subquery=
+    |         |             |           |   |       +-ProjectScan
+    |         |             |           |   |         +-column_list=[$expr_subquery.$col1#9]
+    |         |             |           |   |         +-expr_list=
+    |         |             |           |   |         | +-$col1#9 :=
+    |         |             |           |   |         |   +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+    |         |             |           |   |         |     +-FunctionCall(ZetaSQL:$subtract(INT64, INT64) -> INT64)
+    |         |             |           |   |         |     | +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.a#11, is_correlated=TRUE)
+    |         |             |           |   |         |     | +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.b#12, is_correlated=TRUE)
+    |         |             |           |   |         |     +-ColumnRef(type=INT64, column=t1.x#7, is_correlated=TRUE)
+    |         |             |           |   |         +-input_scan=
+    |         |             |           |   |           +-SingleRowScan
+    |         |             |           |   +-input_scan=
+    |         |             |           |     +-ProjectScan
+    |         |             |           |       +-column_list=[$subquery2.$col1#10]
+    |         |             |           |       +-expr_list=
+    |         |             |           |       | +-$col1#10 := Literal(type=INT64, value=1)
+    |         |             |           |       +-input_scan=
+    |         |             |           |         +-SingleRowScan
+    |         |             |           +-join_expr=
+    |         |             |           | +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+    |         |             |           |   +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.a#11, is_correlated=TRUE)
+    |         |             |           |   +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.b#12, is_correlated=TRUE)
+    |         |             |           +-is_lateral=TRUE
+    |         |             |           +-parameter_list=
+    |         |             |             +-ColumnRef(type=INT64, column=t1.x#7)
+    |         |             |             +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.a#11, is_correlated=TRUE)
+    |         |             |             +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.b#12, is_correlated=TRUE)
+    |         |             +-is_lateral=TRUE
+    |         |             +-parameter_list=
+    |         |               +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.a#11, is_correlated=TRUE)
+    |         |               +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.b#12, is_correlated=TRUE)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$inlined_ReferencesArgsInsideLateralJoin.[a#11, b#12]
+    |             +-expr_list=
+    |             | +-b#12 :=
+    |             |   +-Cast(DOUBLE -> INT64)
+    |             |     +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    |             |       +-Cast(INT64 -> DOUBLE)
+    |             |       | +-ColumnRef(type=INT64, column=$subquery1.b#2, is_correlated=TRUE)
+    |             |       +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
+    |             +-input_scan=
+    |               +-ProjectScan
+    |                 +-column_list=[$inlined_ReferencesArgsInsideLateralJoin.a#11]
+    |                 +-expr_list=
+    |                 | +-a#11 :=
+    |                 |   +-Cast(DOUBLE -> INT64)
+    |                 |     +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    |                 |       +-Cast(INT64 -> DOUBLE)
+    |                 |       | +-ColumnRef(type=INT64, column=$subquery1.a#1, is_correlated=TRUE)
+    |                 |       +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
+    |                 +-input_scan=
+    |                   +-SingleRowScan
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=$subquery1.[a#1, b#2]
+        +-expr_list=
+        | +-a#1 := Literal(type=INT64, value=1)
+        | +-b#2 := Literal(type=INT64, value=2)
+        +-input_scan=
+          +-SingleRowScan
+--
+ALTERNATION GROUP: -WITH_EXPR
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-FunctionCall(Lazy_resolution_function:ReferencesArgsInsideLateralJoin(INT64 a, INT64 b) -> INT64)
+    |     +-Cast(DOUBLE -> INT64)
+    |     | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    |     |   +-Cast(INT64 -> DOUBLE)
+    |     |   | +-ColumnRef(type=INT64, column=$subquery1.a#1)
+    |     |   +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
+    |     +-Cast(DOUBLE -> INT64)
+    |       +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    |         +-Cast(INT64 -> DOUBLE)
+    |         | +-ColumnRef(type=INT64, column=$subquery1.b#2)
+    |         +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=$subquery1.[a#1, b#2]
+        +-expr_list=
+        | +-a#1 := Literal(type=INT64, value=1)
+        | +-b#2 := Literal(type=INT64, value=2)
+        +-input_scan=
+          +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-WithExpr
+    |     +-type=INT64
+    |     +-assignment_list=
+    |     | +-a#11 :=
+    |     | | +-Cast(DOUBLE -> INT64)
+    |     | |   +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    |     | |     +-Cast(INT64 -> DOUBLE)
+    |     | |     | +-ColumnRef(type=INT64, column=$subquery1.a#1)
+    |     | |     +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
+    |     | +-b#12 :=
+    |     |   +-Cast(DOUBLE -> INT64)
+    |     |     +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    |     |       +-Cast(INT64 -> DOUBLE)
+    |     |       | +-ColumnRef(type=INT64, column=$subquery1.b#2)
+    |     |       +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
+    |     +-expr=
+    |       +-SubqueryExpr
+    |         +-type=INT64
+    |         +-subquery_type=SCALAR
+    |         +-parameter_list=
+    |         | +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.a#11)
+    |         | +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.b#12)
+    |         +-subquery=
+    |           +-ProjectScan
+    |             +-column_list=[$expr_subquery.$col1#4]
+    |             +-expr_list=
+    |             | +-$col1#4 :=
+    |             |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |             |     +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.a#11, is_correlated=TRUE)
+    |             |     +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.a#11, is_correlated=TRUE)
+    |             +-input_scan=
+    |               +-JoinScan
+    |                 +-column_list=[t.$col1#5, t2.$col1#6]
+    |                 +-left_scan=
+    |                 | +-ProjectScan
+    |                 |   +-column_list=[t.$col1#5]
+    |                 |   +-expr_list=
+    |                 |   | +-$col1#5 := Literal(type=INT64, value=1)
+    |                 |   +-input_scan=
+    |                 |     +-SingleRowScan
+    |                 +-right_scan=
+    |                 | +-ProjectScan
+    |                 |   +-column_list=[t2.$col1#6]
+    |                 |   +-expr_list=
+    |                 |   | +-$col1#6 :=
+    |                 |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |                 |   |     +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.a#11, is_correlated=TRUE)
+    |                 |   |     +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.b#12, is_correlated=TRUE)
+    |                 |   +-input_scan=
+    |                 |     +-ProjectScan
+    |                 |       +-column_list=[t1.x#7, t2.$col1#8]
+    |                 |       +-input_scan=
+    |                 |         +-JoinScan
+    |                 |           +-column_list=[t1.x#7, t2.$col1#8]
+    |                 |           +-join_type=LEFT
+    |                 |           +-left_scan=
+    |                 |           | +-ProjectScan
+    |                 |           |   +-column_list=[t1.x#7]
+    |                 |           |   +-expr_list=
+    |                 |           |   | +-x#7 := Literal(type=INT64, value=1)
+    |                 |           |   +-input_scan=
+    |                 |           |     +-SingleRowScan
+    |                 |           +-right_scan=
+    |                 |           | +-ProjectScan
+    |                 |           |   +-column_list=[t2.$col1#8]
+    |                 |           |   +-expr_list=
+    |                 |           |   | +-$col1#8 :=
+    |                 |           |   |   +-SubqueryExpr
+    |                 |           |   |     +-type=BOOL
+    |                 |           |   |     +-subquery_type=SCALAR
+    |                 |           |   |     +-parameter_list=
+    |                 |           |   |     | +-ColumnRef(type=INT64, column=t1.x#7, is_correlated=TRUE)
+    |                 |           |   |     | +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.a#11, is_correlated=TRUE)
+    |                 |           |   |     | +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.b#12, is_correlated=TRUE)
+    |                 |           |   |     +-subquery=
+    |                 |           |   |       +-ProjectScan
+    |                 |           |   |         +-column_list=[$expr_subquery.$col1#9]
+    |                 |           |   |         +-expr_list=
+    |                 |           |   |         | +-$col1#9 :=
+    |                 |           |   |         |   +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+    |                 |           |   |         |     +-FunctionCall(ZetaSQL:$subtract(INT64, INT64) -> INT64)
+    |                 |           |   |         |     | +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.a#11, is_correlated=TRUE)
+    |                 |           |   |         |     | +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.b#12, is_correlated=TRUE)
+    |                 |           |   |         |     +-ColumnRef(type=INT64, column=t1.x#7, is_correlated=TRUE)
+    |                 |           |   |         +-input_scan=
+    |                 |           |   |           +-SingleRowScan
+    |                 |           |   +-input_scan=
+    |                 |           |     +-ProjectScan
+    |                 |           |       +-column_list=[$subquery2.$col1#10]
+    |                 |           |       +-expr_list=
+    |                 |           |       | +-$col1#10 := Literal(type=INT64, value=1)
+    |                 |           |       +-input_scan=
+    |                 |           |         +-SingleRowScan
+    |                 |           +-join_expr=
+    |                 |           | +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+    |                 |           |   +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.a#11, is_correlated=TRUE)
+    |                 |           |   +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.b#12, is_correlated=TRUE)
+    |                 |           +-is_lateral=TRUE
+    |                 |           +-parameter_list=
+    |                 |             +-ColumnRef(type=INT64, column=t1.x#7)
+    |                 |             +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.a#11, is_correlated=TRUE)
+    |                 |             +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.b#12, is_correlated=TRUE)
+    |                 +-is_lateral=TRUE
+    |                 +-parameter_list=
+    |                   +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.a#11, is_correlated=TRUE)
+    |                   +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideLateralJoin.b#12, is_correlated=TRUE)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=$subquery1.[a#1, b#2]
+        +-expr_list=
+        | +-a#1 := Literal(type=INT64, value=1)
+        | +-b#2 := Literal(type=INT64, value=2)
+        +-input_scan=
+          +-SingleRowScan
+
+==
+
 SELECT ReferencesArgOutsideCte(1);
 --
 QueryStmt
@@ -2087,7 +2420,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_4_MULTILEVEL_AGGREGATION]
+[language_features=MULTILEVEL_AGGREGATION]
 SELECT
   GroupingConstantFromUnnest([1,2,3], int64)
 FROM SimpleTypes;
@@ -2148,7 +2481,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 ==
 
-[language_features=V_1_4_MULTILEVEL_AGGREGATION]
+[language_features=MULTILEVEL_AGGREGATION]
 SELECT
   GroupingConstantFromArg([1,2,3], int64)
 FROM SimpleTypes;
@@ -2210,7 +2543,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 ==
 
-[language_features=V_1_4_MULTILEVEL_AGGREGATION]
+[language_features=MULTILEVEL_AGGREGATION]
 SELECT NullaryWithMultilevelAgg() as result;
 --
 QueryStmt
@@ -2258,7 +2591,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_4_MULTILEVEL_AGGREGATION]
+[language_features=MULTILEVEL_AGGREGATION]
 SELECT NestedNullaryWithMultilevelAgg() as result;
 --
 QueryStmt

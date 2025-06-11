@@ -52,7 +52,6 @@ TYPES_SRCS = [
     "Value.java",
     "SimpleValue.java",
     "AnnotationMap.java",
-    "ArrayAnnotationMap.java",
     "StructAnnotationMap.java",
 ]
 
@@ -308,6 +307,8 @@ PROPERTY_GRAPH_SRCS = [
     "GraphNodeTableReference.java",
     "GraphPropertyDeclaration.java",
     "GraphPropertyDefinition.java",
+    "GraphDynamicLabel.java",
+    "GraphDynamicProperties.java",
 ]
 
 java_library(
@@ -387,6 +388,8 @@ SIMPLE_CATALOG_SRCS = [
     "SimpleGraphPropertyDeclaration.java",
     "SimpleGraphNodeTableReference.java",
     "SimpleGraphElementLabel.java",
+    "SimpleGraphDynamicLabel.java",
+    "SimpleGraphDynamicProperties.java",
 ]
 
 java_library(
@@ -396,7 +399,7 @@ java_library(
         ":channel_provider",
         ":property_graph",
         ":types",
-        "//java/com/google/zetasql/resolvedast:resolvedast_no_simple_catalog",
+        "//java/com/google/zetasql/resolvedast:resolvedast_no_simple_catalog",  # unuseddeps: keep # buildcleaner: keep
         "//zetasql/local_service:local_service_java_grpc",
         "//zetasql/local_service:local_service_java_proto",
         "//zetasql/proto:options_java_proto",

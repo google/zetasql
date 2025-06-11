@@ -2,7 +2,7 @@
 # This is a 1.1 feature.  1.0 only had top-level WITH clauses.
 #
 # This file has the same queries as with_on_subquery.test but does not enable
-# the V_1_1_WITH_ON_SUBQUERY feature, so it shows the error messages for v1.0.
+# the WITH_ON_SUBQUERY feature, so it shows the error messages for v1.0.
 
 # WITH in a table subquery
 SELECT * FROM

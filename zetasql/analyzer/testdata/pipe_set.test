@@ -932,7 +932,7 @@ ERROR: Column name in pipe SET not found in input table: TestConstantProto [at 3
 # for SELECT and SET.
 # TODO Enable java support for collation.
 [no_java]
-[language_features=PIPES{{|,V_1_3_ANNOTATION_FRAMEWORK|,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT}}]
+[language_features=PIPES{{|,ANNOTATION_FRAMEWORK|,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT}}]
 from CollatedTable
 |> select string_ci, concat(string_ci, "xxx") as newcol1,
       null as newcol2
@@ -940,7 +940,7 @@ from CollatedTable
 --
 ALTERNATION GROUPS:
     <empty>
-    ,V_1_3_ANNOTATION_FRAMEWORK
+    ,ANNOTATION_FRAMEWORK
 --
 QueryStmt
 +-output_column_list=
@@ -967,7 +967,7 @@ QueryStmt
         +-input_scan=
           +-TableScan(column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
 --
-ALTERNATION GROUP: ,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT
+ALTERNATION GROUP: ,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT
 --
 QueryStmt
 +-output_column_list=

@@ -453,7 +453,7 @@ select STRUCT<INT32, DATE>(1, "invalid")
                               ^
 ==
 
-[language_features={{|V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select STRUCT<INT32, BYTES>(1, "b")
 --
 ALTERNATION GROUP: <empty>
@@ -462,7 +462,7 @@ ERROR: Struct field 2 has type STRING which does not coerce to BYTES [at 1:32]
 select STRUCT<INT32, BYTES>(1, "b")
                                ^
 --
-ALTERNATION GROUP: V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
+ALTERNATION GROUP: IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
 --
 QueryStmt
 +-output_column_list=
@@ -491,16 +491,20 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select coalesce((1, "a"), (2, b"b"))
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for function COALESCE for argument types: STRUCT<INT64, STRING>, STRUCT<INT64, BYTES>. Supported signature: COALESCE([ANY, ...]) [at 1:8]
+ERROR: No matching signature for function COALESCE
+  Argument types: STRUCT<INT64, STRING>, STRUCT<INT64, BYTES>
+  Signature: COALESCE([T1, ...])
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRUCT<INT64, BYTES>, STRUCT<INT64, STRING>} [at 1:8]
 select coalesce((1, "a"), (2, b"b"))
        ^
 --
-ALTERNATION GROUP: V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
+ALTERNATION GROUP: IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
 --
 QueryStmt
 +-output_column_list=
@@ -1054,7 +1058,14 @@ select key, value
 from keyvalue kv
 where struct(key, key) = ('1', '1');
 --
-ERROR: No matching signature for operator = for argument types: STRUCT<key INT64, key INT64>, STRUCT<STRING, STRING>. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 3:7]
+ERROR: No matching signature for operator = for argument types: STRUCT<key INT64, key INT64>, STRUCT<STRING, STRING>
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRUCT<key INT64, key INT64>, STRUCT<STRING, STRING>}
+  Signature: INT64 = UINT64
+    Argument 1: Unable to coerce type STRUCT<key INT64, key INT64> to expected type INT64
+  Signature: UINT64 = INT64
+    Argument 1: Unable to coerce type STRUCT<key INT64, key INT64> to expected type UINT64 [at 3:7]
 where struct(key, key) = ('1', '1');
       ^
 ==
@@ -1087,7 +1098,14 @@ select key, value
 from keyvalue kv
 where struct(key, key) = struct<key uint64, key int64>(cast(1 as uint64), 1);
 --
-ERROR: No matching signature for operator = for argument types: STRUCT<key INT64, key INT64>, STRUCT<key UINT64, key INT64>. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 3:7]
+ERROR: No matching signature for operator = for argument types: STRUCT<key INT64, key INT64>, STRUCT<key UINT64, key INT64>
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {STRUCT<key INT64, key INT64>, STRUCT<key UINT64, key INT64>}
+  Signature: INT64 = UINT64
+    Argument 1: Unable to coerce type STRUCT<key INT64, key INT64> to expected type INT64
+  Signature: UINT64 = INT64
+    Argument 1: Unable to coerce type STRUCT<key INT64, key INT64> to expected type UINT64 [at 3:7]
 where struct(key, key) = struct<key uint64, key int64>(cast(1 as uint64), 1);
       ^
 ==
@@ -1524,7 +1542,11 @@ QueryStmt
 
 select COALESCE(1, (1, 1))
 --
-ERROR: No matching signature for function COALESCE for argument types: INT64, STRUCT<INT64, INT64>. Supported signature: COALESCE([ANY, ...]) [at 1:8]
+ERROR: No matching signature for function COALESCE
+  Argument types: INT64, STRUCT<INT64, INT64>
+  Signature: COALESCE([T1, ...])
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {INT64, STRUCT<INT64, INT64>} [at 1:8]
 select COALESCE(1, (1, 1))
        ^
 ==

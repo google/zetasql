@@ -28,12 +28,12 @@ absl::Status GetStandaloneBuiltinEnumTypes(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     NameToTypeMap* types) {
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_MULTIWAY_UNNEST)) {
+          FEATURE_MULTIWAY_UNNEST)) {
     const Type* array_zip_mode_type = types::ArrayZipModeEnumType();
     ZETASQL_RETURN_IF_ERROR(InsertType(types, options, array_zip_mode_type));
   }
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_BITWISE_AGGREGATE_BYTES_SIGNATURES)) {
+          FEATURE_BITWISE_AGGREGATE_BYTES_SIGNATURES)) {
     const Type* bitwise_agg_mode_type = types::BitwiseAggModeEnumType();
     ZETASQL_RETURN_IF_ERROR(InsertType(types, options, bitwise_agg_mode_type));
   }

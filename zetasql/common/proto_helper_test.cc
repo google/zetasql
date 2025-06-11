@@ -130,7 +130,7 @@ TEST_F(ProtoHelperTest, PopulateFileDescriptorSet) {
   std::vector<std::string> file_names;
   file_names.reserve(file_descriptor_set.file_size());
   for (int i = 0; i < file_descriptor_set.file_size(); ++i) {
-    file_names.push_back(file_descriptor_set.file(i).name());
+    file_names.emplace_back(file_descriptor_set.file(i).name());
   }
   ASSERT_THAT(file_names, UnorderedElementsAreArray(expected_proto_matchers));
 
@@ -195,7 +195,7 @@ TEST_F(ProtoHelperTest, AddFileDescriptorSetToPool_BadData) {
       "zetasql/public/proto/type_annotation.proto",
       &file_descriptor_set));
 
-  *file_descriptor_set.mutable_file(1)->add_dependency() = "inexisting.proto";
+  file_descriptor_set.mutable_file(1)->add_dependency("inexisting.proto");
 
   auto status = AddFileDescriptorSetToPool(&file_descriptor_set, &pool);
   ASSERT_FALSE(status.ok());

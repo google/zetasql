@@ -17,9 +17,7 @@
 #ifndef ZETASQL_PARSER_TOKEN_WITH_LOCATION_H_
 #define ZETASQL_PARSER_TOKEN_WITH_LOCATION_H_
 
-#include <string>
-
-#include "zetasql/parser/token_codes.h"
+#include "zetasql/parser/tm_token.h"
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "absl/base/nullability.h"
@@ -31,7 +29,11 @@ namespace parser {
 // Represents a stack trace for the macro expansions.
 // The stack is used to provide more context for errors.
 // `name` is the name of the invocation. It can be a macro/argument invocation
-// or a argumenet expansion. `location` is the location of the macro invocation.
+// or an argument expansion. `location` is the location of the macro invocation.
+//
+// NOTE : All the string_view defined in this struct are allocated in the arena
+// and will be valid for the lifetime of the arena.
+// The arena should outlive the stack frame.
 //
 // Keep this cheap to copy.
 struct StackFrame {
@@ -44,8 +46,25 @@ struct StackFrame {
   absl::string_view name;
   FrameType frame_type;
   ParseLocationRange location;
+
+  // This struct is similar to ErrorSource proto.
+  // Only difference is that it uses string_view instead of string.
+  //
+  struct ErrorSource {
+    absl::string_view error_message;
+    absl::string_view error_message_caret_string;
+
+    // represents the location of the error. Similar to ErrorLocation proto.
+    absl::string_view filename;
+    int line = 0;
+    int column = 0;
+    int input_start_line_offset = 0;
+    int input_start_column_offset = 0;
+  };
+
   ErrorSource error_source;
-  absl::Nullable<StackFrame*> parent;
+
+  StackFrame* /*absl_nullable*/ parent;
 
   // The invocation frame where this frame is produced from.
   // This is only set for kMacroArg. For example, $m(abc) arg:$1 is kMacroArg,
@@ -81,7 +100,7 @@ struct StackFrame {
   // Here, In above example, For Arg:$1(m2), its parent will be $1(ArgRef)
   // and invocation frame will be $m2().
 
-  absl::Nullable<StackFrame*> invocation_frame;
+  StackFrame* /*absl_nullable*/ invocation_frame;
 };
 
 // Represents one token in the unexpanded input stream. 'Kind' is the lexical

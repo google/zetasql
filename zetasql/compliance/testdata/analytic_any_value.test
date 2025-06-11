@@ -560,7 +560,7 @@ ARRAY<STRUCT<
                 NULL}]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,CIVIL_TIME]
 [name=analytic_any_value_rangetype_datetime_1]
 SELECT row_id, range_datetime_val, ANY_VALUE(range_datetime_val) OVER test_window
 FROM (
@@ -582,7 +582,7 @@ ARRAY<STRUCT<
                {1, NULL, NULL}]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,CIVIL_TIME]
 [name=analytic_any_value_rangetype_datetime_2]
 SELECT row_id, range_datetime_val, ANY_VALUE(range_datetime_val) OVER test_window
 FROM (
@@ -798,7 +798,7 @@ ARRAY<STRUCT<
                {2, NULL, NULL}]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,CIVIL_TIME]
 [name=analytic_any_value_distinct_rangetype_datetime]
 SELECT row_id, range_datetime_val, ANY_VALUE(range_datetime_val) OVER test_window
 FROM (

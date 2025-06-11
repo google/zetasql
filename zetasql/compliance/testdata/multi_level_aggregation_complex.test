@@ -66,7 +66,7 @@ ARRAY<STRUCT<
 ]
 ==
 
-[required_features=V_1_4_MULTILEVEL_AGGREGATION]
+[required_features=MULTILEVEL_AGGREGATION]
 [name=multi_level_agg_basic]
 SELECT
   SUM(MAX(int64) GROUP BY int32)
@@ -75,7 +75,7 @@ FROM SimpleTypes;
 ARRAY<STRUCT<INT64>>[{4000}]
 ==
 
-[required_features=V_1_4_MULTILEVEL_AGGREGATION]
+[required_features=MULTILEVEL_AGGREGATION]
 [name=multi_level_agg_grouping_constness]
 SELECT
   SUM(uint64 + uint32 + CAST(MAX(int64) AS UINT64) GROUP BY uint32)
@@ -85,7 +85,7 @@ GROUP BY uint64;
 ARRAY<STRUCT<UINT64>>[unknown order:{4500}, {15300}]
 ==
 
-[required_features=V_1_4_MULTILEVEL_AGGREGATION]
+[required_features=MULTILEVEL_AGGREGATION]
 [name=multi_level_agg_with_count_star]
 SELECT
   SUM(int64 GROUP BY int64),
@@ -100,7 +100,7 @@ ARRAY<STRUCT<INT64, INT64, INT64>>[unknown order:
 ]
 ==
 
-[required_features=V_1_4_MULTILEVEL_AGGREGATION]
+[required_features=MULTILEVEL_AGGREGATION]
 [name=multi_level_agg_redundant_grouping_keys]
 SELECT
   SUM(int32 + COUNT(string GROUP BY int32, uint64, string) GROUP BY int32, uint64),
@@ -111,7 +111,7 @@ GROUP BY uint64;
 ARRAY<STRUCT<INT64, INT64>>[unknown order:{1103, 1}, {1103, 1}]
 ==
 
-[required_features=V_1_4_MULTILEVEL_AGGREGATION,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=MULTILEVEL_AGGREGATION,ORDER_BY_IN_AGGREGATE]
 [name=multi_level_agg_with_order_by_modifier]
 SELECT
   ARRAY_AGG(MIN(int64) GROUP BY int32 ORDER BY int32),
@@ -128,7 +128,24 @@ ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>>>[
 ]
 ==
 
-[required_features=V_1_4_MULTILEVEL_AGGREGATION]
+[required_features=MULTILEVEL_AGGREGATION,ORDER_BY_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[name=multi_level_agg_with_order_by_modifier_ignore_nulls]
+SELECT
+  ARRAY_AGG(MIN(int64) IGNORE NULLS GROUP BY int32 ORDER BY int32),
+  ARRAY_AGG(int32 IGNORE NULLS GROUP BY int32 ORDER BY SUM(int64)),
+  ARRAY_AGG(MAX(int64) IGNORE NULLS GROUP BY int32 ORDER BY MAX(int64))
+FROM SimpleTypes;
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>>>[
+  {
+    ARRAY<INT64>[known order:200, 200],
+    ARRAY<INT32>[known order:100, 1000],
+    ARRAY<INT64>[unknown order:2000, 2000]
+  }
+]
+==
+
+[required_features=MULTILEVEL_AGGREGATION]
 [name=multi_level_agg_in_having_clause]
 SELECT
   string,
@@ -144,7 +161,7 @@ ARRAY<STRUCT<
       >>[{"oddstring", 4000}]
 ==
 
-[required_features=V_1_4_MULTILEVEL_AGGREGATION,V_1_3_QUALIFY,ANALYTIC_FUNCTIONS]
+[required_features=MULTILEVEL_AGGREGATION,QUALIFY,ANALYTIC_FUNCTIONS]
 [name=multi_level_agg_inside_over_clause]
 SELECT
   SUM(uint32) OVER () AS window_result
@@ -160,7 +177,7 @@ QUALIFY
 ARRAY<STRUCT<window_result UINT64>>[unknown order:{3300}, {3300}]
 ==
 
-[required_features=V_1_4_MULTILEVEL_AGGREGATION]
+[required_features=MULTILEVEL_AGGREGATION]
 [name=multi_level_agg_in_order_by_clause]
 SELECT
   SUM(int64)
@@ -172,7 +189,7 @@ ORDER BY
 --
 ARRAY<STRUCT<INT64>>[known order:{600}, {6000}]
 ==
-[required_features=V_1_4_MULTILEVEL_AGGREGATION,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[required_features=MULTILEVEL_AGGREGATION,NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [name=multi_level_agg_with_null_handling_modifier]
 SELECT
   ARRAY_AGG(nullable_string IGNORE NULLS GROUP BY nullable_string),
@@ -186,7 +203,7 @@ ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
   }
 ]
 ==
-[required_features=V_1_4_MULTILEVEL_AGGREGATION,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE]
+[required_features=MULTILEVEL_AGGREGATION,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE]
 [name=multi_level_agg_with_order_by_and_limit_1]
 SELECT
   ARRAY_AGG(int64 GROUP BY int64 ORDER BY int64 LIMIT 2)
@@ -194,7 +211,15 @@ FROM SimpleTypes
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:200, 2000]}]
 ==
-[required_features=V_1_4_MULTILEVEL_AGGREGATION,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE]
+[required_features=MULTILEVEL_AGGREGATION,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[name=multi_level_agg_with_order_by_and_limit_1_ignore_nulls]
+SELECT
+  ARRAY_AGG(int64 IGNORE NULLS GROUP BY int64 ORDER BY int64 LIMIT 2)
+FROM SimpleTypes
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:200, 2000]}]
+==
+[required_features=MULTILEVEL_AGGREGATION,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE]
 [name=multi_level_agg_with_order_by_and_limit_2]
 SELECT
   ARRAY_AGG(MAX(row_id) GROUP BY row_id ORDER BY MAX(row_id) LIMIT 4)
@@ -202,7 +227,15 @@ FROM SimpleTypes
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:1, 2, 3, 4]}]
 ==
-[required_features=V_1_4_MULTILEVEL_AGGREGATION]
+[required_features=MULTILEVEL_AGGREGATION,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[name=multi_level_agg_with_order_by_and_limit_2_ignore_nulls]
+SELECT
+  ARRAY_AGG(MAX(row_id) IGNORE NULLS GROUP BY row_id ORDER BY MAX(row_id) LIMIT 4)
+FROM SimpleTypes
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:1, 2, 3, 4]}]
+==
+[required_features=MULTILEVEL_AGGREGATION]
 [name=multi_level_agg_with_distinct]
 SELECT
   ARRAY_AGG(MAX(int64) GROUP BY string),
@@ -216,7 +249,38 @@ ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
   }
 ]
 ==
-[required_features=V_1_4_MULTILEVEL_AGGREGATION,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE]
+[required_features=MULTILEVEL_AGGREGATION]
+[name=multi_level_agg_with_sum_distinct]
+SELECT
+  SUM(MAX(int64) GROUP BY string),
+  SUM(DISTINCT MAX(int64) GROUP BY string)
+FROM SimpleTypes
+--
+ARRAY<STRUCT<INT64, INT64>>[{4000, 2000}]
+==
+[required_features=MULTILEVEL_AGGREGATION]
+[name=multi_level_agg_with_count_distinct]
+SELECT
+  COUNT(int64 GROUP BY int64),
+  COUNT(DISTINCT int64 GROUP BY int64),
+  COUNT(MAX(int64) GROUP BY string),
+  COUNT(DISTINCT MAX(int64) GROUP BY string),
+  COUNT(string GROUP BY string),
+  COUNT(DISTINCT string GROUP BY string)
+FROM SimpleTypes
+--
+ARRAY<STRUCT<INT64, INT64, INT64, INT64, INT64, INT64>>[{2, 2, 2, 1, 2, 2}]
+==
+[required_features=MULTILEVEL_AGGREGATION]
+[name=multi_level_agg_with_multiple_count_star]
+SELECT
+  COUNT(* GROUP BY int64),
+  COUNT(* GROUP BY string)
+FROM SimpleTypes
+--
+ARRAY<STRUCT<INT64, INT64>>[{2, 2}]
+==
+[required_features=MULTILEVEL_AGGREGATION,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE]
 [name=multi_level_agg_many_clauses]
 SELECT
   ARRAY_AGG(DISTINCT row_id GROUP BY row_id ORDER BY row_id LIMIT 5)
@@ -224,7 +288,23 @@ FROM SimpleTypes
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:1, 2, 3, 4, 5]}]
 ==
-[required_features=V_1_4_MULTILEVEL_AGGREGATION]
+[required_features=MULTILEVEL_AGGREGATION,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[name=multi_level_agg_many_clauses_ignore_nulls]
+SELECT
+  ARRAY_AGG(DISTINCT row_id IGNORE NULLS GROUP BY row_id ORDER BY row_id LIMIT 5)
+FROM SimpleTypes
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:1, 2, 3, 4, 5]}]
+==
+[required_features=MULTILEVEL_AGGREGATION,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[name=multi_level_agg_many_clauses_nullable_ignore_nulls]
+SELECT
+  ARRAY_AGG(DISTINCT nullable_string IGNORE NULLS GROUP BY nullable_string ORDER BY nullable_string LIMIT 5)
+FROM SimpleTypes
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["not_null"]}]
+==
+[required_features=MULTILEVEL_AGGREGATION]
 [name=multi_level_agg_group_by_ordinals]
 SELECT
   int32,
@@ -240,7 +320,7 @@ ARRAY<STRUCT<int32 INT32, int64 INT64, UINT64>>[unknown order:
   {1000, 2000, 6000}
 ]
 ==
-[required_features=V_1_4_MULTILEVEL_AGGREGATION,V_1_4_GROUP_BY_ALL]
+[required_features=MULTILEVEL_AGGREGATION,GROUP_BY_ALL]
 [name=multi_level_agg_group_by_all]
 SELECT
   int32,
@@ -256,7 +336,7 @@ ARRAY<STRUCT<int32 INT32, int64 INT64, UINT64>>[unknown order:
   {1000, 2000, 6000}
 ]
 ==
-[required_features=V_1_4_MULTILEVEL_AGGREGATION,V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+[required_features=MULTILEVEL_AGGREGATION,GROUPING_BUILTIN,GROUPING_SETS]
 [name=multi_level_agg_grouping_sets]
 SELECT
   GROUPING(int32) AS int32_is_aggregated_and_not_grouped,
@@ -281,7 +361,7 @@ ARRAY<STRUCT<
   {0, 1, 1000, NULL, 6000}
 ]
 ==
-[required_features=V_1_4_MULTILEVEL_AGGREGATION,V_1_4_GROUPING_BUILTIN,GROUP_BY_ROLLUP]
+[required_features=MULTILEVEL_AGGREGATION,GROUPING_BUILTIN,GROUP_BY_ROLLUP]
 [name=multi_level_agg_group_by_rollup]
 SELECT
   GROUPING(int32) AS int32_is_aggregated_and_not_grouped,
@@ -309,7 +389,7 @@ ARRAY<STRUCT<
   {0, 0, 1000, 2000, 6000}
 ]
 ==
-[required_features=V_1_4_MULTILEVEL_AGGREGATION,V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+[required_features=MULTILEVEL_AGGREGATION,GROUPING_BUILTIN,GROUPING_SETS]
 [name=multi_level_agg_group_by_cube]
 SELECT
   GROUPING(int32) AS int32_is_aggregated_and_not_grouped,
@@ -339,7 +419,7 @@ ARRAY<STRUCT<
   {0, 0, 1000, 2000, 6000}
 ]
 ==
-[required_features=V_1_4_MULTILEVEL_AGGREGATION]
+[required_features=MULTILEVEL_AGGREGATION]
 [name=multi_level_agg_with_multiple_args]
 SELECT
   CORR(AVG(int64), CORR(int32, int64) GROUP BY string)
@@ -347,7 +427,7 @@ FROM SimpleTypes
 --
 ARRAY<STRUCT<DOUBLE>>[{-1}]
 ==
-[required_features=V_1_4_MULTILEVEL_AGGREGATION]
+[required_features=MULTILEVEL_AGGREGATION]
 [name=multi_level_agg_with_subquery_args]
 SELECT
   string,

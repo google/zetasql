@@ -147,6 +147,11 @@ class ReferenceDriver : public TestDriver {
   // This can be called between ExecuteQuery calls to change options.
   void SetLanguageOptions(const LanguageOptions& options);
 
+  // Add some SQL constants to the catalog owned by this test driver. The
+  // argument is a collection of "CREATE TEMP CONSTANT" statements.
+  absl::Status AddSqlConstants(
+      absl::Span<const std::string> create_constant_stmts) override;
+
   // Adds some SQL UDFs to the catalog owned by this test driver. The argument
   // is a collection of "CREATE TEMP FUNCTION" statements.
   absl::Status AddSqlUdfs(

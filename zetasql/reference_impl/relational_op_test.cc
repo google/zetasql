@@ -4371,6 +4371,72 @@ TEST_F(CreateIteratorTest, FilterOp) {
   EXPECT_FALSE(iter->PreservesOrder());
 }
 
+TEST_F(CreateIteratorTest, FilterOp_OrderedInput) {
+  VariableId a("a"), b("b"), param("param");
+  const std::vector<TupleData> test_values =
+      CreateTestTupleDatas({{Int64(1), Int64(10)},
+                            {Int64(3), Int64(30)},
+                            {Int64(2), Int64(20)},
+                            {Int64(4), Int64(40)}});
+  auto input = absl::WrapUnique(
+      new TestRelationalOp({a, b}, test_values, /*preserves_order=*/true,
+                           /*may_preserve_order=*/true));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_a, DerefExpr::Create(a, Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_param, DerefExpr::Create(param, Int64Type()));
+
+  std::vector<std::unique_ptr<ValueExpr>> args;
+  args.push_back(std::move(deref_a));
+  args.push_back(std::move(deref_param));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto predicate,
+                       ScalarFunctionCallExpr::Create(
+                           CreateFunction(FunctionKind::kLess, BoolType()),
+                           std::move(args), DEFAULT_ERROR_MODE));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto filter_op, FilterOp::Create(std::move(predicate), std::move(input)));
+  EXPECT_TRUE(filter_op->may_preserve_order());
+  EXPECT_EQ(filter_op->IteratorDebugString(),
+            "FilterTupleIterator(TestTupleIterator)");
+  EXPECT_EQ(
+      "FilterOp(\n"
+      "+-condition: Less($a, $param),\n"
+      "+-input: TestRelationalOp)",
+      filter_op->DebugString());
+  std::unique_ptr<TupleSchema> output_schema = filter_op->CreateOutputSchema();
+  EXPECT_THAT(output_schema->variables(), ElementsAre(a, b));
+
+  TupleSchema params_schema({param});
+  const TupleData params_data = CreateTestTupleData({Int64(3)});
+  ZETASQL_ASSERT_OK(filter_op->SetSchemasForEvaluation({&params_schema}));
+
+  EvaluationContext context((EvaluationOptions()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<TupleIterator> iter,
+                       filter_op->CreateIterator(
+                           {&params_data}, /*num_extra_slots=*/1, &context));
+  EXPECT_EQ(iter->DebugString(), "FilterTupleIterator(TestTupleIterator)");
+  EXPECT_TRUE(iter->PreservesOrder());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<TupleData> data,
+                       ReadFromTupleIterator(iter.get()));
+  ASSERT_EQ(data.size(), 2);
+  EXPECT_THAT(data[0].slots(),
+              ElementsAre(IsTupleSlotWith(Int64(1), IsNull()),
+                          IsTupleSlotWith(Int64(10), IsNull()), _));
+  EXPECT_THAT(data[1].slots(),
+              ElementsAre(IsTupleSlotWith(Int64(2), IsNull()),
+                          IsTupleSlotWith(Int64(20), IsNull()), _));
+
+  // Check that scrambling works.
+  EvaluationContext scramble_context(GetScramblingEvaluationOptions());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      iter, filter_op->CreateIterator({&params_data}, /*num_extra_slots=*/1,
+                                      &scramble_context));
+  EXPECT_EQ(iter->DebugString(),
+            "ReorderingTupleIterator(FilterTupleIterator(TestTupleIterator))");
+  EXPECT_FALSE(iter->PreservesOrder());
+}
+
 TEST_F(CreateIteratorTest, LimitOp_OrderedInput) {
   VariableId a("a"), b("b"), row_count("row_count"), offset("offset");
   const std::vector<TupleData> test_values =

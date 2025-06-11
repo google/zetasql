@@ -1234,8 +1234,7 @@ TEST_P(FormatComplianceTests, Test) {
       /*canonicalize_zero=*/true, /*use_external_float32=*/false);
 
   if (using_any_civil_time_values &&
-      !zetasql_base::ContainsKey(test.params.required_features(),
-                        FEATURE_V_1_2_CIVIL_TIME)) {
+      !zetasql_base::ContainsKey(test.params.required_features(), FEATURE_CIVIL_TIME)) {
     // The test case in compliance test is expecting an error in this case.
     EXPECT_FALSE(test.params.status().ok());
     return;

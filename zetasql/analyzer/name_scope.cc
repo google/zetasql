@@ -1767,6 +1767,64 @@ std::vector<ResolvedColumn> NameList::GetResolvedColumns() const {
   return ret;
 }
 
+static IdStringHashSetCase GetColumnNameSet(
+    absl::Span<const NamedColumn> columns) {
+  IdStringHashSetCase name_list_columns;
+  for (const NamedColumn& named_column : columns) {
+    name_list_columns.insert(named_column.name());
+  }
+  return name_list_columns;
+}
+
+// Pseudo-columns only exist in name_scope_, but not within columns_. So we
+// need to find all columns in name_scope_ that are not in columns_.
+std::vector<ResolvedColumn> NameList::GetResolvedPseudoColumns() const {
+  IdStringHashSetCase name_list_columns = GetColumnNameSet(columns_);
+
+  // Find pseudo-columns by finding all columns in name scope that are not in
+  // the name list.
+  std::vector<ResolvedColumn> pseudo_columns;
+  for (const auto& item : name_scope_.names()) {
+    IdString name = item.first;
+    if (name_list_columns.find(name) == name_list_columns.end() &&
+        item.second.IsColumn()) {
+      pseudo_columns.push_back(item.second.column());
+    }
+  }
+
+  // Sort pseudo-columns by name for consistent Resolved AST output in tests.
+  std::stable_sort(pseudo_columns.begin(), pseudo_columns.end(),
+                   [](const ResolvedColumn& a, const ResolvedColumn& b) {
+                     return a.name() < b.name();  // Sort by name
+                   });
+
+  return pseudo_columns;
+}
+
+std::vector<NamedColumn> NameList::GetNamedPseudoColumns() const {
+  IdStringHashSetCase name_list_columns = GetColumnNameSet(columns_);
+
+  // Find pseudo-columns by finding all columns in name scope that are not in
+  // the name list.
+  std::vector<NamedColumn> pseudo_columns;
+  for (const auto& item : name_scope_.names()) {
+    IdString name = item.first;
+    if (name_list_columns.find(name) == name_list_columns.end() &&
+        item.second.IsColumn()) {
+      pseudo_columns.push_back(NamedColumn(name, item.second.column(),
+                                           /*is_explicit=*/false));
+    }
+  }
+
+  // Sort pseudo-columns by name for consistent Resolved AST output in tests.
+  std::stable_sort(pseudo_columns.begin(), pseudo_columns.end(),
+                   [](const NamedColumn& a, const NamedColumn& b) {
+                     return a.name() < b.name();  // Sort by name
+                   });
+
+  return pseudo_columns;
+}
+
 std::vector<IdString> NameList::GetColumnNames() const {
   std::vector<IdString> ret;
   ret.reserve(columns_.size());

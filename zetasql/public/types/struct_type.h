@@ -79,6 +79,15 @@ class StructType : public ListBackedType {
 
   const StructType* AsStruct() const override { return this; }
 
+  std::vector<const Type*> ComponentTypes() const override {
+    std::vector<const Type*> component_types;
+    component_types.reserve(fields_.size());
+    for (const StructField& field : fields_) {
+      component_types.push_back(field.type);
+    }
+    return component_types;
+  }
+
   // Look up a field by name.
   // Returns NULL if <name> is not found (uniquely).
   // Returns in <*is_ambiguous> whether this lookup was ambiguous.
@@ -225,6 +234,7 @@ class StructType : public ListBackedType {
       ABSL_GUARDED_BY(mutex_);
 
   friend class TypeFactory;
+  friend class MeasureType;
   FRIEND_TEST(TypeTest, FormatValueContentStructSQLLiteralMode);
   FRIEND_TEST(TypeTest, FormatValueContentStructSQLExpressionMode);
   FRIEND_TEST(TypeTest, FormatValueContentStructDebugMode);

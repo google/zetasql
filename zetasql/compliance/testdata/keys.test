@@ -583,7 +583,7 @@ ARRAY<STRUCT<
 ==
 
 # Various error cases with the SAFE version of the functions.
-[required_features=ENCRYPTION,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=ENCRYPTION,SAFE_FUNCTION_CALL]
 [name=safe_functions]
 [parameters='invalid' as key_type]
 SELECT
@@ -605,7 +605,7 @@ SELECT
 ARRAY<STRUCT<BYTES, BYTES, BYTES, BYTES>>[{NULL, NULL, NULL, NULL}]
 ==
 
-[required_features=ENCRYPTION,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=ENCRYPTION,SAFE_FUNCTION_CALL]
 [name=safe_functions_2]
 [parameters='invalid' as key_type]
 SELECT
@@ -619,7 +619,7 @@ SELECT
 ARRAY<STRUCT<BYTES, BYTES, INT64>>[{NULL, NULL, NULL}]
 ==
 
-[required_features=ENCRYPTION,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=ENCRYPTION,SAFE_FUNCTION_CALL]
 [name=safe_functions_3]
 SELECT
   -- Bad keyset
@@ -630,7 +630,7 @@ SELECT
 ARRAY<STRUCT<STRING, BYTES>>[{NULL, NULL}]
 ==
 
-[required_features=ENCRYPTION,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=ENCRYPTION,SAFE_FUNCTION_CALL]
 [name=new_keyset_safe]
 SELECT SAFE.KEYS.NEW_KEYSET('AEAD_AES_GCM_256') != b'' as result
 --
@@ -638,7 +638,7 @@ SELECT SAFE.KEYS.NEW_KEYSET('AEAD_AES_GCM_256') != b'' as result
 ARRAY<STRUCT<result BOOL>>[{true}]
 ==
 
-[required_features=ENCRYPTION,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=ENCRYPTION,SAFE_FUNCTION_CALL]
 [name=rotate_keyset_safe]
 SELECT SAFE.KEYS.ROTATE_KEYSET(KEYS.NEW_KEYSET('AEAD_AES_GCM_256'), 'AEAD_AES_GCM_256') != b'' as result
 --

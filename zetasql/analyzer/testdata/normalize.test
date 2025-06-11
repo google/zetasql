@@ -294,14 +294,20 @@ SELECT NORMALIZE(Value, Value)
 
 SELECT NORMALIZE(1)
 --
-ERROR: No matching signature for function NORMALIZE for argument types: INT64. Supported signature: NORMALIZE(STRING, [NORMALIZE_MODE]) [at 1:8]
+ERROR: No matching signature for function NORMALIZE
+  Argument types: INT64
+  Signature: NORMALIZE(STRING, [NORMALIZE_MODE])
+    Argument 1: Unable to coerce type INT64 to expected type STRING [at 1:8]
 SELECT NORMALIZE(1)
        ^
 ==
 
 SELECT NORMALIZE_AND_CASEFOLD(1)
 --
-ERROR: No matching signature for function NORMALIZE_AND_CASEFOLD for argument types: INT64. Supported signature: NORMALIZE_AND_CASEFOLD(STRING, [NORMALIZE_MODE]) [at 1:8]
+ERROR: No matching signature for function NORMALIZE_AND_CASEFOLD
+  Argument types: INT64
+  Signature: NORMALIZE_AND_CASEFOLD(STRING, [NORMALIZE_MODE])
+    Argument 1: Unable to coerce type INT64 to expected type STRING [at 1:8]
 SELECT NORMALIZE_AND_CASEFOLD(1)
        ^
 ==
@@ -331,14 +337,18 @@ QueryStmt
 
 SELECT NORMALIZE()
 --
-ERROR: Number of arguments does not match for function NORMALIZE. Supported signature: NORMALIZE(STRING, [NORMALIZE_MODE]) [at 1:8]
+ERROR: No matching signature for function NORMALIZE with no arguments
+  Signature: NORMALIZE(STRING, [NORMALIZE_MODE])
+    Signature requires at least 1 argument, found 0 arguments [at 1:8]
 SELECT NORMALIZE()
        ^
 ==
 
 SELECT NORMALIZE_AND_CASEFOLD()
 --
-ERROR: Number of arguments does not match for function NORMALIZE_AND_CASEFOLD. Supported signature: NORMALIZE_AND_CASEFOLD(STRING, [NORMALIZE_MODE]) [at 1:8]
+ERROR: No matching signature for function NORMALIZE_AND_CASEFOLD with no arguments
+  Signature: NORMALIZE_AND_CASEFOLD(STRING, [NORMALIZE_MODE])
+    Signature requires at least 1 argument, found 0 arguments [at 1:8]
 SELECT NORMALIZE_AND_CASEFOLD()
        ^
 ==
@@ -377,7 +387,10 @@ SELECT NORMALIZE("abc", 0)
 
 SELECT NORMALIZE("abc", NFC, "xyz")
 --
-ERROR: Number of arguments does not match for function NORMALIZE. Supported signature: NORMALIZE(STRING, [NORMALIZE_MODE]) [at 1:8]
+ERROR: No matching signature for function NORMALIZE
+  Argument types: STRING, NORMALIZE_MODE, STRING
+  Signature: NORMALIZE(STRING, [NORMALIZE_MODE])
+    Signature accepts at most 2 arguments, found 3 arguments [at 1:8]
 SELECT NORMALIZE("abc", NFC, "xyz")
        ^
 ==
@@ -398,7 +411,10 @@ SELECT NORMALIZE_AND_CASEFOLD("abc", 0)
 
 SELECT NORMALIZE_AND_CASEFOLD("abc", NFC, "xyz")
 --
-ERROR: Number of arguments does not match for function NORMALIZE_AND_CASEFOLD. Supported signature: NORMALIZE_AND_CASEFOLD(STRING, [NORMALIZE_MODE]) [at 1:8]
+ERROR: No matching signature for function NORMALIZE_AND_CASEFOLD
+  Argument types: STRING, NORMALIZE_MODE, STRING
+  Signature: NORMALIZE_AND_CASEFOLD(STRING, [NORMALIZE_MODE])
+    Signature accepts at most 2 arguments, found 3 arguments [at 1:8]
 SELECT NORMALIZE_AND_CASEFOLD("abc", NFC, "xyz")
        ^
 ==

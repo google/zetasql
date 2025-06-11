@@ -21,18 +21,10 @@
 #include <iostream>
 #include <memory>
 #include <optional>
-#include <ostream>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "zetasql/public/analyzer_options.h"
-#include "zetasql/public/catalog.h"
-#include "zetasql/public/language_options.h"
-#include "zetasql/public/simple_catalog.h"
-#include "zetasql/tools/execute_query/execute_query_loop.h"
-#include "zetasql/tools/execute_query/execute_query_prompt.h"
 #include "zetasql/tools/execute_query/execute_query_tool.h"
 #include "zetasql/tools/execute_query/execute_query_web.h"
 #include "zetasql/tools/execute_query/execute_query_writer.h"
@@ -43,11 +35,9 @@
 #include "absl/flags/usage_config.h"
 #include "absl/log/initialize.h"
 #include "absl/strings/match.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
-#include "absl/strings/str_split.h"
 #include "zetasql/base/status_macros.h"
 
 namespace {

@@ -79,7 +79,7 @@ ORDER BY x
 --
 ARRAY<STRUCT<INT64>>[known order:{3}, {3}, {2}]
 ==
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 [name=case_statement_uuid]
 SELECT
   CASE x
@@ -110,7 +110,7 @@ SELECT
 --
 ARRAY<STRUCT<RANGE<DATE>>>[{[2018-10-01, 2019-01-01)}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=case_statement_range_of_datetimes]
 SELECT
   CASE
@@ -262,7 +262,7 @@ ARRAY<STRUCT<RANGE<DATE>, RANGE<DATE>, RANGE<DATE>, RANGE<DATE>, RANGE<DATE>>>[
 ]
 ==
 [name=coalesce_null_range_datetimes]
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 SELECT
   COALESCE(NULL, RANGE<DATETIME> '[2018-10-01 12:00:00, 2019-01-01 12:00:00)',
            RANGE<DATETIME> '[2019-10-01 12:00:00, 2020-01-01 12:00:00)'),
@@ -543,7 +543,7 @@ ORDER BY x
 --
 ARRAY<STRUCT<INT64>>[known order:{1}, {3}, {2}, {3}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=case_value_with_range_of_datetimes]
 SELECT
   CASE x
@@ -599,7 +599,7 @@ ARRAY<STRUCT<RANGE<DATE>>>[known order:
   {[5010-01-01, 6010-01-01)}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=case_value_with_returned_range_of_datetimes]
 SELECT
   CASE x

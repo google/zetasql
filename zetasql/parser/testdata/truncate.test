@@ -100,7 +100,7 @@ ERROR: Syntax error: Expected keyword DELETE or keyword INSERT or keyword UPDATE
   ^
 ==
 
-[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
 TRUNCATE TABLE foo-567-bar.baz;
 --
 ALTERNATION GROUP: <empty>
@@ -109,7 +109,7 @@ ERROR: Syntax error: Table name contains '-' character. The dashed identifier pa
 TRUNCATE TABLE foo-567-bar.baz;
                ^
 --
-ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
 --
 TruncateStatement [0-30] [TRUNCATE TABLE foo-567-bar.baz]
   PathExpression [15-30] [foo-567-bar.baz]

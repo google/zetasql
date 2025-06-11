@@ -35,6 +35,7 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "google/protobuf/duration.pb.h"
 #include "google/protobuf/timestamp.pb.h"
 #include "google/protobuf/wrappers.pb.h"
 #include "google/type/date.pb.h"
@@ -56,6 +57,7 @@
 #include "zetasql/public/functions/array_zip_mode.pb.h"
 #include "zetasql/public/functions/bitcast.h"
 #include "zetasql/public/functions/bitwise.h"
+#include "zetasql/public/functions/bitwise_agg_mode.pb.h"
 #include "zetasql/public/functions/common_proto.h"
 #include "zetasql/public/functions/comparison.h"
 #include "zetasql/public/functions/date_time_util.h"
@@ -87,6 +89,7 @@
 #include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/io/coded_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
+#include "google/protobuf/util/time_util.h"
 #include "zetasql/public/functions/string_format.h"
 #include "zetasql/public/functions/generate_array.h"
 #include "zetasql/public/functions/json.h"
@@ -136,6 +139,7 @@
 #include "proto/data.pb.h"
 #include "algorithms/quantiles.h"
 #include "zetasql/base/map_util.h"
+#include "zetasql/base/optional_ref.h"
 #include "zetasql/base/exactfloat.h"
 #include "re2/re2.h"
 #include "zetasql/base/ret_check.h"
@@ -154,6 +158,7 @@ namespace zetasql {
 namespace {
 
 using ::zetasql::functions::ArrayZipEnums;
+using ::google::protobuf::util::TimeUtil;
 
 static bool IsTypeWithDistinguishableTies(const Type* type,
                                           const CollatorList& collator_list) {
@@ -434,7 +439,7 @@ absl::Status GenerateArray(BigNumericValue start, BigNumericValue end,
                                                 values);
 }
 
-// Define a a similar function to Value::Date(int32_t) for template matching
+// Define a a similar function to Value::Date(int32) for template matching
 // to be happy.
 Value MakeDate(int64_t in) { return Value::Date(in); }
 Value MakeTimestamp(absl::Time in) { return Value::Timestamp(in); }
@@ -700,6 +705,7 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kJsonContains, "json_contains",
                      "JsonContains");
     RegisterFunction(FunctionKind::kJsonKeys, "json_keys", "JsonKeys");
+    RegisterFunction(FunctionKind::kJsonFlatten, "json_flatten", "JsonFlatten");
     RegisterFunction(FunctionKind::kGreatest, "greatest", "Greatest");
   }();
   [this]() {
@@ -770,6 +776,7 @@ FunctionMap::FunctionMap() {
                      "Array_filter");
     RegisterFunction(FunctionKind::kArrayTransform, "array_transform",
                      "Array_transform");
+    RegisterFunction(FunctionKind::kApply, "apply", "Apply");
     RegisterFunction(FunctionKind::kTimestampDiff, "timestamp_diff",
                      "Timestamp_diff");
     RegisterFunction(FunctionKind::kTimestampAdd, "timestamp_add",
@@ -1151,6 +1158,8 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kIsTrail, "is_trail", "IsTrail");
     RegisterFunction(FunctionKind::kIsAcyclic, "is_acyclic", "IsAcyclic");
     RegisterFunction(FunctionKind::kIsSimple, "is_simple", "IsSimple");
+    RegisterFunction(FunctionKind::kDynamicPropertyEquals,
+                     "$dynamic_property_equals", "DynamicPropertyEquals");
     RegisterFunction(FunctionKind::kCosineDistance, "cosine_distance",
                      "CosineDistance");
     RegisterFunction(FunctionKind::kApproxCosineDistance,
@@ -1208,6 +1217,7 @@ FunctionMap::FunctionMap() {
                      "MapCardinality");
     RegisterFunction(FunctionKind::kMapDelete, "map_delete", "MapDelete");
     RegisterFunction(FunctionKind::kMapFilter, "map_filter", "MapFilter");
+    RegisterFunction(FunctionKind::kMeasureAgg, "AGG", "AggregateMeasure");
   }();
 }  // NOLINT(readability/fn_size)
 
@@ -2378,6 +2388,11 @@ BuiltinScalarFunction::CreateValidatedRaw(
       ZETASQL_RET_CHECK(arguments[1]->has_inline_lambda_expr());
       return new ArrayTransformFunction(
           kind, output_type, arguments[1]->mutable_inline_lambda_expr());
+    case FunctionKind::kApply:
+      ZETASQL_RET_CHECK_EQ(2, arguments.size());
+      ZETASQL_RET_CHECK(arguments[1]->has_inline_lambda_expr());
+      return new ApplyFunction(kind, output_type,
+                               arguments[1]->mutable_inline_lambda_expr());
     case FunctionKind::kLength:
     case FunctionKind::kByteLength:
     case FunctionKind::kCharLength:
@@ -3566,7 +3581,7 @@ static bool IsDistinctFromInt64UInt64(Value int64_value, Value uint64_value) {
   }
 
   if (int64_value.int64_value() < 0) {
-    return true;  // int64_t value out of range of uint64_t; must be distinct
+    return true;  // int64 value out of range of uint64; must be distinct
   }
   return uint64_value.uint64_value() !=
          static_cast<uint64_t>(int64_value.int64_value());
@@ -4815,7 +4830,7 @@ static absl::StatusOr<Value> AggregateInt64ArraySumValue(
   }
   if (sum > std::numeric_limits<int64_t>::max() ||
       sum < std::numeric_limits<int64_t>::min()) {
-    return ::zetasql_base::OutOfRangeErrorBuilder() << "ARRAY_SUM int64_t overflow";
+    return ::zetasql_base::OutOfRangeErrorBuilder() << "ARRAY_SUM int64 overflow";
   }
   if (has_non_null) {
     return Value::Int64(sum);
@@ -4835,7 +4850,7 @@ static absl::StatusOr<Value> AggregateUint64ArraySumValue(
     sum += element.ToUint64();
   }
   if (sum > std::numeric_limits<uint64_t>::max()) {
-    return ::zetasql_base::OutOfRangeErrorBuilder() << "ARRAY_SUM uint64_t overflow";
+    return ::zetasql_base::OutOfRangeErrorBuilder() << "ARRAY_SUM uint64 overflow";
   }
   if (has_non_null) {
     return Value::Uint64(sum);
@@ -5702,8 +5717,8 @@ static absl::Status MaybeSetAnonBuilderMaxGroupsContributed(const Value& arg,
   if (arg.is_null()) {
     return absl::OkStatus();
   }
-  // The DP Library only accepts int32_t values. The rewriter ensures that the
-  // value is between 1 and the max int32_t.
+  // The DP Library only accepts int32 values. The rewriter ensures that the
+  // value is between 1 and the max int32.
   builder->SetMaxPartitionsContributed(static_cast<int32_t>(arg.int64_value()));
   return absl::OkStatus();
 }
@@ -5821,7 +5836,7 @@ absl::Status CheckAndSetContributionBounds(const Value& value,
     ZETASQL_RET_CHECK(value.field(1).type()->IsDouble())
         << value.field(1).type()->DebugString();
     // Getting the arg type is necessary to silence compiler warning that we are
-    // implicitly converting double to int64_t. We use static cast to make it
+    // implicitly converting double to int64. We use static cast to make it
     // explicit.
     using BuilderArgType =
         std::decay_t<decltype(GetMemberFunctionFirstArgumentType(
@@ -9739,7 +9754,7 @@ absl::StatusOr<Value> MakeProtoFunction::Eval(
     ProtoUtil::WriteFieldOptions write_field_options{
         .allow_null_map_keys =
             !context->GetLanguageOptions().LanguageFeatureEnabled(
-                LanguageFeature::FEATURE_V_1_3_PROTO_MAPS)};
+                LanguageFeature::FEATURE_PROTO_MAPS)};
 
     google::protobuf::io::CodedOutputStream coded_output(&cord_output);
     for (int i = 0; i < args.size(); i++) {
@@ -9918,7 +9933,7 @@ static absl::StatusOr<Value> ReplaceProtoFields(
   if (new_field_value.is_null() &&
       path.back()->containing_type()->options().map_entry() &&
       context->GetLanguageOptions().LanguageFeatureEnabled(
-          LanguageFeature::FEATURE_V_1_3_PROTO_MAPS)) {
+          LanguageFeature::FEATURE_PROTO_MAPS)) {
     return MakeEvalError() << "REPLACE_FIELDS() cannot be used to clear a "
                               "field of a map entry";
   }
@@ -10944,6 +10959,35 @@ absl::StatusOr<Value> ToProtoFunction::Eval(
                                       proto_string_wrapper);
       break;
     }
+    case TYPE_INTERVAL: {
+      const IntervalValue& interval_value = args[0].interval_value();
+      if (interval_value.get_months() != 0 || interval_value.get_days() != 0) {
+        return MakeEvalError()
+               << "Interval value with non-zero MONTH or DAY part cannot be "
+                  "converted to a Duration proto. Use the function "
+                  "TO_SECONDS_INTERVAL to first convert the interval into an "
+                  "equivalent interval with only second and subsecond parts";
+      }
+
+      __int128 nanos = interval_value.get_nanos();
+      int64_t seconds = nanos / IntervalValue::kNanosInSecond;
+      nanos = nanos % IntervalValue::kNanosInSecond;
+      // The Duration proto and the nanos part of an Interval value are both
+      // supposed to represent up to +/-10000 years. But to calculate the
+      // maximum and minimum values, Interval uses 366 days/year whereas
+      // Duration proto uses 365.25 days/year. So a nanos-only interval can be
+      // larger (or smaller) than the range of a Duration proto.
+      if (seconds > TimeUtil::kDurationMaxSeconds ||
+          seconds < TimeUtil::kDurationMinSeconds) {
+        return MakeEvalError()
+               << "Provided interval is outside the range of a Duration proto";
+      }
+
+      google::protobuf::Duration proto_duration;
+      proto_duration.set_seconds(seconds);
+      proto_duration.set_nanos(nanos);
+      return zetasql::values::Proto(output_type()->AsProto(), proto_duration);
+    }
     default:
       return ::zetasql_base::UnimplementedErrorBuilder()
              << "Unsupported function: " << debug_name()
@@ -11127,10 +11171,13 @@ absl::StatusOr<Value> ExtractFromFunction::Eval(
       return output_type()->IsInt64() ? Value::Int64(value32)
                                       : Value::Int32(value32);
     case TYPE_TIME:
+      // TODO: b/412458859 - Hoist variable to replace value32 after migration.
+      int64_t value64;
       ZETASQL_RETURN_IF_ERROR(
-          functions::ExtractFromTime(part, args[0].time_value(), &value32));
-      return output_type()->IsInt64() ? Value::Int64(value32)
-                                      : Value::Int32(value32);
+          functions::ExtractFromTime(part, args[0].time_value(), &value64));
+      return output_type()->IsInt64()
+                 ? Value::Int64(value64)
+                 : Value::Int32(static_cast<int32_t>(value64));
     case TYPE_INTERVAL: {
       ZETASQL_ASSIGN_OR_RETURN(int64_t result, args[0].interval_value().Extract(part));
       return Value::Int64(result);
@@ -12053,7 +12100,7 @@ absl::Status LeadFunction::Eval(
   // First argument <value expression> must have been evaluated on each
   // input tuple.
   ZETASQL_RET_CHECK_EQ(tuples.size(), args[0].size());
-  // Second argument <offset> must be a constant and of type int64_t.
+  // Second argument <offset> must be a constant and of type int64.
   ZETASQL_RET_CHECK_EQ(1, args[1].size());
   ZETASQL_RET_CHECK(args[1][0].type()->IsInt64());
   // Third argument <default expression> must be a constant.
@@ -12100,7 +12147,7 @@ absl::Status LagFunction::Eval(const TupleSchema& schema,
   // First argument <value expression> must have been evaluated on each
   // input tuple.
   ZETASQL_RET_CHECK_EQ(tuples.size(), args[0].size());
-  // Second argument <offset> must be a constant and of type int64_t.
+  // Second argument <offset> must be a constant and of type int64.
   ZETASQL_RET_CHECK_EQ(1, args[1].size());
   ZETASQL_RET_CHECK(args[1][0].type()->IsInt64());
   // Third argument <default expression> must be a constant.
@@ -12414,6 +12461,9 @@ absl::StatusOr<Value> CosineDistanceFunctionDense::Eval(
   if (HasNulls(args)) {
     return Value::Null(output_type());
   }
+  for (const Value& arg : args) {
+    MaybeSetNonDeterministicArrayOutput(arg, context);
+  }
   ZETASQL_ASSIGN_OR_RETURN(Value result,
                    functions::CosineDistanceDense(args[0], args[1]),
                    _.With(&DistanceFunctionResultConverter));
@@ -12473,6 +12523,9 @@ absl::StatusOr<Value> EuclideanDistanceFunctionDense::Eval(
   ZETASQL_RET_CHECK_EQ(args.size(), 2);
   if (HasNulls(args)) {
     return Value::Null(output_type());
+  }
+  for (const Value& arg : args) {
+    MaybeSetNonDeterministicArrayOutput(arg, context);
   }
   ZETASQL_ASSIGN_OR_RETURN(Value result,
                    functions::EuclideanDistanceDense(args[0], args[1]),
@@ -12843,6 +12896,20 @@ bool ArrayZipFunction::EqualArrayLength(absl::Span<const Value> arrays) const {
     }
   }
   return true;
+}
+
+absl::StatusOr<Value> ApplyFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* evaluation_context) const {
+  LambdaEvaluationContext context(params, evaluation_context);
+
+  ZETASQL_RET_CHECK_EQ(args.size(), 1);
+  ZETASQL_RET_CHECK_EQ(lambda_->num_args(), 1);
+
+  // `args` is already an array of size 1, just pass it as the lambda args.
+  ZETASQL_ASSIGN_OR_RETURN(Value lambda_result, context.EvaluateLambda(lambda_, args));
+
+  return lambda_result;
 }
 
 std::vector<std::unique_ptr<AlgebraArg>> ConvertValueExprsToAlgebraArgs(

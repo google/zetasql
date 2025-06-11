@@ -94,7 +94,7 @@ def textmapper_dependencies():
     )
     go_repository(
         name = "com_github_inspirer_textmapper",
-        commit = "4b57a97fce68b32cbb4a55ef2ee9da697c53e992",
+        commit = "01184f907850c5ce59064117f2cb4a5c18c9575f",
         importpath = "github.com/inspirer/textmapper",
     )
 

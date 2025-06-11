@@ -22,7 +22,6 @@
 // SimpleCatalog (or other Catalogs).
 
 #include <memory>
-#include <optional>
 #include <vector>
 
 #include "zetasql/public/analyzer_options.h"
@@ -32,6 +31,7 @@
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/sql_constant.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "absl/base/nullability.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -56,7 +56,7 @@ namespace zetasql {
 absl::Status AddFunctionFromCreateFunction(
     absl::string_view create_sql_stmt, const AnalyzerOptions& analyzer_options,
     bool allow_persistent_function,
-    std::optional<FunctionOptions> function_options,
+    const FunctionOptions* /*absl_nullable*/ function_options,
     std::unique_ptr<const AnalyzerOutput>& analyzer_output,
     Catalog& resolving_catalog, SimpleCatalog& catalog);
 
@@ -65,7 +65,7 @@ absl::Status AddFunctionFromCreateFunction(
 // `function_options` - if provided will be used to construct the Function.
 absl::StatusOr<std::unique_ptr<Function>> MakeFunctionFromCreateFunction(
     const ResolvedCreateFunctionStmt& create_function_stmt,
-    std::optional<FunctionOptions> function_options = std::nullopt);
+    const FunctionOptions* /*absl_nullable*/ function_options);
 
 // Compiles `create_tvf_stmt` and adds the resulting TVF to `catalog`.
 //
@@ -160,6 +160,24 @@ absl::Status AddPropertyGraphFromCreatePropertyGraphStmt(
     absl::string_view create_property_graph_stmt,
     const AnalyzerOptions& analyzer_options,
     std::vector<std::unique_ptr<const AnalyzerOutput>>& artifacts,
+    SimpleCatalog& catalog);
+
+// Adds a `Constant` object to `catalog` for the constant defined by
+// `create_constant_stmt`.
+//
+// `create_constant_stmt`: Must be a CREATE CONSTANT statement.
+// `analyzer_options`: Analyzer options used to analyze `create_constant_stmt`.
+//     `analyzer_options.constant_evaluator()` will be used to evaluate the
+//     constant expression and must be supplied by the caller.
+// `analyzer_output`: Analyzer outputs from compiling `create_constant_stmt`.
+//     The lifetime of `analyzer_output` must exceed the lifetime of `catalog`.
+//     `analyzer_options.language()` must support
+//     `RESOLVED_CREATE_CONSTANT_STMT`.
+// `catalog`: A SimpleCatalog that will own the created SqlConstant* object.
+absl::Status AddConstantFromCreateConstant(
+    absl::string_view create_constant_stmt,
+    const AnalyzerOptions& analyzer_options,
+    std::unique_ptr<const AnalyzerOutput>& analyzer_output,
     SimpleCatalog& catalog);
 
 }  // namespace zetasql

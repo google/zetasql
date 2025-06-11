@@ -118,7 +118,7 @@ ARRAY<STRUCT<
         range_timestamp_val RANGE<TIMESTAMP>
       >>[{1, NULL, NULL}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [prepare_database]
 CREATE TABLE TableAllNullDatetimeRange AS
 SELECT CAST(1 as int64) as row_id,
@@ -149,7 +149,7 @@ ARRAY<STRUCT<
     2020-12-31 08:00:00+00
   )}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [prepare_database]
 CREATE TABLE TableOneValueDatetimeRange AS
 SELECT CAST(1 as int64) as row_id,
@@ -230,7 +230,7 @@ ARRAY<STRUCT<
     NULL
   )}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [prepare_database]
 CREATE TABLE TableDatetimeRangeTypes AS
 SELECT CAST(1 AS int64) as row_id,
@@ -878,7 +878,7 @@ ARRAY<STRUCT<row_id INT64, RANGE<DATE>, RANGE<TIMESTAMP>>>[{1, NULL, NULL}]
 ==
 
 [name=analytic_min_range_null_datetime]
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,CIVIL_TIME]
 SELECT row_id,
 MIN(range_datetime_val) OVER (ORDER BY row_id)
 FROM TableAllNullDatetimeRange
@@ -978,7 +978,7 @@ ARRAY<STRUCT<
 ==
 
 [name=analytic_min_range_datetime_multiple_ids]
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,CIVIL_TIME]
 SELECT row_id, range_datetime_val,
 MIN(range_datetime_val) OVER (ORDER BY row_id)
 FROM TableDatetimeRangeTypes
@@ -1157,7 +1157,7 @@ ARRAY<STRUCT<
 ==
 
 [name=analytic_min_range_datetime_bounded_start]
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,CIVIL_TIME]
 SELECT row_id, range_datetime_val,
 MIN(range_datetime_val) OVER (ORDER BY row_id ROWS 4 PRECEDING),
 MIN(range_datetime_val) OVER (ORDER BY row_id ROWS 2 PRECEDING)
@@ -1962,7 +1962,7 @@ ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[known order:
 
 [name=analytic_min_max_arr_with_nan_offset_current_and_3_following]
 [labels=analytic_max_with_moving_window]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_ARRAY_ORDERING]
+[required_features=ANALYTIC_FUNCTIONS,ARRAY_ORDERING]
 select row_id, val,
      min(val) over (order by row_id ROWS BETWEEN CURRENT ROW AND 3 FOLLOWING),
      max(val) over (order by row_id ROWS BETWEEN CURRENT ROW AND 3 FOLLOWING)
@@ -1997,7 +1997,7 @@ ARRAY<STRUCT<row_id INT64, RANGE<DATE>, RANGE<TIMESTAMP>>>[{1, NULL, NULL}]
 ==
 
 [name=analytic_max_range_null_datetime]
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,CIVIL_TIME]
 SELECT row_id,
 MAX(range_datetime_val) OVER (ORDER BY row_id)
 FROM TableAllNullDatetimeRange
@@ -2090,7 +2090,7 @@ ARRAY<STRUCT<
 ==
 
 [name=analytic_max_range_datetime_multiple_ids]
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,CIVIL_TIME]
 SELECT row_id, range_datetime_val,
 MAX(range_datetime_val) OVER (ORDER BY row_id)
 FROM TableDatetimeRangeTypes
@@ -2147,7 +2147,7 @@ ARRAY<STRUCT<
 ==
 
 [name=analytic_max_range_datetime_bounded_start]
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,CIVIL_TIME]
 SELECT row_id, range_datetime_val,
 MAX(range_datetime_val) OVER (ORDER BY row_id ROWS 4 PRECEDING),
 MAX(range_datetime_val) OVER (ORDER BY row_id ROWS 2 PRECEDING),

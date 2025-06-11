@@ -168,6 +168,17 @@ TEST(Deidentify, BigExample) {
 )"));
 }
 
+TEST(Deidentify, NumericsExample) {
+  EXPECT_THAT(DeidentifySQLIdentifiersAndLiterals(
+                  "SELECT 123, NUMERIC '123', BIGNUMERIC '123.456'"),
+              IsOkAndHolds(
+                  R"(SELECT
+  0,
+  NUMERIC "0",
+  BIGNUMERIC "0"
+)"));
+}
+
 TEST(DeidentifyWithMapping, SimpleExample) {
   EXPECT_THAT(
       DeidentifySQLWithMapping(

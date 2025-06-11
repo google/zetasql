@@ -104,7 +104,7 @@ constexpr absl::string_view kDefaultDelimiters =
 constexpr absl::string_view kInvalidFormat = "Invalid format '$0'";
 
 // Verifies that the string length can be represented in a 32-bit signed int and
-// returns that value. Fitting in an int32_t is a requirement for icu methods.
+// returns that value. Fitting in an int32 is a requirement for icu methods.
 static bool CheckAndCastStrLength(absl::string_view str, int32_t* str_length32,
                                   absl::Status* error) {
   if (str.length() > std::numeric_limits<int32_t>::max()) {
@@ -1393,7 +1393,7 @@ bool CodePointsToString(absl::Span<const int64_t> codepoints, std::string* out,
   zetasql_base::STLStringResizeUninitialized(out, codepoints.size() + U8_MAX_LENGTH - 1);
   size_t out_offset = 0;
   for (size_t i = 0; i < codepoints.size(); ++i) {
-    // We use uint32_t instead of UChar32 because, for some reason, U8_APPEND
+    // We use uint32 instead of UChar32 because, for some reason, U8_APPEND
     // expects it (unlike every other `U8_` function).
     int64_t codepoint = codepoints[i];
     if (codepoint < 0 || codepoint > std::numeric_limits<uint32_t>::max()) {
@@ -1924,8 +1924,7 @@ bool Utf8Translator::Initialize(absl::string_view source_characters,
 
 // Replaces characters in <str> according to <mapping_>.
 //
-// Complexity: O(Nlog(M)), N being the size of <str> and M the size of
-// <source_characters>.
+// Complexity: Expected O(N), N being the size of <str>.
 bool Utf8Translator::Translate(absl::string_view str, std::string* out,
                                absl::Status* error) const {
   int32_t str_length32;

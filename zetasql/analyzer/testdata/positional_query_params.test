@@ -969,7 +969,11 @@ where KitchenSink.bool_val = @test_param_bool;
 
 SELECT CURRENT_DATE() BETWEEN TIMESTAMP(?) AND TIMESTAMP(?)
 --
-ERROR: No matching signature for operator BETWEEN for argument types: DATE, TIMESTAMP, TIMESTAMP. Supported signature: (ANY) BETWEEN (ANY) AND (ANY) [at 1:23]
+ERROR: No matching signature for operator BETWEEN
+  Argument types: DATE, TIMESTAMP, TIMESTAMP
+  Signature: (T1) BETWEEN (T1) AND (T1)
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {DATE, TIMESTAMP} [at 1:23]
 SELECT CURRENT_DATE() BETWEEN TIMESTAMP(?) AND TIMESTAMP(?)
                       ^
 ==

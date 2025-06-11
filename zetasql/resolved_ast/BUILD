@@ -18,6 +18,7 @@ load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
 load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
 load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
 load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 # Placeholder: load py_binary
 load("//zetasql/resolved_ast:build_rules.bzl", "gen_resolved_ast_files")
@@ -159,6 +160,7 @@ cc_library(
         "//zetasql/public:value",
         "//zetasql/public/proto:type_annotation_cc_proto",
         "//zetasql/public/types",
+        "@com_google_absl//absl/base:nullability",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/hash",
@@ -261,6 +263,15 @@ cc_library(
     ],
 )
 
+cc_test(
+    name = "query_expression_test",
+    srcs = ["query_expression_test.cc"],
+    deps = [
+        ":sql_builder",
+        "//zetasql/base/testing:zetasql_gtest_main",
+    ],
+)
+
 cc_library(
     name = "validator",
     srcs = ["validator.cc"],
@@ -283,6 +294,7 @@ cc_library(
         "//zetasql/base:strings",
         "//zetasql/base:varsetter",
         "//zetasql/common:graph_element_utils",
+        "//zetasql/common:measure_utils",
         "//zetasql/common:thread_stack",
         "//zetasql/public:aggregation_threshold_utils",
         "//zetasql/public:analyzer_options",
@@ -361,6 +373,7 @@ cc_library(
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/public/annotation:collation",
+        "//zetasql/public/annotation:timestamp_precision",
         "//zetasql/public/functions:date_time_util",
         "//zetasql/public/functions:datetime_cc_proto",
         "//zetasql/public/functions:differential_privacy_cc_proto",
@@ -376,7 +389,9 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/types:span",
+        "@com_google_googletest//:gtest",
         "@com_googlesource_code_re2//:re2",
     ],
 )
@@ -461,7 +476,6 @@ cc_test(
         "//zetasql/public:id_string",
         "//zetasql/public:value",
         "//zetasql/public/types",
-        "@com_google_absl//absl/memory",
     ],
 )
 
@@ -487,7 +501,6 @@ cc_test(
         "//zetasql/public:simple_catalog",
         "//zetasql/public:type",
         "//zetasql/public:value",
-        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
@@ -499,7 +512,6 @@ cc_test(
     size = "small",
     srcs = ["resolved_ast_rewrite_visitor_test.cc"],
     deps = [
-        ":make_node_vector",
         ":resolved_ast",
         ":resolved_ast_builder",
         ":resolved_ast_rewrite_visitor",
@@ -510,7 +522,6 @@ cc_test(
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public:analyzer",
         "//zetasql/public:analyzer_output",
-        "//zetasql/public:builtin_function",
         "//zetasql/public:builtin_function_cc_proto",
         "//zetasql/public:builtin_function_options",
         "//zetasql/public:function",
@@ -520,7 +531,6 @@ cc_test(
         "//zetasql/public:simple_catalog",
         "//zetasql/public:type",
         "//zetasql/public:value",
-        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
@@ -534,18 +544,12 @@ cc_test(
     deps = [
         ":make_node_vector",
         ":resolved_ast",
-        "//zetasql/analyzer:resolver",
-        "//zetasql/base",
         "//zetasql/base:status",
         "//zetasql/base/testing:zetasql_gtest_main",
-        "//zetasql/public:function",
         "//zetasql/public:id_string",
-        "//zetasql/public:templated_sql_tvf",
         "//zetasql/public:type",
         "//zetasql/public:value",
         "//zetasql/testdata:test_schema_cc_proto",
-        "@com_google_absl//absl/memory",
-        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -565,7 +569,6 @@ cc_test(
         "//zetasql/public/annotation:collation",
         "//zetasql/public/types",
         "@com_google_absl//absl/status:statusor",
-        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -579,7 +582,6 @@ cc_test(
         "//zetasql/base:check",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
-        "//zetasql/public:templated_sql_tvf",
         "//zetasql/public/types",
         "@com_google_absl//absl/types:span",
     ],
@@ -676,6 +678,7 @@ cc_library(
         "//zetasql/public:coercer",
         "//zetasql/public:function",
         "//zetasql/public:function_cc_proto",
+        "//zetasql/public:numeric_value",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public/annotation:collation",
         "//zetasql/public/functions:differential_privacy_cc_proto",

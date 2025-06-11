@@ -53,20 +53,20 @@ class Value;
 // ZetaSQL type corresponding to the proto type (e.g., TYPE_INT64 for
 // google::protobuf::FieldDescriptor::TYPE_INT64), or possibly an ARRAY of that type, if
 // 'field' is repeated.  Examples:
-// - 'field' = optional int64_t
+// - 'field' = optional int64
 //   'value' has TYPE_INT64
-// - 'field' = repeated int64_t and 'index' >= 0
+// - 'field' = repeated int64 and 'index' >= 0
 //   'value' has TYPE_INT64
-// - 'field' = repeated int64_t and 'index' is -1
+// - 'field' = repeated int64 and 'index' is -1
 //   'value' has TYPE_ARRAY(INT64)
 // - 'field' = {optional,repeated} FooMessage (non-wrapper)
 //   'value' has TYPE_PROTO(FooMessage), or possibly
 //   TYPE_ARRAY(TYPE_PROTO(FooMessage)) (if 'field' is repeated and
 //                                       'index' is -1)
-// - 'field' = optional NullableInt64 (wrapper for an optional int64_t)
+// - 'field' = optional NullableInt64 (wrapper for an optional int64)
 //   'value' has TYPE_INT64
-// - 'field' = repeated NullableInt64 (wrapper for an optional int64_t)
-//             or optional NullableInt64Array (wrapper for a repeated int64_t)
+// - 'field' = repeated NullableInt64 (wrapper for an optional int64)
+//             or optional NullableInt64Array (wrapper for a repeated int64)
 //   'value' has TYPE_INT64 or TYPE_ARRAY(INT64)
 //
 // If `match_struct_fields_by_name` is false, we iterate through proto fields in
@@ -98,9 +98,9 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
 // 'message_factory' is used to construct messages if the value type is PROTO.
 //
 // Examples of NULL behavior:
-// - 'field' = optional int64_t
+// - 'field' = optional int64
 //   - NULL 'value' has no effect.
-// - 'field' = repeated int64_t
+// - 'field' = repeated int64
 //   - NULL INT64 'value' causes a ZETASQL_RET_CHECK failure.
 //   - NULL ARRAY<INT64> 'value' has no effect.
 // - 'field' = optional FooMessage (non-wrapper)
@@ -108,14 +108,14 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
 // - 'field' = repeated FooMessage (non-wrapper)
 //   - NULL PROTO 'value' causes a ZETASQL_RET_CHECK failure.
 //   - NULL ARRAY<PROTO> 'value' has no effect.
-// - 'field' = optional NullableInt64 (wrapper for an optional int64_t)
+// - 'field' = optional NullableInt64 (wrapper for an optional int64)
 //   - NULL 'value' creates an empty NullableInt64, then recursively assigns
 //     NULL to its wrapped field (to represent a NULL INT64).
 // - 'field' = repeated NullableInt64
 //   - NULL ARRAY 'value' has no effect, but NULL non-ARRAY 'value' creates a
 //     new empty NullableInt64, then recursively assigns NULL to its wrapped
 //     field (to represent a new NULL INT64).
-// - 'field' = optional NullableInt64Array (wrapper for a repeated int64_t)
+// - 'field' = optional NullableInt64Array (wrapper for a repeated int64)
 //   - NULL ARRAY 'value' has no effect, but NULL non-ARRAY 'value' recursively
 //     assigns NULL to the wrapped field (to represent an empty array).
 //

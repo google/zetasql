@@ -1,7 +1,7 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
 [load_proto_names=zetasql_test__.KitchenSinkPB]
 [load_enum_names=zetasql_test__.TestEnum]
-[default required_features=V_1_3_CONCAT_MIXED_TYPES]
+[default required_features=CONCAT_MIXED_TYPES]
 
 [name=concat_null]
 SELECT CONCAT(x) FROM UNNEST([NULL]) x
@@ -24,7 +24,7 @@ SELECT CONCAT("uint", x) FROM UNNEST([CAST(32 AS UINT32)]) x
 ARRAY<STRUCT<STRING>>[{"uint32"}]
 ==
 [name=concat_numeric]
-[required_features=V_1_3_CONCAT_MIXED_TYPES,NUMERIC_TYPE]
+[required_features=CONCAT_MIXED_TYPES,NUMERIC_TYPE]
 SELECT CONCAT(x) FROM UNNEST([CAST('99999999999999999999999.87654321' AS NUMERIC)]) x
 --
 ARRAY<STRUCT<STRING>>[{"99999999999999999999999.87654321"}]
@@ -45,19 +45,19 @@ SELECT CONCAT(x) FROM UNNEST([DATE '2020-10-10']) x
 ARRAY<STRUCT<STRING>>[{"2020-10-10"}]
 ==
 [name=concat_datetime]
-[required_features=V_1_3_CONCAT_MIXED_TYPES,V_1_2_CIVIL_TIME]
+[required_features=CONCAT_MIXED_TYPES,CIVIL_TIME]
 SELECT CONCAT(x) FROM UNNEST([DATETIME '2015-12-21 23:54:32']) x
 --
 ARRAY<STRUCT<STRING>>[{"2015-12-21 23:54:32"}]
 ==
 [name=concat_time]
-[required_features=V_1_3_CONCAT_MIXED_TYPES,V_1_2_CIVIL_TIME]
+[required_features=CONCAT_MIXED_TYPES,CIVIL_TIME]
 SELECT CONCAT(x) FROM UNNEST([TIME '01:02:03.456789']) x
 --
 ARRAY<STRUCT<STRING>>[{"01:02:03.456789"}]
 ==
 [name=concat_interval]
-[required_Features=V_1_3_CONCAT_MIXED_TYPES,INTERVAL_TYPE]
+[required_Features=CONCAT_MIXED_TYPES,INTERVAL_TYPE]
 SELECT CONCAT(x), CONCAT('a', x)  FROM UNNEST([INTERVAL '1 2 3' MONTH TO HOUR]) x
 --
 ARRAY<STRUCT<STRING, STRING>>[{"0-1 2 3:0:0", "a0-1 2 3:0:0"}]

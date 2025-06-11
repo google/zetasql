@@ -29,24 +29,24 @@ namespace net {
 
 // See (broken link) for full spec and examples for IP functions.
 
-// NET.FORMAT_IP(int64_t) -> String.
+// NET.FORMAT_IP(int64) -> String.
 // DEPRECATED. Use IPToString(IPv4FromInt64()) instead.
 // Takes a host-byte-order 32 bit integer and transforms it into a dotted
 // quad string representation of the same IP address. If <in> is negative
-// or larger than std::numeric_limits<uint32_t>::max() false is returned and
+// or larger than std::numeric_limits<uint32>::max() false is returned and
 // <*error> will be set to OUT_OF_RANGE.
 bool FormatIP(int64_t in, std::string* out, absl::Status* error);
 
-// NET.IPV4_FROM_INT64(int64_t) -> Bytes.
+// NET.IPV4_FROM_INT64(int64) -> Bytes.
 // Takes a host-byte-order integer and transforms it into binary
 // representation in network-byte-order.
 // Different from FormatIP, this function allows the high 33 bits in <in> to
 // be all ones (i.e, the valid range is [-0x80000000, 0xFFFFFFFF]), to handle
-// the case where <in> is implicitly cast from an int32_t. If <in> is out of
+// the case where <in> is implicitly cast from an int32. If <in> is out of
 // this valid range, false is returned and <*error> will be set to OUT_OF_RANGE.
 bool IPv4FromInt64(int64_t in, std::string* out, absl::Status* error);
 
-// NET.PARSE_IP(String) -> int64_t.
+// NET.PARSE_IP(String) -> int64.
 // DEPRECATED. Use IPv4ToInt64(IPFromString()) instead.
 // Takes a dotted-quad IP address string and returns in <*out> a
 // host-byte-order 32-bit integer representation of the same IPv4 address. If
@@ -54,7 +54,7 @@ bool IPv4FromInt64(int64_t in, std::string* out, absl::Status* error);
 // will be set to OUT_OF RANGE.
 bool ParseIP(absl::string_view in, int64_t* out, absl::Status* error);
 
-// NET.IPV4_TO_INT64(Bytes) -> int64_t.
+// NET.IPV4_TO_INT64(Bytes) -> int64.
 // Takes an IPv4 address in binary representation in network-byte-order and
 // transforms it into a host-byte-order integer in the range [0, 0xFFFFFFFF].
 // If the length of <in> is not 4, false is returned and <*error> will be set
@@ -122,7 +122,7 @@ bool IPTrunc(absl::string_view in, int64_t prefix_length_bits, std::string* out,
 bool IPInNet(absl::string_view ip, absl::string_view net, bool* out,
              absl::Status* error);
 
-// NET.MAKE_NET(String, int32_t) -> String.
+// NET.MAKE_NET(String, int32) -> String.
 // Takes a string representation of an IPv4 or IPv6 address (or CIDR subnet) and
 // returns in <*out> a CIDR subnet representation truncated to <subnet_size>
 // bits. For example NET.MAKE_NET("192.168.1.1", 16) -> "192.168.0.0/16". If

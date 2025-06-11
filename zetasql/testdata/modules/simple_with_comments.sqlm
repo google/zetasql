@@ -1,0 +1,25 @@
+-- Multiple lines of different comments before the MODULE statement
+
+# line2
+/* lines 3 and 4
+
+*/
+ 
+MODULE simple_module;
+-- This is a module comment at the start of the file
+  -- some more comments   (trailing spaces on various lines is intentional)   
+   CREATE PUBLIC FUNCTION foo(a int64) as (a);   
+  -- some more comments before function bar  
+  /* Comments with another comment indicator type, multi-line, 
+   * and here is line #2 of the comment */
+# yet another comment type before function bar   
+CREATE PUBLIC FUNCTION bar(b int64) as (b);CREATE PUBLIC FUNCTION baz(c int64) as (c);        -- some more comments before function bat
+--even more comments before function bat
+--where bat is a multiline CREATE statement with an embedded comment
+  CREATE
+    -- embedded comment in bat function definition
+ PUBLIC FUNCTION bat   
+-- another embedded comment in bat
+  (d int64) as (d);     
+/* and some more comments at the end */
+

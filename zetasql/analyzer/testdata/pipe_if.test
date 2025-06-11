@@ -268,7 +268,14 @@ ALTERNATION GROUPS:
     true,true
     true,false
 --
-ERROR: No matching signature for operator = for argument types: INT64, STRING. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 4:16]
+ERROR: No matching signature for operator = for argument types: INT64, STRING
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {INT64, STRING}
+  Signature: INT64 = UINT64
+    Argument 2: Unable to coerce type STRING to expected type UINT64
+  Signature: UINT64 = INT64
+    Argument 1: Unable to coerce type INT64 to expected type UINT64 [at 4:16]
      |> SELECT key = 'abc'
                ^
 --

@@ -1,0 +1,11 @@
+-- This imported module has evaluation errors.
+MODULE module_test_errors_imported_f;
+
+-- Valid
+CREATE PUBLIC CONSTANT constant_f = "constant_f";
+
+-- Constant evaluation error
+-- Used with a mock ConstantEvaluator that returns an error for this expression.
+-- Note that this will not show up with ModuleCatalog::AppendModuleErrors()
+-- if the constant is not evaluated.
+CREATE PUBLIC CONSTANT constant_evaluation_error_f = 1 / 0;

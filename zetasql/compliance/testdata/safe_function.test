@@ -2,7 +2,7 @@
 # This tests the mechanism of SAFE function calls.  Error-handling for
 # individual functions are tested separately, mostly in code-based tests.
 
-[default required_features=V_1_2_SAFE_FUNCTION_CALL]
+[default required_features=SAFE_FUNCTION_CALL]
 
 [prepare_database]
 CREATE TABLE input AS
@@ -65,7 +65,7 @@ ARRAY<STRUCT<INT64>>[{NULL}]
 ==
 
 [name=safe_analytic_agg_func]
-[required_features=ANALYTIC_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=ANALYTIC_FUNCTIONS,SAFE_FUNCTION_CALL]
 select key, offset,
        safe.sum(value) over (partition by key order by offset),
        safe.sum(value) over (partition by key order by offset) IS NULL
@@ -91,7 +91,7 @@ ARRAY<STRUCT<key INT64, offset INT64, INT64, BOOL>>[known order:
 # validate a constant argument).
 # We'll still test that SAFE makes it through without failing.
 [name=safe_analytic_non_agg_func]
-[required_features=ANALYTIC_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=ANALYTIC_FUNCTIONS,SAFE_FUNCTION_CALL]
 select key, offset, safe.rank() over (partition by key order by offset)
 from input
 order by key, offset
@@ -111,7 +111,7 @@ ARRAY<STRUCT<key INT64, offset INT64, INT64>>[known order:
 ==
 
 [name=safe_analytic_non_agg_func_ntile_no_error]
-[required_features=ANALYTIC_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=ANALYTIC_FUNCTIONS,SAFE_FUNCTION_CALL]
 [parameters=2 as buckets]
 select key, offset,
        safe.ntile(@buckets) over (partition by key order by offset)
@@ -136,7 +136,7 @@ ARRAY<STRUCT<key INT64, offset INT64, INT64>>[known order:
 # can happen at execution time for parameters only.  We aren't converting the
 # error for these cases.
 [name=safe_analytic_non_agg_func_ntile]
-[required_features=ANALYTIC_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=ANALYTIC_FUNCTIONS,SAFE_FUNCTION_CALL]
 [parameters=-1 as minus1]
 select key, offset,
        safe.ntile(@minus1) over (partition by key order by offset)
@@ -147,7 +147,7 @@ ERROR: generic::out_of_range: The N value (number of buckets) for the NTILE func
 ==
 
 [name=safe_analytic_non_agg_func_ntile2]
-[required_features=ANALYTIC_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=ANALYTIC_FUNCTIONS,SAFE_FUNCTION_CALL]
 [parameters=null as null_param]
 select key, offset,
        safe.ntile(@null_param) over (partition by key order by offset)
@@ -207,14 +207,14 @@ select safe.right("apple", -1);
 ARRAY<STRUCT<STRING>>[{NULL}]
 ==
 
-[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=ADDITIONAL_STRING_FUNCTIONS,SAFE_FUNCTION_CALL]
 [name=safe_translate]
 select safe.translate("apple", "aa", "bc");
 --
 ARRAY<STRUCT<STRING>>[{NULL}]
 ==
 
-[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=ADDITIONAL_STRING_FUNCTIONS,SAFE_FUNCTION_CALL]
 [name=safe_instr]
 select safe.instr("apple", "pl", 0, 1);
 --
@@ -222,7 +222,7 @@ ARRAY<STRUCT<INT64>>[{NULL}]
 ==
 
 [name=safe_analytic_arg_error]
-[required_features=ANALYTIC_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=ANALYTIC_FUNCTIONS,SAFE_FUNCTION_CALL]
 select
      safe.sum(value / (offset-offset)) over (partition by key order by offset)
 from input
@@ -231,264 +231,264 @@ ERROR: generic::out_of_range: division by zero: 3.68935e+18 / 0
 ==
 
 [name=safe_parse_numeric]
-[required_features=NUMERIC_TYPE,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=NUMERIC_TYPE,SAFE_FUNCTION_CALL]
 SELECT safe.parse_numeric(' - 1 2.34 '), safe.parse_numeric('1e100'), safe.parse_numeric('abc');
 --
 ARRAY<STRUCT<NUMERIC, NUMERIC, NUMERIC>>[{NULL, NULL, NULL}]
 ==
 
 [name=safe_parse_bignumeric]
-[required_features=BIGNUMERIC_TYPE,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=BIGNUMERIC_TYPE,SAFE_FUNCTION_CALL]
 SELECT safe.parse_bignumeric(' - 1 2.34 '), safe.parse_bignumeric('1e100'), safe.parse_bignumeric('abc');
 --
 ARRAY<STRUCT<BIGNUMERIC, BIGNUMERIC, BIGNUMERIC>>[{NULL, NULL, NULL}]
 ==
 
 [name=json_safe_string_resolve_to_null]
-[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,SAFE_FUNCTION_CALL]
 SELECT safe.string(JSON '4325');
 --
 ARRAY<STRUCT<STRING>>[{NULL}]
 ==
 
 [name=json_safe_string]
-[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,SAFE_FUNCTION_CALL]
 SELECT safe.string(JSON '"json_string"');
 --
 ARRAY<STRUCT<STRING>>[{"json_string"}]
 ==
 
 [name=json_safe_bool_resolve_to_null]
-[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,SAFE_FUNCTION_CALL]
 SELECT safe.bool(JSON '4326');
 --
 ARRAY<STRUCT<BOOL>>[{NULL}]
 ==
 
 [name=json_safe_bool]
-[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,SAFE_FUNCTION_CALL]
 SELECT safe.bool(JSON 'true');
 --
 ARRAY<STRUCT<BOOL>>[{true}]
 ==
 
 [name=json_int64_resolve_to_null]
-[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,SAFE_FUNCTION_CALL]
 SELECT safe.int64(JSON '"not_a_number"');
 --
 ARRAY<STRUCT<INT64>>[{NULL}]
 ==
 
 [name=json_safe_int64]
-[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,SAFE_FUNCTION_CALL]
 SELECT safe.int64(JSON '133');
 --
 ARRAY<STRUCT<INT64>>[{133}]
 ==
 
 [name=json_safe_double_fail_resolve_to_null]
-[required_features=JSON_TYPE,NAMED_ARGUMENTS,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=JSON_TYPE,NAMED_ARGUMENTS,JSON_VALUE_EXTRACTION_FUNCTIONS,SAFE_FUNCTION_CALL]
 SELECT safe.double(JSON '18446744073709551615', wide_number_mode=>'exact');
 --
 ARRAY<STRUCT<DOUBLE>>[{NULL}]
 ==
 [name=json_safe_double]
-[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,SAFE_FUNCTION_CALL]
 SELECT safe.double(JSON '-1.1');
 --
 ARRAY<STRUCT<DOUBLE>>[{-1.1}]
 
 ==
 [name=csc_safe_zero_resolve_to_null]
-[required_features=V_1_2_SAFE_FUNCTION_CALL]
+[required_features=SAFE_FUNCTION_CALL]
 SELECT safe.csc(0);
 --
 ARRAY<STRUCT<DOUBLE>>[{NULL}]
 ==
 [name=csc_safe_double]
-[required_features=V_1_2_SAFE_FUNCTION_CALL]
+[required_features=SAFE_FUNCTION_CALL]
 SELECT safe.csc(1);
 --
 ARRAY<STRUCT<DOUBLE>>[{1.1883951057781212}]
 
 ==
 [name=sec_safe_double]
-[required_features=V_1_2_SAFE_FUNCTION_CALL]
+[required_features=SAFE_FUNCTION_CALL]
 SELECT safe.sec(0);
 --
 ARRAY<STRUCT<DOUBLE>>[{1}]
 
 ==
 [name=cot_safe_zero_resolve_to_null]
-[required_features=V_1_2_SAFE_FUNCTION_CALL]
+[required_features=SAFE_FUNCTION_CALL]
 SELECT safe.cot(0);
 --
 ARRAY<STRUCT<DOUBLE>>[{NULL}]
 
 ==
 [name=cot_safe_double]
-[required_features=V_1_2_SAFE_FUNCTION_CALL]
+[required_features=SAFE_FUNCTION_CALL]
 SELECT safe.cot(1);
 --
 ARRAY<STRUCT<DOUBLE>>[{0.64209261593433065}]
 
 ==
 [name=csch_safe_zero_resolve_to_null]
-[required_features=V_1_2_SAFE_FUNCTION_CALL]
+[required_features=SAFE_FUNCTION_CALL]
 SELECT safe.csch(0);
 --
 ARRAY<STRUCT<DOUBLE>>[{NULL}]
 
 ==
 [name=csch_safe_double]
-[required_features=V_1_2_SAFE_FUNCTION_CALL]
+[required_features=SAFE_FUNCTION_CALL]
 SELECT safe.csch(1);
 --
 ARRAY<STRUCT<DOUBLE>>[{0.85091812823932156}]
 
 ==
 [name=sech_safe_double]
-[required_features=V_1_2_SAFE_FUNCTION_CALL]
+[required_features=SAFE_FUNCTION_CALL]
 SELECT safe.sech(0);
 --
 ARRAY<STRUCT<DOUBLE>>[{1}]
 
 ==
 [name=coth_safe_zero_resolve_to_null]
-[required_features=V_1_2_SAFE_FUNCTION_CALL]
+[required_features=SAFE_FUNCTION_CALL]
 SELECT safe.coth(0);
 --
 ARRAY<STRUCT<DOUBLE>>[{NULL}]
 
 ==
 [name=coth_safe_double]
-[required_features=V_1_2_SAFE_FUNCTION_CALL]
+[required_features=SAFE_FUNCTION_CALL]
 SELECT safe.coth(1);
 --
 ARRAY<STRUCT<DOUBLE>>[{1.3130352854993315}]
 ==
 
 [name=safe_array_transform_with_no_errors]
-[required_features=V_1_3_INLINE_LAMBDA_ARGUMENT,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+[required_features=INLINE_LAMBDA_ARGUMENT,SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
 SELECT SAFE.ARRAY_TRANSFORM([-1, 0, 10], e -> e*2)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:-2, 0, 20]}]
 ==
 
 [name=safe_array_filter_with_no_errors]
-[required_features=V_1_3_INLINE_LAMBDA_ARGUMENT,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+[required_features=INLINE_LAMBDA_ARGUMENT,SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
 SELECT SAFE.ARRAY_FILTER([-1, 0, 10], e -> e > 0)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[10]}]
 ==
 
 [name=safe_array_includes_with_no_errors]
-[required_features=V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+[required_features=SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
 SELECT SAFE.ARRAY_INCLUDES([-1, 0, 10], 0)
 --
 ARRAY<STRUCT<BOOL>>[{true}]
 ==
 
 [name=safe_array_includes_lambda_with_no_errors]
-[required_features=V_1_3_INLINE_LAMBDA_ARGUMENT,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+[required_features=INLINE_LAMBDA_ARGUMENT,SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
 SELECT SAFE.ARRAY_INCLUDES([-1, 0, 10], e -> e > 0)
 --
 ARRAY<STRUCT<BOOL>>[{true}]
 ==
 
 [name=safe_array_includes_all_with_no_errors]
-[required_features=V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+[required_features=SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
 SELECT SAFE.ARRAY_INCLUDES_ALL([-1, 0, 10], [1, 0])
 --
 ARRAY<STRUCT<BOOL>>[{false}]
 ==
 
 [name=safe_array_includes_any_with_no_errors]
-[required_features=V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+[required_features=SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
 SELECT SAFE.ARRAY_INCLUDES_ANY([-1, 0, 10], [1, 0])
 --
 ARRAY<STRUCT<BOOL>>[{true}]
 ==
 
 [name=safe_array_filter_transform_with_errors]
-[required_features=V_1_3_INLINE_LAMBDA_ARGUMENT,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+[required_features=INLINE_LAMBDA_ARGUMENT,SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
 SELECT SAFE.ARRAY_TRANSFORM([-1, 0, 10], e -> 1/e)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<DOUBLE>(NULL)}]
 ==
 
 [name=safe_array_filter_with_errors]
-[required_features=V_1_3_INLINE_LAMBDA_ARGUMENT,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+[required_features=INLINE_LAMBDA_ARGUMENT,SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
 SELECT SAFE.ARRAY_FILTER([-1, 0, 10], e -> 1/e > 0)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>(NULL)}]
 ==
 
 [name=safe_array_includes_lambda_with_errors]
-[required_features=V_1_3_INLINE_LAMBDA_ARGUMENT,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+[required_features=INLINE_LAMBDA_ARGUMENT,SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
 SELECT SAFE.ARRAY_INCLUDES([-1, 0, 10], e -> 1/e > 0)
 --
 ARRAY<STRUCT<BOOL>>[{NULL}]
 ==
 
 [name=safe_array_transform_does_not_catch_arg_errors]
-[required_features=V_1_3_INLINE_LAMBDA_ARGUMENT,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+[required_features=INLINE_LAMBDA_ARGUMENT,SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
 SELECT SAFE.ARRAY_TRANSFORM([-1, 1/0, 10], e -> e*2)
 --
 ERROR: generic::out_of_range: division by zero: 1 / 0
 ==
 
 [name=safe_array_filter_does_not_catch_arg_errors]
-[required_features=V_1_3_INLINE_LAMBDA_ARGUMENT,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+[required_features=INLINE_LAMBDA_ARGUMENT,SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
 SELECT SAFE.ARRAY_FILTER([-1, 1/0, 10], e -> e > 0)
 --
 ERROR: generic::out_of_range: division by zero: 1 / 0
 ==
 
 [name=safe_array_includes_does_not_catch_arg_errors]
-[required_features=V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+[required_features=SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
 SELECT SAFE.ARRAY_INCLUDES([-1, 1/0, 10], 0)
 --
 ERROR: generic::out_of_range: division by zero: 1 / 0
 ==
 
 [name=safe_array_includes_lambda_does_not_catch_arg_errors]
-[required_features=V_1_3_INLINE_LAMBDA_ARGUMENT,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+[required_features=INLINE_LAMBDA_ARGUMENT,SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
 SELECT SAFE.ARRAY_INCLUDES([-1, 1/0, 10], e -> e > 0)
 --
 ERROR: generic::out_of_range: division by zero: 1 / 0
 ==
 
 [name=safe_array_includes_all_does_not_catch_arg_errors]
-[required_features=V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+[required_features=SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
 SELECT SAFE.ARRAY_INCLUDES_ALL([-1, 1/0, 10], [1.0, 0])
 --
 ERROR: generic::out_of_range: division by zero: 1 / 0
 ==
 
 [name=safe_array_includes_any_does_not_catch_arg_errors]
-[required_features=V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+[required_features=SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
 SELECT SAFE.ARRAY_INCLUDES_ANY([-1, 1/0, 10], [1.0, 0])
 --
 ERROR: generic::out_of_range: division by zero: 1 / 0
 ==
 
 [name=safe_array_filter_transform_with_error_absorbed_in_lambda]
-[required_features=V_1_3_INLINE_LAMBDA_ARGUMENT,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+[required_features=INLINE_LAMBDA_ARGUMENT,SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
 SELECT SAFE.ARRAY_TRANSFORM([-1, 0, 10], e -> SAFE_DIVIDE(1, e))
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<DOUBLE>[known order:-1, NULL, 0.1]}]
 ==
 
 [name=safe_array_filter_with_error_absorbed_in_lambda]
-[required_features=V_1_3_INLINE_LAMBDA_ARGUMENT,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+[required_features=INLINE_LAMBDA_ARGUMENT,SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
 SELECT SAFE.ARRAY_FILTER([-1, 0, 10], e -> SAFE_DIVIDE(1, e) > 0)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[10]}]
 ==
 
 [name=safe_array_includes_lambda_with_error_absorbed_in_lambda]
-[required_features=V_1_3_INLINE_LAMBDA_ARGUMENT,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+[required_features=INLINE_LAMBDA_ARGUMENT,SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
 SELECT SAFE.ARRAY_INCLUDES([-1, 0, 10], e -> SAFE_DIVIDE(1, e) > 0)
 --
 ARRAY<STRUCT<BOOL>>[{true}]

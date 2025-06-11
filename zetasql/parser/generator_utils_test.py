@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 
-"""Tests for generator_utils."""
 from zetasql.parser.generator_utils import CleanIndent
 from zetasql.parser.generator_utils import JavaDoc
 from zetasql.parser.generator_utils import LowerCamelCase

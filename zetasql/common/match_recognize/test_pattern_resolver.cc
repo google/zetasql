@@ -130,7 +130,7 @@ TestPatternResolver::ResolvePattern(
   analyzer_options.set_error_message_mode(
       ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET);
   analyzer_options.mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_4_MATCH_RECOGNIZE);
+      FEATURE_MATCH_RECOGNIZE);
   ZETASQL_RETURN_IF_ERROR(analyzer_options.mutable_language()->EnableReservableKeyword(
       "MATCH_RECOGNIZE"));
   if (std::holds_alternative<QueryParametersMap>(options.parameters)) {

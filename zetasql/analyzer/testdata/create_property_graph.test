@@ -3399,3 +3399,1211 @@ CREATE PROPERTY GRAPH catalog.aml
   );
 
 ==
+
+[language_features=SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL]
+create property graph aml_static_dynamic_node
+  node tables(
+    DynamicGraphNode
+     KEY(id)
+     DEFAULT LABEL PROPERTIES ALL COLUMNS
+     LABEL Entity PROPERTIES(code)
+     DYNAMIC LABEL (nodeLabelCol)
+     DYNAMIC PROPERTIES (nodeJsonProp)
+  )
+--
+
+CreatePropertyGraphStmt
++-name_path=aml_static_dynamic_node
++-node_table_list=
+| +-GraphElementTable
+|   +-alias="DynamicGraphNode"
+|   +-input_scan=
+|   | +-TableScan(column_list=DynamicGraphNode.[id#1, nodeLabelCol#2, code#3, nodeJsonProp#4], table=DynamicGraphNode, column_index_list=[0, 1, 2, 3])
+|   +-key_list=
+|   | +-ColumnRef(type=INT64, column=DynamicGraphNode.id#1)
+|   +-label_name_list=[DynamicGraphNode, Entity]
+|   +-property_definition_list=
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=114-136
+|   | | +-expr=
+|   | | | +-ColumnRef(type=INT64, column=DynamicGraphNode.id#1)
+|   | | +-sql="id"
+|   | | +-property_declaration_name="id"
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=114-136
+|   | | +-expr=
+|   | | | +-ColumnRef(type=STRING, column=DynamicGraphNode.nodeLabelCol#2)
+|   | | +-sql="nodeLabelCol"
+|   | | +-property_declaration_name="nodeLabelCol"
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=114-136
+|   | | +-expr=
+|   | | | +-ColumnRef(type=INT64, column=DynamicGraphNode.code#3)
+|   | | +-sql="code"
+|   | | +-property_declaration_name="code"
+|   | +-GraphPropertyDefinition
+|   |   +-parse_location=114-136
+|   |   +-expr=
+|   |   | +-ColumnRef(type=JSON, column=DynamicGraphNode.nodeJsonProp#4)
+|   |   +-sql="nodeJsonProp"
+|   |   +-property_declaration_name="nodeJsonProp"
+|   +-dynamic_label=
+|   | +-GraphDynamicLabelSpecification
+|   |   +-label_expr=
+|   |     +-ColumnRef(type=STRING, column=DynamicGraphNode.nodeLabelCol#2)
+|   +-dynamic_properties=
+|     +-GraphDynamicPropertiesSpecification
+|       +-property_expr=
+|         +-ColumnRef(type=JSON, column=DynamicGraphNode.nodeJsonProp#4)
++-label_list=
+| +-GraphElementLabel(parse_location=100-136, name="DynamicGraphNode", property_declaration_name_list=[id, nodeLabelCol, code, nodeJsonProp])
+| +-GraphElementLabel(parse_location=142-171, name="Entity", property_declaration_name_list=[code])
++-property_declaration_list=
+  +-GraphPropertyDeclaration(parse_location=114-136, name="id", type=INT64)
+  +-GraphPropertyDeclaration(parse_location=114-136, name="nodeLabelCol", type=STRING)
+  +-GraphPropertyDeclaration(parse_location=114-136, name="code", type=INT64)
+  +-GraphPropertyDeclaration(parse_location=114-136, name="nodeJsonProp", type=JSON)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH aml_static_dynamic_node
+  NODE TABLES(
+    DynamicGraphNode
+      KEY(id)
+      LABEL DynamicGraphNode PROPERTIES(
+        id,
+        nodeLabelCol,
+        code,
+        nodeJsonProp)
+      LABEL Entity PROPERTIES(
+        code)
+      DYNAMIC LABEL (nodeLabelCol)
+      DYNAMIC PROPERTIES (nodeJsonProp)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH aml_static_dynamic_node
+  NODE TABLES(
+    DynamicGraphNode
+      KEY(id)
+      LABEL DynamicGraphNode PROPERTIES(
+        id,
+        nodeLabelCol,
+        code,
+        nodeJsonProp)
+      LABEL Entity PROPERTIES(
+        code)
+      DYNAMIC LABEL (nodeLabelCol)
+      DYNAMIC PROPERTIES (nodeJsonProp)
+  );
+==
+
+[language_features=SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL]
+create property graph aml_static_dynamic_both
+  node tables(
+    DynamicGraphNode
+     KEY(id)
+     DEFAULT LABEL PROPERTIES ALL COLUMNS
+     LABEL Entity PROPERTIES(code)
+     DYNAMIC LABEL (nodeLabelCol)
+     DYNAMIC PROPERTIES (nodeJsonProp)
+  )
+  edge tables(
+    DynamicGraphEdge
+     KEY(id)
+     SOURCE KEY(id) REFERENCES DynamicGraphNode(id)
+     DESTINATION KEY(dst_id) REFERENCES DynamicGraphNode(id)
+     DEFAULT LABEL PROPERTIES ALL COLUMNS
+     LABEL CONNECTION Properties (category)
+     DYNAMIC LABEL (edgeLabelCol)
+     DYNAMIC PROPERTIES (edgeJsonProp)
+  )
+--
+
+CreatePropertyGraphStmt
++-name_path=aml_static_dynamic_both
++-node_table_list=
+| +-GraphElementTable
+|   +-alias="DynamicGraphNode"
+|   +-input_scan=
+|   | +-TableScan(column_list=DynamicGraphNode.[id#1, nodeLabelCol#2, code#3, nodeJsonProp#4], table=DynamicGraphNode, column_index_list=[0, 1, 2, 3])
+|   +-key_list=
+|   | +-ColumnRef(type=INT64, column=DynamicGraphNode.id#1)
+|   +-label_name_list=[DynamicGraphNode, Entity]
+|   +-property_definition_list=
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=114-136
+|   | | +-expr=
+|   | | | +-ColumnRef(type=INT64, column=DynamicGraphNode.id#1)
+|   | | +-sql="id"
+|   | | +-property_declaration_name="id"
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=114-136
+|   | | +-expr=
+|   | | | +-ColumnRef(type=STRING, column=DynamicGraphNode.nodeLabelCol#2)
+|   | | +-sql="nodeLabelCol"
+|   | | +-property_declaration_name="nodeLabelCol"
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=114-136
+|   | | +-expr=
+|   | | | +-ColumnRef(type=INT64, column=DynamicGraphNode.code#3)
+|   | | +-sql="code"
+|   | | +-property_declaration_name="code"
+|   | +-GraphPropertyDefinition
+|   |   +-parse_location=114-136
+|   |   +-expr=
+|   |   | +-ColumnRef(type=JSON, column=DynamicGraphNode.nodeJsonProp#4)
+|   |   +-sql="nodeJsonProp"
+|   |   +-property_declaration_name="nodeJsonProp"
+|   +-dynamic_label=
+|   | +-GraphDynamicLabelSpecification
+|   |   +-label_expr=
+|   |     +-ColumnRef(type=STRING, column=DynamicGraphNode.nodeLabelCol#2)
+|   +-dynamic_properties=
+|     +-GraphDynamicPropertiesSpecification
+|       +-property_expr=
+|         +-ColumnRef(type=JSON, column=DynamicGraphNode.nodeJsonProp#4)
++-edge_table_list=
+| +-GraphElementTable
+|   +-alias="DynamicGraphEdge"
+|   +-input_scan=
+|   | +-TableScan(column_list=DynamicGraphEdge.[id#5, dst_id#6, edgeLabelCol#7, category#8, edgeJsonProp#9], table=DynamicGraphEdge, column_index_list=[0, 1, 2, 3, 4])
+|   +-key_list=
+|   | +-ColumnRef(type=INT64, column=DynamicGraphEdge.id#5)
+|   +-source_node_reference=
+|   | +-GraphNodeTableReference
+|   |   +-node_table_identifier="DynamicGraphNode"
+|   |   +-edge_table_column_list=
+|   |   | +-ColumnRef(type=INT64, column=DynamicGraphEdge.id#5)
+|   |   +-node_table_column_list=
+|   |     +-ColumnRef(type=INT64, column=DynamicGraphNode.id#1)
+|   +-dest_node_reference=
+|   | +-GraphNodeTableReference
+|   |   +-node_table_identifier="DynamicGraphNode"
+|   |   +-edge_table_column_list=
+|   |   | +-ColumnRef(type=INT64, column=DynamicGraphEdge.dst_id#6)
+|   |   +-node_table_column_list=
+|   |     +-ColumnRef(type=INT64, column=DynamicGraphNode.id#1)
+|   +-label_name_list=[DynamicGraphEdge, CONNECTION]
+|   +-property_definition_list=
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=430-452
+|   | | +-expr=
+|   | | | +-ColumnRef(type=INT64, column=DynamicGraphEdge.id#5)
+|   | | +-sql="id"
+|   | | +-property_declaration_name="id"
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=430-452
+|   | | +-expr=
+|   | | | +-ColumnRef(type=INT64, column=DynamicGraphEdge.dst_id#6)
+|   | | +-sql="dst_id"
+|   | | +-property_declaration_name="dst_id"
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=430-452
+|   | | +-expr=
+|   | | | +-ColumnRef(type=STRING, column=DynamicGraphEdge.edgeLabelCol#7)
+|   | | +-sql="edgeLabelCol"
+|   | | +-property_declaration_name="edgeLabelCol"
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=430-452
+|   | | +-expr=
+|   | | | +-ColumnRef(type=STRING, column=DynamicGraphEdge.category#8)
+|   | | +-sql="category"
+|   | | +-property_declaration_name="category"
+|   | +-GraphPropertyDefinition
+|   |   +-parse_location=430-452
+|   |   +-expr=
+|   |   | +-ColumnRef(type=JSON, column=DynamicGraphEdge.edgeJsonProp#9)
+|   |   +-sql="edgeJsonProp"
+|   |   +-property_declaration_name="edgeJsonProp"
+|   +-dynamic_label=
+|   | +-GraphDynamicLabelSpecification
+|   |   +-label_expr=
+|   |     +-ColumnRef(type=STRING, column=DynamicGraphEdge.edgeLabelCol#7)
+|   +-dynamic_properties=
+|     +-GraphDynamicPropertiesSpecification
+|       +-property_expr=
+|         +-ColumnRef(type=JSON, column=DynamicGraphEdge.edgeJsonProp#9)
++-label_list=
+| +-GraphElementLabel(parse_location=100-136, name="DynamicGraphNode", property_declaration_name_list=[id, nodeLabelCol, code, nodeJsonProp])
+| +-GraphElementLabel(parse_location=142-171, name="Entity", property_declaration_name_list=[code])
+| +-GraphElementLabel(parse_location=416-452, name="DynamicGraphEdge", property_declaration_name_list=[id, dst_id, edgeLabelCol, category, edgeJsonProp])
+| +-GraphElementLabel(parse_location=458-496, name="CONNECTION", property_declaration_name_list=[category])
++-property_declaration_list=
+  +-GraphPropertyDeclaration(parse_location=114-136, name="id", type=INT64)
+  +-GraphPropertyDeclaration(parse_location=114-136, name="nodeLabelCol", type=STRING)
+  +-GraphPropertyDeclaration(parse_location=114-136, name="code", type=INT64)
+  +-GraphPropertyDeclaration(parse_location=114-136, name="nodeJsonProp", type=JSON)
+  +-GraphPropertyDeclaration(parse_location=430-452, name="dst_id", type=INT64)
+  +-GraphPropertyDeclaration(parse_location=430-452, name="edgeLabelCol", type=STRING)
+  +-GraphPropertyDeclaration(parse_location=430-452, name="category", type=STRING)
+  +-GraphPropertyDeclaration(parse_location=430-452, name="edgeJsonProp", type=JSON)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH aml_static_dynamic_both
+  NODE TABLES(
+    DynamicGraphNode
+      KEY(id)
+      LABEL DynamicGraphNode PROPERTIES(
+        id,
+        nodeLabelCol,
+        code,
+        nodeJsonProp)
+      LABEL Entity PROPERTIES(
+        code)
+      DYNAMIC LABEL (nodeLabelCol)
+      DYNAMIC PROPERTIES (nodeJsonProp)
+  )
+  EDGE TABLES(
+    DynamicGraphEdge
+      KEY(id)
+      SOURCE KEY(id) REFERENCES DynamicGraphNode(id)
+      DESTINATION KEY(dst_id) REFERENCES DynamicGraphNode(id)
+      LABEL DynamicGraphEdge PROPERTIES(
+        id,
+        dst_id,
+        edgeLabelCol,
+        category,
+        edgeJsonProp)
+      LABEL CONNECTION PROPERTIES(
+        category)
+      DYNAMIC LABEL (edgeLabelCol)
+      DYNAMIC PROPERTIES (edgeJsonProp)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH aml_static_dynamic_both
+  NODE TABLES(
+    DynamicGraphNode
+      KEY(id)
+      LABEL DynamicGraphNode PROPERTIES(
+        id,
+        nodeLabelCol,
+        code,
+        nodeJsonProp)
+      LABEL Entity PROPERTIES(
+        code)
+      DYNAMIC LABEL (nodeLabelCol)
+      DYNAMIC PROPERTIES (nodeJsonProp)
+  )
+  EDGE TABLES(
+    DynamicGraphEdge
+      KEY(id)
+      SOURCE KEY(id) REFERENCES DynamicGraphNode(id)
+      DESTINATION KEY(dst_id) REFERENCES DynamicGraphNode(id)
+      LABEL DynamicGraphEdge PROPERTIES(
+        id,
+        dst_id,
+        edgeLabelCol,
+        category,
+        edgeJsonProp)
+      LABEL CONNECTION PROPERTIES(
+        category)
+      DYNAMIC LABEL (edgeLabelCol)
+      DYNAMIC PROPERTIES (edgeJsonProp)
+  );
+==
+
+[language_features=SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL]
+create property graph aml_static_dynamic_only_label
+  node tables(
+    DynamicGraphNode
+     KEY(id)
+     DEFAULT LABEL PROPERTIES ALL COLUMNS
+     LABEL Entity PROPERTIES(code)
+     DYNAMIC LABEL (nodeLabelCol)
+  )
+--
+
+CreatePropertyGraphStmt
++-name_path=aml_static_dynamic_only_label
++-node_table_list=
+| +-GraphElementTable
+|   +-alias="DynamicGraphNode"
+|   +-input_scan=
+|   | +-TableScan(column_list=DynamicGraphNode.[id#1, nodeLabelCol#2, code#3, nodeJsonProp#4], table=DynamicGraphNode, column_index_list=[0, 1, 2, 3])
+|   +-key_list=
+|   | +-ColumnRef(type=INT64, column=DynamicGraphNode.id#1)
+|   +-label_name_list=[DynamicGraphNode, Entity]
+|   +-property_definition_list=
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=120-142
+|   | | +-expr=
+|   | | | +-ColumnRef(type=INT64, column=DynamicGraphNode.id#1)
+|   | | +-sql="id"
+|   | | +-property_declaration_name="id"
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=120-142
+|   | | +-expr=
+|   | | | +-ColumnRef(type=STRING, column=DynamicGraphNode.nodeLabelCol#2)
+|   | | +-sql="nodeLabelCol"
+|   | | +-property_declaration_name="nodeLabelCol"
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=120-142
+|   | | +-expr=
+|   | | | +-ColumnRef(type=INT64, column=DynamicGraphNode.code#3)
+|   | | +-sql="code"
+|   | | +-property_declaration_name="code"
+|   | +-GraphPropertyDefinition
+|   |   +-parse_location=120-142
+|   |   +-expr=
+|   |   | +-ColumnRef(type=JSON, column=DynamicGraphNode.nodeJsonProp#4)
+|   |   +-sql="nodeJsonProp"
+|   |   +-property_declaration_name="nodeJsonProp"
+|   +-dynamic_label=
+|     +-GraphDynamicLabelSpecification
+|       +-label_expr=
+|         +-ColumnRef(type=STRING, column=DynamicGraphNode.nodeLabelCol#2)
++-label_list=
+| +-GraphElementLabel(parse_location=106-142, name="DynamicGraphNode", property_declaration_name_list=[id, nodeLabelCol, code, nodeJsonProp])
+| +-GraphElementLabel(parse_location=148-177, name="Entity", property_declaration_name_list=[code])
++-property_declaration_list=
+  +-GraphPropertyDeclaration(parse_location=120-142, name="id", type=INT64)
+  +-GraphPropertyDeclaration(parse_location=120-142, name="nodeLabelCol", type=STRING)
+  +-GraphPropertyDeclaration(parse_location=120-142, name="code", type=INT64)
+  +-GraphPropertyDeclaration(parse_location=120-142, name="nodeJsonProp", type=JSON)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH aml_static_dynamic_only_label
+  NODE TABLES(
+    DynamicGraphNode
+      KEY(id)
+      LABEL DynamicGraphNode PROPERTIES(
+        id,
+        nodeLabelCol,
+        code,
+        nodeJsonProp)
+      LABEL Entity PROPERTIES(
+        code)
+      DYNAMIC LABEL (nodeLabelCol)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH aml_static_dynamic_only_label
+  NODE TABLES(
+    DynamicGraphNode
+      KEY(id)
+      LABEL DynamicGraphNode PROPERTIES(
+        id,
+        nodeLabelCol,
+        code,
+        nodeJsonProp)
+      LABEL Entity PROPERTIES(
+        code)
+      DYNAMIC LABEL (nodeLabelCol)
+  );
+==
+
+[language_features=SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL]
+create property graph aml_static_dynamic_only_props
+  node tables(
+    DynamicGraphNode
+     KEY(id)
+     DEFAULT LABEL PROPERTIES ALL COLUMNS
+     LABEL Entity PROPERTIES(code)
+     DYNAMIC PROPERTIES (nodeJsonProp)
+  )
+--
+
+CreatePropertyGraphStmt
++-name_path=aml_static_dynamic_only_props
++-node_table_list=
+| +-GraphElementTable
+|   +-alias="DynamicGraphNode"
+|   +-input_scan=
+|   | +-TableScan(column_list=DynamicGraphNode.[id#1, nodeLabelCol#2, code#3, nodeJsonProp#4], table=DynamicGraphNode, column_index_list=[0, 1, 2, 3])
+|   +-key_list=
+|   | +-ColumnRef(type=INT64, column=DynamicGraphNode.id#1)
+|   +-label_name_list=[DynamicGraphNode, Entity]
+|   +-property_definition_list=
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=120-142
+|   | | +-expr=
+|   | | | +-ColumnRef(type=INT64, column=DynamicGraphNode.id#1)
+|   | | +-sql="id"
+|   | | +-property_declaration_name="id"
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=120-142
+|   | | +-expr=
+|   | | | +-ColumnRef(type=STRING, column=DynamicGraphNode.nodeLabelCol#2)
+|   | | +-sql="nodeLabelCol"
+|   | | +-property_declaration_name="nodeLabelCol"
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=120-142
+|   | | +-expr=
+|   | | | +-ColumnRef(type=INT64, column=DynamicGraphNode.code#3)
+|   | | +-sql="code"
+|   | | +-property_declaration_name="code"
+|   | +-GraphPropertyDefinition
+|   |   +-parse_location=120-142
+|   |   +-expr=
+|   |   | +-ColumnRef(type=JSON, column=DynamicGraphNode.nodeJsonProp#4)
+|   |   +-sql="nodeJsonProp"
+|   |   +-property_declaration_name="nodeJsonProp"
+|   +-dynamic_properties=
+|     +-GraphDynamicPropertiesSpecification
+|       +-property_expr=
+|         +-ColumnRef(type=JSON, column=DynamicGraphNode.nodeJsonProp#4)
++-label_list=
+| +-GraphElementLabel(parse_location=106-142, name="DynamicGraphNode", property_declaration_name_list=[id, nodeLabelCol, code, nodeJsonProp])
+| +-GraphElementLabel(parse_location=148-177, name="Entity", property_declaration_name_list=[code])
++-property_declaration_list=
+  +-GraphPropertyDeclaration(parse_location=120-142, name="id", type=INT64)
+  +-GraphPropertyDeclaration(parse_location=120-142, name="nodeLabelCol", type=STRING)
+  +-GraphPropertyDeclaration(parse_location=120-142, name="code", type=INT64)
+  +-GraphPropertyDeclaration(parse_location=120-142, name="nodeJsonProp", type=JSON)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH aml_static_dynamic_only_props
+  NODE TABLES(
+    DynamicGraphNode
+      KEY(id)
+      LABEL DynamicGraphNode PROPERTIES(
+        id,
+        nodeLabelCol,
+        code,
+        nodeJsonProp)
+      LABEL Entity PROPERTIES(
+        code)
+      DYNAMIC PROPERTIES (nodeJsonProp)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH aml_static_dynamic_only_props
+  NODE TABLES(
+    DynamicGraphNode
+      KEY(id)
+      LABEL DynamicGraphNode PROPERTIES(
+        id,
+        nodeLabelCol,
+        code,
+        nodeJsonProp)
+      LABEL Entity PROPERTIES(
+        code)
+      DYNAMIC PROPERTIES (nodeJsonProp)
+  );
+==
+
+[language_features=SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL]
+create property graph aml_pure_dynamic
+  node tables(
+    DynamicGraphNode
+     DYNAMIC LABEL (nodeLabelCol)
+     DYNAMIC PROPERTIES (nodeJsonProp)
+  )
+--
+CreatePropertyGraphStmt
++-name_path=aml_pure_dynamic
++-node_table_list=
+| +-GraphElementTable
+|   +-alias="DynamicGraphNode"
+|   +-input_scan=
+|   | +-TableScan(column_list=DynamicGraphNode.[id#1, nodeLabelCol#2, code#3, nodeJsonProp#4], table=DynamicGraphNode, column_index_list=[0, 1, 2, 3])
+|   +-key_list=
+|   | +-ColumnRef(type=INT64, column=DynamicGraphNode.id#1)
+|   +-label_name_list=[DynamicGraphNode]
+|   +-property_definition_list=
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=74-74
+|   | | +-expr=
+|   | | | +-ColumnRef(type=INT64, column=DynamicGraphNode.id#1)
+|   | | +-sql="id"
+|   | | +-property_declaration_name="id"
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=74-74
+|   | | +-expr=
+|   | | | +-ColumnRef(type=STRING, column=DynamicGraphNode.nodeLabelCol#2)
+|   | | +-sql="nodeLabelCol"
+|   | | +-property_declaration_name="nodeLabelCol"
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=74-74
+|   | | +-expr=
+|   | | | +-ColumnRef(type=INT64, column=DynamicGraphNode.code#3)
+|   | | +-sql="code"
+|   | | +-property_declaration_name="code"
+|   | +-GraphPropertyDefinition
+|   |   +-parse_location=74-74
+|   |   +-expr=
+|   |   | +-ColumnRef(type=JSON, column=DynamicGraphNode.nodeJsonProp#4)
+|   |   +-sql="nodeJsonProp"
+|   |   +-property_declaration_name="nodeJsonProp"
+|   +-dynamic_label=
+|   | +-GraphDynamicLabelSpecification
+|   |   +-label_expr=
+|   |     +-ColumnRef(type=STRING, column=DynamicGraphNode.nodeLabelCol#2)
+|   +-dynamic_properties=
+|     +-GraphDynamicPropertiesSpecification
+|       +-property_expr=
+|         +-ColumnRef(type=JSON, column=DynamicGraphNode.nodeJsonProp#4)
++-label_list=
+| +-GraphElementLabel(parse_location=74-74, name="DynamicGraphNode", property_declaration_name_list=[id, nodeLabelCol, code, nodeJsonProp])
++-property_declaration_list=
+  +-GraphPropertyDeclaration(parse_location=74-74, name="id", type=INT64)
+  +-GraphPropertyDeclaration(parse_location=74-74, name="nodeLabelCol", type=STRING)
+  +-GraphPropertyDeclaration(parse_location=74-74, name="code", type=INT64)
+  +-GraphPropertyDeclaration(parse_location=74-74, name="nodeJsonProp", type=JSON)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH aml_pure_dynamic
+  NODE TABLES(
+    DynamicGraphNode
+      KEY(id)
+      LABEL DynamicGraphNode PROPERTIES(
+        id,
+        nodeLabelCol,
+        code,
+        nodeJsonProp)
+      DYNAMIC LABEL (nodeLabelCol)
+      DYNAMIC PROPERTIES (nodeJsonProp)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH aml_pure_dynamic
+  NODE TABLES(
+    DynamicGraphNode
+      KEY(id)
+      LABEL DynamicGraphNode PROPERTIES(
+        id,
+        nodeLabelCol,
+        code,
+        nodeJsonProp)
+      DYNAMIC LABEL (nodeLabelCol)
+      DYNAMIC PROPERTIES (nodeJsonProp)
+  );
+==
+
+[language_features=SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL]
+# Property graph with dynamic properties but no dynamic labels.
+create property graph aml_only_dynamic_props
+  node tables(
+    DynamicGraphNode
+     KEY(id)
+     DEFAULT LABEL PROPERTIES ALL COLUMNS
+     DYNAMIC PROPERTIES (nodeJsonProp)
+  )
+--
+
+CreatePropertyGraphStmt
++-name_path=aml_only_dynamic_props
++-node_table_list=
+| +-GraphElementTable
+|   +-alias="DynamicGraphNode"
+|   +-input_scan=
+|   | +-TableScan(column_list=DynamicGraphNode.[id#1, nodeLabelCol#2, code#3, nodeJsonProp#4], table=DynamicGraphNode, column_index_list=[0, 1, 2, 3])
+|   +-key_list=
+|   | +-ColumnRef(type=INT64, column=DynamicGraphNode.id#1)
+|   +-label_name_list=[DynamicGraphNode]
+|   +-property_definition_list=
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=177-199
+|   | | +-expr=
+|   | | | +-ColumnRef(type=INT64, column=DynamicGraphNode.id#1)
+|   | | +-sql="id"
+|   | | +-property_declaration_name="id"
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=177-199
+|   | | +-expr=
+|   | | | +-ColumnRef(type=STRING, column=DynamicGraphNode.nodeLabelCol#2)
+|   | | +-sql="nodeLabelCol"
+|   | | +-property_declaration_name="nodeLabelCol"
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=177-199
+|   | | +-expr=
+|   | | | +-ColumnRef(type=INT64, column=DynamicGraphNode.code#3)
+|   | | +-sql="code"
+|   | | +-property_declaration_name="code"
+|   | +-GraphPropertyDefinition
+|   |   +-parse_location=177-199
+|   |   +-expr=
+|   |   | +-ColumnRef(type=JSON, column=DynamicGraphNode.nodeJsonProp#4)
+|   |   +-sql="nodeJsonProp"
+|   |   +-property_declaration_name="nodeJsonProp"
+|   +-dynamic_properties=
+|     +-GraphDynamicPropertiesSpecification
+|       +-property_expr=
+|         +-ColumnRef(type=JSON, column=DynamicGraphNode.nodeJsonProp#4)
++-label_list=
+| +-GraphElementLabel(parse_location=163-199, name="DynamicGraphNode", property_declaration_name_list=[id, nodeLabelCol, code, nodeJsonProp])
++-property_declaration_list=
+  +-GraphPropertyDeclaration(parse_location=177-199, name="id", type=INT64)
+  +-GraphPropertyDeclaration(parse_location=177-199, name="nodeLabelCol", type=STRING)
+  +-GraphPropertyDeclaration(parse_location=177-199, name="code", type=INT64)
+  +-GraphPropertyDeclaration(parse_location=177-199, name="nodeJsonProp", type=JSON)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH aml_only_dynamic_props
+  NODE TABLES(
+    DynamicGraphNode
+      KEY(id)
+      LABEL DynamicGraphNode PROPERTIES(
+        id,
+        nodeLabelCol,
+        code,
+        nodeJsonProp)
+      DYNAMIC PROPERTIES (nodeJsonProp)
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+CREATE PROPERTY GRAPH aml_only_dynamic_props
+  NODE TABLES(
+    DynamicGraphNode
+      KEY(id)
+      LABEL DynamicGraphNode PROPERTIES(
+        id,
+        nodeLabelCol,
+        code,
+        nodeJsonProp)
+      DYNAMIC PROPERTIES (nodeJsonProp)
+  );
+==
+
+[default no_run_sqlbuilder]
+
+[language_features=SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL]
+create property graph aml_static_node_dynamic_edge
+  node tables(
+    DynamicGraphNode
+     KEY(id)
+     DEFAULT LABEL PROPERTIES ALL COLUMNS
+     LABEL Entity PROPERTIES(code)
+  )
+  edge tables(
+    DynamicGraphEdge
+     KEY(id)
+     SOURCE KEY(id) REFERENCES DynamicGraphNode(id)
+     DESTINATION KEY(dst_id) REFERENCES DynamicGraphNode(id)
+     DEFAULT LABEL PROPERTIES ALL COLUMNS
+     LABEL CONNECTION Properties (category)
+     DYNAMIC LABEL (edgeLabelCol)
+     DYNAMIC PROPERTIES (edgeJsonProp)
+  )
+--
+ERROR: If a dynamically labeled edge table exists, any defined node table must also be dynamically labeled [at 1:1]
+create property graph aml_static_node_dynamic_edge
+^
+==
+
+[language_features=SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL]
+create property graph aml_dynamic_node_static_edge
+  node tables(
+    DynamicGraphNode
+     KEY(id)
+     DYNAMIC LABEL (nodeLabelCol)
+  )
+  edge tables(
+    DynamicGraphEdge
+     KEY(id)
+     SOURCE KEY(id) REFERENCES DynamicGraphNode(id)
+     DESTINATION KEY(dst_id) REFERENCES DynamicGraphNode(id)
+     DEFAULT LABEL PROPERTIES ALL COLUMNS
+     LABEL CONNECTION Properties (category)
+  )
+--
+ERROR: If a dynamically labeled node table exists, any defined edge table must also be dynamically labeled [at 1:1]
+create property graph aml_dynamic_node_static_edge
+^
+==
+
+# b/391906588: Single Dynamic Node with multiple Static Edges (Allowed)
+[language_features=SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,SQL_GRAPH_DYNAMIC_LABEL_EXTENSION_IN_DDL]
+create property graph aml_dynamic_node_static_edges
+  node tables(
+    DynamicGraphNode
+     KEY(id)
+     DYNAMIC LABEL (nodeLabelCol)
+  )
+  edge tables(
+    Transfer
+     KEY(txnId)
+     SOURCE KEY(fromAccountId) REFERENCES DynamicGraphNode(id)
+     DESTINATION KEY(toAccountId) REFERENCES DynamicGraphNode(id),
+    PersonOwnAccount
+     KEY(personId, accountId)
+     SOURCE KEY(personId) REFERENCES DynamicGraphNode(id)
+     DESTINATION KEY(accountId) REFERENCES DynamicGraphNode(id)
+  )
+--
+
+CreatePropertyGraphStmt
++-name_path=aml_dynamic_node_static_edges
++-node_table_list=
+| +-GraphElementTable
+|   +-alias="DynamicGraphNode"
+|   +-input_scan=
+|   | +-TableScan(column_list=DynamicGraphNode.[id#1, nodeLabelCol#2, code#3, nodeJsonProp#4], table=DynamicGraphNode, column_index_list=[0, 1, 2, 3])
+|   +-key_list=
+|   | +-ColumnRef(type=INT64, column=DynamicGraphNode.id#1)
+|   +-label_name_list=[DynamicGraphNode]
+|   +-property_definition_list=
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=100-100
+|   | | +-expr=
+|   | | | +-ColumnRef(type=INT64, column=DynamicGraphNode.id#1)
+|   | | +-sql="id"
+|   | | +-property_declaration_name="id"
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=100-100
+|   | | +-expr=
+|   | | | +-ColumnRef(type=STRING, column=DynamicGraphNode.nodeLabelCol#2)
+|   | | +-sql="nodeLabelCol"
+|   | | +-property_declaration_name="nodeLabelCol"
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=100-100
+|   | | +-expr=
+|   | | | +-ColumnRef(type=INT64, column=DynamicGraphNode.code#3)
+|   | | +-sql="code"
+|   | | +-property_declaration_name="code"
+|   | +-GraphPropertyDefinition
+|   |   +-parse_location=100-100
+|   |   +-expr=
+|   |   | +-ColumnRef(type=JSON, column=DynamicGraphNode.nodeJsonProp#4)
+|   |   +-sql="nodeJsonProp"
+|   |   +-property_declaration_name="nodeJsonProp"
+|   +-dynamic_label=
+|     +-GraphDynamicLabelSpecification
+|       +-label_expr=
+|         +-ColumnRef(type=STRING, column=DynamicGraphNode.nodeLabelCol#2)
++-edge_table_list=
+| +-GraphElementTable
+| | +-alias="Transfer"
+| | +-input_scan=
+| | | +-TableScan(column_list=Transfer.[txnId#5, fromAccountId#6, toAccountId#7, time#8, amount#9], table=Transfer, column_index_list=[0, 1, 2, 3, 4])
+| | +-key_list=
+| | | +-ColumnRef(type=INT64, column=Transfer.txnId#5)
+| | +-source_node_reference=
+| | | +-GraphNodeTableReference
+| | |   +-node_table_identifier="DynamicGraphNode"
+| | |   +-edge_table_column_list=
+| | |   | +-ColumnRef(type=INT64, column=Transfer.fromAccountId#6)
+| | |   +-node_table_column_list=
+| | |     +-ColumnRef(type=INT64, column=DynamicGraphNode.id#1)
+| | +-dest_node_reference=
+| | | +-GraphNodeTableReference
+| | |   +-node_table_identifier="DynamicGraphNode"
+| | |   +-edge_table_column_list=
+| | |   | +-ColumnRef(type=INT64, column=Transfer.toAccountId#7)
+| | |   +-node_table_column_list=
+| | |     +-ColumnRef(type=INT64, column=DynamicGraphNode.id#1)
+| | +-label_name_list=[Transfer]
+| | +-property_definition_list=
+| |   +-GraphPropertyDefinition
+| |   | +-parse_location=311-311
+| |   | +-expr=
+| |   | | +-ColumnRef(type=INT64, column=Transfer.txnId#5)
+| |   | +-sql="txnId"
+| |   | +-property_declaration_name="txnId"
+| |   +-GraphPropertyDefinition
+| |   | +-parse_location=311-311
+| |   | +-expr=
+| |   | | +-ColumnRef(type=INT64, column=Transfer.fromAccountId#6)
+| |   | +-sql="fromAccountId"
+| |   | +-property_declaration_name="fromAccountId"
+| |   +-GraphPropertyDefinition
+| |   | +-parse_location=311-311
+| |   | +-expr=
+| |   | | +-ColumnRef(type=INT64, column=Transfer.toAccountId#7)
+| |   | +-sql="toAccountId"
+| |   | +-property_declaration_name="toAccountId"
+| |   +-GraphPropertyDefinition
+| |   | +-parse_location=311-311
+| |   | +-expr=
+| |   | | +-ColumnRef(type=TIMESTAMP, column=Transfer.time#8)
+| |   | +-sql="time"
+| |   | +-property_declaration_name="time"
+| |   +-GraphPropertyDefinition
+| |     +-parse_location=311-311
+| |     +-expr=
+| |     | +-ColumnRef(type=UINT64, column=Transfer.amount#9)
+| |     +-sql="amount"
+| |     +-property_declaration_name="amount"
+| +-GraphElementTable
+|   +-alias="PersonOwnAccount"
+|   +-input_scan=
+|   | +-TableScan(column_list=PersonOwnAccount.[personId#10, accountId#11, startDate#12], table=PersonOwnAccount, column_index_list=[0, 1, 2])
+|   +-key_list=
+|   | +-ColumnRef(type=INT64, column=PersonOwnAccount.personId#10)
+|   | +-ColumnRef(type=INT64, column=PersonOwnAccount.accountId#11)
+|   +-source_node_reference=
+|   | +-GraphNodeTableReference
+|   |   +-node_table_identifier="DynamicGraphNode"
+|   |   +-edge_table_column_list=
+|   |   | +-ColumnRef(type=INT64, column=PersonOwnAccount.personId#10)
+|   |   +-node_table_column_list=
+|   |     +-ColumnRef(type=INT64, column=DynamicGraphNode.id#1)
+|   +-dest_node_reference=
+|   | +-GraphNodeTableReference
+|   |   +-node_table_identifier="DynamicGraphNode"
+|   |   +-edge_table_column_list=
+|   |   | +-ColumnRef(type=INT64, column=PersonOwnAccount.accountId#11)
+|   |   +-node_table_column_list=
+|   |     +-ColumnRef(type=INT64, column=DynamicGraphNode.id#1)
+|   +-label_name_list=[PersonOwnAccount]
+|   +-property_definition_list=
+|     +-GraphPropertyDefinition
+|     | +-parse_location=485-485
+|     | +-expr=
+|     | | +-ColumnRef(type=INT64, column=PersonOwnAccount.personId#10)
+|     | +-sql="personId"
+|     | +-property_declaration_name="personId"
+|     +-GraphPropertyDefinition
+|     | +-parse_location=485-485
+|     | +-expr=
+|     | | +-ColumnRef(type=INT64, column=PersonOwnAccount.accountId#11)
+|     | +-sql="accountId"
+|     | +-property_declaration_name="accountId"
+|     +-GraphPropertyDefinition
+|       +-parse_location=485-485
+|       +-expr=
+|       | +-ColumnRef(type=TIMESTAMP, column=PersonOwnAccount.startDate#12)
+|       +-sql="startDate"
+|       +-property_declaration_name="startDate"
++-label_list=
+| +-GraphElementLabel(parse_location=100-100, name="DynamicGraphNode", property_declaration_name_list=[id, nodeLabelCol, code, nodeJsonProp])
+| +-GraphElementLabel(parse_location=311-311, name="Transfer", property_declaration_name_list=[txnId, fromAccountId, toAccountId, time, amount])
+| +-GraphElementLabel(parse_location=485-485, name="PersonOwnAccount", property_declaration_name_list=[personId, accountId, startDate])
++-property_declaration_list=
+  +-GraphPropertyDeclaration(parse_location=100-100, name="id", type=INT64)
+  +-GraphPropertyDeclaration(parse_location=100-100, name="nodeLabelCol", type=STRING)
+  +-GraphPropertyDeclaration(parse_location=100-100, name="code", type=INT64)
+  +-GraphPropertyDeclaration(parse_location=100-100, name="nodeJsonProp", type=JSON)
+  +-GraphPropertyDeclaration(parse_location=311-311, name="txnId", type=INT64)
+  +-GraphPropertyDeclaration(parse_location=311-311, name="fromAccountId", type=INT64)
+  +-GraphPropertyDeclaration(parse_location=311-311, name="toAccountId", type=INT64)
+  +-GraphPropertyDeclaration(parse_location=311-311, name="time", type=TIMESTAMP)
+  +-GraphPropertyDeclaration(parse_location=311-311, name="amount", type=UINT64)
+  +-GraphPropertyDeclaration(parse_location=485-485, name="personId", type=INT64)
+  +-GraphPropertyDeclaration(parse_location=485-485, name="accountId", type=INT64)
+  +-GraphPropertyDeclaration(parse_location=485-485, name="startDate", type=TIMESTAMP)
+==
+
+# b/391906588: Multiple static Nodes with single Dynamic Edge (Allowed)
+[language_features=SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,SQL_GRAPH_DYNAMIC_LABEL_EXTENSION_IN_DDL]
+create property graph aml_static_nodes_dynamic_edge
+  node tables(
+    Person,
+    Account
+  )
+  edge tables(
+    DynamicGraphEdge
+     KEY(id)
+     SOURCE KEY(id) REFERENCES Person(id)
+     DESTINATION KEY(dst_id) REFERENCES Account(id)
+     DYNAMIC LABEL (edgeLabelCol)
+  )
+--
+
+CreatePropertyGraphStmt
++-name_path=aml_static_nodes_dynamic_edge
++-node_table_list=
+| +-GraphElementTable
+| | +-alias="Person"
+| | +-input_scan=
+| | | +-TableScan(column_list=Person.[id#1, name#2, gender#3, birthday#4, email#5, age#6, data#7], table=Person, column_index_list=[0, 1, 2, 3, 4, 5, 6])
+| | +-key_list=
+| | | +-ColumnRef(type=INT64, column=Person.id#1)
+| | +-label_name_list=[Person]
+| | +-property_definition_list=
+| |   +-GraphPropertyDefinition
+| |   | +-parse_location=77-77
+| |   | +-expr=
+| |   | | +-ColumnRef(type=INT64, column=Person.id#1)
+| |   | +-sql="id"
+| |   | +-property_declaration_name="id"
+| |   +-GraphPropertyDefinition
+| |   | +-parse_location=77-77
+| |   | +-expr=
+| |   | | +-ColumnRef(type=STRING, column=Person.name#2)
+| |   | +-sql="name"
+| |   | +-property_declaration_name="name"
+| |   +-GraphPropertyDefinition
+| |   | +-parse_location=77-77
+| |   | +-expr=
+| |   | | +-ColumnRef(type=STRING, column=Person.gender#3)
+| |   | +-sql="gender"
+| |   | +-property_declaration_name="gender"
+| |   +-GraphPropertyDefinition
+| |   | +-parse_location=77-77
+| |   | +-expr=
+| |   | | +-ColumnRef(type=DATE, column=Person.birthday#4)
+| |   | +-sql="birthday"
+| |   | +-property_declaration_name="birthday"
+| |   +-GraphPropertyDefinition
+| |   | +-parse_location=77-77
+| |   | +-expr=
+| |   | | +-ColumnRef(type=STRING, column=Person.email#5)
+| |   | +-sql="email"
+| |   | +-property_declaration_name="email"
+| |   +-GraphPropertyDefinition
+| |   | +-parse_location=77-77
+| |   | +-expr=
+| |   | | +-ColumnRef(type=UINT32, column=Person.age#6)
+| |   | +-sql="age"
+| |   | +-property_declaration_name="age"
+| |   +-GraphPropertyDefinition
+| |     +-parse_location=77-77
+| |     +-expr=
+| |     | +-ColumnRef(type=BYTES, column=Person.data#7)
+| |     +-sql="data"
+| |     +-property_declaration_name="data"
+| +-GraphElementTable
+|   +-alias="Account"
+|   +-input_scan=
+|   | +-TableScan(column_list=Account.[id#8, name#9, balance#10], table=Account, column_index_list=[0, 1, 2])
+|   +-key_list=
+|   | +-ColumnRef(type=INT64, column=Account.id#8)
+|   +-label_name_list=[Account]
+|   +-property_definition_list=
+|     +-GraphPropertyDefinition
+|     | +-parse_location=90-90
+|     | +-expr=
+|     | | +-ColumnRef(type=INT64, column=Account.id#8)
+|     | +-sql="id"
+|     | +-property_declaration_name="id"
+|     +-GraphPropertyDefinition
+|     | +-parse_location=90-90
+|     | +-expr=
+|     | | +-ColumnRef(type=STRING, column=Account.name#9)
+|     | +-sql="name"
+|     | +-property_declaration_name="name"
+|     +-GraphPropertyDefinition
+|       +-parse_location=90-90
+|       +-expr=
+|       | +-ColumnRef(type=UINT64, column=Account.balance#10)
+|       +-sql="balance"
+|       +-property_declaration_name="balance"
++-edge_table_list=
+| +-GraphElementTable
+|   +-alias="DynamicGraphEdge"
+|   +-input_scan=
+|   | +-TableScan(column_list=DynamicGraphEdge.[id#11, dst_id#12, edgeLabelCol#13, category#14, edgeJsonProp#15], table=DynamicGraphEdge, column_index_list=[0, 1, 2, 3, 4])
+|   +-key_list=
+|   | +-ColumnRef(type=INT64, column=DynamicGraphEdge.id#11)
+|   +-source_node_reference=
+|   | +-GraphNodeTableReference
+|   |   +-node_table_identifier="Person"
+|   |   +-edge_table_column_list=
+|   |   | +-ColumnRef(type=INT64, column=DynamicGraphEdge.id#11)
+|   |   +-node_table_column_list=
+|   |     +-ColumnRef(type=INT64, column=Person.id#1)
+|   +-dest_node_reference=
+|   | +-GraphNodeTableReference
+|   |   +-node_table_identifier="Account"
+|   |   +-edge_table_column_list=
+|   |   | +-ColumnRef(type=INT64, column=DynamicGraphEdge.dst_id#12)
+|   |   +-node_table_column_list=
+|   |     +-ColumnRef(type=INT64, column=Account.id#8)
+|   +-label_name_list=[DynamicGraphEdge]
+|   +-property_definition_list=
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=237-237
+|   | | +-expr=
+|   | | | +-ColumnRef(type=INT64, column=DynamicGraphEdge.id#11)
+|   | | +-sql="id"
+|   | | +-property_declaration_name="id"
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=237-237
+|   | | +-expr=
+|   | | | +-ColumnRef(type=INT64, column=DynamicGraphEdge.dst_id#12)
+|   | | +-sql="dst_id"
+|   | | +-property_declaration_name="dst_id"
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=237-237
+|   | | +-expr=
+|   | | | +-ColumnRef(type=STRING, column=DynamicGraphEdge.edgeLabelCol#13)
+|   | | +-sql="edgeLabelCol"
+|   | | +-property_declaration_name="edgeLabelCol"
+|   | +-GraphPropertyDefinition
+|   | | +-parse_location=237-237
+|   | | +-expr=
+|   | | | +-ColumnRef(type=STRING, column=DynamicGraphEdge.category#14)
+|   | | +-sql="category"
+|   | | +-property_declaration_name="category"
+|   | +-GraphPropertyDefinition
+|   |   +-parse_location=237-237
+|   |   +-expr=
+|   |   | +-ColumnRef(type=JSON, column=DynamicGraphEdge.edgeJsonProp#15)
+|   |   +-sql="edgeJsonProp"
+|   |   +-property_declaration_name="edgeJsonProp"
+|   +-dynamic_label=
+|     +-GraphDynamicLabelSpecification
+|       +-label_expr=
+|         +-ColumnRef(type=STRING, column=DynamicGraphEdge.edgeLabelCol#13)
++-label_list=
+| +-GraphElementLabel(parse_location=77-77, name="Person", property_declaration_name_list=[id, name, gender, birthday, email, age, data])
+| +-GraphElementLabel(parse_location=90-90, name="Account", property_declaration_name_list=[id, name, balance])
+| +-GraphElementLabel(parse_location=237-237, name="DynamicGraphEdge", property_declaration_name_list=[id, dst_id, edgeLabelCol, category, edgeJsonProp])
++-property_declaration_list=
+  +-GraphPropertyDeclaration(parse_location=77-77, name="id", type=INT64)
+  +-GraphPropertyDeclaration(parse_location=77-77, name="name", type=STRING)
+  +-GraphPropertyDeclaration(parse_location=77-77, name="gender", type=STRING)
+  +-GraphPropertyDeclaration(parse_location=77-77, name="birthday", type=DATE)
+  +-GraphPropertyDeclaration(parse_location=77-77, name="email", type=STRING)
+  +-GraphPropertyDeclaration(parse_location=77-77, name="age", type=UINT32)
+  +-GraphPropertyDeclaration(parse_location=77-77, name="data", type=BYTES)
+  +-GraphPropertyDeclaration(parse_location=90-90, name="balance", type=UINT64)
+  +-GraphPropertyDeclaration(parse_location=237-237, name="dst_id", type=INT64)
+  +-GraphPropertyDeclaration(parse_location=237-237, name="edgeLabelCol", type=STRING)
+  +-GraphPropertyDeclaration(parse_location=237-237, name="category", type=STRING)
+  +-GraphPropertyDeclaration(parse_location=237-237, name="edgeJsonProp", type=JSON)
+==
+
+[language_features=SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL]
+create property graph aml_multiple_nodes_with_dynamic
+  node tables(
+    DynamicGraphNode
+     DYNAMIC LABEL (nodeLabelCol),
+    Person
+  )
+--
+ERROR: Cannot define more than one node table when using dynamic labels [at 2:14]
+  node tables(
+             ^
+==
+
+[language_features=SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL]
+create property graph aml_multiple_edges_with_dynamic
+  node tables(
+    DynamicGraphNode
+     DYNAMIC LABEL (nodeLabelCol)
+     DYNAMIC PROPERTIES (nodeJsonProp)
+  )
+  edge tables(
+    DynamicGraphEdge
+     SOURCE KEY(id) REFERENCES DynamicGraphNode(id)
+     DESTINATION KEY(dst_id) REFERENCES DynamicGraphNode(id)
+     DYNAMIC LABEL (edgeLabelCol),
+    Transfer
+     SOURCE KEY(fromAccountId) REFERENCES DynamicGraphNode(id)
+     DESTINATION KEY(toAccountId) REFERENCES DynamicGraphNode(id)
+  )
+--
+ERROR: Cannot define more than one edge table when using dynamic labels [at 7:14]
+  edge tables(
+             ^
+==
+
+[language_features=SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL]
+# Non-string dynamic labels are not allowed.
+create property graph aml_bad_dynamic_label_type
+  node tables(
+    DynamicGraphNode
+     DYNAMIC LABEL (code)
+  )
+--
+
+ERROR: DYNAMIC LABEL clause must hold expression of type STRING, but was of type INT64 [at 5:21]
+     DYNAMIC LABEL (code)
+                    ^
+==
+
+[language_features=SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL]
+# Non-JSON type dynamic properties are not allowed.
+create property graph aml_bad_dynamic_props_type
+  node tables(
+    DynamicGraphNode
+     DYNAMIC PROPERTIES (code)
+  )
+--
+
+ERROR: DYNAMIC PROPERTIES clause must hold expression of type JSON, but was of type INT64 [at 5:26]
+     DYNAMIC PROPERTIES (code)
+                         ^
+==
+
+[language_features=SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL]
+# Dynamic label with expression
+create property graph aml_dynamic_label_with_expr
+  node tables(
+    DynamicGraphNode
+     DYNAMIC LABEL (CONCAT(nodeLabelCol, "suffix"))
+  )
+--
+
+ERROR: DYNAMIC LABEL clause must hold direct column reference [at 5:21]
+     DYNAMIC LABEL (CONCAT(nodeLabelCol, "suffix"))
+                    ^
+==
+
+[language_features=SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL]
+create property graph aml_dynamic_properties_with_expr
+  node tables(
+    DynamicGraphNode
+     DYNAMIC PROPERTIES (nodeJsonProp.name)
+  )
+--
+
+ERROR: DYNAMIC PROPERTIES clause must hold direct column reference [at 4:26]
+     DYNAMIC PROPERTIES (nodeJsonProp.name)
+                         ^
+==
+
+[language_features=SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL]
+# Multiple node tables with dynamic labels are not allowed in the same graph.
+create property graph aml_bad_dynamic_label_type
+  node tables(
+    DynamicGraphNode
+     DYNAMIC LABEL (nodeLabelCol),
+    DynamicGraphEdge
+     DYNAMIC LABEL (edgeLabelCol)
+  )
+--
+ERROR: Only one node table can be assigned a dynamic label [at 7:21]
+     DYNAMIC LABEL (edgeLabelCol)
+                    ^
+==
+
+[language_features=SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL]
+# Multiple edge tables with dynamic labels are not allowed in the same graph.
+create property graph aml_bad_dynamic_label_type
+  node tables(
+    DynamicGraphNode
+  )
+  edge tables(
+    DynamicGraphNode
+     SOURCE KEY(id) REFERENCES DynamicGraphNode(id)
+     DESTINATION KEY(id) REFERENCES DynamicGraphNode(id)
+     DYNAMIC LABEL (nodeLabelCol),
+    DynamicGraphEdge
+     SOURCE KEY(id) REFERENCES DynamicGraphNode(id)
+     DESTINATION KEY(dst_id) REFERENCES DynamicGraphNode(id)
+     DYNAMIC LABEL (edgeLabelCol)
+  )
+--
+ERROR: Only one edge table can be assigned a dynamic label [at 14:21]
+     DYNAMIC LABEL (edgeLabelCol)
+                    ^
+==
+
+# Dynamic label without flag
+create property graph aml_dynamic_label_no_flag
+  node tables(
+    DynamicGraphNode
+     DYNAMIC LABEL (nodeLabelCol)
+  )
+--
+ERROR: Dynamic label is not supported [at 4:21]
+     DYNAMIC LABEL (nodeLabelCol)
+                    ^
+==
+
+# Dynamic properties without flag
+create property graph aml_dynamic_props_no_flag
+  node tables(
+    DynamicGraphNode
+     DYNAMIC PROPERTIES (nodeJsonProp)
+  )
+--
+ERROR: Dynamic properties are not supported [at 4:26]
+     DYNAMIC PROPERTIES (nodeJsonProp)
+                         ^

@@ -276,7 +276,7 @@ static std::vector<ComparisonTest> GetArrayComparisonTests() {
 // comparisons (less than, etc.).  Therefore all tests should be defined
 // as EQUAL, UNORDERED (not equal), or NULL_VALUE.
 static std::vector<ComparisonTest> GetStructComparisonTests() {
-  const StructType* struct_type = SimpleStructType();  // a: string, b: int32_t
+  const StructType* struct_type = SimpleStructType();  // a: string, b: int32
   const Value struct0 = Value::Struct(struct_type, {String("foo"), Int32(0)});
   const Value struct1 = Value::Struct(struct_type, {String("bar"), Int32(1)});
   const Value struct_with_null2 =
@@ -287,7 +287,7 @@ static std::vector<ComparisonTest> GetStructComparisonTests() {
       Value::Struct(struct_type, {NullString(), NullInt32()});
   const Value null_struct = Value::Null(struct_type);
 
-  // a: string, b: {a: string b: int32_t}
+  // a: string, b: {a: string b: int32}
   const StructType* nested_struct_type;
   ZETASQL_CHECK_OK(type_factory()->MakeStructType(
       {{"a", StringType()}, {"b", struct_type}}, &nested_struct_type));
@@ -442,7 +442,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {float_pos_inf, NullDouble(), NULL_VALUE},
       {NullDouble(), float_pos_inf, NULL_VALUE},
 
-      // int32_t
+      // int32
       {0, int32max, LESS},
       {int32min, int32max, LESS},
       {1, 1, EQUAL},
@@ -451,7 +451,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {-1, 1, LESS},
       {1, NullInt32(), NULL_VALUE},
 
-      // int64_t
+      // int64
       {0ll, int64max, LESS},
       {int64min, int64max, LESS},
       {1ll, 1ll, EQUAL},
@@ -460,7 +460,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {-1ll, 1ll, LESS},
       {1ll, NullInt64(), NULL_VALUE},
 
-      // uint32_t
+      // uint32
       {0u, uint32max, LESS},
       {0u, 1u, LESS},
       {0u, uint32max, LESS},
@@ -468,7 +468,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {0u, 2u, LESS},
       {1u, NullUint32(), NULL_VALUE},
 
-      // uint64_t
+      // uint64
       {0ull, uint64max, LESS},
       {0ull, 1ull, LESS},
       {0ull, uint64max, LESS},
@@ -476,7 +476,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {0ull, 2ull, LESS},
       {1ull, NullUint64(), NULL_VALUE},
 
-      // int64_t vs. uint64_t
+      // int64 vs. uint64
       {0ll, 0ull, EQUAL},
       {int64max, Uint64(int64max), EQUAL},
       {0ll, Uint64(int64max), LESS},
@@ -497,7 +497,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {Numeric(-1), Numeric(-1), EQUAL},
       {Numeric(1), NullNumeric(), NULL_VALUE},
 
-      // numeric vs. int64_t
+      // numeric vs. int64
       {Int64(0), NumericValue::MaxValue(), LESS},
       {NumericValue::MinValue(), int64min, LESS},
       {Int64(1), Numeric(1), EQUAL},
@@ -506,7 +506,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {Int64(-1), Numeric(-1), EQUAL},
       {Int64(1), NullNumeric(), NULL_VALUE},
 
-      // numeric vs. uint64_t
+      // numeric vs. uint64
       {Uint64(0), NumericValue::MaxValue(), LESS},
       {NumericValue::MinValue(), uint64max, LESS},
       {Uint64(1), Numeric(1), EQUAL},
@@ -541,7 +541,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {BigNumeric(-1), BigNumeric(-1), EQUAL},
       {BigNumeric(1), NullBigNumeric(), NULL_VALUE},
 
-      // bignumeric vs. int64_t
+      // bignumeric vs. int64
       {Int64(0), BigNumeric(BigNumericValue::MaxValue()), LESS},
       {BigNumeric(BigNumericValue::MinValue()), int64min, LESS},
       {Int64(1), BigNumeric(1), EQUAL},
@@ -552,7 +552,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {Int64(-1), BigNumeric(-1), EQUAL},
       {Int64(1), NullBigNumeric(), NULL_VALUE},
 
-      // bignumeric vs. uint64_t
+      // bignumeric vs. uint64
       {Uint64(0), BigNumeric(BigNumericValue::MaxValue()), LESS},
       {BigNumeric(BigNumericValue::MinValue()), uint64max, LESS},
       {Uint64(1), BigNumeric(1), EQUAL},
@@ -703,7 +703,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
        NULL_VALUE, features},
   };
   v.insert(v.end(), nano_tests.begin(), nano_tests.end());
-  std::set<LanguageFeature> uuid_features = {FEATURE_V_1_4_UUID_TYPE};
+  std::set<LanguageFeature> uuid_features = {FEATURE_UUID_TYPE};
   std::vector<ComparisonTest> uuid_tests = {
       {Uuid(UuidValue::FromString("00000000-0000-4000-8000-000000000001")
                 .value()),
@@ -765,7 +765,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
 // the following cases:
 //
 // 1) If there is any TIME/DATETIME typed value in the input, then
-//    FEATURE_V_1_2_CIVIL_TIME is added to the feature set.
+//    FEATURE_CIVIL_TIME is added to the feature set.
 // 2) array_language_features: flags to be added if any inputs are ARRAYs
 // 3) If the <input> includes the NUMERIC type, then FEATURE_NUMERIC_TYPE
 //    is added.
@@ -825,7 +825,7 @@ static void AddTestWithPossiblyWrappedResultWithRequiredFeatures(
   // Build the feature set.
   QueryParamsWithResult::FeatureSet feature_set = required_language_features;
   if (has_any_civil_time) {
-    feature_set.insert(FEATURE_V_1_2_CIVIL_TIME);
+    feature_set.insert(FEATURE_CIVIL_TIME);
   }
   if (has_any_numeric) {
     feature_set.insert(FEATURE_NUMERIC_TYPE);
@@ -869,14 +869,13 @@ static void WrapRangeTestCases(std::vector<QueryParamsWithResult>* tests) {
     if (test_case.required_features().empty() &&
         test_case.result().type()->IsRangeType()) {
       test_case = test_case.AddRequiredFeature(FEATURE_RANGE_TYPE);
-      // For V_1_2 CIVIL TIME element type we need to enable
-      // FEATURE_V_1_2_CIVIL_TIME.
+      // For CIVIL TIME element type we need to enable FEATURE_CIVIL_TIME.
       if (test_case.result()
               .type()
               ->AsRange()
               ->element_type()
               ->UsingFeatureV12CivilTimeType()) {
-        test_case = test_case.AddRequiredFeature(FEATURE_V_1_2_CIVIL_TIME);
+        test_case = test_case.AddRequiredFeature(FEATURE_CIVIL_TIME);
       }
     }
   }
@@ -903,10 +902,10 @@ std::vector<QueryParamsWithResult> GetFunctionTestsEqual() {
     }
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.left, test.right}, out, test.required_features,
-        /*array_language_features=*/{FEATURE_V_1_1_ARRAY_EQUALITY}, &result);
+        /*array_language_features=*/{FEATURE_ARRAY_EQUALITY}, &result);
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.right, test.left}, out, test.required_features,
-        /*array_language_features=*/{FEATURE_V_1_1_ARRAY_EQUALITY}, &result);
+        /*array_language_features=*/{FEATURE_ARRAY_EQUALITY}, &result);
   }
   return result;
 }
@@ -932,10 +931,10 @@ std::vector<QueryParamsWithResult> GetFunctionTestsNotEqual() {
     }
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.left, test.right}, out, test.required_features,
-        /*array_language_features=*/{FEATURE_V_1_1_ARRAY_EQUALITY}, &result);
+        /*array_language_features=*/{FEATURE_ARRAY_EQUALITY}, &result);
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.right, test.left}, out, test.required_features,
-        /*array_language_features=*/{FEATURE_V_1_1_ARRAY_EQUALITY}, &result);
+        /*array_language_features=*/{FEATURE_ARRAY_EQUALITY}, &result);
   }
   return result;
 }
@@ -961,11 +960,11 @@ std::vector<QueryParamsWithResult> GetFunctionTestsGreater() {
     }
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.left, test.right}, out, test.required_features,
-        /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
+        /*array_language_features=*/{FEATURE_ARRAY_ORDERING}, &result);
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.right, test.left}, (test.result == LESS) ? True() : out,
         test.required_features,
-        /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
+        /*array_language_features=*/{FEATURE_ARRAY_ORDERING}, &result);
   }
   return result;
 }
@@ -993,11 +992,11 @@ std::vector<QueryParamsWithResult> GetFunctionTestsGreaterOrEqual() {
     }
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.left, test.right}, out, test.required_features,
-        /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
+        /*array_language_features=*/{FEATURE_ARRAY_ORDERING}, &result);
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.right, test.left}, (test.result == LESS) ? True() : out,
         test.required_features,
-        /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
+        /*array_language_features=*/{FEATURE_ARRAY_ORDERING}, &result);
   }
   return result;
 }
@@ -1025,11 +1024,11 @@ std::vector<QueryParamsWithResult> GetFunctionTestsLess() {
     }
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.left, test.right}, out, test.required_features,
-        /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
+        /*array_language_features=*/{FEATURE_ARRAY_ORDERING}, &result);
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.right, test.left}, (test.result == LESS) ? False() : out,
         test.required_features,
-        /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
+        /*array_language_features=*/{FEATURE_ARRAY_ORDERING}, &result);
   }
   return result;
 }
@@ -1057,11 +1056,11 @@ std::vector<QueryParamsWithResult> GetFunctionTestsLessOrEqual() {
     }
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.left, test.right}, out, test.required_features,
-        /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
+        /*array_language_features=*/{FEATURE_ARRAY_ORDERING}, &result);
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.right, test.left}, (test.result == LESS) ? False() : out,
         test.required_features,
-        /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
+        /*array_language_features=*/{FEATURE_ARRAY_ORDERING}, &result);
   }
   return result;
 }
@@ -1228,7 +1227,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsIn() {
 }
 
 std::vector<QueryParamsWithResult> GetFunctionTestsStructIn() {
-  const StructType* struct_type = SimpleStructType();  // a: string, b: int32_t
+  const StructType* struct_type = SimpleStructType();  // a: string, b: int32
   const Value struct0 = Value::Struct(struct_type, {String("foo"), Int32(0)});
   const Value struct1 = Value::Struct(struct_type, {String("bar"), Int32(1)});
   const Value struct2 = Value::Struct(struct_type, {String("baz"), Int32(2)});
@@ -1461,12 +1460,12 @@ GetNullArrayFirstLastTestCases() {
        NullTime(),
        NullTime(),
        OK,
-       {FEATURE_V_1_2_CIVIL_TIME}},
+       {FEATURE_CIVIL_TIME}},
       {Value::Null(DatetimeArrayType()),
        NullDatetime(),
        NullDatetime(),
        OK,
-       {FEATURE_V_1_2_CIVIL_TIME}},
+       {FEATURE_CIVIL_TIME}},
   };
 }
 
@@ -1524,17 +1523,17 @@ GetEmptyArrayFirstLastTestCases() {
        NullTime(),
        NullTime(),
        OUT_OF_RANGE,
-       {FEATURE_V_1_2_CIVIL_TIME}},
+       {FEATURE_CIVIL_TIME}},
       {Value::EmptyArray(DatetimeArrayType()),
        NullDatetime(),
        NullDatetime(),
        OUT_OF_RANGE,
-       {FEATURE_V_1_2_CIVIL_TIME}},
+       {FEATURE_CIVIL_TIME}},
   };
 }
 
 static const std::vector<ArrayFirstLastTestCase> GetArrayFirstLastTestCases() {
-  // a: string, b: int32_t
+  // a: string, b: int32
   const StructType* struct_type = SimpleStructType();
   const ArrayType* struct_array_type;
   ZETASQL_CHECK_OK(type_factory()->MakeArrayType(struct_type, &struct_array_type));
@@ -1544,7 +1543,7 @@ static const std::vector<ArrayFirstLastTestCase> GetArrayFirstLastTestCases() {
   const Value struct_with_null =
       Value::Struct(struct_type, {NullString(), NullInt32()});
 
-  // a: string, b: {a: string b: int32_t}
+  // a: string, b: {a: string b: int32}
   const StructType* nested_struct_type;
   ZETASQL_CHECK_OK(type_factory()->MakeStructType(
       {{"a", StringType()}, {"b", struct_type}}, &nested_struct_type));
@@ -1612,7 +1611,7 @@ static void AddWrappedSafeArrayFunctionResult(
   }
 
   if (is_safe) {
-    feature_set.insert(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
+    feature_set.insert(FEATURE_SAFE_FUNCTION_CALL);
     result->push_back(
         QueryParamsWithResult(input, out).WrapWithFeatureSet(feature_set));
   } else {
@@ -1706,11 +1705,11 @@ static const std::vector<TypeFeaturePair> GetArrayTypesWithFeatures() {
        Interval(IntervalValue::MinValue()), Interval(IntervalValue::MaxValue()),
        FEATURE_INTERVAL_TYPE},
       {TimeType(), TimeFromStr("12:34:56.000123"), TimeMicros(1, 2, 3, 4),
-       TimeMicros(1, 2, 3, 123450), FEATURE_V_1_2_CIVIL_TIME},
+       TimeMicros(1, 2, 3, 123450), FEATURE_CIVIL_TIME},
       {DatetimeType(), DatetimeMicros(2006, 1, 2, 3, 4, 5, 654321),
        DatetimeMicros(2020, 2, 10, 12, 34, 56, 789123),
-       DatetimeFromStr("2017-06-25 12:34:56.123456"), FEATURE_V_1_2_CIVIL_TIME},
-      // STRUCT a: string, b: int32_t
+       DatetimeFromStr("2017-06-25 12:34:56.123456"), FEATURE_CIVIL_TIME},
+      // STRUCT a: string, b: int32
       {SimpleStructType(),
        Value::Struct(SimpleStructType(), {String(""), Int32(0)}),
        Value::Struct(SimpleStructType(), {String("foo"), Int32(1)}),
@@ -1738,7 +1737,7 @@ static const std::vector<QueryParamsWithResult> GetArraySliceTestCases(
   for (const TypeFeaturePair& v : pairs) {
     QueryParamsWithResult::FeatureSet feature_set;
     if (is_safe) {
-      feature_set.insert(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
+      feature_set.insert(FEATURE_SAFE_FUNCTION_CALL);
     }
 
     if (!v.required_features.empty()) {
@@ -2108,7 +2107,7 @@ static std::vector<QueryParamsWithResult> GetArrayFirstNLastNDesignDocTests(
 
   if (is_safe) {
     for (auto& test_case : test_cases) {
-      test_case.AddRequiredFeature(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
+      test_case.AddRequiredFeature(FEATURE_SAFE_FUNCTION_CALL);
     }
   }
   return test_cases;
@@ -2234,7 +2233,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsArrayFirstN(bool is_safe) {
     prefix_case.CopyFeaturesTo(test_cases.back());
   }
   for (auto& test_case : test_cases) {
-    test_case.AddRequiredFeature(FEATURE_V_1_4_FIRST_AND_LAST_N);
+    test_case.AddRequiredFeature(FEATURE_FIRST_AND_LAST_N);
   }
   return test_cases;
 }
@@ -2266,7 +2265,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsArrayLastN(bool is_safe) {
     suffix_case.CopyFeaturesTo(test_cases.back());
   }
   for (auto& test_case : test_cases) {
-    test_case.AddRequiredFeature(FEATURE_V_1_4_FIRST_AND_LAST_N);
+    test_case.AddRequiredFeature(FEATURE_FIRST_AND_LAST_N);
   }
   return test_cases;
 }
@@ -2306,7 +2305,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsArrayRemoveFirstN(
     suffix_case.CopyFeaturesTo(test_cases.back());
   }
   for (auto& test_case : test_cases) {
-    test_case.AddRequiredFeature(FEATURE_V_1_4_FIRST_AND_LAST_N);
+    test_case.AddRequiredFeature(FEATURE_FIRST_AND_LAST_N);
   }
   return test_cases;
 }
@@ -2346,7 +2345,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsArrayRemoveLastN(
     prefix_case.CopyFeaturesTo(test_cases.back());
   }
   for (auto& test_case : test_cases) {
-    test_case.AddRequiredFeature(FEATURE_V_1_4_FIRST_AND_LAST_N);
+    test_case.AddRequiredFeature(FEATURE_FIRST_AND_LAST_N);
   }
   return test_cases;
 }
@@ -2392,14 +2391,13 @@ GetOrderableTypesWithFeaturesAndValues() {
                 .value()),
        Uuid(UuidValue::FromString("9d3da323-4c20-360f-bd9b-ec54feec54f0")
                 .value()),
-       Uuid(UuidValue::MaxValue()), FEATURE_V_1_4_UUID_TYPE},
+       Uuid(UuidValue::MaxValue()), FEATURE_UUID_TYPE},
       {TimeType(), TimeMicros(0, 0, 0, 0), TimeMicros(1, 2, 3, 4),
-       TimeMicros(1, 2, 3, 4), TimeMicros(1, 2, 3, 123450),
-       FEATURE_V_1_2_CIVIL_TIME},
+       TimeMicros(1, 2, 3, 4), TimeMicros(1, 2, 3, 123450), FEATURE_CIVIL_TIME},
       {DatetimeType(), DatetimeMicros(2006, 1, 2, 3, 4, 5, 123456),
        DatetimeMicros(2022, 1, 2, 3, 4, 5, 123456),
        DatetimeMicros(2022, 1, 2, 3, 4, 5, 123456),
-       DatetimeMicros(2022, 12, 24, 1, 2, 3, 123456), FEATURE_V_1_2_CIVIL_TIME},
+       DatetimeMicros(2022, 12, 24, 1, 2, 3, 123456), FEATURE_CIVIL_TIME},
       // Enum
       {
           TestEnumType(),
@@ -2431,7 +2429,7 @@ GetOrderableTypesWithFeaturesAndValues() {
        Range(Datetime(
                  DatetimeValue::FromYMDHMSAndMicros(2024, 1, 20, 10, 0, 0, 0)),
              NullDatetime()),
-       {FEATURE_RANGE_TYPE, FEATURE_V_1_2_CIVIL_TIME}},
+       {FEATURE_RANGE_TYPE, FEATURE_CIVIL_TIME}},
       {
           types::TimestampRangeType(),
           Range(NullTimestamp(), Timestamp(2)),
@@ -2602,7 +2600,7 @@ static const std::vector<QueryParamsWithResult> GetArrayMinMaxTestCases(
     }
     for (size_t i = existing_num_tests; i < test_cases.size(); ++i) {
       if (is_safe) {
-        test_cases[i].AddRequiredFeature(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
+        test_cases[i].AddRequiredFeature(FEATURE_SAFE_FUNCTION_CALL);
       }
 
       std::set<LanguageFeature> required_features = v.required_features;
@@ -2934,10 +2932,10 @@ static const std::vector<QueryParamsWithResult> GetArraySumTestCases(
 
     for (size_t i = existing_num_tests; i < test_cases.size(); ++i) {
       if (is_safe) {
-        test_cases[i].AddRequiredFeature(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
+        test_cases[i].AddRequiredFeature(FEATURE_SAFE_FUNCTION_CALL);
       }
       QueryParamsWithResult::FeatureSet feature_set;
-      feature_set.insert(FEATURE_V_1_4_ARRAY_AGGREGATION_FUNCTIONS);
+      feature_set.insert(FEATURE_ARRAY_AGGREGATION_FUNCTIONS);
       if (!v.required_features.empty()) {
         for (const LanguageFeature& feature : v.required_features) {
           feature_set.insert(feature);
@@ -3253,10 +3251,10 @@ static const std::vector<QueryParamsWithResult> GetArrayAvgTestCases(
 
     for (size_t i = existing_num_tests; i < test_cases.size(); ++i) {
       if (is_safe) {
-        test_cases[i].AddRequiredFeature(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
+        test_cases[i].AddRequiredFeature(FEATURE_SAFE_FUNCTION_CALL);
       }
       QueryParamsWithResult::FeatureSet feature_set;
-      feature_set.insert(FEATURE_V_1_4_ARRAY_AGGREGATION_FUNCTIONS);
+      feature_set.insert(FEATURE_ARRAY_AGGREGATION_FUNCTIONS);
       if (!v.required_features.empty()) {
         for (const LanguageFeature& feature : v.required_features) {
           feature_set.insert(feature);
@@ -3558,13 +3556,13 @@ static std::vector<QueryParamsWithResult> GetArrayFindFunctionsTestCases(
 
     for (size_t i = existing_num_tests; i < test_cases.size(); ++i) {
       if (is_safe) {
-        test_cases[i].AddRequiredFeature(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
+        test_cases[i].AddRequiredFeature(FEATURE_SAFE_FUNCTION_CALL);
         test_cases[i].AddRequiredFeature(
-            FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS);
+            FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS);
       }
       test_cases[i]
           .AddRequiredFeatures(required_features)
-          .AddRequiredFeature(FEATURE_V_1_4_ARRAY_FIND_FUNCTIONS);
+          .AddRequiredFeature(FEATURE_ARRAY_FIND_FUNCTIONS);
     }
   }
   return test_cases;
@@ -3676,26 +3674,22 @@ std::vector<QueryParamsWithResult> GetFunctionTestsGreatest() {
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.left, test.right}, out, test.required_features,
         /*array_language_features=*/
-        {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
-        &result);
+        {FEATURE_ARRAY_ORDERING, FEATURE_ARRAY_GREATEST_LEAST}, &result);
     // Reverse binary
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.right, test.left}, out, test.required_features,
         /*array_language_features=*/
-        {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
-        &result);
+        {FEATURE_ARRAY_ORDERING, FEATURE_ARRAY_GREATEST_LEAST}, &result);
     // Ternary
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.right, test.left, test.right}, out, test.required_features,
         /*array_language_features=*/
-        {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
-        &result);
+        {FEATURE_ARRAY_ORDERING, FEATURE_ARRAY_GREATEST_LEAST}, &result);
     // Reverse ternary
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.left, test.right, test.left}, out, test.required_features,
         /*array_language_features=*/
-        {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
-        &result);
+        {FEATURE_ARRAY_ORDERING, FEATURE_ARRAY_GREATEST_LEAST}, &result);
   }
   return result;
 }
@@ -3741,31 +3735,27 @@ std::vector<QueryParamsWithResult> GetFunctionTestsLeast() {
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.left, test.right}, out, test.required_features,
         /*array_language_features=*/
-        {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
-        &result);
+        {FEATURE_ARRAY_ORDERING, FEATURE_ARRAY_GREATEST_LEAST}, &result);
     // Reverse binary
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.right, test.left}, out, test.required_features,
         /*array_language_features=*/
-        {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
-        &result);
+        {FEATURE_ARRAY_ORDERING, FEATURE_ARRAY_GREATEST_LEAST}, &result);
     // Ternary
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.right, test.left, test.right}, out, test.required_features,
         /*array_language_features=*/
-        {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
-        &result);
+        {FEATURE_ARRAY_ORDERING, FEATURE_ARRAY_GREATEST_LEAST}, &result);
     // Reverse ternary
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.left, test.right, test.left}, out, test.required_features,
         /*array_language_features=*/
-        {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
-        &result);
+        {FEATURE_ARRAY_ORDERING, FEATURE_ARRAY_GREATEST_LEAST}, &result);
   }
   return result;
 }
 
-// FromType is in {float, double}. ToType is in {int32_t, uint32_t, int64_t, uint64_t}.
+// FromType is in {float, double}. ToType is in {int32, uint32, int64, uint64}.
 template <typename FromType, typename ToType>
 static std::vector<QueryParamsWithResult> TestCastPositiveRounding() {
   return {
@@ -3776,7 +3766,7 @@ static std::vector<QueryParamsWithResult> TestCastPositiveRounding() {
   };
 }
 
-// FromType = {float, double}. ToType = {int32_t, int64_t}.
+// FromType = {float, double}. ToType = {int32, int64}.
 template <typename FromType, typename ToType>
 static std::vector<QueryParamsWithResult> TestCastNegativeRounding() {
   return {
@@ -3787,7 +3777,7 @@ static std::vector<QueryParamsWithResult> TestCastNegativeRounding() {
   };
 }
 
-// FromType is in {float, double}. ToType is in {int32_t, uint32_t, int64_t, uint64_t,
+// FromType is in {float, double}. ToType is in {int32, uint32, int64, uint64,
 // bool}.
 template <typename FromType, typename ToType>
 static std::vector<QueryParamsWithResult> TestCastInfinityError() {
@@ -3804,7 +3794,7 @@ static std::vector<QueryParamsWithResult> TestCastInfinityError() {
   };
 }
 
-// FromType = {int32_t, int64_t, uint32_t, uint64_t, float, double}.
+// FromType = {int32, int64, uint32, uint64, float, double}.
 template <typename FromType>
 static std::vector<QueryParamsWithResult> TestCastNumericNull() {
   const Value& from_null = Value::MakeNull<FromType>();
@@ -4274,7 +4264,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsAtOffset() {
       Value::Array(Int64ArrayType(), {Int64(10), Int64(11)});
   const Value string_array =
       Value::Array(StringArrayType(), {String("foo"), String("bar")});
-  const StructType* struct_type = SimpleStructType();  // a: string, b: int32_t
+  const StructType* struct_type = SimpleStructType();  // a: string, b: int32
   const ArrayType* array_struct_type;
   ZETASQL_CHECK_OK(type_factory()->MakeArrayType(struct_type, &array_struct_type));
   const Value struct0 = Value::Struct(struct_type, {String("foo"), Int32(0)});
@@ -4338,12 +4328,12 @@ std::vector<QueryParamsWithResult> GetFunctionTestsIfNull() {
   return result;
 }
 
-// Builds test cases with FEATURE_V_1_1_ARRAY_EQUALITY option turned on/off.
+// Builds test cases with FEATURE_ARRAY_EQUALITY option turned on/off.
 static QueryParamsWithResult BuildArrayEqualityQueryParamsWithResult(
     absl::Span<const ValueConstructor> arguments,
     const ValueConstructor& result, const Value& null_value) {
   return QueryParamsWithResult(arguments, result)
-      .AddRequiredFeature(FEATURE_V_1_1_ARRAY_EQUALITY);
+      .AddRequiredFeature(FEATURE_ARRAY_EQUALITY);
 }
 
 std::vector<QueryParamsWithResult> GetFunctionTestsNullIf() {
@@ -4439,9 +4429,9 @@ std::vector<QueryParamsWithResult> GetFunctionTestsZeroIfNull_NullIfZero(
   WrapBigNumericTestCases(&result);
   for (auto& test_case : result) {
     if (is_safe) {
-      test_case.AddRequiredFeature(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
+      test_case.AddRequiredFeature(FEATURE_SAFE_FUNCTION_CALL);
     }
-    test_case.AddRequiredFeature(FEATURE_V_1_4_NULLIFZERO_ZEROIFNULL);
+    test_case.AddRequiredFeature(FEATURE_NULLIFZERO_ZEROIFNULL);
   }
   return result;
 }
@@ -4535,7 +4525,7 @@ std::vector<FunctionTestCall> GetFunctionTestsArray() {
                    {NullBytes(), Bytes("a"), NullBytes(), Bytes("b")});
   const Value array_empty_bytes = Value::Array(BytesArrayType(), {Bytes("")});
 
-  const StructType* struct_type = SimpleStructType();  // a: string, b: int32_t
+  const StructType* struct_type = SimpleStructType();  // a: string, b: int32
   const Value struct0 = Value::Struct(struct_type, {String("foo"), Int32(0)});
   const Value struct1 = Value::Struct(struct_type, {String("bar"), Int32(1)});
   const Value struct2 = Value::Struct(struct_type, {String("baz"), Int32(2)});
@@ -5343,7 +5333,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsToProto3TimeOfDay() {
        Proto3TimeOfDay(13, 30, 17, 123456789)}};
 
   for (auto&& test : test_cases) {
-    test = test.WrapWithFeature(FEATURE_V_1_2_CIVIL_TIME);
+    test = test.WrapWithFeature(FEATURE_CIVIL_TIME);
   }
 
   std::vector<QueryParamsWithResult> nanos_test_cases = {
@@ -5361,8 +5351,8 @@ std::vector<QueryParamsWithResult> GetFunctionTestsToProto3TimeOfDay() {
        Proto3TimeOfDay(13, 30, 17, 123456789)}};
 
   for (auto&& test : nanos_test_cases) {
-    test = test.WrapWithFeatureSet(
-        {FEATURE_V_1_2_CIVIL_TIME, FEATURE_TIMESTAMP_NANOS});
+    test =
+        test.WrapWithFeatureSet({FEATURE_CIVIL_TIME, FEATURE_TIMESTAMP_NANOS});
     test_cases.push_back(test);
   }
   return test_cases;

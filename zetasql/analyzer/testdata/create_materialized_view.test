@@ -1,4 +1,3 @@
-
 # With PARTITION BY and CLUSTER BY
 [default language_features=CREATE_MATERIALIZED_VIEW_PARTITION_BY,CREATE_MATERIALIZED_VIEW_CLUSTER_BY]
 create materialized view mv

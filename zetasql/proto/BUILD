@@ -96,6 +96,34 @@ java_proto_library(
 )
 
 proto_library(
+    name = "internal_fix_suggestion_proto",
+    srcs = ["internal_fix_suggestion.proto"],
+    deps = [
+        ":internal_error_location_proto",
+    ],
+)
+
+cc_proto_library(
+    name = "internal_fix_suggestion_cc_proto",
+    deps = [":internal_fix_suggestion_proto"],
+)
+
+java_proto_library(
+    name = "internal_fix_suggestion_java_proto",
+    deps = [":internal_fix_suggestion_proto"],
+)
+
+proto_library(
+    name = "module_options_proto",
+    srcs = ["module_options.proto"],
+)
+
+cc_proto_library(
+    name = "module_options_cc_proto",
+    deps = [":module_options_proto"],
+)
+
+proto_library(
     name = "internal_error_location_proto",
     srcs = ["internal_error_location.proto"],
     deps = ["//zetasql/public:error_location_proto"],

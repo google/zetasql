@@ -17,36 +17,43 @@
 #ifndef ZETASQL_PARSER_PARSER_INTERNAL_H_
 #define ZETASQL_PARSER_PARSER_INTERNAL_H_
 
+#include <any>
 #include <cctype>
+#include <cstddef>
+#include <memory>
 #include <optional>
 #include <queue>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
+#include "zetasql/base/arena.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/warning_sink.h"
+#include "zetasql/parser/ast_node_factory.h"
 #include "zetasql/parser/ast_node_kind.h"
-#include "zetasql/parser/bison_parser.h"
-#include "zetasql/parser/bison_parser_mode.h"
+#include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/parser/parser_mode.h"
+#include "zetasql/parser/parser_runtime_info.h"
+#include "zetasql/parser/statement_properties.h"
 #include "zetasql/parser/tm_token.h"
+#include "zetasql/public/id_string.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/strings.h"
+#include "absl/base/nullability.h"
 #include "zetasql/base/check.h"
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/substitute.h"
 #include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
-
-// Shorthand to call parser->CreateASTNode<>(). The "node_type" must be a
-// AST... class from the zetasql namespace. The "..." are the arguments to
-// BisonParser::CreateASTNode<>().
-#define MAKE_NODE(node_type, ...) \
-  parser->CreateASTNode<zetasql::node_type>(__VA_ARGS__)
 
 #define PARSER_LA_IS_EMPTY() next_symbol_.symbol == noToken
 
@@ -56,8 +63,8 @@
 #define OVERRIDE_NEXT_TOKEN_LOOKBACK(expected_token, lookback_token)           \
   do {                                                                         \
     ZETASQL_RETURN_IF_ERROR(OverrideNextTokenLookback(tokenizer, PARSER_LA_IS_EMPTY(), \
-                                              TokenKinds::expected_token,      \
-                                              TokenKinds::lookback_token));    \
+                                              Token::expected_token,           \
+                                              Token::lookback_token));         \
   } while (0)
 
 // Overrides the lookback token kind to be `new_token_kind` for the most
@@ -68,7 +75,7 @@
     ZETASQL_RET_CHECK(PARSER_LA_IS_EMPTY()) << "The parser lookahead buffer must be " \
                                        "empty to override the current token"; \
     ZETASQL_RETURN_IF_ERROR(                                                          \
-        OverrideCurrentTokenLookback(tokenizer, TokenKinds::new_token_kind)); \
+        OverrideCurrentTokenLookback(tokenizer, Token::new_token_kind));      \
   } while (0)
 
 namespace zetasql {
@@ -76,24 +83,63 @@ namespace zetasql {
 // token.
 namespace parser {
 class LookaheadTransformer;
-}  // namespace parser
 
-namespace parser_internal {
+// These are defined here because some of our tests rely on grabbing quoted
+// words in order to ensure test completeness of tokens. Indirecting these
+// strings as globals here allows us to use them in generating warnings without
+// interrupting those tests.
+inline constexpr absl::string_view kQualify = "QUALIFY";
+inline constexpr absl::string_view kGraphTable = "GRAPH_TABLE";
+
+// Parses `input` in mode `mode`, starting at byte offset `start_byte_offset`.
+// Returns the output tree in `output`, or returns an annotated error.
+//
+// Memory allocation:
+// - Identifiers are allocated from `id_string_pool`.
+// - ASTNodes are allocated from `arena`.
+// - ASTNodes still need to be deleted before the memory pools are destroyed.
+//   Ownership of all allocated ASTNodes except for the root output is
+//   returned in `other_allocated_ast_nodes`.
+// The caller should keep `id_string_pool` and `arena` alive until all the
+// returned ASTNodes have been deallocated.
+//
+// If mode is `kNextStatementKind`, then the next statement kind is returned
+// in `ast_statement_properties`, and statement level hints are returned in
+// `output`. In this mode, `statement_end_byte_offset` is *not* set.
+//
+// If mode is kNextStatement, the byte offset past the current statement's
+// closing semicolon is returned in `statement_end_byte_offset`. If the
+// statement did not end in a semicolon, then `statement_end_byte_offset` is
+// set to -1, and the input was guaranteed to be parsed to the end.
+//
+// If mode is `kStatement`, then `statement_end_byte_offset` is not set.
+absl::Status ParseInternal(
+    ParserMode mode, absl::string_view filename, absl::string_view input,
+    int start_byte_offset, IdStringPool* id_string_pool, zetasql_base::UnsafeArena* arena,
+    const LanguageOptions& language_options,
+    MacroExpansionMode macro_expansion_mode,
+    const macros::MacroCatalog* macro_catalog, std::unique_ptr<ASTNode>* output,
+    ParserRuntimeInfo& runtime_info, WarningSink& warning_sink,
+    std::vector<std::unique_ptr<ASTNode>>* other_allocated_ast_nodes,
+    ASTStatementProperties* ast_statement_properties,
+    int* statement_end_byte_offset);
+
+// The internal namespace contains
+namespace internal {
 
 // Forward declarations of wrappers so that the generated parser can call the
 // lookahead transformer without an interface and a v-table lookup on every
 // token.
-using zetasql::parser::BisonParserMode;
 using zetasql::parser::LookaheadTransformer;
+using zetasql::parser::ParserMode;
 
-void SetForceTerminate(LookaheadTransformer*, int*);
-void PushBisonParserMode(LookaheadTransformer*, BisonParserMode);
-void PopBisonParserMode(LookaheadTransformer*);
-int GetNextToken(LookaheadTransformer*, absl::string_view*,
+void PushParserMode(LookaheadTransformer&, ParserMode);
+void PopParserMode(LookaheadTransformer&);
+int GetNextToken(LookaheadTransformer&, absl::string_view*,
                  ParseLocationRange*);
-absl::Status OverrideNextTokenLookback(LookaheadTransformer*, bool,
+absl::Status OverrideNextTokenLookback(LookaheadTransformer&, bool,
                                        parser::Token, parser::Token);
-absl::Status OverrideCurrentTokenLookback(LookaheadTransformer*, parser::Token);
+absl::Status OverrideCurrentTokenLookback(LookaheadTransformer&, parser::Token);
 
 enum class NotKeywordPresence { kPresent, kAbsent };
 
@@ -194,11 +240,22 @@ struct GroupByModifier {
   ASTNode* having_expr;
 };
 
+struct GraphDynamicLabelProperties {
+  ASTNode* dynamic_label;
+  ASTNode* dynamic_properties;
+};
+
 struct CreateIndexStatementSuffix {
   ASTNode* partition_by;
   ASTNode* options_list;
   ASTNode* spanner_index_innerleaving_clause;
 };
+
+// Makes a ParseLocationRange from the start of `start` to the end of `end`.
+inline ParseLocationRange MakeLocationRange(const ParseLocationRange& start,
+                                            const ParseLocationRange& end) {
+  return ParseLocationRange(start.start(), end.end());
+}
 
 // This node is used for temporarily aggregating together components of an
 // identifier that are separated by various characters, such as slash ("/"),
@@ -215,6 +272,10 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
   void Accept(zetasql::ParseTreeVisitor* visitor, void* data) const override {
     ABSL_LOG(FATAL)  // Crash OK
         << "SeparatedIdentifierTmpNode does not support Accept";
+  }
+  absl::Status Accept(ParseTreeStatusVisitor& visitor,
+                      std::any& output) const override {
+    ZETASQL_RET_CHECK_FAIL() << "SeparatedIdentifierTmpNode does not support Accept";
   }
   absl::StatusOr<zetasql::VisitResult> Accept(
       zetasql::NonRecursiveParseTreeVisitor* visitor) const override {
@@ -267,10 +328,9 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
   // concatenate the components of each sublist together to form a single
   // identifier and return a list of these identifiers, which can be used to
   // build an ASTPathExpression.
-  template <typename Location>
   static inline absl::StatusOr<std::vector<zetasql::ASTNode*>> BuildPathParts(
-      const Location& bison_location, PathParts raw_parts,
-      zetasql::parser::BisonParser* parser) {
+      const ParseLocationRange& bison_location, PathParts raw_parts,
+      ASTNodeFactory& node_factory) {
     if (raw_parts.empty()) {
       return absl::InvalidArgumentError(
           "Internal error: Empty slashed path expression");
@@ -290,8 +350,8 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
           dash_part.remove_suffix(1);
         }
       }
-      parts.push_back(parser->MakeIdentifier(bison_location,
-                                             absl::StrJoin(raw_id_parts, "")));
+      parts.push_back(node_factory.MakeIdentifier(
+          bison_location, absl::StrJoin(raw_id_parts, "")));
     }
     return parts;
   }
@@ -300,27 +360,325 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
   PathParts path_parts_;
 };
 
-template <typename SemanticType>
-inline int zetasql_bison_parserlex(SemanticType* yylval,
-                                     ParseLocationRange* yylloc,
-                                     LookaheadTransformer* tokenizer) {
-  ABSL_DCHECK(tokenizer != nullptr);
-  absl::string_view text;
-  int token = GetNextToken(tokenizer, &text, yylloc);
-  yylval->string_view = {text.data(), text.length()};
-  return token;
+// TODO: C++23 - When "deduce this" feature is available in relevant toolchains
+//       convert WithLocation family of functions to members of ASTNode.
+
+// Sets the start location of `node` to `point`, and returns `node`.
+template <typename ASTNodeType>
+ASTNodeType* WithStartLocation(ASTNodeType* node,
+                               const ParseLocationPoint& point) {
+  node->set_start_location(point);
+  return node;
+}
+// Sets the start location of `node` to the start of `location`, and returns
+// `node`.
+template <typename ASTNodeType>
+ASTNodeType* WithStartLocation(ASTNodeType* node,
+                               const ParseLocationRange& location) {
+  return WithStartLocation(node, location.start());
 }
 
-// Adds 'children' to 'node' and then returns 'node'.
+// Sets the end location of `node` to `point`, and returns `node`.
 template <typename ASTNodeType>
-inline ASTNodeType* WithExtraChildren(
-    ASTNodeType* node, absl::Span<zetasql::ASTNode* const> children) {
-  for (zetasql::ASTNode* child : children) {
-    if (child != nullptr) {
-      node->AddChild(child);
+ASTNodeType* WithEndLocation(ASTNodeType* node,
+                             const ParseLocationPoint& point) {
+  node->set_end_location(point);
+  return node;
+}
+// Sets the end location of `node` to the end of `location`, and returns
+// `node`.
+template <typename ASTNodeType>
+ASTNodeType* WithEndLocation(ASTNodeType* node,
+                             const ParseLocationRange& location) {
+  return WithEndLocation(node, location.end());
+}
+// Sets the location of `node` to `location`, and returns `node`.
+template <typename ASTNodeType>
+ASTNodeType* WithLocation(ASTNodeType* node,
+                          const ParseLocationRange& location) {
+  node->set_location(location);
+  return node;
+}
+
+// Functions in this internal namespace are helpers for template functions
+// defined in this header. Do not call them directly outside the header.
+namespace internal {
+////////////////////////////////////////////////////////////////////////////////
+//
+//  Template deduction guides and utility templates.
+
+// TODO: C++20 - Require the iterable concept instead of using the IsIterable
+//               custon guide.
+
+template <class ASTNodeType>
+using IsASTNodeType =
+    std::enable_if_t<std::is_base_of_v<ASTNode, ASTNodeType>, bool>;
+
+template <typename, typename = std::void_t<>>
+struct is_iterable : std::false_type {};
+template <typename T>
+struct is_iterable<T, std::void_t<decltype(std::declval<T&>().begin()++ !=
+                                           std::declval<T&>().end())>>
+    : std::true_type {};
+template <typename T>
+using IsIterable = std::enable_if_t<is_iterable<T>::value, bool>;
+
+template <typename Func, typename... Args>
+void ForEach(Func&& func, Args&&... args) {
+  (func(std::forward<Args>(args)), ...);
+}
+
+template <typename Func, typename... Args>
+void ForEachReverse(Func&& func, Args&&... args) {
+  auto tuple = std::forward_as_tuple(std::forward<Args>(args)...);
+  constexpr size_t kSize = sizeof...(Args);
+  [&]<std::size_t... I>(std::index_sequence<I...>) {
+    (func(std::get<kSize - 1 - I>(tuple)), ...);
+  }(std::make_index_sequence<kSize>());
+}
+
+inline bool EnforceParentNonNull(ASTNode* /*absl_nonnull*/ parent) {
+  // /*absl_nonnull*/ is not enforced, so try to catch missuses here.
+  ABSL_DCHECK(parent != nullptr) << "Parse tree construction error: unable to add "
+                               "children to null parent.";
+  return parent != nullptr;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  Base case functions
+
+// ASTNode*
+
+inline bool GetNonEmptyLocation(ASTNode* /*absl_nonnull*/ node, bool from_right,
+                                ParseLocationRange& location);
+
+inline void AddToChildren(ASTNode* /*absl_nonnull*/ parent, ASTNode* child,
+                          bool to_right);
+
+// std::optional<U>
+
+template <typename U>
+inline bool GetNonEmptyLocation(const std::optional<U>& node, bool from_right,
+                                ParseLocationRange& location);
+
+template <typename U>
+inline void AddToChildren(ASTNode* /*absl_nonnull*/ parent,
+                          const std::optional<U>& child, bool to_right);
+
+// std::vector<U>
+
+template <typename U, IsIterable<U> = true>
+inline bool GetNonEmptyLocation(U& node, bool from_right,
+                                ParseLocationRange& location);
+
+template <typename U, IsIterable<U> = true>
+inline void AddToChildren(ASTNode* /*absl_nonnull*/ parent, const U& children,
+                          bool to_right);
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// Base case implementations
+
+inline bool GetNonEmptyLocation(ASTNode* /*absl_nonnull*/ node, bool from_right,
+                                ParseLocationRange& location) {
+  if (node == nullptr || node->start_location() == node->end_location()) {
+    return false;
+  }
+  location = node->location();
+  return true;
+}
+
+inline void AddToChildren(ASTNode* /*absl_nonnull*/ parent, ASTNode* child,
+                          bool to_right) {
+  if (EnforceParentNonNull(parent) && child != nullptr) {
+    if (to_right) {
+      parent->AddChild(child);
+    } else {
+      parent->AddChildFront(child);
     }
   }
-  return node;
+}
+
+template <typename U>
+inline bool GetNonEmptyLocation(const std::optional<U>& node, bool from_right,
+                                ParseLocationRange& location) {
+  if (!node.has_value()) {
+    return false;
+  }
+  return GetNonEmptyLocation(*node, from_right, location);
+}
+
+template <typename U>
+inline void AddToChildren(ASTNode* /*absl_nonnull*/ parent,
+                          const std::optional<U>& child, bool to_right) {
+  if (child.has_value()) {
+    AddToChildren(parent, child.value(), to_right);
+  }
+}
+
+template <typename U, IsIterable<U>>
+inline bool GetNonEmptyLocation(U& node, bool from_right,
+                                ParseLocationRange& location) {
+  if (from_right) {
+    for (auto it = node.rbegin(); it != node.rend(); ++it) {
+      if (GetNonEmptyLocation(*it, from_right, location)) {
+        return true;
+      }
+    }
+  } else {  // from_left
+    for (auto it = node.begin(); it != node.end(); ++it) {
+      if (GetNonEmptyLocation(*it, from_right, location)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+template <typename U, IsIterable<U>>
+inline void AddToChildren(ASTNode* /*absl_nonnull*/ parent, const U& children,
+                          bool to_right) {
+  if (to_right) {
+    for (const auto& child : children) {
+      AddToChildren(parent, child, to_right);
+    }
+  } else {
+    // Traverse the list in reverse order so that (a, b, c) for example, is
+    // added to the front of the children list of `node` as (a, b, c).
+    for (auto iter = children.rbegin(); iter != children.rend(); ++iter) {
+      AddToChildren(parent, *iter, to_right);
+    }
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  Recursive case functions
+
+template <bool to_right, typename... TChildren>
+void ExtendNodeRecursive(ASTNode* /*absl_nonnull*/ parent,
+                         const ParseLocationPoint& new_loc,
+                         TChildren... new_children) {
+  if (!EnforceParentNonNull(parent)) {
+    return;
+  }
+  if (to_right) {
+    ForEach([&](auto& child) { AddToChildren(parent, child, to_right); },
+            new_children...);
+    parent->set_end_location(new_loc);
+  } else {
+    ForEachReverse([&](auto& child) { AddToChildren(parent, child, to_right); },
+                   new_children...);
+    parent->set_start_location(new_loc);
+  }
+}
+
+template <bool to_right, typename... TChildren>
+void ExtendNodeRecursive(ASTNode* /*absl_nonnull*/ parent,
+                         TChildren... new_children) {
+  if (!EnforceParentNonNull(parent)) {
+    return;
+  }
+  ParseLocationRange new_range = parent->location();
+  ParseLocationPoint new_point;
+  bool found_location = false;
+  if (to_right) {
+    // Find the last non-empty location range in the children.
+    ForEachReverse(
+        [&](auto& child) {
+          found_location =
+              found_location || GetNonEmptyLocation(child, to_right, new_range);
+        },
+        new_children...);
+    new_point = new_range.end();
+  } else {
+    // Find the first non-empty location range in the children.
+    ForEach(
+        [&](auto& child) {
+          found_location =
+              found_location || GetNonEmptyLocation(child, to_right, new_range);
+        },
+        new_children...);
+    new_point = new_range.start();
+  }
+  ExtendNodeRecursive<to_right>(parent, new_point, new_children...);
+}
+
+}  // namespace internal
+
+// TODO: C++23 - When "deduce this" feature is available in relevant toolchains
+//       convert ExtendNode family of functions to members of ASTNode.
+
+// Extends `node` by appending `new_children` at the front of the children list
+// and also extend `node`'s location range to the left by settings its end point
+// to 'new_start_location`.
+//
+// Returns `node` to allow this function to be used on the right hand side of
+// an assignment, in a chained fluent style, or in a return statement.
+//
+// `new_children` may contain nulls, which are ignored.
+template <class ASTNodeType, typename... TChildren,
+          internal::IsASTNodeType<ASTNodeType> = true>
+ASTNodeType* ExtendNodeLeft(ASTNodeType* /*absl_nonnull*/ parent,
+                            const ParseLocationPoint& new_start_location,
+                            TChildren... new_children) {
+  internal::ExtendNodeRecursive</*to_right=*/false>(parent, new_start_location,
+                                                    new_children...);
+  return parent;
+}
+
+// Extends `node` by adding `left_child` at the front of the children list and
+// also extend `node`s location range to the left by settings its start point
+// to the start location of the first child that has a non-empty location range.
+//
+// Returns `node` to allow this function to be used on the right hand side of
+// an assignment, in a chained fluent style, or in a return statement.
+//
+// `left_child` may be nullptr. To extend with a child that may be nullptr
+// use the overload that takes an explicit `new_end_location` argument.
+template <class ASTNodeType, typename... TChildren,
+          internal::IsASTNodeType<ASTNodeType> = true>
+ASTNodeType* ExtendNodeLeft(ASTNodeType* /*absl_nonnull*/ parent,
+                            TChildren... new_children) {
+  internal::ExtendNodeRecursive</*to_right=*/false>(parent, new_children...);
+  return parent;
+}
+
+// Extends `node` by adding `right_child` at the back of the children list and
+// also extend `node`s location range to the right by settings its end point
+// to 'new_end_location`.
+//
+// Returns `node` to allow this function to be used on the right hand side of
+// an assignment, in a chained fluent style, or in a return statement.
+//
+// `right_child` may be nullptr. In that case the location range is still
+// extended to `new_end_location`.
+template <class ASTNodeType, typename... TChildren,
+          internal::IsASTNodeType<ASTNodeType> = true>
+ASTNodeType* ExtendNodeRight(ASTNodeType* /*absl_nonnull*/ parent,
+                             const ParseLocationPoint& new_end_location,
+                             TChildren... new_children) {
+  internal::ExtendNodeRecursive</*to_right=*/true>(parent, new_end_location,
+                                                   new_children...);
+  return parent;
+}
+
+// Extends `node` by adding `right_child` at the back of the children list and
+// also, if `right_child` is not nullptr, extends `node`s location range to
+// the right by setting its end point to `right_child`s end location.
+//
+// Returns `node` to allow this function to be used on the right hand side of
+// an assignment, in a chained fluent style, or in a return statement.
+//
+// `right_child` must not be nullptr. To extend with a child that may be nullptr
+// use the overload that takes an explicit `new_end_location` argument.
+template <class ASTNodeType, typename... TChildren,
+          internal::IsASTNodeType<ASTNodeType> = true>
+ASTNodeType* ExtendNodeRight(ASTNodeType* /*absl_nonnull*/ parent,
+                             TChildren... new_children) {
+  internal::ExtendNodeRecursive</*to_right=*/true>(parent, new_children...);
+  return parent;
 }
 
 // Returns the first location in 'locations' that is not empty. If none of the
@@ -408,17 +766,19 @@ inline absl::Status IsIdentifierOrKeyword(absl::string_view text) {
   return absl::OkStatus();
 }
 
-inline ASTTableExpression* MaybeApplyPivotOrUnpivot(
-    ASTTableExpression* table_expr, ASTPivotClause* pivot_clause,
+template <typename TableExprType, typename = std::enable_if_t<std::is_base_of_v<
+                                      ASTTableExpression, TableExprType>>>
+inline TableExprType* MaybeApplyPivotOrUnpivot(
+    TableExprType* table_expr, ASTPivotClause* pivot_clause,
     ASTUnpivotClause* unpivot_clause) {
   ABSL_DCHECK(pivot_clause == nullptr || unpivot_clause == nullptr)
       << "pivot_clause and unpivot_clause cannot both be non-null";
   if (pivot_clause != nullptr) {
-    return WithExtraChildren(table_expr, {pivot_clause});
+    return ExtendNodeRight(table_expr, pivot_clause);
   }
 
   if (unpivot_clause != nullptr) {
-    return WithExtraChildren(table_expr, {unpivot_clause});
+    return ExtendNodeRight(table_expr, unpivot_clause);
   }
 
   return table_expr;
@@ -427,15 +787,14 @@ inline ASTTableExpression* MaybeApplyPivotOrUnpivot(
 // `Location` is needed because when `left` or `right` is a parenthesized
 // expression, their location doesn't include those parens, so `(left.start,
 // right.end)` does not cover the full range.
-template <typename Location>
 inline ASTRowPatternExpression* MakeOrCombineRowPatternOperation(
-    const ASTRowPatternOperation::OperationType op, parser::BisonParser* parser,
-    Location location, ASTRowPatternExpression* left,
-    ASTRowPatternExpression* right) {
+    const ASTRowPatternOperation::OperationType op,
+    ASTNodeFactory& node_factory, const ParseLocationRange& location,
+    ASTRowPatternExpression* left, ASTRowPatternExpression* right) {
   if (left->node_kind() == AST_ROW_PATTERN_OPERATION &&
       left->GetAsOrDie<ASTRowPatternOperation>()->op_type() == op &&
       !left->parenthesized()) {
-    return parser->WithEndLocation(WithExtraChildren(left, {right}), location);
+    return ExtendNodeRight(left, location.end(), right);
   } else {
     // if `left` is an unparenthesized empty pattern, its location will still
     // be the end offset of the last token, outside of @$.
@@ -445,7 +804,8 @@ inline ASTRowPatternExpression* MakeOrCombineRowPatternOperation(
       left->set_end_location(location.start());
     }
 
-    auto* new_root = MAKE_NODE(ASTRowPatternOperation, location, {left, right});
+    auto* new_root = node_factory.CreateASTNode<ASTRowPatternOperation>(
+        location, {left, right});
     new_root->set_op_type(op);
     return new_root;
   }
@@ -463,11 +823,13 @@ inline void SetGqlSubqueryQueryFields(ASTQuery* query) {
 template <typename Location>
 inline ASTQuery* MakeGraphSubquery(ASTGqlOperatorList* ops,
                                    ASTPathExpression* graph,
-                                   zetasql::parser::BisonParser* parser,
+                                   ASTNodeFactory& node_factory,
                                    const Location& loc) {
-  auto* graph_table = MAKE_NODE(ASTGraphTableQuery, loc, {graph, ops});
-  auto* graph_query = MAKE_NODE(ASTGqlQuery, loc, {graph_table});
-  auto* query = MAKE_NODE(ASTQuery, loc, {graph_query});
+  auto* graph_table =
+      node_factory.CreateASTNode<ASTGraphTableQuery>(loc, {graph, ops});
+  auto* graph_query =
+      node_factory.CreateASTNode<ASTGqlQuery>(loc, {graph_table});
+  auto* query = node_factory.CreateASTNode<ASTQuery>(loc, {graph_query});
   SetGqlSubqueryQueryFields(query);
   return query;
 }
@@ -477,12 +839,14 @@ inline ASTQuery* MakeGraphSubquery(ASTGqlOperatorList* ops,
 template <typename Location>
 inline ASTExpressionSubquery* MakeGqlExistsGraphPatternSubquery(
     ASTGraphPattern* graph_pattern, ASTPathExpression* graph, ASTNode* hint,
-    zetasql::parser::BisonParser* parser, const Location& loc) {
+    ASTNodeFactory& node_factory, const Location& loc) {
   auto* path_pattern_query =
-      MAKE_NODE(ASTGqlGraphPatternQuery, loc, {graph, graph_pattern});
-  auto* query = MAKE_NODE(ASTQuery, loc, {path_pattern_query});
+      node_factory.CreateASTNode<ASTGqlGraphPatternQuery>(
+          loc, {graph, graph_pattern});
+  auto* query = node_factory.CreateASTNode<ASTQuery>(loc, {path_pattern_query});
   SetGqlSubqueryQueryFields(query);
-  auto* subquery = MAKE_NODE(ASTExpressionSubquery, loc, {hint, query});
+  auto* subquery =
+      node_factory.CreateASTNode<ASTExpressionSubquery>(loc, {hint, query});
   subquery->set_modifier(zetasql::ASTExpressionSubquery::EXISTS);
   return subquery;
 }
@@ -492,12 +856,13 @@ inline ASTExpressionSubquery* MakeGqlExistsGraphPatternSubquery(
 template <typename Location>
 inline ASTExpressionSubquery* MakeGqlExistsLinearOpsSubquery(
     ASTGqlOperatorList* op_list, ASTPathExpression* graph, ASTNode* hint,
-    zetasql::parser::BisonParser* parser, const Location& loc) {
+    ASTNodeFactory& node_factory, const Location& loc) {
   auto* linear_ops_query =
-      MAKE_NODE(ASTGqlLinearOpsQuery, loc, {graph, op_list});
-  auto* query = MAKE_NODE(ASTQuery, loc, {linear_ops_query});
+      node_factory.CreateASTNode<ASTGqlLinearOpsQuery>(loc, {graph, op_list});
+  auto* query = node_factory.CreateASTNode<ASTQuery>(loc, {linear_ops_query});
   SetGqlSubqueryQueryFields(query);
-  auto* subquery = MAKE_NODE(ASTExpressionSubquery, loc, {hint, query});
+  auto* subquery =
+      node_factory.CreateASTNode<ASTExpressionSubquery>(loc, {hint, query});
   subquery->set_modifier(zetasql::ASTExpressionSubquery::EXISTS);
   return subquery;
 }
@@ -505,7 +870,7 @@ inline ASTExpressionSubquery* MakeGqlExistsLinearOpsSubquery(
 template <typename Location>
 inline zetasql::ASTGraphLabelExpression* MakeOrCombineGraphLabelOperation(
     const zetasql::ASTGraphLabelOperation::OperationType label_op,
-    zetasql::parser::BisonParser* parser, const Location& location,
+    ASTNodeFactory& node_factory, const Location& location,
     zetasql::ASTGraphLabelExpression* left,
     zetasql::ASTGraphLabelExpression* right) {
   if (left->node_kind() == zetasql::AST_GRAPH_LABEL_OPERATION &&
@@ -513,9 +878,10 @@ inline zetasql::ASTGraphLabelExpression* MakeOrCombineGraphLabelOperation(
           label_op &&
       !left->parenthesized()) {
     // Embrace and extend left's ASTNode to flatten a series of `label_op`.
-    return parser->WithEndLocation(WithExtraChildren(left, {right}), location);
+    return ExtendNodeRight(left, location.end(), right);
   } else {
-    auto* new_root = MAKE_NODE(ASTGraphLabelOperation, location, {left, right});
+    auto* new_root = node_factory.CreateASTNode<ASTGraphLabelOperation>(
+        location, {left, right});
     new_root->set_op_type(label_op);
     return new_root;
   }
@@ -523,11 +889,12 @@ inline zetasql::ASTGraphLabelExpression* MakeOrCombineGraphLabelOperation(
 
 template <typename Location>
 inline zetasql::ASTGraphEdgePattern* MakeGraphEdgePattern(
-    zetasql::parser::BisonParser* parser,
+    ASTNodeFactory& node_factory,
     zetasql::ASTGraphElementPatternFiller* filler,
     zetasql::ASTGraphEdgePattern::EdgeOrientation orientation,
     const Location& location) {
-  auto* edge_pattern = MAKE_NODE(ASTGraphEdgePattern, location, {filler});
+  auto* edge_pattern =
+      node_factory.CreateASTNode<ASTGraphEdgePattern>(location, {filler});
   edge_pattern->set_orientation(orientation);
   return edge_pattern;
 }
@@ -535,12 +902,14 @@ inline zetasql::ASTGraphEdgePattern* MakeGraphEdgePattern(
 template <typename Location>
 inline zetasql::ASTGraphElementLabelAndPropertiesList*
 MakeGraphElementLabelAndPropertiesListImplicitDefaultLabel(
-    zetasql::parser::BisonParser* parser,
-    zetasql::ASTGraphProperties* properties, const Location& location) {
-  auto* label_properties = MAKE_NODE(ASTGraphElementLabelAndProperties,
-                                     location, {nullptr, properties});
-  auto* label_properties_list = MAKE_NODE(ASTGraphElementLabelAndPropertiesList,
-                                          location, {label_properties});
+    ASTNodeFactory& node_factory, zetasql::ASTGraphProperties* properties,
+    const Location& location) {
+  auto* label_properties =
+      node_factory.CreateASTNode<ASTGraphElementLabelAndProperties>(
+          location, {nullptr, properties});
+  auto* label_properties_list =
+      node_factory.CreateASTNode<ASTGraphElementLabelAndPropertiesList>(
+          location, {label_properties});
   return label_properties_list;
 }
 
@@ -569,9 +938,45 @@ inline bool HasLockMode(const zetasql::ASTNode* node) {
   return false;
 }
 
+inline absl::StatusOr<GraphDynamicLabelProperties> MergeDynamicLabelProperties(
+    const GraphDynamicLabelProperties& left,
+    const GraphDynamicLabelProperties& right) {
+  if (left.dynamic_label != nullptr && right.dynamic_label != nullptr) {
+    return MakeSqlError() << "DYNAMIC LABEL cannot be used more than once in a "
+                             "single element table";
+  }
+  if (left.dynamic_properties != nullptr &&
+      right.dynamic_properties != nullptr) {
+    return MakeSqlError()
+           << "DYNAMIC PROPERTIES cannot be used more than once in a "
+              "single element table";
+  }
+  return GraphDynamicLabelProperties{
+      .dynamic_label =
+          left.dynamic_label ? left.dynamic_label : right.dynamic_label,
+      .dynamic_properties = left.dynamic_properties ? left.dynamic_properties
+                                                    : right.dynamic_properties};
+}
+
+inline absl::Status AddKeywordReservationWarning(
+    const absl::string_view keyword, const ParseLocationRange& location,
+    WarningSink& warning_sink) {
+  // TODO: this warning should point to documentation once
+  // we have the engine-specific root URI to use.
+  constexpr absl::string_view kReservedWordWarning =
+      "$0 is used as an identifier. $0 may become a reserved word in the "
+      "future. To make this statement robust, add backticks around $0 to make "
+      "the identifier unambiguous";
+  return warning_sink.AddWarning(
+      DeprecationWarning::RESERVED_KEYWORD,
+      MakeSqlErrorAtStart(location)
+          << absl::Substitute(kReservedWordWarning, keyword));
+}
+
 using zetasql::ASTInsertStatement;
 
-}  // namespace parser_internal
+}  // namespace internal
+}  // namespace parser
 }  // namespace zetasql
 
 #endif  // ZETASQL_PARSER_PARSER_INTERNAL_H_

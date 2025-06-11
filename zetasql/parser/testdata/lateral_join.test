@@ -1,0 +1,566 @@
+# lateral joins apply only to subqueries, and tvfs
+SELECT * FROM t JOIN lateral t2
+--
+
+ERROR: Syntax error: Expected "(" or "." but got end of statement [at 1:32]
+SELECT * FROM t JOIN lateral t2
+                               ^
+==
+
+# LATERAL can be on the RHS, on subquery.
+# It should not have postfix table ops, but those are caught by the resolver.
+SELECT * FROM t CROSS JOIN LATERAL (select * from t2 where a < t.k) AS inner_alias TABLESAMPLE bernoulli (10 percent)
+--
+QueryStatement [0-117] [SELECT * FROM...10 percent)]
+  Query [0-117] [SELECT * FROM...10 percent)]
+    Select [0-117] [SELECT * FROM...10 percent)]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-117] [FROM t CROSS...10 percent)]
+        Join(CROSS) [14-117] [t CROSS JOIN...10 percent)]
+          TablePathExpression [14-15] [t]
+            PathExpression [14-15] [t]
+              Identifier(t) [14-15] [t]
+          Location [16-26] [CROSS JOIN]
+          TableSubquery [27-117] [LATERAL (select...10 percent)]
+            Query [36-66] [select * from t2 where a < t.k]
+              Select [36-66] [select * from t2 where a < t.k]
+                SelectList [43-44] [*]
+                  SelectColumn [43-44] [*]
+                    Star(*) [43-44] [*]
+                FromClause [45-52] [from t2]
+                  TablePathExpression [50-52] [t2]
+                    PathExpression [50-52] [t2]
+                      Identifier(t2) [50-52] [t2]
+                WhereClause [53-66] [where a < t.k]
+                  BinaryExpression(<) [59-66] [a < t.k]
+                    PathExpression [59-60] [a]
+                      Identifier(a) [59-60] [a]
+                    PathExpression [63-66] [t.k]
+                      Identifier(t) [63-64] [t]
+                      Identifier(k) [65-66] [k]
+            Alias [68-82] [AS inner_alias]
+              Identifier(inner_alias) [71-82] [inner_alias]
+            SampleClause [83-117] [TABLESAMPLE...10 percent)]
+              Identifier(bernoulli) [95-104] [bernoulli]
+              SampleSize [106-116] [10 percent]
+                IntLiteral(10) [106-108] [10]
+--
+
+SELECT
+  *
+FROM
+  t
+  CROSS JOIN
+  LATERAL
+  (
+    SELECT
+      *
+    FROM
+      t2
+    WHERE
+      a < t.k
+  ) AS inner_alias TABLESAMPLE bernoulli(10 PERCENT)
+==
+
+[reserve_graph_table]
+# LATERAL cannot apply to GRAPH_TABLE at the moment. This may be relaxed later.
+SELECT * FROM t, LATERAL GRAPH_TABLE(g1 MATCH (n) RETURN n.name) AS g
+--
+ERROR: Syntax error: Unexpected keyword GRAPH_TABLE [at 2:26]
+SELECT * FROM t, LATERAL GRAPH_TABLE(g1 MATCH (n) RETURN n.name) AS g
+                         ^
+==
+
+# LATERAL on the LHS is accepted in the parser and caught as a resolver error.
+SELECT * FROM LATERAL (select * from t) CROSS JOIN t2
+--
+
+QueryStatement [0-53] [SELECT * FROM...CROSS JOIN t2]
+  Query [0-53] [SELECT * FROM...CROSS JOIN t2]
+    Select [0-53] [SELECT * FROM...CROSS JOIN t2]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-53] [FROM LATERAL...CROSS JOIN t2]
+        Join(CROSS) [14-53] [LATERAL (select...ROSS JOIN t2]
+          TableSubquery [14-39] [LATERAL (select * from t)]
+            Query [23-38] [select * from t]
+              Select [23-38] [select * from t]
+                SelectList [30-31] [*]
+                  SelectColumn [30-31] [*]
+                    Star(*) [30-31] [*]
+                FromClause [32-38] [from t]
+                  TablePathExpression [37-38] [t]
+                    PathExpression [37-38] [t]
+                      Identifier(t) [37-38] [t]
+          Location [40-50] [CROSS JOIN]
+          TablePathExpression [51-53] [t2]
+            PathExpression [51-53] [t2]
+              Identifier(t2) [51-53] [t2]
+--
+SELECT
+  *
+FROM
+  LATERAL
+  (
+    SELECT
+      *
+    FROM
+      t
+  )
+  CROSS JOIN
+  t2
+==
+
+# LATERAL on a singleton FROM source is accepted in the parser and caught as a
+# resolver error.
+SELECT * FROM LATERAL {{tvf()|(select * from t)}} {{|AS p}}
+--
+ALTERNATION GROUP: tvf(),
+--
+QueryStatement [0-27] [SELECT * FROM LATERAL tvf()]
+  Query [0-27] [SELECT * FROM LATERAL tvf()]
+    Select [0-27] [SELECT * FROM LATERAL tvf()]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-27] [FROM LATERAL tvf()]
+        TVF [14-27] [LATERAL tvf()]
+          PathExpression [22-25] [tvf]
+            Identifier(tvf) [22-25] [tvf]
+--
+SELECT
+  *
+FROM
+  LATERAL tvf()
+--
+ALTERNATION GROUP: tvf(),AS p
+--
+QueryStatement [0-32] [SELECT * FROM...tvf() AS p]
+  Query [0-32] [SELECT * FROM...tvf() AS p]
+    Select [0-32] [SELECT * FROM...tvf() AS p]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-32] [FROM LATERAL tvf() AS p]
+        TVF [14-32] [LATERAL tvf() AS p]
+          PathExpression [22-25] [tvf]
+            Identifier(tvf) [22-25] [tvf]
+          Alias [28-32] [AS p]
+            Identifier(p) [31-32] [p]
+--
+SELECT
+  *
+FROM
+  LATERAL tvf() AS p
+--
+ALTERNATION GROUP: (select * from t),
+--
+QueryStatement [0-39] [SELECT * FROM...* from t)]
+  Query [0-39] [SELECT * FROM...* from t)]
+    Select [0-39] [SELECT * FROM...* from t)]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-39] [FROM LATERAL (select * from t)]
+        TableSubquery [14-39] [LATERAL (select * from t)]
+          Query [23-38] [select * from t]
+            Select [23-38] [select * from t]
+              SelectList [30-31] [*]
+                SelectColumn [30-31] [*]
+                  Star(*) [30-31] [*]
+              FromClause [32-38] [from t]
+                TablePathExpression [37-38] [t]
+                  PathExpression [37-38] [t]
+                    Identifier(t) [37-38] [t]
+--
+SELECT
+  *
+FROM
+  LATERAL
+  (
+    SELECT
+      *
+    FROM
+      t
+  )
+--
+ALTERNATION GROUP: (select * from t),AS p
+--
+QueryStatement [0-44] [SELECT * FROM...from t) AS p]
+  Query [0-44] [SELECT * FROM...from t) AS p]
+    Select [0-44] [SELECT * FROM...from t) AS p]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-44] [FROM LATERAL...from t) AS p]
+        TableSubquery [14-44] [LATERAL (select * from t) AS p]
+          Query [23-38] [select * from t]
+            Select [23-38] [select * from t]
+              SelectList [30-31] [*]
+                SelectColumn [30-31] [*]
+                  Star(*) [30-31] [*]
+              FromClause [32-38] [from t]
+                TablePathExpression [37-38] [t]
+                  PathExpression [37-38] [t]
+                    Identifier(t) [37-38] [t]
+          Alias [40-44] [AS p]
+            Identifier(p) [43-44] [p]
+--
+SELECT
+  *
+FROM
+  LATERAL
+  (
+    SELECT
+      *
+    FROM
+      t
+  ) AS p
+==
+
+# Joins are left-associative so we can have multiple successive lateral RHS's.
+SELECT *
+FROM t
+       LEFT OUTER JOIN LATERAL tvf1() AS x
+       INNER JOIN LATERAL (select * from t2) TABLESAMPLE BERNOULLI (10 PERCENT)
+  ON t.a = x.a AND t.b = y.b
+--
+
+QueryStatement [0-167] [SELECT * FROM...t.b = y.b]
+  Query [0-167] [SELECT * FROM...t.b = y.b]
+    Select [0-167] [SELECT * FROM...t.b = y.b]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-167] [FROM t...t.b = y.b]
+        Join(INNER) [14-167] [t        LEFT...t.b = y.b]
+          Join(LEFT) [14-58] [t        LEFT...tvf1() AS x]
+            TablePathExpression [14-15] [t]
+              PathExpression [14-15] [t]
+                Identifier(t) [14-15] [t]
+            Location [23-38] [LEFT OUTER JOIN]
+            TVF [39-58] [LATERAL tvf1() AS x]
+              PathExpression [47-51] [tvf1]
+                Identifier(tvf1) [47-51] [tvf1]
+              Alias [54-58] [AS x]
+                Identifier(x) [57-58] [x]
+          Location [66-76] [INNER JOIN]
+          TableSubquery [77-138] [LATERAL (select...10 PERCENT)]
+            Query [86-102] [select * from t2]
+              Select [86-102] [select * from t2]
+                SelectList [93-94] [*]
+                  SelectColumn [93-94] [*]
+                    Star(*) [93-94] [*]
+                FromClause [95-102] [from t2]
+                  TablePathExpression [100-102] [t2]
+                    PathExpression [100-102] [t2]
+                      Identifier(t2) [100-102] [t2]
+            SampleClause [104-138] [TABLESAMPLE...10 PERCENT)]
+              Identifier(BERNOULLI) [116-125] [BERNOULLI]
+              SampleSize [127-137] [10 PERCENT]
+                IntLiteral(10) [127-129] [10]
+          OnClause [141-167] [ON t.a = x.a AND t.b = y.b]
+            AndExpr [144-167] [t.a = x.a AND t.b = y.b]
+              BinaryExpression(=) [144-153] [t.a = x.a]
+                PathExpression [144-147] [t.a]
+                  Identifier(t) [144-145] [t]
+                  Identifier(a) [146-147] [a]
+                PathExpression [150-153] [x.a]
+                  Identifier(x) [150-151] [x]
+                  Identifier(a) [152-153] [a]
+              BinaryExpression(=) [158-167] [t.b = y.b]
+                PathExpression [158-161] [t.b]
+                  Identifier(t) [158-159] [t]
+                  Identifier(b) [160-161] [b]
+                PathExpression [164-167] [y.b]
+                  Identifier(y) [164-165] [y]
+                  Identifier(b) [166-167] [b]
+--
+SELECT
+  *
+FROM
+  t
+  LEFT JOIN
+  LATERAL tvf1() AS x
+  INNER JOIN
+  LATERAL
+  (
+    SELECT
+      *
+    FROM
+      t2
+  ) TABLESAMPLE BERNOULLI(10 PERCENT)
+  ON t.a = x.a AND t.b = y.b
+==
+
+# Test LATERAL with the successive ON rewrite, with CROSS in the middle.
+[language_features=ALLOW_CONSECUTIVE_ON]
+SELECT *
+FROM t
+       LEFT OUTER JOIN LATERAL tvf1(t.k) AS x
+       CROSS JOIN LATERAL (select * from t2)
+       JOIN LATERAL (select * from t3)
+  ON t.a = x.a AND t.b = y.b
+--
+QueryStatement [0-174] [SELECT * FROM...t.b = y.b]
+  Query [0-174] [SELECT * FROM...t.b = y.b]
+    Select [0-174] [SELECT * FROM...t.b = y.b]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-174] [FROM t...t.b = y.b]
+        Join [14-174] [t        LEFT...t.b = y.b]
+          Join(CROSS) [14-106] [t        LEFT...* from t2)]
+            Join(LEFT) [14-61] [t        LEFT...(t.k) AS x]
+              TablePathExpression [14-15] [t]
+                PathExpression [14-15] [t]
+                  Identifier(t) [14-15] [t]
+              Location [23-38] [LEFT OUTER JOIN]
+              TVF [39-61] [LATERAL tvf1(t.k) AS x]
+                PathExpression [47-51] [tvf1]
+                  Identifier(tvf1) [47-51] [tvf1]
+                TVFArgument [52-55] [t.k]
+                  PathExpression [52-55] [t.k]
+                    Identifier(t) [52-53] [t]
+                    Identifier(k) [54-55] [k]
+                Alias [57-61] [AS x]
+                  Identifier(x) [60-61] [x]
+            Location [69-79] [CROSS JOIN]
+            TableSubquery [80-106] [LATERAL (select * from t2)]
+              Query [89-105] [select * from t2]
+                Select [89-105] [select * from t2]
+                  SelectList [96-97] [*]
+                    SelectColumn [96-97] [*]
+                      Star(*) [96-97] [*]
+                  FromClause [98-105] [from t2]
+                    TablePathExpression [103-105] [t2]
+                      PathExpression [103-105] [t2]
+                        Identifier(t2) [103-105] [t2]
+          Location [114-118] [JOIN]
+          TableSubquery [119-145] [LATERAL (select * from t3)]
+            Query [128-144] [select * from t3]
+              Select [128-144] [select * from t3]
+                SelectList [135-136] [*]
+                  SelectColumn [135-136] [*]
+                    Star(*) [135-136] [*]
+                FromClause [137-144] [from t3]
+                  TablePathExpression [142-144] [t3]
+                    PathExpression [142-144] [t3]
+                      Identifier(t3) [142-144] [t3]
+          OnClause [148-174] [ON t.a = x.a AND t.b = y.b]
+            AndExpr [151-174] [t.a = x.a AND t.b = y.b]
+              BinaryExpression(=) [151-160] [t.a = x.a]
+                PathExpression [151-154] [t.a]
+                  Identifier(t) [151-152] [t]
+                  Identifier(a) [153-154] [a]
+                PathExpression [157-160] [x.a]
+                  Identifier(x) [157-158] [x]
+                  Identifier(a) [159-160] [a]
+              BinaryExpression(=) [165-174] [t.b = y.b]
+                PathExpression [165-168] [t.b]
+                  Identifier(t) [165-166] [t]
+                  Identifier(b) [167-168] [b]
+                PathExpression [171-174] [y.b]
+                  Identifier(y) [171-172] [y]
+                  Identifier(b) [173-174] [b]
+--
+SELECT
+  *
+FROM
+  t
+  LEFT JOIN
+  LATERAL tvf1(t.k) AS x
+  CROSS JOIN
+  LATERAL
+  (
+    SELECT
+      *
+    FROM
+      t2
+  )
+  JOIN
+  LATERAL
+  (
+    SELECT
+      *
+    FROM
+      t3
+  )
+  ON t.a = x.a AND t.b = y.b
+==
+
+# Comma joins with LATERAL: ensure the precedence is identical to normal joins.
+SELECT *
+  FROM tvf() CROSS JOIN LATERAL (SELECT * FROM t2 WHERE cond) AS t2,
+  LATERAL tvf2() LEFT JOIN LATERAL tvf3() ON cond
+--
+QueryStatement [0-127] [SELECT *...() ON cond]
+  Query [0-127] [SELECT *...() ON cond]
+    Select [0-127] [SELECT *...() ON cond]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [11-127] [FROM tvf()...() ON cond]
+        Join(LEFT) [16-127] [tvf() CROSS...() ON cond]
+          Join(COMMA) [16-94] [tvf() CROSS...LATERAL tvf2()]
+            Join(CROSS) [16-76] [tvf() CROSS...cond) AS t2]
+              TVF [16-21] [tvf()]
+                PathExpression [16-19] [tvf]
+                  Identifier(tvf) [16-19] [tvf]
+              Location [22-32] [CROSS JOIN]
+              TableSubquery [33-76] [LATERAL (SELECT...cond) AS t2]
+                Query [42-69] [SELECT * FROM t2 WHERE cond]
+                  Select [42-69] [SELECT * FROM t2 WHERE cond]
+                    SelectList [49-50] [*]
+                      SelectColumn [49-50] [*]
+                        Star(*) [49-50] [*]
+                    FromClause [51-58] [FROM t2]
+                      TablePathExpression [56-58] [t2]
+                        PathExpression [56-58] [t2]
+                          Identifier(t2) [56-58] [t2]
+                    WhereClause [59-69] [WHERE cond]
+                      PathExpression [65-69] [cond]
+                        Identifier(cond) [65-69] [cond]
+                Alias [71-76] [AS t2]
+                  Identifier(t2) [74-76] [t2]
+            Location [76-77] [,]
+            TVF [80-94] [LATERAL tvf2()]
+              PathExpression [88-92] [tvf2]
+                Identifier(tvf2) [88-92] [tvf2]
+          Location [95-104] [LEFT JOIN]
+          TVF [105-119] [LATERAL tvf3()]
+            PathExpression [113-117] [tvf3]
+              Identifier(tvf3) [113-117] [tvf3]
+          OnClause [120-127] [ON cond]
+            PathExpression [123-127] [cond]
+              Identifier(cond) [123-127] [cond]
+--
+SELECT
+  *
+FROM
+  tvf()
+  CROSS JOIN
+  LATERAL
+  (
+    SELECT
+      *
+    FROM
+      t2
+    WHERE
+      cond
+  ) AS t2,
+  LATERAL tvf2()
+  LEFT JOIN
+  LATERAL tvf3()
+  ON cond
+==
+
+# LATERAL does not apply to UNNEST, as it's already lateral.
+SELECT * FROM t, LATERAL UNNEST(arr) AS x
+--
+ERROR: Syntax error: Unexpected keyword UNNEST [at 1:26]
+SELECT * FROM t, LATERAL UNNEST(arr) AS x
+                         ^
+==
+
+# LATERAL does not apply to a parenthesized join
+SELECT * FROM t, LATERAL (t1 CROSS JOIN t2) AS x
+--
+ERROR: Syntax error: Unexpected identifier "t1" [at 1:27]
+SELECT * FROM t, LATERAL (t1 CROSS JOIN t2) AS x
+                          ^
+==
+
+# LATERAL does not apply to a TABLE expression
+SELECT * FROM t, LATERAL TABLE t2 AS x
+--
+ERROR: Syntax error: Expected "(" or "." but got identifier "t2" [at 1:32]
+SELECT * FROM t, LATERAL TABLE t2 AS x
+                               ^
+==
+
+# RIGHT and FULL joins are caught in the resolver.
+SELECT * FROM t {{RIGHT|FULL}} JOIN LATERAL (select * from t2) AS x
+--
+ALTERNATION GROUP: RIGHT
+--
+QueryStatement [0-58] [SELECT * FROM...from t2) AS x]
+  Query [0-58] [SELECT * FROM...from t2) AS x]
+    Select [0-58] [SELECT * FROM...from t2) AS x]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-58] [FROM t RIGHT...from t2) AS x]
+        Join(RIGHT) [14-58] [t RIGHT JOIN...from t2) AS x]
+          TablePathExpression [14-15] [t]
+            PathExpression [14-15] [t]
+              Identifier(t) [14-15] [t]
+          Location [16-26] [RIGHT JOIN]
+          TableSubquery [27-58] [LATERAL (select...rom t2) AS x]
+            Query [36-52] [select * from t2]
+              Select [36-52] [select * from t2]
+                SelectList [43-44] [*]
+                  SelectColumn [43-44] [*]
+                    Star(*) [43-44] [*]
+                FromClause [45-52] [from t2]
+                  TablePathExpression [50-52] [t2]
+                    PathExpression [50-52] [t2]
+                      Identifier(t2) [50-52] [t2]
+            Alias [54-58] [AS x]
+              Identifier(x) [57-58] [x]
+--
+SELECT
+  *
+FROM
+  t
+  RIGHT JOIN
+  LATERAL
+  (
+    SELECT
+      *
+    FROM
+      t2
+  ) AS x
+--
+ALTERNATION GROUP: FULL
+--
+QueryStatement [0-57] [SELECT * FROM...from t2) AS x]
+  Query [0-57] [SELECT * FROM...from t2) AS x]
+    Select [0-57] [SELECT * FROM...from t2) AS x]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-57] [FROM t FULL...from t2) AS x]
+        Join(FULL) [14-57] [t FULL JOIN...from t2) AS x]
+          TablePathExpression [14-15] [t]
+            PathExpression [14-15] [t]
+              Identifier(t) [14-15] [t]
+          Location [16-25] [FULL JOIN]
+          TableSubquery [26-57] [LATERAL (select...rom t2) AS x]
+            Query [35-51] [select * from t2]
+              Select [35-51] [select * from t2]
+                SelectList [42-43] [*]
+                  SelectColumn [42-43] [*]
+                    Star(*) [42-43] [*]
+                FromClause [44-51] [from t2]
+                  TablePathExpression [49-51] [t2]
+                    PathExpression [49-51] [t2]
+                      Identifier(t2) [49-51] [t2]
+            Alias [53-57] [AS x]
+              Identifier(x) [56-57] [x]
+--
+SELECT
+  *
+FROM
+  t
+  FULL JOIN
+  LATERAL
+  (
+    SELECT
+      *
+    FROM
+      t2
+  ) AS x

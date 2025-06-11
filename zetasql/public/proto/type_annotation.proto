@@ -86,12 +86,21 @@ message FieldFormat {
     TIMESTAMP_MICROS = 4;
     TIMESTAMP_NANOS = 5;
 
-    // A ZetaSQL TIMESTAMP_PICO value. These values are encoded as 16 bytes
-    // (2 uint64s). See TimestampPicoValue::SerializeAsBytes() for serialization
-    // format details.
+    // A ZetaSQL TIMESTAMP_PICOS value. These values are encoded as 16 bytes
+    // (2 uint64s). See TimestampPicosValue::SerializeAsBytes() for
+    // serialization format details.
     //
     // Can be applied to bytes fields.
     TIMESTAMP_PICOS = 20;
+
+    // A ZetaSQL TIMESTAMP value. It represents a timestamp with
+    // precision up to picoseconds. Under the hood, all the
+    // timestamps are stored as TimestampPicos.
+    // See TimestampPicosValue::SerializeAsBytes() for
+    // serialization format details.
+    //
+    // Can be applied to bytes fields.
+    TIMESTAMP = 21;
 
     // A ZetaSQL DATE encoded in the MySQL date decimal format,
     // which looks like YYYYMMDD written as an integer.

@@ -37,6 +37,14 @@ import org.junit.runners.JUnit4;
 public class RangeTypeTest {
 
   @Test
+  public void testComponentTypes() {
+    assertThat(
+            TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE))
+                .componentTypes())
+        .containsExactly(TypeFactory.createSimpleType(TypeKind.TYPE_DATE));
+  }
+
+  @Test
   public void testSerializationAndDeserialization() {
     checkTypeSerializationAndDeserialization(
         TypeFactory.createRangeType(TypeFactory.createSimpleType(TypeKind.TYPE_DATE)));

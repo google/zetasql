@@ -51,10 +51,10 @@ public final class StructAnnotationMapTest {
     assertThat(field0AnnotationMap).isNotNull();
     assertThat(field1AnnotationMap).isNotNull();
     assertThat(field0AnnotationMap.isStructMap()).isFalse();
-    assertThat(field1AnnotationMap.isStructMap()).isFalse();
+    assertThat(field1AnnotationMap.isStructMap()).isTrue();
 
     // AnnotationMap for STRUCT<a STRING, b INT64>
-    AnnotationMap arrayElementAnnotationMap = field1AnnotationMap.asArrayMap().getElement();
+    AnnotationMap arrayElementAnnotationMap = field1AnnotationMap.asStructMap().getField(0);
 
     assertThat(arrayElementAnnotationMap).isNotNull();
     assertThat(arrayElementAnnotationMap.isStructMap()).isTrue();
@@ -86,11 +86,11 @@ public final class StructAnnotationMapTest {
     // AnnotationMap for ARRAY<STRUCT<a STRING, b INT64>>
     AnnotationMap field1AnnotationMap = structrAnnotationMap.getField(1);
     assertThat(field0AnnotationMap.asStructMap()).isNull();
-    assertThat(field1AnnotationMap.asStructMap()).isNull();
 
-    assertThat(field1AnnotationMap.isArrayMap()).isTrue();
+    assertThat(field1AnnotationMap.isStructMap()).isTrue();
+    assertThat(field1AnnotationMap.asStructMap().getFieldCount()).isEqualTo(1);
     // AnnotationMap for STRUCT<a STRING, b INT64>
-    AnnotationMap arrayElementAnnotationMap = field1AnnotationMap.asArrayMap().getElement();
+    AnnotationMap arrayElementAnnotationMap = field1AnnotationMap.asStructMap().getField(0);
 
     assertThat(arrayElementAnnotationMap.asStructMap()).isNotNull();
     assertThat(arrayElementAnnotationMap.asStructMap().getFieldCount()).isEqualTo(2);

@@ -36,7 +36,7 @@ namespace zetasql {
 // Each token is one of the following:
 // * a keyword (or symbol)
 // * an identifier
-// * a literal value (e.g. int64_t, uint64_t, string or bytes)
+// * a literal value (e.g. int64, uint64, string or bytes)
 // * end_of_input
 //
 // A particular token may be valid as both a keyword and an identifier.

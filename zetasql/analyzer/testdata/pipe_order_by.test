@@ -50,7 +50,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$query.x#1)
 ==
 
-[language_features=PIPES,V_1_1_ORDER_BY_COLLATE,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[language_features=PIPES,ORDER_BY_COLLATE,NULLS_FIRST_LAST_IN_ORDER_BY]
 select "abc" x, 2 y
 |> ORDER BY x COLLATE "abc"
 |> ORDER BY y DESC NULLS LAST

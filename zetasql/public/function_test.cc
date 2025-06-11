@@ -60,6 +60,7 @@
 
 namespace zetasql {
 using ::zetasql::testing::EqualsProto;
+using ::testing::ElementsAre;
 using ::testing::IsNull;
 using ::testing::NotNull;
 
@@ -534,16 +535,30 @@ TEST_F(FunctionSerializationTests, InconsistentWindowSupport) {
 
 TEST_F(FunctionSerializationTests, RequiredLanguageFeaturesTest) {
   FunctionOptions options;
-  options.AddRequiredLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
+  options.AddRequiredLanguageFeature(FEATURE_CIVIL_TIME);
 
   FunctionOptionsProto proto;
   options.Serialize(&proto);
   EXPECT_EQ(1, proto.required_language_feature_size());
-  EXPECT_EQ(FEATURE_V_1_2_CIVIL_TIME, proto.required_language_feature(0));
+  EXPECT_EQ(FEATURE_CIVIL_TIME, proto.required_language_feature(0));
 
   std::unique_ptr<FunctionOptions> deserialize_result;
   ZETASQL_EXPECT_OK(FunctionOptions::Deserialize(proto, &deserialize_result));
   ExpectEqualsIgnoringCallbacks(options, *deserialize_result);
+}
+
+TEST_F(FunctionSerializationTests,
+       SerializationAndDeserializationModuleNameFromImport) {
+  FunctionOptions options;
+  options.set_module_name_from_import({"a", "B", "cc"});
+  FunctionOptionsProto proto;
+  options.Serialize(&proto);
+  EXPECT_THAT(proto.module_name_from_import(), ElementsAre("a", "B", "cc"));
+
+  std::unique_ptr<FunctionOptions> deserialize_result;
+  ZETASQL_EXPECT_OK(FunctionOptions::Deserialize(proto, &deserialize_result));
+  EXPECT_THAT(deserialize_result->module_name_from_import,
+              ElementsAre("a", "B", "cc"));
 }
 
 // Test serialization and deserialization of the optional argument name in the
@@ -584,13 +599,13 @@ TEST_F(FunctionSerializationTests,
 
 TEST_F(FunctionSerializationTests, SignatureRequiredLanguageFeaturesTest) {
   FunctionSignatureOptions options;
-  options.AddRequiredLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
+  options.AddRequiredLanguageFeature(FEATURE_CIVIL_TIME);
   options.set_is_aliased_signature(true);
 
   FunctionSignatureOptionsProto proto;
   options.Serialize(&proto);
   EXPECT_EQ(1, proto.required_language_feature_size());
-  EXPECT_EQ(FEATURE_V_1_2_CIVIL_TIME, proto.required_language_feature(0));
+  EXPECT_EQ(FEATURE_CIVIL_TIME, proto.required_language_feature(0));
 
   std::unique_ptr<FunctionSignatureOptions> deserialize_result;
   ZETASQL_EXPECT_OK(FunctionSignatureOptions::Deserialize(proto, &deserialize_result));

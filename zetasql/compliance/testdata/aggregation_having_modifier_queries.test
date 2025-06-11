@@ -1,6 +1,6 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
 [load_proto_names=zetasql_test__.TestNullabilityInnerPB]
-[default required_features=V_1_1_HAVING_IN_AGGREGATE]
+[default required_features=HAVING_IN_AGGREGATE]
 [prepare_database]
 CREATE TABLE TableAllTypes AS
 SELECT CAST(1 AS int64) as row_id,
@@ -544,7 +544,7 @@ ARRAY<STRUCT<
  {8, false, NULL, NULL},
  {9, false, NULL, NULL}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [prepare_database]
 CREATE TABLE TableDatetimeRangeType AS
 SELECT
@@ -676,7 +676,7 @@ FROM TableAllTypes
 ARRAY<STRUCT<INT64, INT64>>[{3, 13}]
 ==
 [name=aggregate_array_agg_id_having_bytes_val_order_by_limit]
-[required_features=V_1_1_HAVING_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=HAVING_IN_AGGREGATE,LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE]
 SELECT ARRAY_AGG(row_id HAVING MIN bytes_val ORDER BY row_id DESC LIMIT 2),
        ARRAY_AGG(row_id HAVING MAX bytes_val ORDER BY row_id DESC LIMIT 2)
 FROM TableAllTypes
@@ -689,7 +689,7 @@ ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
 ]
 ==
 [name=aggregate_array_agg_id_having_bytes_val_order_by]
-[required_features=V_1_1_HAVING_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=HAVING_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE]
 SELECT ARRAY_AGG(row_id HAVING MIN bytes_val ORDER BY row_id ASC),
        ARRAY_AGG(row_id HAVING MAX bytes_val ORDER BY row_id ASC)
 FROM TableAllTypes
@@ -713,7 +713,7 @@ FROM TableAllTypes
 --
 ARRAY<STRUCT<INT64, INT64>>[{4, 1}]
 ==
-[required_features=V_1_1_HAVING_IN_AGGREGATE,RANGE_TYPE]
+[required_features=HAVING_IN_AGGREGATE,RANGE_TYPE]
 [name=aggregate_count_range_having_bool]
 SELECT COUNT(range_date_val HAVING MIN bool_val), COUNT(range_date_val HAVING MAX bool_val),
 COUNT(range_timestamp_val HAVING MIN bool_val), COUNT(range_timestamp_val HAVING MAX bool_val),
@@ -721,14 +721,14 @@ FROM TableRangeTypes
 --
 ARRAY<STRUCT<INT64, INT64, INT64, INT64>>[{3, 4, 3, 4}]
 ==
-[required_features=V_1_1_HAVING_IN_AGGREGATE,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=HAVING_IN_AGGREGATE,RANGE_TYPE,CIVIL_TIME]
 [name=aggregate_count_range_datetime_having_bool]
 SELECT COUNT(range_datetime_val HAVING MIN bool_val), COUNT(range_datetime_val HAVING MAX bool_val),
 FROM TableDatetimeRangeType
 --
 ARRAY<STRUCT<INT64, INT64>>[{3, 4}]
 ==
-[required_features=V_1_1_HAVING_IN_AGGREGATE,RANGE_TYPE]
+[required_features=HAVING_IN_AGGREGATE,RANGE_TYPE]
 [name=aggregate_count_range_having_range]
 SELECT COUNT(range_date_val HAVING MIN range_date_val),
 COUNT(range_date_val HAVING MAX range_date_val),
@@ -738,7 +738,7 @@ FROM TableRangeTypes
 --
 ARRAY<STRUCT<INT64, INT64, INT64, INT64>>[{1, 2, 1, 2}]
 ==
-[required_features=V_1_1_HAVING_IN_AGGREGATE,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=HAVING_IN_AGGREGATE,RANGE_TYPE,CIVIL_TIME]
 [name=aggregate_count_range_datetime_having_range]
 SELECT COUNT(range_datetime_val HAVING MIN range_datetime_val),
 COUNT(range_datetime_val HAVING MAX range_datetime_val),
@@ -881,7 +881,7 @@ UNNEST( [
 --
 ARRAY<STRUCT<INT64, INT64>>[{2, 1}]
 ==
-[required_features=V_1_1_HAVING_IN_AGGREGATE,RANGE_TYPE]
+[required_features=HAVING_IN_AGGREGATE,RANGE_TYPE]
 [name=aggregate_count_distinct_range_having_bool]
 SELECT COUNT(DISTINCT range_date_val HAVING MIN bool_val),
 COUNT(DISTINCT range_date_val HAVING MAX bool_val),
@@ -891,14 +891,14 @@ FROM TableRangeTypes
 --
 ARRAY<STRUCT<INT64, INT64, INT64, INT64>>[{2, 2, 2, 2}]
 ==
-[required_features=V_1_1_HAVING_IN_AGGREGATE,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=HAVING_IN_AGGREGATE,RANGE_TYPE,CIVIL_TIME]
 [name=aggregate_count_distinct_range_datetime_having_bool]
 SELECT COUNT(DISTINCT range_datetime_val HAVING MIN bool_val), COUNT(DISTINCT range_datetime_val HAVING MAX bool_val),
 FROM TableDatetimeRangeType
 --
 ARRAY<STRUCT<INT64, INT64>>[{2, 2}]
 ==
-[required_features=V_1_1_HAVING_IN_AGGREGATE,RANGE_TYPE]
+[required_features=HAVING_IN_AGGREGATE,RANGE_TYPE]
 [name=aggregate_count_distinct_range_having_range]
 SELECT COUNT(DISTINCT range_date_val HAVING MIN range_date_val),
 COUNT(DISTINCT range_date_val HAVING MAX range_date_val),
@@ -908,7 +908,7 @@ FROM TableRangeTypes
 --
 ARRAY<STRUCT<INT64, INT64, INT64, INT64>>[{1, 1, 1, 1}]
 ==
-[required_features=V_1_1_HAVING_IN_AGGREGATE,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=HAVING_IN_AGGREGATE,RANGE_TYPE,CIVIL_TIME]
 [name=aggregate_count_distinct_range_datetime_having_range]
 SELECT COUNT(DISTINCT range_datetime_val HAVING MIN range_datetime_val),
 COUNT(DISTINCT range_datetime_val HAVING MAX range_datetime_val),
@@ -985,3 +985,18 @@ FROM UNNEST([
             ]) AS a;
 --
 ARRAY<STRUCT<INT64>>[{3}]
+==
+
+# Here, the first set of rows results in an accumulation error (overflow), but
+# the other rows have a higher row_id, meaning that the first set shouldn't have
+# been considered. We make sure the error is correctly discarded.
+[name=errors_from_accumulating_disqualified_rows_should_be_discarded]
+SELECT SUM(val HAVING MAX key)
+FROM (
+  SELECT 1 AS key, 9223372036854775807 AS val UNION ALL
+  SELECT 1, 9223372036854775807 UNION ALL
+  SELECT 2, 2 UNION ALL
+  SELECT 2, 2
+)
+--
+ARRAY<STRUCT<INT64>>[{4}]

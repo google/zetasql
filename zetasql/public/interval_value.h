@@ -44,7 +44,7 @@ class IntervalValue final {
   // Nanoseconds  - 69 bits
   // Nanoseconds fraction of microseconds - 10 bits.
 
-  // Two of the most used fields - micros and days get int64_t and int32_t
+  // Two of the most used fields - micros and days get int64 and int32
   // parts of interval.
   //
   // 0   1   2   3   4   5   6   7   8   9   0   1   2   3   4   5   6

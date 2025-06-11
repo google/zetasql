@@ -1,7 +1,7 @@
 # The "civil_time_types_and_functions" label applies to all queries in this
 # file related to the ZetaSQL V1.2 civil time types: TIME and DATETIME.
 [default global_labels=civil_time_types_and_functions]
-[default required_features=V_1_2_CIVIL_TIME]
+[default required_features=CIVIL_TIME]
 
 [load_proto_files=zetasql/testdata/test_schema.proto]
 [load_proto_names=zetasql_test__.CivilTimeTypesSinkPB]
@@ -19,7 +19,7 @@ ARRAY<STRUCT<TIME, DATETIME>>[
 ==
 
 [name=civil_time_nano_literals]
-[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
+[required_features=CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT TIME '01:02:03.123456789',
        DATETIME '2006-01-02 03:04:05.123456789'
 --
@@ -106,7 +106,7 @@ ARRAY<STRUCT<TIME,
 ==
 
 [name=roundtrip_cast_between_string_and_time_nano]
-[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
+[required_features=CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT
     CAST(CAST(TIME "23:59:59.999999999" as STRING) as TIME),
     CAST(CAST(TIME "01:02:03.123456789" as STRING) as TIME),
@@ -243,7 +243,7 @@ ARRAY<STRUCT<DATETIME,
  }]
 ==
 [name=roundtrip_cast_between_string_and_datetime_nano]
-[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
+[required_features=CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT
     CAST(CAST(DATETIME "9999-12-31 23:59:59.999999999" as STRING) as DATETIME),
     CAST(CAST(DATETIME "2006-01-02 01:02:03.123456789" as STRING) as DATETIME),
@@ -793,7 +793,7 @@ ARRAY<STRUCT<BOOL, BOOL>>[{true, true}]
 ==
 
 [name=current_time_nanos]
-[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
+[required_features=CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT
   current_time >= time '00:00:00',
   current_time <= time '23:59:59.999999999';
@@ -825,7 +825,7 @@ ARRAY<STRUCT<INT64, INT64, INT64, INT64, INT64>>[{12, 34, 56, 999, 999999}]
 ==
 
 [name=extract_from_time_with_nano]
-[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
+[required_features=CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT
   EXTRACT(HOUR FROM time),
   EXTRACT(MINUTE FROM time),
@@ -915,7 +915,7 @@ ARRAY<STRUCT<INT64,
 ==
 
 [name=extract_from_datetime_nano]
-[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
+[required_features=CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT
   EXTRACT(YEAR FROM datetime),
   EXTRACT(QUARTER FROM datetime),
@@ -1045,7 +1045,7 @@ ERROR: generic::out_of_range: Adding 1 MICROSECOND to datetime 9999-12-31 23:59:
 ==
 
 [name=datetime_add_nanos_positive_overflow]
-[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
+[required_features=CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT
   DATETIME_ADD(DATETIME '9999-12-31 23:59:59.999999', interval 1000 NANOSECOND);
 --
@@ -1060,7 +1060,7 @@ ERROR: generic::out_of_range: Adding -1 MICROSECOND to datetime 0001-01-01 00:00
 ==
 
 [name=datetime_add_nanos_negative_overflow]
-[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
+[required_features=CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT
   DATETIME_ADD(DATETIME '0001-01-01 00:00:00', interval -1 NANOSECOND);
 --
@@ -1082,7 +1082,7 @@ ERROR: generic::out_of_range: Subtracting -1 MICROSECOND from datetime 9999-12-3
 ==
 
 [name=datetime_sub_int64min_plus_1_ok]
-[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
+[required_features=CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT
   DATETIME_SUB(DATETIME '9707-09-22 00:12:43.145224192', interval (-9223372036854775808+1) NANOSECOND);
 --
@@ -1090,7 +1090,7 @@ ARRAY<STRUCT<DATETIME>>[{9999-12-31 23:59:59.999999999}]
 ==
 
 [name=datetime_sub_int64min_ok]
-[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
+[required_features=CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT
   DATETIME_SUB(DATETIME '9707-09-22 00:12:43.145224191', interval -9223372036854775808 NANOSECOND);
 --
@@ -1098,7 +1098,7 @@ ARRAY<STRUCT<DATETIME>>[{9999-12-31 23:59:59.999999999}]
 ==
 
 [name=datetime_sub_int64min_overflow]
-[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
+[required_features=CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT
   DATETIME_SUB(DATETIME '9707-09-22 00:12:43.145224192', interval -9223372036854775808 NANOSECOND);
 --
@@ -1184,7 +1184,7 @@ ARRAY<STRUCT<STRING, STRING, STRING, STRING, STRING, STRING>>[unknown order:
   }
 ]
 ==
-[required_features=V_1_2_CIVIL_TIME,V_1_3_DATE_TIME_CONSTRUCTORS]
+[required_features=CIVIL_TIME,DATE_TIME_CONSTRUCTORS]
 [name=datetime_constructor]
 select datetime(datetime '9876-12-31 18:19:20.567'),
        datetime('2000-01-01' || ' ' || '18:17:16'),
@@ -1200,20 +1200,20 @@ ARRAY<STRUCT<DATETIME, DATETIME, STRING, STRING>>[
   }
 ]
 ==
-[required_features=V_1_2_CIVIL_TIME,V_1_3_DATE_TIME_CONSTRUCTORS]
+[required_features=CIVIL_TIME,DATE_TIME_CONSTRUCTORS]
 [name=time_constructor]
 select time(time '11:22:33.444555'), string(time '01:02:03.456789')
 --
 ARRAY<STRUCT<TIME, STRING>>[{11:22:33.444555, "01:02:03.456789"}]
 ==
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 [parameters='2010-11-12 01:02:03.456-05' as p1]
 [name=time_on_string_literal_or_parameter]
 select time('2010-11-12 01:02:03.456'), time('2010-11-12 01:02:03.456+08'), time(@p1)
 --
 ARRAY<STRUCT<TIME, TIME, TIME>>[{01:02:03.456, 09:02:03.456, 22:02:03.456}]
 ==
-[required_features=TIMESTAMP_NANOS,V_1_2_CIVIL_TIME,V_1_3_DATE_TIME_CONSTRUCTORS]
+[required_features=TIMESTAMP_NANOS,CIVIL_TIME,DATE_TIME_CONSTRUCTORS]
 [name=constructors_nanos]
 select datetime(datetime '2001-02-03 04:05:06.789789789'),
        string(datetime '1987-12-31 12:34:56.789789789'),
@@ -1229,7 +1229,7 @@ ARRAY<STRUCT<DATETIME, STRING, TIME, STRING>>[
   }
 ]
 ==
-[required_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[required_features=CIVIL_TIME,EXTENDED_DATE_TIME_SIGNATURES]
 [name=datetime_in_date_add_sub]
 select
   date_add(dt, interval 1 year),        date_sub(dt, interval 1 year),
@@ -1277,7 +1277,7 @@ ARRAY<STRUCT<DATETIME,
    1999-12-31 23:59:59.999999
  }]
 ==
-[required_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[required_features=CIVIL_TIME,EXTENDED_DATE_TIME_SIGNATURES]
 [name=datetime_in_date_diff]
 select
   date_diff(dt1, dt2, year),
@@ -1296,7 +1296,7 @@ ARRAY<STRUCT<INT64, INT64, INT64, INT64, INT64, INT64, INT64, INT64, INT64, INT6
   {2, 5, 13, 52, 366, 8761, 525601, 31536001, 31536000001, 31536000000001}
 ]
 ==
-[required_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[required_features=CIVIL_TIME,EXTENDED_DATE_TIME_SIGNATURES]
 [name=datetime_in_date_trunc]
 select
   date_trunc(dt, year),
@@ -1334,7 +1334,7 @@ ARRAY<STRUCT<DATETIME,
    1987-08-07 12:34:56.789123
  }]
 ==
-[required_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[required_features=CIVIL_TIME,EXTENDED_DATE_TIME_SIGNATURES]
 [name=datetime_in_format_date]
 select
   format_date("%D %T", dt),
@@ -1344,7 +1344,7 @@ from (select datetime '1987-08-07 12:34:56.789123' dt)
 ARRAY<STRUCT<STRING, STRING>>[{"08/07/87 12:34:56", "219 87"}]
 ==
 
-[required_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[required_features=CIVIL_TIME,EXTENDED_DATE_TIME_SIGNATURES]
 [name=timestamp_in_datetime_add_sub]
 select
   datetime_add(ts, interval 1 day),         datetime_sub(ts, interval 1 day),
@@ -1378,7 +1378,7 @@ ARRAY<STRUCT<TIMESTAMP,
  }]
 ==
 
-[required_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[required_features=CIVIL_TIME,EXTENDED_DATE_TIME_SIGNATURES]
 [name=timestamp_in_datetime_diff]
 select
   datetime_diff(ts2, ts1, day),
@@ -1393,7 +1393,7 @@ ARRAY<STRUCT<INT64, INT64, INT64, INT64, INT64>>[
 ]
 ==
 
-[required_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[required_features=CIVIL_TIME,EXTENDED_DATE_TIME_SIGNATURES]
 [name=timestamp_in_datetime_trunc]
 select
   datetime_trunc(ts, year),
@@ -1429,7 +1429,7 @@ ARRAY<STRUCT<TIMESTAMP,
  }]
 ==
 
-[required_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[required_features=CIVIL_TIME,EXTENDED_DATE_TIME_SIGNATURES]
 [name=timestamp_in_format_datetime]
 select
   format_datetime("%D %T", ts),
@@ -1442,7 +1442,7 @@ ARRAY<STRUCT<STRING, STRING, STRING>>[
 ]
 ==
 
-[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,V_1_2_CIVIL_TIME]
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,CIVIL_TIME]
 [name=datetime_bucket]
 select
   datetime_bucket(dt, INTERVAL '0.0005' SECOND),
@@ -1465,7 +1465,7 @@ ARRAY<STRUCT<DATETIME, DATETIME, DATETIME, DATETIME, DATETIME, DATETIME>>[
 ]
 ==
 
-[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,V_1_2_CIVIL_TIME]
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,CIVIL_TIME]
 [name=datetime_bucket_custom_origin]
 select
   datetime_bucket(dt, INTERVAL '0.0005' SECOND, origin),
@@ -1489,7 +1489,7 @@ ARRAY<STRUCT<DATETIME, DATETIME, DATETIME, DATETIME, DATETIME, DATETIME>>[
 ]
 ==
 
-[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,CIVIL_TIME,TIMESTAMP_NANOS]
 [name=datetime_bucket_nanos]
 select
   datetime_bucket('2020-02-15 14:57:39.123456789',
@@ -1505,7 +1505,7 @@ ARRAY<STRUCT<DATETIME, DATETIME>>[
 ]
 ==
 
-[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,CIVIL_TIME,EXTENDED_DATE_TIME_SIGNATURES]
 [name=datetime_in_timestamp_bucket]
 select
   timestamp_bucket(dt, INTERVAL 7 DAY),
@@ -1515,7 +1515,7 @@ from (select datetime '2020-02-15 14:57:39.646565' dt)
 ARRAY<STRUCT<DATETIME, DATETIME>>[{2020-02-09 00:00:00, 2020-02-14 07:00:00}]
 ==
 
-[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,CIVIL_TIME,EXTENDED_DATE_TIME_SIGNATURES]
 [name=datetime_in_date_bucket]
 select
   date_bucket(dt, INTERVAL 7 DAY),
@@ -1525,7 +1525,7 @@ from (select datetime '2020-02-15 14:57:39.646565' dt)
 ARRAY<STRUCT<DATETIME, DATETIME>>[{2020-02-09 00:00:00, 2020-02-14 07:00:00}]
 ==
 
-[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,V_1_2_CIVIL_TIME]
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,CIVIL_TIME]
 [name=datetime_bucket_null_inputs]
 select
   datetime_bucket(NULL, INTERVAL 3 HOUR),
@@ -1539,7 +1539,7 @@ ARRAY<STRUCT<DATETIME, DATETIME, DATETIME, DATETIME, DATETIME>>[
 ]
 ==
 
-[required_features=V_1_2_CIVIL_TIME,INTERVAL_TYPE,TIME_BUCKET_FUNCTIONS]
+[required_features=CIVIL_TIME,INTERVAL_TYPE,TIME_BUCKET_FUNCTIONS]
 [name=datetime_bucket_no_civil_time]
 select
   datetime_bucket('2020-02-15 14:57:39', INTERVAL 1 DAY)
@@ -1549,7 +1549,7 @@ ARRAY<STRUCT<DATETIME>>[{2020-02-15 00:00:00}]
 
 # A proto with a DATETIME_MICROS type annotation should produce an error when
 # an explicit-0 value is encoded for the field, as this is not valid.
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 [name=datetime_micros_annotation_explicit_0_value]
 select
   CAST(b'\x18\x00' AS zetasql_test__.CivilTimeTypesSinkPB).datetime_micros AS datetime_micros
@@ -1559,7 +1559,7 @@ ERROR: generic::out_of_range: Corrupted protocol buffer: Failed to interpret val
 
 # A proto with a DATETIME_MICROS type annotation should produce a NULL when
 # a default-0 value is encoded for the field.
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 [name=datetime_micros_annotation_default_0_value]
 select
   CAST(b'' AS zetasql_test__.CivilTimeTypesSinkPB).datetime_micros AS datetime_micros

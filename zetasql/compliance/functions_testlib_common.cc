@@ -250,7 +250,7 @@ Value ProtoDuration(int64_t seconds, int32_t nanos) {
 
 // Each returned row (vector) contains distinct values of a certain type.
 std::vector<std::vector<Value>> GetRowsOfValues() {
-  const StructType* struct_type = SimpleStructType();  // a: string, b: int32_t
+  const StructType* struct_type = SimpleStructType();  // a: string, b: int32
   const Value struct0 = Value::Struct(struct_type, {String("foo"), Int32(0)});
   const Value struct1 = Value::Struct(struct_type, {String("bar"), Int32(1)});
   const Value array0 = Value::Array(Int64ArrayType(), {Int64(0), Int64(1)});
@@ -373,7 +373,7 @@ static void AddTestCasesForCivilTimeAndNanos(
       QueryParamsWithResult(test_case.input, test_case.nanos_output,
                             test_case.output_type)
           .AddRequiredFeatures(test_case.required_features)
-          .AddRequiredFeature(FEATURE_V_1_2_CIVIL_TIME);
+          .AddRequiredFeature(FEATURE_CIVIL_TIME);
   // Some tests are setup with TIMESTAMP_NANOS explicitly required.
   if (zetasql_base::ContainsKey(test_case.required_features, FEATURE_TIMESTAMP_NANOS)) {
     add_test(with_nanos_result);
@@ -385,7 +385,7 @@ static void AddTestCasesForCivilTimeAndNanos(
     return;
   }
   // There are two paths. If the expected status and value are the same for
-  // micros and nanos (e.g. NULL int64_t + OK) then we don't want to add
+  // micros and nanos (e.g. NULL int64 + OK) then we don't want to add
   // the nanos feature as required or as prohibited. The same test applies
   // reguardless of that feature state.  If they are different, then we need
   // to generate two tests. One with the feature required, the other with the
@@ -405,7 +405,7 @@ static void AddTestCasesForCivilTimeAndNanos(
       QueryParamsWithResult(test_case.input, test_case.micros_output,
                             test_case.output_type)
           .AddRequiredFeatures(test_case.required_features)
-          .AddRequiredFeature(FEATURE_V_1_2_CIVIL_TIME)
+          .AddRequiredFeature(FEATURE_CIVIL_TIME)
           .AddProhibitedFeature(FEATURE_TIMESTAMP_NANOS);
   add_test(with_micros_result);
   with_nanos_result.AddRequiredFeature(FEATURE_TIMESTAMP_NANOS);
@@ -429,7 +429,7 @@ void AddTestCaseWithWrappedResultForCivilTimeAndNanos(
       });
 }
 
-const std::string EscapeKey(bool sql_standard_mode, absl::string_view key) {
+std::string EscapeKey(bool sql_standard_mode, absl::string_view key) {
   if (sql_standard_mode) {
     return absl::StrCat(".\"", key, "\"");
   } else {

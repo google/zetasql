@@ -195,11 +195,13 @@ std::string InputArgumentType::DebugString(bool verbose) const {
     }
     absl::StrAppend(&prefix, "parameter ");
   }
-  if (type_ == nullptr) {
-    return prefix;
-  } else {
-    return absl::StrCat(prefix, type_->DebugString());
+  if (is_chained_function_call_input_) {
+    absl::StrAppend(&prefix, "chained_function_call_input ");
   }
+  if (type_ != nullptr) {
+    absl::StrAppend(&prefix, type_->DebugString());
+  }
+  return prefix;
 }
 
 // static
@@ -220,10 +222,13 @@ std::string InputArgumentType::ArgumentsToString(
     // Mark pipe input table arguments to try to make error messages clearer
     // when a pipe input table is inserted somewhere in the argument list.
     absl::StrAppend(&arguments_string, (first ? "" : ", "),
-                    argument.is_pipe_input_table() ? "pipe_input:" : "",
                     !argument_name.empty() ? argument_name : "",
                     !argument_name.empty() ? " => " : "",
-                    argument.UserFacingName(product_mode));
+                    argument.UserFacingName(product_mode),
+                    argument.is_pipe_input_table() ? " (from pipe input)" : "",
+                    argument.is_chained_function_call_input()
+                        ? " (from chained function call input)"
+                        : "");
     if (arguments_string.size() > kMaxArgumentsStringLength) {
       constexpr absl::string_view kEllipses = "...";
       arguments_string.resize(kMaxArgumentsStringLength - kEllipses.size());

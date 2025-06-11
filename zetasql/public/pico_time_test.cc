@@ -16,6 +16,7 @@
 
 #include "zetasql/public/pico_time.h"
 
+#include <cstdint>
 #include <string>
 
 #include "zetasql/base/testing/status_matchers.h"
@@ -37,7 +38,7 @@ using ::zetasql_base::testing::StatusIs;
 
 class PicoTimeTest : public testing::Test {
  public:
-  absl::Time ParseTime(absl::string_view str) {
+  static absl::Time ParseTime(absl::string_view str) {
     absl::Time timestamp;
     std::string err;
     bool success =
@@ -166,5 +167,34 @@ TEST_F(PicoTimeTest, ToAbslTimeAndSubNanoseconds) {
   EXPECT_EQ(time.SubNanoseconds(), 321);
 }
 
+struct ToStringTestCase {
+  std::string absl_time;
+  uint64_t picoseconds;
+  std::string expected_string;
+};
+
+class ToStringTest : public ::testing::TestWithParam<ToStringTestCase> {};
+
+TEST_P(ToStringTest, ToStringTest) {
+  const ToStringTestCase test = GetParam();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto time,
+                       PicoTime::Create(PicoTimeTest::ParseTime(test.absl_time),
+                                        test.picoseconds));
+  EXPECT_EQ(time.ToString(), test.expected_string);
+}
+
+INSTANTIATE_TEST_SUITE_P(ToStringTests, ToStringTest,
+                         ::testing::ValuesIn<ToStringTestCase>({
+                             {"1234-01-02 03:04:05+00", 123'456'789'001,
+                              "1234-01-02 03:04:05.123456789001+00"},
+                             {"1234-01-02 03:04:05+00", 123'456'789'010,
+                              "1234-01-02 03:04:05.12345678901+00"},
+                             {"1234-01-02 03:04:05+00", 123'456'781'000,
+                              "1234-01-02 03:04:05.123456781+00"},
+                             {"1234-01-02 03:04:05+00", 123'456'710'000,
+                              "1234-01-02 03:04:05.12345671+00"},
+                             {"1234-01-02 03:04:05+00", 123'456'789'012,
+                              "1234-01-02 03:04:05.123456789012+00"},
+                         }));
 }  // namespace
 }  // namespace zetasql

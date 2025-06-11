@@ -13,7 +13,7 @@
 
 # nested set operation: <nested BY POSITION> LEFT CORRESPONDING <flat>
 [name=nested_strict_by_position_left_corresponding]
-[default required_features=V_1_4_CORRESPONDING_FULL]
+[default required_features=CORRESPONDING_FULL]
 WITH
   Table1 AS (
     SELECT CAST(1 AS INT64) AS a, CAST(1 AS INT64) AS b UNION ALL SELECT 1, 1

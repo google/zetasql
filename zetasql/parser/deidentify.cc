@@ -112,7 +112,7 @@ class DeidentifyingUnparser : public Unparser {
                               void* data) override {
     if (deidentified_ast_node_kinds_.find(node->node_kind()) !=
         deidentified_ast_node_kinds_.end()) {
-      formatter_.Format("0");
+      formatter_.Format("NUMERIC \"0\"");
       return;
     }
 
@@ -135,7 +135,7 @@ class DeidentifyingUnparser : public Unparser {
                                  void* data) override {
     if (deidentified_ast_node_kinds_.find(node->node_kind()) !=
         deidentified_ast_node_kinds_.end()) {
-      formatter_.Format("0");
+      formatter_.Format("BIGNUMERIC \"0\"");
       return;
     }
 

@@ -7,7 +7,6 @@
 ################################################################################
 #
 # Empty argument list.
-[default also_show_signature_mismatch_details]
 [default language_features=TABLE_VALUED_FUNCTIONS]
 select 1 from tvf_no_args()
 --
@@ -20,7 +19,7 @@ QueryStmt
     +-expr_list=
     | +-$col1#3 := Literal(type=INT64, value=1)
     +-input_scan=
-      +-TVFScan(tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+      +-TVFScan(tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
 ==
 
 # Empty argument list.
@@ -33,7 +32,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=[tvf_no_args.column_bytes#2]
     +-input_scan=
-      +-TVFScan(column_list=[tvf_no_args.column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[1])
+      +-TVFScan(column_list=[tvf_no_args.column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[1], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
 ==
 
 # Empty argument list.
@@ -47,7 +46,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=tvf_no_args.[column_bool#1, column_bytes#2]
     +-input_scan=
-      +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+      +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
 ==
 
 # Literals in the argument list.
@@ -76,6 +75,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=3)
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64, INT64, INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # A subquery in the argument list.
@@ -110,6 +110,7 @@ QueryStmt
         |               +-group_by_list=
         |                 +-Key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # A subquery and literals in the argument list.
@@ -153,6 +154,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=3)
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64, INT64, INT64, INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Complex expressions in the argument list.
@@ -187,6 +189,7 @@ QueryStmt
         |       +-Literal(type=INT64, value=5)
         |       +-Literal(type=INT64, value=6)
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64, INT64, INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # A subquery and complex expressions in the argument list.
@@ -231,6 +234,7 @@ QueryStmt
         |       +-Literal(type=INT64, value=3)
         |       +-Literal(type=INT64, value=4)
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64, INT64, INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # A subquery and complex expressions in the argument list.
@@ -272,6 +276,7 @@ QueryStmt
         |       +-Literal(type=INT64, value=3)
         |       +-Literal(type=INT64, value=4)
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64, INT64, INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Two subqueries in the argument list.
@@ -318,6 +323,7 @@ QueryStmt
         |           +-input_scan=
         |             +-SingleRowScan
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64, INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # A subquery and SQL function calls in the argument list.
@@ -361,6 +367,7 @@ QueryStmt
         |         +-Literal(type=INT64, value=1)
         |         +-Literal(type=INT64, value=2)
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64, INT64, INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Multiple levels of parentheses in various TVF arguments.
@@ -392,6 +399,7 @@ QueryStmt
         |           +-input_scan=
         |             +-SingleRowScan
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # The parser interprets the ((1)) argument as a parenthesized literal value.
@@ -414,6 +422,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=1)
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # The parser correctly handles the ((select 1) + 1) argument.
@@ -447,6 +456,7 @@ QueryStmt
         |       |       +-SingleRowScan
         |       +-Literal(type=INT64, value=1)
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # The parser correctly interprets the argument as a scalar value.
@@ -480,6 +490,7 @@ QueryStmt
         |             +-input_scan=
         |               +-SingleRowScan
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Multiple levels of parentheses in various TVF arguments.
@@ -509,8 +520,9 @@ QueryStmt
         |           +-expr_list=
         |           | +-$col1#3 := Literal(type=INT64, value=1)
         |           +-input_scan=
-        |             +-TVFScan(tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        |             +-TVFScan(tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 
@@ -534,7 +546,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=tvf_no_args_return_all_pod_types.[column_bool#1, column_bytes#2, column_date#3, column_double#4, column_float#5, column_int32#6, column_int64#7, column_string#8, column_time#9, column_uint32#10, column_uint64#11]
     +-input_scan=
-      +-TVFScan(column_list=tvf_no_args_return_all_pod_types.[column_bool#1, column_bytes#2, column_date#3, column_double#4, column_float#5, column_int32#6, column_int64#7, column_string#8, column_time#9, column_uint32#10, column_uint64#11], tvf=tvf_no_args_return_all_pod_types(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+      +-TVFScan(column_list=tvf_no_args_return_all_pod_types.[column_bool#1, column_bytes#2, column_date#3, column_double#4, column_float#5, column_int32#6, column_int64#7, column_string#8, column_time#9, column_uint32#10, column_uint64#11], tvf=tvf_no_args_return_all_pod_types(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
 ==
 
 # Select some columns from a TVF that returns all POD types.
@@ -552,7 +564,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=tvf_no_args_return_all_pod_types.[column_date#3, column_double#4, column_int32#6, column_time#9, column_uint64#11]
     +-input_scan=
-      +-TVFScan(column_list=tvf_no_args_return_all_pod_types.[column_date#3, column_double#4, column_int32#6, column_time#9, column_uint64#11], tvf=tvf_no_args_return_all_pod_types(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[2, 3, 5, 8, 10])
+      +-TVFScan(column_list=tvf_no_args_return_all_pod_types.[column_date#3, column_double#4, column_int32#6, column_time#9, column_uint64#11], tvf=tvf_no_args_return_all_pod_types(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[2, 3, 5, 8, 10], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
 ==
 
 [language_features=TABLE_VALUED_FUNCTIONS,INTERVAL_TYPE]
@@ -590,6 +602,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=BOOL, value=true)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(BOOL) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_bool_arg.column_bool#1]
       +-SetOperationItem
       | +-scan=
@@ -605,6 +618,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=BYTES, value=b"", has_explicit_type=TRUE)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(BYTES) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_bytes_arg.column_bool#3]
       +-SetOperationItem
       | +-scan=
@@ -620,6 +634,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=DOUBLE, value=42, has_explicit_type=TRUE)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(DOUBLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_double_arg.column_bool#5]
       +-SetOperationItem
       | +-scan=
@@ -635,6 +650,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=FLOAT, value=42, has_explicit_type=TRUE)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(FLOAT) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_float_arg.column_bool#7]
       +-SetOperationItem
       | +-scan=
@@ -650,6 +666,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=INT32, value=42, has_explicit_type=TRUE)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(INT32) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_int32_arg.column_bool#9]
       +-SetOperationItem
       | +-scan=
@@ -665,6 +682,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=INT64, value=42, has_explicit_type=TRUE)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_int64_arg.column_bool#11]
       +-SetOperationItem
       | +-scan=
@@ -680,6 +698,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=STRING, value="abc")
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(STRING) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_string_arg.column_bool#13]
       +-SetOperationItem
       | +-scan=
@@ -695,6 +714,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=UINT32, value=42, has_explicit_type=TRUE)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(UINT32) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_uint32_arg.column_bool#15]
       +-SetOperationItem
       | +-scan=
@@ -710,6 +730,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=UINT64, value=42, has_explicit_type=TRUE)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(UINT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_uint64_arg.column_bool#17]
       +-SetOperationItem
         +-scan=
@@ -727,6 +748,7 @@ QueryStmt
         |       |       +-Literal(type=INT64, value=5)
         |       |       +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=MINUTE)
         |       +-column_index_list=[0]
+        |       +-function_call_signature=(INTERVAL) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-output_column_list=[tvf_exactly_1_interval_arg.column_bool#19]
 ==
 
@@ -763,6 +785,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=DOUBLE, value=42)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(DOUBLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_double_arg.column_bool#1]
       +-SetOperationItem
       | +-scan=
@@ -778,6 +801,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=FLOAT, value=42)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(FLOAT) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_float_arg.column_bool#3]
       +-SetOperationItem
       | +-scan=
@@ -793,6 +817,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=INT32, value=42)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(INT32) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_int32_arg.column_bool#5]
       +-SetOperationItem
       | +-scan=
@@ -808,6 +833,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=INT64, value=42)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_int64_arg.column_bool#7]
       +-SetOperationItem
       | +-scan=
@@ -823,6 +849,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=UINT32, value=42)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(UINT32) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_uint32_arg.column_bool#9]
       +-SetOperationItem
       | +-scan=
@@ -838,6 +865,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=UINT64, value=42)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(UINT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_uint64_arg.column_bool#11]
       +-SetOperationItem
         +-scan=
@@ -853,6 +881,7 @@ QueryStmt
         |       |   +-expr=
         |       |     +-Literal(type=UINT64, value=NULL)
         |       +-column_index_list=[0]
+        |       +-function_call_signature=(UINT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-output_column_list=[tvf_exactly_1_uint64_arg.column_bool#13]
 ==
 
@@ -890,6 +919,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=DOUBLE, value=42, has_explicit_type=TRUE)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(DOUBLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_double_arg.column_bool#1]
       +-SetOperationItem
       | +-scan=
@@ -905,6 +935,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=DOUBLE, value=42, has_explicit_type=TRUE)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(DOUBLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_double_arg.column_bool#3]
       +-SetOperationItem
       | +-scan=
@@ -920,6 +951,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=DOUBLE, value=42, has_explicit_type=TRUE)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(DOUBLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_double_arg.column_bool#5]
       +-SetOperationItem
       | +-scan=
@@ -935,6 +967,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=DOUBLE, value=42, has_explicit_type=TRUE)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(DOUBLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_double_arg.column_bool#7]
       +-SetOperationItem
       | +-scan=
@@ -950,6 +983,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=DOUBLE, value=42, has_explicit_type=TRUE)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(DOUBLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_double_arg.column_bool#9]
       +-SetOperationItem
       | +-scan=
@@ -965,6 +999,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=INT32, value=42, has_explicit_type=TRUE)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(INT32) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_int32_arg.column_bool#11]
       +-SetOperationItem
       | +-scan=
@@ -980,6 +1015,7 @@ QueryStmt
       | |       |   +-expr=
       | |       |     +-Literal(type=INT64, value=42, has_explicit_type=TRUE)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_int64_arg.column_bool#13]
       +-SetOperationItem
         +-scan=
@@ -995,6 +1031,7 @@ QueryStmt
         |       |   +-expr=
         |       |     +-Literal(type=UINT64, value=42, has_explicit_type=TRUE)
         |       +-column_index_list=[0]
+        |       +-function_call_signature=(UINT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-output_column_list=[tvf_exactly_1_uint64_arg.column_bool#15]
 ==
 
@@ -1032,6 +1069,7 @@ QueryStmt
       | |       |       +-FunctionCall(ZetaSQL:coalesce(repeated(1) INT64) -> INT64)
       | |       |         +-Literal(type=INT64, value=42)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(DOUBLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_double_arg.column_bool#1]
       +-SetOperationItem
       | +-scan=
@@ -1049,6 +1087,7 @@ QueryStmt
       | |       |       +-FunctionCall(ZetaSQL:coalesce(repeated(1) INT32) -> INT32)
       | |       |         +-Literal(type=INT32, value=42, has_explicit_type=TRUE)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_int64_arg.column_bool#3]
       +-SetOperationItem
       | +-scan=
@@ -1066,6 +1105,7 @@ QueryStmt
       | |       |       +-FunctionCall(ZetaSQL:coalesce(repeated(1) UINT32) -> UINT32)
       | |       |         +-Literal(type=UINT32, value=42, has_explicit_type=TRUE)
       | |       +-column_index_list=[0]
+      | |       +-function_call_signature=(UINT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
       | +-output_column_list=[tvf_exactly_1_uint64_arg.column_bool#5]
       +-SetOperationItem
         +-scan=
@@ -1083,6 +1123,7 @@ QueryStmt
         |       |       +-FunctionCall(ZetaSQL:coalesce(repeated(1) UINT32) -> UINT32)
         |       |         +-Literal(type=UINT32, value=NULL, has_explicit_type=TRUE)
         |       +-column_index_list=[0]
+        |       +-function_call_signature=(UINT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-output_column_list=[tvf_exactly_1_uint64_arg.column_bool#7]
 ==
 
@@ -1105,6 +1146,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=42)
         +-column_index_list=[0]
+        +-function_call_signature=(INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # The TVF accepts a templated argument.
@@ -1126,6 +1168,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=42)
         +-column_index_list=[0]
+        +-function_call_signature=(INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # The TVF accepts a templated argument.
@@ -1147,6 +1190,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
         +-column_index_list=[0]
+        +-function_call_signature=(ARRAY<INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # The TVF accepts a templated argument.
@@ -1168,6 +1212,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
         +-column_index_list=[0]
+        +-function_call_signature=(ARRAY<INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # The TVF accepts a templated argument.
@@ -1189,6 +1234,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=42)
         +-column_index_list=[0]
+        +-function_call_signature=(INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # The TVF accepts a templated argument.
@@ -1211,6 +1257,7 @@ QueryStmt
         |   +-expr=
         |     +-MakeProto(type=PROTO<zetasql_test__.TestExtraPB>)
         +-column_index_list=[0]
+        +-function_call_signature=(PROTO<zetasql_test__.TestExtraPB>) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # The TVF accepts a templated argument.
@@ -1242,6 +1289,7 @@ QueryStmt
         |           +-input_scan=
         |             +-SingleRowScan
         +-column_index_list=[0]
+        +-function_call_signature=(STRUCT<INT64, INT64, INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # The TVF accepts a templated argument.
@@ -1264,6 +1312,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
         +-column_index_list=[0]
+        +-function_call_signature=(ENUM<zetasql_test__.TestEnum>) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # The TVF accepts a repeating final argument.
@@ -1298,6 +1347,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=5)
         +-column_index_list=[0]
+        +-function_call_signature=(repeated(5) INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # The TVF accepts a templated repeating final argument.
@@ -1332,6 +1382,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=5)
         +-column_index_list=[0]
+        +-function_call_signature=(repeated(5) INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # The TVF accepts a templated repeating final argument.
@@ -1363,6 +1414,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="b")
         +-column_index_list=[0]
+        +-function_call_signature=(repeated(1) INT64, repeated(1) STRING, repeated(1) INT64, repeated(1) STRING) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # A subquery and nested TVF calls in the argument list.
@@ -1421,7 +1473,7 @@ QueryStmt
         | |         +-expr_list=
         | |         | +-$col1#5 := Literal(type=INT64, value=1)
         | |         +-input_scan=
-        | |           +-TVFScan(tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        | |           +-TVFScan(tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
         | +-FunctionArgument
         | | +-expr=
         | |   +-SubqueryExpr
@@ -1436,7 +1488,7 @@ QueryStmt
         | |         |   +-expr_list=
         | |         |   | +-$col1#8 := Literal(type=INT64, value=1)
         | |         |   +-input_scan=
-        | |         |     +-TVFScan(tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        | |         |     +-TVFScan(tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
         | |         +-limit=
         | |           +-Literal(type=INT64, value=1)
         | +-FunctionArgument
@@ -1450,8 +1502,9 @@ QueryStmt
         |           +-expr_list=
         |           | +-$col1#11 := Literal(type=INT64, value=1)
         |           +-input_scan=
-        |             +-TVFScan(tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        |             +-TVFScan(tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64, INT64, INT64, INT64, INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # A TVF has a correlated reference to the enclosing query in the SELECT list.
@@ -1483,6 +1536,7 @@ QueryStmt
     |             |   +-expr=
     |             |     +-ColumnRef(type=INT64, column=KeyValue.Key#1, is_correlated=TRUE)
     |             +-column_index_list=[0]
+    |             +-function_call_signature=(INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
     +-input_scan=
       +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
 ==
@@ -1524,6 +1578,7 @@ QueryStmt
                     |   +-expr=
                     |     +-ColumnRef(type=INT64, column=KeyValue.Key#1, is_correlated=TRUE)
                     +-column_index_list=[0]
+                    +-function_call_signature=(INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # A TVF has a correlated reference to the enclosing query in the ORDER BY
@@ -1569,6 +1624,7 @@ QueryStmt
     |   |             |   +-expr=
     |   |             |     +-ColumnRef(type=INT64, column=KeyValue.Key#1, is_correlated=TRUE)
     |   |             +-column_index_list=[0]
+    |   |             +-function_call_signature=(INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
     |   +-input_scan=
     |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="kv")
     +-order_by_item_list=
@@ -1615,6 +1671,7 @@ QueryStmt
         |           |   +-expr=
         |           |     +-ColumnRef(type=INT64, column=KeyValue.Key#1, is_correlated=TRUE)
         |           +-column_index_list=[0]
+        |           +-function_call_signature=(INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-element_column_list=[$array.$unnest1#5]
 ==
 
@@ -1637,6 +1694,7 @@ QueryStmt
         |   +-expr=
         |     +-Parameter(type=BOOL, name="test_param_bool")
         +-column_index_list=[0]
+        +-function_call_signature=(BOOL) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # The query calls a function that has a deprecation warning, which should be
@@ -1656,7 +1714,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=tvf_deprecation_warning.[column_bool#1, column_bytes#2]
     +-input_scan=
-      +-TVFScan(column_list=tvf_deprecation_warning.[column_bool#1, column_bytes#2], tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+      +-TVFScan(column_list=tvf_deprecation_warning.[column_bool#1, column_bytes#2], tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<>)
 
 
 DEPRECATION WARNING:
@@ -1686,7 +1744,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=tvf_two_deprecation_warnings_same_kind.[column_bool#1, column_bytes#2]
     +-input_scan=
-      +-TVFScan(column_list=tvf_two_deprecation_warnings_same_kind.[column_bool#1, column_bytes#2], tvf=tvf_two_deprecation_warnings_same_kind(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+      +-TVFScan(column_list=tvf_two_deprecation_warnings_same_kind.[column_bool#1, column_bytes#2], tvf=tvf_two_deprecation_warnings_same_kind(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<>)
 
 
 DEPRECATION WARNING:
@@ -1716,7 +1774,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=tvf_two_deprecation_warnings.[column_bool#1, column_bytes#2]
     +-input_scan=
-      +-TVFScan(column_list=tvf_two_deprecation_warnings.[column_bool#1, column_bytes#2], tvf=tvf_two_deprecation_warnings(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+      +-TVFScan(column_list=tvf_two_deprecation_warnings.[column_bool#1, column_bytes#2], tvf=tvf_two_deprecation_warnings(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<>)
 
 
 DEPRECATION WARNING:
@@ -1768,21 +1826,21 @@ QueryStmt
       | | +-ProjectScan
       | |   +-column_list=tvf_deprecation_warning.[column_bool#1, column_bytes#2]
       | |   +-input_scan=
-      | |     +-TVFScan(column_list=tvf_deprecation_warning.[column_bool#1, column_bytes#2], tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+      | |     +-TVFScan(column_list=tvf_deprecation_warning.[column_bool#1, column_bytes#2], tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<>)
       | +-output_column_list=tvf_deprecation_warning.[column_bool#1, column_bytes#2]
       +-SetOperationItem
       | +-scan=
       | | +-ProjectScan
       | |   +-column_list=tvf_two_deprecation_warnings_same_kind.[column_bool#3, column_bytes#4]
       | |   +-input_scan=
-      | |     +-TVFScan(column_list=tvf_two_deprecation_warnings_same_kind.[column_bool#3, column_bytes#4], tvf=tvf_two_deprecation_warnings_same_kind(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+      | |     +-TVFScan(column_list=tvf_two_deprecation_warnings_same_kind.[column_bool#3, column_bytes#4], tvf=tvf_two_deprecation_warnings_same_kind(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<>)
       | +-output_column_list=tvf_two_deprecation_warnings_same_kind.[column_bool#3, column_bytes#4]
       +-SetOperationItem
         +-scan=
         | +-ProjectScan
         |   +-column_list=tvf_two_deprecation_warnings.[column_bool#5, column_bytes#6]
         |   +-input_scan=
-        |     +-TVFScan(column_list=tvf_two_deprecation_warnings.[column_bool#5, column_bytes#6], tvf=tvf_two_deprecation_warnings(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+        |     +-TVFScan(column_list=tvf_two_deprecation_warnings.[column_bool#5, column_bytes#6], tvf=tvf_two_deprecation_warnings(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<>)
         +-output_column_list=tvf_two_deprecation_warnings.[column_bool#5, column_bytes#6]
 
 
@@ -1856,42 +1914,42 @@ QueryStmt
       | | +-ProjectScan
       | |   +-column_list=tvf_deprecation_warning.[column_bool#1, column_bytes#2]
       | |   +-input_scan=
-      | |     +-TVFScan(column_list=tvf_deprecation_warning.[column_bool#1, column_bytes#2], tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+      | |     +-TVFScan(column_list=tvf_deprecation_warning.[column_bool#1, column_bytes#2], tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<>)
       | +-output_column_list=tvf_deprecation_warning.[column_bool#1, column_bytes#2]
       +-SetOperationItem
       | +-scan=
       | | +-ProjectScan
       | |   +-column_list=tvf_deprecation_warning.[column_bool#3, column_bytes#4]
       | |   +-input_scan=
-      | |     +-TVFScan(column_list=tvf_deprecation_warning.[column_bool#3, column_bytes#4], tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+      | |     +-TVFScan(column_list=tvf_deprecation_warning.[column_bool#3, column_bytes#4], tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<>)
       | +-output_column_list=tvf_deprecation_warning.[column_bool#3, column_bytes#4]
       +-SetOperationItem
       | +-scan=
       | | +-ProjectScan
       | |   +-column_list=tvf_two_deprecation_warnings_same_kind.[column_bool#5, column_bytes#6]
       | |   +-input_scan=
-      | |     +-TVFScan(column_list=tvf_two_deprecation_warnings_same_kind.[column_bool#5, column_bytes#6], tvf=tvf_two_deprecation_warnings_same_kind(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+      | |     +-TVFScan(column_list=tvf_two_deprecation_warnings_same_kind.[column_bool#5, column_bytes#6], tvf=tvf_two_deprecation_warnings_same_kind(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<>)
       | +-output_column_list=tvf_two_deprecation_warnings_same_kind.[column_bool#5, column_bytes#6]
       +-SetOperationItem
       | +-scan=
       | | +-ProjectScan
       | |   +-column_list=tvf_two_deprecation_warnings_same_kind.[column_bool#7, column_bytes#8]
       | |   +-input_scan=
-      | |     +-TVFScan(column_list=tvf_two_deprecation_warnings_same_kind.[column_bool#7, column_bytes#8], tvf=tvf_two_deprecation_warnings_same_kind(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+      | |     +-TVFScan(column_list=tvf_two_deprecation_warnings_same_kind.[column_bool#7, column_bytes#8], tvf=tvf_two_deprecation_warnings_same_kind(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<>)
       | +-output_column_list=tvf_two_deprecation_warnings_same_kind.[column_bool#7, column_bytes#8]
       +-SetOperationItem
       | +-scan=
       | | +-ProjectScan
       | |   +-column_list=tvf_two_deprecation_warnings.[column_bool#9, column_bytes#10]
       | |   +-input_scan=
-      | |     +-TVFScan(column_list=tvf_two_deprecation_warnings.[column_bool#9, column_bytes#10], tvf=tvf_two_deprecation_warnings(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+      | |     +-TVFScan(column_list=tvf_two_deprecation_warnings.[column_bool#9, column_bytes#10], tvf=tvf_two_deprecation_warnings(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<>)
       | +-output_column_list=tvf_two_deprecation_warnings.[column_bool#9, column_bytes#10]
       +-SetOperationItem
         +-scan=
         | +-ProjectScan
         |   +-column_list=tvf_two_deprecation_warnings.[column_bool#11, column_bytes#12]
         |   +-input_scan=
-        |     +-TVFScan(column_list=tvf_two_deprecation_warnings.[column_bool#11, column_bytes#12], tvf=tvf_two_deprecation_warnings(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+        |     +-TVFScan(column_list=tvf_two_deprecation_warnings.[column_bool#11, column_bytes#12], tvf=tvf_two_deprecation_warnings(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<>)
         +-output_column_list=tvf_two_deprecation_warnings.[column_bool#11, column_bytes#12]
 
 
@@ -1971,7 +2029,7 @@ QueryStmt
       | |   +-expr_list=
       | |   | +-$col1#3 := FunctionCall(sample_functions:deprecation_warning() -> INT64)
       | |   +-input_scan=
-      | |     +-TVFScan(tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+      | |     +-TVFScan(tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<>)
       | +-output_column_list=[$union_all1.$col1#3]
       +-SetOperationItem
       | +-scan=
@@ -1980,7 +2038,7 @@ QueryStmt
       | |   +-expr_list=
       | |   | +-$col1#6 := FunctionCall(sample_functions:deprecation_warning() -> INT64)
       | |   +-input_scan=
-      | |     +-TVFScan(tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+      | |     +-TVFScan(tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<>)
       | +-output_column_list=[$union_all2.$col1#6]
       +-SetOperationItem
       | +-scan=
@@ -1989,7 +2047,7 @@ QueryStmt
       | |   +-expr_list=
       | |   | +-$col1#9 := FunctionCall(sample_functions:two_deprecation_warnings_same_kind() -> INT64)
       | |   +-input_scan=
-      | |     +-TVFScan(tvf=tvf_two_deprecation_warnings_same_kind(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+      | |     +-TVFScan(tvf=tvf_two_deprecation_warnings_same_kind(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<>)
       | +-output_column_list=[$union_all3.$col1#9]
       +-SetOperationItem
       | +-scan=
@@ -1998,7 +2056,7 @@ QueryStmt
       | |   +-expr_list=
       | |   | +-$col1#12 := FunctionCall(sample_functions:two_deprecation_warnings_same_kind() -> INT64)
       | |   +-input_scan=
-      | |     +-TVFScan(tvf=tvf_two_deprecation_warnings_same_kind(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+      | |     +-TVFScan(tvf=tvf_two_deprecation_warnings_same_kind(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<>)
       | +-output_column_list=[$union_all4.$col1#12]
       +-SetOperationItem
       | +-scan=
@@ -2007,7 +2065,7 @@ QueryStmt
       | |   +-expr_list=
       | |   | +-$col1#15 := FunctionCall(sample_functions:two_deprecation_warnings() -> INT64)
       | |   +-input_scan=
-      | |     +-TVFScan(tvf=tvf_two_deprecation_warnings(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+      | |     +-TVFScan(tvf=tvf_two_deprecation_warnings(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<>)
       | +-output_column_list=[$union_all5.$col1#15]
       +-SetOperationItem
         +-scan=
@@ -2016,7 +2074,7 @@ QueryStmt
         |   +-expr_list=
         |   | +-$col1#18 := FunctionCall(sample_functions:two_deprecation_warnings() -> INT64)
         |   +-input_scan=
-        |     +-TVFScan(tvf=tvf_two_deprecation_warnings(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        |     +-TVFScan(tvf=tvf_two_deprecation_warnings(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<>)
         +-output_column_list=[$union_all6.$col1#18]
 
 
@@ -2116,7 +2174,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=tvf_templated_calls_tvf_deprecation_warning.[column_bool#1, column_bytes#2]
     +-input_scan=
-      +-TVFScan(column_list=tvf_templated_calls_tvf_deprecation_warning.[column_bool#1, column_bytes#2], tvf=tvf_templated_calls_tvf_deprecation_warning(() -> ANY TABLE (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+      +-TVFScan(column_list=tvf_templated_calls_tvf_deprecation_warning.[column_bool#1, column_bytes#2], tvf=tvf_templated_calls_tvf_deprecation_warning(() -> ANY TABLE (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> ANY TABLE)
 
 With Templated SQL TVF signature:
   tvf_templated_calls_tvf_deprecation_warning() -> TABLE<column_bool BOOL, column_bytes BYTES> (1 deprecation warning)
@@ -2129,7 +2187,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=tvf_deprecation_warning.[column_bool#1, column_bytes#2]
     +-input_scan=
-      +-TVFScan(column_list=tvf_deprecation_warning.[column_bool#1, column_bytes#2], tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+      +-TVFScan(column_list=tvf_deprecation_warning.[column_bool#1, column_bytes#2], tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<>)
 
 
 DEPRECATION WARNING:
@@ -2176,14 +2234,14 @@ QueryStmt
       | | +-ProjectScan
       | |   +-column_list=tvf_templated_calls_tvf_deprecation_warning.[column_bool#1, column_bytes#2]
       | |   +-input_scan=
-      | |     +-TVFScan(column_list=tvf_templated_calls_tvf_deprecation_warning.[column_bool#1, column_bytes#2], tvf=tvf_templated_calls_tvf_deprecation_warning(() -> ANY TABLE (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+      | |     +-TVFScan(column_list=tvf_templated_calls_tvf_deprecation_warning.[column_bool#1, column_bytes#2], tvf=tvf_templated_calls_tvf_deprecation_warning(() -> ANY TABLE (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> ANY TABLE)
       | +-output_column_list=tvf_templated_calls_tvf_deprecation_warning.[column_bool#1, column_bytes#2]
       +-SetOperationItem
         +-scan=
         | +-ProjectScan
         |   +-column_list=tvf_templated_calls_tvf_deprecation_warning.[column_bool#3, column_bytes#4]
         |   +-input_scan=
-        |     +-TVFScan(column_list=tvf_templated_calls_tvf_deprecation_warning.[column_bool#3, column_bytes#4], tvf=tvf_templated_calls_tvf_deprecation_warning(() -> ANY TABLE (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+        |     +-TVFScan(column_list=tvf_templated_calls_tvf_deprecation_warning.[column_bool#3, column_bytes#4], tvf=tvf_templated_calls_tvf_deprecation_warning(() -> ANY TABLE (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> ANY TABLE)
         +-output_column_list=tvf_templated_calls_tvf_deprecation_warning.[column_bool#3, column_bytes#4]
 
 With Templated SQL TVF signature:
@@ -2197,7 +2255,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=tvf_deprecation_warning.[column_bool#1, column_bytes#2]
     +-input_scan=
-      +-TVFScan(column_list=tvf_deprecation_warning.[column_bool#1, column_bytes#2], tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+      +-TVFScan(column_list=tvf_deprecation_warning.[column_bool#1, column_bytes#2], tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<>)
 
 
 DEPRECATION WARNING:
@@ -2231,6 +2289,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
         +-column_index_list=[0]
+        +-function_call_signature=(INT64) -> TABLE<key INT64>
 
 With Templated SQL TVF signature:
   tvf_templated_select_x_with_required_output_schema(literal INT64) -> TABLE<key INT64>
@@ -2268,6 +2327,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
         +-column_index_list=[0]
+        +-function_call_signature=(INT32) -> TABLE<key INT64>
 
 With Templated SQL TVF signature:
   tvf_templated_select_x_with_required_output_schema(literal INT32) -> TABLE<key INT64>
@@ -2312,6 +2372,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="abc")
         +-column_index_list=[0]
+        +-function_call_signature=(STRING) -> TABLE<STRING>
 
 With Templated SQL TVF signature:
   tvf_templated_select_x_with_required_value_table_output_schema(literal STRING) -> TABLE<STRING>
@@ -2351,6 +2412,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="abc")
         +-column_index_list=[0]
+        +-function_call_signature=(STRING) -> TABLE<STRING>
 
 With Templated SQL TVF signature:
   tvf_templated_select_as_value_x_with_required_value_table_output_schema(literal STRING) -> TABLE<STRING>
@@ -2390,6 +2452,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="abc")
         +-column_index_list=[0]
+        +-function_call_signature=(STRING) -> TABLE<STRING>
 
 With Templated SQL TVF signature:
   tvf_templated_select_null_str_with_required_value_table_output_schema(literal STRING) -> TABLE<STRING>
@@ -2432,6 +2495,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="value")
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64, STRING) -> TABLE<key INT64, value STRING>
 
 With Templated SQL TVF signature:
   tvf_templated_return_swapped_cols_required_output_schema(literal INT64, literal STRING) -> TABLE<key INT64, value STRING>
@@ -2479,6 +2543,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="value")
         +-column_index_list=[0, 1]
+        +-function_call_signature=(INT64, STRING) -> TABLE<key INT64, value STRING>
 
 With Templated SQL TVF signature:
   tvf_templated_return_swapped_cols_plus_extra_required_output_schema(literal INT64, literal STRING) -> TABLE<key INT64, value STRING>
@@ -2524,6 +2589,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=INT64, value=33)
         +-column_index_list=[0]
+        +-function_call_signature=(INT64) -> ANY TABLE
 
 With Templated SQL TVF signature:
   tvf_templated_select_int64_arg_with_name_ambiguity(literal INT64) -> TABLE<x INT64>
@@ -2562,11 +2628,6 @@ select 1 from tvf_no_args()
 # Empty argument list.
 select column_bytes from tvf_no_args(42)
 --
-ERROR: No matching signature for tvf_no_args for argument types: INT64. Supported signature: TVF_NO_ARGS() [at 1:26]
-select column_bytes from tvf_no_args(42)
-                         ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_no_args
   Argument types: INT64
   Signature: TVF_NO_ARGS()
@@ -2594,11 +2655,6 @@ select * from tvf_empty_output_schema()
 # Literals in the argument list.
 select * from tvf_exactly_3_int64_args()
 --
-ERROR: No matching signature for tvf_exactly_3_int64_args with no arguments. Supported signature: TVF_EXACTLY_3_INT64_ARGS(INT64, INT64, INT64) [at 1:15]
-select * from tvf_exactly_3_int64_args()
-              ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_exactly_3_int64_args with no arguments
   Signature: TVF_EXACTLY_3_INT64_ARGS(INT64, INT64, INT64)
     Signature requires at least 3 arguments, found 0 arguments [at 1:15]
@@ -2609,11 +2665,6 @@ select * from tvf_exactly_3_int64_args()
 # Test several TVFs, each of which accepts one argument of some POD type.
 select column_bool from tvf_exactly_1_bool_arg("invalid")
 --
-ERROR: No matching signature for tvf_exactly_1_bool_arg for argument types: STRING. Supported signature: TVF_EXACTLY_1_BOOL_ARG(BOOL) [at 1:25]
-select column_bool from tvf_exactly_1_bool_arg("invalid")
-                        ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_exactly_1_bool_arg
   Argument types: STRING
   Signature: TVF_EXACTLY_1_BOOL_ARG(BOOL)
@@ -2625,11 +2676,6 @@ select column_bool from tvf_exactly_1_bool_arg("invalid")
 # Test several TVFs, each of which accepts one argument of some POD type.
 select column_bool from tvf_exactly_1_bytes_arg(42)
 --
-ERROR: No matching signature for tvf_exactly_1_bytes_arg for argument types: INT64. Supported signature: TVF_EXACTLY_1_BYTES_ARG(BYTES) [at 1:25]
-select column_bool from tvf_exactly_1_bytes_arg(42)
-                        ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_exactly_1_bytes_arg
   Argument types: INT64
   Signature: TVF_EXACTLY_1_BYTES_ARG(BYTES)
@@ -2641,11 +2687,6 @@ select column_bool from tvf_exactly_1_bytes_arg(42)
 # Test several TVFs, each of which accepts one argument of some POD type.
 select column_bool from tvf_exactly_1_double_arg("invalid")
 --
-ERROR: No matching signature for tvf_exactly_1_double_arg for argument types: STRING. Supported signature: TVF_EXACTLY_1_DOUBLE_ARG(DOUBLE) [at 1:25]
-select column_bool from tvf_exactly_1_double_arg("invalid")
-                        ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_exactly_1_double_arg
   Argument types: STRING
   Signature: TVF_EXACTLY_1_DOUBLE_ARG(DOUBLE)
@@ -2657,11 +2698,6 @@ select column_bool from tvf_exactly_1_double_arg("invalid")
 # Test several TVFs, each of which accepts one argument of some POD type.
 select column_bool from tvf_exactly_1_float_arg("invalid")
 --
-ERROR: No matching signature for tvf_exactly_1_float_arg for argument types: STRING. Supported signature: TVF_EXACTLY_1_FLOAT_ARG(FLOAT) [at 1:25]
-select column_bool from tvf_exactly_1_float_arg("invalid")
-                        ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_exactly_1_float_arg
   Argument types: STRING
   Signature: TVF_EXACTLY_1_FLOAT_ARG(FLOAT)
@@ -2673,11 +2709,6 @@ select column_bool from tvf_exactly_1_float_arg("invalid")
 # Test several TVFs, each of which accepts one argument of some POD type.
 select column_bool from tvf_exactly_1_int32_arg("invalid")
 --
-ERROR: No matching signature for tvf_exactly_1_int32_arg for argument types: STRING. Supported signature: TVF_EXACTLY_1_INT32_ARG(INT32) [at 1:25]
-select column_bool from tvf_exactly_1_int32_arg("invalid")
-                        ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_exactly_1_int32_arg
   Argument types: STRING
   Signature: TVF_EXACTLY_1_INT32_ARG(INT32)
@@ -2689,11 +2720,6 @@ select column_bool from tvf_exactly_1_int32_arg("invalid")
 # Test several TVFs, each of which accepts one argument of some POD type.
 select column_bool from tvf_exactly_1_int64_arg("invalid")
 --
-ERROR: No matching signature for tvf_exactly_1_int64_arg for argument types: STRING. Supported signature: TVF_EXACTLY_1_INT64_ARG(INT64) [at 1:25]
-select column_bool from tvf_exactly_1_int64_arg("invalid")
-                        ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_exactly_1_int64_arg
   Argument types: STRING
   Signature: TVF_EXACTLY_1_INT64_ARG(INT64)
@@ -2705,11 +2731,6 @@ select column_bool from tvf_exactly_1_int64_arg("invalid")
 # Test several TVFs, each of which accepts one argument of some POD type.
 select column_bool from tvf_exactly_1_uint32_arg("invalid")
 --
-ERROR: No matching signature for tvf_exactly_1_uint32_arg for argument types: STRING. Supported signature: TVF_EXACTLY_1_UINT32_ARG(UINT32) [at 1:25]
-select column_bool from tvf_exactly_1_uint32_arg("invalid")
-                        ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_exactly_1_uint32_arg
   Argument types: STRING
   Signature: TVF_EXACTLY_1_UINT32_ARG(UINT32)
@@ -2721,11 +2742,6 @@ select column_bool from tvf_exactly_1_uint32_arg("invalid")
 # Test several TVFs, each of which accepts one argument of some POD type.
 select column_bool from tvf_exactly_1_uint64_arg("invalid")
 --
-ERROR: No matching signature for tvf_exactly_1_uint64_arg for argument types: STRING. Supported signature: TVF_EXACTLY_1_UINT64_ARG(UINT64) [at 1:25]
-select column_bool from tvf_exactly_1_uint64_arg("invalid")
-                        ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_exactly_1_uint64_arg
   Argument types: STRING
   Signature: TVF_EXACTLY_1_UINT64_ARG(UINT64)
@@ -2737,11 +2753,6 @@ select column_bool from tvf_exactly_1_uint64_arg("invalid")
 # The TVF accepts a templated argument.
 select column_bool from tvf_exactly_one_arg_type_any_1(1, 2, 3)
 --
-ERROR: No matching signature for tvf_exactly_one_arg_type_any_1 for argument types: INT64, INT64, INT64. Supported signature: TVF_EXACTLY_ONE_ARG_TYPE_ANY_1(ANY) [at 1:25]
-select column_bool from tvf_exactly_one_arg_type_any_1(1, 2, 3)
-                        ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_exactly_one_arg_type_any_1
   Argument types: INT64, INT64, INT64
   Signature: TVF_EXACTLY_ONE_ARG_TYPE_ANY_1(T1)
@@ -2753,11 +2764,6 @@ select column_bool from tvf_exactly_one_arg_type_any_1(1, 2, 3)
 # The TVF accepts a templated argument.
 select column_bool from tvf_exactly_one_arg_type_any_2(1, 2, 3)
 --
-ERROR: No matching signature for tvf_exactly_one_arg_type_any_2 for argument types: INT64, INT64, INT64. Supported signature: TVF_EXACTLY_ONE_ARG_TYPE_ANY_2(ANY) [at 1:25]
-select column_bool from tvf_exactly_one_arg_type_any_2(1, 2, 3)
-                        ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_exactly_one_arg_type_any_2
   Argument types: INT64, INT64, INT64
   Signature: TVF_EXACTLY_ONE_ARG_TYPE_ANY_2(T2)
@@ -2769,11 +2775,6 @@ select column_bool from tvf_exactly_one_arg_type_any_2(1, 2, 3)
 # The TVF accepts a templated argument.
 select column_bool from tvf_exactly_one_arg_array_type_any_1([1, 2, 3], [4, 5, 6])
 --
-ERROR: No matching signature for tvf_exactly_one_arg_array_type_any_1 for argument types: ARRAY<INT64>, ARRAY<INT64>. Supported signature: TVF_EXACTLY_ONE_ARG_ARRAY_TYPE_ANY_1(ARRAY) [at 1:25]
-select column_bool from tvf_exactly_one_arg_array_type_any_1([1, 2, 3], [4, 5...
-                        ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_exactly_one_arg_array_type_any_1
   Argument types: ARRAY<INT64>, ARRAY<INT64>
   Signature: TVF_EXACTLY_ONE_ARG_ARRAY_TYPE_ANY_1(ARRAY<T1>)
@@ -2785,11 +2786,6 @@ select column_bool from tvf_exactly_one_arg_array_type_any_1([1, 2, 3], [4, 5...
 # The TVF accepts a templated argument.
 select column_bool from tvf_exactly_one_arg_array_type_any_2([1, 2, 3], [4, 5, 6])
 --
-ERROR: No matching signature for tvf_exactly_one_arg_array_type_any_2 for argument types: ARRAY<INT64>, ARRAY<INT64>. Supported signature: TVF_EXACTLY_ONE_ARG_ARRAY_TYPE_ANY_2(ARRAY) [at 1:25]
-select column_bool from tvf_exactly_one_arg_array_type_any_2([1, 2, 3], [4, 5...
-                        ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_exactly_one_arg_array_type_any_2
   Argument types: ARRAY<INT64>, ARRAY<INT64>
   Signature: TVF_EXACTLY_ONE_ARG_ARRAY_TYPE_ANY_2(ARRAY<T2>)
@@ -2801,11 +2797,6 @@ select column_bool from tvf_exactly_one_arg_array_type_any_2([1, 2, 3], [4, 5...
 # The TVF accepts a templated argument.
 select column_bool from tvf_exactly_one_arg_type_arbitrary(1, 2, 3)
 --
-ERROR: No matching signature for tvf_exactly_one_arg_type_arbitrary for argument types: INT64, INT64, INT64. Supported signature: TVF_EXACTLY_ONE_ARG_TYPE_ARBITRARY(ANY) [at 1:25]
-select column_bool from tvf_exactly_one_arg_type_arbitrary(1, 2, 3)
-                        ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_exactly_one_arg_type_arbitrary
   Argument types: INT64, INT64, INT64
   Signature: TVF_EXACTLY_ONE_ARG_TYPE_ARBITRARY(ANY)
@@ -2817,11 +2808,6 @@ select column_bool from tvf_exactly_one_arg_type_arbitrary(1, 2, 3)
 # The TVF accepts a templated argument.
 select column_bool from tvf_exactly_one_arg_proto_any(42)
 --
-ERROR: No matching signature for tvf_exactly_one_arg_proto_any for argument types: INT64. Supported signature: TVF_EXACTLY_ONE_ARG_PROTO_ANY(PROTO) [at 1:25]
-select column_bool from tvf_exactly_one_arg_proto_any(42)
-                        ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_exactly_one_arg_proto_any
   Argument types: INT64
   Signature: TVF_EXACTLY_ONE_ARG_PROTO_ANY(PROTO)
@@ -2833,11 +2819,6 @@ select column_bool from tvf_exactly_one_arg_proto_any(42)
 # The TVF accepts a templated argument.
 select column_bool from tvf_exactly_one_arg_struct_any(42)
 --
-ERROR: No matching signature for tvf_exactly_one_arg_struct_any for argument types: INT64. Supported signature: TVF_EXACTLY_ONE_ARG_STRUCT_ANY(STRUCT) [at 1:25]
-select column_bool from tvf_exactly_one_arg_struct_any(42)
-                        ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_exactly_one_arg_struct_any
   Argument types: INT64
   Signature: TVF_EXACTLY_ONE_ARG_STRUCT_ANY(STRUCT)
@@ -2849,11 +2830,6 @@ select column_bool from tvf_exactly_one_arg_struct_any(42)
 # The TVF accepts a templated argument.
 select column_bool from tvf_exactly_one_arg_enum_any(42)
 --
-ERROR: No matching signature for tvf_exactly_one_arg_enum_any for argument types: INT64. Supported signature: TVF_EXACTLY_ONE_ARG_ENUM_ANY(ENUM) [at 1:25]
-select column_bool from tvf_exactly_one_arg_enum_any(42)
-                        ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_exactly_one_arg_enum_any
   Argument types: INT64
   Signature: TVF_EXACTLY_ONE_ARG_ENUM_ANY(ENUM)
@@ -2865,11 +2841,6 @@ select column_bool from tvf_exactly_one_arg_enum_any(42)
 # The TVF accepts a repeating final int64 argument.
 select column_bool from tvf_repeating_int64_args("a", "b", "c")
 --
-ERROR: No matching signature for tvf_repeating_int64_args for argument types: STRING, STRING, STRING. Supported signature: TVF_REPEATING_INT64_ARGS([INT64, ...]) [at 1:25]
-select column_bool from tvf_repeating_int64_args("a", "b", "c")
-                        ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_repeating_int64_args
   Argument types: STRING, STRING, STRING
   Signature: TVF_REPEATING_INT64_ARGS([INT64, ...])
@@ -2881,11 +2852,6 @@ select column_bool from tvf_repeating_int64_args("a", "b", "c")
 # The TVF accepts a templated repeating final argument.
 select column_bool from tvf_repeating_any_one_type_args(1, "a")
 --
-ERROR: No matching signature for tvf_repeating_any_one_type_args for argument types: INT64, STRING. Supported signature: TVF_REPEATING_ANY_ONE_TYPE_ARGS([ANY, ...]) [at 1:25]
-select column_bool from tvf_repeating_any_one_type_args(1, "a")
-                        ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_repeating_any_one_type_args
   Argument types: INT64, STRING
   Signature: TVF_REPEATING_ANY_ONE_TYPE_ARGS([T1, ...])
@@ -2932,11 +2898,6 @@ select * from tvf_exactly_3_int64_args((select 1 from tvf_no_args()),
                                 current_date(),
                                 current_timestamp())
 --
-ERROR: No matching signature for tvf_exactly_3_int64_args for argument types: INT64, DATE, TIMESTAMP. Supported signature: TVF_EXACTLY_3_INT64_ARGS(INT64, INT64, INT64) [at 1:15]
-select * from tvf_exactly_3_int64_args((select 1 from tvf_no_args()),
-              ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_exactly_3_int64_args
   Argument types: INT64, DATE, TIMESTAMP
   Signature: TVF_EXACTLY_3_INT64_ARGS(INT64, INT64, INT64)
@@ -3277,7 +3238,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=tvf_no_arg_returning_fixed_output_with_pseudo_columns.[column_bool#1, column_bytes#2]
     +-input_scan=
-      +-TVFScan(column_list=tvf_no_arg_returning_fixed_output_with_pseudo_columns.[column_bool#1, column_bytes#2], tvf=tvf_no_arg_returning_fixed_output_with_pseudo_columns(() -> TABLE<column_bool BOOL, column_bytes BYTES, RowId INT64, PartitionName STRING>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, RowId INT64, PartitionName STRING>, column_index_list=[0, 1])
+      +-TVFScan(column_list=tvf_no_arg_returning_fixed_output_with_pseudo_columns.[column_bool#1, column_bytes#2], tvf=tvf_no_arg_returning_fixed_output_with_pseudo_columns(() -> TABLE<column_bool BOOL, column_bytes BYTES, RowId INT64, PartitionName STRING>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, RowId INT64, PartitionName STRING>, column_index_list=[0, 1], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, RowId INT64, PartitionName STRING>)
 ==
 
 select t.* from tvf_no_arg_returning_fixed_output_with_pseudo_columns() t;
@@ -3290,7 +3251,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=tvf_no_arg_returning_fixed_output_with_pseudo_columns.[column_bool#1, column_bytes#2]
     +-input_scan=
-      +-TVFScan(column_list=tvf_no_arg_returning_fixed_output_with_pseudo_columns.[column_bool#1, column_bytes#2], tvf=tvf_no_arg_returning_fixed_output_with_pseudo_columns(() -> TABLE<column_bool BOOL, column_bytes BYTES, RowId INT64, PartitionName STRING>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, RowId INT64, PartitionName STRING>, column_index_list=[0, 1], alias="t")
+      +-TVFScan(column_list=tvf_no_arg_returning_fixed_output_with_pseudo_columns.[column_bool#1, column_bytes#2], tvf=tvf_no_arg_returning_fixed_output_with_pseudo_columns(() -> TABLE<column_bool BOOL, column_bytes BYTES, RowId INT64, PartitionName STRING>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, RowId INT64, PartitionName STRING>, column_index_list=[0, 1], alias="t", function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, RowId INT64, PartitionName STRING>)
 ==
 
 # The constructed struct for a table excludes pseudo-columns.
@@ -3310,7 +3271,7 @@ QueryStmt
     |       +-ColumnRef(type=BOOL, column=tvf_no_arg_returning_fixed_output_with_pseudo_columns.column_bool#1)
     |       +-ColumnRef(type=BYTES, column=tvf_no_arg_returning_fixed_output_with_pseudo_columns.column_bytes#2)
     +-input_scan=
-      +-TVFScan(column_list=tvf_no_arg_returning_fixed_output_with_pseudo_columns.[column_bool#1, column_bytes#2], tvf=tvf_no_arg_returning_fixed_output_with_pseudo_columns(() -> TABLE<column_bool BOOL, column_bytes BYTES, RowId INT64, PartitionName STRING>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, RowId INT64, PartitionName STRING>, column_index_list=[0, 1], alias="t")
+      +-TVFScan(column_list=tvf_no_arg_returning_fixed_output_with_pseudo_columns.[column_bool#1, column_bytes#2], tvf=tvf_no_arg_returning_fixed_output_with_pseudo_columns(() -> TABLE<column_bool BOOL, column_bytes BYTES, RowId INT64, PartitionName STRING>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, RowId INT64, PartitionName STRING>, column_index_list=[0, 1], alias="t", function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, RowId INT64, PartitionName STRING>)
 ==
 
 # Pseudo-columns are explicitly selectable.
@@ -3327,7 +3288,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=tvf_no_arg_returning_fixed_output_with_pseudo_columns.[PartitionName#4, RowId#3, column_bool#1, column_bytes#2]
     +-input_scan=
-      +-TVFScan(column_list=tvf_no_arg_returning_fixed_output_with_pseudo_columns.[column_bool#1, column_bytes#2, RowId#3, PartitionName#4], tvf=tvf_no_arg_returning_fixed_output_with_pseudo_columns(() -> TABLE<column_bool BOOL, column_bytes BYTES, RowId INT64, PartitionName STRING>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, RowId INT64, PartitionName STRING>, column_index_list=[0, 1, 2, 3])
+      +-TVFScan(column_list=tvf_no_arg_returning_fixed_output_with_pseudo_columns.[column_bool#1, column_bytes#2, RowId#3, PartitionName#4], tvf=tvf_no_arg_returning_fixed_output_with_pseudo_columns(() -> TABLE<column_bool BOOL, column_bytes BYTES, RowId INT64, PartitionName STRING>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, RowId INT64, PartitionName STRING>, column_index_list=[0, 1, 2, 3], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, RowId INT64, PartitionName STRING>)
 ==
 
 # With a value table, pseudo-columns don't show up in the value or in *.
@@ -3370,7 +3331,7 @@ QueryStmt
     |     +-field_descriptor=str_value
     |     +-default_value=[]
     +-input_scan=
-      +-TVFScan(column_list=[tvf_no_arg_returning_value_table_with_pseudo_columns.$col0#1], tvf=tvf_no_arg_returning_value_table_with_pseudo_columns(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>, RowId INT64, PartitionName STRING>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>, RowId INT64, PartitionName STRING>, column_index_list=[0], alias="t")
+      +-TVFScan(column_list=[tvf_no_arg_returning_value_table_with_pseudo_columns.$col0#1], tvf=tvf_no_arg_returning_value_table_with_pseudo_columns(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>, RowId INT64, PartitionName STRING>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>, RowId INT64, PartitionName STRING>, column_index_list=[0], alias="t", function_call_signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>, RowId INT64, PartitionName STRING>)
 ==
 
 # Value table pseudo-columns can be selected unqualified or qualified.
@@ -3391,7 +3352,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=tvf_no_arg_returning_value_table_with_pseudo_columns.[PartitionName#3, RowId#2, $col0#1]
     +-input_scan=
-      +-TVFScan(column_list=tvf_no_arg_returning_value_table_with_pseudo_columns.[$col0#1, RowId#2, PartitionName#3], tvf=tvf_no_arg_returning_value_table_with_pseudo_columns(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>, RowId INT64, PartitionName STRING>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>, RowId INT64, PartitionName STRING>, column_index_list=[0, 1, 2], alias="t")
+      +-TVFScan(column_list=tvf_no_arg_returning_value_table_with_pseudo_columns.[$col0#1, RowId#2, PartitionName#3], tvf=tvf_no_arg_returning_value_table_with_pseudo_columns(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>, RowId INT64, PartitionName STRING>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>, RowId INT64, PartitionName STRING>, column_index_list=[0, 1, 2], alias="t", function_call_signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>, RowId INT64, PartitionName STRING>)
 ==
 
 # Regression test against b/182060963: Make sure the AST location of TVF
@@ -3456,6 +3417,7 @@ QueryStmt
         |         |             +-Literal(type=STRING, value="")
         |         +-Literal(type=ARRAY<STRING>, value=[""])
         +-column_index_list=[0, 1]
+        +-function_call_signature=(STRUCT<field1 ARRAY<STRING>, field2 ARRAY<STRING>> struct_arg1, STRUCT<field1 ARRAY<STRING>, field2 ARRAY<STRING>, field3 ARRAY<STRING>> struct_arg2) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Positional arguments with constraints - all constraints are satisfied.
@@ -3539,6 +3501,7 @@ QueryStmt
     |             |   +-expr=
     |             |     +-Literal(type=DOUBLE, value=15.3)
     |             +-column_index_list=[0]
+    |             +-function_call_signature=(optional(1) INT64, optional(1) STRING, optional(1) DOUBLE, optional(1) STRUCT<INT64, STRING>, optional(1) STRING, optional(1) DOUBLE, optional(1) ARRAY<INT64>, optional(1) ARRAY<STRING>, optional(1) ARRAY<DOUBLE>, optional(1) DOUBLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[int64#2, string#5, double#9], table=SimpleTypes, column_index_list=[1, 4, 8])
 ==
@@ -3551,11 +3514,6 @@ QueryStmt
 select (select column_bool from
   tvf_positional_scalar_args_with_constraints()) from SimpleTypes;
 --
-ERROR: No matching signature for tvf_positional_scalar_args_with_constraints for argument types: INT64, STRING, DOUBLE, NULL, NULL, NULL, NULL, NULL, NULL, DOUBLE. Supported signature: TVF_POSITIONAL_SCALAR_ARGS_WITH_CONSTRAINTS([INT64], [STRING], [DOUBLE], [STRUCT], [ANY], [ANY], [ARRAY], [ARRAY], [ARRAY], [DOUBLE]) [at 2:3]
-  tvf_positional_scalar_args_with_constraints()) from SimpleTypes;
-  ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_positional_scalar_args_with_constraints
   Argument types: INT64, STRING, DOUBLE, NULL, NULL, NULL, NULL, NULL, NULL, DOUBLE
   Signature: TVF_POSITIONAL_SCALAR_ARGS_WITH_CONSTRAINTS([INT64], [STRING], [DOUBLE], [STRUCT], [T1], [T2], [ARRAY<T3>], [ARRAY<T4>], [ARRAY<T5>], [DOUBLE])
@@ -3636,6 +3594,7 @@ QueryStmt
     |             |   +-expr=
     |             |     +-Literal(type=DOUBLE, value=3.14)
     |             +-column_index_list=[0]
+    |             +-function_call_signature=(optional(1) INT64, optional(1) STRING, optional(1) DOUBLE, optional(1) STRUCT<INT64, STRING>, optional(1) INT64, optional(1) INT64, optional(1) ARRAY<INT64>, optional(1) ARRAY<INT64>, optional(1) ARRAY<INT64>, optional(1) DOUBLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[int64#2, string#5], table=SimpleTypes, column_index_list=[1, 4])
 ==
@@ -3782,6 +3741,7 @@ QueryStmt
     |             |   +-expr=
     |             |     +-Literal(type=DOUBLE, value=3.14)
     |             +-column_index_list=[0]
+    |             +-function_call_signature=(optional(1) INT64, optional(1) STRING, optional(1) DOUBLE, optional(1) STRUCT<STRING, INT64>, optional(1) STRING, optional(1) DOUBLE, optional(1) ARRAY<INT64>, optional(1) ARRAY<STRING>, optional(1) ARRAY<DOUBLE>, optional(1) DOUBLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[int64#2, string#5, double#9], table=SimpleTypes, column_index_list=[1, 4, 8])
 ==

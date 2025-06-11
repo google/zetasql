@@ -17,6 +17,7 @@
 
 package com.google.zetasql;
 
+import com.google.common.collect.ImmutableList;
 import com.google.zetasql.ZetaSQLOptions.ProductMode;
 import com.google.zetasql.ZetaSQLType.MapTypeProto;
 import com.google.zetasql.ZetaSQLType.TypeKind;
@@ -46,6 +47,11 @@ public class MapType extends Type {
 
   public Type getValueType() {
     return valueType;
+  }
+
+  @Override
+  public ImmutableList<Type> componentTypes() {
+    return ImmutableList.of(keyType, valueType);
   }
 
   @Override

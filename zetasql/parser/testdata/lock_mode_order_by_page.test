@@ -1,7 +1,7 @@
 # Tests for the FOR UPDATE clause with all the combinations of ORDER BY, LIMIT
 # and OFFSET clauses.
 
-[default language_features=V_1_4_FOR_UPDATE]
+[default language_features=FOR_UPDATE]
 
 # ORDER BY and FOR UPDATE in query.
 select a, b from Table1 order by a for update;

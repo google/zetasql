@@ -114,7 +114,7 @@ static const FunctionIdToNameMap& GetFunctionIdToNameMap() {
   return *id_map;
 }
 
-const std::string FunctionSignatureIdToName(FunctionSignatureId id) {
+std::string FunctionSignatureIdToName(FunctionSignatureId id) {
   const std::string* name = zetasql_base::FindOrNull(GetFunctionIdToNameMap(), id);
   if (name != nullptr) {
     return *name;
@@ -248,19 +248,17 @@ absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
   GetArrayIncludesFunctions(&type_factory, options, &functions);
   GetElementWiseAggregationFunctions(&type_factory, options, &functions);
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_ARRAY_FIND_FUNCTIONS)) {
+          FEATURE_ARRAY_FIND_FUNCTIONS)) {
     ZETASQL_RETURN_IF_ERROR(
         GetArrayFindFunctions(&type_factory, options, &functions, &types));
   }
-  if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_ARRAY_ZIP)) {
+  if (options.language_options.LanguageFeatureEnabled(FEATURE_ARRAY_ZIP)) {
     ZETASQL_RETURN_IF_ERROR(
         GetArrayZipFunctions(&type_factory, options, &functions, &types));
   }
   ZETASQL_RETURN_IF_ERROR(
       GetStandaloneBuiltinEnumTypes(&type_factory, options, &types));
-  if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_SQL_GRAPH)) {
+  if (options.language_options.LanguageFeatureEnabled(FEATURE_SQL_GRAPH)) {
     GetGraphFunctions(&type_factory, options, &functions);
   }
   GetMapCoreFunctions(&type_factory, options, &functions);

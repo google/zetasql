@@ -1,14 +1,12 @@
-[default also_show_signature_mismatch_details]
-
-# Without language feature V_1_4_MAP_TYPE, map functions are not defined.
+# Without language feature MAP_TYPE, map functions are not defined.
 SELECT MAP_FROM_ARRAY([("a", 1), ("b", 2)]);
 --
-ERROR: Function not found: MAP_FROM_ARRAY [at 2:8]
+ERROR: Function not found: MAP_FROM_ARRAY [at 1:8]
 SELECT MAP_FROM_ARRAY([("a", 1), ("b", 2)]);
        ^
 ==
 
-[default language_features=V_1_4_MAP_TYPE]
+[default language_features=MAP_TYPE]
 
 SELECT MAP_FROM_ARRAY([("a", 1), ("b", 2)]);
 --
@@ -101,11 +99,6 @@ SELECT MAP_FROM_ARRAY()
 --
 ALTERNATION GROUP: "a"
 --
-ERROR: No matching signature for function MAP_FROM_ARRAY for argument types: STRING. Supported signature: MAP_FROM_ARRAY(ARRAY) [at 1:8]
-SELECT MAP_FROM_ARRAY("a")
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_FROM_ARRAY
   Argument types: STRING
   Signature: MAP_FROM_ARRAY(ARRAY<T1>)
@@ -178,7 +171,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_4_MAP_TYPE{{|,DISALLOW_GROUP_BY_FLOAT}}]
+[language_features=MAP_TYPE{{|,DISALLOW_GROUP_BY_FLOAT}}]
 
 SELECT MAP_FROM_ARRAY([(0.1, true)]);
 --
@@ -204,10 +197,10 @@ SELECT MAP_FROM_ARRAY([(0.1, true)]);
        ^
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[language_features=MAP_TYPE,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
 SELECT MAP_FROM_ARRAY([('a', true), (COLLATE('Z', 'und:ci'), false)]);
 --
-ERROR: Collation is not allowed on argument 1 ([<"und:ci",_>]) [at 1:8]
+ERROR: Collation is not allowed on argument 1 (<<"und:ci",_>>) [at 1:8]
 SELECT MAP_FROM_ARRAY([('a', true), (COLLATE('Z', 'und:ci'), false)]);
        ^
 ==
@@ -231,11 +224,6 @@ QueryStmt
 
 SELECT MAP_ENTRIES_SORTED(NULL);
 --
-ERROR: No matching signature for function MAP_ENTRIES_SORTED for argument types: NULL. Supported signature: MAP_ENTRIES_SORTED(MAP) [at 1:8]
-SELECT MAP_ENTRIES_SORTED(NULL);
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_ENTRIES_SORTED
   Argument types: NULL
   Signature: MAP_ENTRIES_SORTED(MAP<T1, T2>)
@@ -246,11 +234,6 @@ SELECT MAP_ENTRIES_SORTED(NULL);
 
 SELECT MAP_ENTRIES_SORTED([]);
 --
-ERROR: No matching signature for function MAP_ENTRIES_SORTED for argument types: []. Supported signature: MAP_ENTRIES_SORTED(MAP) [at 1:8]
-SELECT MAP_ENTRIES_SORTED([]);
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_ENTRIES_SORTED
   Argument types: []
   Signature: MAP_ENTRIES_SORTED(MAP<T1, T2>)
@@ -259,7 +242,7 @@ SELECT MAP_ENTRIES_SORTED([]);
        ^
 ==
 
-[default language_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_STRUCT]
+[default language_features=MAP_TYPE,GROUP_BY_STRUCT]
 
 SELECT MAP_ENTRIES_SORTED(MAP_FROM_ARRAY([(STRUCT(1), true)]));
 --
@@ -287,11 +270,6 @@ QueryStmt
 
 SELECT MAP_ENTRIES_UNSORTED(NULL);
 --
-ERROR: No matching signature for function MAP_ENTRIES_UNSORTED for argument types: NULL. Supported signature: MAP_ENTRIES_UNSORTED(MAP) [at 1:8]
-SELECT MAP_ENTRIES_UNSORTED(NULL);
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_ENTRIES_UNSORTED
   Argument types: NULL
   Signature: MAP_ENTRIES_UNSORTED(MAP<T1, T2>)
@@ -302,11 +280,6 @@ SELECT MAP_ENTRIES_UNSORTED(NULL);
 
 SELECT MAP_ENTRIES_UNSORTED([]);
 --
-ERROR: No matching signature for function MAP_ENTRIES_UNSORTED for argument types: []. Supported signature: MAP_ENTRIES_UNSORTED(MAP) [at 1:8]
-SELECT MAP_ENTRIES_UNSORTED([]);
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_ENTRIES_UNSORTED
   Argument types: []
   Signature: MAP_ENTRIES_UNSORTED(MAP<T1, T2>)
@@ -317,27 +290,17 @@ SELECT MAP_ENTRIES_UNSORTED([]);
 
 SELECT MAP_ENTRIES_SORTED([('a', 'b')]);
 --
-ERROR: No matching signature for function MAP_ENTRIES_SORTED for argument types: ARRAY<STRUCT<STRING, STRING>>. Supported signature: MAP_ENTRIES_SORTED(MAP) [at 1:8]
-SELECT MAP_ENTRIES_SORTED([('a', 'b')]);
-       ^
-
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_ENTRIES_SORTED
   Argument types: ARRAY<STRUCT<STRING, STRING>>
   Signature: MAP_ENTRIES_SORTED(MAP<T1, T2>)
     Argument 1: expected MAP<T1, T2>, found ARRAY<STRUCT<STRING, STRING>> [at 1:8]
 SELECT MAP_ENTRIES_SORTED([('a', 'b')]);
        ^
+
 ==
 
 SELECT MAP_ENTRIES_UNSORTED([('a', 'b')]);
 --
-ERROR: No matching signature for function MAP_ENTRIES_UNSORTED for argument types: ARRAY<STRUCT<STRING, STRING>>. Supported signature: MAP_ENTRIES_UNSORTED(MAP) [at 1:8]
-SELECT MAP_ENTRIES_UNSORTED([('a', 'b')]);
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_ENTRIES_UNSORTED
   Argument types: ARRAY<STRUCT<STRING, STRING>>
   Signature: MAP_ENTRIES_UNSORTED(MAP<T1, T2>)
@@ -350,11 +313,6 @@ SELECT MAP_ENTRIES_SORTED({{|"a"|MAP_FROM_ARRAY([("a", "b")]), "extra_arg"}})
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Number of arguments does not match for function MAP_ENTRIES_SORTED. Supported signature: MAP_ENTRIES_SORTED(MAP) [at 1:8]
-SELECT MAP_ENTRIES_SORTED()
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_ENTRIES_SORTED with no arguments
   Signature: MAP_ENTRIES_SORTED(MAP<T1, T2>)
     Signature requires at least 1 argument, found 0 arguments [at 1:8]
@@ -363,11 +321,6 @@ SELECT MAP_ENTRIES_SORTED()
 --
 ALTERNATION GROUP: "a"
 --
-ERROR: No matching signature for function MAP_ENTRIES_SORTED for argument types: STRING. Supported signature: MAP_ENTRIES_SORTED(MAP) [at 1:8]
-SELECT MAP_ENTRIES_SORTED("a")
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_ENTRIES_SORTED
   Argument types: STRING
   Signature: MAP_ENTRIES_SORTED(MAP<T1, T2>)
@@ -377,11 +330,6 @@ SELECT MAP_ENTRIES_SORTED("a")
 --
 ALTERNATION GROUP: MAP_FROM_ARRAY([("a", "b")]), "extra_arg"
 --
-ERROR: Number of arguments does not match for function MAP_ENTRIES_SORTED. Supported signature: MAP_ENTRIES_SORTED(MAP) [at 1:8]
-SELECT MAP_ENTRIES_SORTED(MAP_FROM_ARRAY([("a", "b")]), "extra_arg")
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_ENTRIES_SORTED
   Argument types: MAP<STRING, STRING>, STRING
   Signature: MAP_ENTRIES_SORTED(MAP<T1, T2>)
@@ -394,11 +342,6 @@ SELECT MAP_ENTRIES_UNSORTED({{|"a"|MAP_FROM_ARRAY([("a", "b")]), "extra_arg"}})
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Number of arguments does not match for function MAP_ENTRIES_UNSORTED. Supported signature: MAP_ENTRIES_UNSORTED(MAP) [at 1:8]
-SELECT MAP_ENTRIES_UNSORTED()
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_ENTRIES_UNSORTED with no arguments
   Signature: MAP_ENTRIES_UNSORTED(MAP<T1, T2>)
     Signature requires at least 1 argument, found 0 arguments [at 1:8]
@@ -407,11 +350,6 @@ SELECT MAP_ENTRIES_UNSORTED()
 --
 ALTERNATION GROUP: "a"
 --
-ERROR: No matching signature for function MAP_ENTRIES_UNSORTED for argument types: STRING. Supported signature: MAP_ENTRIES_UNSORTED(MAP) [at 1:8]
-SELECT MAP_ENTRIES_UNSORTED("a")
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_ENTRIES_UNSORTED
   Argument types: STRING
   Signature: MAP_ENTRIES_UNSORTED(MAP<T1, T2>)
@@ -421,11 +359,6 @@ SELECT MAP_ENTRIES_UNSORTED("a")
 --
 ALTERNATION GROUP: MAP_FROM_ARRAY([("a", "b")]), "extra_arg"
 --
-ERROR: Number of arguments does not match for function MAP_ENTRIES_UNSORTED. Supported signature: MAP_ENTRIES_UNSORTED(MAP) [at 1:8]
-SELECT MAP_ENTRIES_UNSORTED(MAP_FROM_ARRAY([("a", "b")]), "extra_arg")
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_ENTRIES_UNSORTED
   Argument types: MAP<STRING, STRING>, STRING
   Signature: MAP_ENTRIES_UNSORTED(MAP<T1, T2>)
@@ -434,7 +367,7 @@ SELECT MAP_ENTRIES_UNSORTED(MAP_FROM_ARRAY([("a", "b")]), "extra_arg")
        ^
 ==
 
-[default language_features=V_1_4_MAP_TYPE,V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[default language_features=MAP_TYPE,SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 select MAP_FROM_ARRAY([(a, 1)]) from graph_table(
   aml
   match (a IS Person) -[e]-> (b IS Account)
@@ -445,7 +378,7 @@ select MAP_FROM_ARRAY([(a, 1)]) from graph_table(
 ^
 ==
 
-[default language_features=V_1_4_MAP_TYPE,V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[default language_features=MAP_TYPE,SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 select MAP_ENTRIES_SORTED(MAP_FROM_ARRAY([(a, 1)])) from graph_table(
   aml
   match (a IS Person) -[e]-> (b IS Account)
@@ -456,7 +389,7 @@ select MAP_ENTRIES_SORTED(MAP_FROM_ARRAY([(a, 1)])) from graph_table(
        ^
 ==
 
-[default language_features=V_1_4_MAP_TYPE,V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[default language_features=MAP_TYPE,SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 select MAP_ENTRIES_UNSORTED(MAP_FROM_ARRAY([(a, 1)])) from graph_table(
   aml
   match (a IS Person) -[e]-> (b IS Account)
@@ -489,11 +422,6 @@ QueryStmt
 --
 ALTERNATION GROUP: 1
 --
-ERROR: No matching signature for function MAP_GET for argument types: MAP<STRING, DOUBLE>, INT64. Supported signature: MAP_GET(MAP, ANY, [ANY]) [at 1:8]
-SELECT MAP_GET(MAP_FROM_ARRAY([('a', 1.1)]), 1);
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_GET
   Argument types: MAP<STRING, DOUBLE>, INT64
   Signature: MAP_GET(MAP<T1, T2>, T1, [T2])
@@ -543,11 +471,6 @@ QueryStmt
 --
 ALTERNATION GROUP: 'b'
 --
-ERROR: No matching signature for function MAP_GET for argument types: MAP<STRING, DOUBLE>, STRING, STRING. Supported signature: MAP_GET(MAP, ANY, [ANY]) [at 1:8]
-SELECT MAP_GET(MAP_FROM_ARRAY([('a', 1.1)]), 'a', 'b');
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_GET
   Argument types: MAP<STRING, DOUBLE>, STRING, STRING
   Signature: MAP_GET(MAP<T1, T2>, T1, [T2])
@@ -760,11 +683,6 @@ QueryStmt
 --
 ALTERNATION GROUP: 1
 --
-ERROR: No matching signature for function MAP_GET for argument types: MAP<STRING, DOUBLE>, INT64. Supported signature: MAP_GET(MAP, ANY, [ANY]) [at 1:8]
-SELECT MAP_GET(MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<STRING, DOUBLE>>)), 1);
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_GET
   Argument types: MAP<STRING, DOUBLE>, INT64
   Signature: MAP_GET(MAP<T1, T2>, T1, [T2])
@@ -814,11 +732,6 @@ SELECT MAP_GET(MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<STRING, DOUBLE>>)), {{DA
 --
 ALTERNATION GROUP: DATE('2020-01-01'), 1
 --
-ERROR: No matching signature for function MAP_GET for argument types: MAP<STRING, DOUBLE>, DATE, INT64. Supported signature: MAP_GET(MAP, ANY, [ANY]) [at 1:8]
-SELECT MAP_GET(MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<STRING, DOUBLE>>)), D...
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_GET
   Argument types: MAP<STRING, DOUBLE>, DATE, INT64
   Signature: MAP_GET(MAP<T1, T2>, T1, [T2])
@@ -829,11 +742,6 @@ SELECT MAP_GET(MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<STRING, DOUBLE>>)), D...
 --
 ALTERNATION GROUP: 'a', false
 --
-ERROR: No matching signature for function MAP_GET for argument types: MAP<STRING, DOUBLE>, STRING, BOOL. Supported signature: MAP_GET(MAP, ANY, [ANY]) [at 1:8]
-SELECT MAP_GET(MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<STRING, DOUBLE>>)), '...
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_GET
   Argument types: MAP<STRING, DOUBLE>, STRING, BOOL
   Signature: MAP_GET(MAP<T1, T2>, T1, [T2])
@@ -887,7 +795,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
+[language_features=MAP_TYPE,IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
 SELECT MAP_GET(MAP_FROM_ARRAY([(b'a', 1)]), 'a');
 --
 QueryStmt
@@ -931,7 +839,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_4_MAP_TYPE,JSON_TYPE]
+[language_features=MAP_TYPE,JSON_TYPE]
 SELECT MAP_GET(MAP_FROM_ARRAY([('a', JSON '1')]), NULL, NULL);
 --
 QueryStmt
@@ -956,7 +864,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_4_MAP_TYPE,JSON_TYPE]
+[language_features=MAP_TYPE,JSON_TYPE]
 SELECT MAP_GET(MAP_FROM_ARRAY([
        ('a',
            (MAP_FROM_ARRAY([('b', JSON '1')]), new zetasql_test__.EmptyMessage())
@@ -992,6 +900,26 @@ QueryStmt
     |     +-Literal(type=STRUCT<MAP<STRING, JSON>, PROTO<zetasql_test__.EmptyMessage>>, value=NULL)
     +-input_scan=
       +-SingleRowScan
+==
+
+[language_features=MAP_TYPE,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,GROUP_BY_STRUCT]
+# Regression test for b/409835344
+SELECT MAP_GET(CAST(NULL AS MAP<STRUCT<STRING>, STRING>), STRUCT(COLLATE("foo", "und:ci")));
+--
+ERROR: Collation is not allowed on argument lookup_key (<"und:ci">) [at 2:8]
+SELECT MAP_GET(CAST(NULL AS MAP<STRUCT<STRING>, STRING>), STRUCT(COLLATE("foo...
+       ^
+==
+
+# Regression test for b/411412805
+SELECT MAP_GET(MAP_FROM_ARRAY([(1, 1)]), rand());
+--
+ERROR: No matching signature for function MAP_GET
+  Argument types: MAP<INT64, INT64>, DOUBLE
+  Signature: MAP_GET(MAP<T1, T2>, T1, [T2])
+    Unable to coerce type MAP<INT64, INT64> to inferred map type MAP<DOUBLE, INT64> for argument <map<T1, T2>> [at 1:8]
+SELECT MAP_GET(MAP_FROM_ARRAY([(1, 1)]), rand());
+       ^
 ==
 
 SELECT MAP_FROM_ARRAY([('a', 1)])[{{'a'|NULL|5}}];
@@ -1080,7 +1008,7 @@ SELECT MAP_FROM_ARRAY([('a', 1)])[KEY(5)];
                                   ^
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_2_SAFE_FUNCTION_CALL]
+[language_features=MAP_TYPE,SAFE_FUNCTION_CALL]
 SELECT MAP_FROM_ARRAY([('a', 1)])[SAFE_KEY({{'a'|NULL|5}})];
 --
 ALTERNATION GROUP: 'a'
@@ -1142,7 +1070,17 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_4_MAP_TYPE{{|,V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=MAP_TYPE,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,GROUP_BY_STRUCT]
+# Regression test for b/409835344
+SELECT CAST(NULL AS MAP<STRUCT<STRING>, STRING>)[STRUCT(COLLATE("foo", "und:ci"))];
+--
+ERROR: Collation is not allowed on argument 2 (<"und:ci">) [at 2:50]
+SELECT CAST(NULL AS MAP<STRUCT<STRING>, STRING>)[STRUCT(COLLATE("foo", "und:c...
+                                                 ^
+==
+
+
+[language_features=MAP_TYPE{{|,IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 SELECT MAP_FROM_ARRAY([(b'hello', 1)])['bonjour'];
 --
 ALTERNATION GROUP: <empty>
@@ -1151,7 +1089,7 @@ ERROR: Subscript access using [STRING] is not supported on values of type MAP<BY
 SELECT MAP_FROM_ARRAY([(b'hello', 1)])['bonjour'];
                                        ^
 --
-ALTERNATION GROUP: ,V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
+ALTERNATION GROUP: ,IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
 --
 QueryStmt
 +-output_column_list=
@@ -1169,7 +1107,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_2_SAFE_FUNCTION_CALL]
+[language_features=MAP_TYPE,SAFE_FUNCTION_CALL]
 SELECT MAP_FROM_ARRAY([(1, 'a')])[{{OFFSET(0)|SAFE_OFFSET(0)|ORDINAL(1)|SAFE_ORDINAL(1)}}];
 --
 ALTERNATION GROUP: OFFSET(0)
@@ -1273,11 +1211,6 @@ SELECT MAP_CONTAINS_KEY(NULL, {{'a'|NULL}});
 --
 ALTERNATION GROUP: 'a'
 --
-ERROR: No matching signature for function MAP_CONTAINS_KEY for argument types: NULL, STRING. Supported signature: MAP_CONTAINS_KEY(MAP, ANY) [at 1:8]
-SELECT MAP_CONTAINS_KEY(NULL, 'a');
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_CONTAINS_KEY
   Argument types: NULL, STRING
   Signature: MAP_CONTAINS_KEY(MAP<T1, T2>, T1)
@@ -1287,16 +1220,19 @@ SELECT MAP_CONTAINS_KEY(NULL, 'a');
 --
 ALTERNATION GROUP: NULL
 --
-ERROR: No matching signature for function MAP_CONTAINS_KEY for argument types: NULL, NULL. Supported signature: MAP_CONTAINS_KEY(MAP, ANY) [at 1:8]
-SELECT MAP_CONTAINS_KEY(NULL, NULL);
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_CONTAINS_KEY
   Argument types: NULL, NULL
   Signature: MAP_CONTAINS_KEY(MAP<T1, T2>, T1)
     The map type could not be constructed because the value type was not determinable [at 1:8]
 SELECT MAP_CONTAINS_KEY(NULL, NULL);
+       ^
+==
+
+[language_features=MAP_TYPE,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,GROUP_BY_STRUCT]
+SELECT MAP_CONTAINS_KEY(CAST(NULL AS MAP<STRING, STRING>), COLLATE("foo", "und:ci"));
+--
+ERROR: Collation is not allowed on argument lookup_key ("und:ci"). Use COLLATE(arg, '') to remove collation [at 1:8]
+SELECT MAP_CONTAINS_KEY(CAST(NULL AS MAP<STRING, STRING>), COLLATE("foo", "un...
        ^
 ==
 
@@ -1536,10 +1472,10 @@ SELECT CAST(MAP_FROM_ARRAY([("", 1)]) AS MAP<zetasql_test__.EmptyMessage, STR...
                                          ^
 ==
 
-[default language_features=V_1_4_MAP_TYPE{{,V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT|,V_1_2_GROUP_BY_ARRAY|}}]
+[default language_features=MAP_TYPE{{,GROUP_BY_ARRAY,GROUP_BY_STRUCT|,GROUP_BY_ARRAY|}}]
 SELECT CAST(NULL AS MAP<ARRAY<STRUCT<STRING>>, STRING>);
 --
-ALTERNATION GROUP: ,V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT
+ALTERNATION GROUP: ,GROUP_BY_ARRAY,GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -1552,7 +1488,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: ,V_1_2_GROUP_BY_ARRAY
+ALTERNATION GROUP: ,GROUP_BY_ARRAY
 --
 ERROR: MAP key type ARRAY containing STRUCT is not groupable [at 1:21]
 SELECT CAST(NULL AS MAP<ARRAY<STRUCT<STRING>>, STRING>);
@@ -1633,7 +1569,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_STRUCT]
+[language_features=MAP_TYPE,GROUP_BY_STRUCT]
 # MAP key is not orderable here
 SELECT MAP_{{KEYS_SORTED|KEYS_UNSORTED|VALUES_SORTED|VALUES_UNSORTED}}(
   MAP_FROM_ARRAY([(STRUCT("a"), "")]));
@@ -1768,18 +1704,13 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_3_ARRAY_ORDERING]
+[language_features=MAP_TYPE,ARRAY_ORDERING]
 # Array of array is not supported
 SELECT MAP_{{VALUES_SORTED|VALUES_UNSORTED}}(
   MAP_FROM_ARRAY([('key', [1, 2, 3])]));
 --
 ALTERNATION GROUP: VALUES_SORTED
 --
-ERROR: No matching signature for function MAP_VALUES_SORTED for argument types: MAP<STRING, ARRAY<INT64>>. Supported signature: MAP_VALUES_SORTED(MAP) [at 2:8]
-SELECT MAP_VALUES_SORTED(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_VALUES_SORTED
   Argument types: MAP<STRING, ARRAY<INT64>>
   Signature: MAP_VALUES_SORTED(MAP<T1, T2>)
@@ -1789,11 +1720,6 @@ SELECT MAP_VALUES_SORTED(
 --
 ALTERNATION GROUP: VALUES_UNSORTED
 --
-ERROR: No matching signature for function MAP_VALUES_UNSORTED for argument types: MAP<STRING, ARRAY<INT64>>. Supported signature: MAP_VALUES_UNSORTED(MAP) [at 2:8]
-SELECT MAP_VALUES_UNSORTED(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_VALUES_UNSORTED
   Argument types: MAP<STRING, ARRAY<INT64>>
   Signature: MAP_VALUES_UNSORTED(MAP<T1, T2>)
@@ -1802,17 +1728,12 @@ SELECT MAP_VALUES_UNSORTED(
        ^
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_ARRAY,V_1_3_ARRAY_ORDERING]
+[language_features=MAP_TYPE,GROUP_BY_ARRAY,ARRAY_ORDERING]
 # Array of array is not supported
 SELECT MAP_{{KEYS_SORTED|KEYS_UNSORTED}}(MAP_FROM_ARRAY([([1, 2, 3], 'value')]));
 --
 ALTERNATION GROUP: KEYS_SORTED
 --
-ERROR: No matching signature for function MAP_KEYS_SORTED for argument types: MAP<ARRAY<INT64>, STRING>. Supported signature: MAP_KEYS_SORTED(MAP) [at 2:8]
-SELECT MAP_KEYS_SORTED(MAP_FROM_ARRAY([([1, 2, 3], 'value')]));
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_KEYS_SORTED
   Argument types: MAP<ARRAY<INT64>, STRING>
   Signature: MAP_KEYS_SORTED(MAP<T1, T2>)
@@ -1822,11 +1743,6 @@ SELECT MAP_KEYS_SORTED(MAP_FROM_ARRAY([([1, 2, 3], 'value')]));
 --
 ALTERNATION GROUP: KEYS_UNSORTED
 --
-ERROR: No matching signature for function MAP_KEYS_UNSORTED for argument types: MAP<ARRAY<INT64>, STRING>. Supported signature: MAP_KEYS_UNSORTED(MAP) [at 2:8]
-SELECT MAP_KEYS_UNSORTED(MAP_FROM_ARRAY([([1, 2, 3], 'value')]));
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_KEYS_UNSORTED
   Argument types: MAP<ARRAY<INT64>, STRING>
   Signature: MAP_KEYS_UNSORTED(MAP<T1, T2>)
@@ -1852,7 +1768,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_STRUCT]
+[language_features=MAP_TYPE,GROUP_BY_STRUCT]
 SELECT MAP_VALUES_SORTED_BY_KEY(
   MAP_FROM_ARRAY([({{STRUCT('a'), 1|'a', STRUCT(1)}})]));
 --
@@ -1984,11 +1900,6 @@ SELECT MAP_INSERT{{|_OR_REPLACE}}(
 --
 ALTERNATION GROUP: 'c', 'x'
 --
-ERROR: No matching signature for function MAP_INSERT for argument types: MAP<STRING, INT64>, STRING, INT64, STRING, STRING. Supported signature: MAP_INSERT(MAP, ANY, ANY, [[ANY, ANY], ...]) [at 1:8]
-SELECT MAP_INSERT(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_INSERT
   Argument types: MAP<STRING, INT64>, STRING, INT64, STRING, STRING
   Signature: MAP_INSERT(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
@@ -1999,11 +1910,6 @@ SELECT MAP_INSERT(
 --
 ALTERNATION GROUP: 1, 3
 --
-ERROR: No matching signature for function MAP_INSERT for argument types: MAP<STRING, INT64>, STRING, INT64, INT64, INT64. Supported signature: MAP_INSERT(MAP, ANY, ANY, [[ANY, ANY], ...]) [at 1:8]
-SELECT MAP_INSERT(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_INSERT
   Argument types: MAP<STRING, INT64>, STRING, INT64, INT64, INT64
   Signature: MAP_INSERT(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
@@ -2014,11 +1920,6 @@ SELECT MAP_INSERT(
 --
 ALTERNATION GROUP: 'c'
 --
-ERROR: Number of arguments does not match for function MAP_INSERT. Supported signature: MAP_INSERT(MAP, ANY, ANY, [[ANY, ANY], ...]) [at 1:8]
-SELECT MAP_INSERT(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_INSERT
   Argument types: MAP<STRING, INT64>, STRING, INT64, STRING
   Signature: MAP_INSERT(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
@@ -2028,11 +1929,6 @@ SELECT MAP_INSERT(
 --
 ALTERNATION GROUP: _OR_REPLACE,'c', 'x'
 --
-ERROR: No matching signature for function MAP_INSERT_OR_REPLACE for argument types: MAP<STRING, INT64>, STRING, INT64, STRING, STRING. Supported signature: MAP_INSERT_OR_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]) [at 1:8]
-SELECT MAP_INSERT_OR_REPLACE(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_INSERT_OR_REPLACE
   Argument types: MAP<STRING, INT64>, STRING, INT64, STRING, STRING
   Signature: MAP_INSERT_OR_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
@@ -2043,11 +1939,6 @@ SELECT MAP_INSERT_OR_REPLACE(
 --
 ALTERNATION GROUP: _OR_REPLACE,1, 3
 --
-ERROR: No matching signature for function MAP_INSERT_OR_REPLACE for argument types: MAP<STRING, INT64>, STRING, INT64, INT64, INT64. Supported signature: MAP_INSERT_OR_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]) [at 1:8]
-SELECT MAP_INSERT_OR_REPLACE(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_INSERT_OR_REPLACE
   Argument types: MAP<STRING, INT64>, STRING, INT64, INT64, INT64
   Signature: MAP_INSERT_OR_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
@@ -2058,11 +1949,6 @@ SELECT MAP_INSERT_OR_REPLACE(
 --
 ALTERNATION GROUP: _OR_REPLACE,'c'
 --
-ERROR: Number of arguments does not match for function MAP_INSERT_OR_REPLACE. Supported signature: MAP_INSERT_OR_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]) [at 1:8]
-SELECT MAP_INSERT_OR_REPLACE(
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_INSERT_OR_REPLACE
   Argument types: MAP<STRING, INT64>, STRING, INT64, STRING
   Signature: MAP_INSERT_OR_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
@@ -2075,11 +1961,6 @@ SELECT MAP_INSERT{{|_OR_REPLACE}}(MAP_FROM_ARRAY([('a', 1)]))
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Number of arguments does not match for function MAP_INSERT. Supported signature: MAP_INSERT(MAP, ANY, ANY, [[ANY, ANY], ...]) [at 1:8]
-SELECT MAP_INSERT(MAP_FROM_ARRAY([('a', 1)]))
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_INSERT
   Argument types: MAP<STRING, INT64>
   Signature: MAP_INSERT(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
@@ -2089,11 +1970,6 @@ SELECT MAP_INSERT(MAP_FROM_ARRAY([('a', 1)]))
 --
 ALTERNATION GROUP: _OR_REPLACE
 --
-ERROR: Number of arguments does not match for function MAP_INSERT_OR_REPLACE. Supported signature: MAP_INSERT_OR_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]) [at 1:8]
-SELECT MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([('a', 1)]))
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_INSERT_OR_REPLACE
   Argument types: MAP<STRING, INT64>
   Signature: MAP_INSERT_OR_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
@@ -2150,11 +2026,6 @@ SELECT MAP_INSERT{{|_OR_REPLACE}}(NULL, 'b', 2, {{1, 3|'c', 'x'}});
 --
 ALTERNATION GROUP: 1, 3
 --
-ERROR: No matching signature for function MAP_INSERT for argument types: NULL, STRING, INT64, INT64, INT64. Supported signature: MAP_INSERT(MAP, ANY, ANY, [[ANY, ANY], ...]) [at 1:8]
-SELECT MAP_INSERT(NULL, 'b', 2, 1, 3);
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_INSERT
   Argument types: NULL, STRING, INT64, INT64, INT64
   Signature: MAP_INSERT(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
@@ -2165,11 +2036,6 @@ SELECT MAP_INSERT(NULL, 'b', 2, 1, 3);
 --
 ALTERNATION GROUP: 'c', 'x'
 --
-ERROR: No matching signature for function MAP_INSERT for argument types: NULL, STRING, INT64, STRING, STRING. Supported signature: MAP_INSERT(MAP, ANY, ANY, [[ANY, ANY], ...]) [at 1:8]
-SELECT MAP_INSERT(NULL, 'b', 2, 'c', 'x');
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_INSERT
   Argument types: NULL, STRING, INT64, STRING, STRING
   Signature: MAP_INSERT(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
@@ -2180,11 +2046,6 @@ SELECT MAP_INSERT(NULL, 'b', 2, 'c', 'x');
 --
 ALTERNATION GROUP: _OR_REPLACE,1, 3
 --
-ERROR: No matching signature for function MAP_INSERT_OR_REPLACE for argument types: NULL, STRING, INT64, INT64, INT64. Supported signature: MAP_INSERT_OR_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]) [at 1:8]
-SELECT MAP_INSERT_OR_REPLACE(NULL, 'b', 2, 1, 3);
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_INSERT_OR_REPLACE
   Argument types: NULL, STRING, INT64, INT64, INT64
   Signature: MAP_INSERT_OR_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
@@ -2195,11 +2056,6 @@ SELECT MAP_INSERT_OR_REPLACE(NULL, 'b', 2, 1, 3);
 --
 ALTERNATION GROUP: _OR_REPLACE,'c', 'x'
 --
-ERROR: No matching signature for function MAP_INSERT_OR_REPLACE for argument types: NULL, STRING, INT64, STRING, STRING. Supported signature: MAP_INSERT_OR_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]) [at 1:8]
-SELECT MAP_INSERT_OR_REPLACE(NULL, 'b', 2, 'c', 'x');
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_INSERT_OR_REPLACE
   Argument types: NULL, STRING, INT64, STRING, STRING
   Signature: MAP_INSERT_OR_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
@@ -2509,6 +2365,50 @@ QueryStmt
       +-SingleRowScan
 ==
 
+[language_features=MAP_TYPE,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,GROUP_BY_STRUCT]
+SELECT MAP_{{INSERT|INSERT_OR_REPLACE|REPLACE}}(MAP_FROM_ARRAY([('a', 1)]), COLLATE('a', 'und:ci'), 2);
+--
+ALTERNATION GROUP: INSERT
+--
+ERROR: Collation is not allowed on argument 2 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 1:8]
+SELECT MAP_INSERT(MAP_FROM_ARRAY([('a', 1)]), COLLATE('a', 'und:ci'), 2);
+       ^
+--
+ALTERNATION GROUP: INSERT_OR_REPLACE
+--
+ERROR: Collation is not allowed on argument 2 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 1:8]
+SELECT MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([('a', 1)]), COLLATE('a', 'und:ci...
+       ^
+--
+ALTERNATION GROUP: REPLACE
+--
+ERROR: Collation is not allowed on argument 2 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 1:8]
+SELECT MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), COLLATE('a', 'und:ci'), 2);
+       ^
+==
+
+# Regression test that insertion/replacement doesn't change the underlying type of the map b/411412805
+SELECT MAP_INSERT{{|_OR_REPLACE}}(MAP_FROM_ARRAY([('a', CAST(1 AS INT32))]), 'b', 1.5);
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: No matching signature for function MAP_INSERT
+  Argument types: MAP<STRING, INT32>, STRING, DOUBLE
+  Signature: MAP_INSERT(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
+    Unable to coerce type MAP<STRING, INT32> to inferred map type MAP<STRING, DOUBLE> for argument <map<T1, T2>> [at 1:8]
+SELECT MAP_INSERT(MAP_FROM_ARRAY([('a', CAST(1 AS INT32))]), 'b', 1.5);
+       ^
+--
+ALTERNATION GROUP: _OR_REPLACE
+--
+ERROR: No matching signature for function MAP_INSERT_OR_REPLACE
+  Argument types: MAP<STRING, INT32>, STRING, DOUBLE
+  Signature: MAP_INSERT_OR_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
+    Unable to coerce type MAP<STRING, INT32> to inferred map type MAP<STRING, DOUBLE> for argument <map<T1, T2>> [at 1:8]
+SELECT MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([('a', CAST(1 AS INT32))]), 'b', ...
+       ^
+==
+
 SELECT
   MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 2) as a,
   MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'b', 2) as b,
@@ -2566,11 +2466,6 @@ QueryStmt
 SELECT
   MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]));
 --
-ERROR: No matching signature for function MAP_REPLACE for argument types: MAP<STRING, INT64>. Supported signatures: MAP_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]); MAP_REPLACE(MAP, ANY, [ANY, ...], FUNCTION<ANY->ANY>) [at 2:3]
-  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]));
-  ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_REPLACE
   Argument types: MAP<STRING, INT64>
   Signature: MAP_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
@@ -2586,11 +2481,6 @@ SELECT
 --
 ALTERNATION GROUP: 'a'
 --
-ERROR: No matching signature for function MAP_REPLACE for argument types: MAP<STRING, INT64>, STRING. Supported signatures: MAP_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]); MAP_REPLACE(MAP, ANY, [ANY, ...], FUNCTION<ANY->ANY>) [at 2:3]
-  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a');
-  ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_REPLACE
   Argument types: MAP<STRING, INT64>, STRING
   Signature: MAP_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
@@ -2602,11 +2492,6 @@ ERROR: No matching signature for function MAP_REPLACE
 --
 ALTERNATION GROUP: 'a', 'b'
 --
-ERROR: No matching signature for function MAP_REPLACE for argument types: MAP<STRING, INT64>, STRING, STRING. Supported signatures: MAP_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]); MAP_REPLACE(MAP, ANY, [ANY, ...], FUNCTION<ANY->ANY>) [at 2:3]
-  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 'b');
-  ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_REPLACE
   Argument types: MAP<STRING, INT64>, STRING, STRING
   Signature: MAP_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
@@ -2619,11 +2504,6 @@ ERROR: No matching signature for function MAP_REPLACE
 --
 ALTERNATION GROUP: 1, 2
 --
-ERROR: No matching signature for function MAP_REPLACE for argument types: MAP<STRING, INT64>, INT64, INT64. Supported signatures: MAP_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]); MAP_REPLACE(MAP, ANY, [ANY, ...], FUNCTION<ANY->ANY>) [at 2:3]
-  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 1, 2);
-  ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_REPLACE
   Argument types: MAP<STRING, INT64>, INT64, INT64
   Signature: MAP_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
@@ -2636,11 +2516,6 @@ ERROR: No matching signature for function MAP_REPLACE
 --
 ALTERNATION GROUP: 'a', 2, 'b'
 --
-ERROR: No matching signature for function MAP_REPLACE for argument types: MAP<STRING, INT64>, STRING, INT64, STRING. Supported signatures: MAP_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]); MAP_REPLACE(MAP, ANY, [ANY, ...], FUNCTION<ANY->ANY>) [at 2:3]
-  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 2, 'b');
-  ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_REPLACE
   Argument types: MAP<STRING, INT64>, STRING, INT64, STRING
   Signature: MAP_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
@@ -2651,7 +2526,7 @@ ERROR: No matching signature for function MAP_REPLACE
   ^
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
 SELECT
   MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), {{'a'|NULL|'a', 'b', 'c'}}, v -> v + 1);
 --
@@ -2749,7 +2624,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
 SELECT
   MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 'b', 'c', v -> NULL);
 --
@@ -2785,15 +2660,10 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
 SELECT
   MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 'b', 1, v -> v + 1);
 --
-ERROR: No matching signature for function MAP_REPLACE for argument types: MAP<STRING, INT64>, STRING, STRING, INT64, LAMBDA. Supported signatures: MAP_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]); MAP_REPLACE(MAP, ANY, [ANY, ...], FUNCTION<ANY->ANY>) [at 2:3]
-  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 'b', 1, v -> v + 1);
-  ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_REPLACE
   Argument types: MAP<STRING, INT64>, STRING, STRING, INT64, LAMBDA
   Signature: MAP_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
@@ -2805,15 +2675,10 @@ ERROR: No matching signature for function MAP_REPLACE
   ^
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
 SELECT
   MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 'b', 1, v -> 'a');
 --
-ERROR: No matching signature for function MAP_REPLACE for argument types: MAP<STRING, INT64>, STRING, STRING, INT64, LAMBDA. Supported signatures: MAP_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]); MAP_REPLACE(MAP, ANY, [ANY, ...], FUNCTION<ANY->ANY>) [at 2:3]
-  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 'b', 1, v -> 'a');
-  ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_REPLACE
   Argument types: MAP<STRING, INT64>, STRING, STRING, INT64, LAMBDA
   Signature: MAP_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
@@ -2824,15 +2689,10 @@ ERROR: No matching signature for function MAP_REPLACE
   ^
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
 SELECT
   MAP_REPLACE(NULL, 'a', 'b', 1, v -> 'a');
 --
-ERROR: No matching signature for function MAP_REPLACE for argument types: NULL, STRING, STRING, INT64, LAMBDA. Supported signatures: MAP_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]); MAP_REPLACE(MAP, ANY, [ANY, ...], FUNCTION<ANY->ANY>) [at 2:3]
-  MAP_REPLACE(NULL, 'a', 'b', 1, v -> 'a');
-  ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_REPLACE
   Argument types: NULL, STRING, STRING, INT64, LAMBDA
   Signature: MAP_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
@@ -2840,6 +2700,15 @@ ERROR: No matching signature for function MAP_REPLACE
   Signature: MAP_REPLACE(MAP<T1, T2>, T1, [T1, ...], FUNCTION<T2->T2>)
     Failed to infer type <T2> [at 2:3]
   MAP_REPLACE(NULL, 'a', 'b', 1, v -> 'a');
+  ^
+==
+
+[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
+SELECT
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), COLLATE('a', 'und:ci'), v -> NULL);
+--
+ERROR: Collation is not allowed on argument 2 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 2:3]
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), COLLATE('a', 'und:ci'), v -> NULL);
   ^
 ==
 
@@ -2992,11 +2861,6 @@ QueryStmt
 
 SELECT MAP_DELETE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]));
 --
-ERROR: Number of arguments does not match for function MAP_DELETE. Supported signature: MAP_DELETE(MAP, ANY, [ANY, ...]) [at 1:8]
-SELECT MAP_DELETE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]));
-       ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for function MAP_DELETE
   Argument types: MAP<STRING, INT64>
   Signature: MAP_DELETE(MAP<T1, T2>, T1, [T1, ...])
@@ -3005,7 +2869,7 @@ SELECT MAP_DELETE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]));
        ^
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
 SELECT MAP_FILTER(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), (k, v) -> v > 1);
 --
 QueryStmt
@@ -3033,7 +2897,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
 SELECT
   MAP_FILTER(
     MAP_FROM_ARRAY(CAST({{NULL|[]}} AS ARRAY<STRUCT<STRING, INT64>>)),
@@ -3090,3 +2954,33 @@ QueryStmt
     |               +-Literal(type=INT64, value=1)
     +-input_scan=
       +-SingleRowScan
+==
+
+CREATE TEMP FUNCTION MapUdf () RETURNS MAP<STRING, ARRAY<INT64>> AS (CAST(NULL AS MAP<STRING, ARRAY<INT64>>))
+--
+CreateFunctionStmt
++-name_path=MapUdf
++-create_scope=CREATE_TEMP
++-has_explicit_return_type=TRUE
++-return_type=MAP<STRING, ARRAY<INT64>>
++-signature=() -> MAP<STRING, ARRAY<INT64>>
++-language="SQL"
++-code="CAST(NULL AS MAP<STRING, ARRAY<INT64>>)"
++-function_expression=
+  +-Literal(type=MAP<STRING, ARRAY<INT64>>, value=NULL, has_explicit_type=TRUE)
+==
+
+[language_features=MAP_TYPE,CREATE_AGGREGATE_FUNCTION]
+CREATE TEMP AGGREGATE FUNCTION MapUda () RETURNS MAP<STRING, ARRAY<INT64>> AS (CAST(NULL AS MAP<STRING, ARRAY<INT64>>))
+--
+CreateFunctionStmt
++-name_path=MapUda
++-create_scope=CREATE_TEMP
++-has_explicit_return_type=TRUE
++-return_type=MAP<STRING, ARRAY<INT64>>
++-signature=() -> MAP<STRING, ARRAY<INT64>>
++-is_aggregate=TRUE
++-language="SQL"
++-code="CAST(NULL AS MAP<STRING, ARRAY<INT64>>)"
++-function_expression=
+  +-Literal(type=MAP<STRING, ARRAY<INT64>>, value=NULL, has_explicit_type=TRUE)

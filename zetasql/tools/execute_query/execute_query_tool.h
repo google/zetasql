@@ -29,7 +29,6 @@
 #include <vector>
 
 #include "zetasql/common/options_utils.h"
-#include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer_options.h"

@@ -16,6 +16,7 @@
 
 #include "zetasql/public/pico_time.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <string>
 
@@ -64,13 +65,29 @@ absl::StatusOr<PicoTime> PicoTime::Create(absl::Time time) {
 }
 
 std::string PicoTime::ToString(absl::TimeZone timezone) const {
+  // The string representation of the picos value, without trailing
+  // zeros. E.g. when pico is 120, its value will be "12".
+  std::string picos_str_without_trailing_zeros;
+
+  // Generating picos_str_without_trailing_zeros, in reverse.
+  uint32_t v = picos_;
+  for (int i = 0; i < 3; ++i) {
+    if (v % 10 != 0 || !picos_str_without_trailing_zeros.empty()) {
+      absl::StrAppend(&picos_str_without_trailing_zeros, v % 10);
+    }
+    v /= 10;
+  }
+  // Reverse the strings to get the final result.
+  std::reverse(picos_str_without_trailing_zeros.begin(),
+               picos_str_without_trailing_zeros.end());
+
   std::string output =
       picos_ == 0
           ? absl::FormatTime("%E4Y-%m-%d %H:%M:%E*S%Ez", time_, timezone)
           : absl::StrCat(
                 absl::FormatTime("%E4Y-%m-%d %H:%M:%E9S", time_, timezone),
-                picos_, absl::FormatTime("%Ez", time_, timezone));
-
+                picos_str_without_trailing_zeros,
+                absl::FormatTime("%Ez", time_, timezone));
   // Truncate timezone: if ":00" appears at the end, remove it.
   if (absl::EndsWith(output, ":00")) {
     output.erase(output.size() - 3);

@@ -1,9 +1,9 @@
-[default language_features=V_1_1_ORDER_BY_IN_AGGREGATE]
+[default language_features=ORDER_BY_IN_AGGREGATE]
 [default enabled_ast_rewrites=DEFAULTS,+ORDER_BY_AND_LIMIT_IN_AGGREGATE]
 [default show_sqlbuilder_output]
 
 [no_enable_literal_replacement]
-[language_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_HAVING_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[language_features=ORDER_BY_IN_AGGREGATE,HAVING_IN_AGGREGATE,LIMIT_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 # Simple ARRAY_AGG with ORDER BY with all the features.
 # no_enable_literal_replacement: Distinct and ORDER BY must match exactly, we
 # cannot replace just one literal with parameter
@@ -1130,7 +1130,7 @@ FROM
 
 ==
 
-[language_features=V_1_1_HAVING_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[language_features=HAVING_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE]
 # Two ARRAY_AGGs in the same AggregateScan along with other aggregates
 SELECT ARRAY_AGG(a HAVING MAX CAST(a AS UINT64) - b ORDER BY b), SUM(a), COUNT(b), ARRAY_AGG(b HAVING MIN 3 ORDER BY a)
 FROM TestTable, TestTable.KitchenSink.repeated_int64_val as a, TestTable.KitchenSink.repeated_uint64_val as b
@@ -1658,7 +1658,7 @@ FROM
 
 ==
 
-[language_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE]
+[language_features=ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE]
 
 # ARRAY_AGG with limits
 SELECT ARRAY_AGG(a LIMIT 2), ARRAY_AGG(a ORDER BY a+1 LIMIT 3)
@@ -2043,7 +2043,7 @@ FROM
 
 ==
 
-[language_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_HAVING_IN_AGGREGATE]
+[language_features=ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,HAVING_IN_AGGREGATE]
 
 # Correlated variable only in HAVING clause
 WITH t AS (SELECT 1 AS correlated)

@@ -1,4 +1,4 @@
-[default language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,ANALYTIC_FUNCTIONS,V_1_4_SQL_GRAPH_RETURN_EXTENSIONS,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_4_SQL_GRAPH_RETURN_EXTENSIONS,V_1_4_SQL_GRAPH_PATH_TYPE,V_1_4_GROUP_BY_GRAPH_PATH,V_1_4_SQL_GRAPH_PATH_MODE]
+[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ANALYTIC_FUNCTIONS,SQL_GRAPH_RETURN_EXTENSIONS,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_RETURN_EXTENSIONS,SQL_GRAPH_PATH_TYPE,GROUP_BY_GRAPH_PATH,SQL_GRAPH_PATH_MODE]
 [default no_test_extract_table_names]
 [default show_sqlbuilder_output]
 
@@ -923,7 +923,14 @@ graph_table(aml
 ) gt
 --
 
-ERROR: No matching signature for aggregate function SAMPLE_FUNCTIONS:AFN_AGG for argument types: GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>. Supported signatures: AFN_AGG(); AFN_AGG(ANY); AFN_AGG(INT64, STRING) [at 5:10]
+ERROR: No matching signature for aggregate function SAMPLE_FUNCTIONS:AFN_AGG
+  Argument types: GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>
+  Signature: AFN_AGG()
+    Signature accepts at most 0 arguments, found 1 argument
+  Signature: AFN_AGG(T1)
+    Argument 1: expected T1, found GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...>: which is not allowed for ANY arguments
+  Signature: AFN_AGG(INT64, STRING)
+    Signature requires at least 2 arguments, found 1 argument [at 5:10]
          afn_agg(n) OVER (PARTITION BY SOURCE_NODE_ID(e) ORDER BY n.age) AS w
          ^
 ==

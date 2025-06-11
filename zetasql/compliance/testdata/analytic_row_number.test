@@ -83,7 +83,7 @@ SELECT row_id, ROW_NUMBER() OVER (ROWS 2 PRECEDING) FROM TestTable
 ==
 
 [name=order_by_nulls_last_analytic_rownumber]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT int64_val, ROW_NUMBER() OVER (ORDER BY int64_val DESC NULLS LAST)
 FROM TestTable t
 --
@@ -104,7 +104,7 @@ NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=order_by_nulls_first_analytic_rownumber]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT int64_val, ROW_NUMBER() OVER (ORDER BY int64_val DESC NULLS FIRST)
 FROM TestTable t
 --

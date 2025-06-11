@@ -146,6 +146,11 @@ absl::Status DefaultAnnotationSpec::CheckAndPropagateForRecursiveScan(
   return absl::OkStatus();
 }
 
+absl::Status DefaultAnnotationSpec::CheckAndPropagateForCast(
+    const ResolvedCast& cast, AnnotationMap* result_annotation_map) {
+  return absl::OkStatus();
+}
+
 absl::Status DefaultAnnotationSpec::ScalarMergeIfCompatible(
     const AnnotationMap* in, AnnotationMap& out) const {
   const SimpleValue* value_before = out.GetAnnotation(Id());

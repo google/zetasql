@@ -65,8 +65,8 @@ class Coercer {
 
   // The methods below only look at the type of an InputArgument and whether it
   // is a parameter or literal. They do not depend on the value of a
-  // literal. That logic (e.g., for detecting that a very large int64_t struct
-  // field cannot be coerced to an int32_t field) is in
+  // literal. That logic (e.g., for detecting that a very large int64 struct
+  // field cannot be coerced to an int32 field) is in
   // FunctionResolver::ConvertLiteralToType().
 
   // Returns the common super type of the types present in <argument_set>.

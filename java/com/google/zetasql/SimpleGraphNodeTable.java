@@ -37,7 +37,35 @@ public final class SimpleGraphNodeTable extends SimpleGraphElementTable implemen
       List<Integer> keyColumns,
       Set<GraphElementLabel> labels,
       Set<GraphPropertyDefinition> propertyDefinitions) {
-    super(name, propertyGraphNamePath, table, keyColumns, labels, propertyDefinitions);
+    this(
+        name,
+        propertyGraphNamePath,
+        table,
+        keyColumns,
+        labels,
+        propertyDefinitions,
+        /* dynamicLabel= */ null,
+        /* dynamicProperties= */ null);
+  }
+
+  public SimpleGraphNodeTable(
+      String name,
+      List<String> propertyGraphNamePath,
+      Table table,
+      List<Integer> keyColumns,
+      Set<GraphElementLabel> labels,
+      Set<GraphPropertyDefinition> propertyDefinitions,
+      GraphDynamicLabel dynamicLabel,
+      GraphDynamicProperties dynamicProperties) {
+    super(
+        name,
+        propertyGraphNamePath,
+        table,
+        keyColumns,
+        labels,
+        propertyDefinitions,
+        dynamicLabel,
+        dynamicProperties);
   }
 
   @Override
@@ -69,7 +97,13 @@ public final class SimpleGraphNodeTable extends SimpleGraphElementTable implemen
                   propertyDefProto ->
                       SimpleGraphPropertyDefinition.deserialize(
                           propertyDefProto, catalog, pools, propertyDclMap))
-              .collect(toImmutableSet()));
+              .collect(toImmutableSet()),
+          proto.hasDynamicLabel()
+              ? SimpleGraphDynamicLabel.deserialize(proto.getDynamicLabel())
+              : null,
+          proto.hasDynamicProperties()
+              ? SimpleGraphDynamicProperties.deserialize(proto.getDynamicProperties())
+              : null);
     } catch (NotFoundException unused) {
       throw new NullPointerException(
           String.format("Could not find table %s in catalog.", proto.getInputTableName()));

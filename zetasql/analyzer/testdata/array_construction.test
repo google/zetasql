@@ -370,7 +370,14 @@ select ArrayOfInt32(1, 2, 3)
 
 select 1 + ARRAY[1]
 --
-ERROR: No matching signature for operator + for argument types: INT64, ARRAY<INT64>. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
+ERROR: No matching signature for operator +
+  Argument types: INT64, ARRAY<INT64>
+  Signature: INT64 + INT64
+    Argument 2: Unable to coerce type ARRAY<INT64> to expected type INT64
+  Signature: UINT64 + UINT64
+    Argument 2: Unable to coerce type ARRAY<INT64> to expected type UINT64
+  Signature: DOUBLE + DOUBLE
+    Argument 2: Unable to coerce type ARRAY<INT64> to expected type DOUBLE [at 1:8]
 select 1 + ARRAY[1]
        ^
 ==
@@ -716,7 +723,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_2_CIVIL_TIME]
+[language_features=CIVIL_TIME]
 select [datetime '2011-01-01 00:00:00', datetime '2011-01-02 00:00:00']
 --
 QueryStmt
@@ -731,7 +738,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_2_CIVIL_TIME]
+[language_features=CIVIL_TIME]
 select [time '12:01:59', time '1:00:00']
 --
 QueryStmt

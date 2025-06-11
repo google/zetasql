@@ -40,7 +40,7 @@ namespace zetasql_base {
 // Example usage:
 //
 //   double x = 5.0;
-//   int32_t y;
+//   int32 y;
 //
 //   if (zetasql_base::LosslessConvert(x, &y)) {
 //     ABSL_LOG(INFO) << "Converted to: " << y;

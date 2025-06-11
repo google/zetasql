@@ -49,7 +49,9 @@ message AnnotationMapProto {
   repeated AnnotationProto annotations = 1;
 
   // If AnnotatedType is a complex type, then exactly one of the two
-  // fields will be populated.
-  optional AnnotationMapProto array_element = 2;
+  // fields will be populated (and after the transition, only `struct_fields`
+  // will be populated).
+  // `array_element` is deprecated. Please use `struct_fields` instead.
+  optional AnnotationMapProto array_element = 2 [deprecated = true];
   repeated AnnotationMapProto struct_fields = 3;
 }

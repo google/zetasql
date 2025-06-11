@@ -1,4 +1,3 @@
-
 # LIMIT and OFFSET tests.
 SELECT 1 LIMIT 1;
 --
@@ -76,12 +75,12 @@ select key from KeyValue order by 1 offset 5;
                                     ^
 ==
 
-[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+[language_features={{LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT Key, Value
 FROM KeyValue
 LIMIT -1;
 --
-ALTERNATION GROUP: V_1_4_LIMIT_OFFSET_EXPRESSIONS
+ALTERNATION GROUP: LIMIT_OFFSET_EXPRESSIONS
 --
 QueryStmt
 +-output_column_list=
@@ -105,12 +104,12 @@ LIMIT -1;
       ^
 ==
 
-[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+[language_features={{LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT Key, Value
 FROM KeyValue
 LIMIT 0 OFFSET -1;
 --
-ALTERNATION GROUP: V_1_4_LIMIT_OFFSET_EXPRESSIONS
+ALTERNATION GROUP: LIMIT_OFFSET_EXPRESSIONS
 --
 QueryStmt
 +-output_column_list=
@@ -136,7 +135,7 @@ LIMIT 0 OFFSET -1;
                ^
 ==
 
-[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+[language_features={{LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT Key, Value
 FROM KeyValue
 LIMIT 9223372036854775808;
@@ -146,7 +145,7 @@ LIMIT 9223372036854775808;
       ^
 ==
 
-[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+[language_features={{LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT Key, Value
 FROM KeyValue
 LIMIT 1 OFFSET 9223372036854775808;
@@ -156,7 +155,7 @@ LIMIT 1 OFFSET 9223372036854775808;
                ^
 ==
 
-[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+[language_features={{LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT 1 LIMIT 1 OFFSET 1;
 --
 QueryStmt
@@ -178,7 +177,7 @@ QueryStmt
       +-Literal(type=INT64, value=1)
 ==
 
-[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+[language_features={{LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT 1 LIMIT @test_param_int32;
 --
 QueryStmt
@@ -199,7 +198,7 @@ QueryStmt
         +-Parameter(type=INT32, name="test_param_int32")
 ==
 
-[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+[language_features={{LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT 1 LIMIT @test_param_int64;
 --
 QueryStmt
@@ -219,7 +218,7 @@ QueryStmt
       +-Parameter(type=INT64, name="test_param_int64")
 ==
 
-[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+[language_features={{LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT 1 LIMIT @test_param_uint32;
 --
 QueryStmt
@@ -240,10 +239,10 @@ QueryStmt
         +-Parameter(type=UINT32, name="test_param_uint32")
 ==
 
-[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+[language_features={{LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT 1 LIMIT @test_param_uint64;
 --
-ALTERNATION GROUP: V_1_4_LIMIT_OFFSET_EXPRESSIONS
+ALTERNATION GROUP: LIMIT_OFFSET_EXPRESSIONS
 --
 ERROR: LIMIT ... OFFSET ... expects INT64, got UINT64 [at 1:16]
 SELECT 1 LIMIT @test_param_uint64;
@@ -269,7 +268,7 @@ QueryStmt
         +-Parameter(type=UINT64, name="test_param_uint64")
 ==
 
-[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+[language_features={{LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT 1 LIMIT 1 OFFSET @test_param_int32;
 --
 QueryStmt
@@ -292,7 +291,7 @@ QueryStmt
         +-Parameter(type=INT32, name="test_param_int32")
 ==
 
-[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+[language_features={{LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT 1 LIMIT 1 OFFSET @test_param_int64;
 --
 QueryStmt
@@ -314,7 +313,7 @@ QueryStmt
       +-Parameter(type=INT64, name="test_param_int64")
 ==
 
-[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+[language_features={{LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT 1 LIMIT 1 OFFSET @test_param_uint32;
 --
 QueryStmt
@@ -337,10 +336,10 @@ QueryStmt
         +-Parameter(type=UINT32, name="test_param_uint32")
 ==
 
-[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+[language_features={{LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT 1 LIMIT 1 OFFSET @test_param_uint64;
 --
-ALTERNATION GROUP: V_1_4_LIMIT_OFFSET_EXPRESSIONS
+ALTERNATION GROUP: LIMIT_OFFSET_EXPRESSIONS
 --
 ERROR: LIMIT ... OFFSET ... expects INT64, got UINT64 [at 1:25]
 SELECT 1 LIMIT 1 OFFSET @test_param_uint64;
@@ -418,12 +417,12 @@ select 1 limit cast(@test_param_int64 as int32)
                ^
 ==
 
-[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+[language_features={{LIMIT_OFFSET_EXPRESSIONS|}}]
 # Expressions may or may not be allowed as arguments to LIMIT/OFFSET depending
-# on V_1_4_LIMIT_OFFSET_EXPRESSIONS.
+# on LIMIT_OFFSET_EXPRESSIONS.
 select 1 limit mod(1, 10)
 --
-ALTERNATION GROUP: V_1_4_LIMIT_OFFSET_EXPRESSIONS
+ALTERNATION GROUP: LIMIT_OFFSET_EXPRESSIONS
 --
 QueryStmt
 +-output_column_list=
@@ -450,10 +449,10 @@ select 1 limit mod(1, 10)
                ^
 ==
 
-[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+[language_features={{LIMIT_OFFSET_EXPRESSIONS|}}]
 select 1 limit 1 offset mod(1, 10)
 --
-ALTERNATION GROUP: V_1_4_LIMIT_OFFSET_EXPRESSIONS
+ALTERNATION GROUP: LIMIT_OFFSET_EXPRESSIONS
 --
 QueryStmt
 +-output_column_list=
@@ -483,10 +482,10 @@ select 1 limit 1 offset mod(1, 10)
 ==
 
 # Null arguments to LIMIT & OFFSET are not allowed.
-[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+[language_features={{LIMIT_OFFSET_EXPRESSIONS|}}]
 select 1 limit null
 --
-ALTERNATION GROUP: V_1_4_LIMIT_OFFSET_EXPRESSIONS
+ALTERNATION GROUP: LIMIT_OFFSET_EXPRESSIONS
 --
 QueryStmt
 +-output_column_list=
@@ -512,10 +511,10 @@ select 1 limit null
 ==
 
 # Null arguments to LIMIT & OFFSET are not allowed.
-[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+[language_features={{LIMIT_OFFSET_EXPRESSIONS|}}]
 select 1 limit null
 --
-ALTERNATION GROUP: V_1_4_LIMIT_OFFSET_EXPRESSIONS
+ALTERNATION GROUP: LIMIT_OFFSET_EXPRESSIONS
 --
 QueryStmt
 +-output_column_list=
@@ -541,7 +540,7 @@ select 1 limit null
 ==
 
 # LIMIT & OFFSET can take expressions that reference query parameters.
-[language_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[language_features=LIMIT_OFFSET_EXPRESSIONS]
 select 1 limit mod(@test_param_int64, 10)
 --
 QueryStmt
@@ -563,7 +562,7 @@ QueryStmt
         +-Literal(type=INT64, value=10)
 ==
 
-[language_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[language_features=LIMIT_OFFSET_EXPRESSIONS]
 select 1 limit 1 offset mod(@test_param_int64, 10)
 --
 QueryStmt
@@ -588,7 +587,7 @@ QueryStmt
 ==
 
 # LIMIT & OFFSET cannot use the current name scope.
-[language_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[language_features=LIMIT_OFFSET_EXPRESSIONS]
 select Key, Value from KeyValue limit max(Key)
 --
 ERROR: Unrecognized name: Key [at 1:43]
@@ -596,7 +595,7 @@ select Key, Value from KeyValue limit max(Key)
                                           ^
 ==
 
-[language_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[language_features=LIMIT_OFFSET_EXPRESSIONS]
 select Key, Value from KeyValue limit 1 offset max(Key)
 --
 ERROR: Unrecognized name: Key [at 1:52]
@@ -606,7 +605,7 @@ select Key, Value from KeyValue limit 1 offset max(Key)
 
 # LIMIT & OFFSET can reference the parent name scope, but will still fail
 # because a correlated reference is not constant.
-[language_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[language_features=LIMIT_OFFSET_EXPRESSIONS]
 WITH sub AS (SELECT 1 AS lim)
 SELECT lim FROM sub WHERE lim = (SELECT 1 LIMIT sub.lim)
 --
@@ -615,7 +614,7 @@ SELECT lim FROM sub WHERE lim = (SELECT 1 LIMIT sub.lim)
                                                 ^
 ==
 
-[language_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[language_features=LIMIT_OFFSET_EXPRESSIONS]
 WITH sub AS (SELECT 0 AS lim)
 SELECT lim FROM sub WHERE lim = (SELECT 0 LIMIT 1 OFFSET sub.lim)
 --
@@ -625,7 +624,7 @@ SELECT lim FROM sub WHERE lim = (SELECT 0 LIMIT 1 OFFSET sub.lim)
 ==
 
 # LIMIT & OFFSET cannot take correlated expression subqueries.
-[language_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[language_features=LIMIT_OFFSET_EXPRESSIONS]
 select Key, Value from KeyValue limit (select max(Key))
 --
 ERROR: Unrecognized name: Key [at 1:51]
@@ -633,7 +632,7 @@ select Key, Value from KeyValue limit (select max(Key))
                                                   ^
 ==
 
-[language_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[language_features=LIMIT_OFFSET_EXPRESSIONS]
 select Key, Value from KeyValue limit 1 offset (select max(Key))
 --
 ERROR: Unrecognized name: Key [at 1:60]
@@ -642,7 +641,7 @@ select Key, Value from KeyValue limit 1 offset (select max(Key))
 ==
 
 # LIMIT & OFFSET expressions must be INT64.
-[language_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[language_features=LIMIT_OFFSET_EXPRESSIONS]
 select 1 limit cast(mod(1, 10) as uint64)
 --
 ERROR: LIMIT ... OFFSET ... expects INT64, got UINT64 [at 1:16]
@@ -650,7 +649,7 @@ select 1 limit cast(mod(1, 10) as uint64)
                ^
 ==
 
-[language_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[language_features=LIMIT_OFFSET_EXPRESSIONS]
 select 1 limit 1 offset cast(mod(1, 10) as uint64)
 --
 ERROR: LIMIT ... OFFSET ... expects INT64, got UINT64 [at 1:25]
@@ -817,11 +816,11 @@ select key from KeyValue order by 1 offset 5;
                                     ^
 ==
 
-[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+[language_features={{LIMIT_OFFSET_EXPRESSIONS|}}]
 select key FROM KeyValue ORDER BY 1 {{LIMIT|LIMIT 1 OFFSET}} 18446744073709551615;
 --
 ALTERNATION GROUPS:
-    V_1_4_LIMIT_OFFSET_EXPRESSIONS,LIMIT
+    LIMIT_OFFSET_EXPRESSIONS,LIMIT
     LIMIT
 --
 ERROR: Could not cast literal 18446744073709551615 to type INT64 [at 1:43]
@@ -829,7 +828,7 @@ select key FROM KeyValue ORDER BY 1 LIMIT 18446744073709551615;
                                           ^
 --
 ALTERNATION GROUPS:
-    V_1_4_LIMIT_OFFSET_EXPRESSIONS,LIMIT 1 OFFSET
+    LIMIT_OFFSET_EXPRESSIONS,LIMIT 1 OFFSET
     LIMIT 1 OFFSET
 --
 ERROR: Could not cast literal 18446744073709551615 to type INT64 [at 1:52]
@@ -837,7 +836,7 @@ select key FROM KeyValue ORDER BY 1 LIMIT 1 OFFSET 18446744073709551615;
                                                    ^
 ==
 
-[language_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS,V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[language_features=UNNEST_AND_FLATTEN_ARRAYS,LIMIT_OFFSET_EXPRESSIONS]
 SELECT key
 FROM KeyValue
 LIMIT FLATTEN(STRUCT([STRUCT(1 AS quantity), STRUCT(2 AS quantity)] AS sales).sales.quantity)[OFFSET(0)]
@@ -872,7 +871,7 @@ QueryStmt
         +-Literal(type=INT64, value=0)
 ==
 
-[language_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS,V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[language_features=UNNEST_AND_FLATTEN_ARRAYS,LIMIT_OFFSET_EXPRESSIONS]
 SELECT key
 FROM KeyValue
 LIMIT 2
@@ -911,10 +910,10 @@ QueryStmt
 ==
 
 # SimpleConstant can be referenced in the LIMIT and OFFSET clause with language feature.
-[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+[language_features={{LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT 1 FROM KeyValue limit TestConstantInt64 OFFSET TestConstantInt64;
 --
-ALTERNATION GROUP: V_1_4_LIMIT_OFFSET_EXPRESSIONS
+ALTERNATION GROUP: LIMIT_OFFSET_EXPRESSIONS
 --
 QueryStmt
 +-output_column_list=
@@ -969,7 +968,7 @@ CreateConstantStmt
 ==
 
 # SQLConstant can be referenced in the LIMIT and OFFSET clause with language feature.
-[language_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[language_features=LIMIT_OFFSET_EXPRESSIONS]
 [use_database=db]
 select * from KeyValue kv1
 LIMIT local_constant_int64 OFFSET local_constant_int32

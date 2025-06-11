@@ -43,6 +43,7 @@
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/target_syntax.h"
 #include "absl/base/attributes.h"
+#include "absl/cleanup/cleanup.h"
 #include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -266,7 +267,10 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status Process(const ResolvedNode& ast);
 
   // Returns the sql string for the last visited ResolvedAST.
-  // Some nodes must have been visited before calling this.
+  // If we are in ZETASQL_DEBUG_MODE then we will check that all fields are accessed
+  // after generating the SQL for the fragment's AST node, to ensure that SQL
+  // generation didn't miss any semantically meaningful part of the related AST
+  // node.
   absl::StatusOr<std::string> GetSql();
 
   // This deprecated version can crash in some cases.  Use GetSql() instead.
@@ -702,6 +706,8 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status VisitResolvedGraphPathScan(
       const ResolvedGraphPathScan* node) override;
   absl::Status VisitResolvedGraphScan(const ResolvedGraphScan* node) override;
+  absl::Status VisitResolvedGraphCallScan(
+      const ResolvedGraphCallScan* node) override;
   absl::Status VisitResolvedGraphGetElementProperty(
       const ResolvedGraphGetElementProperty* node) override;
   absl::Status VisitResolvedGraphIsLabeledPredicate(
@@ -765,6 +771,8 @@ class SQLBuilder : public ResolvedASTVisitor {
                                           std::string& output_sql);
   absl::Status ProcessResolvedGqlSampleOp(const ResolvedSampleScan* node,
                                           std::string& output_sql);
+  absl::Status ProcessResolvedGqlNamedCallOp(const ResolvedTVFScan* node,
+                                             std::string& output_sql);
   // Used for operations such as GQL's LET, which may have an
   // AnalyticScan (or a ProjScan whose input is an AnalyticScan) as their input.
   // Such operators need to collapse those expressions by storing their SQL in
@@ -876,24 +884,12 @@ class SQLBuilder : public ResolvedASTVisitor {
   // QueryExpression for scan nodes.
   struct QueryFragment {
     explicit QueryFragment(const ResolvedNode* node, std::string text)
-        : node(node),
-          target_syntax_mode(TargetSyntaxMode::kStandard),
-          text(std::move(text)) {}
-
-    explicit QueryFragment(const ResolvedNode* node,
-                           TargetSyntaxMode target_syntax_mode,
-                           std::string text)
-        : node(node),
-          target_syntax_mode(target_syntax_mode),
-          text(std::move(text)) {}
+        : node(node), text(std::move(text)) {}
 
     // Takes ownership of the <query_expression>.
     explicit QueryFragment(const ResolvedNode* node,
-                           TargetSyntaxMode target_syntax_mode,
                            QueryExpression* query_expression)
-        : node(node),
-          target_syntax_mode(target_syntax_mode),
-          query_expression(query_expression) {}
+        : node(node), query_expression(query_expression) {}
 
     QueryFragment(const QueryFragment&) = delete;
     QueryFragment operator=(const QueryFragment&) = delete;
@@ -902,8 +898,6 @@ class SQLBuilder : public ResolvedASTVisitor {
 
     // Associated resolved node tree for the QueryFragment.
     const ResolvedNode* node = nullptr;
-
-    TargetSyntaxMode target_syntax_mode;
 
     // Populated if QueryFragment is created from a QueryExpression.
     std::unique_ptr<QueryExpression> query_expression;
@@ -1139,8 +1133,9 @@ class SQLBuilder : public ResolvedASTVisitor {
       const std::vector<std::unique_ptr<const ResolvedOutputColumn>>&
           output_column_list);
 
-  static absl::StatusOr<absl::string_view> GetNullHandlingModifier(
-      ResolvedNonScalarFunctionCallBase::NullHandlingModifier kind);
+  static absl::Status AddNullHandlingModifier(
+      ResolvedNonScalarFunctionCallBase::NullHandlingModifier kind,
+      std::string* arguments_suffix);
 
   // Setting the optional parameter `use_external_float32` to true will return
   // FLOAT32 as the type name for TYPE_FLOAT, for PRODUCT_EXTERNAL mode.
@@ -1168,7 +1163,8 @@ class SQLBuilder : public ResolvedASTVisitor {
 
   absl::StatusOr<std::string> GetFunctionCallSQL(
       const ResolvedFunctionCallBase* function_call,
-      std::vector<std::string> inputs);
+      std::vector<std::string> inputs, absl::string_view arguments_suffix,
+      bool allow_chained_call = true);
 
   // Helper function to return corresponding SQL for a list of
   // ResolvedUpdateItems.
@@ -1305,6 +1301,11 @@ class SQLBuilder : public ResolvedASTVisitor {
  private:
   CopyableState state_;
 
+  // The column ids of the target table for DML statements. Those are not
+  // aliased and some places need to use their names directly, like in GQL
+  // CALL () variable scope list.
+  absl::flat_hash_set<int> dml_target_column_ids_;
+
   bool IsPipeSyntaxTargetMode() {
     return options_.target_syntax_mode == TargetSyntaxMode::kPipe;
   }
@@ -1370,22 +1371,74 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::StatusOr<const ResolvedScan*> GetOriginalInputScanForCorresponding(
       const ResolvedScan* scan);
 
-  // Returns a QueryExpression that represents the input `pipe_sql` converted to
-  // a regular query by wrapping it in a SELECT statement. `pipe_query_node` is
-  // the ResolvedScan that corresponds to the `pipe_sql`.
+  // In Standard SQL syntax mode, wraps the QueryExpression such that its FROM
+  // clause becomes usable in Pipe syntax. In Pipe SQL syntax mode, simply wraps
+  // the QueryExpression. For example, for the ResolvedScan for the query
+  // "select * from table", this function would wrap the passed query expression
+  // to represent the following queries:
+  // - in Standard SQL syntax mode: `select * from table |> as alias`,
+  // - in Pipe SQL syntax mode: `from table |> select * |> as alias`,
+  // both of which are useable further in Pipe syntax.
+  absl::Status MaybeWrapStandardQueryAsPipeQuery(
+      const ResolvedScan* node, QueryExpression* query_expression);
+
+  // In Standard SQL syntax mode, returns a QueryExpression that represents the
+  // input `pipe_sql` converted to a regular query by wrapping it in a SELECT
+  // statement. `pipe_query_node` is the ResolvedScan that corresponds to the
+  // `pipe_sql`.
   //
-  // SqlBuilder currently cannot handle pipe operators in general, so we need to
-  // wrap pipe scans in a regular SQL like this:
-  //
-  // SELECT ...
-  // FROM (
-  //   <pipe_sql>
-  // ) AS assert_scan
-  //
-  // to allow the outer unparsing to work properly.
+  // In Pipe SQL syntax mode, returns a QueryExpression with the FROM clause set
+  // to the given `pipe_sql`.
   absl::StatusOr<std::unique_ptr<QueryExpression>>
-  ConvertPipeQueryToRegularQuery(const ResolvedScan& pipe_query_node,
-                                 absl::string_view pipe_sql);
+  MaybeWrapPipeQueryAsStandardQuery(const ResolvedScan& pipe_query_node,
+                                    absl::string_view pipe_sql);
+
+  // Mode to indicate how to general SQL for a TVF.
+  enum class TVFBuildMode {
+    // Whether relational or pipe SQL.
+    kSql,
+    // When the implicit input table is the first table arg, e.g. CALL PER().
+    // The implicit input table is not printed.
+    kGqlImplicit,
+    // When there is no implicit input table, e.g. CALL tvf(...) without PER.
+    // This proceeds similar to SQL, but doesn't attach an alias to the scan.
+    kGqlExplicit,
+  };
+
+  // Contains the shared logic for building SQL for a TVFScan.
+  // GQL CALL PER() tvf() prints the same way as pipe CALL, where the first
+  // table arg isn't printed.
+  // Returns the generated SQL for this TVF call.
+  absl::StatusOr<std::string> ProcessResolvedTVFScan(
+      const ResolvedTVFScan* node, TVFBuildMode build_mode);
+
+  // While resolving a subquery we should start with a fresh scope, i.e. it
+  // should not see any columns (except which are correlated) outside the query.
+  // To ensure that, we clear the pending_columns_ after maintaining a copy of
+  // it locally. We then copy it back once we have processed the subquery.
+  // To give subquery access to correlated columns, scan parameter list and
+  // copy current pending_columns_ and correlated_pending_columns_ from outer
+  // subquery whose column ids match the parameter column.
+  //
+  // NOTE: Correlated columns cannot be simply retained in pending_columns_
+  // because pending_columns_ get cleared in every ProjectScan and subquery can
+  // have multiple of those. Correlated columns must be accessible to the whole
+  // subquery instead.
+  class PendingColumnsAutoRestorer {
+   public:
+    PendingColumnsAutoRestorer(
+        SQLBuilder& sql_builder,
+        const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
+            columns_to_expose);
+
+    // Destructor restoring the previous state.
+    ~PendingColumnsAutoRestorer();
+
+   private:
+    SQLBuilder& sql_builder_;
+    std::map<int, std::string> previous_pending_columns_;
+    std::map<int, std::string> previous_correlated_columns_;
+  };
 
   // When building function call which defines a side effects scope, we may need
   // to inline some column refs to input scans. This stack keeps track of the

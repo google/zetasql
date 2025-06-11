@@ -1,5 +1,5 @@
 # Positive simplest case
-[default language_features=V_1_3_WITH_GROUP_ROWS]
+[default language_features=WITH_GROUP_ROWS]
 SELECT f(x) WITH GROUP ROWS (SELECT x FROM GROUP_ROWS()) FROM T;
 --
 

@@ -24,8 +24,10 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/public/simple_token_list.h"
+#include "zetasql/public/simple_token_list.h"
+#include "zetasql/public/simple_token_list.h"
 #include "zetasql/public/strings.h"
-#include "zetasql/public/token_list.h"  
 #include "absl/base/no_destructor.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/str_cat.h"
@@ -37,11 +39,11 @@
 namespace zetasql::search {
 namespace {
 
-using tokens::TextAttribute;     
-using tokens::TextToken;         
-using tokens::Token;             
-using tokens::TokenList;         
-using tokens::TokenListBuilder;  
+using tokens::TextAttribute;
+using tokens::TextToken;
+using tokens::Token;
+using tokens::TokenList;
+using tokens::TokenListBuilder;
 
 // Formats token text and attribute into 'out'.
 void FormatToken(std::string& out, absl::string_view text, uint64_t attribute) {
@@ -120,7 +122,7 @@ std::vector<std::string> FormatTokenLines(const TokenList& token_list,
                                           AttributeFormatter format_attribute) {
   auto iter = token_list.GetIterator();
   if (!iter.ok()) {
-    return {iter.status().ToString()};
+    return {"Invalid tokenlist encoding"};
   }
   TextToken buf, cur;
   int run_length = 0;
@@ -134,7 +136,7 @@ std::vector<std::string> FormatTokenLines(const TokenList& token_list,
 
   while (!iter->done()) {
     if (!iter->Next(cur).ok()) {
-      return {iter.status().ToString()};
+      return {"Invalid tokenlist encoding"};
     }
 
     if (!collapse_identical_tokens) {

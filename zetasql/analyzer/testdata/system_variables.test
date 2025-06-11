@@ -757,7 +757,12 @@ QueryStmt
 # ERROR: Use system variable of wrong type
 SELECT STARTS_WITH(@@int64_system_variable, 'a');
 --
-ERROR: No matching signature for function STARTS_WITH for argument types: INT64, STRING. Supported signatures: STARTS_WITH(STRING, STRING); STARTS_WITH(BYTES, BYTES) [at 1:8]
+ERROR: No matching signature for function STARTS_WITH
+  Argument types: INT64, STRING
+  Signature: STARTS_WITH(STRING, STRING)
+    Argument 1: Unable to coerce type INT64 to expected type STRING
+  Signature: STARTS_WITH(BYTES, BYTES)
+    Argument 1: Unable to coerce type INT64 to expected type BYTES [at 1:8]
 SELECT STARTS_WITH(@@int64_system_variable, 'a');
        ^
 ==

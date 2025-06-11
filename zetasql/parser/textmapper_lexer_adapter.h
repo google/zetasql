@@ -25,12 +25,11 @@
 #include <vector>
 
 #include "zetasql/base/arena.h"
-#include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/lookahead_transformer.h"
 #include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/macros/macro_expander.h"
+#include "zetasql/parser/parser_mode.h"
 #include "zetasql/parser/tm_token.h"
-#include "zetasql/parser/token_codes.h"
 #include "zetasql/parser/token_with_location.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
@@ -50,8 +49,7 @@ class TextMapperLexerAdapter {
   using InputToken = Token;
   using Location = ParseLocationRange;
 
-  explicit TextMapperLexerAdapter(BisonParserMode mode,
-                                  absl::string_view filename,
+  explicit TextMapperLexerAdapter(ParserMode mode, absl::string_view filename,
                                   absl::string_view input, int start_offset,
                                   const LanguageOptions& language_options,
                                   MacroExpansionMode macro_expansion_mode,

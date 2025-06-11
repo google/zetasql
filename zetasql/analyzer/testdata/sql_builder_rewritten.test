@@ -7,7 +7,7 @@
 [default show_sqlbuilder_output]
 [default no_show_resolved_ast]
 
-[language_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+[language_features=UNNEST_AND_FLATTEN_ARRAYS]
 [enabled_ast_rewrites=DEFAULTS,-WITH_EXPR|DEFAULTS,+WITH_EXPR]
 SELECT FLATTEN(ARRAY_CONCAT([STRUCT(1 AS a)], [STRUCT(2 AS a)]).a);
 --

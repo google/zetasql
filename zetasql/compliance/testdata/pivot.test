@@ -1,4 +1,4 @@
-[default required_features=V_1_3_PIVOT]
+[default required_features=PIVOT]
 [prepare_database]
 CREATE TABLE t1 AS
   SELECT * FROM UNNEST([
@@ -121,7 +121,7 @@ SELECT * FROM (SELECT x, y, z FROM t1)
 ARRAY<STRUCT<x INT64, _100 INT64>>[unknown order:{1, 5}, {2, 1}]
 ==
 
-[required_features=V_1_3_PIVOT,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=PIVOT,NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE]
 [name=pivot_array_agg_ignore_nulls]
 SELECT * FROM (SELECT x, y, z FROM t1)
   PIVOT(ARRAY_AGG(z IGNORE NULLS ORDER BY MOD(z, 3) ASC, z DESC)
@@ -281,7 +281,7 @@ ARRAY<STRUCT<
 ]
 ==
 
-[required_features=V_1_3_PIVOT,V_1_4_ENFORCE_CONDITIONAL_EVALUATION]
+[required_features=PIVOT,ENFORCE_CONDITIONAL_EVALUATION]
 [name=pivot_conditional_evaluation]
 SELECT IF(SUM(pivot_min_100) >= 0, SUM(pivot_min_100), SUM(1/pivot_min_100)) FROM (SELECT x, y, z FROM t1)
   PIVOT(
@@ -291,7 +291,7 @@ SELECT IF(SUM(pivot_min_100) >= 0, SUM(pivot_min_100), SUM(1/pivot_min_100)) FRO
 --
 ARRAY<STRUCT<DOUBLE>>[{0}]
 ==
-[required_features=V_1_3_PIVOT,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=PIVOT,ORDER_BY_IN_AGGREGATE]
 [name=pivot_string_agg_with_delimiter]
 SELECT * FROM (SELECT rowid, x, y, z FROM t1)
   PIVOT(
@@ -317,7 +317,7 @@ ARRAY<STRUCT<
                {2, "1000", "1001", NULL, "1002-1002", "1002-1002"}]
 ==
 
-[required_features=V_1_3_PIVOT,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=PIVOT,ORDER_BY_IN_AGGREGATE]
 [name=pivot_string_agg_with_order_by]
 SELECT * FROM (SELECT x, y, z FROM t1)
   PIVOT(
@@ -385,7 +385,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=V_1_3_PIVOT,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[required_features=PIVOT,LIMIT_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [name=limit_in_aggregate_fn_call]
 SELECT
   ARRAY_LENGTH(_1) = 3 AND
@@ -400,7 +400,7 @@ ARRAY<STRUCT<BOOL>>[{true}]
 NOTE: Reference implementation reports non-determinism.
 ==
 
-[required_features=V_1_3_PIVOT,V_1_1_HAVING_IN_AGGREGATE]
+[required_features=PIVOT,HAVING_IN_AGGREGATE]
 [name=having_in_aggregate_fn_call]
 SELECT * FROM (SELECT x, y FROM t1)
 PIVOT(MAX(y HAVING MAX x) FOR x IN (1, 2));
@@ -415,7 +415,7 @@ ARRAY<STRUCT<_1 INT64, _2 INT64>>[{101, 102}]
 #      evaluated more than once, due to multiple pivot values.
 # 2) HAVING MIN/MAX works with COUNT(*) when used as a PIVOT expression.
 [name=having_min_with_reference]
-[required_features=V_1_3_PIVOT,V_1_1_HAVING_IN_AGGREGATE]
+[required_features=PIVOT,HAVING_IN_AGGREGATE]
 WITH
   table_bool_decimal AS (
     SELECT 1.2 AS double_val
@@ -440,7 +440,7 @@ AS a_23 FOR(a_10) IN (1.3 AS a_33, 2 AS a_34))
 ARRAY<STRUCT<a_23_a_33 INT64>>[{0}]
 ==
 
-[required_features=V_1_3_PIVOT]
+[required_features=PIVOT]
 [name=pivot_array_agg]
 SELECT * FROM (
   (SELECT x, y, z FROM t1) UNION ALL (SELECT x, y, z FROM t1))
@@ -466,7 +466,7 @@ ARRAY<STRUCT<x INT64, _1000 ARRAY<>, z_1001 ARRAY<>, _1002 ARRAY<>, z_null ARRAY
 ==
 
 # Aggregate functions with multiple arguments.
-[required_features=V_1_3_PIVOT]
+[required_features=PIVOT]
 [name=pivot_multiarg]
 SELECT * FROM TableFloat64AllValuesWithNullBinaryStat
 PIVOT(
@@ -484,7 +484,7 @@ ARRAY<STRUCT<cs_yx_true DOUBLE,
              corr_yy_false DOUBLE>>[{0.25, 0.2, 1, 1, 0.25, 0.2, 1, 1}]
 ==
 
-[required_features=V_1_3_PIVOT]
+[required_features=PIVOT]
 [name=pivot_query_parameters]
 [parameters=1000 as p]
 SELECT * FROM (SELECT x, y, z FROM t1)
@@ -496,7 +496,7 @@ ARRAY<STRUCT<x INT64, _100 INT64, _101 INT64, _103 INT64, NULL INT64>>[unknown o
 ]
 ==
 
-[required_features=V_1_3_PIVOT]
+[required_features=PIVOT]
 [name=pivot_subquery_in_pivot_expr]
 SELECT * FROM t1
   PIVOT(
@@ -525,7 +525,7 @@ ARRAY<STRUCT<rowid INT64, y INT64, z INT64, _0 INT64, _1 INT64>>[unknown order:
 
 # ST_NEAREST_NEIGHBORS takes 4 arguments, which is very unusual for an aggregate
 # function. It is also null-respecting.
-[required_features=V_1_3_PIVOT,GEOGRAPHY]
+[required_features=PIVOT,GEOGRAPHY]
 [name=pivot_st_nearest_neighbors]
 SELECT * FROM
   (SELECT 1 AS info, st_geogpoint(3, 3) AS location
@@ -544,7 +544,7 @@ ARRAY<STRUCT<_0 ARRAY<>, _1 ARRAY<>>>[
 ]
 ==
 
-[required_features=V_1_3_PIVOT]
+[required_features=PIVOT]
 [name=pivot_any_value_no_groupby]
 SELECT
   any_x_100 IN (1,2),
@@ -558,7 +558,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{true, true, true}]
 NOTE: Reference implementation reports non-determinism.
 ==
 
-[required_features=V_1_3_PIVOT]
+[required_features=PIVOT]
 [name=pivot_any_value_groupby_z]
 SELECT
   z,
@@ -580,7 +580,7 @@ ARRAY<STRUCT<z INT64, BOOL, BOOL, BOOL>>[unknown order:
 NOTE: Reference implementation reports non-determinism.
 ==
 
-[required_features=V_1_3_PIVOT]
+[required_features=PIVOT]
 [name=pivot_any_value_array_no_groupby]
 SELECT
   any_x_100[OFFSET(0)] IN (1,2),
@@ -593,7 +593,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{true, true, true}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
-[required_features=V_1_3_PIVOT]
+[required_features=PIVOT]
 [name=pivot_any_value_array_groupby]
 SELECT
   z,
@@ -615,7 +615,7 @@ ARRAY<STRUCT<z INT64, BOOL, BOOL, BOOL>>[unknown order:
 NOTE: Reference implementation reports non-determinism.
 ==
 
-[required_features=V_1_3_PIVOT]
+[required_features=PIVOT]
 [name=pivot_any_value_empty_input]
 SELECT
   any_x_100 IN (1,2),
@@ -627,7 +627,7 @@ FROM (SELECT x, y FROM t1 WHERE FALSE)
 ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{NULL, true, NULL}]
 ==
 
-[required_features=V_1_3_PIVOT]
+[required_features=PIVOT]
 [name=pivot_any_value_empty_input_array]
 SELECT
   any_x_100[OFFSET(0)] IN (1,2),
@@ -639,7 +639,7 @@ FROM (SELECT x, y FROM t1 WHERE FALSE)
 ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{NULL, true, NULL}]
 ==
 
-[required_features=V_1_3_PIVOT]
+[required_features=PIVOT]
 [name=pivot_any_value_multiple]
 
 SELECT
@@ -675,3 +675,27 @@ ARRAY<STRUCT<BOOL,
 ]
 
 NOTE: Reference implementation reports non-determinism.
+==
+
+[required_features=PIVOT,ORDER_BY_IN_AGGREGATE]
+[name=pivot_on_subquery_with_order_by_in_aggregate]
+
+SELECT
+  *
+FROM (SELECT 1 AS a) AS sub
+  PIVOT(STRING_AGG("a" ORDER BY sub.a) FOR (1) IN (1));
+--
+ARRAY<STRUCT<_1 STRING>>[{"a"}]
+==
+
+[required_features=PIVOT]
+[name=pivot_on_duplicate_columns_with_alias]
+SELECT *
+FROM (SELECT t1.x AS a, t1.x AS b, t1.x AS c FROM t1) AS sub
+PIVOT(COUNT(*) FOR a IN (1, 2, 3));
+
+--
+ARRAY<STRUCT<b INT64, c INT64, _1 INT64, _2 INT64, _3 INT64>>[unknown order:
+  {1, 1, 9, 0, 0},
+  {2, 2, 0, 7, 0}
+]

@@ -1,4 +1,4 @@
-[default language_features=V_1_3_PIVOT,NUMERIC_TYPE,BIGNUMERIC_TYPE,V_1_2_CIVIL_TIME,V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT,TABLESAMPLE,V_1_3_IS_DISTINCT,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_HAVING_IN_AGGREGATE]
+[default language_features=PIVOT,NUMERIC_TYPE,BIGNUMERIC_TYPE,CIVIL_TIME,GROUP_BY_ARRAY,GROUP_BY_STRUCT,TABLESAMPLE,IS_DISTINCT,NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,HAVING_IN_AGGREGATE]
 
 # ERROR: Pivot on value table via UNNEST
 SELECT * FROM UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN (0, 1));
@@ -8,7 +8,7 @@ SELECT * FROM UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN (0, 1));
                                      ^
 ==
 
-[language_features=V_1_3_PIVOT{{|,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
+[language_features=PIVOT{{|,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
 # 2 UNNESTs
 SELECT * FROM UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN (0, 1));
 --
@@ -41,14 +41,14 @@ PIVOT is not allowed with array scans. This will become an error [at 2:63]
                                                    ^
 [zetasql.DeprecationWarning] { kind: PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN }
 --
-ALTERNATION GROUP: ,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
+ALTERNATION GROUP: ,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
 --
 ERROR: PIVOT is not allowed with array scans [at 2:63]
 ...UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key...
                                                    ^
 ==
 
-[language_features=V_1_3_PIVOT{{|,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
+[language_features=PIVOT{{|,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
 # Table with UNNEST
 SELECT * FROM KeyValue, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN (0, 1));
 --
@@ -78,14 +78,14 @@ SELECT * FROM KeyValue, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN ...
                                                ^
 [zetasql.DeprecationWarning] { kind: PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN }
 --
-ALTERNATION GROUP: ,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
+ALTERNATION GROUP: ,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
 --
 ERROR: PIVOT is not allowed with array scans [at 2:48]
 SELECT * FROM KeyValue, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN ...
                                                ^
 ==
 
-[language_features=V_1_3_PIVOT{{|,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
+[language_features=PIVOT{{|,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
 # Table with 2 UNNESTs
 SELECT * FROM KeyValue, UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN (0, 1));
 --
@@ -122,14 +122,14 @@ PIVOT is not allowed with array scans. This will become an error [at 2:73]
                                                    ^
 [zetasql.DeprecationWarning] { kind: PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN }
 --
-ALTERNATION GROUP: ,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
+ALTERNATION GROUP: ,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
 --
 ERROR: PIVOT is not allowed with array scans [at 2:73]
 ...UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key...
                                                    ^
 ==
 
-[language_features={{|V_1_3_PIVOT,V_1_3_IS_DISTINCT|V_1_3_PIVOT,V_1_3_IS_DISTINCT,V_1_4_SIMPLIFY_PIVOT_REWRITE}}]
+[language_features={{|PIVOT,IS_DISTINCT|PIVOT,IS_DISTINCT,SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(COUNT(Value) FOR Key IN (0 AS zero, 1 AS one));
 --
@@ -139,7 +139,7 @@ ERROR: PIVOT is not supported [at 1:24]
 SELECT * FROM KeyValue PIVOT(COUNT(Value) FOR Key IN (0 AS zero, 1 AS one));
                        ^
 --
-ALTERNATION GROUP: V_1_3_PIVOT,V_1_3_IS_DISTINCT
+ALTERNATION GROUP: PIVOT,IS_DISTINCT
 --
 QueryStmt
 +-output_column_list=
@@ -243,7 +243,7 @@ QueryStmt
                         +-input_scan=
                           +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_3_PIVOT,V_1_3_IS_DISTINCT,V_1_4_SIMPLIFY_PIVOT_REWRITE
+ALTERNATION GROUP: PIVOT,IS_DISTINCT,SIMPLIFY_PIVOT_REWRITE
 --
 QueryStmt
 +-output_column_list=
@@ -308,7 +308,7 @@ QueryStmt
                 +-Literal(type=STRING, value=NULL)
 ==
 
-[language_features={{|V_1_3_PIVOT}}]
+[language_features={{|PIVOT}}]
 SELECT * FROM (SELECT Key, Value FROM KeyValue) PIVOT(COUNT(Value) FOR Key IN (0 AS zero, 1 AS one));
 --
 ALTERNATION GROUP: <empty>
@@ -317,7 +317,7 @@ ERROR: PIVOT is not supported [at 1:49]
 SELECT * FROM (SELECT Key, Value FROM KeyValue) PIVOT(COUNT(Value) FOR Key IN...
                                                 ^
 --
-ALTERNATION GROUP: V_1_3_PIVOT
+ALTERNATION GROUP: PIVOT
 --
 QueryStmt
 +-output_column_list=
@@ -351,7 +351,7 @@ QueryStmt
           +-PivotColumn(column=$pivot.one#7, pivot_expr_index=0, pivot_value_index=1)
 ==
 
-[language_features={{TABLE_VALUED_FUNCTIONS|TABLE_VALUED_FUNCTIONS,V_1_3_PIVOT}}]
+[language_features={{TABLE_VALUED_FUNCTIONS|TABLE_VALUED_FUNCTIONS,PIVOT}}]
 select 1 from tvf_no_args() PIVOT(COUNT(column_bytes) FOR column_bool IN (TRUE AS t, FALSE AS f));
 --
 ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS
@@ -360,7 +360,7 @@ ERROR: PIVOT is not supported [at 1:29]
 select 1 from tvf_no_args() PIVOT(COUNT(column_bytes) FOR column_bool IN (TRU...
                             ^
 --
-ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS,V_1_3_PIVOT
+ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS,PIVOT
 --
 QueryStmt
 +-output_column_list=
@@ -373,7 +373,7 @@ QueryStmt
     +-input_scan=
       +-PivotScan
         +-input_scan=
-        | +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+        | +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
         +-pivot_expr_list=
         | +-AggregateFunctionCall(ZetaSQL:count(BYTES) -> INT64)
         |   +-parse_location=34-53
@@ -385,7 +385,7 @@ QueryStmt
           +-Literal(type=BOOL, value=false)
 ==
 
-[language_features={{TABLE_VALUED_FUNCTIONS|TABLE_VALUED_FUNCTIONS,V_1_3_PIVOT}}]
+[language_features={{TABLE_VALUED_FUNCTIONS|TABLE_VALUED_FUNCTIONS,PIVOT}}]
 select * from tvf_one_relation_arg_with_fixed_output(
     (SELECT * FROM (SELECT Key, Value FROM KeyValue) PIVOT(COUNT(Value)
     FOR Key IN (0 AS zero, 1 AS one))));
@@ -396,7 +396,7 @@ ERROR: PIVOT is not supported [at 2:54]
     (SELECT * FROM (SELECT Key, Value FROM KeyValue) PIVOT(COUNT(Value)
                                                      ^
 --
-ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS,V_1_3_PIVOT
+ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS,PIVOT
 --
 QueryStmt
 +-output_column_list=
@@ -440,9 +440,10 @@ QueryStmt
         |   |         +-PivotColumn(column=$pivot.one#7, pivot_expr_index=0, pivot_value_index=1)
         |   +-argument_column_list=$pivot.[zero#6, one#7]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
-[language_features={{TABLE_VALUED_FUNCTIONS|TABLE_VALUED_FUNCTIONS,V_1_3_PIVOT}}]
+[language_features={{TABLE_VALUED_FUNCTIONS|TABLE_VALUED_FUNCTIONS,PIVOT}}]
 SELECT * FROM KeyValue, KeyValue
 PIVOT(COUNT(Key) FOR Value IN ('Value_1' AS v1, 'Value_2' AS v2));
 --
@@ -452,7 +453,7 @@ ERROR: PIVOT is not supported [at 2:1]
 PIVOT(COUNT(Key) FOR Value IN ('Value_1' AS v1, 'Value_2' AS v2));
 ^
 --
-ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS,V_1_3_PIVOT
+ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS,PIVOT
 --
 QueryStmt
 +-output_column_list=
@@ -598,7 +599,7 @@ SELECT * FROM KeyValue PIVOT(1 + SUM(Key) FOR Key IN (0, 1));
 ==
 
 # Zero-argument aggregate function in pivot expr
-[language_features=V_1_3_PIVOT,V_1_3_IS_DISTINCT{{|,V_1_4_SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=PIVOT,IS_DISTINCT{{|,SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(COUNT(*) FOR Key IN (0 AS zero, 1 AS one));
 --
@@ -699,7 +700,7 @@ QueryStmt
                         +-input_scan=
                           +-SingleRowScan
 --
-ALTERNATION GROUP: ,V_1_4_SIMPLIFY_PIVOT_REWRITE
+ALTERNATION GROUP: ,SIMPLIFY_PIVOT_REWRITE
 --
 QueryStmt
 +-output_column_list=
@@ -762,7 +763,7 @@ QueryStmt
 ==
 
 # Two-argument aggregate function in pivot expr
-[language_features=V_1_3_PIVOT,V_1_3_IS_DISTINCT{{|,V_1_4_SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=PIVOT,IS_DISTINCT{{|,SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(CORR(Key, Key + 1) FOR Key IN (0 AS zero, 1 AS one));
 --
@@ -890,7 +891,7 @@ QueryStmt
               |           +-SingleRowScan
               +-ColumnRef(type=DOUBLE, column=$pivot.$pivot_expr_arg#9)
 --
-ALTERNATION GROUP: ,V_1_4_SIMPLIFY_PIVOT_REWRITE
+ALTERNATION GROUP: ,SIMPLIFY_PIVOT_REWRITE
 --
 QueryStmt
 +-output_column_list=
@@ -1262,7 +1263,7 @@ QueryStmt
 ==
 
 # Multiple pivot exprs, with and without aliases
-[language_features=V_1_3_PIVOT,V_1_3_IS_DISTINCT{{|,V_1_4_SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=PIVOT,IS_DISTINCT{{|,SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue
 PIVOT(
@@ -1646,8 +1647,8 @@ QueryStmt
 ALTERNATION GROUPS:
      AS sum_key_plus_1,,AS one
      AS sum_key_plus_1,,
-    ,V_1_4_SIMPLIFY_PIVOT_REWRITE, AS sum_key_plus_1,,AS one
-    ,V_1_4_SIMPLIFY_PIVOT_REWRITE, AS sum_key_plus_1,,
+    ,SIMPLIFY_PIVOT_REWRITE, AS sum_key_plus_1,,AS one
+    ,SIMPLIFY_PIVOT_REWRITE, AS sum_key_plus_1,,
 --
 ERROR: PIVOT expression must specify an alias unless it is the only pivot expression in the PIVOT clause [at 4:3]
   AVG(Key + 1)
@@ -1658,16 +1659,16 @@ ALTERNATION GROUPS:
      AS avg_key_plus_1,
     AS one
     <empty>
-    ,V_1_4_SIMPLIFY_PIVOT_REWRITE,, AS avg_key_plus_1,AS one
-    ,V_1_4_SIMPLIFY_PIVOT_REWRITE,, AS avg_key_plus_1,
-    ,V_1_4_SIMPLIFY_PIVOT_REWRITE,,,AS one
-    ,V_1_4_SIMPLIFY_PIVOT_REWRITE,,,
+    ,SIMPLIFY_PIVOT_REWRITE,, AS avg_key_plus_1,AS one
+    ,SIMPLIFY_PIVOT_REWRITE,, AS avg_key_plus_1,
+    ,SIMPLIFY_PIVOT_REWRITE,,,AS one
+    ,SIMPLIFY_PIVOT_REWRITE,,,
 --
 ERROR: PIVOT expression must specify an alias unless it is the only pivot expression in the PIVOT clause [at 3:3]
   SUM(Key + 1),
   ^
 --
-ALTERNATION GROUP: ,V_1_4_SIMPLIFY_PIVOT_REWRITE, AS sum_key_plus_1, AS avg_key_plus_1,AS one
+ALTERNATION GROUP: ,SIMPLIFY_PIVOT_REWRITE, AS sum_key_plus_1, AS avg_key_plus_1,AS one
 --
 QueryStmt
 +-output_column_list=
@@ -1773,7 +1774,7 @@ QueryStmt
                 +-ColumnRef(type=INT64, column=$pivot.$pivot_expr_arg#12)
                 +-Literal(type=INT64, value=NULL)
 --
-ALTERNATION GROUP: ,V_1_4_SIMPLIFY_PIVOT_REWRITE, AS sum_key_plus_1, AS avg_key_plus_1,
+ALTERNATION GROUP: ,SIMPLIFY_PIVOT_REWRITE, AS sum_key_plus_1, AS avg_key_plus_1,
 --
 QueryStmt
 +-output_column_list=
@@ -4343,14 +4344,14 @@ QueryStmt
 ==
 
 # Aggregate function not on allowlist, but supports null handling modifiers
-[language_features=V_1_3_PIVOT,V_1_3_IS_DISTINCT,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE{{|,V_1_4_SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=PIVOT,IS_DISTINCT,NULL_HANDLING_MODIFIER_IN_AGGREGATE{{|,SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(ARRAY_AGG(Value {{|IGNORE NULLS|RESPECT NULLS}})
 FOR Key IN (0 AS zero, 1 AS one));
 --
 ALTERNATION GROUPS:
     <empty>
-    ,V_1_4_SIMPLIFY_PIVOT_REWRITE,
+    ,SIMPLIFY_PIVOT_REWRITE,
 --
 [PRE-REWRITE AST]
 QueryStmt
@@ -4491,7 +4492,7 @@ QueryStmt
 --
 ALTERNATION GROUPS:
     RESPECT NULLS
-    ,V_1_4_SIMPLIFY_PIVOT_REWRITE,RESPECT NULLS
+    ,SIMPLIFY_PIVOT_REWRITE,RESPECT NULLS
 --
 [PRE-REWRITE AST]
 QueryStmt
@@ -4524,7 +4525,7 @@ Rewrite ERROR: generic::unimplemented: Use of RESPECT NULLS in aggregate functio
 SELECT * FROM KeyValue PIVOT(ARRAY_AGG(Value RESPECT NULLS)
                              ^
 --
-ALTERNATION GROUP: ,V_1_4_SIMPLIFY_PIVOT_REWRITE,IGNORE NULLS
+ALTERNATION GROUP: ,SIMPLIFY_PIVOT_REWRITE,IGNORE NULLS
 --
 QueryStmt
 +-output_column_list=
@@ -4595,7 +4596,7 @@ QueryStmt
 # Aggregate function not on allowlist and doesn't supports null handling
 # modifiers
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=V_1_3_PIVOT,V_1_3_IS_DISTINCT,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE{{|,V_1_4_SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=PIVOT,IS_DISTINCT,NULL_HANDLING_MODIFIER_IN_AGGREGATE{{|,SIMPLIFY_PIVOT_REWRITE}}]
 SELECT * FROM KeyValue PIVOT(
   APPROX_TOP_COUNT(Value, 1)FOR Key IN (0 AS zero, 1 AS one));
 --
@@ -4633,7 +4634,7 @@ Rewrite ERROR: generic::unimplemented: Use of aggregate function APPROX_TOP_COUN
 
 # While ANY_VALUE() is a null-respecting function, it is special-cased in the
 # PIVOT rewriter to work.
-[language_features=V_1_3_PIVOT,V_1_3_IS_DISTINCT,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_HAVING_IN_AGGREGATE{{|,V_1_4_SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=PIVOT,IS_DISTINCT,NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,HAVING_IN_AGGREGATE{{|,SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(ANY_VALUE(Value) FOR Key IN (0 AS zero, 1 AS one));
 --
@@ -4793,7 +4794,7 @@ QueryStmt
                   +-limit=
                     +-Literal(type=INT64, value=1)
 --
-ALTERNATION GROUP: ,V_1_4_SIMPLIFY_PIVOT_REWRITE
+ALTERNATION GROUP: ,SIMPLIFY_PIVOT_REWRITE
 --
 QueryStmt
 +-output_column_list=
@@ -4912,7 +4913,7 @@ QueryStmt
 
 # ANY_VALUE() for array types has special rewriter implementation
 # to avoid arrays of arrays
-[language_features=V_1_3_PIVOT,V_1_3_IS_DISTINCT,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_HAVING_IN_AGGREGATE{{|,V_1_4_SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=PIVOT,IS_DISTINCT,NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,HAVING_IN_AGGREGATE{{|,SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(
   ANY_VALUE([Value]) FOR Key IN (0 AS zero, 1 AS one));
@@ -5136,7 +5137,7 @@ QueryStmt
                   +-limit=
                     +-Literal(type=INT64, value=1)
 --
-ALTERNATION GROUP: ,V_1_4_SIMPLIFY_PIVOT_REWRITE
+ALTERNATION GROUP: ,SIMPLIFY_PIVOT_REWRITE
 --
 QueryStmt
 +-output_column_list=
@@ -5317,7 +5318,7 @@ QueryStmt
 ==
 
 # Make sure the rewritten version of ANY_VALUE() handles groupby columns
-[language_features=V_1_3_PIVOT,V_1_3_IS_DISTINCT,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_HAVING_IN_AGGREGATE{{|,V_1_4_SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=PIVOT,IS_DISTINCT,NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,HAVING_IN_AGGREGATE{{|,SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM (SELECT Key, Value, Key + 1 AS kp1 FROM KeyValue)
 PIVOT(ANY_VALUE(Value) FOR Key IN (0 AS zero, 1 AS one));
@@ -5504,7 +5505,7 @@ QueryStmt
                   +-limit=
                     +-Literal(type=INT64, value=1)
 --
-ALTERNATION GROUP: ,V_1_4_SIMPLIFY_PIVOT_REWRITE
+ALTERNATION GROUP: ,SIMPLIFY_PIVOT_REWRITE
 --
 QueryStmt
 +-output_column_list=
@@ -5650,7 +5651,7 @@ QueryStmt
 # Analyzer not on allowlist and function supports null-handling modifiers,
 # but this time, the language option to enable null-handling modifiers is not
 # enabled.
-[language_features=V_1_3_PIVOT,V_1_3_IS_DISTINCT{{|,V_1_4_SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=PIVOT,IS_DISTINCT{{|,SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(ARRAY_AGG(Value) FOR Key IN (0 AS zero, 1 AS one));
 --
@@ -5687,7 +5688,7 @@ SELECT * FROM KeyValue PIVOT(ARRAY_AGG(Value) FOR Key IN (0 AS zero, 1 AS one));
 
 # Rewriter still works when PIVOT is enabled without IS DISTINCT FROM feature
 # (which the pivot rewriter makes use of internally)
-[language_features=V_1_3_PIVOT{{|,V_1_4_SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=PIVOT{{|,SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(COUNT(Value) FOR Key IN (0 AS zero, 1 AS one));
 --
@@ -6418,7 +6419,7 @@ QueryStmt
 ==
 
 # Subquery in PIVOT expr (not supported by rewriter)
-[language_features=V_1_3_PIVOT,V_1_3_IS_DISTINCT{{|,V_1_4_SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=PIVOT,IS_DISTINCT{{|,SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * From KeyValue2
   PIVOT(
@@ -6568,7 +6569,7 @@ QueryStmt
                         +-input_scan=
                           +-SingleRowScan
 --
-ALTERNATION GROUP: ,V_1_4_SIMPLIFY_PIVOT_REWRITE
+ALTERNATION GROUP: ,SIMPLIFY_PIVOT_REWRITE
 --
 QueryStmt
 +-output_column_list=
@@ -6676,9 +6677,9 @@ QueryStmt
 # PIVOT clause contains implicit groupby column of type which does not support
 # GROUPBY in the language options.
 #
-# (Overriding feature options, as FEATURE_V_1_2_GROUP_BY_STRUCT must be off for
+# (Overriding feature options, as FEATURE_GROUP_BY_STRUCT must be off for
 #  this test).
-[language_features=V_1_3_PIVOT]
+[language_features=PIVOT]
 select * from (
     select struct(1,2), 100 AS y union all
     select struct(1,2), 101 AS y union all
@@ -6695,9 +6696,9 @@ PIVOT(SUM(y) FOR true in (true));
 # Similar to the above, but the implicit groupby column is named. This is also
 # not allowed, but affects the error message.
 #
-# (Overriding feature options, as FEATURE_V_1_2_GROUP_BY_STRUCT must be off for
+# (Overriding feature options, as FEATURE_GROUP_BY_STRUCT must be off for
 #  this test).
-[language_features=V_1_3_PIVOT]
+[language_features=PIVOT]
 select * from (
     select struct(1,2) AS x, 100 AS y union all
     select struct(1,2) AS x, 101 AS y union all
@@ -6712,7 +6713,7 @@ PIVOT(SUM(y) FOR true in (true));
 ==
 
 [mode=expression]
-[language_features=V_1_3_PIVOT,V_1_3_IS_DISTINCT{{|,V_1_4_SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=PIVOT,IS_DISTINCT{{|,SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=ALL]
 ARRAY(
   SELECT AS STRUCT * FROM KeyValue PIVOT(COUNT(Value) FOR Key IN (0 AS zero, 1 AS one))
@@ -6840,7 +6841,7 @@ SubqueryExpr
                             +-input_scan=
                               +-SingleRowScan
 --
-ALTERNATION GROUP: ,V_1_4_SIMPLIFY_PIVOT_REWRITE
+ALTERNATION GROUP: ,SIMPLIFY_PIVOT_REWRITE
 --
 SubqueryExpr
 +-type=ARRAY<STRUCT<zero INT64, one INT64>>
@@ -7004,7 +7005,7 @@ ERROR: Unrecognized name: product [at 16:20]
                    ^
 ==
 
-[language_features=V_1_3_PIVOT,V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+[language_features=PIVOT,UNNEST_AND_FLATTEN_ARRAYS]
 # Regression test for b/330921238: IN expr used with constant FLATTEN expression
 SELECT * FROM KeyValue
 PIVOT(SUM(Key) FOR Key IN (
@@ -7056,7 +7057,7 @@ QueryStmt
           +-PivotColumn(column=$pivot.v2#6, pivot_expr_index=0, pivot_value_index=1)
 ==
 
-[language_features=V_1_3_PIVOT,V_1_3_UNNEST_AND_FLATTEN_ARRAYS,V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY]
+[language_features=PIVOT,UNNEST_AND_FLATTEN_ARRAYS,GROUP_BY_STRUCT,GROUP_BY_ARRAY]
 # Regression test for b/330921238: IN expr used with constant FLATTEN expression
 WITH T AS (
   SELECT 'hello' AS x, STRUCT([STRUCT(1 AS quantity), STRUCT(2 AS quantity)] AS sales) AS y, 100 AS z, 1 AS quantity

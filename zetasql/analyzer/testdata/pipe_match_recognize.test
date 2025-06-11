@@ -19,7 +19,7 @@ ERROR: MATCH_RECOGNIZE is not supported [at 2:4]
    ^
 ==
 
-[default language_features=PIPES,V_1_4_MATCH_RECOGNIZE,PIPE_STATIC_DESCRIBE]
+[default language_features=PIPES,MATCH_RECOGNIZE,PIPE_STATIC_DESCRIBE]
 # Without alias on the scan
 from KeyValue AS t
 |> MATCH_RECOGNIZE(
@@ -79,17 +79,19 @@ QueryStmt
         |       |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="t")
         |       +-option_list=
         |       | +-use_longest_match := Literal(type=BOOL, value=true)
-        |       +-partition_by=
-        |       | +-WindowPartitioning
-        |       |   +-partition_by_list=
-        |       |     +-ColumnRef(type=INT64, column=$partitionby.key#3)
-        |       +-order_by=
-        |       | +-WindowOrdering
-        |       |   +-order_by_item_list=
-        |       |     +-OrderByItem
-        |       |       +-column_ref=
-        |       |       | +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
-        |       |       +-is_descending=TRUE
+        |       +-analytic_function_group_list=
+        |       | +-AnalyticFunctionGroup
+        |       |   +-partition_by=
+        |       |   | +-WindowPartitioning
+        |       |   |   +-partition_by_list=
+        |       |   |     +-ColumnRef(type=INT64, column=$partitionby.key#3)
+        |       |   +-order_by=
+        |       |     +-WindowOrdering
+        |       |       +-order_by_item_list=
+        |       |         +-OrderByItem
+        |       |           +-column_ref=
+        |       |           | +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
+        |       |           +-is_descending=TRUE
         |       +-pattern_variable_definition_list=
         |       | +-MatchRecognizeVariableDefinition
         |       |   +-name="a"
@@ -287,17 +289,19 @@ QueryStmt
         |       |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="t")
         |       +-option_list=
         |       | +-use_longest_match := Literal(type=BOOL, value=true)
-        |       +-partition_by=
-        |       | +-WindowPartitioning
-        |       |   +-partition_by_list=
-        |       |     +-ColumnRef(type=INT64, column=$partitionby.key#3)
-        |       +-order_by=
-        |       | +-WindowOrdering
-        |       |   +-order_by_item_list=
-        |       |     +-OrderByItem
-        |       |       +-column_ref=
-        |       |       | +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
-        |       |       +-is_descending=TRUE
+        |       +-analytic_function_group_list=
+        |       | +-AnalyticFunctionGroup
+        |       |   +-partition_by=
+        |       |   | +-WindowPartitioning
+        |       |   |   +-partition_by_list=
+        |       |   |     +-ColumnRef(type=INT64, column=$partitionby.key#3)
+        |       |   +-order_by=
+        |       |     +-WindowOrdering
+        |       |       +-order_by_item_list=
+        |       |         +-OrderByItem
+        |       |           +-column_ref=
+        |       |           | +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
+        |       |           +-is_descending=TRUE
         |       +-pattern_variable_definition_list=
         |       | +-MatchRecognizeVariableDefinition
         |       |   +-name="a"
@@ -502,13 +506,15 @@ QueryStmt
         |       |     +-TableScan(column_list=[TestExtraValueTable.value#1], table=TestExtraValueTable, column_index_list=[0], alias="t")
         |       +-option_list=
         |       | +-use_longest_match := Literal(type=BOOL, value=true)
-        |       +-order_by=
-        |       | +-WindowOrdering
-        |       |   +-order_by_item_list=
-        |       |     +-OrderByItem
-        |       |       +-column_ref=
-        |       |       | +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
-        |       |       +-is_descending=TRUE
+        |       +-analytic_function_group_list=
+        |       | +-AnalyticFunctionGroup
+        |       |   +-order_by=
+        |       |     +-WindowOrdering
+        |       |       +-order_by_item_list=
+        |       |         +-OrderByItem
+        |       |           +-column_ref=
+        |       |           | +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
+        |       |           +-is_descending=TRUE
         |       +-pattern_variable_definition_list=
         |       | +-MatchRecognizeVariableDefinition
         |       |   +-name="a"

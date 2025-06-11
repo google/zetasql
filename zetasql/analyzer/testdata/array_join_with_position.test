@@ -820,7 +820,7 @@ QueryStmt
 # TODO: Update this message to use a more generic name instead of
 # array scan when the feature is on.
 # Unnest singleton array path expression with offset
-[language_features={{|V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH}}]
+[language_features={{|SINGLE_TABLE_NAME_ARRAY_PATH}}]
 select pos from TestTable.KitchenSink.repeated_int32_val WITH OFFSET pos;
 --
 ERROR: WITH OFFSET can only be used with array scans [at 1:17]

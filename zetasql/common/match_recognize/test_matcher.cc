@@ -90,8 +90,7 @@ static MatchResultProto ToProto(const MatchResult& match_result,
                                 const TestMatchOptions& options) {
   MatchResultProto match_result_proto;
   for (const struct Match& new_match : match_result.new_matches) {
-    *match_result_proto.add_match() =
-        GetMatchTestOutput(new_match, scan, options);
+    match_result_proto.add_match(GetMatchTestOutput(new_match, scan, options));
   }
   return match_result_proto;
 }

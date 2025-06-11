@@ -60,17 +60,17 @@ namespace zetasql {
 namespace functions {
 
 template <typename T>
-inline bool Add(T in1, T in2, T *out, absl::Status* error);
+inline bool Add(T in1, T in2, T* out, absl::Status* error);
 template <typename InType, typename OutType = InType>
 inline bool Subtract(InType in1, InType in2, OutType* out, absl::Status* error);
 template <typename T>
-inline bool Multiply(T in1, T in2, T *out, absl::Status* error);
+inline bool Multiply(T in1, T in2, T* out, absl::Status* error);
 template <typename T>
-inline bool Divide(T in1, T in2, T *out, absl::Status* error);
+inline bool Divide(T in1, T in2, T* out, absl::Status* error);
 template <typename T>
-inline bool Modulo(T in1, T in2, T *out, absl::Status* error);
+inline bool Modulo(T in1, T in2, T* out, absl::Status* error);
 template <typename InType, typename OutType = InType>
-inline bool UnaryMinus(InType in, OutType *out, absl::Status* error);
+inline bool UnaryMinus(InType in, OutType* out, absl::Status* error);
 
 // Division function for NUMERIC/BIGNUMERICs with integer semantics.
 template <typename T>
@@ -100,7 +100,7 @@ inline bool CheckFloatOverflow(T in1, T in2, absl::string_view operator_symbol,
 template <typename To, typename From>
 struct is_safe_to_cast {
   static_assert(std::numeric_limits<To>::is_integer &&
-                std::numeric_limits<From>::is_integer,
+                    std::numeric_limits<From>::is_integer,
                 "is_safe_to_cast can only be used with integer types");
   static constexpr bool value =
       (std::numeric_limits<To>::digits >= std::numeric_limits<From>::digits) &&
@@ -119,24 +119,24 @@ inline To safe_cast(From in) {
 // ----------------------- Floating point -----------------------
 
 template <>
-inline bool Add(double in1, double in2, double *out, absl::Status* error) {
+inline bool Add(double in1, double in2, double* out, absl::Status* error) {
   *out = in1 + in2;
   return internal::CheckFloatOverflow(in1, in2, " + ", *out, error);
 }
 
 template <>
-inline bool Subtract(double in1, double in2, double *out, absl::Status* error) {
+inline bool Subtract(double in1, double in2, double* out, absl::Status* error) {
   *out = in1 - in2;
   return internal::CheckFloatOverflow(in1, in2, " - ", *out, error);
 }
 
 template <>
-inline bool Multiply(double in1, double in2, double *out, absl::Status* error) {
+inline bool Multiply(double in1, double in2, double* out, absl::Status* error) {
   *out = in1 * in2;
   return internal::CheckFloatOverflow(in1, in2, " * ", *out, error);
 }
 template <>
-inline bool Divide(double in1, double in2, double *out, absl::Status* error) {
+inline bool Divide(double in1, double in2, double* out, absl::Status* error) {
   if (ABSL_PREDICT_FALSE(in2 == 0)) {
     return internal::UpdateError(error,
                                  internal::DivisionByZeroMessage(in1, in2));
@@ -152,7 +152,7 @@ inline bool Divide(double in1, double in2, double *out, absl::Status* error) {
   }
 }
 template <>
-inline bool UnaryMinus(double in, double *out, absl::Status* error) {
+inline bool UnaryMinus(double in, double* out, absl::Status* error) {
   *out = -in;
   return true;
 }
@@ -207,19 +207,19 @@ inline bool Add(float in1, float in2, float* out, absl::Status* error) {
 }
 
 template <>
-inline bool Subtract(float in1, float in2, float *out, absl::Status* error) {
+inline bool Subtract(float in1, float in2, float* out, absl::Status* error) {
   *out = in1 - in2;
   return internal::CheckFloatOverflow(in1, in2, " - ", *out, error);
 }
 
 template <>
-inline bool Multiply(float in1, float in2, float *out, absl::Status* error) {
+inline bool Multiply(float in1, float in2, float* out, absl::Status* error) {
   *out = in1 * in2;
   return internal::CheckFloatOverflow(in1, in2, " * ", *out, error);
 }
 
 template <>
-inline bool UnaryMinus(float in, float *out, absl::Status* error) {
+inline bool UnaryMinus(float in, float* out, absl::Status* error) {
   *out = -in;
   return true;
 }
@@ -234,8 +234,8 @@ inline bool UnaryMinus(float in, float *out, absl::Status* error) {
 #if __has_builtin(__builtin_uadd_overflow)
 
 static_assert(std::is_same<uint32_t, unsigned>::value,  // NOLINT(runtime/int)
-              "unsigned != uint32_t?");
-static_assert(std::is_same<int32_t, int>::value, "int != int32_t?");
+              "unsigned != uint32?");
+static_assert(std::is_same<int32_t, int>::value, "int != int32?");
 
 // 64-bit integers may be either 'long' or 'long long' depending on the system,
 // but we have to explicitly specify the underlying type in the name of the
@@ -333,6 +333,21 @@ inline bool Multiply<int64_t>(int64_t in1, int64_t in2, int64_t* out,
   }
 }
 
+template <>
+inline bool Multiply<absl::int128>(absl::int128 in1, absl::int128 in2,
+                                   absl::int128* out, absl::Status* error) {
+  __int128_t result;
+  bool has_overflow = __builtin_mul_overflow(
+      static_cast<__int128_t>(in1), static_cast<__int128_t>(in2), &result);
+
+  *out = static_cast<absl::int128>(result);
+  if (ABSL_PREDICT_FALSE(has_overflow)) {
+    return internal::UpdateError(
+        error, internal::BinaryOverflowMessage(in1, in2, " * "));
+  }
+  return true;
+}
+
 #else
 
 namespace arithmetics_internal {
@@ -374,8 +389,7 @@ inline bool Subtract<int64_t>(int64_t in1, int64_t in2, int64_t* out,
 }
 
 template <typename T>
-inline bool Multiply(T in1, T in2, T *out,
-                     absl::Status* error) {
+inline bool Multiply(T in1, T in2, T* out, absl::Status* error) {
   arithmetics_internal::Saturated<T> result(internal::safe_cast<T>(in1));
   result.Mul(internal::safe_cast<T>(in2));
   *out = result.Value();
@@ -386,7 +400,7 @@ inline bool Multiply(T in1, T in2, T *out,
 #endif
 
 template <typename T>
-inline bool Modulo(T in1, T in2, T *out, absl::Status* error) {
+inline bool Modulo(T in1, T in2, T* out, absl::Status* error) {
   static_assert(
       std::is_same<uint64_t, T>::value || std::is_same<int64_t, T>::value,
       "Modulo only supports 64 bit integer");
@@ -562,8 +576,8 @@ inline bool UnaryMinus(NumericValue in, NumericValue* out,
 }
 
 template <>
-inline bool Modulo(NumericValue in1, NumericValue in2,
-                   NumericValue *out, absl::Status* error) {
+inline bool Modulo(NumericValue in1, NumericValue in2, NumericValue* out,
+                   absl::Status* error) {
   absl::StatusOr<NumericValue> numeric_status = in1.Mod(in2);
   if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
     *out = numeric_status.value();

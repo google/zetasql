@@ -1,4 +1,4 @@
-[default language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
 [default no_test_extract_table_names]
 [default no_run_sqlbuilder]
 # No unparser due to SQLBuilder visitor not implemented for GraphMakeElement
@@ -298,7 +298,7 @@ QueryStmt
             +-column_match_mode=CORRESPONDING
 ==
 
-# Set operation after NEXT in a subquery is not supported.
+# Set operation after NEXT in a subquery is supported.
 
 GRAPH aml
 MATCH ()

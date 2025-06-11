@@ -59,7 +59,6 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
@@ -147,33 +146,22 @@ class ResolvedArgumentRefReplacer : public ResolvedASTDeepCopyVisitor {
 
   absl::Status VisitResolvedSubqueryExpr(
       const ResolvedSubqueryExpr* node) override {
-    std::optional<ArgColumnSet> arg_columns_referenced = ArgColumnSet{};
-    std::unique_ptr<const ResolvedScan> subquery_scan;
-    {
-      // This cleanup implements a scoped swap. Its like zetasql_base::VarSetter but also
-      // swaps the temporary object state back into the local variable so it may
-      // be used like as an output variable too.
-      absl::Cleanup cleanup = [this, &arg_columns_referenced]() {
-        arg_columns_referenced.swap(args_referenced_in_subquery_);
-      };
-      arg_columns_referenced.swap(args_referenced_in_subquery_);
-      ZETASQL_ASSIGN_OR_RETURN(subquery_scan, ProcessNode(node->subquery()));
-    }
+    std::optional<ArgColumnSet> arg_columns_referenced;
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<ResolvedScan> subquery_scan,
+        ProcessCorrelatedSubquery(node->subquery(), arg_columns_referenced));
+
     ZETASQL_RETURN_IF_ERROR(CopyVisitResolvedSubqueryExpr(node));
     ResolvedSubqueryExprBuilder subquery_builder =
         ToBuilder(ConsumeTopOfStack<ResolvedSubqueryExpr>())
             .set_subquery(std::move(subquery_scan));
-    for (auto& arg_column : arg_columns_referenced.value()) {
-      subquery_builder.add_parameter_list(MakeResolvedColumnRef(
-          arg_column.type(), arg_column, IsCopyingSubqueryInFunctionBody()));
-      // If we are nested inside subqueries, then any arguments referenced in
-      // this subquery are automatically referenced in the containing subquery.
-      if (IsCopyingSubqueryInFunctionBody()) {
-        args_referenced_in_subquery_.value().insert(arg_column);
-      }
-    }
+    auto parameter_list = subquery_builder.release_parameter_list();
+    ZETASQL_RETURN_IF_ERROR(
+        AddArgColumnsToParameterList(*arg_columns_referenced, parameter_list));
+    subquery_builder.set_parameter_list(std::move(parameter_list));
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedSubqueryExpr> copy,
                      std::move(subquery_builder).Build());
+
     PushNodeToStack(
         absl::WrapUnique(const_cast<ResolvedSubqueryExpr*>(copy.release())));
     return absl::OkStatus();
@@ -193,15 +181,38 @@ class ResolvedArgumentRefReplacer : public ResolvedASTDeepCopyVisitor {
       ZETASQL_RETURN_IF_ERROR(CopyVisitResolvedInlineLambda(node));
     }
     ResolvedInlineLambda* copy = GetUnownedTopOfStack<ResolvedInlineLambda>();
-    for (auto& arg_column : arg_columns_referenced.value()) {
-      copy->add_parameter_list(MakeResolvedColumnRef(
-          arg_column.type(), arg_column, IsCopyingSubqueryInFunctionBody()));
-      // If we are nested inside subqueries, then any arguments referenced in
-      // this subquery are automatically referenced in the containing subquery.
-      if (IsCopyingSubqueryInFunctionBody()) {
-        args_referenced_in_subquery_.value().insert(arg_column);
-      }
+    auto parameter_list = copy->release_parameter_list();
+    ZETASQL_RETURN_IF_ERROR(
+        AddArgColumnsToParameterList(*arg_columns_referenced, parameter_list));
+    copy->set_parameter_list(std::move(parameter_list));
+    return absl::OkStatus();
+  }
+
+  // The RHS for LATERAL JOIN is a subquery. The outer column for the argument
+  // reference needs to be added to JoinScan's `parameter_list`.
+  absl::Status VisitResolvedJoinScan(const ResolvedJoinScan* node) override {
+    if (!node->is_lateral()) {
+      ZETASQL_RET_CHECK(node->parameter_list().empty());
+      return CopyVisitResolvedJoinScan(node);
     }
+
+    std::optional<ArgColumnSet> arg_columns_referenced;
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<ResolvedScan> subquery_scan,
+        ProcessCorrelatedSubquery(node->right_scan(), arg_columns_referenced));
+
+    ZETASQL_RETURN_IF_ERROR(CopyVisitResolvedJoinScan(node));
+    ResolvedJoinScanBuilder join_builder =
+        ToBuilder(ConsumeTopOfStack<ResolvedJoinScan>())
+            .set_right_scan(std::move(subquery_scan));
+    auto parameter_list = join_builder.release_parameter_list();
+    ZETASQL_RETURN_IF_ERROR(
+        AddArgColumnsToParameterList(*arg_columns_referenced, parameter_list));
+    join_builder.set_parameter_list(std::move(parameter_list));
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedJoinScan> copy,
+                     std::move(join_builder).Build());
+    PushNodeToStack(
+        absl::WrapUnique(const_cast<ResolvedJoinScan*>(copy.release())));
     return absl::OkStatus();
   }
 
@@ -218,6 +229,40 @@ class ResolvedArgumentRefReplacer : public ResolvedASTDeepCopyVisitor {
   }
 
  protected:
+  // We use a btree set here since it determines an
+  // order for the eventual parameter list vector.
+  using ArgColumnSet = absl::btree_set<ResolvedColumn>;
+
+  absl::StatusOr<std::unique_ptr<ResolvedScan>> ProcessCorrelatedSubquery(
+      const ResolvedScan* scan,
+      std::optional<ArgColumnSet>& out_arg_columns_referenced) {
+    // This cleanup implements a scoped swap. Its like zetasql_base::VarSetter but also
+    // swaps the temporary object state back into the local variable so it may
+    // be used like as an output variable too.
+    absl::Cleanup cleanup = [this, &out_arg_columns_referenced]() {
+      out_arg_columns_referenced.swap(args_referenced_in_subquery_);
+    };
+
+    out_arg_columns_referenced = ArgColumnSet{};
+    out_arg_columns_referenced.swap(args_referenced_in_subquery_);
+    return ProcessNode(scan);
+  }
+
+  absl::Status AddArgColumnsToParameterList(
+      const ArgColumnSet& arg_columns_referenced,
+      std::vector<std::unique_ptr<const ResolvedColumnRef>>& parameter_list) {
+    for (auto& arg_column : arg_columns_referenced) {
+      parameter_list.push_back(MakeResolvedColumnRef(
+          arg_column.type(), arg_column, IsCopyingSubqueryInFunctionBody()));
+      // If we are nested inside subqueries, then any arguments referenced in
+      // this subquery are automatically referenced in the containing subquery.
+      if (IsCopyingSubqueryInFunctionBody()) {
+        args_referenced_in_subquery_.value().insert(arg_column);
+      }
+    }
+    return absl::OkStatus();
+  }
+
   // Function bodies may have multiple levels of subqueries inside them. Each
   // subquery in the inlined expression that references argument columns needs
   // to include the argument columns in its correlated parameter list.
@@ -225,7 +270,6 @@ class ResolvedArgumentRefReplacer : public ResolvedASTDeepCopyVisitor {
   // referenced in the current subquery being copied so that parameter lists
   // can be properly constructed. We use a btree set here since it determines an
   // order for the eventual parameter list vector.
-  using ArgColumnSet = absl::btree_set<ResolvedColumn>;
   std::optional<ArgColumnSet> args_referenced_in_subquery_;
 
   // Track if copying is under a WITH entry (which must be a with on subquery).
@@ -654,6 +698,32 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
     ResolvedColumn computed_column;
   };
 
+  // These lists usually travel together as we handle UDAs on the same scan.
+  struct UdaRewriteContext {
+    // Pre-aggregate expressions collected for inlined UDAs.
+    std::vector<std::unique_ptr<const ResolvedComputedColumn>>
+        pre_aggregate_exprs;
+    // Pre-aggregate columns, including those collected for inlined UDAs.
+    // Initialized with columns from the original input scan. Expressions added
+    // to `pre_aggregate_exprs` are appended to this list.
+    std::vector<ResolvedColumn> pre_aggregate_cols;
+    // The new list of aggregates. Includes aggregations that were not
+    // rewritten.
+    std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>
+        new_aggregates;
+    // The column list produced for the list of aggregates post-rewrite.
+    // Corresponds 1:1 with `new_aggregates`.
+    std::vector<ResolvedColumn> new_aggr_col_list;
+    // Post-aggregate expressions produced by the rewrite.
+    std::vector<std::unique_ptr<const ResolvedComputedColumn>>
+        post_aggregate_exprs;
+
+    explicit UdaRewriteContext(
+        absl::Span<const ResolvedColumn> pre_aggregate_cols)
+        : pre_aggregate_cols(pre_aggregate_cols.begin(),
+                             pre_aggregate_cols.end()) {}
+  };
+
   // Check to see if the function is a SQL-defined aggregate and return details
   // required for inlining if so. Otherwise return std::nullopt to indicate the
   // function is not SQL-defined. An error will be returned in case the function
@@ -711,6 +781,13 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
              << "IGNORE NULLS is not supported on calls to aggregate function "
              << function->SQLName();
     }
+    if (!call->group_by_list().empty()) {
+      // TODO: Decide semantics for this clause before inlining it.
+      return MakeSqlErrorAtStart(error_location)
+             << "GROUP BY modifier is not supported on calls to aggregate "
+                "function "
+             << function->SQLName();
+    }
     if (function->Is<SQLFunctionInterface>()) {
       auto* fn = function->GetAs<SQLFunctionInterface>();
       std::vector<FunctionArgumentType> agg_args;
@@ -745,9 +822,178 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
     ZETASQL_RET_CHECK_FAIL() << "Return should be unreachable.";
   }
 
-  absl::StatusOr<std::unique_ptr<const ResolvedNode>>
-  PostVisitResolvedAggregateScan(
-      std::unique_ptr<const ResolvedAggregateScan> node) override {
+  absl::Status RewriteAggregation(
+      const AggregateFnDetails& details,
+      std::unique_ptr<const ResolvedAggregateFunctionCall> aggr,
+      UdaRewriteContext& context) {
+    auto aggr_expr_builder = ToBuilder(std::move(aggr));
+    auto aggr_args = aggr_expr_builder.release_argument_list();
+    ArgNameToExprMap aggregate_args;
+    ArgNameToExprMap non_aggregate_args;
+    FunctionSignature signature = aggr_expr_builder.signature();
+
+    // This logic assumes no repeated args.
+    ZETASQL_RET_CHECK_EQ(details.arg_names.size(), aggr_args.size());
+    for (int i = 0; i < aggr_args.size(); ++i) {
+      bool is_non_aggregate_arg =
+          signature.arguments()[i].options().is_not_aggregate();
+      std::unique_ptr<const ResolvedExpr>& arg = aggr_args[i];
+      if (is_non_aggregate_arg) {
+        // If we ever extend non-aggregate args beyond these types, the
+        // rewriter will need to change to accommodate as-if-evaluated-once
+        // semantics. The ResolvedAST is not expressive enough for that right
+        // now without introducing an artificial array construction above the
+        // aggregation which some query optimizers would not remove. The
+        // expressive power that is needed is a lateral join with a single row
+        // table on the LHS.
+        const ResolvedExpr* without_cast = arg.get();
+        // LINT.IfChange(non_aggregate_args_def)
+        while (without_cast->node_kind() == RESOLVED_CAST) {
+          without_cast = without_cast->GetAs<ResolvedCast>()->expr();
+        }
+        ResolvedNodeKind expr_kind = without_cast->node_kind();
+        ZETASQL_RET_CHECK(expr_kind == RESOLVED_LITERAL ||
+                  expr_kind == RESOLVED_PARAMETER ||
+                  expr_kind == RESOLVED_ARGUMENT_REF);
+        // LINT.ThenChange(../expr_resolver_helper.cc:non_aggregate_args_def)
+        auto arg_replacement_builder = [&arg, this](bool is_correlated) {
+          // Making a copy like this is only safe because the expressions
+          // that are allowed as non-aggregate args are immutable and
+          // trivial to evaluate.
+          ColumnReplacementMap no_replacements;
+          return CopyResolvedASTAndRemapColumns(*arg, this->column_factory_,
+                                                no_replacements);
+        };
+        // this collection is used exclusively by the post-aggregate
+        // expression.
+        non_aggregate_args.emplace(details.arg_names[i],
+                                   arg_replacement_builder);
+        // this collection is used for the arguments to the aggregate
+        // functions. non-aggregate args can be used there too, so we add
+        // these args to both collections.
+        aggregate_args.emplace(details.arg_names[i], arg_replacement_builder);
+      } else {
+        // This is an aggregate arg.
+        ResolvedColumn new_arg_column = column_factory_.MakeCol(
+            absl::StrCat("$inlined_", details.call->function()->Name()),
+            details.arg_names[i], arg->annotated_type());
+        ZETASQL_ASSIGN_OR_RETURN(auto new_arg_computed_col,
+                         ResolvedComputedColumnBuilder()
+                             .set_column(new_arg_column)
+                             .set_expr(std::move(arg))
+                             .Build());
+        context.pre_aggregate_exprs.push_back(std::move(new_arg_computed_col));
+        context.pre_aggregate_cols.push_back(new_arg_column);
+        aggregate_args.emplace(
+            details.arg_names[i], [new_arg_column](bool is_correlated) {
+              return MakeResolvedColumnRef(new_arg_column.type(),
+                                           new_arg_column, is_correlated);
+            });
+      }
+    }
+
+    // SQL-defined aggregates have any aggregations internal to the function
+    // body already factored out. Those aggregations will be promoted into the
+    // new copy of the AggregateScan. Those are processed in this loop,
+    // collecting the processed aggregations in `new_aggregates` and also the
+    // columns they are written into in `new_aggr_col_list`. These lists will
+    // later be used to build the new AggregateScan.
+
+    // Aggregates that are internal to the function body, once copied, have
+    // new column id. This map is used to replace references to those column
+    // ids in the post-aggregate expression.
+    ColumnReplacementMap internal_aggregate_remapping;
+    ColumnReplacementMap no_replacements;
+    ArgNameToScanMap no_table_args;
+    for (auto& aggr_computed_col : details.aggregate_expression_list) {
+      ZETASQL_ASSIGN_OR_RETURN(
+          auto new_aggr_computed_col,
+          CopyResolvedASTAndRemapColumns(*aggr_computed_col, column_factory_,
+                                         no_replacements));
+      ZETASQL_ASSIGN_OR_RETURN(
+          new_aggr_computed_col,
+          ResolvedArgumentRefReplacer::ReplaceArgs(
+              std::move(new_aggr_computed_col), aggregate_args, no_table_args));
+      internal_aggregate_remapping.emplace(aggr_computed_col->column(),
+                                           new_aggr_computed_col->column());
+      context.new_aggr_col_list.push_back(new_aggr_computed_col->column());
+      context.new_aggregates.push_back(std::move(new_aggr_computed_col));
+    }
+    ZETASQL_ASSIGN_OR_RETURN(
+        auto post_aggregate_function_body,
+        CopyResolvedASTAndRemapColumns(*details.expr, column_factory_,
+                                       internal_aggregate_remapping));
+    ZETASQL_ASSIGN_OR_RETURN(auto post_aggregate_expr,
+                     ResolvedArgumentRefReplacer::ReplaceArgs(
+                         std::move(post_aggregate_function_body),
+                         non_aggregate_args, no_table_args));
+    ZETASQL_ASSIGN_OR_RETURN(auto post_aggregate_computed_col,
+                     ResolvedComputedColumnBuilder()
+                         .set_column(details.computed_column)
+                         .set_expr(std::move(post_aggregate_expr))
+                         .Build());
+    context.post_aggregate_exprs.emplace_back(
+        std::move(post_aggregate_computed_col));
+    return absl::OkStatus();
+  }
+
+  absl::Status RewriteAggregations(
+      std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>
+          old_aggregates,
+      std::unique_ptr<const ResolvedScan>& input_scan,
+      absl::flat_hash_map<const ResolvedAggregateFunctionCall*,
+                          AggregateFnDetails>& calls_to_inline,
+      absl::Span<const ResolvedColumn> post_aggregate_column_list,
+      UdaRewriteContext& context) {
+    absl::flat_hash_set<ResolvedColumn> columns_to_remove_from_aggr;
+
+    for (auto& aggr_column : old_aggregates) {
+      ZETASQL_RET_CHECK(aggr_column->Is<ResolvedComputedColumn>());
+      auto aggr = aggr_column->GetAs<ResolvedComputedColumn>();
+      ZETASQL_RET_CHECK(aggr->expr()->Is<ResolvedAggregateFunctionCall>());
+      const ResolvedAggregateFunctionCall* aggr_function_call =
+          aggr->expr()->GetAs<ResolvedAggregateFunctionCall>();
+
+      if (!calls_to_inline.contains(aggr_function_call)) {
+        context.new_aggregates.emplace_back(std::move(aggr_column));
+        continue;
+      }
+      AggregateFnDetails& details = calls_to_inline.at(aggr_function_call);
+      details.computed_column = aggr->column();
+      columns_to_remove_from_aggr.insert(aggr->column());
+
+      auto agg_call = absl::WrapUnique(
+          ToBuilder(absl::WrapUnique(
+                        aggr_column.release()->GetAs<ResolvedComputedColumn>()))
+              .release_expr()
+              .release()
+              ->GetAs<ResolvedAggregateFunctionCall>());
+
+      ZETASQL_RETURN_IF_ERROR(
+          RewriteAggregation(details, std::move(agg_call), context));
+    }
+
+    for (const auto& old_aggr_col : post_aggregate_column_list) {
+      if (!columns_to_remove_from_aggr.contains(old_aggr_col)) {
+        context.new_aggr_col_list.push_back(old_aggr_col);
+      }
+    }
+
+    if (!context.pre_aggregate_exprs.empty()) {
+      ZETASQL_ASSIGN_OR_RETURN(
+          input_scan,
+          ResolvedProjectScanBuilder()
+              .set_input_scan(std::move(input_scan))
+              .set_expr_list(std::move(context.pre_aggregate_exprs))
+              .set_column_list(std::move(context.pre_aggregate_cols))
+              .Build());
+    }
+    return absl::OkStatus();
+  }
+
+  absl::StatusOr<absl::flat_hash_map<const ResolvedAggregateFunctionCall*,
+                                     AggregateFnDetails>>
+  GetCallsToInline(const ResolvedAggregateScan* node) {
     absl::flat_hash_map<const ResolvedAggregateFunctionCall*,
                         AggregateFnDetails>
         calls_to_inline;
@@ -762,192 +1008,40 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
         calls_to_inline.emplace(aggr_function_call, *details);
       }
     }
+    return calls_to_inline;
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>>
+  PostVisitResolvedAggregateScan(
+      std::unique_ptr<const ResolvedAggregateScan> node) override {
+    ZETASQL_ASSIGN_OR_RETURN(auto calls_to_inline, GetCallsToInline(node.get()));
     if (calls_to_inline.empty()) {
       return node;
     }
+
     ResolvedAggregateScanBuilder aggr_builder = ToBuilder(std::move(node));
-    std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>
-        old_aggregates = aggr_builder.release_aggregate_list();
-
-    // The aggregations included in the aggregate scan post-rewrite.
-    std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>
-        new_aggregates;
-    // The column list produced by thew new aggregate scan post-rewrite.
-    std::vector<ResolvedColumn> new_aggr_col_list;
-
-    std::vector<std::unique_ptr<const ResolvedComputedColumn>>
-        pre_aggregate_exprs;
-    std::vector<ResolvedColumn> pre_aggregate_cols =
-        aggr_builder.input_scan()->column_list();
-
-    // Expressions computed by a new project scan after aggregation.
-    std::vector<std::unique_ptr<const ResolvedComputedColumn>>
-        post_aggregate_exprs;
-    // Columns that were part of the aggregate scan pre-rewrite that are not
-    // included in the aggregate scan column list post-rewrite.
-    absl::flat_hash_set<ResolvedColumn> columns_to_remove_from_aggr;
-
-    // The new aggregate scan after inlinine will no longer have calls to the
-    // SQL-defined aggregate functions. This section is building the new
-    // list of aggregates for the new aggregate scan, as well as collecting
-    // expressions for the post-aggregate project scan that will host the
-    // expression from the SQL-defined aggregate that modifies or combines the
-    // results of any aggregations called internally.
-    for (auto& aggr_column : old_aggregates) {
-      ZETASQL_RET_CHECK(aggr_column->Is<ResolvedComputedColumn>());
-      auto aggr = aggr_column->GetAs<ResolvedComputedColumn>();
-      ZETASQL_RET_CHECK(aggr->expr()->Is<ResolvedAggregateFunctionCall>());
-      const ResolvedAggregateFunctionCall* aggr_function_call =
-          aggr->expr()->GetAs<ResolvedAggregateFunctionCall>();
-
-      if (!calls_to_inline.contains(aggr_function_call)) {
-        new_aggregates.emplace_back(std::move(aggr_column));
-        continue;
-      }
-      AggregateFnDetails& details = calls_to_inline.at(aggr_function_call);
-      details.computed_column = aggr->column();
-      columns_to_remove_from_aggr.insert(aggr->column());
-      std::string function_name = aggr_function_call->function()->Name();
-
-      ResolvedAggregateFunctionCallBuilder aggr_expr_builder = ToBuilder(
-          absl::WrapUnique(const_cast<ResolvedComputedColumn*>(
-                               aggr->GetAs<ResolvedComputedColumn>())
-                               ->release_expr()
-                               .release()
-                               ->GetAs<ResolvedAggregateFunctionCall>()));
-      auto aggr_args = aggr_expr_builder.release_argument_list();
-      ArgNameToExprMap aggregate_args;
-      ArgNameToExprMap non_aggregate_args;
-      FunctionSignature signature = aggr_expr_builder.signature();
-
-      // This logic assumes no repeated args.
-      ZETASQL_RET_CHECK_EQ(details.arg_names.size(), aggr_args.size());
-      for (int i = 0; i < aggr_args.size(); ++i) {
-        bool is_non_aggregate_arg =
-            signature.arguments()[i].options().is_not_aggregate();
-        std::unique_ptr<const ResolvedExpr>& arg = aggr_args[i];
-        if (is_non_aggregate_arg) {
-          // If we ever extend non-aggregate args beyond these types, the
-          // rewriter will need to change to accommodate as-if-evaluated-once
-          // semantics. The ResolvedAST is not expressive enough for that right
-          // now without introducing an artificial array construction above the
-          // aggregation which some query optimizers would not remove. The
-          // expressive power that is needed is a lateral join with a single row
-          // table on the LHS.
-          const ResolvedExpr* without_cast = arg.get();
-          // LINT.IfChange(non_aggregate_args_def)
-          while (without_cast->node_kind() == RESOLVED_CAST) {
-            without_cast = without_cast->GetAs<ResolvedCast>()->expr();
-          }
-          ResolvedNodeKind expr_kind = without_cast->node_kind();
-          ZETASQL_RET_CHECK(expr_kind == RESOLVED_LITERAL ||
-                    expr_kind == RESOLVED_PARAMETER ||
-                    expr_kind == RESOLVED_ARGUMENT_REF);
-          // LINT.ThenChange(../expr_resolver_helper.cc:non_aggregate_args_def)
-          auto arg_replacement_builder = [&arg, this](bool is_correlated) {
-            // Making a copy like this is only safe because the expressions
-            // that are allowed as non-aggregate args are immutable and
-            // trivial to evaluate.
-            ColumnReplacementMap no_replacements;
-            return CopyResolvedASTAndRemapColumns(*arg, this->column_factory_,
-                                                  no_replacements);
-          };
-          // this collection is used exclusively by the post-aggregate
-          // expression.
-          non_aggregate_args.emplace(details.arg_names[i],
-                                     arg_replacement_builder);
-          // this collection is used for the arguments to the aggregate
-          // functions. non-aggregate args can be used there too, so we add
-          // these args to both collections.
-          aggregate_args.emplace(details.arg_names[i], arg_replacement_builder);
-        } else {
-          // This is an aggregate arg.
-          ResolvedColumn new_arg_column = column_factory_.MakeCol(
-              absl::StrCat("$inlined_", function_name), details.arg_names[i],
-              arg->annotated_type());
-          ZETASQL_ASSIGN_OR_RETURN(auto new_arg_computed_col,
-                           ResolvedComputedColumnBuilder()
-                               .set_column(new_arg_column)
-                               .set_expr(std::move(arg))
-                               .Build());
-          pre_aggregate_exprs.push_back(std::move(new_arg_computed_col));
-          pre_aggregate_cols.push_back(new_arg_column);
-          aggregate_args.emplace(
-              details.arg_names[i], [new_arg_column](bool is_correlated) {
-                return MakeResolvedColumnRef(new_arg_column.type(),
-                                             new_arg_column, is_correlated);
-              });
-        }
-      }
-
-      // SQL-defined aggregates have any aggregations internal to the function
-      // body already factored out. Those aggregations will be promoted into the
-      // new copy of the AggregateScan. Those are processed in this loop,
-      // collecting the processed aggregations in `new_aggregates` and also the
-      // columns they are written into in `new_aggr_col_list`. These lists will
-      // later be used to build the new AggregateScan.
-
-      // Aggregates that are internal to the function body, once copied, have
-      // new column id. This map is used to replace references to those column
-      // ids in the post-aggregate expression.
-      ColumnReplacementMap internal_aggregate_remapping;
-      ColumnReplacementMap no_replacements;
-      ArgNameToScanMap no_table_args;
-      for (auto& aggr_computed_col : details.aggregate_expression_list) {
-        ZETASQL_ASSIGN_OR_RETURN(
-            auto new_aggr_computed_col,
-            CopyResolvedASTAndRemapColumns(*aggr_computed_col, column_factory_,
-                                           no_replacements));
-        ZETASQL_ASSIGN_OR_RETURN(new_aggr_computed_col,
-                         ResolvedArgumentRefReplacer::ReplaceArgs(
-                             std::move(new_aggr_computed_col), aggregate_args,
-                             no_table_args));
-        internal_aggregate_remapping.emplace(aggr_computed_col->column(),
-                                             new_aggr_computed_col->column());
-        new_aggr_col_list.push_back(new_aggr_computed_col->column());
-        new_aggregates.push_back(std::move(new_aggr_computed_col));
-      }
-      ZETASQL_ASSIGN_OR_RETURN(
-          auto post_aggregate_function_body,
-          CopyResolvedASTAndRemapColumns(*details.expr, column_factory_,
-                                         internal_aggregate_remapping));
-      ZETASQL_ASSIGN_OR_RETURN(auto post_aggregate_expr,
-                       ResolvedArgumentRefReplacer::ReplaceArgs(
-                           std::move(post_aggregate_function_body),
-                           non_aggregate_args, no_table_args));
-      ZETASQL_ASSIGN_OR_RETURN(auto post_aggregate_computed_col,
-                       ResolvedComputedColumnBuilder()
-                           .set_column(details.computed_column)
-                           .set_expr(std::move(post_aggregate_expr))
-                           .Build());
-      post_aggregate_exprs.emplace_back(std::move(post_aggregate_computed_col));
-    }
 
     // The post-aggregation Project will have the same column list as the input
     // aggregate scan. The new aggregate scan will not have columns associated
     // with re-written function calls.
     std::vector<ResolvedColumn> post_aggregate_column_list =
         aggr_builder.column_list();
-    for (const auto& old_aggr_col : aggr_builder.column_list()) {
-      if (!columns_to_remove_from_aggr.contains(old_aggr_col)) {
-        new_aggr_col_list.push_back(old_aggr_col);
-      }
-    }
-    auto aggr_input = aggr_builder.release_input_scan();
-    if (!pre_aggregate_exprs.empty()) {
-      ZETASQL_ASSIGN_OR_RETURN(aggr_input,
-                       ResolvedProjectScanBuilder()
-                           .set_input_scan(std::move(aggr_input))
-                           .set_expr_list(std::move(pre_aggregate_exprs))
-                           .set_column_list(std::move(pre_aggregate_cols))
-                           .Build());
-    }
+
+    std::unique_ptr<const ResolvedScan> input_scan =
+        aggr_builder.release_input_scan();
+
+    UdaRewriteContext context(input_scan->column_list());
+    ZETASQL_RETURN_IF_ERROR(RewriteAggregations(aggr_builder.release_aggregate_list(),
+                                        input_scan, calls_to_inline,
+                                        post_aggregate_column_list, context));
+
     return ResolvedProjectScanBuilder()
-        .set_input_scan(std::move(aggr_builder)
-                            .set_input_scan(std::move(aggr_input))
-                            .set_aggregate_list(std::move(new_aggregates))
-                            .set_column_list(std::move(new_aggr_col_list)))
-        .set_expr_list(std::move(post_aggregate_exprs))
+        .set_input_scan(
+            std::move(aggr_builder)
+                .set_input_scan(std::move(input_scan))
+                .set_aggregate_list(std::move(context.new_aggregates))
+                .set_column_list(std::move(context.new_aggr_col_list)))
+        .set_expr_list(std::move(context.post_aggregate_exprs))
         .set_column_list(std::move(post_aggregate_column_list))
         .Build();
   }

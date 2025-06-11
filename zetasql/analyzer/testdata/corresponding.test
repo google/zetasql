@@ -1,6 +1,6 @@
 # CORRESPONDING
 [default enabled_ast_rewrites=DEFAULTS]
-[language_features={{|V_1_4_CORRESPONDING|V_1_4_CORRESPONDING_FULL}}]
+[language_features={{|CORRESPONDING|CORRESPONDING_FULL}}]
 SELECT 1
 UNION ALL CORRESPONDING
 SELECT 2
@@ -12,8 +12,8 @@ UNION ALL CORRESPONDING
           ^
 --
 ALTERNATION GROUPS:
-    V_1_4_CORRESPONDING
-    V_1_4_CORRESPONDING_FULL
+    CORRESPONDING
+    CORRESPONDING_FULL
 --
 ERROR: Anonymous columns are not allowed in set operations when CORRESPONDING is used: query 1, column 1 [at 1:1]
 SELECT 1
@@ -21,7 +21,7 @@ SELECT 1
 ==
 
 # CORRESPONDING in multiple operations.
-[language_features={{|V_1_4_CORRESPONDING|V_1_4_CORRESPONDING_FULL}}]
+[language_features={{|CORRESPONDING|CORRESPONDING_FULL}}]
 SELECT 1
 UNION ALL
 SELECT 2
@@ -35,8 +35,8 @@ UNION ALL CORRESPONDING
           ^
 --
 ALTERNATION GROUPS:
-    V_1_4_CORRESPONDING
-    V_1_4_CORRESPONDING_FULL
+    CORRESPONDING
+    CORRESPONDING_FULL
 --
 ERROR: Different set operation modifiers cannot be used in the same query without using parentheses for grouping [at 4:11]
 UNION ALL CORRESPONDING
@@ -44,20 +44,20 @@ UNION ALL CORRESPONDING
 ==
 
 # CORRESPONDING BY
-[language_features={{|V_1_4_CORRESPONDING|V_1_4_CORRESPONDING_FULL}}]
+[language_features={{|CORRESPONDING|CORRESPONDING_FULL}}]
 SELECT 1
 UNION ALL CORRESPONDING BY (a, b, c)
 SELECT 2
 --
 ALTERNATION GROUPS:
     <empty>
-    V_1_4_CORRESPONDING
+    CORRESPONDING
 --
 ERROR: CORRESPONDING BY for set operations is not supported [at 2:11]
 UNION ALL CORRESPONDING BY (a, b, c)
           ^
 --
-ALTERNATION GROUP: V_1_4_CORRESPONDING_FULL
+ALTERNATION GROUP: CORRESPONDING_FULL
 --
 ERROR: The column name a from the CORRESPONDING BY list does not appear in query 1. All columns in the BY list must appear in each input query unless FULL CORRESPONDING or LEFT CORRESPONDING is specified [at 2:29]
 UNION ALL CORRESPONDING BY (a, b, c)
@@ -65,7 +65,7 @@ UNION ALL CORRESPONDING BY (a, b, c)
 ==
 
 # CORRESPONDING BY in multiple operations
-[language_features={{|V_1_4_CORRESPONDING|V_1_4_CORRESPONDING_FULL}}]
+[language_features={{|CORRESPONDING|CORRESPONDING_FULL}}]
 SELECT 1
 UNION ALL
 SELECT 2
@@ -74,13 +74,13 @@ SELECT 3
 --
 ALTERNATION GROUPS:
     <empty>
-    V_1_4_CORRESPONDING
+    CORRESPONDING
 --
 ERROR: CORRESPONDING BY for set operations is not supported [at 4:11]
 UNION ALL CORRESPONDING BY (a, b, c)
           ^
 --
-ALTERNATION GROUP: V_1_4_CORRESPONDING_FULL
+ALTERNATION GROUP: CORRESPONDING_FULL
 --
 ERROR: Different set operation modifiers cannot be used in the same query without using parentheses for grouping [at 4:11]
 UNION ALL CORRESPONDING BY (a, b, c)
@@ -88,20 +88,20 @@ UNION ALL CORRESPONDING BY (a, b, c)
 ==
 
 # STRICT without CORRESPONDING
-[language_features={{|V_1_4_CORRESPONDING|V_1_4_CORRESPONDING_FULL}}]
+[language_features={{|CORRESPONDING|CORRESPONDING_FULL}}]
 SELECT 1
 UNION DISTINCT STRICT
 SELECT 2
 --
 ALTERNATION GROUPS:
     <empty>
-    V_1_4_CORRESPONDING
+    CORRESPONDING
 --
 ERROR: Column propagation mode (STRICT) for set operations is not supported [at 2:16]
 UNION DISTINCT STRICT
                ^
 --
-ALTERNATION GROUP: V_1_4_CORRESPONDING_FULL
+ALTERNATION GROUP: CORRESPONDING_FULL
 --
 ERROR: STRICT in set operations cannot be used without CORRESPONDING [at 2:16]
 UNION DISTINCT STRICT
@@ -109,7 +109,7 @@ UNION DISTINCT STRICT
 ==
 
 # STRICT without CORRESPONDING in multiple set operations
-[language_features={{|V_1_4_CORRESPONDING|V_1_4_CORRESPONDING_FULL}}]
+[language_features={{|CORRESPONDING|CORRESPONDING_FULL}}]
 SELECT 1
 UNION DISTINCT
 SELECT 2
@@ -118,13 +118,13 @@ SELECT 3
 --
 ALTERNATION GROUPS:
     <empty>
-    V_1_4_CORRESPONDING
+    CORRESPONDING
 --
 ERROR: Column propagation mode (STRICT) for set operations is not supported [at 4:16]
 UNION DISTINCT STRICT
                ^
 --
-ALTERNATION GROUP: V_1_4_CORRESPONDING_FULL
+ALTERNATION GROUP: CORRESPONDING_FULL
 --
 ERROR: STRICT in set operations cannot be used without CORRESPONDING [at 4:16]
 UNION DISTINCT STRICT
@@ -132,20 +132,20 @@ UNION DISTINCT STRICT
 ==
 
 # FULL without CORRESPONDING
-[language_features={{|V_1_4_CORRESPONDING|V_1_4_CORRESPONDING_FULL}}]
+[language_features={{|CORRESPONDING|CORRESPONDING_FULL}}]
 SELECT 1
 FULL EXCEPT ALL
 SELECT 2
 --
 ALTERNATION GROUPS:
     <empty>
-    V_1_4_CORRESPONDING
+    CORRESPONDING
 --
 ERROR: Column propagation mode (FULL) for set operations is not supported [at 2:1]
 FULL EXCEPT ALL
 ^
 --
-ALTERNATION GROUP: V_1_4_CORRESPONDING_FULL
+ALTERNATION GROUP: CORRESPONDING_FULL
 --
 ERROR: FULL in set operations cannot be used without CORRESPONDING [at 2:1]
 FULL EXCEPT ALL
@@ -153,7 +153,7 @@ FULL EXCEPT ALL
 ==
 
 # FULL without CORRESPONDING in multiple operations
-[language_features={{|V_1_4_CORRESPONDING|V_1_4_CORRESPONDING_FULL}}]
+[language_features={{|CORRESPONDING|CORRESPONDING_FULL}}]
 SELECT 1
 EXCEPT ALL
 SELECT 2
@@ -162,13 +162,13 @@ SELECT 3
 --
 ALTERNATION GROUPS:
     <empty>
-    V_1_4_CORRESPONDING
+    CORRESPONDING
 --
 ERROR: Column propagation mode (FULL) for set operations is not supported [at 4:1]
 FULL EXCEPT ALL
 ^
 --
-ALTERNATION GROUP: V_1_4_CORRESPONDING_FULL
+ALTERNATION GROUP: CORRESPONDING_FULL
 --
 ERROR: FULL in set operations cannot be used without CORRESPONDING [at 4:1]
 FULL EXCEPT ALL
@@ -176,20 +176,20 @@ FULL EXCEPT ALL
 ==
 
 # LEFT without CORRESPONDING
-[language_features={{|V_1_4_CORRESPONDING|V_1_4_CORRESPONDING_FULL}}]
+[language_features={{|CORRESPONDING|CORRESPONDING_FULL}}]
 SELECT 1
 LEFT EXCEPT ALL
 SELECT 2
 --
 ALTERNATION GROUPS:
     <empty>
-    V_1_4_CORRESPONDING
+    CORRESPONDING
 --
 ERROR: Column propagation mode (LEFT) for set operations is not supported [at 2:1]
 LEFT EXCEPT ALL
 ^
 --
-ALTERNATION GROUP: V_1_4_CORRESPONDING_FULL
+ALTERNATION GROUP: CORRESPONDING_FULL
 --
 ERROR: LEFT in set operations cannot be used without CORRESPONDING [at 2:1]
 LEFT EXCEPT ALL
@@ -197,7 +197,7 @@ LEFT EXCEPT ALL
 ==
 
 # LEFT without CORRESPONDING in multiple set operations
-[language_features={{|V_1_4_CORRESPONDING|V_1_4_CORRESPONDING_FULL}}]
+[language_features={{|CORRESPONDING|CORRESPONDING_FULL}}]
 SELECT 1
 EXCEPT ALL
 SELECT 2
@@ -206,73 +206,73 @@ SELECT 3
 --
 ALTERNATION GROUPS:
     <empty>
-    V_1_4_CORRESPONDING
+    CORRESPONDING
 --
 ERROR: Column propagation mode (LEFT) for set operations is not supported [at 4:1]
 LEFT EXCEPT ALL
 ^
 --
-ALTERNATION GROUP: V_1_4_CORRESPONDING_FULL
+ALTERNATION GROUP: CORRESPONDING_FULL
 --
 ERROR: LEFT in set operations cannot be used without CORRESPONDING [at 4:1]
 LEFT EXCEPT ALL
 ^
 ==
 
-[language_features={{V_1_4_CORRESPONDING|V_1_4_CORRESPONDING_FULL}}]
+[language_features={{CORRESPONDING|CORRESPONDING_FULL}}]
 SELECT 1
 {{FULL|LEFT}} UNION ALL CORRESPONDING
 SELECT 2
 --
-ALTERNATION GROUP: V_1_4_CORRESPONDING,FULL
+ALTERNATION GROUP: CORRESPONDING,FULL
 --
 ERROR: Column propagation mode (FULL) for set operations is not supported [at 2:1]
 FULL UNION ALL CORRESPONDING
 ^
 --
-ALTERNATION GROUP: V_1_4_CORRESPONDING,LEFT
+ALTERNATION GROUP: CORRESPONDING,LEFT
 --
 ERROR: Column propagation mode (LEFT) for set operations is not supported [at 2:1]
 LEFT UNION ALL CORRESPONDING
 ^
 --
 ALTERNATION GROUPS:
-    V_1_4_CORRESPONDING_FULL,FULL
-    V_1_4_CORRESPONDING_FULL,LEFT
+    CORRESPONDING_FULL,FULL
+    CORRESPONDING_FULL,LEFT
 --
 ERROR: Anonymous columns are not allowed in set operations when CORRESPONDING is used: query 1, column 1 [at 1:1]
 SELECT 1
 ^
 ==
 
-[language_features={{V_1_4_CORRESPONDING|V_1_4_CORRESPONDING_FULL}}]
+[language_features={{CORRESPONDING|CORRESPONDING_FULL}}]
 SELECT 1
 UNION ALL STRICT CORRESPONDING
 SELECT 2
 --
-ALTERNATION GROUP: V_1_4_CORRESPONDING
+ALTERNATION GROUP: CORRESPONDING
 --
 ERROR: Column propagation mode (STRICT) for set operations is not supported [at 2:11]
 UNION ALL STRICT CORRESPONDING
           ^
 --
-ALTERNATION GROUP: V_1_4_CORRESPONDING_FULL
+ALTERNATION GROUP: CORRESPONDING_FULL
 --
 ERROR: Anonymous columns are not allowed in set operations when CORRESPONDING is used: query 1, column 1 [at 1:1]
 SELECT 1
 ^
 ==
 
-[default language_features={{V_1_4_CORRESPONDING|V_1_4_CORRESPONDING_FULL}},V_1_4_BY_NAME]
+[default language_features={{CORRESPONDING|CORRESPONDING_FULL}},BY_NAME]
 # CORRESPONDING: same columns at same index.
 SELECT 1 AS col1, 2 AS col2
 {{EXCEPT DISTINCT CORRESPONDING|INNER EXCEPT DISTINCT BY NAME}}
 SELECT 3 AS col1, 4 AS col2
 --
 ALTERNATION GROUPS:
-    V_1_4_CORRESPONDING,EXCEPT DISTINCT CORRESPONDING
-    V_1_4_CORRESPONDING_FULL,EXCEPT DISTINCT CORRESPONDING
-    V_1_4_CORRESPONDING_FULL,INNER EXCEPT DISTINCT BY NAME
+    CORRESPONDING,EXCEPT DISTINCT CORRESPONDING
+    CORRESPONDING_FULL,EXCEPT DISTINCT CORRESPONDING
+    CORRESPONDING_FULL,INNER EXCEPT DISTINCT BY NAME
 --
 QueryStmt
 +-output_column_list=
@@ -306,7 +306,7 @@ QueryStmt
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=INNER
 --
-ALTERNATION GROUP: V_1_4_CORRESPONDING,INNER EXCEPT DISTINCT BY NAME
+ALTERNATION GROUP: CORRESPONDING,INNER EXCEPT DISTINCT BY NAME
 --
 ERROR: BY NAME for set operations is not supported [at 3:23]
 INNER EXCEPT DISTINCT BY NAME
@@ -2203,7 +2203,7 @@ QueryStmt
     +-column_propagation_mode=INNER
 ==
 
-[default language_features=V_1_4_CORRESPONDING_FULL,V_1_4_BY_NAME]
+[default language_features=CORRESPONDING_FULL,BY_NAME]
 # CORRESPONDING: Basic FULL mode: no common columns.
 SELECT 1 AS a
 FULL UNION ALL {{CORRESPONDING|BY NAME}}

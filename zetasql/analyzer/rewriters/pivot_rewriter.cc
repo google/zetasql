@@ -83,7 +83,7 @@ class PivotRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   // TODO: Remove this and always use IS NOT DISTINCT FROM.
   std::string PivotColumnNotDistinctSql() {
     if (analyzer_options_.language().LanguageFeatureEnabled(
-            FEATURE_V_1_3_IS_DISTINCT)) {
+            FEATURE_IS_DISTINCT)) {
       return "pivot_column IS NOT DISTINCT FROM pivot_value";
     }
     return "EXISTS(SELECT pivot_column INTERSECT ALL SELECT pivot_value)";
@@ -444,7 +444,7 @@ absl::Status PivotRewriterVisitor::VerifyAggregateFunctionIsSupported(
   if (call->signature().context_id() == FN_COUNT_STAR ||
       (call->signature().context_id() == FN_ANY_VALUE &&
        analyzer_options_.language().LanguageFeatureEnabled(
-           FEATURE_V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE))) {
+           FEATURE_NULL_HANDLING_MODIFIER_IN_AGGREGATE))) {
     // COUNT(*) and ANY_VALUE() have special implementation and is supported.
     // Note: The rewriter converts ANY_VALUE() into ARRAY_AGG(... IGNORE NULLS),
     // so support for rewriting ANY_VALUE() is conditioned upon IGNORE NULLS
@@ -480,7 +480,7 @@ absl::Status PivotRewriterVisitor::VerifyAggregateFunctionIsSupported(
               ->function_options()
               .supports_null_handling_modifier &&
           analyzer_options_.language().LanguageFeatureEnabled(
-              FEATURE_V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE)) {
+              FEATURE_NULL_HANDLING_MODIFIER_IN_AGGREGATE)) {
         return MakeUnimplementedErrorAtNode(call)
                << "Use of aggregate function " << call->function()->SQLName()
                << " as PIVOT expression is not supported unless IGNORE "
@@ -561,9 +561,9 @@ PivotRewriterVisitor::RewriteCountStarPivotExpr(
       pivot_column.type(), pivot_column, /*is_correlated=*/false);
   std::unique_ptr<const ResolvedExpr> countif_arg;
   if (analyzer_options_.language().LanguageFeatureEnabled(
-          FEATURE_V_1_3_IS_DISTINCT) &&
+          FEATURE_IS_DISTINCT) &&
       analyzer_options_.language().LanguageFeatureEnabled(
-          FEATURE_V_1_4_SIMPLIFY_PIVOT_REWRITE)) {
+          FEATURE_SIMPLIFY_PIVOT_REWRITE)) {
     ZETASQL_ASSIGN_OR_RETURN(countif_arg, fn_builder_.IsNotDistinctFrom(
                                       std::move(pivot_column_ref),
                                       std::move(pivot_value_expr)));
@@ -659,9 +659,9 @@ PivotRewriterVisitor::MakeAggregateExpr(
 
     std::unique_ptr<ResolvedExpr> agg_fn_arg;
     if (analyzer_options_.language().LanguageFeatureEnabled(
-            FEATURE_V_1_3_IS_DISTINCT) &&
+            FEATURE_IS_DISTINCT) &&
         analyzer_options_.language().LanguageFeatureEnabled(
-            FEATURE_V_1_4_SIMPLIFY_PIVOT_REWRITE)) {
+            FEATURE_SIMPLIFY_PIVOT_REWRITE)) {
       // Build the expression
       //   IF(pivot_column IS NOT DISTINCT FROM pivot_value, orig_arg, NULL)
       ZETASQL_ASSIGN_OR_RETURN(

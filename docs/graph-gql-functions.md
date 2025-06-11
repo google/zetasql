@@ -64,6 +64,16 @@ including the following GQL-specific functions:
 <tr>
   <td>
     
+    <a href="https://github.com/google/zetasql/blob/master/docs/graph-gql-functions.md#is_simple"><code>IS_SIMPLE</code></a>
+
+    
+  </td>
+  <td>Checks if a graph path is simple.</td>
+</tr>
+
+<tr>
+  <td>
+    
     <a href="https://github.com/google/zetasql/blob/master/docs/graph-gql-functions.md#is_trail"><code>IS_TRAIL</code></a>
 
     
@@ -295,8 +305,8 @@ IS_ACYCLIC(graph_path)
 
 **Description**
 
-Checks if a graph path has a repeating node. Returns `TRUE` if a repetition is
-found, otherwise returns `FALSE`.
+Checks if a graph path has a repeating node. Returns `TRUE` if a repetition
+isn't found, otherwise returns `FALSE`.
 
 **Definitions**
 
@@ -332,6 +342,51 @@ RETURN src.id AS source_account_id, IS_ACYCLIC(p) AS is_acyclic_path
  *-------------------------------------*/
 ```
 
+## `IS_SIMPLE`
+
+```zetasql
+IS_SIMPLE(graph_path)
+```
+
+**Description**
+
+Checks if a graph path is simple. Returns `TRUE` if the path has no repeated
+nodes, or if the only repeated nodes are its head and tail. Otherwise, returns
+`FALSE`.
+
+**Definitions**
+
++   `graph_path`: A `GRAPH_PATH` value that represents a graph path.
+
+**Details**
+
+Returns `NULL` if `graph_path` is `NULL`.
+
+**Return type**
+
+`BOOL`
+
+**Examples**
+
+```zetasql
+GRAPH FinGraph
+MATCH p=(a1:Account)-[t1:Transfers where t1.amount > 200]->
+        (a2:Account)-[t2:Transfers where t2.amount > 200]->
+        (a3:Account)-[t3:Transfers where t3.amount > 100]->(a4:Account)
+RETURN
+  IS_SIMPLE(p) AS is_simple_path,
+  a1.id as a1_id, a2.id as a2_id, a3.id as a3_id, a4.id as a4_id
+
+/*----------------+-------+-------+-------+-------+
+ | is_simple_path | a1_id | a2_id | a3_id | a4_id |
+ +----------------+-------+-------+-------+-------+
+ | TRUE           | 7     | 16    | 20    | 7     |
+ | TRUE           | 16    | 20    | 7     | 16    |
+ | FALSE          | 7     | 16    | 20    | 16    |
+ | TRUE           | 20    | 7     | 16    | 20    |
+ +----------------+-------+-------+-------+-------*/
+```
+
 ## `IS_TRAIL`
 
 ```zetasql
@@ -340,8 +395,8 @@ IS_TRAIL(graph_path)
 
 **Description**
 
-Checks if a graph path has a repeating edge. Returns `TRUE` if a repetition is
-found, otherwise returns `FALSE`.
+Checks if a graph path has a repeating edge. Returns `TRUE` if a repetition
+isn't found, otherwise returns `FALSE`.
 
 **Definitions**
 
@@ -774,11 +829,8 @@ quantified path pattern in a linear graph query.
 
 +  The argument to the aggregate function must reference exactly one array-typed
    value.
-+  Can only be used in `LET`, `FILTER` statements or `WHERE`
-   clauses.
++  Can be used in `LET`, `FILTER` statements, or `WHERE` clauses only.
 +  Nesting horizontal aggregates isn't allowed.
-+  Aggregate functions that support ordering (`ARRAY_AGG`, `STRING_AGG`,
-   `ARRAY_CONCAT_AGG`) can't be used as horizontal aggregate functions.
 
 #### Examples
 
@@ -830,6 +882,23 @@ RETURN avg_sum
  +---------+
  | 11      |
  +---------*/
+```
+
+The `ARRAY_AGG` function can be used as a projection when horizontally
+aggregating. The resulting array is in the same order as the array that's
+horizontally aggregated over.
+
+```zetasql {.no-copy}
+GRAPH FinGraph
+LET arr = [STRUCT(1 as x, 9 as y), STRUCT(2, 9), STRUCT(4, 8)]
+LET result = ARRAY_AGG(arr.x + arr.y)
+RETURN result
+
+/*--------------+
+ | result       |
+ +--------------+
+ | [10, 11, 12] |
+ +--------------*/
 ```
 
 The following query produces an error because two arrays were passed into

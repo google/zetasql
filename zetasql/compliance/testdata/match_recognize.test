@@ -1,5 +1,5 @@
 [default reserve_match_recognize]
-[default required_features=V_1_4_MATCH_RECOGNIZE]
+[default required_features=MATCH_RECOGNIZE]
 [prepare_database]
 CREATE TABLE t1 AS
   SELECT * FROM UNNEST([
@@ -126,7 +126,7 @@ SELECT * FROM t1 MATCH_RECOGNIZE(
 ARRAY<STRUCT<m INT64>>[unknown order:{2002}, {2008}]
 ==
 
-[required_features=V_1_4_MULTILEVEL_AGGREGATION,V_1_4_MATCH_RECOGNIZE]
+[required_features=MULTILEVEL_AGGREGATION,MATCH_RECOGNIZE]
 [name=multilevel_aggregation_basic]
 SELECT * FROM t1 MATCH_RECOGNIZE(
   ORDER BY rowid + rowid
@@ -140,7 +140,7 @@ SELECT * FROM t1 MATCH_RECOGNIZE(
 ARRAY<STRUCT<m DOUBLE>>[unknown order:{2003}, {2005}]
 ==
 
-[required_features=V_1_4_MULTILEVEL_AGGREGATION,V_1_4_MATCH_RECOGNIZE]
+[required_features=MULTILEVEL_AGGREGATION,MATCH_RECOGNIZE]
 [name=multilevel_aggregation_with_2_arguments]
 SELECT * FROM t1 MATCH_RECOGNIZE(
   ORDER BY rowid + rowid
@@ -195,7 +195,7 @@ ARRAY<STRUCT<correlated_scalar_subquery INT64>>[known order:{12009}, {22009}]
 ==
 
 [name=correlated_columns_and_lambda_args_are_grouping_constants]
-[required_features=V_1_4_MATCH_RECOGNIZE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[required_features=MATCH_RECOGNIZE,INLINE_LAMBDA_ARGUMENT]
 WITH outer_tbl AS (
   SELECT 100000 AS outer_col, [5000000, 6000000] AS outer_arr  UNION ALL
   SELECT 200000 AS outer_col, [7000000, 8000000] AS outer_arr
@@ -227,7 +227,7 @@ ARRAY<STRUCT<correlated_scalar_subquery ARRAY<>>>[known order:
 ==
 
 [name=ignore_nulls_order_by_in_aggregate_measures]
-[required_features=V_1_4_MATCH_RECOGNIZE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=MATCH_RECOGNIZE,NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE]
 SELECT * FROM t1 MATCH_RECOGNIZE(
   PARTITION BY x
   ORDER BY rowid + rowid
@@ -829,7 +829,7 @@ SELECT * FROM t1 MATCH_RECOGNIZE(
 ARRAY<STRUCT<multiple_as INT64, multiple_bs INT64>>[{1003, 1000}]
 ==
 [name=query_param_in_order_by_collate]
-[required_features=V_1_4_MATCH_RECOGNIZE,V_1_1_ORDER_BY_COLLATE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=MATCH_RECOGNIZE,ORDER_BY_COLLATE,ORDER_BY_IN_AGGREGATE]
 [parameters="und:ci" as param]
 SELECT *
   FROM (
@@ -916,7 +916,7 @@ ARRAY<STRUCT<m1 INT64,
              cnt_star INT64>>[{17, 17, 17, 17, 1, 16, 16}]
 ==
 
-[required_features=V_1_4_MATCH_RECOGNIZE,V_1_4_MULTILEVEL_AGGREGATION,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=MATCH_RECOGNIZE,MULTILEVEL_AGGREGATION,ORDER_BY_IN_AGGREGATE]
 [name=count_star_with_qualified_symbol_in_the_same_measure_in_multilevel_agg]
 SELECT * FROM t1 MATCH_RECOGNIZE(
   ORDER BY rowid
@@ -933,7 +933,7 @@ ARRAY<STRUCT<m STRING>>[{"a"}]
 NOTE: Reference implementation reports non-determinism.
 ==
 
-[required_features=V_1_4_MATCH_RECOGNIZE]
+[required_features=MATCH_RECOGNIZE]
 [name=match_recognize_special_functions_first_and_last]
 SELECT * FROM t1 MATCH_RECOGNIZE(
   ORDER BY rowid
@@ -961,7 +961,7 @@ ARRAY<STRUCT<
       >>[{1000, 1002, 1000, 1002, NULL, NULL}]
 ==
 
-[required_features=V_1_4_MATCH_RECOGNIZE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=MATCH_RECOGNIZE,ORDER_BY_IN_AGGREGATE]
 [name=match_recognize_special_functions_match_result]
 SELECT * FROM t1 MATCH_RECOGNIZE(
   ORDER BY rowid
@@ -1006,7 +1006,7 @@ ARRAY<STRUCT<
   ARRAY<INT64>[known order:1000, 1001, 1002, NULL, NULL, 1002, 1002]}]
 ==
 
-[required_features=V_1_4_MATCH_RECOGNIZE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=MATCH_RECOGNIZE,ORDER_BY_IN_AGGREGATE]
 [name=match_recognize_implicit_ordering]
 SELECT * FROM t1 MATCH_RECOGNIZE(
   ORDER BY rowid
@@ -1100,7 +1100,7 @@ ARRAY<STRUCT<
   ARRAY<INT64>[known order:1002, 1002, NULL, NULL, 1002, 1001, 1000]}]
 ==
 
-[required_features=V_1_4_MATCH_RECOGNIZE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=MATCH_RECOGNIZE,ORDER_BY_IN_AGGREGATE]
 [name=match_recognize_implicit_ordering_with_agg_distinct]
 SELECT * FROM t1 MATCH_RECOGNIZE(
   ORDER BY rowid
@@ -1141,7 +1141,7 @@ ARRAY<STRUCT<
   ARRAY<STRING>[unknown order:"a", "b"]}]
 ==
 
-[required_features=V_1_4_MATCH_RECOGNIZE,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=MATCH_RECOGNIZE,LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE]
 [name=match_recognize_implicit_ordering_with_agg_limit]
 SELECT * FROM t1 MATCH_RECOGNIZE(
   ORDER BY rowid
@@ -1157,7 +1157,7 @@ SELECT * FROM t1 MATCH_RECOGNIZE(
 ARRAY<STRUCT<m ARRAY<>>>[{ARRAY<INT64>[known order:1, 2, 3]}]
 ==
 
-[required_features=V_1_4_MATCH_RECOGNIZE,V_1_1_HAVING_IN_AGGREGATE]
+[required_features=MATCH_RECOGNIZE,HAVING_IN_AGGREGATE]
 [name=match_recognize_implicit_ordering_with_agg_having_min]
 SELECT * FROM t1 MATCH_RECOGNIZE(
   ORDER BY rowid
@@ -1173,7 +1173,7 @@ SELECT * FROM t1 MATCH_RECOGNIZE(
 ARRAY<STRUCT<having_min INT64>>[{16}]
 ==
 
-[required_features=V_1_4_MATCH_RECOGNIZE,V_1_4_MULTILEVEL_AGGREGATION]
+[required_features=MATCH_RECOGNIZE,MULTILEVEL_AGGREGATION]
 [name=match_recognize_no_implicit_ordering_with_multilevel_agg]
 SELECT * FROM t1 MATCH_RECOGNIZE(
   ORDER BY rowid
@@ -1191,7 +1191,7 @@ ARRAY<STRUCT<multilevel ARRAY<>>>[
 ]
 ==
 
-[required_features=V_1_4_MATCH_RECOGNIZE]
+[required_features=MATCH_RECOGNIZE]
 [name=match_recognize_special_functions_composing]
 SELECT * FROM t1 MATCH_RECOGNIZE(
   ORDER BY rowid

@@ -580,12 +580,19 @@ absl::Status CheckDateDatetimeTimeTimestampDiffArguments(
           return absl::OkStatus();
         }
         break;
+      case functions::PICOSECOND:
+        // TODO Add compliance tests on Timestamp_Picos arguments.
+        if (arguments[0].type()->IsTimestamp() &&
+            language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_PICOS)) {
+          return absl::OkStatus();
+        }
+        break;
       default:
         break;
     }
     std::string extended_signature_error;
     if (language_options.LanguageFeatureEnabled(
-            FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)) {
+            FEATURE_EXTENDED_DATE_TIME_SIGNATURES)) {
       extended_signature_error = absl::StrCat(
           " when the argument is ",
           arguments[0].UserFacingName(language_options.product_mode()),
@@ -700,6 +707,13 @@ absl::Status CheckDateDatetimeTimeTimestampTruncArguments(
           return absl::OkStatus();
         }
         break;
+      case functions::PICOSECOND:
+        // TODO Add compliance tests on Timestamp_Picos arguments.
+        if (arguments[0].type()->IsTimestamp() &&
+            language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_PICOS)) {
+          return absl::OkStatus();
+        }
+        break;
       default:
         break;
     }
@@ -759,8 +773,7 @@ absl::Status CheckExtractPreResolutionArguments(
   // since that causes overloading issues.  The argument can be either DATE,
   // TIMESTAMP, or TIMESTAMP_* and a string literal coerces to all.
   if (arguments.empty()) {
-    return MakeSqlError()
-           << "EXTRACT's arguments cannot be empty.";
+    return MakeSqlError() << "EXTRACT's arguments cannot be empty.";
   }
   if (ArgumentIsStringLiteral(arguments[0])) {
     return MakeSqlError()
@@ -858,12 +871,19 @@ absl::Status CheckDateDatetimeTimestampAddSubArguments(
         return absl::OkStatus();
       }
       break;
+    case functions::PICOSECOND:
+      // TODO Add compliance tests on Timestamp_Picos arguments.
+      if (arguments[0].type()->IsTimestamp() &&
+          language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_PICOS)) {
+        return absl::OkStatus();
+      }
+      break;
     default:
       break;
   }
   std::string extended_signature_error;
   if (language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)) {
+          FEATURE_EXTENDED_DATE_TIME_SIGNATURES)) {
     extended_signature_error = absl::StrCat(
         " when the argument is ",
         arguments[0].UserFacingName(language_options.product_mode()), " type");
@@ -966,6 +986,12 @@ absl::Status CheckGenerateTimestampArrayArguments(
         return absl::OkStatus();
       case functions::NANOSECOND:
         if (language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
+          return absl::OkStatus();
+        }
+        break;
+      case functions::PICOSECOND:
+        // TODO Add compliance tests on Timestamp_Picos arguments.
+        if (language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_PICOS)) {
           return absl::OkStatus();
         }
         break;
@@ -1081,7 +1107,7 @@ std::string NoMatchingSignatureForCaseNoValueFunction(
     const std::vector<InputArgumentType>& arguments, ProductMode product_mode) {
   std::string error_message =
       absl::StrCat("No matching signature for ", qualified_function_name);
-  // Even number arguments represent WHEN expresssions and must be BOOL, except
+  // Even number arguments represent WHEN expressions and must be BOOL, except
   // for the last argument (which is an ELSE argument).  Other arguments must
   // all be coercible to a common supertype.
   //
@@ -1336,8 +1362,7 @@ std::string NoMatchingSignatureForSubscript(
 }
 
 absl::Status CheckArgumentsSupportEquality(
-    const std::string& comparison_name,
-    const FunctionSignature& signature,
+    const std::string& comparison_name, const FunctionSignature& signature,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
   ZETASQL_RET_CHECK_EQ(signature.NumConcreteArguments(), arguments.size());
@@ -1410,8 +1435,7 @@ absl::Status PreResolutionCheckArgumentsSupportComparison(
 }
 
 absl::Status CheckArgumentsSupportComparison(
-    const std::string& comparison_name,
-    const FunctionSignature& /*signature*/,
+    const std::string& comparison_name, const FunctionSignature& /*signature*/,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
   return PreResolutionCheckArgumentsSupportComparison(
@@ -1434,27 +1458,16 @@ absl::Status CheckGreatestLeastArguments(
     const LanguageOptions& language_options) {
   ZETASQL_RETURN_IF_ERROR(PreResolutionCheckArgumentsSupportComparison(
       function_name, arguments, language_options));
-  if (!arguments.empty() && arguments.front().type()->IsArray() &&
-      !language_options.LanguageFeatureEnabled(
-          LanguageFeature::FEATURE_V_1_3_ARRAY_GREATEST_LEAST)) {
-    return MakeSqlError() << function_name << "() on arrays require the "
-                          << "V_1_3_ARRAY_GREATEST_LEAST flag.";
+  if (!language_options.LanguageFeatureEnabled(
+          LanguageFeature::FEATURE_ARRAY_GREATEST_LEAST)) {
+    for (auto& arg : arguments) {
+      if (arg.type()->IsArray()) {
+        return MakeSqlError() << function_name << "() on arrays require the "
+                              << "FEATURE_ARRAY_GREATEST_LEAST flag";
+      }
+    }
   }
   return absl::OkStatus();
-}
-
-absl::Status CheckFirstArgumentSupportsEquality(
-    const std::string& comparison_name,
-    const std::vector<InputArgumentType>& arguments,
-    const LanguageOptions& language_options) {
-  if (arguments.empty() ||
-      (arguments[0].type() != nullptr &&
-       arguments[0].type()->SupportsEquality(language_options))) {
-    return absl::OkStatus();
-  }
-  return MakeSqlError() << comparison_name
-                        << " is not defined for arguments of type "
-                        << arguments[0].DebugString();
 }
 
 absl::Status CheckArrayAggArguments(
@@ -1709,8 +1722,7 @@ std::string CheckHasIntervalTypeArgument(
 //            `<field2_name>` <arguments[1].type()> > >
 absl::StatusOr<const Type*> ComputeResultTypeForTopStruct(
     const std::string& field2_name, Catalog* catalog, TypeFactory* type_factory,
-    CycleDetector* cycle_detector,
-    const FunctionSignature& /*signature*/,
+    CycleDetector* cycle_detector, const FunctionSignature& /*signature*/,
     const std::vector<InputArgumentType>& arguments,
     const AnalyzerOptions& analyzer_options) {
   ZETASQL_RET_CHECK_GE(arguments.size(), 2);

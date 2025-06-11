@@ -320,7 +320,7 @@ ARRAY<STRUCT<
     9999-12-31 23:59:59.999999+00
   )}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [prepare_database]
 CREATE TABLE TableDatetimeRangeTypes AS
 SELECT CAST(1 AS int64) as row_id,
@@ -1284,7 +1284,7 @@ ARRAY<STRUCT<
                }]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,CIVIL_TIME]
 [name=analytic_count_rangetype_datetime_cumulative_window]
 [labels=analytic_count_with_cumulative_window]
 SELECT row_id, range_datetime_val,
@@ -1472,7 +1472,7 @@ ARRAY<STRUCT<
                }]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,CIVIL_TIME]
 [name=analytic_count_rangetype_datetime_unbounded_window]
 [labels=analytic_count_with_unbounded_window]
 SELECT row_id, range_datetime_val,
@@ -1636,7 +1636,7 @@ ARRAY<STRUCT<
                }]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,CIVIL_TIME]
 [name=analytic_count_rangetype_datetime_bounded_window]
 [labels=analytic_count_with_bounded_window]
 SELECT row_id, range_datetime_val,
@@ -1760,7 +1760,7 @@ ARRAY<STRUCT<
                 3}]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_3_QUALIFY]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,QUALIFY]
 [name=analytic_count_rangetype_date_qualify]
 SELECT row_id, range_date_val,
        COUNT(range_date_val) OVER (ORDER BY row_id
@@ -1803,7 +1803,7 @@ ARRAY<STRUCT<
                }]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME,V_1_3_QUALIFY]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,CIVIL_TIME,QUALIFY]
 [name=analytic_count_rangetype_datetime_qualify]
 SELECT row_id, range_datetime_val,
        COUNT(range_datetime_val) OVER (ORDER BY row_id
@@ -1854,7 +1854,7 @@ ARRAY<STRUCT<
                 9}]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_3_QUALIFY]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,QUALIFY]
 [name=analytic_count_rangetype_timestamp_qualify]
 SELECT row_id, range_timestamp_val,
        COUNT(range_timestamp_val) OVER (ORDER BY row_id
@@ -2147,7 +2147,7 @@ ARRAY<STRUCT<
                }]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,CIVIL_TIME]
 [name=analytic_count_distinct_rangetype_datetime]
 [labels=analytic_count_distinct]
 SELECT row_id, range_datetime_val,
@@ -2271,7 +2271,7 @@ ARRAY<STRUCT<
                 7}]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_3_QUALIFY]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,QUALIFY]
 [name=analytic_count_distinct_rangetype_date_qualify]
 [labels=analytic_count_distinct]
 SELECT row_id, range_date_val,
@@ -2307,7 +2307,7 @@ ARRAY<STRUCT<
                }]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME,V_1_3_QUALIFY]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,CIVIL_TIME,QUALIFY]
 [name=analytic_count_distinct_rangetype_datetime_qualify]
 [labels=analytic_count_distinct]
 SELECT row_id, range_datetime_val,
@@ -2350,7 +2350,7 @@ ARRAY<STRUCT<
                 7}]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_3_QUALIFY]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,QUALIFY]
 [name=analytic_count_distinct_rangetype_timestamp_qualify]
 [labels=analytic_count_distinct]
 SELECT row_id, range_timestamp_val,

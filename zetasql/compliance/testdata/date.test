@@ -101,7 +101,7 @@ select date('2020-09-01 12:34:56.789-08')
 ARRAY<STRUCT<DATE>>[{2020-09-01}]
 ==
 
-[required_features=V_1_3_DATE_TIME_CONSTRUCTORS]
+[required_features=DATE_TIME_CONSTRUCTORS]
 [name=date_from_string_non_literal_timestamp]
 select date('2020-09-01' || ' ' || '12:34:56.789-08')
 
@@ -109,7 +109,7 @@ select date('2020-09-01' || ' ' || '12:34:56.789-08')
 ARRAY<STRUCT<DATE>>[{2020-09-01}]
 ==
 
-[required_features=V_1_3_DATE_TIME_CONSTRUCTORS]
+[required_features=DATE_TIME_CONSTRUCTORS]
 [name=date_constructor]
 select date(date '9876-12-31'), date('1999' || '-' || '10' || '-' || '20'), string(date '1234-01-02')
 --
@@ -170,7 +170,7 @@ from (select date '2020-02-15' dt,
 ARRAY<STRUCT<DATE, DATE>>[{2020-02-14, 2020-02-01}]
 ==
 
-[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,EXTENDED_DATE_TIME_SIGNATURES]
 [name=date_in_timestamp_bucket]
 select
   timestamp_bucket(dt, INTERVAL 7 DAY),
@@ -180,7 +180,7 @@ from (select date '2020-02-15' dt)
 ARRAY<STRUCT<DATE, DATE>>[{2020-02-09, 2020-02-14}]
 ==
 
-[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,CIVIL_TIME,EXTENDED_DATE_TIME_SIGNATURES]
 [name=date_in_datetime_bucket]
 select
   datetime_bucket(dt, INTERVAL 7 DAY),
@@ -200,3 +200,66 @@ select
   date_bucket(NULL, NULL, NULL),
 --
 ARRAY<STRUCT<DATE, DATE, DATE, DATE, DATE>>[{NULL, NULL, NULL, NULL, NULL}]
+
+==
+
+[name=repro_b403599925]
+SELECT PARSE_DATE('%Y%j','2020 50') AS a;
+--
+ERROR: generic::out_of_range: Failed to parse input string "2020 50"
+
+==
+
+[name=repro_b408960117]
+SELECT PARSE_DATE('%W%y', '92\r\x00') AS a;
+--
+ERROR: generic::out_of_range: Failed to parse input string "92\r\x00"
+
+==
+
+[name=weekofyear_case1]
+SELECT PARSE_DATE('%W%y', '92') AS a;
+--
+ERROR: generic::out_of_range: Failed to parse input string "92"
+
+==
+
+[name=weekofyear_case2]
+SELECT PARSE_DATE('%W%y', '902') AS a;
+--
+ERROR: generic::out_of_range: Failed to parse input string "902"
+
+==
+
+[name=weekofyear_case3]
+SELECT PARSE_DATE('%W%y', '092') AS a;
+--
+ARRAY<STRUCT<a DATE>>[{2002-03-04}]
+
+==
+
+[name=weekofyear_case4]
+SELECT PARSE_DATE('%W%y', '0902') AS a;
+--
+ARRAY<STRUCT<a DATE>>[{2002-03-04}]
+
+==
+
+[name=weekofyear_case5]
+SELECT PARSE_DATE('%U%g', '82') AS a;
+--
+ERROR: generic::out_of_range: Failed to parse input string "82"
+
+==
+
+[name=weekofyear_case6]
+SELECT PARSE_DATE('%U%C', NULL) AS a;
+--
+ARRAY<STRUCT<a DATE>>[{NULL}]
+
+==
+
+[name=weekofyear_case7]
+SELECT PARSE_DATE('%U%C', '99') AS a;
+--
+ERROR: generic::out_of_range: Failed to parse input string "99"

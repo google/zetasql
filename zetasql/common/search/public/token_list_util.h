@@ -20,7 +20,9 @@
 #include <string>
 #include <vector>
 
-#include "zetasql/public/token_list.h"  
+#include "zetasql/public/simple_token_list.h"
+#include "zetasql/public/simple_token_list.h"
+#include "zetasql/public/simple_token_list.h"
 #include "absl/functional/any_invocable.h"
 
 namespace zetasql::search {

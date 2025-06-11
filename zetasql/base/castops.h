@@ -72,40 +72,40 @@ double LongDoubleToFiniteDouble(long double value);
 namespace x86compatible {
 
 // Emulating X86-64's behavior of casting long double, double or float to
-// int32_t. Comparing to SaturatingFloatToInt<FloatType, int32_t>, when the
-// truncated form of value is out of the representable range of int32_t or NaN,
+// int32. Comparing to SaturatingFloatToInt<FloatType, int32>, when the
+// truncated form of value is out of the representable range of int32 or NaN,
 // X86-64 always returns INT32_MIN.
 template <typename FloatType>
 int32_t ToInt32(FloatType value);
 
 // Emulating X86-64's behavior of casting long double, double or float to
-// int64_t. Comparing to SaturatingFloatToInt<FloatType, int64_t>, when the
-// truncated form of value is out of the representable range of int64_t or NaN,
+// int64. Comparing to SaturatingFloatToInt<FloatType, int64>, when the
+// truncated form of value is out of the representable range of int64 or NaN,
 // X86-64 always returns INT64_MIN.
 template <typename FloatType>
 int64_t ToInt64(FloatType value);
 
 // Emulating X86-64's behavior of casting long double, double or float to
-// uint32_t. Comparing to SaturatingFloatToInt<FloatType, uint32_t>, X86-64 does
+// uint32. Comparing to SaturatingFloatToInt<FloatType, uint32>, X86-64 does
 // things differently when the truncated form of value is out of the
-// representable range of uint32_t. Basically, X86-64 outputs
-// (uint32_t)(int64_t)value.
+// representable range of uint32. Basically, X86-64 outputs
+// (uint32)(int64)value.
 template <typename FloatType>
 uint32_t ToUint32(FloatType value);
 
 // Emulating X86-64's behavior of casting long double, double or float to
-// uint64_t. Comparing to SaturatingFloatToInt<FloatType, uint64_t>, X86-64 does
+// uint64. Comparing to SaturatingFloatToInt<FloatType, uint64>, X86-64 does
 // things differently when the truncated form of value is out of the
-// representable range of uint64_t.
+// representable range of uint64.
 // Basically, X86-64 does:
 //   if (value > UINT64_MAX) {
 //     return 0;
 //   } else if (value >=0 && value <= UINT64_MAX) {
-//     return (uint64_t)value;
+//     return (uint64)value;
 //   } else if (value >= INT64_MIN) {
-//     return (uint64_t)(int64_t)value;
+//     return (uint64)(int64)value;
 //   } else { // value is NaN or value < INT64_MIN
-//     return (uint64_t)INT64_MIN;
+//     return (uint64)INT64_MIN;
 //   }
 // Interestingly, when value is NaN, LLVM and GCC outputs differently. We
 // emulate what GCC does.
@@ -113,20 +113,20 @@ template <typename FloatType>
 uint64_t ToUint64(FloatType value);
 
 // Emulating X86-64's behavior of casting long double, double or float into
-// int16_t. Comparing to SaturatingFloatToInt<FloatType, int16_t>, X86-64 does
+// int16. Comparing to SaturatingFloatToInt<FloatType, int16>, X86-64 does
 // things differently when the truncated form of value is out of the
-// representable range of int16_t.
+// representable range of int16.
 // Basically, X86-64 does:
-// (int16_t)(int32_t)value.
+// (int16)(int32)value.
 template <typename FloatType>
 int16_t ToInt16(FloatType value);
 
 // Emulating X86-64's behavior of casting long double, double or float into
-// uint16_t. Comparing to SaturatingFloatToInt<FloatType, uint16_t>, X86-64 does
+// uint16. Comparing to SaturatingFloatToInt<FloatType, uint16>, X86-64 does
 // things differently when the truncated form of value is out of the
-// representable range of uint16_t.
+// representable range of uint16.
 // Basically, X86-64 does:
-// (uint16_t)(int32_t)value.
+// (uint16)(int32)value.
 template <typename FloatType>
 uint16_t ToUint16(FloatType value);
 
@@ -134,7 +134,7 @@ uint16_t ToUint16(FloatType value);
 // signed char. Comparing to SaturatingFloatToInt<FloatType, signed char>,
 // X86-64 does things differently when the truncated form of value is out of
 // the representable range of signed char. Basically, X86-64 does:
-// (signed char)(int32_t)value.
+// (signed char)(int32)value.
 template <typename FloatType>
 signed char ToSchar(FloatType value);
 
@@ -142,7 +142,7 @@ signed char ToSchar(FloatType value);
 // unsigned char. Comparing to SaturatingFloatToInt<FloatType, unsigned char>,
 // X86-64 does things differently when the truncated form of value is out of
 // the representable range of unsigned char. Basically, X86-64 does:
-// (unsigned char)(int32_t)value.
+// (unsigned char)(int32)value.
 template <typename FloatType>
 unsigned char ToUchar(FloatType value);
 
@@ -428,7 +428,7 @@ namespace internal {
 // SaturatingFloatToInt<FloatType, SmallInt>, X86-64 does things differently
 // when value is out of the representable range of SmallInt.
 // Basically, X86-64 does:
-// (SmallInt)(int32_t)value.
+// (SmallInt)(int32)value.
 template <typename FloatType, typename SmallInt>
 SmallInt ToSmallIntegral(FloatType value) {
   static_assert(castops::internal::kTypeIsFloating<FloatType>);

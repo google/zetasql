@@ -40,6 +40,7 @@
 #include "google/protobuf/text_format.h"     
 #include "zetasql/common/float_margin.h"
 #include "zetasql/common/internal_value.h"
+#include "zetasql/common/measure_analysis_utils.h"
 #include "zetasql/common/options_utils.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/base/testing/status_matchers.h"
@@ -71,6 +72,7 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/sql_builder.h"
+#include "zetasql/testing/test_value.h"
 #include "zetasql/testing/type_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -550,7 +552,7 @@ void Stats::LogBatches(const Iterable& iterable, const std::string& title,
     ABSL_LOG(INFO) << "\n==== " << title << " #" << batch_count
               << "\n"
               // Leave enough space for "End".
-              << absl::StrJoin(batch, delimiter).substr(0, kLogBufferSize - 160)
+              << absl::StrJoin(batch, delimiter).substr(0, kLogBufferSize - 200)
               << (batch.empty() ? std::string() : "\n") << "==== End " << title
               << " #" << batch_count;
     batch.clear();
@@ -1190,7 +1192,6 @@ static bool IsOnResolverErrorFilebasedAllowList(absl::string_view full_name) {
         "aggregation_threshold_test:",
         "arithmetic_functions_test:arithmetic_functions_3",
         "array_aggregation_test:array_concat_agg_array",
-        "array_joins_test:array_",
         "bytes_test:",
         "collation_test:",
         "d3a_count_test:",
@@ -1199,16 +1200,13 @@ static bool IsOnResolverErrorFilebasedAllowList(absl::string_view full_name) {
         "hll_count_test:",
         "json_queries_test:json_",
         "keys_test:keys_2",
-        "limit_queries_test:",
         "logical_functions_test:logical_not_",
         "proto2_unknown_enums_test:",
         "proto_fields_test:has_repeated_scalar_fields",
         "proto_constructor_test:",
         "proto3_fields_test:has_repeated_scalar_fields",
         "replace_fields_test:replace_fields_proto_named_extension",
-        "strings_test:",
-        "unionall_queries_test:unionall_",
-        "unnest_queries_test:"}) {
+        "strings_test:"}) {
     if (absl::StartsWith(full_name, prefix)) {
       return true;
     }
@@ -1597,6 +1595,7 @@ static std::unique_ptr<ReferenceDriver> CreateTestSetupDriver() {
   options.EnableMaximumLanguageFeaturesForDevelopment();
   // Allow CREATE TABLE AS SELECT in [prepare_database] statements.
   options.AddSupportedStatementKind(RESOLVED_CREATE_TABLE_AS_SELECT_STMT);
+  options.AddSupportedStatementKind(RESOLVED_CREATE_CONSTANT_STMT);
   options.AddSupportedStatementKind(RESOLVED_CREATE_TABLE_FUNCTION_STMT);
   options.AddSupportedStatementKind(RESOLVED_CREATE_FUNCTION_STMT);
   options.AddSupportedStatementKind(RESOLVED_CREATE_VIEW_STMT);
@@ -1660,7 +1659,7 @@ absl::Status SQLTestBase::CreateDatabase(const TestDatabase& test_db) {
 }
 
 absl::StatusOr<ComplianceTestCaseResult> SQLTestBase::ExecuteStatement(
-    const std::string& sql, const std::map<std::string, Value>& parameters) {
+    absl::string_view sql, const std::map<std::string, Value>& parameters) {
   return ExecuteTestCase().driver_output();
 }
 
@@ -1675,15 +1674,12 @@ SQLTestBase::TestResults SQLTestBase::ExecuteTestCase() {
            ? "\nNo Parameters\n"
            : absl::StrCat("\nParameters:\n", ToString(parameters_))),
       "\n  Location: ", location_, "\n      Name: ", full_name_);
-  if (!driver_language_options().GetEnabledLanguageFeatures().empty()) {
-    absl::StrAppend(
-        &sql_log_string, "\n  Features: ",
-        driver_language_options().GetEnabledLanguageFeaturesAsString());
-  }
   for (::absl::string_view chunk :
        ::absl::StrSplit(sql_log_string, ::zetasql::LogChunkDelimiter())) {
     ABSL_LOG(INFO) << chunk;
   }
+  ZETASQL_VLOG(1) << "Features: "
+          << driver_language_options().GetEnabledLanguageFeaturesAsString();
 
   // A known error can still fail the test if it fails in a more
   // severe mode. Since the framework doesn't know the outcome yet, it defers
@@ -1897,6 +1893,29 @@ void SQLTestBase::StepPrepareTimeZoneProtosEnums() {
   }
 }
 
+absl::Status SQLTestBase::AddConstants(
+    absl::Span<const std::string> create_constant_stmts, bool cache_stmts) {
+  bool is_testing_test_framework =
+      test_case_options_->name() == kSkipFailedReferenceSetup;
+  absl::Status reference_status =
+      reference_driver()->AddSqlConstants(create_constant_stmts);
+  ZETASQL_RET_CHECK_NE(reference_status.ok(), is_testing_test_framework)
+      << reference_status;
+  absl::Status driver_status = driver()->AddSqlConstants(create_constant_stmts);
+  if (!driver_status.ok()) {
+    // We don't want to fail the test because of a database setup failure.
+    // Any test statements that depend on this schema object should cause
+    // the test to fail in a more useful way.
+    ABSL_LOG(ERROR) << "Prepare database failed with error: " << driver_status;
+  }
+  if (cache_stmts && reference_status.ok() && driver_status.ok()) {
+    for (const auto& stmt : create_constant_stmts) {
+      constant_stmt_cache_.push_back(stmt);
+    }
+  }
+  return absl::OkStatus();
+}
+
 absl::Status SQLTestBase::AddViews(
     absl::Span<const std::string> create_view_stmts, bool cache_stmts) {
   bool is_testing_test_framework =
@@ -2085,6 +2104,10 @@ void SQLTestBase::StepPrepareDatabase() {
     return;
   }
 
+  if (stmt_kind == RESOLVED_CREATE_CONSTANT_STMT) {
+    ZETASQL_EXPECT_OK(AddConstants({sql_}, /*cache_stmts=*/true));
+    return;
+  }
   if (stmt_kind == RESOLVED_CREATE_FUNCTION_STMT) {
     ZETASQL_EXPECT_OK(AddFunctions({sql_}, /*cache_stmts=*/true));
     return;
@@ -2890,12 +2913,76 @@ bool SQLTestBase::use_external_float32() const {
   return driver()->GetSupportedLanguageOptions().product_mode() ==
              ProductMode::PRODUCT_EXTERNAL &&
          !driver()->GetSupportedLanguageOptions().LanguageFeatureEnabled(
-             LanguageFeature::FEATURE_V_1_4_DISABLE_FLOAT32);
+             LanguageFeature::FEATURE_DISABLE_FLOAT32);
 }
 
 void SQLTestBase::SetUp() { ZETASQL_EXPECT_OK(CreateDatabase(TestDatabase{})); }
 
+// Add predefined tables with measure columns to `test_db` if the test case
+// requires the FEATURE_ENABLE_MEASURES feature.
+// It is currently impossible to define measures via SQL or use DDL to add
+// measure columns to a table. This makes compliance testing for measures
+// difficult; as a result we use this temporary workaround to add pre-defined
+// tables with measure columns to the test database.
+// TODO: b/350555383 - Remove this function once we can define measures via SQL
+// or use DDL to add measure columns to a table.
+static void MaybeAddMeasureTables(
+    const FilebasedSQLTestCaseOptions& test_case_options,
+    TestDatabase& test_db) {
+  const bool add_tables_with_measures =
+      test_case_options.required_features().find(
+          LanguageFeature::FEATURE_ENABLE_MEASURES) !=
+      test_case_options.required_features().end();
+
+  if (add_tables_with_measures) {
+    Value measure_table_single_key_as_value = test_values::StructArray(
+        {"key", "country", "quantity", "price", "date_str", "nullable_str"},
+        {{1ll, "USA", 5ll, 10, "Jan 2024", Value::NullString()},
+         {2ll, "USA", 15ll, 20, "Jan 2024", "not_null"},
+         {3ll, "USA", 30ll, 30, "Feb 2024", "not_null"},
+         {4ll, "Canada", 20ll, 40, "Jan 2024", "not_null"},
+         {5ll, "Canada", 20ll, 50, "Jan 2024", Value::NullString()},
+         {6ll, "Canada", 35ll, 60, "Feb 2024", Value::NullString()},
+         {7ll, "Canada", 25ll, 70, "Feb 2024", "not_null"},
+         {8ll, "Mexico", 25ll, 80, "Jan 2024", "not_null"},
+         {9ll, "Mexico", 25ll, 90, "Jan 2024", Value::NullString()},
+         {10ll, "Mexico", 50ll, 100, "Feb 2024", "not_null"}},
+        InternalValue::kIgnoresOrder);
+    std::vector<MeasureColumnDef> measure_column_defs = {
+        {"measure_sum_price", "SUM(price)"},
+        {"measure_ratio_price_to_quantity", "SUM(price) / SUM(quantity)"},
+        {"measure_country_count", "COUNT(* GROUP BY country)"},
+        {"measure_avg_monthly_price", "AVG(SUM(price) GROUP BY date_str)"},
+        {"measure_array_agg_distinct_country", "ARRAY_AGG(DISTINCT country)"},
+        {"measure_array_agg_nullable_str_ignore_nulls",
+         "ARRAY_AGG(nullable_str IGNORE NULLS)"},
+        {"measure_array_agg_country_limit_one", "ARRAY_AGG(country LIMIT 1)"},
+        {"measure_pseudo_column_sum_price", "SUM(price)",
+         /*is_pseudo_column=*/true},
+        {"measure_sum_price_via_subquery", "SUM((SELECT price))",
+         /*is_pseudo_column=*/true},
+        {"measure_sum_price_via_aggregate_subquery",
+         "SUM((SELECT SUM(price) FROM UNNEST([1])))",
+         /*is_pseudo_column=*/true},
+        {"measure_sum_price_plus_one_via_subquery",
+         "SUM(price) + (SELECT SUM(1) FROM UNNEST([1]))",
+         /*is_pseudo_column=*/true},
+    };
+    std::vector<int> row_identity_columns = {0};
+    TestTable measure_table_single_key = {
+        .table_as_value = std::move(measure_table_single_key_as_value),
+        .measure_column_defs = std::move(measure_column_defs),
+        .row_identity_columns = std::move(row_identity_columns)};
+    test_db.tables.insert({"MeasureTable_SingleKey", measure_table_single_key});
+  }
+}
+
 absl::Status SQLTestBase::CreateDatabase() {
+  // Workaround for adding tables with measure columns to the test database.
+  // TODO: b/350555383 - Remove this workaround once we can define measures via
+  // SQL or use DDL to add measure columns to a table.
+  MaybeAddMeasureTables(*test_case_options_, test_db_);
+
   ZETASQL_RETURN_IF_ERROR(ValidateFirstColumnPrimaryKey(
       test_db_, driver()->GetSupportedLanguageOptions()));
 

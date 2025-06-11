@@ -208,7 +208,7 @@ void GetRangeFunctions(TypeFactory* type_factory,
                             Value::Bool(true))}},
            FN_GENERATE_DATETIME_RANGE_ARRAY,
            FunctionSignatureOptions().AddRequiredLanguageFeature(
-               FEATURE_V_1_2_CIVIL_TIME),
+               FEATURE_CIVIL_TIME),
        }},
       FunctionOptions().set_pre_resolution_argument_constraint(
           &PreResolutionArgConstraintForUntypedNullOneRangeInput));

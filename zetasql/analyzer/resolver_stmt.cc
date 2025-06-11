@@ -1800,7 +1800,7 @@ absl::Status Resolver::ResolveColumnSchema(
 
   const ASTCollate* ast_collate = schema->collate();
   if (ast_collate != nullptr &&
-      !language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT)) {
+      !language().LanguageFeatureEnabled(FEATURE_COLLATION_SUPPORT)) {
     return MakeSqlErrorAt(ast_collate) << "COLLATE is not supported";
   }
 
@@ -1927,7 +1927,7 @@ absl::Status Resolver::ResolveColumnSchema(
   if (schema->generated_column_info() != nullptr) {
     ZETASQL_RET_CHECK(schema->default_expression() == nullptr);
     ZETASQL_RET_CHECK(generated_column_info != nullptr);
-    if (!language().LanguageFeatureEnabled(FEATURE_V_1_2_GENERATED_COLUMNS)) {
+    if (!language().LanguageFeatureEnabled(FEATURE_GENERATED_COLUMNS)) {
       return MakeSqlErrorAt(schema->generated_column_info())
              << "Generated columns are not supported";
     }
@@ -1944,8 +1944,7 @@ absl::Status Resolver::ResolveColumnSchema(
   if (schema->default_expression() != nullptr) {
     ZETASQL_RET_CHECK(schema->generated_column_info() == nullptr);
     ZETASQL_RET_CHECK(default_value != nullptr);
-    if (!language().LanguageFeatureEnabled(
-            FEATURE_V_1_3_COLUMN_DEFAULT_VALUE)) {
+    if (!language().LanguageFeatureEnabled(FEATURE_COLUMN_DEFAULT_VALUE)) {
       return MakeSqlErrorAt(schema->generated_column_info())
              << "Column DEFAULT value is not supported";
     }
@@ -2480,7 +2479,7 @@ absl::Status Resolver::ResolveCreateSchemaStatement(
   std::unique_ptr<const ResolvedExpr> resolved_collation;
   std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
   if (ast_statement->collate() != nullptr) {
-    if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT)) {
+    if (!language().LanguageFeatureEnabled(FEATURE_COLLATION_SUPPORT)) {
       return MakeSqlErrorAt(ast_statement->collate())
              << "CREATE SCHEMA with DEFAULT COLLATE is not supported";
     }
@@ -3004,9 +3003,9 @@ absl::Status Resolver::ResolveCreateModelStatement(
   ZETASQL_RET_CHECK(query == nullptr || aliased_query_list == nullptr);
 
   bool enable_aliased_query_list = language().LanguageFeatureEnabled(
-      FEATURE_V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST);
+      FEATURE_CREATE_MODEL_WITH_ALIASED_QUERY_LIST);
   bool enable_remote_model =
-      language().LanguageFeatureEnabled(FEATURE_V_1_4_REMOTE_MODEL);
+      language().LanguageFeatureEnabled(FEATURE_REMOTE_MODEL);
 
   if (!enable_aliased_query_list && aliased_query_list != nullptr) {
     return MakeSqlErrorAt(aliased_query_list)
@@ -3616,7 +3615,7 @@ absl::Status Resolver::ResolveCreateTableStatement(
                               FEATURE_CREATE_TABLE_AS_SELECT_COLUMN_LIST)};
 
   if (ast_statement->collate() != nullptr &&
-      !language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT)) {
+      !language().LanguageFeatureEnabled(FEATURE_COLLATION_SUPPORT)) {
     return MakeSqlErrorAt(ast_statement->collate())
            << statement_type << " with DEFAULT COLLATE is not supported";
   }
@@ -3970,7 +3969,7 @@ Resolver::MakeResolvedColumnAnnotationsWithCollation(
   ZETASQL_RETURN_IF_ERROR(ResolveOptionsList(options_list,
                                      /*allow_alter_array_operators=*/false,
                                      &resolved_options_list));
-  if (language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT) &&
+  if (language().LanguageFeatureEnabled(FEATURE_COLLATION_SUPPORT) &&
       type_annotation_map != nullptr &&
       type_annotation_map->Has<CollationAnnotation>()) {
     std::unique_ptr<const ResolvedLiteral> collation_name_expr;
@@ -4123,6 +4122,21 @@ absl::Status Resolver::ResolveAndAdaptQueryAndOutputColumns(
   return absl::OkStatus();
 }
 
+// Get an appropriate string to identify a create scope in an error message.
+static std::string CreateScopeErrorString(
+    ResolvedCreateStatement::CreateScope create_scope) {
+  switch (create_scope) {
+    case ResolvedCreateStatement::CREATE_PUBLIC:
+      return "PUBLIC";
+    case ResolvedCreateStatement::CREATE_PRIVATE:
+      return "PRIVATE";
+    case ResolvedCreateStatement::CREATE_TEMP:
+      return "TEMP";
+    case ResolvedCreateStatement::CREATE_DEFAULT_SCOPE:
+      ABSL_LOG(FATAL) << "Unexpected error scope default.";
+  }
+}
+
 absl::Status Resolver::ResolveCreateViewStatementBaseProperties(
     const ASTCreateViewStatementBase* ast_statement,
     absl::string_view statement_type, absl::string_view object_type,
@@ -4140,7 +4154,7 @@ absl::Status Resolver::ResolveCreateViewStatementBaseProperties(
   *recursive = ast_statement->recursive();
   bool actually_recursive = false;
   if (ast_statement->recursive()) {
-    if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_WITH_RECURSIVE)) {
+    if (!language().LanguageFeatureEnabled(FEATURE_WITH_RECURSIVE)) {
       return MakeSqlErrorAt(ast_statement)
              << "Recursive views are not supported";
     }
@@ -4180,6 +4194,17 @@ absl::Status Resolver::ResolveCreateViewStatementBaseProperties(
 
   *sql_security = static_cast<ResolvedCreateStatementEnums::SqlSecurity>(
       ast_statement->sql_security());
+  // TODO: b/415898592 - Check if SQL SECURITY clause should be disallowed for
+  // TEMP views as well, similar to functions. Currently there is an existing
+  // compliance test using SQL SECURITY clause with a TEMP View and the
+  // reference driver adds DEFINER by default if SQL SECURITY is unspecified.
+  if ((*create_scope == ResolvedCreateStatementEnums::CREATE_PUBLIC ||
+       *create_scope == ResolvedCreateStatementEnums::CREATE_PRIVATE) &&
+      *sql_security != ResolvedCreateStatementEnums::SQL_SECURITY_UNSPECIFIED) {
+    return MakeSqlErrorAt(ast_statement)
+           << "SQL SECURITY clause is not supported on statements with the "
+           << CreateScopeErrorString(*create_scope) << " modifier.";
+  }
 
   return absl::OkStatus();
 }
@@ -4208,7 +4233,7 @@ absl::Status Resolver::ResolveCreateViewStatement(
   }
 
   if (analyzer_options().statement_context() == CONTEXT_MODULE &&
-      !language().LanguageFeatureEnabled(FEATURE_V_1_4_VIEWS_IN_MODULES)) {
+      !language().LanguageFeatureEnabled(FEATURE_VIEWS_IN_MODULES)) {
     return MakeSqlErrorAt(ast_statement)
            << "CREATE VIEW statement is not supported inside modules";
   }
@@ -4383,7 +4408,7 @@ absl::Status Resolver::ResolveCreateExternalTableStatement(
   }
 
   if (ast_statement->collate() != nullptr &&
-      !language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT)) {
+      !language().LanguageFeatureEnabled(FEATURE_COLLATION_SUPPORT)) {
     return MakeSqlErrorAt(ast_statement->collate())
            << statement_type << " with DEFAULT COLLATE is not supported";
   }
@@ -4494,21 +4519,6 @@ absl::Status Resolver::ResolveCreateConstantStatement(
   MaybeRecordParseLocation(ast_statement->name(), output->get());
 
   return absl::OkStatus();
-}
-
-// Get an appropriate string to identify a create scope in an error message.
-static std::string CreateScopeErrorString(
-    ResolvedCreateStatement::CreateScope create_scope) {
-  switch (create_scope) {
-    case ResolvedCreateStatement::CREATE_PUBLIC:
-      return "PUBLIC";
-    case ResolvedCreateStatement::CREATE_PRIVATE:
-      return "PRIVATE";
-    case ResolvedCreateStatement::CREATE_TEMP:
-      return "TEMP";
-    case ResolvedCreateStatement::CREATE_DEFAULT_SCOPE:
-      ABSL_LOG(FATAL) << "Unexpected error scope default.";
-  }
 }
 
 static absl::Status FailIfContainsParameterExpr(const ASTNode* node,
@@ -4741,7 +4751,7 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
                        sql_));
   signature_options.set_additional_deprecation_warnings(
       additional_deprecation_warnings);
-  if (language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT)) {
+  if (language().LanguageFeatureEnabled(FEATURE_COLLATION_SUPPORT)) {
     // User defined function should disallow collation on function arguments.
     // This constraint is temporary and we should support it later through some
     // kind of language extensions.
@@ -4816,7 +4826,7 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
       ast_statement->with_connection_clause();
   // If REMOTE keyword is used in CREATE FUNCTION
   if (ast_statement->is_remote()) {
-    if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_REMOTE_FUNCTION)) {
+    if (!language().LanguageFeatureEnabled(FEATURE_REMOTE_FUNCTION)) {
       return MakeSqlErrorAt(ast_statement)
              << "Creating remote functions is not supported";
     }
@@ -4835,9 +4845,9 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
           &resolved_connection));
     }
   } else if (with_connection != nullptr) {
-    if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_REMOTE_FUNCTION) &&
+    if (!language().LanguageFeatureEnabled(FEATURE_REMOTE_FUNCTION) &&
         !language().LanguageFeatureEnabled(
-            FEATURE_V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION)) {
+            FEATURE_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION)) {
       return MakeSqlErrorAt(with_connection)
              << "WITH CONNECTION clause is not supported";
     }
@@ -4851,7 +4861,7 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
     }
 
     if (!language().LanguageFeatureEnabled(
-            FEATURE_V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION)) {
+            FEATURE_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION)) {
       return MakeSqlErrorAt(with_connection)
              << "WITH CONNECTION clause should be preceded by keyword REMOTE "
                 "and can't be used together with LANGUAGE clause";
@@ -4868,8 +4878,7 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
 
   // If REMOTE keyword is used or LANGUAGE is set to "REMOTE" and the feature is
   // enabled.
-  if (is_remote &&
-      language().LanguageFeatureEnabled(FEATURE_V_1_3_REMOTE_FUNCTION)) {
+  if (is_remote && language().LanguageFeatureEnabled(FEATURE_REMOTE_FUNCTION)) {
     // Following checks are skipped for the current consumers without the
     // feature enabled but using LANGUAGE REMOTE. They may have their own
     // checking logic and throw their own errors.

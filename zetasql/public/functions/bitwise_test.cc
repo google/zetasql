@@ -315,8 +315,8 @@ TEST_P(BitCountTemplateTest, Testlib) {
       TestBitCount<int32_t>(input, expected);
       break;
     case TYPE_UINT32:
-      // There are UINT32 cases for the compliance test framework, but uint32_t is
-      // simply coerced to uint64_t.
+      // There are UINT32 cases for the compliance test framework, but uint32 is
+      // simply coerced to uint64.
       break;
     case TYPE_INT64:
       TestBitCount<int64_t>(input, expected);

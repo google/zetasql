@@ -6,7 +6,7 @@ SELECT concat("Hello" AS str1, " World!" AS str2)
                       ^
 ==
 
-[language_features=V_1_4_ARRAY_FIND_FUNCTIONS]
+[language_features=ARRAY_FIND_FUNCTIONS]
 SELECT ARRAY_FIND([1, 2] AS arr1, 1)
 --
 ERROR: Unexpected function call argument alias found at ARRAY_FIND [at 1:26]
@@ -40,7 +40,7 @@ SELECT SUM(x AS agg)
              ^
 ==
 
-[language_features=V_1_2_SAFE_FUNCTION_CALL]
+[language_features=SAFE_FUNCTION_CALL]
 SELECT SAFE.CONCAT("HELLO", " WORLD" AS str2)
 --
 ERROR: Unexpected function call argument alias found at SAFE.CONCAT [at 1:38]
@@ -57,7 +57,7 @@ SELECT DATE('1999-01-01' AS date_alias);
 ==
 
 # Proto extraction does not allow argument aliases.
-[language_features=V_1_3_EXTRACT_FROM_PROTO]
+[language_features=EXTRACT_FROM_PROTO]
 SELECT EXTRACT(FIELD(int32_val AS alias) from KitchenSink)
 from TestTable
 --

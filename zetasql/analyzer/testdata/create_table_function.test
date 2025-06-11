@@ -9,7 +9,7 @@
 # Simple function name.
 # TODO: Enable Java support.
 [default no_java]
-[default language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS,V_1_1_WITH_ON_SUBQUERY]
+[default language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS,WITH_ON_SUBQUERY]
 [default no_run_deserializer]
 [default test_extract_table_names]
 create table function myfunc (  )
@@ -196,7 +196,7 @@ CreateTableFunctionStmt
 |   +-expr_list=
 |   | +-x#3 := Literal(type=STRING, value="foo")
 |   +-input_scan=
-|     +-TVFScan(tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+|     +-TVFScan(tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<>)
 +-output_column_list=
   +-$query.x#3 AS x [STRING]
 
@@ -238,7 +238,7 @@ CreateTableFunctionStmt
 |     | |   +-expr_list=
 |     | |   | +-x#3 := Literal(type=STRING, value="foo")
 |     | |   +-input_scan=
-|     | |     +-TVFScan(tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+|     | |     +-TVFScan(tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<>)
 |     | +-output_column_list=[$union_all1.x#3]
 |     +-SetOperationItem
 |       +-scan=
@@ -247,7 +247,7 @@ CreateTableFunctionStmt
 |       |   +-expr_list=
 |       |   | +-$col1#6 := Literal(type=STRING, value="bar")
 |       |   +-input_scan=
-|       |     +-TVFScan(tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+|       |     +-TVFScan(tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<>)
 |       +-output_column_list=[$union_all2.$col1#6]
 +-output_column_list=
   +-$union_all.x#7 AS x [STRING]
@@ -282,7 +282,7 @@ CreateTableFunctionStmt
 |   +-expr_list=
 |   | +-x#3 := Literal(type=STRING, value="foo")
 |   +-input_scan=
-|     +-TVFScan(tvf=tvf_two_deprecation_warnings_same_kind(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+|     +-TVFScan(tvf=tvf_two_deprecation_warnings_same_kind(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<>)
 +-output_column_list=
   +-$query.x#3 AS x [STRING]
 
@@ -316,7 +316,7 @@ CreateTableFunctionStmt
 |   +-expr_list=
 |   | +-x#3 := Literal(type=STRING, value="foo")
 |   +-input_scan=
-|     +-TVFScan(tvf=tvf_two_deprecation_warnings(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+|     +-TVFScan(tvf=tvf_two_deprecation_warnings(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<>)
 +-output_column_list=
   +-$query.x#3 AS x [STRING]
 
@@ -372,7 +372,7 @@ CreateTableFunctionStmt
 |     | |   +-expr_list=
 |     | |   | +-x#3 := Literal(type=STRING, value="foo")
 |     | |   +-input_scan=
-|     | |     +-TVFScan(tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+|     | |     +-TVFScan(tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<>)
 |     | +-output_column_list=[$union_all1.x#3]
 |     +-SetOperationItem
 |     | +-scan=
@@ -381,7 +381,7 @@ CreateTableFunctionStmt
 |     | |   +-expr_list=
 |     | |   | +-$col1#6 := Literal(type=STRING, value="bar")
 |     | |   +-input_scan=
-|     | |     +-TVFScan(tvf=tvf_two_deprecation_warnings_same_kind(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+|     | |     +-TVFScan(tvf=tvf_two_deprecation_warnings_same_kind(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<>)
 |     | +-output_column_list=[$union_all2.$col1#6]
 |     +-SetOperationItem
 |       +-scan=
@@ -390,7 +390,7 @@ CreateTableFunctionStmt
 |       |   +-expr_list=
 |       |   | +-$col1#9 := Literal(type=STRING, value="baz")
 |       |   +-input_scan=
-|       |     +-TVFScan(tvf=tvf_two_deprecation_warnings(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+|       |     +-TVFScan(tvf=tvf_two_deprecation_warnings(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<>)
 |       +-output_column_list=[$union_all3.$col1#9]
 +-output_column_list=
   +-$union_all.x#10 AS x [STRING]
@@ -468,7 +468,7 @@ CreateTableFunctionStmt
 |     | |   +-expr_list=
 |     | |   | +-x#3 := Literal(type=STRING, value="foo1")
 |     | |   +-input_scan=
-|     | |     +-TVFScan(tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+|     | |     +-TVFScan(tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<>)
 |     | +-output_column_list=[$union_all1.x#3]
 |     +-SetOperationItem
 |     | +-scan=
@@ -477,7 +477,7 @@ CreateTableFunctionStmt
 |     | |   +-expr_list=
 |     | |   | +-x#6 := Literal(type=STRING, value="foo2")
 |     | |   +-input_scan=
-|     | |     +-TVFScan(tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+|     | |     +-TVFScan(tvf=tvf_deprecation_warning(() -> TABLE<> (1 deprecation warning)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<>)
 |     | +-output_column_list=[$union_all2.x#6]
 |     +-SetOperationItem
 |     | +-scan=
@@ -486,7 +486,7 @@ CreateTableFunctionStmt
 |     | |   +-expr_list=
 |     | |   | +-$col1#9 := Literal(type=STRING, value="bar1")
 |     | |   +-input_scan=
-|     | |     +-TVFScan(tvf=tvf_two_deprecation_warnings_same_kind(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+|     | |     +-TVFScan(tvf=tvf_two_deprecation_warnings_same_kind(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<>)
 |     | +-output_column_list=[$union_all3.$col1#9]
 |     +-SetOperationItem
 |     | +-scan=
@@ -495,7 +495,7 @@ CreateTableFunctionStmt
 |     | |   +-expr_list=
 |     | |   | +-$col1#12 := Literal(type=STRING, value="bar2")
 |     | |   +-input_scan=
-|     | |     +-TVFScan(tvf=tvf_two_deprecation_warnings_same_kind(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+|     | |     +-TVFScan(tvf=tvf_two_deprecation_warnings_same_kind(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<>)
 |     | +-output_column_list=[$union_all4.$col1#12]
 |     +-SetOperationItem
 |     | +-scan=
@@ -504,7 +504,7 @@ CreateTableFunctionStmt
 |     | |   +-expr_list=
 |     | |   | +-$col1#15 := Literal(type=STRING, value="baz1")
 |     | |   +-input_scan=
-|     | |     +-TVFScan(tvf=tvf_two_deprecation_warnings(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+|     | |     +-TVFScan(tvf=tvf_two_deprecation_warnings(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<>)
 |     | +-output_column_list=[$union_all5.$col1#15]
 |     +-SetOperationItem
 |       +-scan=
@@ -513,7 +513,7 @@ CreateTableFunctionStmt
 |       |   +-expr_list=
 |       |   | +-$col1#18 := Literal(type=STRING, value="baz2")
 |       |   +-input_scan=
-|       |     +-TVFScan(tvf=tvf_two_deprecation_warnings(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
+|       |     +-TVFScan(tvf=tvf_two_deprecation_warnings(() -> TABLE<> (2 deprecation warnings)), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, function_call_signature=() -> TABLE<>)
 |       +-output_column_list=[$union_all6.$col1#18]
 +-output_column_list=
   +-$union_all.x#19 AS x [STRING]
@@ -1267,7 +1267,7 @@ CreateTableFunctionStmt
 ==
 
 # Table return type with a SQL body that includes the WITH clause.
-[language_features=V_1_1_WITH_ON_SUBQUERY,TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS]
+[language_features=WITH_ON_SUBQUERY,TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS]
 create temporary table function maketable(t table<x int64, y string>)
   returns table<x int64, y string> as
     with w1 as (select x, y from t)
@@ -1306,7 +1306,7 @@ CreateTableFunctionStmt
 # A subplan in the WITH clause has the same name as a table argument.
 # The WITH clause takes precedence, so references to the name always resolve to
 # the subplan.
-[language_features=V_1_1_WITH_ON_SUBQUERY,TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS]
+[language_features=WITH_ON_SUBQUERY,TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS]
 create temporary table function maketable(t table<x int64, y string>)
   returns table<a int64, b string> as
     with t as (select 1 as a, "abc" as b)
@@ -2565,6 +2565,7 @@ CreateTableFunctionStmt
 |       |   | +-RelationArgumentScan(column_list=[t.col#1], name="t")
 |       |   +-argument_column_list=[t.col#1]
 |       +-column_index_list=[0, 1]
+|       +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
 +-output_column_list=
   +-tvf_one_relation_arg_with_fixed_output.column_bool#2 AS column_bool [BOOL]
   +-tvf_one_relation_arg_with_fixed_output.column_bytes#3 AS column_bytes [BYTES]
@@ -2609,6 +2610,7 @@ CreateTableFunctionStmt
 |           |   | +-WithRefScan(column_list=[t.col#2], with_query_name="t")
 |           |   +-argument_column_list=[t.col#2]
 |           +-column_index_list=[0, 1]
+|           +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
 +-output_column_list=
   +-tvf_one_relation_arg_with_fixed_output.column_bool#3 AS column_bool [BOOL]
   +-tvf_one_relation_arg_with_fixed_output.column_bytes#4 AS column_bytes [BYTES]
@@ -2795,10 +2797,11 @@ CreateTableFunctionStmt
 |       |   +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
 |       |   +-signature=(TABLE<Key INT64, Value STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>
 |       |   +-argument_list=
-|       |     +-FunctionArgument
-|       |       +-scan=
-|       |       | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
-|       |       +-argument_column_list=KeyValue.[Key#1, Value#2]
+|       |   | +-FunctionArgument
+|       |   |   +-scan=
+|       |   |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+|       |   |   +-argument_column_list=KeyValue.[Key#1, Value#2]
+|       |   +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
 |       +-aggregate_list=
 |         +-count_star#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
 +-output_column_list=
@@ -2836,10 +2839,11 @@ CreateTableFunctionStmt
 |       |   +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
 |       |   +-signature=(TABLE<Key INT64, Value INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
 |       |   +-argument_list=
-|       |     +-FunctionArgument
-|       |       +-scan=
-|       |       | +-RelationArgumentScan(column_list=KeyValue.[Key#1, Value#2], name="KeyValue")
-|       |       +-argument_column_list=KeyValue.[Key#1, Value#2]
+|       |   | +-FunctionArgument
+|       |   |   +-scan=
+|       |   |   | +-RelationArgumentScan(column_list=KeyValue.[Key#1, Value#2], name="KeyValue")
+|       |   |   +-argument_column_list=KeyValue.[Key#1, Value#2]
+|       |   +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
 |       +-aggregate_list=
 |         +-count_star#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
 +-output_column_list=
@@ -2913,7 +2917,7 @@ CreateTableFunctionStmt
   +-t.y#4 AS y [STRING]
 ==
 
-[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,V_1_4_MULTILEVEL_AGGREGATION,TEMPLATE_FUNCTIONS]
+[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,MULTILEVEL_AGGREGATION,TEMPLATE_FUNCTIONS]
 CREATE TABLE FUNCTION TvfMultiAggGroupingConstants(TwoIntsTableArg {{TABLE<first INT64, second INT64>|ANY TABLE}}, int64_arg {{INT64|ANY TYPE}}) AS
 SELECT
   SUM(first + int64_arg GROUP BY first) AS result
@@ -2959,7 +2963,7 @@ ALTERNATION GROUP: ANY TABLE,ANY TYPE
 CreateTableFunctionStmt(name_path=TvfMultiAggGroupingConstants, argument_name_list=[TwoIntsTableArg, int64_arg], signature=(ANY TABLE TwoIntsTableArg, ANY TYPE int64_arg) -> ANY TABLE, language="SQL", code="SELECT\n  SUM(first + int64_arg GROUP BY first) AS result\nFROM TwoIntsTableArg")
 ==
 
-[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,V_1_4_MULTILEVEL_AGGREGATION,TEMPLATE_FUNCTIONS]
+[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,MULTILEVEL_AGGREGATION,TEMPLATE_FUNCTIONS]
 # `second` is not a grouping const for the multi-level aggregate.
 CREATE TABLE FUNCTION TvfMultiAggGroupingConstantsFailure(TwoIntsTableArg {{TABLE<first INT64, second INT64>|ANY TABLE}}, int64_arg {{INT64|ANY TYPE}}) AS
 SELECT
@@ -2985,7 +2989,7 @@ ALTERNATION GROUP: ANY TABLE,ANY TYPE
 CreateTableFunctionStmt(name_path=TvfMultiAggGroupingConstantsFailure, argument_name_list=[TwoIntsTableArg, int64_arg], signature=(ANY TABLE TwoIntsTableArg, ANY TYPE int64_arg) -> ANY TABLE, language="SQL", code="SELECT\n  SUM(second + int64_arg GROUP BY first) AS result\nFROM TwoIntsTableArg")
 ==
 
-[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,V_1_4_MULTILEVEL_AGGREGATION]
+[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,MULTILEVEL_AGGREGATION]
 CREATE TABLE FUNCTION TvfComplexMultiAgg(TwoIntsTable TABLE<first INT64, second INT64>, int64_arg INT64) AS
 SELECT
   SUM(int64_arg + S.int64 GROUP BY int64_arg) AS result_1,

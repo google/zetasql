@@ -16,6 +16,7 @@
 
 #include "zetasql/parser/parse_tree.h"
 
+#include <any>
 #include <map>
 #include <memory>
 #include <string>
@@ -30,6 +31,7 @@
 #include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/error_location.pb.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/testdata/test_schema.pb.h"
@@ -42,6 +44,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
@@ -150,6 +153,34 @@ TEST(ConvertInternalErrorLocationToExternal, LocationWithExtraPayload) {
   EXPECT_TRUE(internal::HasPayloadWithType<ErrorLocation>(status2));
   EXPECT_TRUE(
       internal::HasPayloadWithType<zetasql_test__::TestStatusPayload>(status2));
+}
+
+TEST(ASTNodeTest, GetAndSetLocation) {
+  // Test is just exercising the trivial getters and setters.
+  ParseLocationPoint start1 = ParseLocationPoint::FromByteOffset("f1", 1);
+  ParseLocationPoint end1 = ParseLocationPoint::FromByteOffset("f1", 2);
+  ParseLocationRange range1(start1, end1);
+  ParseLocationPoint start2 = ParseLocationPoint::FromByteOffset("f2", 3);
+  ParseLocationPoint end2 = ParseLocationPoint::FromByteOffset("f2", 4);
+  ParseLocationRange range2(start2, end2);
+  ParseLocationPoint start3 = ParseLocationPoint::FromByteOffset("f3", 5);
+  ParseLocationPoint end3 = ParseLocationPoint::FromByteOffset("f3", 6);
+  ParseLocationRange range3(start3, end3);
+
+  FakeASTNode node;
+  node.set_location(range1);
+  EXPECT_EQ(node.location(), range1);
+  EXPECT_EQ(node.start_location(), start1);
+  EXPECT_EQ(node.end_location(), end1);
+  node.set_location(range2);
+  EXPECT_EQ(node.location(), range2);
+  EXPECT_EQ(node.start_location(), start2);
+  EXPECT_EQ(node.end_location(), end2);
+  node.set_location(range3)->set_start_location(start1)->set_end_location(end1);
+  EXPECT_EQ(node.start_location(), start1);
+  EXPECT_EQ(node.location().start(), start1);
+  EXPECT_EQ(node.end_location(), end1);
+  EXPECT_EQ(node.location().end(), end1);
 }
 
 // Return a string with counts of node kinds that looks like
@@ -628,6 +659,55 @@ std::string Repeat(absl::string_view s, int count) {
   ABSL_CHECK_GT(count, 0);
   return absl::StrJoin(std::vector<absl::string_view>(count, s), "");
 }
+
+class TestStatusVisitor : public DefaultParseTreeStatusVisitor {
+ public:
+  explicit TestStatusVisitor() = default;
+  using OutputType = const ASTBinaryExpression*;
+
+  absl::Status VisitASTBinaryExpression(const ASTBinaryExpression* node,
+                                        std::any& output) override {
+    // Overwrite whatever is there. The final output will be the last visited.
+    output = node;
+    return absl::OkStatus();
+  }
+
+  absl::Status VisitASTFunctionCall(const ASTFunctionCall* node,
+                                    std::any& output) override {
+    // Just fail to test status propagation.
+    ZETASQL_RET_CHECK_FAIL() << "FunctionCall should not be visited";
+  }
+};
+
+TEST(TestStatusVisitor, TestOutputValue) {
+  constexpr absl::string_view kSql = "select y, (1+x) from t;";
+
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(ParseStatement(
+      kSql, ParserOptions(LanguageOptions::MaximumFeatures()), &parser_output));
+
+  TestStatusVisitor visitor;
+  std::any output;
+  ZETASQL_ASSERT_OK(parser_output->statement()->Accept(visitor, output));
+  EXPECT_TRUE(output.has_value());
+  ASSERT_THAT(std::string(output.type().name()),
+              ::testing::HasSubstr("ASTBinaryExpression"));
+  EXPECT_EQ(std::any_cast<TestStatusVisitor::OutputType>(output)->node_kind(),
+            AST_BINARY_EXPRESSION);
+};
+
+TEST(TestStatusVisitor, StatusPropagation) {
+  constexpr absl::string_view kSql = "select foo(x, y) from t;";
+
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(ParseStatement(
+      kSql, ParserOptions(LanguageOptions::MaximumFeatures()), &parser_output));
+
+  TestStatusVisitor visitor;
+  std::any output;
+  EXPECT_THAT(parser_output->statement()->Accept(visitor, output),
+              ::zetasql_base::testing::StatusIs(absl::StatusCode::kInternal));
+};
 
 }  // namespace
 }  // namespace testing

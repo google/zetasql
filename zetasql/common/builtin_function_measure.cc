@@ -39,7 +39,7 @@ void GetMeasureFunctions(TypeFactory* type_factory,
             FunctionSignatureRewriteOptions().set_enabled(true).set_rewriter(
                 REWRITE_MEASURE_TYPE))}},
       DefaultAggregateFunctionOptions().AddRequiredLanguageFeature(
-          FEATURE_V_1_4_ENABLE_MEASURES));
+          FEATURE_ENABLE_MEASURES));
 }
 
 }  // namespace zetasql

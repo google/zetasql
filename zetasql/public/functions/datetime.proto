@@ -41,6 +41,7 @@ enum DateTimestampPart {
   MILLISECOND = 10;  // 0 - 999
   MICROSECOND = 11;  // 0 - 999999
   NANOSECOND = 12;   // 0 - 999999999
+  PICOSECOND = 25;   // 0 - 999999999999
   DATE = 13;         // -106650=kDateMin - 106650=kDateMax
   WEEK = 14;         // 0 - 53
   DATETIME = 15;     // [0001-01-01 00:00:00, 10000-01-01 00:00:00)

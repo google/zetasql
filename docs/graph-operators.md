@@ -52,6 +52,12 @@ including the following GQL-specific operators:
 </tr>
 
 <tr>
+  <td><a href="#is_labeled_predicate"><code>IS LABELED</code> predicate</a>
+</td>
+  <td>In a graph, checks to see if a node or edge label satisfies a label expression.</td>
+</tr>
+
+<tr>
   <td><a href="#is_source_predicate"><code>IS SOURCE</code> predicate</a>
 </td>
   <td>In a graph, checks to see if a node is or isn't the source of an edge.</td>
@@ -232,10 +238,10 @@ ZetaSQL supports the following logical operators in
 ZetaSQL supports the following graph-specific predicates in
 graph expressions. A predicate can produce `TRUE`, `FALSE`, or `NULL`.
 
-+   [`ALL_DIFFERENT` predicate][all-different-predicate]
 +   [`PROPERTY_EXISTS` predicate][property-exists-predicate]
 +   [`IS SOURCE` predicate][is-source-predicate]
 +   [`IS DESTINATION` predicate][is-destination-predicate]
++   [`IS LABELED` predicate][is-labeled-predicate]
 +   [`SAME` predicate][same-predicate]
 
 [all-different-predicate]: #all_different_predicate
@@ -245,6 +251,8 @@ graph expressions. A predicate can produce `TRUE`, `FALSE`, or `NULL`.
 [is-source-predicate]: #is_source_predicate
 
 [is-destination-predicate]: #is_destination_predicate
+
+[is-labeled-predicate]: #is_labeled_predicate
 
 [same-predicate]: #same_predicate
 
@@ -300,6 +308,85 @@ RETURN a.id AS a_id, b.id AS b_id
  | 20   | 16   |
  +-------------*/
 ```
+
+## `IS LABELED` predicate 
+<a id="is_labeled_predicate"></a>
+
+```zetasql
+element IS [ NOT ] LABELED label_expression
+```
+
+**Description**
+
+In a graph, checks to see if a node or edge label satisfies a label
+expression. Can produce `TRUE`, `FALSE`, or `NULL` if `element` is `NULL`.
+
+Arguments:
+
++   `element`: The graph pattern variable for a graph node or edge element.
++   `label_expression`: The label expression to verify. For more information,
+     see [Label expression definition][label-expression-definition].
+
+**Examples**
+
+```zetasql
+GRAPH FinGraph
+MATCH (a)
+WHERE a IS LABELED Account | Person
+RETURN a.id AS a_id, LABELS(a) AS labels
+
+/*----------------+
+ | a_id | labels  |
+ +----------------+
+ | 1    | Person  |
+ | 2    | Person  |
+ | 3    | Person  |
+ | 7    | Account |
+ | 16   | Account |
+ | 20   | Account |
+ +----------------*/
+```
+
+```zetasql
+GRAPH FinGraph
+MATCH (a)-[e]-(b:Account)
+WHERE e IS LABELED Transfers | Owns
+RETURN a.Id as a_id, Labels(e) AS labels, b.Id as b_id
+ORDER BY a_id, b_id
+
+/*------+-----------------------+------+
+ | a_id | labels                | b_id |
+ +------+-----------------------+------+
+ |    1 | [owns]                |    7 |
+ |    2 | [owns]                |   20 |
+ |    3 | [owns]                |   16 |
+ |    7 | [transfers]           |   16 |
+ |    7 | [transfers]           |   16 |
+ |    7 | [transfers]           |   20 |
+ |   16 | [transfers]           |    7 |
+ |   16 | [transfers]           |    7 |
+ |   16 | [transfers]           |   20 |
+ |   16 | [transfers]           |   20 |
+ |   20 | [transfers]           |    7 |
+ |   20 | [transfers]           |   16 |
+ |   20 | [transfers]           |   16 |
+ +------+-----------------------+------*/
+```
+
+```zetasql
+GRAPH FinGraph
+MATCH (a:Account {Id: 7})
+OPTIONAL MATCH (a)-[:OWNS]->(b)
+RETURN a.Id AS a_id, b.Id AS b_id, b IS LABELED Account AS b_is_account
+
+/*------+-----------------------+
+ | a_id | b_id   | b_is_account |
+ +------+-----------------------+
+ | 7    | NULL   | NULL         |
+ +------+-----------------------+*/
+```
+
+[label-expression-definition]: https://github.com/google/zetasql/blob/master/docs/graph-patterns.md#label_expression_definition
 
 ## `IS SOURCE` predicate 
 <a id="is_source_predicate"></a>

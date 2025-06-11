@@ -1,0 +1,189 @@
+# TODO: b/316422061 - Consider replacing the WITH CTEs in tests with tables
+# defined with [create_table] once the bug with schema objects is resolved.
+### CREATE TABLE FUNCTION STATEMENTS ###
+[default required_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,MULTILEVEL_AGGREGATION]
+[prepare_database]
+CREATE TABLE FUNCTION NullaryTVFWithMultiLevelAgg()
+AS (
+  SELECT MAX(SUM(col2) GROUP BY col1) as agg
+  FROM
+  (
+    SELECT 1 AS col1, 100 AS col2
+    UNION ALL
+    SELECT 1, 400
+    UNION ALL
+    SELECT 2, 200
+    UNION ALL
+    SELECT 2, 800
+    UNION ALL
+    SELECT 2, 500
+  )
+);
+==
+
+[prepare_database]
+CREATE TABLE FUNCTION SumOfDistinctValues(arg_t TABLE<row_id INT64, value INT64>) AS (
+  SELECT SUM(value GROUP BY value) as agg from arg_t
+);
+==
+
+[prepare_database]
+[required_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,MULTILEVEL_AGGREGATION,TEMPLATE_FUNCTIONS]
+CREATE TABLE FUNCTION TemplatedSumOfDistinctValues(arg_t ANY TABLE) AS (
+  SELECT SUM(value GROUP BY value) as agg from arg_t
+);
+==
+
+[prepare_database]
+CREATE TABLE FUNCTION MultipleAggsTVF(arg_t TABLE<row_id INT64, int64 INT64, bool BOOL, s STRING>, arg_scalar INT64) AS (
+  SELECT COUNT(* GROUP BY int64, int64) + arg_scalar as agg1,
+         SUM(COUNT(*) GROUP BY bool) as agg2,
+         SUM(int64 + COUNT(* GROUP BY bool) GROUP BY s, int64) as agg3,
+  from arg_t
+  GROUP BY s
+);
+==
+
+[prepare_database]
+[required_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,MULTILEVEL_AGGREGATION,ORDER_BY_IN_AGGREGATE]
+CREATE TABLE FUNCTION MultipleAggsWithOrderingTVF(arg_t TABLE<row_id INT64, int64 INT64, bool BOOL, s STRING>, arg_scalar INT64) AS (
+  SELECT ARRAY_AGG(MIN(int64) + arg_scalar GROUP BY bool ORDER BY bool) as agg1,
+         ARRAY_AGG(s GROUP BY s ORDER BY s, SUM(int64)) as agg2,
+         ARRAY_AGG(MAX(bool) GROUP BY bool ORDER BY bool) as agg3,
+  from arg_t
+);
+==
+
+[prepare_database]
+[required_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,MULTILEVEL_AGGREGATION,TEMPLATE_FUNCTIONS]
+CREATE TABLE FUNCTION TemplatedMultipleAggsTVF(arg_t ANY TABLE, arg_scalar INT64) AS (
+  SELECT COUNT(* GROUP BY int64, int64) + arg_scalar as agg1,
+         SUM(COUNT(*) GROUP BY bool) as agg2,
+         SUM(int64 + COUNT(* GROUP BY bool) GROUP BY s, int64) as agg3,
+  from arg_t
+  GROUP BY s
+);
+==
+
+[prepare_database]
+[required_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,MULTILEVEL_AGGREGATION,TEMPLATE_FUNCTIONS,ORDER_BY_IN_AGGREGATE]
+CREATE TABLE FUNCTION TemplatedMultipleAggsWithOrderingTVF(arg_t ANY TABLE, arg_scalar INT64) AS (
+  SELECT ARRAY_AGG(MIN(int64) + arg_scalar GROUP BY bool ORDER BY bool) as agg1,
+         ARRAY_AGG(s GROUP BY s ORDER BY s, SUM(int64)) as agg2,
+         ARRAY_AGG(MAX(bool) GROUP BY bool ORDER BY bool) as agg3,
+  from arg_t
+);
+==
+
+[prepare_database]
+[required_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,MULTILEVEL_AGGREGATION,TEMPLATE_FUNCTIONS,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,HAVING_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+CREATE TABLE FUNCTION MultipleAggsWithAggModifiersTVF(arg_t ANY TABLE, arg_scalar INT64) AS (
+  SELECT ARRAY_AGG(MIN(int64) + arg_scalar RESPECT NULLS GROUP BY bool ORDER BY bool) as agg1,
+         ARRAY_AGG(s GROUP BY s ORDER BY SUM(int64) LIMIT 1) as agg2,
+         ARRAY_AGG(DISTINCT MAX(bool) IGNORE NULLS GROUP BY bool ORDER BY MAX(bool)) as agg3,
+  from arg_t
+);
+==
+
+[name=call_nullary_tvf_with_multi_level_agg]
+[default skip_required_feature_integrity_check]
+### BEGIN TESTS ###
+SELECT * FROM NullaryTVFWithMultiLevelAgg();
+--
+ARRAY<STRUCT<agg INT64>>[{1500}]
+==
+
+[name=call_sum_of_distinct_values]
+WITH t AS (SELECT 1 AS row_id, 100 AS value UNION ALL
+           SELECT 2, 100 UNION ALL
+           SELECT 3, 200 UNION ALL
+           SELECT 4, 200 UNION ALL
+           SELECT 5, 300 UNION ALL
+           SELECT 6, 400)
+SELECT * FROM SumOfDistinctValues(TABLE t);
+--
+ARRAY<STRUCT<agg INT64>>[{1000}]
+==
+
+[required_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,MULTILEVEL_AGGREGATION,TEMPLATE_FUNCTIONS]
+[name=call_templated_sum_of_distinct_values]
+WITH t AS (SELECT 1 AS row_id, 100 AS value UNION ALL
+           SELECT 2, 100 UNION ALL
+           SELECT 3, 200 UNION ALL
+           SELECT 4, 200 UNION ALL
+           SELECT 5, 300 UNION ALL
+           SELECT 6, 400)
+SELECT * FROM TemplatedSumOfDistinctValues(TABLE t);
+--
+ARRAY<STRUCT<agg INT64>>[{1000}]
+==
+
+[name=call_multiple_aggs_tvf]
+WITH t AS (SELECT 1 AS row_id, 100 as int64, TRUE as bool, "foo" as s UNION ALL
+           SELECT 2, 100, TRUE, "foo" UNION ALL
+           SELECT 3, 200, FALSE, "foo" UNION ALL
+           SELECT 4, 200, TRUE, "bar" UNION ALL
+           SELECT 5, 300, FALSE, "bar" UNION ALL
+           SELECT 6, 400, FALSE, "bar")
+SELECT * FROM MultipleAggsTVF(TABLE t, 10)
+ORDER BY 1, 2, 3;
+--
+ARRAY<STRUCT<agg1 INT64, agg2 INT64, agg3 INT64>>[known order:
+  {12, 3, 302},
+  {13, 3, 903}
+]
+==
+
+[required_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,MULTILEVEL_AGGREGATION,ORDER_BY_IN_AGGREGATE]
+[name=call_multiple_aggs_with_ordering_tvf]
+WITH t AS (SELECT 1 AS row_id, 100 as int64, TRUE as bool, "foo" as s UNION ALL
+           SELECT 2, 100, TRUE, "foo" UNION ALL
+           SELECT 3, 200, FALSE, "foo" UNION ALL
+           SELECT 4, 200, TRUE, "bar" UNION ALL
+           SELECT 5, 300, FALSE, "bar" UNION ALL
+           SELECT 6, 400, FALSE, "bar")
+SELECT * FROM MultipleAggsWithOrderingTVF(TABLE t, 10)
+--
+ARRAY<STRUCT<agg1 ARRAY<>, agg2 ARRAY<>, agg3 ARRAY<>>>[
+  {
+    ARRAY<INT64>[known order:210, 110],
+    ARRAY<STRING>[known order:"bar", "foo"],
+    ARRAY<BOOL>[known order:false, true]
+  }
+]
+==
+
+[required_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,MULTILEVEL_AGGREGATION,TEMPLATE_FUNCTIONS]
+[name=call_templated_multiple_aggs_tvf]
+WITH t AS (SELECT 1 AS row_id, 100 as int64, TRUE as bool, "foo" as s UNION ALL
+           SELECT 2, 100, TRUE, "foo" UNION ALL
+           SELECT 3, 200, FALSE, "foo" UNION ALL
+           SELECT 4, 200, TRUE, "bar" UNION ALL
+           SELECT 5, 300, FALSE, "bar" UNION ALL
+           SELECT 6, 400, FALSE, "bar")
+SELECT * FROM TemplatedMultipleAggsTVF(TABLE t, 10)
+ORDER BY 1, 2, 3;
+--
+ARRAY<STRUCT<agg1 INT64, agg2 INT64, agg3 INT64>>[known order:
+  {12, 3, 302},
+  {13, 3, 903}
+]
+==
+
+[required_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,MULTILEVEL_AGGREGATION,TEMPLATE_FUNCTIONS,ORDER_BY_IN_AGGREGATE]
+[name=call_templated_multiple_aggs_with_ordering_tvf]
+WITH t AS (SELECT 1 AS row_id, 100 as int64, TRUE as bool, "foo" as s UNION ALL
+           SELECT 2, 100, TRUE, "foo" UNION ALL
+           SELECT 3, 200, FALSE, "foo" UNION ALL
+           SELECT 4, 200, TRUE, "bar" UNION ALL
+           SELECT 5, 300, FALSE, "bar" UNION ALL
+           SELECT 6, 400, FALSE, "bar")
+SELECT * FROM TemplatedMultipleAggsWithOrderingTVF(TABLE t, 10)
+--
+ARRAY<STRUCT<agg1 ARRAY<>, agg2 ARRAY<>, agg3 ARRAY<>>>[
+  {
+    ARRAY<INT64>[known order:210, 110],
+    ARRAY<STRING>[known order:"bar", "foo"],
+    ARRAY<BOOL>[known order:false, true]
+  }
+]

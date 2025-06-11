@@ -35,7 +35,6 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
-#include "absl/strings/strip.h"
 #include "absl/types/span.h"
 #include "zetasql/base/case.h"
 #include "re2/re2.h"
@@ -188,36 +187,29 @@ std::string QueryExpression::GetFromClausePipeSQL() const {
     return "";
   }
 
-  std::string sql;
-  if (absl::StartsWith(from_, "WITH ")) {
-    sql = absl::StrCat("FROM (", from_, ")");
-  } else {
-    sql = absl::StrCat("FROM ", from_);
+  if (StartsWithWith(from_)) {
+    return absl::StrCat("FROM (", from_, ")");
   }
 
-  // Remove the leading "FROM " from the FROM clause if the FROM clause is
-  // over a subquery starting with "SELECT" or "FROM".
   // TODO: Instead of using string manipulation, capture the
   // information in data structures and use them for manipulation.
-  static const LazyRE2 kFromSelectRegex = {
-      "^FROM\\s+\\(*\\s*(SELECT|FROM)\\s+"};
-  if (RE2::PartialMatch(sql, *kFromSelectRegex)) {
-    sql.erase(0, 5);
+  if (StartsWithSelectOrFrom(from_)) {
+    return from_;
   }
 
-  return sql;
+  return absl::StrCat("FROM ", from_);
 }
 
-std::string QueryExpression::GetFromClauseMixedSQL() const {
+std::string QueryExpression::GetFromClauseStandardWrappingPipeSQL() const {
   if (from_.empty()) {
     return "";
   }
 
   // The FROM clause of this point is in Pipe SQL syntax, and the returned
-  // FROM clause must be useable in the Standard SQL syntax. So we wrap it.
+  // FROM clause must be usable in the Standard SQL syntax. So we wrap it.
   // If the FROM clause starts with WITH or SELECT or FROM, we wrap it with
   // FROM(...).
-  if (StartsWithWithSelectOrFrom(from_)) {
+  if (StartsWithSelectOrFromOrWith(from_)) {
     return absl::StrCat(" FROM (", from_, ") ");
   }
 
@@ -485,22 +477,18 @@ bool QueryExpression::TryAppendLockModeClause(std::string& sql) const {
 
 std::string QueryExpression::GetSQLQuery(
     TargetSyntaxMode target_syntax_mode) const {
-  return GetSQLQuery(target_syntax_mode, GetFromClauseStandardSQL());
-}
-
-std::string QueryExpression::GetSQLQuery(
-    TargetSyntaxMode target_syntax_mode,
-    absl::string_view from_clause_sql) const {
   switch (target_syntax_mode) {
-    case TargetSyntaxMode::kStandard:
-      return GetStandardSQLQuery(from_clause_sql);
-    case TargetSyntaxMode::kPipe:
+    case TargetSyntaxMode::kStandard: {
+      return GetStandardSQLQuery(TargetSyntaxMode::kStandard);
+    }
+    case TargetSyntaxMode::kPipe: {
       return GetPipeSQLQuery();
+    }
   }
 }
 
 std::string QueryExpression::GetStandardSQLQuery(
-    absl::string_view from_clause_sql) const {
+    TargetSyntaxMode from_clause_syntax_mode) const {
   // The order of forming the query in Standard SQL syntax is:
   // WITH
   // SELECT
@@ -514,12 +502,25 @@ std::string QueryExpression::GetStandardSQLQuery(
   // LIMIT/OFFSET
   // FOR
 
+  std::string from_clause_sql;
+  switch (from_clause_syntax_mode) {
+    case TargetSyntaxMode::kStandard: {
+      from_clause_sql = GetFromClauseStandardSQL();
+      break;
+    }
+    case TargetSyntaxMode::kPipe: {
+      from_clause_sql = GetFromClauseStandardWrappingPipeSQL();
+      break;
+    }
+  }
+
   std::string sql;
   TryAppendSelectClause(sql);
   TryAppendSetOpClauses(sql, TargetSyntaxMode::kStandard);
 
   if (!from_clause_sql.empty()) {
-    absl::StrAppend(&sql, from_clause_sql);
+    absl::StrAppend(&sql, absl::StartsWith(from_clause_sql, " ") ? "" : " ",
+                    from_clause_sql);
   }
 
   TryAppendPivotClause(sql);
@@ -599,7 +600,7 @@ std::string QueryExpression::GetPipeSQLQuery() const {
   // will be in the Pipe SQL syntax. So we create a new FROM clauses from it
   // such that it works in the Standard SQL syntax.
   if (!CanFormPipeSQLQuery()) {
-    return GetStandardSQLQuery(GetFromClauseMixedSQL());
+    return GetStandardSQLQuery(TargetSyntaxMode::kPipe);
   }
 
   // The order of forming the query in Pipe SQL syntax is:
@@ -665,30 +666,41 @@ std::string QueryExpression::GetPipeSQLQuery() const {
   return sql;
 }
 
-void QueryExpression::Wrap(absl::string_view alias,
-                           TargetSyntaxMode target_syntax_mode) {
+void QueryExpression::WrapImpl(absl::string_view alias,
+                               TargetSyntaxMode subquery_target_syntax_mode,
+                               TargetSyntaxMode target_syntax_mode) {
   ABSL_DCHECK(CanFormSQLQuery());
   ABSL_DCHECK(!alias.empty());
-  std::string sql = GetSQLQuery(target_syntax_mode);
+
+  std::string sql;
+
+  switch (subquery_target_syntax_mode) {
+    case TargetSyntaxMode::kStandard: {
+      sql = GetStandardSQLQuery(target_syntax_mode_);
+      break;
+    }
+    case TargetSyntaxMode::kPipe: {
+      sql = GetPipeSQLQuery();
+      break;
+    }
+  }
+
   ClearAllClauses();
 
   switch (target_syntax_mode) {
     case TargetSyntaxMode::kStandard:
-      from_ = WrapSubquery(sql, alias);
+      from_ = absl::StrCat("(", sql, ") AS ", alias);
       break;
-    case TargetSyntaxMode::kPipe:
-      from_ = PipeSubquery(sql, alias);
+    case TargetSyntaxMode::kPipe: {
+      if (absl::StartsWith(sql, "FROM ")) {
+        sql.erase(0, 5);
+      }
+      from_ = absl::StrCat(sql, kPipe, "AS ", alias);
       break;
+    }
   }
-}
 
-void QueryExpression::WrapInMixedSyntaxMode(absl::string_view alias) {
-  ABSL_DCHECK(CanFormSQLQuery());
-  ABSL_DCHECK(!alias.empty());
-  std::string sql = GetStandardSQLQuery(GetFromClauseMixedSQL());
-  ClearAllClauses();
-
-  from_ = PipeSubquery(sql, alias);
+  target_syntax_mode_ = target_syntax_mode;
 }
 
 bool QueryExpression::TrySetWithClause(const SQLAliasPairList& with_list,
@@ -1069,19 +1081,18 @@ void QueryExpression::ClearAllClauses() {
   lock_mode_.clear();
 }
 
-std::string QueryExpression::WrapSubquery(absl::string_view sql,
-                                          absl::string_view alias) {
-  return absl::StrCat("(", sql, ") AS ", alias);
+bool StartsWithSelectOrFromOrWith(absl::string_view sql) {
+  static const LazyRE2 kRegex = {"^\\s*\\(*\\s*(WITH|SELECT|FROM)\\s+"};
+  return RE2::PartialMatch(sql, *kRegex);
 }
 
-std::string QueryExpression::PipeSubquery(absl::string_view sql,
-                                          absl::string_view alias) {
-  absl::ConsumePrefix(&sql, "FROM ");
-  return absl::StrCat(sql, kPipe, "AS ", alias);
+bool StartsWithSelectOrFrom(absl::string_view sql) {
+  static const LazyRE2 kRegex = {"^\\s*\\(*\\s*(SELECT|FROM)\\s+"};
+  return RE2::PartialMatch(sql, *kRegex);
 }
 
-bool QueryExpression::StartsWithWithSelectOrFrom(absl::string_view sql) {
-  static const LazyRE2 kRegex = {"^\\s*\\(*\\s*(WITH|SELECT|FROM)"};
+bool StartsWithWith(absl::string_view sql) {
+  static const LazyRE2 kRegex = {"^\\s*\\(*\\s*(WITH)\\s+"};
   return RE2::PartialMatch(sql, *kRegex);
 }
 

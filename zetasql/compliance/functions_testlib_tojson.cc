@@ -578,7 +578,7 @@ void AddRangeTestCases(bool is_to_json,
     if (end != "null") end = absl::StrCat("\"", end, "\"");
     if (value.type()->AsRange()->element_type()->kind() ==
         TypeKind::TYPE_DATETIME) {
-      required_features.insert(FEATURE_V_1_2_CIVIL_TIME);
+      required_features.insert(FEATURE_CIVIL_TIME);
     }
     if (is_to_json) {
       all_tests.emplace_back(
@@ -608,8 +608,8 @@ void AddRangeTestCases(bool is_to_json,
         "to_json",
         QueryParamsWithResult({Value::Null(types::DatetimeRangeType())},
                               Value::Value::Json(JSONValue()))
-            .AddRequiredFeatures({FEATURE_JSON_TYPE, FEATURE_RANGE_TYPE,
-                                  FEATURE_V_1_2_CIVIL_TIME}));
+            .AddRequiredFeatures(
+                {FEATURE_JSON_TYPE, FEATURE_RANGE_TYPE, FEATURE_CIVIL_TIME}));
     all_tests.emplace_back(
         "to_json",
         QueryParamsWithResult({Value::Null(types::TimestampRangeType())},
@@ -627,8 +627,7 @@ void AddRangeTestCases(bool is_to_json,
         "to_json_string",
         QueryParamsWithResult({Value::Null(types::DatetimeRangeType())},
                               String("null"))
-            .AddRequiredFeatures(
-                {FEATURE_RANGE_TYPE, FEATURE_V_1_2_CIVIL_TIME}));
+            .AddRequiredFeatures({FEATURE_RANGE_TYPE, FEATURE_CIVIL_TIME}));
     all_tests.emplace_back(
         "to_json_string",
         QueryParamsWithResult({Value::Null(types::TimestampRangeType())},
@@ -653,8 +652,7 @@ void AddUuidTestCases(bool is_to_json,
   };
 
   for (const auto& [uuid_str, json_str] : kUuidTestCases) {
-    QueryParamsWithResult::FeatureSet required_features{
-        FEATURE_V_1_4_UUID_TYPE};
+    QueryParamsWithResult::FeatureSet required_features{FEATURE_UUID_TYPE};
     UuidValue uuid_value = UuidValue::FromString(uuid_str).value();
     if (is_to_json) {
       all_tests.emplace_back(
@@ -675,13 +673,13 @@ void AddUuidTestCases(bool is_to_json,
     all_tests.emplace_back(
         "to_json", QueryParamsWithResult({Value::NullUuid()},
                                          Value::Value::Json(JSONValue()))
-                       .AddRequiredFeature(FEATURE_V_1_4_UUID_TYPE)
+                       .AddRequiredFeature(FEATURE_UUID_TYPE)
                        .AddRequiredFeature(FEATURE_JSON_TYPE));
   } else {
     all_tests.emplace_back(
         "to_json_string",
         QueryParamsWithResult({Value::NullUuid()}, String("null"))
-            .AddRequiredFeature(FEATURE_V_1_4_UUID_TYPE));
+            .AddRequiredFeature(FEATURE_UUID_TYPE));
   }
 }
 

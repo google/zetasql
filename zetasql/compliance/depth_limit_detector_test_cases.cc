@@ -346,7 +346,7 @@ AllDepthLimitDetectorTestCases() {
                 R({"repeated_recursive_pb[0]."}), "int64_val FROM t"},
            .depth_limit_required_features =
                {
-                   LanguageFeature::FEATURE_V_1_4_BARE_ARRAY_ACCESS,
+                   LanguageFeature::FEATURE_BARE_ARRAY_ACCESS,
                }},
           {
               .depth_limit_test_case_name = "nested_ors",
@@ -423,7 +423,7 @@ AllDepthLimitDetectorTestCases() {
                                     R({")"}), " AS c"},
            .depth_limit_required_features =
                {
-                   LanguageFeature::FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS,
+                   LanguageFeature::FEATURE_UNNEST_AND_FLATTEN_ARRAYS,
                }},
           {.depth_limit_test_case_name = "nested_struct_to_json_string",
            .depth_limit_template = {"SELECT TO_JSON_STRING((SELECT ",
@@ -459,7 +459,7 @@ AllDepthLimitDetectorTestCases() {
                                     R({", 1 AS int64_key_1)"}), "AS c"},
            .depth_limit_required_features =
                {
-                   LanguageFeature::FEATURE_V_1_3_REPLACE_FIELDS,
+                   LanguageFeature::FEATURE_REPLACE_FIELDS,
                }},
           {
               .depth_limit_test_case_name = "repeated_bitwise_not",
@@ -577,7 +577,7 @@ AllDepthLimitDetectorTestCases() {
                                        R({" JOIN t", N()}), R({" USING (c)"})},
               .depth_limit_required_features =
                   {
-                      LanguageFeature::FEATURE_V_1_3_ALLOW_CONSECUTIVE_ON,
+                      LanguageFeature::FEATURE_ALLOW_CONSECUTIVE_ON,
                   },
           },
           {
@@ -616,7 +616,7 @@ AllDepthLimitDetectorTestCases() {
               .depth_limit_template = {"CREATE TABLE t (c DOUBLE DEFAULT (",
                                        R({"-1"}), "))"},
               .depth_limit_required_features =
-                  {LanguageFeature::FEATURE_V_1_3_COLUMN_DEFAULT_VALUE},
+                  {LanguageFeature::FEATURE_COLUMN_DEFAULT_VALUE},
           },
           {
               .depth_limit_test_case_name = "select_many_columns",

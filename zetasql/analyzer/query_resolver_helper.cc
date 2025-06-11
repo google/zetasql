@@ -81,7 +81,7 @@ std::vector<std::unique_ptr<const ResolvedColumnRef>> MakeResolvedColumnRefs(
 
 // Releases rollup list to rollup_column_list and grouping_set_list, this is the
 // legacy way to represent rollup list in ResolvedAggregateScan. The method will
-// called only when FEATURE_V_1_4_GROUPING_SETS isn't enabled, and it will be
+// called only when FEATURE_GROUPING_SETS isn't enabled, and it will be
 // deprecated soon using the new representation of rollup, see more in
 // (broken link).
 absl::Status ReleaseLegacyRollupColumnList(
@@ -498,7 +498,7 @@ absl::Status QueryResolutionInfo::ReleaseGroupingSetsAndRollupList(
 
   // Release the rollup column list to the legacy resolved ast representation
   // when grouping sets feature isn't enabled.
-  if (!language_options.LanguageFeatureEnabled(FEATURE_V_1_4_GROUPING_SETS)) {
+  if (!language_options.LanguageFeatureEnabled(FEATURE_GROUPING_SETS)) {
     return ReleaseLegacyRollupColumnList(group_by_info_.grouping_set_list,
                                          grouping_set_list, rollup_column_list);
   }

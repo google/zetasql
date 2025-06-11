@@ -133,8 +133,6 @@ SELECT CURRENT_TIME() as now;
  *----------------------------*/
 ```
 
-[time-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
-
 [time-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
 
 ## `EXTRACT`
@@ -289,8 +287,6 @@ SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time;
  | 14:23:38    |
  *-------------*/
 ```
-
-[time-format]: #format_time
 
 [time-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
 

@@ -1,6 +1,5 @@
 # Specify WITH DIFFERENTIAL_PRIVACY but no FROM clause
-[default also_show_signature_mismatch_details]
-[default language_features=DIFFERENTIAL_PRIVACY,V_1_3_QUALIFY,ANALYTIC_FUNCTIONS,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS,NAMED_ARGUMENTS,NUMERIC_TYPE,JSON_TYPE]
+[default language_features=DIFFERENTIAL_PRIVACY,QUALIFY,ANALYTIC_FUNCTIONS,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS,NAMED_ARGUMENTS,NUMERIC_TYPE,JSON_TYPE]
 
 select with differential_privacy sum();
 --
@@ -74,11 +73,12 @@ QueryStmt
         |       |       +-column_ref=
         |       |         +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#25)
         |       +-analytic_function_list=
-        |         +-$analytic1#24 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)(parse_location=73-99)
+        |         +-$analytic1#24 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)(parse_location=73-77)
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
-            +-ColumnRef(type=INT64, column=$aggregate.$agg1#23)
-            +-ColumnRef(type=INT64, column=$analytic.$analytic1#24)
+            +-parse_location=60-99
+            +-ColumnRef(parse_location=60-70, type=INT64, column=$aggregate.$agg1#23)
+            +-ColumnRef(parse_location=73-99, type=INT64, column=$analytic.$analytic1#24)
 [REPLACED_LITERALS]
 select with differential_privacy @_p0_INT64
 from SimpleTypes
@@ -1830,6 +1830,7 @@ QueryStmt
         |       +-group_by_list=
         |       | +-x#14 :=
         |       |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |       |     +-parse_location=109-115
         |       |     +-Literal(parse_location=109-111, type=INT64, value=10)
         |       |     +-ColumnRef(parse_location=112-115, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
         |       +-aggregate_list=
@@ -1875,6 +1876,7 @@ QueryStmt
         |       +-group_by_list=
         |       | +-x#14 :=
         |       |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |       |     +-parse_location=109-115
         |       |     +-Literal(parse_location=109-111, type=INT64, value=10)
         |       |     +-ColumnRef(parse_location=112-115, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
         |       +-aggregate_list=
@@ -2144,11 +2146,6 @@ QueryStmt
 select with differential_privacy count(string, contribution_bounds_per_group => (0,100), @test_param_double)
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator COUNT in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: STRING, STRUCT<INT64, INT64>, DOUBLE. Supported signatures: COUNT(T2, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64; COUNT(T2, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT/*with value "JSON"*/, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> JSON; COUNT(T2, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT/*with value "PROTO"*/, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> zetasql.functions.DifferentialPrivacyOutputWithReport [at 1:34]
-select with differential_privacy count(string, contribution_bounds_per_group ...
-                                 ^
---
-Signature Mismatch Details:
 ERROR: Call to function ZetaSQL:$differential_privacy_count must not specify positional arguments after named arguments; named arguments must be specified last in the argument list [at 1:48]
 select with differential_privacy count(string, contribution_bounds_per_group ...
                                                ^
@@ -2679,7 +2676,7 @@ QueryStmt
         |           |       +-column_ref=
         |           |         +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
         |           +-analytic_function_list=
-        |             +-$analytic1#14 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)(parse_location=100-128)
+        |             +-$analytic1#14 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)(parse_location=100-104)
         +-aggregate_list=
           +-$agg1#15 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -3072,7 +3069,7 @@ QueryStmt
         |   +-weight_column=
         |     +-ColumnHolder(column=$sample_weight.weight#13)
         +-group_by_list=
-        | +-weight#15 := ColumnRef(type=DOUBLE, column=$sample_weight.weight#13)
+        | +-weight#15 := ColumnRef(parse_location=85-91, type=DOUBLE, column=$sample_weight.weight#13)
         +-aggregate_list=
           +-$agg1#14 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -3111,7 +3108,7 @@ QueryStmt
         |   |   +-weight_column=
         |   |     +-ColumnHolder(column=$sample_weight.weight#13)
         |   +-group_by_list=
-        |   | +-weight_partial#19 := ColumnRef(type=DOUBLE, column=$sample_weight.weight#13)
+        |   | +-weight_partial#19 := ColumnRef(parse_location=85-91, type=DOUBLE, column=$sample_weight.weight#13)
         |   | +-$uid#20 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#16)
         |   +-aggregate_list=
         |     +-$agg1_partial#18 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
@@ -6841,7 +6838,7 @@ ERROR: GROUP BY ROLLUP is not supported in anonymization queries [at 3:14]
              ^
 ==
 
-[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE,V_1_4_GROUPING_SETS]
+[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE,GROUPING_SETS]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT WITH DIFFERENTIAL_PRIVACY int64, double, SUM(int32)
     FROM SimpleTypesWithAnonymizationUid
@@ -6852,7 +6849,7 @@ ERROR: GROUP BY CUBE is not supported in anonymization queries [at 3:14]
              ^
 ==
 
-[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE,V_1_4_GROUPING_SETS]
+[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE,GROUPING_SETS]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT WITH DIFFERENTIAL_PRIVACY int64, double, SUM(int32)
     FROM SimpleTypesWithAnonymizationUid
@@ -6885,11 +6882,6 @@ select with differential_privacy sum(*, contribution_bounds_per_group => (10,...
 select with differential_privacy count(*, contribution_bounds_per_group => (10, "100"), report_format => "PROTO")
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator COUNT(*) in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: STRUCT<INT64, STRING>, STRING. Supported signatures: COUNT(* [, contribution_bounds_per_group => STRUCT<INT64, INT64>] [, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT]) [at 1:34]
-select with differential_privacy count(*, contribution_bounds_per_group => (1...
-                                 ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for aggregate operator COUNT(*) in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: STRUCT<INT64, STRING>, STRING
   Signature: COUNT(*, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64
     Named argument `report_format` does not exist in signature
@@ -6905,11 +6897,6 @@ select with differential_privacy count(*, contribution_bounds_per_group => (1...
 select with differential_privacy count(*, contribution_bounds_per_group => (bool, "100"), report_format => "JSON")
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator COUNT(*) in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: STRUCT<BOOL, STRING>, STRING. Supported signatures: COUNT(* [, contribution_bounds_per_group => STRUCT<INT64, INT64>] [, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT]) [at 1:34]
-select with differential_privacy count(*, contribution_bounds_per_group => (b...
-                                 ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for aggregate operator COUNT(*) in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: STRUCT<BOOL, STRING>, STRING
   Signature: COUNT(*, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64
     Named argument `report_format` does not exist in signature
@@ -7930,11 +7917,6 @@ select with differential_privacy APPROX_QUANTILES(*, 4, contribution_bounds_p...
 select with differential_privacy APPROX_QUANTILES(int64, contribution_bounds_per_row =>(4, bool), report_format => "PROTO")
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator APPROX_QUANTILES in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: INT64, STRUCT<INT64, BOOL>, STRING. Supported signatures: APPROX_QUANTILES(DOUBLE, INT64, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> ARRAY<DOUBLE>; APPROX_QUANTILES(DOUBLE, INT64, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT/*with value "JSON"*/, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> JSON; APPROX_QUANTILES(DOUBLE, INT64, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT/*with value "PROTO"*/, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> zetasql.functions.DifferentialPrivacyOutputWithReport [at 1:34]
-select with differential_privacy APPROX_QUANTILES(int64, contribution_bounds_...
-                                 ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for aggregate operator APPROX_QUANTILES in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: INT64, STRUCT<INT64, BOOL>, STRING
   Signature: APPROX_QUANTILES(DOUBLE, INT64, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> ARRAY<DOUBLE>
     Named argument `report_format` does not exist in signature
@@ -7950,11 +7932,6 @@ select with differential_privacy APPROX_QUANTILES(int64, contribution_bounds_...
 select with differential_privacy APPROX_QUANTILES(double, contribution_bounds_per_row => (bool, 3), report_format => "PROTO")
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator APPROX_QUANTILES in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: DOUBLE, STRUCT<BOOL, INT64>, STRING. Supported signatures: APPROX_QUANTILES(DOUBLE, INT64, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> ARRAY<DOUBLE>; APPROX_QUANTILES(DOUBLE, INT64, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT/*with value "JSON"*/, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> JSON; APPROX_QUANTILES(DOUBLE, INT64, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT/*with value "PROTO"*/, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> zetasql.functions.DifferentialPrivacyOutputWithReport [at 1:34]
-select with differential_privacy APPROX_QUANTILES(double, contribution_bounds...
-                                 ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for aggregate operator APPROX_QUANTILES in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: DOUBLE, STRUCT<BOOL, INT64>, STRING
   Signature: APPROX_QUANTILES(DOUBLE, INT64, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> ARRAY<DOUBLE>
     Named argument `report_format` does not exist in signature
@@ -8232,11 +8209,6 @@ select with differential_privacy
   COUNT(*, contribution_bounds_per_group => (0.0, 1.0))
   from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator COUNT(*) in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: STRUCT<DOUBLE, DOUBLE>. Supported signatures: COUNT(* [, contribution_bounds_per_group => STRUCT<INT64, INT64>] [, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT]) [at 2:3]
-  COUNT(*, contribution_bounds_per_group => (0.0, 1.0))
-  ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for aggregate operator COUNT(*) in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: STRUCT<DOUBLE, DOUBLE>
   Signature: COUNT(*, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64
     Named argument `contribution_bounds_per_group`: Unable to coerce type STRUCT<DOUBLE, DOUBLE> to expected type STRUCT<INT64, INT64>
@@ -8809,7 +8781,7 @@ QueryStmt
 
 # Regresssion: b/282900415, non-subquery select expr in select list
 # Disable array_filter rewrite due to b/290669074
-[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE,INLINE_LAMBDA_ARGUMENT]
 [enabled_ast_rewrites=NONE,+ANONYMIZATION]
 SELECT WITH DIFFERENTIAL_PRIVACY
   int32,
@@ -8911,7 +8883,7 @@ QueryStmt
 
 # Regresssion: b/282900415, non-subquery, not selected, select expr in select list
 # Disable array_filter rewrite due to b/290669074
-[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE,INLINE_LAMBDA_ARGUMENT]
 [enabled_ast_rewrites=NONE,+ANONYMIZATION]
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 SELECT WITH DIFFERENTIAL_PRIVACY
@@ -8946,6 +8918,7 @@ QueryStmt
     |           +-argument_list=[$lambda_arg.e#17]
     |           +-body=
     |             +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    |               +-parse_location=68-75
     |               +-ColumnRef(parse_location=68-69, type=STRING, column=$lambda_arg.e#17)
     |               +-Literal(parse_location=72-75, type=STRING, value="x")
     +-input_scan=
@@ -9001,6 +8974,7 @@ QueryStmt
     |           +-argument_list=[$lambda_arg.e#17]
     |           +-body=
     |             +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    |               +-parse_location=68-75
     |               +-ColumnRef(parse_location=68-69, type=STRING, column=$lambda_arg.e#17)
     |               +-Literal(parse_location=72-75, type=STRING, value="x")
     +-input_scan=
@@ -9381,7 +9355,7 @@ Rewrite ERROR: Reading the table SimpleTypesWithAnonymizationUid containing user
 ==
 
 # GROUPING function is unsupported in with DP clause.
-[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE,V_1_4_GROUPING_BUILTIN]
+[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE,GROUPING_BUILTIN]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT WITH DIFFERENTIAL_PRIVACY GROUPING(int64), int64
 FROM SimpleTypesWithAnonymizationUid
@@ -9393,7 +9367,7 @@ SELECT WITH DIFFERENTIAL_PRIVACY GROUPING(int64), int64
 ==
 
 # GROUPING function is unsupported in the same select list with DP functions.
-[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE,V_1_4_GROUPING_BUILTIN]
+[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE,GROUPING_BUILTIN]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT WITH DIFFERENTIAL_PRIVACY int64, GROUPING(int64)
 FROM SimpleTypesWithAnonymizationUid
@@ -9405,7 +9379,7 @@ SELECT WITH DIFFERENTIAL_PRIVACY int64, GROUPING(int64)
 ==
 
 # GROUPING function is unsupported in the same query with the DP query.
-[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE,V_1_4_GROUPING_BUILTIN]
+[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE,GROUPING_BUILTIN]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT WITH DIFFERENTIAL_PRIVACY int64
 FROM SimpleTypesWithAnonymizationUid
@@ -9417,7 +9391,7 @@ GROUP BY int64, double HAVING GROUPING(int64) = 0;
 ==
 
 # GROUPING function should be allowed in a subquery.
-[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE,V_1_4_GROUPING_BUILTIN]
+[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE,GROUPING_BUILTIN]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT
   WITH DIFFERENTIAL_PRIVACY int64,
@@ -9514,7 +9488,7 @@ QueryStmt
 ==
 
 # GROUPING function should be allowed in the with clause.
-[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE,V_1_4_GROUPING_BUILTIN]
+[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE,GROUPING_BUILTIN]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 WITH T AS (
   SELECT uid, int64, GROUPING(int64) AS grp
@@ -9612,7 +9586,7 @@ QueryStmt
               +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#24)
 ==
 
-[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE{{|,V_1_4_ENFORCE_CONDITIONAL_EVALUATION}}]
+[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE{{|,ENFORCE_CONDITIONAL_EVALUATION}}]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [no_run_sqlbuilder]
 # The anonymization rewrite combined conditional evaluation leads to a
@@ -9850,7 +9824,7 @@ QueryStmt
         +-option_list=
           +-max_groups_contributed := Literal(type=INT64, value=1)
 --
-ALTERNATION GROUP: ,V_1_4_ENFORCE_CONDITIONAL_EVALUATION,
+ALTERNATION GROUP: ,ENFORCE_CONDITIONAL_EVALUATION,
 --
 QueryStmt
 +-output_column_list=
@@ -9975,7 +9949,7 @@ QueryStmt
         +-group_selection_threshold_expr=
           +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#36)
 --
-ALTERNATION GROUP: ,V_1_4_ENFORCE_CONDITIONAL_EVALUATION,max_groups_contributed = 1
+ALTERNATION GROUP: ,ENFORCE_CONDITIONAL_EVALUATION,max_groups_contributed = 1
 --
 QueryStmt
 +-output_column_list=
@@ -10112,3 +10086,33 @@ QueryStmt
         | +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#36)
         +-option_list=
           +-max_groups_contributed := Literal(type=INT64, value=1)
+==
+
+# Regression test for b/423979368. Should not crash when report_format contains
+# an unexpected (non-ENUM, non-STRING) type.
+SELECT WITH DIFFERENTIAL_PRIVACY SUM(x, report_format => 1)
+FROM (SELECT 1 AS x);
+--
+ERROR: No matching signature for aggregate operator SUM in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: INT64, INT64
+  Signature: SUM(INT64, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64
+    Named argument `report_format` does not exist in signature
+  Signature: SUM(UINT64, [contribution_bounds_per_group => STRUCT<UINT64, UINT64>]) -> UINT64
+    Named argument `report_format` does not exist in signature
+  Signature: SUM(DOUBLE, [contribution_bounds_per_group => STRUCT<DOUBLE, DOUBLE>]) -> DOUBLE
+    Named argument `report_format` does not exist in signature
+  Signature: SUM(NUMERIC, [contribution_bounds_per_group => STRUCT<NUMERIC, NUMERIC>]) -> NUMERIC
+    Named argument `report_format` does not exist in signature
+  Signature: SUM(INT64, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT/*with value "JSON"*/, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> JSON
+    Invalid value for report_format argument: Not an enum value
+  Signature: SUM(DOUBLE, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT/*with value "JSON"*/, [contribution_bounds_per_group => STRUCT<DOUBLE, DOUBLE>]) -> JSON
+    Invalid value for report_format argument: Not an enum value
+  Signature: SUM(UINT64, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT/*with value "JSON"*/, [contribution_bounds_per_group => STRUCT<UINT64, UINT64>]) -> JSON
+    Argument 1: Unable to coerce type INT64 to expected type UINT64
+  Signature: SUM(INT64, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT/*with value "PROTO"*/, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> zetasql.functions.DifferentialPrivacyOutputWithReport
+    Invalid value for report_format argument: Not an enum value
+  Signature: SUM(DOUBLE, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT/*with value "PROTO"*/, [contribution_bounds_per_group => STRUCT<DOUBLE, DOUBLE>]) -> zetasql.functions.DifferentialPrivacyOutputWithReport
+    Invalid value for report_format argument: Not an enum value
+  Signature: SUM(UINT64, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT/*with value "PROTO"*/, [contribution_bounds_per_group => STRUCT<UINT64, UINT64>]) -> zetasql.functions.DifferentialPrivacyOutputWithReport
+    Argument 1: Unable to coerce type INT64 to expected type UINT64 [at 1:34]
+SELECT WITH DIFFERENTIAL_PRIVACY SUM(x, report_format => 1)
+                                 ^

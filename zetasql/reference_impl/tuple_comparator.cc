@@ -102,8 +102,8 @@ static absl::Status GetZetaSqlCollators(
 absl::StatusOr<std::unique_ptr<TupleComparator>> TupleComparator::Create(
     absl::Span<const KeyArg* const> keys, absl::Span<const int> slots_for_keys,
     absl::Span<const TupleData* const> params, EvaluationContext* context) {
-  return Create(keys, slots_for_keys, /*extra_sort_key_slots=*/{}, params,
-                context);
+  return Create(keys, slots_for_keys,
+                /*extra_sort_key_slots=*/{}, params, context);
 }
 
 absl::StatusOr<std::unique_ptr<TupleComparator>> TupleComparator::Create(
@@ -121,14 +121,14 @@ absl::StatusOr<std::unique_ptr<TupleComparator>> TupleComparator::Create(
 bool TupleComparator::operator()(const TupleData& t1,
                                  const TupleData& t2) const {
   return Compare(t1, t2, /*compare_floating_point_approximately=*/false,
-                 nullptr);
+                 /*has_approximate_comparison=*/nullptr,
+                 /*collator_caused_equality=*/nullptr);
 }
 
-// compare_floating_point_approximately and has_approximate_comparison are used
-// in IsUniquelyOrdered only. See comments at IsUniquelyOrdered below.
 bool TupleComparator::Compare(const TupleData& t1, const TupleData& t2,
                               bool compare_floating_point_approximately,
-                              bool* has_approximate_comparison) const {
+                              bool* has_approximate_comparison,
+                              bool* collator_caused_equality) const {
   for (int i = 0; i < keys_.size(); ++i) {
     const KeyArg* key = keys_[i];
     const ZetaSqlCollator* collator = (*collators_)[i].get();
@@ -167,6 +167,11 @@ bool TupleComparator::Compare(const TupleData& t1, const TupleData& t2,
         } else {
           return result < 0;  // v1 < v2
         }
+      } else if (collator_caused_equality != nullptr &&
+                 v1.string_value() != v2.string_value()) {
+        // The strings are unequal, but the collator caused them to be
+        // considered equal.
+        *collator_caused_equality = true;
       }
     } else if (compare_floating_point_approximately &&
                key->type()->IsFloatingPoint() &&
@@ -253,14 +258,22 @@ bool TupleComparator::IsUniquelyOrdered(
     const TupleData* b = tuples[i];
 
     bool has_approximate_comparison = false;
+    bool collator_caused_equality = false;
     bool unequal =
         Compare(*a, *b, /*compare_floating_point_approximately=*/true,
-                &has_approximate_comparison);
+                &has_approximate_comparison, &collator_caused_equality);
     if (unequal) {
       if (has_approximate_comparison) {
         return false;
       }
       continue;
+    }
+
+    if (collator_caused_equality) {
+      // The tuples appear equal due to the collator, but the compared strings
+      // themselves are already different. We do not need to continue, as this
+      // alone already tells us the result is *not* uniquely ordered.
+      return false;
     }
 
     for (const int slot_idx : slot_idxs_for_values) {

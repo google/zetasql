@@ -40,8 +40,10 @@
 #include "zetasql/public/property_graph.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/measure_type.h"
 #include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/function.h"
+#include "zetasql/reference_impl/measure_evaluation.h"
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/parameters.h"
 #include "zetasql/reference_impl/tuple.h"
@@ -49,6 +51,7 @@
 #include "zetasql/reference_impl/uda_evaluation.h"
 #include "zetasql/reference_impl/variable_generator.h"
 #include "zetasql/reference_impl/variable_id.h"
+#include "zetasql/resolved_ast/column_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_collation.h"
 #include "zetasql/resolved_ast/resolved_column.h"
@@ -104,10 +107,10 @@ struct AlgebrizerOptions {
 struct AnonymizationOptions {
   std::optional<Value> epsilon;                      // double Value
   std::optional<Value> delta;                        // double Value
-  std::optional<Value> max_groups_contributed;       // int64_t Value
-  std::optional<Value> max_rows_contributed;         // int64_t Value
-  std::optional<Value> group_selection_threshold;    // int64_t Value
-  std::optional<Value> min_privacy_units_per_group;  // int64_t Value
+  std::optional<Value> max_groups_contributed;       // int64 Value
+  std::optional<Value> max_rows_contributed;         // int64 Value
+  std::optional<Value> group_selection_threshold;    // int64 Value
+  std::optional<Value> min_privacy_units_per_group;  // int64 Value
   std::optional<Value> group_selection_strategy;     // enum Value
   anonymization::FunctionEpsilonAssigner* epsilon_assigner = nullptr;
 };
@@ -275,6 +278,8 @@ class Algebrizer {
   // specifies a non empty `order_by_item_list` then `order_by_keys` must be
   // empty.
   // Currently used by ArrayAggregate to order the aggregate in array order.
+  // If `measure_expr` is not null, then this is a measure aggregate function
+  // call.
   absl::StatusOr<std::unique_ptr<AggregateArg>>
   AlgebrizeAggregateFnWithAlgebrizedArguments(
       const VariableId& variable,
@@ -285,7 +290,8 @@ class Algebrizer {
       std::vector<std::unique_ptr<KeyArg>> inner_grouping_keys,
       std::vector<std::unique_ptr<AggregateArg>> inner_aggregators,
       const VariableId& side_effects_variable = VariableId(),
-      std::vector<std::unique_ptr<KeyArg>> order_by_keys = {});
+      std::vector<std::unique_ptr<KeyArg>> order_by_keys = {},
+      const ResolvedExpr* measure_expr = nullptr);
   absl::StatusOr<std::unique_ptr<AggregateArg>> AlgebrizeAggregateFn(
       const VariableId& variable,
       std::optional<AnonymizationOptions> anonymization_options,
@@ -305,14 +311,23 @@ class Algebrizer {
   absl::StatusOr<VariableId> AddUdaArgumentVariable(
       absl::string_view argument_name);
 
-  static absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeUdaCall(
+  // Method to algebrize a UDA or measure call. Much of the algebrization logic
+  // is shared between UDAs and measures.
+  static absl::StatusOr<std::unique_ptr<RelationalOp>>
+  AlgebrizeUdaOrMeasureCall(
       const AnonymizationOptions* anonymization_options,
       const ResolvedExpr& function_expr,
       const std::vector<const ResolvedExpr*>& aggregate_exprs,
       const ResolvedColumnList& aggregate_expr_columns,
-      absl::Span<const UdaArgumentInfo> argument_infos,
+      std::function<absl::StatusOr<std::unique_ptr<RelationalOp>>(Algebrizer&)>
+          create_input_op,
       const LanguageOptions& language_options,
       const AlgebrizerOptions& algebrizer_options, TypeFactory* type_factory);
+
+  absl::StatusOr<std::unique_ptr<RelationalOp>> CreateInputOpForUdaCall(
+      absl::Span<const UdaArgumentInfo> argument_infos);
+  absl::StatusOr<std::unique_ptr<RelationalOp>> CreateInputOpForMeasureCall(
+      const MeasureType* measure_type);
 
   static absl::Status AlgebrizeTvfCall(
       const ResolvedScan& resolved_body, bool is_value_table,
@@ -354,6 +369,13 @@ class Algebrizer {
       const ResolvedNonScalarFunctionCallBase* aggregate_function,
       std::vector<std::unique_ptr<ValueExpr>>& arguments,
       const AnonymizationOptions* anonymization_options);
+
+  // Creates an AggregateFunctionBody for an AGG(measure_column) function call.
+  absl::StatusOr<std::unique_ptr<AggregateFunctionBody>>
+  CreateMeasureAggregateFn(
+      const ResolvedNonScalarFunctionCallBase* aggregate_function,
+      std::vector<std::unique_ptr<ValueExpr>>& arguments,
+      const ResolvedExpr* measure_expr);
 
   // TODO: Remove the special collation logics in this function.
   absl::StatusOr<std::unique_ptr<ValueExpr>>
@@ -597,6 +619,9 @@ class Algebrizer {
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeGraphElementScan(
       const ResolvedGraphElementScan* element_scan,
       std::vector<FilterConjunctInfo*>* active_conjuncts);
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeGraphCallScan(
+      const ResolvedGraphCallScan* call_scan,
+      std::vector<FilterConjunctInfo*>* active_conjuncts);
 
   // Algebrizes a scan of <graph_element_table> that computes expressions
   // with <graph_element_type> that are represented by the variable
@@ -628,6 +653,18 @@ class Algebrizer {
           nullptr,
       const absl::flat_hash_map<const Column*, VariableId>* dest_node_vars =
           nullptr);
+
+  // Algebrizes the dynamic properties expression.
+  // If `element_type` is dynamic, returns a JSON value expression. Otherwise,
+  // returns nullptr.
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeDynamicProperties(
+      const GraphElementType* element_type, const ResolvedExpr* resolved_expr);
+
+  // Algebrizes the dynamic label expression.
+  // If `resolved_expr` is non-null, returns a STRING value expression.
+  // Otherwise, returns nullptr.
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeDynamicLabel(
+      const ResolvedExpr* resolved_expr);
 
   using ConjunctsByGraphSubpaths =
       absl::flat_hash_map<const ResolvedGraphPathScanBase*,
@@ -684,6 +721,18 @@ class Algebrizer {
   // been already sorted by those expressions.
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeAnalyticScan(
       const ResolvedAnalyticScan* analytic_scan);
+  // This is the bulk of AlgebrizeAnalyticScan(), but it's shared with
+  // AlgebrizeMatchRecognizeScan() which also has a list of analytic function
+  // groups.
+  // `reverse_order` is used for MATCH_RECOGNIZE, because we want to preserve
+  // the order of the input rows from the first group for the downstream
+  // PatternMatchOp.
+  absl::StatusOr<std::unique_ptr<RelationalOp>>
+  AlgebrizeAnalyticFunctionGroupList(
+      const ResolvedScan* input_scan,
+      absl::Span<const std::unique_ptr<const ResolvedAnalyticFunctionGroup>>
+          analytic_function_groups,
+      bool reverse_order);
 
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeRecursiveScan(
       const ResolvedRecursiveScan* recursive_scan);
@@ -1216,6 +1265,11 @@ class Algebrizer {
   // Generates variable names corresponding to query parameters or columns.
   // Owned by 'column_to_variable_'.
   VariableGenerator* variable_gen_;
+  // Maps MEASURE-typed ResolvedColumns to the expression used to compute the
+  // measure. The expression used to compute the measure is stored in the
+  // catalog (not the ResolvedColumn or the type), hence why we need to track it
+  // here.
+  MeasureColumnToExprMapping measure_column_to_expr_;
   // Maps parameters to variables for named parameters or else contains a list
   // of positional parameters. Not owned.
   Parameters* parameters_;
@@ -1225,6 +1279,13 @@ class Algebrizer {
   // Active only when algebrizing a UDA's body during a call. Usually this would
   // be a child/single-use algebrizer.
   absl::flat_hash_map<std::string, VariableId> aggregate_args_map_;
+
+  // The active `measure_variable` and `measure_type` to use when algebrizing
+  // an ExpressionColumn in a measure expression. This is only active when
+  // algebrizing a measure expression, which typically happens via a
+  // single-use algebrizer.
+  VariableId measure_variable_;
+  const MeasureType* measure_type_ = nullptr;
 
   // Maps system variables to variable ids.  Not owned.
   SystemVariablesAlgebrizerMap* system_variables_map_;

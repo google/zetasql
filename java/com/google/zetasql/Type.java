@@ -19,12 +19,15 @@ package com.google.zetasql;
 
 import static java.util.Map.entry;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.Immutable;
 import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
+import com.google.protobuf.Timestamp;
 import com.google.zetasql.ZetaSQLOptions.ProductMode;
 import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.ZetaSQLType.TypeProto;
+import com.google.zetasql.ZetaSQLValue.ValueProto.TimestampPicos;
 import java.io.Serializable;
 
 /**
@@ -42,13 +45,25 @@ public abstract class Type implements Serializable {
   @SuppressWarnings("GoodTime") // should be a java.time.LocalDate (?)
   public static final int DATE_MAX = 2932896;
 
-  // The valid timestamp range for timestamps is:
-  //  [ 0001-01-01 00:00:00 UTC, 9999-12-31 23:59:59.999999 UTC ]
+  public static final int MICROS_PER_SECOND = 1_000_000;
+  public static final long PICOS_PER_SECOND = 1_000_000_000_000L;
+
+  // The valid timestamp range for seconds is:
+  //  [ 0001-01-01 00:00:00 UTC, 9999-12-31 23:59:59 UTC ]
   @SuppressWarnings("GoodTime") // should be a java.time.Instant
-  public static final long TIMESTAMP_MICROS_MIN = -62135596800L * 1000000;
+  public static final long TIMESTAMP_SECONDS_MIN = -62135596800L;
 
   @SuppressWarnings("GoodTime") // should be a java.time.Instant
-  public static final long TIMESTAMP_MICROS_MAX = 253402300800L * 1000000 - 1;
+  public static final long TIMESTAMP_SECONDS_MAX = 253402300799L;
+
+  // The valid timestamp range for microseconds is:
+  //  [ 0001-01-01 00:00:00 UTC, 9999-12-31 23:59:59.999999 UTC ]
+  @SuppressWarnings("GoodTime") // should be a java.time.Instant
+  public static final long TIMESTAMP_MICROS_MIN = TIMESTAMP_SECONDS_MIN * MICROS_PER_SECOND;
+
+  @SuppressWarnings("GoodTime") // should be a java.time.Instant
+  public static final long TIMESTAMP_MICROS_MAX =
+      TIMESTAMP_SECONDS_MAX * MICROS_PER_SECOND + MICROS_PER_SECOND - 1;
 
   static final ImmutableMap<TypeKind, String> TYPE_KIND_NAMES =
       ImmutableMap.ofEntries(
@@ -97,12 +112,24 @@ public abstract class Type implements Serializable {
   }
 
   /**
-   * Returns {@code true} if the given {@code timestamp} value is within valid
-   * range.
+   * Returns {@code true} if the given {@code timestamp} value is within valid range.
+   * TODO: Add validation on nanos part of timestamp.
    */
-  public static boolean isValidTimestamp(com.google.protobuf.Timestamp timestamp) {
-    return timestamp.getSeconds() >= TIMESTAMP_MICROS_MIN / 1000000
-        && timestamp.getSeconds() < (TIMESTAMP_MICROS_MAX + 1) / 1000000;
+  @SuppressWarnings("NonApiType") // should accept a java.time.Instant
+  public static boolean isValidTimestamp(Timestamp timestamp) {
+    return isValidTimestampSeconds(timestamp.getSeconds());
+  }
+
+  /** Returns {@code true} if the given {@code timestampPicos} value is within valid range. */
+  public static boolean isValidTimestamp(TimestampPicos timestampPicos) {
+    return isValidTimestampSeconds(timestampPicos.getSeconds())
+        && timestampPicos.getPicos() >= 0
+        && timestampPicos.getPicos() < PICOS_PER_SECOND;
+  }
+
+  /* Validates a timestamp with seconds precision. */
+  private static boolean isValidTimestampSeconds(long seconds) {
+    return seconds >= TIMESTAMP_SECONDS_MIN && seconds <= TIMESTAMP_SECONDS_MAX;
   }
 
   private final TypeKind kind;
@@ -114,6 +141,13 @@ public abstract class Type implements Serializable {
   /** Returns TypeKind of this type. */
   public TypeKind getKind() {
     return kind;
+  }
+
+  // Returns the component types of this type in deterministic order.
+  // Returns empty if the type is not composite.
+  //
+  public ImmutableList<Type> componentTypes() {
+    return ImmutableList.of();
   }
 
   public boolean isInt32() {

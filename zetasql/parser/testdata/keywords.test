@@ -58,12 +58,23 @@ SELECT 123 AS if
               ^
 ==
 
-# There's no parsing rule for DISTINCT. It's meaningless for IF().
+# DISTINCT will parse on functions like IF but will fail analysis.
 select if(distinct 1, 2, 3)
 --
-ERROR: Syntax error: Expected ")" but got keyword DISTINCT [at 1:11]
-select if(distinct 1, 2, 3)
-          ^
+QueryStatement [0-27] [select if(distinct 1, 2, 3)]
+  Query [0-27] [select if(distinct 1, 2, 3)]
+    Select [0-27] [select if(distinct 1, 2, 3)]
+      SelectList [7-27] [if(distinct 1, 2, 3)]
+        SelectColumn [7-27] [if(distinct 1, 2, 3)]
+          FunctionCall(distinct=true) [7-27] [if(distinct 1, 2, 3)]
+            PathExpression [7-9] [if]
+              Identifier(`if`) [7-9] [if]
+            IntLiteral(1) [19-20] [1]
+            IntLiteral(2) [22-23] [2]
+            IntLiteral(3) [25-26] [3]
+--
+SELECT
+  `if`(DISTINCT 1, 2, 3)
 ==
 
 # DISTINCT is only supported for the first argument in a function call.
@@ -1868,6 +1879,199 @@ QueryStatement [0-25] [select `collate`(x, y, z)]
 --
 SELECT
   `collate`(x, y, z)
+==
+
+# Test reserved keyword that also works as function name
+# in a chained function call.
+select
+  "abc".if(),
+  "abc".grouping(),
+  "abc".left(),
+  "abc".right(),
+  "abc".collate(),
+--
+QueryStatement [0-92] [select   "...collate(),]
+  Query [0-92] [select   "...collate(),]
+    Select [0-92] [select   "...collate(),]
+      SelectList [9-92] ["abc".if()...collate(),]
+        SelectColumn [9-19] ["abc".if()]
+          FunctionCall(is_chained_call=true) [9-19] ["abc".if()]
+            PathExpression [15-17] [if]
+              Identifier(`if`) [15-17] [if]
+            StringLiteral [9-14] ["abc"]
+              StringLiteralComponent("abc") [9-14] ["abc"]
+        SelectColumn [23-39] ["abc".grouping()]
+          FunctionCall(is_chained_call=true) [23-39] ["abc".grouping()]
+            PathExpression [29-37] [grouping]
+              Identifier(`grouping`) [29-37] [grouping]
+            StringLiteral [23-28] ["abc"]
+              StringLiteralComponent("abc") [23-28] ["abc"]
+        SelectColumn [43-55] ["abc".left()]
+          FunctionCall(is_chained_call=true) [43-55] ["abc".left()]
+            PathExpression [49-53] [left]
+              Identifier(`left`) [49-53] [left]
+            StringLiteral [43-48] ["abc"]
+              StringLiteralComponent("abc") [43-48] ["abc"]
+        SelectColumn [59-72] ["abc".right()]
+          FunctionCall(is_chained_call=true) [59-72] ["abc".right()]
+            PathExpression [65-70] [right]
+              Identifier(`right`) [65-70] [right]
+            StringLiteral [59-64] ["abc"]
+              StringLiteralComponent("abc") [59-64] ["abc"]
+        SelectColumn [76-91] ["abc".collate()]
+          FunctionCall(is_chained_call=true) [76-91] ["abc".collate()]
+            PathExpression [82-89] [collate]
+              Identifier(`collate`) [82-89] [collate]
+            StringLiteral [76-81] ["abc"]
+              StringLiteralComponent("abc") [76-81] ["abc"]
+--
+SELECT
+  "abc".`if`(),
+  "abc".`grouping`(),
+  "abc".`left`(),
+  "abc".`right`(),
+  "abc".`collate`()
+==
+
+# Test reserved keyword that also works as function name,
+# as a dot-identifier.
+select
+  "abc".if,
+  "abc".grouping,
+  "abc".left,
+  "abc".right,
+  "abc".collate,
+--
+QueryStatement [0-82] [select   "...".collate,]
+  Query [0-82] [select   "...".collate,]
+    Select [0-82] [select   "...".collate,]
+      SelectList [9-82] ["abc".if,...".collate,]
+        SelectColumn [9-17] ["abc".if]
+          DotIdentifier [9-17] ["abc".if]
+            StringLiteral [9-14] ["abc"]
+              StringLiteralComponent("abc") [9-14] ["abc"]
+            Identifier(`if`) [15-17] [if]
+        SelectColumn [21-35] ["abc".grouping]
+          DotIdentifier [21-35] ["abc".grouping]
+            StringLiteral [21-26] ["abc"]
+              StringLiteralComponent("abc") [21-26] ["abc"]
+            Identifier(`grouping`) [27-35] [grouping]
+        SelectColumn [39-49] ["abc".left]
+          DotIdentifier [39-49] ["abc".left]
+            StringLiteral [39-44] ["abc"]
+              StringLiteralComponent("abc") [39-44] ["abc"]
+            Identifier(`left`) [45-49] [left]
+        SelectColumn [53-64] ["abc".right]
+          DotIdentifier [53-64] ["abc".right]
+            StringLiteral [53-58] ["abc"]
+              StringLiteralComponent("abc") [53-58] ["abc"]
+            Identifier(`right`) [59-64] [right]
+        SelectColumn [68-81] ["abc".collate]
+          DotIdentifier [68-81] ["abc".collate]
+            StringLiteral [68-73] ["abc"]
+              StringLiteralComponent("abc") [68-73] ["abc"]
+            Identifier(`collate`) [74-81] [collate]
+--
+SELECT
+  "abc".`if`,
+  "abc".`grouping`,
+  "abc".`left`,
+  "abc".`right`,
+  "abc".`collate`
+==
+
+# Paths or function names cannot start with these reserved keywords.
+select {{if|grouping|left|right|collate}}{{|.x|.x()}}
+--
+ALTERNATION GROUP: if,
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:10]
+select if
+         ^
+--
+ALTERNATION GROUP: if,.x
+--
+ERROR: Syntax error: Expected "(" but got "." [at 1:10]
+select if.x
+         ^
+--
+ALTERNATION GROUP: if,.x()
+--
+ERROR: Syntax error: Expected "(" but got "." [at 1:10]
+select if.x()
+         ^
+--
+ALTERNATION GROUP: grouping,
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:16]
+select grouping
+               ^
+--
+ALTERNATION GROUP: grouping,.x
+--
+ERROR: Syntax error: Expected "(" but got "." [at 1:16]
+select grouping.x
+               ^
+--
+ALTERNATION GROUP: grouping,.x()
+--
+ERROR: Syntax error: Expected "(" but got "." [at 1:16]
+select grouping.x()
+               ^
+--
+ALTERNATION GROUP: left,
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:12]
+select left
+           ^
+--
+ALTERNATION GROUP: left,.x
+--
+ERROR: Syntax error: Expected "(" but got "." [at 1:12]
+select left.x
+           ^
+--
+ALTERNATION GROUP: left,.x()
+--
+ERROR: Syntax error: Expected "(" but got "." [at 1:12]
+select left.x()
+           ^
+--
+ALTERNATION GROUP: right,
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:13]
+select right
+            ^
+--
+ALTERNATION GROUP: right,.x
+--
+ERROR: Syntax error: Expected "(" but got "." [at 1:13]
+select right.x
+            ^
+--
+ALTERNATION GROUP: right,.x()
+--
+ERROR: Syntax error: Expected "(" but got "." [at 1:13]
+select right.x()
+            ^
+--
+ALTERNATION GROUP: collate,
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:15]
+select collate
+              ^
+--
+ALTERNATION GROUP: collate,.x
+--
+ERROR: Syntax error: Expected "(" but got "." [at 1:15]
+select collate.x
+              ^
+--
+ALTERNATION GROUP: collate,.x()
+--
+ERROR: Syntax error: Expected "(" but got "." [at 1:15]
+select collate.x()
+              ^
 ==
 
 # REPLACE is allowed to be a keyword after INSERT

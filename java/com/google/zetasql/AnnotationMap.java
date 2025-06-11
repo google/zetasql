@@ -19,6 +19,8 @@ package com.google.zetasql;
 
 import static java.util.stream.Collectors.joining;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.zetasql.ZetaSQLAnnotation.AnnotationMapProto;
 import com.google.zetasql.ZetaSQLAnnotation.AnnotationProto;
@@ -44,17 +46,22 @@ public class AnnotationMap {
   /**
    * Creates an instance of AnnotationMap.
    *
-   * <p>Returns a {@link StructAnnotationMap} instance if <type> is a {@link StructType}. Returns an
-   * {@link ArrayAnnotationMap} if <type> is an {@link ArrayType}.
+   * <p>Returns a {@link StructAnnotationMap} instance if <type> is a composite type.
    */
   public static AnnotationMap create(Type type) {
+    // TODO: Keeping this temporarily until all callers are migrated to use the
+    // component_types() call.
     if (type.isStruct()) {
       return StructAnnotationMap.create(type.asStruct());
-    } else if (type.isArray()) {
-      return ArrayAnnotationMap.create(type.asArray());
-    } else {
+    }
+
+    ImmutableList<Type> componentTypes = type.componentTypes();
+    Preconditions.checkNotNull(componentTypes);
+
+    if (componentTypes.isEmpty()) {
       return new AnnotationMap();
     }
+    return StructAnnotationMap.create(componentTypes);
   }
 
   /**
@@ -88,18 +95,8 @@ public class AnnotationMap {
     return false;
   }
 
-  /** Returns whether the annotation map is a {@link ArrayAnnotationMap}. */
-  public boolean isArrayMap() {
-    return false;
-  }
-
   /** Returns a {@link StructAnnotationMap} if it's a struct map, otherwise returns a null. */
   public StructAnnotationMap asStructMap() {
-    return null;
-  }
-
-  /** Returns a {@link ArrayAnnotationMap} if it's a array map, otherwise returns a null. */
-  public ArrayAnnotationMap asArrayMap() {
     return null;
   }
 
@@ -126,8 +123,6 @@ public class AnnotationMap {
   public int hashCode() {
     if (isStructMap()) {
       return Objects.hash(annotations, asStructMap().getFields());
-    } else if (isArrayMap()) {
-      return Objects.hash(annotations, asArrayMap().getElement());
     }
     return Objects.hashCode(annotations);
   }
@@ -199,12 +194,10 @@ public class AnnotationMap {
    * <p>The structures are compatible when they meet one of the conditions below:
    *
    * <ul>
-   *   <li>This instance and {@code type} both are non {@link StructType} and non {@link ArrayType}.
+   *   <li>This instance and {@code type} both are non {@link StructType}.
    *   <li>This instance is a {@link StructAnnotationMap} and {@code type} is a {@link StructType}
    *       (and the number of fields matches), and its fields are either null or are compatible by
    *       recursively following these rules.
-   *   <li>This instance is an {@link ArrayAnnotationMap} and {@code type} is an {@link ArrayType},
-   *       and its element is null or is compatible by recursively following these rules.
    * </ul>
    *
    * <p>When an annotation map is null, it indicates that the annotation map is empty on all the
@@ -212,24 +205,24 @@ public class AnnotationMap {
    * StructType} and {@link ArrayType}).
    */
   public boolean hasCompatibleStructure(Type type) {
-    if (isStructMap()) {
-      if (!type.isStruct() || asStructMap().getFieldCount() != type.asStruct().getFieldCount()) {
+    ImmutableList<Type> componentTypes = type.componentTypes();
+    Preconditions.checkNotNull(componentTypes);
+
+    if (componentTypes.isEmpty()) {
+      return !isStructMap();
+    }
+
+    if (!isStructMap() || asStructMap().getFieldCount() != componentTypes.size()) {
+      return false;
+    }
+    for (int i = 0; i < componentTypes.size(); i++) {
+      AnnotationMap fieldAnnotationMap = asStructMap().getField(i);
+      if (fieldAnnotationMap != null
+          && !fieldAnnotationMap.hasCompatibleStructure(componentTypes.get(i))) {
         return false;
       }
-      for (int i = 0; i < asStructMap().getFieldCount(); i++) {
-        AnnotationMap fieldAnnotationMap = asStructMap().getField(i);
-        if (fieldAnnotationMap != null
-            && !fieldAnnotationMap.hasCompatibleStructure(type.asStruct().getField(i).getType())) {
-          return false;
-        }
-      }
-      return true;
-    } else if (isArrayMap()) {
-      return type.isArray()
-          && (asArrayMap().getElement() == null
-              || asArrayMap().getElement().hasCompatibleStructure(type.asArray().getElementType()));
     }
-    return !type.isStruct() && !type.isArray();
+    return true;
   }
 
   /** Serializes this instance to an {@link AnnotationMapProto} protobuf. */
@@ -258,13 +251,6 @@ public class AnnotationMap {
           fieldAnnotationMap = deserialize(proto.getStructFields(i));
         }
         annotationMap.asStructMap().addField(fieldAnnotationMap);
-      }
-    } else if (proto.hasArrayElement()) {
-      annotationMap = ArrayAnnotationMap.create();
-      // The default element of ArrayAnnotationMap is null, so we don't need to re-assign a null to
-      // the element when the proto array element is null.
-      if (!proto.getArrayElement().getIsNull()) {
-        annotationMap.asArrayMap().setElement(deserialize(proto.getArrayElement()));
       }
     } else {
       annotationMap = new AnnotationMap();
@@ -329,11 +315,8 @@ public class AnnotationMap {
   /**
    * Normalizes a {@link AnnotationMap} by replacing empty annotation maps with NULL.
    *
-   * <p>After normalization, on all the nested levels:
-   *
-   * <ul/>
-   *   <li/>For a {@link StructAnnotationMap}, each one of its fields is either null or non-empty.
-   *   <li/>For an {@link ArrayAnnotationMap}, its element is either null or non-empty.
+   * <p>After normalization, on all the nested levels. For a {@link StructAnnotationMap}, each one
+   * of its fields is either null or non-empty.
    * </ul>
    */
   public void normalize() {
@@ -345,6 +328,8 @@ public class AnnotationMap {
     switch (kind) {
       case COLLATION:
         return "Collation";
+      case TIMESTAMP_PRECISION:
+        return "TimestampPrecision";
       case SAMPLE_ANNOTATION:
         return "SampleAnnotation";
       case MAX_BUILTIN_ANNOTATION_KIND:
@@ -360,6 +345,9 @@ public class AnnotationMap {
 
     /** Annotation ID for the SampleAnnotation, which is used for testing purposes only. */
     SAMPLE_ANNOTATION(2),
+
+    /** Annotation ID for TimestampPrecisionAnnotation. */
+    TIMESTAMP_PRECISION(3),
 
     /** Annotation ID up to kMaxBuiltinAnnotationKind are reserved for built-in annotations. */
     MAX_BUILTIN_ANNOTATION_KIND(10000);
@@ -401,29 +389,20 @@ public class AnnotationMap {
   @CanIgnoreReturnValue
   boolean normalizeInternal() {
     boolean empty = annotations.isEmpty();
-    if (isStructMap()) {
-      StructAnnotationMap structMap = asStructMap();
-      for (int i = 0; i < structMap.getFieldCount(); i++) {
-        AnnotationMap field = structMap.getField(i);
-        if (field == null) {
-          continue;
-        }
-        // If the field is empty after normalization, then replace the field to null.
-        if (field.normalizeInternal()) {
-          structMap.setField(i, null);
-        } else {
-          empty = false;
-        }
+    if (!isStructMap()) {
+      return empty;
+    }
+    StructAnnotationMap structMap = asStructMap();
+    for (int i = 0; i < structMap.getFieldCount(); i++) {
+      AnnotationMap field = structMap.getField(i);
+      if (field == null) {
+        continue;
       }
-    } else if (isArrayMap()) {
-      ArrayAnnotationMap arrayMap = asArrayMap();
-      if (arrayMap.getElement() != null) {
-        // if the element is empty after normalization, then replace the element to null
-        if (arrayMap.getElement().normalizeInternal()) {
-          arrayMap.setElement(null);
-        } else {
-          empty = false;
-        }
+      // If the field is empty after normalization, then replace the field to null.
+      if (field.normalizeInternal()) {
+        structMap.setField(i, null);
+      } else {
+        empty = false;
       }
     }
     return empty;
@@ -447,16 +426,13 @@ public class AnnotationMap {
     } else if (!annotations.isEmpty()) {
       return false;
     }
-    if (isStructMap()) {
-      for (int i = 0; i < asStructMap().getFieldCount(); i++) {
-        if (asStructMap().getField(i) != null
-            && !asStructMap().getField(i).isEmptyInternal(annotationSpecId)) {
-          return false;
-        }
-      }
-    } else if (isArrayMap()) {
-      if (asArrayMap().getElement() != null
-          && !asArrayMap().getElement().isEmptyInternal(annotationSpecId)) {
+
+    if (!isStructMap()) {
+      return true;
+    }
+    for (int i = 0; i < asStructMap().getFieldCount(); i++) {
+      if (asStructMap().getField(i) != null
+          && !asStructMap().getField(i).isEmptyInternal(annotationSpecId)) {
         return false;
       }
     }
@@ -498,13 +474,8 @@ public class AnnotationMap {
         }
         hasNonEmptyChild |= field != null;
       }
-    } else if (isArrayMap()) {
-      AnnotationMap element = asArrayMap().getElement();
-      if (element != null && !element.isNormailizedInternal(/* checkEmpty= */ true)) {
-        return false;
-      }
-      hasNonEmptyChild = element != null;
     }
+
     if (!checkEmpty) {
       return true;
     }
@@ -551,12 +522,8 @@ public class AnnotationMap {
         }
       }
       return true;
-    } else if (lhs.isArrayMap()) {
-      return rhs.isArrayMap()
-          && equalsInternal(
-              lhs.asArrayMap().getElement(), rhs.asArrayMap().getElement(), annotationSpecId);
     }
-    return !rhs.isStructMap() && !rhs.isArrayMap();
+    return !rhs.isStructMap();
   }
 
   private static boolean simpleValueEquals(SimpleValue lhs, SimpleValue rhs) {

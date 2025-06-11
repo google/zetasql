@@ -1,7 +1,7 @@
 # Tests for resolving proto braced constructors.
 #
 
-[default language_features=V_1_3_BRACED_PROTO_CONSTRUCTORS,V_1_1_CAST_DIFFERENT_ARRAY_TYPES,V_1_2_PROTO_EXTENSIONS_WITH_NEW,V_1_1_WITH_ON_SUBQUERY,V_1_3_WITH_RECURSIVE]
+[default language_features=BRACED_PROTO_CONSTRUCTORS,CAST_DIFFERENT_ARRAY_TYPES,PROTO_EXTENSIONS_WITH_NEW,WITH_ON_SUBQUERY,WITH_RECURSIVE]
 
 [language_features=]
 SELECT NEW zetasql_test__.TestExtraPB {}
@@ -262,7 +262,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_3_BRACED_PROTO_CONSTRUCTORS{{|,V_1_4_UPDATE_CONSTRUCTOR}}]
+[language_features=BRACED_PROTO_CONSTRUCTORS{{|,UPDATE_CONSTRUCTOR}}]
 # An identifier `UPDATE` before an extension parses to UPDATE constructor.
 WITH cte AS (
   SELECT 3 AS UPDATE
@@ -281,14 +281,14 @@ ERROR: Unexpected braced syntax after call to function 'UPDATE'. If the intent i
      (zetasql_test__.TestExtraPBExtensionHolder.test_extra_proto_extension) {
                                                                             ^
 --
-ALTERNATION GROUP: ,V_1_4_UPDATE_CONSTRUCTOR
+ALTERNATION GROUP: ,UPDATE_CONSTRUCTOR
 --
 ERROR: Unrecognized name: zetasql_test__ [at 7:7]
      (zetasql_test__.TestExtraPBExtensionHolder.test_extra_proto_extension) {
       ^
 ==
 
-[language_features=V_1_3_BRACED_PROTO_CONSTRUCTORS,V_1_4_UPDATE_CONSTRUCTOR]
+[language_features=BRACED_PROTO_CONSTRUCTORS,UPDATE_CONSTRUCTOR]
 # A possibly misspelled identifier `UDPATE` before an extension returns an appropriate error.
 WITH cte AS (
   SELECT 3 AS UDPATE
@@ -976,7 +976,7 @@ QueryStmt
 ==
 
 # Infer the type of submessages in REPLACE_FIELDS.
-[language_features=V_1_3_BRACED_PROTO_CONSTRUCTORS,V_1_3_REPLACE_FIELDS]
+[language_features=BRACED_PROTO_CONSTRUCTORS,REPLACE_FIELDS]
 SELECT
   REPLACE_FIELDS(
     KitchenSink, { nested_int64: 1 } AS nested_value
@@ -1051,7 +1051,7 @@ QueryStmt
 ==
 
 # Braced constructor type inferred in generated columns.
-[language_features=V_1_3_BRACED_PROTO_CONSTRUCTORS,V_1_2_GENERATED_COLUMNS]
+[language_features=BRACED_PROTO_CONSTRUCTORS,GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 CREATE TABLE T (
   IntColumn INT32,
@@ -1077,7 +1077,7 @@ CreateTableStmt
 ==
 
 # Braced constructor types inferred in default column value.
-[language_features=V_1_3_BRACED_PROTO_CONSTRUCTORS,V_1_3_COLUMN_DEFAULT_VALUE]
+[language_features=BRACED_PROTO_CONSTRUCTORS,COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 CREATE TABLE T (
   IntColumn INT32,
@@ -1130,7 +1130,7 @@ CREATE FUNCTION myfunc (  ) AS ({int32_val1: 3 int32_val2: 5});
 ==
 
 # Braced constructor type inferred in aggregate SQL function body.
-[language_features=V_1_3_BRACED_PROTO_CONSTRUCTORS,CREATE_AGGREGATE_FUNCTION,TEMPLATE_FUNCTIONS]
+[language_features=BRACED_PROTO_CONSTRUCTORS,CREATE_AGGREGATE_FUNCTION,TEMPLATE_FUNCTIONS]
 CREATE AGGREGATE FUNCTION myfunc (  ) RETURNS zetasql_test__.TestExtraPB AS ({int32_val1: 3 int32_val2: 5});
 --
 CreateFunctionStmt
@@ -1150,7 +1150,7 @@ CreateFunctionStmt
 ==
 
 # Braced constructor type without a return type in an aggregate SQL function body is an error.
-[language_features=V_1_3_BRACED_PROTO_CONSTRUCTORS,CREATE_AGGREGATE_FUNCTION,TEMPLATE_FUNCTIONS]
+[language_features=BRACED_PROTO_CONSTRUCTORS,CREATE_AGGREGATE_FUNCTION,TEMPLATE_FUNCTIONS]
 CREATE AGGREGATE FUNCTION myfunc (  ) AS ({int32_val1: 3 int32_val2: 5});
 --
 ERROR: Unable to infer a type for braced constructor [at 1:43]
@@ -1740,9 +1740,9 @@ ERROR: Unable to infer a type for braced constructor [at 3:3]
 ==
 
 # Regression test against b/259000660.
-# The templated TVF should be parsed with the V_1_3_BRACED_PROTO_CONSTRUCTORS
+# The templated TVF should be parsed with the BRACED_PROTO_CONSTRUCTORS
 # enabled as well.
-[language_features=V_1_3_BRACED_PROTO_CONSTRUCTORS,TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS]
+[language_features=BRACED_PROTO_CONSTRUCTORS,TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS]
 WITH
   T AS (
     SELECT CAST(v as INT32) v
@@ -1803,6 +1803,7 @@ QueryStmt
         |       |   | +-WithRefScan(column_list=[T.v#3], with_query_name="T")
         |       |   +-argument_column_list=[T.v#3]
         |       +-column_index_list=[0]
+        |       +-function_call_signature=(ANY TABLE) -> ANY TABLE
         +-order_by_item_list=
           +-OrderByItem
             +-column_ref=
@@ -1825,3 +1826,12 @@ QueryStmt
     |       +-int32_val1 := ColumnRef(type=INT32, column=T.v#1)
     +-input_scan=
       +-RelationArgumentScan(column_list=[T.v#1], name="T")
+==
+
+# We can't infer function argument proto types yet.
+select
+   fn_on_KitchenSinkPB({int64_key_1: 1, int64_key_2: 2})
+--
+ERROR: Unable to infer a type for braced constructor [at 2:24]
+   fn_on_KitchenSinkPB({int64_key_1: 1, int64_key_2: 2})
+                       ^

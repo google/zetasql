@@ -1,4 +1,4 @@
-[default language_features=V_1_3_BRACED_PROTO_CONSTRUCTORS,V_1_4_STRUCT_BRACED_CONSTRUCTORS]
+[default language_features=BRACED_PROTO_CONSTRUCTORS,STRUCT_BRACED_CONSTRUCTORS]
 
 # No field constructor, plain STRUCT.
 SELECT STRUCT {}

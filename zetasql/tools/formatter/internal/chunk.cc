@@ -2120,6 +2120,10 @@ void MarkUnquotedPaths(const TokensView& tokens_view) {
   if (tokens[statement_start]->GetKeyword() == "USE" &&
       tokens[statement_start + 1]->GetKeyword() == "DATABASE") {
     path_start = statement_start + 2;
+    // USE /span/universe/namespace:local_name;
+    // This syntax is used for (broken link)
+  } else if (tokens[statement_start]->GetKeyword() == "USE") {
+    path_start = statement_start + 1;
     // "DEFINE TABLE name format:/path/to/data*;"
   } else if (tokens[statement_start]->GetKeyword() == "DEFINE") {
     int t = statement_start + 1;

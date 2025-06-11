@@ -11,6 +11,8 @@ functionality and usability.
 
 For more background and details on pipe syntax design, see the research paper
 [SQL Has Problems. We Can Fix Them: Pipe Syntax In SQL][pipe-syntax-paper]{: .external}.
+For an introduction to pipe syntax, see
+[Work with pipe syntax][pipe-syntax-guide].
 
 ## Pipe syntax 
 <a id="pipe_syntax"></a>
@@ -160,7 +162,8 @@ FROM
  +---------+-------*/
 ```
 
-## Pipe operators
+## Pipe operators 
+<a id="pipe_operators"></a>
 
 ZetaSQL supports the following pipe operators. For operators that
 correspond or relate to similar operations in standard syntax, the operator
@@ -349,9 +352,8 @@ documentation on the corresponding syntax.
 
 Produces a new table with the listed columns, similar to the outermost
 [`SELECT` clause][select-clause] in a table subquery in standard syntax.
-Supports standard output modifiers like `SELECT AS STRUCT`, and supports
-[window functions][window-functions]. Doesn't support aggregations or
-anonymization.
+The `SELECT` operator supports standard output modifiers like `SELECT AS STRUCT`, and supports
+[window functions][window-functions]. The `SELECT` operator doesn't support aggregations or anonymization.
 
 In pipe syntax, the `SELECT` operator in a query is optional. The `SELECT`
 operator can be used near the end of a query to specify the list of output
@@ -374,7 +376,7 @@ pipe syntax supports other operators:
 +   The [`DROP` operator][drop-pipe-operator] removes columns.
 +   The [`RENAME` operator][rename-pipe-operator] renames columns.
 
-**Example**
+**Examples**
 
 ```zetasql
 FROM (SELECT 'apples' AS item, 2 AS sales)
@@ -390,6 +392,8 @@ FROM (SELECT 'apples' AS item, 2 AS sales)
 [select-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_list
 
 [window-functions]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+[named-windows]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md#def_use_named_window
 
 [select-star]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_
 
@@ -415,7 +419,7 @@ FROM (SELECT 'apples' AS item, 2 AS sales)
 **Description**
 
 Propagates the existing table and adds computed columns, similar to
-[`SELECT *, new_column`][select-star] in standard syntax. Supports
+[`SELECT *, new_column`][select-star] in standard syntax. The `EXTEND` operator supports
 [window functions][window-functions].
 
 **Examples**
@@ -459,6 +463,8 @@ Propagates the existing table and adds computed columns, similar to
 [select-star]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_
 
 [window-functions]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+[named-windows]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md#def_use_named_window
 
 ### `SET` pipe operator 
 <a id="set_pipe_operator"></a>
@@ -784,9 +790,9 @@ The `AGGREGATE` expression list corresponds to the aggregated expressions in a
 `SELECT` list in standard syntax. Each expression in the `AGGREGATE` list must
 include an aggregate function. Aggregate expressions can also include scalar
 expressions (for example, `sqrt(SUM(x*x))`). Column aliases can be assigned
-using the [`AS` operator][as-pipe-operator]. Window functions aren't allowed,
-but the [`EXTEND` operator][extend-pipe-operator] can be used before the
-`AGGREGATE` operator to compute window functions.
+using the [`AS` operator][as-pipe-operator]. Window
+functions aren't allowed, but the [`EXTEND` operator][extend-pipe-operator] can
+be used before the `AGGREGATE` operator to compute window functions.
 
 The `GROUP BY` clause in the `AGGREGATE` operator corresponds to the `GROUP BY`
 clause in standard syntax. Unlike in standard syntax, aliases can be assigned to
@@ -1678,7 +1684,8 @@ input table is needed, perhaps to disambiguate columns in an
 
 **Description**
 
-Calls a [table-valued function][tvf] (TVF), similar to
+Calls a [table-valued function][tvf] (TVF) that accepts at least one table as
+an argument, similar to
 [table function calls][table-function-calls] in standard syntax.
 
 TVFs in standard syntax can be called in the `FROM` clause or in a `JOIN`
@@ -1906,6 +1913,8 @@ FROM table
 
 [query-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md
 
+[pipe-syntax-guide]: https://github.com/google/zetasql/blob/master/docs/pipe-syntax-guide.md
+
 [pipe-syntax-paper]: https://research.google/pubs/sql-has-problems-we-can-fix-them-pipe-syntax-in-sql/
 
 [from-queries]: #from_queries
@@ -1918,7 +1927,11 @@ FROM table
 
 [query-comparison]: #query_comparison
 
+[pipe-operators]: #pipe_operators
+
 [value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value_tables
 
 [select-as-value]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_as_value
+
+[subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md
 

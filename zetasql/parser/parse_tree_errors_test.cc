@@ -152,4 +152,20 @@ TEST(Errors, LocationOverride) {
                 "input_start_line_offset: 0 input_start_column_offset: 0 }"));
 }
 
+static absl::Status TestOnNode(const ASTNode* node) {
+  ZETASQL_RETURN_IF_ERROR(MakeSqlErrorIfPresent(node)) << "Node not supported here";
+  return absl::OkStatus();
+}
+
+TEST(Errors, MakeSqlErrorIfPresent) {
+  const ASTNode* node = nullptr;
+  ZETASQL_EXPECT_OK(TestOnNode(node));
+
+  FakeASTNode ast_location;
+  node = &ast_location;
+  EXPECT_THAT(TestOnNode(node), StatusIs(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(TestOnNode(node).ToString(),
+              HasSubstr("Node not supported here"));
+}
+
 }  // namespace zetasql

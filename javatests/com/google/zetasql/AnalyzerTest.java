@@ -524,7 +524,7 @@ public class AnalyzerTest {
     catalog.addFunction(func);
 
     LanguageOptions options = new LanguageOptions();
-    options.enableLanguageFeature(LanguageFeature.FEATURE_V_1_2_SAFE_FUNCTION_CALL);
+    options.enableLanguageFeature(LanguageFeature.FEATURE_SAFE_FUNCTION_CALL);
     AnalyzerOptions analyzerOptions = new AnalyzerOptions();
     analyzerOptions.setLanguageOptions(options);
     Analyzer analyzer = new Analyzer(analyzerOptions, catalog);

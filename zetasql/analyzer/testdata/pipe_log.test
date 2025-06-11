@@ -685,14 +685,12 @@ FROM
       keyvalue_3.a_2 AS a_2
     FROM
       (
+        SELECT
+          KeyValue.Key AS a_1,
+          KeyValue.Value AS a_2
         FROM
-          (
-            SELECT
-              KeyValue.Key AS a_1,
-              KeyValue.Value AS a_2
-            FROM
-              KeyValue
-          ) AS keyvalue_3
+          KeyValue
+        |> AS keyvalue_3
         |> LOG  (
              |> SELECT AS STRUCT
                   *
@@ -701,35 +699,30 @@ FROM
                   ARRAY_AGG(__StructValue__) AS __SubpipelineInput__
              |> JOIN
                 UNNEST(ARRAY(
-                  SELECT AS STRUCT
-                    *
+                  SELECT
+                    projectscan_6.a_1 AS a_1,
+                    projectscan_6.a_2 AS a_2,
+                    projectscan_6.a_5 AS a_5
                   FROM
                     (
+                      SELECT
+                        subpipelineinputscan_4.a_1 AS a_1,
+                        subpipelineinputscan_4.a_2 AS a_2,
+                        (subpipelineinputscan_4.a_1) * 10 AS a_5
                       FROM
                         (
                           SELECT
-                            projectscan_6.a_1 AS a_1,
-                            projectscan_6.a_2 AS a_2,
-                            projectscan_6.a_5 AS a_5
+                            *
                           FROM
-                            (
-                              SELECT
-                                subpipelineinputscan_4.a_1 AS a_1,
-                                subpipelineinputscan_4.a_2 AS a_2,
-                                (subpipelineinputscan_4.a_1) * 10 AS a_5
-                              FROM
-                                (
-                                  SELECT
-                                    *
-                                  FROM
-                                    UNNEST(__SubpipelineInput__)
-                                ) AS subpipelineinputscan_4
-                              WHERE
-                                (subpipelineinputscan_4.a_1) = 10
-                            ) AS projectscan_6
-                          ORDER BY projectscan_6.a_5
-                        ) AS orderbyscan_7
-                    )
+                            UNNEST(__SubpipelineInput__)
+                        ) AS subpipelineinputscan_4
+                      WHERE
+                        (subpipelineinputscan_4.a_1) = 10
+                    ) AS projectscan_6
+                  ORDER BY projectscan_6.a_5
+                  |> AS orderbyscan_7
+                  |> SELECT AS STRUCT
+                       *
                 ))
              |> SELECT
                   *
@@ -788,7 +781,7 @@ FROM
 # Check for error if we try to log an unretunable type (GRAPH_ELEMENT).
 # If we don't do it in LOG, we get the same error when returning it from
 # the outer query.
-[language_features=PIPES,PIPE_LOG,V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[language_features=PIPES,PIPE_LOG,SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 FROM GRAPH_TABLE(
   aml
   MATCH (a IS Person) -[e]-> (b IS Account)

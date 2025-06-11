@@ -40,6 +40,9 @@ using zetasql::test_values::OrderPreservationKind;
 using zetasql::test_values::Range;
 using zetasql::test_values::Struct;
 using zetasql::test_values::StructArray;
+using zetasql::test_values::DynamicGraphEdge;
+using zetasql::test_values::DynamicGraphNode;
+using zetasql::test_values::MakeDynamicGraphElementType;
 
 using zetasql::types::BigNumericType;
 using zetasql::types::BoolType;

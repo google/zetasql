@@ -36,14 +36,14 @@ constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 
 std::vector<FunctionTestCall> GetFunctionTestsOctetLength() {
   std::vector<FunctionTestCall> results = {
-    // OCTET_LENGTH(string) -> int64_t
+    // OCTET_LENGTH(string) -> int64
     {"octet_length", {NullString()}, NullInt64()},
     {"octet_length", {""}, 0ll},
     {"octet_length", {"e"}, 1ll},
     {"octet_length", {"abcde"}, 5ll},
     {"octet_length", {"абвгд"}, 10ll},
     {"octet_length", {"\0\0"}, 2ll},
-    // OCTET_LENGTH(bytes) -> int64_t
+    // OCTET_LENGTH(bytes) -> int64
     {"octet_length", {NullBytes()}, NullInt64()},
     {"octet_length", {Bytes("")}, 0ll},
     {"octet_length", {Bytes("e")}, 1ll},
@@ -56,7 +56,7 @@ std::vector<FunctionTestCall> GetFunctionTestsOctetLength() {
 
 std::vector<FunctionTestCall> GetFunctionTestsAscii() {
   std::vector<FunctionTestCall> results = {
-    // ASCII(string) -> int64_t
+    // ASCII(string) -> int64
     {"ascii", {NullString()}, NullInt64()},
     {"ascii", {""}, 0ll},
     {"ascii", {" A"}, 32ll},
@@ -69,7 +69,7 @@ std::vector<FunctionTestCall> GetFunctionTestsAscii() {
     {"ascii", {"\uFFFF"}, NullInt64(), OUT_OF_RANGE},
     {"ascii", {"ЖЩФ"}, NullInt64(), OUT_OF_RANGE},
 
-    // ASCII(bytes) -> int64_t
+    // ASCII(bytes) -> int64
     {"ascii", {NullBytes()}, NullInt64()},
     {"ascii", {Bytes("")}, 0ll},
     {"ascii", {Bytes(" A")}, 32ll},
@@ -87,7 +87,7 @@ std::vector<FunctionTestCall> GetFunctionTestsAscii() {
 
 std::vector<FunctionTestCall> GetFunctionTestsUnicode() {
   std::vector<FunctionTestCall> results = {
-    // unicode(string) -> int64_t
+    // unicode(string) -> int64
     {"unicode", {NullString()}, NullInt64()},
     {"unicode", {""}, 0ll},
     {"unicode", {" A"}, 32ll},

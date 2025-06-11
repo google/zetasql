@@ -1347,7 +1347,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   }
 
   // An invalid signature like
-  //   fn(optional a int32_t default 1, optional b string).
+  //   fn(optional a int32 default 1, optional b string).
   arguments.clear();
   arguments.emplace_back(factory.get_int32(),
                          FunctionArgumentTypeOptions(FunctionEnums::OPTIONAL)
@@ -1369,7 +1369,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   }
 
   // An invalid signature like
-  //   fn(a int32_t, a string).
+  //   fn(a int32, a string).
   arguments.clear();
   arguments.emplace_back(factory.get_int32(),
                          FunctionArgumentTypeOptions(FunctionEnums::REQUIRED)
@@ -2041,9 +2041,9 @@ TEST(FunctionSignatureTests, FunctionSignatureOptionTests) {
       FunctionSignatureOptions().AddRequiredLanguageFeature(
           FEATURE_EXTENDED_TYPES)};
   EXPECT_TRUE(signature.options().CheckAllRequiredFeaturesAreEnabled(
-      {FEATURE_EXTENDED_TYPES, FEATURE_V_1_2_CIVIL_TIME}));
+      {FEATURE_EXTENDED_TYPES, FEATURE_CIVIL_TIME}));
   EXPECT_FALSE(signature.options().CheckAllRequiredFeaturesAreEnabled(
-      {FEATURE_NUMERIC_TYPE, FEATURE_V_1_2_CIVIL_TIME}));
+      {FEATURE_NUMERIC_TYPE, FEATURE_CIVIL_TIME}));
 }
 
 TEST(FunctionSignatureTests, FunctionSignatureRewriteOptionsSerialization) {

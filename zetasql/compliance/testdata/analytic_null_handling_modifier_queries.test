@@ -1,6 +1,6 @@
 # TODO: Add at least one test per combination of function and frame.
 
-[default required_features=ANALYTIC_FUNCTIONS,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC]
+[default required_features=ANALYTIC_FUNCTIONS,NULL_HANDLING_MODIFIER_IN_ANALYTIC]
 [prepare_database]
 CREATE TABLE TestTable AS
 SELECT cast(1 as int64) as row_id,

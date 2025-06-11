@@ -2,7 +2,7 @@
 [load_proto_names=zetasql_test__.KitchenSinkPB, zetasql_test__.TestExtraPB, zetasql_test__.KitchenSinkPB.Nested, zetasql_test__.KitchenSinkExtension, zetasql_test__.RecursivePB, zetasql_test__.TestNullabilityMiddlePB, zetasql_test__.MessageWithMapField, zetasql_test__.MessageWithMapField.StringInt32MapEntry, zetasql_test__.OneofProto, zetasql_test__.OneofProtoRecursive]
 
 [name=replace_fields_proto_top_level]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 SELECT
   REPLACE_FIELDS(
     CAST(
@@ -32,7 +32,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
 ==
 
 [name=replace_fields_proto_nested_field]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 SELECT
   REPLACE_FIELDS(
     CAST(
@@ -58,7 +58,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
 ==
 
 [name=replace_fields_proto_null]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 SELECT
   REPLACE_FIELDS(
     CAST(NULL as zetasql_test__.KitchenSinkPB),
@@ -70,7 +70,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[{NULL}]
 ==
 
 [name=replace_fields_proto_complex_nested]
-[required_features=V_1_3_REPLACE_FIELDS,V_1_2_PROTO_EXTENSIONS_WITH_NEW]
+[required_features=REPLACE_FIELDS,PROTO_EXTENSIONS_WITH_NEW]
 SELECT
   REPLACE_FIELDS(
     NEW
@@ -101,7 +101,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.RecursivePB>>>[
 ==
 
 [name=replace_fields_proto_formatted_fields]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 SELECT
   REPLACE_FIELDS(
     CAST(
@@ -125,7 +125,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
 ==
 
 [name=replace_fields_proto_repeated_append]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 WITH KitchenSinkTable as (SELECT CAST(
       "int64_key_1:13, int64_key_2:123, repeated_int64_val:[3,2,1]"
         as zetasql_test__.KitchenSinkPB
@@ -150,7 +150,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
 ==
 
 [name=replace_fields_proto_array_of_protos]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 SELECT
   ARRAY(
     SELECT
@@ -174,7 +174,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 ==
 
 [name=replace_fields_proto_extension]
-[required_features=V_1_3_REPLACE_FIELDS,V_1_2_PROTO_EXTENSIONS_WITH_NEW]
+[required_features=REPLACE_FIELDS,PROTO_EXTENSIONS_WITH_NEW]
 SELECT
   REPLACE_FIELDS(
     NEW
@@ -218,7 +218,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
 ==
 
 [name=replace_fields_proto_named_extension]
-[required_features=V_1_3_REPLACE_FIELDS,V_1_2_PROTO_EXTENSIONS_WITH_NEW]
+[required_features=REPLACE_FIELDS,PROTO_EXTENSIONS_WITH_NEW]
 SELECT
   REPLACE_FIELDS(
     NEW
@@ -254,7 +254,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
 ==
 
 [name=replace_fields_proto_clear]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 SELECT
   REPLACE_FIELDS(
     CAST(
@@ -279,7 +279,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
 ==
 
 [name=replace_fields_proto_clear_required]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 SELECT
   REPLACE_FIELDS(
     CAST(
@@ -293,7 +293,7 @@ ERROR: generic::out_of_range: REPLACE_FIELDS() cannot be used to clear required 
 ==
 
 [name=replace_fields_proto_clear_required_subfield]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 SELECT
   REPLACE_FIELDS(
     CAST(
@@ -307,7 +307,7 @@ ERROR: generic::out_of_range: REPLACE_FIELDS() cannot be used to clear required 
 ==
 
 [name=replace_fields_proto_modify_unset_subfield]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 SELECT
   REPLACE_FIELDS(
     CAST(
@@ -321,7 +321,7 @@ ERROR: generic::out_of_range: REPLACE_FIELDS() cannot be used to modify the fiel
 ==
 
 [name=replace_fields_proto_oneofs]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 SELECT
   REPLACE_FIELDS(
     CAST(
@@ -344,7 +344,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
 # Multiple fields of a oneof are specified. The last non-null field is set
 # in the output.
 [name=replace_fields_proto_multiple_oneofs]
-[required_features=V_1_3_REPLACE_FIELDS,V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
+[required_features=REPLACE_FIELDS,REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
 SELECT
   REPLACE_FIELDS(
     CAST(
@@ -392,7 +392,7 @@ ARRAY<STRUCT<
 # All oneof fields are NULL. The oneof in the input is cleared only if the oneof
 # case is specified in the replace_fields.
 [name=replace_fields_proto_null_oneofs]
-[required_features=V_1_3_REPLACE_FIELDS,V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
+[required_features=REPLACE_FIELDS,REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
 SELECT
   REPLACE_FIELDS(
     CAST(
@@ -422,7 +422,7 @@ ARRAY<STRUCT<
 
 # Update the children of a message-type oneof field.
 [name=replace_fields_proto_msg_oneof]
-[required_features=V_1_3_REPLACE_FIELDS,V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
+[required_features=REPLACE_FIELDS,REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
 SELECT
   REPLACE_FIELDS(
     CAST(
@@ -498,7 +498,7 @@ ARRAY<STRUCT<
 # We cannot update recursive_oneof.non_oneof because recursive_oneof is unset
 # by the preceding string_one_of update.
 [name=replace_fields_proto_msg_oneof_after_other_oneof]
-[required_features=V_1_3_REPLACE_FIELDS,V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
+[required_features=REPLACE_FIELDS,REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
 SELECT
   REPLACE_FIELDS(
     CAST(
@@ -514,7 +514,7 @@ ERROR: generic::out_of_range: REPLACE_FIELDS() cannot be used to modify the fiel
 # recursive_oneof.non_oneof is updated because the preceding string_one_of is
 # NULL.
 [name=replace_fields_proto_msg_oneof_after_null_oneof]
-[required_features=V_1_3_REPLACE_FIELDS,V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
+[required_features=REPLACE_FIELDS,REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
 SELECT
   REPLACE_FIELDS(
     CAST(
@@ -537,7 +537,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.OneofProtoRecursive>>>[
 # The change to recursive_oneof is discarded after int32_one_of is set in
 # the output.
 [name=replace_fields_proto_msg_oneof_before_another_oneof]
-[required_features=V_1_3_REPLACE_FIELDS,V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
+[required_features=REPLACE_FIELDS,REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
 SELECT
   REPLACE_FIELDS(
     CAST(
@@ -558,7 +558,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.OneofProtoRecursive>>>[
 # Cannot update children of multiple message-type oneof fields because
 # at least one must be NULL.
 [name=replace_fields_proto_multi_msg_oneofs]
-[required_features=V_1_3_REPLACE_FIELDS,V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
+[required_features=REPLACE_FIELDS,REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
 SELECT
   REPLACE_FIELDS(
     CAST(
@@ -572,7 +572,7 @@ ERROR: generic::out_of_range: REPLACE_FIELDS() cannot be used to modify the fiel
 ==
 
 [name=replace_fields_proto_multi_msg_oneofs_null_input]
-[required_features=V_1_3_REPLACE_FIELDS,V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
+[required_features=REPLACE_FIELDS,REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
 SELECT
   REPLACE_FIELDS(
     CAST(NULL as zetasql_test__.OneofProtoRecursive),
@@ -584,7 +584,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.OneofProtoRecursive>>>[{NULL}]
 
 # Update the child of a GROUP-type message in a oneof.
 [name=replace_fields_proto_oneof_group]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 SELECT
   REPLACE_FIELDS(
     CAST(
@@ -607,7 +607,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.OneofProto>>>[
 # The input contains multiple instances of recursive_oneof.
 # int64_repeated should be updated only once.
 [name=replace_fields_proto_multi_oneof_in_input]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 SELECT
   REPLACE_FIELDS(
     CAST(
@@ -639,7 +639,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.OneofProtoRecursive>>>[
 ==
 
 [name=replace_fields_struct_top_level]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 SELECT
   REPLACE_FIELDS(
     STRUCT(
@@ -676,7 +676,7 @@ ARRAY<STRUCT<STRUCT<
 ==
 
 [name=replace_fields_struct_nested]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 SELECT
   REPLACE_FIELDS(
     STRUCT(
@@ -713,7 +713,7 @@ ARRAY<STRUCT<STRUCT<nested_struct STRUCT<
 
 
 [name=replace_fields_struct_null]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 SELECT
   REPLACE_FIELDS(
     CAST(NULL as STRUCT<int64_val INT64, bool_val BOOL, struct_val STRUCT<int64_val INT64>>),
@@ -728,7 +728,7 @@ ARRAY<STRUCT<STRUCT<
 ==
 
 [name=replace_fields_struct_clear]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 SELECT
   REPLACE_FIELDS(
     STRUCT(
@@ -756,7 +756,7 @@ ARRAY<STRUCT<
 ==
 
 [name=replace_fields_struct_proto_top_level]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 SELECT
   REPLACE_FIELDS(
     STRUCT(
@@ -787,7 +787,7 @@ ARRAY<STRUCT<STRUCT<nested_proto PROTO<zetasql_test__.KitchenSinkPB>>>>[
 ==
 
 [name=replace_fields_struct_proto_nested]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 SELECT
   REPLACE_FIELDS(STRUCT(
     CAST(
@@ -813,7 +813,7 @@ ARRAY<STRUCT<STRUCT<proto_field PROTO<zetasql_test__.KitchenSinkPB>>>>[
 ==
 
 [name=replace_fields_struct_proto_extension]
-[required_features=V_1_3_REPLACE_FIELDS,V_1_2_PROTO_EXTENSIONS_WITH_NEW]
+[required_features=REPLACE_FIELDS,PROTO_EXTENSIONS_WITH_NEW]
 SELECT
   REPLACE_FIELDS(
     STRUCT(
@@ -856,7 +856,7 @@ ARRAY<STRUCT<STRUCT<nested_proto PROTO<zetasql_test__.KitchenSinkPB>>>>[
 ==
 
 [name=replace_fields_struct_proto_complex_nested]
-[required_features=V_1_3_REPLACE_FIELDS,V_1_2_PROTO_EXTENSIONS_WITH_NEW]
+[required_features=REPLACE_FIELDS,PROTO_EXTENSIONS_WITH_NEW]
 SELECT
   REPLACE_FIELDS(
     STRUCT(
@@ -903,7 +903,7 @@ ARRAY<STRUCT<
 ==
 
 [name=replace_fields_struct_proto_clear_required]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 SELECT
   REPLACE_FIELDS(
     STRUCT(CAST(
@@ -917,7 +917,7 @@ ERROR: generic::out_of_range: REPLACE_FIELDS() cannot be used to clear required 
 ==
 
 [name=replace_fields_struct_proto_modify_unset_subfield]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 SELECT
   REPLACE_FIELDS(
     STRUCT(CAST(
@@ -931,7 +931,7 @@ ERROR: generic::out_of_range: REPLACE_FIELDS() cannot be used to modify the fiel
 ==
 
 [name=replace_map_field]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 
 SELECT
   REPLACE_FIELDS(
@@ -950,7 +950,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.MessageWithMapField>>>[
 ==
 
 [name=replace_map_field_key_null]
-[required_features=V_1_3_REPLACE_FIELDS,V_1_3_PROTO_MAPS]
+[required_features=REPLACE_FIELDS,PROTO_MAPS]
 
 SELECT
   REPLACE_FIELDS(
@@ -962,7 +962,7 @@ ERROR: generic::out_of_range: Cannot write NULL to key or value of map field in 
 ==
 
 [name=replace_map_field_value_null]
-[required_features=V_1_3_REPLACE_FIELDS,V_1_3_PROTO_MAPS]
+[required_features=REPLACE_FIELDS,PROTO_MAPS]
 
 SELECT
   REPLACE_FIELDS(
@@ -973,7 +973,7 @@ SELECT
 ERROR: generic::out_of_range: Cannot write NULL to key or value of map field in StringInt32MapEntry
 ==
 [name=replace_map_field_entry_key]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 
 SELECT
   REPLACE_FIELDS(
@@ -990,7 +990,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>>[
 ==
 
 [name=replace_map_field_entry_value]
-[required_features=V_1_3_REPLACE_FIELDS]
+[required_features=REPLACE_FIELDS]
 SELECT
   REPLACE_FIELDS(
     CAST("key: 'foo' value: 123" as zetasql_test__.MessageWithMapField.StringInt32MapEntry),
@@ -1006,7 +1006,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>>[
 ==
 
 [name=replace_map_field_entry_key_null]
-[required_features=V_1_3_REPLACE_FIELDS,V_1_3_PROTO_MAPS]
+[required_features=REPLACE_FIELDS,PROTO_MAPS]
 SELECT
   REPLACE_FIELDS(
     CAST("key: 'foo' value: 123" as zetasql_test__.MessageWithMapField.StringInt32MapEntry),
@@ -1017,7 +1017,7 @@ ERROR: generic::out_of_range: REPLACE_FIELDS() cannot be used to clear a field o
 ==
 
 [name=replace_map_field_entry_value_null]
-[required_features=V_1_3_REPLACE_FIELDS,V_1_3_PROTO_MAPS]
+[required_features=REPLACE_FIELDS,PROTO_MAPS]
 SELECT
   REPLACE_FIELDS(
     CAST("key: 'foo' value: 123" as zetasql_test__.MessageWithMapField.StringInt32MapEntry),

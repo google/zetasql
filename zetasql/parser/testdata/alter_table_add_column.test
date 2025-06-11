@@ -2,7 +2,7 @@
 # TODO: Remove this after parse locations have been manually
 # verified as correct.
 [default no_show_parse_location_text]
-[default language_features=V_1_3_COLUMN_DEFAULT_VALUE]
+[default language_features=COLUMN_DEFAULT_VALUE]
 ALTER TABLE foo ADD COLUMN bar STRING;
 --
 AlterTableStatement [0-37]
@@ -347,7 +347,7 @@ ALTER TABLE foo ADD COLUMN union STRING;
                            ^
 ==
 
-[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
 ALTER TABLE foo-bar-123 ADD COLUMN baz STRING;
 --
 ALTERNATION GROUP: <empty>
@@ -356,7 +356,7 @@ ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `
 ALTER TABLE foo-bar-123 ADD COLUMN baz STRING;
             ^
 --
-ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
 --
 AlterTableStatement [0-45]
   PathExpression [12-23]

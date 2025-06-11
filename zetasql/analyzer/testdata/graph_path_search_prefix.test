@@ -1,4 +1,4 @@
-[default language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_SEARCH_PREFIX_PATH_COUNT]
 [default no_test_extract_table_names]
 [default run_sqlbuilder]
 
@@ -89,7 +89,7 @@ QueryStmt
         |   | | | | |     |     +-op=NOT
         |   | | | | |     |     +-operand_list=
         |   | | | | |     |       +-GraphWildCardLabel
-        |   | | | | |     +-GraphLabel(label=aml.Account)
+        |   | | | | |     +-GraphLabel(parse_location=132-139, label=aml.Account)
         |   | | | | +-target_element_table_list=[aml.Account]
         |   | | | +-GraphEdgeScan
         |   | | | | +-column_list=[$element_table.b#2]
@@ -164,7 +164,7 @@ QueryStmt
         |   | | | | |     |     +-op=NOT
         |   | | | | |     |     +-operand_list=
         |   | | | | |     |       +-GraphWildCardLabel
-        |   | | | | |     +-GraphLabel(label=aml.Account)
+        |   | | | | |     +-GraphLabel(parse_location=132-139, label=aml.Account)
         |   | | | | +-target_element_table_list=[aml.Account]
         |   | | | +-GraphEdgeScan
         |   | | | | +-column_list=[$element_table.f#5]
@@ -220,7 +220,7 @@ QueryStmt
         |   | | |   |     |     +-op=NOT
         |   | | |   |     |     +-operand_list=
         |   | | |   |     |       +-GraphWildCardLabel
-        |   | | |   |     +-GraphLabel(label=aml.Account)
+        |   | | |   |     +-GraphLabel(parse_location=132-139, label=aml.Account)
         |   | | |   +-target_element_table_list=[aml.Account]
         |   | | +-filter_expr=
         |   | | | +-FunctionCall(ZetaSQL:$equal(GRAPH_NODE(aml)<balance UINT64, id INT64>, GRAPH_NODE(aml)<balance UINT64, id INT64>) -> BOOL)
@@ -274,7 +274,7 @@ QueryStmt
         |   | | | | |     |     +-op=NOT
         |   | | | | |     |     +-operand_list=
         |   | | | | |     |       +-GraphWildCardLabel
-        |   | | | | |     +-GraphLabel(label=aml.Account)
+        |   | | | | |     +-GraphLabel(parse_location=132-139, label=aml.Account)
         |   | | | | +-target_element_table_list=[aml.Account]
         |   | | | +-GraphEdgeScan
         |   | | | | +-column_list=[$element_table.$element2#8]
@@ -389,7 +389,7 @@ QueryStmt
         |   |   |   |     |     +-op=NOT
         |   |   |   |     |     +-operand_list=
         |   |   |   |     |       +-GraphWildCardLabel
-        |   |   |   |     +-GraphLabel(label=aml.Account)
+        |   |   |   |     +-GraphLabel(parse_location=132-139, label=aml.Account)
         |   |   |   +-target_element_table_list=[aml.Account]
         |   |   +-head=$element_table.a#17
         |   |   +-tail=$element_table.a#17
@@ -529,7 +529,13 @@ select * from graph_table(
 )
 --
 
-ERROR: No matching signature for operator = for argument types: GRAPH_EDGE(aml)<>, GRAPH_NODE(aml)<balance UINT64, id INT64>. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 3:9]
+ERROR: No matching signature for operator = for argument types: GRAPH_EDGE(aml)<>, GRAPH_NODE(aml)<balance UINT64, id INT64>
+  Signature: T1 = T1
+    Argument 1: expected T1, found GRAPH_EDGE(aml)<>: which is not allowed for ANY arguments
+  Signature: INT64 = UINT64
+    Argument 1: Unable to coerce type GRAPH_EDGE(aml)<> to expected type INT64
+  Signature: UINT64 = INT64
+    Argument 1: Unable to coerce type GRAPH_EDGE(aml)<> to expected type UINT64 [at 3:9]
   MATCH ANY -[a]->,
         ^
 ==
@@ -639,7 +645,7 @@ QueryStmt
         |   | | | | |     |     +-op=NOT
         |   | | | | |     |     +-operand_list=
         |   | | | | |     |       +-GraphWildCardLabel
-        |   | | | | |     +-GraphLabel(label=aml.Account)
+        |   | | | | |     +-GraphLabel(parse_location=145-152, label=aml.Account)
         |   | | | | +-target_element_table_list=[aml.Account]
         |   | | | +-GraphEdgeScan
         |   | | | | +-column_list=[$element_table.$element1#2]
@@ -714,7 +720,7 @@ QueryStmt
         |   | | | | |     |     +-op=NOT
         |   | | | | |     |     +-operand_list=
         |   | | | | |     |       +-GraphWildCardLabel
-        |   | | | | |     +-GraphLabel(label=aml.Account)
+        |   | | | | |     +-GraphLabel(parse_location=145-152, label=aml.Account)
         |   | | | | +-target_element_table_list=[aml.Account]
         |   | | | +-GraphEdgeScan
         |   | | | | +-column_list=[$element_table.b#4]
@@ -812,7 +818,7 @@ QueryStmt
         |   | | | | |     |     +-op=NOT
         |   | | | | |     |     +-operand_list=
         |   | | | | |     |       +-GraphWildCardLabel
-        |   | | | | |     +-GraphLabel(label=aml.Account)
+        |   | | | | |     +-GraphLabel(parse_location=145-152, label=aml.Account)
         |   | | | | +-target_element_table_list=[aml.Account]
         |   | | | +-GraphEdgeScan
         |   | | | | +-column_list=[$element_table.$element2#7]
@@ -887,7 +893,7 @@ QueryStmt
         |   | | | | |     |     +-op=NOT
         |   | | | | |     |     +-operand_list=
         |   | | | | |     |       +-GraphWildCardLabel
-        |   | | | | |     +-GraphLabel(label=aml.Account)
+        |   | | | | |     +-GraphLabel(parse_location=145-152, label=aml.Account)
         |   | | | | +-target_element_table_list=[aml.Account]
         |   | | | +-GraphEdgeScan
         |   | | | | +-column_list=[$element_table.e#9]
@@ -962,7 +968,7 @@ QueryStmt
         |   | | |   |     |     +-op=NOT
         |   | | |   |     |     +-operand_list=
         |   | | |   |     |       +-GraphWildCardLabel
-        |   | | |   |     +-GraphLabel(label=aml.Account)
+        |   | | |   |     +-GraphLabel(parse_location=145-152, label=aml.Account)
         |   | | |   +-target_element_table_list=[aml.Account]
         |   | | +-filter_expr=
         |   | | | +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
@@ -1039,7 +1045,7 @@ QueryStmt
         |   | | | | |     |     +-op=NOT
         |   | | | | |     |     +-operand_list=
         |   | | | | |     |       +-GraphWildCardLabel
-        |   | | | | |     +-GraphLabel(label=aml.Account)
+        |   | | | | |     +-GraphLabel(parse_location=145-152, label=aml.Account)
         |   | | | | +-target_element_table_list=[aml.Account]
         |   | | | +-GraphEdgeScan
         |   | | | | +-column_list=[$element_table.$element3#12]
@@ -1173,7 +1179,7 @@ QueryStmt
         |   |   | | |     |     +-op=NOT
         |   |   | | |     |     +-operand_list=
         |   |   | | |     |       +-GraphWildCardLabel
-        |   |   | | |     +-GraphLabel(label=aml.Account)
+        |   |   | | |     +-GraphLabel(parse_location=145-152, label=aml.Account)
         |   |   | | +-target_element_table_list=[aml.Account]
         |   |   | +-GraphPathScan
         |   |   |   +-column_list=$path_scan.[$head#28, $tail#29]
@@ -1502,7 +1508,7 @@ QueryStmt
                   | |   | +-GraphNodeScan
                   | |   | | +-column_list=[$element_table.a#11]
                   | |   | | +-label_expr=
-                  | |   | | | +-GraphLabel(label=aml.Account)
+                  | |   | | | +-GraphLabel(parse_location=129-136, label=aml.Account)
                   | |   | | +-target_element_table_list=[aml.Account]
                   | |   | +-GraphPathScan
                   | |   |   +-column_list=$path_scan.[$head#18, $tail#19]
@@ -1620,7 +1626,7 @@ QueryStmt
         |       | | | +-GraphEdgeScan
         |       | | | | +-column_list=[$element_table.b#2]
         |       | | | | +-label_expr=
-        |       | | | | | +-GraphLabel(label=aml.Transfer)
+        |       | | | | | +-GraphLabel(parse_location=61-69, label=aml.Transfer)
         |       | | | | +-target_element_table_list=[aml.Transfer]
         |       | | | | +-orientation=RIGHT
         |       | | | +-GraphNodeScan
@@ -1681,7 +1687,7 @@ QueryStmt
         |       | | |   | +-GraphEdgeScan
         |       | | |   | | +-column_list=[$element_table.$element5#11]
         |       | | |   | | +-label_expr=
-        |       | | |   | | | +-GraphLabel(label=aml.Transfer)
+        |       | | |   | | | +-GraphLabel(parse_location=186-194, label=aml.Transfer)
         |       | | |   | | +-target_element_table_list=[aml.Transfer]
         |       | | |   | | +-orientation=RIGHT
         |       | | |   | +-GraphPathScan
@@ -1702,7 +1708,7 @@ QueryStmt
         |       | | |   |   | +-GraphEdgeScan
         |       | | |   |   | | +-column_list=[$element_table.$element7#13]
         |       | | |   |   | | +-label_expr=
-        |       | | |   |   | | | +-GraphLabel(label=aml.Transfer)
+        |       | | |   |   | | | +-GraphLabel(parse_location=253-261, label=aml.Transfer)
         |       | | |   |   | | +-target_element_table_list=[aml.Transfer]
         |       | | |   |   | | +-orientation=RIGHT
         |       | | |   |   | +-GraphNodeScan
@@ -1740,7 +1746,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.$element9#22]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Account)
+        |       | | | +-GraphLabel(parse_location=430-437, label=aml.Account)
         |       | | +-target_element_table_list=[aml.Account]
         |       | +-GraphPathScan
         |       |   +-column_list=$path_scan.[$head#29, $tail#30]
@@ -1760,7 +1766,7 @@ QueryStmt
         |       |   | +-GraphEdgeScan
         |       |   | | +-column_list=[$element_table.$element11#24]
         |       |   | | +-label_expr=
-        |       |   | | | +-GraphLabel(label=aml.Transfer)
+        |       |   | | | +-GraphLabel(parse_location=443-451, label=aml.Transfer)
         |       |   | | +-target_element_table_list=[aml.Transfer]
         |       |   | | +-orientation=RIGHT
         |       |   | +-GraphNodeScan
@@ -1850,7 +1856,7 @@ QueryStmt
               |   | |   |   | +-GraphEdgeScan
               |   | |   |   | | +-column_list=[$element_table.z#2]
               |   | |   |   | | +-label_expr=
-              |   | |   |   | | | +-GraphLabel(label=aml.Transfer)
+              |   | |   |   | | | +-GraphLabel(parse_location=53-61, label=aml.Transfer)
               |   | |   |   | | +-target_element_table_list=[aml.Transfer]
               |   | |   |   | | +-orientation=RIGHT
               |   | |   |   | +-GraphNodeScan
@@ -1905,7 +1911,7 @@ QueryStmt
               |   | |   | +-GraphEdgeScan
               |   | |   | | +-column_list=[$element_table.x#8]
               |   | |   | | +-label_expr=
-              |   | |   | | | +-GraphLabel(label=aml.Transfer)
+              |   | |   | | | +-GraphLabel(parse_location=101-109, label=aml.Transfer)
               |   | |   | | +-target_element_table_list=[aml.Transfer]
               |   | |   | | +-orientation=RIGHT
               |   | |   | +-GraphPathScan
@@ -1926,7 +1932,7 @@ QueryStmt
               |   | |   |   | +-GraphEdgeScan
               |   | |   |   | | +-column_list=[$element_table.$element5#10]
               |   | |   |   | | +-label_expr=
-              |   | |   |   | | | +-GraphLabel(label=aml.Transfer)
+              |   | |   |   | | | +-GraphLabel(parse_location=116-124, label=aml.Transfer)
               |   | |   |   | | +-target_element_table_list=[aml.Transfer]
               |   | |   |   | | +-orientation=RIGHT
               |   | |   |   | +-GraphNodeScan
@@ -2081,7 +2087,7 @@ QueryStmt
                   | |   | +-GraphNodeScan
                   | |   |   +-column_list=[$element_table.a#1]
                   | |   |   +-label_expr=
-                  | |   |   | +-GraphLabel(label=aml.Account)
+                  | |   |   | +-GraphLabel(parse_location=50-57, label=aml.Account)
                   | |   |   +-target_element_table_list=[aml.Account]
                   | |   +-head=$element_table.a#1
                   | |   +-tail=$element_table.a#1
@@ -2098,7 +2104,7 @@ QueryStmt
 
 ==
 
-[language_features=V_1_4_SQL_GRAPH,V_1_4_SQL_GRAPH_ADVANCED_QUERY,V_1_4_SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,V_1_3_UNNEST_AND_FLATTEN_ARRAYS,V_1_4_SQL_GRAPH_PATH_MODE]
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,UNNEST_AND_FLATTEN_ARRAYS,SQL_GRAPH_PATH_MODE]
 select gt.* from
 graph_table(aml
   match ANY SHORTEST (a)-[e]->{2, 3}(b)
@@ -2307,12 +2313,12 @@ QueryStmt
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.a#1]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Account)
+        |       | | | +-GraphLabel(parse_location=57-64, label=aml.Account)
         |       | | +-target_element_table_list=[aml.Account]
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.b#2]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Account)
+        |       |   | +-GraphLabel(parse_location=68-75, label=aml.Account)
         |       |   +-target_element_table_list=[aml.Account]
         |       +-head=$element_table.a#1
         |       +-tail=$element_table.b#2
@@ -2351,17 +2357,17 @@ QueryStmt
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.a#1]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Account)
+        |       | | | +-GraphLabel(parse_location=57-64, label=aml.Account)
         |       | | +-target_element_table_list=[aml.Account]
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.b#2]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Account)
+        |       | | | +-GraphLabel(parse_location=68-75, label=aml.Account)
         |       | | +-target_element_table_list=[aml.Account]
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.c#3]
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Account)
+        |       |   | +-GraphLabel(parse_location=79-86, label=aml.Account)
         |       |   +-target_element_table_list=[aml.Account]
         |       +-head=$element_table.a#1
         |       +-tail=$element_table.c#3
@@ -2401,7 +2407,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       | | +-column_list=[$element_table.a#1]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Account)
+        |       | | | +-GraphLabel(parse_location=57-64, label=aml.Account)
         |       | | +-target_element_table_list=[aml.Account]
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.$element1#2]
@@ -2486,7 +2492,7 @@ QueryStmt
                   | |   |   | +-GraphEdgeScan
                   | |   |   | | +-column_list=[$element_table.$element2#2]
                   | |   |   | | +-label_expr=
-                  | |   |   | | | +-GraphLabel(label=aml.Transfer)
+                  | |   |   | | | +-GraphLabel(parse_location=59-67, label=aml.Transfer)
                   | |   |   | | +-target_element_table_list=[aml.Transfer]
                   | |   |   | | +-orientation=RIGHT
                   | |   |   | +-GraphNodeScan
@@ -2579,7 +2585,7 @@ QueryStmt
         |       |   |       +-input_scan=
         |       |   |         +-SingleRowScan
         |       |   +-label_expr=
-        |       |   | +-GraphLabel(label=aml.Account)
+        |       |   | +-GraphLabel(parse_location=88-95, label=aml.Account)
         |       |   +-target_element_table_list=[aml.Account]
         |       +-head=$element_table.n_1#1
         |       +-tail=$element_table.n_1#1
@@ -3092,3 +3098,25 @@ QueryStmt
                     | +-one#11 := Literal(type=INT64, value=1)
                     +-input_scan=
                       +-GraphRefScan(column_list=$element_table.[x#1, z#10])
+==
+
+# ANY K/SHORTEST K: with feature disabled.
+[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+select * from graph_table(
+   aml
+   match {{ANY|SHORTEST}} 4 (x)-[y]->{3}(z)
+   RETURN 1 AS one
+ )
+--
+
+ALTERNATION GROUP: ANY
+--
+ERROR: Path search prefix with path count is not supported [at 3:14]
+   match ANY 4 (x)-[y]->{3}(z)
+             ^
+--
+ALTERNATION GROUP: SHORTEST
+--
+ERROR: Path search prefix with path count is not supported [at 3:19]
+   match SHORTEST 4 (x)-[y]->{3}(z)
+                  ^

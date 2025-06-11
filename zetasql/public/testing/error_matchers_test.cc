@@ -115,4 +115,17 @@ TEST(ErrorMatchersTest, IsTableNotFoundError) {
   EXPECT_THAT(error, IsTableNotFoundError("fOo"));
 }
 
+TEST(ErrorMatchersTest, IsSyntaxError) {
+  EXPECT_THAT(absl::InvalidArgumentError(
+                  "Syntax error: Expected end of input but got identifier"),
+              IsSyntaxError());
+}
+
+TEST(ErrorMatchersTest, IsAtLocation) {
+  absl::Status error = absl::InvalidArgumentError("Blah blah [at 27:3]");
+  EXPECT_THAT(error, IsAtLocation(27, 3));
+  EXPECT_THAT(error, Not(IsAtLocation(27, 4)));
+  EXPECT_THAT(error, Not(IsAtLocation(28, 3)));
+}
+
 }  // namespace zetasql

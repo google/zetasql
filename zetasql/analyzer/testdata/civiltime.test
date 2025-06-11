@@ -1,5 +1,5 @@
 # EXTRACT from DATETIME
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select extract(year from datetime '2014-01-01 12:34:56'),
        extract(month from datetime '2014-01-01 12:34:56'),
        extract(day from datetime '2014-01-01 12:34:56'),
@@ -17,7 +17,7 @@ select extract(year from datetime '2014-01-01 12:34:56'),
        extract(isoweek from datetime '2014-01-01 12:34:56'),
        extract(time from datetime '2014-01-01 12:34:56');
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 QueryStmt
 +-output_column_list=
@@ -113,10 +113,10 @@ select extract(year from datetime '2014-01-01 12:34:56'),
                          ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select extract(datetime from datetime '2014-01-01 12:34:56');
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 ERROR: EXTRACT from DATETIME does not support the DATETIME date part [at 1:8]
 select extract(datetime from datetime '2014-01-01 12:34:56');
@@ -129,28 +129,28 @@ select extract(datetime from datetime '2014-01-01 12:34:56');
                              ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select extract(day from datetime '2014-01-01 12:34:56' AT TIME ZONE {{'UTC'|'+00'|'+01:00'|'-01:00'}});
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,'UTC'
+ALTERNATION GROUP: CIVIL_TIME,'UTC'
 --
 ERROR: EXTRACT from DATETIME does not support AT TIME ZONE [at 1:8]
 select extract(day from datetime '2014-01-01 12:34:56' AT TIME ZONE 'UTC');
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,'+00'
+ALTERNATION GROUP: CIVIL_TIME,'+00'
 --
 ERROR: EXTRACT from DATETIME does not support AT TIME ZONE [at 1:8]
 select extract(day from datetime '2014-01-01 12:34:56' AT TIME ZONE '+00');
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,'+01:00'
+ALTERNATION GROUP: CIVIL_TIME,'+01:00'
 --
 ERROR: EXTRACT from DATETIME does not support AT TIME ZONE [at 1:8]
 select extract(day from datetime '2014-01-01 12:34:56' AT TIME ZONE '+01:00');
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,'-01:00'
+ALTERNATION GROUP: CIVIL_TIME,'-01:00'
 --
 ERROR: EXTRACT from DATETIME does not support AT TIME ZONE [at 1:8]
 select extract(day from datetime '2014-01-01 12:34:56' AT TIME ZONE '-01:00');
@@ -182,7 +182,7 @@ select extract(day from datetime '2014-01-01 12:34:56' AT TIME ZONE '-01:00');
 ==
 
 # WEEK(<WEEKDAY>) support
-[language_features={{V_1_2_CIVIL_TIME|V_1_2_CIVIL_TIME,V_1_2_WEEK_WITH_WEEKDAY}}]
+[language_features={{CIVIL_TIME|CIVIL_TIME,WEEK_WITH_WEEKDAY}}]
 select extract(week(sunday) from datetime '2014-01-01 12:34:56'),
        extract(week(monday) from datetime '2014-01-01 12:34:56'),
        extract(week(tuesday) from datetime '2014-01-01 12:34:56'),
@@ -191,13 +191,13 @@ select extract(week(sunday) from datetime '2014-01-01 12:34:56'),
        extract(week(friday) from datetime '2014-01-01 12:34:56'),
        extract(week(saturday) from datetime '2014-01-01 12:34:56')
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 ERROR: Date part arguments are not supported [at 1:21]
 select extract(week(sunday) from datetime '2014-01-01 12:34:56'),
                     ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,V_1_2_WEEK_WITH_WEEKDAY
+ALTERNATION GROUP: CIVIL_TIME,WEEK_WITH_WEEKDAY
 --
 QueryStmt
 +-output_column_list=
@@ -245,14 +245,14 @@ QueryStmt
 ==
 
 # EXTRACT from TIME
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select extract(hour from time '12:34:56'),
        extract(minute from time '12:34:56'),
        extract(second from time '12:34:56'),
        extract(millisecond from time '12:34:56'),
        extract(microsecond from time '12:34:56')
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 QueryStmt
 +-output_column_list=
@@ -295,84 +295,84 @@ select extract(hour from time '12:34:56'),
                          ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select extract({{|YEAR|MONTH|DAY|DAYOFWEEK|DAYOFYEAR|QUARTER|DATE|WEEK|TIME|DATETIME|ISOYEAR|ISOWEEK}} from time '12:34:56');
 --
 ALTERNATION GROUPS:
-    V_1_2_CIVIL_TIME,
+    CIVIL_TIME,
     <empty>
 --
 ERROR: Syntax error: Unexpected keyword FROM [at 1:17]
 select extract( from time '12:34:56');
                 ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,YEAR
+ALTERNATION GROUP: CIVIL_TIME,YEAR
 --
 ERROR: EXTRACT from TIME does not support the YEAR date part [at 1:8]
 select extract(YEAR from time '12:34:56');
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,MONTH
+ALTERNATION GROUP: CIVIL_TIME,MONTH
 --
 ERROR: EXTRACT from TIME does not support the MONTH date part [at 1:8]
 select extract(MONTH from time '12:34:56');
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,DAY
+ALTERNATION GROUP: CIVIL_TIME,DAY
 --
 ERROR: EXTRACT from TIME does not support the DAY date part [at 1:8]
 select extract(DAY from time '12:34:56');
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,DAYOFWEEK
+ALTERNATION GROUP: CIVIL_TIME,DAYOFWEEK
 --
 ERROR: EXTRACT from TIME does not support the DAYOFWEEK date part [at 1:8]
 select extract(DAYOFWEEK from time '12:34:56');
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,DAYOFYEAR
+ALTERNATION GROUP: CIVIL_TIME,DAYOFYEAR
 --
 ERROR: EXTRACT from TIME does not support the DAYOFYEAR date part [at 1:8]
 select extract(DAYOFYEAR from time '12:34:56');
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,QUARTER
+ALTERNATION GROUP: CIVIL_TIME,QUARTER
 --
 ERROR: EXTRACT from TIME does not support the QUARTER date part [at 1:8]
 select extract(QUARTER from time '12:34:56');
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,DATE
+ALTERNATION GROUP: CIVIL_TIME,DATE
 --
 ERROR: EXTRACT from TIME does not support the DATE date part [at 1:8]
 select extract(DATE from time '12:34:56');
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,WEEK
+ALTERNATION GROUP: CIVIL_TIME,WEEK
 --
 ERROR: EXTRACT from TIME does not support the WEEK date part [at 1:8]
 select extract(WEEK from time '12:34:56');
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,TIME
+ALTERNATION GROUP: CIVIL_TIME,TIME
 --
 ERROR: EXTRACT from TIME does not support the TIME date part [at 1:8]
 select extract(TIME from time '12:34:56');
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,DATETIME
+ALTERNATION GROUP: CIVIL_TIME,DATETIME
 --
 ERROR: EXTRACT from TIME does not support the DATETIME date part [at 1:8]
 select extract(DATETIME from time '12:34:56');
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,ISOYEAR
+ALTERNATION GROUP: CIVIL_TIME,ISOYEAR
 --
 ERROR: EXTRACT from TIME does not support the ISOYEAR date part [at 1:8]
 select extract(ISOYEAR from time '12:34:56');
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,ISOWEEK
+ALTERNATION GROUP: CIVIL_TIME,ISOWEEK
 --
 ERROR: EXTRACT from TIME does not support the ISOWEEK date part [at 1:8]
 select extract(ISOWEEK from time '12:34:56');
@@ -451,7 +451,7 @@ select extract(ISOWEEK from time '12:34:56');
                             ^
 ==
 
-[language_features=V_1_2_CIVIL_TIME,V_1_2_WEEK_WITH_WEEKDAY]
+[language_features=CIVIL_TIME,WEEK_WITH_WEEKDAY]
 select extract(week({{sunday|monday|tuesday|wednesday|thursday|friday|saturday}})
 from time '12:34:56');
 --
@@ -498,28 +498,28 @@ select extract(week(saturday)
        ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select extract(hour from time '12:34:56' AT TIME ZONE {{'UTC'|'+00'|'+01:00'|'-01:00'}});
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,'UTC'
+ALTERNATION GROUP: CIVIL_TIME,'UTC'
 --
 ERROR: EXTRACT from TIME does not support AT TIME ZONE [at 1:8]
 select extract(hour from time '12:34:56' AT TIME ZONE 'UTC');
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,'+00'
+ALTERNATION GROUP: CIVIL_TIME,'+00'
 --
 ERROR: EXTRACT from TIME does not support AT TIME ZONE [at 1:8]
 select extract(hour from time '12:34:56' AT TIME ZONE '+00');
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,'+01:00'
+ALTERNATION GROUP: CIVIL_TIME,'+01:00'
 --
 ERROR: EXTRACT from TIME does not support AT TIME ZONE [at 1:8]
 select extract(hour from time '12:34:56' AT TIME ZONE '+01:00');
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,'-01:00'
+ALTERNATION GROUP: CIVIL_TIME,'-01:00'
 --
 ERROR: EXTRACT from TIME does not support AT TIME ZONE [at 1:8]
 select extract(hour from time '12:34:56' AT TIME ZONE '-01:00');
@@ -551,7 +551,7 @@ select extract(hour from time '12:34:56' AT TIME ZONE '-01:00');
 ==
 
 # EXTRACT from TIME with invalid signature
-[language_features=V_1_2_CIVIL_TIME]
+[language_features=CIVIL_TIME]
 SELECT extract(0 from time '12:34:56');
 --
 ERROR: A valid date part name is required [at 1:16]
@@ -559,7 +559,7 @@ SELECT extract(0 from time '12:34:56');
                ^
 ==
 
-[language_features=V_1_2_CIVIL_TIME]
+[language_features=CIVIL_TIME]
 SELECT extract(HOUR from time '12:34:56' AT TIME ZONE 'UTC');
 --
 ERROR: EXTRACT from TIME does not support AT TIME ZONE [at 1:8]
@@ -567,7 +567,7 @@ SELECT extract(HOUR from time '12:34:56' AT TIME ZONE 'UTC');
        ^
 ==
 
-[language_features=V_1_2_CIVIL_TIME]
+[language_features=CIVIL_TIME]
 SELECT extract(time '12:34:56', HOUR);
 --
 ERROR: Syntax error: Unexpected "," [at 1:31]
@@ -575,12 +575,12 @@ SELECT extract(time '12:34:56', HOUR);
                               ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select datetime_{{add|sub}}(
   datetime '2016-01-02 03:04:05.123456',
   interval 1 {{year|quarter|month|week|day|hour|minute|second|millisecond|microsecond}});
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,year
+ALTERNATION GROUP: CIVIL_TIME,add,year
 --
 QueryStmt
 +-output_column_list=
@@ -597,7 +597,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,quarter
+ALTERNATION GROUP: CIVIL_TIME,add,quarter
 --
 QueryStmt
 +-output_column_list=
@@ -614,7 +614,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,month
+ALTERNATION GROUP: CIVIL_TIME,add,month
 --
 QueryStmt
 +-output_column_list=
@@ -631,7 +631,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,week
+ALTERNATION GROUP: CIVIL_TIME,add,week
 --
 QueryStmt
 +-output_column_list=
@@ -648,7 +648,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,day
+ALTERNATION GROUP: CIVIL_TIME,add,day
 --
 QueryStmt
 +-output_column_list=
@@ -665,7 +665,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,hour
+ALTERNATION GROUP: CIVIL_TIME,add,hour
 --
 QueryStmt
 +-output_column_list=
@@ -682,7 +682,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,minute
+ALTERNATION GROUP: CIVIL_TIME,add,minute
 --
 QueryStmt
 +-output_column_list=
@@ -699,7 +699,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,second
+ALTERNATION GROUP: CIVIL_TIME,add,second
 --
 QueryStmt
 +-output_column_list=
@@ -716,7 +716,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,millisecond
+ALTERNATION GROUP: CIVIL_TIME,add,millisecond
 --
 QueryStmt
 +-output_column_list=
@@ -733,7 +733,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,microsecond
+ALTERNATION GROUP: CIVIL_TIME,add,microsecond
 --
 QueryStmt
 +-output_column_list=
@@ -750,7 +750,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,year
+ALTERNATION GROUP: CIVIL_TIME,sub,year
 --
 QueryStmt
 +-output_column_list=
@@ -767,7 +767,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,quarter
+ALTERNATION GROUP: CIVIL_TIME,sub,quarter
 --
 QueryStmt
 +-output_column_list=
@@ -784,7 +784,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,month
+ALTERNATION GROUP: CIVIL_TIME,sub,month
 --
 QueryStmt
 +-output_column_list=
@@ -801,7 +801,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,week
+ALTERNATION GROUP: CIVIL_TIME,sub,week
 --
 QueryStmt
 +-output_column_list=
@@ -818,7 +818,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,day
+ALTERNATION GROUP: CIVIL_TIME,sub,day
 --
 QueryStmt
 +-output_column_list=
@@ -835,7 +835,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,hour
+ALTERNATION GROUP: CIVIL_TIME,sub,hour
 --
 QueryStmt
 +-output_column_list=
@@ -852,7 +852,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,minute
+ALTERNATION GROUP: CIVIL_TIME,sub,minute
 --
 QueryStmt
 +-output_column_list=
@@ -869,7 +869,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,second
+ALTERNATION GROUP: CIVIL_TIME,sub,second
 --
 QueryStmt
 +-output_column_list=
@@ -886,7 +886,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,millisecond
+ALTERNATION GROUP: CIVIL_TIME,sub,millisecond
 --
 QueryStmt
 +-output_column_list=
@@ -903,7 +903,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,microsecond
+ALTERNATION GROUP: CIVIL_TIME,sub,microsecond
 --
 QueryStmt
 +-output_column_list=
@@ -953,48 +953,48 @@ select datetime_sub(
        ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select datetime_{{add|sub}}(
   CURRENT_DATETIME,
   interval 1 {{dayofyear|dayofweek|isoyear|isoweek|date|time|year|quarter|month|week|day|hour|minute|second|millisecond|microsecond}});
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,dayofyear
+ALTERNATION GROUP: CIVIL_TIME,add,dayofyear
 --
 ERROR: DATETIME_ADD does not support the DAYOFYEAR date part [at 1:8]
 select datetime_add(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,dayofweek
+ALTERNATION GROUP: CIVIL_TIME,add,dayofweek
 --
 ERROR: DATETIME_ADD does not support the DAYOFWEEK date part [at 1:8]
 select datetime_add(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,isoyear
+ALTERNATION GROUP: CIVIL_TIME,add,isoyear
 --
 ERROR: DATETIME_ADD does not support the ISOYEAR date part [at 1:8]
 select datetime_add(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,isoweek
+ALTERNATION GROUP: CIVIL_TIME,add,isoweek
 --
 ERROR: DATETIME_ADD does not support the ISOWEEK date part [at 1:8]
 select datetime_add(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,date
+ALTERNATION GROUP: CIVIL_TIME,add,date
 --
 ERROR: DATETIME_ADD does not support the DATE date part [at 1:8]
 select datetime_add(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,time
+ALTERNATION GROUP: CIVIL_TIME,add,time
 --
 ERROR: DATETIME_ADD does not support the TIME date part [at 1:8]
 select datetime_add(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,year
+ALTERNATION GROUP: CIVIL_TIME,add,year
 --
 QueryStmt
 +-output_column_list=
@@ -1011,7 +1011,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,quarter
+ALTERNATION GROUP: CIVIL_TIME,add,quarter
 --
 QueryStmt
 +-output_column_list=
@@ -1028,7 +1028,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,month
+ALTERNATION GROUP: CIVIL_TIME,add,month
 --
 QueryStmt
 +-output_column_list=
@@ -1045,7 +1045,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,week
+ALTERNATION GROUP: CIVIL_TIME,add,week
 --
 QueryStmt
 +-output_column_list=
@@ -1062,7 +1062,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,day
+ALTERNATION GROUP: CIVIL_TIME,add,day
 --
 QueryStmt
 +-output_column_list=
@@ -1079,7 +1079,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,hour
+ALTERNATION GROUP: CIVIL_TIME,add,hour
 --
 QueryStmt
 +-output_column_list=
@@ -1096,7 +1096,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,minute
+ALTERNATION GROUP: CIVIL_TIME,add,minute
 --
 QueryStmt
 +-output_column_list=
@@ -1113,7 +1113,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,second
+ALTERNATION GROUP: CIVIL_TIME,add,second
 --
 QueryStmt
 +-output_column_list=
@@ -1130,7 +1130,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,millisecond
+ALTERNATION GROUP: CIVIL_TIME,add,millisecond
 --
 QueryStmt
 +-output_column_list=
@@ -1147,7 +1147,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,microsecond
+ALTERNATION GROUP: CIVIL_TIME,add,microsecond
 --
 QueryStmt
 +-output_column_list=
@@ -1164,43 +1164,43 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,dayofyear
+ALTERNATION GROUP: CIVIL_TIME,sub,dayofyear
 --
 ERROR: DATETIME_SUB does not support the DAYOFYEAR date part [at 1:8]
 select datetime_sub(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,dayofweek
+ALTERNATION GROUP: CIVIL_TIME,sub,dayofweek
 --
 ERROR: DATETIME_SUB does not support the DAYOFWEEK date part [at 1:8]
 select datetime_sub(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,isoyear
+ALTERNATION GROUP: CIVIL_TIME,sub,isoyear
 --
 ERROR: DATETIME_SUB does not support the ISOYEAR date part [at 1:8]
 select datetime_sub(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,isoweek
+ALTERNATION GROUP: CIVIL_TIME,sub,isoweek
 --
 ERROR: DATETIME_SUB does not support the ISOWEEK date part [at 1:8]
 select datetime_sub(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,date
+ALTERNATION GROUP: CIVIL_TIME,sub,date
 --
 ERROR: DATETIME_SUB does not support the DATE date part [at 1:8]
 select datetime_sub(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,time
+ALTERNATION GROUP: CIVIL_TIME,sub,time
 --
 ERROR: DATETIME_SUB does not support the TIME date part [at 1:8]
 select datetime_sub(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,year
+ALTERNATION GROUP: CIVIL_TIME,sub,year
 --
 QueryStmt
 +-output_column_list=
@@ -1217,7 +1217,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,quarter
+ALTERNATION GROUP: CIVIL_TIME,sub,quarter
 --
 QueryStmt
 +-output_column_list=
@@ -1234,7 +1234,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,month
+ALTERNATION GROUP: CIVIL_TIME,sub,month
 --
 QueryStmt
 +-output_column_list=
@@ -1251,7 +1251,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,week
+ALTERNATION GROUP: CIVIL_TIME,sub,week
 --
 QueryStmt
 +-output_column_list=
@@ -1268,7 +1268,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,day
+ALTERNATION GROUP: CIVIL_TIME,sub,day
 --
 QueryStmt
 +-output_column_list=
@@ -1285,7 +1285,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,hour
+ALTERNATION GROUP: CIVIL_TIME,sub,hour
 --
 QueryStmt
 +-output_column_list=
@@ -1302,7 +1302,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,minute
+ALTERNATION GROUP: CIVIL_TIME,sub,minute
 --
 QueryStmt
 +-output_column_list=
@@ -1319,7 +1319,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,second
+ALTERNATION GROUP: CIVIL_TIME,sub,second
 --
 QueryStmt
 +-output_column_list=
@@ -1336,7 +1336,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,millisecond
+ALTERNATION GROUP: CIVIL_TIME,sub,millisecond
 --
 QueryStmt
 +-output_column_list=
@@ -1353,7 +1353,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,microsecond
+ALTERNATION GROUP: CIVIL_TIME,sub,microsecond
 --
 QueryStmt
 +-output_column_list=
@@ -1415,10 +1415,10 @@ select datetime_sub(
        ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME,TIMESTAMP_NANOS|V_1_2_CIVIL_TIME|TIMESTAMP_NANOS|}}]
+[language_features={{CIVIL_TIME,TIMESTAMP_NANOS|CIVIL_TIME|TIMESTAMP_NANOS|}}]
 select datetime_{{add|sub}}(current_datetime, interval 1 nanosecond);
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,TIMESTAMP_NANOS,add
+ALTERNATION GROUP: CIVIL_TIME,TIMESTAMP_NANOS,add
 --
 QueryStmt
 +-output_column_list=
@@ -1435,7 +1435,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,TIMESTAMP_NANOS,sub
+ALTERNATION GROUP: CIVIL_TIME,TIMESTAMP_NANOS,sub
 --
 QueryStmt
 +-output_column_list=
@@ -1452,13 +1452,13 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add
+ALTERNATION GROUP: CIVIL_TIME,add
 --
 ERROR: DATETIME_ADD does not support the NANOSECOND date part [at 1:8]
 select datetime_add(current_datetime, interval 1 nanosecond);
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub
+ALTERNATION GROUP: CIVIL_TIME,sub
 --
 ERROR: DATETIME_SUB does not support the NANOSECOND date part [at 1:8]
 select datetime_sub(current_datetime, interval 1 nanosecond);
@@ -1481,10 +1481,10 @@ select datetime_sub(current_datetime, interval 1 nanosecond);
        ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 SELECT time(TIMESTAMP '2015-12-28 15:42:56-08:00');
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 QueryStmt
 +-output_column_list=
@@ -1506,7 +1506,7 @@ SELECT time(TIMESTAMP '2015-12-28 15:42:56-08:00');
        ^
 ==
 
-[language_features=V_1_2_CIVIL_TIME]
+[language_features=CIVIL_TIME]
 SELECT time({{'2015-12-28 15:42:56-08:00'|CAST('2015-12-28 15:42:56-08:00' AS STRING)}});
 --
 ALTERNATION GROUP: '2015-12-28 15:42:56-08:00'
@@ -1526,15 +1526,22 @@ QueryStmt
 --
 ALTERNATION GROUP: CAST('2015-12-28 15:42:56-08:00' AS STRING)
 --
-ERROR: No matching signature for function TIME for argument types: STRING. Supported signatures: TIME(INT64, INT64, INT64); TIME(TIMESTAMP, [STRING]); TIME(DATETIME) [at 1:8]
+ERROR: No matching signature for function TIME
+  Argument types: STRING
+  Signature: TIME(INT64, INT64, INT64)
+    Signature requires at least 3 arguments, found 1 argument
+  Signature: TIME(TIMESTAMP, [STRING])
+    Argument 1: Unable to coerce type STRING to expected type TIMESTAMP
+  Signature: TIME(DATETIME)
+    Argument 1: Unable to coerce type STRING to expected type DATETIME [at 1:8]
 SELECT time(CAST('2015-12-28 15:42:56-08:00' AS STRING));
        ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 SELECT datetime(TIMESTAMP '2015-12-28 15:42:56-08:00');
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 QueryStmt
 +-output_column_list=
@@ -1556,7 +1563,7 @@ SELECT datetime(TIMESTAMP '2015-12-28 15:42:56-08:00');
        ^
 ==
 
-[language_features=V_1_2_CIVIL_TIME]
+[language_features=CIVIL_TIME]
 SELECT datetime({{'2015-12-28 15:42:56-08:00'|CAST('2015-12-28 15:42:56-08:00' AS STRING)}});
 --
 ALTERNATION GROUP: '2015-12-28 15:42:56-08:00'
@@ -1567,17 +1574,26 @@ SELECT datetime('2015-12-28 15:42:56-08:00');
 --
 ALTERNATION GROUP: CAST('2015-12-28 15:42:56-08:00' AS STRING)
 --
-ERROR: No matching signature for function DATETIME for argument types: STRING. Supported signatures: DATETIME(INT64, INT64, INT64, INT64, INT64, INT64); DATETIME(DATE, TIME); DATETIME(TIMESTAMP, [STRING]); DATETIME(DATE) [at 1:8]
+ERROR: No matching signature for function DATETIME
+  Argument types: STRING
+  Signature: DATETIME(INT64, INT64, INT64, INT64, INT64, INT64)
+    Signature requires at least 6 arguments, found 1 argument
+  Signature: DATETIME(DATE, TIME)
+    Signature requires at least 2 arguments, found 1 argument
+  Signature: DATETIME(TIMESTAMP, [STRING])
+    Argument 1: Unable to coerce type STRING to expected type TIMESTAMP
+  Signature: DATETIME(DATE)
+    Argument 1: Unable to coerce type STRING to expected type DATE [at 1:8]
 SELECT datetime(CAST('2015-12-28 15:42:56-08:00' AS STRING));
        ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 SELECT current_time{{|()}};
 --
 ALTERNATION GROUPS:
-    V_1_2_CIVIL_TIME,
-    V_1_2_CIVIL_TIME,()
+    CIVIL_TIME,
+    CIVIL_TIME,()
 --
 QueryStmt
 +-output_column_list=
@@ -1603,12 +1619,12 @@ SELECT current_time();
        ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 SELECT current_datetime{{|()}};
 --
 ALTERNATION GROUPS:
-    V_1_2_CIVIL_TIME,
-    V_1_2_CIVIL_TIME,()
+    CIVIL_TIME,
+    CIVIL_TIME,()
 --
 QueryStmt
 +-output_column_list=
@@ -1634,78 +1650,78 @@ SELECT current_datetime();
        ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select time_{{add|sub}}(
   time '03:04:05.123456',
   interval 1 {{dayofyear|dayofweek|isoyear|isoweek|date|time|year|quarter|month|week|day|hour|minute|second|millisecond|microsecond}});
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,dayofyear
+ALTERNATION GROUP: CIVIL_TIME,add,dayofyear
 --
 ERROR: TIME_ADD does not support the DAYOFYEAR date part [at 1:8]
 select time_add(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,dayofweek
+ALTERNATION GROUP: CIVIL_TIME,add,dayofweek
 --
 ERROR: TIME_ADD does not support the DAYOFWEEK date part [at 1:8]
 select time_add(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,isoyear
+ALTERNATION GROUP: CIVIL_TIME,add,isoyear
 --
 ERROR: TIME_ADD does not support the ISOYEAR date part [at 1:8]
 select time_add(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,isoweek
+ALTERNATION GROUP: CIVIL_TIME,add,isoweek
 --
 ERROR: TIME_ADD does not support the ISOWEEK date part [at 1:8]
 select time_add(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,date
+ALTERNATION GROUP: CIVIL_TIME,add,date
 --
 ERROR: TIME_ADD does not support the DATE date part [at 1:8]
 select time_add(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,time
+ALTERNATION GROUP: CIVIL_TIME,add,time
 --
 ERROR: TIME_ADD does not support the TIME date part [at 1:8]
 select time_add(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,year
+ALTERNATION GROUP: CIVIL_TIME,add,year
 --
 ERROR: TIME_ADD does not support the YEAR date part [at 1:8]
 select time_add(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,quarter
+ALTERNATION GROUP: CIVIL_TIME,add,quarter
 --
 ERROR: TIME_ADD does not support the QUARTER date part [at 1:8]
 select time_add(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,month
+ALTERNATION GROUP: CIVIL_TIME,add,month
 --
 ERROR: TIME_ADD does not support the MONTH date part [at 1:8]
 select time_add(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,week
+ALTERNATION GROUP: CIVIL_TIME,add,week
 --
 ERROR: TIME_ADD does not support the WEEK date part [at 1:8]
 select time_add(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,day
+ALTERNATION GROUP: CIVIL_TIME,add,day
 --
 ERROR: TIME_ADD does not support the DAY date part [at 1:8]
 select time_add(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,hour
+ALTERNATION GROUP: CIVIL_TIME,add,hour
 --
 QueryStmt
 +-output_column_list=
@@ -1722,7 +1738,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,minute
+ALTERNATION GROUP: CIVIL_TIME,add,minute
 --
 QueryStmt
 +-output_column_list=
@@ -1739,7 +1755,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,second
+ALTERNATION GROUP: CIVIL_TIME,add,second
 --
 QueryStmt
 +-output_column_list=
@@ -1756,7 +1772,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,millisecond
+ALTERNATION GROUP: CIVIL_TIME,add,millisecond
 --
 QueryStmt
 +-output_column_list=
@@ -1773,7 +1789,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,microsecond
+ALTERNATION GROUP: CIVIL_TIME,add,microsecond
 --
 QueryStmt
 +-output_column_list=
@@ -1790,73 +1806,73 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,dayofyear
+ALTERNATION GROUP: CIVIL_TIME,sub,dayofyear
 --
 ERROR: TIME_SUB does not support the DAYOFYEAR date part [at 1:8]
 select time_sub(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,dayofweek
+ALTERNATION GROUP: CIVIL_TIME,sub,dayofweek
 --
 ERROR: TIME_SUB does not support the DAYOFWEEK date part [at 1:8]
 select time_sub(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,isoyear
+ALTERNATION GROUP: CIVIL_TIME,sub,isoyear
 --
 ERROR: TIME_SUB does not support the ISOYEAR date part [at 1:8]
 select time_sub(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,isoweek
+ALTERNATION GROUP: CIVIL_TIME,sub,isoweek
 --
 ERROR: TIME_SUB does not support the ISOWEEK date part [at 1:8]
 select time_sub(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,date
+ALTERNATION GROUP: CIVIL_TIME,sub,date
 --
 ERROR: TIME_SUB does not support the DATE date part [at 1:8]
 select time_sub(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,time
+ALTERNATION GROUP: CIVIL_TIME,sub,time
 --
 ERROR: TIME_SUB does not support the TIME date part [at 1:8]
 select time_sub(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,year
+ALTERNATION GROUP: CIVIL_TIME,sub,year
 --
 ERROR: TIME_SUB does not support the YEAR date part [at 1:8]
 select time_sub(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,quarter
+ALTERNATION GROUP: CIVIL_TIME,sub,quarter
 --
 ERROR: TIME_SUB does not support the QUARTER date part [at 1:8]
 select time_sub(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,month
+ALTERNATION GROUP: CIVIL_TIME,sub,month
 --
 ERROR: TIME_SUB does not support the MONTH date part [at 1:8]
 select time_sub(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,week
+ALTERNATION GROUP: CIVIL_TIME,sub,week
 --
 ERROR: TIME_SUB does not support the WEEK date part [at 1:8]
 select time_sub(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,day
+ALTERNATION GROUP: CIVIL_TIME,sub,day
 --
 ERROR: TIME_SUB does not support the DAY date part [at 1:8]
 select time_sub(
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,hour
+ALTERNATION GROUP: CIVIL_TIME,sub,hour
 --
 QueryStmt
 +-output_column_list=
@@ -1873,7 +1889,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,minute
+ALTERNATION GROUP: CIVIL_TIME,sub,minute
 --
 QueryStmt
 +-output_column_list=
@@ -1890,7 +1906,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,second
+ALTERNATION GROUP: CIVIL_TIME,sub,second
 --
 QueryStmt
 +-output_column_list=
@@ -1907,7 +1923,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,millisecond
+ALTERNATION GROUP: CIVIL_TIME,sub,millisecond
 --
 QueryStmt
 +-output_column_list=
@@ -1924,7 +1940,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,microsecond
+ALTERNATION GROUP: CIVIL_TIME,sub,microsecond
 --
 QueryStmt
 +-output_column_list=
@@ -1986,10 +2002,10 @@ select time_sub(
        ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME,TIMESTAMP_NANOS|V_1_2_CIVIL_TIME|TIMESTAMP_NANOS|}}]
+[language_features={{CIVIL_TIME,TIMESTAMP_NANOS|CIVIL_TIME|TIMESTAMP_NANOS|}}]
 select time_{{add|sub}}(current_time, interval 1 nanosecond);
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,TIMESTAMP_NANOS,add
+ALTERNATION GROUP: CIVIL_TIME,TIMESTAMP_NANOS,add
 --
 QueryStmt
 +-output_column_list=
@@ -2006,7 +2022,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,TIMESTAMP_NANOS,sub
+ALTERNATION GROUP: CIVIL_TIME,TIMESTAMP_NANOS,sub
 --
 QueryStmt
 +-output_column_list=
@@ -2023,13 +2039,13 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,add
+ALTERNATION GROUP: CIVIL_TIME,add
 --
 ERROR: TIME_ADD does not support the NANOSECOND date part [at 1:8]
 select time_add(current_time, interval 1 nanosecond);
        ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub
+ALTERNATION GROUP: CIVIL_TIME,sub
 --
 ERROR: TIME_SUB does not support the NANOSECOND date part [at 1:8]
 select time_sub(current_time, interval 1 nanosecond);
@@ -2052,50 +2068,50 @@ select time_sub(current_time, interval 1 nanosecond);
        ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select
   time_diff(
     current_time,
     time '12:34:56.123456',
     {{year|month|day|dayofweek|dayofyear|quarter|hour|minute|second|millisecond|microsecond|nanosecond|date|week|datetime|time|isoyear|isoweek}});
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,year
+ALTERNATION GROUP: CIVIL_TIME,year
 --
 ERROR: TIME_DIFF does not support the YEAR date part [at 2:3]
   time_diff(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,month
+ALTERNATION GROUP: CIVIL_TIME,month
 --
 ERROR: TIME_DIFF does not support the MONTH date part [at 2:3]
   time_diff(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,day
+ALTERNATION GROUP: CIVIL_TIME,day
 --
 ERROR: TIME_DIFF does not support the DAY date part [at 2:3]
   time_diff(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,dayofweek
+ALTERNATION GROUP: CIVIL_TIME,dayofweek
 --
 ERROR: TIME_DIFF does not support the DAYOFWEEK date part [at 2:3]
   time_diff(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,dayofyear
+ALTERNATION GROUP: CIVIL_TIME,dayofyear
 --
 ERROR: TIME_DIFF does not support the DAYOFYEAR date part [at 2:3]
   time_diff(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,quarter
+ALTERNATION GROUP: CIVIL_TIME,quarter
 --
 ERROR: TIME_DIFF does not support the QUARTER date part [at 2:3]
   time_diff(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,hour
+ALTERNATION GROUP: CIVIL_TIME,hour
 --
 QueryStmt
 +-output_column_list=
@@ -2112,7 +2128,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,minute
+ALTERNATION GROUP: CIVIL_TIME,minute
 --
 QueryStmt
 +-output_column_list=
@@ -2129,7 +2145,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,second
+ALTERNATION GROUP: CIVIL_TIME,second
 --
 QueryStmt
 +-output_column_list=
@@ -2146,7 +2162,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,millisecond
+ALTERNATION GROUP: CIVIL_TIME,millisecond
 --
 QueryStmt
 +-output_column_list=
@@ -2163,7 +2179,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,microsecond
+ALTERNATION GROUP: CIVIL_TIME,microsecond
 --
 QueryStmt
 +-output_column_list=
@@ -2180,43 +2196,43 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,nanosecond
+ALTERNATION GROUP: CIVIL_TIME,nanosecond
 --
 ERROR: TIME_DIFF does not support the NANOSECOND date part [at 2:3]
   time_diff(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,date
+ALTERNATION GROUP: CIVIL_TIME,date
 --
 ERROR: TIME_DIFF does not support the DATE date part [at 2:3]
   time_diff(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,week
+ALTERNATION GROUP: CIVIL_TIME,week
 --
 ERROR: TIME_DIFF does not support the WEEK date part [at 2:3]
   time_diff(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,datetime
+ALTERNATION GROUP: CIVIL_TIME,datetime
 --
 ERROR: TIME_DIFF does not support the DATETIME date part [at 2:3]
   time_diff(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,time
+ALTERNATION GROUP: CIVIL_TIME,time
 --
 ERROR: TIME_DIFF does not support the TIME date part [at 2:3]
   time_diff(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,isoyear
+ALTERNATION GROUP: CIVIL_TIME,isoyear
 --
 ERROR: TIME_DIFF does not support the ISOYEAR date part [at 2:3]
   time_diff(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,isoweek
+ALTERNATION GROUP: CIVIL_TIME,isoweek
 --
 ERROR: TIME_DIFF does not support the ISOWEEK date part [at 2:3]
   time_diff(
@@ -2247,10 +2263,10 @@ ERROR: Function not found: time_diff; Did you mean date_diff? [at 2:3]
   ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME,TIMESTAMP_NANOS|V_1_2_CIVIL_TIME|TIMESTAMP_NANOS|}}]
+[language_features={{CIVIL_TIME,TIMESTAMP_NANOS|CIVIL_TIME|TIMESTAMP_NANOS|}}]
 select time_diff(current_time, time '12:34:56.123456', nanosecond);
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,TIMESTAMP_NANOS
+ALTERNATION GROUP: CIVIL_TIME,TIMESTAMP_NANOS
 --
 QueryStmt
 +-output_column_list=
@@ -2267,7 +2283,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 ERROR: TIME_DIFF does not support the NANOSECOND date part [at 1:8]
 select time_diff(current_time, time '12:34:56.123456', nanosecond);
@@ -2282,14 +2298,14 @@ select time_diff(current_time, time '12:34:56.123456', nanosecond);
        ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select
   datetime_diff(
     current_datetime,
     datetime '2016-04-05 12:34:56.123456',
     {{year|month|day|dayofweek|dayofyear|quarter|hour|minute|second|millisecond|microsecond|nanosecond|date|week|datetime|time|isoyear|isoweek}});
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,year
+ALTERNATION GROUP: CIVIL_TIME,year
 --
 QueryStmt
 +-output_column_list=
@@ -2306,7 +2322,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,month
+ALTERNATION GROUP: CIVIL_TIME,month
 --
 QueryStmt
 +-output_column_list=
@@ -2323,7 +2339,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,day
+ALTERNATION GROUP: CIVIL_TIME,day
 --
 QueryStmt
 +-output_column_list=
@@ -2340,19 +2356,19 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,dayofweek
+ALTERNATION GROUP: CIVIL_TIME,dayofweek
 --
 ERROR: DATETIME_DIFF does not support the DAYOFWEEK date part [at 2:3]
   datetime_diff(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,dayofyear
+ALTERNATION GROUP: CIVIL_TIME,dayofyear
 --
 ERROR: DATETIME_DIFF does not support the DAYOFYEAR date part [at 2:3]
   datetime_diff(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,quarter
+ALTERNATION GROUP: CIVIL_TIME,quarter
 --
 QueryStmt
 +-output_column_list=
@@ -2369,7 +2385,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,hour
+ALTERNATION GROUP: CIVIL_TIME,hour
 --
 QueryStmt
 +-output_column_list=
@@ -2386,7 +2402,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,minute
+ALTERNATION GROUP: CIVIL_TIME,minute
 --
 QueryStmt
 +-output_column_list=
@@ -2403,7 +2419,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,second
+ALTERNATION GROUP: CIVIL_TIME,second
 --
 QueryStmt
 +-output_column_list=
@@ -2420,7 +2436,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,millisecond
+ALTERNATION GROUP: CIVIL_TIME,millisecond
 --
 QueryStmt
 +-output_column_list=
@@ -2437,7 +2453,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,microsecond
+ALTERNATION GROUP: CIVIL_TIME,microsecond
 --
 QueryStmt
 +-output_column_list=
@@ -2454,19 +2470,19 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,nanosecond
+ALTERNATION GROUP: CIVIL_TIME,nanosecond
 --
 ERROR: DATETIME_DIFF does not support the NANOSECOND date part [at 2:3]
   datetime_diff(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,date
+ALTERNATION GROUP: CIVIL_TIME,date
 --
 ERROR: DATETIME_DIFF does not support the DATE date part [at 2:3]
   datetime_diff(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,week
+ALTERNATION GROUP: CIVIL_TIME,week
 --
 QueryStmt
 +-output_column_list=
@@ -2483,19 +2499,19 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,datetime
+ALTERNATION GROUP: CIVIL_TIME,datetime
 --
 ERROR: DATETIME_DIFF does not support the DATETIME date part [at 2:3]
   datetime_diff(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,time
+ALTERNATION GROUP: CIVIL_TIME,time
 --
 ERROR: DATETIME_DIFF does not support the TIME date part [at 2:3]
   datetime_diff(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,isoyear
+ALTERNATION GROUP: CIVIL_TIME,isoyear
 --
 QueryStmt
 +-output_column_list=
@@ -2512,7 +2528,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,isoweek
+ALTERNATION GROUP: CIVIL_TIME,isoweek
 --
 QueryStmt
 +-output_column_list=
@@ -2554,10 +2570,10 @@ ERROR: Function not found: datetime_diff; Did you mean date_diff? [at 2:3]
   ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select datetime_diff(current_datetime, current_datetime, week(monday));
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 ERROR: Date part arguments are not supported [at 1:63]
 select datetime_diff(current_datetime, current_datetime, week(monday));
@@ -2570,7 +2586,7 @@ select datetime_diff(current_datetime, current_datetime, week(monday));
        ^
 ==
 
-[language_features=V_1_2_CIVIL_TIME,V_1_2_WEEK_WITH_WEEKDAY]
+[language_features=CIVIL_TIME,WEEK_WITH_WEEKDAY]
 select
   datetime_diff(current_datetime, current_datetime, week(sunday)),
   datetime_diff(current_datetime, current_datetime, week(monday)),
@@ -2632,10 +2648,10 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{V_1_2_CIVIL_TIME,TIMESTAMP_NANOS|V_1_2_CIVIL_TIME|TIMESTAMP_NANOS|}}]
+[language_features={{CIVIL_TIME,TIMESTAMP_NANOS|CIVIL_TIME|TIMESTAMP_NANOS|}}]
 select datetime_diff(current_datetime, datetime '2016-04-05 12:34:56.123456', nanosecond);
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,TIMESTAMP_NANOS
+ALTERNATION GROUP: CIVIL_TIME,TIMESTAMP_NANOS
 --
 QueryStmt
 +-output_column_list=
@@ -2652,7 +2668,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 ERROR: DATETIME_DIFF does not support the NANOSECOND date part [at 1:8]
 select datetime_diff(current_datetime, datetime '2016-04-05 12:34:56.123456',...
@@ -2669,13 +2685,13 @@ select datetime_diff(current_datetime, datetime '2016-04-05 12:34:56.123456',...
 
 # all valid date parts for datetime_trunc except for NANOSECOND and
 # WEEK(<Weekday>)
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select
   datetime_trunc(
     current_datetime,
     {{year|quarter|month|week|day|hour|minute|second|millisecond|microsecond}});
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,year
+ALTERNATION GROUP: CIVIL_TIME,year
 --
 QueryStmt
 +-output_column_list=
@@ -2691,7 +2707,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,quarter
+ALTERNATION GROUP: CIVIL_TIME,quarter
 --
 QueryStmt
 +-output_column_list=
@@ -2707,7 +2723,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,month
+ALTERNATION GROUP: CIVIL_TIME,month
 --
 QueryStmt
 +-output_column_list=
@@ -2723,7 +2739,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,week
+ALTERNATION GROUP: CIVIL_TIME,week
 --
 QueryStmt
 +-output_column_list=
@@ -2739,7 +2755,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,day
+ALTERNATION GROUP: CIVIL_TIME,day
 --
 QueryStmt
 +-output_column_list=
@@ -2755,7 +2771,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,hour
+ALTERNATION GROUP: CIVIL_TIME,hour
 --
 QueryStmt
 +-output_column_list=
@@ -2771,7 +2787,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,minute
+ALTERNATION GROUP: CIVIL_TIME,minute
 --
 QueryStmt
 +-output_column_list=
@@ -2787,7 +2803,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,second
+ALTERNATION GROUP: CIVIL_TIME,second
 --
 QueryStmt
 +-output_column_list=
@@ -2803,7 +2819,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,millisecond
+ALTERNATION GROUP: CIVIL_TIME,millisecond
 --
 QueryStmt
 +-output_column_list=
@@ -2819,7 +2835,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,microsecond
+ALTERNATION GROUP: CIVIL_TIME,microsecond
 --
 QueryStmt
 +-output_column_list=
@@ -2853,11 +2869,11 @@ ERROR: Function not found: datetime_trunc; Did you mean date_trunc? [at 2:3]
 ==
 
 # NANOSECOND is valid for datetime_trunc when nano support is enabled.
-[language_features={{V_1_2_CIVIL_TIME,TIMESTAMP_NANOS|V_1_2_CIVIL_TIME|TIMESTAMP_NANOS|}}]
+[language_features={{CIVIL_TIME,TIMESTAMP_NANOS|CIVIL_TIME|TIMESTAMP_NANOS|}}]
 select
   datetime_trunc(current_datetime, nanosecond);
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,TIMESTAMP_NANOS
+ALTERNATION GROUP: CIVIL_TIME,TIMESTAMP_NANOS
 --
 QueryStmt
 +-output_column_list=
@@ -2873,7 +2889,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 ERROR: DATETIME_TRUNC does not support the NANOSECOND date part [at 2:3]
   datetime_trunc(current_datetime, nanosecond);
@@ -2889,49 +2905,49 @@ ERROR: Function not found: datetime_trunc; Did you mean date_trunc? [at 2:3]
 ==
 
 # all invalid date parts for datetime_trunc
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select
   datetime_trunc(
     current_datetime,
     {{dayofweek|dayofyear|nanosecond|date|datetime|time|isoyear|isoweek}});
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,dayofweek
+ALTERNATION GROUP: CIVIL_TIME,dayofweek
 --
 ERROR: DATETIME_TRUNC does not support the DAYOFWEEK date part [at 2:3]
   datetime_trunc(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,dayofyear
+ALTERNATION GROUP: CIVIL_TIME,dayofyear
 --
 ERROR: DATETIME_TRUNC does not support the DAYOFYEAR date part [at 2:3]
   datetime_trunc(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,nanosecond
+ALTERNATION GROUP: CIVIL_TIME,nanosecond
 --
 ERROR: DATETIME_TRUNC does not support the NANOSECOND date part [at 2:3]
   datetime_trunc(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,date
+ALTERNATION GROUP: CIVIL_TIME,date
 --
 ERROR: DATETIME_TRUNC does not support the DATE date part [at 2:3]
   datetime_trunc(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,datetime
+ALTERNATION GROUP: CIVIL_TIME,datetime
 --
 ERROR: DATETIME_TRUNC does not support the DATETIME date part [at 2:3]
   datetime_trunc(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,time
+ALTERNATION GROUP: CIVIL_TIME,time
 --
 ERROR: DATETIME_TRUNC does not support the TIME date part [at 2:3]
   datetime_trunc(
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,isoyear
+ALTERNATION GROUP: CIVIL_TIME,isoyear
 --
 QueryStmt
 +-output_column_list=
@@ -2947,7 +2963,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,isoweek
+ALTERNATION GROUP: CIVIL_TIME,isoweek
 --
 QueryStmt
 +-output_column_list=
@@ -2978,11 +2994,11 @@ ERROR: Function not found: datetime_trunc; Did you mean date_trunc? [at 2:3]
   ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select
   datetime_trunc(current_datetime, week(monday));
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 ERROR: Date part arguments are not supported [at 2:41]
   datetime_trunc(current_datetime, week(monday));
@@ -2995,7 +3011,7 @@ ERROR: Function not found: datetime_trunc; Did you mean date_trunc? [at 2:3]
   ^
 ==
 
-[language_features=V_1_2_CIVIL_TIME,V_1_2_WEEK_WITH_WEEKDAY]
+[language_features=CIVIL_TIME,WEEK_WITH_WEEKDAY]
 select
   datetime_trunc(current_datetime, week({{sunday|monday|tuesday|wednesday|thursday|friday|saturday}}));
 --
@@ -3113,11 +3129,11 @@ QueryStmt
 ==
 
 # all valid date parts for time_trunc
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select
   time_trunc(current_time, {{hour|minute|second|millisecond|microsecond}});
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,hour
+ALTERNATION GROUP: CIVIL_TIME,hour
 --
 QueryStmt
 +-output_column_list=
@@ -3133,7 +3149,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,minute
+ALTERNATION GROUP: CIVIL_TIME,minute
 --
 QueryStmt
 +-output_column_list=
@@ -3149,7 +3165,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,second
+ALTERNATION GROUP: CIVIL_TIME,second
 --
 QueryStmt
 +-output_column_list=
@@ -3165,7 +3181,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,millisecond
+ALTERNATION GROUP: CIVIL_TIME,millisecond
 --
 QueryStmt
 +-output_column_list=
@@ -3181,7 +3197,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,microsecond
+ALTERNATION GROUP: CIVIL_TIME,microsecond
 --
 QueryStmt
 +-output_column_list=
@@ -3229,11 +3245,11 @@ ERROR: Function not found: time_trunc; Did you mean date_trunc? [at 2:3]
 ==
 
 # NANOSECOND is valid for time_trunc when nano support is enabled.
-[language_features={{V_1_2_CIVIL_TIME,TIMESTAMP_NANOS|V_1_2_CIVIL_TIME|TIMESTAMP_NANOS|}}]
+[language_features={{CIVIL_TIME,TIMESTAMP_NANOS|CIVIL_TIME|TIMESTAMP_NANOS|}}]
 select
   time_trunc(current_time, nanosecond);
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,TIMESTAMP_NANOS
+ALTERNATION GROUP: CIVIL_TIME,TIMESTAMP_NANOS
 --
 QueryStmt
 +-output_column_list=
@@ -3249,7 +3265,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 ERROR: TIME_TRUNC does not support the NANOSECOND date part [at 2:3]
   time_trunc(current_time, nanosecond);
@@ -3265,78 +3281,78 @@ ERROR: Function not found: time_trunc; Did you mean date_trunc? [at 2:3]
 ==
 
 # all invalid date parts for datetime_trunc
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select
   time_trunc(current_time,
     {{year|month|day|dayofweek|dayofyear|quarter|date|week|datetime|time|isoyear|isoweek}});
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,year
+ALTERNATION GROUP: CIVIL_TIME,year
 --
 ERROR: TIME_TRUNC does not support the YEAR date part [at 2:3]
   time_trunc(current_time,
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,month
+ALTERNATION GROUP: CIVIL_TIME,month
 --
 ERROR: TIME_TRUNC does not support the MONTH date part [at 2:3]
   time_trunc(current_time,
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,day
+ALTERNATION GROUP: CIVIL_TIME,day
 --
 ERROR: TIME_TRUNC does not support the DAY date part [at 2:3]
   time_trunc(current_time,
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,dayofweek
+ALTERNATION GROUP: CIVIL_TIME,dayofweek
 --
 ERROR: TIME_TRUNC does not support the DAYOFWEEK date part [at 2:3]
   time_trunc(current_time,
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,dayofyear
+ALTERNATION GROUP: CIVIL_TIME,dayofyear
 --
 ERROR: TIME_TRUNC does not support the DAYOFYEAR date part [at 2:3]
   time_trunc(current_time,
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,quarter
+ALTERNATION GROUP: CIVIL_TIME,quarter
 --
 ERROR: TIME_TRUNC does not support the QUARTER date part [at 2:3]
   time_trunc(current_time,
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,date
+ALTERNATION GROUP: CIVIL_TIME,date
 --
 ERROR: TIME_TRUNC does not support the DATE date part [at 2:3]
   time_trunc(current_time,
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,week
+ALTERNATION GROUP: CIVIL_TIME,week
 --
 ERROR: TIME_TRUNC does not support the WEEK date part [at 2:3]
   time_trunc(current_time,
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,datetime
+ALTERNATION GROUP: CIVIL_TIME,datetime
 --
 ERROR: TIME_TRUNC does not support the DATETIME date part [at 2:3]
   time_trunc(current_time,
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,time
+ALTERNATION GROUP: CIVIL_TIME,time
 --
 ERROR: TIME_TRUNC does not support the TIME date part [at 2:3]
   time_trunc(current_time,
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,isoyear
+ALTERNATION GROUP: CIVIL_TIME,isoyear
 --
 ERROR: TIME_TRUNC does not support the ISOYEAR date part [at 2:3]
   time_trunc(current_time,
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,isoweek
+ALTERNATION GROUP: CIVIL_TIME,isoweek
 --
 ERROR: TIME_TRUNC does not support the ISOWEEK date part [at 2:3]
   time_trunc(current_time,
@@ -3362,100 +3378,100 @@ ERROR: Function not found: time_trunc; Did you mean date_trunc? [at 2:3]
 ==
 
 # time_trunc does not support WEEK(<WEEKDAY>)
-[language_features={{V_1_2_CIVIL_TIME|V_1_2_CIVIL_TIME,V_1_2_WEEK_WITH_WEEKDAY}}]
+[language_features={{CIVIL_TIME|CIVIL_TIME,WEEK_WITH_WEEKDAY}}]
 select
   time_trunc(current_time,
              {{week(sunday)|week(monday)|week(tuesday)|week(wednesday)|week(thursday)|week(friday)|week(saturday)}});
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,week(sunday)
+ALTERNATION GROUP: CIVIL_TIME,week(sunday)
 --
 ERROR: Date part arguments are not supported [at 3:19]
              week(sunday));
                   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,week(monday)
+ALTERNATION GROUP: CIVIL_TIME,week(monday)
 --
 ERROR: Date part arguments are not supported [at 3:19]
              week(monday));
                   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,week(tuesday)
+ALTERNATION GROUP: CIVIL_TIME,week(tuesday)
 --
 ERROR: Date part arguments are not supported [at 3:19]
              week(tuesday));
                   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,week(wednesday)
+ALTERNATION GROUP: CIVIL_TIME,week(wednesday)
 --
 ERROR: Date part arguments are not supported [at 3:19]
              week(wednesday));
                   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,week(thursday)
+ALTERNATION GROUP: CIVIL_TIME,week(thursday)
 --
 ERROR: Date part arguments are not supported [at 3:19]
              week(thursday));
                   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,week(friday)
+ALTERNATION GROUP: CIVIL_TIME,week(friday)
 --
 ERROR: Date part arguments are not supported [at 3:19]
              week(friday));
                   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,week(saturday)
+ALTERNATION GROUP: CIVIL_TIME,week(saturday)
 --
 ERROR: Date part arguments are not supported [at 3:19]
              week(saturday));
                   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,V_1_2_WEEK_WITH_WEEKDAY,week(sunday)
+ALTERNATION GROUP: CIVIL_TIME,WEEK_WITH_WEEKDAY,week(sunday)
 --
 ERROR: TIME_TRUNC does not support the WEEK date part [at 2:3]
   time_trunc(current_time,
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,V_1_2_WEEK_WITH_WEEKDAY,week(monday)
+ALTERNATION GROUP: CIVIL_TIME,WEEK_WITH_WEEKDAY,week(monday)
 --
 ERROR: TIME_TRUNC does not support the WEEK(MONDAY) date part [at 2:3]
   time_trunc(current_time,
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,V_1_2_WEEK_WITH_WEEKDAY,week(tuesday)
+ALTERNATION GROUP: CIVIL_TIME,WEEK_WITH_WEEKDAY,week(tuesday)
 --
 ERROR: TIME_TRUNC does not support the WEEK(TUESDAY) date part [at 2:3]
   time_trunc(current_time,
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,V_1_2_WEEK_WITH_WEEKDAY,week(wednesday)
+ALTERNATION GROUP: CIVIL_TIME,WEEK_WITH_WEEKDAY,week(wednesday)
 --
 ERROR: TIME_TRUNC does not support the WEEK(WEDNESDAY) date part [at 2:3]
   time_trunc(current_time,
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,V_1_2_WEEK_WITH_WEEKDAY,week(thursday)
+ALTERNATION GROUP: CIVIL_TIME,WEEK_WITH_WEEKDAY,week(thursday)
 --
 ERROR: TIME_TRUNC does not support the WEEK(THURSDAY) date part [at 2:3]
   time_trunc(current_time,
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,V_1_2_WEEK_WITH_WEEKDAY,week(friday)
+ALTERNATION GROUP: CIVIL_TIME,WEEK_WITH_WEEKDAY,week(friday)
 --
 ERROR: TIME_TRUNC does not support the WEEK(FRIDAY) date part [at 2:3]
   time_trunc(current_time,
   ^
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,V_1_2_WEEK_WITH_WEEKDAY,week(saturday)
+ALTERNATION GROUP: CIVIL_TIME,WEEK_WITH_WEEKDAY,week(saturday)
 --
 ERROR: TIME_TRUNC does not support the WEEK(SATURDAY) date part [at 2:3]
   time_trunc(current_time,
   ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select format_time('aaa', {{|time}} '12:34:56.123456');
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,
+ALTERNATION GROUP: CIVIL_TIME,
 --
 QueryStmt
 +-output_column_list=
@@ -3471,7 +3487,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,time
+ALTERNATION GROUP: CIVIL_TIME,time
 --
 QueryStmt
 +-output_column_list=
@@ -3500,10 +3516,10 @@ select format_time('aaa', time '12:34:56.123456');
        ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select format_datetime('aaa', {{|datetime}} '2016-05-06 12:34:56.123456');
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,
+ALTERNATION GROUP: CIVIL_TIME,
 --
 QueryStmt
 +-output_column_list=
@@ -3519,7 +3535,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME,datetime
+ALTERNATION GROUP: CIVIL_TIME,datetime
 --
 QueryStmt
 +-output_column_list=
@@ -3548,10 +3564,10 @@ select format_datetime('aaa', datetime '2016-05-06 12:34:56.123456');
        ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select parse_time('aaa', '12:34:56.123456');
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 QueryStmt
 +-output_column_list=
@@ -3574,11 +3590,11 @@ select parse_time('aaa', '12:34:56.123456');
        ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select parse_datetime('aaa', '2016-05-06 12:34:56.123456');
 
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
 QueryStmt
 +-output_column_list=
@@ -3603,24 +3619,36 @@ select parse_datetime('aaa', '2016-05-06 12:34:56.123456');
 
 # The error message should be different depending on whether civil time
 # is enabled or not.
-[language_features={{V_1_2_CIVIL_TIME|}}]
+[language_features={{CIVIL_TIME|}}]
 select timestamp(1);
 --
-ALTERNATION GROUP: V_1_2_CIVIL_TIME
+ALTERNATION GROUP: CIVIL_TIME
 --
-ERROR: No matching signature for function TIMESTAMP for argument types: INT64. Supported signatures: TIMESTAMP(STRING, [STRING]); TIMESTAMP(DATE, [STRING]); TIMESTAMP(DATETIME, [STRING]) [at 1:8]
+ERROR: No matching signature for function TIMESTAMP
+  Argument types: INT64
+  Signature: TIMESTAMP(STRING, [STRING])
+    Argument 1: Unable to coerce type INT64 to expected type STRING
+  Signature: TIMESTAMP(DATE, [STRING])
+    Argument 1: Unable to coerce type INT64 to expected type DATE
+  Signature: TIMESTAMP(DATETIME, [STRING])
+    Argument 1: Unable to coerce type INT64 to expected type DATETIME [at 1:8]
 select timestamp(1);
        ^
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for function TIMESTAMP for argument types: INT64. Supported signatures: TIMESTAMP(STRING, [STRING]); TIMESTAMP(DATE, [STRING]) [at 1:8]
+ERROR: No matching signature for function TIMESTAMP
+  Argument types: INT64
+  Signature: TIMESTAMP(STRING, [STRING])
+    Argument 1: Unable to coerce type INT64 to expected type STRING
+  Signature: TIMESTAMP(DATE, [STRING])
+    Argument 1: Unable to coerce type INT64 to expected type DATE [at 1:8]
 select timestamp(1);
        ^
 ==
 
 # DATETIME is supertype of DATE
-[language_features=V_1_2_CIVIL_TIME]
+[language_features=CIVIL_TIME]
 select if(current_time > "12:00:00", current_date, current_datetime)
 --
 QueryStmt
@@ -3643,7 +3671,7 @@ QueryStmt
 ==
 
 # Implicit coercion from date to datetime
-[language_features=V_1_2_CIVIL_TIME]
+[language_features=CIVIL_TIME]
 select datetime_diff(current_datetime, current_date, second)
 --
 QueryStmt
@@ -3664,36 +3692,44 @@ QueryStmt
 ==
 
 # No implicit coercion of int64 to datetime/time for first argument.
-[language_features=V_1_2_CIVIL_TIME]
+[language_features=CIVIL_TIME]
 select {{datetime_add|datetime_sub|time_add|time_sub}}(5, interval 1 second)
 --
 ALTERNATION GROUP: datetime_add
 --
-ERROR: No matching signature for function DATETIME_ADD for argument types: INT64, INTERVAL INT64 DATE_TIME_PART. Supported signature: DATETIME_ADD(DATETIME, INTERVAL INT64 DATE_TIME_PART) [at 1:8]
+ERROR: No matching signature for function DATETIME_ADD for argument types: INT64, INTERVAL INT64 DATE_TIME_PART
+  Signature: DATETIME_ADD(DATETIME, INTERVAL INT64 DATE_TIME_PART)
+    Argument 1: Unable to coerce type INT64 to expected type DATETIME [at 1:8]
 select datetime_add(5, interval 1 second)
        ^
 --
 ALTERNATION GROUP: datetime_sub
 --
-ERROR: No matching signature for function DATETIME_SUB for argument types: INT64, INTERVAL INT64 DATE_TIME_PART. Supported signature: DATETIME_SUB(DATETIME, INTERVAL INT64 DATE_TIME_PART) [at 1:8]
+ERROR: No matching signature for function DATETIME_SUB for argument types: INT64, INTERVAL INT64 DATE_TIME_PART
+  Signature: DATETIME_SUB(DATETIME, INTERVAL INT64 DATE_TIME_PART)
+    Argument 1: Unable to coerce type INT64 to expected type DATETIME [at 1:8]
 select datetime_sub(5, interval 1 second)
        ^
 --
 ALTERNATION GROUP: time_add
 --
-ERROR: No matching signature for function TIME_ADD for argument types: INT64, INTERVAL INT64 DATE_TIME_PART. Supported signature: TIME_ADD(TIME, INTERVAL INT64 DATE_TIME_PART) [at 1:8]
+ERROR: No matching signature for function TIME_ADD for argument types: INT64, INTERVAL INT64 DATE_TIME_PART
+  Signature: TIME_ADD(TIME, INTERVAL INT64 DATE_TIME_PART)
+    Argument 1: Unable to coerce type INT64 to expected type TIME [at 1:8]
 select time_add(5, interval 1 second)
        ^
 --
 ALTERNATION GROUP: time_sub
 --
-ERROR: No matching signature for function TIME_SUB for argument types: INT64, INTERVAL INT64 DATE_TIME_PART. Supported signature: TIME_SUB(TIME, INTERVAL INT64 DATE_TIME_PART) [at 1:8]
+ERROR: No matching signature for function TIME_SUB for argument types: INT64, INTERVAL INT64 DATE_TIME_PART
+  Signature: TIME_SUB(TIME, INTERVAL INT64 DATE_TIME_PART)
+    Argument 1: Unable to coerce type INT64 to expected type TIME [at 1:8]
 select time_sub(5, interval 1 second)
        ^
 ==
 
 # Constructor functions
-[language_features=V_1_3_DATE_TIME_CONSTRUCTORS,V_1_2_CIVIL_TIME]
+[language_features=DATE_TIME_CONSTRUCTORS,CIVIL_TIME]
 select datetime(current_datetime()), time(current_time()), datetime('2000-01-02 03:04:05'), string(current_datetime()), string(current_time())
 --
 QueryStmt
@@ -3726,7 +3762,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_2_CIVIL_TIME]
+[language_features=CIVIL_TIME]
 select time_diff(current_time, time '01:02:03', day)
 --
 ERROR: TIME_DIFF does not support the DAY date part [at 1:8]
@@ -3734,7 +3770,7 @@ select time_diff(current_time, time '01:02:03', day)
        ^
 ==
 
-[language_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[language_features=CIVIL_TIME,EXTENDED_DATE_TIME_SIGNATURES]
 select
   date_trunc('1999-12-31', year), date_trunc(@test_param_string, year),
   datetime_trunc('1999-12-31', year), datetime_trunc(@test_param_string, year),
@@ -3783,7 +3819,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[language_features=CIVIL_TIME,EXTENDED_DATE_TIME_SIGNATURES]
 select
   date_add('2000-01-01', interval 1 day), date_add(@test_param_string, interval 1 day),
   date_sub('2000-01-01', interval 1 day), date_sub(@test_param_string, interval 1 day),
@@ -3880,7 +3916,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[language_features=CIVIL_TIME,EXTENDED_DATE_TIME_SIGNATURES]
 select
   date_diff('2000-01-01', '1999-12-31', day), date_diff(@test_param_string, @test_param_string, day),
   date_diff(date '2000-01-01', '1999-12-31', day), date_diff(date '2000-01-01', @test_param_string, day),
@@ -4022,7 +4058,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[language_features=CIVIL_TIME,EXTENDED_DATE_TIME_SIGNATURES]
 select
   format_date('%D', '2000-01-01'), format_date('%D', @test_param_string),
   format_datetime('%D', '2000-01-01'), format_datetime('%D', @test_param_string),
@@ -4073,7 +4109,7 @@ QueryStmt
 
 # Make sure that the resolver doesn't coerce string literals/parameters to
 # unexpected types due to extended signatures aliases.
-[language_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[language_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,CIVIL_TIME,EXTENDED_DATE_TIME_SIGNATURES]
 select
   timestamp_bucket('1999-12-31', INTERVAL 1 DAY),
   timestamp_bucket(timestamp '1999-12-31', INTERVAL 1 DAY, '2000-01-01'),
@@ -4229,7 +4265,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=TIME_BUCKET_FUNCTIONS{{|,V_1_2_CIVIL_TIME|,INTERVAL_TYPE|,V_1_2_CIVIL_TIME,INTERVAL_TYPE}}]
+[language_features=TIME_BUCKET_FUNCTIONS{{|,CIVIL_TIME|,INTERVAL_TYPE|,CIVIL_TIME,INTERVAL_TYPE}}]
 SELECT datetime_bucket('1999-12-31', INTERVAL 1 DAY);
 --
 ALTERNATION GROUP: <empty>
@@ -4238,7 +4274,7 @@ ERROR: Function not found: datetime_bucket [at 1:8]
 SELECT datetime_bucket('1999-12-31', INTERVAL 1 DAY);
        ^
 --
-ALTERNATION GROUP: ,V_1_2_CIVIL_TIME
+ALTERNATION GROUP: ,CIVIL_TIME
 --
 ERROR: Function not found: datetime_bucket; Did you mean datetime_sub? [at 1:8]
 SELECT datetime_bucket('1999-12-31', INTERVAL 1 DAY);
@@ -4250,7 +4286,7 @@ ERROR: Function not found: datetime_bucket; Did you mean date_bucket? [at 1:8]
 SELECT datetime_bucket('1999-12-31', INTERVAL 1 DAY);
        ^
 --
-ALTERNATION GROUP: ,V_1_2_CIVIL_TIME,INTERVAL_TYPE
+ALTERNATION GROUP: ,CIVIL_TIME,INTERVAL_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -4271,7 +4307,7 @@ QueryStmt
 
 # Regression test for b/186420709.
 # Shows reasonable error message when *_add|sub() used with TIMESTAMP argument.
-[language_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[language_features=CIVIL_TIME,EXTENDED_DATE_TIME_SIGNATURES]
 select
   {{date|datetime|timestamp}}_{{add|sub}}(TIMESTAMP'2021-01-15 00:33:09', interval 1 week)
 --
@@ -4316,7 +4352,7 @@ ERROR: TIMESTAMP_SUB does not support the WEEK date part when the argument is TI
 # Shows there is no error message when:
 # * date_add() used with TIMESTAMP argument and 'hour' interval
 # * timestamp_add() used with DATETIME argument and 'week' interval
-[language_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[language_features=CIVIL_TIME,EXTENDED_DATE_TIME_SIGNATURES]
 select
   date_add(TIMESTAMP '2021-01-15 00:33:09', interval 1 hour),
   timestamp_add(DATETIME '2021-01-15 00:33:09', interval 1 week),
@@ -4347,7 +4383,7 @@ QueryStmt
 
 # Regression test for b/186420709.
 # Shows reasonable error message when *_diff() used with TIMESTAMP argument.
-[language_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[language_features=CIVIL_TIME,EXTENDED_DATE_TIME_SIGNATURES]
 select
   {{date|datetime|time|timestamp}}_diff(TIMESTAMP'2021-01-15 00:33:09', TIMESTAMP'2021-01-15 00:33:09', week)
 --
@@ -4376,19 +4412,19 @@ ERROR: TIMESTAMP_DIFF does not support the WEEK date part when the argument is T
   ^
 ==
 
-[language_features={{|V_1_3_ADDITIONAL_STRING_FUNCTIONS|V_1_2_CIVIL_TIME|V_1_3_ADDITIONAL_STRING_FUNCTIONS,V_1_2_CIVIL_TIME}}]
+[language_features={{|ADDITIONAL_STRING_FUNCTIONS|CIVIL_TIME|ADDITIONAL_STRING_FUNCTIONS,CIVIL_TIME}}]
 select last_day(date '2020-07-10', SECOND)
 --
 ALTERNATION GROUPS:
     <empty>
-    V_1_3_ADDITIONAL_STRING_FUNCTIONS
-    V_1_2_CIVIL_TIME
+    ADDITIONAL_STRING_FUNCTIONS
+    CIVIL_TIME
 --
 ERROR: Function not found: last_day [at 1:8]
 select last_day(date '2020-07-10', SECOND)
        ^
 --
-ALTERNATION GROUP: V_1_3_ADDITIONAL_STRING_FUNCTIONS,V_1_2_CIVIL_TIME
+ALTERNATION GROUP: ADDITIONAL_STRING_FUNCTIONS,CIVIL_TIME
 --
 ERROR: LAST_DAY does not support the SECOND date part [at 1:8]
 select last_day(date '2020-07-10', SECOND)

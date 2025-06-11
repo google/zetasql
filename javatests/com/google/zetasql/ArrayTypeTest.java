@@ -38,6 +38,14 @@ import org.junit.runners.JUnit4;
 public class ArrayTypeTest {
 
   @Test
+  public void testComponentTypes() {
+    assertThat(
+            TypeFactory.createArrayType(TypeFactory.createSimpleType(TypeKind.TYPE_INT32))
+                .componentTypes())
+        .containsExactly(TypeFactory.createSimpleType(TypeKind.TYPE_INT32));
+  }
+
+  @Test
   public void testSerializationAndDeserialization() {
     TypeFactory factory = TypeFactory.nonUniqueNames();
     checkTypeSerializationAndDeserialization(

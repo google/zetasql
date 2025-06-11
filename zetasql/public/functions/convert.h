@@ -17,8 +17,8 @@
 #ifndef ZETASQL_PUBLIC_FUNCTIONS_CONVERT_H_
 #define ZETASQL_PUBLIC_FUNCTIONS_CONVERT_H_
 
-// Implements pairwise conversion between the following types: int32_t, int64_t,
-// uint32_t, uint64_t, bool, float, double, NumericValue, and BigNumericValue. The
+// Implements pairwise conversion between the following types: int32, int64,
+// uint32, uint64, bool, float, double, NumericValue, and BigNumericValue. The
 // conversion function has the following signature:
 //
 //   template <typename FromType, typename ToType>
@@ -145,7 +145,7 @@ inline bool Convert(
 // The following specializations are done only for the cases where static_cast()
 // is not sufficient and overflow checking is required.
 
-// -------------- int32_t --------------
+// -------------- int32 --------------
 
 template <>
 inline bool Convert<int32_t, uint32_t>(const int32_t& in, uint32_t* out,
@@ -184,7 +184,7 @@ inline bool Convert<int32_t, BigNumericValue>(const int32_t& in,
   return true;
 }
 
-// -------------- int64_t --------------
+// -------------- int64 --------------
 
 template <>
 inline bool Convert<int64_t, int32_t>(const int64_t& in, int32_t* out,
@@ -234,7 +234,7 @@ inline bool Convert<int64_t, BigNumericValue>(const int64_t& in,
   return true;
 }
 
-// -------------- uint32_t --------------
+// -------------- uint32 --------------
 
 template <>
 inline bool Convert<uint32_t, int32_t>(const uint32_t& in, int32_t* out,
@@ -263,7 +263,7 @@ inline bool Convert<uint32_t, BigNumericValue>(const uint32_t& in,
   return true;
 }
 
-// -------------- uint64_t --------------
+// -------------- uint64 --------------
 
 template <>
 inline bool Convert<uint64_t, int32_t>(const uint64_t& in, int32_t* out,

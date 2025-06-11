@@ -1,17 +1,23 @@
 [default enabled_ast_rewrites=DEFAULTS]
-[default language_features=V_1_2_SAFE_FUNCTION_CALL]
+[default language_features=SAFE_FUNCTION_CALL]
 
 SELECT ARRAY_SLICE([1, 2]{{|, 1}})
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Number of arguments does not match for function ARRAY_SLICE. Supported signature: ARRAY_SLICE(ARRAY, INT64, INT64) [at 1:8]
+ERROR: No matching signature for function ARRAY_SLICE
+  Argument types: ARRAY<INT64>
+  Signature: ARRAY_SLICE(ARRAY<T1>, INT64, INT64)
+    Signature requires at least 3 arguments, found 1 argument [at 1:8]
 SELECT ARRAY_SLICE([1, 2])
        ^
 --
 ALTERNATION GROUP: , 1
 --
-ERROR: Number of arguments does not match for function ARRAY_SLICE. Supported signature: ARRAY_SLICE(ARRAY, INT64, INT64) [at 1:8]
+ERROR: No matching signature for function ARRAY_SLICE
+  Argument types: ARRAY<INT64>, INT64
+  Signature: ARRAY_SLICE(ARRAY<T1>, INT64, INT64)
+    Signature requires at least 3 arguments, found 2 arguments [at 1:8]
 SELECT ARRAY_SLICE([1, 2], 1)
        ^
 ==
@@ -311,7 +317,7 @@ QueryStmt
 Rewrite ERROR: generic::unimplemented: SAFE mode calls to ARRAY_SLICE are not supported.
 ==
 
-[language_features=V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,V_1_4_ARRAY_FIND_FUNCTIONS]
+[language_features=SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,ARRAY_FIND_FUNCTIONS]
 [no_java]
 # TODO: Enable this test when enum debug string is fixed in Java
 SELECT {{|SAFE.}}ARRAY_OFFSET([], 'hello')
@@ -587,7 +593,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,V_1_4_ARRAY_FIND_FUNCTIONS]
+[language_features=SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,ARRAY_FIND_FUNCTIONS]
 [no_java]
 # TODO: Enable this test when enum debug string is fixed in Java
 SELECT {{|SAFE.}}ARRAY_FIND([], 'hello')

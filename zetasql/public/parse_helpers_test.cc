@@ -464,7 +464,13 @@ std::vector<StatementPropertiesTestCase> GetStatementPropertiesTestCases() {
        StatementProperties::OTHER,
        false,
        {}},
-  };
+      {R"(CASE
+         WHEN TRUE THEN
+         END CASE;)",
+       RESOLVED_LITERAL,
+       StatementProperties::OTHER,
+       false,
+       {}}};
 }
 
 TEST(GetNextStatementPropertiesTest, BasicStatements) {

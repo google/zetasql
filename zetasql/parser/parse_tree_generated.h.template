@@ -49,6 +49,7 @@ class {{node.name}} {{node.class_final}}: public {{node.parent}} {
 
  # if not node.is_abstract
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  absl::Status Accept(ParseTreeStatusVisitor& visitor, std::any& output) const override;
   absl::StatusOr<VisitResult> Accept(
       NonRecursiveParseTreeVisitor* visitor) const override;
  # endif

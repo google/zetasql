@@ -90,6 +90,14 @@ message ValueProto {
   // fractions of seconds at picosecond resolution. The count is relative to
   // Unix Epoch, i.e. UTC midnight on January 1, 1970.
   message TimestampPicos {
+    // Represents seconds of UTC time since Unix epoch
+    // 1970-01-01T00:00:00Z. Must be from 0001-01-01T00:00:00Z to
+    // 9999-12-31T23:59:59Z inclusive.
+    optional int64 seconds = 1;
+
+    // Non-negative fractions of a second at picosecond resolution.
+    // Must be from 0 to 999,999,999,999 inclusive.
+    optional int64 picos = 2;
   }
 
   // Each non-null value will have exactly one of these fields specified.
@@ -112,9 +120,8 @@ message ValueProto {
     // Stores a serialized protocol message.
     bytes proto_value = 15 [ctype = CORD];
     google.protobuf.Timestamp timestamp_value = 16;
-    // Encoded timestamp_pico value. For the encoding format see documentation
-    // for zetasql::TimestampPico::SerializeAsBytes().
-    bytes timestamp_pico_value = 29;
+    bytes timestamp_pico_value = 29 [deprecated = true];
+    TimestampPicos timestamp_picos_value = 30;
     Datetime datetime_value = 17;
     // Bit field encoding of hour/minute/second/nanos. See TimeValue class for
     // details.

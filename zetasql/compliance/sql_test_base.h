@@ -172,7 +172,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // This function is used as an entry point for some codebased compliance
   // tests.  It should be avoided because it misses the unique_name_test checks.
   [[deprecated("Use RunSQL")]] absl::StatusOr<ComplianceTestCaseResult>
-  ExecuteStatement(const std::string& sql,
+  ExecuteStatement(absl::string_view sql,
                    const std::map<std::string, Value>& parameters);
 
   // Use file-based test driver to run tests of a given file. Will be called
@@ -416,7 +416,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // column names in the first row and subsequent rows will inherit the types
   // and column names. For example:
   //
-  //   SELECT int32_t(1) as Column_1, int64_t(2) as Column_2 UNION ALL
+  //   SELECT int32(1) as Column_1, int64(2) as Column_2 UNION ALL
   //     SELECT 4, 5 UNION ALL
   //     SELECT 7, 8
   //
@@ -761,6 +761,9 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // are used to create a test database.
   TestDatabase test_db_;
 
+  // The container for CREATE CONSTANT statements that were executed during
+  // a [prepare_database] step.
+  std::vector<std::string> constant_stmt_cache_;
   // The container for CREATE FUNCTION statements that were executed during
   // a [prepare_database] step.
   std::vector<std::string> udf_stmt_cache_;
@@ -857,6 +860,15 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // Create the prepared database. This includes the protos and enums, as well
   // as all the tables.
   virtual absl::Status CreateDatabase();
+
+  // Helper to add constants from CREATE CONSTANT statements to the reference
+  // and test drivers.
+  //
+  // If `cache_stmts` is true, cache the statements in `constant_stmt_cache_`
+  // if both the reference and test drivers are able to successfully execute
+  // them.
+  absl::Status AddConstants(absl::Span<const std::string> create_constant_stmts,
+                            bool cache_stmts);
 
   // Helper to add views from CREATE VIEW statements to the reference and
   // test drivers.

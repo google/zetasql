@@ -39,6 +39,7 @@
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/extended_type.h"
 #include "zetasql/public/types/value_equality_check_options.h"
 #include "zetasql/public/value.h"
@@ -628,7 +629,7 @@ TEST_F(ExpressionAlgebrizerTest, AlgebrizeResolvedCivilTimeExpressions) {
   }
 
   // With the civil time feature option, algebrizing is successful.
-  language_options.EnableLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
+  language_options.EnableLanguageFeature(FEATURE_CIVIL_TIME);
   for (const auto& each : test_cases) {
     std::unique_ptr<ValueExpr> algebra_output;
     Parameters parameters(ParameterMap{});
@@ -2253,9 +2254,10 @@ TEST_F(StatementAlgebrizerTest, TVF) {
   auto signature =
       std::make_shared<TVFSignature>(signature_arguments, tvf_output_schema);
 
-  auto tvf_scan =
-      MakeResolvedTVFScan({o1, o2}, &tvf, signature, /*argument_list=*/{},
-                          /*column_index_list=*/{0, 1}, /*alias=*/"");
+  auto tvf_scan = MakeResolvedTVFScan(
+      {o1, o2}, &tvf, signature, /*argument_list=*/{},
+      /*column_index_list=*/{0, 1}, /*alias=*/"",
+      std::make_shared<zetasql::FunctionSignature>(*tvf.GetSignature(0)));
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const AlgebraNode> algebrized_scan,
                        algebrizer_->AlgebrizeScan(tvf_scan.get()));
   EXPECT_EQ(algebrized_scan->DebugString(true),
@@ -2267,7 +2269,9 @@ TEST_F(StatementAlgebrizerTest, TVF) {
             "| +-o2}\n"
             "+-variables: {\n"
             "| +-$o1\n"
-            "| +-$o2})");
+            "| +-$o2}\n"
+            "+-function_call_signature: tvf_no_args() -> TABLE<o1 INT64, o2 "
+            "DOUBLE>)");
 }
 
 class BarrierScanAlgebrizerTest : public StatementAlgebrizerTest {

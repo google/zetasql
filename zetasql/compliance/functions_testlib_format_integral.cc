@@ -416,7 +416,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatIntegral() {
       {"format", {"%' #9x", Uint64(300000)}, " 0x4:93e0"},
       {"format", {"%' #9o", Uint64(300000)}, " 0111,1740"},
 
-      // Width/precision overflows an int32_t.
+      // Width/precision overflows an int32.
       {"format", {"%100000000000000000f", 1.5}, NullString(), OUT_OF_RANGE},
       {"format",
        {"%*e", Int64(100000000000000000), 1.5},

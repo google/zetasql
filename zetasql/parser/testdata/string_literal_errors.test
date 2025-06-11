@@ -374,6 +374,37 @@ select b"""a""\
        ^
 ==
 
+SELECT '''a'''b'''
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:15]
+SELECT '''a'''b'''
+              ^
+==
+
+SELECT '''abc\'''
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+SELECT '''abc\'''
+       ^
+==
+
+# Test using the other two quote types.
+SELECT 'a"b''''
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:13]
+SELECT 'a"b''''
+            ^
+==
+
+#Test that STRING -> BYTES casting might not perserve the byte length
+SELECT "a
+c"
+--
+ERROR: Syntax error: Unclosed string literal [at 1:8]
+SELECT "a
+       ^
+==
+
 # Test unclosed raw string with a trailing backslash.
 select r{{'a|"a|'''a|"""a|'''a'|"""a"|'''a''|"""a""}}\
 --
@@ -1484,6 +1515,20 @@ ALTERNATION GROUP: """\"""
 ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
 select """\"""
        ^
+==
+
+SELECT 'a''b'
+--
+ERROR: Syntax error: concatenated string literals must be separated by whitespace or comments [at 1:11]
+SELECT 'a''b'
+          ^
+==
+
+SELECT '''a''''''b'''
+--
+ERROR: Syntax error: concatenated string literals must be separated by whitespace or comments [at 1:15]
+SELECT '''a''''''b'''
+              ^
 ==
 
 # Illegal escape (\) inside byte literals.

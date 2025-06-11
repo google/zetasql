@@ -18,7 +18,7 @@
 
 #include <vector>
 
-#include "zetasql/parser/bison_parser_mode.h"
+#include "zetasql/parser/parser_mode.h"
 #include "zetasql/parser/tm_token.h"
 #include "zetasql/public/language_options.h"
 #include "gmock/gmock.h"
@@ -29,20 +29,17 @@ namespace zetasql::parser {
 namespace {
 
 TEST(ZetaSqlTextmapperLexerTest, TestInstantiate) {
-  Lexer lexer = Lexer(BisonParserMode::kTokenizer, "filename", "SELECT 1",
+  Lexer lexer = Lexer(ParserMode::kTokenizer, "filename", "SELECT 1",
                       /*start_offset=*/0, LanguageOptions(),
                       /*macro_expansion_mode*/ MacroExpansionMode::kNone,
                       /*macro_catalog=*/nullptr, /*arena=*/nullptr);
 }
 
 TEST(ZetaSqlTextmapperLexerTest, TestCopy) {
-  Lexer lexer = Lexer(BisonParserMode::kNextStatement, "filename", "SELECT 1",
+  Lexer lexer = Lexer(ParserMode::kNextStatement, "filename", "SELECT 1",
                       /*start_offset=*/0, LanguageOptions(),
                       /*macro_expansion_mode*/ MacroExpansionMode::kNone,
                       /*macro_catalog=*/nullptr, /*arena=*/nullptr);
-  // skip first token setting mode
-  (void)lexer.Next();
-
   Lexer lookahead = lexer;
   EXPECT_EQ(lookahead.Next(), Token::KW_SELECT);
   EXPECT_EQ(lexer.Text(), "");
@@ -56,12 +53,12 @@ TEST(ZetaSqlTextmapperLexerTest, TestCopy) {
 }
 
 TEST(ZetaSqlTextmapperLexerTest, TestDotIdentifier) {
-  TextMapperLexerAdapter lexer = TextMapperLexerAdapter(
-      BisonParserMode::kTokenizer, "filename", "SELECT a.1b",
-      /*start_offset=*/0, LanguageOptions(),
-      /*macro_expansion_mode*/ MacroExpansionMode::kNone,
-      /*macro_catalog=*/nullptr,
-      /*arena=*/nullptr);
+  TextMapperLexerAdapter lexer =
+      TextMapperLexerAdapter(ParserMode::kTokenizer, "filename", "SELECT a.1b",
+                             /*start_offset=*/0, LanguageOptions(),
+                             /*macro_expansion_mode*/ MacroExpansionMode::kNone,
+                             /*macro_catalog=*/nullptr,
+                             /*arena=*/nullptr);
   std::vector<Token> tokens;
   Token next_token;
   do {

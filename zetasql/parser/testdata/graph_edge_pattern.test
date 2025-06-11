@@ -1,5 +1,5 @@
 [default reserve_graph_table]
-[default language_features=V_1_4_SQL_GRAPH]
+[default language_features=SQL_GRAPH]
 
 # Filler of edge patterns are already tested inside graph_node_pattern.test.
 # This test file focus on edge orientation.

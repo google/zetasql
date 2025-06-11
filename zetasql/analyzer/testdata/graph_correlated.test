@@ -1,4 +1,4 @@
-[default language_features=V_1_4_SQL_GRAPH]
+[default language_features=SQL_GRAPH]
 [default no_test_extract_table_names]
 [default show_sqlbuilder_output]
 
@@ -53,9 +53,10 @@ QueryStmt
         |       |   +-column_list=[$element_table.n#1]
         |       |   +-label_expr=
         |       |   | +-GraphLabelNaryExpr
+        |       |   |   +-parse_location=136-138
         |       |   |   +-op=NOT
         |       |   |   +-operand_list=
-        |       |   |     +-GraphWildCardLabel
+        |       |   |     +-GraphWildCardLabel(parse_location=137-138)
         |       |   +-target_element_table_list=[]
         |       +-head=$element_table.n#1
         |       +-tail=$element_table.n#1
@@ -103,9 +104,10 @@ QueryStmt
           |       |   |         |       |       |   +-column_list=[$element_table.m#4]
           |       |   |         |       |       |   +-label_expr=
           |       |   |         |       |       |   | +-GraphLabelNaryExpr
+          |       |   |         |       |       |   |   +-parse_location=231-233
           |       |   |         |       |       |   |   +-op=NOT
           |       |   |         |       |       |   |   +-operand_list=
-          |       |   |         |       |       |   |     +-GraphWildCardLabel
+          |       |   |         |       |       |   |     +-GraphWildCardLabel(parse_location=232-233)
           |       |   |         |       |       |   +-target_element_table_list=[]
           |       |   |         |       |       +-head=$element_table.m#4
           |       |   |         |       |       +-tail=$element_table.m#4
@@ -371,9 +373,10 @@ QueryStmt
         |       |   +-column_list=[$element_table.n#1]
         |       |   +-label_expr=
         |       |   | +-GraphLabelNaryExpr
+        |       |   |   +-parse_location=136-138
         |       |   |   +-op=NOT
         |       |   |   +-operand_list=
-        |       |   |     +-GraphWildCardLabel
+        |       |   |     +-GraphWildCardLabel(parse_location=137-138)
         |       |   +-target_element_table_list=[]
         |       +-head=$element_table.n#1
         |       +-tail=$element_table.n#1
@@ -420,7 +423,7 @@ QueryStmt
           |       |   |         |       |       | +-GraphNodeScan
           |       |   |         |       |       |   +-column_list=[$element_table.m#4]
           |       |   |         |       |       |   +-label_expr=
-          |       |   |         |       |       |   | +-GraphWildCardLabel
+          |       |   |         |       |       |   | +-GraphWildCardLabel(parse_location=231-232)
           |       |   |         |       |       |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
           |       |   |         |       |       +-head=$element_table.m#4
           |       |   |         |       |       +-tail=$element_table.m#4
@@ -685,7 +688,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.n#1]
         |       |   +-label_expr=
-        |       |   | +-GraphWildCardLabel
+        |       |   | +-GraphWildCardLabel(parse_location=136-137)
         |       |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
         |       +-head=$element_table.n#1
         |       +-tail=$element_table.n#1
@@ -733,9 +736,10 @@ QueryStmt
           |       |   |         |       |       |   +-column_list=[$element_table.m#4]
           |       |   |         |       |       |   +-label_expr=
           |       |   |         |       |       |   | +-GraphLabelNaryExpr
+          |       |   |         |       |       |   |   +-parse_location=230-232
           |       |   |         |       |       |   |   +-op=NOT
           |       |   |         |       |       |   |   +-operand_list=
-          |       |   |         |       |       |   |     +-GraphWildCardLabel
+          |       |   |         |       |       |   |     +-GraphWildCardLabel(parse_location=231-232)
           |       |   |         |       |       |   +-target_element_table_list=[]
           |       |   |         |       |       +-head=$element_table.m#4
           |       |   |         |       |       +-tail=$element_table.m#4
@@ -1000,7 +1004,7 @@ QueryStmt
         |       | +-GraphNodeScan
         |       |   +-column_list=[$element_table.n#1]
         |       |   +-label_expr=
-        |       |   | +-GraphWildCardLabel
+        |       |   | +-GraphWildCardLabel(parse_location=136-137)
         |       |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
         |       +-head=$element_table.n#1
         |       +-tail=$element_table.n#1
@@ -1047,7 +1051,7 @@ QueryStmt
           |       |   |         |       |       | +-GraphNodeScan
           |       |   |         |       |       |   +-column_list=[$element_table.m#4]
           |       |   |         |       |       |   +-label_expr=
-          |       |   |         |       |       |   | +-GraphWildCardLabel
+          |       |   |         |       |       |   | +-GraphWildCardLabel(parse_location=230-231)
           |       |   |         |       |       |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
           |       |   |         |       |       +-head=$element_table.m#4
           |       |   |         |       |       +-tail=$element_table.m#4

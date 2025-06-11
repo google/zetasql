@@ -44,6 +44,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <queue>
 #include <string>
 #include <utility>
 #include <variant>
@@ -86,7 +87,7 @@
 
 namespace zetasql {
 
-// Declared below.
+// Defined below.
 class AggregateFunctionBody;
 class AggregateFunctionCallExpr;
 class AlgebraNode;
@@ -742,7 +743,7 @@ class AggregateArg final : public ExprArg {
   const Type* input_type() const;
   bool ignores_null() const;
 
-  const std::vector<const KeyArg*>& order_by_keys() const {
+  const std::vector<std::unique_ptr<KeyArg>>& order_by_keys() const {
     return order_by_keys_;
   }
 
@@ -777,8 +778,7 @@ class AggregateArg final : public ExprArg {
   const Distinctness distinct_;
   const std::unique_ptr<ValueExpr> having_expr_;
   const HavingModifierKind having_modifier_kind_;
-  std::vector<const KeyArg*> order_by_keys_;
-  zetasql_base::ElementDeleter order_by_keys_deleter_;
+  std::vector<std::unique_ptr<KeyArg>> order_by_keys_;
   const std::unique_ptr<ValueExpr> limit_;
   std::unique_ptr<RelationalOp> group_rows_subquery_;
   std::vector<std::unique_ptr<KeyArg>> inner_grouping_keys_;
@@ -1809,6 +1809,39 @@ class RowsForUdaOp : public RelationalOp {
   std::vector<VariableId> arguments_;
 };
 
+// `GrainLockingOp` returns an iterator to the deduplicated set of input rows
+// fed to a measure expression. `active_group_rows_` is used to feed the input
+// rows for deduplication to `GrainLockingOp`.
+// `GrainLockingOp` can be thought of as a specialized form of an `AggregateOp`.
+class GrainLockingOp : public RelationalOp {
+ public:
+  GrainLockingOp(const GrainLockingOp&) = delete;
+  GrainLockingOp& operator=(const GrainLockingOp&) = delete;
+
+  static std::unique_ptr<GrainLockingOp> Create(VariableId measure_variable);
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+      absl::Span<const TupleData* const> params, int num_extra_slots,
+      EvaluationContext* context) const override;
+
+  // Returns the schema consisting of variables corresponding to the
+  // list of argument names passed to the constructor.
+  std::unique_ptr<TupleSchema> CreateOutputSchema() const override;
+
+  std::string IteratorDebugString() const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  explicit GrainLockingOp(VariableId measure_variable);
+
+  VariableId measure_variable_;
+};
+
 // Partitions the input by <partition_keys>, and evaluates a number of analytic
 // functions on each input tuple based on a set of related tuples in the same
 // partition. All analytic functions in an AnalyticOp must have the exact same
@@ -2327,6 +2360,15 @@ class FilterOp final : public RelationalOp {
   std::string DebugInternal(const std::string& indent,
                             bool verbose) const override;
 
+  // With pipe syntax, we can have ProjectScans that preserve order. ComputeOps
+  // and FilterOps correspond to ProjectScans and FilterScans respectively. When
+  // a FilterScan wraps a ProjectScan, it may be pushed down. Hence, FilterOps
+  // must propagate the order preserving nature of the underlying input Ops,
+  // just like ComputeOps.
+  bool may_preserve_order() const override {
+    return input()->may_preserve_order();
+  }
+
  private:
   enum ArgKind { kPredicate, kInput };
 
@@ -2731,7 +2773,8 @@ class TableAsArrayExpr final : public ValueExpr {
   TableAsArrayExpr& operator=(const TableAsArrayExpr&) = delete;
 
   static absl::StatusOr<std::unique_ptr<TableAsArrayExpr>> Create(
-      const std::string& table_name, const ArrayType* type);
+      const std::string& table_name, const ArrayType* type,
+      std::optional<std::vector<int>> column_index_list = std::nullopt);
 
   const std::string& table_name() const { return table_name_; }
 
@@ -2746,9 +2789,11 @@ class TableAsArrayExpr final : public ValueExpr {
                             bool verbose) const override;
 
  private:
-  TableAsArrayExpr(const std::string& table_name, const ArrayType* type);
+  TableAsArrayExpr(const std::string& table_name, const ArrayType* type,
+                   std::optional<std::vector<int>> column_index_list);
 
   const std::string table_name_;
+  std::optional<std::vector<int>> column_index_list_;
 };
 
 // Returns the value of variable (or attribute) 'name' of the given 'type'.
@@ -2812,6 +2857,41 @@ class FieldValueExpr final : public ValueExpr {
   ValueExpr* mutable_input();
 
   int field_index_;
+};
+
+// Given a measure-typed `expr`, return the value of the field given by
+// `field_name`. The value's type must match `field_type`.
+class MeasureFieldValueExpr final : public ValueExpr {
+ public:
+  MeasureFieldValueExpr(const MeasureFieldValueExpr&) = delete;
+  MeasureFieldValueExpr& operator=(const MeasureFieldValueExpr&) = delete;
+
+  static absl::StatusOr<std::unique_ptr<MeasureFieldValueExpr>> Create(
+      std::string field_name, const Type* field_type,
+      std::unique_ptr<ValueExpr> expr);
+
+  const std::string& field_name() const { return field_name_; }
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  bool Eval(absl::Span<const TupleData* const> params,
+            EvaluationContext* context, VirtualTupleSlot* result,
+            absl::Status* status) const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  enum ArgKind { kMeasureWrappingStruct };
+
+  MeasureFieldValueExpr(std::string field_name, const Type* field_type,
+                        std::unique_ptr<ValueExpr> expr);
+
+  const ValueExpr* input() const;
+  ValueExpr* mutable_input();
+
+  std::string field_name_;
 };
 
 // Class that actually reads fields from a proto, as specified by a
@@ -3811,7 +3891,7 @@ class DMLValueExpr : public ValueExpr {
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> schemas) override = 0;
 
-  // The returned value is a struct with two fields: an int64_t representing the
+  // The returned value is a struct with two fields: an int64 representing the
   // number of rows modified by the statement, and an array of structs, where
   // each element of the array represents a row of the modified table.
   //
@@ -3933,7 +4013,7 @@ class DMLValueExpr : public ValueExpr {
   // Returns the output of Eval(), which has type 'dml_output_type_',
   // corresponding to the input arguments.
   //
-  // The returned value is a struct with two fields: an int64_t representing the
+  // The returned value is a struct with two fields: an int64 representing the
   // number of rows modified by the statement, and an array of structs, where
   // each element of the array represents a row of the modified table.
   absl::StatusOr<Value> GetDMLOutputValue(
@@ -3964,7 +4044,7 @@ class DMLValueExpr : public ValueExpr {
       const absl::flat_hash_map<int, size_t>& generated_columns_position_map,
       EvaluationContext* context, std::vector<Value>& row) const;
 
-  std::string DebugDMLCommon(const std::string& indent, bool verbose) const;
+  std::string DebugDMLCommon(absl::string_view indent, bool verbose) const;
 
   const Table* table_;
   const ArrayType* table_array_type_;
@@ -4117,7 +4197,7 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
 
    private:
     Kind kind_;
-    // Stores a FieldDescriptor for PROTO_FIELD or an int64_t for the other Kinds.
+    // Stores a FieldDescriptor for PROTO_FIELD or an int64 for the other Kinds.
     std::variant<const google::protobuf::FieldDescriptor*, int64_t> component_;
 
     // Allow copy/move/assign.
@@ -4512,7 +4592,7 @@ class DMLInsertValueExpr final : public DMLValueExpr {
   // Returns the DML output value corresponding to the arguments.
   absl::StatusOr<Value> GetDMLOutputValue(
       int64_t num_rows_modified, const PrimaryKeyRowMap& row_map,
-      const std::vector<std::vector<Value>>& dml_returning_rows,
+      absl::Span<const std::vector<Value>> dml_returning_rows,
       EvaluationContext* context) const;
 };
 
@@ -4536,10 +4616,15 @@ class NewGraphElementExpr : public ValueExpr {
   // `src_node_key` and `dest_node_key` must be empty. Otherwise, `table` must
   // be an edge table, and both `src_node_key` and `dest_node_key` must be
   // non-empty containing non-null expressions.
+  // `dynamic_label_expr` must be non-null if `table` has a dynamic label.
+  // REQUIRES: if `graph_element_type` is dynamic, `dynamic_property_expr` must
+  // be non-null.
   static absl::StatusOr<std::unique_ptr<NewGraphElementExpr>> Create(
       const Type* graph_element_type, const GraphElementTable* table,
       std::vector<std::unique_ptr<ValueExpr>> key,
       std::vector<Property> static_properties,
+      std::unique_ptr<ValueExpr> dynamic_property_expr,
+      std::unique_ptr<ValueExpr> dynamic_label_expr,
       std::vector<std::unique_ptr<ValueExpr>> src_node_key,
       std::vector<std::unique_ptr<ValueExpr>> dest_node_key);
 
@@ -4557,6 +4642,8 @@ class NewGraphElementExpr : public ValueExpr {
   enum ArgKind {
     kKey,
     kStaticProperty,
+    kDynamicProperty,
+    kDynamicLabel,
     kSrcNodeReference,
     kDstNodeReference
   };
@@ -4572,6 +4659,8 @@ class NewGraphElementExpr : public ValueExpr {
                       const GraphElementTable* table,
                       std::vector<std::unique_ptr<ValueExpr>> key,
                       std::vector<Property> static_properties,
+                      std::unique_ptr<ValueExpr> dynamic_property_expr,
+                      std::unique_ptr<ValueExpr> dynamic_label_expr,
                       std::vector<std::unique_ptr<ValueExpr>> src_node_key,
                       std::vector<std::unique_ptr<ValueExpr>> dest_node_key);
 
@@ -4587,6 +4676,11 @@ class NewGraphElementExpr : public ValueExpr {
 
   bool IsNode() const { return output_type()->AsGraphElement()->IsNode(); }
   bool IsEdge() const { return output_type()->AsGraphElement()->IsEdge(); }
+
+  bool HasDynamicLabel() const { return !args<kDynamicLabel>().empty(); }
+  bool HasDynamicProperties() const {
+    return !args<kDynamicProperty>().empty();
+  }
 
   // Sets schema for <mutable_args>.
   absl::Status SetArgsSchema(
@@ -4825,17 +4919,13 @@ class GraphPathSearchOp : public RelationalOp {
  public:
   // Stores the intermediate selection result for the partition, including paths
   // with the same head & tail.
-  struct SelectedPathsInPartition {
-    // A map of path length to paths with that length.
-    // We use a btree map to efficiently access the largest length encountered
-    // so far using `path_length_to_paths.rbegin()`.
-    absl::btree_map<int, std::vector<std::unique_ptr<TupleData>>>
-        path_length_to_paths;
-    // Counter to keep track of the number of paths stored in the map.
-    int path_count;
-    // Whether or not a tie was detected for the purpose of evaluating
-    // non-determinism.
-    bool detected_tie;
+  struct PathWithCost {
+    Value cost;
+    std::unique_ptr<TupleData> path;
+
+    bool operator<(const PathWithCost& other) const {
+      return cost.LessThan(other.cost);
+    }
   };
 
   absl::Status SetSchemasForEvaluation(
@@ -4862,11 +4952,15 @@ class GraphPathSearchOp : public RelationalOp {
   const RelationalOp* input() const;
   RelationalOp* mutable_input();
   std::unique_ptr<ValueExpr> path_count_;
-  // Updates `selected_paths` for this partition using `next_input`.
-  virtual absl::Status MaybeUpdateSelectedPath(
-      GraphPathSearchOp::SelectedPathsInPartition& selected_paths,
-      const TupleData* next_input, EvaluationContext* context,
-      int64_t max_path_count) const = 0;
+  // Updates `all_paths` for this partition using `next_input`.
+  virtual absl::Status AddPathWithCost(std::vector<PathWithCost>& all_paths,
+                                       const TupleData* next_input,
+                                       EvaluationContext* context,
+                                       int64_t max_path_count) const = 0;
+  virtual absl::Status MaybeSortPaths(
+      std::vector<PathWithCost>& all_paths) const = 0;
+  virtual bool IsOutputDeterministic(std::vector<PathWithCost>& paths,
+                                     int64_t path_count) const = 0;
 };
 
 // Derived classes for different path search types: ANY, ANY SHORTEST.
@@ -4882,10 +4976,14 @@ class GraphShortestPathSearchOp final : public GraphPathSearchOp {
   explicit GraphShortestPathSearchOp(std::unique_ptr<RelationalOp> path_op,
                                      std::unique_ptr<ValueExpr> path_count)
       : GraphPathSearchOp(std::move(path_op), std::move(path_count)) {}
-  absl::Status MaybeUpdateSelectedPath(
-      GraphPathSearchOp::SelectedPathsInPartition& selected_path,
-      const TupleData* next_input, EvaluationContext* context,
-      int64_t max_path_count) const override;
+  absl::Status AddPathWithCost(std::vector<PathWithCost>& all_paths,
+                               const TupleData* next_input,
+                               EvaluationContext* context,
+                               int64_t max_path_count) const override;
+  absl::Status MaybeSortPaths(
+      std::vector<PathWithCost>& all_paths) const override;
+  bool IsOutputDeterministic(std::vector<PathWithCost>& paths,
+                             int64_t path_count) const override;
 };
 
 class GraphAnyPathSearchOp final : public GraphPathSearchOp {
@@ -4900,10 +4998,14 @@ class GraphAnyPathSearchOp final : public GraphPathSearchOp {
   explicit GraphAnyPathSearchOp(std::unique_ptr<RelationalOp> path_op,
                                 std::unique_ptr<ValueExpr> path_count)
       : GraphPathSearchOp(std::move(path_op), std::move(path_count)) {}
-  absl::Status MaybeUpdateSelectedPath(
-      GraphPathSearchOp::SelectedPathsInPartition& selected_path,
-      const TupleData* next_input, EvaluationContext* context,
-      int64_t max_path_count) const override;
+  absl::Status AddPathWithCost(std::vector<PathWithCost>& all_paths,
+                               const TupleData* next_input,
+                               EvaluationContext* context,
+                               int64_t max_path_count) const override;
+  absl::Status MaybeSortPaths(
+      std::vector<PathWithCost>& all_paths) const override;
+  bool IsOutputDeterministic(std::vector<PathWithCost>& paths,
+                             int64_t path_count) const override;
 };
 
 class GraphPathModeOp : public RelationalOp {

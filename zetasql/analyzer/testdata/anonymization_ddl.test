@@ -399,6 +399,7 @@ CreateTableFunctionStmt
 |       |   | +-TableScan(parse_location=224-255, column_list=[SimpleTypesWithAnonymizationUid.uid#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="t")
 |       |   +-join_expr=
 |       |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+|       |       +-parse_location=262-281
 |       |       +-ColumnRef(parse_location=262-273, type=INT64, column=table_arg.a#1)
 |       |       +-ColumnRef(parse_location=276-281, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#12)
 |       +-aggregate_list=

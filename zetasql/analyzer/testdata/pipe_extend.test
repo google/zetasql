@@ -1,4 +1,4 @@
-[default language_features=PIPES,ANALYTIC_FUNCTIONS,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
+[default language_features=PIPES,ANALYTIC_FUNCTIONS,SELECT_STAR_EXCEPT_REPLACE]
 select 1 x
 |> extend 2 y
 |> extend y*2 z
@@ -805,14 +805,14 @@ ERROR: Cannot use analytic functions inside SELECT * REPLACE [at 3:14]
 # for SELECT and EXTEND.
 # TODO Enable java support for collation.
 [no_java]
-[language_features=PIPES{{|,V_1_3_ANNOTATION_FRAMEWORK|,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT}}]
+[language_features=PIPES{{|,ANNOTATION_FRAMEWORK|,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT}}]
 FROM CollatedTable
 |> SELECT string_ci, CONCAT(string_ci, "xxx") AS newcol1
 |> EXTEND CONCAT(string_ci, "yyy") AS newcol2
 --
 ALTERNATION GROUPS:
     <empty>
-    ,V_1_3_ANNOTATION_FRAMEWORK
+    ,ANNOTATION_FRAMEWORK
 --
 QueryStmt
 +-output_column_list=
@@ -838,7 +838,7 @@ QueryStmt
         +-input_scan=
           +-TableScan(column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
 --
-ALTERNATION GROUP: ,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT
+ALTERNATION GROUP: ,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT
 --
 QueryStmt
 +-output_column_list=

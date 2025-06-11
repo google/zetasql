@@ -202,7 +202,7 @@ TEST(EvaluatorTest, WithClauseSubquerySimple) {
   // Prepare the expression with appropriate AnalyzerOptions.
   PreparedExpression expr2(query);
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
+  language_options.EnableLanguageFeature(FEATURE_WITH_ON_SUBQUERY);
   AnalyzerOptions analyzer_options(language_options);
   ZETASQL_ASSERT_OK(expr2.Prepare(analyzer_options));
   const absl::StatusOr<Value> result = expr2.Execute();
@@ -212,7 +212,7 @@ TEST(EvaluatorTest, WithClauseSubquerySimple) {
 TEST(EvaluatorTest, WithClauseSubquery) {
   PreparedExpression expr("(WITH t AS (SELECT 2 + @a as b) SELECT b FROM t)");
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
+  language_options.EnableLanguageFeature(FEATURE_WITH_ON_SUBQUERY);
   AnalyzerOptions analyzer_options(language_options);
   ZETASQL_ASSERT_OK(analyzer_options.AddQueryParameter("a", types::Int64Type()));
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
@@ -231,7 +231,7 @@ TEST(EvaluatorTest, WithClauseSubqueryWithLimit) {
   ))";
   PreparedExpression expr(query);
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
+  language_options.EnableLanguageFeature(FEATURE_WITH_ON_SUBQUERY);
   AnalyzerOptions analyzer_options(language_options);
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
   const absl::StatusOr<Value> result = expr.Execute();
@@ -250,7 +250,7 @@ TEST(EvaluatorTest, InnerWithClauseSubqueryAndOuterLimit) {
   ))";
   PreparedExpression expr(query);
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
+  language_options.EnableLanguageFeature(FEATURE_WITH_ON_SUBQUERY);
   AnalyzerOptions analyzer_options(language_options);
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
   const absl::StatusOr<Value> result = expr.Execute();
@@ -269,7 +269,7 @@ TEST(EvaluatorTest, WithClauseSubqueryWithLimitAndMultipleRefs) {
   ))";
   PreparedExpression expr(query);
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
+  language_options.EnableLanguageFeature(FEATURE_WITH_ON_SUBQUERY);
   AnalyzerOptions analyzer_options(language_options);
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
   const absl::StatusOr<Value> result = expr.Execute();
@@ -291,7 +291,7 @@ TEST(EvaluatorTest, WithClauseSubqueryWithLimitAndRefHasMultipleRefs) {
   ))";
   PreparedExpression expr(query);
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
+  language_options.EnableLanguageFeature(FEATURE_WITH_ON_SUBQUERY);
   AnalyzerOptions analyzer_options(language_options);
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
   const absl::StatusOr<Value> result = expr.Execute();
@@ -310,7 +310,7 @@ TEST(EvaluatorTest, WithClauseSubqueryWithLimitAndIndirectRef) {
   ))";
   PreparedExpression expr(query);
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
+  language_options.EnableLanguageFeature(FEATURE_WITH_ON_SUBQUERY);
   AnalyzerOptions analyzer_options(language_options);
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
   const absl::StatusOr<Value> result = expr.Execute();
@@ -331,7 +331,7 @@ TEST(EvaluatorTest, WithClauseSubqueryWithLimitAndUnreferencedRef) {
   ))";
   PreparedExpression expr(query);
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
+  language_options.EnableLanguageFeature(FEATURE_WITH_ON_SUBQUERY);
   AnalyzerOptions analyzer_options(language_options);
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
   const absl::StatusOr<Value> result = expr.Execute();
@@ -364,8 +364,8 @@ TEST(EvaluatorTest, WithRecursiveTerminatesDueToLimit) {
                                               mode);
     PreparedExpression expr(query);
     LanguageOptions language_options;
-    language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
-    language_options.EnableLanguageFeature(FEATURE_V_1_3_WITH_RECURSIVE);
+    language_options.EnableLanguageFeature(FEATURE_WITH_ON_SUBQUERY);
+    language_options.EnableLanguageFeature(FEATURE_WITH_RECURSIVE);
     AnalyzerOptions analyzer_options(language_options);
     ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
     const absl::StatusOr<Value> result = expr.Execute();
@@ -389,8 +389,8 @@ TEST(EvaluatorTest, WithRecursiveNotTerminating) {
                                               mode);
     PreparedExpression expr(query);
     LanguageOptions language_options;
-    language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
-    language_options.EnableLanguageFeature(FEATURE_V_1_3_WITH_RECURSIVE);
+    language_options.EnableLanguageFeature(FEATURE_WITH_ON_SUBQUERY);
+    language_options.EnableLanguageFeature(FEATURE_WITH_RECURSIVE);
     AnalyzerOptions analyzer_options(language_options);
     ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
     const absl::StatusOr<Value> result = expr.Execute();
@@ -414,8 +414,8 @@ TEST(EvaluatorTest, WithRecursiveMemoryExhaustedByHashSet) {
   options.max_intermediate_byte_size = 1000;
   PreparedExpression expr(query, options);
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
-  language_options.EnableLanguageFeature(FEATURE_V_1_3_WITH_RECURSIVE);
+  language_options.EnableLanguageFeature(FEATURE_WITH_ON_SUBQUERY);
+  language_options.EnableLanguageFeature(FEATURE_WITH_RECURSIVE);
   AnalyzerOptions analyzer_options(language_options);
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
   const absl::StatusOr<Value> result = expr.Execute();
@@ -431,7 +431,7 @@ TEST(EvaluatorTest, WithClauseSubquery_b119901615) {
   PreparedExpression expr(
       "(WITH a AS (SELECT true as b, 15 as c) SELECT IF(b, c, -1) FROM a)");
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
+  language_options.EnableLanguageFeature(FEATURE_WITH_ON_SUBQUERY);
   AnalyzerOptions analyzer_options(language_options);
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
   absl::StatusOr<Value> result = expr.Execute();
@@ -1620,7 +1620,7 @@ TEST(EvaluatorTest, CurrentDateTime) {
   evaluator_options.clock = &clock;
   AnalyzerOptions analyzer_options;
   analyzer_options.mutable_language()->EnableLanguageFeature(
-      zetasql::LanguageFeature::FEATURE_V_1_2_CIVIL_TIME);
+      zetasql::LanguageFeature::FEATURE_CIVIL_TIME);
 
   PreparedExpression expr("CURRENT_DATETIME()", evaluator_options);
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
@@ -1637,7 +1637,7 @@ TEST(EvaluatorTest, CurrentTime) {
   evaluator_options.clock = &clock;
   AnalyzerOptions analyzer_options;
   analyzer_options.mutable_language()->EnableLanguageFeature(
-      zetasql::LanguageFeature::FEATURE_V_1_2_CIVIL_TIME);
+      zetasql::LanguageFeature::FEATURE_CIVIL_TIME);
 
   PreparedExpression expr("CURRENT_TIME()", evaluator_options);
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
@@ -1714,7 +1714,7 @@ TEST(EvaluatorTest, ParameterizedWithNoParameterMap) {
 TEST(EvaluatorTest, ForSystemTimeAsOfWithUnsupportedTable) {
   AnalyzerOptions analyzer_options;
   analyzer_options.mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_1_FOR_SYSTEM_TIME_AS_OF);
+      FEATURE_FOR_SYSTEM_TIME_AS_OF);
 
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
 
@@ -1737,7 +1737,7 @@ TEST(EvaluatorTest, ForSystemTimeAsOfWithUnsupportedTable) {
 TEST(EvaluatorTest, ForSystemTimeAsOfWithSupportedTable) {
   AnalyzerOptions analyzer_options;
   analyzer_options.mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_1_FOR_SYSTEM_TIME_AS_OF);
+      FEATURE_FOR_SYSTEM_TIME_AS_OF);
 
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
 
@@ -1758,7 +1758,7 @@ TEST(EvaluatorTest, ForSystemTimeAsOfWithSupportedTable) {
 TEST(EvaluatorTest, QueryParamInForSystemTimeAsOfExpr) {
   AnalyzerOptions analyzer_options;
   analyzer_options.mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_1_FOR_SYSTEM_TIME_AS_OF);
+      FEATURE_FOR_SYSTEM_TIME_AS_OF);
   ZETASQL_ASSERT_OK(analyzer_options.AddQueryParameter("query_param",
                                                types::TimestampType()));
 
@@ -2007,9 +2007,9 @@ TEST(EvaluatorTest, ResolvedExprValidatedWithCorrectLanguageOptions) {
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
   AnalyzerOptions analyzer_options;
   analyzer_options.mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_3_WITH_RECURSIVE);
+      FEATURE_WITH_RECURSIVE);
   analyzer_options.mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_1_WITH_ON_SUBQUERY);
+      FEATURE_WITH_ON_SUBQUERY);
 
   SimpleCatalog catalog("TestCatalog");
   catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
@@ -2039,7 +2039,7 @@ TEST(EvaluatorTest, ResolvedExprValidatedWithCorrectLanguageOptions) {
 
 TEST_F(UDFEvalTest, OkUDFEvaluator) {
   function_options_.set_evaluator([](const absl::Span<const Value> args) {
-    // Returns string length as int64_t.
+    // Returns string length as int64.
     return Value::Int64(args[0].string_value().size());
   });
   catalog()->AddOwnedFunction(new Function(
@@ -2406,7 +2406,7 @@ TEST_F(UDAEvalTest, OkUDAEvaluatorCustomCount) {
         EvaluatorOptions());
     AnalyzerOptions analyzer_options;
     analyzer_options.mutable_language()->EnableLanguageFeature(
-        FEATURE_V_1_1_HAVING_IN_AGGREGATE);
+        FEATURE_HAVING_IN_AGGREGATE);
     ZETASQL_ASSERT_OK(query.Prepare(analyzer_options, catalog()));
     ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
                          query.Execute());
@@ -3345,7 +3345,7 @@ TEST(PreparedQuery, ResolvedQueryValidatedWithCorrectLanguageOptions) {
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
   AnalyzerOptions analyzer_options;
   analyzer_options.mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_3_WITH_RECURSIVE);
+      FEATURE_WITH_RECURSIVE);
 
   SimpleCatalog catalog("TestCatalog");
   catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
@@ -3856,7 +3856,7 @@ class PreparedDmlReturningTest : public PreparedModifyTest {
     PreparedModifyTest::SetUp();
 
     analyzer_options_.mutable_language()->EnableLanguageFeature(
-        FEATURE_V_1_3_DML_RETURNING);
+        FEATURE_DML_RETURNING);
   }
 };
 
@@ -4512,8 +4512,8 @@ class PreparedModifyWithGeneratedColumnTest
   void AddTableWithCyclicDependency(bool for_gpk) {
     // Table representation
     // CREATE TABLE TCyclic (
-    //  id int64_t ,
-    //  data int64_t ,
+    //  id int64 ,
+    //  data int64 ,
     //  gen1 as gen2*2 ,
     //  gen2 as gen1*2 ,
     // ) PRIMARY KEY(id,gen1)
@@ -4540,8 +4540,8 @@ class PreparedModifyWithGeneratedColumnTest
   void AddTableWithGeneratedColumnAsPK() {
     // Table representation
     // CREATE TABLE T (
-    //  id int64_t ,
-    //  data int64_t ,
+    //  id int64 ,
+    //  data int64 ,
     //  gen2 as (gen1*2) ,
     //  gen1 as (data*2) ,
     //  gen3 as (data*3) ,
@@ -4567,8 +4567,8 @@ class PreparedModifyWithGeneratedColumnTest
   void AddTableWithGeneratedColumn() {
     // Table representation
     // CREATE TABLE TGen (
-    //  id int64_t ,
-    //  data int64_t ,
+    //  id int64 ,
+    //  data int64 ,
     //  gen2 as (gen1*2) ,
     //  gen1 as (data*2) ,
     //  gen3 as (data*3) ,
@@ -4593,8 +4593,8 @@ class PreparedModifyWithGeneratedColumnTest
   void AddTableWithConstantGeneratedColumn() {
     // Table representation
     // CREATE TABLE TGenConst (
-    //  id int64_t ,
-    //  data int64_t ,
+    //  id int64 ,
+    //  data int64 ,
     //  gen1 as (7+3) ,
     // ) PRIMARY KEY(id,gen1)
     auto test_table = std::make_unique<SimpleTable>(
@@ -4671,7 +4671,7 @@ class PreparedModifyWithGeneratedColumnTest
     // CREATE TABLE TA (
     //  A as (B+C) ,
     //  B as (C+1) ,
-    //  C int64_t ,
+    //  C int64 ,
     //  D as (A+B+C) ,
     // ) PRIMARY KEY(A,C)
     auto test_table = std::make_unique<SimpleTable>(
@@ -4681,7 +4681,7 @@ class PreparedModifyWithGeneratedColumnTest
     AddGeneratedColumnToTable("A", {"B", "C"}, "B+C", test_table.get());
     // Add column B as (C+1)
     AddGeneratedColumnToTable("B", {"C"}, "C+1", test_table.get());
-    // Add column C int64_t
+    // Add column C int64
     ZETASQL_ASSERT_OK(test_table->AddColumn(
         new SimpleColumn(test_table->Name(), "C", types::Int64Type()),
         /*is_owned=*/true));
@@ -4697,9 +4697,9 @@ class PreparedModifyWithGeneratedColumnTest
   void AddTableWithNonCyclicDependency() {
     // Table representation
     // CREATE TABLE TGenA (
-    //  A int64_t,
+    //  A int64,
     //  B as (C+1) ,
-    //  C int64_t ,
+    //  C int64 ,
     //  D as (A+B+C) ,
     // ) PRIMARY KEY(A)
     auto test_table = std::make_unique<SimpleTable>(
@@ -4711,7 +4711,7 @@ class PreparedModifyWithGeneratedColumnTest
         /*is_owned=*/true));
     // Add column B as (C+1)
     AddGeneratedColumnToTable("B", {"C"}, "C+1", test_table.get());
-    // Add column C int64_t
+    // Add column C int64
     ZETASQL_ASSERT_OK(test_table->AddColumn(
         new SimpleColumn(test_table->Name(), "C", types::Int64Type()),
         /*is_owned=*/true));
@@ -5405,8 +5405,8 @@ TEST_F(PreparedQueryTest, TopNAccumulator) {
 
   AnalyzerOptions analyzer_options;
   LanguageOptions* language_options = analyzer_options.mutable_language();
-  language_options->EnableLanguageFeature(FEATURE_V_1_1_ORDER_BY_IN_AGGREGATE);
-  language_options->EnableLanguageFeature(FEATURE_V_1_1_LIMIT_IN_AGGREGATE);
+  language_options->EnableLanguageFeature(FEATURE_ORDER_BY_IN_AGGREGATE);
+  language_options->EnableLanguageFeature(FEATURE_LIMIT_IN_AGGREGATE);
 
   ZETASQL_ASSERT_OK(query.Prepare(analyzer_options, &catalog));
 
@@ -5832,8 +5832,7 @@ TEST_F(PreparedQueryProtoTest, ArrayPath) {
       EvaluatorOptions());
   SetupContextCallback(&query);
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(
-      FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS);
+  language_options.EnableLanguageFeature(FEATURE_UNNEST_AND_FLATTEN_ARRAYS);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(language_options), catalog_.get()));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,

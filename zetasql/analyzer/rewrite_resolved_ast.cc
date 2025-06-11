@@ -92,9 +92,9 @@ std::unique_ptr<AnalyzerOptions> AnalyzerOptionsForRewrite(
   // resolving the user facing query. Only features which themselves can be
   // rewritten into basic SQL should be enabled.
   options_for_rewrite->mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS);
+      FEATURE_UNNEST_AND_FLATTEN_ARRAYS);
   options_for_rewrite->mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_4_WITH_EXPRESSION);
+      FEATURE_WITH_EXPRESSION);
 
   // Rewriter fragment substitution uses named query parameters as an
   // implementation detail. We override settings that are required to enable

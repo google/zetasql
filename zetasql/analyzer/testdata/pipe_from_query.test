@@ -821,7 +821,7 @@ QueryStmt
     +-unit=ROWS
 ==
 
-[language_features=PIPES,V_1_3_PIVOT]
+[language_features=PIPES,PIVOT]
 # Test FROM query with PIVOT postfix operator.
 FROM KeyValue PIVOT(sum(key) FOR value IN ('x'))
 --
@@ -1761,7 +1761,7 @@ QueryStmt
 # Test a WITH RECURSIVE case with pseudo-columns, which has a different code
 # path for making the SetOperationItems.
 # The pseudo-columns are pruned from the column_lists.
-[language_features=PIPES,V_1_3_WITH_RECURSIVE,PIPE_STATIC_DESCRIBE]
+[language_features=PIPES,WITH_RECURSIVE,PIPE_STATIC_DESCRIBE]
 WITH RECURSIVE q AS ((FROM EnumTable
                       |> WHERE Filename='x')
                      UNION ALL
@@ -1830,7 +1830,7 @@ QueryStmt
 ==
 
 # FROM doing an array scan of column and field path on a table.
-[language_features=PIPES,V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH,PIPE_STATIC_DESCRIBE]
+[language_features=PIPES,SINGLE_TABLE_NAME_ARRAY_PATH,PIPE_STATIC_DESCRIBE]
 from TestTable.KitchenSink.nested_value.nested_repeated_int64
 |> STATIC_DESCRIBE
 --
@@ -1873,7 +1873,7 @@ QueryStmt
 ==
 
 # FROM doing an array scan of column and field path on a table, with flattening.
-[language_features=PIPES,V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH,V_1_3_UNNEST_AND_FLATTEN_ARRAYS,PIPE_STATIC_DESCRIBE]
+[language_features=PIPES,SINGLE_TABLE_NAME_ARRAY_PATH,UNNEST_AND_FLATTEN_ARRAYS,PIPE_STATIC_DESCRIBE]
 from TestTable.KitchenSink.nested_repeated_value.nested_repeated_int64
 |> STATIC_DESCRIBE
 --

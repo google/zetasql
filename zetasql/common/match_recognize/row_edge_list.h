@@ -34,7 +34,7 @@ namespace zetasql::functions::match_recognize {
 class RowEdgeList {
  public:
   // The edge_numbering provided must outlive this object.
-  explicit RowEdgeList(absl::Nonnull<const CompiledNFA*> nfa) : nfa_(*nfa) {}
+  explicit RowEdgeList(const CompiledNFA* /*absl_nonnull*/ nfa) : nfa_(*nfa) {}
 
   // As copying can be expensive when dealing with large partitions, allow
   // objects of this class to be moved, but not copied.
@@ -68,7 +68,7 @@ class RowEdgeList {
 
   // Returns a pointer to the highest-precedence marked edge whose source state
   // is `from_state`, or nullptr, if no marked edge from `from_state` exists.
-  absl::Nullable<const Edge*> GetHighestPrecedenceMarkedEdge(
+  const Edge* /*absl_nullable*/ GetHighestPrecedenceMarkedEdge(
       int row_number, NFAState from_state) const;
 
   // Returns a string representation of all the edge details, along with which

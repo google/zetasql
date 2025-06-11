@@ -470,6 +470,12 @@ ambiguity. For example:
 </tr>
 
 <tr>
+  <td><a href="#is_labeled_predicate"><code>IS LABELED</code> predicate</a>
+</td>
+  <td>In a graph, checks to see if a node or edge label satisfies a label expression.</td>
+</tr>
+
+<tr>
   <td><a href="#is_source_predicate"><code>IS SOURCE</code> predicate</a>
 </td>
   <td>In a graph, checks to see if a node is or isn't the source of an edge.</td>
@@ -591,8 +597,8 @@ a field by position is useful when fields are un-named or have ambiguous names.
   the protocol buffer, an error is thrown.
 + For `JSON`: `JSON`. If a field isn't found in a JSON value, a SQL `NULL` is
   returned.
-+ For `GRAPH_ELEMENT`: SQL data type of `fieldname`. If a field (property) isn't
-  found in the graph element, an error is produced.
++ For `GRAPH_ELEMENT`: SQL data type of `fieldname`. If a field (property)
+  isn't found in the graph element, an error is returned.
 
 **Example**
 
@@ -613,6 +619,8 @@ SELECT
 ```
 
 [struct-subscript-operator]: #struct_subscript_operator
+
+[graph-element-type]: https://github.com/google/zetasql/blob/master/docs/graph-data-types.md#graph_element_type
 
 ### Array subscript operator 
 <a id="array_subscript_operator"></a>
@@ -993,14 +1001,14 @@ Input values:
 
   These data types have fields:
 
-  
-  
+<!-- disableFinding(SPACES) -->
 
   + `STRUCT`
   + `PROTO`
   + `JSON`
 
-  
+<!-- enableFinding(SPACES) -->
+
 + `array_element`: If the field to access is an array field (`array_field`),
   you can additionally access a specific position in the field
   with the [array subscript operator][array-subscript-operator]
@@ -1690,7 +1698,7 @@ This operator throws an error if <code>Y</code> is negative.</td>
 ### Logical operators 
 <a id="logical_operators"></a>
 
-ZetaSQL supports the `AND`, `OR`, and  `NOT` logical operators.
+ZetaSQL supports the `AND`, `OR`, and `NOT` logical operators.
 Logical operators allow only `BOOL` or `NULL` input
 and use [three-valued logic][three-valued-logic]
 to produce a result. The result can be `TRUE`, `FALSE`, or `NULL`:
@@ -1930,10 +1938,10 @@ ZetaSQL supports the following logical operators in
 ZetaSQL supports the following graph-specific predicates in
 graph expressions. A predicate can produce `TRUE`, `FALSE`, or `NULL`.
 
-+   [`ALL_DIFFERENT` predicate][all-different-predicate]
 +   [`PROPERTY_EXISTS` predicate][property-exists-predicate]
 +   [`IS SOURCE` predicate][is-source-predicate]
 +   [`IS DESTINATION` predicate][is-destination-predicate]
++   [`IS LABELED` predicate][is-labeled-predicate]
 +   [`SAME` predicate][same-predicate]
 
 [all-different-predicate]: #all_different_predicate
@@ -1943,6 +1951,8 @@ graph expressions. A predicate can produce `TRUE`, `FALSE`, or `NULL`.
 [is-source-predicate]: #is_source_predicate
 
 [is-destination-predicate]: #is_destination_predicate
+
+[is-labeled-predicate]: #is_labeled_predicate
 
 [same-predicate]: #same_predicate
 
@@ -1998,6 +2008,85 @@ RETURN a.id AS a_id, b.id AS b_id
  | 20   | 16   |
  +-------------*/
 ```
+
+### `IS LABELED` predicate 
+<a id="is_labeled_predicate"></a>
+
+```zetasql
+element IS [ NOT ] LABELED label_expression
+```
+
+**Description**
+
+In a graph, checks to see if a node or edge label satisfies a label
+expression. Can produce `TRUE`, `FALSE`, or `NULL` if `element` is `NULL`.
+
+Arguments:
+
++   `element`: The graph pattern variable for a graph node or edge element.
++   `label_expression`: The label expression to verify. For more information,
+     see [Label expression definition][label-expression-definition].
+
+**Examples**
+
+```zetasql
+GRAPH FinGraph
+MATCH (a)
+WHERE a IS LABELED Account | Person
+RETURN a.id AS a_id, LABELS(a) AS labels
+
+/*----------------+
+ | a_id | labels  |
+ +----------------+
+ | 1    | Person  |
+ | 2    | Person  |
+ | 3    | Person  |
+ | 7    | Account |
+ | 16   | Account |
+ | 20   | Account |
+ +----------------*/
+```
+
+```zetasql
+GRAPH FinGraph
+MATCH (a)-[e]-(b:Account)
+WHERE e IS LABELED Transfers | Owns
+RETURN a.Id as a_id, Labels(e) AS labels, b.Id as b_id
+ORDER BY a_id, b_id
+
+/*------+-----------------------+------+
+ | a_id | labels                | b_id |
+ +------+-----------------------+------+
+ |    1 | [owns]                |    7 |
+ |    2 | [owns]                |   20 |
+ |    3 | [owns]                |   16 |
+ |    7 | [transfers]           |   16 |
+ |    7 | [transfers]           |   16 |
+ |    7 | [transfers]           |   20 |
+ |   16 | [transfers]           |    7 |
+ |   16 | [transfers]           |    7 |
+ |   16 | [transfers]           |   20 |
+ |   16 | [transfers]           |   20 |
+ |   20 | [transfers]           |    7 |
+ |   20 | [transfers]           |   16 |
+ |   20 | [transfers]           |   16 |
+ +------+-----------------------+------*/
+```
+
+```zetasql
+GRAPH FinGraph
+MATCH (a:Account {Id: 7})
+OPTIONAL MATCH (a)-[:OWNS]->(b)
+RETURN a.Id AS a_id, b.Id AS b_id, b IS LABELED Account AS b_is_account
+
+/*------+-----------------------+
+ | a_id | b_id   | b_is_account |
+ +------+-----------------------+
+ | 7    | NULL   | NULL         |
+ +------+-----------------------+*/
+```
+
+[label-expression-definition]: https://github.com/google/zetasql/blob/master/docs/graph-patterns.md#label_expression_definition
 
 ### `IS SOURCE` predicate 
 <a id="is_source_predicate"></a>
@@ -3517,8 +3606,9 @@ expressions within the `WITH` expression. Returns the value of
 **Requirements and Caveats**
 
 +   A given variable may only be assigned once in a given `WITH` clause.
-+   Variables created during `WITH` may not be used in 
-    analytic or  aggregate function arguments. For example,
++   Variables created during `WITH` may not be used
+    in analytic or aggregate
+    function arguments. For example,
     `WITH(a AS ..., SUM(a))` produces an error.
 +   Volatile expressions (for example, `RAND()`) behave
     as if they are evaluated only once.

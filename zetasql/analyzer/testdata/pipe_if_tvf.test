@@ -30,7 +30,10 @@ CreateTableFunctionStmt(name_path=key_or_value, argument_name_list=[mode, unused
 [use_database=db]
 FROM key_or_value(5)
 --
-ERROR: No matching signature for key_or_value for argument types: INT64, INT64. Supported signature: KEY_OR_VALUE(BOOL, [ANY]) [at 1:6]
+ERROR: No matching signature for key_or_value
+  Argument types: INT64, INT64
+  Signature: KEY_OR_VALUE(mode => BOOL, [unused => ANY])
+    Argument 1: Unable to coerce type INT64 to expected type BOOL [at 1:6]
 FROM key_or_value(5)
      ^
 ==

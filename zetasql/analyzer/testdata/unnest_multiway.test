@@ -1,4 +1,3 @@
-
 # ============== New syntax does not work without language feature =========
 SELECT *
 FROM UNNEST([1,2], mode => "STRICT");
@@ -24,7 +23,7 @@ FROM UNNEST([1,2] AS array_alias)
                   ^
 ==
 
-[default language_features=V_1_4_MULTIWAY_UNNEST,V_1_4_WITH_EXPRESSION]
+[default language_features=MULTIWAY_UNNEST,WITH_EXPRESSION]
 [default enabled_ast_rewrites=DEFAULTS,-WITH_EXPR,+MULTIWAY_UNNEST]
 # ============== UNNEST with legacy syntax =========
 SELECT *
@@ -116,7 +115,7 @@ QueryStmt
 ==
 
 # ============== UNNEST with single path expression argument =========
-[language_features=V_1_4_MULTIWAY_UNNEST{{|,V_1_4_SINGLETON_UNNEST_INFERS_ALIAS}}]
+[language_features=MULTIWAY_UNNEST{{|,SINGLETON_UNNEST_INFERS_ALIAS}}]
 [show_sqlbuilder_output]
 # Allow infer alias will introduce backward compatibility break, because the
 # selected column gets replaced.
@@ -190,7 +189,7 @@ FROM
 |> SELECT
      withrefscan_2.a_1 AS xs;
 --
-ALTERNATION GROUP: ,V_1_4_SINGLETON_UNNEST_INFERS_ALIAS
+ALTERNATION GROUP: ,SINGLETON_UNNEST_INFERS_ALIAS
 --
 QueryStmt
 +-output_column_list=
@@ -3494,7 +3493,7 @@ QueryStmt
             +-element_column_list=[$array.$with_expr_element#19]
 ==
 
-[language_features=V_1_4_MULTIWAY_UNNEST,V_1_3_UNNEST_AND_FLATTEN_ARRAYS,V_1_4_WITH_EXPRESSION]
+[language_features=MULTIWAY_UNNEST,UNNEST_AND_FLATTEN_ARRAYS,WITH_EXPRESSION]
 # 2 arguments: path expressions of implicit flatten and array element access
 # with explicit alias.
 SELECT *
@@ -5614,7 +5613,7 @@ FROM
      ) AS col1;
 ==
 
-[language_features=V_1_4_MULTIWAY_UNNEST,V_1_3_UNNEST_AND_FLATTEN_ARRAYS,V_1_4_WITH_EXPRESSION]
+[language_features=MULTIWAY_UNNEST,UNNEST_AND_FLATTEN_ARRAYS,WITH_EXPRESSION]
 # 2 arguments: FLATTEN correlated path expressions reference columns from
 # different out-of-scope tables.
 SELECT (
@@ -7738,3 +7737,440 @@ QueryStmt
           +-TableScan(column_list=[MoreComplexTypes.ArrayOfStruct#11], table=MoreComplexTypes, column_index_list=[1])
 ==
 
+# b/423700272
+SELECT a FROM (SELECT NULL)
+LEFT JOIN UNNEST(ARRAY[1] AS a, ARRAY[0] AS b) ON false
+--
+QueryStmt
++-output_column_list=
+| +-$array.a#2 AS a [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$array.a#2]
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[$subquery1.$col1#1, $array.a#2]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[$subquery1.$col1#1]
+        |   +-expr_list=
+        |   | +-$col1#1 := Literal(type=INT64, value=NULL)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-array_expr_list=
+        | +-Literal(type=ARRAY<INT64>, value=[1])
+        | +-Literal(type=ARRAY<INT64>, value=[0])
+        +-element_column_list=$array.[a#2, b#3]
+        +-join_expr=
+        | +-Literal(type=BOOL, value=false)
+        +-is_outer=TRUE
+        +-array_zip_mode=
+          +-Literal(type=ENUM<ARRAY_ZIP_MODE>, value=PAD)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$array.a#2 AS a [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$array.a#2]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$subquery1.$col1#1, $array.a#2, $array.b#3]
+        +-expr_list=
+        | +-a#2 :=
+        | | +-GetStructField
+        | |   +-type=INT64
+        | |   +-expr=
+        | |   | +-ColumnRef(type=STRUCT<arr0 INT64, arr1 INT64, offset INT64>, column=$array.$with_expr_element#17)
+        | |   +-field_idx=0
+        | +-b#3 :=
+        |   +-GetStructField
+        |     +-type=INT64
+        |     +-expr=
+        |     | +-ColumnRef(type=STRUCT<arr0 INT64, arr1 INT64, offset INT64>, column=$array.$with_expr_element#17)
+        |     +-field_idx=1
+        +-input_scan=
+          +-ArrayScan
+            +-column_list=[$subquery1.$col1#1, $array.$with_expr_element#17]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[$subquery1.$col1#1]
+            |   +-expr_list=
+            |   | +-$col1#1 := Literal(type=INT64, value=NULL)
+            |   +-input_scan=
+            |     +-SingleRowScan
+            +-array_expr_list=
+            | +-WithExpr
+            |   +-type=ARRAY<STRUCT<arr0 INT64, arr1 INT64, offset INT64>>
+            |   +-assignment_list=
+            |   | +-arr0#4 := Literal(type=ARRAY<INT64>, value=[1])
+            |   | +-arr0_len#5 :=
+            |   | | +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+            |   | |   +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
+            |   | |   | +-ColumnRef(type=ARRAY<INT64>, column=$with_expr.arr0#4)
+            |   | |   +-Literal(type=INT64, value=0)
+            |   | |   +-FunctionCall(ZetaSQL:array_length(ARRAY<INT64>) -> INT64)
+            |   | |     +-ColumnRef(type=ARRAY<INT64>, column=$with_expr.arr0#4)
+            |   | +-arr1#6 := Literal(type=ARRAY<INT64>, value=[0])
+            |   | +-arr1_len#7 :=
+            |   | | +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+            |   | |   +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
+            |   | |   | +-ColumnRef(type=ARRAY<INT64>, column=$with_expr.arr1#6)
+            |   | |   +-Literal(type=INT64, value=0)
+            |   | |   +-FunctionCall(ZetaSQL:array_length(ARRAY<INT64>) -> INT64)
+            |   | |     +-ColumnRef(type=ARRAY<INT64>, column=$with_expr.arr1#6)
+            |   | +-mode#8 :=
+            |   | | +-FunctionCall(ZetaSQL:if(BOOL, ENUM<ARRAY_ZIP_MODE>, ENUM<ARRAY_ZIP_MODE>) -> ENUM<ARRAY_ZIP_MODE>)
+            |   | |   +-FunctionCall(ZetaSQL:$is_null(ENUM<ARRAY_ZIP_MODE>) -> BOOL)
+            |   | |   | +-Literal(type=ENUM<ARRAY_ZIP_MODE>, value=PAD)
+            |   | |   +-FunctionCall(ZetaSQL:error(STRING) -> ENUM<ARRAY_ZIP_MODE>)
+            |   | |   | +-Literal(type=STRING, value="UNNEST does not allow NULL mode argument")
+            |   | |   +-Literal(type=ENUM<ARRAY_ZIP_MODE>, value=PAD)
+            |   | +-strict_check#9 :=
+            |   | | +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+            |   | |   +-FunctionCall(ZetaSQL:$and(repeated(2) BOOL) -> BOOL)
+            |   | |   | +-FunctionCall(ZetaSQL:$equal(ENUM<ARRAY_ZIP_MODE>, ENUM<ARRAY_ZIP_MODE>) -> BOOL)
+            |   | |   | | +-ColumnRef(type=ENUM<ARRAY_ZIP_MODE>, column=$with_expr.mode#8)
+            |   | |   | | +-Literal(type=ENUM<ARRAY_ZIP_MODE>, value=STRICT)
+            |   | |   | +-FunctionCall(ZetaSQL:$not_equal(INT64, INT64) -> BOOL)
+            |   | |   |   +-FunctionCall(ZetaSQL:least(repeated(2) INT64) -> INT64)
+            |   | |   |   | +-ColumnRef(type=INT64, column=$with_expr.arr0_len#5)
+            |   | |   |   | +-ColumnRef(type=INT64, column=$with_expr.arr1_len#7)
+            |   | |   |   +-FunctionCall(ZetaSQL:greatest(repeated(2) INT64) -> INT64)
+            |   | |   |     +-ColumnRef(type=INT64, column=$with_expr.arr0_len#5)
+            |   | |   |     +-ColumnRef(type=INT64, column=$with_expr.arr1_len#7)
+            |   | |   +-FunctionCall(ZetaSQL:error(STRING) -> INT64)
+            |   | |   | +-Literal(type=STRING, value="Unnested arrays under STRICT mode must have equal lengths")
+            |   | |   +-Literal(type=INT64, value=NULL)
+            |   | +-result_len#10 :=
+            |   |   +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+            |   |     +-FunctionCall(ZetaSQL:$equal(ENUM<ARRAY_ZIP_MODE>, ENUM<ARRAY_ZIP_MODE>) -> BOOL)
+            |   |     | +-ColumnRef(type=ENUM<ARRAY_ZIP_MODE>, column=$with_expr.mode#8)
+            |   |     | +-Literal(type=ENUM<ARRAY_ZIP_MODE>, value=TRUNCATE)
+            |   |     +-FunctionCall(ZetaSQL:least(repeated(2) INT64) -> INT64)
+            |   |     | +-ColumnRef(type=INT64, column=$with_expr.arr0_len#5)
+            |   |     | +-ColumnRef(type=INT64, column=$with_expr.arr1_len#7)
+            |   |     +-FunctionCall(ZetaSQL:greatest(repeated(2) INT64) -> INT64)
+            |   |       +-ColumnRef(type=INT64, column=$with_expr.arr0_len#5)
+            |   |       +-ColumnRef(type=INT64, column=$with_expr.arr1_len#7)
+            |   +-expr=
+            |     +-SubqueryExpr
+            |       +-type=ARRAY<STRUCT<arr0 INT64, arr1 INT64, offset INT64>>
+            |       +-subquery_type=ARRAY
+            |       +-parameter_list=
+            |       | +-ColumnRef(type=ARRAY<INT64>, column=$with_expr.arr0#4)
+            |       | +-ColumnRef(type=ARRAY<INT64>, column=$with_expr.arr1#6)
+            |       | +-ColumnRef(type=INT64, column=$with_expr.result_len#10)
+            |       +-subquery=
+            |         +-ProjectScan
+            |           +-column_list=[$make_struct.$struct#16]
+            |           +-is_ordered=TRUE
+            |           +-expr_list=
+            |           | +-$struct#16 :=
+            |           |   +-MakeStruct
+            |           |     +-type=STRUCT<arr0 INT64, arr1 INT64, offset INT64>
+            |           |     +-field_list=
+            |           |       +-ColumnRef(type=INT64, column=$array.arr0#11)
+            |           |       +-ColumnRef(type=INT64, column=$array.arr1#13)
+            |           |       +-ColumnRef(type=INT64, column=$full_join.offset#15)
+            |           +-input_scan=
+            |             +-OrderByScan
+            |               +-column_list=[$array.arr0#11, $array_offset.offset#12, $array.arr1#13, $array_offset.offset#14, $full_join.offset#15]
+            |               +-is_ordered=TRUE
+            |               +-input_scan=
+            |               | +-FilterScan
+            |               |   +-column_list=[$array.arr0#11, $array_offset.offset#12, $array.arr1#13, $array_offset.offset#14, $full_join.offset#15]
+            |               |   +-input_scan=
+            |               |   | +-ProjectScan
+            |               |   |   +-column_list=[$array.arr0#11, $array_offset.offset#12, $array.arr1#13, $array_offset.offset#14, $full_join.offset#15]
+            |               |   |   +-expr_list=
+            |               |   |   | +-offset#15 :=
+            |               |   |   |   +-FunctionCall(ZetaSQL:coalesce(repeated(2) INT64) -> INT64)
+            |               |   |   |     +-ColumnRef(type=INT64, column=$array_offset.offset#12)
+            |               |   |   |     +-ColumnRef(type=INT64, column=$array_offset.offset#14)
+            |               |   |   +-input_scan=
+            |               |   |     +-JoinScan
+            |               |   |       +-column_list=[$array.arr0#11, $array_offset.offset#12, $array.arr1#13, $array_offset.offset#14]
+            |               |   |       +-join_type=FULL
+            |               |   |       +-left_scan=
+            |               |   |       | +-ArrayScan
+            |               |   |       |   +-column_list=[$array.arr0#11, $array_offset.offset#12]
+            |               |   |       |   +-array_expr_list=
+            |               |   |       |   | +-ColumnRef(type=ARRAY<INT64>, column=$with_expr.arr0#4, is_correlated=TRUE)
+            |               |   |       |   +-element_column_list=[$array.arr0#11]
+            |               |   |       |   +-array_offset_column=
+            |               |   |       |     +-ColumnHolder(column=$array_offset.offset#12)
+            |               |   |       +-right_scan=
+            |               |   |       | +-ArrayScan
+            |               |   |       |   +-column_list=[$array.arr1#13, $array_offset.offset#14]
+            |               |   |       |   +-array_expr_list=
+            |               |   |       |   | +-ColumnRef(type=ARRAY<INT64>, column=$with_expr.arr1#6, is_correlated=TRUE)
+            |               |   |       |   +-element_column_list=[$array.arr1#13]
+            |               |   |       |   +-array_offset_column=
+            |               |   |       |     +-ColumnHolder(column=$array_offset.offset#14)
+            |               |   |       +-join_expr=
+            |               |   |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            |               |   |           +-ColumnRef(type=INT64, column=$array_offset.offset#12)
+            |               |   |           +-ColumnRef(type=INT64, column=$array_offset.offset#14)
+            |               |   +-filter_expr=
+            |               |     +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+            |               |       +-ColumnRef(type=INT64, column=$full_join.offset#15)
+            |               |       +-ColumnRef(type=INT64, column=$with_expr.result_len#10, is_correlated=TRUE)
+            |               +-order_by_item_list=
+            |                 +-OrderByItem
+            |                   +-column_ref=
+            |                     +-ColumnRef(type=INT64, column=$full_join.offset#15)
+            +-element_column_list=[$array.$with_expr_element#17]
+            +-join_expr=
+            | +-WithExpr
+            |   +-type=BOOL
+            |   +-assignment_list=
+            |   | +-$with_expr_field#18 :=
+            |   | | +-GetStructField
+            |   | |   +-type=INT64
+            |   | |   +-expr=
+            |   | |   | +-ColumnRef(type=STRUCT<arr0 INT64, arr1 INT64, offset INT64>, column=$array.$with_expr_element#17)
+            |   | |   +-field_idx=0
+            |   | +-$with_expr_field#19 :=
+            |   |   +-GetStructField
+            |   |     +-type=INT64
+            |   |     +-expr=
+            |   |     | +-ColumnRef(type=STRUCT<arr0 INT64, arr1 INT64, offset INT64>, column=$array.$with_expr_element#17)
+            |   |     +-field_idx=1
+            |   +-expr=
+            |     +-Literal(type=BOOL, value=false)
+            +-is_outer=TRUE
+
+==
+
+SELECT a FROM (SELECT NULL)
+LEFT JOIN UNNEST(ARRAY[1] AS a, ARRAY[0] AS b) WITH OFFSET offset
+ON a = b AND offset = 3
+--
+QueryStmt
++-output_column_list=
+| +-$array.a#2 AS a [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$array.a#2]
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[$subquery1.$col1#1, $array.a#2, $array.b#3, $array_offset.offset#4]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[$subquery1.$col1#1]
+        |   +-expr_list=
+        |   | +-$col1#1 := Literal(type=INT64, value=NULL)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-array_expr_list=
+        | +-Literal(type=ARRAY<INT64>, value=[1])
+        | +-Literal(type=ARRAY<INT64>, value=[0])
+        +-element_column_list=$array.[a#2, b#3]
+        +-array_offset_column=
+        | +-ColumnHolder(column=$array_offset.offset#4)
+        +-join_expr=
+        | +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+        |   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   | +-ColumnRef(type=INT64, column=$array.a#2)
+        |   | +-ColumnRef(type=INT64, column=$array.b#3)
+        |   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |     +-ColumnRef(type=INT64, column=$array_offset.offset#4)
+        |     +-Literal(type=INT64, value=3)
+        +-is_outer=TRUE
+        +-array_zip_mode=
+          +-Literal(type=ENUM<ARRAY_ZIP_MODE>, value=PAD)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$array.a#2 AS a [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$array.a#2]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$subquery1.$col1#1, $array.a#2, $array.b#3, $array_offset.offset#4]
+        +-expr_list=
+        | +-a#2 :=
+        | | +-GetStructField
+        | |   +-type=INT64
+        | |   +-expr=
+        | |   | +-ColumnRef(type=STRUCT<arr0 INT64, arr1 INT64, offset INT64>, column=$array.$with_expr_element#18)
+        | |   +-field_idx=0
+        | +-b#3 :=
+        | | +-GetStructField
+        | |   +-type=INT64
+        | |   +-expr=
+        | |   | +-ColumnRef(type=STRUCT<arr0 INT64, arr1 INT64, offset INT64>, column=$array.$with_expr_element#18)
+        | |   +-field_idx=1
+        | +-offset#4 :=
+        |   +-GetStructField
+        |     +-type=INT64
+        |     +-expr=
+        |     | +-ColumnRef(type=STRUCT<arr0 INT64, arr1 INT64, offset INT64>, column=$array.$with_expr_element#18)
+        |     +-field_idx=2
+        +-input_scan=
+          +-ArrayScan
+            +-column_list=[$subquery1.$col1#1, $array.$with_expr_element#18]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[$subquery1.$col1#1]
+            |   +-expr_list=
+            |   | +-$col1#1 := Literal(type=INT64, value=NULL)
+            |   +-input_scan=
+            |     +-SingleRowScan
+            +-array_expr_list=
+            | +-WithExpr
+            |   +-type=ARRAY<STRUCT<arr0 INT64, arr1 INT64, offset INT64>>
+            |   +-assignment_list=
+            |   | +-arr0#5 := Literal(type=ARRAY<INT64>, value=[1])
+            |   | +-arr0_len#6 :=
+            |   | | +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+            |   | |   +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
+            |   | |   | +-ColumnRef(type=ARRAY<INT64>, column=$with_expr.arr0#5)
+            |   | |   +-Literal(type=INT64, value=0)
+            |   | |   +-FunctionCall(ZetaSQL:array_length(ARRAY<INT64>) -> INT64)
+            |   | |     +-ColumnRef(type=ARRAY<INT64>, column=$with_expr.arr0#5)
+            |   | +-arr1#7 := Literal(type=ARRAY<INT64>, value=[0])
+            |   | +-arr1_len#8 :=
+            |   | | +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+            |   | |   +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
+            |   | |   | +-ColumnRef(type=ARRAY<INT64>, column=$with_expr.arr1#7)
+            |   | |   +-Literal(type=INT64, value=0)
+            |   | |   +-FunctionCall(ZetaSQL:array_length(ARRAY<INT64>) -> INT64)
+            |   | |     +-ColumnRef(type=ARRAY<INT64>, column=$with_expr.arr1#7)
+            |   | +-mode#9 :=
+            |   | | +-FunctionCall(ZetaSQL:if(BOOL, ENUM<ARRAY_ZIP_MODE>, ENUM<ARRAY_ZIP_MODE>) -> ENUM<ARRAY_ZIP_MODE>)
+            |   | |   +-FunctionCall(ZetaSQL:$is_null(ENUM<ARRAY_ZIP_MODE>) -> BOOL)
+            |   | |   | +-Literal(type=ENUM<ARRAY_ZIP_MODE>, value=PAD)
+            |   | |   +-FunctionCall(ZetaSQL:error(STRING) -> ENUM<ARRAY_ZIP_MODE>)
+            |   | |   | +-Literal(type=STRING, value="UNNEST does not allow NULL mode argument")
+            |   | |   +-Literal(type=ENUM<ARRAY_ZIP_MODE>, value=PAD)
+            |   | +-strict_check#10 :=
+            |   | | +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+            |   | |   +-FunctionCall(ZetaSQL:$and(repeated(2) BOOL) -> BOOL)
+            |   | |   | +-FunctionCall(ZetaSQL:$equal(ENUM<ARRAY_ZIP_MODE>, ENUM<ARRAY_ZIP_MODE>) -> BOOL)
+            |   | |   | | +-ColumnRef(type=ENUM<ARRAY_ZIP_MODE>, column=$with_expr.mode#9)
+            |   | |   | | +-Literal(type=ENUM<ARRAY_ZIP_MODE>, value=STRICT)
+            |   | |   | +-FunctionCall(ZetaSQL:$not_equal(INT64, INT64) -> BOOL)
+            |   | |   |   +-FunctionCall(ZetaSQL:least(repeated(2) INT64) -> INT64)
+            |   | |   |   | +-ColumnRef(type=INT64, column=$with_expr.arr0_len#6)
+            |   | |   |   | +-ColumnRef(type=INT64, column=$with_expr.arr1_len#8)
+            |   | |   |   +-FunctionCall(ZetaSQL:greatest(repeated(2) INT64) -> INT64)
+            |   | |   |     +-ColumnRef(type=INT64, column=$with_expr.arr0_len#6)
+            |   | |   |     +-ColumnRef(type=INT64, column=$with_expr.arr1_len#8)
+            |   | |   +-FunctionCall(ZetaSQL:error(STRING) -> INT64)
+            |   | |   | +-Literal(type=STRING, value="Unnested arrays under STRICT mode must have equal lengths")
+            |   | |   +-Literal(type=INT64, value=NULL)
+            |   | +-result_len#11 :=
+            |   |   +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+            |   |     +-FunctionCall(ZetaSQL:$equal(ENUM<ARRAY_ZIP_MODE>, ENUM<ARRAY_ZIP_MODE>) -> BOOL)
+            |   |     | +-ColumnRef(type=ENUM<ARRAY_ZIP_MODE>, column=$with_expr.mode#9)
+            |   |     | +-Literal(type=ENUM<ARRAY_ZIP_MODE>, value=TRUNCATE)
+            |   |     +-FunctionCall(ZetaSQL:least(repeated(2) INT64) -> INT64)
+            |   |     | +-ColumnRef(type=INT64, column=$with_expr.arr0_len#6)
+            |   |     | +-ColumnRef(type=INT64, column=$with_expr.arr1_len#8)
+            |   |     +-FunctionCall(ZetaSQL:greatest(repeated(2) INT64) -> INT64)
+            |   |       +-ColumnRef(type=INT64, column=$with_expr.arr0_len#6)
+            |   |       +-ColumnRef(type=INT64, column=$with_expr.arr1_len#8)
+            |   +-expr=
+            |     +-SubqueryExpr
+            |       +-type=ARRAY<STRUCT<arr0 INT64, arr1 INT64, offset INT64>>
+            |       +-subquery_type=ARRAY
+            |       +-parameter_list=
+            |       | +-ColumnRef(type=ARRAY<INT64>, column=$with_expr.arr0#5)
+            |       | +-ColumnRef(type=ARRAY<INT64>, column=$with_expr.arr1#7)
+            |       | +-ColumnRef(type=INT64, column=$with_expr.result_len#11)
+            |       +-subquery=
+            |         +-ProjectScan
+            |           +-column_list=[$make_struct.$struct#17]
+            |           +-is_ordered=TRUE
+            |           +-expr_list=
+            |           | +-$struct#17 :=
+            |           |   +-MakeStruct
+            |           |     +-type=STRUCT<arr0 INT64, arr1 INT64, offset INT64>
+            |           |     +-field_list=
+            |           |       +-ColumnRef(type=INT64, column=$array.arr0#12)
+            |           |       +-ColumnRef(type=INT64, column=$array.arr1#14)
+            |           |       +-ColumnRef(type=INT64, column=$full_join.offset#16)
+            |           +-input_scan=
+            |             +-OrderByScan
+            |               +-column_list=[$array.arr0#12, $array_offset.offset#13, $array.arr1#14, $array_offset.offset#15, $full_join.offset#16]
+            |               +-is_ordered=TRUE
+            |               +-input_scan=
+            |               | +-FilterScan
+            |               |   +-column_list=[$array.arr0#12, $array_offset.offset#13, $array.arr1#14, $array_offset.offset#15, $full_join.offset#16]
+            |               |   +-input_scan=
+            |               |   | +-ProjectScan
+            |               |   |   +-column_list=[$array.arr0#12, $array_offset.offset#13, $array.arr1#14, $array_offset.offset#15, $full_join.offset#16]
+            |               |   |   +-expr_list=
+            |               |   |   | +-offset#16 :=
+            |               |   |   |   +-FunctionCall(ZetaSQL:coalesce(repeated(2) INT64) -> INT64)
+            |               |   |   |     +-ColumnRef(type=INT64, column=$array_offset.offset#13)
+            |               |   |   |     +-ColumnRef(type=INT64, column=$array_offset.offset#15)
+            |               |   |   +-input_scan=
+            |               |   |     +-JoinScan
+            |               |   |       +-column_list=[$array.arr0#12, $array_offset.offset#13, $array.arr1#14, $array_offset.offset#15]
+            |               |   |       +-join_type=FULL
+            |               |   |       +-left_scan=
+            |               |   |       | +-ArrayScan
+            |               |   |       |   +-column_list=[$array.arr0#12, $array_offset.offset#13]
+            |               |   |       |   +-array_expr_list=
+            |               |   |       |   | +-ColumnRef(type=ARRAY<INT64>, column=$with_expr.arr0#5, is_correlated=TRUE)
+            |               |   |       |   +-element_column_list=[$array.arr0#12]
+            |               |   |       |   +-array_offset_column=
+            |               |   |       |     +-ColumnHolder(column=$array_offset.offset#13)
+            |               |   |       +-right_scan=
+            |               |   |       | +-ArrayScan
+            |               |   |       |   +-column_list=[$array.arr1#14, $array_offset.offset#15]
+            |               |   |       |   +-array_expr_list=
+            |               |   |       |   | +-ColumnRef(type=ARRAY<INT64>, column=$with_expr.arr1#7, is_correlated=TRUE)
+            |               |   |       |   +-element_column_list=[$array.arr1#14]
+            |               |   |       |   +-array_offset_column=
+            |               |   |       |     +-ColumnHolder(column=$array_offset.offset#15)
+            |               |   |       +-join_expr=
+            |               |   |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            |               |   |           +-ColumnRef(type=INT64, column=$array_offset.offset#13)
+            |               |   |           +-ColumnRef(type=INT64, column=$array_offset.offset#15)
+            |               |   +-filter_expr=
+            |               |     +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+            |               |       +-ColumnRef(type=INT64, column=$full_join.offset#16)
+            |               |       +-ColumnRef(type=INT64, column=$with_expr.result_len#11, is_correlated=TRUE)
+            |               +-order_by_item_list=
+            |                 +-OrderByItem
+            |                   +-column_ref=
+            |                     +-ColumnRef(type=INT64, column=$full_join.offset#16)
+            +-element_column_list=[$array.$with_expr_element#18]
+            +-join_expr=
+            | +-WithExpr
+            |   +-type=BOOL
+            |   +-assignment_list=
+            |   | +-$with_expr_field#19 :=
+            |   | | +-GetStructField
+            |   | |   +-type=INT64
+            |   | |   +-expr=
+            |   | |   | +-ColumnRef(type=STRUCT<arr0 INT64, arr1 INT64, offset INT64>, column=$array.$with_expr_element#18)
+            |   | |   +-field_idx=0
+            |   | +-$with_expr_field#20 :=
+            |   | | +-GetStructField
+            |   | |   +-type=INT64
+            |   | |   +-expr=
+            |   | |   | +-ColumnRef(type=STRUCT<arr0 INT64, arr1 INT64, offset INT64>, column=$array.$with_expr_element#18)
+            |   | |   +-field_idx=1
+            |   | +-$with_expr_field#21 :=
+            |   |   +-GetStructField
+            |   |     +-type=INT64
+            |   |     +-expr=
+            |   |     | +-ColumnRef(type=STRUCT<arr0 INT64, arr1 INT64, offset INT64>, column=$array.$with_expr_element#18)
+            |   |     +-field_idx=2
+            |   +-expr=
+            |     +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+            |       +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            |       | +-ColumnRef(type=INT64, column=$array.$with_expr_field#19)
+            |       | +-ColumnRef(type=INT64, column=$array.$with_expr_field#20)
+            |       +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            |         +-ColumnRef(type=INT64, column=$array.$with_expr_field#21)
+            |         +-Literal(type=INT64, value=3)
+            +-is_outer=TRUE

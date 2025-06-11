@@ -1449,7 +1449,7 @@ ARRAY<STRUCT<
  }]
 ==
 [prepare_database]
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 CREATE TABLE UuidTable AS
 SELECT CAST(1 AS int64) as row_id,
        CAST(-1 AS int64) as int64_val,
@@ -2137,7 +2137,7 @@ ARRAY<STRUCT<
 ]
 ==
 [prepare_database]
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 CREATE TABLE AllTypesRangeDatetimeTable AS
 SELECT CAST(1 AS int64) as row_id,
        CAST(true AS bool) as bool_val,
@@ -3127,7 +3127,7 @@ ARRAY<STRUCT<
                12
              }]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=orderby_single_base_column_range_datetime_asc]
 SELECT range_datetime_val, int64_val, row_id FROM AllTypesRangeDatetimeTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 10, 12, 17)
@@ -3647,7 +3647,7 @@ ARRAY<STRUCT<
              {[NULL, 2007-10-15), -14, 15},
              {NULL, -1, 16}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=orderby_single_base_column_range_datetime_desc]
 SELECT range_datetime_val, int64_val, row_id FROM AllTypesRangeDatetimeTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 10, 12, 17)
@@ -4221,7 +4221,7 @@ ARRAY<STRUCT<
              {[NULL, 2007-10-15), -14, 15},
              {NULL, -1, 16}]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=orderby_single_computed_column_range_datetime_desc]
 SELECT range_datetime_val, int64_val, row_id FROM AllTypesRangeDatetimeTable t
 WHERE row_id NOT IN (2, 3, 5, 9, 10, 12, 17)
@@ -4922,7 +4922,7 @@ ARRAY<STRUCT<
                12
              }]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=orderby_multi_base_column_range_datetime_asc]
 SELECT range_datetime_val, timestamp_val, row_id FROM AllTypesRangeDatetimeTable t
 ORDER BY range_datetime_val ASC, timestamp_val ASC, row_id ASC
@@ -5646,7 +5646,7 @@ ARRAY<STRUCT<
                16
              }]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=orderby_multi_base_column_range_datetime_desc]
 SELECT range_datetime_val, timestamp_val, row_id FROM AllTypesRangeDatetimeTable t
 ORDER BY range_datetime_val DESC, timestamp_val ASC, row_id ASC
@@ -6433,7 +6433,7 @@ ARRAY<STRUCT<
                16
              }]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=orderby_multi_computed_column_range_datetime_desc]
 SELECT range_datetime_val, timestamp_val, row_id FROM AllTypesRangeDatetimeTable t
 ORDER BY
@@ -6919,7 +6919,7 @@ ARRAY<STRUCT<x BIGNUMERIC, POS INT64>>[unknown order:
   }
 ]
 ==
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 [name=orderby_duplicates_single_base_column_uuid_asc]
 SELECT * FROM UNNEST(ARRAY(
   SELECT uuid_val FROM UuidTable t
@@ -7117,7 +7117,7 @@ ARRAY<STRUCT<x RANGE<DATE>, POS INT64>>[unknown order:
   }
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=orderby_duplicates_single_base_column_range_datetime_asc]
 SELECT * FROM UNNEST(ARRAY(
   SELECT range_datetime_val FROM AllTypesRangeDatetimeTable t
@@ -7580,7 +7580,7 @@ ARRAY<STRUCT<x BIGNUMERIC, POS INT64>>[unknown order:
   {NULL, 16}
 ]
 ==
-[required_features=V_1_4_UUID_TYPE]
+[required_features=UUID_TYPE]
 [name=orderby_duplicates_single_base_column_uuid_desc]
 SELECT * FROM UNNEST(ARRAY(
   SELECT uuid_val FROM UuidTable t
@@ -7778,7 +7778,7 @@ ARRAY<STRUCT<x RANGE<DATE>, POS INT64>>[unknown order:
   {NULL, 16}
 ]
 ==
-[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=RANGE_TYPE,CIVIL_TIME]
 [name=orderby_duplicates_single_base_column_range_datetime_desc]
 SELECT * FROM UNNEST(ARRAY(
   SELECT range_datetime_val FROM AllTypesRangeDatetimeTable t
@@ -8482,7 +8482,7 @@ NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=order_by_array_asc]
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 select arrayval
 from (select array<int64>[] as arrayval
       union all
@@ -8514,7 +8514,7 @@ ARRAY<STRUCT<arrayval ARRAY<>>>[known order:
 ==
 
 [name=order_by_array_desc]
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 select arrayval
 from (select array<int64>[] as arrayval
       union all
@@ -8546,7 +8546,7 @@ ARRAY<STRUCT<arrayval ARRAY<>>>[known order:
 ==
 
 [name=order_by_array_double_with_nan_asc]
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 select arrayval
 from (select array<double>[] as arrayval
       union all
@@ -8581,7 +8581,7 @@ ARRAY<STRUCT<arrayval ARRAY<>>>[known order:
 ==
 
 [name=order_by_array_double_with_nan_desc]
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 select arrayval
 from (select array<double>[] as arrayval
       union all
@@ -8616,7 +8616,7 @@ ARRAY<STRUCT<arrayval ARRAY<>>>[known order:
 ==
 
 [name=order_by_array_double_with_nan_and_null_asc]
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 select arrayval
 from (select array<double>[] as arrayval
       union all
@@ -8639,7 +8639,7 @@ ARRAY<STRUCT<arrayval ARRAY<>>>[known order:
 ==
 
 [name=order_by_array_double_with_nan_and_null_desc]
-[required_features=V_1_3_ARRAY_ORDERING]
+[required_features=ARRAY_ORDERING]
 select arrayval
 from (select array<double>[] as arrayval
       union all
@@ -8662,7 +8662,7 @@ ARRAY<STRUCT<arrayval ARRAY<>>>[known order:
 ==
 
 [name=order_by_nulls_first]
-[required_features=V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT int64_val, row_id FROM AllTypesTable t
 ORDER BY int64_val DESC NULLS FIRST
 --
@@ -8689,7 +8689,7 @@ ARRAY<STRUCT<int64_val INT64, row_id INT64>>[unknown order:
 ==
 
 [name=order_by_nulls_last]
-[required_features=V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT int64_val, row_id FROM AllTypesTable t
 ORDER BY int64_val NULLS LAST
 --
@@ -8717,7 +8717,7 @@ ARRAY<STRUCT<int64_val INT64, row_id INT64>>[unknown order:
 
 # NULLS FIRST/LAST with duplicates
 [name=order_by_nulls_first_last_with_duplicates]
-[required_features=V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT
   bool_val,
   IF(MOD(int64_val, 2) = 0, int64_val, NULL) AS int64_val,
@@ -8749,7 +8749,7 @@ ARRAY<STRUCT<bool_val BOOL, int64_val INT64, row_id INT64>>[known order:
 
 # NULLS FIRST over arrays with NULL elements
 [name=order_by_nulls_first_array_with_null_elems]
-[required_features=V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY,V_1_3_ARRAY_ORDERING]
+[required_features=NULLS_FIRST_LAST_IN_ORDER_BY,ARRAY_ORDERING]
 SELECT elem.field
 FROM UNNEST([STRUCT([1] AS field),
              STRUCT([NULL]),
@@ -8767,7 +8767,7 @@ ARRAY<STRUCT<field ARRAY<>>>[known order:
 
 # NULLS LAST over arrays with NULL elements
 [name=order_by_nulls_last_array_with_null_elems]
-[required_features=V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY,V_1_3_ARRAY_ORDERING]
+[required_features=NULLS_FIRST_LAST_IN_ORDER_BY,ARRAY_ORDERING]
 SELECT elem.field
 FROM UNNEST([STRUCT([1] AS field),
              STRUCT([NULL]),
@@ -8784,7 +8784,7 @@ ARRAY<STRUCT<field ARRAY<>>>[known order:
 ==
 
 [name=order_by_nulls_last_limit]
-[required_features=V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT int64_val FROM AllTypesTable t
 ORDER BY int64_val NULLS LAST LIMIT 5
 --
@@ -8793,8 +8793,32 @@ ARRAY<STRUCT<int64_val INT64>>[known order:{-14}, {-4}, {-3}, {-2}, {-2}]
 ==
 
 [name=order_by_nulls_first_limit]
-[required_features=V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT int64_val FROM AllTypesTable t
 ORDER BY int64_val DESC NULLS FIRST LIMIT 5
 --
 ARRAY<STRUCT<int64_val INT64>>[known order:{NULL}, {NULL}, {NULL}, {23}, {16}]
+==
+
+[required_features=ORDER_BY_COLLATE]
+[name=collation_does_not_cause_nondeterminism_for_identical_strings]
+SELECT count(*)
+FROM (
+  SELECT s
+  FROM UNNEST(["a", "a", "b"]) AS s
+  ORDER BY s COLLATE "und:ci"
+)
+--
+ARRAY<STRUCT<INT64>>[{3}]
+==
+
+[required_features=ORDER_BY_COLLATE]
+[name=nondeterminism_detected_with_collation]
+SELECT count(*)
+FROM (
+  SELECT s
+  FROM UNNEST(["a", "A", "b"]) AS s
+  ORDER BY s COLLATE "und:ci"
+)
+--
+ARRAY<STRUCT<INT64>>[{3}]

@@ -64,7 +64,7 @@ ARRAY<STRUCT<primary_key INT64, col STRING>>[unknown order:
 # Unicode binary (codepoint) collation. Results are same as the label
 # orderby_without_collate.
 [name=orderby_collate_binary]
-[default required_features=V_1_1_ORDER_BY_COLLATE]
+[default required_features=ORDER_BY_COLLATE]
 select primary_key, col from StringTable ORDER BY col COLLATE "binary"
 --
 ARRAY<STRUCT<primary_key INT64, col STRING>>[unknown order:
@@ -482,7 +482,7 @@ ERROR: generic::out_of_range: COLLATE has invalid collation name 'und:cs:cs':onl
 ==
 
 [name=orderby_collate_disallow_legacy_unicode_collation_with_feature]
-[required_features=V_1_1_ORDER_BY_COLLATE,DISALLOW_LEGACY_UNICODE_COLLATION]
+[required_features=ORDER_BY_COLLATE,DISALLOW_LEGACY_UNICODE_COLLATION]
 select primary_key, col
 from (select 1 primary_key, "Ca" col UNION ALL
       select 2, "ca" UNION ALL
@@ -493,7 +493,7 @@ ORDER BY col COLLATE "unicode:ci"
 ERROR: generic::out_of_range: COLLATE has invalid collation name 'unicode:ci'
 ==
 [name=orderby_collate_disallow_legacy_unicode_collation_without_feature]
-[required_features=V_1_1_ORDER_BY_COLLATE]
+[required_features=ORDER_BY_COLLATE]
 [forbidden_features=DISALLOW_LEGACY_UNICODE_COLLATION]
 select primary_key, col
 from (select 1 primary_key, "Ca" col UNION ALL

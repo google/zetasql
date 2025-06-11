@@ -502,3 +502,99 @@ select 1
 ERROR: Syntax error: Expected end of input but got keyword ON [at 2:38]
 |> join (t1 join t2 join t3 on cond1 on cond2)
                                      ^
+==
+
+# Lateral joins in pipes. LATERAL is only ever on the RHS.
+SELECT * FROM t1
+|> JOIN LATERAL (SELECT * FROM t2 WHERE a = t1.x) ON t1.y < t2.b
+|> LEFT JOIN LATERAL mytvf(t2.b) AS tvf ON t2.c = tvf.p
+--
+
+QueryStatement [0-137] [SELECT * FROM....c = tvf.p]
+  Query [0-137] [SELECT * FROM....c = tvf.p]
+    Select [0-16] [SELECT * FROM t1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-16] [FROM t1]
+        TablePathExpression [14-16] [t1]
+          PathExpression [14-16] [t1]
+            Identifier(t1) [14-16] [t1]
+    PipeJoin [17-81] [|> JOIN LATERAL...t1.y < t2.b]
+      Join [19-81] [JOIN LATERAL...t1.y < t2.b]
+        PipeJoinLhsPlaceholder [20-81] [JOIN LATERAL...t1.y < t2.b]
+        Location [20-24] [JOIN]
+        TableSubquery [25-66] [LATERAL (SELECT...a = t1.x)]
+          Query [34-65] [SELECT * FROM...WHERE a = t1.x]
+            Select [34-65] [SELECT * FROM...WHERE a = t1.x]
+              SelectList [41-42] [*]
+                SelectColumn [41-42] [*]
+                  Star(*) [41-42] [*]
+              FromClause [43-50] [FROM t2]
+                TablePathExpression [48-50] [t2]
+                  PathExpression [48-50] [t2]
+                    Identifier(t2) [48-50] [t2]
+              WhereClause [51-65] [WHERE a = t1.x]
+                BinaryExpression(=) [57-65] [a = t1.x]
+                  PathExpression [57-58] [a]
+                    Identifier(a) [57-58] [a]
+                  PathExpression [61-65] [t1.x]
+                    Identifier(t1) [61-63] [t1]
+                    Identifier(x) [64-65] [x]
+        OnClause [67-81] [ON t1.y < t2.b]
+          BinaryExpression(<) [70-81] [t1.y < t2.b]
+            PathExpression [70-74] [t1.y]
+              Identifier(t1) [70-72] [t1]
+              Identifier(y) [73-74] [y]
+            PathExpression [77-81] [t2.b]
+              Identifier(t2) [77-79] [t2]
+              Identifier(b) [80-81] [b]
+    PipeJoin [82-137] [|> LEFT JOIN....c = tvf.p]
+      Join(LEFT) [84-137] [LEFT JOIN....c = tvf.p]
+        PipeJoinLhsPlaceholder [85-137] [LEFT JOIN....c = tvf.p]
+        Location [85-94] [LEFT JOIN]
+        TVF [95-121] [LATERAL mytvf(t2.b) AS tvf]
+          PathExpression [103-108] [mytvf]
+            Identifier(mytvf) [103-108] [mytvf]
+          TVFArgument [109-113] [t2.b]
+            PathExpression [109-113] [t2.b]
+              Identifier(t2) [109-111] [t2]
+              Identifier(b) [112-113] [b]
+          Alias [115-121] [AS tvf]
+            Identifier(tvf) [118-121] [tvf]
+        OnClause [122-137] [ON t2.c = tvf.p]
+          BinaryExpression(=) [125-137] [t2.c = tvf.p]
+            PathExpression [125-129] [t2.c]
+              Identifier(t2) [125-127] [t2]
+              Identifier(c) [128-129] [c]
+            PathExpression [132-137] [tvf.p]
+              Identifier(tvf) [132-135] [tvf]
+              Identifier(p) [136-137] [p]
+--
+SELECT
+  *
+FROM
+  t1
+|> JOIN
+   LATERAL
+   (
+     SELECT
+       *
+     FROM
+       t2
+     WHERE
+       a = t1.x
+   )
+   ON t1.y < t2.b
+|> LEFT JOIN
+   LATERAL mytvf(t2.b) AS tvf
+   ON t2.c = tvf.p
+==
+
+# The pipe syntax inherently disallows LATERAL on the LHS.
+LATERAL (SELECT * FROM t2)
+|> JOIN t1
+--
+ERROR: Syntax error: Unexpected keyword LATERAL [at 1:1]
+LATERAL (SELECT * FROM t2)
+^

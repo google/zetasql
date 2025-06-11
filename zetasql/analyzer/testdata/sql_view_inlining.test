@@ -1905,6 +1905,7 @@ QueryStmt
         |   | +-TableScan(column_list=TwoIntsView.[a#1, b#2], table=TwoIntsView, column_index_list=[0, 1])
         |   +-argument_column_list=TwoIntsView.[a#1, b#2]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(ANY TABLE) -> ANY TABLE
 
 With Templated SQL TVF signature:
   tvf_templated_select_relation_arg_using_select_star(TABLE<a INT64, b INT64>) -> TABLE<a INT64, b INT64>

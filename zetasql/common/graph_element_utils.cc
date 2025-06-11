@@ -78,4 +78,109 @@ absl::StatusOr<JSONValue> MakePropertiesJsonValue(
   return json_value;
 }
 
+absl::StatusOr<std::string> GetPropertyName(
+    const ResolvedGraphGetElementProperty* node) {
+  ZETASQL_RET_CHECK(node != nullptr);
+  if (node->property_name() != nullptr) {
+    ZETASQL_RET_CHECK(node->property_name()->Is<ResolvedLiteral>() &&
+              node->property_name()->type()->IsString())
+        << "Expecting a string literal for property name, but got: "
+        << node->property_name()->DebugString();
+    return node->property_name()
+        ->GetAs<ResolvedLiteral>()
+        ->value()
+        .string_value();
+  }
+  ZETASQL_RET_CHECK(node->property() != nullptr) << "Expecting property field is set "
+                                            "in: "
+                                         << node->DebugString();
+  return node->property()->Name();
+}
+
+namespace {
+
+bool IsDynamicPropertyEquals(const ResolvedNode* node) {
+  return node->Is<ResolvedFunctionCall>() &&
+         node->GetAs<ResolvedFunctionCall>()->function()->Name() ==
+             "$dynamic_property_equals";
+}
+
+bool IsStaticPropertyEquals(const ResolvedNode* node) {
+  return node->Is<ResolvedFunctionCall>() &&
+         node->GetAs<ResolvedFunctionCall>()->function()->Name() == "$equal" &&
+         node->GetAs<ResolvedFunctionCall>()->argument_list_size() == 2 &&
+         node->GetAs<ResolvedFunctionCall>()
+             ->argument_list(0)
+             ->Is<ResolvedGraphGetElementProperty>();
+}
+
+}  // namespace
+
+absl::StatusOr<bool> ContainsDynamicPropertySpecification(
+    const ResolvedExpr* filter_expr,
+    std::vector<const ResolvedExpr*>& property_specifications,
+    std::vector<const ResolvedExpr*>& remaining_conjuncts) {
+  if (filter_expr != nullptr && filter_expr->Is<ResolvedFunctionCall>()) {
+    const auto* function_call = filter_expr->GetAs<ResolvedFunctionCall>();
+    if (function_call->function()->Name() == "$and") {
+      bool found_dynamic_property_specifications = false;
+      for (const auto& argument : function_call->argument_list()) {
+        ZETASQL_ASSIGN_OR_RETURN(
+            bool found_dynamic_property_specification,
+            ContainsDynamicPropertySpecification(
+                argument.get(), property_specifications, remaining_conjuncts));
+        found_dynamic_property_specifications |=
+            found_dynamic_property_specification;
+      }
+      return found_dynamic_property_specifications;
+    }
+    if (IsDynamicPropertyEquals(function_call)) {
+      property_specifications.push_back(function_call);
+      return true;
+    }
+    if (IsStaticPropertyEquals(function_call)) {
+      property_specifications.push_back(function_call);
+      return false;
+    }
+  }
+  // Otherwise, add the function call to remaining conjuncts.
+  if (filter_expr != nullptr) {
+    remaining_conjuncts.push_back(filter_expr);
+  }
+  return false;
+}
+
+absl::StatusOr<std::vector<std::pair<std::string, const ResolvedExpr*>>>
+ToPropertySpecifications(std::vector<const ResolvedExpr*> exprs) {
+  std::vector<std::pair<std::string, const ResolvedExpr*>>
+      property_specifications;
+  property_specifications.reserve(exprs.size());
+  for (const ResolvedExpr* expr : exprs) {
+    ZETASQL_RET_CHECK(expr->Is<ResolvedFunctionCall>());
+    const auto* function_call = expr->GetAs<ResolvedFunctionCall>();
+    if (IsDynamicPropertyEquals(function_call)) {
+      ZETASQL_RET_CHECK_EQ(function_call->argument_list_size(), 3);
+      ZETASQL_RET_CHECK(function_call->argument_list(1)->Is<ResolvedLiteral>());
+      ZETASQL_RET_CHECK(function_call->argument_list(1)->type()->IsString());
+      std::string property_name = function_call->argument_list(1)
+                                      ->GetAs<ResolvedLiteral>()
+                                      ->value()
+                                      .string_value();
+      property_specifications.emplace_back(property_name,
+                                           function_call->argument_list(2));
+    } else {
+      ZETASQL_RET_CHECK(IsStaticPropertyEquals(function_call));
+      ZETASQL_ASSIGN_OR_RETURN(
+          std::string property_name,
+          GetPropertyName(function_call->argument_list(0)
+                              ->GetAs<ResolvedGraphGetElementProperty>()));
+      property_specifications.emplace_back(property_name,
+                                           function_call->argument_list(1));
+    }
+  }
+  ZETASQL_RET_CHECK_EQ(property_specifications.size(), exprs.size());
+  return property_specifications;
+}
+
+
 }  // namespace zetasql

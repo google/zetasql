@@ -114,13 +114,12 @@ column.
 HAVING MAX having_expression
 ```
 
-`HAVING MAX` restricts the set of rows that the function aggregates to those
-having a value for `having_expression` equal to the maximum value for
-`having_expression` within the group. The  maximum value is equal to the result
-of `MAX(having_expression)`.
-
-This clause ignores `NULL` values when computing the maximum value unless
-`having_expression` evaluates to `NULL` for all rows.
+`HAVING MAX` restricts the set of input rows that the function aggregates to
+only those with the maximum `having_expression` value. The maximum value is
+computed as the result of `MAX(having_expression)` across rows in the group.
+Only rows whose `having_expression` value is equal to this maximum value (using
+SQL equality semantics) are included in the aggregation. All other rows are
+ignored in the aggregation.
 
 This clause supports all [orderable data types][agg-data-type-properties],
 except for `ARRAY`.
@@ -189,13 +188,12 @@ SELECT AVG(inches HAVING MAX year) AS average FROM Precipitation;
 HAVING MIN having_expression
 ```
 
-`HAVING MIN` restricts the set of rows that the function aggregates to those
-having a value for `having_expression` equal to the minimum value for
-`having_expression` within the group. The minimum value is equal to the result
-of `MIN(having_expression)`.
-
-This clause ignores `NULL` values when computing the minimum
-value unless `having_expression` evaluates to `NULL` for all rows.
+`HAVING MIN` restricts the set of input rows that the function aggregates to
+only those with the minimum `having_expression` value. The minimum value is
+computed as the result of `MIN(having_expression)` across rows in the group.
+Only rows whose `having_expression` value is equal to this minimum value (using
+SQL equality semantics) are included in the aggregation. All other rows are
+ignored in the aggregation.
 
 This clause supports all [orderable data types][agg-data-type-properties],
 except for `ARRAY`.
@@ -308,6 +306,8 @@ FROM UNNEST([0, 2, 4, 4, 5]) AS x;
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
+[pivot-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#pivot_operator
+
 [max_min_clause]: #max_min_clause
 
 [agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
@@ -315,6 +315,10 @@ FROM UNNEST([0, 2, 4, 4, 5]) AS x;
 [window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+[dp-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_clause
+
+[aggregation-threshold]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#agg_threshold_clause
 
 <!-- mdlint on -->
 

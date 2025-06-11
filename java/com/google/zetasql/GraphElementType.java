@@ -37,6 +37,7 @@ import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.ZetaSQLType.TypeProto;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -58,6 +59,9 @@ public class GraphElementType extends Type {
       }
     }
 
+    if (type1.isDynamic() != type2.isDynamic()) {
+      return false;
+    }
     if (type1.elementKind != type2.elementKind) {
       return false;
     }
@@ -80,12 +84,14 @@ public class GraphElementType extends Type {
   private final ImmutableList<String> graphReference;
   private final String graphReferenceString;
   private final ElementKind elementKind;
+  private final boolean isDynamic;
   private final ImmutableSortedMap<String, PropertyType> propertyTypes;
 
   /** Private constructor, instances must be created with {@link TypeFactory} */
   GraphElementType(
       List<String> graphReference,
       ElementKind elementKind,
+      boolean isDynamic,
       Set<PropertyType> propertyTypes) {
     super(TypeKind.TYPE_GRAPH_ELEMENT);
     this.graphReference = ImmutableList.copyOf(graphReference);
@@ -94,6 +100,7 @@ public class GraphElementType extends Type {
             .map(ZetaSQLStrings::toIdentifierLiteral)
             .collect(joining("."));
     this.elementKind = elementKind;
+    this.isDynamic = isDynamic;
     this.propertyTypes =
         propertyTypes.stream()
             .collect(
@@ -109,6 +116,10 @@ public class GraphElementType extends Type {
     return elementKind;
   }
 
+  public boolean isDynamic() {
+    return isDynamic;
+  }
+
   public int getPropertyTypeCount() {
     return propertyTypes.size();
   }
@@ -122,6 +133,14 @@ public class GraphElementType extends Type {
   }
 
   @Override
+  public ImmutableList<Type> componentTypes() {
+    return propertyTypes.values().stream()
+        .sorted(Comparator.comparing(PropertyType::getName))
+        .map(PropertyType::getType)
+        .collect(toImmutableList());
+  }
+
+  @Override
   public void serialize(
       TypeProto.Builder typeProtoBuilder, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
     typeProtoBuilder.setTypeKind(getKind());
@@ -129,6 +148,7 @@ public class GraphElementType extends Type {
         typeProtoBuilder.getGraphElementTypeBuilder();
     graphElementTypeProto.addAllGraphReference(getGraphReference());
     graphElementTypeProto.setKind(getElementKind());
+    graphElementTypeProto.setIsDynamic(isDynamic());
     for (PropertyType propertyType : propertyTypes.values()) {
       PropertyTypeProto.Builder propertyTypeBuilder =
           graphElementTypeProto.addPropertyTypeBuilder();
@@ -144,6 +164,7 @@ public class GraphElementType extends Type {
     List<HashCode> hashCodes = new ArrayList<>();
     hashCodes.add(HashCode.fromInt(getKind().getNumber()));
     hashCodes.add(HashCode.fromInt(Objects.hashCode(Ascii.toLowerCase(graphReferenceString))));
+    hashCodes.add(HashCode.fromInt(isDynamic ? 1 : 0));
     hashCodes.add(HashCode.fromInt(getElementKind().getNumber()));
     for (PropertyType propertyType : propertyTypes.values()) {
       hashCodes.add(HashCode.fromInt(propertyType.hashCode()));
@@ -220,6 +241,9 @@ public class GraphElementType extends Type {
 
   String typeNameImpl(List<String> propertyTypeNames) {
     String suffix = "";
+    if (isDynamic()) {
+      suffix = ", DYNAMIC";
+    }
     return String.format(
         "%s(%s)<%s%s>",
         typeElementKindName(),

@@ -103,7 +103,7 @@ AS (
 );
 ==
 
-[required_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS,V_1_1_WITH_ON_SUBQUERY]
+[required_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS,WITH_ON_SUBQUERY]
 [prepare_database]
 # The TVF body has a WITH CTE shadowing the argument table with the same name.
 CREATE TABLE FUNCTION tvf_with_cte_shadowing_arg_table(arg_t TABLE<rowid INT64>)

@@ -257,9 +257,9 @@ class IPAddress {
     in6_addr addr6;
   } addr_;
 
-  // Not all platforms define sa_family_t, so use a uint16_t.
-  // On Windows, Linux, sa_family_t is uint16_t.
-  // On OSX, sa_family_t is uint8_t
+  // Not all platforms define sa_family_t, so use a uint16.
+  // On Windows, Linux, sa_family_t is uint16.
+  // On OSX, sa_family_t is uint8
   uint16_t address_family_;
 };
 
@@ -425,7 +425,7 @@ class IPRange {
   Data data_;
 };
 
-// Convert a host byte order uint32_t into an IPv4 IPAddress.
+// Convert a host byte order uint32 into an IPv4 IPAddress.
 //
 // This is the less-evil cousin of UInt32ToIPAddress.  It can be used with
 // protobufs, mathematical/bitwise operations, or any other case where the
@@ -436,7 +436,7 @@ class IPRange {
 //
 IPAddress HostUInt32ToIPAddress(uint32_t address);
 
-// Convert an IPv4 IPAddress to a uint32_t in host byte order.
+// Convert an IPv4 IPAddress to a uint32 in host byte order.
 // This is the inverse of HostUInt32ToIPAddress().
 //
 // Example usage:

@@ -22,12 +22,11 @@
 
 #include "zetasql/base/arena.h"
 #include "zetasql/base/testing/status_matchers.h"
-#include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/parser/parser_mode.h"
 #include "zetasql/parser/tm_token.h"
-#include "zetasql/parser/token_codes.h"
 #include "zetasql/parser/token_with_location.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
@@ -88,7 +87,7 @@ class TokenTestThief {
 
 class LookaheadTransformerTest : public ::testing::Test {
  public:
-  std::vector<Token> GetAllTokens(BisonParserMode mode, absl::string_view sql) {
+  std::vector<Token> GetAllTokens(ParserMode mode, absl::string_view sql) {
     std::vector<std::unique_ptr<StackFrame>> stack_frames;
     auto tokenizer = LookaheadTransformer::Create(
         mode, "fake_file", sql, 0, options_, MacroExpansionMode::kNone,
@@ -108,44 +107,40 @@ class LookaheadTransformerTest : public ::testing::Test {
 };
 
 TEST_F(LookaheadTransformerTest, ParameterKeywordStatementMode) {
-  EXPECT_THAT(
-      GetAllTokens(BisonParserMode::kStatement, "a @select c"),
-      ElementsAre(Token::MODE_STATEMENT, Token::IDENTIFIER, Token::ATSIGN,
-                  Token::IDENTIFIER, Token::IDENTIFIER, Token::EOI));
+  EXPECT_THAT(GetAllTokens(ParserMode::kStatement, "a @select c"),
+              ElementsAre(Token::IDENTIFIER, Token::ATSIGN, Token::IDENTIFIER,
+                          Token::IDENTIFIER, Token::EOI));
 }
 
 TEST_F(LookaheadTransformerTest, ParameterKeywordTokenizerMode) {
-  EXPECT_THAT(GetAllTokens(BisonParserMode::kTokenizer, "a @select c"),
+  EXPECT_THAT(GetAllTokens(ParserMode::kTokenizer, "a @select c"),
               ElementsAre(Token::IDENTIFIER, Token::ATSIGN, Token::IDENTIFIER,
                           Token::IDENTIFIER, Token::EOI));
 }
 
 TEST_F(LookaheadTransformerTest, SysvarKeywordStatementMode) {
-  EXPECT_THAT(
-      GetAllTokens(BisonParserMode::kStatement, "a @@where c"),
-      ElementsAre(Token::MODE_STATEMENT, Token::IDENTIFIER, Token::KW_DOUBLE_AT,
-                  Token::IDENTIFIER, Token::IDENTIFIER, Token::EOI));
+  EXPECT_THAT(GetAllTokens(ParserMode::kStatement, "a @@where c"),
+              ElementsAre(Token::IDENTIFIER, Token::KW_DOUBLE_AT,
+                          Token::IDENTIFIER, Token::IDENTIFIER, Token::EOI));
 }
 
 TEST_F(LookaheadTransformerTest, SysvarKeywordTokenizerMode) {
-  EXPECT_THAT(GetAllTokens(BisonParserMode::kTokenizer, "a @@where c"),
+  EXPECT_THAT(GetAllTokens(ParserMode::kTokenizer, "a @@where c"),
               ElementsAre(Token::IDENTIFIER, Token::KW_DOUBLE_AT,
                           Token::IDENTIFIER, Token::IDENTIFIER, Token::EOI));
 }
 
 TEST_F(LookaheadTransformerTest, QueryParamCurrentDate) {
-  EXPECT_THAT(
-      GetAllTokens(BisonParserMode::kStatement, "a @current_date c"),
-      ElementsAre(Token::MODE_STATEMENT, Token::IDENTIFIER, Token::ATSIGN,
-                  Token::IDENTIFIER, Token::IDENTIFIER, Token::EOI));
+  EXPECT_THAT(GetAllTokens(ParserMode::kStatement, "a @current_date c"),
+              ElementsAre(Token::IDENTIFIER, Token::ATSIGN, Token::IDENTIFIER,
+                          Token::IDENTIFIER, Token::EOI));
 }
 
 TEST_F(LookaheadTransformerTest, SysvarWithDotId) {
-  EXPECT_THAT(
-      GetAllTokens(BisonParserMode::kStatement, "SELECT @@ORDER.WITH.c"),
-      ElementsAre(Token::MODE_STATEMENT, Token::KW_SELECT, Token::KW_DOUBLE_AT,
-                  Token::IDENTIFIER, Token::DOT, Token::IDENTIFIER, Token::DOT,
-                  Token::IDENTIFIER, Token::EOI));
+  EXPECT_THAT(GetAllTokens(ParserMode::kStatement, "SELECT @@ORDER.WITH.c"),
+              ElementsAre(Token::KW_SELECT, Token::KW_DOUBLE_AT,
+                          Token::IDENTIFIER, Token::DOT, Token::IDENTIFIER,
+                          Token::DOT, Token::IDENTIFIER, Token::EOI));
 }
 
 absl::StatusOr<Token> GetNextToken(LookaheadTransformer& tokenizer,
@@ -160,13 +155,11 @@ TEST_F(LookaheadTransformerTest, Lookahead1) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
-          BisonParserMode::kStatement, "fake_file", "a 1 SELECT", 0, options_,
+          ParserMode::kStatement, "fake_file", "a 1 SELECT", 0, options_,
           MacroExpansionMode::kNone,
           /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
-  EXPECT_THAT(GetNextToken(tokenizer, location),
-              IsOkAndHolds(Token::MODE_STATEMENT));
   EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::IDENTIFIER);
   EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::IDENTIFIER);
   EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::IDENTIFIER);
@@ -191,49 +184,18 @@ TEST_F(LookaheadTransformerTest, Lookahead1) {
   EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
 }
 
-TEST_F(LookaheadTransformerTest, Lookahead1WithForceTerminate) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      LookaheadTransformer::Create(
-          BisonParserMode::kStatement, "fake_file", "a 1 SELECT", 0, options_,
-          MacroExpansionMode::kNone,
-          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
-
-  Location location;
-  LookaheadTransformer& tokenizer = *lexer;
-  EXPECT_THAT(GetNextToken(tokenizer, location),
-              IsOkAndHolds(Token::MODE_STATEMENT));
-  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::IDENTIFIER);
-
-  EXPECT_THAT(GetNextToken(tokenizer, location),
-              IsOkAndHolds(Token::IDENTIFIER));
-  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer),
-            Token::DECIMAL_INTEGER_LITERAL);
-
-  tokenizer.SetForceTerminate(/*end_byte_offset=*/nullptr);
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
-
-  // Then even after YYEOF
-  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::EOI);
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
-}
-
 TEST_F(LookaheadTransformerTest, Lookahead2) {
   std::vector<std::unique_ptr<StackFrame>> stack_frames;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
-          BisonParserMode::kStatement, "fake_file", "a 1 SELECT", 0, options_,
+          ParserMode::kStatement, "fake_file", "a 1 SELECT", 0, options_,
           MacroExpansionMode::kNone,
           /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
 
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
 
-  EXPECT_THAT(GetNextToken(tokenizer, location),
-              IsOkAndHolds(Token::MODE_STATEMENT));
   EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::IDENTIFIER);
   EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer),
             Token::DECIMAL_INTEGER_LITERAL);
@@ -264,15 +226,13 @@ TEST_F(LookaheadTransformerTest, Lookahead2BeforeLookahead1) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
-          BisonParserMode::kStatement, "fake_file", "a 1 SELECT", 0, options_,
+          ParserMode::kStatement, "fake_file", "a 1 SELECT", 0, options_,
           MacroExpansionMode::kNone,
           /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
 
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
 
-  EXPECT_THAT(GetNextToken(tokenizer, location),
-              IsOkAndHolds(Token::MODE_STATEMENT));
   // Calling Lookahead2 before Lookahead1 returns the correct token.
   EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer),
             Token::DECIMAL_INTEGER_LITERAL);
@@ -287,18 +247,15 @@ TEST_F(LookaheadTransformerTest, Lookahead2BeforeLookahead1) {
 
 TEST_F(LookaheadTransformerTest, Lookahead2NoEnoughTokens) {
   std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      LookaheadTransformer::Create(BisonParserMode::kStatement, "fake_file", "",
-                                   0, options_, MacroExpansionMode::kNone,
-                                   /*macro_catalog=*/nullptr, /*arena=*/nullptr,
-                                   stack_frames));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer, LookaheadTransformer::Create(
+                                       ParserMode::kStatement, "fake_file", "",
+                                       0, options_, MacroExpansionMode::kNone,
+                                       /*macro_catalog=*/nullptr,
+                                       /*arena=*/nullptr, stack_frames));
 
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
 
-  EXPECT_THAT(GetNextToken(tokenizer, location),
-              IsOkAndHolds(Token::MODE_STATEMENT));
   EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::EOI);
   EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::EOI);
 
@@ -308,66 +265,6 @@ TEST_F(LookaheadTransformerTest, Lookahead2NoEnoughTokens) {
 
   // Fetching more tokens returns YYEOF.
   EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
-  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::EOI);
-  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::EOI);
-}
-
-TEST_F(LookaheadTransformerTest, Lookahead2ForceTerminate) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      LookaheadTransformer::Create(
-          BisonParserMode::kStatement, "fake_file", "a 1 SELECT", 0, options_,
-          MacroExpansionMode::kNone,
-          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
-
-  Location location;
-  LookaheadTransformer& tokenizer = *lexer;
-
-  EXPECT_THAT(GetNextToken(tokenizer, location),
-              IsOkAndHolds(Token::MODE_STATEMENT));
-  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::IDENTIFIER);
-  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer),
-            Token::DECIMAL_INTEGER_LITERAL);
-
-  tokenizer.SetForceTerminate(/*end_byte_offset=*/nullptr);
-
-  // After the force termination both lookaheads return YYEOF.
-  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::EOI);
-  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::EOI);
-
-  // Fetching more tokens returns YYEOF.
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
-  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::EOI);
-  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::EOI);
-}
-
-TEST_F(LookaheadTransformerTest, Lookahead2ForceTerminateLookahead2First) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      LookaheadTransformer::Create(
-          BisonParserMode::kStatement, "fake_file", "a 1 SELECT", 0, options_,
-          MacroExpansionMode::kNone,
-          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
-
-  Location location;
-  LookaheadTransformer& tokenizer = *lexer;
-
-  EXPECT_THAT(GetNextToken(tokenizer, location),
-              IsOkAndHolds(Token::MODE_STATEMENT));
-  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::IDENTIFIER);
-  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer),
-            Token::DECIMAL_INTEGER_LITERAL);
-
-  tokenizer.SetForceTerminate(/*end_byte_offset=*/nullptr);
-
-  // After the force termination both lookaheads return YYEOF.
-  EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::EOI);
-  EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::EOI);
-
-  // Fetching more tokens returns YYEOF.
   EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
   EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::EOI);
   EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::EOI);
@@ -378,15 +275,13 @@ TEST_F(LookaheadTransformerTest, LookaheadTransformerReturnsYyeofWhenErrors) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
-          BisonParserMode::kStatement, "fake_file", "SELECT * EXCEPT 1", 0,
-          options_, MacroExpansionMode::kNone,
+          ParserMode::kStatement, "fake_file", "SELECT * EXCEPT 1", 0, options_,
+          MacroExpansionMode::kNone,
           /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
 
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
 
-  EXPECT_THAT(GetNextToken(tokenizer, location),
-              IsOkAndHolds(Token::MODE_STATEMENT));
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::KW_SELECT));
   EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::MULT));
@@ -401,6 +296,65 @@ TEST_F(LookaheadTransformerTest, LookaheadTransformerReturnsYyeofWhenErrors) {
   // The returned token should be YYEOF rather than KW_EXCEPT because an error
   // is produced.
   EXPECT_EQ(token_kind, Token::EOI);
+}
+
+TEST_F(LookaheadTransformerTest, IsEoiTestBasic) {
+  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto lexer,
+      LookaheadTransformer::Create(
+          ParserMode::kStatement, "fake_file", "SELECT 1; SELECT 2", 0,
+          options_, MacroExpansionMode::kNone, /*macro_catalog=*/nullptr,
+          /*arena=*/nullptr, stack_frames));
+  EXPECT_FALSE(lexer->IsAtEoi());
+
+  ParseLocationRange loc;
+  int i = 0;
+  for (Token token :
+       {Token::KW_SELECT, Token::INTEGER_LITERAL, Token::SEMICOLON,
+        Token::KW_SELECT, Token::INTEGER_LITERAL, Token::EOI}) {
+    EXPECT_THAT(GetNextToken(*lexer, loc), IsOkAndHolds(token));
+    EXPECT_EQ(lexer->IsAtEoi(), ++i >= 5) << i;
+  }
+}
+
+TEST_F(LookaheadTransformerTest, IsEoiTestBasicTrailingSemicolon) {
+  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto lexer,
+      LookaheadTransformer::Create(
+          ParserMode::kStatement, "fake_file", "SELECT 1; SELECT 2;", 0,
+          options_, MacroExpansionMode::kNone, /*macro_catalog=*/nullptr,
+          /*arena=*/nullptr, stack_frames));
+  ParseLocationRange loc;
+  int i = 0;
+  for (Token token : {Token::KW_SELECT, Token::INTEGER_LITERAL,
+                      Token::SEMICOLON, Token::KW_SELECT,
+                      Token::INTEGER_LITERAL, Token::SEMICOLON, Token::EOI}) {
+    EXPECT_THAT(GetNextToken(*lexer, loc), IsOkAndHolds(token));
+    // IsEoi() returns true both for the last semicolon or for the real eof
+    // token.
+    EXPECT_EQ(lexer->IsAtEoi(), ++i >= 6) << i;
+    ;
+  }
+}
+
+TEST_F(LookaheadTransformerTest, IsEoiTestTokenError) {
+  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto lexer,
+      LookaheadTransformer::Create(
+          ParserMode::kStatement, "fake_file", "SELECT * EXCEPT", 0, options_,
+          MacroExpansionMode::kNone, /*macro_catalog=*/nullptr,
+          /*arena=*/nullptr, stack_frames));
+  ParseLocationRange loc;
+
+  EXPECT_THAT(GetNextToken(*lexer, loc), IsOkAndHolds(Token::KW_SELECT));
+  EXPECT_THAT(GetNextToken(*lexer, loc), IsOkAndHolds(Token::MULT));
+
+  Token token_kind;
+  absl::Status status = lexer->GetNextToken(&loc, &token_kind);
+  EXPECT_FALSE(lexer->IsAtEoi());
 }
 
 static void AdvanceLexer(LookaheadTransformer& tokenizer, Location& location) {
@@ -425,16 +379,12 @@ TEST_F(LookaheadTransformerTest, LookaheadTransformerHasCorrectPrevToken) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
-          BisonParserMode::kStatement, "fake_file", "SELECT 1 FULL UNION ALL",
-          0, options_, MacroExpansionMode::kNone,
+          ParserMode::kStatement, "fake_file", "SELECT 1 FULL UNION ALL", 0,
+          options_, MacroExpansionMode::kNone,
           /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
 
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
-
-  AdvanceLexer(tokenizer, location);
-  EXPECT_THAT(TokenTestThief::GetCurrentToken(tokenizer),
-              TokenIs(Token::MODE_STATEMENT));
 
   AdvanceLexer(tokenizer, location);
   EXPECT_THAT(TokenTestThief::GetCurrentToken(tokenizer),
@@ -456,16 +406,12 @@ TEST_F(LookaheadTransformerTest,
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
-          BisonParserMode::kStatement, "fake_file", "SELECT * EXCEPT 1", 0,
-          options_, MacroExpansionMode::kNone,
+          ParserMode::kStatement, "fake_file", "SELECT * EXCEPT 1", 0, options_,
+          MacroExpansionMode::kNone,
           /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
 
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
-
-  AdvanceLexer(tokenizer, location);
-  EXPECT_THAT(TokenTestThief::GetCurrentToken(tokenizer),
-              TokenIs(Token::MODE_STATEMENT));
 
   AdvanceLexer(tokenizer, location);
   EXPECT_THAT(TokenTestThief::GetCurrentToken(tokenizer),
@@ -498,15 +444,13 @@ TEST_F(LookaheadTransformerTest,
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
-          BisonParserMode::kStatement, "fake_file", "SELECT *", 0, options_,
+          ParserMode::kStatement, "fake_file", "SELECT *", 0, options_,
           MacroExpansionMode::kNone,
           /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
 
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
 
-  EXPECT_THAT(GetNextToken(tokenizer, location),
-              IsOkAndHolds(Token::MODE_STATEMENT));
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::KW_SELECT));
   EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::MULT));
@@ -525,15 +469,13 @@ TEST_F(LookaheadTransformerTest,
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
-          BisonParserMode::kStatement, "fake_file", "SELECT * EXCEPT 1", 0,
-          options_, MacroExpansionMode::kNone,
+          ParserMode::kStatement, "fake_file", "SELECT * EXCEPT 1", 0, options_,
+          MacroExpansionMode::kNone,
           /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
 
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
 
-  EXPECT_THAT(GetNextToken(tokenizer, location),
-              IsOkAndHolds(Token::MODE_STATEMENT));
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::KW_SELECT));
   EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::MULT));
@@ -543,87 +485,6 @@ TEST_F(LookaheadTransformerTest,
   EXPECT_THAT(
       GetNextToken(tokenizer, location),
       StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr(error_message)));
-
-  // Keep calling GetNextToken should always return the same error.
-  for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
-    EXPECT_THAT(
-        GetNextToken(tokenizer, location),
-        StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr(error_message)));
-  }
-}
-
-// SetForceTerminate is called without fetching any tokens.
-TEST_F(LookaheadTransformerTest,
-       LookaheadTransformerGetNextTokenAfterSetForceTerminateNoTokens) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      LookaheadTransformer::Create(
-          BisonParserMode::kStatement, "fake_file", "SELECT *", 0, options_,
-          MacroExpansionMode::kNone,
-          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
-
-  Location location;
-  LookaheadTransformer& tokenizer = *lexer;
-
-  tokenizer.SetForceTerminate(/*end_byte_offset=*/nullptr);
-  // Keep calling GetNextToken should always return YYEOF with no errors.
-  for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
-    EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
-  }
-}
-
-// Last returned token has no errors and then SetForceTerminate is called.
-TEST_F(LookaheadTransformerTest,
-       LookaheadTransformerGetNextTokenAfterSetForceTerminateNoError) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      LookaheadTransformer::Create(
-          BisonParserMode::kStatement, "fake_file", "SELECT *", 0, options_,
-          MacroExpansionMode::kNone,
-          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
-
-  Location location;
-  LookaheadTransformer& tokenizer = *lexer;
-
-  EXPECT_THAT(GetNextToken(tokenizer, location),
-              IsOkAndHolds(Token::MODE_STATEMENT));
-  tokenizer.SetForceTerminate(/*end_byte_offset=*/nullptr);
-
-  // Keep calling GetNextToken should always return YYEOF with no errors.
-  for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
-    EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::EOI));
-  }
-}
-
-// Last returned token reports an error and then SetForceTerminate is called.
-TEST_F(LookaheadTransformerTest,
-       LookaheadTransformerGetNextTokenAfterSetForceTerminateLastTokenErrors) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      LookaheadTransformer::Create(
-          BisonParserMode::kStatement, "fake_file", "SELECT * EXCEPT 1", 0,
-          options_, MacroExpansionMode::kNone,
-          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
-
-  Location location;
-  LookaheadTransformer& tokenizer = *lexer;
-
-  EXPECT_THAT(GetNextToken(tokenizer, location),
-              IsOkAndHolds(Token::MODE_STATEMENT));
-  EXPECT_THAT(GetNextToken(tokenizer, location),
-              IsOkAndHolds(Token::KW_SELECT));
-  EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::MULT));
-
-  constexpr absl::string_view error_message =
-      R"(EXCEPT must be followed by ALL, DISTINCT, or "(")";
-  EXPECT_THAT(
-      GetNextToken(tokenizer, location),
-      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr(error_message)));
-
-  tokenizer.SetForceTerminate(/*end_byte_offset=*/nullptr);
 
   // Keep calling GetNextToken should always return the same error.
   for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
@@ -639,8 +500,8 @@ TEST_F(LookaheadTransformerTest,
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
-          BisonParserMode::kScript, "fake_file", "BEGIN BEGIN END END", 0,
-          options_, MacroExpansionMode::kNone,
+          ParserMode::kScript, "fake_file", "BEGIN BEGIN END END", 0, options_,
+          MacroExpansionMode::kNone,
           /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
@@ -657,12 +518,8 @@ TEST_F(LookaheadTransformerTest,
 
   EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::UNAVAILABLE));
   EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(Token::UNAVAILABLE));
-  EXPECT_THAT(GetNextToken(tokenizer, location),
-              IsOkAndHolds(Token::MODE_SCRIPT));
-  EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::UNAVAILABLE));
-  EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(Token::UNAVAILABLE));
   EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::KW_BEGIN));
-  EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::MODE_SCRIPT));
+  EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::UNAVAILABLE));
   EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(Token::UNAVAILABLE));
   // Signal a lookback override of an irrelevant token. This should be ignored
   ZETASQL_ASSERT_OK(tokenizer.OverrideNextTokenLookback(
@@ -675,7 +532,7 @@ TEST_F(LookaheadTransformerTest,
       /*parser_lookahead_is_empty=*/false, Token::KW_LOOP,
       Token::LB_BEGIN_AT_STATEMENT_START));
   EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::KW_BEGIN));
-  EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(Token::MODE_SCRIPT));
+  EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(Token::UNAVAILABLE));
   EXPECT_THAT(TokenTestThief::Lookahead1(tokenizer), Eq(Token::KW_END));
   EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::KW_END));
   EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::KW_BEGIN));
@@ -695,20 +552,17 @@ TEST_F(LookaheadTransformerTest,
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
-          BisonParserMode::kScript, "fake_file", "BEGIN BEGIN END END", 0,
-          options_, MacroExpansionMode::kNone,
+          ParserMode::kScript, "fake_file", "BEGIN BEGIN END END", 0, options_,
+          MacroExpansionMode::kNone,
           /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
 
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::UNAVAILABLE));
-  EXPECT_THAT(GetNextToken(tokenizer, location),
-              IsOkAndHolds(Token::MODE_SCRIPT));
-  EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::UNAVAILABLE));
   EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(Token::UNAVAILABLE));
   EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::KW_BEGIN));
-  EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::MODE_SCRIPT));
+  EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::UNAVAILABLE));
   EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(Token::UNAVAILABLE));
   // Now signal that the next token (the second BEGIN) is the first token in a
   // statement.
@@ -718,7 +572,7 @@ TEST_F(LookaheadTransformerTest,
   EXPECT_THAT(TokenTestThief::Lookahead1(tokenizer), Eq(Token::KW_BEGIN));
   EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::KW_BEGIN));
   EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::KW_BEGIN));
-  EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(Token::MODE_SCRIPT));
+  EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(Token::UNAVAILABLE));
   EXPECT_THAT(TokenTestThief::Lookahead1(tokenizer), Eq(Token::KW_END));
   EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::KW_END));
   // This is where we first see the effect of the statement start.
@@ -742,19 +596,16 @@ TEST_F(LookaheadTransformerTest,
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
-          BisonParserMode::kScript, "fake_file", "BEGIN BEGIN END END", 0,
-          options_, MacroExpansionMode::kNone,
+          ParserMode::kScript, "fake_file", "BEGIN BEGIN END END", 0, options_,
+          MacroExpansionMode::kNone,
           /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
 
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::UNAVAILABLE));
-  EXPECT_THAT(GetNextToken(tokenizer, location),
-              IsOkAndHolds(Token::MODE_SCRIPT));
-  EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::UNAVAILABLE));
   EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::KW_BEGIN));
-  EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::MODE_SCRIPT));
+  EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::UNAVAILABLE));
   // Now signal that the previously consumed token (the first BEGIN) is the
   // first token in statement.
   ZETASQL_ASSERT_OK(tokenizer.OverrideNextTokenLookback(
@@ -778,14 +629,11 @@ TEST_F(LookaheadTransformerTest,
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
-          BisonParserMode::kStatement, "fake_file", "EXPLAIN EXPLAIN SELECT 1",
-          0, options_, MacroExpansionMode::kNone,
+          ParserMode::kStatement, "fake_file", "EXPLAIN EXPLAIN SELECT 1", 0,
+          options_, MacroExpansionMode::kNone,
           /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
 
   Location location;
-  EXPECT_THAT(GetNextToken(*lexer, location),
-              IsOkAndHolds(Token::MODE_STATEMENT));
-
   std::vector<Token> seen_tokens, seen_lookbacks;
   do {
     seen_tokens.push_back(*GetNextToken(*lexer, location));
@@ -800,7 +648,7 @@ TEST_F(LookaheadTransformerTest,
                                Token::EOI,
                            }));
   EXPECT_THAT(seen_lookbacks, ContainerEq(std::vector<Token>{
-                                  Token::MODE_STATEMENT,
+                                  Token::UNAVAILABLE,
                                   Token::LB_EXPLAIN_SQL_STATEMENT,
                                   Token::LB_EXPLAIN_SQL_STATEMENT,
                                   Token::KW_SELECT,
@@ -813,16 +661,13 @@ TEST_F(LookaheadTransformerTest,
        LookaheadTransformerIdentifyingStartOfHintExplainHint) {
   std::vector<std::unique_ptr<StackFrame>> stack_frames;
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer, LookaheadTransformer::Create(
-                                       BisonParserMode::kStatement, "fake_file",
+                                       ParserMode::kStatement, "fake_file",
                                        "@5 EXPLAIN @{a = 1} EXPLAIN SELECT 1",
                                        0, options_, MacroExpansionMode::kNone,
                                        /*macro_catalog=*/nullptr,
                                        /*arena=*/nullptr, stack_frames));
 
   Location location;
-  EXPECT_THAT(GetNextToken(*lexer, location),
-              IsOkAndHolds(Token::MODE_STATEMENT));
-
   std::vector<Token> seen_tokens, seen_lookbacks, seen_lookback2s;
   int i = 0;
   do {
@@ -853,7 +698,7 @@ TEST_F(LookaheadTransformerTest,
                                Token::EOI,
                            }));
   EXPECT_THAT(seen_lookbacks, ContainerEq(std::vector<Token>{
-                                  Token::MODE_STATEMENT,
+                                  Token::UNAVAILABLE,
                                   Token::KW_OPEN_INTEGER_HINT,
                                   Token::LB_END_OF_STATEMENT_LEVEL_HINT,
                                   Token::LB_EXPLAIN_SQL_STATEMENT,
@@ -870,7 +715,7 @@ TEST_F(LookaheadTransformerTest,
                               }));
   EXPECT_THAT(seen_lookback2s, ContainerEq(std::vector<Token>{
                                    Token::UNAVAILABLE,
-                                   Token::MODE_STATEMENT,
+                                   Token::UNAVAILABLE,
                                    Token::KW_OPEN_INTEGER_HINT,
                                    Token::LB_END_OF_STATEMENT_LEVEL_HINT,
                                    Token::LB_EXPLAIN_SQL_STATEMENT,
@@ -906,230 +751,18 @@ MATCHER_P(TokenKindIs, expected_kind, "") {
                             arg, result_listener);
 }
 
-TEST_F(LookaheadTransformerTest, SetForceTerminateBeforeFetchingTokens) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      LookaheadTransformer::Create(
-          BisonParserMode::kStatement, "fake_file", "SELECT * EXCEPT 1", 0,
-          options_, MacroExpansionMode::kNone,
-          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
-
-  Location location;
-  LookaheadTransformer& tokenizer = *lexer;
-  int end_byte_offset;
-  tokenizer.SetForceTerminate(&end_byte_offset);
-
-  // No tokens have been returned, the end of the statement should be 0.
-  EXPECT_EQ(end_byte_offset, 0);
-
-  // Fetching more tokens always return YYEOF without errors.
-  for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
-    EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::EOI));
-  }
-}
-
-// The difference between this test case and
-// SetForceTerminateBeforeFetchingTokens is that the lookahead1 of this test
-// case is YYEOF.
-TEST_F(LookaheadTransformerTest, SetForceTerminateNoTokens) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      LookaheadTransformer::Create(BisonParserMode::kStatement, "fake_file", "",
-                                   0, options_, MacroExpansionMode::kNone,
-                                   /*macro_catalog=*/nullptr, /*arena=*/nullptr,
-                                   stack_frames));
-
-  Location location;
-  LookaheadTransformer& tokenizer = *lexer;
-  int end_byte_offset;
-  tokenizer.SetForceTerminate(&end_byte_offset);
-
-  // If no tokens have been returned, the end of the statement should be 0.
-  EXPECT_EQ(end_byte_offset, 0);
-
-  // Fetching more tokens always return YYEOF without errors.
-  for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
-    EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::EOI));
-  }
-}
-
-TEST_F(LookaheadTransformerTest, SetForceTerminateLastTokenErrors) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      LookaheadTransformer::Create(BisonParserMode::kStatement, "fake_file",
-                                   "`", 0, options_, MacroExpansionMode::kNone,
-                                   /*macro_catalog=*/nullptr,
-                                   /*arena=*/nullptr, stack_frames));
-
-  Location location;
-  LookaheadTransformer& tokenizer = *lexer;
-
-  EXPECT_THAT(GetTokenKindAndError(tokenizer),
-              TokenKindIs(Token::MODE_STATEMENT));
-  constexpr absl::string_view error_message =
-      "Syntax error: Unclosed identifier literal";
-  EXPECT_THAT(
-      GetTokenKindAndError(tokenizer),
-      TokenKindIs(Token::EOI, StatusIs(absl::StatusCode::kInvalidArgument,
-                                       HasSubstr(error_message))));
-
-  int end_byte_offset;
-  tokenizer.SetForceTerminate(&end_byte_offset);
-
-  // The last returned token errors, so the end of the statement should be
-  // updated to -1.
-  EXPECT_EQ(end_byte_offset, -1);
-
-  // Fetching more tokens should always return YYEOF with the same error.
-  for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
-    EXPECT_THAT(
-        GetTokenKindAndError(tokenizer),
-        TokenKindIs(Token::EOI, StatusIs(absl::StatusCode::kInvalidArgument,
-                                         HasSubstr(error_message))));
-  }
-}
-
-TEST_F(LookaheadTransformerTest, SetForceTerminateLastTokenIsYyeof) {
-  constexpr absl::string_view kInput = "    ";
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer,
-                       LookaheadTransformer::Create(
-                           BisonParserMode::kStatement, "fake_file", kInput, 0,
-                           options_, MacroExpansionMode::kNone,
-                           /*macro_catalog=*/nullptr,
-                           /*arena=*/nullptr, stack_frames));
-
-  Location location;
-  LookaheadTransformer& tokenizer = *lexer;
-
-  EXPECT_THAT(GetTokenKindAndError(tokenizer),
-              TokenKindIs(Token::MODE_STATEMENT));
-  EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::EOI));
-
-  int end_byte_offset;
-  tokenizer.SetForceTerminate(&end_byte_offset);
-
-  // The last returned token is YYEOF, so the end of the statement should be
-  // updated to its end location.
-  EXPECT_EQ(end_byte_offset, kInput.size());
-
-  // Fetching more tokens should always return YYEOF with no errors because
-  // the last token does not have errors.
-  for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
-    EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::EOI));
-  }
-}
-
-TEST_F(LookaheadTransformerTest, SetForceTerminateLookahead1IsYyeof) {
-  constexpr absl::string_view kInput = "SELECT      ";
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer,
-                       LookaheadTransformer::Create(
-                           BisonParserMode::kStatement, "fake_file", kInput, 0,
-                           options_, MacroExpansionMode::kNone,
-                           /*macro_catalog=*/nullptr,
-                           /*arena=*/nullptr, stack_frames));
-
-  Location location;
-  LookaheadTransformer& tokenizer = *lexer;
-
-  EXPECT_THAT(GetTokenKindAndError(tokenizer),
-              TokenKindIs(Token::MODE_STATEMENT));
-  EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::KW_SELECT));
-
-  int end_byte_offset;
-  tokenizer.SetForceTerminate(&end_byte_offset);
-
-  // The lookahead is YYEOF, so the end of the statement should be extended to
-  // the end location of YYEOF.
-  EXPECT_EQ(end_byte_offset, kInput.size());
-
-  // Fetching more tokens should always return YYEOF with no errors because the
-  // last token does not have errors.
-  for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
-    EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::EOI));
-  }
-}
-
-TEST_F(LookaheadTransformerTest, SetForceTerminateLookahead1Errors) {
-  constexpr absl::string_view kInput = "SELECT $";
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer,
-                       LookaheadTransformer::Create(
-                           BisonParserMode::kStatement, "fake_file", kInput, 0,
-                           options_, MacroExpansionMode::kNone,
-                           /*macro_catalog=*/nullptr,
-                           /*arena=*/nullptr, stack_frames));
-
-  Location location;
-  LookaheadTransformer& tokenizer = *lexer;
-
-  EXPECT_THAT(GetTokenKindAndError(tokenizer),
-              TokenKindIs(Token::MODE_STATEMENT));
-  EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::KW_SELECT));
-
-  int end_byte_offset;
-  tokenizer.SetForceTerminate(&end_byte_offset);
-
-  // The lookahead1 errors, so the end of the statement stay at the end location
-  // of the last token KW_SELECT.
-  EXPECT_EQ(end_byte_offset, 6);
-
-  // Fetching more tokens should always return YYEOF with no errors because the
-  // last token does not have errors.
-  for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
-    EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::EOI));
-  }
-}
-
-TEST_F(LookaheadTransformerTest, SetForceTerminateLookahead1IsNonYyeof) {
-  constexpr absl::string_view kInput = "SELECT 1";
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer,
-                       LookaheadTransformer::Create(
-                           BisonParserMode::kStatement, "fake_file", kInput, 0,
-                           options_, MacroExpansionMode::kNone,
-                           /*macro_catalog=*/nullptr,
-                           /*arena=*/nullptr, stack_frames));
-
-  Location location;
-  LookaheadTransformer& tokenizer = *lexer;
-
-  EXPECT_THAT(GetTokenKindAndError(tokenizer),
-              TokenKindIs(Token::MODE_STATEMENT));
-  EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::KW_SELECT));
-
-  int end_byte_offset;
-  tokenizer.SetForceTerminate(&end_byte_offset);
-
-  // The lookahead1 is not YYEOF, so the end of the statement stay at the end
-  // location of the last token KW_SELECT.
-  EXPECT_EQ(end_byte_offset, 6);
-
-  // Fetching more tokens should always return YYEOF with no errors because the
-  // last token does not have errors.
-  for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
-    EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::EOI));
-  }
-}
-
 TEST_F(LookaheadTransformerTest, GetNextTokenContinuesToReturnYyeof) {
   constexpr absl::string_view kInput = "SELECT";
   std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer,
-                       LookaheadTransformer::Create(
-                           BisonParserMode::kStatement, "fake_file", kInput, 0,
-                           options_, MacroExpansionMode::kNone,
-                           /*macro_catalog=*/nullptr,
-                           /*arena=*/nullptr, stack_frames));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto lexer,
+      LookaheadTransformer::Create(ParserMode::kStatement, "fake_file", kInput,
+                                   0, options_, MacroExpansionMode::kNone,
+                                   /*macro_catalog=*/nullptr,
+                                   /*arena=*/nullptr, stack_frames));
 
   LookaheadTransformer& tokenizer = *lexer;
 
-  EXPECT_THAT(GetTokenKindAndError(tokenizer),
-              TokenKindIs(Token::MODE_STATEMENT));
   EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::KW_SELECT));
 
   // Fetching more tokens should always return YYEOF with no errors because the
@@ -1145,16 +778,14 @@ TEST_F(LookaheadTransformerTest, GetNextTokenContinuesToReturnTheSameError) {
       "Syntax error: Unclosed identifier literal";
 
   std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer,
-                       LookaheadTransformer::Create(
-                           BisonParserMode::kStatement, "fake_file", kInput, 0,
-                           options_, MacroExpansionMode::kNone,
-                           /*macro_catalog=*/nullptr,
-                           /*arena=*/nullptr, stack_frames));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto lexer,
+      LookaheadTransformer::Create(ParserMode::kStatement, "fake_file", kInput,
+                                   0, options_, MacroExpansionMode::kNone,
+                                   /*macro_catalog=*/nullptr,
+                                   /*arena=*/nullptr, stack_frames));
   LookaheadTransformer& tokenizer = *lexer;
 
-  EXPECT_THAT(GetTokenKindAndError(tokenizer),
-              TokenKindIs(Token::MODE_STATEMENT));
   EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::KW_SELECT));
   EXPECT_THAT(
       GetTokenKindAndError(tokenizer),
@@ -1195,12 +826,12 @@ MATCHER_P(IsSameOptionalToken, token, "") {
 TEST_F(LookaheadTransformerTest, PreviousTokensAreCorrectNoErrors) {
   constexpr absl::string_view kInput = "SELECT 1 *";
   std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer,
-                       LookaheadTransformer::Create(
-                           BisonParserMode::kStatement, "fake_file", kInput, 0,
-                           options_, MacroExpansionMode::kNone,
-                           /*macro_catalog=*/nullptr,
-                           /*arena=*/nullptr, stack_frames));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto lexer,
+      LookaheadTransformer::Create(ParserMode::kStatement, "fake_file", kInput,
+                                   0, options_, MacroExpansionMode::kNone,
+                                   /*macro_catalog=*/nullptr,
+                                   /*arena=*/nullptr, stack_frames));
   LookaheadTransformer& tokenizer = *lexer;
 
   std::optional<TokenWithOverrideError> previous_current_token;
@@ -1231,12 +862,12 @@ TEST_F(LookaheadTransformerTest, PreviousTokensAreCorrectWithErrors) {
   constexpr absl::string_view kError =
       "Syntax error: Unclosed identifier literal";
   std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer,
-                       LookaheadTransformer::Create(
-                           BisonParserMode::kStatement, "fake_file", kInput, 0,
-                           options_, MacroExpansionMode::kNone,
-                           /*macro_catalog=*/nullptr,
-                           /*arena=*/nullptr, stack_frames));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto lexer,
+      LookaheadTransformer::Create(ParserMode::kStatement, "fake_file", kInput,
+                                   0, options_, MacroExpansionMode::kNone,
+                                   /*macro_catalog=*/nullptr,
+                                   /*arena=*/nullptr, stack_frames));
   LookaheadTransformer& tokenizer = *lexer;
 
   std::optional<TokenWithOverrideError> previous_current_token;
@@ -1264,61 +895,17 @@ TEST_F(LookaheadTransformerTest, PreviousTokensAreCorrectWithErrors) {
   }
 }
 
-TEST_F(LookaheadTransformerTest,
-       PreviousTokensAreCorrectWithSetForceTerminate) {
-  constexpr absl::string_view kInput = "SELECT 1 *";
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer,
-                       LookaheadTransformer::Create(
-                           BisonParserMode::kStatement, "fake_file", kInput, 0,
-                           options_, MacroExpansionMode::kNone,
-                           /*macro_catalog=*/nullptr,
-                           /*arena=*/nullptr, stack_frames));
-  LookaheadTransformer& tokenizer = *lexer;
-
-  Location unused_location;
-  AdvanceLexer(tokenizer, unused_location);
-  // Current token is MODE_STATEMENT.
-  EXPECT_EQ(TokenTestThief::GetPreviousToken(tokenizer), std::nullopt);
-
-  AdvanceLexer(tokenizer, unused_location);
-  // Current token is KW_SELECT
-  EXPECT_THAT(TokenTestThief::GetPreviousToken(tokenizer),
-              TokenIs(Token::MODE_STATEMENT));
-
-  // SetForceTerminate does not affect the previous token.
-  tokenizer.SetForceTerminate(/*end_byte_offset=*/nullptr);
-  EXPECT_THAT(TokenTestThief::GetPreviousToken(tokenizer),
-              TokenIs(Token::MODE_STATEMENT));
-
-  // Further advancing the lexer should return the current token when
-  // SetForceTerminate is called, i.e. KW_SELECT.
-  AdvanceLexer(tokenizer, unused_location);
-  EXPECT_THAT(TokenTestThief::GetPreviousToken(tokenizer),
-              TokenIs(Token::KW_SELECT));
-
-  // Starts to return Token::EOI consistently.
-  AdvanceLexer(tokenizer, unused_location);
-  EXPECT_THAT(TokenTestThief::GetPreviousToken(tokenizer), TokenIs(Token::EOI));
-  AdvanceLexer(tokenizer, unused_location);
-  EXPECT_THAT(TokenTestThief::GetPreviousToken(tokenizer), TokenIs(Token::EOI));
-  AdvanceLexer(tokenizer, unused_location);
-  EXPECT_THAT(TokenTestThief::GetPreviousToken(tokenizer), TokenIs(Token::EOI));
-}
-
 TEST_F(LookaheadTransformerTest, TokenFusion) {
   constexpr absl::string_view kInput = ">>";
   std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer,
-                       LookaheadTransformer::Create(
-                           BisonParserMode::kStatement, "fake_file", kInput, 0,
-                           options_, MacroExpansionMode::kNone,
-                           /*macro_catalog=*/nullptr,
-                           /*arena=*/nullptr, stack_frames));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto lexer,
+      LookaheadTransformer::Create(ParserMode::kStatement, "fake_file", kInput,
+                                   0, options_, MacroExpansionMode::kNone,
+                                   /*macro_catalog=*/nullptr,
+                                   /*arena=*/nullptr, stack_frames));
   LookaheadTransformer& tokenizer = *lexer;
 
-  EXPECT_THAT(GetTokenKindAndError(tokenizer),
-              TokenKindIs(Token::MODE_STATEMENT));
   EXPECT_THAT(GetTokenKindAndError(tokenizer),
               TokenKindIs(Token::KW_SHIFT_RIGHT));
   EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::EOI));
@@ -1327,16 +914,14 @@ TEST_F(LookaheadTransformerTest, TokenFusion) {
 TEST_F(LookaheadTransformerTest, TokensWithWhitespacesInBetweenCannotFuse) {
   constexpr absl::string_view kInput = "> >";
   std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer,
-                       LookaheadTransformer::Create(
-                           BisonParserMode::kStatement, "fake_file", kInput, 0,
-                           options_, MacroExpansionMode::kNone,
-                           /*macro_catalog=*/nullptr,
-                           /*arena=*/nullptr, stack_frames));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto lexer,
+      LookaheadTransformer::Create(ParserMode::kStatement, "fake_file", kInput,
+                                   0, options_, MacroExpansionMode::kNone,
+                                   /*macro_catalog=*/nullptr,
+                                   /*arena=*/nullptr, stack_frames));
   LookaheadTransformer& tokenizer = *lexer;
 
-  EXPECT_THAT(GetTokenKindAndError(tokenizer),
-              TokenKindIs(Token::MODE_STATEMENT));
   EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::GT));
   EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::GT));
   EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::EOI));
@@ -1362,9 +947,9 @@ static absl::Status RegisterMacros(absl::string_view source,
     ZETASQL_RET_CHECK(def_macro_stmt != nullptr);
     ZETASQL_RETURN_IF_ERROR(macro_catalog.RegisterMacro(
         {.source_text = source,
-         .location = def_macro_stmt->GetParseLocationRange(),
-         .name_location = def_macro_stmt->name()->GetParseLocationRange(),
-         .body_location = def_macro_stmt->body()->GetParseLocationRange()}));
+         .location = def_macro_stmt->location(),
+         .name_location = def_macro_stmt->name()->location(),
+         .body_location = def_macro_stmt->body()->location()}));
   }
   return absl::OkStatus();
 }
@@ -1378,41 +963,36 @@ TEST_F(LookaheadTransformerTest, TokensFromDifferentFilesCannotFuse) {
 
   constexpr absl::string_view kInput = ">$greater_than";
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer, LookaheadTransformer::Create(
-                      BisonParserMode::kStatement, "fake_file", kInput, 0,
-                      options_, MacroExpansionMode::kLenient, &macro_catalog,
-                      arena.get(), stack_frames));
+      auto lexer,
+      LookaheadTransformer::Create(ParserMode::kStatement, "fake_file", kInput,
+                                   0, options_, MacroExpansionMode::kLenient,
+                                   &macro_catalog, arena.get(), stack_frames));
   LookaheadTransformer& tokenizer = *lexer;
 
-  EXPECT_THAT(GetTokenKindAndError(tokenizer),
-              TokenKindIs(Token::MODE_STATEMENT));
   EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::GT));
   EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::GT));
   EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::EOI));
 }
 
 TEST_F(LookaheadTransformerTest, RightShiftIsAllowedAfterParentheses) {
-  EXPECT_THAT(
-      GetAllTokens(BisonParserMode::kStatement, "ARRAY<TYPEOF(1 >> 2)>"),
-      ElementsAreArray(std::vector<Token>{
-          Token::MODE_STATEMENT,
-          Token::KW_ARRAY,
-          Token::LT,
-          Token::IDENTIFIER,
-          Token::LPAREN,
-          Token::INTEGER_LITERAL,
-          Token::KW_SHIFT_RIGHT,
-          Token::INTEGER_LITERAL,
-          Token::RPAREN,
-          Token::GT,
-          Token::EOI,
-      }));
+  EXPECT_THAT(GetAllTokens(ParserMode::kStatement, "ARRAY<TYPEOF(1 >> 2)>"),
+              ElementsAreArray(std::vector<Token>{
+                  Token::KW_ARRAY,
+                  Token::LT,
+                  Token::IDENTIFIER,
+                  Token::LPAREN,
+                  Token::INTEGER_LITERAL,
+                  Token::KW_SHIFT_RIGHT,
+                  Token::INTEGER_LITERAL,
+                  Token::RPAREN,
+                  Token::GT,
+                  Token::EOI,
+              }));
 }
 
 TEST_F(LookaheadTransformerTest, RightShiftIsAllowedAfterUnpairedParentheses) {
-  EXPECT_THAT(GetAllTokens(BisonParserMode::kStatement, "ARRAY<)>>>>>"),
+  EXPECT_THAT(GetAllTokens(ParserMode::kStatement, "ARRAY<)>>>>>"),
               ElementsAreArray(std::vector<Token>{
-                  Token::MODE_STATEMENT,
                   Token::KW_ARRAY,
                   Token::LT,
                   Token::RPAREN,
@@ -1428,47 +1008,19 @@ TEST_F(LookaheadTransformerTest, Lookahead3) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
-          BisonParserMode::kStatement, "fake_file", "a 1 SELECT", 0, options_,
+          ParserMode::kStatement, "fake_file", "a 1 SELECT SELECT", 0, options_,
           MacroExpansionMode::kNone,
           /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
 
   // Ok to examine lookaheads before fetching any tokens.
-  EXPECT_EQ(TokenTestThief::Lookahead3(tokenizer),
-            Token::DECIMAL_INTEGER_LITERAL);
+  EXPECT_EQ(TokenTestThief::Lookahead3(tokenizer), Token::KW_SELECT);
 
   AdvanceLexer(tokenizer, location);
   EXPECT_EQ(TokenTestThief::Lookahead3(tokenizer), Token::KW_SELECT);
 
   AdvanceLexer(tokenizer, location);
-  EXPECT_EQ(TokenTestThief::Lookahead3(tokenizer), Token::EOI);
-
-  // Continue fetching tokens returns the same YYEOF.
-  for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
-    AdvanceLexer(tokenizer, location);
-    EXPECT_EQ(TokenTestThief::Lookahead3(tokenizer), Token::EOI);
-  }
-}
-
-TEST_F(LookaheadTransformerTest, Lookahead3SetForceTerminate) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      LookaheadTransformer::Create(
-          BisonParserMode::kStatement, "fake_file", "a 1 SELECT", 0, options_,
-          MacroExpansionMode::kNone,
-          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
-  Location location;
-  LookaheadTransformer& tokenizer = *lexer;
-
-  // Ok to examine lookaheads before fetching any tokens.
-  EXPECT_EQ(TokenTestThief::Lookahead3(tokenizer),
-            Token::DECIMAL_INTEGER_LITERAL);
-
-  tokenizer.SetForceTerminate(/*end_byte_offset=*/nullptr);
-
-  // Lookahead3() becomes YYEOF after force termination.
   EXPECT_EQ(TokenTestThief::Lookahead3(tokenizer), Token::EOI);
 
   // Continue fetching tokens returns the same YYEOF.

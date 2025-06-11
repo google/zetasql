@@ -1,4 +1,4 @@
-[default language_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_BUILTIN]
+[default language_features=GROUP_BY_ROLLUP,GROUPING_BUILTIN]
 [default enabled_ast_rewrites=DEFAULTS,+GROUPING_SET]
 
 [language_features={{|GROUP_BY_ROLLUP}}]
@@ -976,12 +976,12 @@ GROUP BY ROLLUP(key, b);
 ==
 
 # Group by rollup on struct.
-[language_features={{GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT|GROUP_BY_ROLLUP}}]
+[language_features={{GROUP_BY_ROLLUP,GROUP_BY_STRUCT|GROUP_BY_ROLLUP}}]
 SELECT TestStruct.d.b, sum(TestStruct.c), max(key)
 FROM ComplexTypes
 GROUP BY ROLLUP(TestStruct.d, TestEnum);
 --
-ALTERNATION GROUP: GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT
+ALTERNATION GROUP: GROUP_BY_ROLLUP,GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -1043,7 +1043,7 @@ GROUP BY ROLLUP(TestStruct.d, TestEnum);
                 ^
 ==
 
-[language_features=V_1_2_GROUP_BY_STRUCT,GROUP_BY_ROLLUP]
+[language_features=GROUP_BY_STRUCT,GROUP_BY_ROLLUP]
 SELECT TestStruct, TestStruct.d, TestStruct.d.a, count(1)
 FROM ComplexTypes ct
 GROUP BY ROLLUP(ct.TestStruct, ct.TestStruct.d, ct.TestStruct.d.a)
@@ -1142,7 +1142,7 @@ GROUP BY ROLLUP(STRUCT<INT64, STRUCT<INT64, STRING>>(key, (key, value)), value);
                 ^
 ==
 
-[language_features=GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT,V_1_4_GROUPING_SETS,V_1_4_GROUPING_BUILTIN]
+[language_features=GROUP_BY_ROLLUP,GROUP_BY_STRUCT,GROUPING_SETS,GROUPING_BUILTIN]
 SELECT SUM(key), GROUPING(value), value
 FROM KeyValue
 GROUP BY ROLLUP((key, value), value);
@@ -1221,8 +1221,8 @@ QueryStmt
             +-output_column=$grouping_call.$grouping_call1#7
 ==
 
-# Explicit single-level struct constructor is allowed when V_1_4_GROUPING_SETS is enabled
-[language_features=GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT,V_1_4_GROUPING_SETS,V_1_4_GROUPING_BUILTIN]
+# Explicit single-level struct constructor is allowed when GROUPING_SETS is enabled
+[language_features=GROUP_BY_ROLLUP,GROUP_BY_STRUCT,GROUPING_SETS,GROUPING_BUILTIN]
 SELECT SUM(key), GROUPING(value), value
 FROM KeyValue
 GROUP BY ROLLUP(STRUCT<INT64, STRING>(key, value), value);
@@ -1309,8 +1309,8 @@ QueryStmt
             +-output_column=$grouping_call.$grouping_call1#7
 ==
 
-# Implict single-level struct constructor is allowed when V_1_4_GROUPING_SETS isn't enabled
-[language_features=GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT,V_1_4_GROUPING_BUILTIN]
+# Implict single-level struct constructor is allowed when GROUPING_SETS isn't enabled
+[language_features=GROUP_BY_ROLLUP,GROUP_BY_STRUCT,GROUPING_BUILTIN]
 SELECT SUM(key), GROUPING(value), value
 FROM KeyValue
 GROUP BY ROLLUP((key, value), value);
@@ -1359,8 +1359,8 @@ QueryStmt
             +-output_column=$grouping_call.$grouping_call1#7
 ==
 
-# Explicit single-level struct constructor is allowed when V_1_4_GROUPING_SETS isn't enabled
-[language_features=GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT,V_1_4_GROUPING_BUILTIN]
+# Explicit single-level struct constructor is allowed when GROUPING_SETS isn't enabled
+[language_features=GROUP_BY_ROLLUP,GROUP_BY_STRUCT,GROUPING_BUILTIN]
 SELECT SUM(key), GROUPING(value), value
 FROM KeyValue
 GROUP BY ROLLUP(STRUCT<INT64, STRING>(key, value), value);
@@ -1409,8 +1409,8 @@ QueryStmt
             +-output_column=$grouping_call.$grouping_call1#7
 ==
 
-# Implicit nested struct constructor is allowed when V_1_2_GROUP_BY_STRUCT is enabled
-[language_features=GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT,V_1_4_GROUPING_BUILTIN]
+# Implicit nested struct constructor is allowed when GROUP_BY_STRUCT is enabled
+[language_features=GROUP_BY_ROLLUP,GROUP_BY_STRUCT,GROUPING_BUILTIN]
 SELECT SUM(key), GROUPING(value), value
 FROM KeyValue
 GROUP BY ROLLUP((key, (key, value)), value);
@@ -1463,8 +1463,8 @@ QueryStmt
             +-output_column=$grouping_call.$grouping_call1#7
 ==
 
-[language_features=GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT]
-\-- Explicit nested struct constructor is allowed when V_1_2_GROUP_BY_STRUCT is enabled
+[language_features=GROUP_BY_ROLLUP,GROUP_BY_STRUCT]
+\-- Explicit nested struct constructor is allowed when GROUP_BY_STRUCT is enabled
 SELECT SUM(key), value
 FROM KeyValue
 GROUP BY ROLLUP(STRUCT<INT64, STRUCT<INT64, STRING>>(key, (key, value)), value);
@@ -1511,8 +1511,8 @@ QueryStmt
           +-ColumnRef(type=STRING, column=$groupby.value#5)
 ==
 
-# Implicit nested struct constructor will be disallowed when V_1_4_GROUPING_SETS is enabled
-[language_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS,V_1_2_GROUP_BY_STRUCT]
+# Implicit nested struct constructor will be disallowed when GROUPING_SETS is enabled
+[language_features=GROUP_BY_ROLLUP,GROUPING_SETS,GROUP_BY_STRUCT]
 SELECT SUM(key), value
 FROM KeyValue
 GROUP BY ROLLUP((key, (key, value)), value);
@@ -1522,8 +1522,8 @@ GROUP BY ROLLUP((key, (key, value)), value);
                       ^
 ==
 
-# Explicit nested struct constructor is still allowed when V_1_4_GROUPING_SETS is enabled
-[language_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS,V_1_2_GROUP_BY_STRUCT,V_1_4_GROUPING_BUILTIN]
+# Explicit nested struct constructor is still allowed when GROUPING_SETS is enabled
+[language_features=GROUP_BY_ROLLUP,GROUPING_SETS,GROUP_BY_STRUCT,GROUPING_BUILTIN]
 SELECT SUM(key), GROUPING(value), value
 FROM KeyValue
 GROUP BY ROLLUP(STRUCT<INT64, STRUCT<INT64, STRING>>(key, (key, value)), value);
@@ -1621,7 +1621,7 @@ QueryStmt
 
 # rollup with duplicated expressions when GROUPING_SETS are enabled - no duplicated group by expressions
 [no_enable_literal_replacement]
-[language_features=V_1_4_GROUPING_SETS,V_1_4_GROUPING_BUILTIN,GROUP_BY_ROLLUP]
+[language_features=GROUPING_SETS,GROUPING_BUILTIN,GROUP_BY_ROLLUP]
 SELECT
   key-1, key-1, GROUPING(key+1), GROUPING(key+1)
 FROM KeyValue
@@ -1840,7 +1840,7 @@ QueryStmt
 ==
 
 # Aggregation Threshold with rollup rewriter
-[language_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS,AGGREGATION_THRESHOLD]
+[language_features=GROUP_BY_ROLLUP,GROUPING_SETS,AGGREGATION_THRESHOLD]
 SELECT WITH AGGREGATION_THRESHOLD
 key, value
 FROM KeyValue

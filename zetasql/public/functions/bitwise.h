@@ -25,16 +25,16 @@
 //   bool BitwiseAnd(T in1, T in2, T* out, absl::Status* error);
 //   bool BitwiseBinaryOpBytes(absl::string_view in1, absl::string_view in2,
 //                             string* out, absl::Status* error);
-//   bool BitwiseLeftShift(T in1, int64_t in2, T* out, absl::Status* error);
-//   bool BitwiseLeftShiftBytes(absl::string_view in1, int64_t in2, string* out,
+//   bool BitwiseLeftShift(T in1, int64 in2, T* out, absl::Status* error);
+//   bool BitwiseLeftShiftBytes(absl::string_view in1, int64 in2, string* out,
 //                              absl::Status* error);
-//   bool BitwiseRightShift(T in1, int64_t in2, T* out, absl::Status* error);
-//   bool BitwiseRightShiftBytes(absl::string_view in1, int64_t in2, string* out,
+//   bool BitwiseRightShift(T in1, int64 in2, T* out, absl::Status* error);
+//   bool BitwiseRightShiftBytes(absl::string_view in1, int64 in2, string* out,
 //                               absl::Status* error);
-//   int64_t BitCount(T in);
+//   int64 BitCount(T in);
 //
-// Here T can be one of the following types: int32_t, int64_t, uint32_t, uint64_t.
-// BitCount supports only int32_t, int64_t, uint64_t, and absl::string_view, however.
+// Here T can be one of the following types: int32, int64, uint32, uint64.
+// BitCount supports only int32, int64, uint64, and absl::string_view, however.
 // All Bitwise functions return true on success and fill out *error and return
 // false otherwise.
 // Shift operations have the following semantics:

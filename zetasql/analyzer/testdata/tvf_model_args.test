@@ -7,7 +7,6 @@
 ################################################################################
 #
 [default no_java]
-[default also_show_signature_mismatch_details]
 [default language_features=TABLE_VALUED_FUNCTIONS]
 SELECT * FROM tvf_one_relation_one_model_arg_with_fixed_output(
     (select key,
@@ -37,6 +36,7 @@ QueryStmt
         |   +-model=
         |     +-Model(model=OneDoubleModel)
         +-column_index_list=[0, 1]
+        +-function_call_signature=(TABLE<key INT64, value STRING>, ANY MODEL) -> TABLE<double DOUBLE, string STRING>
 ==
 
 SELECT * FROM tvf_one_relation_one_model_arg_with_fixed_output(
@@ -63,6 +63,7 @@ QueryStmt
         |   +-model=
         |     +-Model(model=OneDoubleModel)
         +-column_index_list=[0, 1]
+        +-function_call_signature=(TABLE<key INT64, value STRING>, ANY MODEL) -> TABLE<double DOUBLE, string STRING>
 ==
 
 SELECT double, string FROM tvf_one_relation_one_model_arg_with_fixed_output(
@@ -89,6 +90,7 @@ QueryStmt
         |   +-model=
         |     +-Model(model=OneDoubleOneStringModel)
         +-column_index_list=[0, 1]
+        +-function_call_signature=(TABLE<key INT64, value STRING>, ANY MODEL) -> TABLE<double DOUBLE, string STRING>
 ==
 
 SELECT * FROM tvf_one_relation_one_model_arg_with_fixed_output(
@@ -115,6 +117,7 @@ QueryStmt
         |   +-model=
         |     +-Model(model=OneDoubleTwoOutputModel)
         +-column_index_list=[0, 1]
+        +-function_call_signature=(TABLE<key INT64, value STRING>, ANY MODEL) -> TABLE<double DOUBLE, string STRING>
 ==
 
 SELECT * FROM tvf_two_models_with_fixed_output(
@@ -139,6 +142,7 @@ QueryStmt
         |   +-model=
         |     +-Model(model=OneDoubleTwoOutputModel)
         +-column_index_list=[0]
+        +-function_call_signature=(ANY MODEL, ANY MODEL) -> TABLE<label DOUBLE>
 ==
 
 # Test with model and optional scalar and named table.
@@ -178,6 +182,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=[$subquery1.$col1#1]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(ANY MODEL, optional(1) STRUCT<INT64>, optional(1) ANY TABLE foobar) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Test with model and optional scalar and named table.
@@ -214,6 +219,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=[$subquery1.$col1#1]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(ANY MODEL, optional(1) INT64, optional(1) ANY TABLE foobar) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Test with model and optional scalar and named table.
@@ -244,6 +250,7 @@ QueryStmt
         |       +-field_list=
         |         +-Literal(type=INT64, value=NULL)
         +-column_index_list=[0, 1]
+        +-function_call_signature=(ANY MODEL, optional(1) STRUCT<INT64>, optional(0) ANY TABLE foobar) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Test with model and string and optional table.
@@ -280,6 +287,7 @@ QueryStmt
         |   +-expr=
         |     +-Literal(type=STRING, value="default")
         +-column_index_list=[0, 1]
+        +-function_call_signature=(ANY MODEL, optional(1) ANY TABLE, optional(1) STRING foobar) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Test with model and string and optional table.
@@ -325,6 +333,7 @@ QueryStmt
         |           +-input_scan=
         |             +-SingleRowScan
         +-column_index_list=[0, 1]
+        +-function_call_signature=(ANY MODEL, optional(1) ANY TABLE, optional(1) STRING foobar) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Test with model and string and optional table.
@@ -371,6 +380,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=[$subquery1.$col1#2]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(ANY MODEL, optional(1) STRING, optional(1) ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Test with model and string and optional table.
@@ -418,6 +428,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=$subquery1.[$col1#2, $col2#3]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(ANY MODEL, optional(1) STRING, optional(1) ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Test with model and string and optional table.
@@ -459,6 +470,7 @@ QueryStmt
         |   | +-TableScan(column_list=KeyValue2.[Key#2, Value2#3], table=KeyValue2, column_index_list=[0, 1])
         |   +-argument_column_list=KeyValue2.[Key#2, Value2#3]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(ANY MODEL, optional(1) STRING, optional(1) ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Test with model and string and optional table.
@@ -495,6 +507,7 @@ QueryStmt
         |           +-input_scan=
         |             +-SingleRowScan
         +-column_index_list=[0, 1]
+        +-function_call_signature=(ANY MODEL, optional(1) STRING, optional(0) ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Test with model and string and optional table.
@@ -526,6 +539,7 @@ QueryStmt
         |   | +-TableScan(column_list=KeyValue2.[Key#1, Value2#2], table=KeyValue2, column_index_list=[0, 1])
         |   +-argument_column_list=KeyValue2.[Key#1, Value2#2]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(ANY MODEL, optional(1) STRING, optional(1) ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 ################################################################################
@@ -547,11 +561,6 @@ ERROR: Function does not allow extra input column named "a" for argument 1 of TV
 SELECT * FROM tvf_one_relation_one_model_arg_with_fixed_output(
     table keyvalue, table keyvalue)
 --
-ERROR: No matching signature for tvf_one_relation_one_model_arg_with_fixed_output for argument types: TABLE<Key INT64, Value STRING>, TABLE<Key INT64, Value STRING>. Supported signature: TVF_ONE_RELATION_ONE_MODEL_ARG_WITH_FIXED_OUTPUT(TABLE<key INT64, value STRING>, MODEL) [at 1:15]
-SELECT * FROM tvf_one_relation_one_model_arg_with_fixed_output(
-              ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_one_relation_one_model_arg_with_fixed_output
   Argument types: TABLE<Key INT64, Value STRING>, TABLE<Key INT64, Value STRING>
   Signature: TVF_ONE_RELATION_ONE_MODEL_ARG_WITH_FIXED_OUTPUT(TABLE<key INT64, value STRING>, MODEL)
@@ -582,52 +591,37 @@ ERROR: Model not found: randommodel [at 2:27]
 SELECT * FROM tvf_one_relation_one_model_arg_with_fixed_output(
     model onedoubletwooutputmodel, model onedoubletwooutputmodel)
 --
-ERROR: No matching signature for tvf_one_relation_one_model_arg_with_fixed_output for argument types: MODEL, MODEL. Supported signature: TVF_ONE_RELATION_ONE_MODEL_ARG_WITH_FIXED_OUTPUT(TABLE<key INT64, value STRING>, MODEL) [at 1:15]
-SELECT * FROM tvf_one_relation_one_model_arg_with_fixed_output(
-              ^
-
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_one_relation_one_model_arg_with_fixed_output
   Argument types: MODEL, MODEL
   Signature: TVF_ONE_RELATION_ONE_MODEL_ARG_WITH_FIXED_OUTPUT(TABLE<key INT64, value STRING>, MODEL)
     Argument 1: expected TABLE, found MODEL [at 1:15]
 SELECT * FROM tvf_one_relation_one_model_arg_with_fixed_output(
               ^
+
 ==
 
 # Passing one model to a TVF that expects two models.
 SELECT * FROM tvf_two_models_with_fixed_output(model OneDoubleModel)
 --
-ERROR: No matching signature for tvf_two_models_with_fixed_output for argument types: MODEL. Supported signature: TVF_TWO_MODELS_WITH_FIXED_OUTPUT(MODEL, MODEL) [at 1:15]
-SELECT * FROM tvf_two_models_with_fixed_output(model OneDoubleModel)
-              ^
-
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_two_models_with_fixed_output
   Argument types: MODEL
   Signature: TVF_TWO_MODELS_WITH_FIXED_OUTPUT(MODEL, MODEL)
     Signature requires at least 2 arguments, found 1 argument [at 1:15]
 SELECT * FROM tvf_two_models_with_fixed_output(model OneDoubleModel)
               ^
+
 ==
 
 # Passing model to a TVF that does not accept a model.
 select * from tvf_one_relation_arg_with_fixed_output(model OneDoubleModel)
 --
-ERROR: No matching signature for tvf_one_relation_arg_with_fixed_output for argument types: MODEL. Supported signature: TVF_ONE_RELATION_ARG_WITH_FIXED_OUTPUT(TABLE) [at 1:15]
-select * from tvf_one_relation_arg_with_fixed_output(model OneDoubleModel)
-              ^
-
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_one_relation_arg_with_fixed_output
   Argument types: MODEL
   Signature: TVF_ONE_RELATION_ARG_WITH_FIXED_OUTPUT(TABLE)
     Argument 1: expected TABLE, found MODEL [at 1:15]
 select * from tvf_one_relation_arg_with_fixed_output(model OneDoubleModel)
               ^
+
 ==
 
 # Passing a select statement in place for the model arg.
@@ -648,11 +642,6 @@ ERROR: Table-valued function tvf_one_relation_one_model_arg_with_fixed_output ar
 select * from tvf_optional_scalar_optional_model_named_table(1.0,
                                                              foobar=>(SELECT 1))
 --
-ERROR: No matching signature for tvf_optional_scalar_optional_model_named_table for argument types: DOUBLE, NULL, TABLE<INT64>. Supported signature: TVF_OPTIONAL_SCALAR_OPTIONAL_MODEL_NAMED_TABLE([ANY], [MODEL], [TABLE]) [at 1:15]
-select * from tvf_optional_scalar_optional_model_named_table(1.0,
-              ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_optional_scalar_optional_model_named_table
   Argument types: DOUBLE, NULL, TABLE<INT64>
   Signature: TVF_OPTIONAL_SCALAR_OPTIONAL_MODEL_NAMED_TABLE([ANY], [MODEL], [foobar => TABLE])
@@ -669,11 +658,6 @@ select * from tvf_optional_scalar_optional_model_named_table(1.0,
 select * from tvf_model_optional_table_named_struct(model onedoublemodel,
                                                     foobar=>STRUCT(NULL))
 --
-ERROR: No matching signature for tvf_model_optional_table_named_struct for argument types: MODEL, NULL, STRUCT<INT64>. Supported signature: TVF_MODEL_OPTIONAL_TABLE_NAMED_STRUCT(MODEL, [TABLE], [STRUCT]) [at 1:15]
-select * from tvf_model_optional_table_named_struct(model onedoublemodel,
-              ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_model_optional_table_named_struct
   Argument types: MODEL, NULL, STRUCT<INT64>
   Signature: TVF_MODEL_OPTIONAL_TABLE_NAMED_STRUCT(MODEL, [TABLE], [foobar => STRUCT])
@@ -689,11 +673,6 @@ select * from tvf_model_optional_table_named_struct(model onedoublemodel,
 [language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
 select * from tvf_scalar_optional_model_named_table(1.0, foobar=>(SELECT 1))
 --
-ERROR: No matching signature for tvf_scalar_optional_model_named_table for argument types: DOUBLE, NULL, TABLE<INT64>. Supported signature: TVF_SCALAR_OPTIONAL_MODEL_NAMED_TABLE(ANY, [MODEL], [TABLE]) [at 1:15]
-select * from tvf_scalar_optional_model_named_table(1.0, foobar=>(SELECT 1))
-              ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_scalar_optional_model_named_table
   Argument types: DOUBLE, NULL, TABLE<INT64>
   Signature: TVF_SCALAR_OPTIONAL_MODEL_NAMED_TABLE(ANY, [MODEL], [foobar => TABLE])
@@ -710,11 +689,6 @@ select * from tvf_scalar_optional_model_named_table(1.0, foobar=>(SELECT 1))
 select * from tvf_optional_scalar_named_model_named_table(1.0,
                                                           barfoo=>(SELECT 1))
 --
-ERROR: No matching signature for tvf_optional_scalar_named_model_named_table for argument types: DOUBLE, NULL, TABLE<INT64>. Supported signature: TVF_OPTIONAL_SCALAR_NAMED_MODEL_NAMED_TABLE([ANY], [MODEL], [TABLE]) [at 1:15]
-select * from tvf_optional_scalar_named_model_named_table(1.0,
-              ^
---
-Signature Mismatch Details:
 ERROR: No matching signature for tvf_optional_scalar_named_model_named_table
   Argument types: DOUBLE, NULL, TABLE<INT64>
   Signature: TVF_OPTIONAL_SCALAR_NAMED_MODEL_NAMED_TABLE([ANY], [foobar => MODEL], [barfoo => TABLE])

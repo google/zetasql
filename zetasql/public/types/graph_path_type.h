@@ -18,12 +18,15 @@
 #define ZETASQL_PUBLIC_TYPES_GRAPH_PATH_TYPE_H_
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
+#include <vector>
 
 #include "zetasql/public/types/graph_element_type.h"
 #include "zetasql/public/types/list_backed_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/value_representations.h"
+#include "absl/base/attributes.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
@@ -46,6 +49,10 @@ class GraphPathType : public ListBackedType {
   const GraphElementType* edge_type() const { return edge_type_; }
 
   const GraphPathType* AsGraphPath() const override { return this; }
+
+  std::vector<const Type*> ComponentTypes() const override {
+    return {node_type_, edge_type_};
+  }
 
   bool SupportsOrdering(const LanguageOptions& language_options,
                         std::string* type_description) const override;

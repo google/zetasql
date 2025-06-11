@@ -148,7 +148,7 @@ ARRAY<STRUCT<foo INT64, bar STRING>>[unknown order:
 ]
 ==
 [name=value_table_struct_union]
-[required_features=V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_STRUCT]
 SELECT AS STRUCT 1 foo, "hey" bar UNION DISTINCT
 SELECT AS STRUCT 2 foo, "there" bar UNION DISTINCT
 SELECT AS STRUCT 1 foo, "hey" bar

@@ -414,6 +414,11 @@ message ProtoWithRangeFields {
       [(zetasql.format) = RANGE_TIMESTAMPS_ENCODED];
 }
 
+message ProtoWithTimestampPicosField {
+  optional bytes timestamp_picos_value = 1
+      [(zetasql.format) = TIMESTAMP_PICOS];
+}
+
 message ProtoWithTokenListField {
   optional bytes tokenlist_value = 1 [(zetasql.format) = TOKENLIST];
 }
@@ -961,6 +966,32 @@ message NullableIntWithIsHidden {
 
   optional int32 value = 1
       [(zetasql.use_defaults) = false, (zetasql.is_hidden_column) = true];
+}
+
+message StructWithMeasures {
+  option (zetasql.is_struct) = true;
+
+  optional int32 int32_measure = 1 [(zetasql.is_measure) = true];
+  optional uint32 uint32_measure = 2 [(zetasql.is_measure) = true];
+  optional int64 int64_measure = 3 [(zetasql.is_measure) = true];
+  optional uint64 uint64_measure = 4 [(zetasql.is_measure) = true];
+  optional float float_measure = 5 [(zetasql.is_measure) = true];
+  optional double double_measure = 6 [(zetasql.is_measure) = true];
+  optional string string_measure = 7 [(zetasql.is_measure) = true];
+  optional bytes bytes_measure = 8 [(zetasql.is_measure) = true];
+  optional bool bool_measure = 9 [(zetasql.is_measure) = true];
+  optional TestEnum enum_measure = 19 [(zetasql.is_measure) = true];
+
+  repeated int32 array_of_int32_measures = 10 [(zetasql.is_measure) = true];
+  repeated uint32 array_of_uint32_measures = 11 [(zetasql.is_measure) = true];
+  repeated int64 array_of_int64_measures = 12 [(zetasql.is_measure) = true];
+  repeated uint64 array_of_uint64_measures = 13 [(zetasql.is_measure) = true];
+  repeated float array_of_float_measures = 14 [(zetasql.is_measure) = true];
+  repeated double array_of_double_measures = 15 [(zetasql.is_measure) = true];
+  repeated string array_of_string_measures = 16 [(zetasql.is_measure) = true];
+  repeated bytes array_of_bytes_measures = 17 [(zetasql.is_measure) = true];
+  repeated bool array_of_bool_measures = 18 [(zetasql.is_measure) = true];
+  repeated TestEnum array_of_enum_measures = 20 [(zetasql.is_measure) = true];
 }
 
 message IteratorProto {

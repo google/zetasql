@@ -613,7 +613,7 @@ from KeyValue kv1 join KeyValue kv2 on count(*)=5
                                        ^
 ==
 
-[language_features={{|V_1_1_ARRAY_EQUALITY}}]
+[language_features={{|ARRAY_EQUALITY}}]
 select a.key, a.Int32Array, b.Int32Array
 from ComplexTypes a join ComplexTypes b on a.Int32Array = b.Int32Array;
 --
@@ -623,7 +623,7 @@ ERROR: Equality is not defined for arguments of type ARRAY<INT32> [at 2:44]
 from ComplexTypes a join ComplexTypes b on a.Int32Array = b.Int32Array;
                                            ^
 --
-ALTERNATION GROUP: V_1_1_ARRAY_EQUALITY
+ALTERNATION GROUP: ARRAY_EQUALITY
 --
 QueryStmt
 +-output_column_list=
@@ -862,7 +862,7 @@ FROM t AS t2, (t2.arr CROSS JOIN (SELECT 1));
 ==
 
 # Repro for b/310752376
-[language_features={{|V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH}}]
+[language_features={{|SINGLE_TABLE_NAME_ARRAY_PATH}}]
 [no_test_extract_table_names]
 SELECT 1
 FROM ArrayTypes, (ArrayTypes.Int32Array CROSS JOIN (SELECT 1))
@@ -874,7 +874,7 @@ ERROR: Table not found: ArrayTypes.Int32Array [at 2:19]
 FROM ArrayTypes, (ArrayTypes.Int32Array CROSS JOIN (SELECT 1))
                   ^
 --
-ALTERNATION GROUP: V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH
+ALTERNATION GROUP: SINGLE_TABLE_NAME_ARRAY_PATH
 --
 QueryStmt
 +-output_column_list=
@@ -910,7 +910,7 @@ QueryStmt
 ==
 
 # Repro for b/310752376
-[language_features={{|V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH}}]
+[language_features={{|SINGLE_TABLE_NAME_ARRAY_PATH}}]
 [no_test_extract_table_names]
 SELECT 1
 FROM ArrayTypes, ((SELECT 1) CROSS JOIN ArrayTypes.Int32Array)
@@ -922,7 +922,7 @@ ERROR: Table not found: ArrayTypes.Int32Array [at 2:41]
 FROM ArrayTypes, ((SELECT 1) CROSS JOIN ArrayTypes.Int32Array)
                                         ^
 --
-ALTERNATION GROUP: V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH
+ALTERNATION GROUP: SINGLE_TABLE_NAME_ARRAY_PATH
 --
 QueryStmt
 +-output_column_list=
@@ -957,7 +957,7 @@ QueryStmt
                 +-element_column_list=[$array.Int32Array#42]
 ==
 
-[language_features=V_1_3_ALLOW_CONSECUTIVE_ON]
+[language_features=ALLOW_CONSECUTIVE_ON]
 WITH t1 AS (SELECT 1 AS c),t2 AS (SELECT 1 AS c), u AS (SELECT 1 AS c) SELECT * FROM u JOIN t1 JOIN t2 USING (c) USING (c)
 --
 QueryStmt
@@ -1022,14 +1022,14 @@ QueryStmt
 
 ==
 
-[language_features={{|V_1_3_ALLOW_CONSECUTIVE_ON,}}V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH]
+[language_features={{|ALLOW_CONSECUTIVE_ON,}}SINGLE_TABLE_NAME_ARRAY_PATH]
 [no_test_extract_table_names]
 SELECT ArrayTypes.Int32Array, i
 FROM ArrayTypes JOIN ArrayTypes.Int32Array AS i {{|JOIN (SELECT 1) ON TRUE}} ON TRUE
 --
 ALTERNATION GROUPS:
     <empty>
-    V_1_3_ALLOW_CONSECUTIVE_ON,,
+    ALLOW_CONSECUTIVE_ON,,
 --
 QueryStmt
 +-output_column_list=
@@ -1055,7 +1055,7 @@ ERROR: Syntax error: Expected end of input but got keyword ON [at 2:73]
 FROM ArrayTypes JOIN ArrayTypes.Int32Array AS i JOIN (SELECT 1) ON TRUE ON TRUE
                                                                         ^
 --
-ALTERNATION GROUP: V_1_3_ALLOW_CONSECUTIVE_ON,,JOIN (SELECT 1) ON TRUE
+ALTERNATION GROUP: ALLOW_CONSECUTIVE_ON,,JOIN (SELECT 1) ON TRUE
 --
 QueryStmt
 +-output_column_list=
@@ -1095,7 +1095,7 @@ QueryStmt
 
 ==
 
-[language_features=V_1_3_ALLOW_CONSECUTIVE_ON,V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH]
+[language_features=ALLOW_CONSECUTIVE_ON,SINGLE_TABLE_NAME_ARRAY_PATH]
 [no_test_extract_table_names]
 SELECT ArrayTypes.Int32Array, i
 FROM ArrayTypes JOIN ArrayTypes.Int32Array AS i JOIN (SELECT 1) ON TRUE {{|ON TRUE}}

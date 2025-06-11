@@ -25,6 +25,7 @@
 #include "zetasql/public/types/timestamp_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/hash/hash_testing.h"
 #include "absl/numeric/int128.h"
 #include "absl/status/status.h"
 #include "absl/strings/escaping.h"

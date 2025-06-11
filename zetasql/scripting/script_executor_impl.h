@@ -116,7 +116,7 @@ class ScriptExecutorImpl : public ScriptExecutor {
       const override {
     return callstack_.back().variable_type_params();
   }
-  const ParsedScript::StringSet GetCurrentNamedParameters() const {
+  ParsedScript::StringSet GetCurrentNamedParameters() const {
     return callstack_.back().parsed_script()->GetNamedParameters(
         callstack_.back().parsed_script()->script()->GetParseLocationRange());
   }
@@ -378,8 +378,8 @@ class ScriptExecutorImpl : public ScriptExecutor {
   // of the correct type, returns an error annoated with the parse location of
   // <expr>.  <context> describes the context of the expression for purposes
   // of error messages (e.g. "IF condition").  <for_assignment>, if true,
-  // allows additional conversion cases, such as int64_t->int32_t and
-  // uint64_t->uint32_t.
+  // allows additional conversion cases, such as int64->int32 and
+  // uint64->uint32.
   absl::StatusOr<Value> EvaluateExpression(const ASTExpression* expr,
                                            const Type* target_type) const;
 

@@ -16,12 +16,25 @@
 
 #include "zetasql/common/internal_value.h"
 
+#include <cstdint>
+
+#include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/language_options.h"
+#include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_value.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 
 namespace zetasql {
 
+using ::testing::ElementsAre;
+using ::zetasql_base::testing::IsOkAndHolds;
+using ::zetasql_base::testing::StatusIs;
 using types::Int64Type;
 
 static Value Int64(int64_t v) { return Value::Int64(v); }
@@ -96,6 +109,187 @@ TEST(InternalValueTest, NestedValues) {
       InternalValue::ContainsArrayWithUncertainOrder(struct_ordered_unordered));
   EXPECT_TRUE(
       InternalValue::ContainsArrayWithUncertainOrder(array_of_struct_ordered));
+}
+
+TEST(InternalValueTest, MeasureFormatting) {
+  LanguageOptions language_options;
+  TypeFactory type_factory;
+  const StructType* captured_struct_type = nullptr;
+  ZETASQL_ASSERT_OK(type_factory.MakeStructType(
+      {{"key", types::Int64Type()}, {"value", types::Int64Type()}},
+      &captured_struct_type));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value captured_values_as_struct,
+                       Value::MakeStruct(captured_struct_type,
+                                         {Value::Int64(1), Value::Int64(100)}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* measure_type,
+                       type_factory.MakeMeasureType(types::Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      Value measure, InternalValue::MakeMeasure(measure_type->AsMeasure(),
+                                                captured_values_as_struct, {0},
+                                                language_options));
+  EXPECT_EQ(measure.DebugString(/*verbose=*/true),
+            "Measure<Int64>{Struct{key:Int64(1), value:Int64(100)}}");
+  EXPECT_EQ(measure.DebugString(), "Measure<Int64>{{key:1, value:100}}");
+  EXPECT_EQ(measure.Format(/*print_top_level_type=*/false),
+            "Measure<Int64>{{key:1, value:100}}");
+  EXPECT_EQ(measure.Format(),
+            "Measure<Int64>{Struct{key:Int64(1), value:Int64(100)}}");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value measure_as_struct,
+                       InternalValue::GetMeasureAsStructValue(measure));
+  EXPECT_EQ(measure_as_struct, captured_values_as_struct);
+  EXPECT_THAT(InternalValue::GetMeasureGrainLockingIndices(measure),
+              IsOkAndHolds(ElementsAre(0)));
+}
+
+TEST(InternalValueTest, NullMeasure) {
+  TypeFactory type_factory;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* measure_type,
+                       type_factory.MakeMeasureType(types::Int64Type()));
+  Value null_measure = Value::Null(measure_type);
+  EXPECT_TRUE(null_measure.is_null());
+  EXPECT_EQ(null_measure.DebugString(/*verbose=*/true), "Measure<Int64>(NULL)");
+  EXPECT_EQ(null_measure.DebugString(), "NULL");
+  EXPECT_EQ(null_measure.Format(/*print_top_level_type=*/false), "NULL");
+  EXPECT_EQ(null_measure.Format(), "Measure<Int64>(NULL)");
+  // Measures do not have SQL literals, and do not support CASTs. The printed
+  // SQL is thus not meaningful.
+  EXPECT_EQ(null_measure.GetSQLLiteral(PRODUCT_INTERNAL), "NULL");
+  EXPECT_EQ(null_measure.GetSQL(PRODUCT_INTERNAL),
+            "CAST(NULL AS MEASURE<INT64>)");
+  EXPECT_THAT(InternalValue::GetMeasureAsStructValue(null_measure),
+              StatusIs(absl::StatusCode::kInvalidArgument, "Null measure"));
+  EXPECT_THAT(InternalValue::GetMeasureGrainLockingIndices(null_measure),
+              StatusIs(absl::StatusCode::kInvalidArgument, "Null measure"));
+}
+
+TEST(InternalValueTest, TestMeasureCreation) {
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_JSON_TYPE);
+  TypeFactory type_factory;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* measure_type,
+                       type_factory.MakeMeasureType(types::Int64Type()));
+
+  // Error when measure type is nullptr.
+  EXPECT_THAT(
+      InternalValue::MakeMeasure(nullptr, Value(), {0}, language_options),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               "Measure type cannot be nullptr"));
+
+  // Error when invalid Value supplied to MakeMeasure.
+  EXPECT_THAT(
+      InternalValue::MakeMeasure(measure_type->AsMeasure(), Value(), {0},
+                                 language_options),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               "Measure must capture a non-null STRUCT-typed value with at "
+               "least one field"));
+
+  // Error when NULL supplied to MakeMeasure.
+  const StructType* captured_struct_type;
+  ZETASQL_ASSERT_OK(type_factory.MakeStructType(
+      {{"key", types::Int64Type()}, {"value", types::Int64Type()}},
+      &captured_struct_type));
+  Value null_struct = Value::Null(captured_struct_type);
+  EXPECT_THAT(InternalValue::MakeMeasure(measure_type->AsMeasure(), null_struct,
+                                         {0}, language_options),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       "Measure must capture a non-null STRUCT-typed value "
+                       "with at least one field"));
+
+  // Error when non-STRUCT Value supplied to MakeMeasure.
+  EXPECT_THAT(
+      InternalValue::MakeMeasure(measure_type->AsMeasure(), Value::Int64(1),
+                                 {0}, language_options),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               "Measure must capture a non-null STRUCT-typed value "
+               "with at least one field"));
+
+  // Error when a struct with an empty field name supplied to MakeMeasure.
+  const StructType* unnamed_field_struct_type;
+  ZETASQL_ASSERT_OK(type_factory.MakeStructType(
+      {{"key", types::Int64Type()}, {"", types::Int64Type()}},
+      &unnamed_field_struct_type));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value unnamed_field_captured_values_as_struct,
+                       Value::MakeStruct(unnamed_field_struct_type,
+                                         {Value::Int64(1), Value::Int64(100)}));
+  EXPECT_THAT(
+      InternalValue::MakeMeasure(measure_type->AsMeasure(),
+                                 unnamed_field_captured_values_as_struct, {0},
+                                 language_options),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               "Captured measure value must contain non-empty field names"));
+
+  // Error when a struct with duplicate field names supplied to MakeMeasure.
+  const StructType* duplicate_field_struct_type;
+  ZETASQL_ASSERT_OK(type_factory.MakeStructType(
+      {{"key", types::Int64Type()}, {"key", types::Int64Type()}},
+      &duplicate_field_struct_type));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value duplicate_field_captured_values_as_struct,
+                       Value::MakeStruct(duplicate_field_struct_type,
+                                         {Value::Int64(1), Value::Int64(100)}));
+  EXPECT_THAT(
+      InternalValue::MakeMeasure(measure_type->AsMeasure(),
+                                 duplicate_field_captured_values_as_struct, {0},
+                                 language_options),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               "Captured measure value must contain unique field names"));
+
+  // Error when empty struct supplied to MakeMeasure.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value empty_struct,
+                       Value::MakeStruct(types::EmptyStructType(), {}));
+  EXPECT_THAT(InternalValue::MakeMeasure(measure_type->AsMeasure(),
+                                         empty_struct, {0}, language_options),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       "Measure must capture a non-null STRUCT-typed value "
+                       "with at least one field"));
+
+  // Error when no `key_indices` supplied to MakeMeasure.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value captured_values_as_struct,
+                       Value::MakeStruct(captured_struct_type,
+                                         {Value::Int64(1), Value::Int64(100)}));
+  EXPECT_THAT(
+      InternalValue::MakeMeasure(measure_type->AsMeasure(),
+                                 captured_values_as_struct, {},
+                                 language_options),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          "Measure value creation requires a non-empty list of key indices"));
+
+  // Error when invalid `key_indices` supplied to MakeMeasure.
+  EXPECT_THAT(InternalValue::MakeMeasure(measure_type->AsMeasure(),
+                                         captured_values_as_struct, {-1},
+                                         language_options),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       "Key index for measure value creation is invalid"));
+  EXPECT_THAT(InternalValue::MakeMeasure(measure_type->AsMeasure(),
+                                         captured_values_as_struct, {100},
+                                         language_options),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       "Key index for measure value creation is invalid"));
+
+  // Error when a key type does not support grouping.
+  const StructType* key_type_does_not_support_grouping_struct_type;
+  ZETASQL_ASSERT_OK(type_factory.MakeStructType(
+      {{"key", types::JsonType()}, {"value", types::Int64Type()}},
+      &key_type_does_not_support_grouping_struct_type));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      Value captured_values_with_invalid_key_type,
+      Value::MakeStruct(key_type_does_not_support_grouping_struct_type,
+                        {Value::NullJson(), Value::Int64(100)}));
+  EXPECT_THAT(InternalValue::MakeMeasure(measure_type->AsMeasure(),
+                                         captured_values_with_invalid_key_type,
+                                         {0}, language_options),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       "Key type does not support grouping: JSON"));
+}
+
+TEST(InternalValueTest, MeasureMethodsFailOnNonMeasureValue) {
+  Value int64_value = Value::Int64(1);
+  EXPECT_THAT(
+      InternalValue::GetMeasureAsStructValue(int64_value),
+      StatusIs(absl::StatusCode::kInvalidArgument, "Not a measure type"));
+  EXPECT_THAT(
+      InternalValue::GetMeasureGrainLockingIndices(int64_value),
+      StatusIs(absl::StatusCode::kInvalidArgument, "Not a measure type"));
 }
 
 }  // namespace zetasql

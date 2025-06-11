@@ -5,7 +5,7 @@
 
 # CORRESPONDING literal coercion FULL mode
 [name=corresponding_literal_coercion_full]
-[default required_features=V_1_4_CORRESPONDING_FULL]
+[default required_features=CORRESPONDING_FULL]
 SELECT 1 AS a, 1 AS b
 FULL UNION ALL CORRESPONDING
 SELECT CAST(1 AS INT32) AS a

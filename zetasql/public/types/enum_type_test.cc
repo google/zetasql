@@ -352,6 +352,21 @@ TEST(EnumTypeTest, EnumTypeIsSupported) {
   EXPECT_TRUE(types::DatePartEnumType()->IsSupportedType(product_internal));
   EXPECT_TRUE(types::DatePartEnumType()->IsSupportedType(proto_base_enabled));
 
+  ASSERT_TRUE(
+      types::
+          DifferentialPrivacyCountDistinctContributionBoundingStrategyEnumType()
+              .ok());
+  EXPECT_TRUE(
+      types::
+          DifferentialPrivacyCountDistinctContributionBoundingStrategyEnumType()
+              .value()
+              ->IsSupportedType(product_external));
+  EXPECT_TRUE(
+      types::
+          DifferentialPrivacyCountDistinctContributionBoundingStrategyEnumType()
+              .value()
+              ->IsSupportedType(product_internal));
+
   EXPECT_TRUE(
       types::NormalizeModeEnumType()->IsSupportedType(product_external));
   EXPECT_TRUE(

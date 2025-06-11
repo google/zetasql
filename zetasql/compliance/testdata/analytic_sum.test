@@ -2325,7 +2325,7 @@ ARRAY<STRUCT<bool_val BOOL, int64_val INT64, INT64>>[unknown order:
 
 [name=analytic_sum_range_orderby_bool_nulls_last]
 [labels=analytic_sum_over_range_between_current_and_unbounded]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT bool_val, int64_val,
        SUM(int64_val) OVER (ORDER BY bool_val NULLS LAST
                             RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)
@@ -2348,7 +2348,7 @@ ARRAY<STRUCT<bool_val BOOL, int64_val INT64, INT64>>[unknown order:
 
 [name=analytic_sum_range_orderby_bool_desc_nulls_first]
 [labels=analytic_sum_over_range_between_current_and_unbounded]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT bool_val, int64_val,
        SUM(int64_val) OVER (ORDER BY bool_val DESC NULLS FIRST
                             RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)
@@ -2371,7 +2371,7 @@ ARRAY<STRUCT<bool_val BOOL, int64_val INT64, INT64>>[unknown order:
 
 [name=analytic_sum_range_preceding_orderby_bool_nulls_first]
 [labels=analytic_sum_over_range_between_preceding]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT double_val, int64_val,
        SUM(int64_val) OVER (ORDER BY double_val DESC NULLS FIRST
                             RANGE BETWEEN 2 PRECEDING AND CURRENT ROW)
@@ -2395,7 +2395,7 @@ ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, INT64>>[unknown order:
 
 [name=analytic_sum_range_preceding_orderby_bool_nulls_last]
 [labels=analytic_sum_over_range_between_preceding]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT double_val, int64_val,
        SUM(int64_val) OVER (ORDER BY double_val ASC NULLS LAST
                             RANGE BETWEEN 2 PRECEDING AND CURRENT ROW)
@@ -2418,7 +2418,7 @@ ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, INT64>>[unknown order:
 
 [name=analytic_sum_range_following_orderby_bool_nulls_first]
 [labels=analytic_sum_over_range_between_following]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT double_val, int64_val,
        SUM(int64_val) OVER (ORDER BY double_val DESC NULLS FIRST
                             RANGE BETWEEN CURRENT ROW AND 2 FOLLOWING)
@@ -2441,7 +2441,7 @@ ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, INT64>>[unknown order:
 
 [name=analytic_sum_range_following_orderby_bool_nulls_last]
 [labels=analytic_sum_over_range_between_following]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT double_val, int64_val,
        SUM(int64_val) OVER (ORDER BY double_val ASC NULLS LAST
                             RANGE BETWEEN CURRENT ROW AND 2 FOLLOWING)
@@ -2464,7 +2464,7 @@ ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, INT64>>[unknown order:
 
 [name=analytic_sum_range_preceding_preceding_orderby_bool_nulls_last]
 [labels=analytic_sum_over_range_between_following]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT double_val, int64_val,
        SUM(int64_val) OVER (ORDER BY double_val ASC NULLS LAST
                             RANGE BETWEEN 2 PRECEDING AND 1 PRECEDING)
@@ -2485,7 +2485,7 @@ ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, INT64>>[unknown order:
 
 [name=analytic_sum_range_preceding_preceding_orderby_bool_nulls_first]
 [labels=analytic_sum_over_range_between_following]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT double_val, int64_val,
        SUM(int64_val) OVER (ORDER BY double_val DESC NULLS FIRST
                             RANGE BETWEEN 2 PRECEDING AND 1 PRECEDING)
@@ -2508,7 +2508,7 @@ ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, INT64>>[unknown order:
 
 [name=analytic_sum_range_following_following_orderby_bool_nulls_last]
 [labels=analytic_sum_over_range_between_following]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT double_val, int64_val,
        SUM(int64_val) OVER (ORDER BY double_val ASC NULLS LAST
                             RANGE BETWEEN 1 FOLLOWING AND 2 FOLLOWING)
@@ -2531,7 +2531,7 @@ ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, INT64>>[unknown order:
 
 [name=analytic_sum_range_following_following_orderby_bool_nulls_first]
 [labels=analytic_sum_over_range_between_following]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT double_val, int64_val,
        SUM(int64_val) OVER (ORDER BY double_val DESC NULLS FIRST
                             RANGE BETWEEN 1 FOLLOWING AND 2 FOLLOWING)
@@ -2557,7 +2557,7 @@ ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, INT64>>[unknown order:
             cast("NaN" as double) as nan,
             cast("-inf" as double) as neg_inf]
 [labels=analytic_sum_over_range_between_preceding]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT double_val, int64_val,
        SUM(int64_val) OVER (ORDER BY double_val NULLS LAST
                             RANGE BETWEEN @offset_val PRECEDING AND CURRENT ROW)
@@ -2596,7 +2596,7 @@ ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, INT64>>[unknown order:
             cast("NaN" as double) as nan,
             cast("-inf" as double) as neg_inf]
 [labels=analytic_sum_over_range_between_preceding]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT double_val, int64_val,
        SUM(int64_val) OVER (ORDER BY double_val NULLS LAST
                             RANGE BETWEEN 2 PRECEDING AND @offset_val PRECEDING)
@@ -2635,7 +2635,7 @@ ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, INT64>>[unknown order:
             cast("NaN" as double) as nan,
             cast("inf" as double) as inf]
 [labels=analytic_sum_over_range_between_preceding]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT double_val, int64_val,
        SUM(int64_val) OVER (ORDER BY double_val DESC NULLS FIRST
                             RANGE BETWEEN @offset_val PRECEDING AND CURRENT ROW)
@@ -2674,7 +2674,7 @@ ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, INT64>>[unknown order:
             cast("NaN" as double) as nan,
             cast("inf" as double) as inf]
 [labels=analytic_sum_over_range_between_preceding]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT double_val, int64_val,
        SUM(int64_val) OVER (ORDER BY double_val DESC NULLS FIRST
                             RANGE BETWEEN 2 PRECEDING AND @offset_val PRECEDING)
@@ -2713,7 +2713,7 @@ ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, INT64>>[unknown order:
             cast("NaN" as double) as nan,
             cast("inf" as double) as inf]
 [labels=analytic_sum_over_range_between_preceding]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT double_val, int64_val,
        SUM(int64_val) OVER (ORDER BY double_val ASC NULLS LAST
                             RANGE BETWEEN CURRENT ROW AND @offset_val FOLLOWING)
@@ -2752,7 +2752,7 @@ ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, INT64>>[unknown order:
             cast("NaN" as double) as nan,
             cast("inf" as double) as inf]
 [labels=analytic_sum_over_range_between_preceding]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT double_val, int64_val,
        SUM(int64_val) OVER (ORDER BY double_val ASC NULLS LAST
                             RANGE BETWEEN @offset_val FOLLOWING AND 2 FOLLOWING)
@@ -2791,7 +2791,7 @@ ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, INT64>>[unknown order:
             cast("NaN" as double) as nan,
             cast("-inf" as double) as neg_inf]
 [labels=analytic_sum_over_range_between_following]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT double_val, int64_val,
        SUM(int64_val) OVER (ORDER BY double_val DESC NULLS FIRST
                             RANGE BETWEEN CURRENT ROW AND @offset_val FOLLOWING)
@@ -2830,7 +2830,7 @@ ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, INT64>>[unknown order:
             cast("NaN" as double) as nan,
             cast("-inf" as double) as neg_inf]
 [labels=analytic_sum_over_range_between_following]
-[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+[required_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT double_val, int64_val,
        SUM(int64_val) OVER (ORDER BY double_val DESC NULLS FIRST
                             RANGE BETWEEN @offset_val FOLLOWING AND 2 FOLLOWING)

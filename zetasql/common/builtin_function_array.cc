@@ -58,13 +58,19 @@ namespace zetasql {
 
 // Create a `FunctionSignatureOptions` that configures a SQL definition that
 // will be inlined by `REWRITE_BUILTIN_FUNCTION_INLINER`.
-static FunctionSignatureOptions SetDefinitionForInlining(absl::string_view sql,
-                                                         bool enabled = true) {
+static FunctionSignatureOptions SetDefinitionForInlining(
+    absl::string_view sql, bool enabled = true,
+    std::vector<std::string> allowed_function_groups = {}) {
+  auto rewrite_options = FunctionSignatureRewriteOptions()
+                             .set_enabled(enabled)
+                             .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+                             .set_sql(sql);
+  if (!allowed_function_groups.empty()) {
+    rewrite_options.set_allowed_function_groups(
+        std::move(allowed_function_groups));
+  }
   return FunctionSignatureOptions().set_rewrite_options(
-      FunctionSignatureRewriteOptions()
-          .set_enabled(enabled)
-          .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
-          .set_sql(sql));
+      std::move(rewrite_options));
 }
 
 static bool IsRewriteEnabled(FunctionSignatureId id,
@@ -118,14 +124,14 @@ void GetArrayMiscFunctions(TypeFactory* type_factory,
   // TODO: Flatten function disallows collations on input arrays.
   // This constraint is temporary and we will supported collated arrays for
   // Flatten later.
-  InsertFunction(functions, options, "flatten", SCALAR,
-                 {{ARG_ARRAY_TYPE_ANY_1,
-                   {ARG_ARRAY_TYPE_ANY_1},
-                   FN_FLATTEN,
-                   FunctionSignatureOptions()
-                       .set_rejects_collation(true)
-                       .AddRequiredLanguageFeature(
-                           FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS)}});
+  InsertFunction(
+      functions, options, "flatten", SCALAR,
+      {{ARG_ARRAY_TYPE_ANY_1,
+        {ARG_ARRAY_TYPE_ANY_1},
+        FN_FLATTEN,
+        FunctionSignatureOptions()
+            .set_rejects_collation(true)
+            .AddRequiredLanguageFeature(FEATURE_UNNEST_AND_FLATTEN_ARRAYS)}});
 
   // Usage: [...], ARRAY[...], ARRAY<T>[...]
   // * Array elements would be the list of expressions enclosed within [].
@@ -284,12 +290,15 @@ void GetArrayMiscFunctions(TypeFactory* type_factory,
 
 static FunctionSignatureOnHeap UnaryArrayFuncConcreteSig(
     const Type* output_type, const Type* input_type, FunctionSignatureId id,
-    absl::string_view sql) {
+    absl::string_view sql,
+    std::vector<std::string> allowed_function_groups = {}) {
   FunctionArgumentType input_arg{
       input_type, FunctionArgumentTypeOptions().set_argument_name(
                       "input_array", kPositionalOnly)};
-  return FunctionSignatureOnHeap(output_type, {input_arg}, id,
-                                 SetDefinitionForInlining(sql));
+  return FunctionSignatureOnHeap(
+      output_type, {input_arg}, id,
+      SetDefinitionForInlining(sql, /*enabled=*/true,
+                               std::move(allowed_function_groups)));
 }
 
 static FunctionSignatureOnHeap ArraySumSig(const Type* output_type,
@@ -340,7 +349,7 @@ void GetArrayAggregationFunctions(
   const Function::Mode SCALAR = Function::SCALAR;
 
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_ARRAY_AGGREGATION_FUNCTIONS)
+          FEATURE_ARRAY_AGGREGATION_FUNCTIONS)
   ) {
     // ARRAY_SUM follows the same input and output types mapping rule defined
     // for SUM, which implicitly coerced the following types:
@@ -433,10 +442,10 @@ void GetArrayAggregationFunctions(
 
     InsertFunction(
         functions, options, "array_max", SCALAR,
-        {UnaryArrayFuncConcreteSig(float_type, float_array_type,
-                                   FN_ARRAY_MAX_FLOAT, kArrayMaxFPSql),
-         UnaryArrayFuncConcreteSig(double_type, double_array_type,
-                                   FN_ARRAY_MAX_DOUBLE, kArrayMaxFPSql),
+         {UnaryArrayFuncConcreteSig(float_type, float_array_type,
+                                    FN_ARRAY_MAX_FLOAT, kArrayMaxFPSql),
+          UnaryArrayFuncConcreteSig(double_type, double_array_type,
+                                    FN_ARRAY_MAX_DOUBLE, kArrayMaxFPSql),
          {ARG_TYPE_ANY_1,
           {array_min_max_arg},
           FN_ARRAY_MAX,
@@ -518,13 +527,12 @@ void GetArraySlicingFunctions(TypeFactory* type_factory,
           )
       END
     )sql";
-  InsertFunction(
-      functions, options, "array_first_n", Function::SCALAR,
-      {{ARG_ARRAY_TYPE_ANY_1,
-        {input_array_arg, n_arg},
-        FN_ARRAY_FIRST_N,
-        SetDefinitionForInlining(kArrayFirstNSql, true)
-            .AddRequiredLanguageFeature(FEATURE_V_1_4_FIRST_AND_LAST_N)}});
+  InsertFunction(functions, options, "array_first_n", Function::SCALAR,
+                 {{ARG_ARRAY_TYPE_ANY_1,
+                   {input_array_arg, n_arg},
+                   FN_ARRAY_FIRST_N,
+                   SetDefinitionForInlining(kArrayFirstNSql, true)
+                       .AddRequiredLanguageFeature(FEATURE_FIRST_AND_LAST_N)}});
 
   constexpr absl::string_view kArrayLastNSql = R"sql(
       CASE
@@ -544,13 +552,12 @@ void GetArraySlicingFunctions(TypeFactory* type_factory,
           )
       END
     )sql";
-  InsertFunction(
-      functions, options, "array_last_n", Function::SCALAR,
-      {{ARG_ARRAY_TYPE_ANY_1,
-        {input_array_arg, n_arg},
-        FN_ARRAY_LAST_N,
-        SetDefinitionForInlining(kArrayLastNSql, true)
-            .AddRequiredLanguageFeature(FEATURE_V_1_4_FIRST_AND_LAST_N)}});
+  InsertFunction(functions, options, "array_last_n", Function::SCALAR,
+                 {{ARG_ARRAY_TYPE_ANY_1,
+                   {input_array_arg, n_arg},
+                   FN_ARRAY_LAST_N,
+                   SetDefinitionForInlining(kArrayLastNSql, true)
+                       .AddRequiredLanguageFeature(FEATURE_FIRST_AND_LAST_N)}});
 
   constexpr absl::string_view kArrayRemoveFirstNSql = R"sql(
       CASE
@@ -568,13 +575,12 @@ void GetArraySlicingFunctions(TypeFactory* type_factory,
           )
       END
     )sql";
-  InsertFunction(
-      functions, options, "array_remove_first_n", Function::SCALAR,
-      {{ARG_ARRAY_TYPE_ANY_1,
-        {input_array_arg, n_arg},
-        FN_ARRAY_REMOVE_FIRST_N,
-        SetDefinitionForInlining(kArrayRemoveFirstNSql, true)
-            .AddRequiredLanguageFeature(FEATURE_V_1_4_FIRST_AND_LAST_N)}});
+  InsertFunction(functions, options, "array_remove_first_n", Function::SCALAR,
+                 {{ARG_ARRAY_TYPE_ANY_1,
+                   {input_array_arg, n_arg},
+                   FN_ARRAY_REMOVE_FIRST_N,
+                   SetDefinitionForInlining(kArrayRemoveFirstNSql, true)
+                       .AddRequiredLanguageFeature(FEATURE_FIRST_AND_LAST_N)}});
 
   constexpr absl::string_view kArrayRemoveLastNSql = R"sql(
       CASE
@@ -595,13 +601,12 @@ void GetArraySlicingFunctions(TypeFactory* type_factory,
           )
       END
     )sql";
-  InsertFunction(
-      functions, options, "array_remove_last_n", Function::SCALAR,
-      {{ARG_ARRAY_TYPE_ANY_1,
-        {input_array_arg, n_arg},
-        FN_ARRAY_REMOVE_LAST_N,
-        SetDefinitionForInlining(kArrayRemoveLastNSql, true)
-            .AddRequiredLanguageFeature(FEATURE_V_1_4_FIRST_AND_LAST_N)}});
+  InsertFunction(functions, options, "array_remove_last_n", Function::SCALAR,
+                 {{ARG_ARRAY_TYPE_ANY_1,
+                   {input_array_arg, n_arg},
+                   FN_ARRAY_REMOVE_LAST_N,
+                   SetDefinitionForInlining(kArrayRemoveLastNSql, true)
+                       .AddRequiredLanguageFeature(FEATURE_FIRST_AND_LAST_N)}});
 }
 
 absl::Status GetArrayFindFunctions(
@@ -710,7 +715,7 @@ absl::Status GetArrayFindFunctions(
             .set_uses_operation_collation()}},
       FunctionOptions().set_supports_safe_error_mode(
           options.language_options.LanguageFeatureEnabled(
-              FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)),
+              FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)),
       /*types_to_insert=*/{array_find_mode_type}));
 
   constexpr absl::string_view kArrayOffsetsSql = R"sql(
@@ -746,7 +751,7 @@ absl::Status GetArrayFindFunctions(
                        .set_uses_operation_collation()}},
                  FunctionOptions().set_supports_safe_error_mode(
                      options.language_options.LanguageFeatureEnabled(
-                         FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
+                         FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
 
   constexpr absl::string_view kArrayFindSql = R"sql(
       IF(
@@ -815,7 +820,7 @@ absl::Status GetArrayFindFunctions(
             .set_uses_operation_collation()}},
       FunctionOptions().set_supports_safe_error_mode(
           options.language_options.LanguageFeatureEnabled(
-              FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)),
+              FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)),
       /*types_to_insert=*/{array_find_mode_type}));
 
   constexpr absl::string_view kArrayFindAllSql = R"sql(
@@ -854,7 +859,7 @@ absl::Status GetArrayFindFunctions(
             .set_uses_operation_collation()}},
       FunctionOptions().set_supports_safe_error_mode(
           options.language_options.LanguageFeatureEnabled(
-              FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
+              FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
 
   return absl::OkStatus();
 }
@@ -920,7 +925,7 @@ void GetArrayFilteringFunctions(TypeFactory* type_factory,
             IsRewriteEnabled(FN_ARRAY_FILTER_WITH_INDEX, options))}},
       FunctionOptions().set_supports_safe_error_mode(
           options.language_options.LanguageFeatureEnabled(
-              FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
+              FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
 }
 
 void GetArrayTransformFunctions(TypeFactory* type_factory,
@@ -997,7 +1002,7 @@ void GetArrayTransformFunctions(TypeFactory* type_factory,
             IsRewriteEnabled(FN_ARRAY_TRANSFORM_WITH_INDEX, options))}},
       FunctionOptions().set_supports_safe_error_mode(
           options.language_options.LanguageFeatureEnabled(
-              FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
+              FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
 }
 
 void GetArrayIncludesFunctions(TypeFactory* type_factory,
@@ -1081,7 +1086,7 @@ void GetArrayIncludesFunctions(TypeFactory* type_factory,
             IsRewriteEnabled(FN_ARRAY_INCLUDES_LAMBDA, options))}},
       FunctionOptions().set_supports_safe_error_mode(
           options.language_options.LanguageFeatureEnabled(
-              FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
+              FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
 
   InsertFunction(functions, options, "array_includes_any", Function::SCALAR,
                  {{bool_type,
@@ -1092,7 +1097,7 @@ void GetArrayIncludesFunctions(TypeFactory* type_factory,
                        IsRewriteEnabled(FN_ARRAY_INCLUDES_ANY, options))}},
                  FunctionOptions().set_supports_safe_error_mode(
                      options.language_options.LanguageFeatureEnabled(
-                         FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
+                         FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
 
   InsertFunction(functions, options, "array_includes_all", Function::SCALAR,
                  {{bool_type,
@@ -1103,7 +1108,7 @@ void GetArrayIncludesFunctions(TypeFactory* type_factory,
                        IsRewriteEnabled(FN_ARRAY_INCLUDES_ALL, options))}},
                  FunctionOptions().set_supports_safe_error_mode(
                      options.language_options.LanguageFeatureEnabled(
-                         FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
+                         FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
 }
 
 // TODO: Add signatures as we implement ARRAY_ZIP.
@@ -1694,9 +1699,9 @@ absl::Status GetArrayZipFunctions(
               // `supports_safe_error_mode` is set at the function level, not
               // the signature level. So, even though ARRAY_ZIP has signatures
               // without lambdas, safe_error_mode cannot be enabled without
-              // activating FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS.
+              // activating FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS.
               options.language_options.LanguageFeatureEnabled(
-                  FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS))
+                  FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS))
           .set_compute_result_type_callback(&ComputeArrayZipOutputType),
       /*types_to_insert=*/{array_zip_mode_type});
 }

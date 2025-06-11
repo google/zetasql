@@ -1,4 +1,4 @@
-[default language_features=V_1_4_SQL_GRAPH]
+[default language_features=SQL_GRAPH]
 [default no_test_extract_table_names]
 [default show_sqlbuilder_output]
 
@@ -43,7 +43,7 @@ QueryStmt
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.b#2]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.PersonOwnAccount)
+        |       | | | +-GraphLabel(parse_location=64-80, label=aml.PersonOwnAccount)
         |       | | +-target_element_table_list=[aml.PersonOwnAccount]
         |       | | +-orientation=RIGHT
         |       | | +-lhs_hint_list=
@@ -209,7 +209,7 @@ QueryStmt
         |       | | | +-GraphEdgeScan
         |       | | | | +-column_list=[$element_table.e#3]
         |       | | | | +-label_expr=
-        |       | | | | | +-GraphLabel(label=aml.Transfer)
+        |       | | | | | +-GraphLabel(parse_location=50-58, label=aml.Transfer)
         |       | | | | +-target_element_table_list=[aml.Transfer]
         |       | | | | +-orientation=RIGHT
         |       | | | +-GraphNodeScan
@@ -227,7 +227,7 @@ QueryStmt
         |       | | | +-GraphEdgeScan
         |       | | | | +-column_list=[$element_table.f#5]
         |       | | | | +-label_expr=
-        |       | | | | | +-GraphLabel(label=aml.Transfer)
+        |       | | | | | +-GraphLabel(parse_location=66-74, label=aml.Transfer)
         |       | | | | +-target_element_table_list=[aml.Transfer]
         |       | | | | +-orientation=RIGHT
         |       | | | +-GraphNodeScan
@@ -259,7 +259,7 @@ QueryStmt
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.g#7]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Transfer)
+        |       | | | +-GraphLabel(parse_location=127-135, label=aml.Transfer)
         |       | | +-target_element_table_list=[aml.Transfer]
         |       | | +-orientation=RIGHT
         |       | +-GraphNodeScan
@@ -691,8 +691,8 @@ QueryStmt
         |       | | | | | +-GraphLabelNaryExpr
         |       | | | | |   +-op=AND
         |       | | | | |   +-operand_list=
-        |       | | | | |     +-GraphLabel(label=aml.Transfer)
-        |       | | | | |     +-GraphLabel(label=aml.Transfer)
+        |       | | | | |     +-GraphLabel(parse_location=46-54, label=aml.Transfer)
+        |       | | | | |     +-GraphLabel(parse_location=83-91, label=aml.Transfer)
         |       | | | | +-target_element_table_list=[aml.Transfer]
         |       | | | | +-orientation=RIGHT
         |       | | | +-GraphNodeScan
@@ -732,8 +732,8 @@ QueryStmt
         |       |   | | | +-GraphLabelNaryExpr
         |       |   | | |   +-op=AND
         |       |   | | |   +-operand_list=
-        |       |   | | |     +-GraphLabel(label=aml.Transfer)
-        |       |   | | |     +-GraphLabel(label=aml.Transfer)
+        |       |   | | |     +-GraphLabel(parse_location=46-54, label=aml.Transfer)
+        |       |   | | |     +-GraphLabel(parse_location=83-91, label=aml.Transfer)
         |       |   | | +-target_element_table_list=[aml.Transfer]
         |       |   | | +-orientation=RIGHT
         |       |   | +-GraphNodeScan
@@ -1003,7 +1003,7 @@ QueryStmt
         |       | | | +-GraphEdgeScan
         |       | | | | +-column_list=[$element_table.e#2]
         |       | | | | +-label_expr=
-        |       | | | | | +-GraphLabel(label=aml.PersonOwnAccount)
+        |       | | | | | +-GraphLabel(parse_location=48-64, label=aml.PersonOwnAccount)
         |       | | | | +-target_element_table_list=[aml.PersonOwnAccount]
         |       | | | | +-orientation=RIGHT
         |       | | | +-GraphNodeScan
@@ -1205,7 +1205,7 @@ QueryStmt
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.e#2]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Transfer)
+        |       | | | +-GraphLabel(parse_location=47-55, label=aml.Transfer)
         |       | | +-target_element_table_list=[aml.Transfer]
         |       | | +-orientation=RIGHT
         |       | +-GraphPathScan
@@ -1371,7 +1371,7 @@ QueryStmt
         |       | +-GraphEdgeScan
         |       | | +-column_list=[$element_table.e#2]
         |       | | +-label_expr=
-        |       | | | +-GraphLabel(label=aml.Transfer)
+        |       | | | +-GraphLabel(parse_location=47-55, label=aml.Transfer)
         |       | | +-target_element_table_list=[aml.Transfer]
         |       | | +-orientation=RIGHT
         |       | +-GraphPathScan
@@ -1797,7 +1797,7 @@ QueryStmt
         |   | | | | | +-GraphLabelNaryExpr
         |   | | | | |   +-op=AND
         |   | | | | |   +-operand_list=
-        |   | | | | |     +-GraphLabel(label=aml.PersonOwnAccount)
+        |   | | | | |     +-GraphLabel(parse_location=48-64, label=aml.PersonOwnAccount)
         |   | | | | |     +-GraphLabelNaryExpr
         |   | | | | |     | +-op=OR
         |   | | | | |     | +-operand_list=
@@ -1864,7 +1864,7 @@ QueryStmt
         |   | | |   | | | +-GraphLabelNaryExpr
         |   | | |   | | |   +-op=AND
         |   | | |   | | |   +-operand_list=
-        |   | | |   | | |     +-GraphLabel(label=aml.PersonOwnAccount)
+        |   | | |   | | |     +-GraphLabel(parse_location=48-64, label=aml.PersonOwnAccount)
         |   | | |   | | |     +-GraphLabelNaryExpr
         |   | | |   | | |     | +-op=OR
         |   | | |   | | |     | +-operand_list=
@@ -1965,7 +1965,7 @@ QueryStmt
         |   | | |   | | | | | +-GraphLabelNaryExpr
         |   | | |   | | | | |   +-op=AND
         |   | | |   | | | | |   +-operand_list=
-        |   | | |   | | | | |     +-GraphLabel(label=aml.PersonOwnAccount)
+        |   | | |   | | | | |     +-GraphLabel(parse_location=48-64, label=aml.PersonOwnAccount)
         |   | | |   | | | | |     +-GraphLabelNaryExpr
         |   | | |   | | | | |     | +-op=OR
         |   | | |   | | | | |     | +-operand_list=
@@ -2064,7 +2064,7 @@ QueryStmt
         |   | | | | | +-GraphLabelNaryExpr
         |   | | | | |   +-op=AND
         |   | | | | |   +-operand_list=
-        |   | | | | |     +-GraphLabel(label=aml.PersonOwnAccount)
+        |   | | | | |     +-GraphLabel(parse_location=48-64, label=aml.PersonOwnAccount)
         |   | | | | |     +-GraphLabelNaryExpr
         |   | | | | |     | +-op=OR
         |   | | | | |     | +-operand_list=
@@ -2335,7 +2335,7 @@ QueryStmt
         |   | | | | | +-GraphLabelNaryExpr
         |   | | | | |   +-op=AND
         |   | | | | |   +-operand_list=
-        |   | | | | |     +-GraphLabel(label=aml.PersonOwnAccount)
+        |   | | | | |     +-GraphLabel(parse_location=48-64, label=aml.PersonOwnAccount)
         |   | | | | |     +-GraphLabelNaryExpr
         |   | | | | |     | +-op=OR
         |   | | | | |     | +-operand_list=
@@ -2402,7 +2402,7 @@ QueryStmt
         |   | | |   | | | +-GraphLabelNaryExpr
         |   | | |   | | |   +-op=AND
         |   | | |   | | |   +-operand_list=
-        |   | | |   | | |     +-GraphLabel(label=aml.PersonOwnAccount)
+        |   | | |   | | |     +-GraphLabel(parse_location=48-64, label=aml.PersonOwnAccount)
         |   | | |   | | |     +-GraphLabelNaryExpr
         |   | | |   | | |     | +-op=OR
         |   | | |   | | |     | +-operand_list=
@@ -2471,7 +2471,7 @@ QueryStmt
         |   | | |   | | | +-GraphLabelNaryExpr
         |   | | |   | | |   +-op=AND
         |   | | |   | | |   +-operand_list=
-        |   | | |   | | |     +-GraphLabel(label=aml.PersonOwnAccount)
+        |   | | |   | | |     +-GraphLabel(parse_location=48-64, label=aml.PersonOwnAccount)
         |   | | |   | | |     +-GraphLabelNaryExpr
         |   | | |   | | |     | +-op=OR
         |   | | |   | | |     | +-operand_list=
@@ -2539,7 +2539,7 @@ QueryStmt
         |   | | | | | +-GraphLabelNaryExpr
         |   | | | | |   +-op=AND
         |   | | | | |   +-operand_list=
-        |   | | | | |     +-GraphLabel(label=aml.PersonOwnAccount)
+        |   | | | | |     +-GraphLabel(parse_location=48-64, label=aml.PersonOwnAccount)
         |   | | | | |     +-GraphLabelNaryExpr
         |   | | | | |     | +-op=OR
         |   | | | | |     | +-operand_list=

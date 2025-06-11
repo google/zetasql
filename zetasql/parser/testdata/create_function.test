@@ -1,4 +1,4 @@
-[default language_features=V_1_3_REMOTE_FUNCTION]
+[default language_features=REMOTE_FUNCTION]
 create function ;
 --
 ERROR: Syntax error: Unexpected ";" [at 1:17]
@@ -1221,7 +1221,7 @@ create function myfunc ( ) returns string remote with connection;
 # Non-remote function with connection after language clause.
 # It's accepted by the parser when the feature is enabled but will be excluded
 # by the analyzer.
-[language_features={{|V_1_3_REMOTE_FUNCTION|V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION|V_1_3_REMOTE_FUNCTION,V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION}}]
+[language_features={{|REMOTE_FUNCTION|CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION|REMOTE_FUNCTION,CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION}}]
 create function myfunc ( ) returns string language js with connection c;
 --
 ALTERNATION GROUP: <empty>
@@ -1231,9 +1231,9 @@ create function myfunc ( ) returns string language js with connection c;
                                                       ^
 --
 ALTERNATION GROUPS:
-    V_1_3_REMOTE_FUNCTION
-    V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
-    V_1_3_REMOTE_FUNCTION,V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
+    REMOTE_FUNCTION
+    CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
+    REMOTE_FUNCTION,CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
 --
 CreateFunctionStatement [0-71] [create function...connection c]
   FunctionDeclaration [16-26] [myfunc ( )]
@@ -1254,7 +1254,7 @@ RETURNS string LANGUAGE js WITH CONNECTION c
 ==
 
 # Non-remote function without language clause with connection.
-[language_features={{|V_1_3_REMOTE_FUNCTION|V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION}}]
+[language_features={{|REMOTE_FUNCTION|CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION}}]
 create function myfunc ( ) returns string with connection c;
 --
 ALTERNATION GROUP: <empty>
@@ -1264,8 +1264,8 @@ create function myfunc ( ) returns string with connection c;
                                           ^
 --
 ALTERNATION GROUPS:
-    V_1_3_REMOTE_FUNCTION
-    V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
+    REMOTE_FUNCTION
+    CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
 --
 CreateFunctionStatement [0-59] [create function...connection c]
   FunctionDeclaration [16-26] [myfunc ( )]
@@ -1432,7 +1432,7 @@ RETURNS int LANGUAGE js REMOTE WITH CONNECTION c
 
 # Remote keyword with language clause, when the remote function option
 # is turned on or off
-[language_features={{|V_1_3_REMOTE_FUNCTION}}]
+[language_features={{|REMOTE_FUNCTION}}]
 create function myfunc ( ) returns int language js remote;
 --
 ALTERNATION GROUP: <empty>
@@ -1441,7 +1441,7 @@ ERROR: Keyword REMOTE is not supported [at 1:52]
 create function myfunc ( ) returns int language js remote;
                                                    ^
 --
-ALTERNATION GROUP: V_1_3_REMOTE_FUNCTION
+ALTERNATION GROUP: REMOTE_FUNCTION
 --
 CreateFunctionStatement [0-57] [create function...js remote]
   FunctionDeclaration [16-26] [myfunc ( )]

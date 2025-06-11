@@ -344,13 +344,13 @@ SELECT double(JSON '18', wide_number_mode=>'roundish');
 ERROR: generic::out_of_range: Invalid `wide_number_mode` specified: roundish
 ==
 [name=json_safe_double_fail_resolve_to_null]
-[required_features=JSON_TYPE,NAMED_ARGUMENTS,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=JSON_TYPE,NAMED_ARGUMENTS,JSON_VALUE_EXTRACTION_FUNCTIONS,SAFE_FUNCTION_CALL]
 SELECT SAFE.double(JSON '18446744073709551615', wide_number_mode=>'exact');
 --
 ARRAY<STRUCT<DOUBLE>>[{NULL}]
 ==
 [name=json_safe_double]
-[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,SAFE_FUNCTION_CALL]
 SELECT SAFE.double(JSON '-1.1');
 --
 ARRAY<STRUCT<DOUBLE>>[{-1.1}]
@@ -416,13 +416,13 @@ SELECT float64(JSON '18', wide_number_mode=>'roundish');
 ERROR: generic::out_of_range: Invalid `wide_number_mode` specified: roundish
 ==
 [name=json_safe_float64_fail_resolve_to_null]
-[required_features=JSON_TYPE,NAMED_ARGUMENTS,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=JSON_TYPE,NAMED_ARGUMENTS,JSON_VALUE_EXTRACTION_FUNCTIONS,SAFE_FUNCTION_CALL]
 SELECT SAFE.float64(JSON '18446744073709551615', wide_number_mode=>'exact');
 --
 ARRAY<STRUCT<DOUBLE>>[{NULL}]
 ==
 [name=json_safe_float64]
-[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,SAFE_FUNCTION_CALL]
 SELECT SAFE.float64(JSON '-1.1');
 --
 ARRAY<STRUCT<DOUBLE>>[{-1.1}]
@@ -512,7 +512,7 @@ SELECT JSON_OBJECT(["a", NULL], [10])
 ERROR: generic::out_of_range: Invalid input to JSON_OBJECT: The number of keys and values must match
 ==
 [name=json_object_arrays_null_keys_safe]
-[required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS,SAFE_FUNCTION_CALL]
 SELECT SAFE.JSON_OBJECT(CAST(NULL AS ARRAY<STRING>), [10, 20])
 --
 ARRAY<STRUCT<JSON>>[{NULL}]
@@ -841,3 +841,49 @@ FROM ( SELECT JSON '{"": "value"}' as attributes )
 WHERE attributes[''] IS NOT NULL;
 --
 ARRAY<STRUCT<attributes JSON>>[{{"":"value"}}]
+==
+[name=json_flatten_simple]
+[required_features=JSON_TYPE,JSON_FLATTEN_FUNCTION]
+SELECT JSON_FLATTEN(JSON '[1, 2, 3]')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[known order:1, 2, 3]}]
+==
+[name=json_flatten_nested_arrays]
+[required_features=JSON_TYPE,JSON_FLATTEN_FUNCTION]
+SELECT JSON_FLATTEN(JSON '[[[1, 2], 3], 4]')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[known order:1, 2, 3, 4]}]
+==
+[name=json_flatten_mixed_types]
+[required_features=JSON_TYPE,JSON_FLATTEN_FUNCTION]
+SELECT JSON_FLATTEN(JSON '[[[[1, 2], 3], 4], {"a":10}, ["foo", true]]')
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<JSON>[known order:1, 2, 3, 4, {"a":10}, "foo", true]}
+]
+==
+[name=json_flatten_mixed_types_reversed]
+[required_features=JSON_TYPE,JSON_FLATTEN_FUNCTION]
+SELECT JSON_FLATTEN(JSON '[{"a":10}, ["foo", true], [[[1, 2], 3], 4]]')
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<JSON>[known order:{"a":10}, "foo", true, 1, 2, 3, 4]}
+]
+==
+[name=json_flatten_empty_array]
+[required_features=JSON_TYPE,JSON_FLATTEN_FUNCTION]
+SELECT JSON_FLATTEN(JSON '[]')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[]}]
+==
+[name=json_flatten_nested_empty_arrays]
+[required_features=JSON_TYPE,JSON_FLATTEN_FUNCTION]
+SELECT JSON_FLATTEN(JSON '[[[], []]]')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[]}]
+==
+[name=json_flatten_null]
+[required_features=JSON_TYPE,JSON_FLATTEN_FUNCTION]
+SELECT JSON_FLATTEN(NULL)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>(NULL)}]

@@ -71,5 +71,19 @@ namespace zetasql::internal {
 // std::string TestTmpDir();
 //
 
+// RecursivelyCreateDir()
+//
+// Recursively creates the given directory path. If the directory already
+// exists, do nothing and return OK.
+//
+// absl::Status RecursivelyCreateDir(absl::string_view directory);
+
+// Copy()
+//
+// Copies the given file to the target location. The target directory should
+// already exist.
+//
+// absl::Status Copy(absl::string_view from, absl::string_view to);
+
 }  // namespace zetasql::internal
 #endif  // THIRD_PARTY_ZETASQL_ZETASQL_BASE_FILE_UTIL_H_

@@ -50,7 +50,7 @@ namespace zetasql {
 // Supports implicit conversion of C++ types to Values.
 class ValueConstructor {
  public:
-  // Very roundabout way of saying 'int32_t' in a way that's portable.
+  // Very roundabout way of saying 'int32' in a way that's portable.
   template <typename Int32T,
             typename std::enable_if<std::is_integral<Int32T>::value &&
                                     std::is_signed<Int32T>::value &&
@@ -58,7 +58,7 @@ class ValueConstructor {
   ValueConstructor(Int32T v)  // NOLINT(google-explicit-constructor)
       : v_(Value::Int32(v)) {}
 
-  // Very roundabout way of saying 'uint32_t' in a way that's portable.
+  // Very roundabout way of saying 'uint32' in a way that's portable.
   template <typename UInt32T,
             typename std::enable_if<std::is_integral<UInt32T>::value &&
                                     std::is_unsigned<UInt32T>::value &&
@@ -66,7 +66,7 @@ class ValueConstructor {
   ValueConstructor(UInt32T v)  // NOLINT(google-explicit-constructor)
       : v_(Value::Uint32(v)) {}
 
-  // Very roundabout way of saying 'int64_t' in a way that's portable.
+  // Very roundabout way of saying 'int64' in a way that's portable.
   template <typename Int64T,
             typename std::enable_if<std::is_integral<Int64T>::value &&
                                     std::is_signed<Int64T>::value &&
@@ -74,7 +74,7 @@ class ValueConstructor {
   ValueConstructor(Int64T v)  // NOLINT(google-explicit-constructor)
       : v_(Value::Int64(v)) {}
 
-  // Very roundabout way of saying 'uint64_t' in a way that's portable.
+  // Very roundabout way of saying 'uint64' in a way that's portable.
   template <typename UInt64T,
             typename std::enable_if<std::is_integral<UInt64T>::value &&
                                     std::is_unsigned<UInt64T>::value &&
@@ -297,6 +297,30 @@ Value GraphEdge(
     absl::string_view dest_node_identifier,
     TypeFactory* type_factory = nullptr);
 
+// Creates a dynamic graph node with identifier, definition name, static
+// properties, dynamic properties, static labels, and dynamic labels for graph
+// identified by graph_reference.
+Value DynamicGraphNode(
+    absl::Span<const std::string> graph_reference, absl::string_view identifier,
+    absl::Span<const std::pair<std::string, Value>> static_properties,
+    JSONValueConstRef dynamic_properties,
+    absl::Span<const std::string> static_labels,
+    absl::Span<const std::string> dynamic_labels,
+    absl::string_view definition_name, TypeFactory* type_factory = nullptr);
+
+// Creates a dynamic graph edge with identifier, definition name, static
+// properties, dynamic properties, static labels, and dynamic labels, source and
+// destination node identifiers for graph identified by graph_reference.
+Value DynamicGraphEdge(
+    absl::Span<const std::string> graph_reference, absl::string_view identifier,
+    absl::Span<const std::pair<std::string, Value>> static_properties,
+    JSONValueConstRef dynamic_properties,
+    absl::Span<const std::string> static_labels,
+    absl::Span<const std::string> dynamic_labels,
+    absl::string_view definition_name, absl::string_view source_node_identifier,
+    absl::string_view dest_node_identifier,
+    TypeFactory* type_factory = nullptr);
+
 // Creates a map with key/value pairs from 'elements'.
 Value Map(
     absl::Span<const std::pair<ValueConstructor, ValueConstructor>> elements,
@@ -332,6 +356,15 @@ const RangeType* MakeRangeType(const Type* element_type,
 // If type_factory is not provided the function will use the default static type
 // factory (see: static_type_factory())
 const GraphElementType* MakeGraphElementType(
+    absl::Span<const std::string> graph_reference,
+    GraphElementType::ElementKind element_kind,
+    absl::Span<const GraphElementType::PropertyType> property_types,
+    TypeFactory* type_factory = nullptr);
+
+// Creates a dynamic graph element type.
+// If type_factory is not provided the function will use the default static type
+// factory (see: static_type_factory())
+const GraphElementType* MakeDynamicGraphElementType(
     absl::Span<const std::string> graph_reference,
     GraphElementType::ElementKind element_kind,
     absl::Span<const GraphElementType::PropertyType> property_types,

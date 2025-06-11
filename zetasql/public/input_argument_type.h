@@ -250,6 +250,13 @@ class InputArgumentType {
   }
   bool is_pipe_input_table() const { return is_pipe_input_table_; }
 
+  bool is_chained_function_call_input() const {
+    return is_chained_function_call_input_;
+  }
+  void set_is_chained_function_call_input() {
+    is_chained_function_call_input_ = true;
+  }
+
   // Determines equality/inequality of two InputArgumentTypes, considering Type
   // equality via Type::Equals() and whether they are literal or NULL.
   // The comparison between non-null literal InputArgumentTypes does not
@@ -304,6 +311,10 @@ class InputArgumentType {
   // Indicates a TVF argument that came from the pipe input in pipe CALL.
   // This is currently used only for error messages.
   bool is_pipe_input_table_ = false;
+
+  // Indicates this argument is the base expression for a chained function call.
+  // This is currently used only for error messages.
+  bool is_chained_function_call_input_ = false;
 
   // This is only non-NULL for table-valued functions. It holds the model
   // argument. This is a shared pointer only because the InputArgumentType is

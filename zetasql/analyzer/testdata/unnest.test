@@ -464,7 +464,7 @@ from TestTable tt,
 [SAME AS PREVIOUS]
 ==
 
-[language_features={{|V_1_4_SINGLETON_UNNEST_INFERS_ALIAS}}]
+[language_features={{|SINGLETON_UNNEST_INFERS_ALIAS}}]
 select *
 from TestTable tt,
      UNNEST(tt.KitchenSink.nested_repeated_value) nrv,
@@ -539,7 +539,7 @@ QueryStmt
         |   +-default_value=[]
         +-element_column_list=[$array.$unnest1#5]
 --
-ALTERNATION GROUP: V_1_4_SINGLETON_UNNEST_INFERS_ALIAS
+ALTERNATION GROUP: SINGLETON_UNNEST_INFERS_ALIAS
 --
 QueryStmt
 +-output_column_list=
@@ -612,7 +612,7 @@ QueryStmt
 # Unlike with path expressions to reference arrays, UNNEST expressions can
 # be resolved without a table qualifier.
 # The nrv. qualifier is still needed though because nrv is a struct.
-[language_features={{|V_1_4_SINGLETON_UNNEST_INFERS_ALIAS}}]
+[language_features={{|SINGLETON_UNNEST_INFERS_ALIAS}}]
 select *
 from TestTable tt,
      UNNEST(KitchenSink.nested_repeated_value) nrv,
@@ -681,7 +681,7 @@ select (select count(*) from KitchenSink.repeated_int32_val)
                              ^
 ==
 
-[language_features={{|V_1_4_SINGLETON_UNNEST_INFERS_ALIAS}}]
+[language_features={{|SINGLETON_UNNEST_INFERS_ALIAS}}]
 select (select count(*) from UNNEST(KitchenSink.repeated_int32_val))
 from TestTable
 --
@@ -721,7 +721,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
 --
-ALTERNATION GROUP: V_1_4_SINGLETON_UNNEST_INFERS_ALIAS
+ALTERNATION GROUP: SINGLETON_UNNEST_INFERS_ALIAS
 --
 QueryStmt
 +-output_column_list=
@@ -758,7 +758,7 @@ QueryStmt
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
 ==
 
-[language_features={{|V_1_4_SINGLETON_UNNEST_INFERS_ALIAS}}]
+[language_features={{|SINGLETON_UNNEST_INFERS_ALIAS}}]
 select * from TestTable, UNNEST(KitchenSink.repeated_int32_val)
 --
 ALTERNATION GROUP: <empty>
@@ -786,7 +786,7 @@ QueryStmt
         |   +-default_value=[]
         +-element_column_list=[$array.$unnest1#4]
 --
-ALTERNATION GROUP: V_1_4_SINGLETON_UNNEST_INFERS_ALIAS
+ALTERNATION GROUP: SINGLETON_UNNEST_INFERS_ALIAS
 --
 QueryStmt
 +-output_column_list=
@@ -968,7 +968,7 @@ QueryStmt
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="T")
 ==
 
-[language_features={{|V_1_4_SINGLETON_UNNEST_INFERS_ALIAS}}]
+[language_features={{|SINGLETON_UNNEST_INFERS_ALIAS}}]
 select (select nested_repeated_int64 from UNNEST(T.KitchenSink.nested_repeated_value[offset(1)].nested_repeated_int64))
 from TestTable T;
 --
@@ -978,7 +978,7 @@ ERROR: Unrecognized name: nested_repeated_int64 [at 1:16]
 select (select nested_repeated_int64 from UNNEST(T.KitchenSink.nested_repeate...
                ^
 --
-ALTERNATION GROUP: V_1_4_SINGLETON_UNNEST_INFERS_ALIAS
+ALTERNATION GROUP: SINGLETON_UNNEST_INFERS_ALIAS
 --
 QueryStmt
 +-output_column_list=
@@ -1142,7 +1142,7 @@ QueryStmt
 ==
 
 # When UNNEST expression is not a path expression, there is no alias to be inferred.
-[language_features=V_1_4_SINGLETON_UNNEST_INFERS_ALIAS]
+[language_features=SINGLETON_UNNEST_INFERS_ALIAS]
 SELECT *
 FROM UNNEST([1,2])
 --
@@ -1180,7 +1180,7 @@ QueryStmt
 ==
 
 # Tests implicit coercion from STRING literal to BYTES.
-[language_features={{|V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 SELECT 'abc' IN UNNEST([b'abc', b'def'])
 --
 ALTERNATION GROUP: <empty>
@@ -1189,7 +1189,7 @@ ERROR: No matching signature for operator IN UNNEST for argument types: STRING, 
 SELECT 'abc' IN UNNEST([b'abc', b'def'])
              ^
 --
-ALTERNATION GROUP: V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
+ALTERNATION GROUP: IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
 --
 QueryStmt
 +-output_column_list=
@@ -1206,10 +1206,10 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES,V_1_1_CAST_DIFFERENT_ARRAY_TYPES|}}]
+[language_features={{IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES,CAST_DIFFERENT_ARRAY_TYPES|}}]
 SELECT b'abc' IN UNNEST (['abc', 'def'])
 --
-ALTERNATION GROUP: V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES,V_1_1_CAST_DIFFERENT_ARRAY_TYPES
+ALTERNATION GROUP: IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES,CAST_DIFFERENT_ARRAY_TYPES
 --
 QueryStmt
 +-output_column_list=

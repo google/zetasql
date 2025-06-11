@@ -200,7 +200,7 @@ SHOW MATERIALIZED TABLES from KitchenSync
                   ^
 ==
 
-[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
 SHOW TABLES FROM my-project.dataset.table;
 --
 ALTERNATION GROUP: <empty>
@@ -209,7 +209,7 @@ ERROR: Syntax error: Table name contains '-' character. The dashed identifier pa
 SHOW TABLES FROM my-project.dataset.table;
                  ^
 --
-ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
 --
 ShowStatement [0-41] [SHOW TABLES...dataset.table]
   Identifier(TABLES) [5-11] [TABLES]
@@ -221,7 +221,7 @@ ShowStatement [0-41] [SHOW TABLES...dataset.table]
 SHOW TABLES FROM `my-project`.dataset.table
 ==
 
-[language_features=V_1_3_ALLOW_DASHES_IN_TABLE_NAME{{|,V_1_3_ALLOW_SLASH_PATHS}}]
+[language_features=ALLOW_DASHES_IN_TABLE_NAME{{|,ALLOW_SLASH_PATHS}}]
 SHOW TABLES FROM /span/db/my-mdb-grp:my_db
 --
 ALTERNATION GROUP: <empty>
@@ -230,7 +230,7 @@ ERROR: Syntax error: Table name contains '/' character. It needs to be quoted: `
 SHOW TABLES FROM /span/db/my-mdb-grp:my_db
                  ^
 --
-ALTERNATION GROUP: ,V_1_3_ALLOW_SLASH_PATHS
+ALTERNATION GROUP: ,ALLOW_SLASH_PATHS
 --
 ShowStatement [0-42] [SHOW TABLES...-grp:my_db]
   Identifier(TABLES) [5-11] [TABLES]

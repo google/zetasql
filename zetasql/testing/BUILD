@@ -43,6 +43,24 @@ cc_library(
 )
 
 cc_library(
+    name = "test_module_contents_fetcher",
+    testonly = 1,
+    srcs = ["test_module_contents_fetcher.cc"],
+    hdrs = ["test_module_contents_fetcher.h"],
+    deps = [
+        "//zetasql/base:map_util",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/public:file_module_contents_fetcher",
+        "//zetasql/public:module_contents_fetcher",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_library(
     name = "test_catalog",
     testonly = 1,
     srcs = ["test_catalog.cc"],
@@ -145,7 +163,6 @@ cc_library(
         "@com_google_googleapis//google/type:date_cc_proto",
         "@com_google_googleapis//google/type:latlng_cc_proto",
         "@com_google_googleapis//google/type:timeofday_cc_proto",
-        "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
     ],
 )

@@ -21,6 +21,8 @@
 
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/public/parse_location.h"
+#include "absl/container/flat_hash_map.h"
 
 namespace zetasql {
 namespace parser {
@@ -40,6 +42,10 @@ struct ASTStatementProperties {
   // Statement level hints processed into key value pairs. Values are the SQL
   // substring of the hint value.
   absl::flat_hash_map<std::string, std::string> statement_level_hints;
+
+  // If the statement is a macro definition, this is the location of the macro
+  // body (everything between the macro name and semicolon).
+  ParseLocationRange macro_definition_location;
 };
 
 }  // namespace parser

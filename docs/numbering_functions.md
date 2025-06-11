@@ -9,7 +9,7 @@ Numbering functions are a subset of window functions. To create a
 window function call and learn about the syntax for window functions,
 see [Window function calls][window-function-calls].
 
-Numbering functions assign integer values to each row based on their position
+Numbering functions assign values to each row based on their position
 within the specified window. The `OVER` clause syntax varies across
 numbering functions.
 
@@ -47,7 +47,7 @@ numbering functions.
   <td><a href="https://github.com/google/zetasql/blob/master/docs/numbering_functions.md#IS_FIRST"><code>IS_FIRST</code></a>
 </td>
   <td>
-        Returns `true` if this row is in the first `k` rows (1-based) within the window.
+        Returns <code>true</code> if this row is in the first <code>k</code> rows (1-based) within the window.
     
   </td>
 </tr>
@@ -56,7 +56,7 @@ numbering functions.
   <td><a href="https://github.com/google/zetasql/blob/master/docs/numbering_functions.md#IS_LAST"><code>IS_LAST</code></a>
 </td>
   <td>
-        Returns `true` if this row is in the last `k` rows (1-based) within the window.
+        Returns <code>true</code> if this row is in the last <code>k</code> rows (1-based) within the window.
     
   </td>
 </tr>
@@ -734,10 +734,12 @@ window_specification:
 
 **Description**
 
-Doesn't require the `ORDER BY` clause. Returns the sequential
-row ordinal (1-based) of each row for each ordered partition. If the
-`ORDER BY` clause is unspecified then the result is
+Returns the sequential row ordinal (1-based) of each row for each ordered
+partition. The order of row numbers within their peer group is
 non-deterministic.
+
+Doesn't require the `ORDER BY` clause. If the `ORDER BY` clause is unspecified
+then the result is non-deterministic.
 
 To learn more about the `OVER` clause and how to use it, see
 [Window function calls][window-function-calls].

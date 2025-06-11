@@ -738,6 +738,27 @@ inline std::unique_ptr<ResolvedAggregateFunctionCall> MakeResolvedAggregateFunct
     );
 }
 
+
+inline std::unique_ptr<ResolvedJoinScan> MakeResolvedJoinScan(
+  const std::vector<ResolvedColumn>& column_list,
+  ResolvedJoinScan::JoinType join_type,
+  std::unique_ptr<const ResolvedScan> left_scan,
+  std::unique_ptr<const ResolvedScan> right_scan,
+  std::unique_ptr<const ResolvedExpr> join_expr,
+  bool has_using) {
+    return MakeResolvedJoinScan(
+      column_list,
+      join_type,
+      std::move(left_scan),
+      std::move(right_scan),
+      std::move(join_expr),
+      has_using,
+      /*is_lateral=*/false,
+      /*parameter_list=*/{}
+    );
+}
+
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_RESOLVED_AST_RESOLVED_AST_H_

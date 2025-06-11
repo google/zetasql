@@ -333,7 +333,7 @@ ERROR: Cannot access field value on a value with type ARRAY<zetasql_test__.Kitch
                                                     ^
 ==
 
-[language_features=PIPES,V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+[language_features=PIPES,UNNEST_AND_FLATTEN_ARRAYS]
 from TestTable
 |> join TestTable.KitchenSink.nested_repeated_value.value
 --
@@ -987,6 +987,7 @@ QueryStmt
     |   |   | +-TableScan(column_list=TestTable.[key#3, TestEnum#4, KitchenSink#5], table=TestTable, column_index_list=[0, 1, 2])
     |   |   +-argument_column_list=TestTable.[key#3, TestEnum#4, KitchenSink#5]
     |   +-column_index_list=[0, 1]
+    |   +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
     +-join_expr=
       +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
@@ -1114,7 +1115,7 @@ QueryStmt
       +-SampleScan
         +-column_list=tvf_no_args.[column_bool#3, column_bytes#4]
         +-input_scan=
-        | +-TVFScan(column_list=tvf_no_args.[column_bool#3, column_bytes#4], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+        | +-TVFScan(column_list=tvf_no_args.[column_bool#3, column_bytes#4], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
         +-method="bernoulli"
         +-size=
         | +-Literal(type=INT64, value=5)

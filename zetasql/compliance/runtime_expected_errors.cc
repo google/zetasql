@@ -90,7 +90,7 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange, "division by zero"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
-      "(uint64_t|int64|int32_t|uint32|float|numeric|BIGNUMERIC) out of range: "));
+      "(uint64|int64|int32|uint32|float|numeric|BIGNUMERIC) out of range: "));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange,
       "Illegal conversion of non-finite floating point number to an integer"));
@@ -136,7 +136,7 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange,
       "Invalid encoded timestamp: (.*) with format: TIMESTAMP_(.*)"));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
-      absl::StatusCode::kOutOfRange, "Invalid non-int32_t date:"));
+      absl::StatusCode::kOutOfRange, "Invalid non-int32 date:"));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "Invalid DATE_DECIMAL:"));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
@@ -199,12 +199,14 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   //
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
-      "(uint32_t|int32|uint64_t|int64|integer|double|float|numeric|BIGNUMERIC) "
+      "(uint32|int32|uint64|int64|integer|double|float|numeric|BIGNUMERIC) "
       "overflow"));
+  // The ABS function could generate an overflow error since the absolute value
+  // of the negative number is larger than the max positive number.
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
       "Floating point overflow in function: "
-      "(ACOS|ACOSH|ASIN|COSH|SINH|ROUND)"));
+      "(ACOS|ACOSH|ASIN|COSH|SINH|ROUND|ABS)"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
       "Floating point error in function: "
@@ -243,7 +245,7 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "Bad (UINT32|INT32|UINT64|INT64|FLOAT|DOUBLE) value"));
   // TODO: Remove these lowercase options once engines have all moved
   // to the formal uppercase name
-  // b/235365564: copybara currently adds the "_t" suffix to int32_t, int64_t, ...
+  // b/235365564: copybara currently adds the "_t" suffix to int32, int64, ...
   // etc. Unfortunately these messages use type->DebugString() instead of the
   // (capitalized) type name, and changing these messages is currently
   // infeasible due to the bug above. It is challenging as well to have copybara
@@ -429,6 +431,15 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "DAYOFWEEK|DAYOFYEAR|QUARTER|DATE|WEEK|DATETIME|TIME|ISOYEAR|ISOWEEK|"
       "WEEK_MONDAY|WEEK_TUESDAY|WEEK_WEDNESDAY|WEEK_THURSDAY|WEEK_FRIDAY|"
       "WEEK_SATURDAY) in EXTRACT FROM INTERVAL"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Provided interval is outside the range of a Duration proto"));
+  // TODO: b/415953990 - Remove when RQG supports specifying constaints for
+  // Interval arguments.
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Interval value with non-zero MONTH or DAY part cannot be converted "
+      "to a Duration proto"));
 
   // RANGE errors
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
@@ -743,7 +754,7 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
       "The provided JSON number: .+ cannot be converted to an "
-      "(integer|int64_t|int32|uint64_t|uint32)"));
+      "(integer|int64|int32|uint64|uint32)"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
       "JSON number: .+ cannot be converted to (FLOAT|FLOAT32)"));

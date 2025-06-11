@@ -1049,7 +1049,7 @@ ARRAY<STRUCT<enum_val ENUM<zetasql_test__.TestEnum>>>[unknown order:
 # ******************************
 # SELECT struct column from table.
 [name=intersect_distinct_datatype_struct]
-[required_features=V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_STRUCT]
 SELECT struct_val FROM TableComplex1
 INTERSECT DISTINCT
 SELECT struct_val FROM TableComplex2
@@ -1062,7 +1062,7 @@ ARRAY<STRUCT<struct_val STRUCT<INT64, INT64>>>[unknown order:
 ==
 # SELECT struct column.
 [name=intersect_all_datatype_struct]
-[required_features=V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_STRUCT]
 SELECT struct_val FROM TableComplex1
 INTERSECT ALL
 SELECT struct_val FROM TableComplex2
@@ -1076,7 +1076,7 @@ ARRAY<STRUCT<struct_val STRUCT<INT64, INT64>>>[unknown order:
 ==
 # SELECT struct column.
 [name=except_distinct_datatype_struct]
-[required_features=V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_STRUCT]
 SELECT struct_val FROM TableComplex1
 EXCEPT DISTINCT
 SELECT struct_val FROM TableComplex2
@@ -1085,7 +1085,7 @@ ARRAY<STRUCT<struct_val STRUCT<INT64, INT64>>>[]
 ==
 # SELECT struct column.
 [name=except_all_datatype_struct]
-[required_features=V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_STRUCT]
 SELECT struct_val FROM TableComplex1
 EXCEPT ALL
 SELECT struct_val FROM TableComplex2
@@ -1100,7 +1100,7 @@ ARRAY<STRUCT<struct_val STRUCT<INT64, INT64>>>[unknown order:
 # These tests do not require tables to support struct type.
 #
 [name=intersect_distinct_struct_subquery]
-[required_features=V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_STRUCT]
 SELECT AS STRUCT bool_val, int64_val from table1
 INTERSECT DISTINCT
 SELECT as struct bool_val, int64_val from table2
@@ -1113,7 +1113,7 @@ ARRAY<STRUCT<bool_val BOOL, int64_val INT64>>[unknown order:
 ]
 ==
 [name=intersect_all_struct_subquery]
-[required_features=V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_STRUCT]
 SELECT as struct bool_val, int64_val from table1
 INTERSECT ALL
 SELECT as struct bool_val, int64_val from table2
@@ -1127,7 +1127,7 @@ ARRAY<STRUCT<bool_val BOOL, int64_val INT64>>[unknown order:
 ]
 ==
 [name=except_distinct_struct_subquery]
-[required_features=V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_STRUCT]
 SELECT as struct bool_val, int64_val from table1
 EXCEPT DISTINCT
 SELECT as struct bool_val, int64_val from table2
@@ -1135,7 +1135,7 @@ SELECT as struct bool_val, int64_val from table2
 ARRAY<STRUCT<bool_val BOOL, int64_val INT64>>[{false, -4}]
 ==
 [name=except_all_struct_subquery]
-[required_features=V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_STRUCT]
 SELECT as struct bool_val, int64_val from table1
 EXCEPT ALL
 SELECT as struct bool_val, int64_val from table2
@@ -1229,7 +1229,7 @@ ARRAY<STRUCT<DOUBLE>>[]
 NOTE: Reference implementation reports non-determinism.
 ==
 [name=intersect_distinct_corresponding_different_positions]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT bool_val, int32_val FROM Table1
 INTERSECT DISTINCT CORRESPONDING
 SELECT int32_val, bool_val FROM Table2
@@ -1242,7 +1242,7 @@ ARRAY<STRUCT<bool_val BOOL, int32_val INT32>>[unknown order:
 ]
 ==
 [name=intersect_all_corresponding_different_positions]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT bool_val, int32_val FROM Table1
 INTERSECT ALL CORRESPONDING
 SELECT int32_val, bool_val FROM Table2
@@ -1256,7 +1256,7 @@ ARRAY<STRUCT<bool_val BOOL, int32_val INT32>>[unknown order:
 ]
 ==
 [name=except_distinct_corresponding_different_positions]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT bool_val, int32_val FROM Table1
 EXCEPT DISTINCT CORRESPONDING
 SELECT int32_val, bool_val FROM Table2
@@ -1264,7 +1264,7 @@ SELECT int32_val, bool_val FROM Table2
 ARRAY<STRUCT<bool_val BOOL, int32_val INT32>>[{false, -4}]
 ==
 [name=except_all_corresponding_different_positions]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT bool_val, int32_val FROM Table1
 EXCEPT ALL CORRESPONDING
 SELECT int32_val, bool_val FROM Table2
@@ -1277,7 +1277,7 @@ ARRAY<STRUCT<bool_val BOOL, int32_val INT32>>[unknown order:
 ]
 ==
 [name=intersect_distinct_corresponding_extra_columns]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val, bool_val, int32_val FROM Table1
 INTERSECT DISTINCT CORRESPONDING
 SELECT int32_val, bool_val, float_val FROM Table2
@@ -1290,7 +1290,7 @@ ARRAY<STRUCT<bool_val BOOL, int32_val INT32>>[unknown order:
 ]
 ==
 [name=intersect_all_corresponding_extra_columns]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val, bool_val, int32_val FROM Table1
 INTERSECT ALL CORRESPONDING
 SELECT int32_val, bool_val, float_val FROM Table2
@@ -1304,7 +1304,7 @@ ARRAY<STRUCT<bool_val BOOL, int32_val INT32>>[unknown order:
 ]
 ==
 [name=except_distinct_corresponding_extra_columns]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val, bool_val, int32_val FROM Table1
 EXCEPT DISTINCT CORRESPONDING
 SELECT int32_val, bool_val, float_val FROM Table2
@@ -1312,7 +1312,7 @@ SELECT int32_val, bool_val, float_val FROM Table2
 ARRAY<STRUCT<bool_val BOOL, int32_val INT32>>[{false, -4}]
 ==
 [name=except_all_corresponding_extra_columns]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val, bool_val, int32_val FROM Table1
 EXCEPT ALL CORRESPONDING
 SELECT int32_val, bool_val, float_val FROM Table2
@@ -1325,7 +1325,7 @@ ARRAY<STRUCT<bool_val BOOL, int32_val INT32>>[unknown order:
 ]
 ==
 [name=intersect_all_corresponding_parenthesized_multiple_operands]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val, bool_val, int32_val
 FROM Table1
 INTERSECT ALL CORRESPONDING
@@ -1342,7 +1342,7 @@ ARRAY<STRUCT<int64_val INT64, bool_val BOOL, int32_val INT32>>[]
 NOTE: Reference implementation reports non-determinism.
 ==
 [name=intersect_distinct_corresponding_parenthesized_multiple_operands]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val, bool_val, int32_val
 FROM Table1
 INTERSECT DISTINCT CORRESPONDING
@@ -1359,7 +1359,7 @@ ARRAY<STRUCT<int64_val INT64, bool_val BOOL, int32_val INT32>>[{-3, true, -3}]
 NOTE: Reference implementation reports non-determinism.
 ==
 [name=except_all_corresponding_parenthesized_multiple_operands]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val, bool_val, int32_val
 FROM Table1
 EXCEPT ALL CORRESPONDING
@@ -1382,7 +1382,7 @@ ARRAY<STRUCT<int64_val INT64, bool_val BOOL, int32_val INT32>>[unknown order:
 NOTE: Reference implementation reports non-determinism.
 ==
 [name=except_distinct_corresponding_parenthesized_multiple_operands]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val, bool_val, int32_val
 FROM Table1
 EXCEPT DISTINCT CORRESPONDING
@@ -1401,7 +1401,7 @@ ARRAY<STRUCT<int64_val INT64, bool_val BOOL, int32_val INT32>>[
 NOTE: Reference implementation reports non-determinism.
 ==
 [name=intersect_all_corresponding_multiple_operands]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val, bool_val, int32_val
 FROM Table1
 INTERSECT ALL CORRESPONDING
@@ -1420,7 +1420,7 @@ ARRAY<STRUCT<int64_val INT64, bool_val BOOL, int32_val INT32>>[unknown order:
 ]
 ==
 [name=intersect_distinct_corresponding_multiple_operands]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val, bool_val, int32_val
 FROM Table1
 INTERSECT DISTINCT CORRESPONDING
@@ -1438,7 +1438,7 @@ ARRAY<STRUCT<int64_val INT64, bool_val BOOL, int32_val INT32>>[unknown order:
 ]
 ==
 [name=except_all_corresponding_multiple_operands]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val, bool_val, int32_val
 FROM Table1
 EXCEPT ALL CORRESPONDING
@@ -1451,7 +1451,7 @@ FROM Table1
 ARRAY<STRUCT<int64_val INT64, bool_val BOOL, int32_val INT32>>[]
 ==
 [name=except_distinct_corresponding_multiple_operands]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val, bool_val, int32_val
 FROM Table1
 EXCEPT DISTINCT CORRESPONDING
@@ -1464,7 +1464,7 @@ FROM Table1
 ARRAY<STRUCT<int64_val INT64, bool_val BOOL, int32_val INT32>>[]
 ==
 [name=intersect_all_corresponding_type_coercion]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val AS col1, bool_val AS col2, int32_val AS col3
 FROM Table1
 INTERSECT ALL CORRESPONDING
@@ -1479,7 +1479,7 @@ ARRAY<STRUCT<col1 INT64, col2 BOOL, col3 DOUBLE>>[{NULL, NULL, NULL}]
 NOTE: Reference implementation reports non-determinism.
 ==
 [name=intersect_distinct_corresponding_type_coercion]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val AS col1, bool_val AS col2, int32_val AS col3
 FROM Table1
 INTERSECT DISTINCT CORRESPONDING
@@ -1494,7 +1494,7 @@ ARRAY<STRUCT<col1 INT64, col2 BOOL, col3 DOUBLE>>[{NULL, NULL, NULL}]
 NOTE: Reference implementation reports non-determinism.
 ==
 [name=except_all_corresponding_type_coercion]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val AS col1, bool_val AS col2, int32_val AS col3
 FROM Table1
 EXCEPT ALL CORRESPONDING
@@ -1513,7 +1513,7 @@ ARRAY<STRUCT<col1 INT64, col2 BOOL, col3 DOUBLE>>[unknown order:
 NOTE: Reference implementation reports non-determinism.
 ==
 [name=except_distinct_corresponding_type_coercion]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val AS col1, bool_val AS col2, int32_val AS col3
 FROM Table1
 EXCEPT DISTINCT CORRESPONDING
@@ -1528,7 +1528,7 @@ ARRAY<STRUCT<col1 INT64, col2 BOOL, col3 DOUBLE>>[{-4, false, -4}]
 NOTE: Reference implementation reports non-determinism.
 ==
 [name=intersect_all_corresponding_complex_value]
-[required_features=V_1_2_GROUP_BY_STRUCT,V_1_4_CORRESPONDING]
+[required_features=GROUP_BY_STRUCT,CORRESPONDING]
 SELECT enum_val, struct_val
 FROM TableComplex1
 INTERSECT ALL CORRESPONDING
@@ -1545,7 +1545,7 @@ ARRAY<STRUCT<
                {TESTENUM1, {1, 1}}]
 ==
 [name=intersect_distinct_corresponding_complex_value]
-[required_features=V_1_2_GROUP_BY_STRUCT,V_1_4_CORRESPONDING]
+[required_features=GROUP_BY_STRUCT,CORRESPONDING]
 SELECT enum_val, struct_val
 FROM TableComplex1
 INTERSECT DISTINCT CORRESPONDING
@@ -1559,7 +1559,7 @@ ARRAY<STRUCT<
 [unknown order:{TESTENUM0, {0, 0}}, {NULL, NULL}, {TESTENUM1, {1, 1}}]
 ==
 [name=except_all_corresponding_complex_value]
-[required_features=V_1_2_GROUP_BY_STRUCT,V_1_4_CORRESPONDING]
+[required_features=GROUP_BY_STRUCT,CORRESPONDING]
 SELECT enum_val, struct_val
 FROM TableComplex1
 EXCEPT ALL CORRESPONDING
@@ -1573,7 +1573,7 @@ ARRAY<STRUCT<
 [unknown order:{TESTENUM1, {1, 1}}, {TESTENUM1, {1, 1}}]
 ==
 [name=except_distinct_corresponding_complex_value]
-[required_features=V_1_2_GROUP_BY_STRUCT,V_1_4_CORRESPONDING]
+[required_features=GROUP_BY_STRUCT,CORRESPONDING]
 SELECT enum_val, struct_val
 FROM TableComplex1
 EXCEPT DISTINCT CORRESPONDING
@@ -1586,7 +1586,7 @@ ARRAY<STRUCT<
       >>[]
 ==
 [name=except_distinct_with_corresponding_with_extra_columns_in_first_table_scan]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT primary_key, int32_val, int64_val FROM Table1
 EXCEPT DISTINCT CORRESPONDING
 SELECT int64_val, int32_val FROM TestDistinct
@@ -1599,7 +1599,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
 ]
 ==
 [name=except_distinct_with_corresponding_with_extra_columns_in_first_single_scan]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT primary_key, int32_val, int64_val FROM Table1
 EXCEPT DISTINCT CORRESPONDING
 SELECT CAST(-2 AS INT64) AS int64_val, CAST(-2 AS INT32) AS int32_val
@@ -1612,7 +1612,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
 ]
 ==
 [name=except_distinct_with_corresponding_extra_columns_in_second]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int32_val, int64_val FROM Table1
 EXCEPT DISTINCT CORRESPONDING
 SELECT CAST(-2 AS INT64) AS int64_val, CAST(-2 AS INT32) AS int32_val, 1 AS extra
@@ -1625,7 +1625,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
 ]
 ==
 [name=except_distinct_with_corresponding_no_extra_columns]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int32_val, int64_val FROM Table1
 EXCEPT DISTINCT CORRESPONDING
 SELECT CAST(-2 AS INT64) AS int64_val, CAST(-2 AS INT32) AS int32_val FROM Table1
@@ -1638,7 +1638,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
 ]
 ==
 [name=except_distinct_with_corresponding_type_coercion]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int32_val AS a, uint32_val AS b FROM Table1
 EXCEPT DISTINCT CORRESPONDING
 SELECT int64_val AS b FROM TestDistinct
@@ -1646,7 +1646,7 @@ SELECT int64_val AS b FROM TestDistinct
 ARRAY<STRUCT<b INT64>>[unknown order:{2}, {4}, {NULL}, {1}, {3}]
 ==
 [name=except_distinct_with_corresponding_nested_operations]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 (
   SELECT int32_val, int64_val, uint32_val FROM Table1
   UNION ALL
@@ -1664,7 +1664,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
 ]
 ==
 [name=except_distinct_with_corresponding_nested_operations_single_row_scan]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 (
   SELECT int32_val, int64_val, uint32_val FROM Table1
   UNION ALL
@@ -1681,7 +1681,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
 ]
 ==
 [name=except_distinct_with_corresponding_nested_operation_with_project_scan]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT *
 FROM (
   (
@@ -1702,7 +1702,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
 ]
 ==
 [name=except_distinct_with_corresponding_multiple_expressions]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val, int32_val, primary_key FROM Table1
 EXCEPT DISTINCT CORRESPONDING
 SELECT int32_val, int64_val FROM TestDistinct
@@ -1717,7 +1717,7 @@ ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[unknown order:
 ]
 ==
 [name=intersect_distinct_with_corresponding_with_extra_columns_in_first_table_scan]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT primary_key, int32_val, int64_val FROM Table1
 INTERSECT DISTINCT CORRESPONDING
 SELECT int64_val, int32_val FROM Table2
@@ -1730,7 +1730,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
 ]
 ==
 [name=intersect_distinct_with_corresponding_with_extra_columns_in_second_table_scan]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int32_val, int64_val FROM Table1
 INTERSECT DISTINCT CORRESPONDING
 SELECT int64_val, int32_val, primary_key FROM Table2
@@ -1743,7 +1743,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
 ]
 ==
 [name=intersect_distinct_with_corresponding_no_extra_columns]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int32_val, int64_val FROM Table1
 INTERSECT DISTINCT CORRESPONDING
 SELECT int64_val, int32_val FROM Table2
@@ -1756,7 +1756,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
 ]
 ==
 [name=intersect_distinct_with_corresponding_type_coercion]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int32_val AS a, uint32_val AS b FROM Table1
 INTERSECT DISTINCT CORRESPONDING
 SELECT int64_val AS b FROM Table2
@@ -1764,7 +1764,7 @@ SELECT int64_val AS b FROM Table2
 ARRAY<STRUCT<b INT64>>[{NULL}]
 ==
 [name=intersect_distinct_with_corresponding_nested_operations]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 (
   SELECT int32_val, int64_val, uint32_val FROM Table1
   UNION ALL
@@ -1782,7 +1782,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
 ]
 ==
 [name=intersect_distinct_with_corresponding_nested_operations_single_row_scan]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 (
   SELECT int32_val, int64_val, uint32_val FROM Table1
   UNION ALL
@@ -1799,7 +1799,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
 ]
 ==
 [name=intersect_distinct_with_corresponding_nested_operation_with_project_scan]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT *
 FROM (
   (
@@ -1820,7 +1820,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
 ]
 ==
 [name=intersect_distinct_with_corresponding_multiple_expressions]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val, int32_val, primary_key FROM Table1
 INTERSECT DISTINCT CORRESPONDING
 SELECT int32_val, int64_val, uint32_val FROM Table2

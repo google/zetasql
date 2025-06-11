@@ -171,6 +171,7 @@ QueryStmt
     +-expr_list=
     | +-$col1#2 :=
     |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |     +-parse_location=7-12
     |     +-ColumnRef(parse_location=7-8, type=INT64, column=$subquery1.a#1)
     |     +-Literal(parse_location=11-12, type=INT64, value=1)
     +-input_scan=
@@ -198,6 +199,7 @@ QueryStmt
     +-expr_list=
     | +-b#2 :=
     |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |     +-parse_location=7-12
     |     +-ColumnRef(parse_location=7-8, type=INT64, column=$subquery1.a#1)
     |     +-Literal(parse_location=11-12, type=INT64, value=1)
     +-input_scan=
@@ -237,6 +239,7 @@ QueryStmt
         |     +-SingleRowScan
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+            +-parse_location=36-41
             +-ColumnRef(parse_location=36-37, type=INT64, column=$subquery1.a#1)
             +-Literal(parse_location=40-41, type=INT64, value=0)
 [REPLACED_LITERALS]
@@ -266,6 +269,7 @@ QueryStmt
         |     +-SingleRowScan
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+            +-parse_location=36-41
             +-ColumnRef(parse_location=36-37, type=INT64, column=$subquery1.a#1)
             +-Literal(parse_location=40-41, type=INT64, value=0)
 [REPLACED_LITERALS]
@@ -297,6 +301,7 @@ QueryStmt
         |     +-SingleRowScan
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+            +-parse_location=41-46
             +-ColumnRef(parse_location=41-42, type=INT64, column=$subquery1.a#1)
             +-Literal(parse_location=45-46, type=INT64, value=0)
 [REPLACED_LITERALS]
@@ -326,6 +331,7 @@ QueryStmt
         |     +-SingleRowScan
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+            +-parse_location=41-46
             +-ColumnRef(parse_location=41-42, type=INT64, column=$subquery1.a#1)
             +-Literal(parse_location=45-46, type=INT64, value=0)
 [REPLACED_LITERALS]

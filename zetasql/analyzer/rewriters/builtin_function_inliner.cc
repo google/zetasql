@@ -15,10 +15,12 @@
 //
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "zetasql/analyzer/builtin_only_catalog.h"
 #include "zetasql/analyzer/substitute.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output_properties.h"
@@ -60,7 +62,9 @@ class BuiltinFunctionInlinerVisitor : public ResolvedASTDeepCopyVisitor {
     return absl::OkStatus();
   }
   absl::Status Rewrite(const ResolvedFunctionCall* node,
-                       absl::string_view rewrite_template) {
+                       absl::string_view rewrite_template,
+                       bool allow_table_references,
+                       std::vector<std::string> allowed_function_groups) {
     // generic_argument list is only set if at least one argument of this
     // function call is not a ResolvedExpr e.g. a ResolvedInlineLambda
     // otherwise argument_list is used and all arguments are ResolvedExprs.
@@ -126,10 +130,25 @@ class BuiltinFunctionInlinerVisitor : public ResolvedASTDeepCopyVisitor {
     // A generic template to handle SAFE version function expression.
     constexpr absl::string_view kSafeExprTemplate = "NULLIFERROR($0)";
 
+    Catalog* catalog_for_substitution = catalog_;
+    std::optional<BuiltinOnlyCatalog> builtin_catalog;
+    bool disable_validation =
+        analyzer_options_.language().LanguageFeatureEnabled(
+            FEATURE_DISABLE_VALIDATE_REWRITERS_REFER_TO_BUILTINS);
+    if (!disable_validation) {
+      // Apply a BuiltinOnlyCatalog wrapper to ensure that only builtin objects
+      // are referenced when resolving the SQL template.
+      builtin_catalog.emplace("builtin_catalog", *catalog_);
+      builtin_catalog->set_allow_tables(allow_table_references);
+      builtin_catalog->set_allowed_function_groups(
+          std::move(allowed_function_groups));
+      catalog_for_substitution = &*builtin_catalog;
+    }
+
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<ResolvedExpr> rewritten_expr,
         AnalyzeSubstitute(
-            analyzer_options_, *catalog_, *type_factory_,
+            analyzer_options_, *catalog_for_substitution, *type_factory_,
             is_safe ? absl::Substitute(kSafeExprTemplate, rewrite_template)
                     : rewrite_template,
             variables, lambdas, node->annotated_type()));
@@ -146,7 +165,9 @@ class BuiltinFunctionInlinerVisitor : public ResolvedASTDeepCopyVisitor {
         node->signature().options().rewrite_options().value();
     if (rewrite_options.enabled() &&
         rewrite_options.rewriter() == REWRITE_BUILTIN_FUNCTION_INLINER) {
-      return Rewrite(node, rewrite_options.sql());
+      return Rewrite(node, rewrite_options.sql(),
+                     rewrite_options.allow_table_references(),
+                     rewrite_options.allowed_function_groups());
     }
     return CopyVisitResolvedFunctionCall(node);
   }
@@ -176,10 +197,6 @@ class BuiltinFunctionInliner : public Rewriter {
   // non-builtin Catalog objects are not referenced. This is required as engines
   // may provide SQL templates that are handled by this rewriter, and those
   // templates may reference engine-builtin functions.
-  // TODO: b/388929260 - Once engines can specify the filtering criteria when
-  // they define a template for this rewriter, use zetasql::BuiltinOnlyCatalog
-  // to filter the catalog to prevent wrong results due to shadowing of builtin
-  // Catalog objects.
   bool ProvideUnfilteredCatalogToBuiltinRewriter() const override {
     return true;
   }

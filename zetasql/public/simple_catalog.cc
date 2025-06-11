@@ -437,7 +437,7 @@ void SimpleCatalog::AddFunctionLocked(absl::string_view name,
   }
 }
 
-void SimpleCatalog::AddFunction(const std::string& name,
+void SimpleCatalog::AddFunction(absl::string_view name,
                                 const Function* function) {
   absl::MutexLock l(&mutex_);
   AddFunctionLocked(name, function);
@@ -519,24 +519,24 @@ void SimpleCatalog::AddOwnedModel(absl::string_view name, const Model* model) {
   AddOwnedModel(name, absl::WrapUnique(model));
 }
 
-void SimpleCatalog::AddOwnedCatalog(const std::string& name,
+void SimpleCatalog::AddOwnedCatalog(absl::string_view name,
                                     std::unique_ptr<Catalog> catalog) {
   AddCatalog(name, catalog.get());
   absl::MutexLock l(&mutex_);
   owned_catalogs_.push_back(std::move(catalog));
 }
 
-void SimpleCatalog::AddOwnedCatalog(const std::string& name, Catalog* catalog) {
+void SimpleCatalog::AddOwnedCatalog(absl::string_view name, Catalog* catalog) {
   AddOwnedCatalog(name, absl::WrapUnique(catalog));
 }
 
-void SimpleCatalog::AddOwnedFunction(const std::string& name,
+void SimpleCatalog::AddOwnedFunction(absl::string_view name,
                                      std::unique_ptr<const Function> function) {
   absl::MutexLock l(&mutex_);
   AddOwnedFunctionLocked(name, std::move(function));
 }
 
-void SimpleCatalog::AddOwnedFunction(const std::string& name,
+void SimpleCatalog::AddOwnedFunction(absl::string_view name,
                                      const Function* function) {
   AddOwnedFunction(name, absl::WrapUnique(function));
 }
@@ -591,14 +591,14 @@ void SimpleCatalog::AddOwnedProcedure(absl::string_view name,
   AddOwnedProcedure(name, absl::WrapUnique(procedure));
 }
 
-void SimpleCatalog::AddOwnedConstant(const std::string& name,
+void SimpleCatalog::AddOwnedConstant(absl::string_view name,
                                      std::unique_ptr<const Constant> constant) {
   AddConstant(name, constant.get());
   absl::MutexLock l(&mutex_);
   owned_constants_.push_back(std::move(constant));
 }
 
-void SimpleCatalog::AddOwnedConstant(const std::string& name,
+void SimpleCatalog::AddOwnedConstant(absl::string_view name,
                                      const Constant* constant) {
   AddOwnedConstant(name, absl::WrapUnique(constant));
 }
@@ -1948,15 +1948,27 @@ absl::Status SimpleColumn::Serialize(
   // TODO: To be deprecated in later versions.
   proto->set_has_default_value(HasDefaultExpression());
 
-  if (HasDefaultExpression() || HasGeneratedExpression()) {
+  if (HasDefaultExpression() || HasGeneratedExpression() ||
+      HasMeasureExpression()) {
     // The ResolvedExpr form of the expression is not serialized.
     proto->mutable_column_expression()->set_expression_string(
         GetExpression()->GetExpressionString());
-    proto->mutable_column_expression()->set_expression_kind(
-        (GetExpression()->GetExpressionKind() ==
-         Column::ExpressionAttributes::ExpressionKind::DEFAULT)
-            ? ExpressionAttributeProto::DEFAULT
-            : ExpressionAttributeProto::GENERATED);
+    switch (GetExpression()->GetExpressionKind()) {
+      case Column::ExpressionAttributes::ExpressionKind::DEFAULT:
+        proto->mutable_column_expression()->set_expression_kind(
+            ExpressionAttributeProto::DEFAULT);
+        break;
+      case Column::ExpressionAttributes::ExpressionKind::GENERATED:
+        proto->mutable_column_expression()->set_expression_kind(
+            ExpressionAttributeProto::GENERATED);
+        break;
+      case Column::ExpressionAttributes::ExpressionKind::MEASURE_EXPRESSION:
+        proto->mutable_column_expression()->set_expression_kind(
+            ExpressionAttributeProto::MEASURE_EXPRESSION);
+        break;
+      default:
+        ZETASQL_RET_CHECK_FAIL() << "Unknown expression kind";
+    }
   }
   return absl::OkStatus();
 }
@@ -1984,6 +1996,11 @@ absl::StatusOr<std::unique_ptr<SimpleColumn>> SimpleColumn::Deserialize(
          ExpressionAttributeProto::DEFAULT)
             ? ExpressionAttributes::ExpressionKind::DEFAULT
             : ExpressionAttributes::ExpressionKind::GENERATED;
+    if (proto.column_expression().expression_kind() ==
+        ExpressionAttributeProto::MEASURE_EXPRESSION) {
+      expression_kind =
+          ExpressionAttributes::ExpressionKind::MEASURE_EXPRESSION;
+    }
     attributes.column_expression = SimpleColumn::ExpressionAttributes(
         expression_kind, proto.column_expression().expression_string(),
         nullptr);

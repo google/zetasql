@@ -102,7 +102,7 @@ class PercentileEvaluator {
   // (note: it is possible that (returned_index) = <max_index> and
   // <right_weight> = 0)
   //
-  // This function handles <max_index> > std::numeric_limits<int32_t>::max().
+  // This function handles <max_index> > std::numeric_limits<int32>::max().
   // (returned_index) is precise; <left_weight> and <right_weight> are as
   // precise as the <Weight> type supports.
   //
@@ -148,7 +148,7 @@ class PercentileEvaluator {
   //
   // This method is not ideal for handling sliding windows; an alternative is to
   // use PercentileHeap, which does not support n >
-  // std::numeric_limits<int32_t>::max(), though.
+  // std::numeric_limits<int32>::max(), though.
   template <bool sorted, typename Itr>
   bool ComputePercentileCont(Itr nonnull_values_begin, Itr nonnull_values_end,
                              size_t num_nulls, PercentileType* result) const {
@@ -215,7 +215,7 @@ class PercentileEvaluator {
   //
   // This method is not ideal for handling sliding windows; an alternative is to
   // use PercentileHeap, which does not support n >
-  // std::numeric_limits<int32_t>::max(), though.
+  // std::numeric_limits<int32>::max(), though.
   template <typename T, bool sorted, typename Itr>
   Itr ComputePercentileDisc(
       Itr nonnull_values_begin, Itr nonnull_values_end,

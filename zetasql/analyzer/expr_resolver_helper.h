@@ -163,13 +163,6 @@ struct HorizontalAggregationInfo {
 // Default values here indicate no-change. The class below has the field
 // defaults.
 struct ExprResolutionInfoOptions {
-  // Normally, when creating a child ExprResolutionInfo, name_scope is
-  // only allowed to be overridden to the value of the parent's
-  // `aggregate_name_scope` or `analytic_name_scope`, and those scopes cannot
-  // be changed.  Unusual cases where setting brand new scopes is required are
-  // supported if this is set to true.
-  bool allow_new_scopes = false;
-
   // When constructing a new ExprResolutionInfo without a parent, set this
   // in the constructor arg rather than by using options.
   // For ExprResolutionInfo derived from a parent, these update the name scopes.
@@ -179,8 +172,16 @@ struct ExprResolutionInfoOptions {
   const NameScope* aggregate_name_scope = nullptr;
   const NameScope* analytic_name_scope = nullptr;
 
+  // Normally, when creating a child ExprResolutionInfo, name_scope is
+  // only allowed to be overridden to the value of the parent's
+  // `aggregate_name_scope` or `analytic_name_scope`, and those scopes cannot
+  // be changed.  Unusual cases where setting brand new scopes is required are
+  // supported if this is set to true.
+  bool allow_new_scopes = false;
+
   std::optional<bool> allows_aggregation;
   std::optional<bool> allows_analytic;
+  std::optional<bool> allows_horizontal_aggregation;
 
   std::optional<bool> use_post_grouping_columns;
 
@@ -190,9 +191,8 @@ struct ExprResolutionInfoOptions {
   const ASTExpression* top_level_ast_expr = nullptr;
   IdString column_alias = IdString();
 
-  std::optional<bool> allows_horizontal_aggregation;
-  std::optional<HorizontalAggregationInfo> horizontal_aggregation_info;
-  std::optional<bool> in_horizontal_aggregation;
+  std::optional<bool> in_match_recognize_define;
+  const ASTFunctionCall* nearest_enclosing_physical_nav_op = nullptr;
 };
 
 // This contains common info needed to resolve and validate an expression.
@@ -371,6 +371,14 @@ struct ExprResolutionInfo {
   // True if the current expression is part of a horizontal aggregation
   // expression. It can be a child or part of an argument.
   bool in_horizontal_aggregation = false;
+
+  // True if the current expression is part of a MATCH_RECOGNIZE DEFINE
+  // clause.
+  bool in_match_recognize_define = false;
+
+  // The nearest enclosing physical navigation operation.
+  // Used to produce better error messages on nested PREV() and NEXT() calls.
+  const ASTFunctionCall* nearest_enclosing_physical_nav_op = nullptr;
 
  private:
   // Specialized constructor where the `QueryResolutionInfo` is not the same as

@@ -111,7 +111,7 @@ CREATE TABLE t1
 
 # Unparser output is in ZetaSQL format and is not a valid Spanner DDL due to
 # explicit foreign key match/actions.
-[language_features=SPANNER_LEGACY_DDL,V_1_3_COLUMN_DEFAULT_VALUE]
+[language_features=SPANNER_LEGACY_DDL,COLUMN_DEFAULT_VALUE]
 create table t1 (
   a int64,
   b string(123),
@@ -419,7 +419,7 @@ AlterTableStatement [0-87] [alter table...imestamp = true)]
               BooleanLiteral(true) [82-86] [true]
 ==
 
-[language_features=SPANNER_LEGACY_DDL,V_1_3_COLUMN_DEFAULT_VALUE]
+[language_features=SPANNER_LEGACY_DDL,COLUMN_DEFAULT_VALUE]
 alter table tbl {{alter|add}} column col int64 default (x+2);
 --
 ALTERNATION GROUP: alter
@@ -525,7 +525,7 @@ alter table t alter column if exists col int64;
 
 # Spanner expects default expression parenthesized, so this DDL is invalid.
 # This will be checked in translator.
-[language_features=SPANNER_LEGACY_DDL,V_1_3_COLUMN_DEFAULT_VALUE]
+[language_features=SPANNER_LEGACY_DDL,COLUMN_DEFAULT_VALUE]
 alter table t {{add|alter}} column col int64 default x+2;
 --
 ALTERNATION GROUP: add
@@ -569,7 +569,7 @@ ALTER TABLE t ALTER COLUMN col int64 DEFAULT x + 2
 
 # Unparsing is disabled because unparsed DDL is not a valid Spanner DDL due to
 # reversed order of NOT NULL and DEFAULT/GENERATED.
-[language_features=SPANNER_LEGACY_DDL,V_1_3_COLUMN_DEFAULT_VALUE][no_test_unparse]
+[language_features=SPANNER_LEGACY_DDL,COLUMN_DEFAULT_VALUE][no_test_unparse]
 alter table t
 alter column col int64 {{|not null}} {{|default (x+2)|as (x+2) stored}};
 --
@@ -756,7 +756,7 @@ AlterTableStatement [0-43] [alter table...drop default]
 ALTER TABLE t ALTER COLUMN col DROP DEFAULT
 ==
 
-[language_features=SPANNER_LEGACY_DDL,V_1_3_COLUMN_DEFAULT_VALUE][no_test_unparse]
+[language_features=SPANNER_LEGACY_DDL,COLUMN_DEFAULT_VALUE][no_test_unparse]
 alter table tbl alter column col int64 not null default (x+2), drop column col;
 --
 AlterTableStatement [0-78] [alter table...column col]
@@ -789,7 +789,7 @@ alter table t set on delete cascade;
 
 # Spanner DDL parsing is disabled
 # Added variability to make sure parser errors out in correct location.
-[language_features=V_1_3_COLUMN_DEFAULT_VALUE]
+[language_features=COLUMN_DEFAULT_VALUE]
 alter table t
 alter column col int64 {{|not null}} {{|default (x+2)|as (x+2) stored}};
 --

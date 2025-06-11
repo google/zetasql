@@ -535,7 +535,7 @@ STRUCT<
 ==
 
 [name=update_array_struct_first_element_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table2
 SET struct_value.array_value[OFFSET(0)] = 100
 WHERE primary_key <= 2
@@ -572,7 +572,7 @@ STRUCT<
 ==
 
 [name=update_array_struct_with_set_null_struct]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table2
 SET struct_value.array_value[OFFSET(0)] = 1
 WHERE struct_value IS NULL
@@ -581,7 +581,7 @@ ERROR: generic::out_of_range: Cannot set field of NULL STRUCT<int64_value INT64,
 ==
 
 [name=update_array_struct_first_element_to_null_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table2
 SET struct_value.array_value[OFFSET(0)] = NULL
 WHERE primary_key <= 2
@@ -618,7 +618,7 @@ STRUCT<
 ==
 
 [name=update_array_struct_second_element_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table2
 SET struct_value.array_value[OFFSET(1)] = 100
 WHERE primary_key <= 2
@@ -655,7 +655,7 @@ STRUCT<
 ==
 
 [name=update_array_struct_with_set_nonliteral_offset]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table2
 SET struct_value.array_value[OFFSET(primary_key)] = 100
 WHERE primary_key <= 2
@@ -692,7 +692,7 @@ STRUCT<
 ==
 
 [name=update_two_elements_array_struct_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table2
 SET struct_value.array_value[OFFSET(0)] = 100,
     struct_value.array_value[OFFSET(1)] = 200
@@ -730,7 +730,7 @@ STRUCT<
 ==
 
 [name=update_duplicate_elements_array_struct_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table2
 SET struct_value.array_value[OFFSET(0)] = 100,
     struct_value.array_value[OFFSET(0)] = 200
@@ -740,14 +740,14 @@ ERROR: generic::out_of_range: Cannot perform multiple updates to offset 0 of an 
 ==
 
 [name=update_null_array_struct_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table2 SET struct_value.array_value[OFFSET(0)] = 100 WHERE True
 --
 ERROR: generic::out_of_range: Cannot use [] to modify a NULL array of type ARRAY<INT64>
 ==
 
 [name=update_array_struct_with_set_null_index]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table2
 SET struct_value.array_value[OFFSET(NULL)] = 100
 WHERE primary_key <= 2
@@ -756,7 +756,7 @@ ERROR: generic::out_of_range: Cannot SET a NULL offset of an ARRAY<INT64>
 ==
 
 [name=update_array_struct_with_set_negative_index]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table2
 SET struct_value.array_value[OFFSET(-1)] = 100
 WHERE primary_key <= 2
@@ -765,7 +765,7 @@ ERROR: generic::out_of_range: Cannot SET array offset -1 of an ARRAY<INT64> of s
 ==
 
 [name=update_array_struct_with_set_index_too_large]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table2
 SET struct_value.array_value[OFFSET(1000)] = 100
 WHERE primary_key <= 2
@@ -774,7 +774,7 @@ ERROR: generic::out_of_range: Cannot SET array offset 1000 of an ARRAY<INT64> of
 ==
 
 [name=update_array_struct_with_set_index_barely_too_large]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table2
 SET struct_value.array_value[OFFSET(3)] = 100
 WHERE primary_key <= 2
@@ -783,7 +783,7 @@ ERROR: generic::out_of_range: Cannot SET array offset 3 of an ARRAY<INT64> of si
 ==
 
 [name=update_array_struct_long_path_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table5
 SET struct_value.array1[OFFSET(0)]
                 .array2[OFFSET(1)]
@@ -817,7 +817,7 @@ STRUCT<
 ==
 
 [name=update_array_of_structs_field_first_element_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table6 SET array_value[OFFSET(0)].value1 = 1000
 WHERE primary_key != 3
 --
@@ -846,7 +846,7 @@ STRUCT<
 ==
 
 [name=update_array_of_structs_field_first_element_to_null_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table6 SET array_value[OFFSET(0)].value1 = NULL
 WHERE primary_key != 3
 --
@@ -875,7 +875,7 @@ STRUCT<
 ==
 
 [name=update_array_of_structs_field_second_element_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table6
 SET array_value[OFFSET(1)].value1 = 1000
 WHERE primary_key != 3
@@ -905,7 +905,7 @@ STRUCT<
 ==
 
 [name=update_array_of_structs_with_set_nonliteral_offset]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table6
 SET array_value[OFFSET(primary_key)].value1 = 1000
 WHERE primary_key != 3
@@ -935,7 +935,7 @@ STRUCT<
 ==
 
 [name=update_two_elements_array_of_structs_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table6
 SET array_value[OFFSET(0)].value1 = 1000,
     array_value[OFFSET(1)].value1 = 2000
@@ -966,7 +966,7 @@ STRUCT<
 ==
 
 [name=update_duplicate_elements_array_of_structs_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table6
 SET array_value[OFFSET(0)].value1 = 1000,
     array_value[OFFSET(0)].value1 = 2000
@@ -978,7 +978,7 @@ ERROR: generic::out_of_range: Cannot perform multiple updates to offset 0 of an 
 # TODO: Ideally the spec would allow this. See the comments for
 # ResolvedUpdateItem in gen_resolved_ast.py.
 [name=update_duplicate_nonoverlapping_elements_array_of_structs_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table6
 SET array_value[OFFSET(0)].value1 = 1000,
     array_value[OFFSET(0)].value2 = 2000
@@ -988,14 +988,14 @@ ERROR: generic::out_of_range: Cannot perform multiple updates to offset 0 of an 
 ==
 
 [name=update_null_element_in_array_of_structs_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table6 SET array_value[OFFSET(0)].value1 = 1000 WHERE True
 --
 ERROR: generic::out_of_range: Cannot use [] to modify a NULL array of type ARRAY<STRUCT<value1 INT64, value2 INT64>>
 ==
 
 [name=update_element_in_array_of_structs_with_set_null_index]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table6
 SET array_value[OFFSET(NULL)].value1 = 1000
 WHERE primary_key != 3
@@ -1004,7 +1004,7 @@ ERROR: generic::out_of_range: Cannot SET a NULL offset of an ARRAY<STRUCT<value1
 ==
 
 [name=update_element_in_array_of_structs_with_set_negative_index]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table6
 SET array_value[OFFSET(-1)].value1 = 1000
 WHERE primary_key != 3
@@ -1013,7 +1013,7 @@ ERROR: generic::out_of_range: Cannot SET array offset -1 of an ARRAY<STRUCT<valu
 ==
 
 [name=update_element_in_array_of_structs_with_set_index_too_large]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table6
 SET array_value[OFFSET(1000)].value1 = 1000
 WHERE primary_key != 3
@@ -1022,7 +1022,7 @@ ERROR: generic::out_of_range: Cannot SET array offset 1000 of an ARRAY<STRUCT<va
 ==
 
 [name=update_element_in_array_of_structs_with_set_index_barely_too_large]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table6
 SET array_value[OFFSET(3)].value1 = 1000
 WHERE primary_key != 3
@@ -1031,7 +1031,7 @@ ERROR: generic::out_of_range: Cannot SET array offset 3 of an ARRAY<STRUCT<value
 ==
 
 [name=update_array_struct_complex_long_path_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table7
 SET struct_value.struct1.array1[OFFSET(0)]
                 .struct2.array2[OFFSET(1)]
@@ -1397,7 +1397,7 @@ STRUCT<
 # A brief, somewhat tortuous test involving an array of structs wrapping a
 # repeated proto field.
 [name=update_array_of_struct_with_proto_repeated_field_with_set]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table9
 SET array_value[OFFSET(0)].proto_field.repeated_int64_val[OFFSET(1)] = 1000
 WHERE True
@@ -1438,7 +1438,7 @@ STRUCT<
 # Another brief, somewhat tortuous test involving an array of structs wrapping
 # a repeated proto field that wraps another field.
 [name=update_array_of_struct_with_proto_repeated_field_with_set_subfield]
-[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[required_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE Table9
 SET array_value[OFFSET(0)].proto_field.nested_repeated_value[OFFSET(1)]
                                       .nested_int64 = 1000

@@ -14,13 +14,6 @@ SELECT b"\123"
 ARRAY<STRUCT<BYTES>>[{b"S"}]
 ==
 
-[name=octal_2]
-SELECT b"\12"
---
-ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: Octal escape must be followed by 3 octal digits but saw: \12 [at 1:10]
-SELECT b"\12"
-         ^
-==
 
 [name=octal_3]
 SELECT b"\1234"
@@ -47,13 +40,6 @@ SELECT b"\x41B"
 ARRAY<STRUCT<BYTES>>[{b"AB"}]
 ==
 
-[name=hex_3]
-SELECT b"\x4"
---
-ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: Hex escape must be followed by 2 hex digits but saw: \x4 [at 1:10]
-SELECT b"\x4"
-         ^
-==
 
 [name=hex_4]
 SELECT b"\x4167"
@@ -73,27 +59,11 @@ SELECT b"\X41B"
 ARRAY<STRUCT<BYTES>>[{b"AB"}]
 ==
 
-[name=hex_7]
-SELECT b"\X4"
---
-ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: Hex escape must be followed by 2 hex digits but saw: \X4 [at 1:10]
-SELECT b"\X4"
-         ^
-==
 
 [name=hex_8]
 SELECT b"\X4167"
 --
 ARRAY<STRUCT<BYTES>>[{b"A67"}]
-==
-
-# UTF-8 tests
-[name=utf8_1]
-SELECT b"\uE282"
---
-ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: Unicode escape sequence \u cannot be used in bytes literals [at 1:10]
-SELECT b"\uE282"
-         ^
 ==
 
 # Unicode can be unescaped in strings.
@@ -122,14 +92,6 @@ SELECT BYTE_LENGTH(b"\xE2\x82\xAC"), CHAR_LENGTH(CAST(b"\xE2\x82\xAC" AS STRING)
 ARRAY<STRUCT<INT64, INT64, INT64>>[{3, 1, 3}]
 ==
 
-[name=no_embedded_new_line]
-SELECT b"a
-c"
---
-ERROR: generic::invalid_argument: Syntax error: Unclosed bytes literal [at 1:8]
-SELECT b"a
-       ^
-==
 
 [name=comparison_case_sensitivity_1]
 SELECT b"CaSe_SenSITive" = b"case_sensitive", b"case_sensitive" = b"case_sensitive"
@@ -169,14 +131,6 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[name=comparison_2]
-SELECT b"abc" = NULL
---
-ERROR: generic::invalid_argument: Operands of = cannot be literal NULL [at 1:17]
-SELECT b"abc" = NULL
-                ^
-==
-
 [name=comparison_3]
 SELECT b"" IS NULL, b"" IS NOT NULL, b"abc" IS NULL, b"abc" IS NOT NULL
 --
@@ -202,7 +156,7 @@ ARRAY<STRUCT<INT64>>[{2}]
 ==
 
 [name=function_instr]
-[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[required_features=ADDITIONAL_STRING_FUNCTIONS]
 SELECT INSTR(b"\xE2\x82\xAC", b"\x82"), INSTR(b"\xE2\x82\x82", b"\x82", 1, 2), INSTR(b"\xE2\x82\x82", b"\x82", -1)
 --
 ARRAY<STRUCT<INT64, INT64, INT64>>[{2, 3, 3}]
@@ -221,14 +175,14 @@ ARRAY<STRUCT<BYTES, BYTES, BYTES>>[{b"\xe2\x82\xac", b"\xe2\x82\xac", b"AS"}]
 ==
 
 [name=function_lcase]
-[required_features=V_1_4_ALIASES_FOR_STRING_AND_DATE_FUNCTIONS]
+[required_features=ALIASES_FOR_STRING_AND_DATE_FUNCTIONS]
 SELECT LCASE(b"\xE2\x82\xAC"), LCASE(b"\xe2\x82\xac"), LCASE(b"A\123")
 --
 ARRAY<STRUCT<BYTES, BYTES, BYTES>>[{b"\xe2\x82\xac", b"\xe2\x82\xac", b"as"}]
 ==
 
 [name=function_ucase]
-[required_features=V_1_4_ALIASES_FOR_STRING_AND_DATE_FUNCTIONS]
+[required_features=ALIASES_FOR_STRING_AND_DATE_FUNCTIONS]
 SELECT UCASE(b"\xE2\x82\xAC"), UCASE(b"\xe2\x82\xac"), UCASE(b"a\123")
 --
 ARRAY<STRUCT<BYTES, BYTES, BYTES>>[{b"\xe2\x82\xac", b"\xe2\x82\xac", b"AS"}]
@@ -283,14 +237,14 @@ ARRAY<STRUCT<BYTES, BYTES, BYTES, BYTES, BYTES>>[
   {b"abc", b"a", b"\x82", b"a", b"abc"}
 ]
 ==
-[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[required_features=ADDITIONAL_STRING_FUNCTIONS]
 [name=function_substring_error]
 SELECT SUBSTRING(b"abc", 1, -3)
 --
 ERROR: generic::out_of_range: Third argument in SUBSTR() cannot be negative
 ==
 
-[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[required_features=ADDITIONAL_STRING_FUNCTIONS]
 [name=function_substring]
 SELECT SUBSTRING(b"abc", 1), SUBSTRING(b"abc", 1, 1), SUBSTRING(b"\xE2\x82\xAC", 2, 1), SUBSTRING(b"abc", 0, 1), SUBSTRING(b"abc", -3, 5), SUBSTRING(CAST("€" AS BYTES), 1, 1), SUBSTRING(b"€", 1, 1)
 --
@@ -351,7 +305,7 @@ SELECT REPLACE(b"\xE2\x82\xAC", b"\xac", b"\xFF"), REPLACE(b"abc", b"a", b"xyz")
 ARRAY<STRUCT<BYTES, BYTES, BYTES>>[{b"\xe2\x82\xff", b"xyzbc", b"x"}]
 ==
 
-[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[required_features=ADDITIONAL_STRING_FUNCTIONS]
 [name=function_translate]
 SELECT TRANSLATE(b"ab\xFE", b"a\xFE", b"x\x01"), TRANSLATE(b"abcabc", b"ab", b"\tд")
 --
@@ -522,3 +476,11 @@ ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>>>[
     ARRAY<BYTES>[known order:b"x", b"y", b"z"]
   }
 ]
+
+==
+[name=string_literal_to_bytes_coercion]
+[required_features=IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
+SELECT BIT_COUNT('aaa');
+--
+ARRAY<STRUCT<INT64>>[{9}]
+

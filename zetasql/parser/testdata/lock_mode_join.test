@@ -1,6 +1,6 @@
 # Tests for the FOR UPDATE clause with join clauses.
 
-[default language_features=V_1_4_FOR_UPDATE]
+[default language_features=FOR_UPDATE]
 
 # Comma CROSS JOIN and FOR UPDATE in query
 select t1.id, t2.val from t1, t2 for update;

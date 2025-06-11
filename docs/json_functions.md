@@ -12,6 +12,7 @@ transform JSON data.
 The JSON functions are grouped into the following categories based on their
 behavior:
 
+<!-- disableFinding(LINK_ID) -->
 <table>
   <thead>
     <tr>
@@ -263,8 +264,22 @@ behavior:
       </td>
     </tr>
     
+    <tr>
+      <td><a id="predicates"></a>Predicates</td>
+      <td>
+        
+        <a href="#json_contains"><code>JSON_CONTAINS</code></a><br>
+        
+      </td>
+      <td>
+        Functions that return <code>BOOL</code> when checking JSON documents for
+        certain properties.
+      </td>
+    </tr>
+    
   </tbody>
 </table>
+<!-- enableFinding(LINK_ID) -->
 
 ## Function list
 
@@ -399,6 +414,15 @@ behavior:
 </td>
   <td>
     Inserts JSON data into a JSON array.
+    
+  </td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_contains"><code>JSON_CONTAINS</code></a>
+</td>
+  <td>
+    Checks if a JSON document contains another JSON document.
     
   </td>
 </tr>
@@ -2005,6 +2029,130 @@ SELECT JSON_ARRAY_INSERT(JSON '1', '$[0]', 'r1') AS json_data
  *-----------*/
 ```
 
+## `JSON_CONTAINS`
+
+```zetasql
+JSON_CONTAINS(json_expr, json_expr)
+```
+
+**Description**
+
+Checks if a JSON document contains another JSON document. This function returns
+`true` if the first parameter JSON document contains the second parameter JSON
+document; otherwise the function returns `false`. If any input argument is
+`NULL`, a `NULL` value is returned.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"class": {"students": [{"name": "Jane"}]}}'
+    ```
+
+Details:
+
++   The structure and data of the contained document must match a portion of the
+    containing document. This function determines if the smaller JSON document
+    is part of the larger JSON document.
++   JSON scalars: A JSON scalar value (like a string, number, bool, or JSON null
+    ) contains only itself.
++   JSON objects:
+
+    +   An object contains another object if the first object contains all the
+        key-value pairs present in the second JSON object.
+    +   When checking for object containment, extra key-value pairs in the
+        containing object don't prevent a match.
+    +   Any JSON object can contain an empty object.
++   JSON arrays:
+
+    +   An array contains another array if every element of the second array is
+        contained by some element of the first.
+    +   Duplicate elements in arrays are treated as if they appear only once.
+    +   The order of elements within JSON arrays isn't significant for
+        containment checks.
+    +   Any array can contain an empty array.
+    +   As a special case, a top-level array can contain a scalar value.
+
+**Return type**
+
+`BOOL`
+
+**Examples**
+
+In the following example, a JSON scalar value (a string) contains only itself:
+
+```zetasql
+SELECT JSON_CONTAINS(JSON '"a"', JSON '"a"') AS result;
+
+/*----------*
+ |  result  |
+ +----------+
+ |   true   |
+ *----------*/
+```
+
+The following examples check if a JSON object contains another JSON object:
+
+```zetasql
+SELECT
+    JSON_CONTAINS(JSON '{"a": {"b": 1}, "c": 2}', JSON '{"b": 1}') AS result1,
+    JSON_CONTAINS(JSON '{"a": {"b": 1}, "c": 2}', JSON '{"a": {"b": 1}}') AS result2,
+    JSON_CONTAINS(JSON '{"a": {"b": 1, "d": 3}, "c": 2}', JSON '{"a": {"b": 1}}') AS result3;
+
+/*----------*----------*----------*
+ |  result1 |  result2 |  result3 |
+ +----------+----------+----------+
+ |   false  |   true   |   true   |
+ *----------*----------*----------*/
+```
+
+The following examples check if a JSON array contains another JSON array. An
+array contains another array if the first JSON array contains all the elements
+present in the second array. The order of elements doesn't matter.
+
+Also, if the array is a top-level array, it can contain a scalar value.
+
+```zetasql
+SELECT
+    JSON_CONTAINS(JSON '[1, 2, 3]', JSON '[2]') AS result1,
+    JSON_CONTAINS(JSON '[1, 2, 3]', JSON '2') AS result2;
+
+/*----------*----------*
+ |  result1 |  result2 |
+ +----------+----------+
+ |   true   |   true   |
+ *----------*----------*/
+```
+
+```zetasql
+SELECT
+    JSON_CONTAINS(JSON '[[1, 2, 3]]', JSON '2') AS result1,
+    JSON_CONTAINS(JSON '[[1, 2, 3]]', JSON '[2]') AS result2,
+    JSON_CONTAINS(JSON '[[1, 2, 3]]', JSON '[[2]]') AS result3;
+
+/*----------*----------*----------*
+ |  result1 |  result2 |  result3 |
+ +----------+----------+----------+
+ |   false  |   false  |   true   |
+ *----------*----------*----------*/
+```
+
+The following examples check if a JSON array contains a JSON object:
+
+```zetasql
+SELECT
+    JSON_CONTAINS(JSON '[{"a":0}, {"b":1, "c":2}]', JSON '[{"b":1}]') AS result1,
+    JSON_CONTAINS(JSON '[{"a":0}, {"b":1, "c":2}]', JSON '{"b":1}') AS results2,
+    JSON_CONTAINS(JSON '[{"a":0}, {"b":1, "c":2}]', JSON '[{"a":0, "b":1}]') AS results3;
+
+/*----------*----------*----------*
+ |  result1 |  result2 |  result3 |
+ +----------+----------+----------+
+ |   true   |   false  |   false  |
+ *----------*----------*----------*/
+```
+
 ## `JSON_EXTRACT`
 
 Note: This function is deprecated. Consider using [JSON_QUERY][json-query].
@@ -3299,11 +3447,11 @@ SELECT JSON_QUERY(JSON '{"a": null}', "$.a"); -- Returns a JSON 'null'
 SELECT JSON_QUERY(JSON '{"a": null}', "$.b"); -- Returns a SQL NULL
 ```
 
-[JSONPath-format]: #JSONPath_format
+[JSONPath-format]: https://github.com/google/zetasql/blob/master/docs/jsonpath_format.md#JSONPath_format
 
 [differences-json-and-string]: #differences_json_and_string
 
-[JSONPath-mode]: #JSONPath_mode
+[JSONPath-mode]: https://github.com/google/zetasql/blob/master/docs/jsonpath_format.md#JSONPath_mode
 
 ## `JSON_QUERY_ARRAY`
 
@@ -7722,15 +7870,10 @@ Arguments:
 
     The following numerical data types are affected by the
     `stringify_wide_numbers` argument:
-
-    
-    
 + `INT64`
 + `UINT64`
 + `NUMERIC`
 + `BIGNUMERIC`
-
-    
 
     If one of these numerical data types appears in a container data type
     such as an `ARRAY` or `STRUCT`, the `stringify_wide_numbers` argument is
@@ -8327,6 +8470,7 @@ The following SQL to JSON encodings are supported:
           double-precision floating point numbers. A value outside of this range
           is encoded as a string.
         </p>
+      </td>
       <td>
         SQL input: <code>9007199254740992</code><br />
         JSON output: <code>9007199254740992</code><br />
@@ -8363,6 +8507,7 @@ The following SQL to JSON encodings are supported:
           numerical value can't be stored in JSON without loss of precision,
           an error is thrown.
         </p>
+      </td>
       <td>
         SQL input: <code>9007199254740992</code><br />
         JSON output: <code>9007199254740992</code><br />
@@ -8385,7 +8530,8 @@ The following SQL to JSON encodings are supported:
     
     <tr>
       <td>INTERVAL</td>
-      <td>string<td>
+      <td>string</td>
+      <td>
         SQL input: <code>INTERVAL '10:20:30.52' HOUR TO SECOND</code><br />
         JSON output: <code>"PT10H20M30.52S"</code><br />
         <hr />
@@ -8511,7 +8657,7 @@ The following SQL to JSON encodings are supported:
         <p>string</p>
         <p>
           Encoded as a string, escaped according to the JSON standard.
-          Specifically, <code>"</code>, <code>\</code>, and the control
+          Specifically, <code>"</code>, <code>\,</code> and the control
           characters from <code>U+0000</code> to <code>U+001F</code> are
           escaped.
         </p>
@@ -8664,7 +8810,7 @@ The following SQL to JSON encodings are supported:
         <p>
           Invalid UTF-8 field names might result in unparseable JSON. String
           values are escaped according to the JSON standard. Specifically,
-          <code>"</code>, <code>\</code>, and the control characters from
+          <code>"</code>, <code>\,</code> and the control characters from
           <code>U+0000</code> to <code>U+001F</code> are escaped.
         </p>
       </td>

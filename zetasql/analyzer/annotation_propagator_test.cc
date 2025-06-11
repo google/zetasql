@@ -49,9 +49,9 @@ static AnalyzerOptions MakeAnalyzerOptions() {
   AnalyzerOptions analyzer_options;
   analyzer_options.mutable_language()->SetSupportsAllStatementKinds();
   analyzer_options.mutable_language()->EnableLanguageFeature(
-      LanguageFeature::FEATURE_V_1_3_COLLATION_SUPPORT);
+      LanguageFeature::FEATURE_COLLATION_SUPPORT);
   analyzer_options.mutable_language()->EnableLanguageFeature(
-      LanguageFeature::FEATURE_V_1_3_ANNOTATION_FRAMEWORK);
+      LanguageFeature::FEATURE_ANNOTATION_FRAMEWORK);
   return analyzer_options;
 }
 
@@ -142,7 +142,7 @@ FunctionCall(ZetaSQL:$make_array(repeated(3) STRING) -> ARRAY<STRING>)
 
   EXPECT_EQ(make_arr_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
 FunctionCall(ZetaSQL:$make_array(repeated(3) STRING) -> ARRAY<STRING>)
-+-type_annotation_map=[{Collation:"und:ci"}]
++-type_annotation_map=<{Collation:"und:ci"}>
 +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
 | +-type_annotation_map={Collation:"und:ci"}
 | +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)

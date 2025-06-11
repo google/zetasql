@@ -1,5 +1,4 @@
-[default also_show_signature_mismatch_details]
-[default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,V_1_1_WITH_ON_SUBQUERY]
+[default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,WITH_ON_SUBQUERY]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [default no_run_sqlbuilder]
 # When no group_selection_strategy is set, default to laplace thresholding.
@@ -143,7 +142,7 @@ QueryStmt
 Rewrite ERROR: Differential privacy option group_selection_strategy must be a non-NULL enum literal
 ==
 
-[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,V_1_1_WITH_ON_SUBQUERY,TABLESAMPLE]
+[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,WITH_ON_SUBQUERY,TABLESAMPLE]
 # Forbidden operations after public groups joins are allowed outside of the
 # dp aggregate scan with per-group contribution bounding.
 SELECT string, anon_users
@@ -460,7 +459,7 @@ QueryStmt
 Rewrite ERROR: Differential privacy option group_selection_strategy PUBLIC_GROUPS has not been enabled
 ==
 
-# public groups requires V_1_1_WITH_ON_SUBQUERY feature
+# public groups requires WITH_ON_SUBQUERY feature
 [language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS]
 select with differential_privacy options(group_selection_strategy=PUBLIC_GROUPS)
 count(*)
@@ -4660,7 +4659,7 @@ QueryStmt
               +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
 ==
 
-[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,V_1_1_WITH_ON_SUBQUERY,TABLESAMPLE]
+[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,WITH_ON_SUBQUERY,TABLESAMPLE]
 # Sample scans between public groups join and aggregation are not allowed.
 SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS (
   max_groups_contributed=3,
@@ -4728,7 +4727,7 @@ QueryStmt
 Rewrite ERROR: group_selection_strategy = PUBLIC_GROUPS does not allow operations between the public groups join and the aggregation, because they could suppress public groups from the result. Try moving the operation to an input subquery of the public groups join.
 ==
 
-[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,V_1_1_WITH_ON_SUBQUERY,TABLESAMPLE]
+[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,WITH_ON_SUBQUERY,TABLESAMPLE]
 # Sample scans in input to public groups joins are allowed.
 SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS (
   max_groups_contributed=3,
@@ -5286,7 +5285,7 @@ QueryStmt
 Rewrite ERROR: group_selection_strategy = PUBLIC_GROUPS does not allow JOIN operations between the public groups join and the aggregation, because they could suppress public groups from the result. Try moving the operation to an input subquery of the public groups join.
 ==
 
-[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,V_1_1_WITH_ON_SUBQUERY,TABLESAMPLE]
+[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,WITH_ON_SUBQUERY,TABLESAMPLE]
 # Forbidden operations after public groups joins are allowed outside of the
 # dp aggregate scan.
 SELECT string, anon_users

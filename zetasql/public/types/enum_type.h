@@ -48,7 +48,7 @@ struct CatalogName;
 }
 
 // An enum type.
-// Each EnumType object defines a set of legal numeric (int32_t) values.  Each
+// Each EnumType object defines a set of legal numeric (int32) values.  Each
 // value has one (or more) string names.  The first name is treated as the
 // canonical name for that numeric value, and additional names are treated
 // as aliases.

@@ -605,7 +605,7 @@ ARRAY<STRUCT<
 ]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,CIVIL_TIME]
 [name=array_agg_with_null_RANGE_datetime_analytic]
 SELECT row_id, datetime_range_val, ARRAY_AGG(datetime_range_val) OVER test_window
 FROM (SELECT 1 row_id, CAST(NULL as RANGE<DATETIME>) datetime_range_val UNION ALL
@@ -1290,7 +1290,7 @@ ARRAY<STRUCT<
 ]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[required_features=ANALYTIC_FUNCTIONS,RANGE_TYPE,CIVIL_TIME]
 [name=array_agg_without_null_RANGE_datetime_analytic]
 SELECT row_id, datetime_range_val, ARRAY_AGG(datetime_range_val) OVER test_window
 FROM (SELECT 1 row_id, RANGE<DATETIME> "[2020-01-01 12:00:00, 2020-12-31 14:00:00)" datetime_range_val UNION ALL

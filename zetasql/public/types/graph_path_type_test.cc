@@ -138,9 +138,9 @@ TEST(GraphPathTypeTest, InternalProductModeSupportedTypeTest) {
   ASSERT_THAT(path_type, NotNull());
 
   EXPECT_FALSE(path_type->IsSupportedType(options));
-  options.EnableLanguageFeature(FEATURE_V_1_4_SQL_GRAPH);
+  options.EnableLanguageFeature(FEATURE_SQL_GRAPH);
   EXPECT_FALSE(path_type->IsSupportedType(options));
-  options.EnableLanguageFeature(FEATURE_V_1_4_SQL_GRAPH_PATH_TYPE);
+  options.EnableLanguageFeature(FEATURE_SQL_GRAPH_PATH_TYPE);
   EXPECT_TRUE(path_type->IsSupportedType(options));
 }
 
@@ -162,9 +162,9 @@ TEST(GraphPathTypeTest, ExternalProductModeSupportedTypeTest) {
 
   EXPECT_FALSE(path_type->IsSupportedType(options));
 
-  // uint64_t is not supported in external mode and it's part of the node type.
-  options.EnableLanguageFeature(FEATURE_V_1_4_SQL_GRAPH);
-  options.EnableLanguageFeature(FEATURE_V_1_4_SQL_GRAPH_PATH_TYPE);
+  // uint64 is not supported in external mode and it's part of the node type.
+  options.EnableLanguageFeature(FEATURE_SQL_GRAPH);
+  options.EnableLanguageFeature(FEATURE_SQL_GRAPH_PATH_TYPE);
   EXPECT_FALSE(path_type->IsSupportedType(options));
 }
 
@@ -249,7 +249,7 @@ TEST(GraphPathTypeTest, BasicTest) {
   LanguageOptions language_options;
   LanguageOptions language_options_with_path_grouping;
   language_options_with_path_grouping.EnableLanguageFeature(
-      FEATURE_V_1_4_GROUP_BY_GRAPH_PATH);
+      FEATURE_GROUP_BY_GRAPH_PATH);
   std::string no_grouping_type;
   std::string no_ordering_type;
   std::string no_partitioning_type;
@@ -437,6 +437,7 @@ TEST(GraphPathTypeTest, TypeDeserializerGraphPath) {
           node_type {
             graph_reference: "graph"
             kind: KIND_NODE
+            is_dynamic: false
           }
           edge_type {
             graph_reference: "graph"
@@ -445,6 +446,7 @@ TEST(GraphPathTypeTest, TypeDeserializerGraphPath) {
               name: "a"
               value_type { type_kind: TYPE_STRING }
             }
+            is_dynamic: false
           }
         }
       )pb",

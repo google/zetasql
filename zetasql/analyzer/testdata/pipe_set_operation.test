@@ -1,7 +1,7 @@
 # This tests pipe operators on the output of a standard syntax set operation,
 # where union all produces a value table. The result works as a value table, but
 # pseudo-columns are still dropped.
-[default language_features=PIPES,V_1_4_CORRESPONDING_FULL,PIPE_STATIC_DESCRIBE,V_1_4_BY_NAME,ANALYTIC_FUNCTIONS]
+[default language_features=PIPES,CORRESPONDING_FULL,PIPE_STATIC_DESCRIBE,BY_NAME,ANALYTIC_FUNCTIONS]
 (from TestExtraValueTable vt)
 union all
 (from TestExtraValueTable)
@@ -152,7 +152,7 @@ QueryStmt
 # This tests pipe operators on the output of a standard syntax set operation.
 # A set operation value table acts as value table when used as a table subquery,
 # with an alias on the subquery.
-[language_features=PIPES,V_1_2_GROUP_BY_STRUCT,PIPE_STATIC_DESCRIBE]
+[language_features=PIPES,GROUP_BY_STRUCT,PIPE_STATIC_DESCRIBE]
 from (
   select AS STRUCT 1 a, 2 b
   intersect all
@@ -488,7 +488,7 @@ QueryStmt
 
 # A set operation value table acts as value table when used as a table subquery,
 # with an alias on the subquery.
-[language_features=PIPES,V_1_2_GROUP_BY_STRUCT,PIPE_STATIC_DESCRIBE]
+[language_features=PIPES,GROUP_BY_STRUCT,PIPE_STATIC_DESCRIBE]
 from (
   select AS STRUCT 1 a, 2 b
   |> intersect all (select AS STRUCT 3 c, 4 d)
@@ -1895,7 +1895,7 @@ QueryStmt
     +-column_match_mode=CORRESPONDING_BY
 ==
 
-[language_features=PIPES,V_1_4_CORRESPONDING_FULL,V_1_3_WITH_RECURSIVE]
+[language_features=PIPES,CORRESPONDING_FULL,WITH_RECURSIVE]
 with recursive T as (
   select 1 as n
   |> union {{all|distinct}} (select n + 1 from T where n < 3)
@@ -2007,7 +2007,7 @@ QueryStmt
     +-recursive=TRUE
 ==
 
-[language_features=PIPES,V_1_4_CORRESPONDING_FULL,V_1_3_WITH_RECURSIVE]
+[language_features=PIPES,CORRESPONDING_FULL,WITH_RECURSIVE]
 # pipe except or intersect cannot be used inside WITH RECURSIVE.
 with recursive T as (
   select 1 as n

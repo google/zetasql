@@ -51,7 +51,7 @@ bool BitwiseLeftShiftBytes(absl::string_view in1, int64_t in2, std::string* out,
   const int64_t shift_bytes = in2 / 8;
   if (ABSL_PREDICT_TRUE(shift_bytes < in1.size())) {
     const size_t bytes_to_copy = in1.size() - shift_bytes;
-    // Only use unsigned type here; value conversion from uint8_t or uint to char
+    // Only use unsigned type here; value conversion from uint8 or uint to char
     // depends on the compiler implementation, according to
     // http://en.cppreference.com/w/cpp/language/implicit_conversion.
     uint8_t* out_data = reinterpret_cast<uint8_t*>(&(*out)[0]);
@@ -83,7 +83,7 @@ bool BitwiseRightShiftBytes(absl::string_view in1, int64_t in2,
   const int64_t shift_bytes = in2 / 8;
   if (ABSL_PREDICT_TRUE(shift_bytes < in1.size())) {
     const size_t bytes_to_copy = in1.size() - shift_bytes;
-    // Only use unsigned type here; value conversion from uint8_t or uint to char
+    // Only use unsigned type here; value conversion from uint8 or uint to char
     // depends on the compiler implementation, according to
     // http://en.cppreference.com/w/cpp/language/implicit_conversion.
     uint8_t* out_data = reinterpret_cast<uint8_t*>(&(*out)[shift_bytes]);

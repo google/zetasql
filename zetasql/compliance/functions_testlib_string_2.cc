@@ -389,7 +389,7 @@ std::vector<FunctionTestCall> GetFunctionTestsSubstring() {
 
 std::vector<FunctionTestCall> GetFunctionTestsString() {
   std::vector<FunctionTestCall> results = {
-      // strpos(string, string) -> int64_t
+      // strpos(string, string) -> int64
       {"strpos", {NullString(), ""}, NullInt64()},
       {"strpos", {NullString(), "x"}, NullInt64()},
       {"strpos", {"", NullString()}, NullInt64()},
@@ -406,7 +406,7 @@ std::vector<FunctionTestCall> GetFunctionTestsString() {
       {"strpos", {"abca\0b\0c\0", "a\0b\0c"}, 4ll},
       {"strpos", {"zгдl", "дl"}, 3ll},
 
-      // strpos(bytes, bytes) -> int64_t
+      // strpos(bytes, bytes) -> int64
       {"strpos", {NullBytes(), Bytes("")}, NullInt64()},
       {"strpos", {NullBytes(), Bytes("x")}, NullInt64()},
       {"strpos", {NullBytes(), NullBytes()}, NullInt64()},
@@ -482,35 +482,35 @@ std::vector<FunctionTestCall> GetFunctionTestsString() {
       {"ends_with", {Bytes("ends_with"), Bytes("with")}, true},
       {"ends_with", {Bytes("ends_with"), Bytes("")}, true},
 
-      // length(string) -> int64_t
+      // length(string) -> int64
       {"length", {NullString()}, NullInt64()},
       {"length", {""}, 0ll},
       {"length", {"abcde"}, 5ll},
       {"length", {"абвгд"}, 5ll},
       {"length", {"\0\0"}, 2ll},
 
-      // length(bytes) -> int64_t
+      // length(bytes) -> int64
       {"length", {NullBytes()}, NullInt64()},
       {"length", {Bytes("")}, 0ll},
       {"length", {Bytes("abcde")}, 5ll},
       {"length", {Bytes("абвгд")}, 10ll},
       {"length", {Bytes("\0\0")}, 2ll},
 
-      // byte_length(string) -> int64_t
+      // byte_length(string) -> int64
       {"byte_length", {NullString()}, NullInt64()},
       {"byte_length", {""}, 0ll},
       {"byte_length", {"abcde"}, 5ll},
       {"byte_length", {"абвгд"}, 10ll},
       {"byte_length", {"\0\0"}, 2ll},
 
-      // byte_length(bytes) -> int64_t
+      // byte_length(bytes) -> int64
       {"byte_length", {NullBytes()}, NullInt64()},
       {"byte_length", {Bytes("")}, 0ll},
       {"byte_length", {Bytes("abcde")}, 5ll},
       {"byte_length", {Bytes("абвгд")}, 10ll},
       {"byte_length", {Bytes("\0\0")}, 2ll},
 
-      // char_length(string) -> int64_t
+      // char_length(string) -> int64
       {"char_length", {NullString()}, NullInt64()},
       {"character_length", {""}, 0ll},
       {"char_length", {"abcde"}, 5ll},

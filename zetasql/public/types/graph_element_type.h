@@ -88,6 +88,8 @@ using GraphReference = CatalogName;
 // 2. ElementKind (node or edge) this type represents.
 // 3. A set of PropertyTypes (name is case-insensitive) that are accessible on
 //    values of this type.
+// 4. Whether this type is dynamic, i.e., whether dynamic properties are allowed
+//    on values of this type.
 // GraphElementTypes are equal if all the above are equal.
 class GraphElementType : public ListBackedType {
  public:
@@ -119,12 +121,25 @@ class GraphElementType : public ListBackedType {
   // Returns NULL if no property type with <name> is found.
   const PropertyType* FindPropertyType(absl::string_view name) const;
 
+  // Convenient method that returns true if this is a dynamic graph element
+  // type.
+  bool is_dynamic() const { return is_dynamic_; }
+
   // Returns the graph element kind.
   ElementKind element_kind() const { return element_kind_; }
   bool IsNode() const { return element_kind_ == kNode; }
   bool IsEdge() const { return element_kind_ == kEdge; }
 
   const GraphElementType* AsGraphElement() const override { return this; }
+
+  std::vector<const Type*> ComponentTypes() const override {
+    std::vector<const Type*> component_types;
+    component_types.reserve(property_types_.size());
+    for (const PropertyType& property_type : property_types_) {
+      component_types.push_back(property_type.value_type);
+    }
+    return component_types;
+  }
 
   // Check if the graph element has some fields (property types).
   bool HasAnyFields() const override;
@@ -176,8 +191,7 @@ class GraphElementType : public ListBackedType {
   GraphElementType(const internal::GraphReference* graph_reference,
                    ElementKind element_kind, const TypeFactory* factory,
                    absl::flat_hash_set<PropertyType> property_types,
-                   int nesting_depth
-  );
+                   int nesting_depth, bool is_dynamic = false);
 
   // Look up a property type by name.
   // Returns NULL if <name> is not found.
@@ -250,6 +264,9 @@ class GraphElementType : public ListBackedType {
   // is 1. This field is not serialized. It is recalculated during
   // deserialization.
   const int nesting_depth_;
+
+  // Decides whether this is a dynamic graph element type.
+  bool is_dynamic_;
 
   // Lazily built map from name to element property index. Ambiguous lookups are
   // designated with an index of -1. This is only built if FindPropertyTypeImpl

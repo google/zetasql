@@ -16,7 +16,6 @@
 
 #include "zetasql/tools/execute_query/execute_query_prompt.h"
 
-#include <algorithm>
 #include <functional>
 #include <optional>
 #include <string>
@@ -29,7 +28,6 @@
 #include "zetasql/public/parse_tokens.h"
 #include "zetasql/tools/execute_query/execute_query.pb.h"
 #include "zetasql/tools/execute_query/execute_query_tool.h"
-#include "absl/functional/bind_front.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
@@ -38,7 +36,6 @@
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
-#include "absl/types/optional.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {

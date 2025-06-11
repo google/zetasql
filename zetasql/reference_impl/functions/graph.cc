@@ -243,6 +243,17 @@ class IsSimpleFunction : public SimpleBuiltinScalarFunction {
                              EvaluationContext* context) const override;
 };
 
+// Returns true if the dynamic property value can be converted to the target
+// value type and the converted value equals to the expected value.
+class DynamicPropertyEqualsFunction : public SimpleBuiltinScalarFunction {
+ public:
+  DynamicPropertyEqualsFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
 absl::StatusOr<Value> SameGraphElementFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
@@ -636,6 +647,122 @@ absl::StatusOr<Value> IsSimpleFunction::Eval(
   return Value::Bool(true);
 }
 
+absl::StatusOr<Value> ConvertJsonValueToValue(
+    functions::WideNumberMode wide_number_mode, ProductMode product_mode,
+    JSONValueConstRef json_value, const Type* type, bool is_nested = false) {
+  switch (type->kind()) {
+    case TYPE_BOOL: {
+      ZETASQL_ASSIGN_OR_RETURN(bool v, functions::ConvertJsonToBool(json_value));
+      return Value::Bool(v);
+    }
+    case TYPE_INT32: {
+      ZETASQL_ASSIGN_OR_RETURN(int32_t v, functions::ConvertJsonToInt32(json_value));
+      return Value::Int32(v);
+    }
+    case TYPE_UINT32: {
+      ZETASQL_ASSIGN_OR_RETURN(uint32_t v, functions::ConvertJsonToUint32(json_value));
+      return Value::Uint32(v);
+    }
+    case TYPE_INT64: {
+      ZETASQL_ASSIGN_OR_RETURN(int64_t v, functions::ConvertJsonToInt64(json_value));
+      return Value::Int64(v);
+    }
+    case TYPE_UINT64: {
+      ZETASQL_ASSIGN_OR_RETURN(uint64_t v, functions::ConvertJsonToUint64(json_value));
+      return Value::Uint64(v);
+    }
+    case TYPE_STRING: {
+      ZETASQL_ASSIGN_OR_RETURN(std::string v,
+                       functions::ConvertJsonToString(json_value));
+      return Value::String(v);
+    }
+    case TYPE_FLOAT: {
+      ZETASQL_ASSIGN_OR_RETURN(
+          float v, functions::ConvertJsonToFloat(json_value, wide_number_mode,
+                                                 product_mode));
+      return Value::Float(v);
+    }
+    case TYPE_DOUBLE: {
+      ZETASQL_ASSIGN_OR_RETURN(
+          double v, functions::ConvertJsonToDouble(json_value, wide_number_mode,
+                                                   product_mode));
+      return Value::Double(v);
+    }
+    case TYPE_ARRAY: {
+      if (is_nested) {
+        return MakeEvalError() << "Nested arrays are not supported";
+      }
+      if (json_value.IsArray()) {
+        std::vector<Value> gsql_values;
+        gsql_values.reserve(json_value.GetArrayElements().size());
+        for (const JSONValueConstRef& element : json_value.GetArrayElements()) {
+          ZETASQL_ASSIGN_OR_RETURN(
+              Value gsql_value,
+              ConvertJsonValueToValue(wide_number_mode, product_mode, element,
+                                      type->AsArray()->element_type(),
+                                      /*is_nested=*/true));
+          gsql_values.push_back(std::move(gsql_value));
+        }
+        return Value::MakeArray(type->AsArray(), std::move(gsql_values));
+      }
+      return MakeEvalError() << "JSON value is not an array";
+    }
+    default:
+      return MakeEvalError() << "Unsupported type: " << type->DebugString();
+  }
+}
+
+Value SafeConvertJsonValueToValue(functions::WideNumberMode wide_number_mode,
+                                  ProductMode product_mode,
+                                  JSONValueConstRef json_value,
+                                  const Type* type) {
+  absl::StatusOr<Value> value =
+      ConvertJsonValueToValue(wide_number_mode, product_mode, json_value, type);
+  if (!value.ok()) {
+    return Value::Null(type);
+  }
+  return *value;
+}
+
+absl::StatusOr<Value> DynamicPropertyEqualsFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_EQ(args.size(), 3);
+  ZETASQL_RET_CHECK(args[0].type()->IsGraphElement());
+  ZETASQL_RET_CHECK(args[1].type()->IsString());
+  Value graph_element = args[0];
+  ZETASQL_RET_CHECK(graph_element.type()->AsGraphElement()->is_dynamic())
+      << "$dynamic_property_equals requires a dynamic graph element";
+  if (graph_element.is_null() || args[2].is_null()) {
+    return Value::Null(output_type());
+  }
+  std::string_view property_name = args[1].string_value();
+  ZETASQL_RET_CHECK_EQ(
+      graph_element.type()->AsGraphElement()->FindPropertyType(property_name),
+      nullptr)
+      << "property " << property_name << " is static";
+  absl::StatusOr<Value> prop_value =
+      graph_element.FindValidPropertyValueByName(std::string(property_name));
+  if (absl::IsNotFound(prop_value.status())) {
+    return Value::Null(output_type());
+  }
+  ZETASQL_RETURN_IF_ERROR(prop_value.status());
+  ZETASQL_RET_CHECK(prop_value->type()->IsJson());
+
+  const Value& target_value = args[2];
+  const LanguageOptions& language_options = context->GetLanguageOptions();
+  functions::WideNumberMode wide_number_mode =
+      language_options.LanguageFeatureEnabled(
+          FEATURE_JSON_STRICT_NUMBER_PARSING)
+          ? functions::WideNumberMode::kExact
+          : functions::WideNumberMode::kRound;
+
+  Value prop_gsql_value = SafeConvertJsonValueToValue(
+      wide_number_mode, language_options.product_mode(),
+      prop_value->json_value(), target_value.type());
+  return prop_gsql_value.SqlEquals(target_value);
+}
+
 }  // namespace
 
 void RegisterBuiltinGraphFunctions() {
@@ -717,6 +844,11 @@ void RegisterBuiltinGraphFunctions() {
       {FunctionKind::kIsSimple},
       [](FunctionKind kind, const Type* output_type) {
         return new IsSimpleFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kDynamicPropertyEquals},
+      [](FunctionKind kind, const Type* output_type) {
+        return new DynamicPropertyEqualsFunction(kind, output_type);
       });
 }
 

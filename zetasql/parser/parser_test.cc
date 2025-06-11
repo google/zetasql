@@ -82,7 +82,7 @@ MATCHER_P2(WarningHasSubstrAndByteOffset, substr, byte_offset, "") {
 TEST(ParserTest, IssuesWarningOnUsageOfGraphTable) {
   std::unique_ptr<ParserOutput> parser_output;
   LanguageOptions options_with_graphs;
-  options_with_graphs.EnableLanguageFeature(FEATURE_V_1_4_SQL_GRAPH);
+  options_with_graphs.EnableLanguageFeature(FEATURE_SQL_GRAPH);
 
   // Unambiguous places produce no warning. Same for quoted identifiers.
   // Note: the tokenizer doesn't recognize keywords as keywords when prefixed.
@@ -112,7 +112,7 @@ TEST(ParserTest, IssuesWarningOnUsageOfGraphTable) {
 TEST(ParserTest, IssuesWarningWhenQualifyIsUsedAsAnIdentifier) {
   std::unique_ptr<ParserOutput> parser_output;
   LanguageOptions options_with_qualify_feature;
-  options_with_qualify_feature.EnableLanguageFeature(FEATURE_V_1_3_QUALIFY);
+  options_with_qualify_feature.EnableLanguageFeature(FEATURE_QUALIFY);
   ZETASQL_ASSERT_OK(
       options_with_qualify_feature.EnableReservableKeyword("QUALIFY",
                                                            /*reserved=*/false));
@@ -301,23 +301,23 @@ TEST_F(ParseQueryEndingWithCommentTest, DashComment) {
 
   ZETASQL_EXPECT_OK(RunStatementTest(query, &parser_output));
   ASSERT_NE(parser_output->statement(), nullptr);
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().start(),
+  EXPECT_EQ(parser_output->statement()->location().start(),
             ParseLocationPoint::FromByteOffset(0));
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().end(),
+  EXPECT_EQ(parser_output->statement()->location().end(),
             ParseLocationPoint::FromByteOffset(kStmtLength));
 
   ZETASQL_EXPECT_OK(RunNextStatementTest(query, &parser_output));
   ASSERT_NE(parser_output->statement(), nullptr);
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().start(),
+  EXPECT_EQ(parser_output->statement()->location().start(),
             ParseLocationPoint::FromByteOffset(0));
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().end(),
+  EXPECT_EQ(parser_output->statement()->location().end(),
             ParseLocationPoint::FromByteOffset(kStmtLength));
 
   ZETASQL_EXPECT_OK(RunNextScriptStatementTest(query, &parser_output));
   ASSERT_NE(parser_output->statement(), nullptr);
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().start(),
+  EXPECT_EQ(parser_output->statement()->location().start(),
             ParseLocationPoint::FromByteOffset(0));
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().end(),
+  EXPECT_EQ(parser_output->statement()->location().end(),
             ParseLocationPoint::FromByteOffset(kStmtLength));
 
   ASTNodeKind node_kind = RunStatementKindTest(query);
@@ -325,11 +325,9 @@ TEST_F(ParseQueryEndingWithCommentTest, DashComment) {
 
   ZETASQL_EXPECT_OK(RunScriptTest(query, &parser_output));
   ASSERT_NE(parser_output->script(), nullptr);
-  EXPECT_EQ(parser_output->script()->GetParseLocationRange().start(),
+  EXPECT_EQ(parser_output->script()->location().start(),
             ParseLocationPoint::FromByteOffset(0));
-  EXPECT_EQ(
-      parser_output->script()->GetParseLocationRange().end().GetByteOffset(),
-      9);
+  EXPECT_EQ(parser_output->script()->location().end().GetByteOffset(), 9);
 }
 
 TEST_F(ParseQueryEndingWithCommentTest, PoundComment) {
@@ -339,23 +337,23 @@ TEST_F(ParseQueryEndingWithCommentTest, PoundComment) {
 
   ZETASQL_EXPECT_OK(RunStatementTest(query, &parser_output));
   ASSERT_NE(parser_output->statement(), nullptr);
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().start(),
+  EXPECT_EQ(parser_output->statement()->location().start(),
             ParseLocationPoint::FromByteOffset(0));
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().end(),
+  EXPECT_EQ(parser_output->statement()->location().end(),
             ParseLocationPoint::FromByteOffset(kStmtLength));
 
   ZETASQL_EXPECT_OK(RunNextStatementTest(query, &parser_output));
   ASSERT_NE(parser_output->statement(), nullptr);
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().start(),
+  EXPECT_EQ(parser_output->statement()->location().start(),
             ParseLocationPoint::FromByteOffset(0));
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().end(),
+  EXPECT_EQ(parser_output->statement()->location().end(),
             ParseLocationPoint::FromByteOffset(kStmtLength));
 
   ZETASQL_EXPECT_OK(RunNextScriptStatementTest(query, &parser_output));
   ASSERT_NE(parser_output->statement(), nullptr);
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().start(),
+  EXPECT_EQ(parser_output->statement()->location().start(),
             ParseLocationPoint::FromByteOffset(0));
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().end(),
+  EXPECT_EQ(parser_output->statement()->location().end(),
             ParseLocationPoint::FromByteOffset(kStmtLength));
 
   ASTNodeKind node_kind = RunStatementKindTest(query);
@@ -363,11 +361,9 @@ TEST_F(ParseQueryEndingWithCommentTest, PoundComment) {
 
   ZETASQL_EXPECT_OK(RunScriptTest(query, &parser_output));
   ASSERT_NE(parser_output->script(), nullptr);
-  EXPECT_EQ(parser_output->script()->GetParseLocationRange().start(),
+  EXPECT_EQ(parser_output->script()->location().start(),
             ParseLocationPoint::FromByteOffset(0));
-  EXPECT_EQ(
-      parser_output->script()->GetParseLocationRange().end().GetByteOffset(),
-      9);
+  EXPECT_EQ(parser_output->script()->location().end().GetByteOffset(), 9);
 }
 
 TEST_F(ParseQueryEndingWithCommentTest, CommentEndingWithWhitespace) {
@@ -377,23 +373,23 @@ TEST_F(ParseQueryEndingWithCommentTest, CommentEndingWithWhitespace) {
 
   ZETASQL_EXPECT_OK(RunStatementTest(query, &parser_output));
   ASSERT_NE(parser_output->statement(), nullptr);
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().start(),
+  EXPECT_EQ(parser_output->statement()->location().start(),
             ParseLocationPoint::FromByteOffset(0));
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().end(),
+  EXPECT_EQ(parser_output->statement()->location().end(),
             ParseLocationPoint::FromByteOffset(kStmtLength));
 
   ZETASQL_EXPECT_OK(RunNextStatementTest(query, &parser_output));
   ASSERT_NE(parser_output->statement(), nullptr);
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().start(),
+  EXPECT_EQ(parser_output->statement()->location().start(),
             ParseLocationPoint::FromByteOffset(0));
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().end(),
+  EXPECT_EQ(parser_output->statement()->location().end(),
             ParseLocationPoint::FromByteOffset(kStmtLength));
 
   ZETASQL_EXPECT_OK(RunNextScriptStatementTest(query, &parser_output));
   ASSERT_NE(parser_output->statement(), nullptr);
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().start(),
+  EXPECT_EQ(parser_output->statement()->location().start(),
             ParseLocationPoint::FromByteOffset(0));
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().end(),
+  EXPECT_EQ(parser_output->statement()->location().end(),
             ParseLocationPoint::FromByteOffset(kStmtLength));
 
   ASTNodeKind node_kind = RunStatementKindTest(query);
@@ -401,11 +397,9 @@ TEST_F(ParseQueryEndingWithCommentTest, CommentEndingWithWhitespace) {
 
   ZETASQL_EXPECT_OK(RunScriptTest(query, &parser_output));
   ASSERT_NE(parser_output->script(), nullptr);
-  EXPECT_EQ(parser_output->script()->GetParseLocationRange().start(),
+  EXPECT_EQ(parser_output->script()->location().start(),
             ParseLocationPoint::FromByteOffset(0));
-  EXPECT_EQ(
-      parser_output->script()->GetParseLocationRange().end().GetByteOffset(),
-      9);
+  EXPECT_EQ(parser_output->script()->location().end().GetByteOffset(), 9);
 }
 
 TEST_F(ParseQueryEndingWithCommentTest, EmptyComment) {
@@ -415,23 +409,23 @@ TEST_F(ParseQueryEndingWithCommentTest, EmptyComment) {
 
   ZETASQL_EXPECT_OK(RunStatementTest(query, &parser_output));
   ASSERT_NE(parser_output->statement(), nullptr);
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().start(),
+  EXPECT_EQ(parser_output->statement()->location().start(),
             ParseLocationPoint::FromByteOffset(0));
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().end(),
+  EXPECT_EQ(parser_output->statement()->location().end(),
             ParseLocationPoint::FromByteOffset(kStmtLength));
 
   ZETASQL_EXPECT_OK(RunNextStatementTest(query, &parser_output));
   ASSERT_NE(parser_output->statement(), nullptr);
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().start(),
+  EXPECT_EQ(parser_output->statement()->location().start(),
             ParseLocationPoint::FromByteOffset(0));
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().end(),
+  EXPECT_EQ(parser_output->statement()->location().end(),
             ParseLocationPoint::FromByteOffset(kStmtLength));
 
   ZETASQL_EXPECT_OK(RunNextScriptStatementTest(query, &parser_output));
   ASSERT_NE(parser_output->statement(), nullptr);
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().start(),
+  EXPECT_EQ(parser_output->statement()->location().start(),
             ParseLocationPoint::FromByteOffset(0));
-  EXPECT_EQ(parser_output->statement()->GetParseLocationRange().end(),
+  EXPECT_EQ(parser_output->statement()->location().end(),
             ParseLocationPoint::FromByteOffset(kStmtLength));
 
   ASTNodeKind node_kind = RunStatementKindTest(query);
@@ -439,11 +433,9 @@ TEST_F(ParseQueryEndingWithCommentTest, EmptyComment) {
 
   ZETASQL_EXPECT_OK(RunScriptTest(query, &parser_output));
   ASSERT_NE(parser_output->script(), nullptr);
-  EXPECT_EQ(parser_output->script()->GetParseLocationRange().start(),
+  EXPECT_EQ(parser_output->script()->location().start(),
             ParseLocationPoint::FromByteOffset(0));
-  EXPECT_EQ(
-      parser_output->script()->GetParseLocationRange().end().GetByteOffset(),
-      9);
+  EXPECT_EQ(parser_output->script()->location().end().GetByteOffset(), 9);
 }
 
 TEST_F(ParseQueryEndingWithCommentTest, JustComment) {
@@ -472,11 +464,9 @@ TEST_F(ParseQueryEndingWithCommentTest, JustComment) {
 
   ZETASQL_EXPECT_OK(RunScriptTest(query, &parser_output));
   ASSERT_NE(parser_output->script(), nullptr);
-  EXPECT_EQ(parser_output->script()->GetParseLocationRange().start(),
-            ParseLocationPoint::FromByteOffset(0));
-  EXPECT_EQ(
-      parser_output->script()->GetParseLocationRange().end().GetByteOffset(),
-      0);
+  EXPECT_EQ(parser_output->script()->location().start(),
+            ParseLocationPoint::FromByteOffset(9));
+  EXPECT_EQ(parser_output->script()->location().end().GetByteOffset(), 9);
 }
 
 TEST_F(ParseQueryEndingWithCommentTest, JustEmptyComment) {
@@ -505,11 +495,9 @@ TEST_F(ParseQueryEndingWithCommentTest, JustEmptyComment) {
 
   ZETASQL_EXPECT_OK(RunScriptTest(query, &parser_output));
   ASSERT_NE(parser_output->script(), nullptr);
-  EXPECT_EQ(parser_output->script()->GetParseLocationRange().start(),
-            ParseLocationPoint::FromByteOffset(0));
-  EXPECT_EQ(
-      parser_output->script()->GetParseLocationRange().end().GetByteOffset(),
-      0);
+  EXPECT_EQ(parser_output->script()->location().start(),
+            ParseLocationPoint::FromByteOffset(2));
+  EXPECT_EQ(parser_output->script()->location().end().GetByteOffset(), 2);
 }
 
 TEST_F(ParseQueryEndingWithCommentTest, IncompleteStmt) {
@@ -546,7 +534,7 @@ TEST_F(ParseQueryEndingWithCommentTest, IncompleteStmt) {
 TEST_F(ParseQueryEndingWithCommentTest, ScriptLabelInNextScriptStatement) {
   std::unique_ptr<ParserOutput> parser_output;
   LanguageOptions options;
-  options.EnableLanguageFeature(FEATURE_V_1_3_SCRIPT_LABEL);
+  options.EnableLanguageFeature(FEATURE_SCRIPT_LABEL);
   {
     absl::string_view query = "L1 : BEGIN END;";
     EXPECT_THAT(RunNextScriptStatementTest(query, &parser_output, options),
@@ -565,7 +553,7 @@ TEST_F(ParseQueryEndingWithCommentTest, ScriptLabelInNextScriptStatement) {
 
 TEST_F(ParseQueryEndingWithCommentTest, ScriptLabelInNextStatementKind) {
   LanguageOptions options;
-  options.EnableLanguageFeature(FEATURE_V_1_3_SCRIPT_LABEL);
+  options.EnableLanguageFeature(FEATURE_SCRIPT_LABEL);
   {
     absl::string_view query = "@{a=1} L1 : BEGIN END;";
     EXPECT_EQ(RunNextStatementKindTest(query, options),
@@ -593,9 +581,9 @@ TEST_F(ParseQueryEndingWithCommentTest, ParseType) {
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_EXPECT_OK(ParseType(type, ParserOptions(), &parser_output));
   ASSERT_NE(parser_output->type(),  nullptr);
-  EXPECT_EQ(parser_output->type()->GetParseLocationRange().start(),
+  EXPECT_EQ(parser_output->type()->location().start(),
             ParseLocationPoint::FromByteOffset(0));
-  EXPECT_EQ(parser_output->type()->GetParseLocationRange().end(),
+  EXPECT_EQ(parser_output->type()->location().end(),
             ParseLocationPoint::FromByteOffset(5));
 }
 
@@ -604,9 +592,9 @@ TEST_F(ParseQueryEndingWithCommentTest, ParseExpression) {
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_EXPECT_OK(ParseExpression(expression, ParserOptions(), &parser_output));
   ASSERT_NE(parser_output->expression(), nullptr);
-  EXPECT_EQ(parser_output->expression()->GetParseLocationRange().start(),
+  EXPECT_EQ(parser_output->expression()->location().start(),
             ParseLocationPoint::FromByteOffset(0));
-  EXPECT_EQ(parser_output->expression()->GetParseLocationRange().end(),
+  EXPECT_EQ(parser_output->expression()->location().end(),
             ParseLocationPoint::FromByteOffset(5));
 }
 
@@ -615,11 +603,9 @@ TEST_F(ParseQueryEndingWithCommentTest, ScriptDashComment) {
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_EXPECT_OK(RunScriptTest(script, &parser_output));
   ASSERT_NE(parser_output->script(), nullptr);
-  EXPECT_EQ(parser_output->script()->GetParseLocationRange().start(),
+  EXPECT_EQ(parser_output->script()->location().start(),
             ParseLocationPoint::FromByteOffset(0));
-  EXPECT_EQ(
-      parser_output->script()->GetParseLocationRange().end().GetByteOffset(),
-      18);
+  EXPECT_EQ(parser_output->script()->location().end().GetByteOffset(), 18);
 }
 
 TEST_F(ParseQueryEndingWithCommentTest, ScriptPoundCommentWithWhitespace) {
@@ -627,11 +613,9 @@ TEST_F(ParseQueryEndingWithCommentTest, ScriptPoundCommentWithWhitespace) {
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_EXPECT_OK(RunScriptTest(script, &parser_output));
   ASSERT_NE(parser_output->script(), nullptr);
-  EXPECT_EQ(parser_output->script()->GetParseLocationRange().start(),
+  EXPECT_EQ(parser_output->script()->location().start(),
             ParseLocationPoint::FromByteOffset(0));
-  EXPECT_EQ(
-      parser_output->script()->GetParseLocationRange().end().GetByteOffset(),
-      18);
+  EXPECT_EQ(parser_output->script()->location().end().GetByteOffset(), 18);
 }
 
 static int64_t TotalNanos(const google::protobuf::Duration duration) {
@@ -697,13 +681,13 @@ TEST(ParserTest, ValidateStrippedErrorIsSimpleWithTextmapper) {
 class LanguageOptionsMigrationTest : public ::testing::Test {};
 
 TEST_F(LanguageOptionsMigrationTest, LanguageOptionsTest) {
-  // For this test case, we use FEATURE_V_1_3_ALLOW_SLASH_PATHS, which is
+  // For this test case, we use FEATURE_ALLOW_SLASH_PATHS, which is
   // disabled by default, as a testbed to ensure language options are
   // properly propagated and respected, regardless of how ParserOptions
   // are constructed/copied/moved, etc.
   constexpr absl::string_view query = "select 0 from /a/b";
   std::unique_ptr<ParserOutput> parser_output;
-  // By default, this should not parse, because FEATURE_V_1_3_ALLOW_SLASH_PATHS
+  // By default, this should not parse, because FEATURE_ALLOW_SLASH_PATHS
   // is disabled.
   EXPECT_THAT(
       ParseStatement(query, ParserOptions{LanguageOptions{}}, &parser_output),
@@ -748,8 +732,7 @@ TEST_F(LanguageOptionsMigrationTest, LanguageOptionsTest) {
     ParserOptions options{nullptr, nullptr, &mutable_language_options};
     EXPECT_THAT(ParseStatement(query, options, &parser_output),
                 zetasql_base::testing::StatusIs(absl::StatusCode::kInvalidArgument));
-    mutable_language_options.EnableLanguageFeature(
-        FEATURE_V_1_3_ALLOW_SLASH_PATHS);
+    mutable_language_options.EnableLanguageFeature(FEATURE_ALLOW_SLASH_PATHS);
     EXPECT_THAT(ParseStatement(query, options, &parser_output),
                 zetasql_base::testing::StatusIs(absl::StatusCode::kInvalidArgument));
   }

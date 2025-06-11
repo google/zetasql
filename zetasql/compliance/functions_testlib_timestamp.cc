@@ -350,7 +350,7 @@ static QueryParamsWithResult::FeatureSet GetFeatureSetForDateTimestampPart(
     case WEEK_THURSDAY:
     case WEEK_FRIDAY:
     case WEEK_SATURDAY:
-      return {FEATURE_V_1_2_WEEK_WITH_WEEKDAY};
+      return {FEATURE_WEEK_WITH_WEEKDAY};
     default:
       return {};
   }
@@ -668,7 +668,7 @@ std::vector<CivilTimeTestCase> GetFunctionTestsDatetimeAdd() {
         "YEAR", "QUARTER", "MONTH",  "WEEK",        "DAY",
         "HOUR", "MINUTE",  "SECOND", "MILLISECOND", "MICROSECOND"};
     for (const auto& part : parts) {
-      // Note that adding int64_t as NANOSECOND never overflows with recent
+      // Note that adding int64 as NANOSECOND never overflows with recent
       // datetime.
       civil_time_test_cases.push_back(
           {{{datetime_micros, Int64(std::numeric_limits<int64_t>::max()),
@@ -812,18 +812,18 @@ static std::vector<CivilTimeTestCase> GetFunctionTestsDatetimeSub() {
              arguments[2]});
         test_case.input.swap(new_arguments);
       } else {
-        // For cases with interval == std::numeric_limits<int64_t>::lowest(), -1 *
-        // interval will overflow int64_t, which is not a valid input for
+        // For cases with interval == std::numeric_limits<int64>::lowest(), -1 *
+        // interval will overflow int64, which is not a valid input for
         // datetime_sub().
         if (test_case.nanos_output.ok() || test_case.micros_output.ok()) {
-          // If the test case with a std::numeric_limits<int64_t>::lowest()
+          // If the test case with a std::numeric_limits<int64>::lowest()
           // interval is expecting a successful result, mark this test case for
           // removal later.
           index_of_elements_to_remove.push_back(i);
         } else {
           // However, most of the test cases in GetFunctionTestsDatetimeAdd are
           // expecting errors with interval ==
-          // std::numeric_limits<int64_t>::lowest(), which is the same expected
+          // std::numeric_limits<int64>::lowest(), which is the same expected
           // result when the same arguments are passed into datetime_sub(), thus
           // we can reuse these test cases directly.
         }
@@ -866,7 +866,7 @@ static std::vector<FunctionTestCall> GetFunctionTestsDateDiff();
 //
 // Note that it's possible for (arg_1 - arg_2) to be int64max + 1 so it
 // overflows in the original test case. However, (arg_2 - arg_1) gives int64min,
-// which is a valid int64_t result. This function cannot handle such cases, so it
+// which is a valid int64 result. This function cannot handle such cases, so it
 // should not be included in the original test cases.
 static void AddSwappedDiffTestCases(
     std::vector<CivilTimeTestCase>* diff_test_cases) {
@@ -1046,7 +1046,7 @@ std::vector<FunctionTestCall> GetFunctionTestsDatetimeDiff() {
       {{{DatetimeNanos(2016, 3, 16, 18, 49, 32, 123456000),
          DatetimeNanos(2308, 6, 26, 18, 36, 48, 978231809),
          Enum(part_enum, "NANOSECOND")}},
-       FunctionEvalError() /* overflows int64_t */,
+       FunctionEvalError() /* overflows int64 */,
        Int64Type()},
   });
 
@@ -1760,8 +1760,8 @@ static std::vector<CivilTimeTestCase> GetFunctionTestsTimeSub() {
              arguments[2]});
         test_case.input.swap(new_arguments);
       } else {
-        // For cases with interval == std::numeric_limits<int64_t>::lowest(), -1 *
-        // interval will overflow int64_t, which is not a valid input for
+        // For cases with interval == std::numeric_limits<int64>::lowest(), -1 *
+        // interval will overflow int64, which is not a valid input for
         // time_sub(). These test cases will be removed.
         index_of_elements_to_remove.push_back(i);
       }
@@ -1772,12 +1772,12 @@ static std::vector<CivilTimeTestCase> GetFunctionTestsTimeSub() {
     civil_time_test_cases.erase(civil_time_test_cases.begin() + *itr);
   }
 
-  // Add all std::numeric_limits<int64_t>::lowest() and
-  // std::numeric_limits<int64_t>::max() test cases
-  // time_sub(std::numeric_limits<int64_t>::lowest()) == time_add(-kint64min) ==
-  // time_add(std::numeric_limits<int64_t>::max() + 1)
-  // time_sub(std::numeric_limits<int64_t>::max()) == time_add(-kint64max) ==
-  // time_add(std::numeric_limits<int64_t>::lowest() + 1)
+  // Add all std::numeric_limits<int64>::lowest() and
+  // std::numeric_limits<int64>::max() test cases
+  // time_sub(std::numeric_limits<int64>::lowest()) == time_add(-kint64min) ==
+  // time_add(std::numeric_limits<int64>::max() + 1)
+  // time_sub(std::numeric_limits<int64>::max()) == time_add(-kint64max) ==
+  // time_add(std::numeric_limits<int64>::lowest() + 1)
   const EnumType* part_enum;
   const google::protobuf::EnumDescriptor* enum_descriptor =
       functions::DateTimestampPart_descriptor();
@@ -2331,8 +2331,8 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampAddAndAliases() {
   for (const FunctionTestCall& test : GetFunctionTestsTimestampAdd()) {
     result.push_back(test);
     result.push_back(FunctionTestCall(
-        "date_add", test.params.WrapWithFeature(
-                        FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)));
+        "date_add",
+        test.params.WrapWithFeature(FEATURE_EXTENDED_DATE_TIME_SIGNATURES)));
   }
   return result;
 }
@@ -2356,8 +2356,8 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampSubAndAliases() {
   for (const FunctionTestCall& test : GetFunctionTestsTimestampSub()) {
     result.push_back(test);
     result.push_back(FunctionTestCall(
-        "date_sub", test.params.WrapWithFeature(
-                        FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)));
+        "date_sub",
+        test.params.WrapWithFeature(FEATURE_EXTENDED_DATE_TIME_SIGNATURES)));
   }
   return result;
 }
@@ -2661,8 +2661,8 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampDiff() {
   for (const FunctionTestCall& test : GetFunctionTestsTimestampDiffInternal()) {
     result.push_back(test);
     result.push_back(FunctionTestCall(
-        "date_diff", test.params.WrapWithFeature(
-                         FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)));
+        "date_diff",
+        test.params.WrapWithFeature(FEATURE_EXTENDED_DATE_TIME_SIGNATURES)));
   }
   return result;
 }
@@ -3366,8 +3366,8 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampTrunc() {
     result.push_back(test);
     if (test.params.required_features().empty()) {
       result.push_back(FunctionTestCall(
-          "date_trunc", test.params.WrapWithFeature(
-                            FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)));
+          "date_trunc",
+          test.params.WrapWithFeature(FEATURE_EXTENDED_DATE_TIME_SIGNATURES)));
     }
   }
   return result;
@@ -3688,7 +3688,7 @@ static std::vector<FormatDateTimestampCommonTest>
 
 struct FormatTimestampTest {
   std::string format_string;  // format string
-  int64_t timestamp;          // int64_t timestamp (micros) value to format
+  int64_t timestamp;          // int64 timestamp (micros) value to format
   std::string timezone;    // time zone to use for formatting
   std::string expected_result;  // expected output string
 };
@@ -4031,7 +4031,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatDateTimestamp() {
 
     tests.push_back(FunctionTestCall(
         "format_date", tests.back().params.WrapWithFeature(
-                           FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)));
+                           FEATURE_EXTENDED_DATE_TIME_SIGNATURES)));
   }
 
   for (const FormatDateTest& test : GetFormatDateTests()) {
@@ -7333,7 +7333,7 @@ static std::vector<FunctionTestCall> GetFunctionTestsCastStringToTime() {
   test_cases.push_back({{NullString(), NullString()}, NullTime()});
 
   // Construct a vector of FunctionTestCall by wrapping the test cases with
-  // necessary features such as FEATURE_V_1_2_CIVIL_TIME.
+  // necessary features such as FEATURE_CIVIL_TIME.
   return PrepareCivilTimeTestCaseAsFunctionTestCall(test_cases,
                                                     "cast_string_to_time");
 }
@@ -7398,7 +7398,7 @@ static std::vector<FunctionTestCall> GetFunctionTestsCastStringToDatetime() {
       {{NullString(), NullString(), NullInt32()}, NullDatetime()});
 
   // Construct a vector of FunctionTestCall by wrapping the test cases with
-  // necessary features such as FEATURE_V_1_2_CIVIL_TIME.
+  // necessary features such as FEATURE_CIVIL_TIME.
   return PrepareCivilTimeTestCaseAsFunctionTestCall(test_cases,
                                                     "cast_string_to_datetime");
 }
@@ -7571,7 +7571,7 @@ void AddIsoYearWeekExtractTestsWithDate(
 }
 
 // Returns the feature set required for the date part (either empty or
-// {FEATURE_V_1_2_WEEK_WITH_WEEKDAY}.
+// {FEATURE_WEEK_WITH_WEEKDAY}.
 static QueryParamsWithResult::FeatureSet GetCustomWeekRequiredFeatures(
     int date_part) {
   switch (date_part) {
@@ -7584,7 +7584,7 @@ static QueryParamsWithResult::FeatureSet GetCustomWeekRequiredFeatures(
     case WEEK_THURSDAY:
     case WEEK_FRIDAY:
     case WEEK_SATURDAY:
-      return {FEATURE_V_1_2_WEEK_WITH_WEEKDAY};
+      return {FEATURE_WEEK_WITH_WEEKDAY};
     default:
       ABSL_LOG(FATAL) << "Unexpected date part: " << date_part;
   }
@@ -8400,7 +8400,7 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampConversion() {
        NullTimestamp(),
        OUT_OF_RANGE},
   };
-  // Require the language feature for all uint64_t tests.
+  // Require the language feature for all uint64 tests.
   for (FunctionTestCall& uint64_test : uint64_tests) {
     uint64_test.params.AddRequiredFeature(
         FEATURE_TIMESTAMP_FROM_UNIX_FUNCTIONS_WITH_UINT64);
@@ -9223,7 +9223,7 @@ std::vector<FunctionTestCall> GetFunctionTestsCastFormatDateTimestamp() {
                        {test.value, String(test.format_string)},
                        String(test.expected_result)});
     }
-    tests.back().params.AddRequiredFeature(FEATURE_V_1_2_CIVIL_TIME);
+    tests.back().params.AddRequiredFeature(FEATURE_CIVIL_TIME);
   }
   for (const auto& test : GetCastFormatTimeTests()) {
     if (IsExpectedError(test.expected_result)) {
@@ -9236,7 +9236,7 @@ std::vector<FunctionTestCall> GetFunctionTestsCastFormatDateTimestamp() {
                        {test.value, String(test.format_string)},
                        String(test.expected_result)});
     }
-    tests.back().params.AddRequiredFeature(FEATURE_V_1_2_CIVIL_TIME);
+    tests.back().params.AddRequiredFeature(FEATURE_CIVIL_TIME);
   }
   return tests;
 }
@@ -9647,10 +9647,10 @@ FunctionTestCall DatetimeBucketTest(
   QueryParamsWithResult::FeatureSet feature_set;
   if (scale == kNanoseconds) {
     feature_set = {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE,
-                   FEATURE_V_1_2_CIVIL_TIME, FEATURE_TIMESTAMP_NANOS};
+                   FEATURE_CIVIL_TIME, FEATURE_TIMESTAMP_NANOS};
   } else {
     feature_set = {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE,
-                   FEATURE_V_1_2_CIVIL_TIME};
+                   FEATURE_CIVIL_TIME};
   }
   call.params = call.params.WrapWithFeatureSet(feature_set);
   return call;
@@ -9679,10 +9679,10 @@ FunctionTestCall DatetimeBucketErrorTest(
   QueryParamsWithResult::FeatureSet feature_set;
   if (scale == kNanoseconds) {
     feature_set = {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE,
-                   FEATURE_V_1_2_CIVIL_TIME, FEATURE_TIMESTAMP_NANOS};
+                   FEATURE_CIVIL_TIME, FEATURE_TIMESTAMP_NANOS};
   } else {
     feature_set = {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE,
-                   FEATURE_V_1_2_CIVIL_TIME};
+                   FEATURE_CIVIL_TIME};
   }
   call.params = call.params.WrapWithFeatureSet(feature_set);
   return call;

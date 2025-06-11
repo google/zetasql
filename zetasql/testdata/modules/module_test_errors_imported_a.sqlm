@@ -1,0 +1,5 @@
+-- This imported module has no errors.
+MODULE module_test_errors_imported_a;
+
+-- Valid
+CREATE PUBLIC FUNCTION foo(a INT64) AS (a);

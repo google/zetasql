@@ -81,7 +81,7 @@ std::vector<FunctionTestCall> WrapFeatures(
     call.params = call.params.WrapWithFeature(FEATURE_RANGE_TYPE);
     if (HasDatetimeElementType(call.params.params().front()) ||
         HasDatetimeElementType(call.params.params().back())) {
-      call.params = call.params.WrapWithFeature(FEATURE_V_1_2_CIVIL_TIME);
+      call.params = call.params.WrapWithFeature(FEATURE_CIVIL_TIME);
     }
     wrapped_tests.emplace_back(call);
   }
@@ -1196,7 +1196,7 @@ FunctionTestCall GenerateRangeArrayTest(
   }
   const Type* element_type = range_type->AsRange()->element_type();
   if (element_type->IsDatetime()) {
-    call.params.AddRequiredFeature(FEATURE_V_1_2_CIVIL_TIME);
+    call.params.AddRequiredFeature(FEATURE_CIVIL_TIME);
   }
   return call;
 }
@@ -1233,7 +1233,7 @@ FunctionTestCall GenerateRangeArrayErrorTest(
   }
   const Type* element_type = range_type->AsRange()->element_type();
   if (element_type->IsDatetime()) {
-    call.params.AddRequiredFeature(FEATURE_V_1_2_CIVIL_TIME);
+    call.params.AddRequiredFeature(FEATURE_CIVIL_TIME);
   }
   return call;
 }
@@ -2845,7 +2845,7 @@ GetFunctionTestsGenerateDatetimeRangeArrayExtras() {
 
   for (FunctionTestCall& test_case : test_cases) {
     test_case.params.AddRequiredFeatures(
-        {FEATURE_RANGE_TYPE, FEATURE_INTERVAL_TYPE, FEATURE_V_1_2_CIVIL_TIME});
+        {FEATURE_RANGE_TYPE, FEATURE_INTERVAL_TYPE, FEATURE_CIVIL_TIME});
   }
   return test_cases;
 }

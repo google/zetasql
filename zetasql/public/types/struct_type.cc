@@ -100,7 +100,7 @@ void StructType::DebugStringImpl(bool details, TypeOrStringVector* stack,
 
 bool StructType::SupportsGroupingImpl(const LanguageOptions& language_options,
                                       const Type** no_grouping_type) const {
-  if (!language_options.LanguageFeatureEnabled(FEATURE_V_1_2_GROUP_BY_STRUCT)) {
+  if (!language_options.LanguageFeatureEnabled(FEATURE_GROUP_BY_STRUCT)) {
     if (no_grouping_type != nullptr) *no_grouping_type = this;
     return false;
   }
@@ -117,7 +117,7 @@ bool StructType::SupportsGroupingImpl(const LanguageOptions& language_options,
 bool StructType::SupportsPartitioningImpl(
     const LanguageOptions& language_options,
     const Type** no_partitioning_type) const {
-  if (!language_options.LanguageFeatureEnabled(FEATURE_V_1_2_GROUP_BY_STRUCT)) {
+  if (!language_options.LanguageFeatureEnabled(FEATURE_GROUP_BY_STRUCT)) {
     if (no_partitioning_type != nullptr) *no_partitioning_type = this;
     return false;
   }

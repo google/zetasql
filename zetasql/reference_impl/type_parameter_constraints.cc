@@ -24,14 +24,17 @@
 #include "zetasql/public/functions/string.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/timestamp_picos_value.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
+#include "absl/numeric/int128.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -102,6 +105,36 @@ absl::StatusOr<T> ApplyPrecisionScale(T value, int64_t precision,
   return value;
 }
 
+static absl::StatusOr<TimestampPicosValue> ApplyPrecision(
+    TimestampPicosValue value, int64_t precision) {
+  absl::int128 unix_picos = value.ToUnixPicos();
+
+  // Integer division (floor) to the right precision.
+  int64_t picos_per_target_unit = 0;
+  switch (precision) {
+    case 0:
+      picos_per_target_unit = 1'000'000'000'000;
+      break;
+    case 3:
+      picos_per_target_unit = 1'000'000'000;
+      break;
+    case 6:
+      picos_per_target_unit = 1'000'000;
+      break;
+    case 9:
+      picos_per_target_unit = 1'000;
+      break;
+    case 12:
+      picos_per_target_unit = 1;
+      break;
+    default:
+      ZETASQL_RET_CHECK_FAIL() << "Unexpected precision: " << precision;
+  }
+
+  absl::int128 remainder = unix_picos % picos_per_target_unit;
+  return TimestampPicosValue::FromUnixPicos(unix_picos - remainder);
+}
+
 }  // namespace
 
 absl::Status ApplyConstraints(const TypeParameters& type_params,
@@ -160,6 +193,14 @@ absl::Status ApplyConstraints(const TypeParameters& type_params,
                              type_params.numeric_type_parameters().scale()));
       }
       value = Value::BigNumeric(updated_bignumeric_value);
+      return absl::OkStatus();
+    }
+    case TYPE_TIMESTAMP: {
+      ZETASQL_ASSIGN_OR_RETURN(
+          TimestampPicosValue updated_timestamp,
+          ApplyPrecision(value.ToUnixPicos(),
+                         type_params.timestamp_type_parameters().precision()));
+      value = Value::Timestamp(updated_timestamp);
       return absl::OkStatus();
     }
     case TYPE_STRUCT: {

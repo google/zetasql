@@ -323,7 +323,7 @@ ARRAY<STRUCT<enum_val ENUM<zetasql_test__.TestEnum>>>[unknown order:
 ==
 # UNION DISTINCT on struct column
 [name=union_distinct_datatype_struct]
-[required_features=V_1_2_GROUP_BY_STRUCT]
+[required_features=GROUP_BY_STRUCT]
 SELECT AS STRUCT 1, 2
 UNION DISTINCT
 SELECT AS STRUCT 1, 2
@@ -390,7 +390,7 @@ ARRAY<STRUCT<DOUBLE>>[{nan}]
 NOTE: Reference implementation reports non-determinism.
 ==
 [name=union_distinct_corresponding_parenthesized_multiple_operands]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val, bool_val, int32_val
 FROM Table1
 UNION DISTINCT CORRESPONDING
@@ -414,7 +414,7 @@ ARRAY<STRUCT<int64_val INT64, bool_val BOOL, int32_val INT32>>[unknown order:
 NOTE: Reference implementation reports non-determinism.
 ==
 [name=union_distinct_corresponding_multiple_operands]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val, bool_val, int32_val
 FROM Table1
 UNION DISTINCT CORRESPONDING
@@ -434,7 +434,7 @@ ARRAY<STRUCT<int64_val INT64, bool_val BOOL, int32_val INT32>>[unknown order:
 ]
 ==
 [name=union_distinct_corresponding_type_coercion]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val AS col1, bool_val AS col2, int32_val AS col3
 FROM Table1
 UNION DISTINCT CORRESPONDING
@@ -460,7 +460,7 @@ ARRAY<STRUCT<col1 INT64, col2 BOOL, col3 DOUBLE>>[unknown order:
 NOTE: Reference implementation reports non-determinism.
 ==
 [name=union_distinct_with_corresponding_with_extra_columns_in_first_table_scan]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT primary_key, int32_val, int64_val FROM Table1
 UNION DISTINCT CORRESPONDING
 SELECT int64_val, int32_val FROM TestDistinct
@@ -475,7 +475,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
 ]
 ==
 [name=union_distinct_with_corresponding_with_extra_columns_in_first_single_scan]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT primary_key, int32_val, int64_val FROM Table1
 UNION DISTINCT CORRESPONDING
 SELECT CAST(-2 AS INT64) AS int64_val, CAST(-2 AS INT32) AS int32_val
@@ -489,7 +489,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
 ]
 ==
 [name=union_distinct_with_corresponding_extra_columns_in_second]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int32_val, int64_val FROM Table1
 UNION DISTINCT CORRESPONDING
 SELECT CAST(-2 AS INT64) AS int64_val, CAST(-2 AS INT32) AS int32_val, 1 AS extra
@@ -503,7 +503,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
 ]
 ==
 [name=union_distinct_with_corresponding_no_extra_columns]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int32_val, int64_val FROM Table1
 UNION DISTINCT CORRESPONDING
 SELECT CAST(-2 AS INT64) AS int64_val, CAST(-2 AS INT32) AS int32_val FROM Table1
@@ -517,7 +517,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
 ]
 ==
 [name=union_distinct_with_corresponding_type_coercion]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int32_val AS a, uint32_val AS b FROM Table1
 UNION DISTINCT CORRESPONDING
 SELECT int64_val AS b FROM TestDistinct
@@ -525,7 +525,7 @@ SELECT int64_val AS b FROM TestDistinct
 ARRAY<STRUCT<b INT64>>[unknown order:{NULL}, {-2}, {1}, {2}, {3}, {4}, {100}]
 ==
 [name=union_distinct_with_corresponding_nested_operations]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 (
   SELECT int32_val, int64_val, uint32_val FROM Table1
   UNION ALL
@@ -545,7 +545,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
 ]
 ==
 [name=union_distinct_with_corresponding_nested_operations_single_row_scan]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 (
   SELECT int32_val, int64_val, uint32_val FROM Table1
   UNION ALL
@@ -564,7 +564,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
 ]
 ==
 [name=union_distinct_with_corresponding_nested_operation_with_project_scan]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT *
 FROM (
   (
@@ -587,7 +587,7 @@ ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[unknown order:
 ]
 ==
 [name=union_distinct_with_corresponding_multiple_expressions]
-[required_features=V_1_4_CORRESPONDING]
+[required_features=CORRESPONDING]
 SELECT int64_val, int32_val, primary_key FROM Table1
 UNION DISTINCT CORRESPONDING
 SELECT int32_val, int64_val FROM TestDistinct

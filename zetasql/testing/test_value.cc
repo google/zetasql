@@ -123,14 +123,18 @@ const GraphElementType* InferGraphElementType(
     GraphElementType::ElementKind element_kind,
     absl::Span<const std::pair<std::string, Value>> properties,
     TypeFactory* type_factory
+    ,
+    bool is_dynamic = false
 ) {
   std::vector<GraphElementType::PropertyType> property_types;
   property_types.reserve(properties.size());
   for (const auto& property : properties) {
     property_types.emplace_back(property.first, property.second.type());
   }
-  return MakeGraphElementType(graph_reference, element_kind, property_types,
-                              type_factory);
+  return is_dynamic ? MakeDynamicGraphElementType(graph_reference, element_kind,
+                                                  property_types, type_factory)
+                    : MakeGraphElementType(graph_reference, element_kind,
+                                           property_types, type_factory);
 }
 
 }  // namespace
@@ -170,6 +174,52 @@ Value GraphEdge(
       graph_element_type, identifier, labels_and_properties, definition_name,
       source_node_identifier, dest_node_identifier);
   ZETASQL_CHECK_OK(graph_element);  // Crash ok
+  return *graph_element;
+}
+
+Value DynamicGraphNode(
+    absl::Span<const std::string> graph_reference, absl::string_view identifier,
+    absl::Span<const std::pair<std::string, Value>> static_properties,
+    JSONValueConstRef dynamic_properties,
+    absl::Span<const std::string> static_labels,
+    absl::Span<const std::string> dynamic_labels,
+    absl::string_view definition_name, TypeFactory* type_factory) {
+  const GraphElementType* graph_element_type = InferGraphElementType(
+      graph_reference, GraphElementType::kNode, static_properties, type_factory,
+      /*is_dynamic=*/true);
+  Value::GraphElementLabelsAndProperties labels_and_properties{
+      .static_labels = {static_labels.begin(), static_labels.end()},
+      .static_properties = {static_properties.begin(), static_properties.end()},
+      .dynamic_labels = {dynamic_labels.begin(), dynamic_labels.end()},
+      .dynamic_properties = std::move(dynamic_properties),
+  };
+  absl::StatusOr<Value> graph_element = Value::MakeGraphNode(
+      graph_element_type, identifier, labels_and_properties, definition_name);
+  ZETASQL_DCHECK_OK(graph_element);
+  return *graph_element;
+}
+
+Value DynamicGraphEdge(
+    absl::Span<const std::string> graph_reference, absl::string_view identifier,
+    absl::Span<const std::pair<std::string, Value>> static_properties,
+    JSONValueConstRef dynamic_properties,
+    absl::Span<const std::string> static_labels,
+    absl::Span<const std::string> dynamic_labels,
+    absl::string_view definition_name, absl::string_view source_node_identifier,
+    absl::string_view dest_node_identifier, TypeFactory* type_factory) {
+  const GraphElementType* graph_element_type = InferGraphElementType(
+      graph_reference, GraphElementType::kEdge, static_properties, type_factory,
+      /*is_dynamic=*/true);
+  Value::GraphElementLabelsAndProperties labels_and_properties{
+      .static_labels = {static_labels.begin(), static_labels.end()},
+      .static_properties = {static_properties.begin(), static_properties.end()},
+      .dynamic_labels = {dynamic_labels.begin(), dynamic_labels.end()},
+      .dynamic_properties = std::move(dynamic_properties),
+  };
+  absl::StatusOr<Value> graph_element = Value::MakeGraphEdge(
+      graph_element_type, identifier, labels_and_properties, definition_name,
+      source_node_identifier, dest_node_identifier);
+  ZETASQL_DCHECK_OK(graph_element);
   return *graph_element;
 }
 
@@ -225,6 +275,18 @@ const GraphElementType* MakeGraphElementType(
   const GraphElementType* graph_element_type;
   type_factory = type_factory ? type_factory : static_type_factory();
   ZETASQL_CHECK_OK(type_factory->MakeGraphElementType(
+      graph_reference, element_kind, property_types, &graph_element_type));
+  return graph_element_type;
+}
+
+const GraphElementType* MakeDynamicGraphElementType(
+    absl::Span<const std::string> graph_reference,
+    GraphElementType::ElementKind element_kind,
+    absl::Span<const GraphElementType::PropertyType> property_types,
+    TypeFactory* type_factory) {
+  const GraphElementType* graph_element_type;
+  type_factory = type_factory ? type_factory : static_type_factory();
+  ZETASQL_CHECK_OK(type_factory->MakeDynamicGraphElementType(
       graph_reference, element_kind, property_types, &graph_element_type));
   return graph_element_type;
 }

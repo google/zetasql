@@ -20,6 +20,7 @@ is `NULL`.
 The geography functions are grouped into the following categories based on their
 behavior:
 
+<!-- disableFinding(LINK_ID) -->
 <table>
   <thead>
     <tr>
@@ -197,6 +198,7 @@ behavior:
     
   </tbody>
 </table>
+<!-- enableFinding(LINK_ID) -->
 
 ## Function list
 
@@ -3169,8 +3171,7 @@ ST_LINEINTERPOLATEPOINT(linestring_geography, fraction)
 
 **Description**
 
-Gets a point at a specific fraction in a linestring <code>GEOGRAPHY</code>
-value.
+Gets a point at a specific fraction in a linestring `GEOGRAPHY` value.
 
 **Definitions**
 

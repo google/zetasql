@@ -72,6 +72,10 @@ class TypeParameters {
   static absl::StatusOr<TypeParameters> MakeNumericTypeParameters(
       const NumericTypeParametersProto& numeric_type_parameters);
 
+  // Constructs type parameters for TIMESTAMP(P) type.
+  static absl::StatusOr<TypeParameters> MakeTimestampTypeParameters(
+      const TimestampTypeParametersProto& timestamp_type_parameters);
+
   // Constructs type parameters for extended type. <child_list> is optional;
   // if present, it stores sub-fields for extended type.
   static TypeParameters MakeExtendedTypeParameters(
@@ -87,6 +91,9 @@ class TypeParameters {
 
   static absl::Status ValidateNumericTypeParameters(
       const NumericTypeParametersProto& numeric_type_parameters);
+
+  static absl::Status ValidateTimestampTypeParameters(
+      const TimestampTypeParametersProto& timestamp_type_parameters);
 
   // Returns whether <type> matches this type parameter instance.
   // For example, StringTypeParameters only matches STRING and BYTES type. For
@@ -108,6 +115,10 @@ class TypeParameters {
     return std::holds_alternative<StringTypeParametersProto>(
         type_parameters_holder_);
   }
+  bool IsTimestampTypeParameters() const {
+    return std::holds_alternative<TimestampTypeParametersProto>(
+        type_parameters_holder_);
+  }
   bool IsNumericTypeParameters() const {
     return std::holds_alternative<NumericTypeParametersProto>(
         type_parameters_holder_);
@@ -119,6 +130,10 @@ class TypeParameters {
   const StringTypeParametersProto& string_type_parameters() const {
     ABSL_CHECK(IsStringTypeParameters()) << "Not STRING type parameters";
     return std::get<StringTypeParametersProto>(type_parameters_holder_);
+  }
+  const TimestampTypeParametersProto& timestamp_type_parameters() const {
+    ABSL_CHECK(IsTimestampTypeParameters()) << "Not TIMESTAMP type parameters";
+    return std::get<TimestampTypeParametersProto>(type_parameters_holder_);
   }
   const NumericTypeParametersProto& numeric_type_parameters() const {
     ABSL_CHECK(IsNumericTypeParameters()) << "Not NUMERIC type parameters";
@@ -162,6 +177,8 @@ class TypeParameters {
  private:
   explicit TypeParameters(const StringTypeParametersProto& string_parameters);
   explicit TypeParameters(const NumericTypeParametersProto& numeric_parameters);
+  explicit TypeParameters(
+      const TimestampTypeParametersProto& timestamp_parameters);
   TypeParameters(const ExtendedTypeParameters& extended_parameters,
                  std::vector<TypeParameters> child_list);
   explicit TypeParameters(std::vector<TypeParameters> child_list);
@@ -169,7 +186,8 @@ class TypeParameters {
   // Default value is the 1st type (std::monostate), meaning the type parameter
   // is empty.
   std::variant<std::monostate, StringTypeParametersProto,
-               NumericTypeParametersProto, ExtendedTypeParameters>
+               NumericTypeParametersProto, TimestampTypeParametersProto,
+               ExtendedTypeParameters>
       type_parameters_holder_;
   // Stores type parameters for subfields for ARRAY, STRUCT, or RANGE types
   std::vector<TypeParameters> child_list_;
@@ -182,7 +200,7 @@ class TypeParameters {
 // can store it directly.
 //
 // When a type parameter is a special literal, e.g. in STRING(MAX), the literal
-// is stored as an TypeParametersLiteral enum.
+// is stored as a TypeParametersLiteral enum.
 class TypeParameterValue {
  public:
   enum TypeParametersLiteral { kNonSpecialLiteral = 0, kMaxLiteral = 1 };

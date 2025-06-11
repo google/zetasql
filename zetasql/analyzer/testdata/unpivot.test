@@ -1,7 +1,7 @@
 [default enabled_ast_rewrites=DEFAULTS]
-[default language_features=V_1_3_UNPIVOT,TABLESAMPLE,TABLE_VALUED_FUNCTIONS]
+[default language_features=UNPIVOT,TABLESAMPLE,TABLE_VALUED_FUNCTIONS]
 
-[language_features={{|V_1_3_UNPIVOT}}]
+[language_features={{|UNPIVOT}}]
 SELECT * FROM KeyValue UNPIVOT(a for b in (Key));
 --
 ALTERNATION GROUP: <empty>
@@ -10,7 +10,7 @@ ERROR: UNPIVOT is not supported [at 1:24]
 SELECT * FROM KeyValue UNPIVOT(a for b in (Key));
                        ^
 --
-ALTERNATION GROUP: V_1_3_UNPIVOT
+ALTERNATION GROUP: UNPIVOT
 --
 QueryStmt
 +-output_column_list=
@@ -296,7 +296,7 @@ SELECT * FROM UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
                                      ^
 ==
 
-[language_features=V_1_3_UNPIVOT,TABLESAMPLE,TABLE_VALUED_FUNCTIONS{{|,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
+[language_features=UNPIVOT,TABLESAMPLE,TABLE_VALUED_FUNCTIONS{{|,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
 # 2 UNNESTs
 SELECT * FROM UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
 --
@@ -329,14 +329,14 @@ UNPIVOT is not allowed with array scans. This will become an error [at 2:63]
                                                    ^
 [zetasql.DeprecationWarning] { kind: PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN }
 --
-ALTERNATION GROUP: ,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
+ALTERNATION GROUP: ,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
 --
 ERROR: UNPIVOT is not allowed with array scans [at 2:63]
 ...UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
                                                    ^
 ==
 
-[language_features=V_1_3_UNPIVOT,TABLESAMPLE,TABLE_VALUED_FUNCTIONS{{|,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
+[language_features=UNPIVOT,TABLESAMPLE,TABLE_VALUED_FUNCTIONS{{|,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
 # Table with UNNEST
 SELECT * FROM KeyValue, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
 --
@@ -366,14 +366,14 @@ SELECT * FROM KeyValue, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
                                                ^
 [zetasql.DeprecationWarning] { kind: PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN }
 --
-ALTERNATION GROUP: ,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
+ALTERNATION GROUP: ,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
 --
 ERROR: UNPIVOT is not allowed with array scans [at 2:48]
 SELECT * FROM KeyValue, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
                                                ^
 ==
 
-[language_features=V_1_3_UNPIVOT,TABLESAMPLE,TABLE_VALUED_FUNCTIONS{{|,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
+[language_features=UNPIVOT,TABLESAMPLE,TABLE_VALUED_FUNCTIONS{{|,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
 # Table with 2 UNNESTs
 SELECT * FROM KeyValue, UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
 --
@@ -410,7 +410,7 @@ UNPIVOT is not allowed with array scans. This will become an error [at 2:73]
                                                    ^
 [zetasql.DeprecationWarning] { kind: PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN }
 --
-ALTERNATION GROUP: ,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
+ALTERNATION GROUP: ,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
 --
 ERROR: UNPIVOT is not allowed with array scans [at 2:73]
 ...UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
@@ -1008,7 +1008,7 @@ QueryStmt
       +-UnpivotScan
         +-column_list=$unpivot.[column_bool#5, a#3, b#4]
         +-input_scan=
-        | +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+        | +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
         +-value_column_list=[$unpivot.a#3]
         +-label_column=$unpivot.b#4
         +-label_list=
@@ -1054,7 +1054,7 @@ QueryStmt
             | +-ArrayScan
             |   +-column_list=[tvf_no_args.column_bool#1, tvf_no_args.column_bytes#2, unpivot_array_0.unpivot_unnest#6]
             |   +-input_scan=
-            |   | +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+            |   | +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>)
             |   +-array_expr_list=
             |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a BYTES, b STRING>) -> ARRAY<STRUCT<a BYTES, b STRING>>)
             |   |   +-MakeStruct
@@ -1186,6 +1186,7 @@ QueryStmt
         |   |       +-include_nulls=FALSE
         |   +-argument_column_list=$unpivot.[Value#5, a#3, b#4]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
 
 [REWRITTEN AST]
 QueryStmt
@@ -1251,6 +1252,7 @@ QueryStmt
         |   |                   +-field_idx=0
         |   +-argument_column_list=$unpivot.[Value#5, a#3, b#4]
         +-column_index_list=[0, 1]
+        +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Unpivot combined with TABLESAMPLE

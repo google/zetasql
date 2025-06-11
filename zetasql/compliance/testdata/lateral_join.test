@@ -1,0 +1,93 @@
+[default required_features=LATERAL_JOIN]
+
+[prepare_database]
+CREATE TABLE R AS
+  SELECT 1 AS id, 1 AS a, cast("a1" as string) as str UNION ALL
+  SELECT 2, 2, "a2"
+--
+ARRAY<STRUCT<id INT64, a INT64, str STRING>>[{1, 1, "a1"}, {2, 2, "a2"}]
+==
+[prepare_database]
+CREATE TABLE S AS
+  SELECT 1 AS id, 2 AS a, cast("b21" as string) as str UNION ALL
+  SELECT 2, 2, "b22" UNION ALL
+  SELECT 3, 3, "b3"
+--
+ARRAY<STRUCT<id INT64, a INT64, str STRING>>[
+  {1, 2, "b21"},
+  {2, 2, "b22"},
+  {3, 3, "b3"}
+]
+==
+[name=cross_lateral_join]
+SELECT R.id, R.str, L.str
+FROM R
+     CROSS JOIN LATERAL(select R.str || S.str AS str from S WHERE S.str > R.str) AS L
+ORDER BY L.str
+--
+ARRAY<STRUCT<id INT64, str STRING, str STRING>>[known order:
+  {1, "a1", "a1b21"},
+  {1, "a1", "a1b22"},
+  {1, "a1", "a1b3"},
+  {2, "a2", "a2b21"},
+  {2, "a2", "a2b22"},
+  {2, "a2", "a2b3"}
+]
+==
+
+[name=inner_lateral_join]
+SELECT R.id, R.str, L.str, L.id
+FROM R
+     INNER JOIN LATERAL(select R.str || S.str AS str, id from S WHERE S.str > R.str) AS L
+     ON R.id = L.id
+ORDER BY L.str
+--
+ARRAY<STRUCT<id INT64, str STRING, str STRING, id INT64>>[known order:
+  {1, "a1", "a1b21", 1},
+  {2, "a2", "a2b22", 2}
+]
+==
+
+[name=left_lateral_join]
+SELECT R.id, R.str, L.str, L.id
+FROM R
+     LEFT JOIN LATERAL(select R.str || S.str AS str, id, a from S WHERE S.str > R.str) AS L
+     ON R.a = L.a
+ORDER BY L.str
+--
+ARRAY<STRUCT<id INT64, str STRING, str STRING, id INT64>>[known order:
+  {1, "a1", NULL, NULL},
+  {2, "a2", "a2b21", 1},
+  {2, "a2", "a2b22", 2}
+]
+==
+
+# Checking the counts, not the actual rand values to preserve determinism.
+# Since the lateral subquery is uncorrelated, engines are free to reevaluate it
+# for every row or to optimize and compute it once.
+[name=lateral_on_uncorrelated_subquery]
+SELECT
+  count(*) AS cnt
+FROM
+ UNNEST([1,2,3]) AS id
+ CROSS JOIN LATERAL(select rand() AS `lateral`)
+ CROSS JOIN (select rand() AS non_lateral)
+--
+ARRAY<STRUCT<cnt INT64>>[{3}]
+==
+
+[name=successive_lateral_joins]
+SELECT S1.id, S1.str, L1.id, L1.str, L2.id, L2.str
+FROM
+  S AS S1
+  LEFT JOIN
+  LATERAL(select S1.str || S.str AS str, id from S WHERE S.str >= S1.str) AS L1 ON S1.id = L1.id
+  INNER JOIN
+  LATERAL(select S1.str || L1.str || S.str AS str, id from S WHERE S.str >= S1.str) AS L2 ON S1.id = L2.id
+ORDER BY L1.str
+--
+ARRAY<STRUCT<id INT64, str STRING, id INT64, str STRING, id INT64, str STRING>>[known order:
+  {1, "b21", 1, "b21b21", 1, "b21b21b21b21"},
+  {2, "b22", 2, "b22b22", 2, "b22b22b22b22"},
+  {3, "b3", 3, "b3b3", 3, "b3b3b3b3"}
+]

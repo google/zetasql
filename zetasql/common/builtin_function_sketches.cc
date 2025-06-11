@@ -15,6 +15,8 @@
 //
 
 #include <initializer_list>
+#include <optional>
+#include <string>
 #include <vector>
 
 #include "google/protobuf/timestamp.pb.h"
@@ -36,8 +38,14 @@
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
+#include "absl/base/no_destructor.h"
+#include "absl/container/flat_hash_set.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
+#include "zetasql/base/ret_check.h"
 
 namespace zetasql {
 
@@ -141,7 +149,7 @@ void GetKllQuantilesFunctions(TypeFactory* type_factory,
   init_inv_eps_arg.set_cardinality(OPTIONAL);
 
   bool use_float64_name = options.language_options.LanguageFeatureEnabled(
-      FEATURE_V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS);
+      FEATURE_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS);
   auto make_function_name = [use_float64_name](absl::string_view name_prefix) {
     return absl::StrCat(name_prefix, use_float64_name ? "_float64" : "_double");
   };
@@ -166,7 +174,7 @@ void GetKllQuantilesFunctions(TypeFactory* type_factory,
   // Init functions include a weight parameter only if NAMED_ARGUMENTS
   // enabled.
   if (options.language_options.LanguageFeatureEnabled(
-          zetasql::FEATURE_V_1_3_KLL_WEIGHTS)) {
+          zetasql::FEATURE_KLL_WEIGHTS)) {
     // Explicitly set default value for precision (detailed in (broken link))
     init_inv_eps_arg.set_default(Value::Int64(1000));
 

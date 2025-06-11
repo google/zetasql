@@ -5,7 +5,7 @@
 # Work with recursive CTEs
 
 In ZetaSQL, a `WITH` clause contains one or more common table
-expressions (CTEs) with temporary tables that you can reference in a query
+expressions (CTEs) that you can reference in a query
 expression. CTEs can be [non-recursive][non-recursive-cte],
 [recursive][recursive-cte], or both. The [`RECURSIVE`][recursive-keyword]
 keyword enables recursion in the `WITH` clause (`WITH RECURSIVE`).

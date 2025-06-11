@@ -130,14 +130,14 @@ ARRAY<STRUCT<x TIMESTAMP>>[unknown order:
 ]
 ==
 
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 [name=unnest_time]
 SELECT x FROM UNNEST([TIME '10:20:30', '01:02:03']) x;
 --
 ARRAY<STRUCT<x TIME>>[unknown order:{10:20:30}, {01:02:03}]
 ==
 
-[required_features=V_1_2_CIVIL_TIME]
+[required_features=CIVIL_TIME]
 [name=unnest_datetime]
 SELECT x FROM UNNEST([DATETIME '2000-01-02 10:20:30', '2000-01-02 01:02:03']) x;
 --

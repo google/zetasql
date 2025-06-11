@@ -43,6 +43,7 @@
 #include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/error_helpers.h"
+#include "zetasql/public/evaluator.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/language_options.h"
@@ -51,6 +52,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_helpers.h"
 #include "zetasql/public/parse_resume_location.h"
+#include "zetasql/public/prepared_expression_constant_evaluator.h"
 #include "zetasql/public/proto/logging.pb.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/simple_catalog_util.h"
@@ -81,6 +83,7 @@
 #include "zetasql/resolved_ast/resolved_node_kind.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/sql_builder.h"
+#include "zetasql/resolved_ast/target_syntax.h"
 #include "zetasql/resolved_ast/validator.h"
 #include "zetasql/testdata/sample_annotation.h"
 #include "zetasql/testdata/sample_catalog.h"
@@ -137,6 +140,24 @@ class SQLBuilderWithNestedCatalogSupport : public SQLBuilder {
   explicit SQLBuilderWithNestedCatalogSupport(
       const SQLBuilderOptions& options = SQLBuilderOptions())
       : SQLBuilder(options) {}
+
+  // Executes CheckFieldsAccessed() on the resolved node and then calls
+  // SQLBuilder::GetSql(). By calling CheckFieldsAccessed() it emulates
+  // ZETASQL_DEBUG_MODE behavior of GetSql() to reproduce ZETASQL_DEBUG_MODE only errors.
+  absl::StatusOr<std::string> GetSql() {
+    // If sql_ is present, then GetSql() was already called and popped up the
+    // query fragment.
+    if (!sql_.empty()) {
+      return sql_;
+    }
+
+    // Emulate ZETASQL_DEBUG_MODE behavior in GetSql() by checking fields accessed.
+    if (!query_fragments_.empty()) {
+      ZETASQL_RETURN_IF_ERROR(query_fragments_.back()->node->CheckFieldsAccessed());
+    }
+
+    return SQLBuilder::GetSql();
+  }
 
   std::string TableToIdentifierLiteral(const Table* table) override {
     std::string full_name = table->FullName();
@@ -600,6 +621,17 @@ class AnalyzerTestRunner {
     // Turn off AST rewrites. We'll run them later so we can show both ASTs.
     options.set_enabled_rewrites({});
 
+    // If requested, add a PreparedExpressionConstantEvaluator to the analyzer
+    // options.
+    std::unique_ptr<PreparedExpressionConstantEvaluator> constant_evaluator =
+        nullptr;
+    if (test_case_options_.GetBool(kUseConstantEvaluator)) {
+      constant_evaluator =
+          std::make_unique<PreparedExpressionConstantEvaluator>(
+              /*options=*/EvaluatorOptions{});
+      options.set_constant_evaluator(constant_evaluator.get());
+    }
+
     // Parse the language features first because other checks below may depend
     // on the features that are enabled for the test case.
     ZETASQL_ASSERT_OK_AND_ASSIGN(LanguageOptions::LanguageFeatureSet features,
@@ -638,10 +670,6 @@ class AnalyzerTestRunner {
     // SQLBuilder test benchmarks in sql_builder.test reflect INTERNAL
     // product mode.
     options.mutable_language()->set_product_mode(PRODUCT_INTERNAL);
-
-    // False by default. Enabled by test case option
-    // also_show_signature_mismatch_details.
-    options.set_show_function_signature_mismatch_details(false);
 
     // Set rewriter options
     const std::string& rewrite_options_str =
@@ -954,23 +982,10 @@ class AnalyzerTestRunner {
     TypeFactory* type_factory = type_factory_memory.get();
     std::unique_ptr<const AnalyzerOutput> output;
     absl::Status status;
-    absl::Status detailed_sig_mismatch_status;
     if (mode == "statement") {
       status =
           AnalyzeStatement(test_case, options, catalog, type_factory, &output);
       ASSERT_FALSE(status.ok() && output == nullptr);
-      if (!status.ok() &&
-          test_case_options_.GetBool(kAlsoShowSignatureMismatchDetails) &&
-          (absl::StrContains(status.message(), "No matching signature") ||
-           absl::StrContainsIgnoreCase(status.message(), "argument") ||
-           absl::StrContainsIgnoreCase(status.message(), "function"))) {
-        AnalyzerOptions case_options = options;
-        case_options.set_show_function_signature_mismatch_details(true);
-        detailed_sig_mismatch_status = AnalyzeStatement(
-            test_case, case_options, catalog, type_factory, &output);
-        ABSL_CHECK(!detailed_sig_mismatch_status.ok())
-            << "Expecting 'No matching signature' error";
-      }
 
       if (status.ok()) {
         runtime_info_list_.push_back(output->runtime_info());
@@ -1050,17 +1065,6 @@ class AnalyzerTestRunner {
       if (status.ok()) {
         ZETASQL_EXPECT_OK(output->resolved_expr()->CheckNoFieldsAccessed());
       }
-      if (!status.ok() &&
-          test_case_options_.GetBool(kAlsoShowSignatureMismatchDetails) &&
-          absl::StrContains(status.message(), "No matching signature")) {
-        AnalyzerOptions case_analyzer_options = options;
-        case_analyzer_options.set_show_function_signature_mismatch_details(
-            true);
-        detailed_sig_mismatch_status = AnalyzeExpression(
-            test_case, case_analyzer_options, catalog, type_factory, &output);
-        ABSL_CHECK(!detailed_sig_mismatch_status.ok())
-            << "Expecting 'No matching signature' error";
-      }
     } else if (mode == "type") {
       // Use special-case handler since we don't get a resolved AST.
       HandleOneType(test_case, options, catalog, type_factory, test_result);
@@ -1098,8 +1102,7 @@ class AnalyzerTestRunner {
     }
 
     HandleOneResult(test_case, options, type_factory, catalog, mode, status,
-                    detailed_sig_mismatch_status, output_ptr,
-                    extracted_statement_properties, test_result);
+                    output_ptr, extracted_statement_properties, test_result);
   }
 
   void TestMulti(absl::string_view test_case, const AnalyzerOptions& options,
@@ -1135,7 +1138,6 @@ class AnalyzerTestRunner {
         ZETASQL_EXPECT_OK(output->resolved_statement()->CheckNoFieldsAccessed());
       }
       HandleOneResult(test_case, options, type_factory, catalog, mode, status,
-                      /*detailed_sig_mismatch_status=*/absl::OkStatus(),
                       output.get(), extracted_statement_properties,
                       test_result);
 
@@ -1434,7 +1436,6 @@ class AnalyzerTestRunner {
       absl::string_view test_case, const AnalyzerOptions& options,
       TypeFactory* type_factory, Catalog* catalog, absl::string_view mode,
       const absl::Status& status,
-      const absl::Status& detailed_sig_mismatch_status,
       const AnalyzerOutput* output,
       const StatementProperties& extracted_statement_properties,
       file_based_test_driver::RunTestCaseResult* test_result) {
@@ -1713,16 +1714,6 @@ class AnalyzerTestRunner {
     if (!test_result_string.empty() || test_result->test_outputs().empty()) {
       test_result->AddTestOutput(test_result_string);
     }
-    if (!detailed_sig_mismatch_status.ok()) {
-      std::string detailed_error =
-          absl::StrCat("ERROR: ", FormatError(detailed_sig_mismatch_status));
-      // Avoid printing the detailed error message in case it's the same as the
-      // first.
-      if (detailed_error != test_result_string) {
-        test_result->AddTestOutput(
-            absl::StrCat("Signature Mismatch Details:\n", detailed_error));
-      }
-    }
 
     if (test_dumper_callback_ != nullptr) {
       if (status.ok()) {
@@ -1771,7 +1762,8 @@ class AnalyzerTestRunner {
         ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<Function> function,
                          MakeFunctionFromCreateFunction(
                              *output->resolved_statement()
-                                  ->GetAs<ResolvedCreateFunctionStmt>()));
+                                  ->GetAs<ResolvedCreateFunctionStmt>(),
+                             /*function_options=*/nullptr));
         if (!database_entry->mutable_catalog()->AddOwnedFunctionIfNotPresent(
                 &function)) {
           return absl::InvalidArgumentError(absl::StrFormat(
@@ -1810,6 +1802,12 @@ class AnalyzerTestRunner {
                          MakeConstantFromCreateConstant(
                              *output->resolved_statement()
                                   ->GetAs<ResolvedCreateConstantStmt>()));
+        if (options.constant_evaluator() != nullptr) {
+          ZETASQL_RETURN_IF_ERROR(owned_constant->SetEvaluationResult(
+              options.constant_evaluator()->Evaluate(
+                  *owned_constant->constant_expression())));
+        }
+
         const SQLConstant* constant = owned_constant.get();
         if (!database_entry->mutable_catalog()->AddOwnedConstantIfNotPresent(
                 std::move(owned_constant))) {
@@ -2880,6 +2878,13 @@ class AnalyzerTestRunner {
                                       sqlbuilder->dest_node_reference())) {
       return false;
     }
+    if (!CompareNode(output->dynamic_label(), sqlbuilder->dynamic_label())) {
+      return false;
+    }
+    if (!CompareNode(output->dynamic_properties(),
+                     sqlbuilder->dynamic_properties())) {
+      return false;
+    }
     return true;
   }
 
@@ -3169,20 +3174,49 @@ class AnalyzerTestRunner {
     }
   }
 
+  void FillTargetSyntaxMapFromOptions(const ResolvedNode* root_node,
+                                      TargetSyntaxMap* target_syntax_map) {
+    absl::string_view mode =
+        test_case_options_.GetString(kSqlBuilderTargetSyntaxMapMode);
+    if (mode.empty()) {
+      return;
+    } else if (mode == "kChainedFunctionCall") {
+      // Set this TargetSyntaxMap mode on all ResolvedFunctionCalls.
+      std::vector<const ResolvedNode*> function_call_nodes;
+      root_node->GetDescendantsSatisfying(
+          &ResolvedNode::Is<ResolvedFunctionCallBase>, &function_call_nodes);
+      for (const ResolvedNode* node : function_call_nodes) {
+        (*target_syntax_map)[node] = SQLBuildTargetSyntax::kChainedFunctionCall;
+      }
+    } else {
+      FAIL() << "Unrecognized value for " << kSqlBuilderTargetSyntaxMapMode
+             << ": '" << mode << "'";
+    }
+  }
+
   void TestSqlBuilderForTargetSyntaxMode(
       absl::string_view test_case,
       SQLBuilder::TargetSyntaxMode target_syntax_mode,
       absl::string_view target_syntax_mode_name, bool show_target_syntax_mode,
       const AnalyzerOptions& orig_options, Catalog* catalog, bool is_statement,
       const AnalyzerOutput* analyzer_output, std::string* result_string) {
+    const ResolvedNode* ast;
+    if (is_statement) {
+      ast = analyzer_output->resolved_statement();
+    } else {
+      ast = analyzer_output->resolved_expr();
+    }
+    ABSL_CHECK(ast != nullptr)
+        << "ResolvedAST passed to SQLBuilder should be either a "
+           "ResolvedStatement or a ResolvedExpr";
+
     AnalyzerOptions options = orig_options;
     // Don't mess up any shared sequence generator for the original query.
     options.set_column_id_sequence_number(nullptr);
     // The SQLBuilder sometimes adds an outer project to fix column names,
     // which can result in WITH clauses in subqueries, so we always enable
     // that feature.
-    options.mutable_language()->EnableLanguageFeature(
-        FEATURE_V_1_1_WITH_ON_SUBQUERY);
+    options.mutable_language()->EnableLanguageFeature(FEATURE_WITH_ON_SUBQUERY);
 
     SQLBuilder::SQLBuilderOptions builder_options(options.language());
     builder_options.undeclared_parameters =
@@ -3193,6 +3227,7 @@ class AnalyzerTestRunner {
     builder_options.target_syntax_map =
         InternalAnalyzerOutputProperties::GetTargetSyntaxMap(
             analyzer_output->analyzer_output_properties());
+    FillTargetSyntaxMapFromOptions(ast, &builder_options.target_syntax_map);
     builder_options.target_syntax_mode = target_syntax_mode;
     const std::string positional_parameter_mode =
         test_case_options_.GetString(kSqlBuilderPositionalParameterMode);
@@ -3209,15 +3244,6 @@ class AnalyzerTestRunner {
       FAIL() << "Unrecognized value for " << kSqlBuilderPositionalParameterMode
              << ": '" << positional_parameter_mode << "'";
     }
-    const ResolvedNode* ast;
-    if (is_statement) {
-      ast = analyzer_output->resolved_statement();
-    } else {
-      ast = analyzer_output->resolved_expr();
-    }
-    ABSL_CHECK(ast != nullptr)
-        << "ResolvedAST passed to SQLBuilder should be either a "
-           "ResolvedStatement or a ResolvedExpr";
 
     SQLBuilderWithNestedCatalogSupport builder(builder_options);
     absl::Status visitor_status = builder.Process(*ast);

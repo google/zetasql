@@ -145,7 +145,7 @@ SELECT cast(
 ARRAY<STRUCT<string_value STRING>>[{"FIRSTENUM"}]
 ==
 
-[required_features=V_1_3_ENUM_VALUE_DESCRIPTOR_PROTO]
+[required_features=ENUM_VALUE_DESCRIPTOR_PROTO]
 [name=enum_value_desc_proto]
 SELECT
   ENUM_VALUE_DESCRIPTOR_PROTO(
@@ -184,7 +184,7 @@ ARRAY<STRUCT<
   }}]
 ==
 
-[required_features=V_1_3_ENUM_VALUE_DESCRIPTOR_PROTO]
+[required_features=ENUM_VALUE_DESCRIPTOR_PROTO]
 [name=enum_value_desc_multiple_annotations]
 SELECT
   ENUM_VALUE_DESCRIPTOR_PROTO(
@@ -205,7 +205,7 @@ ARRAY<STRUCT<PROTO<proto2.EnumValueDescriptorProto>>>[
 ]
 ==
 
-[required_features=V_1_3_ENUM_VALUE_DESCRIPTOR_PROTO]
+[required_features=ENUM_VALUE_DESCRIPTOR_PROTO]
 [name=enum_value_desc_primitive_annotation]
 SELECT
   ENUM_VALUE_DESCRIPTOR_PROTO(
@@ -220,7 +220,7 @@ SELECT
 ARRAY<STRUCT<STRING, INT64>>[{"some_name", 123}]
 ==
 
-[required_features=V_1_3_ENUM_VALUE_DESCRIPTOR_PROTO]
+[required_features=ENUM_VALUE_DESCRIPTOR_PROTO]
 [name=enum_value_desc_formatted_annotation]
 SELECT
   ENUM_VALUE_DESCRIPTOR_PROTO(
@@ -233,7 +233,7 @@ SELECT
 ARRAY<STRUCT<DATE>>[{1998-04-30}]
 ==
 
-[required_features=V_1_3_ENUM_VALUE_DESCRIPTOR_PROTO]
+[required_features=ENUM_VALUE_DESCRIPTOR_PROTO]
 [name=enum_value_desc_message_annotation]
 SELECT
   ENUM_VALUE_DESCRIPTOR_PROTO(
@@ -251,7 +251,7 @@ ARRAY<STRUCT<PROTO<zetasql_test__.EnumAnnotations>>>[
 ]
 ==
 
-[required_features=V_1_3_ENUM_VALUE_DESCRIPTOR_PROTO]
+[required_features=ENUM_VALUE_DESCRIPTOR_PROTO]
 [name=enum_value_desc_message_annotation_field]
 SELECT
   ENUM_VALUE_DESCRIPTOR_PROTO(

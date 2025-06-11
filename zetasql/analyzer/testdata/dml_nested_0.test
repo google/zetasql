@@ -1,5 +1,5 @@
 # Nested DELETE.
-[language_features={{|V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable SET
   KitchenSink.int32_val = 1,
   (DELETE KitchenSink.repeated_int64_val
@@ -54,7 +54,7 @@ UpdateStmt
 ==
 
 # Nested DELETE with an alias.
-[language_features={{|V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable SET
   KitchenSink.int32_val = 1,
   (DELETE KitchenSink.repeated_int64_val elt
@@ -99,7 +99,7 @@ UpdateStmt
 ==
 
 # Nested DELETE on an extension field.
-[language_features={{|V_1_2_PROTO_EXTENSIONS_WITH_SET}}]
+[language_features={{|PROTO_EXTENSIONS_WITH_SET}}]
 UPDATE TestTable SET
   (DELETE KitchenSink.(zetasql_test__.KitchenSinkExtension.repeated_extension)
    WHERE true)
@@ -111,7 +111,7 @@ ERROR: UPDATE ... SET does not support proto extensions [at 2:24]
   (DELETE KitchenSink.(zetasql_test__.KitchenSinkExtension.repeated_extension)
                        ^
 --
-ALTERNATION GROUP: V_1_2_PROTO_EXTENSIONS_WITH_SET
+ALTERNATION GROUP: PROTO_EXTENSIONS_WITH_SET
 --
 UpdateStmt
 +-table_scan=
@@ -137,7 +137,7 @@ UpdateStmt
 ==
 
 # Nested DELETE on a subfield of an extension field.
-[language_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
+[language_features=PROTO_EXTENSIONS_WITH_SET]
 UPDATE TestTable SET
   (DELETE KitchenSink
           .(zetasql_test__.KitchenSinkExtension.optional_extension)
@@ -174,7 +174,7 @@ UpdateStmt
 ==
 
 # Nested DELETE on an extension field with an alias.
-[language_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
+[language_features=PROTO_EXTENSIONS_WITH_SET]
 UPDATE TestTable SET
   (DELETE
    KitchenSink.(zetasql_test__.KitchenSinkExtension.repeated_extension) elt
@@ -212,7 +212,7 @@ UpdateStmt
 ==
 
 # Nested DELETE inside an array element.
-[language_features={{|V_1_2_ARRAY_ELEMENTS_WITH_SET}}]
+[language_features={{|ARRAY_ELEMENTS_WITH_SET}}]
 UPDATE TestTable SET
   (DELETE
    KitchenSink.nested_repeated_value[OFFSET(0)].nested_repeated_int64
@@ -225,7 +225,7 @@ ERROR: The target of a nested DML statement cannot reference an array element [a
 ==
 
 # Nested DELETE with an offset.
-[language_features={{|V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET}}]
+[language_features={{|NESTED_UPDATE_DELETE_WITH_OFFSET}}]
 UPDATE TestTable SET
   (DELETE KitchenSink.repeated_int64_val WITH OFFSET{{| offset}}
    WHERE offset = 5)
@@ -244,8 +244,8 @@ ERROR: DELETE does not support WITH OFFSET [at 2:42]
                                          ^
 --
 ALTERNATION GROUPS:
-    V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET,
-    V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET, offset
+    NESTED_UPDATE_DELETE_WITH_OFFSET,
+    NESTED_UPDATE_DELETE_WITH_OFFSET, offset
 --
 UpdateStmt
 +-table_scan=
@@ -275,7 +275,7 @@ UpdateStmt
 ==
 
 # Nested DELETE with an offset other than "offset".
-[language_features=V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET]
+[language_features=NESTED_UPDATE_DELETE_WITH_OFFSET]
 UPDATE TestTable SET
   (DELETE KitchenSink.repeated_int64_val WITH OFFSET foo
    WHERE foo = 5)
@@ -309,7 +309,7 @@ UpdateStmt
 ==
 
 # Nested DELETE with default offset conflicting with the target alias.
-[language_features=V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET]
+[language_features=NESTED_UPDATE_DELETE_WITH_OFFSET]
 UPDATE TestTable SET
   (DELETE KitchenSink.repeated_int64_val offset WITH OFFSET
    WHERE offset = 5)
@@ -321,7 +321,7 @@ ERROR: Duplicate OFFSET alias offset in nested DELETE [at 2:49]
 ==
 
 # Nested DELETE with non-default offset conflicting with the target alias.
-[language_features=V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET]
+[language_features=NESTED_UPDATE_DELETE_WITH_OFFSET]
 UPDATE TestTable SET
   (DELETE KitchenSink.repeated_int64_val foo WITH OFFSET foo
    WHERE foo = 5)
@@ -334,7 +334,7 @@ ERROR: Duplicate OFFSET alias foo in nested DELETE [at 2:58]
 
 # Nested DELETE that reuses the target/offset aliases of an enclosing nested
 # UPDATE.
-[language_features=V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET]
+[language_features=NESTED_UPDATE_DELETE_WITH_OFFSET]
 UPDATE TestTable target SET
   (UPDATE KitchenSink.nested_repeated_value target WITH OFFSET SET
      (DELETE target.nested_repeated_int64 target WITH OFFSET
@@ -404,7 +404,7 @@ UpdateStmt
 
 # Nested DELETE that reuses the target/offset aliases of an enclosing nested
 # UPDATE, this time with the offsets having different names.
-[language_features={{|V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET,V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{|NESTED_UPDATE_DELETE_WITH_OFFSET,CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable SET
   (UPDATE KitchenSink.nested_repeated_value target1 WITH OFFSET offset1 SET
      (DELETE target1.nested_repeated_int64 target2 WITH OFFSET offset2
@@ -418,7 +418,7 @@ ERROR: UPDATE ... SET does not support WITH OFFSET [at 2:53]
   (UPDATE KitchenSink.nested_repeated_value target1 WITH OFFSET offset1 SET
                                                     ^
 --
-ALTERNATION GROUP: V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET,V_1_2_CORRELATED_REFS_IN_NESTED_DML
+ALTERNATION GROUP: NESTED_UPDATE_DELETE_WITH_OFFSET,CORRELATED_REFS_IN_NESTED_DML
 --
 UpdateStmt
 +-table_scan=
@@ -499,7 +499,7 @@ ERROR: DELETE must have a WHERE clause [at 2:4]
 ==
 
 # Nested UPDATE.
-[language_features={{|V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable SET
   KitchenSink.int32_val = 1,
   (UPDATE KitchenSink.repeated_int64_val SET
@@ -563,7 +563,7 @@ UpdateStmt
 ==
 
 # Nested UPDATE with an alias.
-[language_features={{|V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable SET
   (UPDATE KitchenSink.repeated_int64_val elt SET
    elt = 1 WHERE elt > 5)
@@ -603,7 +603,7 @@ UpdateStmt
 ==
 
 # Nested UPDATE on an extension field.
-[language_features={{|V_1_2_PROTO_EXTENSIONS_WITH_SET}}]
+[language_features={{|PROTO_EXTENSIONS_WITH_SET}}]
 UPDATE TestTable SET
   (UPDATE
    KitchenSink.(zetasql_test__.KitchenSinkExtension.repeated_extension)
@@ -617,7 +617,7 @@ ERROR: UPDATE ... SET does not support proto extensions [at 3:17]
    KitchenSink.(zetasql_test__.KitchenSinkExtension.repeated_extension)
                 ^
 --
-ALTERNATION GROUP: V_1_2_PROTO_EXTENSIONS_WITH_SET
+ALTERNATION GROUP: PROTO_EXTENSIONS_WITH_SET
 --
 UpdateStmt
 +-table_scan=
@@ -656,7 +656,7 @@ UpdateStmt
 ==
 
 # Nested UPDATE on a subfield of an extension field.
-[language_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
+[language_features=PROTO_EXTENSIONS_WITH_SET]
 UPDATE TestTable SET
   (UPDATE KitchenSink
           .(zetasql_test__.KitchenSinkExtension.optional_extension)
@@ -702,7 +702,7 @@ UpdateStmt
 ==
 
 # Nested UPDATE on an extension field with an alias.
-[language_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
+[language_features=PROTO_EXTENSIONS_WITH_SET]
 UPDATE TestTable SET
   (UPDATE
    KitchenSink.(zetasql_test__.KitchenSinkExtension.repeated_extension) elt
@@ -742,7 +742,7 @@ UpdateStmt
 ==
 
 # Nested UPDATE inside an array element.
-[language_features={{|V_1_2_ARRAY_ELEMENTS_WITH_SET}}]
+[language_features={{|ARRAY_ELEMENTS_WITH_SET}}]
 UPDATE TestTable SET
   (UPDATE
    KitchenSink.nested_repeated_value[OFFSET(0)].nested_repeated_int64
@@ -756,7 +756,7 @@ ERROR: The target of a nested DML statement cannot reference an array element [a
 ==
 
 # Nested UPDATE with an offset.
-[language_features={{|V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET|V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET,V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{|NESTED_UPDATE_DELETE_WITH_OFFSET|NESTED_UPDATE_DELETE_WITH_OFFSET,CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable SET
   (UPDATE KitchenSink.repeated_int64_val WITH OFFSET{{| offset}}
    SET repeated_int64_val = 0
@@ -776,10 +776,10 @@ ERROR: UPDATE ... SET does not support WITH OFFSET [at 2:42]
                                          ^
 --
 ALTERNATION GROUPS:
-    V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET,
-    V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET, offset
-    V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET,V_1_2_CORRELATED_REFS_IN_NESTED_DML,
-    V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET,V_1_2_CORRELATED_REFS_IN_NESTED_DML, offset
+    NESTED_UPDATE_DELETE_WITH_OFFSET,
+    NESTED_UPDATE_DELETE_WITH_OFFSET, offset
+    NESTED_UPDATE_DELETE_WITH_OFFSET,CORRELATED_REFS_IN_NESTED_DML,
+    NESTED_UPDATE_DELETE_WITH_OFFSET,CORRELATED_REFS_IN_NESTED_DML, offset
 --
 UpdateStmt
 +-table_scan=
@@ -817,7 +817,7 @@ UpdateStmt
 ==
 
 # Nested UPDATE with an offset other than "offset".
-[language_features={{V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET|V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET,V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{NESTED_UPDATE_DELETE_WITH_OFFSET|NESTED_UPDATE_DELETE_WITH_OFFSET,CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable SET
   (UPDATE KitchenSink.repeated_int64_val WITH OFFSET foo
    SET repeated_int64_val = 0
@@ -860,7 +860,7 @@ UpdateStmt
 ==
 
 # Nested UPDATE with an offset with a complex right hand side in the SET.
-[language_features={{V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET|V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET,V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{NESTED_UPDATE_DELETE_WITH_OFFSET|NESTED_UPDATE_DELETE_WITH_OFFSET,CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable SET
   (UPDATE KitchenSink.repeated_int64_val WITH OFFSET
    SET repeated_int64_val = repeated_int64_val + offset + 1
@@ -907,7 +907,7 @@ UpdateStmt
 ==
 
 # Nested UPDATE that attempts to write to the offset.
-[language_features={{V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET|V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET,V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{NESTED_UPDATE_DELETE_WITH_OFFSET|NESTED_UPDATE_DELETE_WITH_OFFSET,CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable SET
   (UPDATE KitchenSink.repeated_int64_val WITH OFFSET{{| offset}}
    SET offset = 0
@@ -920,7 +920,7 @@ ERROR: Unrecognized name: offset [at 3:8]
 ==
 
 # Nested UPDATE with default offset conflicting with the target alias.
-[language_features={{V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET|V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET,V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{NESTED_UPDATE_DELETE_WITH_OFFSET|NESTED_UPDATE_DELETE_WITH_OFFSET,CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable SET
   (UPDATE KitchenSink.repeated_int64_val offset WITH OFFSET
    SET offset = offset + 1
@@ -933,7 +933,7 @@ ERROR: Duplicate OFFSET alias offset in nested UPDATE [at 2:49]
 ==
 
 # Nested UPDATE with non-default offset conflicting with the target alias.
-[language_features={{V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET|V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET,V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{NESTED_UPDATE_DELETE_WITH_OFFSET|NESTED_UPDATE_DELETE_WITH_OFFSET,CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable SET
   (UPDATE KitchenSink.repeated_int64_val foo WITH OFFSET foo
    SET foo = foo + 1
@@ -947,7 +947,7 @@ ERROR: Duplicate OFFSET alias foo in nested UPDATE [at 2:58]
 
 # Nested UPDATE that reuses the target/offset aliases of an enclosing nested
 # UPDATE.
-[language_features={{V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET|V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET,V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{NESTED_UPDATE_DELETE_WITH_OFFSET|NESTED_UPDATE_DELETE_WITH_OFFSET,CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable target SET
   (UPDATE KitchenSink.nested_repeated_value target WITH OFFSET SET
      (UPDATE target.nested_repeated_int64 target WITH OFFSET
@@ -1057,7 +1057,7 @@ ERROR: UPDATE must have a WHERE clause [at 2:4]
 ==
 
 # Nested INSERT.
-[language_features={{|V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable SET
   KitchenSink.int32_val = 1,
   (INSERT {{|OR REPLACE|OR IGNORE|OR UPDATE}} KitchenSink.repeated_int64_val
@@ -1068,7 +1068,7 @@ ASSERT_ROWS_MODIFIED 1
 --
 ALTERNATION GROUPS:
     <empty>
-    V_1_2_CORRELATED_REFS_IN_NESTED_DML,
+    CORRELATED_REFS_IN_NESTED_DML,
 --
 UpdateStmt
 +-table_scan=
@@ -1139,7 +1139,7 @@ UpdateStmt
 --
 ALTERNATION GROUPS:
     OR REPLACE
-    V_1_2_CORRELATED_REFS_IN_NESTED_DML,OR REPLACE
+    CORRELATED_REFS_IN_NESTED_DML,OR REPLACE
 --
 ERROR: Nested INSERTs cannot have insert mode REPLACE [at 3:4]
   (INSERT OR REPLACE KitchenSink.repeated_int64_val
@@ -1147,7 +1147,7 @@ ERROR: Nested INSERTs cannot have insert mode REPLACE [at 3:4]
 --
 ALTERNATION GROUPS:
     OR IGNORE
-    V_1_2_CORRELATED_REFS_IN_NESTED_DML,OR IGNORE
+    CORRELATED_REFS_IN_NESTED_DML,OR IGNORE
 --
 ERROR: Nested INSERTs cannot have insert mode IGNORE [at 3:4]
   (INSERT OR IGNORE KitchenSink.repeated_int64_val
@@ -1155,7 +1155,7 @@ ERROR: Nested INSERTs cannot have insert mode IGNORE [at 3:4]
 --
 ALTERNATION GROUPS:
     OR UPDATE
-    V_1_2_CORRELATED_REFS_IN_NESTED_DML,OR UPDATE
+    CORRELATED_REFS_IN_NESTED_DML,OR UPDATE
 --
 ERROR: Nested INSERTs cannot have insert mode UPDATE [at 3:4]
   (INSERT OR UPDATE KitchenSink.repeated_int64_val
@@ -1163,7 +1163,7 @@ ERROR: Nested INSERTs cannot have insert mode UPDATE [at 3:4]
 ==
 
 # Nested INSERT with query
-[language_features={{|V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable SET
   KitchenSink.int32_val = 1,
   (INSERT {{|OR REPLACE|OR IGNORE|OR UPDATE}} KitchenSink.repeated_int64_val
@@ -1174,7 +1174,7 @@ ASSERT_ROWS_MODIFIED 1
 --
 ALTERNATION GROUPS:
     <empty>
-    V_1_2_CORRELATED_REFS_IN_NESTED_DML,
+    CORRELATED_REFS_IN_NESTED_DML,
 --
 UpdateStmt
 +-table_scan=
@@ -1232,7 +1232,7 @@ UpdateStmt
 --
 ALTERNATION GROUPS:
     OR REPLACE
-    V_1_2_CORRELATED_REFS_IN_NESTED_DML,OR REPLACE
+    CORRELATED_REFS_IN_NESTED_DML,OR REPLACE
 --
 ERROR: Nested INSERTs cannot have insert mode REPLACE [at 3:4]
   (INSERT OR REPLACE KitchenSink.repeated_int64_val
@@ -1240,7 +1240,7 @@ ERROR: Nested INSERTs cannot have insert mode REPLACE [at 3:4]
 --
 ALTERNATION GROUPS:
     OR IGNORE
-    V_1_2_CORRELATED_REFS_IN_NESTED_DML,OR IGNORE
+    CORRELATED_REFS_IN_NESTED_DML,OR IGNORE
 --
 ERROR: Nested INSERTs cannot have insert mode IGNORE [at 3:4]
   (INSERT OR IGNORE KitchenSink.repeated_int64_val
@@ -1248,7 +1248,7 @@ ERROR: Nested INSERTs cannot have insert mode IGNORE [at 3:4]
 --
 ALTERNATION GROUPS:
     OR UPDATE
-    V_1_2_CORRELATED_REFS_IN_NESTED_DML,OR UPDATE
+    CORRELATED_REFS_IN_NESTED_DML,OR UPDATE
 --
 ERROR: Nested INSERTs cannot have insert mode UPDATE [at 3:4]
   (INSERT OR UPDATE KitchenSink.repeated_int64_val
@@ -1267,7 +1267,7 @@ ERROR: Syntax error: Unexpected identifier "elt" [at 2:42]
 ==
 
 # There is no alias for a nested INSERT.
-[language_features={{|V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable SET
   (INSERT KitchenSink.repeated_int64_val{{| repeated_int64_val}}
    VALUES (repeated_int64_val))
@@ -1275,7 +1275,7 @@ WHERE true
 --
 ALTERNATION GROUPS:
     <empty>
-    V_1_2_CORRELATED_REFS_IN_NESTED_DML,
+    CORRELATED_REFS_IN_NESTED_DML,
 --
 ERROR: Unrecognized name: repeated_int64_val [at 3:12]
    VALUES (repeated_int64_val))
@@ -1283,7 +1283,7 @@ ERROR: Unrecognized name: repeated_int64_val [at 3:12]
 --
 ALTERNATION GROUPS:
      repeated_int64_val
-    V_1_2_CORRELATED_REFS_IN_NESTED_DML, repeated_int64_val
+    CORRELATED_REFS_IN_NESTED_DML, repeated_int64_val
 --
 ERROR: Syntax error: Unexpected identifier "repeated_int64_val" [at 2:42]
   (INSERT KitchenSink.repeated_int64_val repeated_int64_val
@@ -1291,7 +1291,7 @@ ERROR: Syntax error: Unexpected identifier "repeated_int64_val" [at 2:42]
 ==
 
 # Nested INSERT on an extension field.
-[language_features={{|V_1_2_PROTO_EXTENSIONS_WITH_SET}}]
+[language_features={{|PROTO_EXTENSIONS_WITH_SET}}]
 UPDATE TestTable SET
   (INSERT KitchenSink.(zetasql_test__.KitchenSinkExtension.repeated_extension)
    VALUES (""))
@@ -1303,7 +1303,7 @@ ERROR: UPDATE ... SET does not support proto extensions [at 2:24]
   (INSERT KitchenSink.(zetasql_test__.KitchenSinkExtension.repeated_extension)
                        ^
 --
-ALTERNATION GROUP: V_1_2_PROTO_EXTENSIONS_WITH_SET
+ALTERNATION GROUP: PROTO_EXTENSIONS_WITH_SET
 --
 UpdateStmt
 +-table_scan=
@@ -1333,7 +1333,7 @@ UpdateStmt
 ==
 
 # Nested INSERT on a subfield of an extension field.
-[language_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
+[language_features=PROTO_EXTENSIONS_WITH_SET]
 UPDATE TestTable SET
   (INSERT KitchenSink
           .(zetasql_test__.KitchenSinkExtension.optional_extension)
@@ -1374,7 +1374,7 @@ UpdateStmt
 ==
 
 # Nested INSERT inside an array element.
-[language_features={{|V_1_2_ARRAY_ELEMENTS_WITH_SET}}]
+[language_features={{|ARRAY_ELEMENTS_WITH_SET}}]
 UPDATE TestTable SET
   (INSERT
    KitchenSink.nested_repeated_value[OFFSET(0)].nested_repeated_int64
@@ -1993,7 +1993,7 @@ ERROR: Update item KitchenSink.repeated_int64_val cannot be assigned and also up
 ==
 
 # An overlap involving an extension field.
-[language_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
+[language_features=PROTO_EXTENSIONS_WITH_SET]
 UPDATE TestTable SET
   KitchenSink.(zetasql_test__.KitchenSinkExtension.repeated_extension) =
   ARRAY<zetasql_test__.KitchenSinkExtension>[],
@@ -2017,7 +2017,7 @@ ERROR: Update item KitchenSink.repeated_int64_val overlaps with KitchenSink [at 
 ==
 
 # Cannot run a nested statement on an array that has already been modified.
-[language_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[language_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE TestTable SET
   KitchenSink.nested_repeated_value[OFFSET(0)].nested_int64 = 1,
   (DELETE KitchenSink.nested_repeated_value WHERE true)
@@ -2030,7 +2030,7 @@ ERROR: Cannot modify KitchenSink.nested_repeated_value with a nested statement a
 
 # Cannot modify an array element if the array has already been used by a nested
 # statement.
-[language_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+[language_features=ARRAY_ELEMENTS_WITH_SET]
 UPDATE TestTable SET
   (DELETE KitchenSink.nested_repeated_value WHERE true),
   KitchenSink.nested_repeated_value[OFFSET(0)].nested_int64 = 1
@@ -2043,7 +2043,7 @@ ERROR: Cannot modify an element of KitchenSink.nested_repeated_value and also mo
 
 # Cannot run a nested statement on an array that has already been modified, even
 # if it uses WITH OFFSET.
-[language_features=V_1_2_ARRAY_ELEMENTS_WITH_SET,V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET]
+[language_features=ARRAY_ELEMENTS_WITH_SET,NESTED_UPDATE_DELETE_WITH_OFFSET]
 UPDATE TestTable SET
   KitchenSink.repeated_int64_val[OFFSET(0)] = 5,
   (UPDATE KitchenSink.repeated_int64_val WITH OFFSET offset
@@ -2058,7 +2058,7 @@ ERROR: Cannot modify KitchenSink.repeated_int64_val with a nested statement and 
 
 # Cannot modify an array element if the array has already been used by a nested
 # statement, even if the nested statement used WITH OFFSET.
-[language_features=V_1_2_ARRAY_ELEMENTS_WITH_SET,V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET]
+[language_features=ARRAY_ELEMENTS_WITH_SET,NESTED_UPDATE_DELETE_WITH_OFFSET]
 UPDATE TestTable SET
   (UPDATE KitchenSink.repeated_int64_val WITH OFFSET offset
    SET repeated_int64_val = 10
@@ -2073,7 +2073,7 @@ ERROR: Cannot modify an element of KitchenSink.repeated_int64_val and also modif
 
 ###############
 # Test table alias.
-[language_features={{|V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable {{AS|}} T SET
   {{T.|}}KitchenSink.int64_val = 1,
   (DELETE {{T.|}}KitchenSink.repeated_int64_val {{AS|}} val WHERE val = 1),
@@ -2142,7 +2142,7 @@ UpdateStmt
 
 # Table name is no longer available as an alias when we explicitly mention a
 # table alias.
-[language_features={{|V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable T SET
   (DELETE TestTable.KitchenSink.repeated_int64_val WHERE true)
 WHERE true
@@ -2154,7 +2154,7 @@ ERROR: Unrecognized name: TestTable [at 2:11]
 
 # Alias from topmost update statement is not visible on the left hand side
 # of a nested statement update item.
-[language_features={{|V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable T SET
   (UPDATE T.KitchenSink.repeated_int64_val SET
      T.KitchenSink.repeated_int64_val = 1
@@ -2168,7 +2168,7 @@ ERROR: Unrecognized name: T [at 3:6]
 
 # We can re-use the alias for nested DELETEs and UPDATEs. Nested INSERT does
 # not support a table alias.
-[language_features={{|V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable T SET
   (DELETE T.KitchenSink.repeated_int64_val T WHERE T > 10),
   (UPDATE T.KitchenSink.repeated_int64_val T SET T = 1 WHERE T > 20)
@@ -2214,7 +2214,7 @@ UpdateStmt
 ==
 
 # Nested UPDATE that needs to access another column in the table.
-[language_features={{|V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable t
 SET (
   UPDATE t.KitchenSink.repeated_int32_val v
@@ -2230,7 +2230,7 @@ ERROR: Unrecognized name: KitchenSink [at 4:11]
 --
 ALTERNATION GROUPS:
     TestTable.
-    V_1_2_CORRELATED_REFS_IN_NESTED_DML,TestTable.
+    CORRELATED_REFS_IN_NESTED_DML,TestTable.
 --
 ERROR: Unrecognized name: TestTable [at 4:11]
   SET v = TestTable.KitchenSink.int64_val
@@ -2243,8 +2243,8 @@ ERROR: Unrecognized name: t [at 4:11]
           ^
 --
 ALTERNATION GROUPS:
-    V_1_2_CORRELATED_REFS_IN_NESTED_DML,
-    V_1_2_CORRELATED_REFS_IN_NESTED_DML,t.
+    CORRELATED_REFS_IN_NESTED_DML,
+    CORRELATED_REFS_IN_NESTED_DML,t.
 --
 UpdateStmt
 +-table_scan=
@@ -2284,7 +2284,7 @@ UpdateStmt
 ==
 
 # Nested DELETE that needs to access a pseudocolumn.
-[language_features={{|V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE AllPseudoColumnsWithRepeated t SET
   (DELETE t.RepeatedValue v
    WHERE {{|AllPseudoColumnsWithRepeated.|t.}}Key > 0)
@@ -2298,7 +2298,7 @@ ERROR: Unrecognized name: Key [at 3:10]
 --
 ALTERNATION GROUPS:
     AllPseudoColumnsWithRepeated.
-    V_1_2_CORRELATED_REFS_IN_NESTED_DML,AllPseudoColumnsWithRepeated.
+    CORRELATED_REFS_IN_NESTED_DML,AllPseudoColumnsWithRepeated.
 --
 ERROR: Unrecognized name: AllPseudoColumnsWithRepeated [at 3:10]
    WHERE AllPseudoColumnsWithRepeated.Key > 0)
@@ -2311,8 +2311,8 @@ ERROR: Unrecognized name: t [at 3:10]
          ^
 --
 ALTERNATION GROUPS:
-    V_1_2_CORRELATED_REFS_IN_NESTED_DML,
-    V_1_2_CORRELATED_REFS_IN_NESTED_DML,t.
+    CORRELATED_REFS_IN_NESTED_DML,
+    CORRELATED_REFS_IN_NESTED_DML,t.
 --
 UpdateStmt
 +-table_scan=
@@ -2335,7 +2335,7 @@ UpdateStmt
 ==
 
 # Nested UPDATE that needs to access a pseudocolumn.
-[language_features={{|V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE AllPseudoColumnsWithRepeated t
 SET (
   UPDATE t.RepeatedValue v
@@ -2351,7 +2351,7 @@ ERROR: Unrecognized name: Value [at 4:11]
 --
 ALTERNATION GROUPS:
     AllPseudoColumnsWithRepeated.
-    V_1_2_CORRELATED_REFS_IN_NESTED_DML,AllPseudoColumnsWithRepeated.
+    CORRELATED_REFS_IN_NESTED_DML,AllPseudoColumnsWithRepeated.
 --
 ERROR: Unrecognized name: AllPseudoColumnsWithRepeated [at 4:11]
   SET v = AllPseudoColumnsWithRepeated.Value
@@ -2364,8 +2364,8 @@ ERROR: Unrecognized name: t [at 4:11]
           ^
 --
 ALTERNATION GROUPS:
-    V_1_2_CORRELATED_REFS_IN_NESTED_DML,
-    V_1_2_CORRELATED_REFS_IN_NESTED_DML,t.
+    CORRELATED_REFS_IN_NESTED_DML,
+    CORRELATED_REFS_IN_NESTED_DML,t.
 --
 UpdateStmt
 +-table_scan=
@@ -2394,7 +2394,7 @@ UpdateStmt
 ==
 
 # Nested INSERT that needs to access a pseudocolumn.
-[language_features={{|V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE AllPseudoColumnsWithRepeated t SET
   (INSERT t.RepeatedValue
    VALUES ({{|AllPseudoColumnsWithRepeated.|t.}}Value))
@@ -2408,7 +2408,7 @@ ERROR: Unrecognized name: Value [at 3:12]
 --
 ALTERNATION GROUPS:
     AllPseudoColumnsWithRepeated.
-    V_1_2_CORRELATED_REFS_IN_NESTED_DML,AllPseudoColumnsWithRepeated.
+    CORRELATED_REFS_IN_NESTED_DML,AllPseudoColumnsWithRepeated.
 --
 ERROR: Unrecognized name: AllPseudoColumnsWithRepeated [at 3:12]
    VALUES (AllPseudoColumnsWithRepeated.Value))
@@ -2421,8 +2421,8 @@ ERROR: Unrecognized name: t [at 3:12]
            ^
 --
 ALTERNATION GROUPS:
-    V_1_2_CORRELATED_REFS_IN_NESTED_DML,
-    V_1_2_CORRELATED_REFS_IN_NESTED_DML,t.
+    CORRELATED_REFS_IN_NESTED_DML,
+    CORRELATED_REFS_IN_NESTED_DML,t.
 --
 UpdateStmt
 +-table_scan=
