@@ -10211,19 +10211,21 @@ absl::StatusOr<Value> TimestampConversionFunction::Eval(
     }
     return Value::Timestamp(timestamp);
   } else if (!args.empty() && args[0].type()->IsString()) {
-    int64_t timestamp_micros;
+    absl::Time timestamp;
     if (args.size() == 2 && args[1].type()->IsString()) {
       ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTimestamp(
           args[0].string_value(), args[1].string_value(),
-          functions::kMicroseconds, false, &timestamp_micros));
+          GetTimestampScale(context->GetLanguageOptions()), false, &timestamp));
     } else if (args.size() == 1) {
       ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTimestamp(
           args[0].string_value(), context->GetDefaultTimeZone(),
-          functions::kMicroseconds, true, &timestamp_micros));
+          GetTimestampScale(context->GetLanguageOptions()), true, &timestamp));
     } else {
       return MakeEvalError() << "Unsupported function: " << debug_name();
     }
-    return Value::TimestampFromUnixMicros(timestamp_micros);
+    const Value result = Value::Timestamp(timestamp);
+    ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(result, context));
+    return result;
   } else if (!args.empty() && args[0].type()->IsDate()) {
     int64_t timestamp_micros;
     if (args.size() == 2 && args[1].type()->IsString()) {

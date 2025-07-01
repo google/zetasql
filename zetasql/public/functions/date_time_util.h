@@ -452,6 +452,16 @@ absl::Status ConvertStringToTimestamp(absl::string_view str,
                                       TimestampScale scale,
                                       bool allow_tz_in_str, int64_t* timestamp);
 
+// If the time zone is not included in the string, then
+// <default_timezone_string> is applied for the conversion.  Uses the
+// canonical timestamp string format.
+// If the time zone is included in the string and allow_tz_in_str is set to
+// false, an error will be returned.
+absl::Status ConvertStringToTimestamp(absl::string_view str,
+                                      absl::string_view default_timezone_string,
+                                      TimestampScale scale,
+                                      bool allow_tz_in_str, absl::Time* output)
+
 // Populate the <output> with the values from input if the values on all fields
 // are valid, return error otherwise.
 absl::Status ConstructDate(int year, int month, int day, int32_t* output);

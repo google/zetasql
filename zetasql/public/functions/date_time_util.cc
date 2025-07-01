@@ -2591,6 +2591,17 @@ absl::Status ConvertStringToTimestamp(absl::string_view str,
 }
 
 absl::Status ConvertStringToTimestamp(absl::string_view str,
+                                      absl::string_view default_timezone_string,
+                                      TimestampScale scale,
+                                      bool allow_tz_in_str,
+                                      absl::Time* output) {
+  absl::TimeZone timezone;
+  ZETASQL_RETURN_IF_ERROR(MakeTimeZone(default_timezone_string, &timezone));
+  return ConvertStringToTimestamp(str, timezone, scale, allow_tz_in_str,
+                                  output);
+}
+
+absl::Status ConvertStringToTimestamp(absl::string_view str,
                                       absl::TimeZone default_timezone,
                                       TimestampScale scale,
                                       bool allow_tz_in_str,
