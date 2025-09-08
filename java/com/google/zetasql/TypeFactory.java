@@ -79,7 +79,6 @@ public abstract class TypeFactory implements Serializable {
           .put("bytes", TypeKind.TYPE_BYTES) // external
           .put("date", TypeKind.TYPE_DATE) // external
           .put("timestamp", TypeKind.TYPE_TIMESTAMP) // external
-          .put("timestamp_picos", TypeKind.TYPE_TIMESTAMP_PICOS) // external
           .put("time", TypeKind.TYPE_TIME) // external
           .put("datetime", TypeKind.TYPE_DATETIME) // external
           .put("interval", TypeKind.TYPE_INTERVAL) // external
@@ -101,7 +100,6 @@ public abstract class TypeFactory implements Serializable {
           "bytes",
           "date",
           "timestamp",
-          "timestamp_picos",
           "time",
           "datetime",
           "interval",

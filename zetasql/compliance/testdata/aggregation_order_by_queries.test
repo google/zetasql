@@ -2048,3 +2048,13 @@ ARRAY<STRUCT<ARRAY<>,
   ]}]
 
 NOTE: Reference implementation reports non-determinism.
+==
+[required_features=ORDER_BY_IN_AGGREGATE]
+[name=b435003883]
+WITH t as (SELECT 1 as x)
+SELECT
+  ARRAY_AGG(DISTINCT x+1 ORDER BY x+1) AS r,
+  ARRAY_AGG(DISTINCT x+1 ORDER BY x+1) AS r2
+FROM t
+--
+ARRAY<STRUCT<r ARRAY<>, r2 ARRAY<>>>[{ARRAY<INT64>[2], ARRAY<INT64>[2]}]

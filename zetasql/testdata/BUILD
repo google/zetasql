@@ -15,6 +15,9 @@
 
 load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
 load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 package(
     default_visibility = ["//zetasql/base:zetasql_implementation"],
@@ -248,7 +251,7 @@ cc_library(
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/public/annotation:collation",
-        "//zetasql/public/annotation:timestamp_precision",
+        "//zetasql/public/functions:differential_privacy_cc_proto",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
         "//zetasql/resolved_ast:resolved_ast_enums_cc_proto",

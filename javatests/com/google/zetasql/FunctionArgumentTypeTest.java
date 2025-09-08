@@ -342,7 +342,6 @@ public class FunctionArgumentTypeTest {
         FunctionArgumentTypeOptions.builder()
             .setCardinality(ArgumentCardinality.REPEATED)
             .setMustBeConstant(true)
-            .setMustBeConstantExpression(true)
             .setMustBeNonNull(true)
             .setIsNotAggregate(true)
             .setMustSupportEquality(true)
@@ -369,18 +368,126 @@ public class FunctionArgumentTypeTest {
     assertThat(options)
         .isEqualTo(
             FunctionArgumentTypeOptions.deserialize(
-                options.serialize(/*argType=*/null, fileDescriptorSetsBuilder),
+                options.serialize(/* argType= */ null, fileDescriptorSetsBuilder),
                 fileDescriptorSetsBuilder.getDescriptorPools(),
-                /*argType=*/null,
+                /* argType= */ null,
                 TypeFactory.nonUniqueNames()));
-    assertThat(options.serialize(/*argType=*/null, fileDescriptorSetsBuilder))
+    assertThat(options.serialize(/* argType= */ null, fileDescriptorSetsBuilder))
         .isEqualTo(
             FunctionArgumentTypeOptions.deserialize(
-                    options.serialize(/*argType=*/null, fileDescriptorSetsBuilder),
+                    options.serialize(/* argType= */ null, fileDescriptorSetsBuilder),
                     fileDescriptorSetsBuilder.getDescriptorPools(),
-                    /*argType=*/null,
+                    /* argType= */ null,
                     TypeFactory.nonUniqueNames())
-                .serialize(/*argType=*/null, fileDescriptorSetsBuilder));
+                .serialize(/* argType= */ null, fileDescriptorSetsBuilder));
+
+    FunctionArgumentTypeOptions optionsConstantExpression =
+        FunctionArgumentTypeOptions.builder().setMustBeConstantExpression(true).build();
+    assertThat(optionsConstantExpression)
+        .isEqualTo(
+            FunctionArgumentTypeOptions.deserialize(
+                optionsConstantExpression.serialize(/* argType= */ null, fileDescriptorSetsBuilder),
+                fileDescriptorSetsBuilder.getDescriptorPools(),
+                /* argType= */ null,
+                TypeFactory.nonUniqueNames()));
+    assertThat(optionsConstantExpression.serialize(/* argType= */ null, fileDescriptorSetsBuilder))
+        .isEqualTo(
+            FunctionArgumentTypeOptions.deserialize(
+                    optionsConstantExpression.serialize(
+                        /* argType= */ null, fileDescriptorSetsBuilder),
+                    fileDescriptorSetsBuilder.getDescriptorPools(),
+                    /* argType= */ null,
+                    TypeFactory.nonUniqueNames())
+                .serialize(/* argType= */ null, fileDescriptorSetsBuilder));
+
+    FunctionArgumentTypeOptions optionsAnalysisConstant =
+        FunctionArgumentTypeOptions.builder().setMustBeAnalysisConstant(true).build();
+    assertThat(optionsAnalysisConstant)
+        .isEqualTo(
+            FunctionArgumentTypeOptions.deserialize(
+                optionsAnalysisConstant.serialize(/* argType= */ null, fileDescriptorSetsBuilder),
+                fileDescriptorSetsBuilder.getDescriptorPools(),
+                /* argType= */ null,
+                TypeFactory.nonUniqueNames()));
+    assertThat(optionsAnalysisConstant.serialize(/* argType= */ null, fileDescriptorSetsBuilder))
+        .isEqualTo(
+            FunctionArgumentTypeOptions.deserialize(
+                    optionsAnalysisConstant.serialize(
+                        /* argType= */ null, fileDescriptorSetsBuilder),
+                    fileDescriptorSetsBuilder.getDescriptorPools(),
+                    /* argType= */ null,
+                    TypeFactory.nonUniqueNames())
+                .serialize(/* argType= */ null, fileDescriptorSetsBuilder));
+  }
+
+  @Test
+  public void testSettingSameConstnessLevelTwiceIsAllowed() {
+    FunctionArgumentTypeOptions options1 =
+        FunctionArgumentTypeOptions.builder().setMustBeAnalysisConstant(true).build();
+    FunctionArgumentTypeOptions options2 =
+        FunctionArgumentTypeOptions.builder()
+            .setMustBeAnalysisConstant(true)
+            .setMustBeAnalysisConstant(true)
+            .build();
+    assertThat(options2).isEqualTo(options1);
+
+    FunctionArgumentTypeOptions options3 =
+        FunctionArgumentTypeOptions.builder().setMustBeConstant(true).build();
+    FunctionArgumentTypeOptions options4 =
+        FunctionArgumentTypeOptions.builder()
+            .setMustBeConstant(true)
+            .setMustBeConstant(true)
+            .build();
+    assertThat(options4).isEqualTo(options3);
+
+    FunctionArgumentTypeOptions options5 =
+        FunctionArgumentTypeOptions.builder().setMustBeConstantExpression(true).build();
+    FunctionArgumentTypeOptions options6 =
+        FunctionArgumentTypeOptions.builder()
+            .setMustBeConstantExpression(true)
+            .setMustBeConstantExpression(true)
+            .build();
+    assertThat(options6).isEqualTo(options5);
+  }
+
+  @Test
+  public void testSettingMultipleConstnessLevelsThrowsException() {
+    // Test setting mustBeConstant then mustBeConstantExpression
+    IllegalStateException e1 =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                FunctionArgumentTypeOptions.builder()
+                    .setMustBeConstant(true)
+                    .setMustBeConstantExpression(true));
+    assertThat(e1)
+        .hasMessageThat()
+        .contains(
+            "Cannot set mustBeConstantExpression when another constness level is already set.");
+
+    // Test setting mustBeConstantExpression then mustBeConstant
+    IllegalStateException e2 =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                FunctionArgumentTypeOptions.builder()
+                    .setMustBeConstantExpression(true)
+                    .setMustBeConstant(true));
+    assertThat(e2)
+        .hasMessageThat()
+        .contains("Cannot set mustBeConstant when another constness level is already set.");
+
+    // Test setting mustBeConstant then mustBeAnalysisConstant
+    IllegalStateException e3 =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                FunctionArgumentTypeOptions.builder()
+                    .setMustBeConstant(true)
+                    .setMustBeAnalysisConstant(true));
+    assertThat(e3)
+        .hasMessageThat()
+        .contains("Cannot set mustBeAnalysisConstant when another constness level is already set.");
   }
 
   @Test
@@ -495,13 +602,15 @@ public class FunctionArgumentTypeTest {
         .contains("Default value cannot be applied to a REPEATED argument");
 
     FunctionArgumentTypeOptions validOptionalArgTypeOption =
-        FunctionArgumentTypeOptions
-            .builder()
+        FunctionArgumentTypeOptions.builder()
             .setCardinality(ArgumentCardinality.OPTIONAL)
-            .setDefault(Value.createInt32Value(10086)).build();
+            .setDefault(Value.createInt32Value(10086))
+            .build();
     FunctionArgumentTypeOptions validOptionalArgTypeOptionNull =
-        FunctionArgumentTypeOptions.builder().setCardinality(ArgumentCardinality.OPTIONAL)
-          .setDefault(Value.createSimpleNullValue(TypeKind.TYPE_INT32)).build();
+        FunctionArgumentTypeOptions.builder()
+            .setCardinality(ArgumentCardinality.OPTIONAL)
+            .setDefault(Value.createSimpleNullValue(TypeKind.TYPE_INT32))
+            .build();
 
     assertThat(
             assertThrows(
@@ -510,7 +619,7 @@ public class FunctionArgumentTypeTest {
                     new FunctionArgumentType(
                         TypeFactory.createSimpleType(TypeKind.TYPE_BYTES),
                         validOptionalArgTypeOption,
-                        /*numOccurrences=*/ 1)))
+                        /* numOccurrences= */ 1)))
         .hasMessageThat()
         .contains("Default value type does not match the argument type");
 
@@ -521,7 +630,7 @@ public class FunctionArgumentTypeTest {
                     new FunctionArgumentType(
                         TypeFactory.createSimpleType(TypeKind.TYPE_INT64),
                         validOptionalArgTypeOption,
-                        /*numOccurrences=*/ 1)))
+                        /* numOccurrences= */ 1)))
         .hasMessageThat()
         .contains("Default value type does not match the argument type");
 
@@ -532,7 +641,7 @@ public class FunctionArgumentTypeTest {
                     new FunctionArgumentType(
                         TypeFactory.createSimpleType(TypeKind.TYPE_INT64),
                         validOptionalArgTypeOptionNull,
-                        /*numOccurrences=*/ 1)))
+                        /* numOccurrences= */ 1)))
         .hasMessageThat()
         .contains("Default value type does not match the argument type");
 
@@ -540,28 +649,28 @@ public class FunctionArgumentTypeTest {
         new FunctionArgumentType(
             TypeFactory.createSimpleType(TypeKind.TYPE_INT32),
             validOptionalArgTypeOption,
-            /*numOccurrences=*/ 1);
+            /* numOccurrences= */ 1);
     checkSerializeAndDeserialize(optionalFixedTypeInt32);
 
     FunctionArgumentType optionalFixedTypeInt32Null =
         new FunctionArgumentType(
             TypeFactory.createSimpleType(TypeKind.TYPE_INT32),
             validOptionalArgTypeOptionNull,
-            /*numOccurrences=*/ 1);
+            /* numOccurrences= */ 1);
     checkSerializeAndDeserialize(optionalFixedTypeInt32Null);
 
     FunctionArgumentType templatedTypeNonNull =
         new FunctionArgumentType(
             SignatureArgumentKind.ARG_TYPE_ANY_1,
             validOptionalArgTypeOption,
-            /*numOccurrences=*/ 1);
+            /* numOccurrences= */ 1);
     checkSerializeAndDeserialize(templatedTypeNonNull);
 
     FunctionArgumentType templatedTypeNull =
         new FunctionArgumentType(
             SignatureArgumentKind.ARG_TYPE_ANY_1,
             validOptionalArgTypeOptionNull,
-            /*numOccurrences=*/ 1);
+            /* numOccurrences= */ 1);
     checkSerializeAndDeserialize(templatedTypeNull);
 
     assertThat(
@@ -571,7 +680,7 @@ public class FunctionArgumentTypeTest {
                     new FunctionArgumentType(
                         SignatureArgumentKind.ARG_TYPE_RELATION,
                         validOptionalArgTypeOptionNull,
-                        /*numOccurrences=*/ 1)))
+                        /* numOccurrences= */ 1)))
         .hasMessageThat()
         .contains("ANY TABLE argument cannot have a default value");
 
@@ -582,7 +691,7 @@ public class FunctionArgumentTypeTest {
                     new FunctionArgumentType(
                         SignatureArgumentKind.ARG_TYPE_VOID,
                         validOptionalArgTypeOptionNull,
-                        /*numOccurrences=*/ 1)))
+                        /* numOccurrences= */ 1)))
         .hasMessageThat()
         .contains("<void> argument cannot have a default value");
 
@@ -593,7 +702,7 @@ public class FunctionArgumentTypeTest {
                     new FunctionArgumentType(
                         SignatureArgumentKind.ARG_TYPE_MODEL,
                         validOptionalArgTypeOptionNull,
-                        /*numOccurrences=*/ 1)))
+                        /* numOccurrences= */ 1)))
         .hasMessageThat()
         .contains("ANY MODEL argument cannot have a default value");
 
@@ -604,7 +713,7 @@ public class FunctionArgumentTypeTest {
                     new FunctionArgumentType(
                         SignatureArgumentKind.ARG_TYPE_CONNECTION,
                         validOptionalArgTypeOptionNull,
-                        /*numOccurrences=*/ 1)))
+                        /* numOccurrences= */ 1)))
         .hasMessageThat()
         .contains("ANY CONNECTION argument cannot have a default value");
 
@@ -615,7 +724,7 @@ public class FunctionArgumentTypeTest {
                     new FunctionArgumentType(
                         SignatureArgumentKind.ARG_TYPE_DESCRIPTOR,
                         validOptionalArgTypeOptionNull,
-                        /*numOccurrences=*/ 1)))
+                        /* numOccurrences= */ 1)))
         .hasMessageThat()
         .contains("ANY DESCRIPTOR argument cannot have a default value");
 
@@ -648,34 +757,34 @@ public class FunctionArgumentTypeTest {
 
     FunctionArgumentType supportOrderingType =
         new FunctionArgumentType(
-            SignatureArgumentKind.ARG_TYPE_ANY_1, supportsOrderingOption, /*numOccurrences=*/ 1);
+            SignatureArgumentKind.ARG_TYPE_ANY_1, supportsOrderingOption, /* numOccurrences= */ 1);
     checkSerializeAndDeserialize(supportOrderingType);
     FunctionArgumentType supportEqualityType =
         new FunctionArgumentType(
-            SignatureArgumentKind.ARG_TYPE_ANY_1, supportsEqualityOption, /*numOccurrences=*/ 1);
+            SignatureArgumentKind.ARG_TYPE_ANY_1, supportsEqualityOption, /* numOccurrences= */ 1);
     checkSerializeAndDeserialize(supportEqualityType);
     FunctionArgumentType supportGroupingType =
         new FunctionArgumentType(
-            SignatureArgumentKind.ARG_TYPE_ANY_1, supportsGroupingOption, /*numOccurrences=*/ 1);
+            SignatureArgumentKind.ARG_TYPE_ANY_1, supportsGroupingOption, /* numOccurrences= */ 1);
     checkSerializeAndDeserialize(supportGroupingType);
 
     FunctionArgumentType supportElementOrderingType =
         new FunctionArgumentType(
             SignatureArgumentKind.ARG_ARRAY_TYPE_ANY_1,
             supportsElementOrderingOption,
-            /*numOccurrences=*/ 1);
+            /* numOccurrences= */ 1);
     checkSerializeAndDeserialize(supportElementOrderingType);
     FunctionArgumentType supportElementEqualityType =
         new FunctionArgumentType(
             SignatureArgumentKind.ARG_ARRAY_TYPE_ANY_1,
             supportsElementEqualityOption,
-            /*numOccurrences=*/ 1);
+            /* numOccurrences= */ 1);
     checkSerializeAndDeserialize(supportElementEqualityType);
     FunctionArgumentType supportElementGroupingType =
         new FunctionArgumentType(
             SignatureArgumentKind.ARG_ARRAY_TYPE_ANY_1,
             supportsElementGroupingOption,
-            /*numOccurrences=*/ 1);
+            /* numOccurrences= */ 1);
     checkSerializeAndDeserialize(supportElementGroupingType);
   }
 }

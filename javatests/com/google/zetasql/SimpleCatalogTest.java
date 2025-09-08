@@ -604,7 +604,7 @@ public class SimpleCatalogTest {
     TableValuedFunction tvf =
         new ForwardInputSchemaToOutputSchemaTVF(
             ImmutableList.of("test_tvf_name"),
-            new FunctionSignature(TABLE_TYPE, ImmutableList.of(TABLE_TYPE), -1),
+            ImmutableList.of(new FunctionSignature(TABLE_TYPE, ImmutableList.of(TABLE_TYPE), -1)),
             TableValuedFunctionOptionsProto.newBuilder().setUsesUpperCaseSqlName(false).build());
     List<FunctionArgumentType> arguments = new ArrayList<>();
     FunctionArgumentType typeInt64 =
@@ -750,6 +750,25 @@ public class SimpleCatalogTest {
             + "  options {"
             + "    uses_upper_case_sql_name: false"
             + "  }"
+            + "  signatures {\n"
+            + "    argument {\n"
+            + "      kind: ARG_TYPE_RELATION\n"
+            + "      options {\n"
+            + "        cardinality: REQUIRED\n"
+            + "      }\n"
+            + "      num_occurrences: -1\n"
+            + "    }\n"
+            + "    return_type {\n"
+            + "      kind: ARG_TYPE_RELATION\n"
+            + "      options {\n"
+            + "        cardinality: REQUIRED\n"
+            + "      }\n"
+            + "      num_occurrences: -1\n"
+            + "    }\n"
+            + "    context_id: -1\n"
+            + "    options {\n"
+            + "    }\n"
+            + "  }\n"
             + "}\n"
             + "connection {\n"
             + "  name: \"test_connection_name\"\n"

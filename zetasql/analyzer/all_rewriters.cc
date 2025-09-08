@@ -32,6 +32,7 @@
 #include "zetasql/analyzer/rewriters/nulliferror_function_rewriter.h"
 #include "zetasql/analyzer/rewriters/order_by_and_limit_in_aggregate_rewriter.h"
 #include "zetasql/analyzer/rewriters/pipe_assert_rewriter.h"
+#include "zetasql/analyzer/rewriters/pipe_describe_rewriter.h"
 #include "zetasql/analyzer/rewriters/pipe_if_rewriter.h"
 #include "zetasql/analyzer/rewriters/pivot_rewriter.h"
 #include "zetasql/analyzer/rewriters/registration.h"
@@ -104,6 +105,8 @@ void RegisterBuiltinRewriters() {
     r.Register(ResolvedASTRewrite::REWRITE_PIPE_ASSERT,
                GetPipeAssertRewriter());
     r.Register(ResolvedASTRewrite::REWRITE_PIPE_IF, GetPipeIfRewriter());
+    r.Register(ResolvedASTRewrite::REWRITE_PIPE_DESCRIBE,
+               GetPipeDescribeRewriter());
     // REWRITE_PIPE_IF must happen before REWRITE_GENERALIZED_QUERY_STMT.
     r.Register(ResolvedASTRewrite::REWRITE_GENERALIZED_QUERY_STMT,
                GetGeneralizedQueryStmtRewriter());

@@ -2,7 +2,7 @@
 # with JOIN, TVFs, subqueries, etc, removed as irrelevant.
 # After we remove copybara stripping, we might combine these back into the
 # main test file, with alternations on whether to add "|>".
-[default language_features=PIPES]
+[default language_features=NONE,+PIPES]
 
 FROM t
 |> PIVOT(SUM(a) FOR b IN (0, 1))
@@ -171,7 +171,7 @@ FROM t
 FROM t
 |> PIVOT(x FOR y)
 --
-ERROR: Syntax error: Unexpected ")" [at 2:11]
+ERROR: Syntax error: Expected "," or keyword FOR but got ")" [at 2:11]
 |> PIVOT(x)
           ^
 ==

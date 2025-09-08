@@ -16,16 +16,38 @@
 
 #include "zetasql/tools/execute_query/selectable_catalog.h"
 
+#include <memory>
 #include <string>
+#include <utility>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/language_options.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
+
+namespace {
+class TestCatalogAcceptor : public CatalogAcceptor {
+ public:
+  void Accept(Catalog* catalog) override { catalog_ = catalog; }
+  void Accept(std::unique_ptr<Catalog> catalog) override {
+    owned_catalog_ = std::move(catalog);
+  }
+
+  Catalog* GetCatalog() {
+    return catalog_ != nullptr ? catalog_ : owned_catalog_.get();
+  }
+
+ private:
+  Catalog* catalog_ = nullptr;
+  std::unique_ptr<Catalog> owned_catalog_;
+};
+
+}  // namespace
 
 TEST(SelectableCatalog, GetSelectableCatalogsInfo) {
   const auto& selectable_catalogs = GetSelectableCatalogsInfo();
@@ -45,8 +67,11 @@ TEST(SelectableCatalog, FindSelectableCatalog_none) {
   SelectableCatalog* selectable = found.value();
 
   EXPECT_EQ(selectable->name(), "none");
-  auto get_catalog_result = selectable->GetCatalog(LanguageOptions());
-  ZETASQL_ASSERT_OK(get_catalog_result);
+
+  TestCatalogAcceptor acceptor;
+  absl::Status status =
+      selectable->ProvideCatalog(LanguageOptions(), &acceptor);
+  ZETASQL_ASSERT_OK(status);
   // There are no tables in this catalog to look up.
 }
 
@@ -59,9 +84,11 @@ static void TestCatalog(absl::string_view catalog_name,
   SelectableCatalog* selectable = found.value();
 
   EXPECT_EQ(selectable->name(), catalog_name);
-  auto get_catalog_result = selectable->GetCatalog(LanguageOptions());
-  ZETASQL_ASSERT_OK(get_catalog_result);
-  Catalog* catalog = get_catalog_result.value();
+  TestCatalogAcceptor acceptor;
+  absl::Status status =
+      selectable->ProvideCatalog(LanguageOptions(), &acceptor);
+  ZETASQL_ASSERT_OK(status);
+  Catalog* catalog = acceptor.GetCatalog();
 
   const Table* table;
   ZETASQL_EXPECT_OK(catalog->FindTable({std::string(table_name)}, &table));

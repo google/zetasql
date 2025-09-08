@@ -143,17 +143,17 @@ class Value {
 
   // Accessors for accessing the data within atomic typed Values.
   // REQUIRES: !is_null().
-  int32_t int32_value() const;                        // REQUIRES: int32 type
-  int64_t int64_value() const;                        // REQUIRES: int64 type
-  uint32_t uint32_value() const;                      // REQUIRES: uint32 type
-  uint64_t uint64_value() const;                      // REQUIRES: uint64 type
-  bool bool_value() const;                            // REQUIRES: bool type
-  float float_value() const;                          // REQUIRES: float type
-  double double_value() const;                        // REQUIRES: double type
-  const std::string& string_value() const;            // REQUIRES: string type
-  const std::string& bytes_value() const;             // REQUIRES: bytes type
-  int32_t date_value() const;                         // REQUIRES: date type
-  int32_t enum_value() const;                         // REQUIRES: enum type
+  int32_t int32_value() const;              // REQUIRES: int32 type
+  int64_t int64_value() const;              // REQUIRES: int64 type
+  uint32_t uint32_value() const;            // REQUIRES: uint32 type
+  uint64_t uint64_value() const;            // REQUIRES: uint64 type
+  bool bool_value() const;                  // REQUIRES: bool type
+  float float_value() const;                // REQUIRES: float type
+  double double_value() const;              // REQUIRES: double type
+  const std::string& string_value() const;  // REQUIRES: string type
+  const std::string& bytes_value() const;   // REQUIRES: bytes type
+  int32_t date_value() const;               // REQUIRES: date type
+  int32_t enum_value() const;               // REQUIRES: enum type
   // Returns the name like "TESTENUM1" or number as string, like "7" if the name
   // is not known.
   std::string EnumDisplayName() const;    // REQUIRES: enum type
@@ -163,18 +163,21 @@ class Value {
   // determined. The returned Status message is guaranteed to be usable in
   // user-facing error messages (E.g. not a ZETASQL_RET_CHECK stack trace), but exact
   // message is an implementation detail and may change over time.
-  absl::StatusOr<std::string_view> EnumName() const;
+  absl::StatusOr<absl::string_view> EnumName() const;
 
   // Returns date value as a absl::CivilDay.
   absl::CivilDay ToCivilDay() const;  // REQUIRES: date type
 
   // Returns timestamp value as absl::Time at nanoseconds precision.
+  ABSL_DEPRECATED("Use ToUnixPicos()")
   absl::Time ToTime() const;  // REQUIRES: timestamp type
 
   // Returns timestamp value as Unix epoch microseconds.
+  ABSL_DEPRECATED("Use ToUnixPicos()")
   int64_t ToUnixMicros() const;  // REQUIRES: timestamp type.
   // Returns timestamp value as Unix epoch nanoseconds or an error if the value
   // does not fit into an int64.
+  ABSL_DEPRECATED("Use ToUnixPicos()")
   absl::Status ToUnixNanos(int64_t* nanos) const;  // REQUIRES: timestamp type.
 
   // Returns timestamp value as a TimestampPicosValue.
@@ -182,7 +185,9 @@ class Value {
 
   // Returns time and datetime values at micros precision as bitwise encoded
   // int64, see public/civil_time.h for the encoding.
-  int64_t ToPacked64TimeMicros() const;      // REQUIRES: time type
+  ABSL_DEPRECATED("Use ToUnixPicos()")
+  int64_t ToPacked64TimeMicros() const;  // REQUIRES: time type
+  ABSL_DEPRECATED("Use ToUnixPicos()")
   int64_t ToPacked64DatetimeMicros() const;  // REQUIRES: datetime type
 
   TimeValue time_value() const;                 // REQUIRES: time type
@@ -520,9 +525,6 @@ class Value {
   static Value Timestamp(absl::Time t);
   // Creates a timestamp value from TimestampPicos at picoseconds precision.
   static Value Timestamp(TimestampPicosValue t);
-  // TODO: Strip obsolete TIMESTAMP_PICOS values from our codebase.
-  ABSL_DEPRECATED("Obsolete timestamp types are deprecated")
-  static Value TimestampPicos(TimestampPicosValue t);
 
   // Creates a timestamp value from Unix micros.
   static Value TimestampFromUnixMicros(int64_t v);
@@ -621,8 +623,6 @@ class Value {
       return Value::NullString();
     } else if constexpr (std::is_same_v<T, UuidValue>) {
       return Value::NullUuid();
-    } else if constexpr (std::is_same_v<T, TimestampPicosValue>) {
-      return Value::NullTimestampPicos();
     } else {
       constexpr int kNumBits = sizeof(T) * CHAR_BIT;
       if constexpr (std::is_signed_v<T>) {
@@ -655,9 +655,6 @@ class Value {
   static Value NullString();
   static Value NullDate();
   static Value NullTimestamp();
-  // TODO: Strip obsolete TIMESTAMP_PICOS values from our codebase.
-  ABSL_DEPRECATED("Obsolete timestamp types are deprecated")
-  static Value NullTimestampPicos();
   static Value NullTime();
   static Value NullDatetime();
   static Value NullInterval();
@@ -967,6 +964,8 @@ class Value {
   FRIEND_TEST(MapTest, FormatValueContentSQLExpressionMode);
   FRIEND_TEST(MapTestFormatValueContentDebugMode, FormatValueContentDebugMode);
   FRIEND_TEST(MapTest, FormatValueContentDebugModeEmptyMap);
+  // For access to Metadata
+  FRIEND_TEST(ValueTest, MetadataChecks);
 
   template <bool as_literal, bool maybe_add_simple_type_prefix>
   std::string GetSQLInternal(ProductMode mode, bool use_external_float32) const;
@@ -1273,17 +1272,13 @@ class Value {
     }
 
    private:
-    // We use different field layouts depending on system bitness.
-    template <const int byteness>
-    class ContentLayout;
-
-    typedef ContentLayout<sizeof(Type*)> Content;
+    class Content;
 
     Content* content();
     const Content* content() const;
 
     // We use int64 instead of Content here, so we don't need to expose
-    // ContentLayout definition into value.h header file.
+    // Content definition into value.h header file.
     int64_t data_{0};
   };
 
@@ -1365,9 +1360,6 @@ Value Date(absl::CivilDay d);
 Value Timestamp(absl::Time t);
 Value Timestamp(TimestampPicosValue t);
 Value TimestampFromUnixMicros(int64_t v);
-// TODO: Strip obsolete TIMESTAMP_PICOS values from our codebase.
-ABSL_DEPRECATED("Obsolete timestamp types are deprecated")
-Value TimestampPicos(TimestampPicosValue t);
 
 Value Time(TimeValue time);
 Value TimeFromPacked64Micros(int64_t v);
@@ -1408,9 +1400,6 @@ Value NullString();
 Value NullBytes();
 Value NullDate();
 Value NullTimestamp();
-// TODO: Strip obsolete TIMESTAMP_PICOS values from our codebase.
-ABSL_DEPRECATED("Obsolete timestamp types are deprecated")
-Value NullTimestampPicos();
 Value NullTime();
 Value NullDatetime();
 Value NullInterval();
@@ -1443,9 +1432,6 @@ Value JsonArray(absl::Span<const JSONValue> values);
 Value UnvalidatedJsonStringArray(absl::Span<const std::string> values);
 Value TimestampArray(absl::Span<const absl::Time> values);
 Value TimestampArray(absl::Span<const TimestampPicosValue> values);
-// TODO: Strip obsolete TIMESTAMP_PICOS values from our codebase.
-ABSL_DEPRECATED("Obsolete timestamp types are deprecated")
-Value TimestampPicosArray(absl::Span<const TimestampPicosValue> values);
 Value DateArray(absl::Span<const absl::CivilDay> values);
 
 }  // namespace values

@@ -185,6 +185,7 @@ absl::Status Resolver::ResolveAlterActions(
   bool already_added_primary_key = false;
   bool has_rename_column = false;
   bool has_non_rename_column_action = false;
+  bool already_set_generated_column = false;
   for (const ASTAlterAction* const action : actions) {
     if (action->node_kind() != AST_SET_OPTIONS_ACTION) {
       *has_only_set_options_action = false;
@@ -490,6 +491,33 @@ absl::Status Resolver::ResolveAlterActions(
         ZETASQL_RETURN_IF_ERROR(ResolveAlterColumnDropGeneratedAction(
             altered_table,
             *action->GetAsOrDie<ASTAlterColumnDropGeneratedAction>(),
+            resolved_action));
+        alter_actions->push_back(std::move(resolved_action));
+        break;
+      }
+      case AST_ALTER_COLUMN_SET_GENERATED_ACTION: {
+        if (!language().LanguageFeatureEnabled(
+                FEATURE_ALTER_COLUMN_SET_GENERATED_AS_IDENTITY) ||
+            ast_statement->node_kind() != AST_ALTER_TABLE_STATEMENT) {
+          // Views, models, etc don't support ALTER COLUMN... SET GENERATED ...
+          return MakeSqlErrorAt(action)
+                 << "ALTER " << alter_statement_kind << " does not support "
+                 << action->GetSQLForAlterAction();
+        }
+        if (!is_if_exists) {
+          ZETASQL_RETURN_IF_ERROR(table_status);
+        }
+        if (already_set_generated_column) {
+          return MakeSqlErrorAt(action)
+                 << "ALTER " << alter_statement_kind
+                 << " does not support multiple SET GENERATED actions";
+        }
+
+        already_set_generated_column = true;
+        std::unique_ptr<const ResolvedAlterAction> resolved_action;
+        ZETASQL_RETURN_IF_ERROR(ResolveAlterColumnSetGeneratedAction(
+            altered_table,
+            *action->GetAsOrDie<ASTAlterColumnSetGeneratedAction>(),
             resolved_action));
         alter_actions->push_back(std::move(resolved_action));
         break;
@@ -1098,7 +1126,6 @@ absl::Status Resolver::ResolveAlterColumnDropGeneratedAction(
     std::unique_ptr<const ResolvedAlterAction>& alter_action) {
   ZETASQL_RET_CHECK(alter_action == nullptr);
   const IdString column_name = action.column_name()->GetAsIdString();
-  std::unique_ptr<ResolvedColumnRef> column_reference;
   // If the table is present, verify that the column exists and can be modified.
   if (table != nullptr) {
     const Column* column = table->FindColumnByName(column_name.ToString());
@@ -1117,6 +1144,55 @@ absl::Status Resolver::ResolveAlterColumnDropGeneratedAction(
   }
   alter_action = MakeResolvedAlterColumnDropGeneratedAction(
       action.is_if_exists(), column_name.ToString());
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveAlterColumnSetGeneratedAction(
+    const Table* table, const ASTAlterColumnSetGeneratedAction& action,
+    std::unique_ptr<const ResolvedAlterAction>& alter_action) {
+  ZETASQL_RET_CHECK(alter_action == nullptr);
+  const IdString column_name = action.column_name()->GetAsIdString();
+  const Type* column_type = nullptr;
+  const Column* column = nullptr;
+  bool skip_type_match_check = false;
+  // If the table is present, verify that the column exists and can be modified.
+  if (table == nullptr) {
+    skip_type_match_check = true;
+  } else {
+    column = table->FindColumnByName(column_name.ToString());
+    if (column == nullptr) {
+      if (action.is_if_exists()) {
+        // Silently ignore the NOT FOUND error since this is an ALTER COLUMN IF
+        // EXISTS action.
+        skip_type_match_check = true;
+      } else {
+        return MakeSqlErrorAt(action.column_name())
+               << "Column not found: " << column_name;
+      }
+    } else {
+      if (column->IsPseudoColumn()) {
+        return MakeSqlErrorAt(action.column_name())
+               << "ALTER COLUMN SET GENERATED is not supported "
+               << "for pseudo-column " << column_name;
+      }
+      column_type = column->GetType();
+    }
+  }
+
+  const ASTGeneratedColumnInfo* ast_generated_column_info =
+      action.generated_column_info();
+  // Parser should have already verified that there is no expression.
+  ZETASQL_RET_CHECK(ast_generated_column_info->expression() == nullptr);
+
+  std::unique_ptr<ResolvedGeneratedColumnInfo> generated_column_info;
+  NameList column_name_list;
+  ZETASQL_RETURN_IF_ERROR(ResolveGeneratedColumnInfo(
+      ast_generated_column_info, column_name_list, column_type,
+      skip_type_match_check, &generated_column_info));
+
+  alter_action = MakeResolvedAlterColumnSetGeneratedAction(
+      action.is_if_exists(), column_name.ToString(),
+      std::move(generated_column_info));
   return absl::OkStatus();
 }
 
@@ -1416,6 +1492,24 @@ absl::Status Resolver::ResolveAlterIndexStatement(
       ast_statement->path()->ToIdentifierVector(),
       std::move(resolved_alter_actions), ast_statement->is_if_exists(),
       table_name, index_type, std::move(resolved_table_scan));
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveAlterSequenceStatement(
+    const ASTAlterSequenceStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  bool has_only_set_options_action = true;
+  std::vector<std::unique_ptr<const ResolvedAlterAction>>
+      resolved_alter_actions;
+  ZETASQL_RET_CHECK(ast_statement->path() != nullptr);
+  ZETASQL_RETURN_IF_ERROR(ResolveAlterActions(ast_statement,
+                                      /*<alter_statement_kind>*/ "SEQUENCE",
+                                      output, &has_only_set_options_action,
+                                      &resolved_alter_actions));
+
+  *output = MakeResolvedAlterSequenceStmt(
+      ast_statement->path()->ToIdentifierVector(),
+      std::move(resolved_alter_actions), ast_statement->is_if_exists());
   return absl::OkStatus();
 }
 

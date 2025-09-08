@@ -1,4 +1,5 @@
-[language_features={{|DATE_TIME_CONSTRUCTORS}}]
+[default language_features=NONE]
+[language_features=NONE,{{|+DATE_TIME_CONSTRUCTORS}}]
 select date(@test_param_string);
 --
 ALTERNATION GROUP: <empty>
@@ -18,7 +19,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: DATE_TIME_CONSTRUCTORS
+ALTERNATION GROUP: +DATE_TIME_CONSTRUCTORS
 --
 QueryStmt
 +-output_column_list=
@@ -34,7 +35,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|DATE_TIME_CONSTRUCTORS}}]
+[language_features=NONE,{{|+DATE_TIME_CONSTRUCTORS}}]
 select date("2019-08-01 21:00:00+00");
 --
 QueryStmt
@@ -1639,7 +1640,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|ARRAY_EQUALITY}}]
+[language_features=NONE,{{|+ARRAY_EQUALITY}}]
 select KitchenSink.repeated_int32_val
 from TestTable
 where KitchenSink.repeated_int32_val = []
@@ -1650,7 +1651,7 @@ ERROR: Equality is not defined for arguments of type ARRAY<INT32> [at 3:7]
 where KitchenSink.repeated_int32_val = []
       ^
 --
-ALTERNATION GROUP: ARRAY_EQUALITY
+ALTERNATION GROUP: +ARRAY_EQUALITY
 --
 QueryStmt
 +-output_column_list=
@@ -1682,7 +1683,7 @@ QueryStmt
             +-Literal(type=ARRAY<INT32>, value=[])
 ==
 
-[language_features={{|ARRAY_EQUALITY}}]
+[language_features=NONE,{{|+ARRAY_EQUALITY}}]
 select KitchenSink.repeated_int32_val = KitchenSink.repeated_string_val
 from TestTable
 --
@@ -1698,7 +1699,7 @@ select KitchenSink.repeated_int32_val = KitchenSink.repeated_string_val
        ^
 ==
 
-[language_features={{|ARRAY_EQUALITY}}]
+[language_features=NONE,{{|+ARRAY_EQUALITY}}]
 select KitchenSink.repeated_int32_val = KitchenSink.repeated_int64_val
 from TestTable
 --
@@ -1715,7 +1716,7 @@ select KitchenSink.repeated_int32_val = KitchenSink.repeated_int64_val
 ==
 
 # TODO: This should work when implicit array coercion is allowed.
-[language_features={{|ARRAY_EQUALITY}}]
+[language_features=NONE,{{|+ARRAY_EQUALITY}}]
 select KitchenSink.repeated_int32_val = [1,2,3]
 from TestTable
 --
@@ -1733,7 +1734,7 @@ select KitchenSink.repeated_int32_val = [1,2,3]
 ==
 
 # TODO: This should work when implicit array coercion is allowed.
-[language_features={{|ARRAY_EQUALITY}}]
+[language_features=NONE,{{|+ARRAY_EQUALITY}}]
 select KitchenSink.repeated_int64_val = [null]
 from TestTable
 --
@@ -1744,7 +1745,7 @@ ERROR: Equality is not defined for arguments of type ARRAY<INT64> [at 1:8]
 select KitchenSink.repeated_int64_val = [null]
        ^
 --
-ALTERNATION GROUP: ARRAY_EQUALITY
+ALTERNATION GROUP: +ARRAY_EQUALITY
 --
 QueryStmt
 +-output_column_list=
@@ -1767,7 +1768,7 @@ QueryStmt
 ==
 
 # TODO: This should work when implicit array coercion is allowed.
-[language_features={{|ARRAY_EQUALITY}}]
+[language_features=NONE,{{|+ARRAY_EQUALITY}}]
 select KitchenSink.repeated_string_val = [null]
 from TestTable
 --
@@ -1783,7 +1784,7 @@ select KitchenSink.repeated_string_val = [null]
        ^
 ==
 
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 SELECT if (true, 0.93, NUMERIC '0.94'),
        if (true, cast(0.93 as double), NUMERIC '0.94'),
        if (true, @test_param_double, NUMERIC '0.94'),
@@ -1865,7 +1866,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 SELECT if (true, numeric_col, 0.93),
        if (true, numeric_col, cast(0.93 as double)),
        if (true, numeric_col, @test_param_double)
@@ -1901,7 +1902,7 @@ QueryStmt
       +-TableScan(column_list=[NumericTypeTable.numeric_col#1], table=NumericTypeTable, column_index_list=[0])
 ==
 
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 SELECT `int64` x FROM SimpleTypes
 UNION ALL
 SELECT numeric_col x FROM NumericTypeTable
@@ -1953,7 +1954,7 @@ QueryStmt
         +-output_column_list=[$union_all3_cast.x#24]
 ==
 
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 SELECT `int64` x FROM SimpleTypes
 UNION ALL
 SELECT numeric_col x FROM NumericTypeTable
@@ -2007,7 +2008,7 @@ QueryStmt
         +-output_column_list=[$union_all3.x#21]
 ==
 
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 SELECT `int64` x FROM SimpleTypes
 UNION ALL
 SELECT NUMERIC '1.23' x
@@ -2063,7 +2064,7 @@ QueryStmt
 
 # This test demonstrates that a direct cast of a floating point literal into a
 # NUMERIC does not lose precision.
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 SELECT cast(99999999999999999999999999999.999999999 as NUMERIC),
        cast(-99999999999999999999999999999.999999999 as NUMERIC),
        cast(cast("99999999999999999999999999999.999999999" as DOUBLE) as NUMERIC),
@@ -2098,7 +2099,7 @@ QueryStmt
           +-SingleRowScan
 ==
 
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 SELECT cast(123.12 as NUMERIC),
        cast(.456 as NUMERIC),
        cast(678. as NUMERIC),
@@ -2144,7 +2145,7 @@ QueryStmt
 ==
 
 # BIGNUMERIC type coercion tests
-[language_features=BIGNUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE]
 SELECT if (true, 0.93, BIGNUMERIC '0.94'),
        if (true, cast(0.93 as double), BIGNUMERIC '0.94'),
        if (true, @test_param_double, BIGNUMERIC '0.94'),
@@ -2226,7 +2227,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=BIGNUMERIC_TYPE,NUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE,+NUMERIC_TYPE]
 SELECT if (true, NUMERIC '0.93', BIGNUMERIC '0.94'),
        if (true, cast(0.93 as NUMERIC), BIGNUMERIC '0.94'),
        if (true, @test_param_numeric, BIGNUMERIC '0.94'),
@@ -2289,7 +2290,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=BIGNUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE]
 SELECT if (true, bignumeric_col, 0.93),
        if (true, bignumeric_col, cast(0.93 as double)),
        if (true, bignumeric_col, @test_param_double)
@@ -2325,7 +2326,7 @@ QueryStmt
       +-TableScan(column_list=[BigNumericTypeTable.bignumeric_col#1], table=BigNumericTypeTable, column_index_list=[0])
 ==
 
-[language_features=BIGNUMERIC_TYPE,NUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE,+NUMERIC_TYPE]
 SELECT if (true, numeric_col, BIGNUMERIC '0.93'),
        if (true, numeric_col, cast(0.93 as BIGNUMERIC)),
        if (true, numeric_col, @test_param_bignumeric)
@@ -2362,7 +2363,7 @@ QueryStmt
       +-TableScan(column_list=[NumericTypeTable.numeric_col#1], table=NumericTypeTable, column_index_list=[0])
 ==
 
-[language_features=BIGNUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE]
 SELECT `int64` x FROM SimpleTypes
 UNION ALL
 SELECT bignumeric_col x FROM BigNumericTypeTable
@@ -2414,7 +2415,7 @@ QueryStmt
         +-output_column_list=[$union_all3_cast.x#24]
 ==
 
-[language_features=BIGNUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE]
 SELECT `int64` x FROM SimpleTypes
 UNION ALL
 SELECT bignumeric_col x FROM BigNumericTypeTable
@@ -2468,7 +2469,7 @@ QueryStmt
         +-output_column_list=[$union_all3.x#21]
 ==
 
-[language_features=BIGNUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE]
 SELECT `int64` x FROM SimpleTypes
 UNION ALL
 SELECT BIGNUMERIC '1.23' x
@@ -2522,7 +2523,7 @@ QueryStmt
         +-output_column_list=[$union_all3.x#21]
 ==
 
-[language_features=BIGNUMERIC_TYPE,NUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE,+NUMERIC_TYPE]
 SELECT `int64` x FROM SimpleTypes
 UNION ALL
 SELECT numeric_col x FROM NumericTypeTable
@@ -2578,7 +2579,7 @@ QueryStmt
 
 # This test demonstrates that a direct cast of a floating point literal into a
 # NUMERIC does not lose precision.
-[language_features=BIGNUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE]
 SELECT cast(578960446186580977117854925043439539266.34992332820282019728792003956564819967 as BIGNUMERIC),
        cast(-578960446186580977117854925043439539266.34992332820282019728792003956564819968 as BIGNUMERIC),
        cast(cast("578960446186580977117854925043439539266.34992332820282019728792003956564819967" as DOUBLE) as BIGNUMERIC),
@@ -2613,7 +2614,7 @@ QueryStmt
           +-SingleRowScan
 ==
 
-[language_features=BIGNUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE]
 SELECT cast(123.12 as BIGNUMERIC),
        cast(.456 as BIGNUMERIC),
        cast(678. as BIGNUMERIC),
@@ -2658,7 +2659,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select fn_on_int32_array_returns_int32(NULL)
 --
 QueryStmt
@@ -2677,7 +2678,7 @@ QueryStmt
 
 # Implicit coercion of non-empty array literals is now supported. (Implicit
 # coercion of empty array literals was always supported.)
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select [],
        [1, 2, 3],
        fn_on_int32_array_returns_int32([]),
@@ -2692,7 +2693,7 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RET
        fn_on_int32_array_returns_int32([1, 2, 3])
        ^
 --
-ALTERNATION GROUP: CAST_DIFFERENT_ARRAY_TYPES
+ALTERNATION GROUP: +CAST_DIFFERENT_ARRAY_TYPES
 --
 QueryStmt
 +-output_column_list=
@@ -2718,7 +2719,7 @@ QueryStmt
 
 # Of course, we don't allow implicit coercion of array literals with elements
 # that are out of range for the destination element type.
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select fn_on_int32_array_returns_int32([1152921504606846976])
 --
 ALTERNATION GROUP: <empty>
@@ -2730,7 +2731,7 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RET
 select fn_on_int32_array_returns_int32([1152921504606846976])
        ^
 --
-ALTERNATION GROUP: CAST_DIFFERENT_ARRAY_TYPES
+ALTERNATION GROUP: +CAST_DIFFERENT_ARRAY_TYPES
 --
 ERROR: Could not cast literal [1152921504606846976] to type ARRAY<INT32> [at 1:40]
 select fn_on_int32_array_returns_int32([1152921504606846976])
@@ -2739,7 +2740,7 @@ select fn_on_int32_array_returns_int32([1152921504606846976])
 
 # Due to runtime performance concerns, we don't support implicit coercion of
 # array non-literals.
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select fn_on_int32_array_returns_int32(
          {{Int64Array|array_concat(Int64Array, Int64Array)}})
 from ArrayTypes
@@ -2754,12 +2755,12 @@ select fn_on_int32_array_returns_int32(
 
 # For consistency with general expressions, we don't support implicit coercion
 # of explicitly typed array literals either.
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select fn_on_int32_array_returns_int32(ARRAY<INT64>{{[1, 2, 3]|[]}})
 --
 ALTERNATION GROUPS:
     [1, 2, 3]
-    CAST_DIFFERENT_ARRAY_TYPES,[1, 2, 3]
+    +CAST_DIFFERENT_ARRAY_TYPES,[1, 2, 3]
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32
   Argument types: ARRAY<INT64>
@@ -2770,7 +2771,7 @@ select fn_on_int32_array_returns_int32(ARRAY<INT64>[1, 2, 3])
 --
 ALTERNATION GROUPS:
     []
-    CAST_DIFFERENT_ARRAY_TYPES,[]
+    +CAST_DIFFERENT_ARRAY_TYPES,[]
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32
   Argument types: ARRAY<INT64>
@@ -2780,7 +2781,7 @@ select fn_on_int32_array_returns_int32(ARRAY<INT64>[])
        ^
 ==
 
-[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
+[language_features=NONE,+NUMERIC_TYPE,+ROUND_WITH_ROUNDING_MODE]
 [product_mode=internal]
 # Integers should coerce to opaque enums - it's not likely to
 # be used much in practice, but it is part of the spec.  However
@@ -2807,7 +2808,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE,DISABLE_FLOAT32]
+[language_features=NONE,+NUMERIC_TYPE,+ROUND_WITH_ROUNDING_MODE,+DISABLE_FLOAT32]
 [product_mode=external]
 
 SELECT ROUND(NUMERIC "1", 1, 1);
@@ -2828,7 +2829,7 @@ SELECT ROUND(NUMERIC "1", 1, 1);
        ^
 ==
 
-[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
+[language_features=NONE,+NUMERIC_TYPE,+ROUND_WITH_ROUNDING_MODE]
 [product_mode=external]
 
 SELECT ROUND(NUMERIC "1", 1, 1);
@@ -2853,7 +2854,7 @@ SELECT ROUND(NUMERIC "1", 1, 1);
        ^
 ==
 
-[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
+[language_features=NONE,+NUMERIC_TYPE,+ROUND_WITH_ROUNDING_MODE]
 [product_mode={{internal|external}}]
 select 1 = CAST(1 as ROUNDING_MODE),
        'ROUND_HALF_EVEN' = CAST(1 as ROUNDING_MODE)
@@ -2883,12 +2884,15 @@ QueryStmt
 --
 ALTERNATION GROUP: external
 --
-ERROR: Type not found: ROUNDING_MODE [at 1:22]
+ERROR: No matching signature for operator = for argument types: INT64, ROUNDING_MODE
+  Signature: T1 = T1
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {INT64, ROUNDING_MODE} [at 1:8]
 select 1 = CAST(1 as ROUNDING_MODE),
-                     ^
+       ^
 ==
 
-[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
+[language_features=NONE,+NUMERIC_TYPE,+ROUND_WITH_ROUNDING_MODE]
 [product_mode={{internal|external}}]
 [no_java]
 # TODO: Fix java
@@ -2924,7 +2928,7 @@ select STRUCT( nested_catalog.constant_rounding_mode) = struct(1)
 
 ==
 
-[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
+[language_features=NONE,+NUMERIC_TYPE,+ROUND_WITH_ROUNDING_MODE]
 [product_mode={{internal|external}}]
 [no_java]
 # TODO: Fix java
@@ -2955,7 +2959,7 @@ select nested_catalog.constant_rounding_mode in (1, 2)
 
 ==
 
-[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
+[language_features=NONE,+NUMERIC_TYPE,+ROUND_WITH_ROUNDING_MODE]
 # Types are not coercible with each other
 select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE),
 --
@@ -2971,7 +2975,7 @@ select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE),
        ^
 ==
 
-[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
+[language_features=NONE,+NUMERIC_TYPE,+ROUND_WITH_ROUNDING_MODE]
 select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE)
 --
 ERROR: No matching signature for operator = for argument types: zetasql.functions.RoundingMode, ROUNDING_MODE
@@ -2986,7 +2990,7 @@ select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE)
        ^
 ==
 
-[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
+[language_features=NONE,+NUMERIC_TYPE,+ROUND_WITH_ROUNDING_MODE]
 # ROUNDING_MODE_UNSPECIFIED is marked invalid in ROUNDING_MODE (but not
 # 'zetasql.functions.RoundingMode')
 select 'ROUNDING_MODE_UNSPECIFIED' = CAST(1 as ROUNDING_MODE)
@@ -2996,7 +3000,7 @@ select 'ROUNDING_MODE_UNSPECIFIED' = CAST(1 as ROUNDING_MODE)
        ^
 ==
 
-[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
+[language_features=NONE,+NUMERIC_TYPE,+ROUND_WITH_ROUNDING_MODE]
 # 0 (ROUNDING_MODE_UNSPECIFIED) is marked invalid in ROUNDING_MODE.
 select 0 = CAST(1 as ROUNDING_MODE)
 --
@@ -3005,7 +3009,7 @@ select 0 = CAST(1 as ROUNDING_MODE)
        ^
 ==
 
-[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=NONE,{{|+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select bytes from SimpleTypes where bytes like '%abc%'
 --
 ALTERNATION GROUP: <empty>
@@ -3018,7 +3022,7 @@ ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING
 select bytes from SimpleTypes where bytes like '%abc%'
                                     ^
 --
-ALTERNATION GROUP: IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
+ALTERNATION GROUP: +IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
 --
 QueryStmt
 +-output_column_list=
@@ -3037,7 +3041,7 @@ QueryStmt
             +-Literal(type=BYTES, value=b"%abc%")
 ==
 
-[language_features=IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
+[language_features=NONE,+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
 select bytes from simpletypes where bytes like string;
 --
 ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING
@@ -3054,7 +3058,7 @@ select bytes from simpletypes where bytes like string;
 # the language feature is enabled.
 # Ideally, the error message here would be in line with other implicit casts,
 # but we're not able to do this yet.
-[language_features=IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
+[language_features=NONE,+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
 select bytes from SimpleTypes where bytes like '%\U0001F4A9%'
 --
 ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
@@ -3066,7 +3070,7 @@ select bytes from SimpleTypes where bytes like '%\U0001F4A9%'
                                     ^
 ==
 
-[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=NONE,{{|+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select coalesce(b'abc', 'abc', NULL);
 --
 ALTERNATION GROUP: <empty>
@@ -3079,7 +3083,7 @@ ERROR: No matching signature for function COALESCE
 select coalesce(b'abc', 'abc', NULL);
        ^
 --
-ALTERNATION GROUP: IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
+ALTERNATION GROUP: +IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
 --
 QueryStmt
 +-output_column_list=
@@ -3098,7 +3102,7 @@ QueryStmt
 ==
 
 # coercion doesn't work for random expressions.
-[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=NONE,{{|+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select bytes from SimpleTypes where bytes like CONCAT('a', 'b')
 --
 ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING
@@ -3111,7 +3115,7 @@ select bytes from SimpleTypes where bytes like CONCAT('a', 'b')
 ==
 
 # coercion doesn't work for string params.
-[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=NONE,{{|+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select bytes from SimpleTypes where bytes like @test_param_string
 --
 ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING
@@ -3123,7 +3127,7 @@ select bytes from SimpleTypes where bytes like @test_param_string
                                     ^
 ==
 
-[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=NONE,{{|+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select fn_on_bytes('foo')
 --
 ALTERNATION GROUP: <empty>
@@ -3135,7 +3139,7 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BYTES
 select fn_on_bytes('foo')
        ^
 --
-ALTERNATION GROUP: IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
+ALTERNATION GROUP: +IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
 --
 QueryStmt
 +-output_column_list=
@@ -3153,7 +3157,7 @@ QueryStmt
 
 # STRING -> BYTES coercion should not affect overloaded functions with matching
 # string signature.
-[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=NONE,{{|+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select fn_overloaded_bytes_and_string('foo');
 --
 QueryStmt
@@ -3170,7 +3174,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=NONE,{{|+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select fn_overloaded_bytes_and_string(b'foo');
 --
 QueryStmt
@@ -3187,7 +3191,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=NONE,{{|+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select fn_overloaded_bytes_and_date('2020-01-01');
 --
 QueryStmt
@@ -3204,7 +3208,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=NONE,{{|+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select fn_overloaded_bytes_and_timestamp('2020-01-01 15:30:00+00');
 --
 QueryStmt
@@ -3221,7 +3225,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=CIVIL_TIME{{|,IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=NONE,+CIVIL_TIME{{|,+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select fn_overloaded_bytes_and_time('12:30:00.45');
 --
 QueryStmt
@@ -3238,7 +3242,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=CIVIL_TIME{{|,IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=NONE,+CIVIL_TIME{{|,+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select fn_overloaded_bytes_and_datetime('2020-01-01 12:30:00.45');
 --
 QueryStmt
@@ -3255,7 +3259,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=NONE,{{|+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select fn_overloaded_bytes_and_enum('TESTENUM0');
 --
 QueryStmt
@@ -3272,7 +3276,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=NONE,{{|+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select fn_overloaded_bytes_and_proto('int64_key_1: 0 int64_key_2: 1');
 --
 QueryStmt
@@ -3290,7 +3294,7 @@ QueryStmt
 ==
 
 # Coercion doesn't work for maps (yet).
-[language_features=MAP_TYPE]
+[language_features=NONE,+MAP_TYPE]
 SELECT fn_on_int32_map_returns_int32(MAP_FROM_ARRAY({{ARRAY<STRUCT<INT32, INT32>>[(123, 456)]|[(123, 456)]|[("abc", 456)]}}));
 --
 ALTERNATION GROUP: ARRAY<STRUCT<INT32, INT32>>[(123, 456)]
@@ -3328,7 +3332,7 @@ SELECT fn_on_int32_map_returns_int32(MAP_FROM_ARRAY([("abc", 456)]));
        ^
 ==
 
-[language_features=MAP_TYPE]
+[language_features=NONE,+MAP_TYPE]
 SELECT fn_on_int64_map_returns_int64(MAP_FROM_ARRAY({{ARRAY<STRUCT<INT32, INT32>>[(123, 456)]|[(123, 456)]|[("abc", 456)]}}));
 --
 ALTERNATION GROUP: ARRAY<STRUCT<INT32, INT32>>[(123, 456)]
@@ -3366,7 +3370,7 @@ SELECT fn_on_int64_map_returns_int64(MAP_FROM_ARRAY([("abc", 456)]));
        ^
 ==
 
-[language_features=MAP_TYPE{{|,IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=NONE,+MAP_TYPE{{|,+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 SELECT fn_on_bytes_map_returns_bytes(MAP_FROM_ARRAY([(b"abc", b"def")]));
 --
 QueryStmt
@@ -3384,7 +3388,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=MAP_TYPE{{|,IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=NONE,+MAP_TYPE{{|,+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 SELECT fn_on_bytes_map_returns_bytes(MAP_FROM_ARRAY([("abc", "def")]));
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BYTES_MAP_RETURNS_BYTES
@@ -3395,7 +3399,7 @@ SELECT fn_on_bytes_map_returns_bytes(MAP_FROM_ARRAY([("abc", "def")]));
        ^
 ==
 
-[language_features=MAP_TYPE{{|,IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=NONE,+MAP_TYPE{{|,+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 SELECT fn_on_bytes_map_returns_bytes(MAP_FROM_ARRAY([(b"abc", "def")]));
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BYTES_MAP_RETURNS_BYTES
@@ -3406,7 +3410,7 @@ SELECT fn_on_bytes_map_returns_bytes(MAP_FROM_ARRAY([(b"abc", "def")]));
        ^
 ==
 
-[language_features=MAP_TYPE]
+[language_features=NONE,+MAP_TYPE]
 select (case when true then MAP_FROM_ARRAY(ARRAY<STRUCT<INT32, INT32>>[]) else MAP_FROM_ARRAY(ARRAY<STRUCT<INT64, INT64>>[]) end)
 --
 ERROR: No matching signature for operator CASE; all THEN/ELSE arguments must be coercible to a common type but found: MAP<INT32, INT32>, MAP<INT64, INT64>; actual argument types (WHEN THEN) ELSE: (BOOL MAP<INT32, INT32>) MAP<INT64, INT64> [at 1:9]
@@ -3414,7 +3418,7 @@ select (case when true then MAP_FROM_ARRAY(ARRAY<STRUCT<INT32, INT32>>[]) els...
         ^
 ==
 
-[language_features=IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
+[language_features=NONE,+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
 select fn_on_bytes("foobar\U0001F4A9");
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_BYTES

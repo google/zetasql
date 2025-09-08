@@ -1,4 +1,4 @@
-[default language_features=PIPES,GROUP_BY_ARRAY,GROUP_BY_STRUCT,PIPE_STATIC_DESCRIBE]
+[default language_features=MAXIMUM,+PIPES,+GROUP_BY_ARRAY,+GROUP_BY_STRUCT,+PIPE_STATIC_DESCRIBE]
 select 1 |> distinct;
 --
 QueryStmt
@@ -89,12 +89,12 @@ ERROR: Unrecognized name: Filename [at 4:10]
 ==
 
 # DISTINCT on a value table preserves is_value_table.
-[language_features={{PIPES,GROUP_BY_STRUCT|PIPES}}]
+[language_features=NONE,{{+PIPES,+GROUP_BY_STRUCT|+PIPES}}]
 from TestStructValueTable
 |> distinct
 |> where a > 0
 --
-ALTERNATION GROUP: PIPES,GROUP_BY_STRUCT
+ALTERNATION GROUP: +PIPES,+GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -119,7 +119,7 @@ QueryStmt
         | +-field_idx=0
         +-Literal(type=INT32, value=0)
 --
-ALTERNATION GROUP: PIPES
+ALTERNATION GROUP: +PIPES
 --
 ERROR: Column TestStructValueTable of type STRUCT is not supported in pipe DISTINCT [at 2:1]
 |> distinct
@@ -1496,7 +1496,7 @@ QueryStmt
 # If collation is enabled, collation propagates through DISTINCT.
 # TODO Enable java support for collation.
 [no_java]
-[language_features=PIPES,GROUP_BY_ARRAY,GROUP_BY_STRUCT,PIPE_STATIC_DESCRIBE,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
+[language_features=NONE,+PIPES,+GROUP_BY_ARRAY,+GROUP_BY_STRUCT,+PIPE_STATIC_DESCRIBE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT]
 from CollatedTable
 |> DISTINCT
 |> WHERE string_ci = 'abc'

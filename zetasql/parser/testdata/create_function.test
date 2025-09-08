@@ -1,4 +1,4 @@
-[default language_features=REMOTE_FUNCTION]
+[default language_features=NONE,+REMOTE_FUNCTION]
 create function ;
 --
 ERROR: Syntax error: Unexpected ";" [at 1:17]
@@ -615,7 +615,7 @@ create function fn(my.path.s string )
 returns string language testlang as "return 'a';"
 options ( a=b, bruce=lee ) ;
 --
-ERROR: Syntax error: Expected ")" or "," but got identifier "string" [at 1:30]
+ERROR: Syntax error: Expected ")" but got identifier "string" [at 1:30]
 create function fn(my.path.s string )
                              ^
 ==
@@ -625,9 +625,9 @@ create function fn(s string)
 returns table<s string> language testlang as "return 'a';"
 options ( a=b, bruce=lee ) ;
 --
-ERROR: Syntax error: Unexpected TABLE [at 2:1]
+ERROR: Syntax error: Expected end of input but got "<" [at 2:14]
 returns table<s string> language testlang as "return 'a';"
-^
+             ^
 ==
 
 # Create a function with an argument alias.  Such aliases are only
@@ -739,7 +739,7 @@ RETURNS string LANGUAGE testlang
 create function mypackage.myfunc(x int32 NOT AGGREGATE as alias)
   returns string language testlang ;
 --
-ERROR: Syntax error: Expected ")" or "," but got keyword AS [at 1:56]
+ERROR: Syntax error: Expected ")" but got keyword AS [at 1:56]
 create function mypackage.myfunc(x int32 NOT AGGREGATE as alias)
                                                        ^
 ==
@@ -800,14 +800,14 @@ RETURNS int32 AS (
 # Simple AS alias tests, where the user forgot the AS.
 create function fn(s ANY TYPE T) as (s);
 --
-ERROR: Syntax error: Expected ")" or "," but got identifier "T" [at 1:31]
+ERROR: Syntax error: Expected ")" but got identifier "T" [at 1:31]
 create function fn(s ANY TYPE T) as (s);
                               ^
 ==
 
 create function fn(ANY TYPE T) as (s);
 --
-ERROR: Syntax error: Expected ")" or "," but got identifier "T" [at 1:29]
+ERROR: Syntax error: Expected ")" but got identifier "T" [at 1:29]
 create function fn(ANY TYPE T) as (s);
                             ^
 ==
@@ -864,7 +864,7 @@ create function fn() returns any table as (1);
 
 create function fn(arg any type t) returns t as (1);
 --
-ERROR: Syntax error: Expected ")" or "," but got identifier "t" [at 1:33]
+ERROR: Syntax error: Expected ")" but got identifier "t" [at 1:33]
 create function fn(arg any type t) returns t as (1);
                                 ^
 ==
@@ -1100,7 +1100,7 @@ RETURNS double
 CREATE FUNCTION myfunc(default string default 'default')
 as (default);
 --
-ERROR: Syntax error: Unexpected keyword DEFAULT [at 1:24]
+ERROR: Syntax error: Expected ")" but got keyword DEFAULT [at 1:24]
 CREATE FUNCTION myfunc(default string default 'default')
                        ^
 ==
@@ -1110,7 +1110,7 @@ CREATE FUNCTION myfunc(default string default 'default')
 CREATE FUNCTION myfunc(x INT64 5)
 as (x);
 --
-ERROR: Syntax error: Expected ")" or "," but got integer literal "5" [at 1:32]
+ERROR: Syntax error: Expected ")" but got integer literal "5" [at 1:32]
 CREATE FUNCTION myfunc(x INT64 5)
                                ^
 ==
@@ -1120,7 +1120,7 @@ CREATE FUNCTION myfunc(x INT64 5)
 CREATE FUNCTION myfunc(x INT64 = 5)
 as (x);
 --
-ERROR: Syntax error: Expected ")" or "," but got "=" [at 1:32]
+ERROR: Syntax error: Expected ")" but got "=" [at 1:32]
 CREATE FUNCTION myfunc(x INT64 = 5)
                                ^
 ==
@@ -1130,7 +1130,7 @@ CREATE FUNCTION myfunc(x INT64 = 5)
 CREATE FUNCTION myfunc(x INT64 5 DEFAULT)
 as (x);
 --
-ERROR: Syntax error: Expected ")" or "," but got integer literal "5" [at 1:32]
+ERROR: Syntax error: Expected ")" but got integer literal "5" [at 1:32]
 CREATE FUNCTION myfunc(x INT64 5 DEFAULT)
                                ^
 ==
@@ -1221,7 +1221,7 @@ create function myfunc ( ) returns string remote with connection;
 # Non-remote function with connection after language clause.
 # It's accepted by the parser when the feature is enabled but will be excluded
 # by the analyzer.
-[language_features={{|REMOTE_FUNCTION|CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION|REMOTE_FUNCTION,CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION}}]
+[language_features=NONE,{{|+REMOTE_FUNCTION|+CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION|+REMOTE_FUNCTION,+CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION}}]
 create function myfunc ( ) returns string language js with connection c;
 --
 ALTERNATION GROUP: <empty>
@@ -1231,9 +1231,9 @@ create function myfunc ( ) returns string language js with connection c;
                                                       ^
 --
 ALTERNATION GROUPS:
-    REMOTE_FUNCTION
-    CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
-    REMOTE_FUNCTION,CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
+    +REMOTE_FUNCTION
+    +CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
+    +REMOTE_FUNCTION,+CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
 --
 CreateFunctionStatement [0-71] [create function...connection c]
   FunctionDeclaration [16-26] [myfunc ( )]
@@ -1254,7 +1254,7 @@ RETURNS string LANGUAGE js WITH CONNECTION c
 ==
 
 # Non-remote function without language clause with connection.
-[language_features={{|REMOTE_FUNCTION|CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION}}]
+[language_features=NONE,{{|+REMOTE_FUNCTION|+CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION}}]
 create function myfunc ( ) returns string with connection c;
 --
 ALTERNATION GROUP: <empty>
@@ -1264,8 +1264,8 @@ create function myfunc ( ) returns string with connection c;
                                           ^
 --
 ALTERNATION GROUPS:
-    REMOTE_FUNCTION
-    CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
+    +REMOTE_FUNCTION
+    +CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
 --
 CreateFunctionStatement [0-59] [create function...connection c]
   FunctionDeclaration [16-26] [myfunc ( )]
@@ -1432,7 +1432,7 @@ RETURNS int LANGUAGE js REMOTE WITH CONNECTION c
 
 # Remote keyword with language clause, when the remote function option
 # is turned on or off
-[language_features={{|REMOTE_FUNCTION}}]
+[language_features=NONE,{{|+REMOTE_FUNCTION}}]
 create function myfunc ( ) returns int language js remote;
 --
 ALTERNATION GROUP: <empty>
@@ -1441,7 +1441,7 @@ ERROR: Keyword REMOTE is not supported [at 1:52]
 create function myfunc ( ) returns int language js remote;
                                                    ^
 --
-ALTERNATION GROUP: REMOTE_FUNCTION
+ALTERNATION GROUP: +REMOTE_FUNCTION
 --
 CreateFunctionStatement [0-57] [create function...js remote]
   FunctionDeclaration [16-26] [myfunc ( )]
@@ -1541,7 +1541,7 @@ RETURNS remote REMOTE
 ==
 
 # Simple remote function when the remote function feature is turned off.
-[language_features=]
+[language_features=NONE]
 create function myfunc ( ) returns string remote;
 --
 ERROR: Keyword REMOTE is not supported [at 1:43]
@@ -1551,7 +1551,7 @@ create function myfunc ( ) returns string remote;
 
 # Remote function with determinism specifier when the remote function feature is
 # turned off.
-[language_features=]
+[language_features=NONE]
 create function myfunc ( ) returns string deterministic remote;
 --
 ERROR: Keyword REMOTE is not supported [at 1:57]
@@ -1561,7 +1561,7 @@ create function myfunc ( ) returns string deterministic remote;
 
 # Remote function with connection and options when the remote function feature
 # is turned off.
-[language_features=]
+[language_features=NONE]
 create function myfunc ( ) returns string remote with connection c options(a=b);
 --
 ERROR: Keyword REMOTE is not supported [at 1:43]

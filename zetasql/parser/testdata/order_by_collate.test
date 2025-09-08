@@ -128,7 +128,7 @@ FROM
 
 select f() over(partition by a COLLATE "en") from T
 --
-ERROR: Syntax error: Expected ")" but got keyword COLLATE [at 1:32]
+ERROR: Syntax error: Expected ")" or keyword ORDER or keyword RANGE or keyword ROWS but got keyword COLLATE [at 1:32]
 select f() over(partition by a COLLATE "en") from T
                                ^
 ==

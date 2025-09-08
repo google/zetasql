@@ -82,7 +82,7 @@ SELECT
 
 select a IN a, b, c
 --
-ERROR: Syntax error: Expected "(" or keyword UNNEST but got identifier "a" [at 1:13]
+ERROR: Syntax error: Unexpected identifier "a" [at 1:13]
 select a IN a, b, c
             ^
 ==
@@ -125,14 +125,14 @@ SELECT
 
 select a IN NOT (a, b, c)
 --
-ERROR: Syntax error: Expected "(" or keyword UNNEST but got keyword NOT [at 1:13]
+ERROR: Syntax error: Unexpected keyword NOT [at 1:13]
 select a IN NOT (a, b, c)
             ^
 ==
 
 select a IN NOT LIKE b
 --
-ERROR: Syntax error: Expected "(" or keyword UNNEST but got keyword NOT [at 1:13]
+ERROR: Syntax error: Unexpected keyword NOT [at 1:13]
 select a IN NOT LIKE b
             ^
 ==
@@ -281,14 +281,14 @@ SELECT
 
 select 1 IN ARRAY(select 1)
 --
-ERROR: Syntax error: Expected "(" or keyword UNNEST but got keyword ARRAY [at 1:13]
+ERROR: Syntax error: Unexpected keyword ARRAY [at 1:13]
 select 1 IN ARRAY(select 1)
             ^
 ==
 
 select 1 IN EXISTS(select 1)
 --
-ERROR: Syntax error: Expected "(" or keyword UNNEST but got keyword EXISTS [at 1:13]
+ERROR: Syntax error: Unexpected keyword EXISTS [at 1:13]
 select 1 IN EXISTS(select 1)
             ^
 ==
@@ -346,7 +346,7 @@ WHERE
 
 select 1 IN [1, 2, 3]
 --
-ERROR: Syntax error: Expected "(" or keyword UNNEST but got "[" [at 1:13]
+ERROR: Syntax error: Unexpected "[" [at 1:13]
 select 1 IN [1, 2, 3]
             ^
 ==

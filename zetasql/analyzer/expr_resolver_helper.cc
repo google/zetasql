@@ -254,8 +254,8 @@ absl::StatusOr<bool> IsConstantExpression(const ResolvedExpr* expr) {
 // and returns the first interesting expression.
 static const ResolvedExpr* RemoveWrappingCasts(const ResolvedExpr* expr) {
   // TODO: b/323409001 - Either do not remove casts with format, or only remove
-  //     in case the format expression sasisfies the definition of constant that
-  //     the caller is interesting in understanding.
+  //     in case the format expression satisfies the definition of constant that
+  //     the caller is interested in understanding.
   while (expr->Is<ResolvedCast>()) {
     expr = expr->GetAs<ResolvedCast>()->expr();
   }
@@ -464,30 +464,6 @@ ExprResolutionInfo::ExprResolutionInfo(
            .clause_name = clause_name_in,
            .top_level_ast_expr = top_level_ast_expr_in,
            .column_alias = column_alias_in}) {
-  ABSL_DCHECK(clause_name != nullptr);
-}
-
-// TODO This is the bad constructor that should be removed.
-ExprResolutionInfo::ExprResolutionInfo(
-    const NameScope* name_scope_in,
-    QueryResolutionInfo* query_resolution_info_in,
-    const ASTExpression* top_level_ast_expr_in, IdString column_alias_in,
-    const char* clause_name_in)
-    : ExprResolutionInfo(
-          query_resolution_info_in, name_scope_in,
-          ExprResolutionInfoOptions{
-              .allows_aggregation =
-                  (clause_name_in == nullptr &&
-                   query_resolution_info_in->SelectFormAllowsAggregation()),
-              .allows_analytic =
-                  query_resolution_info_in->SelectFormAllowsAnalytic(),
-              .use_post_grouping_columns = false,
-              .clause_name =
-                  (clause_name_in == nullptr
-                       ? query_resolution_info_in->SelectFormClauseName()
-                       : clause_name_in),
-              .top_level_ast_expr = top_level_ast_expr_in,
-              .column_alias = column_alias_in}) {
   ABSL_DCHECK(clause_name != nullptr);
 }
 

@@ -212,48 +212,6 @@ Value GetMinValue(TypeKind type_kind) {
   }
 }
 
-// Returns true if the data type of <value> has positive infinity and it
-// has the value equal to positive infinity.
-bool IsPosInf(const Value& value) {
-  if (value.is_null()) {
-    // A value of NULL is not positive infinity.
-    return false;
-  }
-  switch (value.type_kind()) {
-    case TYPE_FLOAT: {
-      float v = value.float_value();
-      return std::isinf(v) && v > 0;
-    }
-    case TYPE_DOUBLE: {
-      double v = value.double_value();
-      return std::isinf(v) && v > 0;
-    }
-    default:
-      return false;
-  }
-}
-
-// Returns true if the data type of <value> has negative infinity and it
-// has the value equal to negative infinity.
-bool IsNegInf(const Value& value) {
-  if (value.is_null()) {
-    // A value of NULL is not negative infinity.
-    return false;
-  }
-  switch (value.type_kind()) {
-    case TYPE_FLOAT: {
-      float v = value.float_value();
-      return std::isinf(v) && v < 0;
-    }
-    case TYPE_DOUBLE: {
-      double v = value.double_value();
-      return std::isinf(v) && v < 0;
-    }
-    default:
-      return false;
-  }
-}
-
 // Returns true if the data type of <value> has NaN and it has the value equal
 // to NaN.
 bool IsNaN(const Value& value) {

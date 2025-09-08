@@ -1,5 +1,5 @@
 # max_rows_contributed added to differential privacy options
-[default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE,JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS]
+[default language_features=MAXIMUM,+DIFFERENTIAL_PRIVACY,+NAMED_ARGUMENTS,+DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED,+TABLESAMPLE,+STRATIFIED_RESERVOIR_TABLESAMPLE,+JSON_TYPE,+JSON_VALUE_EXTRACTION_FUNCTIONS,+DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 
 select with differential_privacy options(max_rows_contributed = 5)
@@ -218,7 +218,7 @@ Rewrite ERROR: generic::unimplemented: Unimplemented aggregation: COUNT while us
 ==
 
 # Invalid max_rows_contributed, specified twice
-[language_features=DIFFERENTIAL_PRIVACY]
+[language_features=NONE,+DIFFERENTIAL_PRIVACY]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy options(max_rows_contributed = 5, MAX_ROWS_CONTRIBUTED = 5)
 count(*)
@@ -243,7 +243,7 @@ select with differential_privacy options(max_rows_contributed = 5, max_groups...
 
 # Invalid max_rows_contributed, because max_groups_contributed is also specified
 # Options are upper-case
-[language_features=DIFFERENTIAL_PRIVACY,ANONYMIZATION_CASE_INSENSITIVE_OPTIONS]
+[language_features=NONE,+DIFFERENTIAL_PRIVACY,+ANONYMIZATION_CASE_INSENSITIVE_OPTIONS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy options(MAX_ROWS_CONTRIBUTED = 5, MAX_GROUPS_CONTRIBUTED = 2)
 count(*)
@@ -408,7 +408,7 @@ QueryStmt
 Rewrite ERROR: Option MAX_ROWS_CONTRIBUTED must be an INT64 literal between 1 and 2147483647
 ==
 
-[language_features=DIFFERENTIAL_PRIVACY]
+[language_features=NONE,+DIFFERENTIAL_PRIVACY]
 # When the DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED feature is not enabled,
 # using max_rows_contributed is an error.
 select with differential_privacy options(max_rows_contributed = 5)

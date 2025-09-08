@@ -101,8 +101,8 @@ size_t ParseStringByExactMatch(absl::string_view input_str,
     return 0;
   }
 
-  if (ignore_case ? absl::StartsWithIgnoreCase(input_str, target_str) :
-      absl::StartsWith(input_str, target_str)) {
+  if (ignore_case ? absl::StartsWithIgnoreCase(input_str, target_str)
+                  : absl::StartsWith(input_str, target_str)) {
     return target_str.size();
   } else {
     return absl::string_view::npos;
@@ -2134,8 +2134,7 @@ absl::Status StringToTimeCaster::Cast(absl::string_view time_string,
     return MakeEvalError() << "Input string is not valid UTF-8";
   }
 
-  ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
-      << "Only kNanoseconds or kMicroseconds scale is supported";
+  ZETASQL_RETURN_IF_ERROR(ValidateTimeScale(scale));
 
   absl::Time timestamp;
   uint32_t unused;
@@ -2171,8 +2170,8 @@ absl::Status StringToDatetimeCaster::Cast(absl::string_view datetime_string,
     return MakeEvalError() << "Input string is not valid UTF-8";
   }
 
-  ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
-      << "Only kNanoseconds or kMicroseconds scale is supported";
+  ZETASQL_RETURN_IF_ERROR(ValidateTimeScale(scale));
+
   absl::Time current_date_utc_ts;
   absl::Time timestamp;
   uint32_t unused;

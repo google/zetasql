@@ -1,4 +1,4 @@
-[default language_features=PIPES]
+[default language_features=NONE,+PIPES]
 
 select 1,2,3
 |> where true;
@@ -200,7 +200,8 @@ QueryStatement [0-61] [select 1 union...where false]
         PathExpression [37-38] [x]
           Identifier(x) [37-38] [x]
     LimitOffset [39-46] [limit 5]
-      IntLiteral(5) [45-46] [5]
+      Limit [39-46] [limit 5]
+        IntLiteral(5) [45-46] [5]
     PipeWhere [47-61] [|> where false]
       WhereClause [50-61] [where false]
         BooleanLiteral(false) [56-61] [false]
@@ -380,7 +381,8 @@ QueryStatement [0-30] [select 1 x limit 10 |> where 1]
           Alias [9-10] [x]
             Identifier(x) [9-10] [x]
     LimitOffset [11-19] [limit 10]
-      IntLiteral(10) [17-19] [10]
+      Limit [11-19] [limit 10]
+        IntLiteral(10) [17-19] [10]
     PipeWhere [20-30] [|> where 1]
       WhereClause [23-30] [where 1]
         IntLiteral(1) [29-30] [1]
@@ -973,25 +975,29 @@ QueryStatement [0-93] [select 1 x...as int64)]
             Identifier(x) [9-10] [x]
     PipeLimitOffset [11-22] [|> limit 10]
       LimitOffset [14-22] [limit 10]
-        IntLiteral(10) [20-22] [10]
+        Limit [14-22] [limit 10]
+          IntLiteral(10) [20-22] [10]
     PipeLimitOffset [23-44] [|> limit 12 offset 22]
       LimitOffset [26-44] [limit 12 offset 22]
-        IntLiteral(12) [32-34] [12]
+        Limit [26-34] [limit 12]
+          IntLiteral(12) [32-34] [12]
         IntLiteral(22) [42-44] [22]
     PipeLimitOffset [45-66] [|> limit @x offset @y]
       LimitOffset [48-66] [limit @x offset @y]
-        ParameterExpr [54-56] [@x]
-          Identifier(x) [55-56] [x]
+        Limit [48-56] [limit @x]
+          ParameterExpr [54-56] [@x]
+            Identifier(x) [55-56] [x]
         ParameterExpr [64-66] [@y]
           Identifier(y) [65-66] [y]
     PipeLimitOffset [67-93] [|> limit cast(@z as int64)]
       LimitOffset [70-93] [limit cast(@z as int64)]
-        CastExpression [76-93] [cast(@z as int64)]
-          ParameterExpr [81-83] [@z]
-            Identifier(z) [82-83] [z]
-          SimpleType [87-92] [int64]
-            PathExpression [87-92] [int64]
-              Identifier(int64) [87-92] [int64]
+        Limit [70-93] [limit cast(@z as int64)]
+          CastExpression [76-93] [cast(@z as int64)]
+            ParameterExpr [81-83] [@z]
+              Identifier(z) [82-83] [z]
+            SimpleType [87-92] [int64]
+              PathExpression [87-92] [int64]
+                Identifier(int64) [87-92] [int64]
 --
 SELECT
   1 AS x
@@ -1033,8 +1039,9 @@ QueryStatement [0-21] [select 1 x |> limit x]
             Identifier(x) [9-10] [x]
     PipeLimitOffset [11-21] [|> limit x]
       LimitOffset [14-21] [limit x]
-        PathExpression [20-21] [x]
-          Identifier(x) [20-21] [x]
+        Limit [14-21] [limit x]
+          PathExpression [20-21] [x]
+            Identifier(x) [20-21] [x]
 --
 SELECT
   1 AS x
@@ -1052,9 +1059,10 @@ QueryStatement [0-23] [select 1 x |> limit 1+2]
             Identifier(x) [9-10] [x]
     PipeLimitOffset [11-23] [|> limit 1+2]
       LimitOffset [14-23] [limit 1+2]
-        BinaryExpression(+) [20-23] [1+2]
-          IntLiteral(1) [20-21] [1]
-          IntLiteral(2) [22-23] [2]
+        Limit [14-23] [limit 1+2]
+          BinaryExpression(+) [20-23] [1+2]
+            IntLiteral(1) [20-21] [1]
+            IntLiteral(2) [22-23] [2]
 --
 SELECT
   1 AS x
@@ -1072,14 +1080,45 @@ QueryStatement [0-24] [select 1 x |> limit f(1)]
             Identifier(x) [9-10] [x]
     PipeLimitOffset [11-24] [|> limit f(1)]
       LimitOffset [14-24] [limit f(1)]
-        FunctionCall [20-24] [f(1)]
-          PathExpression [20-21] [f]
-            Identifier(f) [20-21] [f]
-          IntLiteral(1) [22-23] [1]
+        Limit [14-24] [limit f(1)]
+          FunctionCall [20-24] [f(1)]
+            PathExpression [20-21] [f]
+              Identifier(f) [20-21] [f]
+            IntLiteral(1) [22-23] [1]
 --
 SELECT
   1 AS x
 |> LIMIT f(1)
+==
+
+# LIMIT ALL will parse but later get rejected by analyzer if FEATURE_LIMIT_ALL
+# is not enabled.
+select 1 x
+|> limit all
+|> limit all offset 22
+--
+QueryStatement [0-46] [select 1 x...offset 22]
+  Query [0-46] [select 1 x...offset 22]
+    Select [0-10] [select 1 x]
+      SelectList [7-10] [1 x]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    PipeLimitOffset [11-23] [|> limit all]
+      LimitOffset [14-23] [limit all]
+        Limit [14-23] [limit all]
+          LimitAll [20-23] [all]
+    PipeLimitOffset [24-46] [|> limit all offset 22]
+      LimitOffset [27-46] [limit all offset 22]
+        Limit [27-36] [limit all]
+          LimitAll [33-36] [all]
+        IntLiteral(22) [44-46] [22]
+--
+SELECT
+  1 AS x
+|> LIMIT ALL
+|> LIMIT ALL OFFSET 22
 ==
 
 from t
@@ -1116,6 +1155,51 @@ ERROR: Syntax error: Expected keyword JOIN but got "@" [at 2:4]
    ^
 ==
 
+from t
+|> describe
+|> select 123
+|> describe
+--
+QueryStatement [0-44] [from t |>...> describe]
+  Query [0-44] [from t |>...> describe]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeDescribe [7-18] [|> describe]
+    PipeSelect [19-32] [|> select 123]
+      Select [22-32] [select 123]
+        SelectList [29-32] [123]
+          SelectColumn [29-32] [123]
+            IntLiteral(123) [29-32] [123]
+    PipeDescribe [33-44] [|> describe]
+--
+FROM
+  t
+|> DESCRIBE
+|> SELECT
+     123
+|> DESCRIBE
+==
+
+from t
+|> @{hint=1} describe
+--
+ERROR: Syntax error: Expected keyword JOIN but got "@" [at 2:4]
+|> @{hint=1} describe
+   ^
+==
+
+# No DESC shorthand for pipe DESCRIBE.
+from t
+|> desc
+--
+ERROR: Syntax error: Expected keyword JOIN but got keyword DESC [at 2:4]
+|> desc
+   ^
+==
+
 # It's a common mistake to try writing a pipe operator directly after the WITH,
 # without a query.
 WITH q AS (select 1 x)
@@ -1134,7 +1218,7 @@ ERROR: Syntax error: A pipe operator cannot follow the WITH clause before the ma
 ^
 ==
 
-[default language_features={{|PIPES}}]
+[default language_features=NONE,{{|+PIPES}}]
 WITH q AS (select 1 x)
 |> select * from q
 --
@@ -1144,7 +1228,7 @@ ERROR: Syntax error: Unexpected | [at 2:1]
 |> select * from q
 ^
 --
-ALTERNATION GROUP: PIPES
+ALTERNATION GROUP: +PIPES
 --
 ERROR: Syntax error: A pipe operator cannot follow the WITH clause before the main query; The main query usually starts with SELECT or FROM here [at 2:1]
 |> select * from q

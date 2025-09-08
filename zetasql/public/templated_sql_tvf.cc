@@ -293,7 +293,7 @@ absl::Status TemplatedSQLTVF::ForwardNestedResolutionAnalysisError(
   // Update the <new_status> based on <mode>.
   return MaybeUpdateErrorFromPayload(
       options, parse_resume_location_.input(),
-      ConvertInternalErrorLocationToExternal(new_status,
+      ConvertInternalErrorPayloadsToExternal(new_status,
                                              parse_resume_location_.input()));
 }
 

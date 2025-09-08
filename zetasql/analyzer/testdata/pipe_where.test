@@ -1,4 +1,4 @@
-[default language_features=PIPES,ANALYTIC_FUNCTIONS]
+[default language_features=MAXIMUM,+PIPES,+ANALYTIC_FUNCTIONS]
 from KeyValue
 |> where key>10
 --

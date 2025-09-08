@@ -55,6 +55,7 @@
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/functions/match_recognize/compiled_pattern.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/property_graph.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
@@ -82,7 +83,6 @@
 #include "absl/time/time.h"
 #include "absl/types/span.h"
 #include "google/protobuf/descriptor.h"
-#include "zetasql/base/stl_util.h"
 #include "zetasql/base/ret_check.h"
 
 namespace zetasql {
@@ -763,7 +763,7 @@ class AggregateArg final : public ExprArg {
   ValueExpr* mutable_input_field(int i);
 
   // Additional literals or parameters to be passed to the aggregation
-  // function. (E.g., the delimeter in STRING_AGG(s, ".").)
+  // function. (E.g., the delimiter in STRING_AGG(s, ".").)
   int parameter_list_size() const;
   const ValueExpr* parameter(int i) const;
   ValueExpr* mutable_parameter(int i);
@@ -1163,6 +1163,17 @@ class AlgebraNode {
   std::vector<AlgebraArg*> args_;     // owned
 };
 
+// Represents the result of a single-result statement evaluation. For example
+// a query statement, DDL, or DML. The statements can be standalone, or a
+// sub-statement of a multi-result statement.
+struct StmtResult {
+  // Holds the result of evaluating the statement.
+  absl::StatusOr<Value> value;
+
+  // Caches deserialized proto fields for performance.
+  std::shared_ptr<TupleSlot::SharedProtoState> shared_state;
+};
+
 // Abstract base class for value operators.
 class ValueExpr : public AlgebraNode {
  public:
@@ -1196,6 +1207,35 @@ class ValueExpr : public AlgebraNode {
     }
     VirtualTupleSlot virtual_slot(result);
     return Eval(params, context, &virtual_slot, status);
+  }
+
+  // Evaluates a potentially multi-result ValueExpr. A multi-result ValueExpr
+  // is a ValueExpr that can produce more than one result. For example,
+  // a MultiStmtExpr algebrized from a ResolvedMultiStmt.
+  //
+  // This is the base class implementation which handles the common case where a
+  // ValueExpr produces only a single result. The default implementation calls
+  // Eval() and returns the single result in a vector. Subclasses that can
+  // produce multiple results, such as MultiStmtExpr, override this method to
+  // return a vector of results.
+  virtual absl::StatusOr<std::vector<StmtResult>> EvalMulti(
+      absl::Span<const TupleData* const> params,
+      EvaluationContext* context) const {
+    Value value;
+    std::shared_ptr<TupleSlot::SharedProtoState> shared_state;
+
+    absl::Status status;
+    VirtualTupleSlot virtual_slot(&value, &shared_state);
+    bool success = Eval(params, context, &virtual_slot, &status);
+
+    StmtResult result;
+    if (success) {
+      result.value = std::move(value);
+    } else {
+      result.value = status;
+    }
+    result.shared_state = std::move(shared_state);
+    return std::vector<StmtResult>{std::move(result)};
   }
 
   bool IsValueExpr() const override { return true; }
@@ -1281,6 +1321,24 @@ class RelationalOp : public AlgebraNode {
   bool is_order_preserving_ = false;
 };
 
+// Defines executable table valued function.
+// `CreateEvaluator` specifies the table returned by the TVF at runtime.
+class TableValuedFunctionBody {
+ public:
+  TableValuedFunctionBody() = default;
+
+  TableValuedFunctionBody(const TableValuedFunctionBody&) = delete;
+  TableValuedFunctionBody& operator=(const TableValuedFunctionBody&) = delete;
+  virtual ~TableValuedFunctionBody() = default;
+
+  virtual std::string debug_name() const = 0;
+
+  virtual absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+  CreateEvaluator(absl::Span<const TableValuedFunction::TvfEvaluatorArg> args,
+                  std::shared_ptr<FunctionSignature> function_call_signature,
+                  EvaluationContext* context) = 0;
+};
+
 // -------------------------------------------------------
 // Relational operators
 // -------------------------------------------------------
@@ -1340,8 +1398,6 @@ class EvaluatorTableScanOp final : public RelationalOp {
   std::vector<std::unique_ptr<ColumnFilterArg>> and_filters_;
   std::unique_ptr<ValueExpr> read_time_;
 };
-
-// Produces a relation from a TVF.
 
 // EvaluatorTableIterator representing input relation scan.
 // The TVF implementation operates on relations with columns, therefore it is
@@ -1413,6 +1469,38 @@ class InputRelationIterator : public EvaluatorTableIterator {
   const TupleData* current_ = nullptr;
 };
 
+// Relational input of the TVF. Apart from RelationalOp, contains additional
+// column schema information allowing TVF evaluator to find columns by name.
+struct TvfInputRelation {
+  // Descriptor of each input column. Needed to preserve schema and column
+  // name to variable mapping.
+  struct TvfInputRelationColumn {
+    // The name of the column.
+    std::string name;
+    // The type of the column.
+    const Type* type;
+    // Variable associated with this column.
+    VariableId variable;
+  };
+  // Input relation.
+  std::unique_ptr<RelationalOp> relational_op;
+  // Schema of the input relation.
+  std::vector<TvfInputRelationColumn> columns;
+};
+
+// Argument for the TvfAlgebra nodes.
+struct TvfAlgebraArgument {
+  // If set, the argument is a value expression.
+  std::unique_ptr<ValueExpr> value;
+  // If set, the argument is a relation.
+  std::optional<TvfInputRelation> relation;
+  // If set, the argument is a model.
+  const Model* model = nullptr;
+  // If set, the argument is a graph.
+  const PropertyGraph* graph = nullptr;
+};
+
+// Produces a relation from a TVF.
 class TVFOp final : public RelationalOp {
  public:
   using SqlTvfEvaluator =
@@ -1420,37 +1508,8 @@ class TVFOp final : public RelationalOp {
           std::vector<TableValuedFunction::TvfEvaluatorArg>, int,
           std::unique_ptr<EvaluationContext>)>;
 
-  // Relational input of the TVF. Apart from RelationalOp, contains additional
-  // column schema information allowing TVF evaluator to find columns by name.
-  struct TvfInputRelation {
-    // Descriptor of each input column. Needed to preserve schema and column
-    // name to variable mapping.
-    struct TvfInputRelationColumn {
-      // The name of the column.
-      std::string name;
-      // The type of the column.
-      const Type* type;
-      // Variable associated with this column.
-      VariableId variable;
-    };
-    // Input relation.
-    std::unique_ptr<RelationalOp> relational_op;
-    // Schema of the input relation.
-    std::vector<TvfInputRelationColumn> columns;
-  };
-
-  // Argument for the TVFOp.
-  struct TVFOpArgument {
-    // If set, the argument is a value expression.
-    std::unique_ptr<ValueExpr> value;
-    // If set, the argument is a relation.
-    std::optional<TvfInputRelation> relation;
-    // If set, the argument is a model.
-    const Model* model;
-  };
-
   static absl::StatusOr<std::unique_ptr<TVFOp>> Create(
-      const TableValuedFunction* tvf, std::vector<TVFOpArgument> arguments,
+      const TableValuedFunction* tvf, std::vector<TvfAlgebraArgument> arguments,
       std::vector<TVFSchemaColumn> output_columns,
       std::vector<VariableId> variables,
       std::shared_ptr<FunctionSignature> function_call_signature,
@@ -1469,7 +1528,8 @@ class TVFOp final : public RelationalOp {
                             bool verbose) const override;
 
  private:
-  TVFOp(const TableValuedFunction* tvf, std::vector<TVFOpArgument> arguments,
+  TVFOp(const TableValuedFunction* tvf,
+        std::vector<TvfAlgebraArgument> arguments,
         std::vector<TVFSchemaColumn> output_columns,
         std::vector<VariableId> variables,
         std::shared_ptr<FunctionSignature> function_call_signature,
@@ -1478,7 +1538,7 @@ class TVFOp final : public RelationalOp {
   // The invoked table valued function.
   const TableValuedFunction* tvf_;
   // Arguments for the invocation.
-  const std::vector<TVFOpArgument> arguments_;
+  const std::vector<TvfAlgebraArgument> arguments_;
   // Names and types of TVF output columns.
   const std::vector<TVFSchemaColumn> output_columns_;
   // Variables matching 'output_columns_' positionally.
@@ -2820,10 +2880,10 @@ class DerefExpr final : public ValueExpr {
  private:
   DerefExpr(const VariableId& name, const Type* type);
 
-  VariableId name_;
   // Set by SetSchemasForEvaluation().
   int idx_in_params_ = -1;
   int slot_ = -1;
+  VariableId name_;
 };
 
 // Returns field 'field_name' (or 'field_index') from 'expr'.
@@ -2857,6 +2917,35 @@ class FieldValueExpr final : public ValueExpr {
   ValueExpr* mutable_input();
 
   int field_index_;
+};
+
+// Validates that the input expression is a valid cost expression, that is a
+// finite positive number. Otherwise, produce a runtime error.
+class GraphCostExpr final : public ValueExpr {
+ public:
+  GraphCostExpr(const GraphCostExpr&) = delete;
+  GraphCostExpr& operator=(const GraphCostExpr&) = delete;
+
+  static absl::StatusOr<std::unique_ptr<GraphCostExpr>> Create(
+      std::unique_ptr<ValueExpr> expr);
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  bool Eval(absl::Span<const TupleData* const> params,
+            EvaluationContext* context, VirtualTupleSlot* result,
+            absl::Status* status) const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  enum ArgKind { kInput };
+
+  explicit GraphCostExpr(std::unique_ptr<ValueExpr> expr);
+
+  const ValueExpr* input() const;
+  ValueExpr* mutable_input();
 };
 
 // Given a measure-typed `expr`, return the value of the field given by
@@ -3398,7 +3487,7 @@ class AggregateFunctionBody : public FunctionBody {
 
   bool ignores_null() const { return ignores_null_; }
 
-  const int num_input_fields() const { return num_input_fields_; }
+  int num_input_fields() const { return num_input_fields_; }
   const Type* input_type() const { return input_type_; }
 
   // `args` contains the constant arguments for the aggregation function
@@ -3472,6 +3561,56 @@ class ScalarFunctionCallExpr final : public ValueExpr {
 
   std::unique_ptr<const ScalarFunctionBody> function_;
   const ResolvedFunctionCallBase::ErrorMode error_mode_;
+};
+
+// Evaluates a Table Valued Function of the given 'function' and 'arguments'.
+class TableValuedFunctionCallExpr final : public RelationalOp {
+ public:
+  // Creates a TableValuedFunctionCallExpr using TvfAlgebraArgument as
+  // arguments.
+  static absl::StatusOr<std::unique_ptr<TableValuedFunctionCallExpr>> Create(
+      std::unique_ptr<TableValuedFunctionBody> function,
+      std::vector<TvfAlgebraArgument> arguments,
+      std::vector<TVFSchemaColumn> output_columns,
+      std::vector<VariableId> variables,
+      std::shared_ptr<FunctionSignature> function_call_signature);
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+      absl::Span<const TupleData* const> params, int num_extra_slots,
+      EvaluationContext* context) const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+  std::unique_ptr<TupleSchema> CreateOutputSchema() const override;
+
+  std::string IteratorDebugString() const override;
+
+ private:
+  TableValuedFunctionCallExpr(
+      std::unique_ptr<TableValuedFunctionBody> function,
+      std::vector<TvfAlgebraArgument> arguments,
+      std::vector<TVFSchemaColumn> output_columns,
+      std::vector<VariableId> variables,
+      std::shared_ptr<FunctionSignature> function_call_signature);
+
+  TableValuedFunctionCallExpr(const TableValuedFunctionCallExpr&) = delete;
+  TableValuedFunctionCallExpr& operator=(const TableValuedFunctionCallExpr&) =
+      delete;
+
+  // The invoked table valued function.
+  std::unique_ptr<TableValuedFunctionBody> function_;
+  // Arguments for the invocation.
+  const std::vector<TvfAlgebraArgument> arguments_;
+  // Names and types of TVF output columns.
+  const std::vector<TVFSchemaColumn> output_columns_;
+  // Variables matching 'output_columns_' positionally.
+  const std::vector<VariableId> variables_;
+  // Signature of the invocation
+  const std::shared_ptr<FunctionSignature> function_call_signature_;
 };
 
 // Defines an aggregate function call with the given 'exprs' and 'arguments'.
@@ -4147,7 +4286,7 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
   // ".c", and "[1]".
   class UpdatePathComponent {
    public:
-    enum class Kind { PROTO_FIELD, STRUCT_FIELD, ARRAY_OFFSET };
+    enum class Kind { PROTO_FIELD, STRUCT_FIELD, ARRAY_OFFSET, JSON_FIELD };
 
     struct Less {
       bool operator()(const UpdatePathComponent& c1,
@@ -4168,6 +4307,8 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
           return "STRUCT_FIELD";
         case Kind::ARRAY_OFFSET:
           return "ARRAY_OFFSET";
+        case Kind::JSON_FIELD:
+          return "JSON_FIELD";
       }
     }
 
@@ -4179,6 +4320,9 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
         : kind_(is_struct_field_index ? Kind::STRUCT_FIELD
                                       : Kind::ARRAY_OFFSET),
           component_(int_value) {}
+
+    explicit UpdatePathComponent(std::string json_field_name)
+        : kind_(Kind::JSON_FIELD), component_(json_field_name) {}
 
     Kind kind() const { return kind_; }
 
@@ -4195,10 +4339,17 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
     // Must only be called if 'kind()' is ARRAY_OFFSET.
     int64_t array_offset() const { return *std::get_if<int64_t>(&component_); }
 
+    // Must only be called if 'kind()' is JSON_FIELD.
+    std::string json_field_name() const {
+      return *std::get_if<std::string>(&component_);
+    }
+
    private:
     Kind kind_;
-    // Stores a FieldDescriptor for PROTO_FIELD or an int64 for the other Kinds.
-    std::variant<const google::protobuf::FieldDescriptor*, int64_t> component_;
+    // Stores a FieldDescriptor for PROTO_FIELD or an int64  or string
+    // for the other Kinds.
+    std::variant<const google::protobuf::FieldDescriptor*, int64_t, std::string>
+        component_;
 
     // Allow copy/move/assign.
   };
@@ -4266,6 +4417,15 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
     // a proto.
     absl::StatusOr<Value> GetNewProtoValue(const Value& original_value,
                                            EvaluationContext* context) const;
+
+    // Same as GetNewValue(), but specifically for an UpdateNode that represents
+    // a JSON.
+    absl::StatusOr<Value> GetNewJsonValue(const Value& original_value,
+                                          EvaluationContext* context) const;
+
+    absl::Status GetNewJsonValueHelper(JSONValueRef json_ref,
+                                       const UpdateNode& update_node,
+                                       EvaluationContext* context) const;
 
     std::variant<Value, ChildMap> contents_;
   };
@@ -4762,6 +4922,7 @@ struct GraphPathFactorOpInfo {
   const std::vector<VariableId> variables;
   std::unique_ptr<RelationalOp> rel_op;
   std::optional<ResolvedGraphEdgeScan::EdgeOrientation> orientation;
+  std::optional<int> cost_slot_index;
 };
 
 // Executes a single graph path.
@@ -4769,7 +4930,7 @@ class GraphPathOp final : public RelationalOp {
  public:
   static absl::StatusOr<std::unique_ptr<GraphPathOp>> Create(
       std::vector<GraphPathFactorOpInfo> path_factor_ops, VariableId path,
-      const GraphPathType* path_type);
+      const GraphPathType* path_type, VariableId cost, const Type* cost_type);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
@@ -4787,14 +4948,19 @@ class GraphPathOp final : public RelationalOp {
 
  private:
   explicit GraphPathOp(std::vector<GraphPathFactorOpInfo> path_factor_ops,
-                       VariableId path, const GraphPathType* path_type);
+                       VariableId path, const GraphPathType* path_type,
+                       VariableId cost, const Type* cost_type);
 
   std::vector<VariableId> variables_;
   std::vector<std::optional<ResolvedGraphEdgeScan::EdgeOrientation>>
       edge_orientations_;
+  std::vector<std::optional<int>> cost_slot_indices_;
 
   // If nonnull, materialize a path with this type.
   const GraphPathType* path_type_;
+
+  // If nonnull, materialize the computed cost of the path.
+  const Type* cost_type_;
 
   const RelationalOp* rel(int i) const;
   RelationalOp* mutable_rel(int i);
@@ -4821,12 +4987,14 @@ class QuantifiedGraphPathOp final : public RelationalOp {
     VariableId tail;
     std::vector<GroupVariableInfo> group_variables;
     VariableId path;
+    VariableId cost;
   };
 
   static absl::StatusOr<std::unique_ptr<QuantifiedGraphPathOp>> Create(
       std::unique_ptr<RelationalOp> path_primary_op, VariablesInfo variables,
       std::unique_ptr<ValueExpr> lower_bound,
-      std::unique_ptr<ValueExpr> upper_bound, const GraphPathType* path_type);
+      std::unique_ptr<ValueExpr> upper_bound, const GraphPathType* path_type,
+      const Type* cost_type);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
@@ -4847,13 +5015,17 @@ class QuantifiedGraphPathOp final : public RelationalOp {
                                  VariablesInfo variables,
                                  std::unique_ptr<ValueExpr> lower_bound,
                                  std::unique_ptr<ValueExpr> upper_bound,
-                                 const GraphPathType* path_type);
+                                 const GraphPathType* path_type,
+                                 const Type* cost_type);
 
   // The operator representing the contained path primary.
   std::unique_ptr<RelationalOp> path_primary_op_;
 
   // If nonnull, materialize a path with this type.
   const GraphPathType* path_type_;
+
+  // If nonnull, materialize the computed cost of the path.
+  const Type* cost_type_;
 
   // Output variables for the quantified path.
   VariablesInfo variables_;
@@ -4961,6 +5133,7 @@ class GraphPathSearchOp : public RelationalOp {
       std::vector<PathWithCost>& all_paths) const = 0;
   virtual bool IsOutputDeterministic(std::vector<PathWithCost>& paths,
                                      int64_t path_count) const = 0;
+  virtual bool IsCheapestPathSearch() const { return false; }
 };
 
 // Derived classes for different path search types: ANY, ANY SHORTEST.
@@ -4984,6 +5157,30 @@ class GraphShortestPathSearchOp final : public GraphPathSearchOp {
       std::vector<PathWithCost>& all_paths) const override;
   bool IsOutputDeterministic(std::vector<PathWithCost>& paths,
                              int64_t path_count) const override;
+};
+
+// Derived classes for different path search types: ANY, ANY CHEAPEST.
+class GraphCheapestPathSearchOp final : public GraphPathSearchOp {
+ public:
+  static absl::StatusOr<std::unique_ptr<GraphPathSearchOp>> Create(
+      std::unique_ptr<RelationalOp> path_op,
+      std::unique_ptr<ValueExpr> path_count);
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  explicit GraphCheapestPathSearchOp(std::unique_ptr<RelationalOp> path_op,
+                                     std::unique_ptr<ValueExpr> path_count)
+      : GraphPathSearchOp(std::move(path_op), std::move(path_count)) {}
+  absl::Status AddPathWithCost(std::vector<PathWithCost>& all_paths,
+                               const TupleData* next_input,
+                               EvaluationContext* context,
+                               int64_t max_path_count) const override;
+  absl::Status MaybeSortPaths(
+      std::vector<PathWithCost>& all_paths) const override;
+  bool IsOutputDeterministic(std::vector<PathWithCost>& paths,
+                             int64_t path_count) const override;
+  bool IsCheapestPathSearch() const override { return true; }
 };
 
 class GraphAnyPathSearchOp final : public GraphPathSearchOp {
@@ -5115,6 +5312,89 @@ absl::Status GetSlotsForKeysAndValues(const TupleSchema& schema,
                                       absl::Span<const KeyArg* const> keys,
                                       std::vector<int>* slots_for_keys,
                                       std::vector<int>* slots_for_values);
+
+// Returns true if the data type of <value> has positive infinity and it
+// has the value equal to positive infinity.
+bool IsPosInf(const Value& value);
+
+// Returns true if the data type of <value> has negative infinity and it
+// has the value equal to negative infinity.
+bool IsNegInf(const Value& value);
+
+// Generates a Value 0 based on the input type. Only the following types are
+// supported: INT64, UINT64, DOUBLE, NUMERIC, BIGNUMERIC.
+absl::StatusOr<Value> CreateTypedZeroForCost(const Type* type);
+
+// Represents a multi-statement expression, which consists of a list of
+// statements to be evaluated. This is the algebrized representation of a
+// `ResolvedMultiStmt`, which can be rewritten from, for example, a
+// `ResolvedForkScan`. For example, the following SQL:
+//
+// FROM t
+// |> FORK (
+//   |> SELECT 1
+// ), (
+//   |> SELECT 2
+// )
+//
+// is rewritten to a multi-statement expression that corresponds to the
+// following sub-statements:
+//
+// statement 1: CreateWithEntry("$fork_cte", "FROM t")
+// statement 2: SELECT 1 FROM $fork_cte
+// statement 3: SELECT 2 FROM $fork_cte
+//
+// See the resolved node definitions for `ResolvedMultiStmt` and
+// `ResolvedCreateWithEntryStmt` for more details.
+class MultiStmtExpr final : public ValueExpr {
+ public:
+  MultiStmtExpr(const MultiStmtExpr&) = delete;
+  MultiStmtExpr& operator=(const MultiStmtExpr&) = delete;
+
+  // Creates a MultiStmtExpr.
+  // - Each ExprArg in 'statement_args' represents a single statement.
+  // - If statement_args[i]->variable().is_valid(), that statement defines a
+  //   variable (e.g., a WITH entry). The variable's value is determined by
+  //   statement_args[i]->value_expr(), and it becomes visible to subsequent
+  //   statements.
+  // - If statement_args[i]->variable().is_valid() is false, it's a regular
+  //   statement evaluated for its result or side effects.
+  //
+  // The `output_type` of the MultiStmtExpr (for its Eval method) will be the
+  // `output_type` of the value_expr() of the *last* ExprArg in statement_args.
+  //
+  // Returns an error if `statement_args` is empty.
+  static absl::StatusOr<std::unique_ptr<MultiStmtExpr>> Create(
+      std::vector<std::unique_ptr<ExprArg>> statement_args);
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  bool Eval(absl::Span<const TupleData* const> params,
+            EvaluationContext* context, VirtualTupleSlot* result,
+            absl::Status* status) const override;
+
+  // The returned statement results match positionally with the input
+  // statements.
+  absl::StatusOr<std::vector<StmtResult>> EvalMulti(
+      absl::Span<const TupleData* const> params,
+      EvaluationContext* context) const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  enum ArgKind {
+    // Represents the list of ExprArg statements.
+    kStatements
+  };
+
+  MultiStmtExpr(const Type* output_type,
+                std::vector<std::unique_ptr<ExprArg>> statement_args_list);
+
+  absl::Span<const ExprArg* const> statements() const;
+  absl::Span<ExprArg* const> mutable_statements();
+};
 
 }  // namespace zetasql
 

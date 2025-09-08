@@ -22,24 +22,20 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 # but depend on them being something different. So we have to override them both
 # by defining the repo first.
 load("@com_google_zetasql//bazel:zetasql_bazel_version.bzl", "zetasql_bazel_version")
-load("@toolchains_llvm//toolchain:deps.bzl", "bazel_toolchain_dependencies")
-load("@toolchains_llvm//toolchain:rules.bzl", "llvm_toolchain")
 
 def zetasql_deps_step_1(add_bazel_version = True):
     if add_bazel_version:
         zetasql_bazel_version()
 
-    bazel_toolchain_dependencies()
-    llvm_toolchain(
-        name = "llvm_toolchain",
-        llvm_versions = {
-            "": "16.0.0",
-            # The LLVM repo stops providing pre-built binaries for the MacOS x86_64
-            # architecture for versions >= 16.0.0: https://github.com/llvm/llvm-project/releases,
-            # but our Kokoro MacOS tests are still using x86_64 (ventura).
-            # TODO: Upgrade the MacOS version to sonoma-slcn.
-            "darwin-x86_64": "15.0.7",
-        },
+    # Step 1 loads the toolchains_llvm helper repo.
+    # Step 2 uses the llvm_toolchain rule to load the toolchain repo for a specific arch.
+    # Step 3 loads the toolchain itself from that repo.
+    http_archive(
+        name = "toolchains_llvm",
+        canonical_id = "1.0.0",
+        sha256 = "e91c4361f99011a54814e1afbe5c436e0d329871146a3cd58c23a2b4afb50737",
+        strip_prefix = "toolchains_llvm-1.0.0",
+        url = "https://github.com/bazel-contrib/toolchains_llvm/releases/download/1.0.0/toolchains_llvm-1.0.0.tar.gz",
     )
 
     http_archive(
@@ -52,10 +48,10 @@ def zetasql_deps_step_1(add_bazel_version = True):
     )
     http_archive(
         name = "rules_cc",
-        sha256 = "712d77868b3152dd618c4d64faaddefcc5965f90f5de6e6dd1d5ddcd0be82d42",
-        strip_prefix = "rules_cc-0.1.1",
+        sha256 = "0d3b4f984c4c2e1acfd1378e0148d35caf2ef1d9eb95b688f8e19ce0c41bdf5b",
+        strip_prefix = "rules_cc-0.1.4",
         urls = [
-            "https://github.com/bazelbuild/rules_cc/releases/download/0.1.1/rules_cc-0.1.1.tar.gz",
+            "https://github.com/bazelbuild/rules_cc/releases/download/0.1.4/rules_cc-0.1.4.tar.gz",
         ],
     )
     http_archive(

@@ -14,6 +14,9 @@
 # limitations under the License.
 #
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 package(default_visibility = ["//zetasql/base:zetasql_implementation"])
 
 filegroup(
@@ -78,6 +81,7 @@ cc_library(
         "//zetasql/public:civil_time",
         "//zetasql/public:collation_cc_proto",
         "//zetasql/public:interval_value",
+        "//zetasql/public:json_value",
         "//zetasql/public:language_options",
         "//zetasql/public:numeric_value",
         "//zetasql/public:options_cc_proto",
@@ -189,6 +193,7 @@ cc_library(
         "//zetasql/public/functions:differential_privacy_cc_proto",
         "//zetasql/public/functions:normalize_mode_cc_proto",
         "//zetasql/public/functions:range_sessionize_mode_cc_proto",
+        "//zetasql/public/functions:rank_type_cc_proto",
         "//zetasql/public/functions:rounding_mode_cc_proto",
         "//zetasql/public/functions:unsupported_fields_cc_proto",
         "//zetasql/public/proto:type_annotation_cc_proto",

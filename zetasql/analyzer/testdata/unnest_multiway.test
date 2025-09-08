@@ -1,4 +1,5 @@
 # ============== New syntax does not work without language feature =========
+[default language_features=NONE]
 SELECT *
 FROM UNNEST([1,2], mode => "STRICT");
 --
@@ -23,7 +24,7 @@ FROM UNNEST([1,2] AS array_alias)
                   ^
 ==
 
-[default language_features=MULTIWAY_UNNEST,WITH_EXPRESSION]
+[default language_features=NONE,+MULTIWAY_UNNEST,+WITH_EXPRESSION]
 [default enabled_ast_rewrites=DEFAULTS,-WITH_EXPR,+MULTIWAY_UNNEST]
 # ============== UNNEST with legacy syntax =========
 SELECT *
@@ -115,7 +116,7 @@ QueryStmt
 ==
 
 # ============== UNNEST with single path expression argument =========
-[language_features=MULTIWAY_UNNEST{{|,SINGLETON_UNNEST_INFERS_ALIAS}}]
+[language_features=NONE,+MULTIWAY_UNNEST{{|,+SINGLETON_UNNEST_INFERS_ALIAS}}]
 [show_sqlbuilder_output]
 # Allow infer alias will introduce backward compatibility break, because the
 # selected column gets replaced.
@@ -189,7 +190,7 @@ FROM
 |> SELECT
      withrefscan_2.a_1 AS xs;
 --
-ALTERNATION GROUP: ,SINGLETON_UNNEST_INFERS_ALIAS
+ALTERNATION GROUP: ,+SINGLETON_UNNEST_INFERS_ALIAS
 --
 QueryStmt
 +-output_column_list=
@@ -3493,7 +3494,7 @@ QueryStmt
             +-element_column_list=[$array.$with_expr_element#19]
 ==
 
-[language_features=MULTIWAY_UNNEST,UNNEST_AND_FLATTEN_ARRAYS,WITH_EXPRESSION]
+[language_features=NONE,+MULTIWAY_UNNEST,+UNNEST_AND_FLATTEN_ARRAYS,+WITH_EXPRESSION]
 # 2 arguments: path expressions of implicit flatten and array element access
 # with explicit alias.
 SELECT *
@@ -5613,7 +5614,7 @@ FROM
      ) AS col1;
 ==
 
-[language_features=MULTIWAY_UNNEST,UNNEST_AND_FLATTEN_ARRAYS,WITH_EXPRESSION]
+[language_features=NONE,+MULTIWAY_UNNEST,+UNNEST_AND_FLATTEN_ARRAYS,+WITH_EXPRESSION]
 # 2 arguments: FLATTEN correlated path expressions reference columns from
 # different out-of-scope tables.
 SELECT (

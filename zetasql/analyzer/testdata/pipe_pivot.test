@@ -12,7 +12,7 @@
 # When PIVOT is used on a single table FROM clause, the behavior is identical
 # for the standard syntax suffix operator and the pipe operator.  Several tests
 # show this by using an alternation {{ | \|> }} that includes a pipe or not.
-[default language_features=PIPES,PIPE_STATIC_DESCRIBE,PIVOT]
+[default language_features=MAXIMUM,+PIPES,+PIPE_STATIC_DESCRIBE,+PIVOT]
 
 # Show a pivot, either producing a range variable `pt` or not.
 FROM KeyValue
@@ -145,7 +145,7 @@ QueryStmt
 
 # PIVOT on a standard syntax query, feeding output into of a TVF.
 # Also has an expression in the aggregate function input.
-[language_features=PIPES,TABLE_VALUED_FUNCTIONS,PIVOT]
+[language_features=NONE,+PIPES,+TABLE_VALUED_FUNCTIONS,+PIVOT]
 SELECT Key, Value
 FROM KeyValue
 GROUP BY Key, Value

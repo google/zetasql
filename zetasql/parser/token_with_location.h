@@ -47,22 +47,13 @@ struct StackFrame {
   FrameType frame_type;
   ParseLocationRange location;
 
-  // This struct is similar to ErrorSource proto.
-  // Only difference is that it uses string_view instead of string.
-  //
-  struct ErrorSource {
-    absl::string_view error_message;
-    absl::string_view error_message_caret_string;
-
-    // represents the location of the error. Similar to ErrorLocation proto.
-    absl::string_view filename;
-    int line = 0;
-    int column = 0;
-    int input_start_line_offset = 0;
-    int input_start_column_offset = 0;
-  };
-
-  ErrorSource error_source;
+  // The input text and offsets in the original input from which this frame is
+  // created.
+  absl::string_view input_text;
+  int offset_in_original_input;   // Byte offset in the original input.
+  int input_start_line_offset;    // 1-based line number for the original input.
+  int input_start_column_offset;  // 1-based column number for the original
+                                  // input.
 
   StackFrame* /*absl_nullable*/ parent;
 
@@ -101,6 +92,22 @@ struct StackFrame {
   // and invocation frame will be $m2().
 
   StackFrame* /*absl_nullable*/ invocation_frame;
+
+  // Returns the location range without the offset.
+  ParseLocationRange LocationRangeWithoutStartOffset() const {
+    return ParseLocationRange(
+        ParseLocationPoint::FromByteOffset(
+            location.start().filename(),
+            location.start().GetByteOffset() - offset_in_original_input),
+        ParseLocationPoint::FromByteOffset(
+            location.end().filename(),
+            location.end().GetByteOffset() - offset_in_original_input));
+  }
+
+  // Returns the invocation string for this stack from the original input.
+  absl::string_view GetInvocationString() const {
+    return this->LocationRangeWithoutStartOffset().GetTextFrom(input_text);
+  }
 };
 
 // Represents one token in the unexpanded input stream. 'Kind' is the lexical

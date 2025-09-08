@@ -10,7 +10,7 @@
 # an explicit alias. The result schema is hardcoded to return two columns of
 # type bool and bytes (rather than passing through the schema of the input
 # relation).
-[default language_features=TABLE_VALUED_FUNCTIONS,TABLESAMPLE,TABLESAMPLE_FROM_TABLE_VALUED_FUNCTIONS,WITH_ON_SUBQUERY]
+[default language_features=NONE,+TABLE_VALUED_FUNCTIONS,+TABLESAMPLE,+TABLESAMPLE_FROM_TABLE_VALUED_FUNCTIONS,+WITH_ON_SUBQUERY]
 select * from tvf_one_relation_arg_with_fixed_output(
     (select cast(42 as bool) as bool_column))
 --
@@ -5743,7 +5743,7 @@ QueryStmt
 # case, when the supplied subquery includes a column 'x', the 'x' path
 # expression is resolved to the column implied by scanning the table argument in
 # the FROM clause.
-[language_features=TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS]
 SELECT * FROM tvf_templated_select_scalar_and_relation_args{{|_no_schema}}(
     /*x=*/33, (SELECT 1 AS key, 2 as {{x|y}}));
 --
@@ -5953,7 +5953,7 @@ QueryStmt
 # A function where the SELECT list path expression could resolve to a qualifed
 # struct field (for an argument struct) or a qualified column name (for a table
 # scanned in the FROM clause).
-[language_features=TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS]
 SELECT * FROM tvf_templated_with_struct_param(STRUCT(1 as y, "2" as z),
                                               (select 3 as {{y|a}}, "4" as z));
 --
@@ -6096,7 +6096,7 @@ QueryStmt
 ==
 
 # Test with a named optional table after other optional scalars.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_optional_scalars_named_table('foo', 'bar', foobar=>(select 1))
 --
 QueryStmt
@@ -6132,7 +6132,7 @@ QueryStmt
 ==
 
 # Test with a named optional table after other optional scalars.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_optional_scalars_named_table(foobar=>(select 1))
 --
 QueryStmt
@@ -6168,7 +6168,7 @@ QueryStmt
 ==
 
 # Test with a named optional table after other optional scalars.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_optional_scalars_named_table('foo')
 --
 QueryStmt
@@ -6192,7 +6192,7 @@ QueryStmt
 ==
 
 # Test with a named optional table after other optional scalars.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_table_optional_scalar_named_table((select 2), 'foo',
                                                     (select 1))
 --
@@ -6235,7 +6235,7 @@ QueryStmt
 ==
 
 # Test with a named optional table after other optional scalars.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_table_optional_scalar_named_table((select 2),
                                                     foobar=>(select 1))
 --
@@ -6278,10 +6278,7 @@ QueryStmt
 ==
 
 # Test with a optional table before a mandatory named string with default value.
-# TODO: SQLBuilder turned off due to lack of support for mandatory
-# argument names.
-[no_run_sqlbuilder]
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_optional_table_default_mandatory_string((select 'a'),
                                                           foobar=>(select 'b'))
 --
@@ -6324,10 +6321,7 @@ QueryStmt
 ==
 
 # Test with a optional table before a mandatory named string with default value.
-# TODO: SQLBuilder turned off due to lack of support for mandatory
-# argument names.
-[no_run_sqlbuilder]
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_optional_table_default_mandatory_string((select 'a'))
 --
 QueryStmt
@@ -6360,10 +6354,7 @@ QueryStmt
 ==
 
 # Test with a required, mandatory, optional and named tables.
-# TODO: SQLBuilder turned off due to lack of support for mandatory
-# argument names.
-[no_run_sqlbuilder]
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_required_named_optional_required_tables((select '1'),
                                                           table2=>(select '2'),
                                                           table3=>(select '3'),
@@ -6424,10 +6415,7 @@ QueryStmt
 
 # Test with a required, mandatory, optional and named tables.
 # naming them in the wrong order, which should still work.
-# TODO: SQLBuilder turned off due to lack of support for mandatory
-# argument names.
-[no_run_sqlbuilder]
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_required_named_optional_required_tables((select '1'),
                                                           table4=>(select '4'),
                                                           table3=>(select '3'),
@@ -6503,25 +6491,44 @@ QueryStmt
 ==
 
 # Call a TVF that only takes named-only table args, with one table.
-# TODO: Fix this query since it should work. We should not inject a
-# NULL for missing arguments without defaults.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 SELECT *
 FROM tvf_two_named_only_tables(table2=>(select 2 x))
 --
-ERROR: No matching signature for tvf_two_named_only_tables
-  Argument types: NULL, TABLE<x INT64>
-  Signature: TVF_TWO_NAMED_ONLY_TABLES([table1 => TABLE], [table2 => TABLE])
-    Named argument `table1`: expected TABLE, found NULL [at 2:6]
-FROM tvf_two_named_only_tables(table2=>(select 2 x))
-     ^
+QueryStmt
++-output_column_list=
+| +-tvf_two_named_only_tables.column_bool#2 AS column_bool [BOOL]
+| +-tvf_two_named_only_tables.column_bytes#3 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_two_named_only_tables.[column_bool#2, column_bytes#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_two_named_only_tables.[column_bool#2, column_bytes#3]
+        +-tvf=tvf_two_named_only_tables((optional ANY TABLE table1, optional ANY TABLE table2) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<>, TABLE<x INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | |   +-UnsetArgumentScan
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[$subquery1.x#1]
+        |   |   +-expr_list=
+        |   |   | +-x#1 := Literal(type=INT64, value=2)
+        |   |   +-input_scan=
+        |   |     +-SingleRowScan
+        |   +-argument_column_list=[$subquery1.x#1]
+        +-column_index_list=[0, 1]
+        +-function_call_signature=(optional(1) ANY TABLE table1, optional(1) ANY TABLE table2) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Call a TVF that only takes named-only table args, with two tables.
 # TODO: SQLBuilder turned off due to lack of support for mandatory
 # argument names.
 [no_run_sqlbuilder]
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 SELECT *
 FROM tvf_two_named_only_tables(table2=>(select 2 x), table1=>(select 1 x))
 --
@@ -7058,7 +7065,7 @@ ERROR: Function does not allow extra input column named "extra_col" for argument
 # A TVF accepts one relation argument with one date column. A query attempts to
 # pass a statement starting with a WITH clause for the relation argument, but
 # ZetaSQL rejects this query.
-[language_features=TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS]
 select *
 from tvf_one_relation_arg_one_date_input_column(
     (with w1 as (select `date` as mydate from simpletypes)
@@ -7452,7 +7459,7 @@ tablesample reservoir (0.1 rows) repeatable(10)
 
 # Resolver support for the TABLESAMPLE keyword after TVF calls is a protected
 # language feature.
-[language_features=TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS]
 select * from tvf_one_relation_arg_with_fixed_output(
     (select cast(42 as bool) as bool_column))
 tablesample reservoir (100 rows) repeatable(10)
@@ -7501,38 +7508,115 @@ from tvf_one_relation_arg_with_fixed_output(nested_catalog.KeyValue) as mytvf
 ==
 
 # Test with a named optional table after other optional table.
-# These aren't allowed because the optional table will get an untyped_null.
-# TODO: Allow the optional table to be omitted. Same below.
-# TODO: Fix this query since it should work. We should not inject a
-# NULL for missing arguments without defaults.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+# TODO: The query omits the 1st and 2nd arguments, but SQLBuilder
+# generates a query with only the 1st argument omitted, which results in an
+# unsupported SQL. This can be resolved once we represent omitted scalar
+# arguments differently from NULL ones and handle them properly in SQLBuilder.
+[no_run_sqlbuilder]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_optional_table_optional_scalar_named_table(foobar=>(select 1))
 --
-ERROR: No matching signature for tvf_optional_table_optional_scalar_named_table
-  Argument types: NULL, NULL, TABLE<INT64>
-  Signature: TVF_OPTIONAL_TABLE_OPTIONAL_SCALAR_NAMED_TABLE([TABLE], [ANY], [foobar => TABLE])
-    Argument 1: expected TABLE, found NULL [at 1:15]
-select * from tvf_optional_table_optional_scalar_named_table(foobar=>(select 1))
-              ^
+QueryStmt
++-output_column_list=
+| +-tvf_optional_table_optional_scalar_named_table.column_bool#2 AS column_bool [BOOL]
+| +-tvf_optional_table_optional_scalar_named_table.column_bytes#3 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_optional_table_optional_scalar_named_table.[column_bool#2, column_bytes#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_optional_table_optional_scalar_named_table.[column_bool#2, column_bytes#3]
+        +-tvf=tvf_optional_table_optional_scalar_named_table((optional ANY TABLE, optional ANY TYPE, optional ANY TABLE foobar) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<>, null INT64, TABLE<$col1 INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | |   +-UnsetArgumentScan
+        | +-FunctionArgument
+        | | +-expr=
+        | |   +-Literal(type=INT64, value=NULL)
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[$subquery1.$col1#1]
+        |   |   +-expr_list=
+        |   |   | +-$col1#1 := Literal(type=INT64, value=1)
+        |   |   +-input_scan=
+        |   |     +-SingleRowScan
+        |   +-argument_column_list=[$subquery1.$col1#1]
+        +-column_index_list=[0, 1]
+        +-function_call_signature=(optional(1) ANY TABLE, optional(1) INT64, optional(1) ANY TABLE foobar) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Test with multiple named optional tables.
-# These aren't allowed because the optional table will get an untyped_null.
-# TODO: Fix this query since it should work. We should not inject a
-# NULL for missing arguments without defaults.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[show_sqlbuilder_output]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_optional_scalar_named_tables(foobar=>(select 1))
 --
-ERROR: No matching signature for tvf_optional_scalar_named_tables
-  Argument types: NULL, TABLE<INT64>, NULL
-  Signature: TVF_OPTIONAL_SCALAR_NAMED_TABLES([ANY], [foobar => TABLE], [barfoo => TABLE])
-    Argument 3: expected TABLE, found NULL [at 1:15]
-select * from tvf_optional_scalar_named_tables(foobar=>(select 1))
-              ^
+QueryStmt
++-output_column_list=
+| +-tvf_optional_scalar_named_tables.column_bool#2 AS column_bool [BOOL]
+| +-tvf_optional_scalar_named_tables.column_bytes#3 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_optional_scalar_named_tables.[column_bool#2, column_bytes#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_optional_scalar_named_tables.[column_bool#2, column_bytes#3]
+        +-tvf=tvf_optional_scalar_named_tables((optional ANY TYPE, optional ANY TABLE foobar, optional ANY TABLE barfoo) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(null INT64, TABLE<$col1 INT64>, TABLE<>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-expr=
+        | |   +-Literal(type=INT64, value=NULL)
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=[$subquery1.$col1#1]
+        | | |   +-expr_list=
+        | | |   | +-$col1#1 := Literal(type=INT64, value=1)
+        | | |   +-input_scan=
+        | | |     +-SingleRowScan
+        | | +-argument_column_list=[$subquery1.$col1#1]
+        | +-FunctionArgument
+        |   +-scan=
+        |     +-UnsetArgumentScan
+        +-column_index_list=[0, 1]
+        +-function_call_signature=(optional(1) INT64, optional(1) ANY TABLE foobar, optional(1) ANY TABLE barfoo) -> TABLE<column_bool BOOL, column_bytes BYTES>
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  tvfscan_3.column_bool AS column_bool,
+  tvfscan_3.column_bytes AS column_bytes
+FROM
+  TVF_OPTIONAL_SCALAR_NAMED_TABLES(CAST(NULL AS INT64), (
+    SELECT
+      a_1 AS a_1
+    FROM
+      (
+        SELECT
+          1 AS a_1
+      ) AS projectscan_2
+  )) AS tvfscan_3;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TVF_OPTIONAL_SCALAR_NAMED_TABLES(CAST(NULL AS INT64), (
+    SELECT
+      1 AS a_1
+    |> AS projectscan_2
+    |> SELECT
+         a_1 AS a_1
+  )) AS tvfscan_3
+|> SELECT
+     tvfscan_3.column_bool AS column_bool,
+     tvfscan_3.column_bytes AS column_bytes;
 ==
 
 # Test with named table after named struct.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_named_struct_named_table(barfoo=>(select 1))
 --
 ERROR: No matching signature for tvf_named_struct_named_table
@@ -7546,7 +7630,7 @@ select * from tvf_named_struct_named_table(barfoo=>(select 1))
 # Test with named table after named proto.
 # TODO: Fix this query since it should work. We should not inject a
 # NULL for missing arguments without defaults.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_named_proto_named_table(barfoo=>(select 1))
 --
 ERROR: No matching signature for tvf_named_proto_named_table
@@ -7560,61 +7644,133 @@ select * from tvf_named_proto_named_table(barfoo=>(select 1))
 # Test with a optional table before a mandatory named string with default value.
 # Not passing anything, so the default value will force the relation param to
 # receive a NULL, which won't work.
-# TODO: Fix this query since it should work. We should not inject a
-# NULL for missing arguments without defaults.
-# TODO: SQLBuilder turned off due to lack of support for mandatory
-# argument names.
-[no_run_sqlbuilder]
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_optional_table_default_mandatory_string()
 --
-ERROR: No matching signature for tvf_optional_table_default_mandatory_string
-  Argument types: NULL, STRING
-  Signature: TVF_OPTIONAL_TABLE_DEFAULT_MANDATORY_STRING([TABLE], [foobar => STRING])
-    Argument 1: expected TABLE, found NULL [at 1:15]
-select * from tvf_optional_table_default_mandatory_string()
-              ^
+QueryStmt
++-output_column_list=
+| +-tvf_optional_table_default_mandatory_string.column_bool#1 AS column_bool [BOOL]
+| +-tvf_optional_table_default_mandatory_string.column_bytes#2 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_optional_table_default_mandatory_string.[column_bool#1, column_bytes#2]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_optional_table_default_mandatory_string.[column_bool#1, column_bytes#2]
+        +-tvf=tvf_optional_table_default_mandatory_string((optional ANY TABLE, optional STRING {default_value: "default"} foobar) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<>, literal STRING) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | |   +-UnsetArgumentScan
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="default")
+        +-column_index_list=[0, 1]
+        +-function_call_signature=(optional(1) ANY TABLE, optional(1) STRING foobar) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Test with a required, mandatory, optional and named tables.
 # All the tables end up being required because whichever one isn't specified
 # will get a NULL.
-# TODO: Fix this query since it should work. We should not inject a
-# NULL for missing arguments without defaults.
-# TODO: SQLBuilder turned off due to lack of support for mandatory
-# argument names.
-[no_run_sqlbuilder]
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_required_named_optional_required_tables((select '1'),
                                                           table2=>(select '2'),
                                                           table3=>(select '3'))
 --
-ERROR: No matching signature for tvf_required_named_optional_required_tables
-  Argument types: TABLE<STRING>, TABLE<STRING>, TABLE<STRING>, NULL
-  Signature: TVF_REQUIRED_NAMED_OPTIONAL_REQUIRED_TABLES(TABLE, table2 => TABLE, [table3 => TABLE], [table4 => TABLE])
-    Argument 4: expected TABLE, found NULL [at 1:15]
-select * from tvf_required_named_optional_required_tables((select '1'),
-              ^
+QueryStmt
++-output_column_list=
+| +-tvf_required_named_optional_required_tables.column_bool#4 AS column_bool [BOOL]
+| +-tvf_required_named_optional_required_tables.column_bytes#5 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_required_named_optional_required_tables.[column_bool#4, column_bytes#5]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_required_named_optional_required_tables.[column_bool#4, column_bytes#5]
+        +-tvf=tvf_required_named_optional_required_tables((ANY TABLE, ANY TABLE table2, optional ANY TABLE table3, optional ANY TABLE table4) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<$col1 STRING>, TABLE<$col1 STRING>, TABLE<$col1 STRING>, TABLE<>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=[$subquery1.$col1#1]
+        | | |   +-expr_list=
+        | | |   | +-$col1#1 := Literal(type=STRING, value="1")
+        | | |   +-input_scan=
+        | | |     +-SingleRowScan
+        | | +-argument_column_list=[$subquery1.$col1#1]
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=[$subquery2.$col1#2]
+        | | |   +-expr_list=
+        | | |   | +-$col1#2 := Literal(type=STRING, value="2")
+        | | |   +-input_scan=
+        | | |     +-SingleRowScan
+        | | +-argument_column_list=[$subquery2.$col1#2]
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=[$subquery3.$col1#3]
+        | | |   +-expr_list=
+        | | |   | +-$col1#3 := Literal(type=STRING, value="3")
+        | | |   +-input_scan=
+        | | |     +-SingleRowScan
+        | | +-argument_column_list=[$subquery3.$col1#3]
+        | +-FunctionArgument
+        |   +-scan=
+        |     +-UnsetArgumentScan
+        +-column_index_list=[0, 1]
+        +-function_call_signature=(ANY TABLE, ANY TABLE table2, optional(1) ANY TABLE table3, optional(1) ANY TABLE table4) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Test with a required, mandatory, optional and named tables.
 # All the tables end up being required because whichever one isn't specified
 # will get a NULL.
-# TODO: Fix this query since it should work. We should not inject a
-# NULL for missing arguments without defaults.
-# TODO: SQLBuilder turned off due to lack of support for mandatory
-# argument names.
-[no_run_sqlbuilder]
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_required_named_optional_required_tables((select '1'),
                                                           table2=>(select '2'))
 --
-ERROR: No matching signature for tvf_required_named_optional_required_tables
-  Argument types: TABLE<STRING>, TABLE<STRING>, NULL, NULL
-  Signature: TVF_REQUIRED_NAMED_OPTIONAL_REQUIRED_TABLES(TABLE, table2 => TABLE, [table3 => TABLE], [table4 => TABLE])
-    Argument 3: expected TABLE, found NULL [at 1:15]
-select * from tvf_required_named_optional_required_tables((select '1'),
-              ^
+QueryStmt
++-output_column_list=
+| +-tvf_required_named_optional_required_tables.column_bool#3 AS column_bool [BOOL]
+| +-tvf_required_named_optional_required_tables.column_bytes#4 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_required_named_optional_required_tables.[column_bool#3, column_bytes#4]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_required_named_optional_required_tables.[column_bool#3, column_bytes#4]
+        +-tvf=tvf_required_named_optional_required_tables((ANY TABLE, ANY TABLE table2, optional ANY TABLE table3, optional ANY TABLE table4) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<$col1 STRING>, TABLE<$col1 STRING>, TABLE<>, TABLE<>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=[$subquery1.$col1#1]
+        | | |   +-expr_list=
+        | | |   | +-$col1#1 := Literal(type=STRING, value="1")
+        | | |   +-input_scan=
+        | | |     +-SingleRowScan
+        | | +-argument_column_list=[$subquery1.$col1#1]
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=[$subquery2.$col1#2]
+        | | |   +-expr_list=
+        | | |   | +-$col1#2 := Literal(type=STRING, value="2")
+        | | |   +-input_scan=
+        | | |     +-SingleRowScan
+        | | +-argument_column_list=[$subquery2.$col1#2]
+        | +-FunctionArgument
+        | | +-scan=
+        | |   +-UnsetArgumentScan
+        | +-FunctionArgument
+        |   +-scan=
+        |     +-UnsetArgumentScan
+        +-column_index_list=[0, 1]
+        +-function_call_signature=(ANY TABLE, ANY TABLE table2, optional(1) ANY TABLE table3, optional(1) ANY TABLE table4) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 select * from tvf_templated_select_any_scalar_arg((select ["abc"]));
@@ -7668,3 +7824,375 @@ from tvf_one_relation_arg_with_fixed_output(TABLE KeyValue WHERE true)
 ERROR: TABLE clause with WHERE is not supported [at 2:45]
 from tvf_one_relation_arg_with_fixed_output(TABLE KeyValue WHERE true)
                                             ^
+==
+
+# Test with optional relation and named scalar arguments.
+select *
+from tvf_optional_relation_named_scalar(TABLE KeyValue)
+--
+QueryStmt
++-output_column_list=
+| +-tvf_optional_relation_named_scalar.$col0#3 AS `$col0` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_optional_relation_named_scalar.$col0#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[tvf_optional_relation_named_scalar.$col0#3]
+        +-tvf=tvf_optional_relation_named_scalar((optional ANY TABLE, optional STRING foobar) -> TABLE<INT64>)
+        +-signature=(TABLE<Key INT64, Value STRING>) -> TABLE<INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        |   +-argument_column_list=KeyValue.[Key#1, Value#2]
+        +-column_index_list=[0]
+        +-function_call_signature=(optional(1) ANY TABLE, optional(0) STRING foobar) -> TABLE<INT64>
+==
+
+# Test with optional relation and named scalar arguments.
+[show_sqlbuilder_output]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
+
+select *
+from tvf_optional_relation_named_scalar(TABLE KeyValue, foobar=>'a')
+--
+QueryStmt
++-output_column_list=
+| +-tvf_optional_relation_named_scalar.$col0#3 AS `$col0` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_optional_relation_named_scalar.$col0#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[tvf_optional_relation_named_scalar.$col0#3]
+        +-tvf=tvf_optional_relation_named_scalar((optional ANY TABLE, optional STRING foobar) -> TABLE<INT64>)
+        +-signature=(TABLE<Key INT64, Value STRING>, literal STRING) -> TABLE<INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        | | +-argument_column_list=KeyValue.[Key#1, Value#2]
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="a")
+        +-column_index_list=[0]
+        +-function_call_signature=(optional(1) ANY TABLE, optional(1) STRING foobar) -> TABLE<INT64>
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  tvfscan_4 AS a_5
+FROM
+  TVF_OPTIONAL_RELATION_NAMED_SCALAR((
+    SELECT
+      a_1 AS Key,
+      a_2 AS Value
+    FROM
+      (
+        SELECT
+          KeyValue.Key AS a_1,
+          KeyValue.Value AS a_2
+        FROM
+          KeyValue
+      ) AS keyvalue_3
+  ), foobar  => "a") AS tvfscan_4;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS keyvalue_3
+|> SELECT
+     a_1 AS Key,
+     a_2 AS Value
+|> CALL TVF_OPTIONAL_RELATION_NAMED_SCALAR(foobar  => "a") AS tvfscan_4
+|> SELECT
+     tvfscan_4 AS a_5;
+==
+
+# Test with optional relation and named scalar arguments.
+[show_sqlbuilder_output]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
+
+select *
+from tvf_optional_relation_named_scalar(foobar=>'a')
+--
+QueryStmt
++-output_column_list=
+| +-tvf_optional_relation_named_scalar.$col0#1 AS `$col0` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_optional_relation_named_scalar.$col0#1]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[tvf_optional_relation_named_scalar.$col0#1]
+        +-tvf=tvf_optional_relation_named_scalar((optional ANY TABLE, optional STRING foobar) -> TABLE<INT64>)
+        +-signature=(TABLE<>, literal STRING) -> TABLE<INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | |   +-UnsetArgumentScan
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="a")
+        +-column_index_list=[0]
+        +-function_call_signature=(optional(1) ANY TABLE, optional(1) STRING foobar) -> TABLE<INT64>
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  tvfscan_1 AS a_2
+FROM
+  TVF_OPTIONAL_RELATION_NAMED_SCALAR(foobar  => "a") AS tvfscan_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TVF_OPTIONAL_RELATION_NAMED_SCALAR(foobar  => "a") AS tvfscan_1
+|> SELECT
+     tvfscan_1 AS a_2;
+==
+
+# Test with optional relation and named scalar arguments.
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
+
+select *
+from tvf_optional_relation_named_scalar()
+--
+QueryStmt
++-output_column_list=
+| +-tvf_optional_relation_named_scalar.$col0#1 AS `$col0` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_optional_relation_named_scalar.$col0#1]
+    +-input_scan=
+      +-TVFScan(column_list=[tvf_optional_relation_named_scalar.$col0#1], tvf=tvf_optional_relation_named_scalar((optional ANY TABLE, optional STRING foobar) -> TABLE<INT64>), signature=() -> TABLE<INT64>, column_index_list=[0], function_call_signature=(optional(0) ANY TABLE, optional(0) STRING foobar) -> TABLE<INT64>)
+==
+
+# Test with optional relation and named scalar arguments.
+[show_sqlbuilder_output]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
+
+select *
+from tvf_optional_relations_named_scalar(TABLE KeyValue)
+--
+QueryStmt
++-output_column_list=
+| +-tvf_optional_relations_named_scalar.$col0#3 AS `$col0` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_optional_relations_named_scalar.$col0#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[tvf_optional_relations_named_scalar.$col0#3]
+        +-tvf=tvf_optional_relations_named_scalar((optional ANY TABLE, optional ANY TABLE, optional STRING foobar) -> TABLE<INT64>)
+        +-signature=(TABLE<Key INT64, Value STRING>) -> TABLE<INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        |   +-argument_column_list=KeyValue.[Key#1, Value#2]
+        +-column_index_list=[0]
+        +-function_call_signature=(optional(1) ANY TABLE, optional(0) ANY TABLE, optional(0) STRING foobar) -> TABLE<INT64>
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  tvfscan_4 AS a_5
+FROM
+  TVF_OPTIONAL_RELATIONS_NAMED_SCALAR((
+    SELECT
+      a_1 AS Key,
+      a_2 AS Value
+    FROM
+      (
+        SELECT
+          KeyValue.Key AS a_1,
+          KeyValue.Value AS a_2
+        FROM
+          KeyValue
+      ) AS keyvalue_3
+  )) AS tvfscan_4;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS keyvalue_3
+|> SELECT
+     a_1 AS Key,
+     a_2 AS Value
+|> CALL TVF_OPTIONAL_RELATIONS_NAMED_SCALAR() AS tvfscan_4
+|> SELECT
+     tvfscan_4 AS a_5;
+==
+
+# Test with optional relation and named scalar arguments.
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
+
+select *
+from tvf_optional_relations_named_scalar(TABLE KeyValue, TABLE KeyValue)
+--
+QueryStmt
++-output_column_list=
+| +-tvf_optional_relations_named_scalar.$col0#5 AS `$col0` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_optional_relations_named_scalar.$col0#5]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[tvf_optional_relations_named_scalar.$col0#5]
+        +-tvf=tvf_optional_relations_named_scalar((optional ANY TABLE, optional ANY TABLE, optional STRING foobar) -> TABLE<INT64>)
+        +-signature=(TABLE<Key INT64, Value STRING>, TABLE<Key INT64, Value STRING>) -> TABLE<INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        | | +-argument_column_list=KeyValue.[Key#1, Value#2]
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=KeyValue.[Key#3, Value#4], table=KeyValue, column_index_list=[0, 1])
+        |   +-argument_column_list=KeyValue.[Key#3, Value#4]
+        +-column_index_list=[0]
+        +-function_call_signature=(optional(1) ANY TABLE, optional(1) ANY TABLE, optional(0) STRING foobar) -> TABLE<INT64>
+==
+
+# Test with optional relation and named scalar arguments.
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
+
+select *
+from tvf_optional_relations_named_scalar(foobar=>'a')
+--
+QueryStmt
++-output_column_list=
+| +-tvf_optional_relations_named_scalar.$col0#1 AS `$col0` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_optional_relations_named_scalar.$col0#1]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[tvf_optional_relations_named_scalar.$col0#1]
+        +-tvf=tvf_optional_relations_named_scalar((optional ANY TABLE, optional ANY TABLE, optional STRING foobar) -> TABLE<INT64>)
+        +-signature=(TABLE<>, TABLE<>, literal STRING) -> TABLE<INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | |   +-UnsetArgumentScan
+        | +-FunctionArgument
+        | | +-scan=
+        | |   +-UnsetArgumentScan
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="a")
+        +-column_index_list=[0]
+        +-function_call_signature=(optional(1) ANY TABLE, optional(1) ANY TABLE, optional(1) STRING foobar) -> TABLE<INT64>
+==
+
+# Test with optional relation and named scalar arguments.
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
+
+select *
+from tvf_optional_relations_named_scalar(TABLE KeyValue, foobar=>'a')
+--
+QueryStmt
++-output_column_list=
+| +-tvf_optional_relations_named_scalar.$col0#3 AS `$col0` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_optional_relations_named_scalar.$col0#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[tvf_optional_relations_named_scalar.$col0#3]
+        +-tvf=tvf_optional_relations_named_scalar((optional ANY TABLE, optional ANY TABLE, optional STRING foobar) -> TABLE<INT64>)
+        +-signature=(TABLE<Key INT64, Value STRING>, TABLE<>, literal STRING) -> TABLE<INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        | | +-argument_column_list=KeyValue.[Key#1, Value#2]
+        | +-FunctionArgument
+        | | +-scan=
+        | |   +-UnsetArgumentScan
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="a")
+        +-column_index_list=[0]
+        +-function_call_signature=(optional(1) ANY TABLE, optional(1) ANY TABLE, optional(1) STRING foobar) -> TABLE<INT64>
+==
+
+# Test with optional relation and optional scalar arguments.
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS]
+
+select *
+from tvf_optional_relation_optional_scalar()
+--
+QueryStmt
++-output_column_list=
+| +-tvf_optional_relation_optional_scalar.$col0#1 AS `$col0` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_optional_relation_optional_scalar.$col0#1]
+    +-input_scan=
+      +-TVFScan(column_list=[tvf_optional_relation_optional_scalar.$col0#1], tvf=tvf_optional_relation_optional_scalar((optional ANY TABLE, optional STRING) -> TABLE<INT64>), signature=() -> TABLE<INT64>, column_index_list=[0], function_call_signature=(optional(0) ANY TABLE, optional(0) STRING) -> TABLE<INT64>)
+==
+
+# Test with optional relation and optional scalar arguments.
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS]
+
+select *
+from tvf_optional_relation_optional_scalar(Table KeyValue)
+--
+QueryStmt
++-output_column_list=
+| +-tvf_optional_relation_optional_scalar.$col0#3 AS `$col0` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_optional_relation_optional_scalar.$col0#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[tvf_optional_relation_optional_scalar.$col0#3]
+        +-tvf=tvf_optional_relation_optional_scalar((optional ANY TABLE, optional STRING) -> TABLE<INT64>)
+        +-signature=(TABLE<Key INT64, Value STRING>) -> TABLE<INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        |   +-argument_column_list=KeyValue.[Key#1, Value#2]
+        +-column_index_list=[0]
+        +-function_call_signature=(optional(1) ANY TABLE, optional(0) STRING) -> TABLE<INT64>
+==
+
+# Test with optional relation and optional scalar arguments.
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS]
+
+select *
+from tvf_optional_relation_optional_scalar(Table KeyValue, "abc")
+--
+QueryStmt
++-output_column_list=
+| +-tvf_optional_relation_optional_scalar.$col0#3 AS `$col0` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_optional_relation_optional_scalar.$col0#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[tvf_optional_relation_optional_scalar.$col0#3]
+        +-tvf=tvf_optional_relation_optional_scalar((optional ANY TABLE, optional STRING) -> TABLE<INT64>)
+        +-signature=(TABLE<Key INT64, Value STRING>, literal STRING) -> TABLE<INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        | | +-argument_column_list=KeyValue.[Key#1, Value#2]
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="abc")
+        +-column_index_list=[0]
+        +-function_call_signature=(optional(1) ANY TABLE, optional(1) STRING) -> TABLE<INT64>

@@ -18,12 +18,15 @@
 #define ZETASQL_COMMON_MEASURE_ANALYSIS_UTILS_H_
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -32,8 +35,8 @@ namespace zetasql {
 
 // A measure column definition.
 struct MeasureColumnDef {
-  absl::string_view name;
-  absl::string_view expression;
+  std::string name;
+  std::string expression;
   bool is_pseudo_column = false;
 };
 
@@ -74,6 +77,26 @@ AddMeasureColumnsToTable(SimpleTable& table,
                          std::vector<MeasureColumnDef> measures,
                          TypeFactory& type_factory, Catalog& catalog,
                          AnalyzerOptions analyzer_options);
+
+// Add measure values to a table represented as an ARRAY<STRUCT> Value
+// containing its rows.
+//
+// Parameter Requirements:
+//   - `array_value` is ARRAY<STRUCT> value containing rows for `simple_table`.
+//     `array_value` **does not** contain rows for measure columns in
+//     `simple_table`.
+//   - `simple_table` contains columns representing the values in `array_value`,
+//     as well as N additional measure columns ( N > 0). All measure columns
+//     in `simple_table` must appear after all non-measure columns specified in
+//     `array_value`.
+//   - `row_identity_columns`: A vector of integers specifying the indices of
+//     the row identity columns in `simple_table` used to grain-lock measures.
+//   - `type_factory`: Used to create types.
+//   - `language_options`: Used to create the measure values.
+absl::StatusOr<Value> UpdateTableRowsWithMeasureValues(
+    const Value& array_value, const SimpleTable* simple_table,
+    std::vector<int> row_identity_columns, TypeFactory* type_factory,
+    const LanguageOptions& language_options);
 
 }  // namespace zetasql
 

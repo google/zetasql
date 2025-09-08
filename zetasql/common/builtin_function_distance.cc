@@ -47,17 +47,6 @@ namespace {
 // Type to be defined through BuiltinFunctionOptions.
 static constexpr int kOptionsArgIdx = 2;
 
-// Create a `FunctionSignatureOptions` that configures a SQL definition that
-// will be inlined by `REWRITE_BUILTIN_FUNCTION_INLINER`.
-static FunctionSignatureOptions SetDefinitionForInlining(absl::string_view sql,
-                                                         bool enabled = true) {
-  return FunctionSignatureOptions().set_rewrite_options(
-      FunctionSignatureRewriteOptions()
-          .set_enabled(enabled)
-          .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
-          .set_sql(sql));
-}
-
 static std::string CheckApproximateDistanceFnProtoArguments(
     absl::string_view function_name, const FunctionSignature& matched_signature,
     absl::Span<const InputArgumentType> arguments) {

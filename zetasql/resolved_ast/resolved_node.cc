@@ -43,6 +43,7 @@
 #include "zetasql/resolved_ast/serialization.pb.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -155,7 +156,11 @@ void ResolvedNode::DebugStringImpl(const ResolvedNode* node,
         if (value_has_newlines) {
           absl::StrAppend(output, prefix1, "|   \"\"\"\n");
           for (auto line : absl::StrSplit(field.value, '\n')) {
-            absl::StrAppend(output, prefix1, "|   ", line, "\n");
+            // Avoid presubmit warnings about trailing spaces.
+            std::string line_content = absl::StrCat("|   ", line);
+            absl::StrAppend(output, prefix1,
+                            absl::StripTrailingAsciiWhitespace(line_content),
+                            "\n");
           }
           absl::StrAppend(output, prefix1, "|   \"\"\"\n");
         }
@@ -789,9 +794,15 @@ absl::StatusOr<TypeParameters> ResolvedColumnAnnotations::GetFullTypeParameters(
             child_list(field_index)
                 ->GetFullTypeParameters(struct_type->field(field_index).type));
       }
+    } else if (type->IsRange()) {
+      ZETASQL_RET_CHECK_EQ(child_list_size(), 1);
+      ZETASQL_ASSIGN_OR_RETURN(TypeParameters child_parameter,
+                       child_list(0)->GetFullTypeParameters(
+                           type->AsRange()->element_type()));
+      child_parameters.push_back(child_parameter);
     } else {
       ZETASQL_RET_CHECK_FAIL() << "ResolvedColumnAnnotations has children, but type is "
-                          "not STRUCT or ARRAY";
+                          "not RANGE, STRUCT or ARRAY";
     }
 
     // If no children has type parameters, return empty type parameters.

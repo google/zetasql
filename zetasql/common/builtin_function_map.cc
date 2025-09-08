@@ -14,12 +14,15 @@
 // limitations under the License.
 //
 
+#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/common/builtin_function_internal.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/function.h"
@@ -32,6 +35,7 @@
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/functional/bind_front.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
@@ -197,6 +201,95 @@ static absl::Status CheckOrderableMapArgumentConstraint(
                                                language_options);
 }
 
+// The `ComputeResultAnnotationsCallback` used by MAP_FROM_ARRAY().
+// It cannot express the full templated relationship between arguments because
+// the key and value types are hidden under a struct type on the input side.
+static absl::StatusOr<const AnnotationMap*>
+ComputeMapFromArrayResultAnnotations(
+    const ResolvedFunctionCallBase& function_call, TypeFactory& type_factory) {
+  const Type* result_type = function_call.type();
+  ZETASQL_RET_CHECK(result_type->IsMap());
+
+  ZETASQL_RET_CHECK_EQ(function_call.argument_list_size(), 1);
+  const AnnotationMap* arg_annotation_map =
+      function_call.argument_list(0)->type_annotation_map();
+
+  if (arg_annotation_map == nullptr) {
+    // Nothing to propagate.
+    return nullptr;
+  }
+
+  // The input is an ARRAY<STRUCT<K, V>>. The top level is an array, so its
+  // annotation map must have exactly 1 field.
+  ZETASQL_RET_CHECK(arg_annotation_map->IsStructMap());
+  ZETASQL_RET_CHECK_EQ(arg_annotation_map->AsStructMap()->num_fields(), 1);
+
+  // The AnnotationMap structure is the same for the output MapType, after
+  // removing the wrapper corresponding to the ARRAY.
+  const AnnotationMap* element_annotation_map =
+      arg_annotation_map->AsStructMap()->field(0);
+  ZETASQL_RET_CHECK(element_annotation_map->IsStructMap());
+  ZETASQL_RET_CHECK_EQ(element_annotation_map->AsStructMap()->num_fields(), 2);
+  ZETASQL_RET_CHECK(element_annotation_map->HasCompatibleStructure(result_type));
+
+  // Finally, make sure there's no collation anywhere on the key, not even on
+  // its component types (e.g. if the key is STRUCT<STRING, INT64>).
+  const AnnotationMap* key_annotation_map =
+      element_annotation_map->AsStructMap()->field(0);
+
+  if (CollationAnnotation::ExistsIn(key_annotation_map)) {
+    return MakeSqlError()
+           << "Collation is not allowed on the key of a MAP or any part of it. "
+              "Use COLLATE(str, '') to remove collation from string values";
+  }
+
+  return element_annotation_map;
+}
+
+// The `ComputeResultAnnotationsCallback` used by MAP_ENTRIES_[UN]SORTED().
+// It cannot express the full templated relationship between arguments because
+// the key and value types are hidden under a struct type on the input side.
+// This is the opposite of MAP_FROM_ARRAY, above, where it's the output that
+// is ARRAY<STRUCT<K, V>>.
+static absl::StatusOr<const AnnotationMap*> ComputeMapEntriesResultAnnotations(
+    const ResolvedFunctionCallBase& function_call, TypeFactory& type_factory) {
+  const Type* result_type = function_call.type();
+  ZETASQL_RET_CHECK(result_type->IsArray());
+  ZETASQL_RET_CHECK(result_type->AsArray()->element_type()->IsStruct());
+  ZETASQL_RET_CHECK_EQ(result_type->AsArray()->element_type()->AsStruct()->num_fields(),
+               2);
+
+  ZETASQL_RET_CHECK_EQ(function_call.argument_list_size(), 1);
+  const AnnotationMap* arg_annotation_map =
+      function_call.argument_list(0)->type_annotation_map();
+
+  if (arg_annotation_map == nullptr) {
+    // Nothing to propagate.
+    return nullptr;
+  }
+
+  // The input is MAP<K, V>, which is represented as a composite annotation
+  // map with 2 fields.
+  ZETASQL_RET_CHECK(arg_annotation_map->IsStructMap());
+  ZETASQL_RET_CHECK_EQ(arg_annotation_map->AsStructMap()->num_fields(), 2);
+
+  // The input map corresponds to STRUCT<K, V>. Now we need to wrap it in an
+  // AnnotationMap corresponding to the ARRAY<STRUCT<K, V>>.
+  std::unique_ptr<AnnotationMap> output_annotation_map =
+      AnnotationMap::Create(result_type);
+
+  ZETASQL_RET_CHECK(output_annotation_map->IsStructMap());
+  ZETASQL_RET_CHECK_EQ(output_annotation_map->AsStructMap()->num_fields(), 1);
+  ZETASQL_RETURN_IF_ERROR(output_annotation_map->AsStructMap()->CloneIntoField(
+      0, arg_annotation_map));
+
+  ZETASQL_RET_CHECK(output_annotation_map->HasCompatibleStructure(result_type));
+
+  // The AnnotationMap structure is the same for the output MapType, after
+  // removing the wrapper corresponding to the ARRAY.
+  return type_factory.TakeOwnership(std::move(output_annotation_map));
+}
+
 void GetMapCoreFunctions(TypeFactory* type_factory,
                          const ZetaSQLBuiltinFunctionOptions& options,
                          NameToFunctionMap* functions) {
@@ -207,7 +300,10 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
         {ARG_ARRAY_TYPE_ANY_1},
         FN_MAP_FROM_ARRAY,
         // TODO: Collation support for MAP<> type.
-        FunctionSignatureOptions().set_rejects_collation()}},
+        FunctionSignatureOptions()
+            .set_rejects_collation()
+            .set_compute_result_annotations_callback(
+                &ComputeMapFromArrayResultAnnotations)}},
       FunctionOptions()
           .set_compute_result_type_callback(&ComputeMapFromArrayResultType)
           .set_pre_resolution_argument_constraint(
@@ -220,7 +316,10 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
       {{ARG_TYPE_ARBITRARY,
         {ARG_MAP_TYPE_ANY_1_2},
         FN_MAP_ENTRIES_SORTED,
-        FunctionSignatureOptions().set_rejects_collation()}},
+        FunctionSignatureOptions()
+            .set_rejects_collation()
+            .set_compute_result_annotations_callback(
+                &ComputeMapEntriesResultAnnotations)}},
       FunctionOptions()
           .set_compute_result_type_callback(absl::bind_front(
               &ComputeMapEntriesFunctionResultType, kMapEntriesSorted,
@@ -233,7 +332,10 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
           {ARG_TYPE_ARBITRARY,
            {ARG_MAP_TYPE_ANY_1_2},
            FN_MAP_ENTRIES_UNSORTED,
-           FunctionSignatureOptions().set_rejects_collation()},
+           FunctionSignatureOptions()
+               .set_rejects_collation()
+               .set_compute_result_annotations_callback(
+                   &ComputeMapEntriesResultAnnotations)},
       },
       FunctionOptions()
           .set_compute_result_type_callback(absl::bind_front(
@@ -493,6 +595,28 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
         FN_MAP_DELETE,
         FunctionSignatureOptions().set_rejects_collation()}},
       FunctionOptions().AddRequiredLanguageFeature(FEATURE_MAP_TYPE));
+  // TODO: b/431223433 - Ideally, rewrite should use ARRAY_FILTER, but rewriter
+  // calling a lambda within a lambda shape is not supported yet.
+  constexpr absl::string_view kMapFilterSql = R"sql(
+    (
+      IF(
+        input_map IS NULL,
+        NULL,
+        MAP_FROM_ARRAY(
+          ARRAY(
+            SELECT map_entry
+            FROM
+              (
+                SELECT
+                  map_entry,
+                  map_entry.key AS map_entry_key,
+                  map_entry.value AS map_entry_value
+                FROM UNNEST(MAP_ENTRIES_UNSORTED(input_map)) AS map_entry
+              )
+            WHERE condition(map_entry_key, map_entry_value)
+          )))
+      )
+    )sql";
   InsertFunction(
       functions, options, "map_filter", Function::SCALAR,
       {{ARG_MAP_TYPE_ANY_1_2,
@@ -502,8 +626,15 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
              FunctionArgumentTypeOptions().set_argument_name("condition",
                                                              kPositionalOnly))},
         FN_MAP_FILTER,
-        FunctionSignatureOptions().set_rejects_collation()}},
-      FunctionOptions().AddRequiredLanguageFeature(FEATURE_MAP_TYPE));
+        FunctionSignatureOptions().set_rejects_collation().set_rewrite_options(
+            FunctionSignatureRewriteOptions()
+                .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+                .set_sql(kMapFilterSql))}},
+      FunctionOptions()
+          .AddRequiredLanguageFeature(FEATURE_MAP_TYPE)
+          .set_supports_safe_error_mode(
+              options.language_options.LanguageFeatureEnabled(
+                  FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
 }
 
 }  // namespace zetasql

@@ -2,6 +2,7 @@
 # ambiguous column names. At one point, the SQLBuilder was generating SQL with
 # invalid duplicate column names for these resolved ASTs.
 
+[default language_features=MAXIMUM]
 WITH w1 AS (
   SELECT "a" as item, "b" as event
 ),

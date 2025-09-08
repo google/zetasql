@@ -1,4 +1,5 @@
-[language_features=PIPES]
+[default language_features=NONE]
+[language_features=NONE,+PIPES]
 from keyvalue
 |> recursive union all (
   |> extend 1
@@ -9,7 +10,7 @@ ERROR: Pipe RECURSIVE UNION is not supported [at 2:1]
 ^
 ==
 
-[language_features=PIPES]
+[language_features=NONE,+PIPES]
 from keyvalue
 |> recursive union all (from keyvalue)
 --
@@ -18,7 +19,7 @@ ERROR: Pipe RECURSIVE UNION is not supported [at 2:1]
 ^
 ==
 
-[default language_features=PIPES,PIPE_RECURSIVE_UNION,WITH_RECURSIVE,PIPE_STATIC_DESCRIBE,WITH_ON_SUBQUERY,WITH_RECURSIVE_DEPTH_MODIFIER,PIPE_WITH]
+[default language_features=NONE,+PIPES,+PIPE_RECURSIVE_UNION,+WITH_RECURSIVE,+PIPE_STATIC_DESCRIBE,+WITH_ON_SUBQUERY,+WITH_RECURSIVE_DEPTH_MODIFIER,+PIPE_WITH]
 from keyvalue
 |> recursive union all (
   |> select key + 1 as key, value
@@ -267,6 +268,11 @@ QueryStmt
             |   |       Value -> STRING (t.Value#6) (implicit)
             |   |     Range variables:
             |   |       t -> RANGE_VARIABLE<Key,Value>
+            |   |
+            |   |   **Common table expressions**:
+            |   |   Name  Columns
+            |   |   ----  ----------
+            |   |   t     Key, Value
             |   |   """
             |   +-input_scan=
             |     +-RecursiveRefScan(column_list=t.[Key#5, Value#6])
@@ -618,7 +624,7 @@ QueryStmt
 ==
 
 # Recursive depth modifier is not enabled.
-[language_features=PIPES,PIPE_RECURSIVE_UNION]
+[language_features=NONE,+PIPES,+PIPE_RECURSIVE_UNION]
 from keyvalue
 |> recursive union all with depth max 10 (
   {{from t|}}
@@ -728,6 +734,11 @@ QueryStmt
         |   |   |       Value -> STRING (t.Value#6) (implicit)
         |   |   |     Range variables:
         |   |   |       t -> RANGE_VARIABLE<Key,Value>
+        |   |   |
+        |   |   |   **Common table expressions**:
+        |   |   |   Name  Columns
+        |   |   |   ----  ----------
+        |   |   |   t     Key, Value
         |   |   |   """
         |   |   +-input_scan=
         |   |     +-RecursiveRefScan(column_list=t.[Key#5, Value#6])
@@ -1242,6 +1253,11 @@ QueryStmt
             |   |       key -> INT32 (t.key#9) (implicit)
             |   |     Range variables:
             |   |       t -> RANGE_VARIABLE<key,TestEnum,AnotherTestEnum>
+            |   |
+            |   |   **Common table expressions**:
+            |   |   Name  Columns
+            |   |   ----  ------------------------------
+            |   |   t     key, TestEnum, AnotherTestEnum
             |   |   """
             |   +-input_scan=
             |     +-RecursiveRefScan(column_list=t.[key#9, TestEnum#10, AnotherTestEnum#11])
@@ -1665,6 +1681,11 @@ QueryStmt
         |       |   |   |       my_value -> STRING (t_1.my_value#14)
         |       |   |   |     Range variables:
         |       |   |   |       t -> RANGE_VARIABLE<my_key,my_value>
+        |       |   |   |
+        |       |   |   |   **Common table expressions**:
+        |       |   |   |   Name  Columns
+        |       |   |   |   ----  ----------------
+        |       |   |   |   t     my_key, my_value
         |       |   |   |   """
         |       |   |   +-input_scan=
         |       |   |     +-WithRefScan(column_list=t_1.[my_key#13, my_value#14], with_query_name="t_1")
@@ -2356,6 +2377,11 @@ QueryStmt
         |   |       Value -> STRING (t.Value#6) (implicit)
         |   |     Range variables:
         |   |       t -> RANGE_VARIABLE<Key,Value>
+        |   |
+        |   |   **Common table expressions**:
+        |   |   Name  Columns
+        |   |   ----  ----------
+        |   |   t     Key, Value
         |   |   """
         |   +-input_scan=
         |     +-RecursiveRefScan(column_list=t.[Key#5, Value#6])
@@ -2495,6 +2521,11 @@ QueryStmt
             |   |       t -> RANGE_VARIABLE<$value>
             |   |     Value table columns:
             |   |       t.t#5
+            |   |
+            |   |   **Common table expressions**:
+            |   |   Name  Columns
+            |   |   ----  -------
+            |   |   t     <value>
             |   |   """
             |   +-input_scan=
             |     +-RecursiveRefScan(column_list=[t.t#5])
@@ -2651,6 +2682,11 @@ QueryStmt
             |       |   |       t -> RANGE_VARIABLE<$value>
             |       |   |     Value table columns:
             |       |   |       t.t#8
+            |       |   |
+            |       |   |   **Common table expressions**:
+            |       |   |   Name  Columns
+            |       |   |   ----  -------
+            |       |   |   t     <value>
             |       |   |   """
             |       |   +-input_scan=
             |       |     +-RecursiveRefScan(column_list=[t.t#8])
@@ -2723,6 +2759,11 @@ QueryStmt
             |   |   NameScope:
             |   |     Names:
             |   |       col -> INT64 ($pipe_select.col#4)
+            |   |
+            |   |   **Common table expressions**:
+            |   |   Name  Columns
+            |   |   ----  -------
+            |   |   t     <value>
             |   |   """
             |   +-input_scan=
             |     +-ProjectScan
@@ -2858,6 +2899,11 @@ QueryStmt
         |           |       t -> RANGE_VARIABLE<$value>
         |           |     Value table columns:
         |           |       t.t#3
+        |           |
+        |           |   **Common table expressions**:
+        |           |   Name  Columns
+        |           |   ----  -------
+        |           |   t     <value>
         |           |   """
         |           +-input_scan=
         |             +-RecursiveRefScan(column_list=[t.t#3])
@@ -3005,6 +3051,11 @@ QueryStmt
             |   |   NameScope:
             |   |     Value table columns:
             |   |       $pipe_select.$col1#4
+            |   |
+            |   |   **Common table expressions**:
+            |   |   Name  Columns
+            |   |   ----  -------
+            |   |   t     col
             |   |   """
             |   +-input_scan=
             |     +-ProjectScan
@@ -3137,6 +3188,11 @@ QueryStmt
         |           |       col -> INT64 (t.col#3)
         |           |     Range variables:
         |           |       t -> RANGE_VARIABLE<col>
+        |           |
+        |           |   **Common table expressions**:
+        |           |   Name  Columns
+        |           |   ----  -------
+        |           |   t     col
         |           |   """
         |           +-input_scan=
         |             +-RecursiveRefScan(column_list=[t.col#3])
@@ -3560,6 +3616,11 @@ QueryStmt
             |       |   NameList:
             |       |     <unnamed> STRUCT<INT64> $pipe_select.$col1#5
             |       |   NameScope:
+            |       |
+            |       |   **Common table expressions**:
+            |       |   Name  Columns
+            |       |   ----  -------
+            |       |   t     <value>
             |       |   """
             |       +-input_scan=
             |         +-ProjectScan
@@ -3588,6 +3649,11 @@ QueryStmt
             |                   |       t -> RANGE_VARIABLE<$value>
             |                   |     Value table columns:
             |                   |       t.t#3
+            |                   |
+            |                   |   **Common table expressions**:
+            |                   |   Name  Columns
+            |                   |   ----  -------
+            |                   |   t     <value>
             |                   |   """
             |                   +-input_scan=
             |                     +-RecursiveRefScan(column_list=[t.t#3])
@@ -3917,6 +3983,11 @@ QueryStmt
             |       |     <unnamed> STRUCT<INT64> $pipe_select.$col1#11
             |       |     <unnamed> zetasql_test__.TestExtraPB $pipe_select.$col2#12
             |       |   NameScope:
+            |       |
+            |       |   **Common table expressions**:
+            |       |   Name  Columns
+            |       |   ----  --------
+            |       |   t     vt1, vt2
             |       |   """
             |       +-input_scan=
             |         +-ProjectScan
@@ -3955,6 +4026,11 @@ QueryStmt
             |                   |       vt2 -> zetasql_test__.TestExtraPB (t.vt2#8) (implicit)
             |                   |     Range variables:
             |                   |       t -> RANGE_VARIABLE<vt1,vt2>
+            |                   |
+            |                   |   **Common table expressions**:
+            |                   |   Name  Columns
+            |                   |   ----  --------
+            |                   |   t     vt1, vt2
             |                   |   """
             |                   +-input_scan=
             |                     +-RecursiveRefScan(column_list=t.[vt1#7, vt2#8])
@@ -4206,6 +4282,11 @@ QueryStmt
             |   |       key -> INT64 (t.key#8)
             |   |     Range variables:
             |   |       t -> RANGE_VARIABLE<key,Value,Value>
+            |   |
+            |   |   **Common table expressions**:
+            |   |   Name  Columns
+            |   |   ----  -----------------
+            |   |   t     key, Value, Value
             |   |   """
             |   +-input_scan=
             |     +-RecursiveRefScan(column_list=t.[key#8, Value#9, Value#10])
@@ -4552,3 +4633,77 @@ from keyvalue
 ERROR: Unrecognized name: key [at 4:12]
   |> where key = 1
            ^
+==
+
+# Test for a bug where the column Key was getting pruned in
+# the recursive subpipeline output.
+SELECT "abc" AS v1, 123 v2
+|> RECURSIVE UNION ALL (
+     |> drop v2
+     |> cross join KeyValue
+     |> drop Value
+   ) {{|AS t}}
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.v1#3 AS v1 [STRING]
+| +-$union_all.v2#4 AS v2 [INT64]
++-query=
+  +-RecursiveScan
+    +-column_list=$union_all.[v1#3, v2#4]
+    +-op_type=UNION_ALL
+    +-non_recursive_term=
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=$query.[v1#1, v2#2]
+    |   |   +-expr_list=
+    |   |   | +-v1#1 := Literal(type=STRING, value="abc")
+    |   |   | +-v2#2 := Literal(type=INT64, value=123)
+    |   |   +-input_scan=
+    |   |     +-SingleRowScan
+    |   +-output_column_list=$query.[v1#1, v2#2]
+    +-recursive_term=
+      +-SetOperationItem
+        +-scan=
+        | +-JoinScan
+        |   +-column_list=[$pipe_recursive_union.v1#5, $pipe_recursive_union.v2#6, KeyValue.Key#7, KeyValue.Value#8]
+        |   +-left_scan=
+        |   | +-RecursiveRefScan(column_list=$pipe_recursive_union.[v1#5, v2#6])
+        |   +-right_scan=
+        |     +-TableScan(column_list=KeyValue.[Key#7, Value#8], table=KeyValue, column_index_list=[0, 1])
+        +-output_column_list=[$pipe_recursive_union.v1#5, KeyValue.Key#7]
+--
+ALTERNATION GROUP: AS t
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.v1#3 AS v1 [STRING]
+| +-$union_all.v2#4 AS v2 [INT64]
++-query=
+  +-RecursiveScan
+    +-column_list=$union_all.[v1#3, v2#4]
+    +-op_type=UNION_ALL
+    +-non_recursive_term=
+    | +-SetOperationItem
+    |   +-scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=$query.[v1#1, v2#2]
+    |   |   +-expr_list=
+    |   |   | +-v1#1 := Literal(type=STRING, value="abc")
+    |   |   | +-v2#2 := Literal(type=INT64, value=123)
+    |   |   +-input_scan=
+    |   |     +-SingleRowScan
+    |   +-output_column_list=$query.[v1#1, v2#2]
+    +-recursive_term=
+      +-SetOperationItem
+        +-scan=
+        | +-JoinScan
+        |   +-column_list=[t.v1#5, t.v2#6, KeyValue.Key#7, KeyValue.Value#8]
+        |   +-left_scan=
+        |   | +-RecursiveRefScan(column_list=t.[v1#5, v2#6])
+        |   +-right_scan=
+        |     +-TableScan(column_list=KeyValue.[Key#7, Value#8], table=KeyValue, column_index_list=[0, 1])
+        +-output_column_list=[t.v1#5, KeyValue.Key#7]

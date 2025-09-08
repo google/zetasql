@@ -55,13 +55,13 @@ struct DepthLimitDetectorRuntimeControl {
 // crash.
 DepthLimitDetectorTestResult RunDepthLimitDetectorTestCase(
     DepthLimitDetectorTestCase const& depth_limit_case,
-    absl::FunctionRef<absl::Status(std::string_view)> test_driver_function,
+    absl::FunctionRef<absl::Status(absl::string_view)> test_driver_function,
     const DepthLimitDetectorRuntimeControl& runtime_control);
 
 ABSL_DEPRECATED("Explicitly set the runtime limits via `runtime_control`")
 DepthLimitDetectorTestResult RunDepthLimitDetectorTestCase(
     DepthLimitDetectorTestCase const& depth_limit_case,
-    absl::FunctionRef<absl::Status(std::string_view)> test_driver_function);
+    absl::FunctionRef<absl::Status(absl::string_view)> test_driver_function);
 
 // SQL test cases.
 absl::Span<const std::reference_wrapper<const DepthLimitDetectorTestCase>>
@@ -85,7 +85,7 @@ std::ostream& operator<<(std::ostream& os,
                          const DepthLimitDetectorReturnCondition& condition);
 
 struct DepthLimitDetectorTestResult {
-  std::string_view depth_limit_test_case_name;
+  absl::string_view depth_limit_test_case_name;
   std::vector<DepthLimitDetectorReturnCondition>
       depth_limit_detector_return_conditions;
 };
@@ -96,8 +96,9 @@ std::ostream& operator<<(std::ostream& os,
                          const DepthLimitDetectorTestCase& test_case);
 
 absl::AnyInvocable<std::vector<std::tuple<std::string>>() const>
-DepthLimitDetectorSeeds(absl::AnyInvocable<absl::Status(std::string_view) const>
-                            test_driver_function);
+DepthLimitDetectorSeeds(
+    absl::AnyInvocable<absl::Status(absl::string_view) const>
+        test_driver_function);
 
 }  // namespace zetasql
 

@@ -70,7 +70,7 @@ namespace {
 std::string DebugLocationText(const ASTNode* node,
                               const absl::string_view script_text) {
   std::string node_text;
-  ParseLocationPoint pos = node->GetParseLocationRange().start();
+  ParseLocationPoint pos = node->location().start();
   ParseLocationTranslator translator(script_text);
   absl::StatusOr<std::pair<int, int>> line_and_column =
       translator.GetLineAndColumnAfterTabExpansion(pos);
@@ -1259,9 +1259,9 @@ ParseLocationPoint GetCanonicalNodePosition(const ControlFlowNode* node) {
   switch (node->kind()) {
     case ControlFlowNode::Kind::kDefault:
     case ControlFlowNode::Kind::kForInitial:
-      return node->ast_node()->GetParseLocationRange().start();
+      return node->ast_node()->location().start();
     case ControlFlowNode::Kind::kForAdvance:
-      return node->ast_node()->GetParseLocationRange().end();
+      return node->ast_node()->location().end();
   }
 }
 

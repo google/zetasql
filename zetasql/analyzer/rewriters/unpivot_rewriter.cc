@@ -25,6 +25,7 @@
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/options.pb.h"
@@ -277,6 +278,8 @@ UnpivotRewriterVisitor::CreateArrayScanWithStructElements(
 
   // The make_array_function takes struct elements and constructs an array for
   // them.
+  // We should consider using AnalyzeSubstitute instead of manually crafting
+  // the function call.
   const Function* make_array_function;
   ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"$make_array"}, &make_array_function,
                                       analyzer_options_.find_options()))
@@ -287,11 +290,13 @@ UnpivotRewriterVisitor::CreateArrayScanWithStructElements(
   FunctionArgumentType function_arg(
       *struct_type, FunctionArgumentType::REPEATED,
       static_cast<int>(struct_elements_list.size()));
+  function_arg.set_original_kind(ARG_TYPE_ANY_1);
   ZETASQL_RET_CHECK_EQ(make_array_function->signatures().size(), 1);
   FunctionSignature signature(
       struct_array_type, {function_arg},
       make_array_function->GetSignature(0)->context_id());
-  signature.SetConcreteResultType(struct_array_type);
+  signature.SetConcreteResultType(struct_array_type,
+                                  SignatureArgumentKind::ARG_ARRAY_TYPE_ANY_1);
   std::unique_ptr<const ResolvedExpr> resolved_function_call =
       MakeResolvedFunctionCall(struct_array_type, make_array_function,
                                signature, std::move(struct_elements_list),

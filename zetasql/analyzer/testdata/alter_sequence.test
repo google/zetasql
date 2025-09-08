@@ -1,0 +1,55 @@
+# ALTER SEQUENCE
+ALTER SEQUENCE {{|IF EXISTS}} foo.bar.baz SET OPTIONS(start_with=0,increment_by=5);
+--
+ALTERNATION GROUP: <empty>
+--
+AlterSequenceStmt
++-name_path=foo.bar.baz
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-start_with := Literal(type=INT64, value=0)
+      +-increment_by := Literal(type=INT64, value=5)
+--
+ALTERNATION GROUP: IF EXISTS
+--
+AlterSequenceStmt
++-name_path=foo.bar.baz
++-alter_action_list=
+| +-SetOptionsAction
+|   +-option_list=
+|     +-start_with := Literal(type=INT64, value=0)
+|     +-increment_by := Literal(type=INT64, value=5)
++-is_if_exists=TRUE
+==
+
+ALTER SEQUENCE {{|IF EXISTS}} foo SET AS JSON '{"key":"value"}';
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: ALTER SEQUENCE does not support SET AS [at 1:21]
+ALTER SEQUENCE  foo SET AS JSON '{"key":"value"}';
+                    ^
+--
+ALTERNATION GROUP: IF EXISTS
+--
+ERROR: ALTER SEQUENCE does not support SET AS [at 1:30]
+ALTER SEQUENCE IF EXISTS foo SET AS JSON '{"key":"value"}';
+                             ^
+==
+
+[disallow_duplicate_options]
+ALTER SEQUENCE foo SET OPTIONS(x=1, x=5)
+--
+
+ERROR: Duplicate option specified for 'x' [at 1:37]
+ALTER SEQUENCE foo SET OPTIONS(x=1, x=5)
+                                    ^
+==
+
+ALTER SEQUENCE foo SET OPTIONS()
+--
+AlterSequenceStmt
++-name_path=foo
++-alter_action_list=
+  +-SetOptionsAction

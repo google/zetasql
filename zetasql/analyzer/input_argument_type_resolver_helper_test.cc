@@ -17,30 +17,66 @@
 #include "zetasql/analyzer/input_argument_type_resolver_helper.h"
 
 #include <memory>
+#include <utility>
 #include <vector>
 
+#include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/evaluator.h"
 #include "zetasql/public/input_argument_type.h"
+#include "zetasql/public/prepared_expression_constant_evaluator.h"
+#include "zetasql/public/simple_catalog_util.h"
+#include "zetasql/public/sql_constant.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "gtest/gtest.h"
 
 namespace zetasql {
 
-TEST(ExprResolverHelperTest, LambdaInputArgumentType) {
+class InputArgumentTypeResolverHelperTest : public ::testing::Test {
+ protected:
+  InputArgumentTypeResolverHelperTest() = default;
+  InputArgumentTypeResolverHelperTest(
+      const InputArgumentTypeResolverHelperTest&) = delete;
+  InputArgumentTypeResolverHelperTest& operator=(
+      const InputArgumentTypeResolverHelperTest&) = delete;
+  ~InputArgumentTypeResolverHelperTest() override = default;
+
+  void SetUp() override {
+    analyzer_options_.mutable_language()->SetSupportsAllStatementKinds();
+    analyzer_options_.mutable_language()
+        ->EnableMaximumLanguageFeaturesForDevelopment();
+    analyzer_options_.CreateDefaultArenasIfNotSet();
+
+    constant_evaluator_ = std::make_unique<PreparedExpressionConstantEvaluator>(
+        /*options=*/EvaluatorOptions{});
+    analyzer_options_.set_constant_evaluator(constant_evaluator_.get());
+  }
+
+  void TearDown() override {}
+  AnalyzerOptions analyzer_options_;
+  std::unique_ptr<PreparedExpressionConstantEvaluator> constant_evaluator_;
+};
+
+TEST_F(InputArgumentTypeResolverHelperTest, LambdaInputArgumentType) {
   ASTLambda astLambda;
   std::vector<const ASTNode*> arg_ast_nodes;
   arg_ast_nodes.push_back(&astLambda);
   std::vector<std::unique_ptr<const ResolvedExpr>> arguments;
   arguments.push_back(nullptr);
-  std::vector<InputArgumentType> input_arguments;
+
   ASTIntLiteral int_literal;
   arg_ast_nodes.push_back(&int_literal);
   arguments.push_back(MakeResolvedLiteral(Value::Int64(1)));
 
-  GetInputArgumentTypesForGenericArgumentList(
-      arg_ast_nodes, arguments,
-      /*pick_default_type_for_untyped_expr=*/false, &input_arguments);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::vector<InputArgumentType> input_arguments,
+      GetInputArgumentTypesForGenericArgumentList(
+          arg_ast_nodes, arguments,
+          /*pick_default_type_for_untyped_expr=*/false, analyzer_options_));
   ASSERT_EQ(input_arguments.size(), 2);
   ASSERT_TRUE(input_arguments[0].is_lambda());
   ASSERT_EQ(input_arguments[0].type(), nullptr);
@@ -50,13 +86,13 @@ TEST(ExprResolverHelperTest, LambdaInputArgumentType) {
   EXPECT_TRUE(input_arguments[1].type()->IsInt64());
 }
 
-TEST(ExprResolverHelperTest, LambdaInputArgumentTypeWithNull) {
+TEST_F(InputArgumentTypeResolverHelperTest, LambdaInputArgumentTypeWithNull) {
   ASTLambda astLambda;
   std::vector<const ASTNode*> arg_ast_nodes;
   arg_ast_nodes.push_back(&astLambda);
   std::vector<std::unique_ptr<const ResolvedExpr>> arguments;
   arguments.push_back(nullptr);
-  std::vector<InputArgumentType> input_arguments;
+
   ASTIntLiteral int_literal;
   arg_ast_nodes.push_back(&int_literal);
   ASTNullLiteral null_literal;
@@ -65,9 +101,11 @@ TEST(ExprResolverHelperTest, LambdaInputArgumentTypeWithNull) {
   arguments.push_back(MakeResolvedLiteral(Value::NullFloat()));
 
   {
-    GetInputArgumentTypesForGenericArgumentList(
-        arg_ast_nodes, arguments,
-        /*pick_default_type_for_untyped_expr=*/false, &input_arguments);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        std::vector<InputArgumentType> input_arguments,
+        GetInputArgumentTypesForGenericArgumentList(
+            arg_ast_nodes, arguments,
+            /*pick_default_type_for_untyped_expr=*/false, analyzer_options_));
     ASSERT_EQ(input_arguments.size(), 3);
     ASSERT_TRUE(input_arguments[0].is_lambda());
     ASSERT_EQ(input_arguments[0].type(), nullptr);
@@ -82,9 +120,11 @@ TEST(ExprResolverHelperTest, LambdaInputArgumentTypeWithNull) {
   }
 
   {
-    GetInputArgumentTypesForGenericArgumentList(
-        arg_ast_nodes, arguments,
-        /*pick_default_type_for_untyped_expr=*/true, &input_arguments);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        std::vector<InputArgumentType> input_arguments,
+        GetInputArgumentTypesForGenericArgumentList(
+            arg_ast_nodes, arguments,
+            /*pick_default_type_for_untyped_expr=*/true, analyzer_options_));
     ASSERT_EQ(input_arguments.size(), 3);
     ASSERT_TRUE(input_arguments[0].is_lambda());
     ASSERT_EQ(input_arguments[0].type(), nullptr);
@@ -98,6 +138,121 @@ TEST(ExprResolverHelperTest, LambdaInputArgumentTypeWithNull) {
     ASSERT_TRUE(input_arguments[2].is_literal());
     EXPECT_TRUE(input_arguments[2].type()->IsFloat());
   }
+}
+
+TEST_F(InputArgumentTypeResolverHelperTest, ConstantInputArgumentType) {
+  ASTIdentifier astIdentifier;
+  std::vector<const ASTNode*> arg_ast_nodes;
+  arg_ast_nodes.push_back(&astIdentifier);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedCreateConstantStmt> stmt,
+                       ResolvedCreateConstantStmtBuilder()
+                           .set_name_path({"foo"})
+                           .set_expr(MakeResolvedLiteral(Value::Int64(1)))
+                           .Build());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<SQLConstant> sql_constant,
+                       MakeConstantFromCreateConstant(*stmt));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedConstant> constant,
+                       ResolvedConstantBuilder()
+                           .set_constant(sql_constant.get())
+                           .set_type(types::Int64Type())
+                           .Build());
+
+  std::vector<std::unique_ptr<const ResolvedExpr>> arguments;
+  arguments.push_back(std::move(constant));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::vector<InputArgumentType> input_arguments,
+      GetInputArgumentTypesForGenericArgumentList(
+          arg_ast_nodes, arguments,
+          /*pick_default_type_for_untyped_expr=*/false, analyzer_options_));
+  EXPECT_EQ(input_arguments.size(), 1);
+  EXPECT_EQ(input_arguments[0].type(), types::Int64Type());
+  EXPECT_TRUE(input_arguments[0].is_analysis_time_constant());
+  EXPECT_THAT(input_arguments[0].GetAnalysisTimeConstantValue(),
+              zetasql_base::testing::IsOkAndHolds(Value::Int64(1)));
+}
+
+TEST_F(InputArgumentTypeResolverHelperTest,
+       UninitializedConstantInputArgumentTypeLanguageFeatureDisabled) {
+  analyzer_options_.mutable_language()->DisableLanguageFeature(
+      FEATURE_ANALYSIS_CONSTANT_FUNCTION_ARGUMENT);
+  ASTIdentifier identifier;
+  std::vector<const ASTNode*> arg_ast_nodes;
+  arg_ast_nodes.push_back(&identifier);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedCreateConstantStmt> stmt,
+                       ResolvedCreateConstantStmtBuilder()
+                           .set_name_path({"foo"})
+                           .set_expr(MakeResolvedLiteral(Value::Int64(1)))
+                           .Build());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<SQLConstant> uninitialized_constant,
+                       MakeConstantFromCreateConstant(*stmt));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedConstant> uninitialized_resolved_constant,
+      ResolvedConstantBuilder()
+          .set_constant(uninitialized_constant.get())
+          .set_type(types::Int64Type())
+          .Build());
+
+  std::vector<std::unique_ptr<const ResolvedExpr>> arguments;
+  arguments.push_back(std::move(uninitialized_resolved_constant));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::vector<InputArgumentType> input_arguments,
+      GetInputArgumentTypesForGenericArgumentList(
+          arg_ast_nodes, arguments,
+          /*pick_default_type_for_untyped_expr=*/false, analyzer_options_));
+  EXPECT_EQ(input_arguments.size(), 1);
+  EXPECT_EQ(input_arguments[0].type(), types::Int64Type());
+
+  // When FEATURE_ANALYSIS_CONSTANT_FUNCTION_ARGUMENT is disabled and the
+  // created constant is not initialized, InputArgumentType object is not
+  // considered as an analysis time constant.
+  EXPECT_FALSE(input_arguments[0].is_analysis_time_constant());
+}
+
+TEST_F(InputArgumentTypeResolverHelperTest,
+       InitializedConstantInputArgumentTypeLanguageFeatureDisabled) {
+  analyzer_options_.mutable_language()->DisableLanguageFeature(
+      FEATURE_ANALYSIS_CONSTANT_FUNCTION_ARGUMENT);
+  ASTIdentifier identifier;
+  std::vector<const ASTNode*> arg_ast_nodes;
+  arg_ast_nodes.push_back(&identifier);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedCreateConstantStmt> stmt,
+                       ResolvedCreateConstantStmtBuilder()
+                           .set_name_path({"foo"})
+                           .set_expr(MakeResolvedLiteral(Value::Int64(1)))
+                           .Build());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<SQLConstant> constant,
+                       MakeConstantFromCreateConstant(*stmt));
+  ZETASQL_ASSERT_OK(constant->SetEvaluationResult(Value::Int64(1)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedConstant> initialized_resolved_constant,
+      ResolvedConstantBuilder()
+          .set_constant(constant.get())
+          .set_type(types::Int64Type())
+          .Build());
+
+  std::vector<std::unique_ptr<const ResolvedExpr>> arguments;
+  arguments.push_back(std::move(initialized_resolved_constant));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::vector<InputArgumentType> input_arguments,
+      GetInputArgumentTypesForGenericArgumentList(
+          arg_ast_nodes, arguments,
+          /*pick_default_type_for_untyped_expr=*/false, analyzer_options_));
+  EXPECT_EQ(input_arguments.size(), 1);
+  EXPECT_EQ(input_arguments[0].type(), types::Int64Type());
+
+  // When FEATURE_ANALYSIS_CONSTANT_FUNCTION_ARGUMENT is disabled and the
+  // created constant is initialized, InputArgumentType object is NOT
+  // considered as an analysis time constant.
+  EXPECT_FALSE(input_arguments[0].is_analysis_time_constant());
 }
 
 }  // namespace zetasql

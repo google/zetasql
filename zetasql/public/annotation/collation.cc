@@ -132,8 +132,7 @@ absl::Status CollationAnnotation::CheckAndPropagateForFunctionCallBase(
   // TODO: add non-default propapation logic for functions.
   const FunctionSignature& signature = function_call.signature();
   if (signature.options().rejects_collation()) {
-    ZETASQL_RETURN_IF_ERROR(RejectsCollationOnFunctionArguments(function_call));
-    return absl::OkStatus();
+    return RejectsCollationOnFunctionArguments(function_call);
   }
   // Default propagation rules.
   if (signature.options().propagates_collation() && signature.IsConcrete() &&
@@ -147,7 +146,7 @@ absl::Status CollationAnnotation::CheckAndPropagateForFunctionCallBase(
     if (signature.result_type().options().uses_array_element_for_collation()) {
       ZETASQL_RET_CHECK(result_annotation_map->IsArrayMap());
       result_annotation_map =
-          result_annotation_map->AsArrayMap()->mutable_element();
+          result_annotation_map->AsStructMap()->mutable_field(0);
     }
     ZETASQL_RETURN_IF_ERROR(
         MergeAnnotations(collation_to_propagate.get(), *result_annotation_map));
@@ -224,7 +223,7 @@ CollationAnnotation::GetCollationFromFunctionArguments(
       argi_type = argi_type->AsArray()->element_type();
       if (argi_annotation_map != nullptr) {
         ZETASQL_RET_CHECK(argi_annotation_map->IsArrayMap());
-        argi_annotation_map = argi_annotation_map->AsArrayMap()->element();
+        argi_annotation_map = argi_annotation_map->AsStructMap()->field(0);
       }
     }
 

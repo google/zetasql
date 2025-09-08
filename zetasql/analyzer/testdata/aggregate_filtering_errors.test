@@ -1,4 +1,4 @@
-[default language_features=ANALYTIC_FUNCTIONS,AGGREGATE_FILTERING,MULTILEVEL_AGGREGATION,GROUPING_BUILTIN,QUALIFY,GROUP_BY_STRUCT,ORDER_BY_IN_AGGREGATE]
+[default language_features=MAXIMUM,+ANALYTIC_FUNCTIONS,+AGGREGATE_FILTERING,+MULTILEVEL_AGGREGATION,+GROUPING_BUILTIN,+QUALIFY,+GROUP_BY_STRUCT,+ORDER_BY_IN_AGGREGATE]
 [default show_sqlbuilder_output]
 
 
@@ -108,7 +108,7 @@ QUALIFY COUNT(doubly_nested_struct.f WHERE doubly_nested_struct.e = 1) OVER()...
 ==
 
 # Error without AGGREGATE_FILTERING language feature.
-[language_features=ANALYTIC_FUNCTIONS]
+[language_features=NONE,+ANALYTIC_FUNCTIONS]
 SELECT
   SUM(int64 WHERE bool IS NOT NULL){{ OVER ()|}}
 FROM SimpleTypes;
@@ -128,7 +128,7 @@ ERROR: WHERE modifier is not supported in function calls [at 2:13]
 ==
 
 # Error with HAVING without AGGREGATE_FILTERING language feature.
-[language_features=MULTILEVEL_AGGREGATION]
+[language_features=NONE,+MULTILEVEL_AGGREGATION]
 SELECT
   SUM(ANY_VALUE(int64) GROUP BY int32 HAVING bool is not null)
 FROM SimpleTypes;
@@ -236,3 +236,14 @@ ERROR: GROUPING function not allowed in ORDER BY modifier of a multi-level aggre
                                                        ^
 ==
 
+
+# Both the HAVING filter modifier and GROUP BY modifiers are disallowed on
+# analytic functions (even aggregate analytic functions). Since GROUP BY
+# modifiers are checked first, the error message mentions GROUP BY.
+SELECT
+  SUM(MAX(int64) GROUP BY string HAVING COUNT(bool) > 1) OVER()
+FROM SimpleTypes
+--
+ERROR: GROUP BY modifiers not supported on analytic function calls. [at 2:3]
+  SUM(MAX(int64) GROUP BY string HAVING COUNT(bool) > 1) OVER()
+  ^

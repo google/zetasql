@@ -52,7 +52,6 @@ class Hasher {
 // Computes the fingerprint of the input bytes using the farmhash::Fingerprint64
 // function from the FarmHash library (https://github.com/google/farmhash).
 int64_t FarmFingerprint(absl::string_view input);
-
 }  // namespace functions
 }  // namespace zetasql
 

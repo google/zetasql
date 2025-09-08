@@ -1,5 +1,5 @@
 # Reject cross joins on two tables containing private data, there's no ON clause
-[default language_features=ANONYMIZATION]
+[default language_features=MAXIMUM,+ANONYMIZATION]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
@@ -2903,7 +2903,7 @@ SELECT ANON_COUNT(*)
 # Count (*) counting unique users.
 # ANONYMIZATION_THRESHOLDING feature is enabled, therefore we should use this
 # count for k_threshold.
-[language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,ANONYMIZATION_THRESHOLDING]
+[language_features=NONE,+ANONYMIZATION,+TABLE_VALUED_FUNCTIONS,+TEMPLATE_FUNCTIONS,+CREATE_TABLE_FUNCTION,+ANONYMIZATION_THRESHOLDING]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 1)
 from SimpleTypesWithAnonymizationUid a

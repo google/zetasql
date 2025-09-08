@@ -621,17 +621,6 @@ class AnalyzerTestRunner {
     // Turn off AST rewrites. We'll run them later so we can show both ASTs.
     options.set_enabled_rewrites({});
 
-    // If requested, add a PreparedExpressionConstantEvaluator to the analyzer
-    // options.
-    std::unique_ptr<PreparedExpressionConstantEvaluator> constant_evaluator =
-        nullptr;
-    if (test_case_options_.GetBool(kUseConstantEvaluator)) {
-      constant_evaluator =
-          std::make_unique<PreparedExpressionConstantEvaluator>(
-              /*options=*/EvaluatorOptions{});
-      options.set_constant_evaluator(constant_evaluator.get());
-    }
-
     // Parse the language features first because other checks below may depend
     // on the features that are enabled for the test case.
     ZETASQL_ASSERT_OK_AND_ASSIGN(LanguageOptions::LanguageFeatureSet features,
@@ -732,9 +721,8 @@ class AnalyzerTestRunner {
     }
 
     if (test_case_options_.GetBool(kEnhancedErrorRedaction)) {
-      options.set_enhanced_error_redaction(true);
       options.set_error_message_stability(
-          zetasql::ERROR_MESSAGE_STABILITY_TEST_REDACTED);
+          zetasql::ERROR_MESSAGE_STABILITY_TEST_MINIMIZED);
     }
 
     const std::string error_message_mode_string =
@@ -965,6 +953,17 @@ class AnalyzerTestRunner {
     SetupSampleSystemVariables(&type_factory, &options);
     auto catalog_holder = CreateCatalog(options);
 
+    // If requested, add a PreparedExpressionConstantEvaluator to the analyzer
+    // options.
+    std::unique_ptr<PreparedExpressionConstantEvaluator> constant_evaluator =
+        nullptr;
+    if (test_case_options_.GetBool(kUseConstantEvaluator)) {
+      constant_evaluator =
+          std::make_unique<PreparedExpressionConstantEvaluator>(
+              /*options=*/EvaluatorOptions{}, options.language());
+      options.set_constant_evaluator(constant_evaluator.get());
+    }
+
     if (test_case_options_.GetBool(kParseMultiple)) {
       TestMulti(test_case, options, mode, catalog_holder.catalog(),
                 &type_factory, test_result);
@@ -1025,6 +1024,11 @@ class AnalyzerTestRunner {
         CheckExtractTableNames(test_case, options, output.get());
       }
 
+      // Also test ListSelectColumnExpressionsFromFinalSelectClause on both
+      // successful and failing queries.
+      if (test_case_options_.GetBool(kTestListSelectExpressions)) {
+        CheckListSelectExpressions(test_case, options, output.get());
+      }
       // Also run the query in strict mode and ensure we get a valid result.
       CheckStrictMode(test_case, options, status, output.get(), catalog,
                       type_factory, test_result);
@@ -1303,6 +1307,32 @@ class AnalyzerTestRunner {
     return absl::OkStatus();
   }
 
+  // If the resolved AST includes ResolvedPipeDescribe, include the
+  // output from DESCRIBE in the test file.
+  absl::Status AddDescribeOutput(const ResolvedNode* node,
+                                 std::string& test_result_string) {
+    std::vector<const ResolvedNode*> describe_scans;
+    node->GetDescendantsSatisfying(&ResolvedNode::Is<ResolvedDescribeScan>,
+                                   &describe_scans);
+
+    for (const ResolvedNode* node : describe_scans) {
+      absl::StrAppend(&test_result_string, "\n[DESCRIBE output]\n");
+
+      const ResolvedDescribeScan* describe_scan =
+          node->GetAs<ResolvedDescribeScan>();
+      const ResolvedExpr* value_expr = describe_scan->describe_expr()->expr();
+      ZETASQL_RET_CHECK(value_expr->Is<ResolvedLiteral>());
+      const Value& value = value_expr->GetAs<ResolvedLiteral>()->value();
+      ZETASQL_RET_CHECK(!value.is_null());
+      if (value.type()->IsString()) {
+        absl::StrAppend(&test_result_string, value.ToString(), "\n");
+      } else {
+        absl::StrAppend(&test_result_string, value.DebugString(), "\n");
+      }
+    }
+    return absl::OkStatus();
+  }
+
   void ExtractTableResolutionTimeInfoMapAsString(absl::string_view test_case,
                                                  const AnalyzerOptions& options,
                                                  TypeFactory* type_factory,
@@ -1435,8 +1465,7 @@ class AnalyzerTestRunner {
   void HandleOneResult(
       absl::string_view test_case, const AnalyzerOptions& options,
       TypeFactory* type_factory, Catalog* catalog, absl::string_view mode,
-      const absl::Status& status,
-      const AnalyzerOutput* output,
+      const absl::Status& status, const AnalyzerOutput* output,
       const StatementProperties& extracted_statement_properties,
       file_based_test_driver::RunTestCaseResult* test_result) {
     std::string test_result_string;
@@ -1469,6 +1498,10 @@ class AnalyzerTestRunner {
       // Append strings for any resolved templated objects in 'output'.
       ZETASQL_ASSERT_OK(
           AddResultStringsForTemplatedSqlObjects(node, test_result_string));
+
+      // If the resolved AST includes ResolvedPipeDescribe, include the
+      // output from DESCRIBE in the test file.
+      ZETASQL_EXPECT_OK(AddDescribeOutput(node, test_result_string));
 
       // Check that the statement we resolved matches the statement properties
       // we extracted with GetStatementProperties.
@@ -1835,6 +1868,38 @@ class AnalyzerTestRunner {
       result.push_back(absl::AsciiStrToLower(identifier));
     }
     return result;
+  }
+
+  void CheckListSelectExpressions(absl::string_view test_case,
+                                  const AnalyzerOptions& options,
+                                  const AnalyzerOutput* analyzer_output) {
+    const absl::StatusOr<std::vector<absl::string_view>>
+        extracted_sql_expressions =
+            ListSelectColumnExpressionsFromFinalSelectClause(
+                test_case, options.language());
+
+    if (absl::IsInvalidArgument(extracted_sql_expressions.status()) ||
+        absl::IsUnimplemented(extracted_sql_expressions.status())) {
+      return;
+    }
+    // If ListSelectColumnExpressionsFromFinalSelectClause failed, analysis
+    // should have failed too.
+    if (analyzer_output == nullptr) {
+      // We can't validate anything about the ListSelectColumnExpressions output
+      // if analysis fails.
+      return;
+    }
+
+    if (!analyzer_output->resolved_statement()->Is<ResolvedQueryStmt>()) {
+      // Only ResolvedQueryStmt is supported by
+      // ListSelectColumnExpressionsFromFinalSelectClause API
+      return;
+    }
+    ZETASQL_EXPECT_OK(extracted_sql_expressions.status());
+    const ResolvedQueryStmt* query_stmt =
+        analyzer_output->resolved_statement()->GetAs<ResolvedQueryStmt>();
+    EXPECT_EQ(extracted_sql_expressions->size(),
+              query_stmt->output_column_list_size());
   }
 
   void CheckExtractTableNames(absl::string_view test_case,
@@ -2522,6 +2587,7 @@ class AnalyzerTestRunner {
       case RESOLVED_ALTER_ROW_ACCESS_POLICY_STMT:
       case RESOLVED_ALTER_SCHEMA_STMT:
       case RESOLVED_ALTER_EXTERNAL_SCHEMA_STMT:
+      case RESOLVED_ALTER_SEQUENCE_STMT:
       case RESOLVED_ALTER_TABLE_SET_OPTIONS_STMT:
       case RESOLVED_ALTER_TABLE_STMT:
       case RESOLVED_ALTER_VIEW_STMT:
@@ -2548,6 +2614,7 @@ class AnalyzerTestRunner {
       case RESOLVED_CREATE_TABLE_FUNCTION_STMT:
       case RESOLVED_CREATE_VIEW_STMT:
       case RESOLVED_CREATE_ENTITY_STMT:
+      case RESOLVED_CREATE_SEQUENCE_STMT:
       case RESOLVED_DELETE_STMT:
       case RESOLVED_DESCRIBE_STMT:
       case RESOLVED_DROP_FUNCTION_STMT:
@@ -3096,6 +3163,16 @@ class AnalyzerTestRunner {
     if (absl::StrContains(
             status.message(),
             "No matching signature for function APPROX_DOT_PRODUCT")) {
+      return absl::OkStatus();
+    }
+    // Literal replacement is not supported for GROUPING function. The literal
+    // replacer operates by finding character ranges of
+    // ResolvedLiteral AST nodes and replacing them with parameters in the
+    // original query text. The GROUPING function references the expression via
+    // ColumnRef, so literals within the GROUPING function are not replaced.
+    if (absl::StrContains(status.message(),
+                          "GROUPING must have an argument that exists within "
+                          "the group-by expression list")) {
       return absl::OkStatus();
     }
     ZETASQL_EXPECT_OK(status) << dbg_info;

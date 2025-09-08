@@ -329,7 +329,7 @@ class LazyResolutionObject {
   // Returns the <sql_> content passed into the constructor, that includes
   // the CREATE statement for this LazyResolutionObject and possibly
   // surrounding statements (this is typically the entire module file).
-  const std::string_view sql() const { return parse_resume_location_.input(); }
+  absl::string_view sql() const { return parse_resume_location_.input(); }
 
   // Returns the location indicating where parsing began for the CREATE
   // statement with respect to the input <sql_> string, which is immediately
@@ -353,7 +353,7 @@ class LazyResolutionObject {
   }
 
   // Returns the object type name as implied by the parser AST.
-  const std::string TypeName(bool capitalized = false) const;
+  std::string TypeName(bool capitalized = false) const;
 
   // Returns a string that was used when parsing the CREATE statement
   // related to this object.  If <include_prefix>, then all whitespace
@@ -365,7 +365,7 @@ class LazyResolutionObject {
   // and could be stripped.  For debugging purposes, we may want
   // to provide a way to get the full string where parsing started,
   // immediately after the end of the previous statement (if any).
-  std::string_view GetCreateStatement(bool include_prefix) const;
+  absl::string_view GetCreateStatement(bool include_prefix) const;
 
   // Returns whether or not the object needs resolution.  It needs resolution
   // if it does not have an error <status_> and does not have any analyzer
@@ -532,7 +532,7 @@ class LazyResolutionFunction {
   // Returns the SQL passed into the Create() method (via
   // <parse_resume_location>). Used for error messaging, to construct the error
   // string with caret payload.
-  std::string_view SQL() const;
+  absl::string_view SQL() const;
 
   // Indicates the location of the Name identifier in the SQL passed to the
   // Create() method (via <parse_resume_location>). Used for error messaging, to
@@ -713,7 +713,7 @@ class LazyResolutionTableFunction {
   // Returns the SQL passed into the Create() method (via
   // <parse_resume_location>). Used for error messaging, to construct the error
   // string with caret payload.
-  std::string_view SQL() const;
+  absl::string_view SQL() const;
 
   // Indicates the location of the NameIdentifier in the SQL passed to the
   // Create() method.  Used for error messaging, to identify an error location
@@ -901,7 +901,7 @@ class LazyResolutionConstant {
 
   // Returns the SQL passed into the Create() method (via
   // parse_resume_location).
-  std::string_view SQL() const;
+  absl::string_view SQL() const;
 
   // Returns the named constant identifier used in the declaration.
   const ASTIdentifier* NameIdentifier() const;
@@ -1023,7 +1023,7 @@ class LazyResolutionView {
   // Returns the SQL passed into the Create() method (via
   // <parse_resume_location>). Used for error messaging, to construct the error
   // string with caret payload.
-  std::string_view SQL() const;
+  absl::string_view SQL() const;
 
   // Indicates the location of the NameIdentifier in the SQL passed to the
   // Create() method. Used for error messaging, to identify an error location

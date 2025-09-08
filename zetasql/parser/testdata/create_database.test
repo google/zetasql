@@ -132,7 +132,7 @@ create database db options(db_option=);
 # Could not resolve database options.
 create database db options(1=db_option);
 --
-ERROR: Syntax error: Unexpected integer literal "1" [at 1:28]
+ERROR: Syntax error: Expected ")" but got integer literal "1" [at 1:28]
 create database db options(1=db_option);
                            ^
 ==
@@ -140,7 +140,7 @@ create database db options(1=db_option);
 # [OR REPLACE] is not supported.
 create or replace database db;
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword DATABASE [at 1:19]
+ERROR: Syntax error: Unexpected keyword DATABASE [at 1:19]
 create or replace database db;
                   ^
 ==
@@ -148,7 +148,7 @@ create or replace database db;
 # [TEMP] is not supported.
 create temp database db;
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword DATABASE [at 1:13]
+ERROR: Syntax error: Unexpected keyword DATABASE [at 1:13]
 create temp database db;
             ^
 ==
@@ -156,7 +156,7 @@ create temp database db;
 # [TEMPORARY] is not supported.
 create temporary database db;
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword DATABASE [at 1:18]
+ERROR: Syntax error: Unexpected keyword DATABASE [at 1:18]
 create temporary database db;
                  ^
 ==

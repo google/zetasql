@@ -135,7 +135,6 @@ std::unique_ptr<AnalyzerOptions> AnalyzerOptionsForRewrite(
 absl::StatusOr<std::unique_ptr<const ResolvedNode>>
 ApplyBuiltinRewritersToFixedPoint(
     const AnalyzerOptions& analyzer_options,
-    const AnalyzerOptions& options_for_rewrite,
     AnalyzerRuntimeInfo& runtime_info, Catalog* catalog,
     TypeFactory& type_factory, AnalyzerOutputProperties& output_properties,
     std::unique_ptr<const ResolvedNode> rewriter_input, bool& rewrite_applied) {
@@ -210,7 +209,7 @@ ApplyBuiltinRewritersToFixedPoint(
       }
       ZETASQL_ASSIGN_OR_RETURN(
           rewriter_input,
-          rewriter->Rewrite(options_for_rewrite, std::move(rewriter_input),
+          rewriter->Rewrite(analyzer_options, std::move(rewriter_input),
                             *catalog_for_rewrite, type_factory,
                             output_properties));
       rewrite_applied = true;
@@ -283,7 +282,6 @@ absl::StatusOr<bool> TemplatedFunctionCallsNeedRewrite(
 // iterations is reached.
 absl::StatusOr<std::unique_ptr<const ResolvedNode>> ApplyRewriters(
     const AnalyzerOptions& analyzer_options,
-    const AnalyzerOptions& options_for_rewrite,
     AnalyzerRuntimeInfo& runtime_info, Catalog* catalog,
     TypeFactory& type_factory, AnalyzerOutputProperties& output_properties,
     std::unique_ptr<const ResolvedNode> rewriter_input, bool& rewrite_applied) {
@@ -293,23 +291,23 @@ absl::StatusOr<std::unique_ptr<const ResolvedNode>> ApplyRewriters(
     rewrite_applied = true;
     ZETASQL_ASSIGN_OR_RETURN(
         rewriter_input,
-        rewriter->Rewrite(options_for_rewrite, std::move(rewriter_input),
-                          *catalog, type_factory, output_properties));
+        rewriter->Rewrite(analyzer_options, std::move(rewriter_input), *catalog,
+                          type_factory, output_properties));
   }
 
-  ZETASQL_ASSIGN_OR_RETURN(rewriter_input,
-                   ApplyBuiltinRewritersToFixedPoint(
-                       analyzer_options, options_for_rewrite, runtime_info,
-                       catalog, type_factory, output_properties,
-                       std::move(rewriter_input), rewrite_applied));
+  ZETASQL_ASSIGN_OR_RETURN(
+      rewriter_input,
+      ApplyBuiltinRewritersToFixedPoint(
+          analyzer_options, runtime_info, catalog, type_factory,
+          output_properties, std::move(rewriter_input), rewrite_applied));
 
   // Run non-built-in rewriters. Each of these rewriters is run only once.
   for (const std::shared_ptr<Rewriter>& rewriter :
        analyzer_options.trailing_rewriters()) {
     ZETASQL_ASSIGN_OR_RETURN(
         rewriter_input,
-        rewriter->Rewrite(options_for_rewrite, std::move(rewriter_input),
-                          *catalog, type_factory, output_properties));
+        rewriter->Rewrite(analyzer_options, std::move(rewriter_input), *catalog,
+                          type_factory, output_properties));
     rewrite_applied = true;
   }
   return rewriter_input;
@@ -348,21 +346,23 @@ absl::Status InternalRewriteResolvedAstNoConvertErrorLocation(
   bool any_rewriters_applied = false;
   ZETASQL_ASSIGN_OR_RETURN(
       last_rewrite_result,
-      ApplyRewriters(analyzer_options, *options_for_rewrite, runtime_info,
-                     catalog, *type_factory,
+      ApplyRewriters(*options_for_rewrite, runtime_info, catalog, *type_factory,
                      output_mutator.mutable_output_properties(),
                      std::move(last_rewrite_result), any_rewriters_applied));
 
   // Rewrite templated function calls if needed.
   ZETASQL_ASSIGN_OR_RETURN(const bool templated_function_calls_need_rewrite,
                    TemplatedFunctionCallsNeedRewrite(
-                       analyzer_options, last_rewrite_result.get()));
+                       *options_for_rewrite, last_rewrite_result.get()));
   if (templated_function_calls_need_rewrite) {
     ZETASQL_ASSIGN_OR_RETURN(last_rewrite_result,
                      RewriteTemplatedFunctionCalls(
-                         [&](std::unique_ptr<const ResolvedNode> node) {
+                         *options_for_rewrite,
+                         [&](const AnalyzerOptions&
+                                 options_for_templated_function_call_rewrite,
+                             std::unique_ptr<const ResolvedNode> node) {
                            return ApplyRewriters(
-                               analyzer_options, *options_for_rewrite,
+                               options_for_templated_function_call_rewrite,
                                runtime_info, catalog, *type_factory,
                                output_mutator.mutable_output_properties(),
                                std::move(node), any_rewriters_applied);

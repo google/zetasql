@@ -214,7 +214,7 @@ void ExecuteQueryStatementPrompt::ProcessBuffer() {
 
       {
         ParserErrorContext ctx;
-        ctx.set_text(std::string{absl::StripAsciiWhitespace(buf_.Flatten())});
+        ctx.set_text(absl::StripAsciiWhitespace(buf_.Flatten()));
         internal::AttachPayload(&status, ctx);
       }
 

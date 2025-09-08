@@ -16,7 +16,9 @@
 
 #ifndef ZETASQL_PUBLIC_PROPERTY_GRAPH_H_
 #define ZETASQL_PUBLIC_PROPERTY_GRAPH_H_
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/public/type.h"
@@ -161,7 +163,7 @@ class PropertyGraph {
 class GraphElementTable {
  public:
   enum class Kind { kNode, kEdge };
-
+  enum class DynamicLabelCardinality { kUnknown, kSingle, kMultiple };
   virtual ~GraphElementTable() = default;
 
   // Returns the name which is a unique identifier of a GraphElementTable in
@@ -220,6 +222,11 @@ class GraphElementTable {
 
   // Returns true if this GraphElementTable has a dynamic label.
   virtual bool HasDynamicLabel() const { return false; }
+  // Returns the dynamic label cardinality.
+  virtual enum GraphElementTable::DynamicLabelCardinality
+  DynamicLabelCardinality() const {
+    return DynamicLabelCardinality::kUnknown;
+  }
   // Returns the dynamic label of this GraphElementTable.
   virtual absl::Status GetDynamicLabel(
       const GraphDynamicLabel*& dynamic_label) const {

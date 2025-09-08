@@ -45,6 +45,12 @@ class TestDatabaseCatalog {
   explicit TestDatabaseCatalog(TypeFactory* type_factory);
 
   SimpleCatalog* catalog() const { return catalog_.get(); }
+  // Creates a catalog from `test_db` and preloads types and functions. This
+  // method is to support analyzing randomly generating ZetaSQL measure
+  // expressions. In general, users should refrain from using this method
+  // and use `SetTestDatabase` instead.
+  absl::Status CreateCatalogAndPreloadTypesAndFunctions(
+      const TestDatabase& test_db);
   absl::Status SetTestDatabase(const TestDatabase& test_db);
   absl::Status SetLanguageOptions(const LanguageOptions& language_options);
   // Populate the `table_as_value_with_measures` field for all tables with
@@ -65,6 +71,8 @@ class TestDatabaseCatalog {
       const Catalog::FindOptions& options = Catalog::FindOptions());
   absl::Status GetTables(absl::flat_hash_set<const Table*>* output) const;
   absl::Status GetTypes(absl::flat_hash_set<const Type*>* output) const;
+
+  google::protobuf::compiler::Importer* importer() const { return importer_.get(); }
 
  private:
   class BuiltinFunctionCache {
@@ -87,6 +95,8 @@ class TestDatabaseCatalog {
     absl::flat_hash_map<LanguageOptions, CacheEntry> builtins_cache_;
   };
 
+  // Only true after `SetTestDatabase` is called.
+  bool is_initialized_ = false;
   std::vector<std::string> errors_;
   std::unique_ptr<google::protobuf::compiler::SourceTree> proto_source_tree_;
   std::unique_ptr<google::protobuf::compiler::MultiFileErrorCollector>

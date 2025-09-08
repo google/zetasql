@@ -32,6 +32,7 @@
 #include "zetasql/analyzer/resolver.h"
 #include "zetasql/analyzer/resolver_common_inl.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/graph_element_utils.h"
 #include "zetasql/parser/ast_node.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
@@ -41,6 +42,7 @@
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/property_graph.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/resolved_ast/resolved_ast_comparator.h"
@@ -882,6 +884,11 @@ GraphStmtResolver::ResolveBaseTable(
   return resolved_table_scan;
 }
 
+bool IsExprStringArray(const ResolvedExpr* expr) {
+  return expr->type()->IsArray() &&
+         expr->type()->AsArray()->element_type()->IsString();
+}
+
 absl::StatusOr<std::unique_ptr<const ResolvedGraphElementTable>>
 GraphStmtResolver::ResolveGraphElementTable(
     const ASTGraphElementTable* ast_element_table,
@@ -941,12 +948,34 @@ GraphStmtResolver::ResolveGraphElementTable(
     ZETASQL_RETURN_IF_ERROR(
         resolver_.ResolveExpr(ast_element_table->dynamic_label()->label(),
                               expr_resolution_info.get(), &resolved_expr));
-    // TODO: Additionally support ARRAY<STRING> type for dynamic
-    // label.
-    if (!resolved_expr->type()->IsString()) {
+    bool multi_label_feature_enabled =
+        resolver_.language().LanguageFeatureEnabled(
+            FEATURE_SQL_GRAPH_DYNAMIC_MULTI_LABEL_NODES);
+    if (IsExprStringArray(resolved_expr.get())) {
+      // If the feature is not enabled, and the dynamic label is an array of
+      // strings, return error.
+      if (!multi_label_feature_enabled) {
+        return MakeSqlErrorAt(ast_element_table->dynamic_label())
+               << kDynamicLabelClause
+               << " must hold expression of type STRING, but was of type "
+                  "ARRAY<STRING> ";
+      }
+      // If the feature is enabled, and the dynamic label is an array of
+      // strings for an edge, return error.
+      if (element_kind == GraphElementTable::Kind::kEdge) {
+        return MakeSqlErrorAt(ast_element_table->dynamic_label())
+               << kDynamicLabelClause
+               << " must hold expression of type STRING for edge tables. "
+                  "ARRAY<STRING> expression for edge tables is not supported";
+      }
+    }
+    if (!resolved_expr->type()->IsString() &&
+        !IsExprStringArray(resolved_expr.get())) {
+      // If not of STRING type and not ARRAY<STRING> type, return error.
       return MakeSqlErrorAt(ast_element_table->dynamic_label())
              << kDynamicLabelClause
-             << " must hold expression of type STRING, but was of type "
+             << " must hold expression of type STRING or ARRAY<STRING>, but "
+                "was of type "
              << resolved_expr->type()->TypeName(resolver_.product_mode());
     }
     if (!resolved_expr->Is<ResolvedColumnRef>()) {

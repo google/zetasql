@@ -44,7 +44,6 @@
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
-#include "zetasql/base/flat_set.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 

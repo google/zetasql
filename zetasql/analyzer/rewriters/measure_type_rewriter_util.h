@@ -52,6 +52,9 @@ struct MeasureExpansionInfo {
   // invocation means that some other measure column that is renamed from this
   // measure column is invoked via the `AGG` function.
   bool is_invoked = false;
+  // The WithRefScan that emits this measure column. Non-null only if the
+  // measure column is emitted by a `WithRefScan`.
+  const ResolvedWithRefScan* with_ref_scan = nullptr;
 };
 
 using MeasureExpansionInfoMap =
@@ -90,6 +93,9 @@ class GrainScanInfo {
     ResolvedColumn resolved_column;
     // Indicates whether `resolved_column` is a row identity column.
     bool is_row_identity_column = false;
+    // Indicates whether `resolved_column` is a column that needs to be wrapped
+    // in a `STRUCT` typed column to support measure expansion.
+    bool is_referenced_by_expandable_measure = false;
     // The index of the column in the grain scan's catalog table.
     int catalog_column_index = -1;
   };
@@ -104,15 +110,17 @@ class GrainScanInfo {
   // Assumption: The table underlying the `grain_scan` has a column with
   // `column_name`.
   absl::Status MarkColumnForProjection(std::string column_name,
-                                       const ResolvedTableScan* grain_scan,
-                                       bool mark_row_identity_column);
+                                       const ResolvedTableScan* grain_scan);
 
-  // Add a `STRUCT` typed column to compute. This `STRUCT` typed column will be
-  // projected alongside the measure column that needs to be expanded.
-  void AddStructComputedColumn(
-      std::unique_ptr<const ResolvedComputedColumn> struct_computed_column) {
-    struct_computed_columns_.push_back(std::move(struct_computed_column));
-  }
+  // Mark column with `column_name` as a row identity column.
+  // Assumes that the column has already been marked for projection.
+  absl::Status MarkColumnAsRowIdentityColumn(std::string column_name);
+
+  // Mark column with `column_name` as a column that needs to be projected to
+  // support measure expansion. Assumes that the column has already been marked
+  // for projection.
+  absl::Status MarkColumnAsReferencedByExpandableMeasure(
+      std::string column_name);
 
   // Get the names of all row identity columns that need to be projected.
   absl::btree_set<std::string> GetRowIdentityColumnNames() const;
@@ -132,9 +140,19 @@ class GrainScanInfo {
     return columns_to_project;
   }
 
-  std::vector<std::unique_ptr<const ResolvedComputedColumn>>
-  release_struct_computed_columns() {
-    return std::move(struct_computed_columns_);
+  // Make a `STRUCT` typed computed column that contains necessary values needed
+  // to expand measure columns. This method should only be called after
+  // `columns_to_project_` has been populated, and called only once.
+  absl::Status MakeStructComputedColumn(TypeFactory& type_factory,
+                                        IdStringPool& id_string_pool,
+                                        IdString& table_name);
+
+  const ResolvedComputedColumn* GetStructComputedColumn() const {
+    return struct_computed_column_.get();
+  }
+
+  std::unique_ptr<const ResolvedComputedColumn> ReleaseStructComputedColumn() {
+    return std::move(struct_computed_column_);
   }
 
   ColumnFactory& column_factory() const { return column_factory_; }
@@ -151,36 +169,77 @@ class GrainScanInfo {
   // addition to columns that need to be projected to expand measure columns.
   // The key is the column name in the catalog table.
   absl::btree_map<std::string, ColumnToProject> columns_to_project_;
-  // STRUCT typed columns to compute for each measure column that needs to be
-  // expanded. Each STRUCT column will have 2 top-level fields:
+  // A STRUCT typed computed column that contains necessary values needed
+  // to expand measure columns. The STRUCT column will have 2 top-level fields:
   //
-  // 1. `referenced_columns`: A STRUCT typed field containing the set of columns
-  //    referenced by the measure expression.
+  // 1. `referenced_columns`: A STRUCT typed field containing the set of column
+  //    values referenced by all measure expressions from this grain scan that
+  //    need expansion.
   // 2. `key_columns`: A STRUCT typed field containing the set of row identity
-  //    columns used for grain-locking the measure expression.
+  //    columns used for grain-locking all measure expressions originating
+  //    from this grain scan.
   //
-  // For example, a
-  // measure column with expression `SUM(A + B)` on a table with row identity
-  // columns `id_1` and `id_2` will have a STRUCT type like:
+  // For example, given 2 measure columns with expressions `SUM(A + B)` and
+  // `SUM(B + C)` on a table with row identity columns `id_1` and `id_2`, the
+  // STRUCT column will have a STRUCT type like:
   //
   // STRUCT<
-  //   referenced_columns STRUCT<A INT64, B INT64>,
-  //   key_columns STRUCT<id_1 INT64, id_2 INT64
+  //   referenced_columns STRUCT<A INT64, B INT64, C INT64>,
+  //   key_columns STRUCT<id_1 INT64, id_2 INT64>
   // >
-  std::vector<std::unique_ptr<const ResolvedComputedColumn>>
-      struct_computed_columns_;
+  std::unique_ptr<const ResolvedComputedColumn> struct_computed_column_;
 };
 
-struct ResolvedTableScanComparator {
-  bool operator()(const ResolvedTableScan* a,
-                  const ResolvedTableScan* b) const {
-    return a->alias() < b->alias();
+// `GrainScanInfoMap` stores `GrainScanInfo` objects for each grain scan that
+// needs to be rewritten. It is effectively a wrapper around a map from a grain
+// scan to its corresponding `GrainScanInfo` object, but it also provides stable
+// iteration order over grain scans.
+class GrainScanInfoMap {
+ public:
+  GrainScanInfoMap() = default;
+  // Allow move, but not copy.
+  GrainScanInfoMap(const GrainScanInfoMap& other) = delete;
+  GrainScanInfoMap& operator=(const GrainScanInfoMap& other) = delete;
+  GrainScanInfoMap(GrainScanInfoMap&& other) = default;
+  GrainScanInfoMap& operator=(GrainScanInfoMap&& other) = default;
+
+  std::vector<const ResolvedTableScan*> GetAllGrainScans() const {
+    return grain_scans_in_insertion_order_;
   }
+
+  bool ContainsGrainScan(const ResolvedTableScan* grain_scan) const {
+    return grain_scan_info_map_.contains(grain_scan);
+  }
+
+  absl::StatusOr<GrainScanInfo*> GetGrainScanInfo(
+      const ResolvedTableScan* grain_scan) {
+    auto it = grain_scan_info_map_.find(grain_scan);
+    ZETASQL_RET_CHECK(it != grain_scan_info_map_.end());
+    return it->second.get();
+  }
+
+  absl::Status AddGrainScanInfo(const ResolvedTableScan* grain_scan,
+                                GrainScanInfo grain_scan_info) {
+    auto grain_scan_info_unique =
+        std::make_unique<GrainScanInfo>(std::move(grain_scan_info));
+    ZETASQL_RET_CHECK(grain_scan_info_map_
+                  .insert({grain_scan, std::move(grain_scan_info_unique)})
+                  .second)
+        << "Grain scan already exists in GrainScanInfoMap.";
+    grain_scans_in_insertion_order_.push_back(grain_scan);
+    return absl::OkStatus();
+  }
+
+ private:
+  // Use unique_ptr to wrap `GrainScanInfo` for pointer stability.
+  absl::flat_hash_map<const ResolvedTableScan*, std::unique_ptr<GrainScanInfo>>
+      grain_scan_info_map_;
+  std::vector<const ResolvedTableScan*> grain_scans_in_insertion_order_;
 };
 
-using GrainScanInfoMap =
-    absl::btree_map<const ResolvedTableScan*, GrainScanInfo,
-                    ResolvedTableScanComparator>;
+// Return an error if `input` contains a query shape that is unsupported by
+// the measure type rewriter.
+absl::Status HasUnsupportedQueryShape(const ResolvedNode* input);
 
 // Traverses the ResolvedAST to gather information about grain scans that need
 // to be rewritten.

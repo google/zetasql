@@ -1,3 +1,4 @@
+[default language_features=MAXIMUM]
 DROP MATERIALIZED VIEW table;
 --
 DropMaterializedViewStmt(is_if_exists=FALSE, name_path=table)

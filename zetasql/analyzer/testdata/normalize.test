@@ -1,3 +1,4 @@
+[default language_features=MAXIMUM]
 SELECT NORMALIZE('abcdefg'),
        NORMALIZE('abcdefg', NFC),
        NORMALIZE('abcdefg', NFKC),

@@ -438,4 +438,106 @@ TEST(TableNameResolver, ExtractTableNamesFromStandaloneGqlQuery) {
   EXPECT_THAT(tvf_names, IsEmpty());
 }
 
+TEST(TableNameResolver, ExtractTableNamesFromGraphPatternInExistsSubQuery) {
+  AnalyzerOptions analyzer_options;
+  analyzer_options.CreateDefaultArenasIfNotSet();
+  analyzer_options.mutable_language()->EnableLanguageFeature(FEATURE_SQL_GRAPH);
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_SQL_GRAPH_ADVANCED_QUERY);
+
+  std::string sql =
+      R"sql(GRAPH FinGraph
+            RETURN EXISTS {
+              Graph Fingraph
+              (p:Person {Name: "Lee"})-[o:Owns]->(a:Account) where p.id IN (SELECT key_column FROM TableB join tvf() WHERE condition)
+            } AS results;
+      )sql";
+
+  std::set<std::vector<std::string>> table_names;
+  std::set<std::vector<std::string>> tvf_names;
+  ZETASQL_ASSERT_OK(zetasql::ExtractTableNamesFromScript(sql, analyzer_options,
+                                                   &table_names, &tvf_names));
+  EXPECT_THAT(table_names, UnorderedElementsAre(ElementsAre("TableB")));
+  EXPECT_THAT(tvf_names, UnorderedElementsAre(ElementsAre("tvf")));
+}
+
+TEST(TableNameResolver, ExtractTableNamesFromGraphLinearOpsInExistsQuery) {
+  AnalyzerOptions analyzer_options;
+  analyzer_options.CreateDefaultArenasIfNotSet();
+  analyzer_options.mutable_language()->EnableLanguageFeature(FEATURE_SQL_GRAPH);
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_SQL_GRAPH_ADVANCED_QUERY);
+
+  std::string sql =
+      R"sql(GRAPH FinGraph
+            RETURN EXISTS {
+              MATCH (p:Person {Name: "Bruce"})-[o:Owns]->(a:Account) where p.id in (SELECT key_column FROM TableA WHERE condition) RETURN p.name
+              NEXT
+              MATCH (p:Person {Name: "Lee"})-[o:Owns]->(a:Account) where p.id in (SELECT key_column FROM TableB WHERE condition) return p.name
+              NEXT
+              MATCH (x) CALL PER() tvf() return x
+            } AS results;
+      )sql";
+
+  std::set<std::vector<std::string>> table_names;
+  std::set<std::vector<std::string>> tvf_names;
+  ZETASQL_ASSERT_OK(zetasql::ExtractTableNamesFromScript(sql, analyzer_options,
+                                                   &table_names, &tvf_names));
+  EXPECT_THAT(table_names, UnorderedElementsAre(ElementsAre("TableB"),
+                                                ElementsAre("TableA")));
+  EXPECT_THAT(tvf_names, UnorderedElementsAre(ElementsAre("tvf")));
+}
+
+TEST(TableNameResolver, ExtractTableNamesFromCallGraphSubQuery) {
+  AnalyzerOptions analyzer_options;
+  analyzer_options.CreateDefaultArenasIfNotSet();
+  analyzer_options.mutable_language()->EnableLanguageFeature(FEATURE_SQL_GRAPH);
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_SQL_GRAPH_ADVANCED_QUERY);
+
+  std::string sql =
+      R"sql(GRAPH FinGraph
+            RETURN EXISTS {
+              Graph Fingraph
+                match (n) -[e]->{1, 3} (m)
+                CALL (n, e, m) {
+                  MATCH (m) -> (x) where m.id in (SELECT key_column FROM TableB WHERE condition)
+                  RETURN e, x ORDER BY x.age LIMIT 3
+                }
+                match (x) -> (y)
+                return n.age AS a1, x.age AS a2, y.age AS a3
+            } AS results;
+      )sql";
+
+  std::set<std::vector<std::string>> table_names;
+  std::set<std::vector<std::string>> tvf_names;
+  ZETASQL_ASSERT_OK(zetasql::ExtractTableNamesFromScript(sql, analyzer_options,
+                                                   &table_names, &tvf_names));
+  EXPECT_THAT(table_names, UnorderedElementsAre(ElementsAre("TableB")));
+  EXPECT_THAT(tvf_names, IsEmpty());
+}
+
+TEST(TableNameResolver, ExtractTableNamesFromValueQuery) {
+  AnalyzerOptions analyzer_options;
+  analyzer_options.CreateDefaultArenasIfNotSet();
+  analyzer_options.mutable_language()->EnableLanguageFeature(FEATURE_SQL_GRAPH);
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_SQL_GRAPH_ADVANCED_QUERY);
+
+  std::string sql =
+      R"sql(GRAPH FinGraph
+            RETURN VALUE {
+              MATCH (p:Person {country: "Australia"}) where p.id in (SELECT key_column FROM TableA WHERE condition)
+              RETURN p.name
+              LIMIT 1
+            } AS results;
+      )sql";
+
+  std::set<std::vector<std::string>> table_names;
+  std::set<std::vector<std::string>> tvf_names;
+  ZETASQL_ASSERT_OK(zetasql::ExtractTableNamesFromScript(sql, analyzer_options,
+                                                   &table_names, &tvf_names));
+  EXPECT_THAT(table_names, UnorderedElementsAre(ElementsAre("TableA")));
+}
+
 }  // namespace zetasql

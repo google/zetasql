@@ -264,16 +264,18 @@ class TupleSlot {
   // - STRUCTs
   // - GRAPH_ELEMENTs
   // - GRAPH_PATHS
+  // - MEASUREs
   // which may contain protos.
   // TODO check why ARRAY isn't in this list.
   // TODO see whether can-contain-proto is something Type itself
   // should indicate.
   static bool ShouldStoreSharedProtoStateFor(TypeKind kind) {
     return kind == TYPE_PROTO || kind == TYPE_GRAPH_ELEMENT ||
-           kind == TYPE_GRAPH_PATH || kind == TYPE_STRUCT;
+           kind == TYPE_GRAPH_PATH || kind == TYPE_STRUCT ||
+           kind == TYPE_MEASURE;
   }
 
-  TupleSlot() {}
+  TupleSlot() = default;
 
   TupleSlot(const TupleSlot& slot) { *this = slot; }
   TupleSlot(TupleSlot&& slot) = default;
@@ -484,7 +486,7 @@ inline void TupleSlot::CopyFromSlot(const TupleSlot& other) {
 // Stores the contents of a tuple, which is essentially a vector of TupleSlots.
 class TupleData {
  public:
-  TupleData() {}
+  TupleData() = default;
 
   explicit TupleData(int num_slots) : slots_(num_slots) {}
 
@@ -1030,7 +1032,7 @@ class ValueHashSet {
 // }
 class TupleIterator {
  public:
-  virtual ~TupleIterator() {}
+  virtual ~TupleIterator() = default;
 
   virtual const TupleSchema& Schema() const = 0;
 

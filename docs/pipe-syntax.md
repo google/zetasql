@@ -196,13 +196,13 @@ documentation on the corresponding syntax.
 <tr>
   <td><a href="#set_pipe_operator"><code>SET</code></a>
 </td>
-  <td>Replaces the values of columns in the current table.</td>
+  <td>Replaces the values of columns in the input table.</td>
 </tr>
 
 <tr>
   <td><a href="#drop_pipe_operator"><code>DROP</code></a>
 </td>
-  <td>Removes listed columns from the current table.</td>
+  <td>Removes listed columns from the input table.</td>
 </tr>
 
 <tr>
@@ -475,7 +475,7 @@ Propagates the existing table and adds computed columns, similar to
 
 **Description**
 
-Replaces the value of a column in the current table, similar to
+Replaces the value of a column in the input table, similar to
 [`SELECT * REPLACE (expression AS column)`][select-replace] in standard syntax.
 Each referenced column must exist exactly once in the input table.
 
@@ -524,7 +524,7 @@ FROM (SELECT 2 AS x, 3 AS y) AS t
 
 **Description**
 
-Removes listed columns from the current table, similar to
+Removes listed columns from the input table, similar to
 [`SELECT * EXCEPT (column)`][select-except] in standard syntax. Each
 referenced column must exist at least once in the input table.
 
@@ -1052,7 +1052,7 @@ By contrast, the table alias isn't visible after a `|> SELECT DISTINCT *`
 clause.
 
 ```zetasql {.bad}
--- Error, unrecognnized name: Produce
+-- Error, unrecognized name: Produce
 (
   SELECT 'apples' AS item, 2 AS sales
   UNION ALL
@@ -1882,8 +1882,9 @@ Rotates columns into rows. The `UNPIVOT` pipe operator behaves the same as the
 
 **Description**
 
-Evaluates an expression over all rows of an input table to verify that the
-expression is true or raise an assertion error if it's false.
+Evaluates an expression on every row of an input table to verify that the
+expression is true for every row. If it is false for at least one row, it
+produces an assertion error.
 
 The expression must evaluate to a boolean value. When the expression evaluates
 to `TRUE`, the input table passes through the `ASSERT` operator unchanged. When

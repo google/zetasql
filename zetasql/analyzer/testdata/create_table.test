@@ -1,4 +1,4 @@
-[default language_features=CREATE_TABLE_PARTITION_BY,CREATE_TABLE_CLUSTER_BY,UNENFORCED_PRIMARY_KEYS]
+[default language_features=NONE,+CREATE_TABLE_PARTITION_BY,+CREATE_TABLE_CLUSTER_BY,+UNENFORCED_PRIMARY_KEYS]
 
 create table t1 (
   c1 int32,
@@ -23,7 +23,7 @@ CreateTableStmt
 ==
 
 # Create table with RANGE columns without RANGE_TYPE enabled
-[language_features=]
+[language_features=NONE]
 [no_java]
 create table t1 (c1 range<date>);
 --
@@ -33,7 +33,7 @@ create table t1 (c1 range<date>);
 ==
 
 # Create table with RANGE columns with RANGE_TYPE enabled
-[language_features=RANGE_TYPE,CIVIL_TIME]
+[language_features=NONE,+RANGE_TYPE,+CIVIL_TIME]
 [no_java]
 create table t1 (c1 range<{{date|datetime|timestamp|int64}}>);
 --
@@ -66,7 +66,7 @@ create table t1 (c1 range<int64>);
 ==
 
 # Create table with RANGE columns and options
-[language_features=RANGE_TYPE,CIVIL_TIME]
+[language_features=NONE,+RANGE_TYPE,+CIVIL_TIME]
 [no_java]
 create table t1 (
   a range<date> options(option_a=1),
@@ -107,7 +107,7 @@ CreateTableStmt
 ==
 
 # Create table with RANGE column field options
-[language_features=RANGE_TYPE,CIVIL_TIME,CREATE_TABLE_FIELD_ANNOTATIONS]
+[language_features=NONE,+RANGE_TYPE,+CIVIL_TIME,+CREATE_TABLE_FIELD_ANNOTATIONS]
 [no_java]
 create table t1 (
   a range<date options()>,
@@ -124,7 +124,7 @@ CreateTableStmt
 ==
 
 # PRIMARY KEY ENFORCED/NOT ENFORCED on RANGE column.
-[language_features=RANGE_TYPE,UNENFORCED_PRIMARY_KEYS]
+[language_features=NONE,+RANGE_TYPE,+UNENFORCED_PRIMARY_KEYS]
 [no_java]
 create table t (
   a int32,
@@ -169,7 +169,7 @@ CreateTableStmt
 ==
 
 # Ordering on PRIMARY KEY() on RANGE column.
-[language_features=RANGE_TYPE]
+[language_features=NONE,+RANGE_TYPE]
 [no_java]
 create table t1 (
   a range<date>,
@@ -235,7 +235,7 @@ ERROR: Ordering for primary keys is not supported [at 3:17]
 ==
 
 # PRIMARY KEY() on multiple columns, including RANGE.
-[language_features=RANGE_TYPE,CIVIL_TIME,UNENFORCED_PRIMARY_KEYS]
+[language_features=NONE,+RANGE_TYPE,+CIVIL_TIME,+UNENFORCED_PRIMARY_KEYS]
 [no_java]
 create table t1 (
   a range<date>,
@@ -264,7 +264,7 @@ ERROR: Ordering for primary keys is not supported [at 5:20]
 ==
 
 # PRIMARY KEY() ENFORCED/NOT ENFORCED with OPTIONS on RANGE column.
-[language_features=RANGE_TYPE,CIVIL_TIME,UNENFORCED_PRIMARY_KEYS]
+[language_features=NONE,+RANGE_TYPE,+CIVIL_TIME,+UNENFORCED_PRIMARY_KEYS]
 [no_java]
 create table t (a range<date>, PRIMARY KEY(a){{| ENFORCED| NOT ENFORCED}} OPTIONS(x=10,y=20));
 --
@@ -301,7 +301,7 @@ CreateTableStmt
 ==
 
 # CREATE OR REPLACE TEMP IF NOT EXISTS with RANGE column.
-[language_features=RANGE_TYPE]
+[language_features=NONE,+RANGE_TYPE]
 [no_java]
 create {{|or replace}} {{|temporary|temp}} table {{|if not exists}} T (a range<date>) options ()
 --
@@ -380,7 +380,7 @@ create or replace temp table if not exists T (a range<date>) options ()
 ==
 
 # CREATE TEMP/PUBLIC/PRIVATE with RANGE column.
-[language_features=RANGE_TYPE]
+[language_features=NONE,+RANGE_TYPE]
 [no_java]
 create {{temporary|temp|public|private}} table T (a range<date>) options ()
 --
@@ -408,7 +408,7 @@ create private table T (a range<date>) options ()
 ==
 
 # RANGE column being marked as hidden.
-[language_features=RANGE_TYPE]
+[language_features=NONE,+RANGE_TYPE]
 [no_java]
 create table t1 (
   c1 int32,
@@ -427,7 +427,7 @@ CreateTableStmt
 ==
 
 # NOT NULL constraint on RANGE column.
-[language_features=RANGE_TYPE,CIVIL_TIME,CREATE_TABLE_NOT_NULL]
+[language_features=NONE,+RANGE_TYPE,+CIVIL_TIME,+CREATE_TABLE_NOT_NULL]
 [no_java]
 create table t1 (
   c1 RANGE<date> not null,
@@ -459,7 +459,7 @@ CreateTableStmt
 ==
 
 # NOT NULL constraint on RANGE element is valid in the parser, and resolver will enforce that it is invalid.
-[language_features=RANGE_TYPE,CIVIL_TIME,CREATE_TABLE_NOT_NULL]
+[language_features=NONE,+RANGE_TYPE,+CIVIL_TIME,+CREATE_TABLE_NOT_NULL]
 [no_java]
 create table t1 (
   c4 RANGE<date not null>,
@@ -473,7 +473,7 @@ ERROR: Nested column attributes are unsupported [at 2:17]
 ==
 
 # Generated Columns: Range type.
-[language_features=RANGE_TYPE,CIVIL_TIME,GENERATED_COLUMNS]
+[language_features=NONE,+RANGE_TYPE,+CIVIL_TIME,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 [no_java]
 create table t (
@@ -492,6 +492,7 @@ CreateTableStmt
   | +-column=t.a#1
   | +-generated_column_info=
   |   +-GeneratedColumnInfo
+  |     +-parse_location=37-75
   |     +-expression=
   |       +-Literal(type=RANGE<DATE>, value=[2020-01-01, 2020-12-31), has_explicit_type=TRUE)
   +-ColumnDefinition
@@ -500,6 +501,7 @@ CreateTableStmt
   | +-column=t.b#2
   | +-generated_column_info=
   |   +-GeneratedColumnInfo
+  |     +-parse_location=102-162
   |     +-expression=
   |       +-Literal(type=RANGE<DATETIME>, value=[2020-01-01 12:00:00, 2020-12-31 12:00:00), has_explicit_type=TRUE)
   +-ColumnDefinition
@@ -508,6 +510,7 @@ CreateTableStmt
   | +-column=t.c#3
   | +-generated_column_info=
   |   +-GeneratedColumnInfo
+  |     +-parse_location=190-251
   |     +-expression=
   |       +-Literal(type=RANGE<TIMESTAMP>, value=[2020-01-01 20:00:00+00, 2020-12-31 20:00:00+00), has_explicit_type=TRUE)
   +-ColumnDefinition
@@ -516,12 +519,13 @@ CreateTableStmt
     +-column=t.d#4
     +-generated_column_info=
       +-GeneratedColumnInfo
+        +-parse_location=262-272
         +-expression=
           +-Literal(type=STRUCT<INT64, STRING>, value={1, "abc"})
 ==
 
 # Range column with default values
-[language_features=RANGE_TYPE,COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+RANGE_TYPE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 [no_java]
 CREATE TABLE t
@@ -544,7 +548,7 @@ CreateTableStmt
 ==
 
 # constraint test for range
-[language_features=RANGE_TYPE,CHECK_CONSTRAINT]
+[language_features=NONE,+RANGE_TYPE,+CHECK_CONSTRAINT]
 [no_java]
 create table t (
   c1 range<date>,
@@ -619,7 +623,7 @@ CreateTableStmt
 ==
 
 # RANGE column with name range in backticks.
-[language_features=RANGE_TYPE]
+[language_features=NONE,+RANGE_TYPE]
 [no_java]
 create table t1 (`range` range<date>);
 --
@@ -631,7 +635,7 @@ CreateTableStmt
 
 # column-level COLLATE with unamed parameters on RANGE is parseable but will
 # be rejected by the resolver.
-[language_features=RANGE_TYPE,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
+[language_features=NONE,+RANGE_TYPE,+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK]
 [no_java]
 create {{|temporary|external}} table t1 (a range<date COLLATE ?>) options ()
 --
@@ -655,7 +659,7 @@ create external table t1 (a range<date COLLATE ?>) options ()
 ==
 
 # PARTITION BY RANGE type
-[language_features=CREATE_TABLE_PARTITION_BY,RANGE_TYPE,CIVIL_TIME]
+[language_features=NONE,+CREATE_TABLE_PARTITION_BY,+RANGE_TYPE,+CIVIL_TIME]
 [no_java]
 create table t1 (
   c1 range<date>,
@@ -678,7 +682,7 @@ CreateTableStmt
 ==
 
 # CLUSTER BY RANGE type
-[language_features=CREATE_TABLE_CLUSTER_BY,RANGE_TYPE,CIVIL_TIME]
+[language_features=NONE,+CREATE_TABLE_CLUSTER_BY,+RANGE_TYPE,+CIVIL_TIME]
 [no_java]
 create table t1 (
   c1 range<date>,
@@ -721,7 +725,7 @@ create table t1 clone KeyValue;
                       ^
 ==
 
-[language_features=CREATE_TABLE_LIKE]
+[language_features=NONE,+CREATE_TABLE_LIKE]
 create table t1 like t2;
 --
 ERROR: Table not found: t2 [at 1:22]
@@ -729,7 +733,7 @@ create table t1 like t2;
                      ^
 ==
 
-[language_features=CREATE_TABLE_LIKE]
+[language_features=NONE,+CREATE_TABLE_LIKE]
 create table t1 (a int64) like t2;
 --
 ERROR: Cannot have both column definition list and LIKE [at 1:32]
@@ -737,7 +741,7 @@ create table t1 (a int64) like t2;
                                ^
 ==
 
-[language_features=CREATE_TABLE_COPY,CREATE_TABLE_CLONE]
+[language_features=NONE,+CREATE_TABLE_COPY,+CREATE_TABLE_CLONE]
 create table t1 clone KeyValue copy KeyValue;
 --
 ERROR: COPY and CLONE cannot both be used for CREATE TABLE [at 1:1]
@@ -745,7 +749,7 @@ create table t1 clone KeyValue copy KeyValue;
 ^
 ==
 
-[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+[language_features=NONE,+CREATE_TABLE_CLONE,+CREATE_TABLE_COPY]
 create table t1 {{CLONE|COPY}} KeyValue;
 --
 ALTERNATION GROUP: CLONE
@@ -763,7 +767,7 @@ CreateTableStmt
   +-TableScan(table=KeyValue)
 ==
 
-[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+[language_features=NONE,+CREATE_TABLE_CLONE,+CREATE_TABLE_COPY]
 create table t1 {{CLONE|COPY}} KeyValue FOR SYSTEM_TIME AS OF CURRENT_TIMESTAMP();
 --
 ALTERNATION GROUP: CLONE
@@ -787,7 +791,7 @@ CreateTableStmt
       +-FunctionCall(ZetaSQL:current_timestamp() -> TIMESTAMP)
 ==
 
-[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+[language_features=NONE,+CREATE_TABLE_CLONE,+CREATE_TABLE_COPY]
 create table t1
 {{CLONE|COPY}} KeyValue FOR SYSTEM_TIME AS OF CURRENT_TIMESTAMP() WHERE key = 1;
 --
@@ -830,7 +834,7 @@ CreateTableStmt
         +-Literal(type=INT64, value=1)
 ==
 
-[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+[language_features=NONE,+CREATE_TABLE_CLONE,+CREATE_TABLE_COPY]
 create table t1
 {{CLONE|COPY}} KeyValue
 WHERE key = 1 AND value = '';
@@ -872,7 +876,7 @@ CreateTableStmt
           +-Literal(type=STRING, value="")
 ==
 
-[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+[language_features=NONE,+CREATE_TABLE_CLONE,+CREATE_TABLE_COPY]
 create table t1
 {{CLONE|COPY}} KeyValue
 OPTIONS (description = null, partition_expiration_days=10);
@@ -898,7 +902,7 @@ CreateTableStmt
   +-TableScan(table=KeyValue)
 ==
 
-[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_PARTITION_BY]
+[language_features=NONE,+CREATE_TABLE_CLONE,+CREATE_TABLE_PARTITION_BY]
 create table t1 {{CLONE|COPY}} KeyValue PARTITION BY key;
 --
 
@@ -916,7 +920,7 @@ create table t1 COPY KeyValue PARTITION BY key;
                      ^
 ==
 
-[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+[language_features=NONE,+CREATE_TABLE_CLONE,+CREATE_TABLE_COPY]
 create table t1 {{CLONE|COPY}} Int64ValueTable;
 --
 
@@ -934,7 +938,7 @@ create table t1 COPY Int64ValueTable;
                      ^
 ==
 
-[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_CLUSTER_BY]
+[language_features=NONE,+CREATE_TABLE_CLONE,+CREATE_TABLE_CLUSTER_BY]
 create table t1 {{CLONE|COPY}} KeyValue CLUSTER BY key;
 --
 
@@ -952,7 +956,7 @@ create table t1 COPY KeyValue CLUSTER BY key;
                      ^
 ==
 
-[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+[language_features=NONE,+CREATE_TABLE_CLONE,+CREATE_TABLE_COPY]
 create table t1(k STRING, v STRING) {{CLONE|COPY}} KeyValue;
 --
 
@@ -969,7 +973,7 @@ create table t1(k STRING, v STRING) COPY KeyValue;
                ^
 ==
 
-[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+[language_features=NONE,+CREATE_TABLE_CLONE,+CREATE_TABLE_COPY]
 create table t1 {{CLONE|COPY}} KeyValue AS kv;
 --
 ALTERNATION GROUP: CLONE
@@ -985,7 +989,7 @@ create table t1 COPY KeyValue AS kv;
                                  ^
 ==
 
-[language_features=CREATE_TABLE_LIKE,CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+[language_features=NONE,+CREATE_TABLE_LIKE,+CREATE_TABLE_CLONE,+CREATE_TABLE_COPY]
 create table t1 like KeyValue {{CLONE|COPY}} KeyValue;
 --
 ALTERNATION GROUP: CLONE
@@ -1001,7 +1005,7 @@ create table t1 like KeyValue COPY KeyValue;
 ^
 ==
 
-[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+[language_features=NONE,+CREATE_TABLE_CLONE,+CREATE_TABLE_COPY]
 create table t1 {{CLONE|COPY}} KeyValue AS SELECT 1;
 --
 ALTERNATION GROUP: CLONE
@@ -1017,7 +1021,7 @@ create table t1 COPY KeyValue AS SELECT 1;
                                  ^
 ==
 
-[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+[language_features=NONE,+CREATE_TABLE_CLONE,+CREATE_TABLE_COPY]
 create table t1 {{CLONE|COPY}} KeyValue WHERE nosuchcol = 1;
 --
 ALTERNATION GROUP: CLONE
@@ -1033,7 +1037,7 @@ create table t1 COPY KeyValue WHERE nosuchcol = 1;
                                     ^
 ==
 
-[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+[language_features=NONE,+CREATE_TABLE_CLONE,+CREATE_TABLE_COPY]
 create table t1 {{CLONE|COPY}} KeyValue AS SELECT 1 as n from KeyValue;
 --
 ALTERNATION GROUP: CLONE
@@ -1049,7 +1053,7 @@ create table t1 COPY KeyValue AS SELECT 1 as n from KeyValue;
                                  ^
 ==
 
-[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+[language_features=NONE,+CREATE_TABLE_CLONE,+CREATE_TABLE_COPY]
 create table t1 {{CLONE|COPY}} KeyValue FOR SYSTEM_TIME AS OF 1;
 --
 ALTERNATION GROUP: CLONE
@@ -1065,7 +1069,7 @@ create table t1 COPY KeyValue FOR SYSTEM_TIME AS OF 1;
                                                     ^
 ==
 
-[language_features=CREATE_TABLE_LIKE,CREATE_TABLE_PARTITION_BY,CREATE_TABLE_CLUSTER_BY]
+[language_features=NONE,+CREATE_TABLE_LIKE,+CREATE_TABLE_PARTITION_BY,+CREATE_TABLE_CLUSTER_BY]
 [create_table_like_not_scanned]
 create table t1 like KeyValue partition by Key cluster by Key options(table_option=1) ;
 --
@@ -1475,7 +1479,7 @@ ERROR: The PRIMARY KEY attribute was specified multiple times [at 3:31]
 ==
 
 # PARTITION BY
-[language_features={{|CREATE_TABLE_PARTITION_BY|CREATE_TABLE_CLUSTER_BY|CREATE_TABLE_PARTITION_BY,CREATE_TABLE_CLUSTER_BY}}]
+[language_features=NONE,{{|+CREATE_TABLE_PARTITION_BY|+CREATE_TABLE_CLUSTER_BY|+CREATE_TABLE_PARTITION_BY,+CREATE_TABLE_CLUSTER_BY}}]
 create table t1 (
   c1 int64,
   c2 int32,
@@ -1485,15 +1489,15 @@ partition by c2, cast(c3 as int64) + c1
 --
 ALTERNATION GROUPS:
     <empty>
-    CREATE_TABLE_CLUSTER_BY
+    +CREATE_TABLE_CLUSTER_BY
 --
 ERROR: CREATE TABLE with PARTITION BY is unsupported [at 6:1]
 partition by c2, cast(c3 as int64) + c1
 ^
 --
 ALTERNATION GROUPS:
-    CREATE_TABLE_PARTITION_BY
-    CREATE_TABLE_PARTITION_BY,CREATE_TABLE_CLUSTER_BY
+    +CREATE_TABLE_PARTITION_BY
+    +CREATE_TABLE_PARTITION_BY,+CREATE_TABLE_CLUSTER_BY
 --
 CreateTableStmt
 +-name_path=t1
@@ -1593,7 +1597,7 @@ partition by c1, c3, sum(c2)
 ==
 
 # PARTITION BY analytic function
-[language_features=ANALYTIC_FUNCTIONS,CREATE_TABLE_PARTITION_BY]
+[language_features=NONE,+ANALYTIC_FUNCTIONS,+CREATE_TABLE_PARTITION_BY]
 create table t1 (
   c1 int32,
   c2 int64,
@@ -1874,7 +1878,7 @@ CreateTableStmt
 ==
 
 # CLUSTER BY
-[language_features={{|CREATE_TABLE_PARTITION_BY|CREATE_TABLE_CLUSTER_BY|CREATE_TABLE_PARTITION_BY,CREATE_TABLE_CLUSTER_BY}}]
+[language_features=NONE,{{|+CREATE_TABLE_PARTITION_BY|+CREATE_TABLE_CLUSTER_BY|+CREATE_TABLE_PARTITION_BY,+CREATE_TABLE_CLUSTER_BY}}]
 create table t1 (
   c1 int64,
   c2 int32,
@@ -1884,15 +1888,15 @@ cluster by c2, cast(c3 as int64) + c1
 --
 ALTERNATION GROUPS:
     <empty>
-    CREATE_TABLE_PARTITION_BY
+    +CREATE_TABLE_PARTITION_BY
 --
 ERROR: CREATE TABLE with CLUSTER BY is unsupported [at 6:1]
 cluster by c2, cast(c3 as int64) + c1
 ^
 --
 ALTERNATION GROUPS:
-    CREATE_TABLE_CLUSTER_BY
-    CREATE_TABLE_PARTITION_BY,CREATE_TABLE_CLUSTER_BY
+    +CREATE_TABLE_CLUSTER_BY
+    +CREATE_TABLE_PARTITION_BY,+CREATE_TABLE_CLUSTER_BY
 --
 CreateTableStmt
 +-name_path=t1
@@ -2001,7 +2005,7 @@ cluster by c1, c3, c2
 ==
 
 # CLUSTER BY Geography type
-[language_features={{CREATE_TABLE_CLUSTER_BY|CREATE_TABLE_CLUSTER_BY,GEOGRAPHY}}]
+[language_features=NONE,{{+CREATE_TABLE_CLUSTER_BY|+CREATE_TABLE_CLUSTER_BY,+GEOGRAPHY}}]
 create table t1 (
   c1 int32,
   c2 int64,
@@ -2009,13 +2013,13 @@ create table t1 (
 )
 cluster by c1, c3, c2
 --
-ALTERNATION GROUP: CREATE_TABLE_CLUSTER_BY
+ALTERNATION GROUP: +CREATE_TABLE_CLUSTER_BY
 --
 ERROR: Type not found: geography [at 4:6]
   c3 geography
      ^
 --
-ALTERNATION GROUP: CREATE_TABLE_CLUSTER_BY,GEOGRAPHY
+ALTERNATION GROUP: +CREATE_TABLE_CLUSTER_BY,+GEOGRAPHY
 --
 CreateTableStmt
 +-name_path=t1
@@ -2044,7 +2048,7 @@ cluster by c1, c3, sum(c2)
 ==
 
 # CLUSTER BY analytic function
-[language_features=ANALYTIC_FUNCTIONS,CREATE_TABLE_CLUSTER_BY]
+[language_features=NONE,+ANALYTIC_FUNCTIONS,+CREATE_TABLE_CLUSTER_BY]
 create table t1 (
   c1 int32,
   c2 int64,
@@ -2071,7 +2075,7 @@ cluster by c1, c3, concat('foo', 'bar'), c2
 ==
 
 # PARTITION BY and CLUSTER BY
-[language_features={{|CREATE_TABLE_PARTITION_BY|CREATE_TABLE_CLUSTER_BY|CREATE_TABLE_PARTITION_BY,CREATE_TABLE_CLUSTER_BY}}]
+[language_features=NONE,{{|+CREATE_TABLE_PARTITION_BY|+CREATE_TABLE_CLUSTER_BY|+CREATE_TABLE_PARTITION_BY,+CREATE_TABLE_CLUSTER_BY}}]
 create table t1 (
   c1 int32,
   c2 int64,
@@ -2082,19 +2086,19 @@ cluster by mod(c1, 2)
 --
 ALTERNATION GROUPS:
     <empty>
-    CREATE_TABLE_CLUSTER_BY
+    +CREATE_TABLE_CLUSTER_BY
 --
 ERROR: CREATE TABLE with PARTITION BY is unsupported [at 6:1]
 partition by c1, c2 + cast(c3 as int64)
 ^
 --
-ALTERNATION GROUP: CREATE_TABLE_PARTITION_BY
+ALTERNATION GROUP: +CREATE_TABLE_PARTITION_BY
 --
 ERROR: CREATE TABLE with CLUSTER BY is unsupported [at 7:1]
 cluster by mod(c1, 2)
 ^
 --
-ALTERNATION GROUP: CREATE_TABLE_PARTITION_BY,CREATE_TABLE_CLUSTER_BY
+ALTERNATION GROUP: +CREATE_TABLE_PARTITION_BY,+CREATE_TABLE_CLUSTER_BY
 --
 CreateTableStmt
 +-name_path=t1
@@ -2308,7 +2312,7 @@ cluster by (select key from KeyValue)
 ==
 
 # NOT NULL constraint.
-[language_features={{|CREATE_TABLE_NOT_NULL|CREATE_TABLE_NOT_NULL,CREATE_TABLE_FIELD_ANNOTATIONS}}]
+[language_features=NONE,{{|+CREATE_TABLE_NOT_NULL|+CREATE_TABLE_NOT_NULL,+CREATE_TABLE_FIELD_ANNOTATIONS}}]
 create table t1 (
   c1 int32 not null,
   c2 STRUCT<x int64 not null, y bytes> not null,
@@ -2323,13 +2327,13 @@ ERROR: NOT NULL constraint is unsupported [at 2:12]
   c1 int32 not null,
            ^
 --
-ALTERNATION GROUP: CREATE_TABLE_NOT_NULL
+ALTERNATION GROUP: +CREATE_TABLE_NOT_NULL
 --
 ERROR: Nested column attributes are unsupported [at 3:21]
   c2 STRUCT<x int64 not null, y bytes> not null,
                     ^
 --
-ALTERNATION GROUP: CREATE_TABLE_NOT_NULL,CREATE_TABLE_FIELD_ANNOTATIONS
+ALTERNATION GROUP: +CREATE_TABLE_NOT_NULL,+CREATE_TABLE_FIELD_ANNOTATIONS
 --
 CreateTableStmt
 +-name_path=t1
@@ -2370,7 +2374,7 @@ CreateTableStmt
 ==
 
 # Options in nested columns
-[language_features={{|CREATE_TABLE_FIELD_ANNOTATIONS}}]
+[language_features=NONE,{{|+CREATE_TABLE_FIELD_ANNOTATIONS}}]
 create table t1 (
   c1 int32,
   c2 STRUCT<x int64 options(x="y"), y bytes> options(y="x"),
@@ -2384,7 +2388,7 @@ ERROR: Nested column options are unsupported [at 3:28]
   c2 STRUCT<x int64 options(x="y"), y bytes> options(y="x"),
                            ^
 --
-ALTERNATION GROUP: CREATE_TABLE_FIELD_ANNOTATIONS
+ALTERNATION GROUP: +CREATE_TABLE_FIELD_ANNOTATIONS
 --
 CreateTableStmt
 +-name_path=t1
@@ -2414,7 +2418,7 @@ CreateTableStmt
 ==
 
 # CREATE_TABLE_FIELD_ANNOTATIONS does not imply CREATE_TABLE_NOT_NULL
-[language_features=CREATE_TABLE_FIELD_ANNOTATIONS]
+[language_features=NONE,+CREATE_TABLE_FIELD_ANNOTATIONS]
 create table t1 (
   c1 {{STRUCT<int64, bytes not null>| ARRAY<int64 not null>}}
 );
@@ -2433,7 +2437,7 @@ ERROR: NOT NULL constraint is unsupported [at 2:19]
 ==
 
 # Mixed annotations
-[language_features={{|CREATE_TABLE_NOT_NULL|CREATE_TABLE_NOT_NULL,CREATE_TABLE_FIELD_ANNOTATIONS}}]
+[language_features=NONE,{{|+CREATE_TABLE_NOT_NULL|+CREATE_TABLE_NOT_NULL,+CREATE_TABLE_FIELD_ANNOTATIONS}}]
 create table t1 (
   c1 int32 not null primary key hidden OPTIONS(a=1),
   c2 STRUCT<x int64 not null, y bytes  OPTIONS(x=2)> OPTIONS(z=0),
@@ -2448,13 +2452,13 @@ ERROR: NOT NULL constraint is unsupported [at 2:12]
            ^
 
 --
-ALTERNATION GROUP: CREATE_TABLE_NOT_NULL
+ALTERNATION GROUP: +CREATE_TABLE_NOT_NULL
 --
 ERROR: Nested column attributes are unsupported [at 3:21]
   c2 STRUCT<x int64 not null, y bytes  OPTIONS(x=2)> OPTIONS(z=0),
                     ^
 --
-ALTERNATION GROUP: CREATE_TABLE_NOT_NULL,CREATE_TABLE_FIELD_ANNOTATIONS
+ALTERNATION GROUP: +CREATE_TABLE_NOT_NULL,+CREATE_TABLE_FIELD_ANNOTATIONS
 --
 CreateTableStmt
 +-name_path=t1
@@ -2518,7 +2522,7 @@ CREATE TABLE foo (a as (1));
 ==
 
 # Generated column with explicit type.
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (a int32 AS (CAST(1 as INT32)));
 --
@@ -2531,12 +2535,13 @@ CreateTableStmt
     +-column=t.a#1
     +-generated_column_info=
       +-GeneratedColumnInfo
+        +-parse_location=28-44
         +-expression=
           +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
 ==
 
 # Generated column without explicit type.
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (a AS (CAST(1 as INT32)));
 --
@@ -2549,12 +2554,13 @@ CreateTableStmt
     +-column=t.a#1
     +-generated_column_info=
       +-GeneratedColumnInfo
+        +-parse_location=22-38
         +-expression=
           +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
 ==
 
 # Generated column with mismatched but assignable type.
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (a int32 AS (FARM_FINGERPRINT("foo")));
 --
@@ -2567,6 +2573,7 @@ CreateTableStmt
     +-column=t.a#1
     +-generated_column_info=
       +-GeneratedColumnInfo
+        +-parse_location=28-51
         +-expression=
           +-Cast(INT64 -> INT32)
             +-FunctionCall(ZetaSQL:farm_fingerprint(STRING) -> INT64)
@@ -2574,7 +2581,7 @@ CreateTableStmt
 ==
 
 # Generated column with mismatched and not assignable type.
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (a int32 AS (CAST("" as STRING)));
 --
@@ -2584,7 +2591,7 @@ create table t (a int32 AS (CAST("" as STRING)));
 ==
 
 # Generated column with a function that doesn't exist.
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (a int32 AS (CSAT(1)));
 --
@@ -2594,7 +2601,7 @@ create table t (a int32 AS (CSAT(1)));
 ==
 
 # Generated column with an expression on another column
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (a int64, b AS (CAST(a as INT32)), c AS (CAST(b as UINT32)));
 --
@@ -2608,6 +2615,7 @@ CreateTableStmt
   | +-column=t.b#2
   | +-generated_column_info=
   |   +-GeneratedColumnInfo
+  |     +-parse_location=31-47
   |     +-expression=
   |       +-Cast(INT64 -> INT32)
   |         +-ColumnRef(type=INT64, column=t.a#1)
@@ -2617,13 +2625,14 @@ CreateTableStmt
     +-column=t.c#3
     +-generated_column_info=
       +-GeneratedColumnInfo
+        +-parse_location=56-73
         +-expression=
           +-Cast(INT32 -> UINT32)
             +-ColumnRef(type=INT32, column=t.b#2)
 ==
 
 # Generated column with a expression on another column in reverse order
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (b int64 as (a), a int32);
 --
@@ -2636,6 +2645,7 @@ CreateTableStmt
   | +-column=t.b#2
   | +-generated_column_info=
   |   +-GeneratedColumnInfo
+  |     +-parse_location=28-29
   |     +-expression=
   |       +-Cast(INT32 -> INT64)
   |         +-ColumnRef(type=INT32, column=t.a#1)
@@ -2643,7 +2653,7 @@ CreateTableStmt
 ==
 
 # Generated Columns: With Stored
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (a AS (CAST(1 as INT32)) STORED);
 --
@@ -2656,13 +2666,14 @@ CreateTableStmt
     +-column=t.a#1
     +-generated_column_info=
       +-GeneratedColumnInfo
+        +-parse_location=22-38
         +-expression=
         | +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
         +-stored_mode=STORED
 ==
 
 # Generated Columns: With STORED VOLATILE
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (a AS (CAST(1 as INT32)) STORED VOLATILE);
 --
@@ -2675,13 +2686,14 @@ CreateTableStmt
     +-column=t.a#1
     +-generated_column_info=
       +-GeneratedColumnInfo
+        +-parse_location=22-38
         +-expression=
         | +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
         +-stored_mode=STORED_VOLATILE
 ==
 
 # Generated Columns: Parameters (Disallowed)
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (a as (cast(@param as INT64)));
 --
@@ -2691,7 +2703,7 @@ create table t (a as (cast(@param as INT64)));
 ==
 
 # Generated Columns: Subquery with aggregation (Disallowed)
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (a as ((select max(x) from (select 1 x union all select 2 x))));
 --
@@ -2701,7 +2713,7 @@ create table t (a as ((select max(x) from (select 1 x union all select 2 x))));
 ==
 
 # Generated Columns: Subquery without aggregation (Disallowed)
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (a as ((select x from (select 1 x union all select 2 x))));
 --
@@ -2711,7 +2723,7 @@ create table t (a as ((select x from (select 1 x union all select 2 x))));
 ==
 
 # Generated Columns: Subquery with aggregation and expression (Disallowed)
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (a as (1 + (select max(x) from (select 1 x union all select 2 x))));
 --
@@ -2721,7 +2733,7 @@ create table t (a as (1 + (select max(x) from (select 1 x union all select 2 ...
 ==
 
 # Generated Columns: SUM() Aggregate function (Disallowed)
-[language_features=GENERATED_COLUMNS,ANALYTIC_FUNCTIONS]
+[language_features=NONE,+GENERATED_COLUMNS,+ANALYTIC_FUNCTIONS]
 [no_enable_literal_replacement]
 create table t (a INT64, b as (SUM(a)));
 --
@@ -2731,7 +2743,7 @@ create table t (a INT64, b as (SUM(a)));
 ==
 
 # Generated Columns: SUM() OVER() Analytic function (Disallowed)
-[language_features=GENERATED_COLUMNS,ANALYTIC_FUNCTIONS]
+[language_features=NONE,+GENERATED_COLUMNS,+ANALYTIC_FUNCTIONS]
 [no_enable_literal_replacement]
 create table t (a INT64, b as (SUM(a) OVER ()));
 --
@@ -2741,7 +2753,7 @@ create table t (a INT64, b as (SUM(a) OVER ()));
 ==
 
 # Generated Columns: Using volatile function without stored
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (a as (rand()));
 --
@@ -2754,12 +2766,13 @@ CreateTableStmt
     +-column=t.a#1
     +-generated_column_info=
       +-GeneratedColumnInfo
+        +-parse_location=22-28
         +-expression=
           +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
 ==
 
 # Generated Columns: Using volatile function with stored (Disallowed).
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (a as (rand()) stored);
 --
@@ -2769,7 +2782,7 @@ create table t (a as (rand()) stored);
 ==
 
 # Generated Columns: Using volatile function with STORED VOLATILE
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (a as (rand()) stored volatile);
 --
@@ -2782,6 +2795,7 @@ CreateTableStmt
     +-column=t.a#1
     +-generated_column_info=
       +-GeneratedColumnInfo
+        +-parse_location=22-28
         +-expression=
         | +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
         +-stored_mode=STORED_VOLATILE
@@ -2790,7 +2804,7 @@ CreateTableStmt
 # Generated Columns: Using volatile function with stored (Disallowed).
 # We are testing here that the volatile function should be detected even
 # as a sub-expression.
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (a as (CAST(rand() as INT64)) stored);
 --
@@ -2800,7 +2814,7 @@ create table t (a as (CAST(rand() as INT64)) stored);
 ==
 
 # Generated Columns: Expression on duplicate column.
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   a AS (CONCAT(b,b)),
@@ -2817,6 +2831,7 @@ CreateTableStmt
   | +-column=t.a#3
   | +-generated_column_info=
   |   +-GeneratedColumnInfo
+  |     +-parse_location=25-36
   |     +-expression=
   |       +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
   |         +-ColumnRef(type=STRING, column=t.b#2)
@@ -2827,13 +2842,14 @@ CreateTableStmt
   | +-column=t.b#2
   | +-generated_column_info=
   |   +-GeneratedColumnInfo
+  |     +-parse_location=47-48
   |     +-expression=
   |       +-ColumnRef(type=STRING, column=t.c#1)
   +-ColumnDefinition(name="c", type=STRING, column=t.c#1)
 ==
 
 # Generated Columns: Two dependencies from the same function
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 CREATE TABLE T(
   c AS (CONCAT(b, d)),
@@ -2853,6 +2869,7 @@ CreateTableStmt
   | +-column=T.c#5
   | +-generated_column_info=
   |   +-GeneratedColumnInfo
+  |     +-parse_location=24-36
   |     +-expression=
   |       +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
   |         +-ColumnRef(type=STRING, column=T.b#4)
@@ -2863,6 +2880,7 @@ CreateTableStmt
   | +-column=T.b#4
   | +-generated_column_info=
   |   +-GeneratedColumnInfo
+  |     +-parse_location=47-56
   |     +-expression=
   |       +-FunctionCall(ZetaSQL:concat(STRING, repeated(0) STRING) -> STRING)
   |         +-ColumnRef(type=STRING, column=T.a#1)
@@ -2873,7 +2891,7 @@ CreateTableStmt
 
 
 # Generated Columns: Array
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (a int32, b int32 as (a), c ARRAY<int32> as ([a,b]));
 --
@@ -2887,6 +2905,7 @@ CreateTableStmt
   | +-column=t.b#2
   | +-generated_column_info=
   |   +-GeneratedColumnInfo
+  |     +-parse_location=37-38
   |     +-expression=
   |       +-ColumnRef(type=INT32, column=t.a#1)
   +-ColumnDefinition
@@ -2895,6 +2914,7 @@ CreateTableStmt
     +-column=t.c#3
     +-generated_column_info=
       +-GeneratedColumnInfo
+        +-parse_location=60-65
         +-expression=
           +-FunctionCall(ZetaSQL:$make_array(repeated(2) INT32) -> ARRAY<INT32>)
             +-ColumnRef(type=INT32, column=t.a#1)
@@ -2902,7 +2922,7 @@ CreateTableStmt
 ==
 
 # Generated Columns: Struct type
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   a STRUCT<int64, string> AS ((1, c)),
@@ -2919,6 +2939,7 @@ CreateTableStmt
   | +-column=t.a#2
   | +-generated_column_info=
   |   +-GeneratedColumnInfo
+  |     +-parse_location=47-53
   |     +-expression=
   |       +-MakeStruct
   |         +-type=STRUCT<INT64, STRING>
@@ -2931,6 +2952,7 @@ CreateTableStmt
   | +-column=t.b#3
   | +-generated_column_info=
   |   +-GeneratedColumnInfo
+  |     +-parse_location=64-70
   |     +-expression=
   |       +-MakeStruct
   |         +-type=STRUCT<INT64, STRING>
@@ -2941,7 +2963,7 @@ CreateTableStmt
 ==
 
 # Generated Columns: Struct type, requires type coercion.
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   # require type coercion.
@@ -2959,6 +2981,7 @@ CreateTableStmt
   | +-column=t.a#2
   | +-generated_column_info=
   |   +-GeneratedColumnInfo
+  |     +-parse_location=78-84
   |     +-expression=
   |       +-MakeStruct
   |         +-type=STRUCT<x INT64, y STRING>
@@ -2971,6 +2994,7 @@ CreateTableStmt
   | +-column=t.b#3
   | +-generated_column_info=
   |   +-GeneratedColumnInfo
+  |     +-parse_location=95-101
   |     +-expression=
   |       +-MakeStruct
   |         +-type=STRUCT<INT64, STRING>
@@ -2981,7 +3005,7 @@ CreateTableStmt
 ==
 
 # Generated Columns: Reference another column with dot
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (a int32, b as (t.a));
 --
@@ -2991,7 +3015,7 @@ create table t (a int32, b as (t.a));
 ==
 
 # Generated Columns: Reference itself
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (a as (a+1));
 --
@@ -3001,7 +3025,7 @@ create table t (a as (a+1));
 ==
 
 # Generated Columns: Interval expression with cycle
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   a int64 as (EXTRACT(HOUR from b)),
@@ -3015,7 +3039,7 @@ ERROR: Recursive dependencies detected when resolving column a, which include ob
 ==
 
 # Generated Columns: More elaborate cycle (c -> a -> b -> c)
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   d int64,
@@ -3030,7 +3054,7 @@ ERROR: Recursive dependencies detected when resolving column c, which include ob
 ==
 
 # Generated Columns: Proto with legit references.
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t1 (
   k1 int64 as (k2),
@@ -3047,6 +3071,7 @@ CreateTableStmt
   | +-column=t1.k1#2
   | +-generated_column_info=
   |   +-GeneratedColumnInfo
+  |     +-parse_location=33-35
   |     +-expression=
   |       +-ColumnRef(type=INT64, column=t1.k2#1)
   +-ColumnDefinition(name="k2", type=INT64, column=t1.k2#1)
@@ -3056,6 +3081,7 @@ CreateTableStmt
     +-column=t1.b#3
     +-generated_column_info=
       +-GeneratedColumnInfo
+        +-parse_location=87-157
         +-expression=
           +-MakeProto
             +-type=PROTO<zetasql_test__.KitchenSinkPB>
@@ -3065,7 +3091,7 @@ CreateTableStmt
 ==
 
 # Generated Columns: Case No value with cycles
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t1 (
   v1 int32 as (case1),
@@ -3077,7 +3103,7 @@ ERROR: Recursive dependencies detected when resolving column v1, which include o
 ==
 
 # Generated Columns: Case With value with cycles
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t1 (
   v1 int32 as (case1),
@@ -3089,7 +3115,7 @@ ERROR: Recursive dependencies detected when resolving column v1, which include o
 ==
 
 # Generated Columns: Array Element with cycles
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t1 (
   v1 array<int32> as ([v2]),
@@ -3101,7 +3127,7 @@ ERROR: Recursive dependencies detected when resolving column v1, which include o
 ==
 
 # Generated Columns: IN Expression with cycles
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t1 (
   v1 int32 as (v2),
@@ -3113,7 +3139,7 @@ ERROR: Recursive dependencies detected when resolving column v1, which include o
 ==
 
 # Generated Columns: Cycle a->b->c with start node being b.
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   b int32 as (c),
@@ -3129,7 +3155,7 @@ ERROR: Recursive dependencies detected when resolving column b, which include ob
 # Graph is acyclic, but it would have a cycle if it was a un-directed graph.
 # A -> B -> C<-|
 #       \-> D--|
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   a as (b),
@@ -3146,6 +3172,7 @@ CreateTableStmt
   | +-column=t.a#4
   | +-generated_column_info=
   |   +-GeneratedColumnInfo
+  |     +-parse_location=25-26
   |     +-expression=
   |       +-ColumnRef(type=STRING, column=t.b#3)
   +-ColumnDefinition
@@ -3154,6 +3181,7 @@ CreateTableStmt
   | +-column=t.b#3
   | +-generated_column_info=
   |   +-GeneratedColumnInfo
+  |     +-parse_location=37-49
   |     +-expression=
   |       +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
   |         +-ColumnRef(type=STRING, column=t.c#1)
@@ -3165,12 +3193,13 @@ CreateTableStmt
     +-column=t.d#2
     +-generated_column_info=
       +-GeneratedColumnInfo
+        +-parse_location=72-73
         +-expression=
           +-ColumnRef(type=STRING, column=t.c#1)
 ==
 
 # Recursive dependencies won't change column order (b/114869529).
-[language_features=GENERATED_COLUMNS,FOREIGN_KEYS]
+[language_features=NONE,+GENERATED_COLUMNS,+FOREIGN_KEYS]
 [no_enable_literal_replacement]
 create table t (
   a as (c),
@@ -3189,6 +3218,7 @@ CreateTableStmt
 | | +-column=t.a#3
 | | +-generated_column_info=
 | |   +-GeneratedColumnInfo
+| |     +-parse_location=25-26
 | |     +-expression=
 | |       +-ColumnRef(type=STRING, column=t.c#2)
 | +-ColumnDefinition(name="b", type=INT64, column=t.b#1)
@@ -3201,7 +3231,7 @@ CreateTableStmt
 # Generated Column: Interesting graph with cycles
 # A -> B <- C<-|
 #       \-> D--|
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   a as (b),
@@ -3215,7 +3245,7 @@ ERROR: Recursive dependencies detected when resolving column a, which include ob
 ==
 
 # Generated Columns: Cycle a->b->c with start node being b.
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   a int32 as (c),
@@ -3228,7 +3258,7 @@ ERROR: Recursive dependencies detected when resolving column a, which include ob
 ==
 
 # Generated Columns: Fail twice
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   a AS (CONCAT(b,c)),
@@ -3247,6 +3277,7 @@ CreateTableStmt
   | +-column=t.a#5
   | +-generated_column_info=
   |   +-GeneratedColumnInfo
+  |     +-parse_location=25-36
   |     +-expression=
   |       +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
   |         +-ColumnRef(type=STRING, column=t.b#3)
@@ -3257,6 +3288,7 @@ CreateTableStmt
   | +-column=t.b#3
   | +-generated_column_info=
   |   +-GeneratedColumnInfo
+  |     +-parse_location=47-49
   |     +-expression=
   |       +-ColumnRef(type=STRING, column=t.b1#1)
   +-ColumnDefinition
@@ -3265,6 +3297,7 @@ CreateTableStmt
   | +-column=t.c#4
   | +-generated_column_info=
   |   +-GeneratedColumnInfo
+  |     +-parse_location=60-62
   |     +-expression=
   |       +-ColumnRef(type=STRING, column=t.c1#2)
   +-ColumnDefinition(name="b1", type=STRING, column=t.b1#1)
@@ -3272,7 +3305,7 @@ CreateTableStmt
 ==
 
 # Generated Columns: Using GENERATED ALWAYS
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (a generated always as (1+1));
 --
@@ -3285,6 +3318,7 @@ CreateTableStmt
     +-column=t.a#1
     +-generated_column_info=
       +-GeneratedColumnInfo
+        +-parse_location=39-42
         +-expression=
           +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
             +-Literal(type=INT64, value=1)
@@ -3292,7 +3326,7 @@ CreateTableStmt
 ==
 
 # Generated Columns: Using GENERATED BY DEFAULT
-[language_features=GENERATED_COLUMNS,GENERATED_BY_DEFAULT]
+[language_features=NONE,+GENERATED_COLUMNS,+GENERATED_BY_DEFAULT]
 [no_enable_literal_replacement]
 create table t (a generated by default as (1+1));
 --
@@ -3305,6 +3339,7 @@ CreateTableStmt
     +-column=t.a#1
     +-generated_column_info=
       +-GeneratedColumnInfo
+        +-parse_location=43-46
         +-expression=
         | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
         |   +-Literal(type=INT64, value=1)
@@ -3313,7 +3348,7 @@ CreateTableStmt
 ==
 
 # Generated Columns: Using GENERATED BY DEFAULT with feature disabled
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (a generated by default as (1+1));
 --
@@ -3323,7 +3358,7 @@ create table t (a generated by default as (1+1));
 ==
 
 # Generated Columns: Identity Columns int32 type
-[language_features=GENERATED_COLUMNS,IDENTITY_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS,+IDENTITY_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   a int32 AS IDENTITY()
@@ -3343,7 +3378,7 @@ CreateTableStmt
 ==
 
 # Generated Columns: Identity Columns int64 type
-[language_features=GENERATED_COLUMNS,IDENTITY_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS,+IDENTITY_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   a int64 AS IDENTITY()
@@ -3363,7 +3398,7 @@ CreateTableStmt
 ==
 
 # Generated Columns: Identity Columns uint32 type
-[language_features=GENERATED_COLUMNS,IDENTITY_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS,+IDENTITY_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   a uint32 AS IDENTITY()
@@ -3383,7 +3418,7 @@ CreateTableStmt
 ==
 
 # Generated Columns: Identity Columns uint64 type
-[language_features=GENERATED_COLUMNS,IDENTITY_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS,+IDENTITY_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   a uint64 AS IDENTITY()
@@ -3403,7 +3438,7 @@ CreateTableStmt
 ==
 
 # Generated Columns: Identity Columns non-integer type fails
-[language_features=GENERATED_COLUMNS,IDENTITY_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS,+IDENTITY_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   a double AS IDENTITY()
@@ -3415,7 +3450,7 @@ ERROR: Identity columns must have an integer type [at 2:15]
 ==
 
 # Generated Columns: Identity Columns multiple identity columns in a table fails
-[language_features=GENERATED_COLUMNS,IDENTITY_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS,+IDENTITY_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   a int64 AS IDENTITY(),
@@ -3428,7 +3463,7 @@ ERROR: A table can have at most one identity column; column a is already specifi
 ==
 
 # Generated Columns: Identity Columns no explicit type fails
-[language_features=GENERATED_COLUMNS,IDENTITY_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS,+IDENTITY_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   a AS IDENTITY(START WITH 10 MAXVALUE 9)
@@ -3440,7 +3475,7 @@ ERROR: An identity column must have an explicit type [at 2:8]
 ==
 
 # Generated Columns: Identity Columns invalid START WITH and MAXVALUE
-[language_features=GENERATED_COLUMNS,IDENTITY_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS,+IDENTITY_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   a int64 AS IDENTITY(START WITH 10 MAXVALUE 9)
@@ -3452,7 +3487,7 @@ ERROR: Invalid START WITH value 10 and MAXVALUE value 9; START WITH must be less
 ==
 
 # Generated Columns: Identity Columns invalid START WITH and MINVALUE
-[language_features=GENERATED_COLUMNS,IDENTITY_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS,+IDENTITY_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   a int64 AS IDENTITY(start with 10 minvalue 20)
@@ -3464,7 +3499,7 @@ ERROR: Invalid START WITH value 10 and MINVALUE value 20; START WITH must be gre
 ==
 
 # Generated Columns: Identity Columns invalid INCREMENT BY
-[language_features=GENERATED_COLUMNS,IDENTITY_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS,+IDENTITY_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   a int64 AS IDENTITY(INCREMENT BY 0)
@@ -3476,7 +3511,7 @@ ERROR: INCREMENT BY cannot be 0 [at 2:23]
 ==
 
 # Generated Columns: Identity Columns invalid type coercion
-[language_features=GENERATED_COLUMNS,IDENTITY_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS,+IDENTITY_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   a int64 AS IDENTITY(START WITH 1.2)
@@ -3488,7 +3523,7 @@ ERROR: START WITH value has type DOUBLE which cannot be assigned to an identity 
 ==
 
 # Generated Columns: Identity Columns (feature disabled)
-[language_features=GENERATED_COLUMNS]
+[language_features=NONE,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   a int64 AS IDENTITY(START WITH 1)
@@ -3500,7 +3535,7 @@ ERROR: Identity columns are not supported [at 2:14]
 ==
 
 # Foreign key column and table constraints.
-[language_features=FOREIGN_KEYS]
+[language_features=NONE,+FOREIGN_KEYS]
 create table t (
   a string,
   b uint64
@@ -3537,7 +3572,7 @@ CreateTableStmt
 ==
 
 # Foreign key enums.
-[language_features=FOREIGN_KEYS]
+[language_features=NONE,+FOREIGN_KEYS]
 create table t (
   a int64 references Value (Value) match simple,
   b int64 references Value (Value) match full,
@@ -3587,7 +3622,7 @@ ERROR: Foreign keys are not supported [at 3:3]
 ==
 
 # Foreign key duplicate constraint name.
-[language_features=FOREIGN_KEYS]
+[language_features=NONE,+FOREIGN_KEYS]
 create table t (
   a int64,
   b int64,
@@ -3600,7 +3635,7 @@ ERROR: Duplicate constraint name C [at 5:3]
 ==
 
 # Foreign key column constraint reference to more than one column.
-[language_features=FOREIGN_KEYS]
+[language_features=NONE,+FOREIGN_KEYS]
 create table t (
   a int64 references KeyValue (Key, Value));
 --
@@ -3610,7 +3645,7 @@ ERROR: Foreign key definition must include exactly one column name [at 2:31]
 ==
 
 # Foreign key duplicate attributes permitted.
-[language_features=FOREIGN_KEYS]
+[language_features=NONE,+FOREIGN_KEYS]
 create table t (
   a int64,
   b string,
@@ -3632,7 +3667,7 @@ CreateTableStmt
 ==
 
 # Foreign key column list is empty.
-[language_features=FOREIGN_KEYS]
+[language_features=NONE,+FOREIGN_KEYS]
 create table t (
   a int64,
   foreign key () references Value (Value));
@@ -3643,7 +3678,7 @@ ERROR: Syntax error: Unexpected ")" [at 3:16]
 ==
 
 # Foreign key referenced column list is empty.
-[language_features=FOREIGN_KEYS]
+[language_features=NONE,+FOREIGN_KEYS]
 create table t (
   a int64,
   foreign key (a) references Value ());
@@ -3654,7 +3689,7 @@ ERROR: Syntax error: Unexpected ")" [at 3:37]
 ==
 
 # Foreign key column list size do not match.
-[language_features=FOREIGN_KEYS]
+[language_features=NONE,+FOREIGN_KEYS]
 create table t (
   a int64,
   foreign key (a) references KeyValue (Key, Value));
@@ -3665,7 +3700,7 @@ ERROR: Number of foreign columns does not match the number of referenced columns
 ==
 
 # Foreign key duplicate foreign key column name.
-[language_features=FOREIGN_KEYS]
+[language_features=NONE,+FOREIGN_KEYS]
 create table t (
   a int64,
   foreign key (a, A) references KeyValue (Key, Value));
@@ -3676,7 +3711,7 @@ ERROR: Duplicate foreign key column name [at 3:19]
 ==
 
 # Foreign key duplicate referenced column name.
-[language_features=FOREIGN_KEYS]
+[language_features=NONE,+FOREIGN_KEYS]
 create table t (
   a int64,
   b int64,
@@ -3688,7 +3723,7 @@ ERROR: Duplicate referenced column name [at 4:48]
 ==
 
 # Foreign key referenced column not found.
-[language_features=FOREIGN_KEYS]
+[language_features=NONE,+FOREIGN_KEYS]
 create table t (
   a int64,
   foreign key (a) references Value (Key));
@@ -3702,7 +3737,7 @@ ERROR: Column name Key not found in Value [at 3:37]
 # support equality. This is intended to test a few representative types; it is
 # not intended to be an exhaustive list of types. See fk_numerical_columns.test
 # for an exhaustive test of numerical types.
-[language_features=FOREIGN_KEYS]
+[language_features=NONE,+FOREIGN_KEYS]
 create table t (
   a int64 references SimpleTypes (int64),
   b string references SimpleTypes (string),
@@ -3730,7 +3765,7 @@ CreateTableStmt
 ==
 
 # Foreign key incompatible column type.
-[language_features=FOREIGN_KEYS,GEOGRAPHY]
+[language_features=NONE,+FOREIGN_KEYS,+GEOGRAPHY]
 create table t (
   a geography,
   foreign key (a) references GeographyTable (geo1));
@@ -3741,7 +3776,7 @@ ERROR: The type of the referencing column a does not support equality ('=') and 
 ==
 
 # Foreign key incompatible referenced column type.
-[language_features=FOREIGN_KEYS]
+[language_features=NONE,+FOREIGN_KEYS]
 create table t (
   a int64,
   foreign key (a) references SimpleTypes (date));
@@ -3752,7 +3787,7 @@ ERROR: Referenced column date from SimpleTypes is not compatible with the refere
 ==
 
 # Foreign key different but compatible referenced column type.
-[language_features=FOREIGN_KEYS]
+[language_features=NONE,+FOREIGN_KEYS]
 create table t (
   a int64,
   foreign key (a) references SimpleTypes (uint32));
@@ -3766,7 +3801,7 @@ CreateTableStmt
 ==
 
 # Foreign key duplicate attributes.
-[language_features=FOREIGN_KEYS]
+[language_features=NONE,+FOREIGN_KEYS]
 create table t (
   a int64 references Value (Value) match simple match not distinct);
 --
@@ -3775,7 +3810,7 @@ ERROR: Syntax error: Expected ")" or "," but got keyword MATCH [at 2:49]
                                                 ^
 ==
 
-[language_features=FOREIGN_KEYS]
+[language_features=NONE,+FOREIGN_KEYS]
 create table foo (i int64, foreign key (nonexistent) references SimpleTypes (timestamp))
 
 --
@@ -3786,7 +3821,7 @@ create table foo (i int64, foreign key (nonexistent) references SimpleTypes (...
 
 ==
 
-[language_features=FOREIGN_KEYS]
+[language_features=NONE,+FOREIGN_KEYS]
 [ddl_pseudo_column_mode=list]
 create table foo (i int64, foreign key (Pseudo_Column_int32) references SimpleTypes (int32))
 
@@ -3810,7 +3845,7 @@ ERROR: CHECK constraints are not supported [at 4:3]
 ==
 
 # Check constraint basic tests.
-[language_features=CHECK_CONSTRAINT]
+[language_features=NONE,+CHECK_CONSTRAINT]
 create table t (
   a int64,
   b int64,
@@ -3884,7 +3919,7 @@ CreateTableStmt
 ==
 
 # Check constraint expression can reference generated column.
-[language_features=CHECK_CONSTRAINT,GENERATED_COLUMNS]
+[language_features=NONE,+CHECK_CONSTRAINT,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   a int64,
@@ -3902,6 +3937,7 @@ CreateTableStmt
 |   +-column=t.b#2
 |   +-generated_column_info=
 |     +-GeneratedColumnInfo
+|       +-parse_location=36-41
 |       +-expression=
 |         +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -> INT64)
 |           +-ColumnRef(type=INT64, column=t.a#1)
@@ -3918,7 +3954,7 @@ CreateTableStmt
 ==
 
 # Check constraint expression can reference pseudo column.
-[language_features=CHECK_CONSTRAINT]
+[language_features=NONE,+CHECK_CONSTRAINT]
 [no_enable_literal_replacement]
 create table t (
   a int64,
@@ -3941,7 +3977,7 @@ CreateTableStmt
 ==
 
 # Check constraint expression can call built-in functions.
-[language_features=CHECK_CONSTRAINT]
+[language_features=NONE,+CHECK_CONSTRAINT]
 [no_enable_literal_replacement]
 create table t (
   a ARRAY<int64>,
@@ -3965,7 +4001,7 @@ CreateTableStmt
 ==
 
 # Check constraint expression can reference a column defined after it.
-[language_features=CHECK_CONSTRAINT]
+[language_features=NONE,+CHECK_CONSTRAINT]
 [no_enable_literal_replacement]
 create table t (
   check (a != 100),
@@ -3988,7 +4024,7 @@ CreateTableStmt
 ==
 
 # Check constraint expression cannot reference table names.
-[language_features=CHECK_CONSTRAINT]
+[language_features=NONE,+CHECK_CONSTRAINT]
 [no_enable_literal_replacement]
 create table t (
   a int64,
@@ -4001,7 +4037,7 @@ ERROR: Unrecognized name: t [at 3:10]
 ==
 
 # Check constraint cannot reference non-existing columns.
-[language_features=CHECK_CONSTRAINT]
+[language_features=NONE,+CHECK_CONSTRAINT]
 [no_enable_literal_replacement]
 create table t (
   a int64,
@@ -4014,7 +4050,7 @@ ERROR: Unrecognized name: b [at 3:10]
 ==
 
 # Check constraint expression has to produce boolean result.
-[language_features=CHECK_CONSTRAINT]
+[language_features=NONE,+CHECK_CONSTRAINT]
 [no_enable_literal_replacement]
 create table t (
   a string,
@@ -4027,7 +4063,7 @@ ERROR: CHECK constraint expects a boolean expression [at 3:10]
 ==
 
 # Duplicate table constraint name
-[language_features=CHECK_CONSTRAINT,FOREIGN_KEYS]
+[language_features=NONE,+CHECK_CONSTRAINT,+FOREIGN_KEYS]
 [no_enable_literal_replacement]
 create table t (
   a int64,
@@ -4042,7 +4078,7 @@ ERROR: Duplicate constraint name C [at 5:3]
 ==
 
 # Check constraint expression must not contain query parameter
-[language_features=CHECK_CONSTRAINT]
+[language_features=NONE,+CHECK_CONSTRAINT]
 [no_enable_literal_replacement]
 create table t (
   a int64,
@@ -4055,7 +4091,7 @@ ERROR: Query parameters cannot be used inside CHECK constraint expression [at 3:
 ==
 
 # Check constraint expression needs to be immutable.
-[language_features=CHECK_CONSTRAINT]
+[language_features=NONE,+CHECK_CONSTRAINT]
 [no_enable_literal_replacement]
 create table t (
   a float,
@@ -4068,7 +4104,7 @@ ERROR: Function RAND is not allowed in CHECK constraint expression as each invoc
 ==
 
 # Check constraint expression needs to be immutable.
-[language_features=CHECK_CONSTRAINT]
+[language_features=NONE,+CHECK_CONSTRAINT]
 create table t (
   a timestamp,
   check (CURRENT_TIMESTAMP() > a)
@@ -4081,7 +4117,7 @@ ERROR: Function CURRENT_TIMESTAMP is not allowed in CHECK constraint expression 
 
 # Check constraint expression needs to be immutable, so it should not reference
 # volatile columns. This is currently passing because of b/116735804.
-[language_features=CHECK_CONSTRAINT,GENERATED_COLUMNS]
+[language_features=NONE,+CHECK_CONSTRAINT,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   a as (RAND() * 2.0),
@@ -4097,6 +4133,7 @@ CreateTableStmt
 |   +-column=t.a#1
 |   +-generated_column_info=
 |     +-GeneratedColumnInfo
+|       +-parse_location=25-37
 |       +-expression=
 |         +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
 |           +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
@@ -4113,7 +4150,7 @@ CreateTableStmt
 ==
 
 # Aggregate functions are not allowed in check constraint expression.
-[language_features=CHECK_CONSTRAINT]
+[language_features=NONE,+CHECK_CONSTRAINT]
 [no_enable_literal_replacement]
 create table t (
   a timestamp,
@@ -4126,7 +4163,7 @@ ERROR: Aggregate function COUNT not allowed in CHECK constraint [at 3:10]
 ==
 
 # Analytic functions are not allowed in check constraint expression.
-[language_features=CHECK_CONSTRAINT,ANALYTIC_FUNCTIONS]
+[language_features=NONE,+CHECK_CONSTRAINT,+ANALYTIC_FUNCTIONS]
 [no_enable_literal_replacement]
 create table t (
   a string,
@@ -4139,7 +4176,7 @@ ERROR: Analytic function not allowed in CHECK constraint [at 3:10]
 ==
 
 # Check constraint expression cannot contain subqueries.
-[language_features=CHECK_CONSTRAINT]
+[language_features=NONE,+CHECK_CONSTRAINT]
 [no_enable_literal_replacement]
 create table t (
   a int64,
@@ -4152,7 +4189,7 @@ ERROR: CHECK constraint expression must not include a subquery [at 3:11]
 ==
 
 # Check constraint expression cannot contain subqueries.
-[language_features=CHECK_CONSTRAINT]
+[language_features=NONE,+CHECK_CONSTRAINT]
 [no_enable_literal_replacement]
 create table t (
   a int64,
@@ -4165,7 +4202,7 @@ ERROR: CHECK constraint expression must not include a subquery [at 3:28]
 ==
 
 # Check constraint expression cannot contain subqueries.
-[language_features=CHECK_CONSTRAINT]
+[language_features=NONE,+CHECK_CONSTRAINT]
 [no_enable_literal_replacement]
 create table t (
   a ARRAY<int64>,
@@ -4180,7 +4217,7 @@ ERROR: CHECK constraint expression must not include a subquery [at 3:14]
 # Limitations in check constraint expression should only apply to the constraint
 # itself, not the column definitions after it. This test checks whether the
 # flag used while resolving check constraint expression is properly cleaned up.
-[language_features=CHECK_CONSTRAINT,GENERATED_COLUMNS]
+[language_features=NONE,+CHECK_CONSTRAINT,+GENERATED_COLUMNS]
 [no_enable_literal_replacement]
 create table t (
   a int64,
@@ -4198,6 +4235,7 @@ CreateTableStmt
 |   +-column=t.b#2
 |   +-generated_column_info=
 |     +-GeneratedColumnInfo
+|       +-parse_location=55-67
 |       +-expression=
 |         +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
 |           +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
@@ -4345,7 +4383,7 @@ ERROR: Unable to determine if TestConstantString is a string or expression.  If 
 
 # Alternation group for PARTITION BY expressions
 
-[language_features=CREATE_TABLE_PARTITION_BY]
+[language_features=NONE,+CREATE_TABLE_PARTITION_BY]
 create table a.b.c.T(x int64, y int64)
 partition by {{x + 2, y|x / y|x + y|x * y|mod(x, y)|unknown(x, y)|unknown_col|32}}
 --
@@ -4429,7 +4467,7 @@ partition by 32
 
 # Alternation group for different data types used in cluster by
 
-[language_features=CREATE_TABLE_CLUSTER_BY]
+[language_features=NONE,+CREATE_TABLE_CLUSTER_BY]
 create table a.b.c.T(x {{boolean|date|array<int64>|numeric}})
 cluster by x
 options ()
@@ -4469,7 +4507,7 @@ create table a.b.c.T(x numeric)
 
 # Alternation group for CLUSTER BY expressions
 
-[language_features=CREATE_TABLE_CLUSTER_BY]
+[language_features=NONE,+CREATE_TABLE_CLUSTER_BY]
 create table a.b.c.T(x int64, y int64)
 cluster by {{x + 2|x + 2, y|x / y|x * y|max(x, y)|unknown(x, y)|unknown_col|32|"x"}}
 --
@@ -4553,7 +4591,7 @@ cluster by "x"
            ^
 ==
 
-[language_features=]
+[language_features=NONE]
 create table t (aaA int64, b int32, PRIMARY KEY(Aaa) NOT ENFORCED);
 --
 ERROR: NOT ENFORCED primary key table constraints are unsupported [at 1:37]
@@ -4561,7 +4599,7 @@ create table t (aaA int64, b int32, PRIMARY KEY(Aaa) NOT ENFORCED);
                                     ^
 ==
 
-[language_features=]
+[language_features=NONE]
 create table t (aaA int64, b int32 PRIMARY KEY NOT ENFORCED);
 --
 ERROR: NOT ENFORCED primary key column constraints are unsupported [at 1:36]
@@ -4594,7 +4632,7 @@ CreateTableStmt
 
 # Simple parameterized type test cases, you can found more tests in
 # parameterized_types.test
-[language_features=PARAMETERIZED_TYPES,NUMERIC_TYPE]
+[language_features=NONE,+PARAMETERIZED_TYPES,+NUMERIC_TYPE]
 create table t (a string(10), b numeric(10, 5));
 --
 CreateTableStmt
@@ -4623,7 +4661,7 @@ CREATE TABLE foo (a int32 default 1);
 ==
 
 # Column default value without explicit type (disallowed).
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a default CAST(1 as INT32));
 --
@@ -4633,7 +4671,7 @@ create table t (a default CAST(1 as INT32));
 ==
 
 # Column default value with explicit type.
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a int32 default CAST(1 as INT32));
 --
@@ -4652,7 +4690,7 @@ CreateTableStmt
 ==
 
 # Column default value with mismatched but assignable type.
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a int32 default FARM_FINGERPRINT("foo"));
 --
@@ -4673,7 +4711,7 @@ CreateTableStmt
 ==
 
 # Column default value with mismatched and not assignable type (disallowed).
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a int32 default (CAST("" as STRING)));
 --
@@ -4683,7 +4721,7 @@ create table t (a int32 default (CAST("" as STRING)));
 ==
 
 # Column default value, column type is double, default value is int64 (allowed).
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a DOUBLE default FARM_FINGERPRINT("foo"));
 --
@@ -4705,7 +4743,7 @@ CreateTableStmt
 
 # Column default value, column type is timestamp, default value is string
 # (disallowed).
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a TIMESTAMP default (CAST("0001-01-01 00:00:00" as STRING)));
 --
@@ -4716,7 +4754,7 @@ create table t (a TIMESTAMP default (CAST("0001-01-01 00:00:00" as STRING)));
 
 # Column default value, column type is TIMESTAMP, default value is a quoted
 # string, no explicit cast, the quoted string is input as TIMESTAMP.
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a TIMESTAMP default "0001-01-01 00:00:00");
 --
@@ -4736,7 +4774,7 @@ CreateTableStmt
 
 # Array column default value, column type is ARRAY<DOUBLE>, default value is
 # ARRAY<INT64> (disallowed).
-[language_features={{COLUMN_DEFAULT_VALUE|CAST_DIFFERENT_ARRAY_TYPES,COLUMN_DEFAULT_VALUE}}]
+[language_features=NONE,{{+COLUMN_DEFAULT_VALUE|+CAST_DIFFERENT_ARRAY_TYPES,+COLUMN_DEFAULT_VALUE}}]
 [no_enable_literal_replacement]
 create table t (a ARRAY<double> default
                   [FARM_FINGERPRINT("foo"),
@@ -4749,7 +4787,7 @@ ERROR: Column default expression has type ARRAY<INT64> which cannot be assigned 
 
 # Array column default value, column type is ARRAY<TIMESTAMP>, default value is
 # ARRAY<STRING> (disallowed).
-[language_features={{COLUMN_DEFAULT_VALUE|CAST_DIFFERENT_ARRAY_TYPES,COLUMN_DEFAULT_VALUE}}]
+[language_features=NONE,{{+COLUMN_DEFAULT_VALUE|+CAST_DIFFERENT_ARRAY_TYPES,+COLUMN_DEFAULT_VALUE}}]
 [no_enable_literal_replacement]
 create table t (a ARRAY<TIMESTAMP> default
                   [CAST("0001-01-01 00:00:00" as STRING),
@@ -4763,18 +4801,18 @@ ERROR: Column default expression has type ARRAY<STRING> which cannot be assigned
 
 # Array column default value, column type is ARRAY<TIMESTAMP>, default value is
 # ARRAY<STRING>, no explicit cast (disallowed).
-[language_features={{COLUMN_DEFAULT_VALUE|CAST_DIFFERENT_ARRAY_TYPES,COLUMN_DEFAULT_VALUE}}]
+[language_features=NONE,{{+COLUMN_DEFAULT_VALUE|+CAST_DIFFERENT_ARRAY_TYPES,+COLUMN_DEFAULT_VALUE}}]
 [no_enable_literal_replacement]
 create table t (a ARRAY<DATE> DEFAULT ["2020-01-01", "2020-01-02"]);
 
 --
-ALTERNATION GROUP: COLUMN_DEFAULT_VALUE
+ALTERNATION GROUP: +COLUMN_DEFAULT_VALUE
 --
 ERROR: Column default expression has type ARRAY<STRING> which cannot be assigned to column type ARRAY<DATE> [at 1:39]
 create table t (a ARRAY<DATE> DEFAULT ["2020-01-01", "2020-01-02"]);
                                       ^
 --
-ALTERNATION GROUP: CAST_DIFFERENT_ARRAY_TYPES,COLUMN_DEFAULT_VALUE
+ALTERNATION GROUP: +CAST_DIFFERENT_ARRAY_TYPES,+COLUMN_DEFAULT_VALUE
 --
 CreateTableStmt
 +-name_path=t
@@ -4792,7 +4830,7 @@ CreateTableStmt
 ==
 
 # Column has type ARRAY<int64>, default value has type ARRAY<STRING> (disallowed).
-[language_features={{COLUMN_DEFAULT_VALUE|CAST_DIFFERENT_ARRAY_TYPES,COLUMN_DEFAULT_VALUE}}]
+[language_features=NONE,{{+COLUMN_DEFAULT_VALUE|+CAST_DIFFERENT_ARRAY_TYPES,+COLUMN_DEFAULT_VALUE}}]
 [no_enable_literal_replacement]
 create table t (a ARRAY<int64> default ["1","2"]);
 --
@@ -4802,7 +4840,7 @@ create table t (a ARRAY<int64> default ["1","2"]);
 ==
 
 # A STRUCT<INT64, INT64> column with an ARRAY<INT64> default value (disallowed).
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a STRUCT<int64, int64> default
                   [FARM_FINGERPRINT("foo"),
@@ -4815,7 +4853,7 @@ ERROR: Column default expression has type ARRAY<INT64> which cannot be assigned 
 ==
 
 # A STRUCT<INT64, DOUBLE> column with a STRUCT<INT64, INT64> default value
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a STRUCT<int64, double> default
                   (FARM_FINGERPRINT("foo"),
@@ -4845,7 +4883,7 @@ CreateTableStmt
 
 # A STRUCT<int64, TIMESTAMP> column with a STRUCT<int64, STRING> default value
 # (disallowed).
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a STRUCT<int64, TIMESTAMP> default
                   (FARM_FINGERPRINT("foo"),
@@ -4859,7 +4897,7 @@ ERROR: Column default expression has type STRUCT<INT64, STRING> which cannot be 
 
 # A STRUCT<int64, STRING> column with a STRUCT<STRING, STRING> default value
 # (disallowed).
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a STRUCT<int64, string> default ("1", "xyz"));
 --
@@ -4869,7 +4907,7 @@ create table t (a STRUCT<int64, string> default ("1", "xyz"));
 ==
 
 # Column default value with a function that doesn't exist.
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a int32 default (CSAT(1)));
 --
@@ -4879,7 +4917,7 @@ create table t (a int32 default (CSAT(1)));
 ==
 
 # Column default value with an expression on another column (disallowed).
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a int64, b int32 default a+1);
 --
@@ -4889,7 +4927,7 @@ create table t (a int64, b int32 default a+1);
 ==
 
 # Column default value with a dependent column in reverse order (disallowed).
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a int32 default b+1, b int32);
 --
@@ -4899,7 +4937,7 @@ create table t (a int32 default b+1, b int32);
 ==
 
 # A column with default value cannot also be a generated column.
-[language_features=COLUMN_DEFAULT_VALUE,GENERATED_BY_DEFAULT]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE,+GENERATED_BY_DEFAULT]
 [no_enable_literal_replacement]
 create table t (a int32 default 1 {{|GENERATED|GENERATED BY DEFAULT}} AS (CAST(1 as INT32)) {{|STORED}});
 --
@@ -4942,7 +4980,7 @@ create table t (a int32 default 1 GENERATED BY DEFAULT AS (CAST(1 as INT32)) ...
 
 
 # A generated column cannot have a default value.
-[language_features=COLUMN_DEFAULT_VALUE,GENERATED_BY_DEFAULT]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE,+GENERATED_BY_DEFAULT]
 [no_enable_literal_replacement]
 create table t (a int32 {{|GENERATED|GENERATED BY DEFAULT}} AS (CAST(1 as INT32)) {{|STORED}} default 1);
 --
@@ -4984,7 +5022,7 @@ ERROR: Syntax error: "DEFAULT" and "[GENERATED [ALWAYS | BY DEFAULT]] AS" clause
 ==
 
 # Column default value: reference itself (disallowed)
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a int32 default a+1);
 --
@@ -4994,7 +5032,7 @@ create table t (a int32 default a+1);
 ==
 
 # Column default value: reference itself (disallowed)
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 CREATE TABLE T (
   a INT64 DEFAULT b,
@@ -5006,7 +5044,7 @@ ERROR: Default value expressions cannot reference columns [at 2:19]
                   ^
 ==
 
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a int32 default c+1);
 --
@@ -5016,7 +5054,7 @@ create table t (a int32 default c+1);
 ==
 
 # Column default value: parameters (disallowed).
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a int64 default cast(@param as INT64));
 --
@@ -5026,7 +5064,7 @@ create table t (a int64 default cast(@param as INT64));
 ==
 
 # Column default value: select query (disallowed).
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a int32 default (select 1));
 --
@@ -5036,7 +5074,7 @@ create table t (a int32 default (select 1));
 ==
 
 # Column default value: subquery with aggregation (disallowed).
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a int32 default (select max(x) from (select 1 x union all select 2 x)));
 --
@@ -5046,7 +5084,7 @@ create table t (a int32 default (select max(x) from (select 1 x union all sel...
 ==
 
 # Column default value: subquery without aggregation (disallowed).
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a int32 default (select x from (select 1 x union all select 2 x)));
 --
@@ -5056,7 +5094,7 @@ create table t (a int32 default (select x from (select 1 x union all select 2...
 ==
 
 # Column default value: subquery with aggregation and expression (disallowed).
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a int32 default 1 + (select max(x) from (select 1 x union all select 2 x)));
 --
@@ -5066,7 +5104,7 @@ create table t (a int32 default 1 + (select max(x) from (select 1 x union all...
 ==
 
 # Column default value: SUM() aggregate function (disallowed).
-[language_features=COLUMN_DEFAULT_VALUE,ANALYTIC_FUNCTIONS]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE,+ANALYTIC_FUNCTIONS]
 [no_enable_literal_replacement]
 create table t (a INT64, b int64 default SUM(1.1));
 --
@@ -5076,7 +5114,7 @@ create table t (a INT64, b int64 default SUM(1.1));
 ==
 
 # Column default value: SUM() OVER() analytic function (disallowed).
-[language_features=COLUMN_DEFAULT_VALUE,ANALYTIC_FUNCTIONS]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE,+ANALYTIC_FUNCTIONS]
 [no_enable_literal_replacement]
 create table t (a INT64, b int64 default SUM(1.1) OVER ());
 --
@@ -5086,7 +5124,7 @@ create table t (a INT64, b int64 default SUM(1.1) OVER ());
 ==
 
 # Column default value: aggregate function (disallowed).
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a INT64, b int64 default AVG(1));
 --
@@ -5096,7 +5134,7 @@ create table t (a INT64, b int64 default AVG(1));
 ==
 
 # Column default value: default empty string.
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a string default "");
 --
@@ -5115,7 +5153,7 @@ CreateTableStmt
 ==
 
 # Column default values and generated columns in a table.
-[language_features=GENERATED_COLUMNS,COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+GENERATED_COLUMNS,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a int32 default 1, b as (a+1), c as (d-1), d int32);
 --
@@ -5137,6 +5175,7 @@ CreateTableStmt
   | +-column=t.b#3
   | +-generated_column_info=
   |   +-GeneratedColumnInfo
+  |     +-parse_location=41-44
   |     +-expression=
   |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
   |         +-Cast(INT32 -> INT64)
@@ -5148,6 +5187,7 @@ CreateTableStmt
   | +-column=t.c#4
   | +-generated_column_info=
   |   +-GeneratedColumnInfo
+  |     +-parse_location=53-56
   |     +-expression=
   |       +-FunctionCall(ZetaSQL:$subtract(INT64, INT64) -> INT64)
   |         +-Cast(INT32 -> INT64)
@@ -5157,7 +5197,7 @@ CreateTableStmt
 ==
 
 # Column default value: using volatile function.
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a double default rand());
 --
@@ -5176,7 +5216,7 @@ CreateTableStmt
 ==
 
 # Column default value: Array
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a ARRAY<int64> default [1,2]);
 --
@@ -5195,7 +5235,7 @@ CreateTableStmt
 ==
 
 # Column default value: Struct type
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a STRUCT<int64, string> default (1, "xyz"));
 --
@@ -5214,7 +5254,7 @@ CreateTableStmt
 ==
 
 # Column default value is NULL and NOT NULL attribute (disallowed).
-[language_features=CREATE_TABLE_NOT_NULL,COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+CREATE_TABLE_NOT_NULL,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a int32 default NULL NOT NULL);
 --
@@ -5235,7 +5275,7 @@ CreateTableStmt
 ==
 
 # Column default value is NOT NULL and NOT NULL attribute (disallowed).
-[language_features=CREATE_TABLE_NOT_NULL,COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+CREATE_TABLE_NOT_NULL,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a int32 default NOT NULL NOT NULL);
 --
@@ -5245,7 +5285,7 @@ create table t (a int32 default NOT NULL NOT NULL);
 ==
 
 # Column default value is 1 and NOT NULL attribute.
-[language_features=CREATE_TABLE_NOT_NULL,COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+CREATE_TABLE_NOT_NULL,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a int32 default 1 NOT NULL);
 --
@@ -5266,7 +5306,7 @@ CreateTableStmt
 ==
 
 # CREATE TABLE DEFAULT with lambda
-[language_features=COLUMN_DEFAULT_VALUE,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE,+INLINE_LAMBDA_ARGUMENT]
 [no_enable_literal_replacement]
 CREATE TABLE t (c ARRAY<STRING> DEFAULT ARRAY_FILTER(['a'], c -> c = 'a'));
 --
@@ -5296,7 +5336,7 @@ CreateTableStmt
 ==
 
 # CREATE TABLE DEFAULT with lambda and using previous column as argument.
-[language_features=COLUMN_DEFAULT_VALUE,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE,+INLINE_LAMBDA_ARGUMENT]
 [no_enable_literal_replacement]
 CREATE TABLE t (a STRING, c ARRAY<STRING> DEFAULT ARRAY_FILTER(['a'], a -> a = 'a'));
 --
@@ -5327,7 +5367,7 @@ CreateTableStmt
 ==
 
 # CREATE TABLE DEFAULT with lambda and accessing previous column.
-[language_features=COLUMN_DEFAULT_VALUE,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE,+INLINE_LAMBDA_ARGUMENT]
 [no_enable_literal_replacement]
 CREATE TABLE t (a STRING, c ARRAY<STRING> DEFAULT ARRAY_FILTER(['a'], c -> c = a));
 --
@@ -5343,7 +5383,7 @@ CREATE TABLE t (a STRING, c ARRAY<STRING> DEFAULT ARRAY_FILTER(['a'], c -> c ...
 
 # CREATE TABLE DEFAULT with lambda and accessing previous column.
 # This should be working instead of giving error.
-[language_features=GENERATED_COLUMNS,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+GENERATED_COLUMNS,+INLINE_LAMBDA_ARGUMENT]
 [no_enable_literal_replacement]
 CREATE TABLE T (
   a AS (b),
@@ -5361,7 +5401,7 @@ ERROR: No matching signature for function ARRAY_FILTER
 ==
 
 
-[language_features={{|COLLATION_SUPPORT,ANNOTATION_FRAMEWORK}}]
+[language_features=NONE,{{|+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK}}]
 create table t (a int64, b string collate 'und:ci');
 --
 ALTERNATION GROUP: <empty>
@@ -5370,7 +5410,7 @@ ERROR: COLLATE is not supported [at 1:35]
 create table t (a int64, b string collate 'und:ci');
                                   ^
 --
-ALTERNATION GROUP: COLLATION_SUPPORT,ANNOTATION_FRAMEWORK
+ALTERNATION GROUP: +COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK
 --
 CreateTableStmt
 +-name_path=t
@@ -5386,7 +5426,7 @@ CreateTableStmt
     +-column=t.b#2
 ==
 
-[language_features={{|COLLATION_SUPPORT,ANNOTATION_FRAMEWORK}}]
+[language_features=NONE,{{|+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK}}]
 create table t (a int64, b string collate @test_param_string);
 --
 ALTERNATION GROUP: <empty>
@@ -5395,14 +5435,14 @@ ERROR: COLLATE is not supported [at 1:35]
 create table t (a int64, b string collate @test_param_string);
                                   ^
 --
-ALTERNATION GROUP: COLLATION_SUPPORT,ANNOTATION_FRAMEWORK
+ALTERNATION GROUP: +COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK
 --
 ERROR: COLLATE must be followed by a string literal [at 1:43]
 create table t (a int64, b string collate @test_param_string);
                                           ^
 ==
 
-[language_features={{|COLLATION_SUPPORT,ANNOTATION_FRAMEWORK}}]
+[language_features=NONE,{{|+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK}}]
 create {{|temp}} table t (a int64, b string) default collate 'und:ci';
 --
 ALTERNATION GROUP: <empty>
@@ -5417,7 +5457,7 @@ ERROR: CREATE TABLE with DEFAULT COLLATE is not supported [at 1:49]
 create temp table t (a int64, b string) default collate 'und:ci';
                                                 ^
 --
-ALTERNATION GROUP: COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,
+ALTERNATION GROUP: +COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK,
 --
 CreateTableStmt
 +-name_path=t
@@ -5427,7 +5467,7 @@ CreateTableStmt
 +-collation_name=
   +-Literal(type=STRING, value="und:ci")
 --
-ALTERNATION GROUP: COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,temp
+ALTERNATION GROUP: +COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK,temp
 --
 CreateTableStmt
 +-name_path=t
@@ -5439,7 +5479,7 @@ CreateTableStmt
   +-Literal(type=STRING, value="und:ci")
 ==
 
-[language_features={{|COLLATION_SUPPORT,ANNOTATION_FRAMEWORK}}]
+[language_features=NONE,{{|+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK}}]
 create external table t default collate 'und:ci' options();
 --
 ALTERNATION GROUP: <empty>
@@ -5448,7 +5488,7 @@ ERROR: CREATE EXTERNAL TABLE with DEFAULT COLLATE is not supported [at 1:33]
 create external table t default collate 'und:ci' options();
                                 ^
 --
-ALTERNATION GROUP: COLLATION_SUPPORT,ANNOTATION_FRAMEWORK
+ALTERNATION GROUP: +COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK
 --
 CreateExternalTableStmt
 +-name_path=t
@@ -5456,16 +5496,16 @@ CreateExternalTableStmt
   +-Literal(type=STRING, value="und:ci")
 ==
 
-[language_features={{CREATE_TABLE_FIELD_ANNOTATIONS|CREATE_TABLE_FIELD_ANNOTATIONS,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK}}]
+[language_features=NONE,{{+CREATE_TABLE_FIELD_ANNOTATIONS|+CREATE_TABLE_FIELD_ANNOTATIONS,+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK}}]
 create table t (a int64, b string collate 'und:cs') default collate 'und:ci';
 --
-ALTERNATION GROUP: CREATE_TABLE_FIELD_ANNOTATIONS
+ALTERNATION GROUP: +CREATE_TABLE_FIELD_ANNOTATIONS
 --
 ERROR: CREATE TABLE with DEFAULT COLLATE is not supported [at 1:61]
 create table t (a int64, b string collate 'und:cs') default collate 'und:ci';
                                                             ^
 --
-ALTERNATION GROUP: CREATE_TABLE_FIELD_ANNOTATIONS,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK
+ALTERNATION GROUP: +CREATE_TABLE_FIELD_ANNOTATIONS,+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK
 --
 CreateTableStmt
 +-name_path=t
@@ -5483,16 +5523,16 @@ CreateTableStmt
   +-Literal(type=STRING, value="und:ci")
 ==
 
-[language_features={{CREATE_TABLE_FIELD_ANNOTATIONS|CREATE_TABLE_FIELD_ANNOTATIONS,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK}}]
+[language_features=NONE,{{+CREATE_TABLE_FIELD_ANNOTATIONS|+CREATE_TABLE_FIELD_ANNOTATIONS,+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK}}]
 create table t (a int64, b array<string collate 'und:ci'>);
 --
-ALTERNATION GROUP: CREATE_TABLE_FIELD_ANNOTATIONS
+ALTERNATION GROUP: +CREATE_TABLE_FIELD_ANNOTATIONS
 --
 ERROR: COLLATE is not supported [at 1:41]
 create table t (a int64, b array<string collate 'und:ci'>);
                                         ^
 --
-ALTERNATION GROUP: CREATE_TABLE_FIELD_ANNOTATIONS,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK
+ALTERNATION GROUP: +CREATE_TABLE_FIELD_ANNOTATIONS,+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK
 --
 CreateTableStmt
 +-name_path=t
@@ -5510,16 +5550,16 @@ CreateTableStmt
     +-column=t.b#2
 ==
 
-[language_features={{CREATE_TABLE_FIELD_ANNOTATIONS|CREATE_TABLE_FIELD_ANNOTATIONS,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK}}]
+[language_features=NONE,{{+CREATE_TABLE_FIELD_ANNOTATIONS|+CREATE_TABLE_FIELD_ANNOTATIONS,+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK}}]
 create table t (a int64, b struct<int64, string collate 'und:ci', float64>);
 --
-ALTERNATION GROUP: CREATE_TABLE_FIELD_ANNOTATIONS
+ALTERNATION GROUP: +CREATE_TABLE_FIELD_ANNOTATIONS
 --
 ERROR: COLLATE is not supported [at 1:49]
 create table t (a int64, b struct<int64, string collate 'und:ci', float64>);
                                                 ^
 --
-ALTERNATION GROUP: CREATE_TABLE_FIELD_ANNOTATIONS,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK
+ALTERNATION GROUP: +CREATE_TABLE_FIELD_ANNOTATIONS,+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK
 --
 CreateTableStmt
 +-name_path=t
@@ -5576,7 +5616,7 @@ create table t (c int64, primary key(c NULLS FIRST));
                                       ^
 ==
 
-[language_features=]
+[language_features=NONE]
 create table t (a int64) with connection connection2;
 --
 ERROR: WITH CONNECTION clause is unsupported for CREATE TABLE [at 1:26]
@@ -5584,7 +5624,7 @@ create table t (a int64) with connection connection2;
                          ^
 ==
 
-[language_features=CREATE_TABLE_WITH_CONNECTION]
+[language_features=NONE,+CREATE_TABLE_WITH_CONNECTION]
 create table t (a int64) with connection ``;
 --
 ERROR: Syntax error: Invalid empty identifier [at 1:42]
@@ -5593,7 +5633,7 @@ create table t (a int64) with connection ``;
 
 ==
 
-[language_features=CREATE_TABLE_WITH_CONNECTION]
+[language_features=NONE,+CREATE_TABLE_WITH_CONNECTION]
 create table t (a int64) with connection default;
 --
 CreateTableStmt
@@ -5607,7 +5647,7 @@ CreateTableStmt
 
 [no_java]
 [use_database=SpecialCatalog]
-[language_features=CREATE_TABLE_WITH_CONNECTION]
+[language_features=NONE,+CREATE_TABLE_WITH_CONNECTION]
 create table t (a int64) with connection default;
 --
 ERROR: Default connection not found [at 1:42]
@@ -5616,7 +5656,7 @@ create table t (a int64) with connection default;
 
 ==
 
-[language_features=CREATE_TABLE_WITH_CONNECTION]
+[language_features=NONE,+CREATE_TABLE_WITH_CONNECTION]
 create table t (a int64) with connection connection2;
 --
 CreateTableStmt
@@ -5628,7 +5668,7 @@ CreateTableStmt
 
 ==
 
-[language_features=CREATE_TABLE_WITH_CONNECTION]
+[language_features=NONE,+CREATE_TABLE_WITH_CONNECTION]
 create table t (a int64) with connection conn;
 --
 ERROR: Connection not found: conn [at 1:42]
@@ -5637,7 +5677,7 @@ create table t (a int64) with connection conn;
 
 ==
 
-[language_features=CREATE_TABLE_WITH_CONNECTION]
+[language_features=NONE,+CREATE_TABLE_WITH_CONNECTION]
 create table t (a int64) with connection `connection2`;
 --
 CreateTableStmt
@@ -5649,7 +5689,7 @@ CreateTableStmt
 
 ==
 
-[language_features=CREATE_TABLE_WITH_CONNECTION]
+[language_features=NONE,+CREATE_TABLE_WITH_CONNECTION]
 create table t (a int64) with connection `connection2`
 options(x=foo);
 --
@@ -5664,7 +5704,7 @@ CreateTableStmt
 
 ==
 
-[language_features=CREATE_TABLE_WITH_CONNECTION]
+[language_features=NONE,+CREATE_TABLE_WITH_CONNECTION]
 create table t (a int64) with connection nested_catalog.connection2
 options(x=foo);
 --

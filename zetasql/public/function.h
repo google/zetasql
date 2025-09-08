@@ -393,6 +393,14 @@ struct FunctionOptions {
     supports_group_by_modifier = value;
     return *this;
   }
+  FunctionOptions& set_supports_where_modifier(bool value) {
+    supports_where_modifier = value;
+    return *this;
+  }
+  FunctionOptions& set_supports_having_filter_modifier(bool value) {
+    supports_having_filter_modifier = value;
+    return *this;
+  }
   FunctionOptions& set_supports_clamped_between_modifier(bool value) {
     supports_clamped_between_modifier = value;
     return *this;
@@ -564,7 +572,7 @@ struct FunctionOptions {
   // (affects aggregate functions only).
   bool supports_distinct_modifier = true;
 
-  // Indicates whether this function supports HAVING in arguments
+  // Indicates whether this function supports HAVING MIN / MAX in arguments
   // (affects aggregate functions only).
   bool supports_having_modifier = true;
 
@@ -572,6 +580,14 @@ struct FunctionOptions {
   // multi-level aggregation)
   // (affects aggregate functions only).
   bool supports_group_by_modifier = true;
+
+  // Indicates whether this function supports WHERE modifiers
+  // (affects aggregate functions only).
+  bool supports_where_modifier = true;
+
+  // Indicates whether this function supports HAVING filter modifiers
+  // (affects aggregate functions only).
+  bool supports_having_filter_modifier = true;
 
   // Indicates whether this function supports CLAMPED BETWEEN in arguments
   // (affects aggregate functions only).
@@ -745,10 +761,12 @@ class Function {
 
   // Returns an external 'SQL' name for the function, for use in error messages
   // and anywhere else appropriate.  If <function_options_> has its <sql_name>
-  // set then it returns <sql_name>.  If <sql_name> is not set and Name() is
-  // an internal function name (starting with '$'), then it strips off the '$'
-  // and converts any '_' to ' '.  Otherwise it simply returns Name() for
-  // ZetaSQL builtin functions and FullName() for non-builtin functions.
+  // set then it returns <sql_name>.  If <sql_name> is not set and Name() is an
+  // internal function name (starting with '$'), then it strips off the '$' and
+  // converts any '_' to ' '. Since there is no namespaced internal functions,
+  // Name() is equivalent to FullName(). Otherwise it returns FullName(). For
+  // ZetaSQL builtin functions, it avoids prefixing group name (by providing
+  // false as argument to FullName).
   const std::string SQLName() const;
 
   // Returns SQLName() prefixed with either 'operator ' or 'function ',
@@ -968,7 +986,7 @@ class Function {
   // on field definition.
   bool SupportsSafeErrorMode() const;
 
-  // Returns true if HAVING is allowed in the function arguments.
+  // Returns true if HAVING MIN / MAX is allowed in the function arguments.
   bool SupportsHavingModifier() const;
 
   // Returns true if DISTINCT is allowed in the function arguments.
@@ -976,6 +994,12 @@ class Function {
 
   // Returns true if GROUP BY is allowed in the function arguments.
   bool SupportsGroupByModifier() const;
+
+  // Returns true if WHERE is allowed in the function arguments.
+  bool SupportsWhereModifier() const;
+
+  // Returns true if HAVING filter is allowed in the function arguments.
+  bool SupportsHavingFilterModifier() const;
 
   // Returns true if CLAMPED BETWEEN is allowed in the function arguments.
   // Must only be true for differential privacy functions.

@@ -5,6 +5,7 @@
 
 # ORDER BY alias tests
 
+[default language_features=MAXIMUM]
 select {{key | keyvalue.key | key as key | keyvalue.key as key}}
 from keyvalue
 order by {{key | keyvalue.key}}
@@ -739,12 +740,12 @@ QueryStmt
 
 # Some additional tests with range variables.
 # TODO: select kv, kv.key, kv.value should work. Need to fix this.
-[language_features={{GROUP_BY_STRUCT|}}]
+[language_features=NONE,{{+GROUP_BY_STRUCT|}}]
 select kv {{|, kv.key, kv.value}}
 from KeyValue kv
 group by kv
 --
-ALTERNATION GROUP: GROUP_BY_STRUCT,
+ALTERNATION GROUP: +GROUP_BY_STRUCT,
 --
 QueryStmt
 +-output_column_list=
@@ -765,7 +766,7 @@ QueryStmt
                 +-ColumnRef(type=INT64, column=KeyValue.Key#1)
                 +-ColumnRef(type=STRING, column=KeyValue.Value#2)
 --
-ALTERNATION GROUP: GROUP_BY_STRUCT,, kv.key, kv.value
+ALTERNATION GROUP: +GROUP_BY_STRUCT,, kv.key, kv.value
 --
 ERROR: SELECT list expression references kv.key which is neither grouped nor aggregated [at 1:13]
 select kv , kv.key, kv.value
@@ -781,12 +782,12 @@ group by kv
 ==
 
 # For value table, vt.a is resolved to post-group.
-[language_features={{GROUP_BY_STRUCT|}}]
+[language_features=NONE,{{+GROUP_BY_STRUCT|}}]
 select vt {{|, vt.a}}
 from TestStructValueTable vt
 group by vt
 --
-ALTERNATION GROUP: GROUP_BY_STRUCT,
+ALTERNATION GROUP: +GROUP_BY_STRUCT,
 --
 QueryStmt
 +-output_column_list=
@@ -802,7 +803,7 @@ QueryStmt
         +-group_by_list=
           +-vt#2 := ColumnRef(type=STRUCT<a INT32, b STRING>, column=TestStructValueTable.value#1)
 --
-ALTERNATION GROUP: GROUP_BY_STRUCT,, vt.a
+ALTERNATION GROUP: +GROUP_BY_STRUCT,, vt.a
 --
 QueryStmt
 +-output_column_list=

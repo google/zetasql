@@ -1,3 +1,4 @@
+[default language_features=NONE]
 create aggregate function agg();
 --
 ERROR: Aggregate functions are not supported [at 1:1]
@@ -5,7 +6,7 @@ create aggregate function agg();
 ^
 ==
 
-[default language_features=CREATE_AGGREGATE_FUNCTION,TEMPLATE_FUNCTIONS]
+[default language_features=NONE,+CREATE_AGGREGATE_FUNCTION,+TEMPLATE_FUNCTIONS]
 
 create aggregate function agg() returns int64;
 --
@@ -44,7 +45,7 @@ language something;
 CreateFunctionStmt(name_path=agg, create_scope=CREATE_TEMP, create_mode=CREATE_IF_NOT_EXISTS, has_explicit_return_type=TRUE, return_type=BYTES, argument_name_list=[x, y], signature=(STRING x, INT32 {is_not_aggregate: true} y) -> BYTES, is_aggregate=TRUE, language="something")
 ==
 
-[language_features=CREATE_AGGREGATE_FUNCTION,TEMPLATE_FUNCTIONS]
+[language_features=NONE,+CREATE_AGGREGATE_FUNCTION,+TEMPLATE_FUNCTIONS]
 [statement_context={{|default|module}}]
 create {{public|private}} aggregate function agg(x string) returns bytes
 language java
@@ -181,7 +182,7 @@ create aggregate function fn() returns any table as (1);
 
 create aggregate function fn(any type t) returns t as (1);
 --
-ERROR: Syntax error: Expected ")" or "," but got identifier "t" [at 1:39]
+ERROR: Syntax error: Expected ")" but got identifier "t" [at 1:39]
 create aggregate function fn(any type t) returns t as (1);
                                       ^
 ==
@@ -249,7 +250,7 @@ CreateFunctionStmt
 +-sql_security=SQL_SECURITY_DEFINER
 ==
 
-[language_features=CREATE_AGGREGATE_FUNCTION,TEMPLATE_FUNCTIONS,WITH_GROUP_ROWS]
+[language_features=NONE,+CREATE_AGGREGATE_FUNCTION,+TEMPLATE_FUNCTIONS,+WITH_GROUP_ROWS]
 CREATE AGGREGATE FUNCTION WrappedGroupRows(e {{INT64|ANY TYPE}}) AS (
   SUM(e) WITH GROUP ROWS(SELECT e FROM GROUP_ROWS() WHERE e IS NOT NULL)
 );

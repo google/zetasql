@@ -3,8 +3,8 @@
 ###
 
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 SELECT one FROM GRAPH_TABLE(
   aml

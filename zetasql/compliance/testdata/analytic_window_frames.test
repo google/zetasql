@@ -3802,3 +3802,13 @@ WINDOW w AS (ORDER BY double_val RANGE BETWEEN 2 FOLLOWING AND
                                                @offset_val FOLLOWING)
 --
 ERROR: generic::out_of_range: Window frame offset for PRECEDING or FOLLOWING must be non-negative, but was nan
+
+==
+
+[name=range_window_order_by_duplicate]
+with t as (select 1 as x)
+select last_value(x+1) over (order by x+1, x+1) as a,
+       last_value(x+1) over (order by x+1, x+1) as b
+from t;
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{2, 2}]

@@ -20,7 +20,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -90,7 +89,7 @@ namespace zetasql {
 // ValueExpr
 // -------------------------------------------------------
 
-ValueExpr::~ValueExpr() {}
+ValueExpr::~ValueExpr() = default;
 
 std::vector<std::unique_ptr<ExprArg>> MakeExprArgList(
     std::vector<std::unique_ptr<ValueExpr>> value_expr_list) {
@@ -133,7 +132,7 @@ class FunctionArgumentRefExpr final : public ValueExpr {
     if (!output_type()->Equals(val.type())) {
       *status = zetasql_base::InternalErrorBuilder()
                 << "Unexpected function argument reference type " << arg_name()
-                << "Actual: " << val.type()->DebugString() << "\n"
+                << "\nActual: " << val.type()->DebugString() << "\n"
                 << "Expected: " << output_type()->DebugString();
       return false;
     }
@@ -809,6 +808,92 @@ ValueExpr* MeasureFieldValueExpr::mutable_input() {
   return GetMutableArg(kMeasureWrappingStruct)
       ->mutable_node()
       ->AsMutableValueExpr();
+}
+
+// -------------------------------------------------------
+// GraphCostExpr
+// -------------------------------------------------------
+
+absl::StatusOr<std::unique_ptr<GraphCostExpr>> GraphCostExpr::Create(
+    std::unique_ptr<ValueExpr> expr) {
+  return absl::WrapUnique(new GraphCostExpr(std::move(expr)));
+}
+
+absl::Status GraphCostExpr::SetSchemasForEvaluation(
+    absl::Span<const TupleSchema* const> params_schemas) {
+  return mutable_input()->SetSchemasForEvaluation(params_schemas);
+}
+
+static bool IsNaN(const Value& value) {
+  switch (value.type_kind()) {
+    case TYPE_FLOAT:
+      return std::isnan(value.float_value());
+    case TYPE_DOUBLE:
+      return std::isnan(value.double_value());
+    default:
+      return false;
+  }
+}
+
+static absl::Status ValidateGraphCost(const Value& cost) {
+  const Type* cost_type = cost.type();
+  ZETASQL_RET_CHECK(cost.type()->IsNumerical());
+  if (cost.is_null()) {
+    return zetasql_base::OutOfRangeErrorBuilder()
+           << "Graph cost expression must not be NULL";
+  }
+
+  if (IsPosInf(cost) || IsNegInf(cost)) {
+    return zetasql_base::OutOfRangeErrorBuilder()
+           << "Graph cost expression must not be Inf";
+  }
+
+  if (IsNaN(cost)) {
+    return zetasql_base::OutOfRangeErrorBuilder()
+           << "Graph cost expression must not be NaN";
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(Value typed_zero, CreateTypedZeroForCost(cost_type));
+  if (cost.LessThan(typed_zero) || cost.Equals(typed_zero)) {
+    return zetasql_base::OutOfRangeErrorBuilder()
+           << "Graph cost expression must be positive";
+  }
+  return absl::OkStatus();
+}
+
+bool GraphCostExpr::Eval(absl::Span<const TupleData* const> params,
+                         EvaluationContext* context, VirtualTupleSlot* result,
+                         absl::Status* status) const {
+  TupleSlot slot;
+  if (!input()->EvalSimple(params, context, &slot, status)) {
+    return false;
+  }
+  absl::Status validation_status = ValidateGraphCost(slot.value());
+  if (!validation_status.ok()) {
+    *status = validation_status;
+    return false;
+  }
+  result->CopyFromSlot(slot);
+  return true;
+}
+
+std::string GraphCostExpr::DebugInternal(const std::string& indent,
+                                         bool verbose) const {
+  return absl::StrCat("GraphCostExpr(", input()->DebugInternal(indent, verbose),
+                      ")");
+}
+
+GraphCostExpr::GraphCostExpr(std::unique_ptr<ValueExpr> expr)
+    : ValueExpr(expr->output_type()) {
+  SetArg(kInput, std::make_unique<ExprArg>(std::move(expr)));
+}
+
+const ValueExpr* GraphCostExpr::input() const {
+  return GetArg(kInput)->node()->AsValueExpr();
+}
+
+ValueExpr* GraphCostExpr::mutable_input() {
+  return GetMutableArg(kInput)->mutable_node()->AsMutableValueExpr();
 }
 
 // -------------------------------------------------------
@@ -2879,6 +2964,8 @@ absl::StatusOr<Value> DMLUpdateValueExpr::UpdateNode::GetNewValue(
     }
     case TYPE_PROTO:
       return GetNewProtoValue(original_value, context);
+    case TYPE_JSON:
+      return GetNewJsonValue(original_value, context);
     case TYPE_ARRAY: {
       if (original_value.is_null()) {
         return zetasql_base::OutOfRangeErrorBuilder()
@@ -2918,6 +3005,50 @@ absl::StatusOr<Value> DMLUpdateValueExpr::UpdateNode::GetNewValue(
           << "Unexpected type kind for GetNewValue() on an internal "
           << "UpdateNode: " << TypeKind_Name(original_value.type_kind());
   }
+}
+
+absl::Status DMLUpdateValueExpr::UpdateNode::GetNewJsonValueHelper(
+    JSONValueRef json_ref, const UpdateNode& update_node,
+    EvaluationContext* context) const {
+  for (const auto& entry : update_node.child_map()) {
+    const UpdatePathComponent& component = entry.first;
+    const UpdateNode& update_node = *entry.second;
+    ZETASQL_RET_CHECK(component.kind() == UpdatePathComponent::Kind::JSON_FIELD)
+        << "Unexpected non-json UpdatePathComponent::Kind in "
+        << "GetNewJsonValue(): "
+        << UpdatePathComponent::GetKindString(component.kind());
+
+    // If a JSON is used to update a non-object or a non-null JSON,
+    // an error will be thrown as this is an invalid JSON path update.
+    // TODO: Add capabilitiy to update JSON array elements when we
+    // support the subscript ([]) operator in UPDATEs for JSON.
+    if (!json_ref.IsObject() && !json_ref.IsNull()) {
+      return zetasql_base::OutOfRangeErrorBuilder() << "Cannot SET field of non-object "
+                                            << "JSON value.";
+    }
+    const std::string& json_field_name = component.json_field_name();
+    if (update_node.is_leaf()) {
+      ZETASQL_ASSIGN_OR_RETURN(zetasql::JSONValue new_json_value,
+                       zetasql::JSONValue::ParseJSONString(
+                           update_node.leaf_value().json_string()));
+      json_ref.GetMember(json_field_name).Set(std::move(new_json_value));
+    } else {
+      ZETASQL_RETURN_IF_ERROR(GetNewJsonValueHelper(json_ref.GetMember(json_field_name),
+                                            update_node, context));
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::StatusOr<Value> DMLUpdateValueExpr::UpdateNode::GetNewJsonValue(
+    const Value& original_value, EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_EQ(original_value.type_kind(), TYPE_JSON);
+
+  ZETASQL_ASSIGN_OR_RETURN(zetasql::JSONValue original_json_value,
+                   JSONValue::ParseJSONString(original_value.json_string()));
+  JSONValueRef json_ref = original_json_value.GetRef();
+  ZETASQL_RETURN_IF_ERROR(GetNewJsonValueHelper(json_ref, *this, context));
+  return zetasql::Value::Json(std::move(original_json_value));
 }
 
 absl::StatusOr<Value> DMLUpdateValueExpr::UpdateNode::GetNewProtoValue(
@@ -3024,16 +3155,16 @@ DMLUpdateValueExpr::DMLUpdateValueExpr(
 absl::Status DMLUpdateValueExpr::SetSchemasForEvaluationOfUpdateItem(
     const ResolvedUpdateItem* update_item,
     absl::Span<const TupleSchema* const> params_schemas) {
-  for (const std::unique_ptr<const ResolvedUpdateArrayItem>& update_array_item :
-       update_item->array_update_list()) {
+  for (const std::unique_ptr<const ResolvedUpdateItemElement>&
+           update_array_item : update_item->update_item_element_list()) {
     ZETASQL_ASSIGN_OR_RETURN(ValueExpr * offset_expr,
-                     LookupResolvedExpr(update_array_item->offset()));
+                     LookupResolvedExpr(update_array_item->subscript()));
     ZETASQL_RETURN_IF_ERROR(offset_expr->SetSchemasForEvaluation(params_schemas));
     ZETASQL_RETURN_IF_ERROR(SetSchemasForEvaluationOfUpdateItem(
         update_array_item->update_item(), params_schemas));
   }
 
-  if (update_item->array_update_list().empty()) {
+  if (update_item->update_item_element_list().empty()) {
     if (update_item->set_value() != nullptr) {
       const ResolvedExpr* target = update_item->target();
       ValueExpr* leaf_value_expr = nullptr;
@@ -3255,13 +3386,13 @@ absl::Status DMLUpdateValueExpr::AddToUpdateMap(
         }
       });
 
-  // Iterate over each ResolvedUpdateArrayItem (if there are any) and recurse
+  // Iterate over each ResolvedUpdateItemElement (if there are any) and recurse
   // for each one.
   absl::flat_hash_set<int64_t> used_array_offsets;
-  for (const std::unique_ptr<const ResolvedUpdateArrayItem>& update_array_item :
-       update_item->array_update_list()) {
+  for (const std::unique_ptr<const ResolvedUpdateItemElement>&
+           update_array_item : update_item->update_item_element_list()) {
     ZETASQL_ASSIGN_OR_RETURN(const ValueExpr* offset_expr,
-                     LookupResolvedExpr(update_array_item->offset()));
+                     LookupResolvedExpr(update_array_item->subscript()));
 
     ZETASQL_ASSIGN_OR_RETURN(const Value offset_value,
                      EvalExpr(*offset_expr, tuples_for_row, context));
@@ -3296,11 +3427,11 @@ absl::Status DMLUpdateValueExpr::AddToUpdateMap(
               update_item->element_column()->column());
   }
 
-  // If there are no ResolvedUpdateArrayItem children, then create the path of
+  // If there are no ResolvedUpdateItemElement children, then create the path of
   // UpdateNodes corresponding to the chain of
-  // ResolvedUpdateItem->ResolvedUpdateArrayItem->...->ResolvedUpdateItem nodes
-  // that ends at 'update_item'.
-  if (update_item->array_update_list().empty()) {
+  // ResolvedUpdateItem->ResolvedUpdateItemElement->...->ResolvedUpdateItem
+  // nodes that ends at 'update_item'.
+  if (update_item->update_item_element_list().empty()) {
     const bool first_update_node_is_leaf = prefix_components->empty();
     auto emplace_result = update_map->emplace(
         *update_column,
@@ -3341,6 +3472,13 @@ absl::Status DMLUpdateValueExpr::PopulateUpdatePathComponents(
       ZETASQL_RETURN_IF_ERROR(PopulateUpdatePathComponents(get_proto_field->expr(),
                                                    column, components));
       components->emplace_back(get_proto_field->field_descriptor());
+      return absl::OkStatus();
+    }
+    case RESOLVED_GET_JSON_FIELD: {
+      const auto* get_json_field = update_target->GetAs<ResolvedGetJsonField>();
+      ZETASQL_RETURN_IF_ERROR(PopulateUpdatePathComponents(get_json_field->expr(),
+                                                   column, components));
+      components->emplace_back(get_json_field->field_name());
       return absl::OkStatus();
     }
     default:
@@ -3392,7 +3530,7 @@ absl::StatusOr<Value> DMLUpdateValueExpr::GetLeafValue(
     const ResolvedUpdateItem* update_item,
     absl::Span<const TupleData* const> tuples_for_row,
     EvaluationContext* context) const {
-  ZETASQL_RET_CHECK(update_item->array_update_list().empty());
+  ZETASQL_RET_CHECK(update_item->update_item_element_list().empty());
 
   if (update_item->set_value() != nullptr) {
     const ResolvedExpr* target = update_item->target();
@@ -4489,17 +4627,39 @@ bool NewGraphElementExpr::Eval(absl::Span<const TupleData* const> params,
 
   std::vector<std::string> dynamic_labels;
   if (HasDynamicLabel()) {
-    // Dynamic label is a single STRING value.
     std::vector<Value> dynamic_label_values;
     if (!Evaluate(args<kDynamicLabel>(), params, context, status, &values_size,
                   &dynamic_label_values)) {
       return false;
     }
     ZETASQL_RET_CHECK_EQ(dynamic_label_values.size(), 1).With(kErrorAdaptor);
-    ZETASQL_RET_CHECK(dynamic_label_values.front().type()->IsString())
+    // Dynamic label value is either a single string or an array of strings.
+    ZETASQL_RET_CHECK(dynamic_label_values.front().type()->IsString() ||
+              (dynamic_label_values.front().type()->IsArray() &&
+               dynamic_label_values.front()
+                   .type()
+                   ->AsArray()
+                   ->element_type()
+                   ->IsString()))
         .With(kErrorAdaptor);
     if (!dynamic_label_values.front().is_null()) {
-      dynamic_labels.push_back(dynamic_label_values.front().string_value());
+      const auto& dynamic_label_value = dynamic_label_values.front();
+      const auto& dynamic_label_type = dynamic_label_value.type();
+      if (dynamic_label_type->IsString() &&
+          !dynamic_label_value.string_value().empty()) {
+        dynamic_labels.push_back(dynamic_label_values.front().string_value());
+      } else if (dynamic_label_type->IsArray()) {
+        for (const auto& element : dynamic_label_value.elements()) {
+          if (element.is_null()) {
+            continue;
+          }
+          ZETASQL_RET_CHECK(element.type()->IsString()).With(kErrorAdaptor);
+          if (element.string_value().empty()) {
+            continue;
+          }
+          dynamic_labels.push_back(element.string_value());
+        }
+      }
     }
   }
 
@@ -4702,7 +4862,7 @@ absl::StatusOr<std::string> NewGraphElementExpr::MakeOpaqueKey(
   ZETASQL_RETURN_IF_ERROR(
       AppendOrderedCode(Value::String(element_table->FullName()), result));
   ZETASQL_RETURN_IF_ERROR(AppendOrderedCode(values, result));
-  return absl::StrCat(std::hash<std::string>()(result));
+  return result;
 }
 
 // -------------------------------------------------------
@@ -5034,6 +5194,169 @@ const ValueExpr* GraphIsLabeledExpr::element() const {
 }
 ValueExpr* GraphIsLabeledExpr::mutable_element() {
   return GetMutableArg(kInput)->mutable_node()->AsMutableValueExpr();
+}
+
+// -------------------------------------------------------
+// MultiStmtExpr
+// -------------------------------------------------------
+
+absl::StatusOr<std::unique_ptr<MultiStmtExpr>> MultiStmtExpr::Create(
+    std::vector<std::unique_ptr<ExprArg>> statement_args) {
+  // The input statements should not be empty, and should not contain any null
+  // ExprArg or ExprArg with null value_expr.
+  ZETASQL_RET_CHECK(!statement_args.empty());
+  for (const auto& arg : statement_args) {
+    ZETASQL_RET_CHECK(arg != nullptr);
+    ZETASQL_RET_CHECK(arg->value_expr() != nullptr);
+  }
+
+  const Type* last_statement_output_type =
+      statement_args.back()->value_expr()->output_type();
+  return absl::WrapUnique(
+      new MultiStmtExpr(last_statement_output_type, std::move(statement_args)));
+}
+
+MultiStmtExpr::MultiStmtExpr(
+    const Type* output_type,
+    std::vector<std::unique_ptr<ExprArg>> statement_args_list)
+    : ValueExpr(output_type) {
+  SetArgs<ExprArg>(kStatements, std::move(statement_args_list));
+}
+
+absl::Status MultiStmtExpr::SetSchemasForEvaluation(
+    absl::Span<const TupleSchema* const> params_schemas) {
+  std::vector<const TupleSchema*> current_param_schemas(params_schemas.begin(),
+                                                        params_schemas.end());
+  std::vector<std::unique_ptr<TupleSchema>> owned_intermediate_schemas;
+
+  for (ExprArg* stmt_arg : mutable_statements()) {
+    ValueExpr* current_stmt_value_expr = stmt_arg->mutable_value_expr();
+
+    // Set schema for the current statement's value_expr using the schemas
+    // accumulated so far.
+    ZETASQL_RETURN_IF_ERROR(current_stmt_value_expr->SetSchemasForEvaluation(
+        absl::MakeSpan(current_param_schemas)));
+
+    if (stmt_arg->variable().is_valid()) {
+      // This statement defines a variable. Add it to the list of schemas
+      // for subsequent statements.
+      auto new_defined_var_schema = std::make_unique<TupleSchema>(
+          std::vector<VariableId>{stmt_arg->variable()});
+      current_param_schemas.push_back(new_defined_var_schema.get());
+      owned_intermediate_schemas.push_back(std::move(new_defined_var_schema));
+    }
+  }
+  return absl::OkStatus();
+}
+
+bool MultiStmtExpr::Eval(absl::Span<const TupleData* const> params,
+                         EvaluationContext* context, VirtualTupleSlot* result,
+                         absl::Status* status) const {
+  *status = absl::OutOfRangeError(
+      "Multiple statements are not supported in Eval. Use EvalMulti instead");
+  return false;
+}
+
+absl::StatusOr<std::vector<StmtResult>> MultiStmtExpr::EvalMulti(
+    absl::Span<const TupleData* const> params,
+    EvaluationContext* context) const {
+  std::vector<StmtResult> all_results;
+  all_results.reserve(statements().size());
+
+  std::vector<const TupleData*> current_params(params.begin(), params.end());
+  std::vector<std::unique_ptr<TupleData>>
+      owned_intermediate_data;  // To keep TupleData alive
+
+  // If a CreateWithEntryStmt fails, mark all subsequent failed.
+  //
+  // Technically only the subsequent statements that do depend on the with entry
+  // need to be marked, but that requires us to detect dependencies across the
+  // statements and the implementation is not trivial.
+  std::optional<int> prev_failed_create_with_entry;
+
+  for (int i = 0; i < statements().size(); ++i) {
+    const ExprArg* stmt_arg = statements()[i];
+    const ValueExpr* stmt = stmt_arg->value_expr();
+
+    if (prev_failed_create_with_entry.has_value()) {
+      int index = *prev_failed_create_with_entry;
+      absl::Status prev_error = all_results[index].value.status();
+      ZETASQL_RET_CHECK(!prev_error.ok());
+      all_results.push_back({
+          .value = absl::OutOfRangeError(absl::StrCat(
+              "Prerequisite CreateWithEntryStmt failed, statement index: ",
+              *prev_failed_create_with_entry,
+              " error: ", prev_error.message())),
+      });
+      continue;
+    }
+
+    Value res;
+    std::shared_ptr<TupleSlot::SharedProtoState> shared_state;
+    absl::Status status;
+    bool success = false;
+
+    if (stmt_arg->variable().is_valid()) {
+      // This statement defines a variable.
+      auto new_data =
+          std::make_unique<TupleData>(1);  // One slot for the defined variable
+
+      success = stmt->EvalSimple(current_params, context,
+                                 new_data->mutable_slot(0), &status);
+      if (success) {
+        res = new_data->slot(0).value();
+        shared_state =
+            *(new_data->mutable_slot(0)->mutable_shared_proto_state());
+        // Add the successfully evaluated variable to the context for subsequent
+        // statements.
+        current_params.push_back(new_data.get());
+        owned_intermediate_data.push_back(std::move(new_data));
+      } else {
+        prev_failed_create_with_entry = i;
+      }
+    } else {
+      // This is a regular statement (not defining a variable).
+      VirtualTupleSlot regular_stmt_result_slot(&res, &shared_state);
+      success = stmt->Eval(current_params, context, &regular_stmt_result_slot,
+                           &status);
+    }
+
+    // Unlike Eval, EvalMulti continues on error to collect all results.
+    StmtResult stmt_result;
+    if (success) {
+      stmt_result.value = std::move(res);
+    } else {
+      stmt_result.value = status;
+    }
+    stmt_result.shared_state = std::move(shared_state);
+    all_results.push_back(std::move(stmt_result));
+  }
+  return all_results;
+}
+
+std::string MultiStmtExpr::DebugInternal(const std::string& indent,
+                                         bool verbose) const {
+  std::string result_str = "MultiStmtExpr(";
+  std::string child_indent = indent + kIndentBar;
+  bool first = true;
+  for (const ExprArg* stmt_arg : statements()) {
+    if (!first) {
+      absl::StrAppend(&result_str, ",");
+    }
+    first = false;
+    absl::StrAppend(&result_str, indent, kIndentFork,
+                    stmt_arg->DebugInternal(child_indent, verbose));
+  }
+  absl::StrAppend(&result_str, ")");
+  return result_str;
+}
+
+absl::Span<const ExprArg* const> MultiStmtExpr::statements() const {
+  return GetArgs<ExprArg>(kStatements);
+}
+
+absl::Span<ExprArg* const> MultiStmtExpr::mutable_statements() {
+  return GetMutableArgs<ExprArg>(kStatements);
 }
 
 }  // namespace zetasql

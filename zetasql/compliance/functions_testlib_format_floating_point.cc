@@ -227,14 +227,14 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatFloatingPoint() {
       {"format", {"%t", kNegNan}, "nan"},
       {"format", {"%t", kPosInf}, "inf"},
       {"format", {"%t", kNegInf}, "-inf"},
-      {"format", {"%T", kFloatNan}, "CAST(\"nan\" AS FLOAT)"},
-      {"format", {"%T", kFloatNegNan}, "CAST(\"nan\" AS FLOAT)"},
-      {"format", {"%T", kFloatPosInf}, "CAST(\"inf\" AS FLOAT)"},
-      {"format", {"%T", kFloatNegInf}, "CAST(\"-inf\" AS FLOAT)"},
-      // Note that these always produce a cast to FLOAT64, in both INTERNAL
-      // and EXTERNAL ProductMode.  We could have made the cast to DOUBLE
-      // in the INTERNAL mode case, but then the same query could get different
-      // results in INTERNAL vs. EXTERNAL mode and that seems bad.
+      // Note that these always produce a cast to FLOAT64/FLOAT32, in both
+      // INTERNAL and EXTERNAL ProductMode.  We could have made the cast to
+      // DOUBLE/FLOAT in the INTERNAL mode case, but then the same query could
+      // get different results in INTERNAL vs. EXTERNAL mode and that seems bad.
+      {"format", {"%T", kFloatNan}, "CAST(\"nan\" AS FLOAT32)"},
+      {"format", {"%T", kFloatNegNan}, "CAST(\"nan\" AS FLOAT32)"},
+      {"format", {"%T", kFloatPosInf}, "CAST(\"inf\" AS FLOAT32)"},
+      {"format", {"%T", kFloatNegInf}, "CAST(\"-inf\" AS FLOAT32)"},
       {"format", {"%T", kNan}, "CAST(\"nan\" AS FLOAT64)"},
       {"format", {"%T", kNegNan}, "CAST(\"nan\" AS FLOAT64)"},
       {"format", {"%T", kPosInf}, "CAST(\"inf\" AS FLOAT64)"},
@@ -248,7 +248,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatFloatingPoint() {
       {"format",
        {"%T",
         values::FloatArray({4, -2.5, std::numeric_limits<float>::quiet_NaN()})},
-       "[4.0, -2.5, CAST(\"nan\" AS FLOAT)]"},
+       "[4.0, -2.5, CAST(\"nan\" AS FLOAT32)]"},
       {"format",
        {"%t",
         values::DoubleArray({-4, std::numeric_limits<double>::infinity()})},
@@ -257,36 +257,6 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatFloatingPoint() {
        {"%T",
         values::DoubleArray({-4, -std::numeric_limits<double>::infinity()})},
        "[-4.0, CAST(\"-inf\" AS FLOAT64)]"},
-  });
-}
-
-// Keeping these separate as GetFunctionTestsFormat() is being used by format
-// unit tests too. We do not want these cases to run in those unit tests (which
-// run in the context of PRODUCT_INTERNAL), as these cases are only applicable
-// for PRODUCT_EXTERNAL.
-std::vector<FunctionTestCall>
-GetFunctionTestsFormatWithExternalModeFloatType() {
-  const float kFloatNan = std::numeric_limits<float>::quiet_NaN();
-  const float kFloatNegNan = absl::bit_cast<float>(0xffc00000u);
-  const float kFloatPosInf = std::numeric_limits<float>::infinity();
-  const float kFloatNegInf = -std::numeric_limits<float>::infinity();
-
-  return std::vector<FunctionTestCall>({
-      {"format",
-       {"external: %T", kFloatNan},
-       "external: CAST(\"nan\" AS FLOAT32)"},
-      {"format",
-       {"external: %T", kFloatNegNan},
-       "external: CAST(\"nan\" AS FLOAT32)"},
-      {"format",
-       {"external: %T", kFloatPosInf},
-       "external: CAST(\"inf\" AS FLOAT32)"},
-      {"format",
-       {"external: %T", kFloatNegInf},
-       "external: CAST(\"-inf\" AS FLOAT32)"},
-      {"format",
-       {"external: %T", values::FloatArray({4, -2.5, kFloatNan})},
-       "external: [4.0, -2.5, CAST(\"nan\" AS FLOAT32)]"},
   });
 }
 

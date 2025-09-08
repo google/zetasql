@@ -58,7 +58,7 @@ absl::Status ExecuteQueryLoop(
 
     if (!status.ok()) {
       ParserErrorContext ctx;
-      ctx.set_text(std::string{absl::StripAsciiWhitespace(**input)});
+      ctx.set_text(absl::StripAsciiWhitespace(**input));
       internal::AttachPayload(&status, ctx);
     }
 

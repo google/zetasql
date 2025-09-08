@@ -35,7 +35,7 @@ evening. Lots of guests come at 7 PM, and the restaurant is completely empty
 at 1 AM:
 
 <center>
-![Chart shows busyness of a small rest by mapping visitors at specific hours of the day.](https://cloud.google.com/images/zetasql-dp-chart-a.png)
+![Chart shows busyness of a small rest by mapping visitors at specific hours of the day.][dp-chart-a]
 </center>
 
 This chart looks useful, but there's a catch. When a new guest arrives, this
@@ -43,7 +43,7 @@ fact is immediately revealed by the bar chart. In the following chart, it's
 clear that there's a new guest, and that this guest arrived at roughly 1 AM:
 
 <center>
-![Chart shows outlier arrival.](https://cloud.google.com/images/zetasql-dp-chart-b.png)
+![Chart shows outlier arrival.][dp-chart-b]
 </center>
 
 Showing this detail isn't great from a privacy perspective, as anonymized
@@ -52,7 +52,7 @@ side by side makes it even more apparent: the orange bar chart has one extra
 guest that has arrived around 1 AM:
 
 <center>
-![Chart comparison highlights an individual contribution.](https://cloud.google.com/images/zetasql-dp-chart-c.png)
+![Chart comparison highlights an individual contribution.][dp-chart-c]
 </center>
 
 Again, that's not great. To avoid this kind privacy issue, you can add random
@@ -61,7 +61,7 @@ comparison chart, the results are anonymized and no longer reveal individual
 contributions.
 
 <center>
-![Differential privacy is applied to comparisons.](https://cloud.google.com/images/zetasql-dp-chart-d.gif)
+![Differential privacy is applied to comparisons.][dp-chart-d]
 </center>
 
 ## How differential privacy works on queries
@@ -370,6 +370,14 @@ individual's ID, you could expose sensitive data.
 [dp-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
 
 [dp-clamping]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md#dp_clamping
+
+[dp-chart-a]: https://cloud.google.com/docs/images/zetasql-dp-chart-a.png
+
+[dp-chart-b]: https://cloud.google.com/docs/images/zetasql-dp-chart-b.png
+
+[dp-chart-c]: https://cloud.google.com/docs/images/zetasql-dp-chart-c.png
+
+[dp-chart-d]: https://cloud.google.com/docs/images/zetasql-dp-chart-d.gif
 
 <!-- mdlint on -->
 

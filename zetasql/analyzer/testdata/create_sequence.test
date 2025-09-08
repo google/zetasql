@@ -1,0 +1,91 @@
+[default language_features=MAXIMUM]
+CREATE SEQUENCE foo.bar.baz
+--
+CreateSequenceStmt(name_path=foo.bar.baz)
+==
+
+[disallow_duplicate_options]
+CREATE SEQUENCE foo.bar.baz OPTIONS(start_with=0,increment_by=5,start_with=10);
+--
+ERROR: Duplicate option specified for 'start_with' [at 1:65]
+CREATE SEQUENCE foo.bar.baz OPTIONS(start_with=0,increment_by=5,start_with=10);
+                                                                ^
+==
+
+CREATE {{|OR REPLACE }} SEQUENCE {{|IF NOT EXISTS}} foo.bar.baz {{|OPTIONS ()|OPTIONS(start_with=0,increment_by=5)}};
+--
+ALTERNATION GROUPS:
+    <empty>
+    OPTIONS ()
+--
+CreateSequenceStmt(name_path=foo.bar.baz)
+--
+ALTERNATION GROUP: OPTIONS(start_with=0,increment_by=5)
+--
+CreateSequenceStmt
++-name_path=foo.bar.baz
++-option_list=
+  +-start_with := Literal(type=INT64, value=0)
+  +-increment_by := Literal(type=INT64, value=5)
+--
+ALTERNATION GROUPS:
+    IF NOT EXISTS,
+    IF NOT EXISTS,OPTIONS ()
+--
+CreateSequenceStmt(name_path=foo.bar.baz, create_mode=CREATE_IF_NOT_EXISTS)
+--
+ALTERNATION GROUP: IF NOT EXISTS,OPTIONS(start_with=0,increment_by=5)
+--
+CreateSequenceStmt
++-name_path=foo.bar.baz
++-create_mode=CREATE_IF_NOT_EXISTS
++-option_list=
+  +-start_with := Literal(type=INT64, value=0)
+  +-increment_by := Literal(type=INT64, value=5)
+--
+ALTERNATION GROUPS:
+    OR REPLACE ,,
+    OR REPLACE ,,OPTIONS ()
+--
+CreateSequenceStmt(name_path=foo.bar.baz, create_mode=CREATE_OR_REPLACE)
+--
+ALTERNATION GROUP: OR REPLACE ,,OPTIONS(start_with=0,increment_by=5)
+--
+CreateSequenceStmt
++-name_path=foo.bar.baz
++-create_mode=CREATE_OR_REPLACE
++-option_list=
+  +-start_with := Literal(type=INT64, value=0)
+  +-increment_by := Literal(type=INT64, value=5)
+--
+ALTERNATION GROUP: OR REPLACE ,IF NOT EXISTS,
+--
+ERROR: CREATE SEQUENCE cannot have both OR REPLACE and IF NOT EXISTS [at 1:1]
+CREATE OR REPLACE  SEQUENCE IF NOT EXISTS foo.bar.baz ;
+^
+--
+ALTERNATION GROUP: OR REPLACE ,IF NOT EXISTS,OPTIONS ()
+--
+ERROR: CREATE SEQUENCE cannot have both OR REPLACE and IF NOT EXISTS [at 1:1]
+CREATE OR REPLACE  SEQUENCE IF NOT EXISTS foo.bar.baz OPTIONS ();
+^
+--
+ALTERNATION GROUP: OR REPLACE ,IF NOT EXISTS,OPTIONS(start_with=0,increment_by=5)
+--
+ERROR: CREATE SEQUENCE cannot have both OR REPLACE and IF NOT EXISTS [at 1:1]
+CREATE OR REPLACE  SEQUENCE IF NOT EXISTS foo.bar.baz OPTIONS(start_with=0,in...
+^
+==
+
+CREATE SEQUENCE foo.bar.baz OPTIONS(string_alter_array_operator += ['str1', 'str2']);
+--
+ERROR: Operator `+=` is not supported [at 1:37]
+CREATE SEQUENCE foo.bar.baz OPTIONS(string_alter_array_operator += ['str1', '...
+                                    ^
+==
+
+CREATE SEQUENCE
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:16]
+CREATE SEQUENCE
+               ^

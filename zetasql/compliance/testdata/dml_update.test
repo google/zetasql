@@ -1,5 +1,5 @@
-# Tests for UPDATE that do not involve structs or protos (which have their own
-# files).
+# Tests for UPDATE that do not involve structs, protos, or JSON (which have
+# their own files).
 
 [prepare_database]
 CREATE TABLE TableInt64Values AS

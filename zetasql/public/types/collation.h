@@ -124,6 +124,9 @@ class Collation {
   absl::StatusOr<std::unique_ptr<AnnotationMap>> ToAnnotationMap(
       const Type* type) const;
 
+  // Populates the given annotation map with Collation annotations.
+  absl::Status PopulateAnnotationMap(AnnotationMap& annotation_map) const;
+
   absl::Status Serialize(CollationProto* proto) const;
   static absl::StatusOr<Collation> Deserialize(const CollationProto& proto);
 

@@ -3,7 +3,7 @@
 # afn_no_order_no_frame are described in analytic_functions.test.
 
 # Parentheses can be omitted when the named window is not specialized.
-[default language_features=ANALYTIC_FUNCTIONS]
+[default language_features=MAXIMUM,+ANALYTIC_FUNCTIONS]
 select afn_agg() over {{(w)|w}}
 from keyvalue
 window w as (partition by key)

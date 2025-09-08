@@ -29,7 +29,9 @@
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/property_graph.h"
 #include "zetasql/public/table_valued_function.h"
+#include "zetasql/public/templated_sql_function.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
@@ -86,6 +88,11 @@ class Validator {
   FRIEND_TEST(ValidatorTest, InvalidDynamicGraphGetElementProperty);
   FRIEND_TEST(ValidatorTest, CaseInsensitiveDynamicGraphGetElementProperty);
 
+  // Which ArgumentKinds are allowed in the current expression.
+  // Set using scoped VarSetters for field `allowed_argument_kinds_`.
+  typedef absl::flat_hash_set<ResolvedArgumentDefEnums::ArgumentKind>
+      ArgumentKindSet;
+
   // Validate a statement.
   // `in_multi_stmt` indicates this is a sub-statement inside a
   // ResolvedMultiStmt.
@@ -127,6 +134,14 @@ class Validator {
   absl::Status ValidateResolvedGeneratedColumnInfo(
       const ResolvedColumnDefinition* column_definition,
       const std::set<ResolvedColumn>& visible_columns);
+
+  // When <skip_check_type_match> is true, skip checking that the identity
+  // column attribute types match the column type. This is used when validating
+  // ALTER COLUMN IF EXIST column SET GENERATED.
+  absl::Status ValidateResolvedIdentityColumnInfo(
+      const Type* column_type,
+      const ResolvedIdentityColumnInfo* identity_column_info,
+      bool skip_check_type_match = false);
   absl::Status ValidateResolvedCreateTableAsSelectStmt(
       const ResolvedCreateTableAsSelectStmt* stmt,
       const std::set<ResolvedColumn>& pipe_visible_parameters = {});
@@ -234,19 +249,20 @@ class Validator {
       const ResolvedColumn* array_element_column = nullptr);
 
   // Can occur as a child of a ResolvedUpdateStmt or a
-  // ResolvedUpdateArrayItem. In the latter case, <array_element_column> is
+  // ResolvedUpdateItemElement. In the latter case, <element_column> is
   // non-NULL and is in <target_visible_columns> but not
   // <offset_and_where_visible_columns>.
   absl::Status ValidateResolvedUpdateItem(
       const ResolvedUpdateItem* item, bool allow_nested_statements,
-      const ResolvedColumn* array_element_column,
+      const ResolvedColumn* element_column,
       const std::set<ResolvedColumn>& target_visible_columns,
       const std::set<ResolvedColumn>& offset_and_where_visible_columns);
 
   // <element_column> is not in <target_visible_columns> or
   // <offset_and_where_visible_columns>
-  absl::Status ValidateResolvedUpdateArrayItem(
-      const ResolvedUpdateArrayItem* item, const ResolvedColumn& element_column,
+  absl::Status ValidateResolvedUpdateItemElement(
+      const ResolvedUpdateItemElement* item,
+      const ResolvedColumn& element_column,
       const std::set<ResolvedColumn>& target_visible_columns,
       const std::set<ResolvedColumn>& offset_and_where_visible_columns);
 
@@ -338,6 +354,8 @@ class Validator {
   absl::Status ValidateResolvedSampleScan(
       const ResolvedSampleScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
+  absl::Status ValidateResolvedUnsetArgumentScan(
+      const ResolvedUnsetArgumentScan* scan, bool allow_unset_argument_scan);
 
   // For a scan with is_ordered=true, validate that this scan can legally
   // produce ordered output.
@@ -504,6 +522,11 @@ class Validator {
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedFilterField* filter_field);
 
+  absl::Status ValidateTemplatedSqlFunctionCall(
+      const TemplatedSQLFunctionCall& templated_info,
+      const FunctionSignature& signature,
+      const ArgumentKindSet& allowed_argument_kinds);
+
   absl::Status ValidateResolvedFunctionCallBase(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
@@ -570,7 +593,8 @@ class Validator {
   absl::Status ValidateResolvedFunctionArgument(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
-      const ResolvedFunctionArgument* resolved_arg);
+      const ResolvedFunctionArgument* resolved_arg,
+      bool allow_unset_argument_scan = false);
 
   // Validates TVF relation argument schema against the required input schema
   // in function signature.
@@ -701,6 +725,10 @@ class Validator {
       const ResolvedUnpivotScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
 
+  absl::Status ValidateResolvedDescribeScan(
+      const ResolvedDescribeScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
   absl::Status ValidateResolvedStaticDescribeScan(
       const ResolvedStaticDescribeScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
@@ -815,7 +843,7 @@ class Validator {
 
   absl::Status ValidateResolvedGraphDynamicLabelSpecification(
       const ResolvedGraphDynamicLabelSpecification* label_specification,
-      const std::set<ResolvedColumn>& visible_columns);
+      bool is_node_table, const std::set<ResolvedColumn>& visible_columns);
 
   absl::Status ValidateResolvedGraphDynamicPropertiesSpecification(
       const ResolvedGraphDynamicPropertiesSpecification* property_specification,
@@ -979,6 +1007,22 @@ class Validator {
       absl::Span<const std::unique_ptr<const ResolvedColumnRef>>
           rollup_column_list);
 
+  // Validates and extracts grouping set columns from the grouping set base.
+  // `grouping_set_base` should be a ResolvedGroupingSet, ResolvedGroupingCube,
+  // or ResolvedGroupingRollup.
+  absl::Status ValidateAndExtractNonCompositeGroupingSetColumns(
+      const std::set<ResolvedColumn>& group_by_columns,
+      const ResolvedGroupingSetBase* grouping_set_base,
+      std::set<ResolvedColumn>* grouping_sets_all_columns);
+
+  // Validates and extracts grouping set columns from the grouping
+  // set base. `grouping_set_base` could be ResolvedGroupingSetList,
+  // ResolvedGroupingSet, ResolvedGroupingCube, or ResolvedGroupingRollup.
+  absl::Status ValidateAndExtractGroupingSetColumns(
+      const std::set<ResolvedColumn>& group_by_columns,
+      const ResolvedGroupingSetBase* grouping_set_base,
+      std::set<ResolvedColumn>* grouping_sets_all_columns);
+
   // Validates GroupingSet and grouping columns based on grouping conditions.
   absl::Status ValidateGroupingSetList(
       absl::Span<const std::unique_ptr<const ResolvedGroupingSetBase>>
@@ -1031,6 +1075,9 @@ class Validator {
   absl::Status ValidateAggregateScanHasNoAggFunctionCall(
       const ResolvedAggregateScanBase* scan);
 
+  absl::Status ValidateResolvedCreateSequenceStmt(
+      const ResolvedCreateSequenceStmt* stmt);
+
   // Replacement for ::zetasql_base::InternalErrorBuilder(), which also records the
   // context of the error for use in the tree dump.
   zetasql_base::StatusBuilder InternalErrorBuilder() {
@@ -1049,11 +1096,6 @@ class Validator {
   // `in_multi_stmt` indicates this is being called for a sub-statement inside a
   // ResolvedMultiStmt, where we want only a partial reset.
   void Reset(bool in_multi_stmt = false);
-
-  // Which ArgumentKinds are allowed in the current expression.
-  // Set using scoped VarSetters.
-  typedef absl::flat_hash_set<ResolvedArgumentDefEnums::ArgumentKind>
-      ArgumentKindSet;
 
   // Helper class to push a node onto the context stack in the constructor and
   // pop the same node off the context stack in the destructor.
@@ -1175,6 +1217,11 @@ class Validator {
   // function call, or the ORDER BY clause of a multi-level aggregate function
   // call.
   bool disallow_expression_columns_ = false;
+
+  // If true, then we are currently validating a templated TVF call. There is
+  // legacy code that doesn't require templated TVFs to produce a value table
+  // with an anonymous column, so we skip validation to maintain compatibility.
+  bool in_templated_tvf_call_ = false;
 
   // MATCH_RECOGNIZE state, in order to convert back access to internal columns
   // to calls to special functions, e.g. MATCH_NUMBER().

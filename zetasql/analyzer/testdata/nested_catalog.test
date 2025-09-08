@@ -1,6 +1,7 @@
 # The ExtractTableNames tests don't generally work on these queries because
 # these tables are listed in the catalog under multiple names, and FullName()
 # doesn't match what shows up in the query.
+[default language_features=MAXIMUM]
 [default no_test_extract_table_names]
 
 select key from NestedKeyValue;
@@ -95,7 +96,7 @@ QueryStmt
           +-TableScan(table=KeyValue, alias="kv3")
 ==
 
-[language_features={{|SINGLE_TABLE_NAME_ARRAY_PATH}}]
+[language_features=NONE,{{|+SINGLE_TABLE_NAME_ARRAY_PATH}}]
 select 1 from KeyValue.nested.key;
 --
 ALTERNATION GROUP: <empty>
@@ -104,14 +105,14 @@ ERROR: Table not found: KeyValue.nested.key [at 1:15]
 select 1 from KeyValue.nested.key;
               ^
 --
-ALTERNATION GROUP: SINGLE_TABLE_NAME_ARRAY_PATH
+ALTERNATION GROUP: +SINGLE_TABLE_NAME_ARRAY_PATH
 --
 ERROR: Name nested not found inside KeyValue [at 1:24]
 select 1 from KeyValue.nested.key;
                        ^
 ==
 
-[language_features={{|SINGLE_TABLE_NAME_ARRAY_PATH}}]
+[language_features=NONE,{{|+SINGLE_TABLE_NAME_ARRAY_PATH}}]
 select 1 from KeyValue.Key;
 --
 ALTERNATION GROUP: <empty>
@@ -120,7 +121,7 @@ ERROR: Table not found: KeyValue.Key [at 1:15]
 select 1 from KeyValue.Key;
               ^
 --
-ALTERNATION GROUP: SINGLE_TABLE_NAME_ARRAY_PATH
+ALTERNATION GROUP: +SINGLE_TABLE_NAME_ARRAY_PATH
 --
 ERROR: Values referenced in FROM clause must be arrays. KeyValue.Key has type INT64 [at 1:15]
 select 1 from KeyValue.Key;

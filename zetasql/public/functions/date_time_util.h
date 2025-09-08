@@ -31,6 +31,7 @@
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "absl/base/attributes.h"
 #include "absl/base/macros.h"
+#include "absl/numeric/int128.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -76,6 +77,9 @@ enum TimestampScale {
   kNanoseconds = 9,
   kPicoseconds = 12,
 };
+
+// Checks that scale specifies an accepted time precision.
+absl::Status ValidateTimeScale(TimestampScale scale);
 
 // Checks that a date value falls between 0001-01-01 and 9999-12-31 (inclusive).
 ABSL_MUST_USE_RESULT bool IsValidDate(int32_t date);
@@ -524,13 +528,11 @@ absl::Status ExtractFromTimestamp(DateTimestampPart part, absl::Time base_time,
                                   absl::string_view timezone_string,
                                   int64_t* output);
 
-// TODO: b/412458859 - Change int32_t to int64_t.
-absl::StatusOr<int32_t> ExtractFromTimestamp(DateTimestampPart part,
+absl::StatusOr<int64_t> ExtractFromTimestamp(DateTimestampPart part,
                                              const PicoTime& timestamp,
                                              absl::string_view timezone_string);
 
-// TODO: b/412458859 - Change int32_t to int64_t.
-absl::StatusOr<int32_t> ExtractFromTimestamp(DateTimestampPart part,
+absl::StatusOr<int64_t> ExtractFromTimestamp(DateTimestampPart part,
                                              const PicoTime& timestamp,
                                              absl::TimeZone timezone);
 
@@ -688,7 +690,7 @@ absl::Status AddDateOverflow(int32_t date, DateTimestampPart part,
                              bool* had_overflow);
 
 // DATE + INTERVAL = DATETIME
-absl::Status AddDate(int32_t date, zetasql::IntervalValue interval,
+absl::Status AddDate(int32_t date, IntervalValue interval,
                      DatetimeValue* output);
 
 // Same as above, but subtracts the interval from a part of the date value.
@@ -735,8 +737,7 @@ absl::Status SubDatetime(const DatetimeValue& datetime, DateTimestampPart part,
                          int64_t interval, DatetimeValue* output);
 
 // DATETIME + INTERVAL
-absl::Status AddDatetime(DatetimeValue datetime,
-                         zetasql::IntervalValue interval,
+absl::Status AddDatetime(DatetimeValue datetime, IntervalValue interval,
                          DatetimeValue* output);
 
 // Returns the diff (signed integer) of the specified DateTimestampPart
@@ -814,6 +815,27 @@ absl::Status LastDayOfDate(int32_t date, DateTimestampPart part,
 
 absl::Status LastDayOfDatetime(const DatetimeValue& datetime,
                                DateTimestampPart part, int32_t* output);
+
+// Adds or subtracts a specified number of months to a DATE or DATETIME.
+//
+// If the input is the last day of the month or if the resulting month has fewer
+// days than the input's day component, then the result is the last day of the
+// new month. Otherwise, the result day has the same day component as the input.
+//   AddMonths('2025-01-31', 1) -> '2025-02-28'  -- result month has fewer days
+//   AddMonths('2025-02-28', 1) -> '2025-03-31'  -- retain end-of-month info
+//   AddMonths('2025-03-15', -2) -> '2025-01-15' -- can go backwards
+//
+// The time component of the resulting day is the same as the input when input
+// is DATETIME.
+//  AddMonths('2025-02-28 23:59:59', 1) -> '2025-03-31 23:59:59'
+//
+// This differs from AddDate (or date arithmetic) in that it retains
+// end-of-month information. For example, compare:
+//   AddDate('2025-02-28', MONTH, 1) -> '2025-03-28'
+//   AddMonths('2025-02-28', 1) -> '2025-03-31'
+absl::Status AddMonths(int32_t date, int64_t months, int32_t* output);
+absl::Status AddMonths(const DatetimeValue& datetime, int64_t months,
+                       DatetimeValue* output);
 
 // Returns the diff (signed integer) of the specified DateTimestampPart
 // between a given timestamp pair, based on timestamp1 - timestamp2.
@@ -906,8 +928,11 @@ absl::Status AddTimestamp(absl::Time timestamp,
 
 // TIMESTAMP + INTERVAL
 absl::Status AddTimestamp(absl::Time timestamp, absl::TimeZone timezone,
-                          zetasql::IntervalValue interval,
-                          absl::Time* output);
+                          IntervalValue interval, absl::Time* output);
+
+// TIMESTAMP + INTERVAL
+absl::StatusOr<PicoTime> AddTimestamp(PicoTime timestamp,
+                                      IntervalValue interval);
 
 // Similar to AddTimestamp() above, but it doesn't return an error when overflow
 // occurs.
@@ -1145,8 +1170,8 @@ static constexpr absl::CivilSecond kDefaultTimeBucketOrigin =
 //   ["2022-01-19 12:00:00", "2022-01-19 15:00:00") and the start of the bucket
 //   ("2022-01-19 12:00:00") is returned.
 //
-absl::Status TimestampBucket(absl::Time input,
-                             zetasql::IntervalValue bucket_width,
+ABSL_DEPRECATED("Use the overload with pico precision instead.")
+absl::Status TimestampBucket(absl::Time input, IntervalValue bucket_width,
                              absl::Time origin, absl::TimeZone timezone,
                              TimestampScale scale, absl::Time* output);
 
@@ -1165,9 +1190,10 @@ class TimestampBucketizer {
   static absl::Status ValidateBucketWidth(IntervalValue bucket_width,
                                           TimestampScale scale);
 
-  static absl::StatusOr<TimestampBucketizer> Create(
-      zetasql::IntervalValue bucket_width, absl::Time origin,
-      absl::TimeZone timezone, TimestampScale scale);
+  static absl::StatusOr<TimestampBucketizer> Create(IntervalValue bucket_width,
+                                                    absl::Time origin,
+                                                    absl::TimeZone timezone,
+                                                    TimestampScale scale);
 
   absl::Status Compute(absl::Time input, absl::Time* output) const;
 
@@ -1181,6 +1207,39 @@ class TimestampBucketizer {
   const absl::Duration bucket_width_;
   const absl::Time origin_;
   const absl::TimeZone timezone_;
+};
+
+// Same as TimestampBucket, except input, origin and result are at
+// Picosecond-precision.
+absl::StatusOr<PicoTime> TimestampPicosBucket(const PicoTime& input,
+                                              IntervalValue bucket_width,
+                                              const PicoTime& origin,
+                                              TimestampScale scale);
+
+// This class allows for more efficient implementation of TIMESTAMP_BUCKET
+// function when the first argument (input timestamp) is non-const, and the rest
+// are constants. The caller can reuse the same instance of this class to
+// compute the buckets for different inputs.
+class TimestampPicosBucketizer {
+ public:
+  TimestampPicosBucketizer(const TimestampPicosBucketizer& other) = default;
+  TimestampPicosBucketizer& operator=(const TimestampPicosBucketizer& other) =
+      default;
+  TimestampPicosBucketizer(TimestampPicosBucketizer&& other) = default;
+  TimestampPicosBucketizer& operator=(TimestampPicosBucketizer&& other) =
+      default;
+
+  static absl::StatusOr<TimestampPicosBucketizer> Create(
+      IntervalValue bucket_width, const PicoTime& origin, TimestampScale scale);
+
+  absl::StatusOr<PicoTime> Compute(const PicoTime& input) const;
+
+ private:
+  TimestampPicosBucketizer(absl::int128 bucket_width, const PicoTime& origin)
+      : bucket_width_(bucket_width), origin_(origin.ToUnixPicos()) {}
+
+  absl::int128 bucket_width_;
+  absl::int128 origin_;
 };
 
 // Assigns <input> datetime to a specific bucket using the specified

@@ -19,16 +19,23 @@
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
-#include "absl/memory/memory.h"
+#include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
+#include "zetasql/base/ret_check.h"
 
 namespace zetasql {
 
@@ -47,8 +54,8 @@ static int InputArgumentTypeEquivalenceClass(const InputArgumentType& type) {
   return 0;
 }
 
-bool InputArgumentTypeLess::operator()(
-    const InputArgumentType& type1, const InputArgumentType& type2) const {
+bool InputArgumentTypeLess::operator()(const InputArgumentType& type1,
+                                       const InputArgumentType& type2) const {
   // If arguments have different type kinds, then order by kind.
   if (type1.type() != nullptr && type2.type() != nullptr &&
       type1.type()->kind() != type2.type()->kind()) {
@@ -113,13 +120,31 @@ InputArgumentType::InputArgumentType(const Type* type, bool is_query_parameter,
   ABSL_DCHECK(type != nullptr);
   if (type->IsStruct()) {
     for (const StructType::StructField& struct_field :
-             type->AsStruct()->fields()) {
+         type->AsStruct()->fields()) {
       // The struct itself might be a parameter, but its fields should not
       // coerce like parameters.
-      field_types_.push_back(InputArgumentType(struct_field.type,
-                                               false /* is_query_parameter */));
+      field_types_.push_back(
+          InputArgumentType(struct_field.type, false /* is_query_parameter */));
     }
   }
+}
+
+InputArgumentType::InputArgumentType(absl::StatusOr<Value> constant_value)
+    : category_(kTypedExpression) {
+  ABSL_DCHECK(!absl::IsInternal(constant_value.status()));
+  ABSL_DCHECK(!absl::IsResourceExhausted(constant_value.status()));
+  ABSL_DCHECK(!absl::IsOutOfRange(constant_value.status()));
+  if (!constant_value.ok()) {
+    type_ = types::Int64Type();
+  } else {
+    type_ = constant_value->type();
+    constant_value_ = std::move(constant_value);
+  }
+}
+
+absl::StatusOr<Value> InputArgumentType::GetAnalysisTimeConstantValue() const {
+  ZETASQL_RET_CHECK(constant_value_.has_value()) << "constant value is not set";
+  return *constant_value_;
 }
 
 std::string InputArgumentType::UserFacingName(ProductMode product_mode) const {
@@ -169,6 +194,8 @@ std::string InputArgumentType::DebugString(bool verbose) const {
       return "LAMBDA";
     case kSequence:
       return "SEQUENCE";
+    case kGraph:
+      return "GRAPH";
     case kUntypedNull:
       return absl::StrCat(verbose ? "untyped" : "", "NULL");
     case kUntypedEmptyArray:
@@ -272,6 +299,12 @@ InputArgumentType InputArgumentType::DescriptorInputArgumentType() {
   return type;
 }
 
+InputArgumentType InputArgumentType::GraphInputArgumentType() {
+  InputArgumentType type;
+  type.category_ = kGraph;
+  return type;
+}
+
 InputArgumentType InputArgumentType::LambdaInputArgumentType() {
   InputArgumentType type;
   type.category_ = kLambda;
@@ -286,8 +319,8 @@ InputArgumentType InputArgumentType::SequenceInputArgumentType() {
   return type;
 }
 
-bool InputArgumentTypeSet::Insert(
-    const InputArgumentType& argument, bool set_dominant) {
+bool InputArgumentTypeSet::Insert(const InputArgumentType& argument,
+                                  bool set_dominant) {
   if (set_dominant) {
     dominant_argument_ = std::make_unique<InputArgumentType>(argument);
   } else if (dominant_argument_ != nullptr &&

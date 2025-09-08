@@ -1,4 +1,5 @@
 # Anonymization query without the feature flag turned on
+[default language_features=NONE]
 select with anonymization sum() from table;
 --
 ERROR: Unexpected keyword WITH [at 1:8]

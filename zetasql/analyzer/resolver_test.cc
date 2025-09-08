@@ -127,7 +127,7 @@ class ResolverTest : public ::testing::Test {
     resolver_->Reset("" /* sql */);
   }
 
-  void ResolveSimpleTypeName(const std::string& name,
+  void ResolveSimpleTypeName(absl::string_view name,
                              const Type* expected_type) {
     const Type* type;
     ZETASQL_EXPECT_OK(resolver_->ResolveTypeName(name, &type)) << name;
@@ -153,8 +153,10 @@ class ResolverTest : public ::testing::Test {
       bool aggregation_allowed = false) {
     if (aggregation_allowed) {
       QueryResolutionInfo query_resolution_info(resolver_.get());
-      ExprResolutionInfo with_aggregation(name_scope_.get(),
-                                          &query_resolution_info);
+      ExprResolutionInfo with_aggregation(
+          &query_resolution_info, name_scope_.get(),
+          {.allows_aggregation = aggregation_allowed,
+           .allows_analytic = false});
       return resolver_->ResolveExpr(expression, &with_aggregation,
                                     resolved_expression);
     }
@@ -494,8 +496,9 @@ class ResolverTest : public ::testing::Test {
     ASSERT_THAT(parsed_expression, NotNull()) << input;
 
     QueryResolutionInfo query_resolution_info(resolver_.get());
-    ExprResolutionInfo expr_resolution_info(name_scope_.get(),
-                                            &query_resolution_info);
+    ExprResolutionInfo expr_resolution_info(
+        &query_resolution_info, name_scope_.get(),
+        {.allows_aggregation = true, .allows_analytic = true});
     ZETASQL_ASSERT_OK(resolver_->ResolveExpr(parsed_expression, &expr_resolution_info,
                                      &resolved_expression));
 
@@ -792,9 +795,10 @@ TEST_F(ResolverTest, TestResolveCastExpression) {
   // SQL Standard type names which are not even parsable in ZetaSQL
   ParseFunctionFails(
       "CAST(1 as DOUBLE PRECISION)",
-      R"error(Expected ")" but got identifier "PRECISION")error");
-  ParseFunctionFails("CAST('foo' as CHAR VARYING(10))",
-                     R"error(Expected ")" but got identifier "VARYING")error");
+      R"error(Expected ")" or keyword FORMAT but got identifier "PRECISION")error");
+  ParseFunctionFails(
+      "CAST('foo' as CHAR VARYING(10))",
+      R"error(Expected ")" or keyword FORMAT but got identifier "VARYING")error");
 }
 
 TEST_F(ResolverTest, TestCoerceToBoolSuccess) {

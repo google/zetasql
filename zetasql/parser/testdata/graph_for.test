@@ -1,5 +1,5 @@
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml

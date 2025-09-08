@@ -1056,7 +1056,7 @@ ERROR: UNIMPLEMENTED: TVF tvf does not support the API in evaluator.h
 ==
 
 [mode=analyze]
-create {{|temp}} table t1 (
+create {{|temp|or replace}} table t1 (
   x int64,
   y double
 );
@@ -1069,7 +1069,7 @@ CreateTableStmt
   +-ColumnDefinition(name="x", type=INT64, column=t1.x#1)
   +-ColumnDefinition(name="y", type=DOUBLE, column=t1.y#2)
 
-Table registered.
+Table created
 --
 ALTERNATION GROUP: temp
 --
@@ -1080,7 +1080,18 @@ CreateTableStmt
   +-ColumnDefinition(name="x", type=INT64, column=t1.x#1)
   +-ColumnDefinition(name="y", type=DOUBLE, column=t1.y#2)
 
-Table registered.
+Table created
+--
+ALTERNATION GROUP: or replace
+--
+CreateTableStmt
++-name_path=t1
++-create_mode=CREATE_OR_REPLACE
++-column_definition_list=
+  +-ColumnDefinition(name="x", type=INT64, column=t1.x#1)
+  +-ColumnDefinition(name="y", type=DOUBLE, column=t1.y#2)
+
+Table created or replaced
 ==
 
 [mode={{analyze|execute}}]
@@ -1100,7 +1111,7 @@ CreateTableStmt
   +-ColumnDefinition(name="x", type=INT64, column=t1.x#1)
   +-ColumnDefinition(name="y", type=DOUBLE, column=t1.y#2)
 
-Table registered.
+Table created
 DescribeStmt(object_type="", name_path=t1)
 
 QueryStmt
@@ -1118,11 +1129,11 @@ CreateTableStmt
 +-column_definition_list=
   +-ColumnDefinition(name="z", type=INT64, column=t1.z#1)
 
-ERROR: INVALID_ARGUMENT: Table already exists
+ERROR: INVALID_ARGUMENT: Table already exists: t1
 --
 ALTERNATION GROUP: execute
 --
-Table registered.
+Table created
 Table: t1
 Columns:
   x INT64
@@ -1133,7 +1144,7 @@ Columns:
 +---+---+
 +---+---+
 
-ERROR: INVALID_ARGUMENT: Table already exists
+ERROR: INVALID_ARGUMENT: Table already exists: t1
 ==
 
 [mode=analyze]
@@ -1157,7 +1168,7 @@ CreateTableAsSelectStmt
     +-input_scan=
       +-SingleRowScan
 
-Table registered.
+Table created
 --
 ALTERNATION GROUP: temp
 --
@@ -1176,10 +1187,10 @@ CreateTableAsSelectStmt
     +-input_scan=
       +-SingleRowScan
 
-Table registered.
+Table created
 ==
 
-# We can analyze CTAS to get the output schema but can't execute it.
+# We can analyze CTAS to get the output schema and execute it in execute mode.
 [mode={{analyze|execute}}]
 create table t1 AS (
   SELECT 123 x
@@ -1203,7 +1214,7 @@ CreateTableAsSelectStmt
     +-input_scan=
       +-SingleRowScan
 
-Table registered.
+Table created
 QueryStmt
 +-output_column_list=
 | +-t1.x#1 AS x [INT64]
@@ -1227,12 +1238,18 @@ CreateTableAsSelectStmt
     +-input_scan=
       +-SingleRowScan
 
-ERROR: INVALID_ARGUMENT: Table already exists
+ERROR: INVALID_ARGUMENT: Table already exists: t1
 --
 ALTERNATION GROUP: execute
 --
-Table registered.
-ERROR: INVALID_ARGUMENT: The statement CreateTableAsSelectStmt is not supported for execution.
+Table created
++-----+
+| x   |
++-----+
+| 123 |
++-----+
+
+Error: Table already exists: t1
 ==
 
 # Create table is rejected if it the statement has unhandled syntax.
@@ -1249,25 +1266,11 @@ CreateTableStmt
 +-column_definition_list=
   +-ColumnDefinition(name="x", type=INT64, column=t.x#1)
 
-ERROR: UNIMPLEMENTED: Unimplemented feature (ResolvedCreateTableStmtBase::option_list not accessed and has non-default value)
-CreateTableStmt (*** This node has unaccessed field ***)
-+-name_path{*}=t
-+-option_list{ }=
-| +-bad_option := Literal(type{ }=INT64, value{ }=123)
-+-column_definition_list{*}=
-  +-ColumnDefinition(name{*}="x", type{*}=INT64, column{ }=t.x#1)
-\
+Table created
 --
 ALTERNATION GROUP: execute
 --
-ERROR: UNIMPLEMENTED: Unimplemented feature (ResolvedCreateTableStmtBase::option_list not accessed and has non-default value)
-CreateTableStmt (*** This node has unaccessed field ***)
-+-name_path{*}=t
-+-option_list{ }=
-| +-bad_option := Literal(type{ }=INT64, value{ }=123)
-+-column_definition_list{*}=
-  +-ColumnDefinition(name{*}="x", type{*}=INT64, column{ }=t.x#1)
-\
+Table created
 ==
 
 # The catalog allows multiple objects of different types with the
@@ -1288,7 +1291,7 @@ SELECT * FROM multi(); # The TVF.
 --
 Function registered.
 TVF registered.
-Table registered.
+Table created
 Table: multi
 Columns:
   y INT64
@@ -1332,7 +1335,7 @@ CreateTableStmt
 +-column_definition_list=
   +-ColumnDefinition(name="y", type=INT64, column=t.y#1)
 
-Table registered.
+Table created
 CreateTableFunctionStmt
 +-name_path=tvf
 +-signature=() -> TABLE<mm INT64>
@@ -1383,7 +1386,7 @@ InsertStmt
 +-query_output_column_list=KeyValue.[$col#3, $col#4]
 +-column_access_list=WRITE,WRITE
 
-ERROR: INVALID_ARGUMENT: The statement InsertStmt is not supported for execution.
+Error: DML statements can only be applied to temporary tables created in the current session
 ==
 
 [mode=analyze,execute]
@@ -1409,7 +1412,7 @@ InsertStmt
 +-query_output_column_list=KeyValue.[Key#3, Value#4]
 +-column_access_list=WRITE,WRITE
 
-ERROR: INVALID_ARGUMENT: The statement InsertStmt is not supported for execution.
+Error: DML statements can only be applied to temporary tables created in the current session
 ==
 
 [mode=analyze,execute]
@@ -1424,7 +1427,7 @@ DeleteStmt
   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
 
-ERROR: INVALID_ARGUMENT: The statement DeleteStmt is not supported for execution.
+Error: Only INSERT statements are supported in multi-statement queries
 ==
 
 # An empty statement is not allowed.
@@ -2148,3 +2151,733 @@ Deprecation warnings:
 The pipe WINDOW operator is deprecated; Use EXTEND instead [at 2:1]
 |> WINDOW RANK() OVER (order by key)
 ^
+==
+
+# STATIC_DESCRIBE can analyze and execute.
+# The static logging output current doesn't go anywhere in execute mode.
+[catalog=sample]
+[mode=analyze,execute]
+FROM KeyValue
+|> STATIC_DESCRIBE
+|> SELECT key
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[KeyValue.Key#1]
+    +-input_scan=
+      +-StaticDescribeScan
+        +-column_list=[KeyValue.Key#1]
+        +-describe_text=
+        |   """
+        |   NameList:
+        |     Key INT64 KeyValue.Key#1
+        |     Value STRING KeyValue.Value#2
+        |   NameScope:
+        |     Names:
+        |       Key -> INT64 (KeyValue.Key#1) (implicit)
+        |       Value -> STRING (KeyValue.Value#2) (implicit)
+        |     Range variables:
+        |       KeyValue -> RANGE_VARIABLE<Key,Value>
+        |   """
+        +-input_scan=
+          +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+
++-----+
+| key |
++-----+
+| 1   |
+| 2   |
++-----+
+\
+==
+
+# Test core functionalities of multi-statements
+[mode=execute]
+select 1 as col
+|> fork (
+  |> select 1
+), (
+  |> select 2
+)
+--
++---+
+|   |
++---+
+| 1 |
++---+
+
++---+
+|   |
++---+
+| 2 |
++---+
+\
+==
+
+# With empty results
+[mode=execute]
+select 1 as col
+|> fork (
+  |> where false
+), (
+  |> select 2
+)
+--
++-----+
+| col |
++-----+
++-----+
+
++---+
+|   |
++---+
+| 2 |
++---+
+\
+==
+
+# With DMLs
+[mode=execute]
+select 1 as key, 'a' as value
+|> fork (
+  |> select *
+), (
+  |> insert into KeyValue (Key, Value)
+)
+--
++-----+-------+
+| key | value |
++-----+-------+
+| 1   | a     |
++-----+-------+
+
+Error: DML statements can only be applied to temporary tables created in the current session
+==
+
+# With DDLs.
+[mode=execute]
+select 1 as col
+|> fork (
+  |> select *
+), (
+  |> create table t
+)
+--
+Table created
++-----+
+| col |
++-----+
+| 1   |
++-----+
+\
+==
+
+# With errors
+[mode=execute]
+select error("an error")
+|> fork (
+  |> select error("this won't be executed")
+), (
+  |> select error("neither will this")
+)
+--
+Error: Prerequisite CreateWithEntryStmt failed, statement index: 0 error: an error
+Error: Prerequisite CreateWithEntryStmt failed, statement index: 0 error: an error
+==
+
+[mode=execute]
+select 1
+|> fork (
+  |> select error("this error does not prevent the other statement from executing")
+), (
+  |> select *
+)
+--
+Error: this error does not prevent the other statement from executing
++---+
+|   |
++---+
+| 1 |
++---+
+\
+==
+
+[mode=explain]
+select 1
+|> fork (
+  |> select 1
+), (
+  |> select 2
+)
+--
+MultiStmtExpr(
++-$fork_cte_1 := ArrayNestExpr(is_with_table=0
+| +-element: NewStructExpr(
+| | +-type: STRUCT<INT64>,
+| | +-0 : $col1),
+| +-input: ComputeOp(
+|   +-map: {
+|   | +-$col1 := ConstExpr(1)},
+|   +-input: EnumerateOp(ConstExpr(1)))),
++-ArrayNestExpr(is_with_table=0
+| +-element: NewStructExpr(
+| | +-type: STRUCT<INT64>,
+| | +-0 : $col1.2),
+| +-input: ComputeOp(
+|   +-map: {
+|   | +-$col1.2 := ConstExpr(1)},
+|   +-input: ArrayScanOp(
+|     +-$col1 := field[0]:,
+|     +-array: $fork_cte_1))),
++-ArrayNestExpr(is_with_table=0
+| +-element: NewStructExpr(
+| | +-type: STRUCT<INT64>,
+| | +-0 : $col1.3),
+| +-input: ComputeOp(
+|   +-map: {
+|   | +-$col1.3 := ConstExpr(2)},
+|   +-input: ArrayScanOp(
+|     +-$col1 := field[0]:,
+|     +-array: $fork_cte_1))))
+\
+==
+
+# Test CREATE OR REPLACE TABLE on an existing table
+[enabled_language_features=DEV,+BARE_ARRAY_ACCESS]
+[mode=execute]
+select 1 as col
+|> fork (
+  |> create table t
+), (
+  |> create or replace table t
+)
+--
+Table created
+Table created or replaced
+==
+
+# Test CREATE OR REPLACE TABLE on a non-existing table
+[mode=execute]
+select 1 as col
+|> fork (
+  |> create or replace table t
+)
+--
+Table created or replaced
+==
+
+# Test CREATE TABLE IF NOT EXISTS on an existing table
+[mode=execute]
+select 1 as col
+|> fork (
+  |> create table t
+), (
+  |> create table if not exists t
+)
+--
+Table created
+Table creation skipped
+==
+
+# Test CREATE TABLE IF NOT EXISTS on a non-existing table
+[mode=execute]
+select 1 as col
+|> fork (
+  |> create table if not exists t
+)
+--
+Table created
+==
+
+# Test CREATE TABLE on an existing table.
+[mode=execute]
+select 1 as col
+|> fork (
+  |> create table t
+), (
+  |> create table t
+)
+--
+Table created
+Error: Table already exists: t
+==
+
+# Test CREATE TABLE on a non-existing table.
+[mode=execute]
+select 1 as col
+|> fork (
+  |> create table t
+)
+--
+Table created
+==
+
+# Test standalone CREATE TABLE AS SELECT has the correct data populated.
+[mode=execute]
+create table t as (
+  select 1 as col
+);
+
+from t;
+--
+Table created
++-----+
+| col |
++-----+
+| 1   |
++-----+
+\
+==
+
+# Test CREATE TABLE AS SELECT inside a multi-statement has the correct data
+# populated.
+[mode=execute]
+select 1 as col
+|> fork (
+  |> create table t
+);
+from t;
+--
+Table created
++-----+
+| col |
++-----+
+| 1   |
++-----+
+\
+==
+
+# Conflicting DDLs. Only one succeeds.
+[mode=execute]
+select 1 as col
+|> fork (
+  |> create table t
+), (
+  |> create table t
+)
+--
+Table created
+Error: Table already exists: t
+==
+
+# Test CREATE TABLE with primary key.
+[mode=execute]
+create table t (col int64, PRIMARY KEY (col));
+describe table t;
+--
+Table created
+Table: t
+Columns:
+  col INT64
+Primary key: (col)
+\
+==
+
+# Test CREATE TABLE with primary key with multiple columns.
+[mode=execute]
+create table t (col1 int64, col2 int64, PRIMARY KEY (col1, col2));
+describe table t;
+--
+Table created
+Table: t
+Columns:
+  col1 INT64
+  col2 INT64
+Primary key: (col1, col2)
+\
+==
+
+# Test CREATE TABLE with primary key no columns.
+[mode=execute]
+create table t (col1 int64, col2 int64, PRIMARY KEY ());
+describe table t;
+--
+Table created
+Table: t
+Columns:
+  col1 INT64
+  col2 INT64
+Primary key: ()
+\
+==
+
+# Test CREATE TABLE without primary key.
+[mode=execute]
+create table t (col1 int64);
+describe table t;
+--
+Table created
+Table: t
+Columns:
+  col1 INT64
+\
+==
+
+# Standalone INSERT.
+[mode=execute]
+CREATE TABLE t (key INT64, value STRING, PRIMARY KEY(key))
+AS
+SELECT 1 AS key, 'one' AS value;
+
+INSERT INTO t (key, value) VALUES (11, 'eleven');
+
+FROM t;
+--
+Table created
++---------------+
+| rows_modified |
++---------------+
+| 1             |
++---------------+
+
++-----+--------+
+| key | value  |
++-----+--------+
+| 1   | one    |
+| 11  | eleven |
++-----+--------+
+\
+==
+
+# Inserting into a non-session table is not allowed.
+[mode=execute]
+INSERT INTO KeyValueWithPrimaryKey (key, value) VALUES (11, 'eleven');
+\
+--
+Error: DML statements can only be applied to temporary tables created in the current session
+==
+
+# DELETE is not supported
+[mode=execute]
+DELETE FROM KeyValueWithPrimaryKey WHERE key = 2
+\
+--
+Error: Only INSERT statements are supported in multi-statement queries
+==
+
+# UPDATE is not supported
+[mode=execute]
+UPDATE KeyValueWithPrimaryKey SET value = 'one-updated' WHERE key = 1
+\
+--
+Error: Only INSERT statements are supported in multi-statement queries
+==
+
+# Test successful INSERT in a multi-stmt. The insertion does not affect the
+# other fork branch. The newly created table shadows the existing table
+# KeyValueWithPrimaryKey.
+[mode=execute]
+CREATE TABLE KeyValueWithPrimaryKey (key INT64, value STRING, PRIMARY KEY(key));
+
+INSERT INTO KeyValueWithPrimaryKey (key, value) VALUES (1, 'one');
+
+SELECT 11 AS key, 'eleven' AS value
+|> FORK (
+  |> INSERT INTO KeyValueWithPrimaryKey
+), (
+  |> SELECT 1
+);
+
+FROM KeyValueWithPrimaryKey;
+--
+Table created
++---------------+
+| rows_modified |
++---------------+
+| 1             |
++---------------+
+
++---------------+
+| rows_modified |
++---------------+
+| 1             |
++---------------+
+
++---+
+|   |
++---+
+| 1 |
++---+
+
++-----+--------+
+| key | value  |
++-----+--------+
+| 1   | one    |
+| 11  | eleven |
++-----+--------+
+\
+==
+
+# Two conflicting INSERTs, only one will succeed.
+[mode=execute]
+CREATE TABLE t (key INT64, value STRING, PRIMARY KEY(key))
+AS
+SELECT 1 AS key, 'one' AS value;
+
+SELECT 11 AS key, 'eleven' AS value
+|> FORK (
+  |> INSERT INTO t
+), (
+  |> INSERT INTO t
+);
+
+FROM t;
+--
+Table created
++---------------+
+| rows_modified |
++---------------+
+| 1             |
++---------------+
+
+Error: Key already exists for INSERT operation
++-----+--------+
+| key | value  |
++-----+--------+
+| 1   | one    |
+| 11  | eleven |
++-----+--------+
+\
+==
+
+# Test DML on table without primary key
+[mode=execute]
+CREATE TABLE t
+AS
+SELECT 1 AS key, 'one' AS value;
+
+SELECT 1 AS key, 'a' AS value
+|> FORK (
+  |> INSERT INTO t
+);
+\
+--
+Table created
+Error: DML statements require the table to have a primary key.
+==
+
+# Test DML with THEN RETURN clause (unsupported)
+[mode=execute]
+SELECT 1 AS key, 'a' AS value
+|> FORK (
+  |> INSERT INTO KeyValue THEN RETURN *
+);
+\
+--
+ERROR: INVALID_ARGUMENT: Pipe INSERT does not support THEN RETURN [at 3:27]
+  |> INSERT INTO KeyValue THEN RETURN *
+                          ^
+
+==
+
+# Test multi-statement with simple queries in a script.
+[mode=execute,analyze]
+[sql_mode=script]
+SELECT 1 AS a, 'x' AS b
+|> FORK (
+  |> SELECT a
+), (
+  |> SELECT b
+);
+
+SELECT 1;
+--
+MultiStmt
++-statement_list=
+  +-CreateWithEntryStmt
+  | +-with_entry=
+  |   +-WithEntry
+  |     +-with_query_name="$fork_cte_1"
+  |     +-with_subquery=
+  |       +-ProjectScan
+  |         +-column_list=$query.[a#1, b#2]
+  |         +-expr_list=
+  |         | +-a#1 := Literal(type=INT64, value=1)
+  |         | +-b#2 := Literal(type=STRING, value="x")
+  |         +-input_scan=
+  |           +-SingleRowScan
+  +-QueryStmt
+  | +-output_column_list=
+  | | +-$query.a#1 AS a [INT64]
+  | +-query=
+  |   +-ProjectScan
+  |     +-column_list=[$query.a#1]
+  |     +-input_scan=
+  |       +-WithRefScan(column_list=$query.[a#1, b#2], with_query_name="$fork_cte_1")
+  +-QueryStmt
+    +-output_column_list=
+    | +-$query.b#2 AS b [STRING]
+    +-query=
+      +-ProjectScan
+        +-column_list=[$query.b#2]
+        +-input_scan=
+          +-WithRefScan(column_list=$query.[a#1, b#2], with_query_name="$fork_cte_1")
+
++---+
+| a |
++---+
+| 1 |
++---+
+
++---+
+| b |
++---+
+| x |
++---+
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+
++--------+
+| $col_1 |
++--------+
+| 1      |
++--------+
+\
+==
+
+# Test multi-statement where one branch produces no rows in a script.
+[mode=execute]
+[sql_mode=script]
+SELECT "foo";
+
+SELECT 1 AS x
+|> FORK (
+  |> SELECT x
+  |> WHERE x > 1
+), (
+  |> SELECT x AS y
+);
+--
+
++--------+
+| $col_1 |
++--------+
+| foo    |
++--------+
+
++---+
+| x |
++---+
++---+
+
++---+
+| y |
++---+
+| 1 |
++---+
+\
+==
+
+# Test multi-statement with a CTAS branch in a script.
+# Also tests that the created table is available after the multi-stmt.
+[mode=execute]
+[sql_mode=script]
+SELECT 1 AS a, 'x' AS b
+|> FORK (
+  |> CREATE TEMP TABLE NewTable1
+), (
+  |> SELECT b
+);
+
+SELECT * FROM NewTable1;
+--
+
++---------------------+---------------------+
+| created_object_type | created_object_name |
++---------------------+---------------------+
+| Temp Table          | NewTable1           |
++---------------------+---------------------+
+
++---+
+| b |
++---+
+| x |
++---+
+
++---+---+
+| a | b |
++---+---+
+| 1 | x |
++---+---+
+\
+==
+
+# Test multi-statement with an INSERT statement in a script.
+[mode=execute]
+[sql_mode=script]
+CREATE TEMP TABLE TestTable(key INT64, value STRING, PRIMARY KEY(key))
+AS
+SELECT 1 AS key, 'one' AS value;
+
+SELECT 11 AS key, 'eleven' AS value
+|> FORK (
+  |> INSERT INTO TestTable
+), (
+  |> SELECT key + 1
+);
+
+FROM TestTable;
+--
+
++-------------------+----------------------------------------------+
+| num_rows_modified | all_rows                                     |
++-------------------+----------------------------------------------+
+| 1                 | [{1 key, one value}, {11 key, eleven value}] |
++-------------------+----------------------------------------------+
+
++--------+
+| $col_1 |
++--------+
+| 12     |
++--------+
+
++-----+--------+
+| key | value  |
++-----+--------+
+| 1   | one    |
+| 11  | eleven |
++-----+--------+
+\
+==
+
+# Test multi-statement with a single failure in a TRY-CATCH block in a script.
+[mode=execute]
+[sql_mode=script]
+BEGIN
+  SELECT 1
+  |> FORK (
+    |> SELECT ERROR("this is an error")
+  ), (
+    |> SELECT 2
+  );
+EXCEPTION WHEN ERROR THEN
+  SELECT 'caught', @@error.message AS error_message;
+END;
+--
+
+Error: this is an error
++--------+
+| $col_1 |
++--------+
+| 2      |
++--------+
+
++--------+------------------+
+| $col_1 | error_message    |
++--------+------------------+
+| caught | this is an error |
++--------+------------------+
+\
+==

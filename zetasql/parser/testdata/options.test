@@ -98,7 +98,7 @@ MODULE foo OPTIONS(a);
                     ^
 ==
 
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+[language_features=NONE,+ENABLE_ALTER_ARRAY_OPTIONS]
 
 # Path expressions do not work.
 MODULE foo OPTIONS(a.b=1);
@@ -108,7 +108,7 @@ MODULE foo OPTIONS(a.b=1);
                     ^
 ==
 
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+[language_features=NONE,+ENABLE_ALTER_ARRAY_OPTIONS]
 
 # Invalid options entries fails.
 MODULE foo OPTIONS(a);
@@ -120,7 +120,7 @@ MODULE foo OPTIONS(a);
 
 MODULE foo OPTIONS(true);
 --
-ERROR: Syntax error: Unexpected keyword TRUE [at 1:20]
+ERROR: Syntax error: Expected ")" but got keyword TRUE [at 1:20]
 MODULE foo OPTIONS(true);
                    ^
 ==
@@ -128,7 +128,7 @@ MODULE foo OPTIONS(true);
 # Parameters do not work either.
 MODULE foo OPTIONS(@test_param);
 --
-ERROR: Syntax error: Unexpected "@" [at 1:20]
+ERROR: Syntax error: Expected ")" but got "@" [at 1:20]
 MODULE foo OPTIONS(@test_param);
                    ^
 ==
@@ -137,7 +137,7 @@ MODULE foo OPTIONS(@test_param);
 # Reserved keyword test.
 MODULE foo OPTIONS(AND=1);
 --
-ERROR: Syntax error: Unexpected keyword AND [at 1:20]
+ERROR: Syntax error: Expected ")" but got keyword AND [at 1:20]
 MODULE foo OPTIONS(AND=1);
                    ^
 ==
@@ -146,7 +146,7 @@ MODULE foo OPTIONS(AND=1);
 # Reserved keyword that can be used in generalized identifier test.
 MODULE foo OPTIONS(ALL=1);
 --
-ERROR: Syntax error: Unexpected keyword ALL [at 1:20]
+ERROR: Syntax error: Expected ")" but got keyword ALL [at 1:20]
 MODULE foo OPTIONS(ALL=1);
                    ^
 ==
@@ -384,7 +384,7 @@ AlterTableStatement [0-53] [ALTER TABLE...OPTIONS (a -= 1)]
 ALTER TABLE foo ALTER COLUMN bar SET OPTIONS(a -= 1)
 ==
 
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+[language_features=NONE,+ENABLE_ALTER_ARRAY_OPTIONS]
 
 ALTER TABLE foo ALTER COLUMN bar SET OPTIONS (a {{+=|-=}} 1);
 --

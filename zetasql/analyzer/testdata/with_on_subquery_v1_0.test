@@ -5,6 +5,7 @@
 # the WITH_ON_SUBQUERY feature, so it shows the error messages for v1.0.
 
 # WITH in a table subquery
+[default language_features=NONE]
 SELECT * FROM
   (WITH q AS (select 1 x) SELECT x+1 AS y FROM q)
 --

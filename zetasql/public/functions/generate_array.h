@@ -27,6 +27,8 @@
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/numeric_value.h"
+#include "zetasql/public/pico_time.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/time/time.h"
 #include "zetasql/base/source_location.h"
@@ -120,6 +122,19 @@ struct ArrayGenTrait<absl::Time, TimestampIncrement> {
   }
 };
 
+template <>
+struct ArrayGenTrait<PicoTime, TimestampIncrement> {
+  using elem_t = PicoTime;
+  using step_t = TimestampIncrement;
+
+  static absl::Status GenerateNextValue(PicoTime start, PicoTime cur,
+                                        TimestampIncrement step,
+                                        size_t num_elements, PicoTime* out) {
+    ZETASQL_ASSIGN_OR_RETURN(*out, AddTimestamp(cur, step.unit, step.value));
+    return absl::OkStatus();
+  }
+};
+
 template <typename ElementType>
 absl::Status CheckStartEndStep(ElementType start, ElementType end,
                                ElementType step_value) {
@@ -174,19 +189,26 @@ absl::Status GenerateArrayHelper(typename T::elem_t start,
                                  typename T::elem_t end,
                                  typename T::step_t step,
                                  std::vector<typename T::elem_t>* values) {
-  // To avoid memory exhaustion, we place a hard (arbitrary) limit on the size
-  // of generated arrays.
-  static constexpr int kMaxGeneratedArraySize = 16000;
+  if constexpr (std::is_same_v<typename T::elem_t, PicoTime>) {
+    if (step.value == 0) {
+      return ::zetasql_base::OutOfRangeErrorBuilder() << "Sequence step cannot be 0.";
+    }
 
-  const typename T::elem_t step_value = T::ExtractStep(step);
-  const typename T::elem_t zero_value = typename T::elem_t();
+    // Empty range cases.
+    if ((start < end && step.value < 0) || (start > end && step.value > 0)) {
+      return absl::OkStatus();
+    }
+  } else {
+    const typename T::elem_t step_value = T::ExtractStep(step);
+    const typename T::elem_t zero_value = typename T::elem_t();
 
-  ZETASQL_RETURN_IF_ERROR(CheckStartEndStep(start, end, step_value));
+    ZETASQL_RETURN_IF_ERROR(CheckStartEndStep(start, end, step_value));
 
-  // Empty range cases.
-  if ((start < end && step_value < zero_value) ||
-      (start > end && step_value > zero_value)) {
-    return absl::OkStatus();
+    // Empty range cases.
+    if ((start < end && step_value < zero_value) ||
+        (start > end && step_value > zero_value)) {
+      return absl::OkStatus();
+    }
   }
 
   // Single element case. Handles start == end == +/-inf.
@@ -194,6 +216,10 @@ absl::Status GenerateArrayHelper(typename T::elem_t start,
     values->emplace_back(start);
     return absl::OkStatus();
   }
+
+  // To avoid memory exhaustion, we place a hard (arbitrary) limit on the size
+  // of generated arrays.
+  static constexpr int kMaxGeneratedArraySize = 16000;
 
   // When start <= end, generate the range [start, end].
   // When start > end, generate the range [end, start].
@@ -213,6 +239,7 @@ absl::Status GenerateArrayHelper(typename T::elem_t start,
       break;
     }
   }
+
   return absl::OkStatus();
 }
 

@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 # Contains helper classes for privacy rewriters.
 package(
     default_visibility = ["//zetasql/base:zetasql_implementation"],

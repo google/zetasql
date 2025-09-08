@@ -584,7 +584,7 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
     if (state.struct_annotation_map() != nullptr) {
       std::unique_ptr<AnnotationMap> map = AnnotationMap::Create(array_type);
       ZETASQL_RETURN_IF_ERROR(
-          map->AsArrayMap()->CloneIntoElement(state.struct_annotation_map()));
+          map->AsStructMap()->CloneIntoField(0, state.struct_annotation_map()));
       ZETASQL_ASSIGN_OR_RETURN(annotation_map,
                        type_factory_.TakeOwnership(std::move(map)));
     }
@@ -940,7 +940,7 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
           "Input arrays to UNNEST cannot have annotations on the arrays "
           "themselves");
     }
-    return array_annotation_map->AsArrayMap()->element();
+    return array_annotation_map->AsStructMap()->field(0);
   }
 
   // Build a ResolvedArrayScan out of the `array_expr` as the `index`-th

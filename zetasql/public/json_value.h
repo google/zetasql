@@ -23,14 +23,13 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
+#include "absl/types/compare.h"
 
 namespace zetasql {
 
@@ -90,7 +89,7 @@ class JSONValue final {
   explicit JSONValue(uint64_t value);
   explicit JSONValue(double value);
   explicit JSONValue(bool value);
-  explicit JSONValue(std::string_view value);
+  explicit JSONValue(absl::string_view value);
 
   JSONValue(JSONValue&& value);
   ~JSONValue();
@@ -249,16 +248,66 @@ class JSONValueConstRef {
   // Space complexity: O(min(depth(JSON), max_nesting)).
   bool NestingLevelExceedsMax(int64_t max_nesting) const;
 
+  // Returns hash code for the value.
+  size_t HashCode() const;
+
   // Returns true if the JSON value referenced by 'this' equals the one
   // referenced by 'that'. This is only used in testing and is *not* the SQL
   // equality.
   bool NormalizedEquals(JSONValueConstRef that) const;
+
+  // Overload the comparison operators for `JSONValueConstRef`.
+  //
+  // JSON values with different types are ordered as follows,
+  // Null < String < Number < Boolean < Array < Object.
+  //
+  // JSON values of the same type are ordered as follows,
+  //
+  // Null:
+  //   There is only one null value, and they are equal.
+  // String:
+  //   Compare the string values lexicographically.
+  // Number:
+  //   Compare the number values mathematically.
+  // Boolean:
+  //   False is less than True.
+  // Arrays:
+  //   JSON arrays are compared element by element from the beginning.
+  //   The first pair of elements that are not semantically equal determines
+  //   the order based on the comparison of those two elements (using these
+  //   JSON comparison rules recursively). If one array's elements form a
+  //   prefix of the other's, the longer array is considered greater. Empty
+  //   JSON array is considered less than non-empty JSON array.
+  // Objects:
+  //   Compare the members of the two JSON objects, sorted by string type keys
+  //   lexicographically.
+  //   When the keys are different, the object with the smaller key is
+  //   considered less. If the keys are the same, the smaller JSON value with
+  //   the key is considered less. If the key and value are the same, the
+  //   smaller JSON with the fewer members is considered less.
+  friend bool operator==(JSONValueConstRef lhs, JSONValueConstRef rhs);
+  friend bool operator!=(JSONValueConstRef lhs, JSONValueConstRef rhs);
+  friend bool operator<(JSONValueConstRef lhs, JSONValueConstRef rhs);
+  friend bool operator>(JSONValueConstRef lhs, JSONValueConstRef rhs);
+  friend bool operator<=(JSONValueConstRef lhs, JSONValueConstRef rhs);
+  friend bool operator>=(JSONValueConstRef lhs, JSONValueConstRef rhs);
+
+  // Overload of the hash function for `JSONValueConstRef`.
+  template <typename H>
+  friend H AbslHashValue(H h, const JSONValueConstRef& v) {
+    return H::combine(std::move(h), v.HashCode());
+  }
 
  protected:
   explicit JSONValueConstRef(const JSONValue::Impl* value_pointer);
 
  private:
   const JSONValue::Impl* impl_;
+
+  // Returns the three-way comparison result of the JSON values referenced.
+  // In c++20, this function can be replaced by the `<=>` operator.
+  friend absl::partial_ordering spaceship_operator(JSONValueConstRef lhs,
+                                                   JSONValueConstRef rhs);
 
   friend class JSONValue;
 };

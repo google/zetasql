@@ -1,6 +1,7 @@
 # These are tests for the EXTERNAL product mode.
 # (broken link) for details.
 
+[default language_features=NONE]
 [default product_mode=external]
 select cast(1 as bool);
 --

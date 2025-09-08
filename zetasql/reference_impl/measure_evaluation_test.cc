@@ -130,6 +130,12 @@ TEST_F(MeasureColumnToExprMappingTest, TrackMeasureColumns) {
 
   // Create a WithRefScan emitting the renamed measure column, and track the
   // renamed measure column.
+  auto with_entry = ResolvedWithEntryBuilder()
+                        .set_with_query_name("placeholder_with_query_name")
+                        .set_with_subquery(std::move(table_scan.value()))
+                        .Build();
+  ZETASQL_CHECK_OK(with_entry);
+  measure_column_to_expr_mapping.TrackWithQueryScan(*with_entry.value());
   auto with_ref_scan = ResolvedWithRefScanBuilder()
                            .set_column_list({renamed_measure_column})
                            .set_with_query_name("placeholder_with_query_name")
@@ -137,7 +143,7 @@ TEST_F(MeasureColumnToExprMappingTest, TrackMeasureColumns) {
   ZETASQL_CHECK_OK(with_ref_scan);
   ZETASQL_EXPECT_OK(
       measure_column_to_expr_mapping.TrackMeasureColumnsRenamedByWithRefScan(
-          *with_ref_scan.value(), *table_scan.value()));
+          *with_ref_scan.value()));
 
   // Ensure that the measure expression can be looked up for the renamed column.
   EXPECT_THAT(

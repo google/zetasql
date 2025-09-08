@@ -30,6 +30,8 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -84,25 +86,37 @@ namespace {
 //   RETURN_IF_NOT_EQUAL(expr1->field1(), expr1->field1());
 //  ...
 //
-#define RETURN_IF_EXPR_NOT_EQUAL(expr1, expr2)                    \
-  ZETASQL_ASSIGN_OR_RETURN(TestIsSameExpressionForGroupByResult result,   \
-                   TestIsSameExpressionForGroupBy(expr1, expr2)); \
-  if (result != TestIsSameExpressionForGroupByResult::kEqual) {   \
-    return result;                                                \
+#define RETURN_IF_EXPR_NOT_EQUAL(expr1, expr2, language_options)       \
+  ZETASQL_ASSIGN_OR_RETURN(                                                    \
+      TestIsSameExpressionForGroupByResult result,                     \
+      TestIsSameExpressionForGroupBy(expr1, expr2, language_options)); \
+  if (result != TestIsSameExpressionForGroupByResult::kEqual) {        \
+    return result;                                                     \
   }
 
 }  // namespace
 
+absl::StatusOr<bool> IsSameExpressionForGroupBy(
+    const ResolvedExpr* expr1, const ResolvedExpr* expr2,
+    const LanguageOptions& language_options) {
+  ZETASQL_ASSIGN_OR_RETURN(
+      TestIsSameExpressionForGroupByResult result,
+      TestIsSameExpressionForGroupBy(expr1, expr2, language_options));
+  return result == TestIsSameExpressionForGroupByResult::kEqual;
+}
+
+// TODO: b/406852830 - Deprecated. Remove this function once spanner dev branch
+// is migrated to pass LanguageOptions into the IsSameExpressionForGroupBy
+// function.
 absl::StatusOr<bool> IsSameExpressionForGroupBy(const ResolvedExpr* expr1,
                                                 const ResolvedExpr* expr2) {
-  ZETASQL_ASSIGN_OR_RETURN(TestIsSameExpressionForGroupByResult result,
-                   TestIsSameExpressionForGroupBy(expr1, expr2));
-  return result == TestIsSameExpressionForGroupByResult::kEqual;
+  return IsSameExpressionForGroupBy(expr1, expr2, LanguageOptions());
 }
 
 absl::StatusOr<TestIsSameExpressionForGroupByResult>
 TestIsSameExpressionForGroupBy(const ResolvedExpr* expr1,
-                               const ResolvedExpr* expr2) {
+                               const ResolvedExpr* expr2,
+                               const LanguageOptions& language_options) {
   RETURN_IF_PRIMITIVE_NOT_EQUAL(expr1->node_kind(), expr2->node_kind());
   // The type() method returns an abstract type pointer, no way to dereference
   // it and calls RETURN_IF_OBJECT_NOT_EQUAL.
@@ -154,7 +168,7 @@ TestIsSameExpressionForGroupBy(const ResolvedExpr* expr1,
           expr1->GetAs<ResolvedGetStructField>();
       const ResolvedGetStructField* str2 =
           expr2->GetAs<ResolvedGetStructField>();
-      RETURN_IF_EXPR_NOT_EQUAL(str1->expr(), str2->expr());
+      RETURN_IF_EXPR_NOT_EQUAL(str1->expr(), str2->expr(), language_options);
       RETURN_IF_PRIMITIVE_NOT_EQUAL(str1->field_idx(), str2->field_idx());
       break;
     }
@@ -163,7 +177,8 @@ TestIsSameExpressionForGroupBy(const ResolvedExpr* expr1,
           expr1->GetAs<ResolvedGetProtoField>();
       const ResolvedGetProtoField* proto_field2 =
           expr2->GetAs<ResolvedGetProtoField>();
-      RETURN_IF_EXPR_NOT_EQUAL(proto_field1->expr(), proto_field2->expr());
+      RETURN_IF_EXPR_NOT_EQUAL(proto_field1->expr(), proto_field2->expr(),
+                               language_options);
       RETURN_IF_PRIMITIVE_NOT_EQUAL(proto_field1->expr()->type()->kind(),
                                     proto_field2->expr()->type()->kind());
       RETURN_IF_PRIMITIVE_NOT_EQUAL(proto_field1->field_descriptor()->number(),
@@ -182,14 +197,15 @@ TestIsSameExpressionForGroupBy(const ResolvedExpr* expr1,
     case RESOLVED_CAST: {
       const ResolvedCast* cast1 = expr1->GetAs<ResolvedCast>();
       const ResolvedCast* cast2 = expr2->GetAs<ResolvedCast>();
-      RETURN_IF_EXPR_NOT_EQUAL(cast1->expr(), cast2->expr());
+      RETURN_IF_EXPR_NOT_EQUAL(cast1->expr(), cast2->expr(), language_options);
       RETURN_IF_PRIMITIVE_NOT_EQUAL(cast1->return_null_on_error(),
                                     cast2->return_null_on_error());
       if ((cast1->format() == nullptr) != (cast2->format() == nullptr)) {
         return TestIsSameExpressionForGroupByResult::kNotEqual;
       }
       if (cast1->format() != nullptr) {
-        RETURN_IF_EXPR_NOT_EQUAL(cast1->format(), cast2->format());
+        RETURN_IF_EXPR_NOT_EQUAL(cast1->format(), cast2->format(),
+                                 language_options);
       }
       break;
     }
@@ -214,7 +230,8 @@ TestIsSameExpressionForGroupBy(const ResolvedExpr* expr1,
           func2->argument_list();
       RETURN_IF_PRIMITIVE_NOT_EQUAL(arg1_list.size(), arg2_list.size());
       for (int idx = 0; idx < arg1_list.size(); ++idx) {
-        RETURN_IF_EXPR_NOT_EQUAL(arg1_list[idx].get(), arg2_list[idx].get());
+        RETURN_IF_EXPR_NOT_EQUAL(arg1_list[idx].get(), arg2_list[idx].get(),
+                                 language_options);
       }
       RETURN_IF_PRIMITIVE_NOT_EQUAL(func1->collation_list().size(),
                                     func2->collation_list().size());
@@ -237,22 +254,24 @@ TestIsSameExpressionForGroupBy(const ResolvedExpr* expr1,
         const ResolvedFunctionArgument* arg2 =
             func2->generic_argument_list(idx);
         if (arg1->expr() != nullptr && arg2->expr() != nullptr) {
-          RETURN_IF_EXPR_NOT_EQUAL(arg1->expr(), arg2->expr());
+          RETURN_IF_EXPR_NOT_EQUAL(arg1->expr(), arg2->expr(),
+                                   language_options);
         } else if (arg1->inline_lambda() != nullptr &&
                    arg2->inline_lambda() != nullptr) {
           // Technically, `e1 -> f(e1)` is the same as `e2 -> f(e2)`, if f()
           // is not volatile, but we don't support that yet.
           RETURN_IF_EXPR_NOT_EQUAL(arg1->inline_lambda()->body(),
-                                   arg2->inline_lambda()->body());
+                                   arg2->inline_lambda()->body(),
+                                   language_options);
 
           RETURN_IF_PRIMITIVE_NOT_EQUAL(
               arg1->inline_lambda()->parameter_list_size(),
               arg2->inline_lambda()->parameter_list_size());
           for (int idx = 0; idx < arg1->inline_lambda()->parameter_list_size();
                ++idx) {
-            RETURN_IF_EXPR_NOT_EQUAL(
-                arg1->inline_lambda()->parameter_list(idx),
-                arg2->inline_lambda()->parameter_list(idx));
+            RETURN_IF_EXPR_NOT_EQUAL(arg1->inline_lambda()->parameter_list(idx),
+                                     arg2->inline_lambda()->parameter_list(idx),
+                                     language_options);
           }
         } else {
           // TODO: Support Scans, Models, Subqueries, Descriptors, etc.
@@ -264,9 +283,27 @@ TestIsSameExpressionForGroupBy(const ResolvedExpr* expr1,
     case RESOLVED_GET_JSON_FIELD: {
       const auto* json_field1 = expr1->GetAs<ResolvedGetJsonField>();
       const auto* json_field2 = expr2->GetAs<ResolvedGetJsonField>();
-      RETURN_IF_EXPR_NOT_EQUAL(json_field1->expr(), json_field2->expr());
+      RETURN_IF_EXPR_NOT_EQUAL(json_field1->expr(), json_field2->expr(),
+                               language_options);
       RETURN_IF_PRIMITIVE_NOT_EQUAL(json_field1->field_name(),
                                     json_field2->field_name());
+      break;
+    }
+    case RESOLVED_MAKE_STRUCT: {
+      if (!language_options.LanguageFeatureEnabled(
+              FEATURE_MATCH_MAKE_STRUCT_IN_GROUP_BY)) {
+        // If the language feature for MAKE_STRUCT support is not enabled, match
+        // the behavior of the default case.
+        return TestIsSameExpressionForGroupByResult::kUnknown;
+      }
+      const auto* make_struct1 = expr1->GetAs<ResolvedMakeStruct>();
+      const auto* make_struct2 = expr2->GetAs<ResolvedMakeStruct>();
+      RETURN_IF_PRIMITIVE_NOT_EQUAL(make_struct1->field_list().size(),
+                                    make_struct2->field_list().size());
+      for (int i = 0; i < make_struct1->field_list().size(); ++i) {
+        RETURN_IF_EXPR_NOT_EQUAL(make_struct1->field_list(i),
+                                 make_struct2->field_list(i), language_options);
+      }
       break;
     }
     default:
@@ -278,6 +315,15 @@ TestIsSameExpressionForGroupBy(const ResolvedExpr* expr1,
   ZETASQL_RETURN_IF_ERROR(expr1->CheckFieldsAccessed());
   ZETASQL_RETURN_IF_ERROR(expr2->CheckFieldsAccessed());
   return TestIsSameExpressionForGroupByResult::kEqual;
+}
+
+// TODO: b/406852830 - Deprecated. Remove this function once spanner dev branch
+// is migrated to pass LanguageOptions into the TestIsSameExpressionForGroupBy
+// function.
+absl::StatusOr<TestIsSameExpressionForGroupByResult>
+TestIsSameExpressionForGroupBy(const ResolvedExpr* expr1,
+                               const ResolvedExpr* expr2) {
+  return TestIsSameExpressionForGroupBy(expr1, expr2, LanguageOptions());
 }
 
 // If `resolved_expr` is a series of one or more field accesses, unwind the
@@ -678,6 +724,18 @@ bool IsSameFieldPath(const ResolvedExpr* field_path1,
       return argument_ref1->name() == argument_ref2->name() &&
              argument_ref1->argument_kind() == argument_ref2->argument_kind() &&
              argument_ref1->type()->Equals(argument_ref2->type());
+    }
+    case RESOLVED_GET_JSON_FIELD: {
+      const ResolvedGetJsonField* get_json_field1 =
+          field_path1->GetAs<ResolvedGetJsonField>();
+      const ResolvedGetJsonField* get_json_field2 =
+          field_path2->GetAs<ResolvedGetJsonField>();
+      const bool field_paths_match =
+          get_json_field1->field_name() == get_json_field2->field_name() &&
+          get_json_field1->type()->Equals(get_json_field2->type()) &&
+          IsSameFieldPath(get_json_field1->expr(), get_json_field2->expr(),
+                          match_option);
+      return field_paths_match;
     }
     default:
       return false;

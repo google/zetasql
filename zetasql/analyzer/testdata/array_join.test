@@ -1,3 +1,4 @@
+[default language_features=MAXIMUM]
 select KitchenSink.repeated_int32_val from TestTable;
 --
 QueryStmt
@@ -194,7 +195,7 @@ QueryStmt
         +-element_column_list=[$array.ri#4]
 ==
 
-[language_features={{|SINGLE_TABLE_NAME_ARRAY_PATH}}]
+[language_features=NONE,{{|+SINGLE_TABLE_NAME_ARRAY_PATH}}]
 select ri
 from TestTable.KitchenSink.nested_value.nested_repeated_int64 ri;
 --
@@ -204,7 +205,7 @@ ERROR: Table not found: TestTable.KitchenSink.nested_value.nested_repeated_int64
 from TestTable.KitchenSink.nested_value.nested_repeated_int64 ri;
      ^
 --
-ALTERNATION GROUP: SINGLE_TABLE_NAME_ARRAY_PATH
+ALTERNATION GROUP: +SINGLE_TABLE_NAME_ARRAY_PATH
 --
 QueryStmt
 +-output_column_list=

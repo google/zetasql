@@ -1,4 +1,5 @@
-[language_features=PIPES]
+[default language_features=MAXIMUM]
+[language_features=NONE,+PIPES]
 select 1 x
 |> call tvf()
 --
@@ -7,7 +8,7 @@ ERROR: Table-valued functions are not supported [at 2:9]
         ^
 ==
 
-[default language_features=PIPES,TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS,FUNCTION_ARGUMENTS_WITH_DEFAULTS]
+[default language_features=MAXIMUM,+PIPES,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS,+CREATE_TABLE_FUNCTION,+TEMPLATE_FUNCTIONS,+FUNCTION_ARGUMENTS_WITH_DEFAULTS,+PIPE_CALL_INPUT_TABLE]
 select 1 x
 |> call tvf()
 --
@@ -41,10 +42,20 @@ ERROR: Table-valued function cannot be called with pipe CALL syntax because its 
 ==
 
 # Not allowed because the first table arg is a named-only arg.
+# The error suggests using INPUT TABLE if the feature is enabled.
+[language_features=NONE,+PIPES,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS{{|,+PIPE_CALL_INPUT_TABLE}}]
 select 1 x
 |> call tvf_two_named_only_tables()
 --
+ALTERNATION GROUP: <empty>
+--
 ERROR: Table-valued function cannot be called with pipe CALL syntax because its first table-typed argument is a named-only argument; Supported signature: TVF_TWO_NAMED_ONLY_TABLES([table1 => TABLE], [table2 => TABLE]) [at 2:9]
+|> call tvf_two_named_only_tables()
+        ^
+--
+ALTERNATION GROUP: ,+PIPE_CALL_INPUT_TABLE
+--
+ERROR: Table-valued function cannot be called with pipe CALL syntax because its first table-typed argument is a named-only argument; Supported signature: TVF_TWO_NAMED_ONLY_TABLES([table1 => TABLE], [table2 => TABLE]); Consider using INPUT TABLE for the table argument [at 2:9]
 |> call tvf_two_named_only_tables()
         ^
 ==
@@ -75,8 +86,9 @@ ERROR: No matching signature for tvf_one_relation_arg_with_fixed_output
 ==
 
 # Simple TVF call, with a hint.
+[show_sqlbuilder_output]
 select true, 5
-|> call tvf_one_relation_arg_with_fixed_output() @{hint=1}
+|> call tvf_one_relation_arg_with_fixed_output({{|INPUT TABLE}}) @{hint=1}
 --
 QueryStmt
 +-output_column_list=
@@ -102,6 +114,38 @@ QueryStmt
     |   +-argument_column_list=$query.[$col1#1, $col2#2]
     +-column_index_list=[0, 1]
     +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  tvfscan_4.column_bool AS column_bool,
+  tvfscan_4.column_bytes AS column_bytes
+FROM
+  TVF_ONE_RELATION_ARG_WITH_FIXED_OUTPUT((
+    SELECT
+      a_1 AS a_1,
+      a_2 AS a_2
+    FROM
+      (
+        SELECT
+          true AS a_1,
+          5 AS a_2
+      ) AS projectscan_3
+  )) @{ hint = 1 } AS tvfscan_4;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+SELECT
+  true AS a_1,
+  5 AS a_2
+|> AS projectscan_3
+|> SELECT
+     a_1 AS a_1,
+     a_2 AS a_2
+|> CALL TVF_ONE_RELATION_ARG_WITH_FIXED_OUTPUT() @{ hint = 1 } AS tvfscan_4
+|> SELECT
+     tvfscan_4.column_bool AS column_bool,
+     tvfscan_4.column_bytes AS column_bytes;
 ==
 
 select true
@@ -128,7 +172,7 @@ ERROR: No matching signature for tvf_one_relation_arg_with_fixed_output
 
 # Passing a table schema through.
 select 1 x, true
-|> call tvf_one_relation_arg_output_schema_is_input_schema()
+|> call tvf_one_relation_arg_output_schema_is_input_schema({{|INPUT TABLE}})
 --
 QueryStmt
 +-output_column_list=
@@ -341,10 +385,20 @@ QueryStmt
     +-function_call_signature=(ANY MODEL, optional(1) ANY TABLE, optional <struct>) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
+# The error suggests using INPUT TABLE if the feature is enabled.
+[language_features=NONE,+PIPES,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS{{|,+PIPE_CALL_INPUT_TABLE}}]
 from KeyValue
 |> call tvf_model_optional_string_optional_table(model onedoublemodel)
 --
+ALTERNATION GROUP: <empty>
+--
 ERROR: Table-valued function cannot be called with pipe CALL syntax because it has an optional argument before its first table-typed argument; Supported signature: TVF_MODEL_OPTIONAL_STRING_OPTIONAL_TABLE(MODEL, [STRING], [TABLE]) [at 2:9]
+|> call tvf_model_optional_string_optional_table(model onedoublemodel)
+        ^
+--
+ALTERNATION GROUP: ,+PIPE_CALL_INPUT_TABLE
+--
+ERROR: Table-valued function cannot be called with pipe CALL syntax because it has an optional argument before its first table-typed argument; Supported signature: TVF_MODEL_OPTIONAL_STRING_OPTIONAL_TABLE(MODEL, [STRING], [TABLE]); Consider using INPUT TABLE for the table argument [at 2:9]
 |> call tvf_model_optional_string_optional_table(model onedoublemodel)
         ^
 ==
@@ -380,6 +434,9 @@ QueryStmt
 
 # The arguemnt after the optional table is an optional arg
 # passed named or positionally.
+# The SQLBuilder currently doesn't know how to use pipe CALL for this
+# because the table argument isn't first.
+[show_sqlbuilder_output]
 from KeyValue
 |> call tvf_model_optional_table_named_string_default(
       model onedoublemodel, {{"abc"|foobar=>"abc"}})
@@ -406,6 +463,44 @@ QueryStmt
     |     +-Literal(type=STRING, value="abc")
     +-column_index_list=[0, 1]
     +-function_call_signature=(ANY MODEL, optional(1) ANY TABLE, optional(1) STRING foobar) -> TABLE<column_bool BOOL, column_bytes BYTES>
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  tvfscan_4.column_bool AS column_bool,
+  tvfscan_4.column_bytes AS column_bytes
+FROM
+  TVF_MODEL_OPTIONAL_TABLE_NAMED_STRING_DEFAULT(MODEL OneDoubleModel, (
+    SELECT
+      a_1 AS Key,
+      a_2 AS Value
+    FROM
+      (
+        SELECT
+          KeyValue.Key AS a_1,
+          KeyValue.Value AS a_2
+        FROM
+          KeyValue
+      ) AS keyvalue_3
+  ), "abc") AS tvfscan_4;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TVF_MODEL_OPTIONAL_TABLE_NAMED_STRING_DEFAULT(MODEL OneDoubleModel, (
+    FROM
+      KeyValue
+    |> SELECT
+         KeyValue.Key AS a_1,
+         KeyValue.Value AS a_2
+    |> AS keyvalue_3
+    |> SELECT
+         a_1 AS Key,
+         a_2 AS Value
+  ), "abc") AS tvfscan_4
+|> SELECT
+     tvfscan_4.column_bool AS column_bool,
+     tvfscan_4.column_bytes AS column_bytes;
 ==
 
 # This TVF expects TABLE<int64 `int64`, string `string`> with named columns.
@@ -1282,10 +1377,20 @@ ERROR: No matching signature for tvf_templated_select_scalar_and_relation_args
         ^
 ==
 
+# The error suggests using INPUT TABLE if the feature is enabled.
+[language_features=NONE,+PIPES,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS{{|,+PIPE_CALL_INPUT_TABLE}}]
 select 42
 |> call tvf_templated_select_scalar_and_relation_args()
 --
+ALTERNATION GROUP: <empty>
+--
 ERROR: Table-valued function call in pipe CALL requires at least 1 positional argument because its first table argument is in position 2, but the call has no arguments; Supported signature: TVF_TEMPLATED_SELECT_SCALAR_AND_RELATION_ARGS(INT64, TABLE<key INT64>) [at 2:9]
+|> call tvf_templated_select_scalar_and_relation_args()
+        ^
+--
+ALTERNATION GROUP: ,+PIPE_CALL_INPUT_TABLE
+--
+ERROR: Table-valued function call in pipe CALL requires at least 1 positional argument because its first table argument is in position 2, but the call has no arguments; Supported signature: TVF_TEMPLATED_SELECT_SCALAR_AND_RELATION_ARGS(INT64, TABLE<key INT64>); Consider using INPUT TABLE for the table argument [at 2:9]
 |> call tvf_templated_select_scalar_and_relation_args()
         ^
 ==
@@ -1475,6 +1580,7 @@ QueryStmt
 
 # This TVF takes a required table, optional scalar, and optionally named table.
 # It works to pass the optional table after the optional scalar positionally.
+[show_sqlbuilder_output]
 from KeyValue
 |> call tvf_table_optional_scalar_named_table(
      10, (select 20))
@@ -1507,6 +1613,56 @@ QueryStmt
     |   +-argument_column_list=[$subquery1.$col1#3]
     +-column_index_list=[0, 1]
     +-function_call_signature=(ANY TABLE, optional(1) INT64, optional(1) ANY TABLE foobar) -> TABLE<column_bool BOOL, column_bytes BYTES>
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  tvfscan_6.column_bool AS column_bool,
+  tvfscan_6.column_bytes AS column_bytes
+FROM
+  TVF_TABLE_OPTIONAL_SCALAR_NAMED_TABLE((
+    SELECT
+      a_1 AS Key,
+      a_2 AS Value
+    FROM
+      (
+        SELECT
+          KeyValue.Key AS a_1,
+          KeyValue.Value AS a_2
+        FROM
+          KeyValue
+      ) AS keyvalue_3
+  ), 10, (
+    SELECT
+      a_4 AS a_4
+    FROM
+      (
+        SELECT
+          20 AS a_4
+      ) AS projectscan_5
+  )) AS tvfscan_6;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  KeyValue
+|> SELECT
+     KeyValue.Key AS a_1,
+     KeyValue.Value AS a_2
+|> AS keyvalue_3
+|> SELECT
+     a_1 AS Key,
+     a_2 AS Value
+|> CALL TVF_TABLE_OPTIONAL_SCALAR_NAMED_TABLE(10, (
+     SELECT
+       20 AS a_4
+     |> AS projectscan_5
+     |> SELECT
+          a_4 AS a_4
+   )) AS tvfscan_6
+|> SELECT
+     tvfscan_6.column_bool AS column_bool,
+     tvfscan_6.column_bytes AS column_bytes;
 ==
 
 # It works to pass the optional table named after the optional scalar.
@@ -1900,7 +2056,7 @@ QueryStmt
         +-Literal(type=INT64, value=5)
 ==
 
-[language_features=PIPES,TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+PIPES,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS,+INLINE_LAMBDA_ARGUMENT]
 FROM KeyValue
 |> call tvf_relation_arg_scalar_arg_named_lambda(1, named_lambda => e -> e)
 --
@@ -2122,7 +2278,7 @@ ERROR: No matching signature for tvf_one_int64_arg_one_relation_arg
 FROM KeyValue
 |> CALL tvf_one_int64_arg_one_relation_arg()
 --
-ERROR: Table-valued function call in pipe CALL requires at least 1 positional argument because its first table argument is in position 2, but the call has no arguments; Supported signature: TVF_ONE_INT64_ARG_ONE_RELATION_ARG(INT64, TABLE) [at 2:9]
+ERROR: Table-valued function call in pipe CALL requires at least 1 positional argument because its first table argument is in position 2, but the call has no arguments; Supported signature: TVF_ONE_INT64_ARG_ONE_RELATION_ARG(INT64, TABLE); Consider using INPUT TABLE for the table argument [at 2:9]
 |> CALL tvf_one_int64_arg_one_relation_arg()
         ^
 ==
@@ -2235,13 +2391,13 @@ FROM KeyValue
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Table-valued function call in pipe CALL requires at least 2 positional argument sbecause its first table argument is in position 3, but the call has no arguments; Supported signature: TVF_TWO_SCALARS_TWO_TABLES(x => INT64, y => INT64, t1 => TABLE, t2 => TABLE) [at 2:9]
+ERROR: Table-valued function call in pipe CALL requires at least 2 positional arguments because its first table argument is in position 3, but the call has no arguments; Supported signature: TVF_TWO_SCALARS_TWO_TABLES(x => INT64, y => INT64, t1 => TABLE, t2 => TABLE); Consider using INPUT TABLE for the table argument [at 2:9]
 |> CALL tvf_two_scalars_two_tables(
         ^
 --
 ALTERNATION GROUP: 1
 --
-ERROR: Table-valued function call in pipe CALL requires at least 2 positional argument sbecause its first table argument is in position 3, but the call has only 1 argument; Supported signature: TVF_TWO_SCALARS_TWO_TABLES(x => INT64, y => INT64, t1 => TABLE, t2 => TABLE) [at 2:9]
+ERROR: Table-valued function call in pipe CALL requires at least 2 positional arguments because its first table argument is in position 3, but the call has only 1 argument; Supported signature: TVF_TWO_SCALARS_TWO_TABLES(x => INT64, y => INT64, t1 => TABLE, t2 => TABLE); Consider using INPUT TABLE for the table argument [at 2:9]
 |> CALL tvf_two_scalars_two_tables(
         ^
 --
@@ -2371,7 +2527,7 @@ FROM KeyValue
 --
 ALTERNATION GROUP: 1,2
 --
-ERROR: Table-valued function call in pipe CALL requires at least 3 positional argument sbecause its first table argument is in position 4, but the call has only 2 arguments; Supported signature: TVF_THREE_SCALARS_ONE_TABLE(x => INT64, y => INT64, z => INT64, t1 => TABLE) [at 2:9]
+ERROR: Table-valued function call in pipe CALL requires at least 3 positional arguments because its first table argument is in position 4, but the call has only 2 arguments; Supported signature: TVF_THREE_SCALARS_ONE_TABLE(x => INT64, y => INT64, z => INT64, t1 => TABLE); Consider using INPUT TABLE for the table argument [at 2:9]
 |> CALL tvf_three_scalars_one_table(1,2)
         ^
 --
@@ -2519,4 +2675,94 @@ ALTERNATION GROUP: b_is_missing,int32
 --
 ERROR: Required column "b" not found in table passed as argument 1 of TVF_EXPECT_A_B_C(TABLE<a INT64, b STRING, c DOUBLE>) [at 3:9]
 |> CALL tvf_expect_a_b_c()
+        ^
+==
+
+# Test with optional relation and named scalar arguments.
+FROM KeyValue
+|> CALL tvf_optional_relation_named_scalar(foobar=>'a')
+--
+QueryStmt
++-output_column_list=
+| +-tvf_optional_relation_named_scalar.$col0#3 AS `$col0` [INT64]
++-is_value_table=TRUE
++-query=
+  +-TVFScan
+    +-column_list=[tvf_optional_relation_named_scalar.$col0#3]
+    +-tvf=tvf_optional_relation_named_scalar((optional ANY TABLE, optional STRING foobar) -> TABLE<INT64>)
+    +-signature=(TABLE<Key INT64, Value STRING>, literal STRING) -> TABLE<INT64>
+    +-argument_list=
+    | +-FunctionArgument
+    | | +-scan=
+    | | | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    | | +-argument_column_list=KeyValue.[Key#1, Value#2]
+    | +-FunctionArgument
+    |   +-expr=
+    |     +-Literal(type=STRING, value="a")
+    +-column_index_list=[0]
+    +-function_call_signature=(optional(1) ANY TABLE, optional(1) STRING foobar) -> TABLE<INT64>
+==
+
+# Test with optional relation and named scalar arguments.
+FROM KeyValue
+|> CALL tvf_optional_relations_named_scalar(foobar=>'a')
+--
+QueryStmt
++-output_column_list=
+| +-tvf_optional_relations_named_scalar.$col0#3 AS `$col0` [INT64]
++-is_value_table=TRUE
++-query=
+  +-TVFScan
+    +-column_list=[tvf_optional_relations_named_scalar.$col0#3]
+    +-tvf=tvf_optional_relations_named_scalar((optional ANY TABLE, optional ANY TABLE, optional STRING foobar) -> TABLE<INT64>)
+    +-signature=(TABLE<Key INT64, Value STRING>, TABLE<>, literal STRING) -> TABLE<INT64>
+    +-argument_list=
+    | +-FunctionArgument
+    | | +-scan=
+    | | | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    | | +-argument_column_list=KeyValue.[Key#1, Value#2]
+    | +-FunctionArgument
+    | | +-scan=
+    | |   +-UnsetArgumentScan
+    | +-FunctionArgument
+    |   +-expr=
+    |     +-Literal(type=STRING, value="a")
+    +-column_index_list=[0]
+    +-function_call_signature=(optional(1) ANY TABLE, optional(1) ANY TABLE, optional(1) STRING foobar) -> TABLE<INT64>
+==
+
+# Test with optional relation and named scalar arguments.
+FROM KeyValue
+|> CALL tvf_optional_relations_named_scalar(Table KeyValue, foobar=>'a')
+--
+QueryStmt
++-output_column_list=
+| +-tvf_optional_relations_named_scalar.$col0#5 AS `$col0` [INT64]
++-is_value_table=TRUE
++-query=
+  +-TVFScan
+    +-column_list=[tvf_optional_relations_named_scalar.$col0#5]
+    +-tvf=tvf_optional_relations_named_scalar((optional ANY TABLE, optional ANY TABLE, optional STRING foobar) -> TABLE<INT64>)
+    +-signature=(TABLE<Key INT64, Value STRING>, TABLE<Key INT64, Value STRING>, literal STRING) -> TABLE<INT64>
+    +-argument_list=
+    | +-FunctionArgument
+    | | +-scan=
+    | | | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    | | +-argument_column_list=KeyValue.[Key#1, Value#2]
+    | +-FunctionArgument
+    | | +-scan=
+    | | | +-TableScan(column_list=KeyValue.[Key#3, Value#4], table=KeyValue, column_index_list=[0, 1])
+    | | +-argument_column_list=KeyValue.[Key#3, Value#4]
+    | +-FunctionArgument
+    |   +-expr=
+    |     +-Literal(type=STRING, value="a")
+    +-column_index_list=[0]
+    +-function_call_signature=(optional(1) ANY TABLE, optional(1) ANY TABLE, optional(1) STRING foobar) -> TABLE<INT64>
+==
+
+FROM KeyValue
+|> CALL tvf_optional_scalars_named_table(123)
+--
+ERROR: Table-valued function cannot be called with pipe CALL syntax because it has an optional argument before its first table-typed argument; Supported signature: TVF_OPTIONAL_SCALARS_NAMED_TABLE([ANY], [ANY], [foobar => TABLE]); Consider using INPUT TABLE for the table argument [at 2:9]
+|> CALL tvf_optional_scalars_named_table(123)
         ^

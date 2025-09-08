@@ -2,7 +2,7 @@
 # with JOIN, TVFs, subqueries, etc, removed as irrelevant.
 # After we remove copybara stripping, we might combine these back into the
 # main test file, with alternations on whether to add "|>".
-[default language_features=PIPES]
+[default language_features=NONE,+PIPES]
 
 FROM t
 |> UNPIVOT (a FOR c IN (x, y))

@@ -1,5 +1,5 @@
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
+[default language_features=NONE,+SQL_GRAPH]
 
 select * from graph_table(
   my.graph.name
@@ -370,3 +370,180 @@ FROM
       ((source IS SOURCE OF e) IS DESTINATION OF destination) AS val1
     )
   )
+==
+
+# Consecutive edges are valid syntax
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH (a)-[b]->->(c)
+  COLUMNS(1 AS one)
+  )
+--
+QueryStatement [0-81] [SELECT one...AS one)   )]
+  Query [0-81] [SELECT one...AS one)   )]
+    Select [0-81] [SELECT one...AS one)   )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-81] [FROM GRAPH_TABLE...AS one)   )]
+        GraphTableQuery [16-81] [GRAPH_TABLE...AS one)   )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-57] [MATCH (a)-[b]->->(c)]
+            GraphPattern [43-57] [(a)-[b]->->(c)]
+              GraphPathPattern [43-57] [(a)-[b]->->(c)]
+                GraphNodePattern [43-46] [(a)]
+                  GraphElementPatternFiller [44-45] [a]
+                    Identifier(a) [44-45] [a]
+                GraphEdgePattern [46-52] [-[b]->]
+                  GraphElementPatternFiller [48-49] [b]
+                    Identifier(b) [48-49] [b]
+                GraphEdgePattern [52-54] [->]
+                GraphNodePattern [54-57] [(c)]
+                  GraphElementPatternFiller [55-56] [c]
+                    Identifier(c) [55-56] [c]
+          SelectList [68-76] [1 AS one]
+            SelectColumn [68-76] [1 AS one]
+              IntLiteral(1) [68-69] [1]
+              Alias [70-76] [AS one]
+                Identifier(one) [73-76] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      -[b]->
+      ->
+      (c)
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Consecutive edges are valid syntax
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH (a)-[b]->->->(c)
+  COLUMNS(1 AS one)
+  )
+--
+QueryStatement [0-83] [SELECT one...AS one)   )]
+  Query [0-83] [SELECT one...AS one)   )]
+    Select [0-83] [SELECT one...AS one)   )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-83] [FROM GRAPH_TABLE...AS one)   )]
+        GraphTableQuery [16-83] [GRAPH_TABLE...AS one)   )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-59] [MATCH (a)-[b]->->->(c)]
+            GraphPattern [43-59] [(a)-[b]->->->(c)]
+              GraphPathPattern [43-59] [(a)-[b]->->->(c)]
+                GraphNodePattern [43-46] [(a)]
+                  GraphElementPatternFiller [44-45] [a]
+                    Identifier(a) [44-45] [a]
+                GraphEdgePattern [46-52] [-[b]->]
+                  GraphElementPatternFiller [48-49] [b]
+                    Identifier(b) [48-49] [b]
+                GraphEdgePattern [52-54] [->]
+                GraphEdgePattern [54-56] [->]
+                GraphNodePattern [56-59] [(c)]
+                  GraphElementPatternFiller [57-58] [c]
+                    Identifier(c) [57-58] [c]
+          SelectList [70-78] [1 AS one]
+            SelectColumn [70-78] [1 AS one]
+              IntLiteral(1) [70-71] [1]
+              Alias [72-78] [AS one]
+                Identifier(one) [75-78] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      -[b]->
+      ->
+      ->
+      (c)
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Consecutive edges are valid syntax
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH (a)-[]-> -> -[]->(c)
+  COLUMNS(1 AS one)
+  )
+--
+QueryStatement [0-87] [SELECT one...AS one)   )]
+  Query [0-87] [SELECT one...AS one)   )]
+    Select [0-87] [SELECT one...AS one)   )]
+      SelectList [7-10] [one]
+        SelectColumn [7-10] [one]
+          PathExpression [7-10] [one]
+            Identifier(one) [7-10] [one]
+      FromClause [11-87] [FROM GRAPH_TABLE...AS one)   )]
+        GraphTableQuery [16-87] [GRAPH_TABLE...AS one)   )]
+          PathExpression [31-34] [aml]
+            Identifier(aml) [31-34] [aml]
+          GqlMatch [37-63] [MATCH (a)-[]-> -> -[]->(c)]
+            GraphPattern [43-63] [(a)-[]-> -> -[]->(c)]
+              GraphPathPattern [43-63] [(a)-[]-> -> -[]->(c)]
+                GraphNodePattern [43-46] [(a)]
+                  GraphElementPatternFiller [44-45] [a]
+                    Identifier(a) [44-45] [a]
+                GraphEdgePattern [46-51] [-[]->]
+                  GraphElementPatternFiller [48-48] []
+                GraphEdgePattern [52-54] [->]
+                GraphEdgePattern [55-60] [-[]->]
+                  GraphElementPatternFiller [57-57] []
+                GraphNodePattern [60-63] [(c)]
+                  GraphElementPatternFiller [61-62] [c]
+                    Identifier(c) [61-62] [c]
+          SelectList [74-82] [1 AS one]
+            SelectColumn [74-82] [1 AS one]
+              IntLiteral(1) [74-75] [1]
+              Alias [76-82] [AS one]
+                Identifier(one) [79-82] [one]
+--
+SELECT
+  one
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a)
+      -[]->
+      ->
+      -[]->
+      (c)
+    COLUMNS(
+      1 AS one
+    )
+  )
+==
+
+# Empty edge pattern must be prefixed with `-`
+SELECT one FROM GRAPH_TABLE(
+  aml
+  MATCH (a)-[]->->[]->(c)
+  COLUMNS(1 AS one)
+  )
+--
+ERROR: Syntax error: Expected keyword RETURN but got "[" [at 3:19]
+  MATCH (a)-[]->->[]->(c)
+                  ^
+==
+

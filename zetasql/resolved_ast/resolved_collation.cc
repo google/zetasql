@@ -68,7 +68,7 @@ absl::StatusOr<ResolvedCollation> ResolvedCollation::MakeResolvedCollation(
       resolved_collation.child_list_.resize(0);
     }
   } else if (annotation_map.IsArrayMap()) {
-    const AnnotationMap* element = annotation_map.AsArrayMap()->element();
+    const AnnotationMap* element = annotation_map.AsStructMap()->field(0);
     if (element != nullptr) {
       ZETASQL_ASSIGN_OR_RETURN(ResolvedCollation child,
                        MakeResolvedCollation(*element));

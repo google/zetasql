@@ -281,12 +281,6 @@ constexpr TypeKindInfoList MakeTypeKindInfoList() {
       .specificity = 2,
       .simple = true,
   };
-  kinds[TYPE_TIMESTAMP_PICOS] = {
-      .name = "TIMESTAMP_PICOS",
-      .cost = 35,
-      .specificity = 35,
-      .simple = true,
-  };
   kinds[TYPE_TIME] = {
       .name = "TIME",
       .cost = 2,
@@ -601,6 +595,11 @@ std::string Type::ShortTypeName(ProductMode mode) const {
   return TypeName(mode);
 }
 
+std::string Type::ShortTypeName(ProductMode mode,
+                                bool use_external_float32) const {
+  return TypeName(mode, use_external_float32);
+}
+
 std::string Type::DebugString(bool details) const {
   std::string debug_string;
 
@@ -671,8 +670,11 @@ bool Type::SupportsPartitioning(const LanguageOptions& language_options,
 bool Type::SupportsPartitioningImpl(const LanguageOptions& language_options,
                                     const Type** no_partitioning_type) const {
   bool supports_partitioning =
-      !this->IsGeography() && !this->IsFloatingPoint() && !this->IsJson();
-  if (this->IsTokenList()) supports_partitioning = false;
+      !this->IsGeography() && !this->IsFloatingPoint() && !this->IsTokenList();
+  if (this->IsJson()) {
+    supports_partitioning =
+        language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE_COMPARISON);
+  }
 
   if (no_partitioning_type != nullptr) {
     *no_partitioning_type = supports_partitioning ? nullptr : this;
@@ -682,9 +684,14 @@ bool Type::SupportsPartitioningImpl(const LanguageOptions& language_options,
 
 bool Type::SupportsOrdering(const LanguageOptions& language_options,
                             std::string* type_description) const {
-  bool supports_ordering = !IsGeography() && !IsJson();
-  if (this->IsTokenList()) supports_ordering = false;
+  bool supports_ordering = !IsGeography() && !IsTokenList();
+
+  if (this->IsJson()) {
+    supports_ordering =
+        language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE_COMPARISON);
+  }
   if (supports_ordering) return true;
+  // For unsupported types, return the type name.
   if (type_description != nullptr) {
     *type_description = TypeKindToString(this->kind(),
                                          language_options.product_mode());
@@ -716,6 +723,9 @@ bool Type::SupportsEquality(
       }
     }
     return true;
+  } else if (this->IsJson()) {
+    return language_options.LanguageFeatureEnabled(
+        FEATURE_JSON_TYPE_COMPARISON);
   }
   return this->SupportsEquality();
 }
@@ -825,6 +835,8 @@ absl::StatusOr<TypeParameters> Type::ValidateAndResolveTypeParameters(
                         << " does not support type parameters";
 }
 
+// TODO: Update this to use type visitor so that we can support all
+// types with one implementation.
 absl::Status Type::ValidateResolvedTypeParameters(
     const TypeParameters& type_parameters, ProductMode mode) const {
   ZETASQL_RET_CHECK(type_parameters.IsEmpty())

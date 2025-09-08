@@ -35,7 +35,7 @@
 # B,C,D are shown with queries probing which selected names work or don't.
 # Those probing queries may be redundant now with the STATIC_DESCRIBE outputs.
 
-[default language_features=PIPES,PIPE_STATIC_DESCRIBE]
+[default language_features=MAXIMUM,+PIPES,+PIPE_STATIC_DESCRIBE]
 
 # CASE 1) Single regular table
 # EnumTable has a column Key and a pseudo-column Filename.
@@ -1804,6 +1804,11 @@ QueryStmt
         |       vt -> zetasql_test__.TestExtraPB (q.vt#12) (implicit)
         |     Range variables:
         |       q -> RANGE_VARIABLE<key,TestEnum,AnotherTestEnum,vt>
+        |
+        |   **Common table expressions**:
+        |   Name  Columns
+        |   ----  ----------------------------------
+        |   q     key, TestEnum, AnotherTestEnum, vt
         |   """
         +-input_scan=
           +-WithRefScan(column_list=q.[key#9, TestEnum#10, AnotherTestEnum#11, vt#12], with_query_name="q")

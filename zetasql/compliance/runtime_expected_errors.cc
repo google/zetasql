@@ -219,6 +219,14 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "(date|timestamp|datetime|time) (.+) causes overflow"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
+      "TIMESTAMP_ADD interval value (-?\\d+) at (\\w+) exceeds allowed range"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "picoseconds value (.*)is out of allowed range"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "TIMESTAMP_DIFF int64 overflow"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
       "LN is undefined for zero or negative value"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
@@ -400,6 +408,10 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "Bucket width INTERVAL with non-zero MONTH part is not allowed"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
+      "Bucket width INTERVAL with mixed DAY and subsecond parts is not "
+      "allowed"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
       "Bucket width INTERVAL with mixed DAY and MICROSECOND parts is not "
       "allowed"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
@@ -412,6 +424,10 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
       "Only MONTH and DAY parts are allowed in bucket width INTERVAL"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "Input Duration is out of range"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "Input Duration is invalid"));
 
   // Interval Errors
   //
@@ -669,6 +685,79 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kUnimplemented,
       "Correlated columns in GQL with set operation after NEXT is not "
       "implemented yet"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "Graph cost expression must be positive"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "Graph cost expression must not be NULL"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "Graph cost expression must not be Inf"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "COST expression cannot be NULL literal"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Edge cost expressions have no valid supertype"));
+  // TODO: b/407573170 - Consider updating the builders to avoid generating
+  // this case entirely.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument, "must include at least one edge"));
+
+  // MEASURE related errors
+  // GENERATION ERRORS - These should be addressed on the builder side.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Returning expressions of type MEASURE is not "
+      "allowed"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Cannot use array subquery with column of type MEASURE"));
+  // MEASUREs cannot match ANY type function arguments.
+  // Remove this entry if we ever support that.
+  // TODO: b/350555383 - Consider modifying builder logic to avoid generating
+  // this case entirely..
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "found MEASURE<(.+)>: which is not allowed for ANY arguments"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "MEASURE-typed arguments are only permitted in the AGG function"));
+  // SQLBuilder Error. TODO: b/438973600 - Remove this once fixed.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "No matching signature for aggregate function AGG"));
+  // TODO: b/440659031 - Fix and remove this entry.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kUnimplemented,
+      "Unexpected argument for AGG function. Argument: WithExpr"));
+
+  // REWRITER ERRORS - Fix these in the rewriter.
+  // TODO: b/350555383  - Support this shape in the future
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kUnimplemented,
+      "Measure type rewriter does not support WITH scans emitting duplicate "
+      "measure columns"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kUnimplemented,
+      "Measure type rewriter expects argument to AGG function to be a direct "
+      "column reference"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kUnimplemented,
+      "Measure type rewriter does not support WITH expressions emitting a "
+      "measure type"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kUnimplemented,
+      "Measure type rewriter does not support LATERAL joins that emit measure "
+      "columns"));
+  // TODO: b/350555383 - Add support for scalar subqueries in the MEASURE
+  // rewriter.
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kUnimplemented,
+      "Measure type rewriter does not support scalar subqueries that emit "
+      "measure columns"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kUnimplemented,
+      "Measure type rewriter does not support aggregating measures in a "
+      "MATCH_RECOGNIZE scan"));
 
   // COLLATION related errors
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
@@ -734,7 +823,6 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange,
       "LIKE pattern has '_' which is not allowed when its operands have "
       "collation:(.+)"));
-
 
   // JSON related errors
   // TO_JSON will return OUT_OF_RANGE error if the input type is

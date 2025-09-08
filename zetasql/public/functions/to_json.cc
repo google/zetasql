@@ -86,7 +86,7 @@ absl::Status GetToJsonStackOverflowStatus() {
 template <typename T>
 absl::StatusOr<JSONValue> ToJsonFromNumeric(
     const T& value, bool stringify_wide_number,
-    const LanguageOptions& language_options, const std::string_view type_name,
+    const LanguageOptions& language_options, const absl::string_view type_name,
     bool canonicalize_zero,
     UnsupportedFieldsEnum::UnsupportedFields unsupported_fields) {
   if (!value.HasFractionalPart()) {
@@ -217,7 +217,7 @@ absl::StatusOr<JSONValue> ToJsonHelper(
     }
     case TYPE_TIMESTAMP: {
       std::string timestamp_string;
-      ZETASQL_RETURN_IF_ERROR(JsonFromTimestamp(value.ToTime(), &timestamp_string,
+      ZETASQL_RETURN_IF_ERROR(JsonFromTimestamp(value.ToUnixPicos(), &timestamp_string,
                                         /*quote_output_string=*/false));
       return JSONValue(std::move(timestamp_string));
     }
@@ -269,7 +269,7 @@ absl::StatusOr<JSONValue> ToJsonHelper(
       const StructType* struct_type = value.type()->AsStruct();
       int field_index = 0;
       for (const auto& field_value : value.fields()) {
-        std::string_view name = struct_type->field(field_index++).name;
+        absl::string_view name = struct_type->field(field_index++).name;
         // If there is already a member existed, skip the further
         // processing as we only keep the first value of each member.
         if (json_value_ref.HasMember(name)) {
@@ -324,7 +324,8 @@ absl::StatusOr<JSONValue> ToJsonHelper(
       return json_value;
     }
     case TYPE_ENUM: {
-      if (absl::StatusOr<std::string_view> name = value.EnumName(); name.ok()) {
+      if (absl::StatusOr<absl::string_view> name = value.EnumName();
+          name.ok()) {
         return JSONValue(*name);
       } else {
         return JSONValue(static_cast<int64_t>(value.enum_value()));
@@ -419,8 +420,7 @@ absl::StatusOr<JSONValue> ToJsonFromGraphElement(
         (property_type != nullptr &&
          property_type->value_type->Equals(property_value.type()))
         // A dynamic property is json typed and graph element must be dynamic.
-        || (type->is_dynamic() && property_value.type()->IsJson())
-    );
+        || (type->is_dynamic() && property_value.type()->IsJson()));
     ZETASQL_ASSIGN_OR_RETURN(JSONValue v,
                      ToJsonHelper(property_value, stringify_wide_numbers,
                                   language_options, current_nesting_level + 1,

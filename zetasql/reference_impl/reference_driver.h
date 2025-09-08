@@ -46,6 +46,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
+#include "google/protobuf/compiler/importer.h"
 
 namespace zetasql {
 
@@ -63,10 +64,16 @@ class ReferenceDriver : public TestDriver {
     PrimaryKeyMode primary_key_mode = PrimaryKeyMode::DEFAULT;
   };
 
+  explicit ReferenceDriver()
+      : ReferenceDriver(DefaultLanguageOptions(),
+                        MinimalRewritesForReference()) {}
+
+  explicit ReferenceDriver(LanguageOptions options)
+      : ReferenceDriver(options, MinimalRewritesForReference()) {}
+
   explicit ReferenceDriver(
-      LanguageOptions options = DefaultLanguageOptions(),
-      absl::btree_set<ResolvedASTRewrite> enabled_rewrites =
-          MinimalRewritesForReference());
+      LanguageOptions options,
+      absl::btree_set<ResolvedASTRewrite> enabled_rewrites);
 
   ReferenceDriver(const ReferenceDriver&) = delete;
   ReferenceDriver& operator=(const ReferenceDriver&) = delete;
@@ -139,6 +146,11 @@ class ReferenceDriver : public TestDriver {
                                   const std::set<std::string>& proto_names,
                                   const std::set<std::string>& enum_names);
 
+  // Only used to pre-load types and functions for generating random measures.
+  absl::Status PreloadTypesAndFunctions(
+      const TestDatabase& test_db,
+      const LanguageOptions& language_options) override;
+
   // Must be called prior to ExecuteQuery().
   absl::Status CreateDatabase(const TestDatabase& test_db) override;
 
@@ -178,6 +190,10 @@ class ReferenceDriver : public TestDriver {
       const std::string& sql, const std::map<std::string, Value>& parameters,
       TypeFactory* type_factory) override;
 
+  absl::StatusOr<MultiStmtResult> ExecuteGeneralizedStatement(
+      const std::string& sql, const std::map<std::string, Value>& parameters,
+      TypeFactory* type_factory) override;
+
   // Implements TestDriver::ExecuteScript().
   absl::StatusOr<ScriptResult> ExecuteScript(
       const std::string& sql, const std::map<std::string, Value>& parameters,
@@ -190,9 +206,9 @@ class ReferenceDriver : public TestDriver {
     // If this has a value, it indicates the statement included unsupported
     // types.  This will generally cause a failure of the query.
     std::optional<bool> uses_unsupported_type;
-    // If a new table is created via a DDL statement (see restrictions above)
-    // this will contain the name of the created table.
-    std::optional<std::string> created_table_name;
+    // If new tables are created via DDL statements (see restrictions above)
+    // this will contain the names of the created tables.
+    std::vector<std::string> created_table_names;
     // If set, will contain the runtime_info extracted from AnalyzerOutput.
     std::optional<AnalyzerRuntimeInfo> analyzer_runtime_info;
   };
@@ -209,6 +225,11 @@ class ReferenceDriver : public TestDriver {
   // 'aux_output' contains additional information. These values may provided
   // even in the cause of failures in some cases.
   absl::StatusOr<Value> ExecuteStatementForReferenceDriver(
+      absl::string_view sql, const std::map<std::string, Value>& parameters,
+      const ExecuteStatementOptions& options, TypeFactory* type_factory,
+      ExecuteStatementAuxOutput& aux_output, TestDatabase* database = nullptr);
+
+  absl::StatusOr<MultiStmtResult> ExecuteGeneralizedStatementForReferenceDriver(
       absl::string_view sql, const std::map<std::string, Value>& parameters,
       const ExecuteStatementOptions& options, TypeFactory* type_factory,
       ExecuteStatementAuxOutput& aux_output, TestDatabase* database = nullptr);
@@ -239,6 +260,8 @@ class ReferenceDriver : public TestDriver {
 
   // Returns a pointer to the owned catalog.
   SimpleCatalog* catalog() const { return catalog_.catalog(); }
+
+  google::protobuf::compiler::Importer* importer() const { return catalog_.importer(); }
 
   // Returns a pointer to the owned reference type factory.
   TypeFactory* type_factory() { return type_factory_.get(); }
@@ -277,7 +300,7 @@ class ReferenceDriver : public TestDriver {
       const ExecuteStatementOptions& options, TypeFactory* type_factory,
       ExecuteScriptAuxOutput& aux_output, ScriptResult* result);
 
-  absl::StatusOr<Value> ExecuteStatementForReferenceDriverInternal(
+  absl::StatusOr<MultiStmtResult> ExecuteStatementForReferenceDriverInternal(
       absl::string_view sql, const AnalyzerOptions& analyzer_options,
       const std::map<std::string, Value>& parameters,
       const VariableMap& script_variables,

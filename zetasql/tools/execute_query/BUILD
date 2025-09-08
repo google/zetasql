@@ -234,6 +234,7 @@ cc_library(
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -247,9 +248,13 @@ cc_test(
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public:analyzer",
         "//zetasql/public:analyzer_output",
+        "//zetasql/public:evaluator_table_iterator",
         "//zetasql/public:simple_catalog",
+        "//zetasql/public:value",
+        "//zetasql/public/types",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_googletest//:gtest",
-        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -345,6 +350,8 @@ cc_library(
         "//zetasql/public:simple_catalog",
         "//zetasql/testdata:sample_catalog_impl",
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
     ],
@@ -359,6 +366,7 @@ cc_test(
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public:catalog",
         "//zetasql/public:language_options",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest",
     ],
@@ -447,11 +455,13 @@ cc_library(
     ],
     hdrs = ["simple_proto_evaluator_table_iterator.h"],
     deps = [
+        "//zetasql/base:check",
         "//zetasql/public:evaluator_table_iterator",
         "//zetasql/public:type",
         "//zetasql/public:value",
         "//zetasql/public/types",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/types:span",
     ],
 )
 
@@ -543,9 +553,11 @@ cc_library(
         "@com_google_absl//absl/functional:any_invocable",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:string_view",
         "@com_google_absl//absl/types:span",
+        "@com_googlesource_code_re2//:re2",
         "@mstch",
     ],
 )

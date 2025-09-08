@@ -32,10 +32,13 @@
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/public/evaluator_table_iterator.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/functions/array_zip_mode.pb.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/evaluation.h"
@@ -62,6 +65,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/clock.h"
 
@@ -286,6 +290,105 @@ TEST_F(EvalRelationalOpTest, TestRelationalOp) {
       EXPECT_TRUE(!shared_state->has_value());
     }
   }
+}
+
+// A test builtin TVF which accepts a STRING arg representing a table name, and
+// produces the rows of that table.
+class BasicTestTVF : public BuiltinTableValuedFunction {
+  class ReferenceResultIterator : public EvaluatorTableIterator {
+   public:
+    explicit ReferenceResultIterator(const Value& result)
+        : rows_(result.elements()), row_idx_(-1) {
+      auto returning_row_struct = result.type()->AsArray()->element_type();
+      fields_ = returning_row_struct->AsStruct()->fields();
+    }
+
+    int NumColumns() const override { return static_cast<int>(fields_.size()); }
+
+    std::string GetColumnName(int i) const override { return fields_[i].name; }
+
+    const Type* GetColumnType(int i) const override { return fields_[i].type; }
+
+    const Value& GetValue(int i) const override {
+      return rows_[row_idx_].field(i);
+    }
+
+    bool NextRow() override { return ++row_idx_ < rows_.size(); }
+
+    absl::Status Status() const override { return absl::OkStatus(); }
+    absl::Status Cancel() override { return absl::OkStatus(); }
+
+   private:
+    // The content of the iterator.
+    const std::vector<Value> rows_;
+    // The struct field of column name and type in this result table.
+    std::vector<StructField> fields_;
+    // The positional index of the current row in the row vector.
+    int row_idx_;
+  };
+
+ public:
+  explicit BasicTestTVF(FunctionKind kind) : BuiltinTableValuedFunction(kind) {}
+
+  absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> CreateEvaluator(
+      absl::Span<const TableValuedFunction::TvfEvaluatorArg> args,
+      std::shared_ptr<FunctionSignature> function_call_signature,
+      EvaluationContext* context) override {
+    ZETASQL_RET_CHECK(!args.empty());
+    ZETASQL_RET_CHECK(args[0].value.has_value());
+    ZETASQL_RET_CHECK(args[0].value->type()->IsString());
+    return std::make_unique<ReferenceResultIterator>(
+        context->GetTableAsArray(args[0].value->string_value()));
+  }
+
+  std::string debug_name() const override { return "BasicTestTVF"; }
+};
+
+TEST(BuiltinTableValuedFunction, RelationalOpEvalTest) {
+  BuiltinFunctionRegistry::RegisterTableValuedFunction(
+      {FunctionKind::kInvalid},
+      [](FunctionKind kind) { return new BasicTestTVF(kind); });
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<ConstExpr> exp,
+                       ConstExpr::Create(Value::StringValue("test")));
+  std::vector<TvfAlgebraArgument> arguments;
+  arguments.push_back({.value = std::move(exp)});
+
+  std::vector<TVFSchemaColumn> output_columns;
+  output_columns.push_back(TVFSchemaColumn("col", types::StringType()));
+
+  std::vector<VariableId> variables;
+  variables.push_back(VariableId("col"));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<TableValuedFunctionCallExpr> call_expr,
+      BuiltinTableValuedFunction::CreateCall(
+          FunctionKind::kInvalid, std::move(arguments),
+          std::move(output_columns), std::move(variables), nullptr));
+
+  ZETASQL_ASSERT_OK(call_expr->SetSchemasForEvaluation({}));
+
+  EvaluationContext context((EvaluationOptions()));
+  Value table = Array(
+      {Struct({"col"}, {String("hello")}), Struct({"col"}, {String("world")})});
+  ZETASQL_ASSERT_OK(context.AddTableAsArray("test", false, table, LanguageOptions()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<TupleIterator> iter,
+                       call_expr->CreateIterator({}, 0, &context));
+
+  ASSERT_EQ(iter->Schema().num_variables(), 1);
+  EXPECT_EQ(iter->Schema().variable(0), VariableId("col"));
+
+  std::vector<Value> values;
+  while (true) {
+    TupleData* data = iter->Next();
+    if (data == nullptr) {
+      break;
+    }
+    EXPECT_EQ(data->num_slots(), 1);
+    values.push_back(data->slot(0).value());
+  }
+  std::vector<Value> expected_values = {Value::StringValue("hello"),
+                                        Value::StringValue("world")};
+  EXPECT_EQ(values, expected_values);
 }
 
 TEST(ColumnFilterArgTest, InArray) {

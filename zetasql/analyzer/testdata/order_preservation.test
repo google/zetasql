@@ -3,6 +3,7 @@
 
 # This query and the following query produce idential resolved ASTs,
 # except this one has is_ordered=true.
+[default language_features=MAXIMUM]
 select as struct key from KeyValue order by key
 --
 QueryStmt

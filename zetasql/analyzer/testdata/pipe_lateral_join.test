@@ -1,4 +1,4 @@
-[default language_features=PIPES,LATERAL_JOIN,TABLE_VALUED_FUNCTIONS,TABLESAMPLE,TABLESAMPLE_FROM_TABLE_VALUED_FUNCTIONS]
+[default language_features=MAXIMUM,+PIPES,+LATERAL_JOIN,+TABLE_VALUED_FUNCTIONS,+TABLESAMPLE,+TABLESAMPLE_FROM_TABLE_VALUED_FUNCTIONS]
 
 # LATERAL can be on the RHS, on a subquery or a TVF call.
 # It can also have aliases and postfix table ops.

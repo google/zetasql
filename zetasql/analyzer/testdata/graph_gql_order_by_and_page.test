@@ -1,4 +1,4 @@
-[default language_features=ORDER_BY_COLLATE,NULLS_FIRST_LAST_IN_ORDER_BY,SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+ORDER_BY_COLLATE,+NULLS_FIRST_LAST_IN_ORDER_BY,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 [default no_test_extract_table_names]
 # No unparser due to SQLBuilder visitor not implemented for GraphMakeElement
 
@@ -850,15 +850,72 @@ QueryStmt
                       +-GraphRefScan(column_list=[$element_table.p#1])
 ==
 
-# Standalone OFFSET statement. Note that this is resolved to a LimitOffset scan
+# Standalone OFFSET statement.
+# When FEATURE_LIMIT_ALL is disabled, this is resolved to a LimitOffset scan
 # where the limit clause is assumed to be kint64max/2.
-# TODO: Update once optional LIMIT is supported.
+# When FEATURE_LIMIT_ALL is enabled, this is resolved to a LimitOffset scan
+# where the limit clause is unset.
+[language_features=NONE,+ORDER_BY_COLLATE,+NULLS_FIRST_LAST_IN_ORDER_BY,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,{{+LIMIT_ALL|}}]
 select gt.* from
 graph_table(aml
   MATCH (p:Person)
   OFFSET 10
   RETURN p.name
 ) gt
+--
+ALTERNATION GROUP: +LIMIT_ALL
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.name#2 AS name [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.name#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.name#2]
+        +-property_graph=aml
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.name#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.name#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.p#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.p#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.p#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabel(parse_location=44-50, label=aml.Person)
+                  | |   |   +-target_element_table_list=[aml.Person]
+                  | |   +-head=$element_table.p#1
+                  | |   +-tail=$element_table.p#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-LimitOffsetScan
+                  | +-column_list=[$element_table.p#1]
+                  | +-input_scan=
+                  | | +-GraphRefScan(column_list=[$element_table.p#1])
+                  | +-offset=
+                  |   +-Literal(type=INT64, value=10)
+                  +-ProjectScan
+                    +-column_list=[$graph_table.name#2]
+                    +-expr_list=
+                    | +-name#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=STRING
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, id INT64, name STRING>, column=$element_table.p#1)
+                    |     +-property=name(STRING)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.p#1])
+--
+ALTERNATION GROUP: <empty>
 --
 QueryStmt
 +-output_column_list=
@@ -2337,7 +2394,7 @@ QueryStmt
 ### ORDER BY and PAGE SQLBuilder tests
 ###
 
-[default language_features=ORDER_BY_COLLATE,NULLS_FIRST_LAST_IN_ORDER_BY,GROUP_BY_ALL,SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+ORDER_BY_COLLATE,+NULLS_FIRST_LAST_IN_ORDER_BY,+GROUP_BY_ALL,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 [default no_test_extract_table_names]
 [default run_sqlbuilder]
 [default show_sqlbuilder_output]
@@ -3092,10 +3149,13 @@ FROM
      aml_1.a_3 AS name;
 ==
 
-# Standalone OFFSET statement. Note that this is resolved to a LimitOffset scan
+# Standalone OFFSET statement.
+# When FEATURE_LIMIT_ALL is disabled, this is resolved to a LimitOffset scan
 # where the limit clause is assumed to be kint64max/2. SQLBuilder filters these
 # LIMIT clauses out.
-# TODO: Update once optional LIMIT is supported.
+# When FEATURE_LIMIT_ALL is enabled, this is resolved to a LimitOffset scan
+# where the limit clause is unset.
+[language_features=NONE,+ORDER_BY_COLLATE,+NULLS_FIRST_LAST_IN_ORDER_BY,+GROUP_BY_ALL,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,{{+LIMIT_ALL|}}]
 select gt.* from
 graph_table(aml
   MATCH (p:Person)
@@ -3103,6 +3163,8 @@ graph_table(aml
   RETURN p.name
 ) gt
 --
+ALTERNATION GROUP: +LIMIT_ALL
+--
 QueryStmt
 +-output_column_list=
 | +-$graph_table.name#2 AS name [STRING]
@@ -3139,8 +3201,6 @@ QueryStmt
                   | +-column_list=[$element_table.p#1]
                   | +-input_scan=
                   | | +-GraphRefScan(column_list=[$element_table.p#1])
-                  | +-limit=
-                  | | +-Literal(type=INT64, value=4611686018427387903)
                   | +-offset=
                   |   +-Literal(type=INT64, value=10)
                   +-ProjectScan
@@ -3184,17 +3244,8 @@ FROM
   ) AS aml_1
 |> SELECT
      aml_1.a_3 AS name;
-==
-
-# Standalone OFFSET statement. Note that the limit is kint64max/2 which is
-# filtered out during unparsing.
-# TODO: Update once optional LIMIT is supported.
-select gt.* from
-graph_table(aml
-  MATCH (p:Person)
-  OFFSET 10 LIMIT 4611686018427387903
-  RETURN p.name
-) gt
+--
+ALTERNATION GROUP: <empty>
 --
 QueryStmt
 +-output_column_list=
@@ -3279,10 +3330,198 @@ FROM
      aml_1.a_3 AS name;
 ==
 
-# Standalone OFFSET statements. Note that the first limit is kint64max/2 which
-# is filtered out during unparsing, which means that the unparser query would
-# correspond to a different AST if re-parsed (with equivalent functionality).
-# TODO: Update once optional LIMIT is supported.
+# Standalone OFFSET statement/LIMIT statement with kint64max/2.
+# When FEATURE_LIMIT_ALL is disabled, the limit is filtered out during
+# unparsing, which means that the unparser query would correspond to a different
+# AST if re-parsed (with equivalent functionality).
+# When FEATURE_LIMIT_ALL is enabled, the limit is not filtered out during
+# unparsing, so the unparser query should correspond to the same AST as the
+# original query.
+[language_features=NONE,+ORDER_BY_COLLATE,+NULLS_FIRST_LAST_IN_ORDER_BY,+GROUP_BY_ALL,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,{{+LIMIT_ALL|}}]
+select gt.* from
+graph_table(aml
+  MATCH (p:Person)
+  OFFSET 10 LIMIT 4611686018427387903
+  RETURN p.name
+) gt
+--
+ALTERNATION GROUP: +LIMIT_ALL
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.name#2 AS name [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.name#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.name#2]
+        +-property_graph=aml
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.name#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.name#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.p#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.p#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.p#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabel(parse_location=44-50, label=aml.Person)
+                  | |   |   +-target_element_table_list=[aml.Person]
+                  | |   +-head=$element_table.p#1
+                  | |   +-tail=$element_table.p#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-LimitOffsetScan
+                  | +-column_list=[$element_table.p#1]
+                  | +-input_scan=
+                  | | +-GraphRefScan(column_list=[$element_table.p#1])
+                  | +-limit=
+                  | | +-Literal(type=INT64, value=4611686018427387903)
+                  | +-offset=
+                  |   +-Literal(type=INT64, value=10)
+                  +-ProjectScan
+                    +-column_list=[$graph_table.name#2]
+                    +-expr_list=
+                    | +-name#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=STRING
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, id INT64, name STRING>, column=$element_table.p#1)
+                    |     +-property=name(STRING)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.p#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_1.a_3 AS name
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS Person)
+    OFFSET 10 LIMIT 4611686018427387903
+    RETURN
+      a_2.name AS a_3
+  ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS Person)
+    OFFSET 10 LIMIT 4611686018427387903
+    RETURN
+      a_2.name AS a_3
+  ) AS aml_1
+|> SELECT
+     aml_1.a_3 AS name;
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.name#2 AS name [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.name#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.name#2]
+        +-property_graph=aml
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.name#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.name#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.p#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.p#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.p#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabel(parse_location=44-50, label=aml.Person)
+                  | |   |   +-target_element_table_list=[aml.Person]
+                  | |   +-head=$element_table.p#1
+                  | |   +-tail=$element_table.p#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-LimitOffsetScan
+                  | +-column_list=[$element_table.p#1]
+                  | +-input_scan=
+                  | | +-GraphRefScan(column_list=[$element_table.p#1])
+                  | +-limit=
+                  | | +-Literal(type=INT64, value=4611686018427387903)
+                  | +-offset=
+                  |   +-Literal(type=INT64, value=10)
+                  +-ProjectScan
+                    +-column_list=[$graph_table.name#2]
+                    +-expr_list=
+                    | +-name#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=STRING
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, id INT64, name STRING>, column=$element_table.p#1)
+                    |     +-property=name(STRING)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.p#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_1.a_3 AS name
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS Person)
+    OFFSET 10
+    RETURN
+      a_2.name AS a_3
+  ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS Person)
+    OFFSET 10
+    RETURN
+      a_2.name AS a_3
+  ) AS aml_1
+|> SELECT
+     aml_1.a_3 AS name;
+==
+
+# Standalone OFFSET/LIMIT statements including kint64max/2.
+# When FEATURE_LIMIT_ALL is disabled, the first limit is filtered out during
+# unparsing, which means that the unparser query would correspond to a different
+# AST if re-parsed (with equivalent functionality).
+# When FEATURE_LIMIT_ALL is enabled, the first limit is not filtered out during
+# unparsing, so the unparser query should correspond to the same AST as the
+# original query.
+[language_features=NONE,+ORDER_BY_COLLATE,+NULLS_FIRST_LAST_IN_ORDER_BY,+GROUP_BY_ALL,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,{{+LIMIT_ALL|}}]
 select gt.* from
 graph_table(aml
   MATCH (p:Person)
@@ -3290,6 +3529,100 @@ graph_table(aml
   LIMIT 5
   RETURN p.name
 ) gt
+--
+ALTERNATION GROUP: +LIMIT_ALL
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.name#2 AS name [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.name#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.name#2]
+        +-property_graph=aml
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.name#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.name#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.p#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.p#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.p#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabel(parse_location=44-50, label=aml.Person)
+                  | |   |   +-target_element_table_list=[aml.Person]
+                  | |   +-head=$element_table.p#1
+                  | |   +-tail=$element_table.p#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-LimitOffsetScan
+                  | +-column_list=[$element_table.p#1]
+                  | +-input_scan=
+                  | | +-GraphRefScan(column_list=[$element_table.p#1])
+                  | +-limit=
+                  | | +-Literal(type=INT64, value=4611686018427387903)
+                  | +-offset=
+                  |   +-Literal(type=INT64, value=10)
+                  +-LimitOffsetScan
+                  | +-column_list=[$element_table.p#1]
+                  | +-input_scan=
+                  | | +-GraphRefScan(column_list=[$element_table.p#1])
+                  | +-limit=
+                  |   +-Literal(type=INT64, value=5)
+                  +-ProjectScan
+                    +-column_list=[$graph_table.name#2]
+                    +-expr_list=
+                    | +-name#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=STRING
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, id INT64, name STRING>, column=$element_table.p#1)
+                    |     +-property=name(STRING)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.p#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_1.a_3 AS name
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS Person)
+    OFFSET 10 LIMIT 4611686018427387903
+    LIMIT 5
+    RETURN
+      a_2.name AS a_3
+  ) AS aml_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml
+    MATCH
+      (a_2
+      IS Person)
+    OFFSET 10 LIMIT 4611686018427387903
+    LIMIT 5
+    RETURN
+      a_2.name AS a_3
+  ) AS aml_1
+|> SELECT
+     aml_1.a_3 AS name;
+--
+ALTERNATION GROUP: <empty>
 --
 QueryStmt
 +-output_column_list=
@@ -4846,7 +5179,7 @@ FROM
 ==
 
 # ORDER BY graph node is not allowed
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY{{|,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select gt.* from
 graph_table(aml
   MATCH (p:Person)
@@ -4860,7 +5193,7 @@ ERROR: Graph element typed expression is not allowed here [at 4:12]
   ORDER BY p
            ^
 --
-ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 ERROR: ORDER BY does not support expressions of type GRAPH_NODE(aml)<age UINT32, birthday DATE, data BYTES, ...> [at 4:12]
   ORDER BY p
@@ -4868,7 +5201,7 @@ ERROR: ORDER BY does not support expressions of type GRAPH_NODE(aml)<age UINT32,
 ==
 
 # ORDER BY graph edge is not allowed
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY{{|,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select gt.* from
 graph_table(aml
   MATCH -[t:Transfer]->
@@ -4882,14 +5215,14 @@ ERROR: Graph element typed expression is not allowed here [at 4:12]
   ORDER BY t
            ^
 --
-ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 ERROR: ORDER BY does not support expressions of type GRAPH_EDGE(aml)<accountId INT64, amount UINT64, targetAccountId INT64> [at 4:12]
   ORDER BY t
            ^
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_PATH_TYPE]
 # ORDER BY graph path is not allowed
 select gt.* from
 graph_table(aml

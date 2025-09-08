@@ -16,24 +16,227 @@
 
 #include "zetasql/public/annotation/default_annotation_spec.h"
 
+#include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "zetasql/common/errors.h"
+#include "zetasql/common/type_and_argument_kind_visitor.h"
+#include "zetasql/public/builtin_function.pb.h"
+#include "zetasql/public/function.pb.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/simple_value.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_node.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
+namespace {
+
+class AnnotationPropagationVisitor
+    : public AnnotatedTypeAndSignatureArgumentKindVisitor<
+          const AnnotationMap*> {
+ public:
+  AnnotationPropagationVisitor(
+      absl::flat_hash_map<SignatureArgumentKind,
+                          std::unique_ptr<AnnotationMap>>& merging_map,
+      std::function<absl::Status(const AnnotationMap*, AnnotationMap&)>
+          merge_callback)
+      : merging_map_(merging_map), merge_callback_(merge_callback) {}
+
+  absl::Status PreVisitChildren(AnnotatedType annotated_type,
+                                SignatureArgumentKind original_kind) override {
+    const auto& [type, input_annotation_map] = annotated_type;
+
+    // Merge at the current level itself.
+    auto it = merging_map_.find(original_kind);
+    if (it == merging_map_.end()) {
+      it = merging_map_.insert({original_kind, AnnotationMap::Create(type)})
+               .first;
+    }
+
+    AnnotationMap* current_map = it->second.get();
+
+    if (input_annotation_map != nullptr) {
+      // We're propagating from the input map to the appropriate merging spot.
+      ZETASQL_RETURN_IF_ERROR(merge_callback_(input_annotation_map, *current_map));
+    }
+    return absl::OkStatus();
+  }
+
+  absl::StatusOr<const AnnotationMap*> PostVisitChildren(
+      AnnotatedType annotated_type, SignatureArgumentKind original_kind,
+      std::vector<const AnnotationMap*> component_results) override {
+    ZETASQL_ASSIGN_OR_RETURN(absl::Span<const SignatureArgumentKind> component_kinds,
+                     GetComponentSignatureArgumentKinds(original_kind));
+
+    auto it = merging_map_.find(original_kind);
+    ZETASQL_RET_CHECK(it != merging_map_.end());
+    AnnotationMap* current_map = it->second.get();
+
+    if (component_results.empty()) {
+      return current_map;
+    }
+
+    // This ArgKind is related to other component arguments.
+    ZETASQL_RET_CHECK(current_map->IsStructMap());
+    ZETASQL_RET_CHECK_EQ(current_map->AsStructMap()->num_fields(),
+                 component_kinds.size());
+
+    for (int i = 0; i < component_kinds.size(); ++i) {
+      ZETASQL_RETURN_IF_ERROR(merge_callback_(
+          component_results[i], *current_map->AsStructMap()->mutable_field(i)));
+    }
+
+    return current_map;
+  }
+
+ private:
+  absl::flat_hash_map<SignatureArgumentKind, std::unique_ptr<AnnotationMap>>&
+      merging_map_;
+  std::function<absl::Status(const AnnotationMap*, AnnotationMap&)>
+      merge_callback_;
+};
+
+}  // namespace
+
+absl::StatusOr<const AnnotationMap*>
+DefaultAnnotationSpec::PropagateThroughCompositeType(
+    AnnotatedType annotated_type, SignatureArgumentKind original_kind,
+    absl::flat_hash_map<SignatureArgumentKind, std::unique_ptr<AnnotationMap>>&
+        merging_map) const {
+  AnnotationPropagationVisitor visitor(
+      merging_map, [this](const AnnotationMap* from, AnnotationMap& to) {
+        return MergeAnnotations(from, to);
+      });
+  return visitor.Visit(annotated_type, original_kind);
+}
+
+// Returns the argument at the given index of the function call, or null if it
+// is not an expression or a lambda (e.g. if it is a SEQUENCE).
+//
+// The <function_call> has exactly one of 'argument_list' or
+// 'generic_argument_list' populated. Usually 'argument_list' is used, but
+// the 'generic_argument_list' is used when there is a non-expression
+// argument (such as a lambda). This function is just a convenient helper to
+// hide the different lists when attempting to get the argument expression.
+const ResolvedNode* GetFunctionCallArgument(
+    const ResolvedFunctionCallBase& function_call, int i) {
+  if (function_call.argument_list_size() > 0) {
+    return function_call.argument_list(i);
+  }
+
+  const auto* generic_argument_i = function_call.generic_argument_list(i);
+  if (generic_argument_i->expr() != nullptr) {
+    return generic_argument_i->expr();
+  }
+  return generic_argument_i->inline_lambda();
+}
+
 absl::Status DefaultAnnotationSpec::CheckAndPropagateForFunctionCallBase(
     const ResolvedFunctionCallBase& function_call,
     AnnotationMap* result_annotation_map) {
-  return absl::OkStatus();
+  const FunctionSignature& signature = function_call.signature();
+  ZETASQL_RET_CHECK(signature.IsConcrete());
+
+  // TODO: Replace this with the actual propagation logic for each
+  // function.
+  switch (signature.context_id()) {
+    // Graph functions:
+    case FN_PATH_NODES:
+    case FN_PATH_EDGES:
+    case FN_PATH_FIRST:
+    case FN_PATH_LAST:
+    case FN_PATH_CREATE:
+    case FN_UNCHECKED_PATH_CREATE:
+    case FN_CONCAT_PATH:
+    case FN_UNCHECKED_CONCAT_PATH: {
+      for (const auto& arg : function_call.argument_list()) {
+        if (arg->IsExpression() && arg->type_annotation_map() != nullptr &&
+            !arg->type_annotation_map()->Empty()) {
+          return MakeSqlError()
+                 << "Annotation propagation is not supported for function "
+                 << function_call.function()->Name();
+        }
+      }
+      return absl::OkStatus();
+    }
+    default:
+      break;
+  }
+
+  // This map contains only the root templated kinds, (ARG_TYPE_ANY_1,
+  // ARG_TYPE_ANY_2, ..etc) but not the related kinds like ARG_ARRAY_TYPE_ANY_1.
+  // Nor ARBITRARY either, since arbitrary types are unrelated to each other.
+  absl::flat_hash_map<SignatureArgumentKind, std::unique_ptr<AnnotationMap>>
+      merging_map;
+
+  // First pass, we collect annotations from all expression arguments.
+  for (int i = 0; i < signature.NumConcreteArguments(); ++i) {
+    ZETASQL_RET_CHECK(!signature.ConcreteArgument(i).IsRelation())
+        << "TABLE arguments with annotations are not supported.";
+    if (signature.ConcreteArgument(i).IsScalar()) {
+      // Propagate through any nested type to the "root" template kinds.
+      const ResolvedNode* arg_i = GetFunctionCallArgument(function_call, i);
+
+      ZETASQL_RET_CHECK(arg_i->IsExpression());
+      ZETASQL_RETURN_IF_ERROR(PropagateThroughCompositeType(
+                          arg_i->GetAs<ResolvedExpr>()->annotated_type(),
+                          signature.ConcreteArgument(i).original_kind(),
+                          merging_map)
+                          .status());
+    }
+  }
+
+  // Now that we collected annotations from all expr arguments, process lambda
+  // arguments. For each lambda, we need to propagate from its own arguments
+  // into its body. Once we have the body annotations, we can then merge it
+  // just like any other expression argument.
+  for (int i = 0; i < signature.NumConcreteArguments(); ++i) {
+    if (signature.ConcreteArgument(i).IsLambda()) {
+      const ResolvedNode* arg_i = GetFunctionCallArgument(function_call, i);
+      if (arg_i->Is<ResolvedInlineLambda>()) {
+        ZETASQL_RET_CHECK(signature.ConcreteArgument(i).IsLambda());
+        const auto& concrete_lambda = signature.ConcreteArgument(i).lambda();
+        const auto* lambda = arg_i->GetAs<ResolvedInlineLambda>();
+
+        ZETASQL_RET_CHECK_EQ(lambda->argument_list_size(),
+                     concrete_lambda.argument_types().size());
+
+        // The body has been re-resolved if necessary, and fully annotated.
+        // We only need to look at the body's return type as it may affect the
+        // function's result annotations.
+        // Propagate from the lambda's return type into the corresponding slots.
+        // For example, ARRAY_TRANSFORM(arr1, e -> x), we need to propagate the
+        // annotations from `x` into the output array.
+        ZETASQL_RETURN_IF_ERROR(PropagateThroughCompositeType(
+                            lambda->body()->annotated_type(),
+                            concrete_lambda.body_type().original_kind(),
+                            merging_map)
+                            .status());
+      }
+    }
+  }
+
+  // Third pass, build from the merged annotations into the output type's map.
+  ZETASQL_ASSIGN_OR_RETURN(const AnnotationMap* merged_result_type_annotations,
+                   PropagateThroughCompositeType(
+                       AnnotatedType(signature.result_type().type(),
+                                     /*annotation_map=*/nullptr),
+                       signature.result_type().original_kind(), merging_map));
+
+  return MergeAnnotations(merged_result_type_annotations,
+                          *result_annotation_map);
 }
 
 absl::Status DefaultAnnotationSpec::CheckAndPropagateForColumnRef(
@@ -86,7 +289,7 @@ absl::Status DefaultAnnotationSpec::CheckAndPropagateForSubqueryExpr(
     ZETASQL_RET_CHECK(subquery_scan->column_list(0).type()->Equivalent(
         subquery_expr.type()->AsArray()->element_type()));
     result_annotation_map =
-        result_annotation_map->AsArrayMap()->mutable_element();
+        result_annotation_map->AsStructMap()->mutable_field(0);
   } else if (subquery_expr.subquery_type() == ResolvedSubqueryExpr::SCALAR) {
     ZETASQL_RET_CHECK_EQ(subquery_scan->column_list_size(), 1);
     ZETASQL_RET_CHECK(
@@ -178,19 +381,16 @@ absl::Status DefaultAnnotationSpec::ScalarMergeIfCompatible(
 absl::Status DefaultAnnotationSpec::MergeAnnotations(
     const AnnotationMap* left, AnnotationMap& right) const {
   ZETASQL_RETURN_IF_ERROR(ScalarMergeIfCompatible(left, right));
-  if (left == nullptr) return absl::OkStatus();
-  if (left->IsArrayMap()) {
-    ZETASQL_RET_CHECK(right.IsArrayMap()) << right.DebugString(Id());
-    ZETASQL_RETURN_IF_ERROR(MergeAnnotations(left->AsArrayMap()->element(),
-                                     *right.AsArrayMap()->mutable_element()));
-  } else if (left->IsStructMap()) {
-    ZETASQL_RET_CHECK(right.IsStructMap()) << right.DebugString(Id());
-    ZETASQL_RET_CHECK_EQ(left->AsStructMap()->num_fields(),
-                 right.AsStructMap()->num_fields());
-    for (int i = 0; i < left->AsStructMap()->num_fields(); i++) {
-      ZETASQL_RETURN_IF_ERROR(MergeAnnotations(left->AsStructMap()->field(i),
-                                       *right.AsStructMap()->mutable_field(i)));
-    }
+  if (left == nullptr || !left->IsStructMap()) {
+    return absl::OkStatus();
+  }
+
+  ZETASQL_RET_CHECK(right.IsStructMap()) << right.DebugString(Id());
+  ZETASQL_RET_CHECK_EQ(left->AsStructMap()->num_fields(),
+               right.AsStructMap()->num_fields());
+  for (int i = 0; i < left->AsStructMap()->num_fields(); i++) {
+    ZETASQL_RETURN_IF_ERROR(MergeAnnotations(left->AsStructMap()->field(i),
+                                     *right.AsStructMap()->mutable_field(i)));
   }
   return absl::OkStatus();
 }

@@ -17,6 +17,8 @@
 load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
 load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
 load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -47,6 +49,7 @@ cc_library(
         "anonymization_utils.h",
     ],
     deps = [
+        ":constant_evaluator",
         ":function_headers",
         ":type",
         ":value",
@@ -96,6 +99,7 @@ cc_library(
     deps = [
         ":type_annotation_cc_proto",
         ":type_cc_proto",
+        ":value_cc_proto",
         "//zetasql/base",
         "//zetasql/base:case",
         "//zetasql/base:map_util",
@@ -206,6 +210,21 @@ cc_library(
     ],
 )
 
+proto_library(
+    name = "constness_level_proto",
+    srcs = ["constness_level.proto"],
+)
+
+java_proto_library(
+    name = "constness_level_java_proto",
+    deps = [":constness_level_proto"],
+)
+
+cc_proto_library(
+    name = "constness_level_cc_proto",
+    deps = [":constness_level_proto"],
+)
+
 cc_library(
     name = "constant_evaluator",
     hdrs = ["constant_evaluator.h"],
@@ -223,9 +242,12 @@ cc_library(
     srcs = ["prepared_expression_constant_evaluator.cc"],
     hdrs = ["prepared_expression_constant_evaluator.h"],
     deps = [
+        ":analyzer_options",
         ":constant_evaluator",
         ":evaluator",
+        ":language_options",
         ":value",
+        "//zetasql/base:status",
         "//zetasql/resolved_ast",
         "@com_google_absl//absl/status:statusor",
     ],
@@ -256,15 +278,15 @@ cc_library(
     hdrs = ["module_contents_fetcher.h"],
     deps = [
         ":analyzer_options",
+        ":language_options",
+        ":options_cc_proto",
+        ":parse_resume_location",
         "//zetasql/base:logging",
         "//zetasql/base:map_util",
         "//zetasql/base:status",
         "//zetasql/common:errors",
         "//zetasql/parser",
         "//zetasql/proto:module_options_cc_proto",
-        "//zetasql/public:language_options",
-        "//zetasql/public:options_cc_proto",
-        "//zetasql/public:parse_resume_location",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/types:span",
@@ -418,9 +440,11 @@ cc_library(
     name = "remote_tvf_factory",
     hdrs = ["remote_tvf_factory.h"],
     deps = [
+        ":catalog",
         ":function",
         ":module_details",
         "//zetasql/resolved_ast",
+        "@com_google_absl//absl/base:nullability",
         "@com_google_absl//absl/status:statusor",
     ],
 )
@@ -637,12 +661,15 @@ cc_test(
         ":simple_catalog",
         ":simple_catalog_util",
         ":value",
+        "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings:string_view",
     ],
 )
 
@@ -697,9 +724,11 @@ cc_library(
         ":language_options",
         ":numeric_value",
         ":options_cc_proto",
+        ":pico_time",
         ":proto_value_conversion",
         ":signature_match_result",
         ":strings",
+        ":timestamp_picos_value",
         ":type",
         ":type_cc_proto",
         ":uuid_value",
@@ -932,13 +961,14 @@ cc_library(
         ":numeric_parser",
         "//zetasql/base",
         "//zetasql/base:map_util",
-        "//zetasql/base:ret_check",
         "//zetasql/base:status",
+        "//zetasql/common:multiprecision_int",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/hash",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/types:optional",
+        "@com_google_absl//absl/types:compare",
         "@json",
     ],
 )
@@ -954,10 +984,12 @@ cc_test(
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/compliance:depth_limit_detector_test_cases",
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:compare",
         "@com_google_absl//absl/types:span",
     ],
 )
@@ -1503,6 +1535,7 @@ cc_library(
     deps = [
         ":deprecation_warning_cc_proto",
         ":error_location_cc_proto",
+        ":fix_suggestion_cc_proto",
         ":options_cc_proto",
         ":parse_location",
         "//zetasql/base:check",
@@ -1511,8 +1544,10 @@ cc_library(
         "//zetasql/common:status_payload_utils",
         "//zetasql/common:utf_util",
         "//zetasql/proto:internal_error_location_cc_proto",
+        "//zetasql/proto:internal_fix_suggestion_cc_proto",
         "//zetasql/proto:script_exception_cc_proto",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
@@ -1528,15 +1563,16 @@ cc_test(
     size = "small",
     srcs = ["error_helpers_test.cc"],
     deps = [
+        ":analyzer_options",
         ":deprecation_warning_cc_proto",
         ":error_helpers",
         ":error_location_cc_proto",
+        ":fix_suggestion_cc_proto",
         ":options_cc_proto",
         ":parse_location",
         "//zetasql/base",
         "//zetasql/base:enum_utils",
         "//zetasql/base:map_util",
-        "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
@@ -1545,8 +1581,10 @@ cc_test(
         "//zetasql/common/testing:proto_matchers",
         "//zetasql/common/testing:status_payload_matchers",
         "//zetasql/proto:internal_error_location_cc_proto",
+        "//zetasql/proto:internal_fix_suggestion_cc_proto",
         "//zetasql/proto:script_exception_cc_proto",
         "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
@@ -1560,6 +1598,8 @@ cc_library(
         ":json_value",
         ":numeric_value",
         ":options_cc_proto",
+        ":pico_time",
+        ":timestamp_picos_value",
         ":type",
         ":type_cc_proto",
         ":uuid_value",
@@ -1585,13 +1625,16 @@ cc_test(
     srcs = ["proto_value_conversion_test.cc"],
     deps = [
         ":analyzer",
+        ":builtin_function_options",
         ":language_options",
         ":options_cc_proto",
         ":proto_value_conversion",
         ":simple_catalog",
+        ":timestamp_picos_value",
         ":type",
         ":type_cc_proto",
         ":value",
+        ":value_cc_proto",
         "//zetasql/base",
         "//zetasql/base:path",
         "@com_google_protobuf//:protobuf",
@@ -1609,6 +1652,7 @@ cc_test(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/time",
         "@com_google_absl//absl/strings",
         "//zetasql/base:map_util",
         "//zetasql/base:status",
@@ -1629,12 +1673,12 @@ cc_library(
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
-        "//zetasql/base:strings",
         "//zetasql/common:errors",
         "//zetasql/common:utf_util",
         "//zetasql/parser:keywords",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/base:no_destructor",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
@@ -1653,7 +1697,6 @@ cc_test(
         ":language_options",
         ":options_cc_proto",
         ":strings",
-        "//zetasql/base:map_util",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
@@ -1722,6 +1765,7 @@ cc_library(
     ],
     deps = [
         ":builtin_function_cc_proto",
+        ":constness_level_cc_proto",
         ":deprecation_warning_cc_proto",
         ":function_cc_proto",
         ":id_string",
@@ -1769,6 +1813,7 @@ cc_library(
     deps = [
         ":builtin_function_cc_proto",
         ":catalog",
+        ":constness_level_cc_proto",
         ":deprecation_warning_cc_proto",
         ":evaluator_table_iterator",
         ":function_cc_proto",
@@ -1798,9 +1843,11 @@ cc_library(
         "//zetasql/resolved_ast:serialization_cc_proto",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/base:no_destructor",
         "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/log",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
@@ -1859,10 +1906,7 @@ cc_library(
     deps = [
         ":error_location_cc_proto",
         ":function",
-        ":id_string",
-        ":parse_location",
         ":parse_resume_location",
-        ":strings",
         ":type",
         "//zetasql/base",
         "//zetasql/base:ret_check",
@@ -1872,7 +1916,6 @@ cc_library(
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
         "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf",
@@ -1915,7 +1958,6 @@ cc_library(
         ":function",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
-        "//zetasql/common:errors",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
         "@com_google_absl//absl/status",
@@ -2295,6 +2337,7 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:span",
     ],
 )
 
@@ -2352,6 +2395,7 @@ cc_test(
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf",
         "@com_googlesource_code_re2//:re2",
@@ -2542,6 +2586,7 @@ cc_library(
     hdrs = ["evaluator_base.h"],
     deps = [
         ":analyzer",
+        ":analyzer_options",
         ":catalog",
         ":evaluator_table_iterator",
         ":language_options",
@@ -2571,6 +2616,7 @@ cc_library(
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings:string_view",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:span",
@@ -2586,6 +2632,7 @@ cc_library(
     deps = [
         ":evaluator_base",
         "//zetasql/common:evaluator_registration_utils",
+        "@com_google_absl//absl/strings:string_view",
     ],
 )
 
@@ -2723,6 +2770,7 @@ cc_test(
     name = "table_valued_function_test",
     srcs = ["table_valued_function_test.cc"],
     deps = [
+        ":analyzer_options",
         ":catalog",
         ":function",
         ":function_cc_proto",
@@ -2731,12 +2779,11 @@ cc_test(
         ":parse_location",
         ":type",
         ":type_cc_proto",
-        "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/proto:function_cc_proto",
         "//zetasql/public/types",
-        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -2995,11 +3042,13 @@ cc_test(
         ":simple_catalog",
         ":templated_sql_function",
         ":templated_sql_tvf_no_resolver",
+        "//zetasql/base:check",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
+        "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:status_matchers",
         "@com_google_absl//absl/status:statusor",
@@ -3013,4 +3062,9 @@ proto_library(
     deps = [
         ":error_location_proto",
     ],
+)
+
+cc_proto_library(
+    name = "fix_suggestion_cc_proto",
+    deps = [":fix_suggestion_proto"],
 )

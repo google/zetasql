@@ -8,6 +8,7 @@
 #
 # Field names inside value tables are also directly accessible like
 # implicit column names.
+[default language_features=MAXIMUM]
 select t from TestStructValueTable t
 --
 QueryStmt
@@ -430,7 +431,7 @@ select e.* from EmptyMessageValueTable e
 
 select e.f from EmptyMessageValueTable e
 --
-ERROR: Protocol buffer zetasql_test__.EmptyMessage does not have a field called f; Proto has no fields. Is the full proto descriptor available? [at 1:10]
+ERROR: Protocol buffer zetasql_test__.EmptyMessage does not have a field called f [at 1:10]
 select e.f from EmptyMessageValueTable e
          ^
 ==
@@ -1037,7 +1038,7 @@ GROUP BY {{t.x|x|1}}
 --
 ALTERNATION GROUP: t.,t.x
 --
-ERROR: Star expansion expression references column x which is neither grouped nor aggregated [at 1:8]
+ERROR: SELECT list expression references table alias t which is neither grouped nor aggregated [at 1:8]
 SELECT t.*
        ^
 --
@@ -2910,12 +2911,12 @@ group by nested_value.nested_int64
          ^
 ==
 
-[language_features={{GROUP_BY_STRUCT|}}]
+[language_features=NONE,{{+GROUP_BY_STRUCT|}}]
 select f
 from TestNestedStructValueTable
 group by f
 --
-ALTERNATION GROUP: GROUP_BY_STRUCT
+ALTERNATION GROUP: +GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -2943,13 +2944,13 @@ group by f
          ^
 ==
 
-[language_features={{GROUP_BY_STRUCT|}}]
+[language_features=NONE,{{+GROUP_BY_STRUCT|}}]
 select f
 from TestNestedStructValueTable as f
 group by f
 
 --
-ALTERNATION GROUP: GROUP_BY_STRUCT
+ALTERNATION GROUP: +GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -2972,12 +2973,12 @@ group by f
          ^
 ==
 
-[language_features={{GROUP_BY_STRUCT|}}]
+[language_features=NONE,{{+GROUP_BY_STRUCT|}}]
 select TestNestedStructValueTable
 from TestNestedStructValueTable
 group by TestNestedStructValueTable
 --
-ALTERNATION GROUP: GROUP_BY_STRUCT
+ALTERNATION GROUP: +GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -3000,12 +3001,12 @@ group by TestNestedStructValueTable
          ^
 ==
 
-[language_features={{GROUP_BY_STRUCT|}}]
+[language_features=NONE,{{+GROUP_BY_STRUCT|}}]
 select f.d
 from TestNestedStructValueTable
 group by f.d
 --
-ALTERNATION GROUP: GROUP_BY_STRUCT
+ALTERNATION GROUP: +GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -3141,7 +3142,7 @@ select f.d
 ==
 
 # Test reference fields within group by struct
-[language_features=GROUP_BY_STRUCT]
+[language_features=NONE,+GROUP_BY_STRUCT]
 select f.d.b
 from TestNestedStructValueTable
 group by f.d
@@ -3178,7 +3179,7 @@ QueryStmt
 ==
 
 # Test reference fields NOT within group by struct, should be invalid
-[language_features=GROUP_BY_STRUCT]
+[language_features=NONE,+GROUP_BY_STRUCT]
 select e from TestNestedStructValueTable group by f.d
 --
 ERROR: SELECT list expression references column e which is neither grouped nor aggregated [at 1:8]
@@ -3187,7 +3188,7 @@ select e from TestNestedStructValueTable group by f.d
 ==
 
 # Test reference sibling of the group by struct.
-[language_features=GROUP_BY_STRUCT]
+[language_features=NONE,+GROUP_BY_STRUCT]
 select f.c from TestNestedStructValueTable group by f.d
 --
 ERROR: SELECT list expression references f.c which is neither grouped nor aggregated [at 1:8]

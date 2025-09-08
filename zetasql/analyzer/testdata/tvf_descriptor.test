@@ -7,7 +7,7 @@
 ################################################################################
 # TODO: Enable Java support.
 [default no_java]
-[default language_features=TABLE_VALUED_FUNCTIONS,TABLESAMPLE,TABLESAMPLE_FROM_TABLE_VALUED_FUNCTIONS,WITH_ON_SUBQUERY]
+[default language_features=MAXIMUM,+TABLE_VALUED_FUNCTIONS,+TABLESAMPLE,+TABLESAMPLE_FROM_TABLE_VALUED_FUNCTIONS,+WITH_ON_SUBQUERY]
 select * from tvf_one_descriptor_resolved_names_one_relation_arg_ambiguous_naming(
     descriptor(int64a), (select cast(42 as int64) as int64a, cast(60 as int64) as int64a))
 --

@@ -101,7 +101,7 @@ absl::Status TestDatabaseCatalog::BuiltinFunctionCache::SetLanguageOptions(
 }
 
 absl::Status TestDatabaseCatalog::IsInitialized() const {
-  if (catalog_ == nullptr) {
+  if (!is_initialized_) {
     return absl::FailedPreconditionError(
         "TestDatabaseCatalog is not initialized. "
         "TestDatabaseCatalog::SetTestDatabase() must be called first, "
@@ -221,6 +221,7 @@ absl::Status TestDatabaseCatalog::AddTablesWithMeasures(
       continue;
     }
     ZETASQL_RET_CHECK(!table.row_identity_columns.empty());
+    // TODO: b/350555383 - Value tables should be supported. Remove this.
     ZETASQL_RET_CHECK(!table.options.is_value_table());
     const Value& array_value = table.table_as_value;
     ZETASQL_RET_CHECK(array_value.type()->IsArray())
@@ -240,48 +241,12 @@ absl::Status TestDatabaseCatalog::AddTablesWithMeasures(
         std::make_move_iterator(measure_expr_analyzer_outputs.begin()),
         std::make_move_iterator(measure_expr_analyzer_outputs.end()));
     ZETASQL_RET_CHECK(element_type->IsStruct());
-    const StructType* row_as_struct_type = element_type->AsStruct();
-    std::vector<StructField> new_row_fields = row_as_struct_type->fields();
-    for (int i = row_as_struct_type->num_fields();
-         i < simple_table->NumColumns(); ++i) {
-      const Column* column = simple_table->GetColumn(i);
-      ZETASQL_RET_CHECK(column->GetType()->IsMeasureType());
-      new_row_fields.push_back({column->Name(), column->GetType()});
-    }
-
-    const StructType* new_row_as_struct_type = nullptr;
-    ZETASQL_RET_CHECK_OK(
-        type_factory_->MakeStructType(new_row_fields, &new_row_as_struct_type));
-
-    std::vector<Value> new_rows_as_struct_values;
-    for (const Value& row : array_value.elements()) {
-      std::vector<Value> new_row_values;
-      for (const Value& column_in_row : row.fields()) {
-        new_row_values.push_back(column_in_row);
-      }
-      // Add measure values.
-      for (int i = row_as_struct_type->num_fields(); i < new_row_fields.size();
-           ++i) {
-        ABSL_CHECK(new_row_fields[i].type->IsMeasureType());
-        ZETASQL_ASSIGN_OR_RETURN(Value measure_value,
-                         InternalValue::MakeMeasure(
-                             new_row_fields[i].type->AsMeasure(), row,
-                             table.row_identity_columns, language_options));
-        new_row_values.push_back(measure_value);
-      }
-
-      auto new_row_as_struct_value =
-          Value::MakeStruct(new_row_as_struct_type, new_row_values);
-      ZETASQL_RET_CHECK_OK(new_row_as_struct_value.status());
-      new_rows_as_struct_values.push_back(std::move(*new_row_as_struct_value));
-    }
-    const ArrayType* new_array_type = nullptr;
-    ZETASQL_RET_CHECK_OK(
-        type_factory_->MakeArrayType(new_row_as_struct_type, &new_array_type));
-    auto new_array_value =
-        Value::MakeArray(new_array_type, new_rows_as_struct_values);
-    ZETASQL_RET_CHECK_OK(new_array_value.status());
-    table.table_as_value_with_measures = std::move(*new_array_value);
+    ZETASQL_ASSIGN_OR_RETURN(
+        Value new_array_value,
+        UpdateTableRowsWithMeasureValues(array_value, simple_table.get(),
+                                         table.row_identity_columns,
+                                         type_factory_, language_options));
+    table.table_as_value_with_measures = std::move(new_array_value);
     catalog_->AddOwnedTable(simple_table.release());
   }
   return absl::OkStatus();
@@ -310,7 +275,8 @@ absl::Status TestDatabaseCatalog::GetTypes(
   return catalog_->GetTypes(output);
 }
 
-absl::Status TestDatabaseCatalog::SetTestDatabase(const TestDatabase& test_db) {
+absl::Status TestDatabaseCatalog::CreateCatalogAndPreloadTypesAndFunctions(
+    const TestDatabase& test_db) {
   catalog_ = std::make_unique<SimpleCatalog>("root_catalog", type_factory_);
   // Prepare proto importer.
   if (test_db.runs_as_test) {
@@ -323,14 +289,19 @@ absl::Status TestDatabaseCatalog::SetTestDatabase(const TestDatabase& test_db) {
   importer_ = std::make_unique<google::protobuf::compiler::Importer>(
       proto_source_tree_.get(), proto_error_collector_.get());
   // Load protos and enums.
-  ZETASQL_RETURN_IF_ERROR(LoadProtoEnumTypes(test_db.proto_files, test_db.proto_names,
-                                     test_db.enum_names));
+  return LoadProtoEnumTypes(test_db.proto_files, test_db.proto_names,
+                            test_db.enum_names);
+}
+
+absl::Status TestDatabaseCatalog::SetTestDatabase(const TestDatabase& test_db) {
+  ZETASQL_RETURN_IF_ERROR(CreateCatalogAndPreloadTypesAndFunctions(test_db));
   // Add tables to the catalog.
   for (const auto& t : test_db.tables) {
     const std::string& table_name = t.first;
     const TestTable& test_table = t.second;
     AddTable(table_name, test_table);
   }
+  is_initialized_ = true;
   return absl::OkStatus();
 }
 
@@ -339,8 +310,9 @@ absl::Status TestDatabaseCatalog::SetLanguageOptions(
   if (catalog_ == nullptr) {
     return absl::FailedPreconditionError(
         "Cannot set language options since underlying catalog is unexpectedly "
-        "null. TestDatabaseCatalog::SetTestDatabase() must be called first, "
-        "before calling TestDatabaseCatalog::SetLanguageOptions().");
+        "null. TestDatabaseCatalog::CreateCatalogAndPreloadTypesAndFunctions() "
+        "must be called "
+        "first, before calling TestDatabaseCatalog::SetLanguageOptions().");
   }
   return function_cache_->SetLanguageOptions(language_options, catalog_.get());
 }

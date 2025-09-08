@@ -33,6 +33,13 @@ public interface GraphElementTable extends Serializable {
     EDGE
   }
 
+  /** The cardinality of the dynamic label. */
+  enum DynamicLabelCardinality {
+    UNKNOWN,
+    SINGLE,
+    MULTIPLE,
+  };
+
   /**
    * Returns the name which is a unique identifier of a GraphElementTable within the property graph.
    */
@@ -83,6 +90,9 @@ public interface GraphElementTable extends Serializable {
 
   /** Returns the {@link GraphDynamicLabel} of this GraphElementTable. */
   GraphDynamicLabel getDynamicLabel();
+
+  /** Returns the cardinality of the dynamic label. */
+  DynamicLabelCardinality dynamicLabelCardinality();
 
   /** Returns true if this GraphElementTable has {@link GraphDynamicProperties} defined. */
   boolean hasDynamicProperties();

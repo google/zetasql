@@ -1,5 +1,6 @@
 # Tests for unsupported alter schema statements.
 
+[default language_features=MAXIMUM]
 ALTER SCHEMA myProject.mySchema
 SET AS JSON '{"key": "value"}';
 
@@ -27,7 +28,7 @@ FALSE_ACTION;
 ^
 ==
 
-[language_features=COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
+[language_features=NONE,+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK]
 alter schema if exists entity set default collate 'unicode:ci';
 --
 AlterSchemaStmt
@@ -39,7 +40,7 @@ AlterSchemaStmt
 +-is_if_exists=TRUE
 ==
 
-[language_features=COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
+[language_features=NONE,+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK]
 alter schema if exists entity set default collate @test_param_string;
 --
 ERROR: COLLATE must be followed by a string literal [at 1:51]

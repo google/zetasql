@@ -227,7 +227,7 @@ FROM
 # Wrong ordering of partition by and order by.
 select f() over (order by a partition by a) from T
 --
-ERROR: Syntax error: Expected ")" but got keyword PARTITION [at 1:29]
+ERROR: Syntax error: Expected ")" or keyword RANGE or keyword ROWS but got keyword PARTITION [at 1:29]
 select f() over (order by a partition by a) from T
                             ^
 ==
@@ -568,7 +568,7 @@ FROM
 select f() over (current row)
 from T
 --
-ERROR: Syntax error: Expected ")" but got keyword CURRENT [at 1:18]
+ERROR: Syntax error: Expected ")" or keyword ORDER or keyword RANGE or keyword ROWS but got keyword CURRENT [at 1:18]
 select f() over (current row)
                  ^
 ==
@@ -576,7 +576,7 @@ select f() over (current row)
 select f() over (between current row and current row)
 from T
 --
-ERROR: Syntax error: Expected ")" but got keyword BETWEEN [at 1:18]
+ERROR: Syntax error: Expected ")" or keyword ORDER or keyword RANGE or keyword ROWS but got keyword BETWEEN [at 1:18]
 select f() over (between current row and current row)
                  ^
 ==
@@ -865,14 +865,14 @@ FROM
 # Cannot have more than one window names.
 select f() over (w1 w2) from T
 --
-ERROR: Syntax error: Expected ")" but got identifier "w2" [at 1:21]
+ERROR: Syntax error: Expected ")" or keyword ORDER or keyword RANGE or keyword ROWS but got identifier "w2" [at 1:21]
 select f() over (w1 w2) from T
                     ^
 ==
 
 select f() over (w1, w2) from T
 --
-ERROR: Syntax error: Expected ")" but got "," [at 1:20]
+ERROR: Syntax error: Expected ")" or keyword ORDER or keyword RANGE or keyword ROWS but got "," [at 1:20]
 select f() over (w1, w2) from T
                    ^
 ==
@@ -1379,14 +1379,14 @@ ORDER BY f() OVER (), (f() OVER ()) + 1
 select f() over (groups current row)
 from T
 --
-ERROR: Syntax error: Expected ")" but got keyword GROUPS [at 1:18]
+ERROR: Syntax error: Expected ")" or keyword ORDER or keyword RANGE or keyword ROWS but got keyword GROUPS [at 1:18]
 select f() over (groups current row)
                  ^
 ==
 
 select f() over (groups between current row and current row)
 --
-ERROR: Syntax error: Expected ")" but got keyword GROUPS [at 1:18]
+ERROR: Syntax error: Expected ")" or keyword ORDER or keyword RANGE or keyword ROWS but got keyword GROUPS [at 1:18]
 select f() over (groups between current row and current row)
                  ^
 ==
@@ -1458,7 +1458,7 @@ ERROR: Syntax error: Expected ")" but got keyword AND [at 2:38]
 # Collation is not supported yet.
 select f() over (partition by k collate latin1_german2_ci) from T
 --
-ERROR: Syntax error: Expected ")" but got keyword COLLATE [at 1:33]
+ERROR: Syntax error: Expected ")" or keyword ORDER or keyword RANGE or keyword ROWS but got keyword COLLATE [at 1:33]
 select f() over (partition by k collate latin1_german2_ci) from T
                                 ^
 ==
@@ -1492,7 +1492,6 @@ SELECT
     ORDER BY k COLLATE "latin1_german2_ci")
 FROM
   T
-
 ==
 
 select f(a {{ignore|respect}} nulls) over () from T
@@ -1544,7 +1543,6 @@ SELECT
   f(a RESPECT NULLS) OVER ()
 FROM
   T
-
 ==
 
 select f(a, b {{ignore|respect}} nulls) over () from T
@@ -1596,13 +1594,11 @@ QueryStatement [0-43]
         TablePathExpression [42-43]
           PathExpression [42-43]
             Identifier(T) [42-43]
-
 --
 SELECT
   f(a, b RESPECT NULLS) OVER ()
 FROM
   T
-
 ==
 
 select
@@ -1629,7 +1625,8 @@ QueryStatement [0-72]
                   PathExpression [47-48]
                     Identifier(c) [47-48]
               LimitOffset [49-56]
-                IntLiteral(1) [55-56]
+                Limit [49-56]
+                  IntLiteral(1) [55-56]
             WindowSpecification [63-65]
       FromClause [66-72]
         TablePathExpression [71-72]
@@ -1663,7 +1660,8 @@ QueryStatement [0-73]
                   PathExpression [48-49]
                     Identifier(c) [48-49]
               LimitOffset [50-57]
-                IntLiteral(1) [56-57]
+                Limit [50-57]
+                  IntLiteral(1) [56-57]
             WindowSpecification [64-66]
       FromClause [67-73]
         TablePathExpression [72-73]
@@ -1676,7 +1674,6 @@ SELECT
     LIMIT 1) OVER ()
 FROM
   T
-
 ==
 
 select

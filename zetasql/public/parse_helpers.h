@@ -166,6 +166,39 @@ GetTopLevelTableNameFromNextDDLStatement(
     absl::string_view sql, ParseResumeLocation& resume_location,
     bool* at_end_of_input, const LanguageOptions& language_options);
 
+// Returns a list substrings from the sql input containing the expressions
+// defining the output columns from the outermost SELECT clause. Expressions are
+// returned in the SELECT-list order so that indexes in the output vector
+// corresponds to the index of the output columns. This function provides a
+// best-effort extraction and has significant limitations. The output should be
+// treated as unsuitable for any semantic interpretation.
+//
+// WARNING: The returned expressions are purely syntactic and do not carry
+// semantic information. This makes the output unsuitable for interpreting
+// expressions that contain column names or aliases, as resolving these names
+// requires the context of the entire query (e.g., FROM, WITH, and JOIN
+// clauses), which this function does not provide. For example:
+//   - In `SELECT t.a as col FROM t`, the extracted expression is `t.a`, but its
+//     meaning depends on the definition of `t`.
+//   - An expression might not correspond to a column from a table, even if its
+//     name matches. The expression could be a literal, a function call, or a
+//     complex expression.
+//
+// The function may also fail to parse or return an error for query
+// constructs where there is not a simple, outermost SELECT list. For example :
+//   - Queries with '*' operations (e.g., `SELECT *`, `SELECT t.*`) are not
+//     supported and will return an error.
+//   - Queries with set operations (e.g., `UNION`, `INTERSECT`, `EXCEPT`) are
+//     not supported and will return an error.
+//   - For queries with PIPE operators, the expressions are returned only if the
+//     query ends with a PIPE_SELECT statement. Otherwise, an error is
+//     returned.
+//
+// `language_options` impacts parsing behavior.
+absl::StatusOr<std::vector<absl::string_view> >
+ListSelectColumnExpressionsFromFinalSelectClause(
+    absl::string_view sql, const LanguageOptions& language_options);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_PUBLIC_PARSE_HELPERS_H_

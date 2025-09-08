@@ -31,13 +31,14 @@
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/status.h"
+#include "google/protobuf/descriptor.h"
 #include "zetasql/base/status_builder.h"
 
 namespace zetasql {
 
 LanguageOptions::LanguageFeatureSet
 LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
-  if (version == VERSION_CURRENT) {
+  if (version == VERSION_CURRENT || version == LANGUAGE_VERSION_UNSPECIFIED) {
     version = VERSION_1_4;
   }
 
@@ -220,4 +221,23 @@ void LanguageOptions::EnableAllReservableKeywords(bool reserved) {
     reserved_keywords_.clear();
   }
 }
+
+LanguageVersion LanguageFeatureVersion(LanguageFeature feature) {
+  static const google::protobuf::EnumDescriptor* kLanguageFeatureDescriptor =
+      google::protobuf::GetEnumDescriptor<LanguageFeature>();
+  const google::protobuf::EnumValueDescriptor* value_descriptor =
+      kLanguageFeatureDescriptor->FindValueByNumber(feature);
+  ABSL_DCHECK(value_descriptor != nullptr);
+  if (value_descriptor == nullptr ||
+      !value_descriptor->options().HasExtension(language_feature_options)) {
+    return LANGUAGE_VERSION_UNSPECIFIED;
+  }
+  LanguageFeatureOptions options =
+      value_descriptor->options().GetExtension(language_feature_options);
+  if (!options.has_language_version()) {
+    return LANGUAGE_VERSION_UNSPECIFIED;
+  }
+  return options.language_version();
+}
+
 }  // namespace zetasql

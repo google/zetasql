@@ -39,15 +39,101 @@
 #include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_set.h"
 #include "zetasql/base/check.h"
+#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_format.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace {
+
+using GroupingSetColumnRefs =
+    std::vector<std::unique_ptr<const ResolvedColumnRef>>;
+
+// Counts the number of expanded grouping set items in a single grouping set.
+// `max_grouping_sets` is the maximum number of expanded grouping set items
+// allowed. If the `grouping_set_base` is a ResolvedGroupingSetProduct and the
+// number of expanded grouping set items exceeds `max_grouping_sets`, returns an
+// InvalidArgumentError.
+absl::StatusOr<int64_t> CountGroupingSetItem(
+    const ResolvedGroupingSetBase& grouping_set_base,
+    const int64_t max_grouping_sets) {
+  if (grouping_set_base.Is<ResolvedGroupingSet>()) {
+    return 1;
+  }
+  if (grouping_set_base.Is<ResolvedRollup>()) {
+    const ResolvedRollup* rollup = grouping_set_base.GetAs<ResolvedRollup>();
+    return rollup->rollup_column_list_size() + 1;
+  }
+  if (grouping_set_base.Is<ResolvedCube>()) {
+    const ResolvedCube* cube = grouping_set_base.GetAs<ResolvedCube>();
+    // This is a hard limit of the number of columns in cube, to avoid the
+    // following computation overflow. The same check will be applied in the
+    // CUBE expansion method too.
+    int cube_size = cube->cube_column_list_size();
+    if (cube_size > 31) {
+      return absl::InvalidArgumentError(
+          "Cube can not have more than 31 elements");
+    }
+    return 1ull << cube_size;
+  }
+  if (grouping_set_base.Is<ResolvedGroupingSetList>()) {
+    int64_t grouping_set_count = 0;
+    for (const std::unique_ptr<const ResolvedGroupingSetBase>&
+             grouping_set_base :
+         grouping_set_base.GetAs<ResolvedGroupingSetList>()->elem_list()) {
+      ZETASQL_ASSIGN_OR_RETURN(
+          int64_t single_item_grouping_set_count,
+          CountGroupingSetItem(*grouping_set_base, max_grouping_sets));
+      grouping_set_count += single_item_grouping_set_count;
+    }
+    return grouping_set_count;
+  }
+  // This is a ResolvedGroupingSetProduct node.
+  ZETASQL_RET_CHECK(grouping_set_base.Is<ResolvedGroupingSetProduct>())
+      << "Unsupported grouping set base type: "
+      << grouping_set_base.DebugString();
+  int64_t grouping_set_count_product = 1;
+  for (const std::unique_ptr<const ResolvedGroupingSetBase>& grouping_set_base :
+       grouping_set_base.GetAs<ResolvedGroupingSetProduct>()->input_list()) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        int64_t single_item_grouping_set_count,
+        CountGroupingSetItem(*grouping_set_base, max_grouping_sets));
+    if (grouping_set_count_product >
+        max_grouping_sets / single_item_grouping_set_count) {
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "At most %d grouping sets are allowed", max_grouping_sets));
+    }
+    grouping_set_count_product *= single_item_grouping_set_count;
+  }
+  return grouping_set_count_product;
+}
+
+absl::StatusOr<bool> ShouldRewriteGroupingSetListItems(
+    absl::Span<const std::unique_ptr<const ResolvedGroupingSetBase>>
+        grouping_set_list,
+    const int64_t max_grouping_sets) {
+  bool should_rewrite = grouping_set_list.size() > 1;
+  int64_t grouping_set_total_count = 0;
+  for (const std::unique_ptr<const ResolvedGroupingSetBase>& grouping_set_base :
+       grouping_set_list) {
+    should_rewrite |= !grouping_set_base->Is<ResolvedGroupingSet>();
+    ZETASQL_ASSIGN_OR_RETURN(
+        int64_t grouping_set_count,
+        CountGroupingSetItem(*grouping_set_base, max_grouping_sets));
+    grouping_set_total_count += grouping_set_count;
+    if (grouping_set_total_count > max_grouping_sets) {
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "At most %d grouping sets are allowed, but %d were provided",
+          max_grouping_sets, grouping_set_total_count));
+    }
+  }
+  return should_rewrite;
+}
 
 // Returns whether it should rewrite the resolved ast.
 // This function also checks whether the number of grouping sets and number of
@@ -76,39 +162,8 @@ absl::StatusOr<bool> ShouldRewrite(const ResolvedAggregateScanBase* node,
         options.max_columns_in_grouping_set(), node->group_by_list_size()));
   }
 
-  bool should_rewrite = false;
-  int64_t grouping_set_count = 0;
-  for (const std::unique_ptr<const ResolvedGroupingSetBase>& grouping_set_base :
-       node->grouping_set_list()) {
-    ZETASQL_RET_CHECK(grouping_set_base->Is<ResolvedGroupingSet>() ||
-              grouping_set_base->Is<ResolvedRollup>() ||
-              grouping_set_base->Is<ResolvedCube>());
-    if (grouping_set_base->Is<ResolvedGroupingSet>()) {
-      grouping_set_count++;
-    } else if (grouping_set_base->Is<ResolvedRollup>()) {
-      const ResolvedRollup* rollup = grouping_set_base->GetAs<ResolvedRollup>();
-      grouping_set_count += rollup->rollup_column_list_size() + 1;
-      should_rewrite = true;
-    } else {
-      const ResolvedCube* cube = grouping_set_base->GetAs<ResolvedCube>();
-      // This is a hard limit of the number of columns in cube, to avoid the
-      // following computation overflow. The same check will be applied in the
-      // CUBE expansion method too.
-      int cube_size = cube->cube_column_list_size();
-      if (cube_size > 31) {
-        return absl::InvalidArgumentError(
-            "Cube can not have more than 31 elements");
-      }
-      grouping_set_count += 1ull << cube_size;
-      should_rewrite = true;
-    }
-    if (grouping_set_count > options.max_grouping_sets()) {
-      return absl::InvalidArgumentError(absl::StrFormat(
-          "At most %d grouping sets are allowed, but %d were provided",
-          options.max_grouping_sets(), grouping_set_count));
-    }
-  }
-  return should_rewrite;
+  return ShouldRewriteGroupingSetListItems(node->grouping_set_list(),
+                                           options.max_grouping_sets());
 }
 
 // Expands ResolvedRollup to a list of ResolvedGroupingSets.
@@ -119,7 +174,7 @@ absl::StatusOr<std::vector<std::unique_ptr<ResolvedGroupingSet>>> ExpandRollup(
     const ResolvedRollup* node) {
   ZETASQL_RET_CHECK(node != nullptr);
   std::vector<std::unique_ptr<ResolvedGroupingSet>> grouping_set_list;
-  std::vector<std::unique_ptr<const ResolvedColumnRef>> current_grouping_set;
+  GroupingSetColumnRefs current_grouping_set;
   absl::flat_hash_set<ResolvedColumn> distinct_grouping_set_columns;
 
   grouping_set_list.reserve(node->rollup_column_list().size() + 1);
@@ -139,7 +194,7 @@ absl::StatusOr<std::vector<std::unique_ptr<ResolvedGroupingSet>>> ExpandRollup(
                                   /*is_correlated=*/false));
       }
     }
-    std::vector<std::unique_ptr<const ResolvedColumnRef>> grouping_set_columns;
+    GroupingSetColumnRefs grouping_set_columns;
     grouping_set_columns.reserve(current_grouping_set.size());
     for (std::unique_ptr<const ResolvedColumnRef>& column_ref :
          current_grouping_set) {
@@ -182,7 +237,7 @@ absl::StatusOr<std::vector<std::unique_ptr<ResolvedGroupingSet>>> ExpandCube(
   // sure uint32_t is smaller than or equal to 2^31, in which case,
   // expanded_grouping_set_size - 1 is still in the range of int.
   for (int i = expanded_grouping_set_size - 1; i >= 0; --i) {
-    std::vector<std::unique_ptr<const ResolvedColumnRef>> current_grouping_set;
+    GroupingSetColumnRefs current_grouping_set;
     absl::flat_hash_set<ResolvedColumn> distinct_grouping_set_columns;
     std::bitset<32> grouping_set_bit(i);
     for (int column_index = 0; column_index < cube_size; ++column_index) {
@@ -205,6 +260,140 @@ absl::StatusOr<std::vector<std::unique_ptr<ResolvedGroupingSet>>> ExpandCube(
   return grouping_set_list;
 }
 
+// Create a grouping set from a list of column ref lists. Duplicated column refs
+// will be deduplicated.
+std::unique_ptr<ResolvedGroupingSet> CreateGroupingSetFromColumnRefs(
+    const std::vector<const GroupingSetColumnRefs*>& column_ref_lists) {
+  absl::flat_hash_set<ResolvedColumn> grouping_set_columns_set;
+  GroupingSetColumnRefs grouping_set_columns;
+  int64_t total_column_count = 0;
+  for (const GroupingSetColumnRefs* column_ref_list : column_ref_lists) {
+    total_column_count += column_ref_list->size();
+  }
+  grouping_set_columns.reserve(total_column_count);
+  for (const GroupingSetColumnRefs* column_ref_list : column_ref_lists) {
+    for (const std::unique_ptr<const ResolvedColumnRef>& column_ref :
+         *column_ref_list) {
+      if (!zetasql_base::InsertIfNotPresent(&grouping_set_columns_set,
+                                   column_ref->column())) {
+        continue;
+      }
+      grouping_set_columns.push_back(
+          MakeResolvedColumnRef(column_ref->type(), column_ref->column(),
+                                /*is_correlated=*/false));
+    }
+  }
+  return MakeResolvedGroupingSet(std::move(grouping_set_columns));
+}
+
+// Given a list of grouping set lists, calculate the cartesian product of the
+// grouping sets and create a list of grouping sets.
+absl::Status CalculateGroupingSetsCatesianProduct(
+    const std::vector<
+        std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>>&
+        grouping_set_list_multipliers,
+    int64_t current_grouping_set_index,
+    std::vector<const GroupingSetColumnRefs*>& current_columns,
+    std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>&
+        result_grouping_set_list) {
+  if (current_grouping_set_index >= grouping_set_list_multipliers.size()) {
+    result_grouping_set_list.push_back(
+        CreateGroupingSetFromColumnRefs(current_columns));
+    return absl::OkStatus();
+  }
+
+  const std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>&
+      current_grouping_set_list =
+          grouping_set_list_multipliers[current_grouping_set_index];
+  for (const std::unique_ptr<const ResolvedGroupingSetBase>&
+           current_grouping_set : current_grouping_set_list) {
+    ZETASQL_RET_CHECK(current_grouping_set->Is<ResolvedGroupingSet>());
+    current_columns.push_back(
+        &current_grouping_set->GetAs<ResolvedGroupingSet>()
+             ->group_by_column_list());
+    ZETASQL_RETURN_IF_ERROR(CalculateGroupingSetsCatesianProduct(
+        grouping_set_list_multipliers, current_grouping_set_index + 1,
+        current_columns, result_grouping_set_list));
+    current_columns.pop_back();
+  }
+  return absl::OkStatus();
+}
+
+// Expands single grouping set item to a list of grouping sets.
+absl::StatusOr<std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>>
+ExpandGroupingSet(
+    std::unique_ptr<const ResolvedGroupingSetBase>& grouping_set) {
+  std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>
+      new_grouping_set_list;
+  if (grouping_set->Is<ResolvedGroupingSet>()) {
+    // Insert a copy of the ResolvedGroupingSet to the end of the
+    // new_grouping_set_lists.
+    new_grouping_set_list.push_back(std::move(grouping_set));
+  } else if (grouping_set->Is<ResolvedRollup>()) {
+    const ResolvedRollup* rollup = grouping_set->GetAs<ResolvedRollup>();
+    ZETASQL_ASSIGN_OR_RETURN(std::vector<std::unique_ptr<ResolvedGroupingSet>>
+                         expanded_grouping_set_list,
+                     ExpandRollup(rollup));
+    absl::c_move(expanded_grouping_set_list,
+                 std::back_inserter(new_grouping_set_list));
+  } else if (grouping_set->Is<ResolvedCube>()) {
+    // This is a ResolvedCube node.
+    const ResolvedCube* cube = grouping_set->GetAs<ResolvedCube>();
+    ZETASQL_ASSIGN_OR_RETURN(std::vector<std::unique_ptr<ResolvedGroupingSet>>
+                         expanded_grouping_set_list,
+                     ExpandCube(cube));
+    absl::c_move(expanded_grouping_set_list,
+                 std::back_inserter(new_grouping_set_list));
+  } else if (grouping_set->Is<ResolvedGroupingSetList>()) {
+    // This is a ResolvedGroupingSetList node.
+    auto builder = ToBuilder(absl::WrapUnique(
+        grouping_set.release()->GetAs<ResolvedGroupingSetList>()));
+    auto grouping_set_list = builder.release_elem_list();
+    for (int i = 0; i < grouping_set_list.size(); ++i) {
+      ZETASQL_ASSIGN_OR_RETURN(
+          std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>
+              expanded_grouping_set_list,
+          ExpandGroupingSet(grouping_set_list[i]));
+      // Insert expanded grouping sets to the end of the new_grouping_set_lists.
+      absl::c_move(expanded_grouping_set_list,
+                   std::back_inserter(new_grouping_set_list));
+    }
+  } else {
+    // This is a ResolvedGroupingSetProduct node.
+    //
+    // ResolvedGroupingSetProduct will be expanded to a list of grouping sets.
+    //
+    // For example,
+    // ROLLUP(a, b), CUBE(c, d)
+    // will be expanded to:
+    // [(a, b), (a), ()] x [(c, d), (c), (d), ()]
+    // = GROUPING SETS((a, b, c, d), (a, b, c), (a, b, d), (a, b), (a, c, d),
+    // (a, c), (a, d), (a), (c, d), (c), (d), ())
+    //
+    // See (broken link) for more details.
+    auto builder = ToBuilder(absl::WrapUnique(
+        grouping_set.release()->GetAs<ResolvedGroupingSetProduct>()));
+
+    std::vector<std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>>
+        grouping_set_list_multipliers;
+    for (std::unique_ptr<const ResolvedGroupingSetBase>& grouping_set :
+         builder.release_input_list()) {
+      ZETASQL_ASSIGN_OR_RETURN(
+          std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>
+              expanded_grouping_set_list,
+          ExpandGroupingSet(grouping_set));
+      grouping_set_list_multipliers.push_back(
+          std::move(expanded_grouping_set_list));
+    }
+
+    // Do Cartesian Product of the expanded grouping set lists.
+    std::vector<const GroupingSetColumnRefs*> tmp_columns;
+    ZETASQL_RETURN_IF_ERROR(CalculateGroupingSetsCatesianProduct(
+        grouping_set_list_multipliers, /*current_grouping_set_index=*/0,
+        tmp_columns, new_grouping_set_list));
+  }
+  return new_grouping_set_list;
+}
 }  // namespace
 
 class GroupingSetRewriterVisitor : public ResolvedASTRewriteVisitor {
@@ -223,28 +412,14 @@ class GroupingSetRewriterVisitor : public ResolvedASTRewriteVisitor {
     for (int i = 0; i < grouping_set_list.size(); ++i) {
       ZETASQL_RET_CHECK(grouping_set_list[i]->Is<ResolvedGroupingSet>() ||
                 grouping_set_list[i]->Is<ResolvedRollup>() ||
-                grouping_set_list[i]->Is<ResolvedCube>());
-      if (grouping_set_list[i]->Is<ResolvedGroupingSet>()) {
-        // Simply put the ResolvedGroupingSet to the new grouping set list
-        new_grouping_set_list.push_back(std::move(grouping_set_list[i]));
-      } else if (grouping_set_list[i]->Is<ResolvedRollup>()) {
-        const ResolvedRollup* rollup =
-            grouping_set_list[i]->GetAs<ResolvedRollup>();
-        ZETASQL_ASSIGN_OR_RETURN(std::vector<std::unique_ptr<ResolvedGroupingSet>>
-                             expanded_grouping_set_list,
-                         ExpandRollup(rollup));
-        // Insert expanded grouping sets to the end of the grouping_set_lists.
-        absl::c_move(expanded_grouping_set_list,
-                     std::back_inserter(new_grouping_set_list));
-      } else {
-        // This is a ResolvedCube node.
-        const ResolvedCube* cube = grouping_set_list[i]->GetAs<ResolvedCube>();
-        ZETASQL_ASSIGN_OR_RETURN(std::vector<std::unique_ptr<ResolvedGroupingSet>>
-                             expanded_grouping_set_list,
-                         ExpandCube(cube));
-        absl::c_move(expanded_grouping_set_list,
-                     std::back_inserter(new_grouping_set_list));
-      }
+                grouping_set_list[i]->Is<ResolvedCube>() ||
+                grouping_set_list[i]->Is<ResolvedGroupingSetProduct>());
+      ZETASQL_ASSIGN_OR_RETURN(
+          std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>
+              expanded_grouping_set_list,
+          ExpandGroupingSet(grouping_set_list[i]));
+      absl::c_move(expanded_grouping_set_list,
+                   std::back_inserter(new_grouping_set_list));
     }
     return new_grouping_set_list;
   }

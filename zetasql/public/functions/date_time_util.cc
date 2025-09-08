@@ -81,6 +81,7 @@ constexpr int64_t kNumNanosPerMinute =
 constexpr int64_t kNumNanosPerHour =
     kNaiveNumSecondsPerHour * kNumNanosPerSecond;
 constexpr int64_t kNumNanosPerDay = kNaiveNumSecondsPerDay * kNumNanosPerSecond;
+constexpr absl::int128 kNumPicosPerDay = 1000 * kNumNanosPerDay;
 
 enum NewOrLegacyTimestampType {
   NEW_TIMESTAMP_TYPE,
@@ -1406,8 +1407,8 @@ static absl::Status ExtractFromTimestampInternal(DateTimestampPart part,
       // cast is safe, guaranteed to be less than 1 billion.
       *output = static_cast<Output>(absl::ToInt64Nanoseconds(info.subsecond));
       break;
-    // TODO: b/412458859 - Add PICOSECOND case.
     default:
+      // PICOSECOND is not supported for absl::Time.
       return MakeEvalError()
              << "Unexpected DateTimestampPart " << DateTimestampPart_Name(part);
   }
@@ -1595,6 +1596,42 @@ absl::Status LastDayOfDatetime(const DatetimeValue& datetime,
   ZETASQL_RETURN_IF_ERROR(ExtractFromDatetime(DATE, datetime, &date));
   ZETASQL_RETURN_IF_ERROR(LastDayOfDate(date, part, output));
   return absl::OkStatus();
+}
+
+absl::Status AddMonths(int32_t date, int64_t months, int32_t* output) {
+  if (!IsValidDate(date)) {
+    return MakeEvalError() << "Invalid date value: " << date;
+  }
+  int32_t new_date;
+  ZETASQL_RETURN_IF_ERROR(AddDate(date, MONTH, months, &new_date));
+  absl::CivilDay civil_day = EpochDaysToCivilDay(date);
+  if (IsLastDayOfTheMonth(static_cast<int>(civil_day.year()), civil_day.month(),
+                          civil_day.day())) {
+    ZETASQL_RETURN_IF_ERROR(LastDayOfDate(new_date, MONTH, output));
+  } else {
+    *output = new_date;
+  }
+  return absl::OkStatus();
+}
+
+// Implement the DATETIME version in terms of the DATE version.
+// The time doesn't change.
+absl::Status AddMonths(const DatetimeValue& datetime, int64_t months,
+                       DatetimeValue* output) {
+  int32_t date;
+  TimeValue time;
+  int32_t new_date;
+
+  if (!datetime.IsValid()) {
+    return MakeEvalError() << "Invalid datetime value: "
+                           << datetime.DebugString();
+  }
+
+  ZETASQL_RETURN_IF_ERROR(
+      ConstructDate(datetime.Year(), datetime.Month(), datetime.Day(), &date));
+  ZETASQL_RETURN_IF_ERROR(ExtractTimeFromDatetime(datetime, &time));
+  ZETASQL_RETURN_IF_ERROR(AddMonths(date, months, &new_date));
+  return ConstructDatetime(new_date, time, output);
 }
 
 static absl::Status TimestampTruncAtLeastMinute(absl::Time timestamp,
@@ -2153,10 +2190,25 @@ absl::Status ConvertTimestampToStringWithTruncation(const PicoTime& timestamp,
       /*expansion_options=*/{.truncate_tz = true}, out);
 }
 
+absl::Status ValidateTimeScale(TimestampScale scale) {
+  switch (scale) {
+    case kMicroseconds:
+    case kNanoseconds:
+    case kPicoseconds:
+      return absl::OkStatus();
+    case kSeconds:
+    case kMilliseconds:
+      ZETASQL_RET_CHECK_FAIL()
+          << "Only kMicroseconds, kNanoseconds and kPicoseconds are acceptable "
+             "values for scale";
+  }
+}
+
 absl::Status ConvertTimeToString(TimeValue time, TimestampScale scale,
                                  std::string* out) {
-  ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
-      << "Only kMicroseconds and kNanoseconds are acceptable values for scale";
+  // TODO: Support Time with picosecond precision.
+  ZETASQL_RETURN_IF_ERROR(ValidateTimeScale(scale));
+
   if (!time.IsValid()) {
     return MakeEvalError() << "Invalid time value: " << time.DebugString();
   }
@@ -2174,8 +2226,8 @@ absl::Status ConvertTimeToString(TimeValue time, TimestampScale scale,
 
 absl::Status ConvertDatetimeToString(DatetimeValue datetime,
                                      TimestampScale scale, std::string* out) {
-  ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
-      << "Only kMicroseconds and kNanoseconds are acceptable values for scale";
+  ZETASQL_RETURN_IF_ERROR(ValidateTimeScale(scale));
+
   if (!datetime.IsValid()) {
     return MakeEvalError() << "Invalid datetime value: "
                            << datetime.DebugString();
@@ -2677,8 +2729,8 @@ absl::Status ConvertStringToTimestamp(absl::string_view str,
 absl::Status ConvertStringToTime(absl::string_view str, TimestampScale scale,
                                  TimeValue* output) {
   // TODO: Support Time with picosecond precision.
-  ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
-      << "Only kMicroseconds and kNanoseconds are acceptable values for scale";
+  ZETASQL_RETURN_IF_ERROR(ValidateTimeScale(scale));
+
   int hour = 0, minute = 0, second = 0;
   int64_t subsecond = 0;
   int idx = 0;
@@ -2710,8 +2762,8 @@ absl::Status ConvertStringToDatetime(absl::string_view str,
                                      TimestampScale scale,
                                      DatetimeValue* output) {
   // TODO: Support DateTime with picosecond precision.
-  ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
-      << "Only kMicroseconds and kNanoseconds are acceptable values for scale";
+  ZETASQL_RETURN_IF_ERROR(ValidateTimeScale(scale));
+
   int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
   int64_t subsecond = 0;
   if (!ParseStringToDatetimeParts(str, scale, &year, &month, &day, &hour,
@@ -2906,8 +2958,7 @@ absl::Status ExtractFromTimestamp(DateTimestampPart part, absl::Time base_time,
   return ExtractFromTimestampImpl(part, base_time, timezone_string, output);
 }
 
-// TODO: b/412458859 - Change int32_t to int64_t.
-absl::StatusOr<int32_t> ExtractFromTimestamp(
+absl::StatusOr<int64_t> ExtractFromTimestamp(
     DateTimestampPart part, const PicoTime& timestamp,
     absl::string_view timezone_string) {
   absl::TimeZone timezone;
@@ -2915,25 +2966,25 @@ absl::StatusOr<int32_t> ExtractFromTimestamp(
   return ExtractFromTimestamp(part, timestamp, timezone);
 }
 
-// TODO: b/412458859 - Change int32_t to int64_t.
-absl::StatusOr<int32_t> ExtractFromTimestamp(DateTimestampPart part,
-                                             const PicoTime& timestamp,
-                                             absl::TimeZone timezone) {
-  // TODO: Support DateTimestampPart::PICOSECOND.
-  int32_t output;
-  ZETASQL_RETURN_IF_ERROR(ExtractFromTimestampImpl(part, timestamp.ToAbslTime(),
-                                           timezone, &output));
-  return output;
-}
-
-// TODO: b/412458859 - revert to int64_t* output and ExtractFromTimestamp name.
 template <typename Output>
 absl::Status ExtractFromTimestampImpl(DateTimestampPart part,
                                       const PicoTime& timestamp,
                                       absl::TimeZone timezone, Output* output) {
-  // TODO: Support DateTimestampPart::PICOSECOND.
+  if (part == DateTimestampPart::PICOSECOND) {
+    auto [seconds, picoseconds] = timestamp.SecondsAndPicoseconds();
+    *output = picoseconds;
+    return absl::OkStatus();
+  }
   return ExtractFromTimestampImpl(part, timestamp.ToAbslTime(), timezone,
                                   output);
+}
+
+absl::StatusOr<int64_t> ExtractFromTimestamp(DateTimestampPart part,
+                                             const PicoTime& timestamp,
+                                             absl::TimeZone timezone) {
+  int64_t output;
+  ZETASQL_RETURN_IF_ERROR(ExtractFromTimestampImpl(part, timestamp, timezone, &output));
+  return output;
 }
 
 absl::Status ExtractFromDate(DateTimestampPart part, int32_t date,
@@ -3269,7 +3320,9 @@ absl::Status ConvertTimestampToDatetime(absl::Time base_time,
 absl::Status ConvertTimestampToTime(absl::Time base_time,
                                     absl::TimeZone timezone,
                                     TimestampScale scale, TimeValue* output) {
-  ZETASQL_RET_CHECK(scale == kNanoseconds || scale == kMicroseconds);
+  // TODO: Support Time with picosecond precision.
+  ZETASQL_RETURN_IF_ERROR(ValidateTimeScale(scale));
+
   if (IsValidTime(base_time)) {
     const absl::TimeZone::CivilInfo info = timezone.At(base_time);
     if (scale == kNanoseconds) {
@@ -3522,7 +3575,7 @@ absl::Status AddDate(int32_t date, DateTimestampPart part, int64_t interval,
   return absl::OkStatus();
 }
 
-absl::Status AddDate(int32_t date, zetasql::IntervalValue interval,
+absl::Status AddDate(int32_t date, IntervalValue interval,
                      DatetimeValue* output) {
   DatetimeValue datetime;
   ZETASQL_RETURN_IF_ERROR(ConstructDatetime(date, TimeValue(), &datetime));
@@ -3854,8 +3907,7 @@ absl::Status SubDatetime(const DatetimeValue& datetime, DateTimestampPart part,
   return AddDatetimeInternal(datetime, part, -interval, output, error_maker);
 }
 
-absl::Status AddDatetime(DatetimeValue datetime,
-                         zetasql::IntervalValue interval,
+absl::Status AddDatetime(DatetimeValue datetime, IntervalValue interval,
                          DatetimeValue* output) {
   if (interval.get_months() != 0) {
     ZETASQL_RETURN_IF_ERROR(
@@ -3969,8 +4021,7 @@ absl::Status AddTimestamp(absl::Time timestamp,
 }
 
 absl::Status AddTimestamp(absl::Time timestamp, absl::TimeZone timezone,
-                          zetasql::IntervalValue interval,
-                          absl::Time* output) {
+                          IntervalValue interval, absl::Time* output) {
   if (interval.get_months() != 0) {
     return MakeEvalError() << "TIMESTAMP +/- INTERVAL is not supported for "
                               "intervals with non-zero MONTH or YEAR part.";
@@ -4014,6 +4065,38 @@ absl::Status AddTimestampOverflow(absl::Time timestamp, absl::TimeZone timezone,
   absl::Status status = AddTimestampInternal(timestamp, timezone, part,
                                              interval, output, had_overflow);
   return *had_overflow ? absl::OkStatus() : status;
+}
+
+absl::StatusOr<PicoTime> AddTimestamp(PicoTime timestamp,
+                                      IntervalValue interval) {
+  if (interval.get_months() != 0) {
+    return MakeEvalError() << "TIMESTAMP +/- INTERVAL is not supported for "
+                              "intervals with non-zero MONTH or YEAR part.";
+  }
+
+  // Note we should convert the entirety of `interval` to an int128 first,
+  // instead of calling AddTimestamp on `DAY`, `MICROSECOND`, and `NANOSECOND`
+  // parts incrementally.
+  // The nano fraction of the interval will always be positive:
+  // https://github.com/google/zetasql/blob/master/zetasql/public/interval_value.h;l=46;rcl=775796179
+  // {days, micros, nanos} could represent a very large negative interval
+  // which would push `timestamp` close to the lower end of allowed timestamp
+  // ranges. If we add {days, micros} portion of the interval first, we might
+  // push 'timestamp' over already and cause an error.
+  ZETASQL_ASSIGN_OR_RETURN(
+      absl::int128 picos_from_days,
+      RescaleInterval<absl::int128>(interval.get_days(), DAY, kPicoseconds));
+
+  ZETASQL_ASSIGN_OR_RETURN(absl::int128 picos_from_micros,
+                   RescaleInterval<absl::int128>(interval.get_micros(),
+                                                 MICROSECOND, kPicoseconds));
+
+  ZETASQL_ASSIGN_OR_RETURN(absl::int128 picos_from_nanos,
+                   RescaleInterval<absl::int128>(interval.get_nano_fractions(),
+                                                 NANOSECOND, kPicoseconds));
+
+  return AddTimestamp(timestamp, PICOSECOND,
+                      picos_from_days + picos_from_micros + picos_from_nanos);
 }
 
 absl::Status SubTimestamp(int64_t timestamp, TimestampScale scale,
@@ -4754,8 +4837,8 @@ TimestampScale NarrowTimestampScaleIfPossible(PicoTime time) {
 
 absl::Status TimestampBucketizer::ValidateBucketWidth(
     IntervalValue bucket_width, TimestampScale scale) {
-  ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
-      << "Only kMicroseconds and kNanoseconds are acceptable values for scale";
+  ZETASQL_RETURN_IF_ERROR(ValidateTimeScale(scale));
+
   if (scale == kMicroseconds && bucket_width.get_nano_fractions() != 0) {
     return MakeEvalError() << "Bucket width INTERVAL with nanoseconds "
                               "precision is not allowed";
@@ -4772,13 +4855,13 @@ absl::Status TimestampBucketizer::ValidateBucketWidth(
     if (scale == kMicroseconds) {
       if (bucket_width.get_micros() != 0) {
         return MakeEvalError() << "Bucket width INTERVAL with mixed DAY and "
-                                  "MICROSECOND parts is not allowed";
+                                  "subsecond parts is not allowed";
       }
     } else {
       if (bucket_width.get_micros() != 0 ||
           bucket_width.get_nano_fractions() != 0) {
         return MakeEvalError() << "Bucket width INTERVAL with mixed DAY and "
-                                  "NANOSECOND parts is not allowed";
+                                  "subsecond parts is not allowed";
       }
     }
   }
@@ -4790,8 +4873,8 @@ absl::Status TimestampBucketizer::ValidateBucketWidth(
 }
 
 absl::StatusOr<TimestampBucketizer> TimestampBucketizer::Create(
-    zetasql::IntervalValue bucket_width, absl::Time origin,
-    absl::TimeZone timezone, TimestampScale scale) {
+    IntervalValue bucket_width, absl::Time origin, absl::TimeZone timezone,
+    TimestampScale scale) {
   ZETASQL_RETURN_IF_ERROR(ValidateBucketWidth(bucket_width, scale));
 
   absl::Duration bucket_size;
@@ -4832,8 +4915,7 @@ absl::Status TimestampBucketizer::Compute(absl::Time input,
   return absl::OkStatus();
 }
 
-absl::Status TimestampBucket(absl::Time input,
-                             zetasql::IntervalValue bucket_width,
+absl::Status TimestampBucket(absl::Time input, IntervalValue bucket_width,
                              absl::Time origin, absl::TimeZone timezone,
                              TimestampScale scale, absl::Time* output) {
   ZETASQL_ASSIGN_OR_RETURN(
@@ -4842,10 +4924,63 @@ absl::Status TimestampBucket(absl::Time input,
   return bucketizer.Compute(input, output);
 }
 
+absl::StatusOr<TimestampPicosBucketizer> TimestampPicosBucketizer::Create(
+    IntervalValue bucket_width, const PicoTime& origin, TimestampScale scale) {
+  // Note currently IntervalValue does not support Picosecond precision and we
+  // are using the existing logic from TimestampBucketizer to validate
+  // `bucket_width`.
+  ZETASQL_RETURN_IF_ERROR(
+      TimestampBucketizer::ValidateBucketWidth(bucket_width, scale));
+
+  absl::int128 bucket_size_picos;
+  if (bucket_width.get_days() > 0) {
+    bucket_size_picos = bucket_width.get_days() * kNumPicosPerDay;
+  } else {
+    bucket_size_picos =
+        static_cast<absl::int128>(bucket_width.get_micros()) * 1'000'000;
+    if (bucket_width.get_nano_fractions() > 0) {
+      bucket_size_picos += bucket_width.get_nano_fractions() * 1000;
+    }
+  }
+
+  return TimestampPicosBucketizer(bucket_size_picos, origin);
+}
+
+absl::StatusOr<PicoTime> TimestampPicosBucketizer::Compute(
+    const PicoTime& input) const {
+  absl::int128 input_picos = input.ToUnixPicos();
+  absl::int128 rem = (input_picos - origin_) % bucket_width_;
+  absl::int128 result = input_picos - rem;
+
+  if (rem < 0) {
+    // Negative remainder indicates that input < origin. When input precedes
+    // origin we need to shift the result backwards by one bucket.
+    result -= bucket_width_;
+  }
+
+  auto result_picos = PicoTime::FromUnixPicos(result);
+  if (!result_picos.ok() &&
+      result_picos.status().code() == absl::StatusCode::kOutOfRange) {
+    return MakeEvalError() << "Bucket for " << input.DebugString()
+                           << " is outside of timestamp range";
+  }
+  return result_picos;
+}
+
+absl::StatusOr<PicoTime> TimestampPicosBucket(const PicoTime& input,
+                                              IntervalValue bucket_width,
+                                              const PicoTime& origin,
+                                              TimestampScale scale) {
+  ZETASQL_ASSIGN_OR_RETURN(
+      TimestampPicosBucketizer bucketizer,
+      TimestampPicosBucketizer::Create(bucket_width, origin, scale));
+  return bucketizer.Compute(input);
+}
+
 absl::Status DatetimeBucketizer::ValidateBucketWidth(IntervalValue bucket_width,
                                                      TimestampScale scale) {
-  ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
-      << "Only kMicroseconds and kNanoseconds are acceptable values for scale";
+  ZETASQL_RETURN_IF_ERROR(ValidateTimeScale(scale));
+
   if (scale == kMicroseconds && bucket_width.get_nano_fractions() != 0) {
     return MakeEvalError()
            << "Bucket width INTERVAL with nanoseconds precision is not allowed";

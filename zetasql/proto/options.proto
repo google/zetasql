@@ -89,7 +89,7 @@ message AllowedHintsAndOptionsProto {
 }
 
 // Serialized form of AnalyzerOptions.
-// next id: 30
+// next id: 31
 message AnalyzerOptionsProto {
   message QueryParameterProto {
     optional string name = 1;

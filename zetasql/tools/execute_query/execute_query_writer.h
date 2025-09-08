@@ -79,6 +79,15 @@ class ExecuteQueryWriter {
         "ExecuteQueryWriter::executed is not implemented");
   }
 
+  // This is used for commands that produce multiple tables as output.
+  virtual absl::Status executed_multi(
+      const ResolvedNode& ast,
+      std::vector<absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>>
+          results) {
+    return absl::UnimplementedError(
+        "ExecuteQueryWriter::executed_multi is not implemented");
+  }
+
   virtual absl::Status ExecutedExpression(const ResolvedNode& ast,
                                           const Value& value) {
     return absl::UnimplementedError(
@@ -114,6 +123,12 @@ class ExecuteQueryStreamWriter : public ExecuteQueryWriter {
                          absl::string_view explain) override;
   absl::Status executed(const ResolvedNode& ast,
                         std::unique_ptr<EvaluatorTableIterator> iter) override;
+
+  absl::Status executed_multi(
+      const ResolvedNode& ast,
+      std::vector<absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>>
+          results) override;
+
   absl::Status ExecutedExpression(const ResolvedNode& ast,
                                   const Value& value) override;
 

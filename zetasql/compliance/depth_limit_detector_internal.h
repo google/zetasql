@@ -20,11 +20,11 @@
 #include <cstdint>
 #include <limits>
 #include <set>
-#include <string_view>
 #include <variant>
 #include <vector>
 
 #include "zetasql/public/options.pb.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 namespace depth_limit_detector_internal {
@@ -34,7 +34,7 @@ namespace depth_limit_detector_internal {
 class DepthLimitDetectorDepthNumber {};
 class DepthLimitDetectorRepeatedTemplate;
 using DepthLimitDetectorTemplatePart =
-    std::variant<std::string_view, DepthLimitDetectorDepthNumber,
+    std::variant<absl::string_view, DepthLimitDetectorDepthNumber,
                  DepthLimitDetectorRepeatedTemplate>;
 
 class DepthLimitDetectorRepeatedTemplate
@@ -53,7 +53,7 @@ class DepthLimitDetectorTemplate
 };
 
 struct DepthLimitDetectorTestCase {
-  std::string_view depth_limit_test_case_name;
+  absl::string_view depth_limit_test_case_name;
   DepthLimitDetectorTemplate depth_limit_template;
   std::vector<LanguageFeature> depth_limit_required_features = {};
   int64_t depth_limit_max_depth = std::numeric_limits<int64_t>::max();

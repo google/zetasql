@@ -1,4 +1,5 @@
-[language_features=PIPES]
+[default language_features=NONE]
+[language_features=NONE,+PIPES]
 FROM KeyValue
 |> LOG
 --
@@ -7,7 +8,7 @@ ERROR: Pipe LOG not supported [at 2:1]
 ^
 ==
 
-[language_features=PIPES]
+[language_features=NONE,+PIPES]
 FROM KeyValue
 |> LOG ( |> WHERE true )
 --
@@ -16,7 +17,7 @@ ERROR: Pipe LOG not supported [at 2:1]
 ^
 ==
 
-[default language_features=PIPES,PIPE_LOG,PIPE_STATIC_DESCRIBE]
+[default language_features=NONE,+PIPES,+PIPE_LOG,+PIPE_STATIC_DESCRIBE]
 
 FROM KeyValue
 |> LOG
@@ -781,7 +782,7 @@ FROM
 # Check for error if we try to log an unretunable type (GRAPH_ELEMENT).
 # If we don't do it in LOG, we get the same error when returning it from
 # the outer query.
-[language_features=PIPES,PIPE_LOG,SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[language_features=NONE,+PIPES,+PIPE_LOG,+SQL_GRAPH,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 FROM GRAPH_TABLE(
   aml
   MATCH (a IS Person) -[e]-> (b IS Account)

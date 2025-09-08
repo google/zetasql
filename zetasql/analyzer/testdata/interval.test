@@ -1,7 +1,69 @@
 # TODO: Figure out how to make all tests work in Java.
+[default language_features=NONE]
 [default no_java]
 
-[language_features={{|INTERVAL_TYPE}}]
+[prepare_database=db1]
+[use_constant_evaluator]
+CREATE CONSTANT initialized_constant_string = "2004-09 25";
+--
+CreateConstantStmt
++-name_path=initialized_constant_string
++-expr=
+  +-Literal(type=STRING, value="2004-09 25")
+==
+
+[prepare_database=db1]
+[use_constant_evaluator]
+CREATE CONSTANT initialized_invalid_string = "INVALID STRING";
+--
+CreateConstantStmt
++-name_path=initialized_invalid_string
++-expr=
+  +-Literal(type=STRING, value="INVALID STRING")
+==
+
+[prepare_database=db1]
+[use_constant_evaluator]
+CREATE CONSTANT NULL_STRING = CAST(NULL AS STRING);
+--
+CreateConstantStmt
++-name_path=NULL_STRING
++-expr=
+  +-Literal(type=STRING, value=NULL, has_explicit_type=TRUE)
+==
+
+[prepare_database=db1]
+CREATE CONSTANT uninitialized_constant_string = "2004-09 25";
+--
+CreateConstantStmt
++-name_path=uninitialized_constant_string
++-expr=
+  +-Literal(type=STRING, value="2004-09 25")
+==
+
+[prepare_database=db1]
+[use_constant_evaluator]
+CREATE CONSTANT initialized_constant_double = 92.5;
+--
+CreateConstantStmt
++-name_path=initialized_constant_double
++-expr=
+  +-Literal(type=DOUBLE, value=92.5)
+==
+
+[prepare_database=db1]
+[use_constant_evaluator]
+CREATE CONSTANT initialized_year_string = CONCAT("2","025");
+--
+CreateConstantStmt
++-name_path=initialized_year_string
++-expr=
+  +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
+    +-Literal(type=STRING, value="2")
+    +-Literal(type=STRING, value="025")
+==
+
+[language_features=NONE,{{|+INTERVAL_TYPE}}]
 SELECT INTERVAL "1" YEAR
 --
 ALTERNATION GROUP: <empty>
@@ -10,7 +72,7 @@ ERROR: Unexpected INTERVAL expression [at 1:8]
 SELECT INTERVAL "1" YEAR
        ^
 --
-ALTERNATION GROUP: INTERVAL_TYPE
+ALTERNATION GROUP: +INTERVAL_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -24,7 +86,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|INTERVAL_TYPE}}]
+[language_features=NONE,{{|+INTERVAL_TYPE}}]
 select interval cast(1 as string) hour
 --
 ALTERNATION GROUP: <empty>
@@ -33,7 +95,7 @@ ERROR: Unexpected INTERVAL expression [at 1:8]
 select interval cast(1 as string) hour
        ^
 --
-ALTERNATION GROUP: INTERVAL_TYPE
+ALTERNATION GROUP: +INTERVAL_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -47,7 +109,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|INTERVAL_TYPE}}]
+[language_features=NONE,{{|+INTERVAL_TYPE|+INTERVAL_TYPE,+ANALYSIS_CONSTANT_INTERVAL_CONSTRUCTOR}}]
 select interval concat("1", "2") month
 --
 ALTERNATION GROUP: <empty>
@@ -56,14 +118,20 @@ ERROR: Unexpected INTERVAL expression [at 1:8]
 select interval concat("1", "2") month
        ^
 --
-ALTERNATION GROUP: INTERVAL_TYPE
+ALTERNATION GROUP: +INTERVAL_TYPE
 --
 ERROR: Invalid interval literal. Expected INTERVAL keyword to be followed by an INT64 expression or STRING literal [at 1:17]
 select interval concat("1", "2") month
                 ^
+--
+ALTERNATION GROUP: +INTERVAL_TYPE,+ANALYSIS_CONSTANT_INTERVAL_CONSTRUCTOR
+--
+ERROR: Invalid interval literal. Expected INTERVAL keyword to be followed by an INT64 expression or STRING value knowable at compile time. [at 1:17]
+select interval concat("1", "2") month
+                ^
 ==
 
-[language_features={{|INTERVAL_TYPE}}]
+[language_features=NONE,{{|+INTERVAL_TYPE}}]
 SELECT interval '-3' month
 --
 ALTERNATION GROUP: <empty>
@@ -72,7 +140,7 @@ ERROR: Unexpected INTERVAL expression [at 1:8]
 SELECT interval '-3' month
        ^
 --
-ALTERNATION GROUP: INTERVAL_TYPE
+ALTERNATION GROUP: +INTERVAL_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -86,7 +154,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|INTERVAL_TYPE}}]
+[language_features=NONE,{{|+INTERVAL_TYPE}}]
 SELECT -Interval '5' Week
 --
 ALTERNATION GROUP: <empty>
@@ -95,7 +163,7 @@ ERROR: Unexpected INTERVAL expression [at 1:9]
 SELECT -Interval '5' Week
         ^
 --
-ALTERNATION GROUP: INTERVAL_TYPE
+ALTERNATION GROUP: +INTERVAL_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -111,7 +179,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|INTERVAL_TYPE}}]
+[language_features=NONE,{{|+INTERVAL_TYPE}}]
 SELECT INTERVAL '-1.123456789' SECOND
 --
 ALTERNATION GROUP: <empty>
@@ -120,7 +188,7 @@ ERROR: Unexpected INTERVAL expression [at 1:8]
 SELECT INTERVAL '-1.123456789' SECOND
        ^
 --
-ALTERNATION GROUP: INTERVAL_TYPE
+ALTERNATION GROUP: +INTERVAL_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -134,7 +202,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|INTERVAL_TYPE}}]
+[language_features=NONE,{{|+INTERVAL_TYPE}}]
 SELECT INTERVAL '-1-2' YEAR TO MONTH
 --
 ALTERNATION GROUP: <empty>
@@ -143,7 +211,7 @@ ERROR: Unexpected INTERVAL expression [at 1:8]
 SELECT INTERVAL '-1-2' YEAR TO MONTH
        ^
 --
-ALTERNATION GROUP: INTERVAL_TYPE
+ALTERNATION GROUP: +INTERVAL_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -157,7 +225,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|INTERVAL_TYPE}}]
+[language_features=NONE,{{|+INTERVAL_TYPE}}]
 SELECT INTERVAL '-1 -2 -3' MONTH TO HOUR
 --
 ALTERNATION GROUP: <empty>
@@ -166,7 +234,7 @@ ERROR: Unexpected INTERVAL expression [at 1:8]
 SELECT INTERVAL '-1 -2 -3' MONTH TO HOUR
        ^
 --
-ALTERNATION GROUP: INTERVAL_TYPE
+ALTERNATION GROUP: +INTERVAL_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -180,7 +248,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|INTERVAL_TYPE}}]
+[language_features=NONE,{{|+INTERVAL_TYPE}}]
 SELECT INTERVAL '-1:2:3.456' HOUR TO SECOND
 --
 ALTERNATION GROUP: <empty>
@@ -189,7 +257,7 @@ ERROR: Unexpected INTERVAL expression [at 1:8]
 SELECT INTERVAL '-1:2:3.456' HOUR TO SECOND
        ^
 --
-ALTERNATION GROUP: INTERVAL_TYPE
+ALTERNATION GROUP: +INTERVAL_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -204,7 +272,7 @@ QueryStmt
 ==
 
 # Microseconds handling
-[language_features={{INTERVAL_TYPE|INTERVAL_TYPE,TIMESTAMP_NANOS|INTERVAL_TYPE,ENFORCE_MICROS_MODE_IN_INTERVAL_TYPE}}]
+[language_features=NONE,{{+INTERVAL_TYPE|+INTERVAL_TYPE,+TIMESTAMP_NANOS|+INTERVAL_TYPE,+ENFORCE_MICROS_MODE_IN_INTERVAL_TYPE}}]
 SELECT INTERVAL '0.123456' SECOND
 --
 QueryStmt
@@ -219,7 +287,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{INTERVAL_TYPE|INTERVAL_TYPE,TIMESTAMP_NANOS|INTERVAL_TYPE,ENFORCE_MICROS_MODE_IN_INTERVAL_TYPE}}]
+[language_features=NONE,{{+INTERVAL_TYPE|+INTERVAL_TYPE,+TIMESTAMP_NANOS|+INTERVAL_TYPE,+ENFORCE_MICROS_MODE_IN_INTERVAL_TYPE}}]
 SELECT INTERVAL '17:23.123456' MINUTE TO SECOND
 --
 QueryStmt
@@ -235,12 +303,12 @@ QueryStmt
 ==
 
 # Nanoseconds handling
-[language_features={{INTERVAL_TYPE|INTERVAL_TYPE,TIMESTAMP_NANOS|INTERVAL_TYPE,ENFORCE_MICROS_MODE_IN_INTERVAL_TYPE}}]
+[language_features=NONE,{{+INTERVAL_TYPE|+INTERVAL_TYPE,+TIMESTAMP_NANOS|+INTERVAL_TYPE,+ENFORCE_MICROS_MODE_IN_INTERVAL_TYPE}}]
 SELECT INTERVAL '0.123456789' SECOND
 --
 ALTERNATION GROUPS:
-    INTERVAL_TYPE
-    INTERVAL_TYPE,TIMESTAMP_NANOS
+    +INTERVAL_TYPE
+    +INTERVAL_TYPE,+TIMESTAMP_NANOS
 --
 QueryStmt
 +-output_column_list=
@@ -253,19 +321,19 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: INTERVAL_TYPE,ENFORCE_MICROS_MODE_IN_INTERVAL_TYPE
+ALTERNATION GROUP: +INTERVAL_TYPE,+ENFORCE_MICROS_MODE_IN_INTERVAL_TYPE
 --
 ERROR: Invalid INTERVAL value '0.123456789' [at 1:8]
 SELECT INTERVAL '0.123456789' SECOND
        ^
 ==
 
-[language_features={{INTERVAL_TYPE|INTERVAL_TYPE,TIMESTAMP_NANOS|INTERVAL_TYPE,ENFORCE_MICROS_MODE_IN_INTERVAL_TYPE}}]
+[language_features=NONE,{{+INTERVAL_TYPE|+INTERVAL_TYPE,+TIMESTAMP_NANOS|+INTERVAL_TYPE,+ENFORCE_MICROS_MODE_IN_INTERVAL_TYPE}}]
 SELECT INTERVAL '17:23.123456789' MINUTE TO SECOND
 --
 ALTERNATION GROUPS:
-    INTERVAL_TYPE
-    INTERVAL_TYPE,TIMESTAMP_NANOS
+    +INTERVAL_TYPE
+    +INTERVAL_TYPE,+TIMESTAMP_NANOS
 --
 QueryStmt
 +-output_column_list=
@@ -278,7 +346,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: INTERVAL_TYPE,ENFORCE_MICROS_MODE_IN_INTERVAL_TYPE
+ALTERNATION GROUP: +INTERVAL_TYPE,+ENFORCE_MICROS_MODE_IN_INTERVAL_TYPE
 --
 ERROR: Invalid INTERVAL value '17:23.123456789' [at 1:8]
 SELECT INTERVAL '17:23.123456789' MINUTE TO SECOND
@@ -286,7 +354,7 @@ SELECT INTERVAL '17:23.123456789' MINUTE TO SECOND
 ==
 
 # MILLISECOND date part
-[language_features={{|INTERVAL_TYPE}}]
+[language_features=NONE,{{|+INTERVAL_TYPE}}]
 SELECT INTERVAL '7684416' MILLISECOND
 --
 ALTERNATION GROUP: <empty>
@@ -295,7 +363,7 @@ ERROR: Unexpected INTERVAL expression [at 1:8]
 SELECT INTERVAL '7684416' MILLISECOND
        ^
 --
-ALTERNATION GROUP: INTERVAL_TYPE
+ALTERNATION GROUP: +INTERVAL_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -310,7 +378,7 @@ QueryStmt
 ==
 
 # MICROSECOND date part
-[language_features={{|INTERVAL_TYPE}}]
+[language_features=NONE,{{|+INTERVAL_TYPE}}]
 SELECT INTERVAL '7684416539' MICROSECOND
 --
 ALTERNATION GROUP: <empty>
@@ -319,7 +387,7 @@ ERROR: Unexpected INTERVAL expression [at 1:8]
 SELECT INTERVAL '7684416539' MICROSECOND
        ^
 --
-ALTERNATION GROUP: INTERVAL_TYPE
+ALTERNATION GROUP: +INTERVAL_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -333,7 +401,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|INTERVAL_TYPE}}]
+[language_features=NONE,{{|+INTERVAL_TYPE}}]
 select interval 1 year
 --
 ALTERNATION GROUP: <empty>
@@ -342,7 +410,7 @@ ERROR: Unexpected INTERVAL expression [at 1:8]
 select interval 1 year
        ^
 --
-ALTERNATION GROUP: INTERVAL_TYPE
+ALTERNATION GROUP: +INTERVAL_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -359,7 +427,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=INTERVAL_TYPE]
+[language_features=NONE,+INTERVAL_TYPE]
 select interval -20 month
 --
 QueryStmt
@@ -377,7 +445,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=INTERVAL_TYPE]
+[language_features=NONE,+INTERVAL_TYPE]
 select interval @test_param_int64 day
 --
 QueryStmt
@@ -395,7 +463,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|INTERVAL_TYPE}}]
+[language_features=NONE,{{|+INTERVAL_TYPE}}]
 select interval (1 + 1) year
 --
 ALTERNATION GROUP: <empty>
@@ -404,7 +472,7 @@ ERROR: Unexpected INTERVAL expression [at 1:8]
 select interval (1 + 1) year
        ^
 --
-ALTERNATION GROUP: INTERVAL_TYPE
+ALTERNATION GROUP: +INTERVAL_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -423,7 +491,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|INTERVAL_TYPE}}]
+[language_features=NONE,{{|+INTERVAL_TYPE}}]
 select interval 2-1 year to month
 --
 ALTERNATION GROUP: <empty>
@@ -432,14 +500,14 @@ ERROR: Unexpected INTERVAL expression [at 1:8]
 select interval 2-1 year to month
        ^
 --
-ALTERNATION GROUP: INTERVAL_TYPE
+ALTERNATION GROUP: +INTERVAL_TYPE
 --
 ERROR: The INTERVAL keyword followed by an integer expression can only specify a single datetime field, not a field range. Consider using INTERVAL function for specifying multiple datetime fields. [at 1:29]
 select interval 2-1 year to month
                             ^
 ==
 
-[language_features={{|INTERVAL_TYPE}}]
+[language_features=NONE,{{|+INTERVAL_TYPE}}]
 SELECT INTERVAL -'2' HOUR
 --
 ALTERNATION GROUP: <empty>
@@ -448,7 +516,7 @@ ERROR: Unexpected INTERVAL expression [at 1:8]
 SELECT INTERVAL -'2' HOUR
        ^
 --
-ALTERNATION GROUP: INTERVAL_TYPE
+ALTERNATION GROUP: +INTERVAL_TYPE
 --
 ERROR: No matching signature for operator -
   Argument types: STRING
@@ -466,7 +534,7 @@ SELECT INTERVAL -'2' HOUR
                 ^
 ==
 
-[language_features=INTERVAL_TYPE]
+[language_features=NONE,+INTERVAL_TYPE]
 SELECT INTERVAL 'Long' DAY
 --
 ERROR: Invalid INTERVAL value 'Long' [at 1:8]
@@ -474,7 +542,7 @@ SELECT INTERVAL 'Long' DAY
        ^
 ==
 
-[language_features=INTERVAL_TYPE]
+[language_features=NONE,+INTERVAL_TYPE]
 SELECT INTERVAL '1-2' DAY
 --
 ERROR: Invalid INTERVAL value '1-2' [at 1:8]
@@ -482,7 +550,7 @@ SELECT INTERVAL '1-2' DAY
        ^
 ==
 
-[language_features=INTERVAL_TYPE]
+[language_features=NONE,+INTERVAL_TYPE]
 SELECT INTERVAL '1' DAY TO DAY
 --
 ERROR: Invalid interval datetime fields: DAY TO DAY [at 1:8]
@@ -490,7 +558,7 @@ SELECT INTERVAL '1' DAY TO DAY
        ^
 ==
 
-[language_features=INTERVAL_TYPE]
+[language_features=NONE,+INTERVAL_TYPE]
 SELECT INTERVAL '1:2' SECOND TO MINUTE
 --
 ERROR: Invalid interval datetime fields: SECOND TO MINUTE [at 1:8]
@@ -498,7 +566,7 @@ SELECT INTERVAL '1:2' SECOND TO MINUTE
        ^
 ==
 
-[language_features=INTERVAL_TYPE]
+[language_features=NONE,+INTERVAL_TYPE]
 SELECT INTERVAL '1-2' YEAR TO WEEK
 --
 ERROR: Invalid interval datetime fields: YEAR TO WEEK [at 1:8]
@@ -506,7 +574,7 @@ SELECT INTERVAL '1-2' YEAR TO WEEK
        ^
 ==
 
-[language_features=INTERVAL_TYPE]
+[language_features=NONE,+INTERVAL_TYPE]
 SELECT INTERVAL '1-2' YEAR TO MOMENT
 --
 ERROR: A valid date part name is required but found MOMENT [at 1:31]
@@ -514,7 +582,7 @@ SELECT INTERVAL '1-2' YEAR TO MOMENT
                               ^
 ==
 
-[language_features={{|INTERVAL_TYPE}}]
+[language_features=NONE,{{|+INTERVAL_TYPE}}]
 SELECT CURRENT_DATE - DATE '2000-01-01'
 --
 ALTERNATION GROUP: <empty>
@@ -530,7 +598,7 @@ ERROR: No matching signature for operator -
 SELECT CURRENT_DATE - DATE '2000-01-01'
        ^
 --
-ALTERNATION GROUP: INTERVAL_TYPE
+ALTERNATION GROUP: +INTERVAL_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -547,7 +615,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=INTERVAL_TYPE]
+[language_features=NONE,+INTERVAL_TYPE]
 SELECT CURRENT_TIMESTAMP - '2000-01-01'
 --
 QueryStmt
@@ -565,7 +633,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=INTERVAL_TYPE,CIVIL_TIME]
+[language_features=NONE,+INTERVAL_TYPE,+CIVIL_TIME]
 SELECT CURRENT_DATETIME - '2000-01-01'
 --
 QueryStmt
@@ -583,7 +651,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=INTERVAL_TYPE,CIVIL_TIME]
+[language_features=NONE,+INTERVAL_TYPE,+CIVIL_TIME]
 SELECT CURRENT_DATE - DATETIME '2000-01-01 10:20:30'
 --
 QueryStmt
@@ -602,7 +670,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=INTERVAL_TYPE,CIVIL_TIME]
+[language_features=NONE,+INTERVAL_TYPE,+CIVIL_TIME]
 SELECT CURRENT_TIME - '00:00:00.999'
 --
 QueryStmt
@@ -620,7 +688,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=INTERVAL_TYPE]
+[language_features=NONE,+INTERVAL_TYPE]
 SELECT CURRENT_TIMESTAMP - CURRENT_DATE
 --
 ERROR: No matching signature for operator -
@@ -643,7 +711,7 @@ SELECT CURRENT_TIMESTAMP - CURRENT_DATE
        ^
 ==
 
-[language_features=INTERVAL_TYPE]
+[language_features=NONE,+INTERVAL_TYPE]
 SELECT CURRENT_TIMESTAMP + INTERVAL '10:20:30' HOUR TO SECOND,
        INTERVAL '10' YEAR + TIMESTAMP '2000-01-02 03:04:05',
        CURRENT_TIMESTAMP() - INTERVAL '7' DAY
@@ -673,7 +741,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=INTERVAL_TYPE]
+[language_features=NONE,+INTERVAL_TYPE]
 SELECT INTERVAL 1 YEAR - CURRENT_TIMESTAMP
 --
 ERROR: No matching signature for operator -
@@ -696,7 +764,7 @@ SELECT INTERVAL 1 YEAR - CURRENT_TIMESTAMP
        ^
 ==
 
-[language_features=INTERVAL_TYPE{{|,CIVIL_TIME}}]
+[language_features=NONE,+INTERVAL_TYPE{{|,+CIVIL_TIME}}]
 SELECT CURRENT_DATE + INTERVAL '1-2 3 4:5:6.789' YEAR TO SECOND,
        INTERVAL '6' HOUR + DATE '2020-02-20',
        CURRENT_DATE() - INTERVAL '3' MONTH
@@ -720,7 +788,7 @@ ERROR: No matching signature for operator +
 SELECT CURRENT_DATE + INTERVAL '1-2 3 4:5:6.789' YEAR TO SECOND,
        ^
 --
-ALTERNATION GROUP: ,CIVIL_TIME
+ALTERNATION GROUP: ,+CIVIL_TIME
 --
 QueryStmt
 +-output_column_list=
@@ -747,7 +815,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=INTERVAL_TYPE,CIVIL_TIME]
+[language_features=NONE,+INTERVAL_TYPE,+CIVIL_TIME]
 SELECT INTERVAL 1 YEAR - CURRENT_DATE
 --
 ERROR: No matching signature for operator -
@@ -778,7 +846,7 @@ SELECT INTERVAL 1 YEAR - CURRENT_DATE
        ^
 ==
 
-[language_features=INTERVAL_TYPE,CIVIL_TIME]
+[language_features=NONE,+INTERVAL_TYPE,+CIVIL_TIME]
 SELECT CURRENT_DATETIME + INTERVAL '1-2 3 4:5:6.789' YEAR TO SECOND,
        INTERVAL '2.22' SECOND  + DATETIME '2020-02-20 02:20:02.222',
        CURRENT_DATETIME() - INTERVAL '1' QUARTER
@@ -808,7 +876,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=INTERVAL_TYPE,CIVIL_TIME]
+[language_features=NONE,+INTERVAL_TYPE,+CIVIL_TIME]
 SELECT INTERVAL 1 YEAR - CURRENT_DATETIME
 --
 ERROR: No matching signature for operator -
@@ -839,7 +907,7 @@ SELECT INTERVAL 1 YEAR - CURRENT_DATETIME
        ^
 ==
 
-[language_features=INTERVAL_TYPE]
+[language_features=NONE,+INTERVAL_TYPE]
 SELECT INTERVAL 1 YEAR + INTERVAL '0.001' SECOND,
        interval '1:2:3' hour to second - interval 10 day
 --
@@ -867,7 +935,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=INTERVAL_TYPE]
+[language_features=NONE,+INTERVAL_TYPE]
 select i * 10, 2 * i, i / 10 from (select interval 1 day as i)
 --
 QueryStmt
@@ -903,7 +971,7 @@ QueryStmt
           +-SingleRowScan
 ==
 
-[language_features=INTERVAL_TYPE]
+[language_features=NONE,+INTERVAL_TYPE]
 select 10 / INTERVAL '10' YEAR
 --
 ERROR: No matching signature for operator /
@@ -916,7 +984,7 @@ select 10 / INTERVAL '10' YEAR
        ^
 ==
 
-[language_features=INTERVAL_TYPE,NAMED_ARGUMENTS]
+[language_features=NONE,+INTERVAL_TYPE,+NAMED_ARGUMENTS]
 select
   make_interval(year => 1),
   make_interval(second => 6),
@@ -1019,7 +1087,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=INTERVAL_TYPE]
+[language_features=NONE,+INTERVAL_TYPE]
 select extract(year from interval '1-2 3 4:5:6.789' year to second),
        extract(month from interval '1-2 3 4:5:6.789' year to second),
        extract(day from interval '1-2 3 4:5:6.789' year to second),
@@ -1085,7 +1153,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=INTERVAL_TYPE]
+[language_features=NONE,+INTERVAL_TYPE]
 select justify_hours(interval '1' hour), justify_days(interval '1' day), justify_interval(interval '1' month)
 --
 QueryStmt
@@ -1111,7 +1179,7 @@ QueryStmt
 
 ==
 
-[language_features=INTERVAL_TYPE]
+[language_features=NONE,+INTERVAL_TYPE]
 SELECT EXTRACT({{DATE|QUARTER}} FROM INTERVAL '0' YEAR)
 --
 ALTERNATION GROUP: DATE
@@ -1139,7 +1207,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=INTERVAL_TYPE]
+[language_features=NONE,+INTERVAL_TYPE]
 select JUSTIFY_INTERVAL(INTERVAL cast(null as string) HOUR TO SECOND)
 --
 QueryStmt
@@ -1156,7 +1224,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=INTERVAL_TYPE]
+[language_features=NONE,+INTERVAL_TYPE]
 select TO_SECONDS_INTERVAL(INTERVAL '1 2' DAY TO HOUR)
 --
 QueryStmt
@@ -1171,4 +1239,114 @@ QueryStmt
     |     +-Literal(type=INTERVAL, value=0-0 1 2:0:0)
     +-input_scan=
       +-SingleRowScan
+==
 
+[use_database=db1]
+[language_features=NONE,+INTERVAL_TYPE{{|,+ANALYSIS_CONSTANT_INTERVAL_CONSTRUCTOR}}]
+SELECT INTERVAL initialized_constant_string YEAR TO DAY
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid interval literal. Expected INTERVAL keyword to be followed by an INT64 expression or STRING literal [at 1:17]
+SELECT INTERVAL initialized_constant_string YEAR TO DAY
+                ^
+--
+ALTERNATION GROUP: ,+ANALYSIS_CONSTANT_INTERVAL_CONSTRUCTOR
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INTERVAL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INTERVAL, value=2004-9 25 0:0:0)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# We should not test uninitialized constants with feature
+# ANALYSIS_CONSTANT_INTERVAL_CONSTRUCTOR because the feature acts as a contract
+# stating that the constant_evaluator is provided which will then intialize the
+# constant.
+[use_database=db1]
+[language_features=NONE,+INTERVAL_TYPE]
+SELECT INTERVAL uninitialized_constant_string YEAR TO DAY
+--
+ERROR: Invalid interval literal. Expected INTERVAL keyword to be followed by an INT64 expression or STRING literal [at 1:17]
+SELECT INTERVAL uninitialized_constant_string YEAR TO DAY
+                ^
+==
+
+[use_database=db1]
+[language_features=NONE,+INTERVAL_TYPE{{|,+ANALYSIS_CONSTANT_INTERVAL_CONSTRUCTOR}}]
+SELECT INTERVAL initialized_constant_double  YEAR TO DAY
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid interval literal. Expected INTERVAL keyword to be followed by an INT64 expression or STRING literal [at 1:17]
+SELECT INTERVAL initialized_constant_double  YEAR TO DAY
+                ^
+--
+ALTERNATION GROUP: ,+ANALYSIS_CONSTANT_INTERVAL_CONSTRUCTOR
+--
+ERROR: Expected a STRING value knowable at compile time in INTERVAL constructor, but got an expression of type DOUBLE [at 1:17]
+SELECT INTERVAL initialized_constant_double  YEAR TO DAY
+                ^
+==
+
+[use_database=db1]
+[language_features=NONE,+INTERVAL_TYPE{{|,+ANALYSIS_CONSTANT_INTERVAL_CONSTRUCTOR}}]
+SELECT INTERVAL initialized_invalid_string YEAR TO DAY
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid interval literal. Expected INTERVAL keyword to be followed by an INT64 expression or STRING literal [at 1:17]
+SELECT INTERVAL initialized_invalid_string YEAR TO DAY
+                ^
+--
+ALTERNATION GROUP: ,+ANALYSIS_CONSTANT_INTERVAL_CONSTRUCTOR
+--
+ERROR: Invalid INTERVAL value 'INVALID STRING' [at 1:8]
+SELECT INTERVAL initialized_invalid_string YEAR TO DAY
+       ^
+==
+
+[use_database=db1]
+[language_features=NONE,+INTERVAL_TYPE,+ANALYSIS_CONSTANT_INTERVAL_CONSTRUCTOR]
+SELECT INTERVAL NULL_STRING YEAR TO MONTH;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INTERVAL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INTERVAL, value=NULL)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[use_database=db1]
+[language_features=NONE,+INTERVAL_TYPE{{|,+ANALYSIS_CONSTANT_INTERVAL_CONSTRUCTOR}}]
+SELECT INTERVAL initialized_year_string YEAR;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid interval literal. Expected INTERVAL keyword to be followed by an INT64 expression or STRING literal [at 1:17]
+SELECT INTERVAL initialized_year_string YEAR;
+                ^
+--
+ALTERNATION GROUP: ,+ANALYSIS_CONSTANT_INTERVAL_CONSTRUCTOR
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INTERVAL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INTERVAL, value=2025-0 0 0:0:0)
+    +-input_scan=
+      +-SingleRowScan

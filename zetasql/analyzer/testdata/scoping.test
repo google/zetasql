@@ -1,5 +1,6 @@
 # This file has some tests specifically for name scoping issues.
 
+[default language_features=MAXIMUM]
 [default show_strict_mode]
 
 select value from KeyValue kv1, KeyValue kv2

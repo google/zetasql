@@ -1,7 +1,7 @@
-[default language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS,FUNCTION_ARGUMENTS_WITH_DEFAULTS,SQL_GRAPH_CALL,SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_TYPE,GROUP_BY_GRAPH_PATH]
+[default language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS,+CREATE_TABLE_FUNCTION,+TEMPLATE_FUNCTIONS,+FUNCTION_ARGUMENTS_WITH_DEFAULTS,+SQL_GRAPH_CALL,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,+SQL_GRAPH_PATH_TYPE,+GROUP_BY_GRAPH_PATH]
 [default no_show_sqlbuilder_output]
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 select gt.* from
 graph_table(aml
   match (x)
@@ -14,7 +14,7 @@ ERROR: CALL is not supported [at 4:3]
   ^
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_CALL]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_CALL]
 select gt.* from
 graph_table(aml
   match (x)
@@ -986,7 +986,7 @@ from graph_table(aml
 --
 ALTERNATION GROUP: column_bool OR column_bool
 --
-ERROR: Syntax error: Unexpected keyword OR [at 4:73]
+ERROR: Syntax error: Expected keyword RETURN but got keyword OR [at 4:73]
 ...g_with_fixed_output() YIELD column_bool OR column_bool AS y
                                            ^
 --
@@ -1283,4 +1283,24 @@ ALTERNATION GROUP: <empty>
 --
 ERROR: The input table to a CALL PER() TVF must have at least one column [at 3:6]
      CALL PER() tvf_one_relation_arg_with_fixed_output()
+     ^
+==
+
+# TVFs that take graph input cannot be called with CALL PER
+SELECT gt.* FROM
+  graph_table(aml
+    {{OPTIONAL|}} CALL PER () tvf_graph()
+    return 1 AS one
+  ) gt
+--
+ALTERNATION GROUP: OPTIONAL
+--
+ERROR: OPTIONAL CALL is not supported on an input with no columns defined [at 3:5]
+    OPTIONAL CALL PER () tvf_graph()
+    ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: The input table to a CALL PER() TVF must have at least one column [at 3:6]
+     CALL PER () tvf_graph()
      ^

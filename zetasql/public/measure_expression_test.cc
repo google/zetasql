@@ -17,7 +17,6 @@
 #include "zetasql/public/measure_expression.h"
 
 #include <algorithm>
-#include <iterator>
 #include <memory>
 #include <string>
 #include <utility>
@@ -39,8 +38,10 @@
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/status_matchers.h"
 #include "absl/status/statusor.h"
@@ -127,7 +128,68 @@ class MeasureExpressionTest : public ::testing::Test {
       : type_factory_(), catalog_("measure_catalog", &type_factory_) {
     catalog_.AddBuiltinFunctions(
         BuiltinFunctionOptions::AllReleasedFunctions());
+    LoadValueTables();
     LoadUserDefinedEntities();
+  }
+
+  void LoadValueTables() {
+    const StructType* struct_type = nullptr;
+    ZETASQL_ASSERT_OK(type_factory_.MakeStructType(
+        {{"field_1", type_factory_.get_int64()},
+         {"field_2", type_factory_.get_int32()},
+         {"duplicate_field", type_factory_.get_int64()},
+         {"duplicate_field", type_factory_.get_int64()},
+         {"ambiguous", type_factory_.get_int64()}},
+        &struct_type));
+    auto struct_value_table = std::make_unique<SimpleTable>(
+        "StructValueTable",
+        std::vector<const Column*>{
+            new SimpleColumn("StructValueTable", "value", struct_type),
+            new SimpleColumn("StructValueTable", "key",
+                             type_factory_.get_int64(),
+                             {.is_pseudo_column = true}),
+            new SimpleColumn("StructValueTable", "ambiguous",
+                             type_factory_.get_int64(),
+                             {.is_pseudo_column = true})},
+        /*take_ownership=*/true);
+    struct_value_table->set_is_value_table(true);
+    struct_value_table_ = struct_value_table.get();
+    catalog_.AddOwnedTable(std::move(struct_value_table));
+
+    catalog_.SetDescriptorPool(google::protobuf::DescriptorPool::generated_pool());
+    const Type* proto_type = nullptr;
+    ZETASQL_CHECK_OK(catalog_.FindType(
+        {std::string(zetasql_test__::KitchenSinkPB::descriptor()->full_name())},
+        &proto_type));
+    ABSL_CHECK(proto_type->IsProto());
+    auto proto_value_table = std::make_unique<SimpleTable>(
+        "ProtoValueTable",
+        std::vector<const Column*>{
+            new SimpleColumn("ProtoValueTable", "value", proto_type),
+            new SimpleColumn("ProtoValueTable", "key",
+                             type_factory_.get_int64(),
+                             {.is_pseudo_column = true}),
+            new SimpleColumn("ProtoValueTable", "bool_val",
+                             type_factory_.get_bool(),
+                             {.is_pseudo_column = true}),
+        },
+        /*take_ownership=*/true);
+    proto_value_table->set_is_value_table(true);
+    proto_value_table_ = proto_value_table.get();
+    catalog_.AddOwnedTable(std::move(proto_value_table));
+
+    auto int64_value_table = std::make_unique<SimpleTable>(
+        "Int64ValueTable",
+        std::vector<const Column*>{
+            new SimpleColumn("Int64ValueTable", "value",
+                             type_factory_.get_int64()),
+            new SimpleColumn("Int64ValueTable", "key",
+                             type_factory_.get_int64(),
+                             {.is_pseudo_column = true})},
+        /*take_ownership=*/true);
+    int64_value_table->set_is_value_table(true);
+    int64_value_table_ = int64_value_table.get();
+    catalog_.AddOwnedTable(std::move(int64_value_table));
   }
 
   void LoadUserDefinedEntities() {
@@ -199,6 +261,12 @@ class MeasureExpressionTest : public ::testing::Test {
         FEATURE_HAVING_IN_AGGREGATE);
     analyzer_options.mutable_language()->EnableLanguageFeature(
         FEATURE_TABLE_VALUED_FUNCTIONS);
+    analyzer_options.mutable_language()->EnableLanguageFeature(
+        FEATURE_ANALYTIC_FUNCTIONS);
+    analyzer_options.mutable_language()->EnableLanguageFeature(
+        FEATURE_WITH_EXPRESSION);
+    analyzer_options.mutable_language()->EnableLanguageFeature(
+        FEATURE_FIRST_AND_LAST_N);
     std::unique_ptr<const AnalyzerOutput> analyzer_output;
     ZETASQL_ASSIGN_OR_RETURN(
         const ResolvedExpr* resolved_measure_expr,
@@ -211,12 +279,15 @@ class MeasureExpressionTest : public ::testing::Test {
  protected:
   TypeFactory type_factory_;
   SimpleCatalog catalog_;
+  const SimpleTable* struct_value_table_ = nullptr;
+  const SimpleTable* proto_value_table_ = nullptr;
+  const SimpleTable* int64_value_table_ = nullptr;
   std::vector<std::unique_ptr<const AnalyzerOutput>> analyzer_outputs_;
 };
 
 static void TableContainsMeasure(const SimpleTable& table,
                                  const std::string& measure_name,
-                                 const std::string& measure_expr,
+                                 absl::string_view measure_expr,
                                  ResolvedNodeKind measure_node_kind) {
   const Column* measure_column = table.FindColumnByName(measure_name);
   ASSERT_NE(measure_column, nullptr);
@@ -289,28 +360,57 @@ TEST_F(MeasureExpressionTest, MeasureExpressionOnRepeatedField) {
                HasSubstr("WITH GROUP ROWS is not supported")));
 }
 
-TEST_F(MeasureExpressionTest, InvalidScalarExpr) {
+TEST_F(MeasureExpressionTest, InvalidScalarMeasureExpr) {
   EXPECT_THAT(
       AnalyzeMeasureExpressionForTable("table",
                                        {{"key", type_factory_.get_int64()},
                                         {"value", type_factory_.get_int64()}},
                                        "total_value", "value + 1"),
-      StatusIs(
-          absl::StatusCode::kInvalidArgument,
-          HasSubstr("Measure expression must contain at least one aggregate "
-                    "function call that is not nested within a subquery")));
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Expression columns in a measure expression can only "
+                         "be referenced within an aggregate function call")));
 }
 
-TEST_F(MeasureExpressionTest, InvalidConstLiteral) {
-  EXPECT_THAT(
+TEST_F(MeasureExpressionTest, ValidScalarMeasureExpr) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const ResolvedExpr* resolved_measure_expr,
       AnalyzeMeasureExpressionForTable("table",
                                        {{"key", type_factory_.get_int64()},
                                         {"value", type_factory_.get_int64()}},
-                                       "constant_value", "1"),
-      StatusIs(
-          absl::StatusCode::kInvalidArgument,
-          HasSubstr("Measure expression must contain at least one aggregate "
-                    "function call that is not nested within a subquery")));
+                                       "total_value", "1 + 1"));
+  EXPECT_EQ(resolved_measure_expr->node_kind(), ResolvedFunctionCall::TYPE);
+}
+
+TEST_F(MeasureExpressionTest, ConstLiteralMeasureExpr) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const ResolvedExpr* resolved_measure_expr,
+      AnalyzeMeasureExpressionForTable("table",
+                                       {{"key", type_factory_.get_int64()},
+                                        {"value", type_factory_.get_int64()}},
+                                       "total_value", "1"));
+  EXPECT_TRUE(resolved_measure_expr->Is<ResolvedLiteral>())
+      << resolved_measure_expr->node_kind_string();
+}
+
+TEST_F(MeasureExpressionTest, WithExpr) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const ResolvedExpr* resolved_measure_expr,
+                       AnalyzeMeasureExpressionForTable(
+                           "table",
+                           {{"key", type_factory_.get_int64()},
+                            {"value", type_factory_.get_int64()}},
+                           "with_measure", "WITH(a as SUM(value), a + 1)"));
+  EXPECT_EQ(resolved_measure_expr->node_kind(), ResolvedWithExpr::TYPE);
+}
+
+TEST_F(MeasureExpressionTest, AggregateInLambda) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const ResolvedExpr* resolved_measure_expr,
+      AnalyzeMeasureExpressionForTable(
+          "table",
+          {{"key", type_factory_.get_int64()},
+           {"value", type_factory_.get_int64()}},
+          "lambda_measure", "ARRAY_REMOVE_LAST_N([1,2], COUNT(value))"));
+  EXPECT_EQ(resolved_measure_expr->node_kind(), ResolvedFunctionCall::TYPE);
 }
 
 TEST_F(MeasureExpressionTest, InvalidNoTopLevelAggregateFunctionCall) {
@@ -320,10 +420,20 @@ TEST_F(MeasureExpressionTest, InvalidNoTopLevelAggregateFunctionCall) {
                                         {"value", type_factory_.get_int64()}},
                                        "total_value",
                                        "(SELECT SUM(value) FROM UNNEST([1]))"),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Expression columns in a measure expression can only "
+                         "be referenced within an aggregate function call")));
+}
+
+TEST_F(MeasureExpressionTest, InvalidAnalyticFunction) {
+  EXPECT_THAT(
+      AnalyzeMeasureExpressionForTable("table",
+                                       {{"key", type_factory_.get_int64()},
+                                        {"value", type_factory_.get_int64()}},
+                                       "total_value", "SUM(value) OVER ()"),
       StatusIs(
           absl::StatusCode::kInvalidArgument,
-          HasSubstr("Measure expression must contain at least one aggregate "
-                    "function call that is not nested within a subquery")));
+          HasSubstr("Analytic function not allowed in standalone expression")));
 }
 
 TEST_F(MeasureExpressionTest, InvalidGroupingConstant) {
@@ -384,7 +494,8 @@ TEST_F(MeasureExpressionTest, InvalidMeasureReferencingMeasure) {
                                         {"measure_col", measure_type}},
                                        "measure_1", "ANY_VALUE(measure_col)"),
       StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("Unrecognized name: measure_col")));
+               HasSubstr("Measure expression: ANY_VALUE(measure_col) cannot "
+                         "reference measure column: measure_col")));
 }
 
 TEST_F(MeasureExpressionTest, InvalidMeasureReferencingNonExistingColumn) {
@@ -423,51 +534,168 @@ TEST_F(MeasureExpressionTest, InvalidMeasureWithHavingMinMaxClause) {
                          "function with a HAVING MIN/MAX clause")));
 }
 
+TEST_F(MeasureExpressionTest, MeasureReferencingUdfs) {
+  std::vector<std::pair<std::string, const Type*>> columns = {
+      {"key", type_factory_.get_int64()}, {"value", type_factory_.get_int64()}};
+  catalog_.AddOwnedTable(new SimpleTable("TestTable", columns));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const ResolvedExpr* measure_expr,
+      AnalyzeMeasureExpressionForTable("table", columns, "measure_col",
+                                       "SUM(value) + udf(1)"));
+  ASSERT_NE(measure_expr, nullptr);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(measure_expr, AnalyzeMeasureExpressionForTable(
+                                         "table", columns, "measure_col",
+                                         "SUM(value) + udf_templated(1)"));
+  ASSERT_NE(measure_expr, nullptr);
+}
+
 TEST_F(MeasureExpressionTest, InvalidMeasureReferencingUserDefinedEntities) {
   std::vector<std::pair<std::string, const Type*>> columns = {
       {"key", type_factory_.get_int64()}, {"value", type_factory_.get_int64()}};
   catalog_.AddOwnedTable(new SimpleTable("TestTable", columns));
+
   EXPECT_THAT(
       AnalyzeMeasureExpressionForTable("table", columns, "measure_col",
-                                       "SUM(value) + udf(1)"),
-      StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("Measure expression must not reference user defined "
-                         "entities; found: udf")));
-
-  EXPECT_THAT(AnalyzeMeasureExpressionForTable("table", columns, "measure_col",
-                                               "SUM(value) + udf_templated(1)"),
-              StatusIs(absl::StatusCode::kInvalidArgument,
-                       HasSubstr("Measure expression must not reference user "
-                                 "defined entities; found: udf_templated")));
-
-  EXPECT_THAT(AnalyzeMeasureExpressionForTable("table", columns, "measure_col",
-                                               "SUM(value) + uda(value)"),
-              StatusIs(absl::StatusCode::kInvalidArgument,
-                       HasSubstr("Measure expression must not reference user "
-                                 "defined entities; found: uda")));
+                                       "SUM(value) + uda(value)"),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Measure expression must not reference UDA; found: uda")));
 
   EXPECT_THAT(
       AnalyzeMeasureExpressionForTable("table", columns, "measure_col",
                                        "SUM(value) + uda_templated(value)"),
       StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("Measure expression must not reference user "
-                         "defined entities; found: uda_templated")));
+               HasSubstr("Measure expression must not reference UDA; found: "
+                         "uda_templated")));
 
   EXPECT_THAT(
       AnalyzeMeasureExpressionForTable(
           "table", columns, "measure_col",
           "SUM(value) + countif(exists(select 1 from tvf(TABLE TestTable)))"),
-      StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("Measure expression must not reference user "
-                         "defined entities; found: tvf")));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Measure expression must not reference TVF; found: tvf")));
 
   EXPECT_THAT(
       AnalyzeMeasureExpressionForTable("table", columns, "measure_col",
                                        "SUM(value) + countif(exists(select 1 "
                                        "from tvf_templated(TABLE TestTable)))"),
       StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("Measure expression must not reference user "
-                         "defined entities; found: tvf_templated")));
+               HasSubstr("Measure expression must not reference TVF; found: "
+                         "tvf_templated")));
+}
+
+TEST_F(MeasureExpressionTest, MeasureExpressionOnStructValueTable) {
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const ResolvedExpr* resolved_measure_expr,
+                       AnalyzeMeasureExpression(
+                           "SUM(field_1)", *struct_value_table_, catalog_,
+                           type_factory_, AnalyzerOptions(), analyzer_output));
+  EXPECT_EQ(resolved_measure_expr->node_kind(),
+            ResolvedAggregateFunctionCall::TYPE);
+}
+
+TEST_F(MeasureExpressionTest,
+       MeasureExpressionOnStructValueTable_ReferencingValueTableColumnName) {
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  EXPECT_THAT(AnalyzeMeasureExpression("SUM(value)", *struct_value_table_,
+                                       catalog_, type_factory_,
+                                       AnalyzerOptions(), analyzer_output),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Unrecognized name: value")));
+}
+
+TEST_F(MeasureExpressionTest,
+       MeasureExpressionOnStructValueTable_ReferencingNonExistingField) {
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  EXPECT_THAT(AnalyzeMeasureExpression(
+                  "SUM(non_existent_field)", *struct_value_table_, catalog_,
+                  type_factory_, AnalyzerOptions(), analyzer_output),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Unrecognized name: non_existent_field")));
+}
+
+TEST_F(MeasureExpressionTest,
+       MeasureExpressionOnStructValueTable_ReferencingDuplicateField) {
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  EXPECT_THAT(
+      AnalyzeMeasureExpression("SUM(duplicate_field)", *struct_value_table_,
+                               catalog_, type_factory_, AnalyzerOptions(),
+                               analyzer_output),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Field duplicate_field is ambiguous in value table: "
+                         "StructValueTable of type: STRUCT<field_1 INT64, "
+                         "field_2 INT32, duplicate_field INT64, "
+                         "duplicate_field INT64, ambiguous INT64>")));
+}
+
+TEST_F(MeasureExpressionTest,
+       MeasureExpressionOnStructValueTable_ReferencingAmbiguousField) {
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  EXPECT_THAT(
+      AnalyzeMeasureExpression("SUM(ambiguous)", *struct_value_table_, catalog_,
+                               type_factory_, AnalyzerOptions(),
+                               analyzer_output),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr(
+              "Column `ambiguous` is ambiguous in value table "
+              "`StructValueTable` for measure expression: SUM(ambiguous)")));
+}
+
+TEST_F(MeasureExpressionTest, MeasureExpressionOnProtoValueTable) {
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const ResolvedExpr* resolved_measure_expr,
+                       AnalyzeMeasureExpression(
+                           "SUM(int64_val)", *proto_value_table_, catalog_,
+                           type_factory_, AnalyzerOptions(), analyzer_output));
+  EXPECT_EQ(resolved_measure_expr->node_kind(),
+            ResolvedAggregateFunctionCall::TYPE);
+}
+
+TEST_F(MeasureExpressionTest,
+       MeasureExpressionOnProtoValueTable_ReferencingValueTableColumnName) {
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  EXPECT_THAT(AnalyzeMeasureExpression("SUM(value)", *proto_value_table_,
+                                       catalog_, type_factory_,
+                                       AnalyzerOptions(), analyzer_output),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Unrecognized name: value")));
+}
+
+TEST_F(MeasureExpressionTest,
+       MeasureExpressionOnProtoValueTable_ReferencingNonExistingField) {
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  EXPECT_THAT(AnalyzeMeasureExpression(
+                  "SUM(non_existent_field)", *proto_value_table_, catalog_,
+                  type_factory_, AnalyzerOptions(), analyzer_output),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Unrecognized name: non_existent_field")));
+}
+
+TEST_F(MeasureExpressionTest,
+       MeasureExpressionOnProtoValueTable_ReferencingAmbiguousField) {
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  EXPECT_THAT(
+      AnalyzeMeasureExpression("ANY_VALUE(bool_val)", *proto_value_table_,
+                               catalog_, type_factory_, AnalyzerOptions(),
+                               analyzer_output),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr(
+              "Column `bool_val` is ambiguous in value table `ProtoValueTable` "
+              "for measure expression: ANY_VALUE(bool_val)")));
+}
+
+TEST_F(MeasureExpressionTest,
+       MeasureExpressionOnInt64ValueTable_ReferencingValueTableColumnName) {
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  EXPECT_THAT(AnalyzeMeasureExpression("SUM(value)", *int64_value_table_,
+                                       catalog_, type_factory_,
+                                       AnalyzerOptions(), analyzer_output),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Unrecognized name: value")));
 }
 
 }  // namespace zetasql

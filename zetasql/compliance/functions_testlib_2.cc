@@ -2604,8 +2604,10 @@ static const std::vector<QueryParamsWithResult> GetArrayMinMaxTestCases(
       }
 
       std::set<LanguageFeature> required_features = v.required_features;
-      if (test_cases[i].result().is_null()) {
-        // TIMESTAMP_NANOS feature doesn't affect null results.
+      if (test_cases[i].result().is_null() ||
+          test_cases[i].result().type()->IsTimestamp()) {
+        // TIMESTAMP_NANOS feature doesn't affect null results or ARRAY_MIN/MAX
+        // of TIMESTAMP.
         required_features.erase(FEATURE_TIMESTAMP_NANOS);
       }
 

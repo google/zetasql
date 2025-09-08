@@ -39,7 +39,7 @@ constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 // 'from_json': function used for constructing json values (can be either STRING
 // or JSON type). 'from_array': function used for constructing array of output
 // values (can be either array of STRINGs or JSONs).
-const std::vector<FunctionTestCall> GetJsonArrayTestsCommon(
+std::vector<FunctionTestCall> GetJsonArrayTestsCommon(
     bool sql_standard_mode, bool scalar_test_cases,
     const std::function<Value(std::optional<absl::string_view>)>& from_json,
     const std::function<Value(std::optional<std::vector<std::string>>)>&
@@ -331,8 +331,8 @@ const std::vector<FunctionTestCall> GetJsonArrayTestsCommon(
   return test_cases;
 }
 
-const std::vector<FunctionTestCall> GetStringJsonArrayTests(
-    bool sql_standard_mode, bool scalar_test_cases) {
+std::vector<FunctionTestCall> GetStringJsonArrayTests(bool sql_standard_mode,
+                                                      bool scalar_test_cases) {
   std::vector<FunctionTestCall> tests = GetJsonArrayTestsCommon(
       sql_standard_mode, scalar_test_cases,
       /*from_json=*/

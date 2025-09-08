@@ -1,4 +1,5 @@
-[language_features={{|BARE_ARRAY_ACCESS}}]
+[default language_features=NONE]
+[language_features=NONE,{{|+BARE_ARRAY_ACCESS}}]
 select KitchenSink.repeated_double_val[123]
 from TestTable
 --
@@ -8,7 +9,7 @@ ERROR: Array element access with array[position] is not supported. Use array[OFF
 select KitchenSink.repeated_double_val[123]
                                        ^
 --
-ALTERNATION GROUP: BARE_ARRAY_ACCESS
+ALTERNATION GROUP: +BARE_ARRAY_ACCESS
 --
 QueryStmt
 +-output_column_list=
@@ -679,7 +680,7 @@ QueryStmt
 
 ==
 
-[language_features=PROTO_MAPS]
+[language_features=NONE,+PROTO_MAPS]
 select SAFE_KEY("FOO")
 --
 ERROR: SAFE_KEY is not a function. It can only be used for map element access using map[SAFE_KEY(key)] [at 1:8]
@@ -687,7 +688,7 @@ select SAFE_KEY("FOO")
        ^
 ==
 
-[language_features=PROTO_MAPS]
+[language_features=NONE,+PROTO_MAPS]
 select KEY("FOO")
 --
 ERROR: KEY is not a function. It can only be used for map element access using map[KEY(key)] [at 1:8]
@@ -695,7 +696,7 @@ select KEY("FOO")
        ^
 ==
 
-[language_features=PROTO_MAPS]
+[language_features=NONE,+PROTO_MAPS]
 select [][KEY("FOO")]
 --
 ERROR: Only proto maps can be accessed using KEY or SAFE_KEY; tried to use map accessor on ARRAY<INT64> [at 1:11]
@@ -703,7 +704,7 @@ select [][KEY("FOO")]
           ^
 ==
 
-[language_features=PROTO_MAPS]
+[language_features=NONE,+PROTO_MAPS]
 select MessageWithMapField.string_int32_map[KEY("foo")]
 from MapFieldTable
 --
@@ -744,7 +745,7 @@ select MessageWithMapField.string_int32_map[KEY("foo")]
 ==
 
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=PROTO_MAPS]
+[language_features=NONE,+PROTO_MAPS]
 select MessageWithMapField.string_int32_map[SAFE_KEY("foo")]
 from MapFieldTable
 --
@@ -863,7 +864,7 @@ QueryStmt
 ==
 
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=PROTO_MAPS]
+[language_features=NONE,+PROTO_MAPS]
 select MessageWithMapField.int64_uint64_map[KEY(table.key)]
 from MapFieldTable table
 --
@@ -991,7 +992,7 @@ QueryStmt
       +-TableScan(column_list=MapFieldTable.[key#1, MessageWithMapField#2], table=MapFieldTable, column_index_list=[0, 1], alias="table")
 ==
 
-[language_features=PROTO_MAPS]
+[language_features=NONE,+PROTO_MAPS]
 select MessageWithMapField.int32_int32_map[SAFE_KEY(key + 1)]
 from MapFieldTable
 --
@@ -1000,7 +1001,7 @@ select MessageWithMapField.int32_int32_map[SAFE_KEY(key + 1)]
                                                     ^
 ==
 
-[language_features=PROTO_MAPS]
+[language_features=NONE,+PROTO_MAPS]
 select PROTO_MODIFY_MAP(MessageWithMapField.int32_int32_map, key + 1, key + 2)
 from MapFieldTable
 --
@@ -1012,7 +1013,7 @@ select PROTO_MODIFY_MAP(MessageWithMapField.int32_int32_map, key + 1, key + 2)
 ==
 
 [enabled_ast_rewrites=NONE]
-[language_features=PROTO_MAPS]
+[language_features=NONE,+PROTO_MAPS]
 select PROTO_MODIFY_MAP(MessageWithMapField.int32_int32_map, CAST(key + 1 AS INT32), CAST(key + 2 AS INT32))
 from MapFieldTable
 --

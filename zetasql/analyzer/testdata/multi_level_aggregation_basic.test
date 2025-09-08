@@ -1,4 +1,4 @@
-[default language_features=MULTILEVEL_AGGREGATION,WITH_GROUP_ROWS,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,HAVING_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE,ANALYTIC_FUNCTIONS,QUALIFY,GROUPING_BUILTIN,GROUP_BY_STRUCT,ENFORCE_CONDITIONAL_EVALUATION,GROUPING_SETS,GROUP_BY_ROLLUP,FORMAT_IN_CAST,INLINE_LAMBDA_ARGUMENT,ARRAY_FIND_FUNCTIONS,CHAINED_FUNCTION_CALLS]
+[default language_features=NONE,+MULTILEVEL_AGGREGATION,+WITH_GROUP_ROWS,+ORDER_BY_IN_AGGREGATE,+LIMIT_IN_AGGREGATE,+HAVING_IN_AGGREGATE,+NULL_HANDLING_MODIFIER_IN_AGGREGATE,+ANALYTIC_FUNCTIONS,+QUALIFY,+GROUPING_BUILTIN,+GROUP_BY_STRUCT,+ENFORCE_CONDITIONAL_EVALUATION,+GROUPING_SETS,+GROUP_BY_ROLLUP,+FORMAT_IN_CAST,+INLINE_LAMBDA_ARGUMENT,+ARRAY_FIND_FUNCTIONS,+CHAINED_FUNCTION_CALLS]
 [default show_sqlbuilder_output]
 
 # Basic test case
@@ -3104,3 +3104,291 @@ FROM
      STRING_AGG(CAST(ARRAY_FIND(ARRAY< INT64 >[1], (a_3) -> a_3 > 5, CAST("FIRST" AS ARRAY_FIND_MODE)) AS STRING)
        GROUP BY a_1, CAST(ARRAY_FIND(ARRAY< INT64 >[1], (a_2) -> a_2 > 5, CAST("FIRST" AS ARRAY_FIND_MODE)) AS STRING)
        ORDER BY a_1) AS a_4;
+==
+
+# GROUP BY modifier can contain hints
+SELECT
+  SUM(AVG(int64) GROUP @{abc=1} BY bool)
+FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#22 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#22]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#22]
+        +-input_scan=
+        | +-TableScan(column_list=SimpleTypes.[int64#2, bool#7], table=SimpleTypes, column_index_list=[1, 6])
+        +-aggregate_list=
+          +-$agg1#22 :=
+            +-AggregateFunctionCall(ZetaSQL:sum(DOUBLE) -> DOUBLE)
+              +-ColumnRef(type=DOUBLE, column=$aggregate.$agg1#21)
+              +-group_by_list=
+              | +-$groupbymod#20 := ColumnRef(type=BOOL, column=SimpleTypes.bool#7)
+              +-group_by_hint_list=
+              | +-abc := Literal(type=INT64, value=1)
+              +-group_by_aggregate_list=
+                +-$agg1#21 :=
+                  +-AggregateFunctionCall(ZetaSQL:avg(INT64) -> DOUBLE)
+                    +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  SUM(AVG(simpletypes_3.a_1)
+    GROUP @{ abc = 1 } BY simpletypes_3.a_2) AS a_4
+FROM
+  (
+    SELECT
+      SimpleTypes.int64 AS a_1,
+      SimpleTypes.bool AS a_2
+    FROM
+      SimpleTypes
+  ) AS simpletypes_3;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int64 AS a_1,
+     SimpleTypes.bool AS a_2
+|> AS simpletypes_3
+|> AGGREGATE
+     SUM(AVG(simpletypes_3.a_1)
+       GROUP @{ abc = 1 } BY simpletypes_3.a_2) AS a_4;
+==
+
+# GROUP BY modifier can contain hints
+SELECT
+  SUM(SUM(int64 GROUP @{abc=2} BY int64) GROUP @{abc=1} BY bool)
+FROM SimpleTypes
+HAVING AVG(AVG(int64) GROUP @{abc=3} BY  bool) > 0;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#24 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#24]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=$aggregate.[$agg1#24, $agg2#27]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=$aggregate.[$agg1#24, $agg2#27]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=SimpleTypes.[int64#2, bool#7], table=SimpleTypes, column_index_list=[1, 6])
+        |   +-aggregate_list=
+        |     +-$agg1#24 :=
+        |     | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |     |   +-ColumnRef(type=INT64, column=$aggregate.$agg1#23)
+        |     |   +-group_by_list=
+        |     |   | +-$groupbymod#20 := ColumnRef(type=BOOL, column=SimpleTypes.bool#7)
+        |     |   +-group_by_hint_list=
+        |     |   | +-abc := Literal(type=INT64, value=1)
+        |     |   +-group_by_aggregate_list=
+        |     |     +-$agg1#23 :=
+        |     |       +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |     |         +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#22)
+        |     |         +-group_by_list=
+        |     |         | +-$groupbymod#21 := ColumnRef(type=BOOL, column=SimpleTypes.bool#7)
+        |     |         | +-$groupbymod#22 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+        |     |         +-group_by_hint_list=
+        |     |           +-abc := Literal(type=INT64, value=2)
+        |     +-$agg2#27 :=
+        |       +-AggregateFunctionCall(ZetaSQL:avg(DOUBLE) -> DOUBLE)
+        |         +-ColumnRef(type=DOUBLE, column=$aggregate.$agg1#26)
+        |         +-group_by_list=
+        |         | +-$groupbymod#25 := ColumnRef(type=BOOL, column=SimpleTypes.bool#7)
+        |         +-group_by_hint_list=
+        |         | +-abc := Literal(type=INT64, value=3)
+        |         +-group_by_aggregate_list=
+        |           +-$agg1#26 :=
+        |             +-AggregateFunctionCall(ZetaSQL:avg(INT64) -> DOUBLE)
+        |               +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:$greater(DOUBLE, DOUBLE) -> BOOL)
+            +-ColumnRef(type=DOUBLE, column=$aggregate.$agg2#27)
+            +-Literal(type=DOUBLE, value=0)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aggregatescan_6.a_4 AS a_4
+FROM
+  (
+    SELECT
+      SUM(SUM(simpletypes_3.a_1
+          GROUP @{ abc = 2 } BY simpletypes_3.a_2, simpletypes_3.a_1)
+        GROUP @{ abc = 1 } BY simpletypes_3.a_2) AS a_4,
+      AVG(AVG(simpletypes_3.a_1)
+        GROUP @{ abc = 3 } BY simpletypes_3.a_2) AS a_5
+    FROM
+      (
+        SELECT
+          SimpleTypes.int64 AS a_1,
+          SimpleTypes.bool AS a_2
+        FROM
+          SimpleTypes
+      ) AS simpletypes_3
+  ) AS aggregatescan_6
+WHERE
+  (aggregatescan_6.a_5) > 0.0;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int64 AS a_1,
+     SimpleTypes.bool AS a_2
+|> AS simpletypes_3
+|> AGGREGATE
+     SUM(SUM(simpletypes_3.a_1
+         GROUP @{ abc = 2 } BY simpletypes_3.a_2, simpletypes_3.a_1)
+       GROUP @{ abc = 1 } BY simpletypes_3.a_2) AS a_4,
+     AVG(AVG(simpletypes_3.a_1)
+       GROUP @{ abc = 3 } BY simpletypes_3.a_2) AS a_5
+|> AS aggregatescan_6
+|> WHERE
+     (aggregatescan_6.a_5) > 0.0
+|> SELECT
+     aggregatescan_6.a_4 AS a_4;
+
+==
+
+[no_enable_literal_replacement]
+# Similar to b/435003883
+with t as (select 1 as x)
+select array_agg(struct(array_agg(distinct x+1 order by x+1)) group by x+1),
+       array_agg(struct(array_agg(distinct x+1 order by x+1)) group by x+1)
+ from t
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#6 AS `$col1` [ARRAY<STRUCT<ARRAY<INT64>>>]
+| +-$aggregate.$agg2#10 AS `$col2` [ARRAY<STRUCT<ARRAY<INT64>>>]
++-query=
+  +-WithScan
+    +-column_list=$aggregate.[$agg1#6, $agg2#10]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="t"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-column_list=[t.x#1]
+    |       +-expr_list=
+    |       | +-x#1 := Literal(type=INT64, value=1)
+    |       +-input_scan=
+    |         +-SingleRowScan
+    +-query=
+      +-ProjectScan
+        +-column_list=$aggregate.[$agg1#6, $agg2#10]
+        +-input_scan=
+          +-AggregateScan
+            +-column_list=$aggregate.[$agg1#6, $agg2#10]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[t.x#2, $orderby.$orderbycol1#4, $orderby.$orderbycol1#8]
+            |   +-expr_list=
+            |   | +-$orderbycol1#4 :=
+            |   | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+            |   | |   +-ColumnRef(type=INT64, column=t.x#2)
+            |   | |   +-Literal(type=INT64, value=1)
+            |   | +-$orderbycol1#8 :=
+            |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+            |   |     +-ColumnRef(type=INT64, column=t.x#2)
+            |   |     +-Literal(type=INT64, value=1)
+            |   +-input_scan=
+            |     +-WithRefScan(column_list=[t.x#2], with_query_name="t")
+            +-aggregate_list=
+              +-$agg1#6 :=
+              | +-AggregateFunctionCall(ZetaSQL:array_agg(STRUCT<ARRAY<INT64>>) -> ARRAY<STRUCT<ARRAY<INT64>>>)
+              |   +-MakeStruct
+              |     +-type=STRUCT<ARRAY<INT64>>
+              |     +-field_list=
+              |       +-ColumnRef(type=ARRAY<INT64>, column=$aggregate.$agg1#5)
+              |   +-group_by_list=
+              |   | +-$groupbymod#3 :=
+              |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+              |   |     +-ColumnRef(type=INT64, column=t.x#2)
+              |   |     +-Literal(type=INT64, value=1)
+              |   +-group_by_aggregate_list=
+              |     +-$agg1#5 :=
+              |       +-AggregateFunctionCall(ZetaSQL:array_agg(INT64) -> ARRAY<INT64>)
+              |         +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
+              |         +-distinct=TRUE
+              |         +-order_by_item_list=
+              |           +-OrderByItem
+              |             +-column_ref=
+              |               +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
+              +-$agg2#10 :=
+                +-AggregateFunctionCall(ZetaSQL:array_agg(STRUCT<ARRAY<INT64>>) -> ARRAY<STRUCT<ARRAY<INT64>>>)
+                  +-MakeStruct
+                    +-type=STRUCT<ARRAY<INT64>>
+                    +-field_list=
+                      +-ColumnRef(type=ARRAY<INT64>, column=$aggregate.$agg1#9)
+                  +-group_by_list=
+                  | +-$groupbymod#7 :=
+                  |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+                  |     +-ColumnRef(type=INT64, column=t.x#2)
+                  |     +-Literal(type=INT64, value=1)
+                  +-group_by_aggregate_list=
+                    +-$agg1#9 :=
+                      +-AggregateFunctionCall(ZetaSQL:array_agg(INT64) -> ARRAY<INT64>)
+                        +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#8)
+                        +-distinct=TRUE
+                        +-order_by_item_list=
+                          +-OrderByItem
+                            +-column_ref=
+                              +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#8)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+WITH
+  t AS (
+    SELECT
+      1 AS a_1
+  )
+SELECT
+  ARRAY_AGG(STRUCT< ARRAY< INT64 > > (ARRAY_AGG(DISTINCT projectscan_5.a_3
+        ORDER BY projectscan_5.a_3))
+    GROUP BY (projectscan_5.a_1) + 1) AS a_6,
+  ARRAY_AGG(STRUCT< ARRAY< INT64 > > (ARRAY_AGG(DISTINCT projectscan_5.a_4
+        ORDER BY projectscan_5.a_4))
+    GROUP BY (projectscan_5.a_1) + 1) AS a_7
+FROM
+  (
+    SELECT
+      withrefscan_2.a_1 AS a_1,
+      (withrefscan_2.a_1) + 1 AS a_3,
+      (withrefscan_2.a_1) + 1 AS a_4
+    FROM
+      t AS withrefscan_2
+  ) AS projectscan_5;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+WITH
+  t AS (
+    SELECT
+      1 AS a_1
+  )
+FROM
+  t AS withrefscan_2
+|> SELECT
+     withrefscan_2.a_1 AS a_1,
+     (withrefscan_2.a_1) + 1 AS a_3,
+     (withrefscan_2.a_1) + 1 AS a_4
+|> AS projectscan_5
+|> AGGREGATE
+     ARRAY_AGG(STRUCT< ARRAY< INT64 > > (ARRAY_AGG(DISTINCT projectscan_5.a_3
+           ORDER BY projectscan_5.a_3))
+       GROUP BY (projectscan_5.a_1) + 1) AS a_6,
+     ARRAY_AGG(STRUCT< ARRAY< INT64 > > (ARRAY_AGG(DISTINCT projectscan_5.a_4
+           ORDER BY projectscan_5.a_4))
+       GROUP BY (projectscan_5.a_1) + 1) AS a_7;

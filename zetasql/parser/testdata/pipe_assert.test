@@ -1,4 +1,4 @@
-[default language_features=PIPES]
+[default language_features=NONE,+PIPES]
 
 from t
 |> assert x+1 = 5

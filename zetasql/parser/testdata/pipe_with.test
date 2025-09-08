@@ -1,4 +1,4 @@
-[default language_features=PIPES]
+[default language_features=NONE,+PIPES]
 
 from t1
 |> with t2 AS (select * from t3),

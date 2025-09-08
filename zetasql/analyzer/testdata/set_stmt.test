@@ -1,4 +1,5 @@
 # Simple assignment to system variable
+[default language_features=MAXIMUM]
 SET @@int64_system_variable = 0;
 --
 AssignmentStmt
@@ -507,7 +508,7 @@ AssignmentStmt
   +-Literal(type=ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>, value=[])
 ==
 
-[language_features=PROTO_MAPS]
+[language_features=NONE,+PROTO_MAPS]
 SET @@map_system_variable = PROTO_MODIFY_MAP(@@map_system_variable, "hello", 3)
 --
 AssignmentStmt

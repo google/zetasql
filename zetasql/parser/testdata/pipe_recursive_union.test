@@ -1,4 +1,4 @@
-[default language_features=PIPES]
+[default language_features=NONE,+PIPES]
 # Input is a subquery.
 from t
 |> recursive union all (select 1)

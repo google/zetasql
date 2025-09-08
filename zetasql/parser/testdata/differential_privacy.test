@@ -1,0 +1,768 @@
+# Simple differential_privacy query.
+select with differential_privacy sum() from table;
+--
+QueryStatement [0-49] [select with...from table]
+  Query [0-49] [select with...from table]
+    Select [0-49] [select with...from table]
+      SelectWith [7-32] [with differential_privacy]
+        Identifier(differential_privacy) [12-32] [differential_privacy]
+      SelectList [33-38] [sum()]
+        SelectColumn [33-38] [sum()]
+          FunctionCall [33-38] [sum()]
+            PathExpression [33-36] [sum]
+              Identifier(sum) [33-36] [sum]
+      FromClause [39-49] [from table]
+        TablePathExpression [44-49] [table]
+          PathExpression [44-49] [table]
+            Identifier(table) [44-49] [table]
+--
+SELECT WITH differential_privacy ALL
+  sum()
+FROM
+  table
+==
+
+# Simple differential_privacy query with explicit options
+select with differential_privacy options() sum() from table;
+--
+QueryStatement [0-59] [select with...from table]
+  Query [0-59] [select with...from table]
+    Select [0-59] [select with...from table]
+      SelectWith [7-42] [with differential...options()]
+        Identifier(differential_privacy) [12-32] [differential_privacy]
+        OptionsList [40-42] [()]
+      SelectList [43-48] [sum()]
+        SelectColumn [43-48] [sum()]
+          FunctionCall [43-48] [sum()]
+            PathExpression [43-46] [sum]
+              Identifier(sum) [43-46] [sum]
+      FromClause [49-59] [from table]
+        TablePathExpression [54-59] [table]
+          PathExpression [54-59] [table]
+            Identifier(table) [54-59] [table]
+--
+SELECT WITH differential_privacy OPTIONS() ALL
+  sum()
+FROM
+  table
+==
+
+# Simple differential_privacy query with explicit options
+select with differential_privacy options(option1 = 1) sum() from table;
+--
+QueryStatement [0-70] [select with...from table]
+  Query [0-70] [select with...from table]
+    Select [0-70] [select with...from table]
+      SelectWith [7-53] [with differential...tion1 = 1)]
+        Identifier(differential_privacy) [12-32] [differential_privacy]
+        OptionsList [40-53] [(option1 = 1)]
+          OptionsEntry [41-52] [option1 = 1]
+            Identifier(option1) [41-48] [option1]
+            IntLiteral(1) [51-52] [1]
+      SelectList [54-59] [sum()]
+        SelectColumn [54-59] [sum()]
+          FunctionCall [54-59] [sum()]
+            PathExpression [54-57] [sum]
+              Identifier(sum) [54-57] [sum]
+      FromClause [60-70] [from table]
+        TablePathExpression [65-70] [table]
+          PathExpression [65-70] [table]
+            Identifier(table) [65-70] [table]
+--
+SELECT WITH differential_privacy OPTIONS(option1 = 1) ALL
+  sum()
+FROM
+  table
+==
+
+# Simple differential_privacy query with explicit options
+select with differential_privacy options(option1 = 1, option2 = "option") sum()
+from table;
+--
+QueryStatement [0-90] [select with...from table]
+  Query [0-90] [select with...from table]
+    Select [0-90] [select with...from table]
+      SelectWith [7-73] [with differential..."option")]
+        Identifier(differential_privacy) [12-32] [differential_privacy]
+        OptionsList [40-73] [(option1 =..."option")]
+          OptionsEntry [41-52] [option1 = 1]
+            Identifier(option1) [41-48] [option1]
+            IntLiteral(1) [51-52] [1]
+          OptionsEntry [54-72] [option2 = "option"]
+            Identifier(option2) [54-61] [option2]
+            StringLiteral [64-72] ["option"]
+              StringLiteralComponent("option") [64-72] ["option"]
+      SelectList [74-79] [sum()]
+        SelectColumn [74-79] [sum()]
+          FunctionCall [74-79] [sum()]
+            PathExpression [74-77] [sum]
+              Identifier(sum) [74-77] [sum]
+      FromClause [80-90] [from table]
+        TablePathExpression [85-90] [table]
+          PathExpression [85-90] [table]
+            Identifier(table) [85-90] [table]
+--
+SELECT WITH differential_privacy OPTIONS(option1 = 1, option2 = "option") ALL
+  sum()
+FROM
+  table
+==
+
+# Differential_privacy in a subquery.
+select * from (select with differential_privacy sum() from table);
+--
+QueryStatement [0-65] [select * from...from table)]
+  Query [0-65] [select * from...from table)]
+    Select [0-65] [select * from...from table)]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-65] [from (select...from table)]
+        TableSubquery [14-65] [(select with...from table)]
+          Query [15-64] [select with...from table]
+            Select [15-64] [select with...from table]
+              SelectWith [22-47] [with differential_privacy]
+                Identifier(differential_privacy) [27-47] [differential_privacy]
+              SelectList [48-53] [sum()]
+                SelectColumn [48-53] [sum()]
+                  FunctionCall [48-53] [sum()]
+                    PathExpression [48-51] [sum]
+                      Identifier(sum) [48-51] [sum]
+              FromClause [54-64] [from table]
+                TablePathExpression [59-64] [table]
+                  PathExpression [59-64] [table]
+                    Identifier(table) [59-64] [table]
+--
+SELECT
+  *
+FROM
+  (
+    SELECT WITH differential_privacy ALL
+      sum()
+    FROM
+      table
+  )
+==
+
+# Comprehensive differential_privacy query.
+select @{hint=1} with differential_privacy distinct sum()
+from table
+where true
+group by col
+having true
+window name as ();
+--
+QueryStatement [0-122] [select @{hint...name as ()]
+  Query [0-122] [select @{hint...name as ()]
+    Select(distinct=true) [0-122] [select @{hint...name as ()]
+      Hint [7-16] [@{hint=1}]
+        HintEntry [9-15] [hint=1]
+          Identifier(hint) [9-13] [hint]
+          IntLiteral(1) [14-15] [1]
+      SelectWith [17-42] [with differential_privacy]
+        Identifier(differential_privacy) [22-42] [differential_privacy]
+      SelectList [52-57] [sum()]
+        SelectColumn [52-57] [sum()]
+          FunctionCall [52-57] [sum()]
+            PathExpression [52-55] [sum]
+              Identifier(sum) [52-55] [sum]
+      FromClause [58-68] [from table]
+        TablePathExpression [63-68] [table]
+          PathExpression [63-68] [table]
+            Identifier(table) [63-68] [table]
+      WhereClause [69-79] [where true]
+        BooleanLiteral(true) [75-79] [true]
+      GroupBy [80-92] [group by col]
+        GroupingItem [89-92] [col]
+          PathExpression [89-92] [col]
+            Identifier(col) [89-92] [col]
+      Having [93-104] [having true]
+        BooleanLiteral(true) [100-104] [true]
+      WindowClause [105-122] [window name as ()]
+        WindowDefinition [112-122] [name as ()]
+          Identifier(name) [112-116] [name]
+          WindowSpecification [120-122] [()]
+--
+SELECT @{ hint = 1 } WITH differential_privacy DISTINCT
+  sum()
+FROM
+  table
+WHERE
+  true
+GROUP BY col
+HAVING true
+WINDOW name AS ()
+==
+
+# Specify WITH DIFFERENTIAL_PRIVACY but no FROM clause
+select with differential_privacy sum();
+--
+QueryStatement [0-38] [select with...al_privacy sum()]
+  Query [0-38] [select with...al_privacy sum()]
+    Select [0-38] [select with...al_privacy sum()]
+      SelectWith [7-32] [with differential_privacy]
+        Identifier(differential_privacy) [12-32] [differential_privacy]
+      SelectList [33-38] [sum()]
+        SelectColumn [33-38] [sum()]
+          FunctionCall [33-38] [sum()]
+            PathExpression [33-36] [sum]
+              Identifier(sum) [33-36] [sum]
+--
+SELECT WITH differential_privacy ALL
+  sum()
+==
+
+# Trailing comma in otherwise valid query.
+select with differential_privacy sum(), from table;
+--
+QueryStatement [0-50] [select with...from table]
+  Query [0-50] [select with...from table]
+    Select [0-50] [select with...from table]
+      SelectWith [7-32] [with differential_privacy]
+        Identifier(differential_privacy) [12-32] [differential_privacy]
+      SelectList [33-39] [sum(),]
+        SelectColumn [33-38] [sum()]
+          FunctionCall [33-38] [sum()]
+            PathExpression [33-36] [sum]
+              Identifier(sum) [33-36] [sum]
+      FromClause [40-50] [from table]
+        TablePathExpression [45-50] [table]
+          PathExpression [45-50] [table]
+            Identifier(table) [45-50] [table]
+--
+SELECT WITH differential_privacy ALL
+  sum()
+FROM
+  table
+==
+
+# Support differential_privacy in other statement types.
+create table name as
+select with differential_privacy sum() from table;
+--
+CreateTableStatement [0-70] [create table...from table]
+  PathExpression [13-17] [name]
+    Identifier(name) [13-17] [name]
+  Query [21-70] [select with...from table]
+    Select [21-70] [select with...from table]
+      SelectWith [28-53] [with differential_privacy]
+        Identifier(differential_privacy) [33-53] [differential_privacy]
+      SelectList [54-59] [sum()]
+        SelectColumn [54-59] [sum()]
+          FunctionCall [54-59] [sum()]
+            PathExpression [54-57] [sum]
+              Identifier(sum) [54-57] [sum]
+      FromClause [60-70] [from table]
+        TablePathExpression [65-70] [table]
+          PathExpression [65-70] [table]
+            Identifier(table) [65-70] [table]
+--
+CREATE TABLE name AS
+SELECT WITH differential_privacy ALL
+  sum()
+FROM
+  table
+==
+
+# Support differential_privacy in other statement types.
+export data as
+select with differential_privacy sum() from table;
+--
+ExportDataStatement [0-64] [export data...from table]
+  Query [15-64] [select with...from table]
+    Select [15-64] [select with...from table]
+      SelectWith [22-47] [with differential_privacy]
+        Identifier(differential_privacy) [27-47] [differential_privacy]
+      SelectList [48-53] [sum()]
+        SelectColumn [48-53] [sum()]
+          FunctionCall [48-53] [sum()]
+            PathExpression [48-51] [sum]
+              Identifier(sum) [48-51] [sum]
+      FromClause [54-64] [from table]
+        TablePathExpression [59-64] [table]
+          PathExpression [59-64] [table]
+            Identifier(table) [59-64] [table]
+--
+EXPORT DATA AS
+SELECT WITH differential_privacy ALL
+  sum()
+FROM
+  table
+==
+
+# Support differential_privacy (another example that differential_privacy is valid in
+# non-query statements that allow a select clause) in INSERT dml statement.
+insert into t
+select with differential_privacy sum() from table;
+--
+InsertStatement [0-63] [insert into...from table]
+  PathExpression [12-13] [t]
+    Identifier(t) [12-13] [t]
+  Query [14-63] [select with...from table]
+    Select [14-63] [select with...from table]
+      SelectWith [21-46] [with differential_privacy]
+        Identifier(differential_privacy) [26-46] [differential_privacy]
+      SelectList [47-52] [sum()]
+        SelectColumn [47-52] [sum()]
+          FunctionCall [47-52] [sum()]
+            PathExpression [47-50] [sum]
+              Identifier(sum) [47-50] [sum]
+      FromClause [53-63] [from table]
+        TablePathExpression [58-63] [table]
+          PathExpression [58-63] [table]
+            Identifier(table) [58-63] [table]
+--
+INSERT INTO t
+SELECT WITH differential_privacy ALL
+  sum()
+FROM
+  table
+==
+
+# Support ANON_COUNT(*) with extra arguments
+select with differential_privacy COUNT(*, contribution_bounds_per_group=> (0,10));
+--
+QueryStatement [0-81] [select with...=> (0,10))]
+  Query [0-81] [select with...=> (0,10))]
+    Select [0-81] [select with...=> (0,10))]
+      SelectWith [7-32] [with differential_privacy]
+        Identifier(differential_privacy) [12-32] [differential_privacy]
+      SelectList [33-81] [COUNT(*, contribu...=> (0,10))]
+        SelectColumn [33-81] [COUNT(*, contribu...=> (0,10))]
+          FunctionCall [33-81] [COUNT(*, contribu...=> (0,10))]
+            PathExpression [33-38] [COUNT]
+              Identifier(COUNT) [33-38] [COUNT]
+            Star(*) [39-40] [*]
+            NamedArgument [42-80] [contribution_boun...p=> (0,10)]
+              Identifier(contribution_bounds_per_group) [42-71] [contribution_bounds_per_group]
+              StructConstructorWithParens [74-80] [(0,10)]
+                IntLiteral(0) [75-76] [0]
+                IntLiteral(10) [77-79] [10]
+--
+SELECT WITH differential_privacy ALL
+  COUNT(*, contribution_bounds_per_group  => (0, 10))
+==
+
+# SELECT WITH custom identifier should parse
+select with custom_identifier count(*);
+--
+QueryStatement [0-38] [select with...ntifier count(*)]
+  Query [0-38] [select with...ntifier count(*)]
+    Select [0-38] [select with...ntifier count(*)]
+      SelectWith [7-29] [with custom_identifier]
+        Identifier(custom_identifier) [12-29] [custom_identifier]
+      SelectList [30-38] [count(*)]
+        SelectColumn [30-38] [count(*)]
+          FunctionCall [30-38] [count(*)]
+            PathExpression [30-35] [count]
+              Identifier(count) [30-35] [count]
+            Star(*) [36-37] [*]
+--
+SELECT WITH custom_identifier ALL
+  count(*)
+==
+
+# SELECT WITH an expression after identifier should parse
+select with sum(x);
+--
+QueryStatement [0-18] [select with sum(x)]
+  Query [0-18] [select with sum(x)]
+    Select [0-18] [select with sum(x)]
+      SelectWith [7-15] [with sum]
+        Identifier(sum) [12-15] [sum]
+      SelectList [15-18] [(x)]
+        SelectColumn [15-18] [(x)]
+          PathExpression [16-17] [x]
+            Identifier(x) [16-17] [x]
+--
+SELECT WITH sum ALL
+  (x)
+
+==
+
+# SELECT WITH invalid expression after identifier should not parse
+select with count(*);
+--
+ERROR: Syntax error: Unexpected "*" [at 1:19]
+select with count(*);
+                  ^
+
+==
+
+# SELECT with no identifier after WITH should not parse
+select with 1;
+--
+ERROR: Syntax error: Unexpected integer literal "1" [at 1:13]
+select with 1;
+            ^
+
+==
+
+# In this query, OPTIONS is unambiguously a column name (or more precisely a
+# path expression). The LALR(1) parsers resolve a shift/reducce conflict
+# around `WITH kind OPTIONS` by treating `OPTIONS` as a keyword, thus breaking
+# this query.
+SELECT WITH kind{{| ALL}} OPTIONS FROM t;
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-31] [SELECT WITH...OPTIONS FROM t]
+  Query [0-31] [SELECT WITH...OPTIONS FROM t]
+    Select [0-31] [SELECT WITH...OPTIONS FROM t]
+      SelectWith [7-16] [WITH kind]
+        Identifier(kind) [12-16] [kind]
+      SelectList [17-24] [OPTIONS]
+        SelectColumn [17-24] [OPTIONS]
+          PathExpression [17-24] [OPTIONS]
+            Identifier(OPTIONS) [17-24] [OPTIONS]
+      FromClause [25-31] [FROM t]
+        TablePathExpression [30-31] [t]
+          PathExpression [30-31] [t]
+            Identifier(t) [30-31] [t]
+--
+SELECT WITH kind ALL
+  OPTIONS
+FROM
+  t
+--
+ALTERNATION GROUP:  ALL
+--
+QueryStatement [0-35] [SELECT WITH...OPTIONS FROM t]
+  Query [0-35] [SELECT WITH...OPTIONS FROM t]
+    Select [0-35] [SELECT WITH...OPTIONS FROM t]
+      SelectWith [7-16] [WITH kind]
+        Identifier(kind) [12-16] [kind]
+      SelectList [21-28] [OPTIONS]
+        SelectColumn [21-28] [OPTIONS]
+          PathExpression [21-28] [OPTIONS]
+            Identifier(OPTIONS) [21-28] [OPTIONS]
+      FromClause [29-35] [FROM t]
+        TablePathExpression [34-35] [t]
+          PathExpression [34-35] [t]
+            Identifier(t) [34-35] [t]
+--
+SELECT WITH kind ALL
+  OPTIONS
+FROM
+  t
+==
+
+# In this query, OPTIONS is unambiguously a column name (or more precisely a
+# path expression). The LALR(1) parsers resolve a shift/reducce conflict
+# around `WITH kind OPTIONS` by treating `OPTIONS` as a keyword, thus breaking
+# this query.
+SELECT WITH kind{{| ALL}} OPTIONS, another_column FROM t;
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-47] [SELECT WITH...er_column FROM t]
+  Query [0-47] [SELECT WITH...er_column FROM t]
+    Select [0-47] [SELECT WITH...er_column FROM t]
+      SelectWith [7-16] [WITH kind]
+        Identifier(kind) [12-16] [kind]
+      SelectList [17-40] [OPTIONS, another_column]
+        SelectColumn [17-24] [OPTIONS]
+          PathExpression [17-24] [OPTIONS]
+            Identifier(OPTIONS) [17-24] [OPTIONS]
+        SelectColumn [26-40] [another_column]
+          PathExpression [26-40] [another_column]
+            Identifier(another_column) [26-40] [another_column]
+      FromClause [41-47] [FROM t]
+        TablePathExpression [46-47] [t]
+          PathExpression [46-47] [t]
+            Identifier(t) [46-47] [t]
+--
+SELECT WITH kind ALL
+  OPTIONS,
+  another_column
+FROM
+  t
+--
+ALTERNATION GROUP:  ALL
+--
+QueryStatement [0-51] [SELECT WITH...er_column FROM t]
+  Query [0-51] [SELECT WITH...er_column FROM t]
+    Select [0-51] [SELECT WITH...er_column FROM t]
+      SelectWith [7-16] [WITH kind]
+        Identifier(kind) [12-16] [kind]
+      SelectList [21-44] [OPTIONS, another_column]
+        SelectColumn [21-28] [OPTIONS]
+          PathExpression [21-28] [OPTIONS]
+            Identifier(OPTIONS) [21-28] [OPTIONS]
+        SelectColumn [30-44] [another_column]
+          PathExpression [30-44] [another_column]
+            Identifier(another_column) [30-44] [another_column]
+      FromClause [45-51] [FROM t]
+        TablePathExpression [50-51] [t]
+          PathExpression [50-51] [t]
+            Identifier(t) [50-51] [t]
+--
+SELECT WITH kind ALL
+  OPTIONS,
+  another_column
+FROM
+  t
+==
+
+# In this query, OPTIONS is unambiguously a column name (or more precisely a
+# path expression). The LALR(1) parsers resolve a shift/reducce conflict
+# around `WITH kind OPTIONS` by treating `OPTIONS` as a keyword, thus breaking
+# this query.
+SELECT WITH kind{{| ALL}} OPTIONS another_column FROM t;
+--
+
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-46] [SELECT WITH...er_column FROM t]
+  Query [0-46] [SELECT WITH...er_column FROM t]
+    Select [0-46] [SELECT WITH...er_column FROM t]
+      SelectWith [7-16] [WITH kind]
+        Identifier(kind) [12-16] [kind]
+      SelectList [17-39] [OPTIONS another_column]
+        SelectColumn [17-39] [OPTIONS another_column]
+          PathExpression [17-24] [OPTIONS]
+            Identifier(OPTIONS) [17-24] [OPTIONS]
+          Alias [25-39] [another_column]
+            Identifier(another_column) [25-39] [another_column]
+      FromClause [40-46] [FROM t]
+        TablePathExpression [45-46] [t]
+          PathExpression [45-46] [t]
+            Identifier(t) [45-46] [t]
+--
+SELECT WITH kind ALL
+  OPTIONS AS another_column
+FROM
+  t
+--
+ALTERNATION GROUP:  ALL
+--
+QueryStatement [0-50] [SELECT WITH...er_column FROM t]
+  Query [0-50] [SELECT WITH...er_column FROM t]
+    Select [0-50] [SELECT WITH...er_column FROM t]
+      SelectWith [7-16] [WITH kind]
+        Identifier(kind) [12-16] [kind]
+      SelectList [21-43] [OPTIONS another_column]
+        SelectColumn [21-43] [OPTIONS another_column]
+          PathExpression [21-28] [OPTIONS]
+            Identifier(OPTIONS) [21-28] [OPTIONS]
+          Alias [29-43] [another_column]
+            Identifier(another_column) [29-43] [another_column]
+      FromClause [44-50] [FROM t]
+        TablePathExpression [49-50] [t]
+          PathExpression [49-50] [t]
+            Identifier(t) [49-50] [t]
+--
+SELECT WITH kind ALL
+  OPTIONS AS another_column
+FROM
+  t
+==
+
+# This case is ambiguous up to the FROM. A parser that supports lookaheads
+# with non-terminals could potentially solve this.
+SELECT WITH kind{{| ALL}} OPTIONS (a = 1) FROM t;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: SELECT list must not be empty [at 1:34]
+SELECT WITH kind OPTIONS (a = 1) FROM t;
+                                 ^
+--
+ALTERNATION GROUP:  ALL
+--
+QueryStatement [0-43] [SELECT WITH...1) FROM t]
+  Query [0-43] [SELECT WITH...1) FROM t]
+    Select [0-43] [SELECT WITH...1) FROM t]
+      SelectWith [7-16] [WITH kind]
+        Identifier(kind) [12-16] [kind]
+      SelectList [21-36] [OPTIONS (a = 1)]
+        SelectColumn [21-36] [OPTIONS (a = 1)]
+          FunctionCall [21-36] [OPTIONS (a = 1)]
+            PathExpression [21-28] [OPTIONS]
+              Identifier(OPTIONS) [21-28] [OPTIONS]
+            BinaryExpression(=) [30-35] [a = 1]
+              PathExpression [30-31] [a]
+                Identifier(a) [30-31] [a]
+              IntLiteral(1) [34-35] [1]
+      FromClause [37-43] [FROM t]
+        TablePathExpression [42-43] [t]
+          PathExpression [42-43] [t]
+            Identifier(t) [42-43] [t]
+--
+SELECT WITH kind ALL
+  OPTIONS(a = 1)
+FROM
+  t
+==
+
+# This case is ambiguous up to the comma. A parser that supports lookaheads
+# with non-terminals could potentially solve this.
+SELECT WITH kind{{| ALL}} OPTIONS (a = 1), another_column FROM t;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Unexpected "," [at 1:33]
+SELECT WITH kind OPTIONS (a = 1), another_column FROM t;
+                                ^
+--
+ALTERNATION GROUP:  ALL
+--
+QueryStatement [0-59] [SELECT WITH...er_column FROM t]
+  Query [0-59] [SELECT WITH...er_column FROM t]
+    Select [0-59] [SELECT WITH...er_column FROM t]
+      SelectWith [7-16] [WITH kind]
+        Identifier(kind) [12-16] [kind]
+      SelectList [21-52] [OPTIONS (a...another_column]
+        SelectColumn [21-36] [OPTIONS (a = 1)]
+          FunctionCall [21-36] [OPTIONS (a = 1)]
+            PathExpression [21-28] [OPTIONS]
+              Identifier(OPTIONS) [21-28] [OPTIONS]
+            BinaryExpression(=) [30-35] [a = 1]
+              PathExpression [30-31] [a]
+                Identifier(a) [30-31] [a]
+              IntLiteral(1) [34-35] [1]
+        SelectColumn [38-52] [another_column]
+          PathExpression [38-52] [another_column]
+            Identifier(another_column) [38-52] [another_column]
+      FromClause [53-59] [FROM t]
+        TablePathExpression [58-59] [t]
+          PathExpression [58-59] [t]
+            Identifier(t) [58-59] [t]
+# POST-COMMENT FROM MISSING PART
+
+--
+SELECT WITH kind ALL
+  OPTIONS(a = 1),
+  another_column
+FROM
+  t
+==
+
+# This query is truely ambiguous without the ALL keyword.
+SELECT WITH kind{{| ALL}} OPTIONS (a = 1) another_column FROM t;
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-54] [SELECT WITH...er_column FROM t]
+  Query [0-54] [SELECT WITH...er_column FROM t]
+    Select [0-54] [SELECT WITH...er_column FROM t]
+      SelectWith [7-32] [WITH kind OPTIONS (a = 1)]
+        Identifier(kind) [12-16] [kind]
+        OptionsList [25-32] [(a = 1)]
+          OptionsEntry [26-31] [a = 1]
+            Identifier(a) [26-27] [a]
+            IntLiteral(1) [30-31] [1]
+      SelectList [33-47] [another_column]
+        SelectColumn [33-47] [another_column]
+          PathExpression [33-47] [another_column]
+            Identifier(another_column) [33-47] [another_column]
+      FromClause [48-54] [FROM t]
+        TablePathExpression [53-54] [t]
+          PathExpression [53-54] [t]
+            Identifier(t) [53-54] [t]
+--
+SELECT WITH kind OPTIONS(a = 1) ALL
+  another_column
+FROM
+  t
+--
+ALTERNATION GROUP:  ALL
+--
+QueryStatement [0-58] [SELECT WITH...er_column FROM t]
+  Query [0-58] [SELECT WITH...er_column FROM t]
+    Select [0-58] [SELECT WITH...er_column FROM t]
+      SelectWith [7-16] [WITH kind]
+        Identifier(kind) [12-16] [kind]
+      SelectList [21-51] [OPTIONS (a = 1) another_column]
+        SelectColumn [21-51] [OPTIONS (a = 1) another_column]
+          FunctionCall [21-36] [OPTIONS (a = 1)]
+            PathExpression [21-28] [OPTIONS]
+              Identifier(OPTIONS) [21-28] [OPTIONS]
+            BinaryExpression(=) [30-35] [a = 1]
+              PathExpression [30-31] [a]
+                Identifier(a) [30-31] [a]
+              IntLiteral(1) [34-35] [1]
+          Alias [37-51] [another_column]
+            Identifier(another_column) [37-51] [another_column]
+      FromClause [52-58] [FROM t]
+        TablePathExpression [57-58] [t]
+          PathExpression [57-58] [t]
+            Identifier(t) [57-58] [t]
+--
+SELECT WITH kind ALL
+  OPTIONS(a = 1) AS another_column
+FROM
+  t
+==
+
+SELECT WITH OPTIONS{{| ALL}} OPTIONS(a = 1);
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Unexpected ";" [at 1:35]
+SELECT WITH OPTIONS OPTIONS(a = 1);
+                                  ^
+--
+ALTERNATION GROUP:  ALL
+--
+QueryStatement [0-38] [SELECT WITH...OPTIONS(a = 1)]
+  Query [0-38] [SELECT WITH...OPTIONS(a = 1)]
+    Select [0-38] [SELECT WITH...OPTIONS(a = 1)]
+      SelectWith [7-19] [WITH OPTIONS]
+        Identifier(OPTIONS) [12-19] [OPTIONS]
+      SelectList [24-38] [OPTIONS(a = 1)]
+        SelectColumn [24-38] [OPTIONS(a = 1)]
+          FunctionCall [24-38] [OPTIONS(a = 1)]
+            PathExpression [24-31] [OPTIONS]
+              Identifier(OPTIONS) [24-31] [OPTIONS]
+            BinaryExpression(=) [32-37] [a = 1]
+              PathExpression [32-33] [a]
+                Identifier(a) [32-33] [a]
+              IntLiteral(1) [36-37] [1]
+--
+SELECT WITH OPTIONS ALL
+  OPTIONS(a = 1)
+==
+
+SELECT WITH OPTIONS{{| ALL}} OPTIONS(a = 1) col1;
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-39] [SELECT WITH...= 1) col1]
+  Query [0-39] [SELECT WITH...= 1) col1]
+    Select [0-39] [SELECT WITH...= 1) col1]
+      SelectWith [7-34] [WITH OPTIONS OPTIONS(a = 1)]
+        Identifier(OPTIONS) [12-19] [OPTIONS]
+        OptionsList [27-34] [(a = 1)]
+          OptionsEntry [28-33] [a = 1]
+            Identifier(a) [28-29] [a]
+            IntLiteral(1) [32-33] [1]
+      SelectList [35-39] [col1]
+        SelectColumn [35-39] [col1]
+          PathExpression [35-39] [col1]
+            Identifier(col1) [35-39] [col1]
+--
+SELECT WITH OPTIONS OPTIONS(a = 1) ALL
+  col1
+--
+ALTERNATION GROUP:  ALL
+--
+QueryStatement [0-43] [SELECT WITH...= 1) col1]
+  Query [0-43] [SELECT WITH...= 1) col1]
+    Select [0-43] [SELECT WITH...= 1) col1]
+      SelectWith [7-19] [WITH OPTIONS]
+        Identifier(OPTIONS) [12-19] [OPTIONS]
+      SelectList [24-43] [OPTIONS(a = 1) col1]
+        SelectColumn [24-43] [OPTIONS(a = 1) col1]
+          FunctionCall [24-38] [OPTIONS(a = 1)]
+            PathExpression [24-31] [OPTIONS]
+              Identifier(OPTIONS) [24-31] [OPTIONS]
+            BinaryExpression(=) [32-37] [a = 1]
+              PathExpression [32-33] [a]
+                Identifier(a) [32-33] [a]
+              IntLiteral(1) [36-37] [1]
+          Alias [39-43] [col1]
+            Identifier(col1) [39-43] [col1]
+--
+SELECT WITH OPTIONS ALL
+  OPTIONS(a = 1) AS col1

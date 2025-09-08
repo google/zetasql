@@ -1,5 +1,5 @@
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
+[default language_features=NONE,+SQL_GRAPH]
 
 select gt.* from
 graph_table(aml
@@ -919,13 +919,13 @@ FROM
 --
 ALTERNATION GROUP: w,
 --
-ERROR: Syntax error: Unexpected identifier "w" [at 4:15]
+ERROR: Syntax error: Expected keyword RETURN but got identifier "w" [at 4:15]
   WITH weight w 
               ^
 --
 ALTERNATION GROUP: w,REPEATABLE (1234)
 --
-ERROR: Syntax error: Unexpected identifier "w" [at 4:15]
+ERROR: Syntax error: Expected keyword RETURN but got identifier "w" [at 4:15]
   WITH weight w REPEATABLE (1234)
               ^
 --

@@ -31,6 +31,7 @@
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/tools/execute_query/output_query_result.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status_macros.h"
 
@@ -102,6 +103,20 @@ absl::Status ExecuteQueryStreamWriter::explained(const ResolvedNode& ast,
 absl::Status ExecuteQueryStreamWriter::executed(
     const ResolvedNode& ast, std::unique_ptr<EvaluatorTableIterator> iter) {
   return PrintResults(std::move(iter), stream_);
+}
+
+absl::Status ExecuteQueryStreamWriter::executed_multi(
+    const ResolvedNode& ast,
+    std::vector<absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>>
+        results) {
+  for (auto& result : results) {
+    if (result.ok()) {
+      ZETASQL_RETURN_IF_ERROR(PrintResults(std::move(*result), stream_));
+    } else {
+      stream_ << "Error: " << result.status().message() << "\n";
+    }
+  }
+  return absl::OkStatus();
 }
 
 absl::Status ExecuteQueryStreamWriter::ExecutedExpression(

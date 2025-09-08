@@ -2,7 +2,7 @@
 # After the tests with pipe syntax, it has tests for GROUP BY with aliases in
 # regular syntax, with FEATURE_PIPES turned on and off.
 
-[default language_features=PIPES]
+[default language_features=NONE,+PIPES]
 select 1
 |> AGGREGATE
    GROUP BY
@@ -161,18 +161,6 @@ from t
 |> aggregate count(*)
    GROUP {{|AND ORDER}} BY k {{|ASC}}
      COLLATE "abc"
---
-ALTERNATION GROUPS:
-    <empty>
-    AND ORDER,
---
-ERROR: Syntax error: Unexpected keyword COLLATE [at 4:6]
-     COLLATE "abc"
-     ^
---
-ALTERNATION GROUPS:
-    ASC
-    AND ORDER,ASC
 --
 ERROR: Syntax error: Expected end of input but got keyword COLLATE [at 4:6]
      COLLATE "abc"
@@ -337,15 +325,15 @@ ERROR: Syntax error: Expected end of input but got keyword AS [at 3:21]
 # with FEATURE_PIPES turned on or off.  Order modifiers are
 # always rejected.
 
-[language_features={{PIPES|}}]
+[language_features=NONE,{{+PIPES|}}]
 select COUNT(*)
 from t
 GROUP BY x {{ASC|DESC}}
 {{|NULLS FIRST}}
 --
 ALTERNATION GROUPS:
-    PIPES,ASC,
-    PIPES,ASC,NULLS FIRST
+    +PIPES,ASC,
+    +PIPES,ASC,NULLS FIRST
     ASC,
     ASC,NULLS FIRST
 --
@@ -354,8 +342,8 @@ GROUP BY x ASC
            ^
 --
 ALTERNATION GROUPS:
-    PIPES,DESC,
-    PIPES,DESC,NULLS FIRST
+    +PIPES,DESC,
+    +PIPES,DESC,NULLS FIRST
     DESC,
     DESC,NULLS FIRST
 --
@@ -364,37 +352,37 @@ GROUP BY x DESC
            ^
 ==
 
-[language_features={{PIPES|}}]
+[language_features=NONE,{{+PIPES|}}]
 select COUNT(*)
 from t
 GROUP AND ORDER BY x
 --
-ERROR: Syntax error: Expected keyword BY but got keyword AND [at 3:7]
+ERROR: Syntax error: Expected @ for hint or keyword BY but got keyword AND [at 3:7]
 GROUP AND ORDER BY x
       ^
 ==
 
 # Test order modifiers on the GROUP BY inside graph queries.
 [reserve_graph_table]
-[language_features=SQL_GRAPH{{|,PIPES}}]
+[language_features=NONE,+SQL_GRAPH{{|,+PIPES}}]
 select * from GRAPH_TABLE(aml
   MATCH (a)
   RETURN a GROUP AND ORDER BY x)
 --
-ERROR: Syntax error: Expected keyword BY but got keyword AND [at 3:18]
+ERROR: Syntax error: Expected @ for hint or keyword BY but got keyword AND [at 3:18]
   RETURN a GROUP AND ORDER BY x)
                  ^
 ==
 
 [reserve_graph_table]
-[language_features=SQL_GRAPH{{|,PIPES}}]
+[language_features=NONE,+SQL_GRAPH{{|,+PIPES}}]
 select * from GRAPH_TABLE(aml
   MATCH (a)
   RETURN a GROUP BY x, y {{ASC|NULLS FIRST}})
 --
 ALTERNATION GROUPS:
     ASC
-    ,PIPES,ASC
+    ,+PIPES,ASC
 --
 ERROR: Syntax error: Expected ")" or keyword NEXT but got keyword ASC [at 3:26]
   RETURN a GROUP BY x, y ASC)
@@ -402,7 +390,7 @@ ERROR: Syntax error: Expected ")" or keyword NEXT but got keyword ASC [at 3:26]
 --
 ALTERNATION GROUPS:
     NULLS FIRST
-    ,PIPES,NULLS FIRST
+    ,+PIPES,NULLS FIRST
 --
 ERROR: Syntax error: Expected ")" or keyword NEXT but got keyword NULLS [at 3:26]
   RETURN a GROUP BY x, y NULLS FIRST)

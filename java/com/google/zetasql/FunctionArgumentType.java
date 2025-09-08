@@ -133,7 +133,8 @@ public final class FunctionArgumentType implements Serializable {
         && kind != SignatureArgumentKind.ARG_TYPE_RELATION
         && kind != SignatureArgumentKind.ARG_TYPE_MODEL
         && kind != SignatureArgumentKind.ARG_TYPE_CONNECTION
-        && kind != SignatureArgumentKind.ARG_TYPE_LAMBDA) {
+        && kind != SignatureArgumentKind.ARG_TYPE_LAMBDA
+        && kind != SignatureArgumentKind.ARG_TYPE_GRAPH) {
       return false;
     }
     if (numOccurrences < 0) {
@@ -303,6 +304,8 @@ public final class FunctionArgumentType implements Serializable {
         return "<graph_edge>";
       case ARG_TYPE_GRAPH_ELEMENT:
         return "<graph_element>";
+      case ARG_TYPE_GRAPH:
+        return "ANY GRAPH";
       case ARG_TYPE_GRAPH_PATH:
         return "<graph_path>";
       case __SignatureArgumentKind__switch_must_have_a_default__:
@@ -347,8 +350,7 @@ public final class FunctionArgumentType implements Serializable {
       Type argType = factory.deserialize(proto.getType(), pools);
       return new FunctionArgumentType(
           argType,
-          FunctionArgumentTypeOptions.deserialize(
-              proto.getOptions(), pools, argType, factory),
+          FunctionArgumentTypeOptions.deserialize(proto.getOptions(), pools, argType, factory),
           proto.getNumOccurrences());
     } else if (kind == SignatureArgumentKind.ARG_TYPE_LAMBDA) {
       List<FunctionArgumentType> argumentTypes = new ArrayList<>();
@@ -366,7 +368,7 @@ public final class FunctionArgumentType implements Serializable {
       return new FunctionArgumentType(
           kind,
           FunctionArgumentTypeOptions.deserialize(
-              proto.getOptions(), pools, /*argType=*/ null, factory),
+              proto.getOptions(), pools, /* argType= */ null, factory),
           proto.getNumOccurrences());
     }
   }
@@ -379,6 +381,7 @@ public final class FunctionArgumentType implements Serializable {
               && kind != SignatureArgumentKind.ARG_TYPE_MODEL
               && kind != SignatureArgumentKind.ARG_TYPE_DESCRIPTOR
               && kind != SignatureArgumentKind.ARG_TYPE_CONNECTION
+              && kind != SignatureArgumentKind.ARG_TYPE_GRAPH
               && kind != SignatureArgumentKind.ARG_TYPE_LAMBDA,
           "%s argument cannot have a default value",
           signatureArgumentKindToString(kind));
@@ -386,7 +389,8 @@ public final class FunctionArgumentType implements Serializable {
         Preconditions.checkArgument(
             type.equals(getOptions().getDefault().getType()),
             "Default value type does not match the argument type: %s vs %s",
-            type, getOptions().getDefault().getType());
+            type,
+            getOptions().getDefault().getType());
       }
     }
   }
@@ -398,10 +402,19 @@ public final class FunctionArgumentType implements Serializable {
     public abstract ArgumentCardinality getCardinality();
 
     @Nullable
-    public abstract Boolean getMustBeConstant();
+    abstract ConstnessLevelProto.Level getConstnessLevel();
 
-    @Nullable
-    public abstract Boolean getMustBeConstantExpression();
+    public boolean getMustBeConstant() {
+      return getConstnessLevel() == ConstnessLevelProto.Level.LEGACY_LITERAL_OR_PARAMETER;
+    }
+
+    public boolean getMustBeConstantExpression() {
+      return getConstnessLevel() == ConstnessLevelProto.Level.LEGACY_CONSTANT_EXPRESSION;
+    }
+
+    public boolean getMustBeAnalysisConstant() {
+      return getConstnessLevel() == ConstnessLevelProto.Level.ANALYSIS_CONST;
+    }
 
     @Nullable
     public abstract Boolean getMustBeNonNull();
@@ -474,11 +487,17 @@ public final class FunctionArgumentType implements Serializable {
       if (getCardinality() != null) {
         builder.setCardinality(getCardinality());
       }
-      if (getMustBeConstant() != null) {
-        builder.setMustBeConstant(getMustBeConstant());
-      }
-      if (getMustBeConstantExpression() != null) {
-        builder.setMustBeConstantExpression(getMustBeConstantExpression());
+      if (getConstnessLevel() != null) {
+        builder.setConstnessLevel(getConstnessLevel());
+      } else {
+        // TODO: b/434986689 These fields are deprecated. They should be removed and only
+        // ConstnessLevel should be used.
+        if (getMustBeConstant()) {
+          builder.setMustBeConstant(true);
+        }
+        if (getMustBeConstantExpression()) {
+          builder.setMustBeConstantExpression(true);
+        }
       }
       if (getMustBeNonNull() != null) {
         builder.setMustBeNonNull(getMustBeNonNull());
@@ -565,11 +584,15 @@ public final class FunctionArgumentType implements Serializable {
       if (proto.hasCardinality()) {
         builder.setCardinality(proto.getCardinality());
       }
-      if (proto.hasMustBeConstant()) {
-        builder.setMustBeConstant(proto.getMustBeConstant());
-      }
-      if (proto.hasMustBeConstantExpression()) {
-        builder.setMustBeConstantExpression(proto.getMustBeConstantExpression());
+      if (proto.hasConstnessLevel()) {
+        builder.setConstnessLevel(proto.getConstnessLevel());
+      } else {
+        if (proto.hasMustBeConstant()) {
+          builder.setMustBeConstant(proto.getMustBeConstant());
+        }
+        if (proto.hasMustBeConstantExpression()) {
+          builder.setMustBeConstantExpression(proto.getMustBeConstantExpression());
+        }
       }
       if (proto.hasMustBeNonNull()) {
         builder.setMustBeNonNull(proto.getMustBeNonNull());
@@ -661,10 +684,10 @@ public final class FunctionArgumentType implements Serializable {
 
     public String toDebugString() {
       List<String> options = new ArrayList<>();
-      if (getMustBeConstant() != null) {
+      if (getMustBeConstant()) {
         options.add("must_be_constant: true");
       }
-      if (getMustBeConstantExpression() != null) {
+      if (getMustBeConstantExpression()) {
         options.add("must_be_constant_expression: true");
       }
       if (getMustBeNonNull() != null) {
@@ -696,9 +719,55 @@ public final class FunctionArgumentType implements Serializable {
     public abstract static class Builder {
       public abstract Builder setCardinality(ArgumentCardinality cardinality);
 
-      public abstract Builder setMustBeConstant(Boolean constant);
+      abstract Builder setConstnessLevel(ConstnessLevelProto.Level constnessLevel);
 
-      public abstract Builder setMustBeConstantExpression(Boolean constantExpression);
+      @Nullable
+      abstract ConstnessLevelProto.Level getConstnessLevel();
+
+      @CanIgnoreReturnValue
+      public Builder setMustBeConstant(boolean constant) {
+        if (constant) {
+          Preconditions.checkState(
+              getConstnessLevel() == null
+                  || getConstnessLevel() == ConstnessLevelProto.Level.CONSTNESS_UNSPECIFIED
+                  || getConstnessLevel() == ConstnessLevelProto.Level.LEGACY_LITERAL_OR_PARAMETER,
+              "Cannot set mustBeConstant when another constness level is already set.");
+          setConstnessLevel(ConstnessLevelProto.Level.LEGACY_LITERAL_OR_PARAMETER);
+        } else {
+          setConstnessLevel(ConstnessLevelProto.Level.CONSTNESS_UNSPECIFIED);
+        }
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      public Builder setMustBeConstantExpression(boolean constantExpression) {
+        if (constantExpression) {
+          Preconditions.checkState(
+              getConstnessLevel() == null
+                  || getConstnessLevel() == ConstnessLevelProto.Level.CONSTNESS_UNSPECIFIED
+                  || getConstnessLevel() == ConstnessLevelProto.Level.LEGACY_CONSTANT_EXPRESSION,
+              "Cannot set mustBeConstantExpression when another constness level is already set.");
+          setConstnessLevel(ConstnessLevelProto.Level.LEGACY_CONSTANT_EXPRESSION);
+        } else {
+          setConstnessLevel(ConstnessLevelProto.Level.CONSTNESS_UNSPECIFIED);
+        }
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      public Builder setMustBeAnalysisConstant(boolean analysisConstant) {
+        if (analysisConstant) {
+          Preconditions.checkState(
+              getConstnessLevel() == null
+                  || getConstnessLevel() == ConstnessLevelProto.Level.CONSTNESS_UNSPECIFIED
+                  || getConstnessLevel() == ConstnessLevelProto.Level.ANALYSIS_CONST,
+              "Cannot set mustBeAnalysisConstant when another constness level is already set.");
+          setConstnessLevel(ConstnessLevelProto.Level.ANALYSIS_CONST);
+        } else {
+          setConstnessLevel(ConstnessLevelProto.Level.CONSTNESS_UNSPECIFIED);
+        }
+        return this;
+      }
 
       public abstract Builder setMustBeNonNull(Boolean notNull);
 

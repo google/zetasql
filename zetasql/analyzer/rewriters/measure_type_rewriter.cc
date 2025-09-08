@@ -49,6 +49,7 @@ class MeasureTypeRewriter : public Rewriter {
       return absl::UnimplementedError(
           "Grouping by STRUCT types is needed to rewrite measures.");
     }
+
     ZETASQL_RET_CHECK(options.id_string_pool() != nullptr);
     ZETASQL_RET_CHECK(options.column_id_sequence_number() != nullptr);
     ColumnFactory column_factory(/*max_seen_col_id=*/0,
@@ -56,21 +57,25 @@ class MeasureTypeRewriter : public Rewriter {
                                  *options.column_id_sequence_number());
     MeasureExpansionInfoMap measure_expansion_info_map;
 
-    // Step 1: Get information required to rewrite all relevant grain scans.
+    // Step 1: Find unsupported query shapes, and return an error if any are
+    // found.
+    ZETASQL_RETURN_IF_ERROR(HasUnsupportedQueryShape(input.get()));
+
+    // Step 2: Get information required to rewrite all relevant grain scans.
     // Note that a grain scan is only rewritten if it is the source for a
     // measure column that is invoked via the AGGREGATE function.
     ZETASQL_ASSIGN_OR_RETURN(GrainScanInfoMap grain_scan_info_map,
                      GetGrainScanInfo(input.get(), measure_expansion_info_map,
                                       column_factory));
 
-    // Step 2: Populate both `grain_scan_info_map` and
+    // Step 3: Populate both `grain_scan_info_map` and
     // `measure_expansion_info_map` with information about the STRUCT-typed
     // columns that will need to be projected to expand measure columns.
     ZETASQL_RETURN_IF_ERROR(PopulateStructColumnInfo(
         grain_scan_info_map, measure_expansion_info_map, type_factory,
         *options.id_string_pool(), column_factory));
 
-    // Step 3: Perform the rewrite.
+    // Step 4: Perform the rewrite.
     const Function* any_value_fn = nullptr;
     ZETASQL_RET_CHECK_OK(catalog.FindFunction({"any_value"}, &any_value_fn,
                                       options.find_options()));

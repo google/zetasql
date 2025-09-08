@@ -33,14 +33,14 @@ namespace macros {
 
 inline absl::StatusOr<ExpansionOutput> ExpandMacros(
     absl::string_view filename, absl::string_view input,
-    const MacroCatalog& catalog, bool is_strict,
-    DiagnosticOptions diagnostic_options, int offset_in_original_input) {
+    const MacroCatalog& catalog, MacroExpanderOptions macro_expander_options,
+    int offset_in_original_input) {
   return MacroExpander::ExpandMacros(
       std::make_unique<FlexTokenProvider>(filename, input, /*start_offset=*/0,
                                           /*end_offset=*/std::nullopt,
                                           offset_in_original_input,
                                           /*force_flex=*/false),
-      is_strict, catalog, diagnostic_options);
+      catalog, macro_expander_options);
 }
 
 }  // namespace macros

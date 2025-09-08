@@ -1,6 +1,6 @@
 # This file tests the rewrite rule that inlines SQL functions
 [default enabled_ast_rewrites=ALL,-WITH_EXPR]
-[default language_features=SAFE_FUNCTION_CALL,INLINE_LAMBDA_ARGUMENT,LATERAL_JOIN]
+[default language_features=NONE,+SAFE_FUNCTION_CALL,+INLINE_LAMBDA_ARGUMENT,+LATERAL_JOIN]
 
 ################################################################################
 ## Non Error Nullary
@@ -2370,7 +2370,7 @@ QueryStmt
 ==
 
 # Repros b/327662731
-[language_features=TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS]
+[language_features=NONE,+TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS]
 SELECT template_with_typed_arg("foo", NULL);
 --
 QueryStmt
@@ -2420,7 +2420,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=MULTILEVEL_AGGREGATION]
+[language_features=NONE,+MULTILEVEL_AGGREGATION]
 SELECT
   GroupingConstantFromUnnest([1,2,3], int64)
 FROM SimpleTypes;
@@ -2481,7 +2481,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 ==
 
-[language_features=MULTILEVEL_AGGREGATION]
+[language_features=NONE,+MULTILEVEL_AGGREGATION]
 SELECT
   GroupingConstantFromArg([1,2,3], int64)
 FROM SimpleTypes;
@@ -2543,7 +2543,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 ==
 
-[language_features=MULTILEVEL_AGGREGATION]
+[language_features=NONE,+MULTILEVEL_AGGREGATION]
 SELECT NullaryWithMultilevelAgg() as result;
 --
 QueryStmt
@@ -2591,7 +2591,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=MULTILEVEL_AGGREGATION]
+[language_features=NONE,+MULTILEVEL_AGGREGATION]
 SELECT NestedNullaryWithMultilevelAgg() as result;
 --
 QueryStmt

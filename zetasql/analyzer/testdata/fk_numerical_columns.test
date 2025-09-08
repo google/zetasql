@@ -1,5 +1,6 @@
 # All numerical column types support equality with all other numerical types.
-[language_features=FOREIGN_KEYS,NUMERIC_TYPE]
+[default language_features=MAXIMUM]
+[language_features=NONE,+FOREIGN_KEYS,+NUMERIC_TYPE]
 create table t (
   a {{int32|int64|uint32|uint64|float|double|numeric}},
   foreign key (a) references SimpleTypes

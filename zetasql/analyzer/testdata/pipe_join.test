@@ -1,4 +1,4 @@
-[default language_features=PIPES,TABLE_VALUED_FUNCTIONS,TABLESAMPLE,TABLESAMPLE_FROM_TABLE_VALUED_FUNCTIONS]
+[default language_features=NONE,+PIPES,+TABLE_VALUED_FUNCTIONS,+TABLESAMPLE,+TABLESAMPLE_FROM_TABLE_VALUED_FUNCTIONS]
 # At least one of these needs an alias, same as in a regular join, since we get
 # a range variable for each.
 from KeyValue
@@ -333,7 +333,7 @@ ERROR: Cannot access field value on a value with type ARRAY<zetasql_test__.Kitch
                                                     ^
 ==
 
-[language_features=PIPES,UNNEST_AND_FLATTEN_ARRAYS]
+[language_features=NONE,+PIPES,+UNNEST_AND_FLATTEN_ARRAYS]
 from TestTable
 |> join TestTable.KitchenSink.nested_repeated_value.value
 --

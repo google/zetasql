@@ -22,7 +22,6 @@
 #include <functional>
 #include <memory>
 #include <string>
-#include <string_view>
 #include <vector>
 
 #include "zetasql/common/errors.h"
@@ -442,7 +441,7 @@ absl::Status JsonFromValue(const Value& value,
       JsonFromBytes(value.bytes_value(), output);
       break;
     case TYPE_TIMESTAMP:
-      ZETASQL_RETURN_IF_ERROR(JsonFromTimestamp(value.ToTime(), output));
+      ZETASQL_RETURN_IF_ERROR(JsonFromTimestamp(value.ToUnixPicos(), output));
       break;
     case TYPE_DATE:
       ZETASQL_RETURN_IF_ERROR(JsonFromDate(value.date_value(), output));
@@ -530,7 +529,8 @@ absl::Status JsonFromValue(const Value& value,
       break;
     }
     case TYPE_ENUM:
-      if (absl::StatusOr<std::string_view> name = value.EnumName(); name.ok()) {
+      if (absl::StatusOr<absl::string_view> name = value.EnumName();
+          name.ok()) {
         JsonFromString(*name, output);
       } else {
         JsonFromNumericOrBool(value.enum_value(), output);

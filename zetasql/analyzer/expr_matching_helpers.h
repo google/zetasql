@@ -21,8 +21,10 @@
 
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
+#include "absl/base/attributes.h"
 #include "absl/status/statusor.h"
 
 namespace zetasql {
@@ -45,6 +47,17 @@ enum class TestIsSameExpressionForGroupByResult {
 // This is a shorthand of TestIsSameExpressionForGroupBy function to return a
 // bool result instead. The function treats the testing result kUnknown value as
 // if the two expressions are not equal.
+// `language_options` is used to determine whether certain AST nodes are
+// supported for comparison.
+absl::StatusOr<bool> IsSameExpressionForGroupBy(
+    const ResolvedExpr* expr1, const ResolvedExpr* expr2,
+    const LanguageOptions& language_options);
+
+// DEPRECATED: Same as above, but uses empty language options.
+// TODO: b/406852830 - Remove this function once spanner is migrated to pass
+// LanguageOptions into the IsSameExpressionForGroupBy function.
+ABSL_DEPRECATED(
+    "Use the IsSameExpressionForGroupBy function taking language options.")
 absl::StatusOr<bool> IsSameExpressionForGroupBy(const ResolvedExpr* expr1,
                                                 const ResolvedExpr* expr2);
 
@@ -58,6 +71,18 @@ absl::StatusOr<bool> IsSameExpressionForGroupBy(const ResolvedExpr* expr1,
 // completely checked. If some nodes or properties are not listed in the switch
 // cases and not checked, the result will be unknown. Function callers can
 // handle the unknown cases separately from the known-false cases.
+// <language_options> is used to determine whether certain AST nodes are
+// supported for comparison.
+absl::StatusOr<TestIsSameExpressionForGroupByResult>
+TestIsSameExpressionForGroupBy(const ResolvedExpr* expr1,
+                               const ResolvedExpr* expr2,
+                               const LanguageOptions& language_options);
+
+// DEPRECATED: Same as above, but uses empty language options.
+// TODO: b/406852830 - Remove this function once spanner is migrated to pass
+// LanguageOptions into the TestIsSameExpressionForGroupBy function.
+ABSL_DEPRECATED(
+    "Use the TestIsSameExpressionForGroupBy function taking language options.")
 absl::StatusOr<TestIsSameExpressionForGroupByResult>
 TestIsSameExpressionForGroupBy(const ResolvedExpr* expr1,
                                const ResolvedExpr* expr2);

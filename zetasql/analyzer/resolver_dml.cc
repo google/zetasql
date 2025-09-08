@@ -681,7 +681,7 @@ absl::Status Resolver::ResolveInsertStatement(
   } else {
     if (resolved_table_scan->table()->IsValueTable()) {
       const Table* table = resolved_table_scan->table();
-      ZETASQL_RETURN_IF_ERROR(CheckValidValueTable(*target_path, *table));
+      ZETASQL_RETURN_IF_ERROR(CheckValidValueTable(target_path, *table));
       insert_columns.push_back(resolved_table_scan->column_list(0));
     } else {
       if (language().LanguageFeatureEnabled(FEATURE_OMIT_INSERT_COLUMN_LIST)) {
@@ -1177,6 +1177,8 @@ static int GetFieldPathDepth(const ResolvedExpr* expr) {
     return 1 + GetFieldPathDepth(expr->GetAs<ResolvedGetProtoField>()->expr());
   } else if (node_kind == RESOLVED_GET_STRUCT_FIELD) {
     return 1 + GetFieldPathDepth(expr->GetAs<ResolvedGetStructField>()->expr());
+  } else if (node_kind == RESOLVED_GET_JSON_FIELD) {
+    return 1 + GetFieldPathDepth(expr->GetAs<ResolvedGetJsonField>()->expr());
   } else {
     ABSL_DCHECK_EQ(node_kind, RESOLVED_COLUMN_REF);
     return 0;
@@ -1193,6 +1195,8 @@ static const ResolvedExpr* StripLastnFields(const ResolvedExpr* expr, int n) {
   if (node_kind == RESOLVED_GET_PROTO_FIELD) {
     return StripLastnFields(expr->GetAs<ResolvedGetProtoField>()->expr(),
                             n - 1);
+  } else if (node_kind == RESOLVED_GET_JSON_FIELD) {
+    return StripLastnFields(expr->GetAs<ResolvedGetJsonField>()->expr(), n - 1);
   } else {
     ABSL_DCHECK_EQ(node_kind, RESOLVED_GET_STRUCT_FIELD);
     return StripLastnFields(expr->GetAs<ResolvedGetStructField>()->expr(),
@@ -1503,8 +1507,12 @@ absl::Status Resolver::VerifyUpdateTargetIsWritable(
       return VerifyUpdateTargetIsWritable(
           ast_location, target->GetAs<ResolvedGetStructField>()->expr(), value);
     case RESOLVED_GET_JSON_FIELD:
-      return MakeSqlErrorAt(ast_location)
-             << "UPDATE ... SET does not support modifying a JSON field";
+      if (language().LanguageFeatureEnabled(FEATURE_JSON_DML_UPDATE)) {
+        return absl::OkStatus();
+      } else {
+        return MakeSqlErrorAt(ast_location)
+               << "UPDATE ... SET does not support modifying a JSON field";
+      }
     case RESOLVED_MAKE_STRUCT:
       return MakeSqlErrorAt(ast_location)
              << "UPDATE ... SET does not support updating the entire row";
@@ -1666,7 +1674,7 @@ absl::Status Resolver::ShouldMergeWithUpdateItem(
     // overlaps for simple literal offsets and fail the statement in the
     // resolver. Also, consider extending ZetaSQL semantics to allow
     // non-overlapping cases like SET a[0].b = 4, a[0].c = 5.
-    ZETASQL_RET_CHECK(resolved_update_item->array_update_list_size() > 0);
+    ZETASQL_RET_CHECK(resolved_update_item->update_item_element_list_size() > 0);
   } else if (ast_is_set_value) {
     // SET <x> = <y> where <x> does not contain an array element
     // modification. E.g., we might be setting a field or column (which might
@@ -1676,7 +1684,7 @@ absl::Status Resolver::ShouldMergeWithUpdateItem(
              << "Update item " << GeneralizedPathAsString(target_path)
              << " assigned more than once";
     }
-    if (resolved_update_item->array_update_list_size() > 0) {
+    if (resolved_update_item->update_item_element_list_size() > 0) {
       return MakeSqlErrorAt(target_path)
              << "Cannot assign array " << GeneralizedPathAsString(target_path)
              << " and also modify one of its elements";
@@ -1697,7 +1705,7 @@ absl::Status Resolver::ShouldMergeWithUpdateItem(
              << " cannot be updated with a nested " << nested_str
              << " and also assigned a value";
     }
-    if (resolved_update_item->array_update_list_size() > 0) {
+    if (resolved_update_item->update_item_element_list_size() > 0) {
       return MakeSqlErrorAt(target_path)
              << "Cannot modify " << GeneralizedPathAsString(target_path)
              << " with a nested statement and also modify one of its elements";
@@ -1744,11 +1752,11 @@ absl::Status Resolver::MergeWithUpdateItem(
         << " and " << input_update_target_infos->front().target->DebugString();
   }
 
-  // Populate the highest-level ResolvedUpdateArrayItem node (if there is
+  // Populate the highest-level ResolvedUpdateItemElement node (if there is
   // one). In that case, update 'deepest_new_resolved_update_item'.
   ResolvedUpdateItem* deepest_new_resolved_update_item =
       merged_update_item->resolved_update_item.get();
-  std::unique_ptr<ResolvedUpdateArrayItem> array_item;
+  std::unique_ptr<ResolvedUpdateItemElement> array_item;
   for (size_t i = input_update_target_infos->size() - 1; i > 0; --i) {
     UpdateTargetInfo& target_info = (*input_update_target_infos)[i];
 
@@ -1773,15 +1781,15 @@ absl::Status Resolver::MergeWithUpdateItem(
     } else {
       resolved_update_item->set_element_column(
           MakeResolvedColumnHolder(*target_info.array_element));
-      resolved_update_item->add_array_update_list(std::move(array_item));
+      resolved_update_item->add_update_item_element_list(std::move(array_item));
     }
     ZETASQL_RET_CHECK(array_item == nullptr);
 
     std::unique_ptr<const ResolvedExpr>& array_offset =
         (*input_update_target_infos)[i - 1].array_offset;
     ZETASQL_RET_CHECK(array_offset != nullptr);
-    array_item = MakeResolvedUpdateArrayItem(std::move(array_offset),
-                                             std::move(resolved_update_item));
+    array_item = MakeResolvedUpdateItemElement(std::move(array_offset),
+                                               std::move(resolved_update_item));
   }
   // Now install 'array_item', being careful to ensure that its
   // ResolvedUpdateItem references the correct element_column if we are merging
@@ -1789,7 +1797,7 @@ absl::Status Resolver::MergeWithUpdateItem(
   ZETASQL_RET_CHECK_EQ(array_item == nullptr, input_update_target_infos->size() == 1);
   if (array_item != nullptr) {
     // Sanity check that we are not attempting to create a
-    // ResolvedUpdateArrayItem for a nested DML statement.
+    // ResolvedUpdateItemElement for a nested DML statement.
     ZETASQL_RET_CHECK(ast_input_update_item->set_value() != nullptr);
 
     if (merged_update_item->resolved_update_item->element_column() == nullptr) {
@@ -1804,7 +1812,7 @@ absl::Status Resolver::MergeWithUpdateItem(
           merged_update_item->resolved_update_item->element_column()->column());
     }
 
-    merged_update_item->resolved_update_item->add_array_update_list(
+    merged_update_item->resolved_update_item->add_update_item_element_list(
         std::move(array_item));
   }
 
@@ -1815,15 +1823,41 @@ absl::Status Resolver::MergeWithUpdateItem(
         ast_input_update_item->set_value()->value();
     AnnotatedType annotated_target_type =
         deepest_new_resolved_update_item->target()->annotated_type();
-    auto make_error_msg = [target_path](absl::string_view target_t,
-                                        absl::string_view arg_t) {
-      return absl::Substitute(
-          "Value of type $0 cannot be assigned to $2, which has type $1", arg_t,
-          target_t, GeneralizedPathAsString(target_path));
-    };
-    ZETASQL_RETURN_IF_ERROR(ResolveDMLValue(
-        ast_value, annotated_target_type, update_scope,
-        /*clause_name=*/"UPDATE clause", make_error_msg, &set_value));
+    // If it's a resolved column ref then we are just setting the top level
+    // column in which case we don't wrap in a TO_JSON call.
+    if (language().LanguageFeatureEnabled(FEATURE_JSON_DML_UPDATE) &&
+        annotated_target_type.type->IsJson() &&
+        !deepest_new_resolved_update_item->target()->Is<ResolvedColumnRef>()) {
+      std::unique_ptr<const ResolvedExpr> resolved_value;
+      ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_value, update_scope,
+                                        /*clause_name=*/"UPDATE clause",
+                                        &resolved_value,
+                                        annotated_target_type.type));
+      if (!resolved_value->type()->IsJson()) {
+        std::vector<std::unique_ptr<const ResolvedExpr>> arguments;
+        arguments.push_back(std::move(resolved_value));
+        std::unique_ptr<const ResolvedExpr> resolved_to_json_wrapper;
+        ExprResolutionInfo expr_resolution_info(update_scope, "UPDATE clause");
+        ZETASQL_RETURN_IF_ERROR(ResolveFunctionCallWithResolvedArguments(
+            ast_value, {ast_value}, /*match_internal_signatures=*/false,
+            /*function_name=*/"TO_JSON", std::move(arguments),
+            /*named_arguments=*/{}, &expr_resolution_info,
+            &resolved_to_json_wrapper));
+        set_value = MakeResolvedDMLValue(std::move(resolved_to_json_wrapper));
+      } else {
+        set_value = MakeResolvedDMLValue(std::move(resolved_value));
+      }
+    } else {
+      auto make_error_msg = [target_path](absl::string_view target_t,
+                                          absl::string_view arg_t) {
+        return absl::Substitute(
+            "Value of type $0 cannot be assigned to $2, which has type $1",
+            arg_t, target_t, GeneralizedPathAsString(target_path));
+      };
+      ZETASQL_RETURN_IF_ERROR(ResolveDMLValue(
+          ast_value, annotated_target_type, update_scope,
+          /*clause_name=*/"UPDATE clause", make_error_msg, &set_value));
+    }
     deepest_new_resolved_update_item->set_set_value(std::move(set_value));
   }
 
@@ -2503,10 +2537,10 @@ absl::Status Resolver::ResolveReturningClause(
       query_resolution_info->select_column_state_list();
   ZETASQL_RET_CHECK_NE(select_column_state_list, nullptr);
 
-  FinalizeSelectColumnStateList(
+  ZETASQL_RETURN_IF_ERROR(FinalizeSelectColumnStateList(
       select_list, target_alias,
       /*force_new_columns_for_projected_outputs=*/false,
-      query_resolution_info.get(), select_column_state_list);
+      query_resolution_info.get(), select_column_state_list));
 
   // build up the output name list
   auto output_name_list = std::make_shared<NameList>();
@@ -2514,9 +2548,6 @@ absl::Status Resolver::ResolveReturningClause(
   ZETASQL_RETURN_IF_ERROR(ResolveSelectListExprsSecondPass(
       target_alias, from_scan_scope, &output_name_list,
       query_resolution_info.get()));
-
-  ZETASQL_RETURN_IF_ERROR(ResolveAdditionalExprsSecondPass(
-      from_scan_scope, query_resolution_info.get()));
 
   // Appends the WITH ACTION AS alias clause to the output column list
   std::unique_ptr<ResolvedColumnHolder> action_column;

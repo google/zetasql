@@ -308,7 +308,8 @@ class GraphTableQueryResolver {
   ResolveGqlOperator(
       const ASTGqlOperator* gql_op, const NameScope* external_scope,
       std::vector<std::unique_ptr<const ResolvedScan>>& current_scan_list,
-      ResolvedGraphWithNameList<const ResolvedScan> inputs);
+      ResolvedGraphWithNameList<const ResolvedScan> inputs,
+      bool is_first_statement_in_graph_query);
 
   // Verifies that the sequence of linear query ops in `primitive_ops` is valid.
   absl::Status CheckGqlLinearQuery(
@@ -320,7 +321,8 @@ class GraphTableQueryResolver {
   absl::StatusOr<ResolvedGraphWithNameList<const ResolvedGraphLinearScan>>
   ResolveGqlLinearQueryList(const ASTGqlOperatorList& gql_ops_list,
                             const NameScope* external_scope,
-                            GraphTableNamedVariables input_graph_name_lists);
+                            GraphTableNamedVariables input_graph_name_lists,
+                            bool is_first_statement_in_graph_query);
 
   // Resolves a GraphLinearScan with primitive gql operations (MATCH, RETURN) as
   // children. `input_graph_name_lists`s namelists are consumed for the current
@@ -328,7 +330,8 @@ class GraphTableQueryResolver {
   absl::StatusOr<ResolvedGraphWithNameList<const ResolvedGraphLinearScan>>
   ResolveGqlLinearQuery(const ASTGqlOperatorList& gql_ops_list,
                         const NameScope* external_scope,
-                        ResolvedGraphWithNameList<const ResolvedScan> inputs);
+                        ResolvedGraphWithNameList<const ResolvedScan> inputs,
+                        bool is_first_statement_in_graph_query);
 
   // Resolves a chained list of gql operators. `input_graph_name_lists`s
   // namelists are consumed for the current input scan.
@@ -336,7 +339,8 @@ class GraphTableQueryResolver {
   absl::StatusOr<ResolvedGraphWithNameList<const ResolvedGraphLinearScan>>
   ResolveGqlOperatorList(absl::Span<const ASTGqlOperator* const> gql_ops,
                          const NameScope* external_scope,
-                         ResolvedGraphWithNameList<const ResolvedScan> inputs);
+                         ResolvedGraphWithNameList<const ResolvedScan> inputs,
+                         bool is_first_statement_in_graph_query);
 
   // Resolves a match operator in GQL syntax, which first resolves a graph
   // pattern independently using `input_scope` (the scope at the start of a
@@ -389,13 +393,15 @@ class GraphTableQueryResolver {
   absl::StatusOr<ResolvedGraphWithNameList<const ResolvedScan>>
   ResolveGqlInlineSubqueryCall(
       const ASTGqlInlineSubqueryCall& call_op, const NameScope* local_scope,
-      ResolvedGraphWithNameList<const ResolvedScan> input);
+      ResolvedGraphWithNameList<const ResolvedScan> input,
+      bool is_first_statement_in_graph_query);
 
   // Resolves a GQL CALL operator on a named TVF.
   absl::StatusOr<ResolvedGraphWithNameList<const ResolvedScan>>
   ResolveGqlNamedCall(const ASTGqlNamedCall& call_op,
                       const NameScope* local_scope,
-                      ResolvedGraphWithNameList<const ResolvedScan> input);
+                      ResolvedGraphWithNameList<const ResolvedScan> input,
+                      bool is_first_statement_in_graph_query);
 
   // Builds a ProjectScan from GqlReturnOp. `working_name_list` is consumed as
   // the namelist of the current input scan. Updates `working_name_list` as the
@@ -409,7 +415,8 @@ class GraphTableQueryResolver {
   absl::StatusOr<ResolvedGraphWithNameList<const ResolvedScan>>
   ResolveGqlSetOperation(const ASTGqlSetOperation& set_op,
                          const NameScope* external_scope,
-                         ResolvedGraphWithNameList<const ResolvedScan> inputs);
+                         ResolvedGraphWithNameList<const ResolvedScan> inputs,
+                         bool is_first_statement_in_graph_query);
 
   // Resolves a GQL query's SAMPLE operator.
   absl::StatusOr<ResolvedGraphWithNameList<const ResolvedScan>>
@@ -742,6 +749,9 @@ class GraphTableQueryResolver {
   //
   // 3) Nested quantifiers are not permitted.
   //
+  // 4) Unbounded quantifier is only allowed when the path pattern has selective
+  //    search prefix or restrictive path mode.
+  //
   // If CHEAPEST is specified for a top-level path pattern, then the path
   //   must include at least one edge cost expression. Furthermore, each
   //   quantified edge or subpath pattern contained by the top-level path
@@ -762,6 +772,8 @@ class GraphTableQueryResolver {
     // entire path pattern, as well as at least one for every descendant
     // quantified edge or subpath pattern.
     bool has_edge_cost = false;
+    // `true` if there is an unbounded quantified subpath.
+    bool child_is_unbounded_quantified = false;
   };
   absl::Status ValidatePathPattern(const ASTGraphPattern* ast_graph_pattern,
                                    const NameScope* scope);
@@ -782,7 +794,8 @@ class GraphTableQueryResolver {
     // incoming working table `inputs`.
     absl::StatusOr<ResolvedGraphWithNameList<const ResolvedScan>> Resolve(
         const NameScope* external_scope,
-        ResolvedGraphWithNameList<const ResolvedScan> inputs);
+        ResolvedGraphWithNameList<const ResolvedScan> inputs,
+        bool is_first_statement_in_graph_query);
 
     // Validates that N-ary GQL set operation:
     // - contains the same set operator; and
@@ -791,7 +804,8 @@ class GraphTableQueryResolver {
 
     // Returns a list of input argument types according to column order defined
     // in `first_query_column_name_idx_map`.
-    std::vector<std::vector<InputArgumentType>> BuildColumnTypeLists(
+    absl::StatusOr<std::vector<std::vector<InputArgumentType>>>
+    BuildColumnTypeLists(
         absl::Span<ResolvedGraphWithNameList<const ResolvedGraphLinearScan>>
             resolved_inputs,
         const ColumnNameIdxMap& first_query_column_name_idx_map);

@@ -64,7 +64,7 @@ TEST(Errors, ReturnIf) {
   EXPECT_EQ("OK", FormatError(NoError()));
   EXPECT_EQ("No location", FormatError(ErrorWithoutLocation()));
   EXPECT_EQ("With location [at 4:5]",
-            FormatError(ConvertInternalErrorLocationToExternal(
+            FormatError(ConvertInternalErrorPayloadsToExternal(
                 ErrorWithLocation(), query)));
   EXPECT_EQ("generic::not_found: Non-SQL error", FormatError(ErrorNonSQL()));
 }

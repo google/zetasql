@@ -380,107 +380,6 @@ INSTANTIATE_TEST_SUITE_P(
     ParseDateTimestampTests, ParseDateTimeTestWithParam,
     testing::ValuesIn(GetFunctionTestsParseDateTimestamp()));
 
-class ParseTimestampPicosSuccessTest
-    : public ::testing::TestWithParam<FunctionTestCall> {};
-
-TEST_P(ParseTimestampPicosSuccessTest, ParseTimestampPicosTests) {
-  const FunctionTestCall& test = GetParam();
-
-  // Ignore tests that do not have the time zone explicitly specified since
-  // the function library requires a timezone.  Also ignore test cases
-  // with NULL value inputs.  The date/time function library is only
-  // implemented for non-NULL values.
-  if (test.params.params().size() != 3 || test.params.param(0).is_null() ||
-      test.params.param(1).is_null() || test.params.param(2).is_null()) {
-    return;
-  }
-
-  const Value& format_param = test.params.param(0);
-  const Value& timestamp_string_param = test.params.param(1);
-  const Value& timezone_param = test.params.param(2);
-  PicoTime result_timestamp;
-
-  absl::Status status = ParseStringToTimestamp(
-      format_param.string_value(), timestamp_string_param.string_value(),
-      timezone_param.string_value(), &result_timestamp);
-
-  std::string test_string = absl::Substitute(
-      absl::StrCat(test.function_name, "($0, $1, $2)"),
-      format_param.DebugString(), timestamp_string_param.DebugString(),
-      timezone_param.DebugString());
-
-  EXPECT_THAT(status, IsOk()) << test_string;
-  EXPECT_EQ(TYPE_TIMESTAMP_PICOS, test.params.result().type_kind())
-      << test_string;
-  EXPECT_EQ(test.params.result().timestamp_picos_value().ToPicoTime(),
-            result_timestamp)
-      << test_string << "\nexpected: "
-      << test.params.result().timestamp_picos_value().DebugString()
-      << "\nactual: " << result_timestamp.DebugString();
-}
-
-class ParseTimestampPicosFailureTest
-    : public ::testing::TestWithParam<FunctionTestCall> {};
-
-TEST_P(ParseTimestampPicosFailureTest, ParseTimestampPicosTests) {
-  const FunctionTestCall& test = GetParam();
-
-  // Ignore tests that do not have the time zone explicitly specified since
-  // the function library requires a timezone.  Also ignore test cases
-  // with NULL value inputs.  The date/time function library is only
-  // implemented for non-NULL values.
-  if (test.params.params().size() != 3 || test.params.param(0).is_null() ||
-      test.params.param(1).is_null() || test.params.param(2).is_null()) {
-    return;
-  }
-
-  const Value& format_param = test.params.param(0);
-  const Value& timestamp_string_param = test.params.param(1);
-  const Value& timezone_param = test.params.param(2);
-  PicoTime result_timestamp;
-
-  absl::Status status = ParseStringToTimestamp(
-      format_param.string_value(), timestamp_string_param.string_value(),
-      timezone_param.string_value(), &result_timestamp);
-
-  std::string test_string = absl::Substitute(
-      absl::StrCat(test.function_name, "($0, $1, $2)"),
-      format_param.DebugString(), timestamp_string_param.DebugString(),
-      timezone_param.DebugString());
-
-  EXPECT_THAT(status, Not(IsOk()))
-      << test_string << "\nexpected status: " << test.params.status();
-}
-
-static std::vector<FunctionTestCall> GetSuccessTestsParseTimestampPicos() {
-  std::vector<FunctionTestCall> tests;
-  for (const auto& test : GetFunctionTestsParseTimestampPicos()) {
-    if (test.params.status().ok()) {
-      tests.push_back(test);
-    }
-  }
-  return tests;
-}
-
-static std::vector<FunctionTestCall> GetFailureTestsParseTimestampPicos() {
-  std::vector<FunctionTestCall> tests;
-  for (const auto& test : GetFunctionTestsParseTimestampPicos()) {
-    if (!test.params.status().ok()) {
-      tests.push_back(test);
-    }
-  }
-  return tests;
-}
-
-// These tests are populated in zetasql/compliance/functions_testlib.cc.
-INSTANTIATE_TEST_SUITE_P(
-    ParseTimestampPicosTests, ParseTimestampPicosSuccessTest,
-    testing::ValuesIn(GetSuccessTestsParseTimestampPicos()));
-
-INSTANTIATE_TEST_SUITE_P(
-    ParseTimestampPicosTests, ParseTimestampPicosFailureTest,
-    testing::ValuesIn(GetFailureTestsParseTimestampPicos()));
-
 TEST(StringToTimestampTests, ParseTimestampSecondsSinceEpochTests) {
   // These tests validate results by comparing the parsed string result vs.
   // converting that int64 seconds to timestamp using
@@ -1982,6 +1881,87 @@ TEST(ParseFormatDateTimestampTests, ParseMeridianIndicatorTests) {
     }
   }
 }
+
+struct ParseStringToPicosSuccessTestCase {
+  std::string input_string;
+};
+
+class ParseStringToPicosSuccessTest
+    : public testing::TestWithParam<ParseStringToPicosSuccessTestCase> {};
+
+TEST_P(ParseStringToPicosSuccessTest, ParseStringToPicosTest) {
+  const ParseStringToPicosSuccessTestCase& test_case = GetParam();
+
+  PicoTime pico_time;
+  ParseTimestampError error = ParseTimestampError::kOk;
+  ZETASQL_EXPECT_OK(ParseStringToTimestamp("%Y-%m-%d %H:%M:%E*S%Ez",
+                                   test_case.input_string, absl::UTCTimeZone(),
+                                   &pico_time, &error));
+  EXPECT_EQ(error, ParseTimestampError::kOk);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ParseStringToPicosSuccessTests, ParseStringToPicosSuccessTest,
+    testing::ValuesIn<ParseStringToPicosSuccessTestCase>({
+        // lower bound.
+        {"0001-01-01 00:00:00+00"},
+
+        // Because of the time zone specified, the timestamp value is within the
+        // valid range.
+        {"0000-12-31 23:59:59.999999999999-05"},
+
+        // upper bound.
+        {"9999-12-31 23:59:59.999999999999+00"},
+
+        // Because of the time zone specified, the timestamp value is within the
+        // valid range.
+        {"10000-01-01 00:00:00+01"},
+    }));
+
+struct ParseStringToPicosFailureTestCase {
+  std::string input_string;
+  ParseTimestampError expected_error;
+};
+
+class ParseStringToPicosFailureTest
+    : public testing::TestWithParam<ParseStringToPicosFailureTestCase> {};
+
+TEST_P(ParseStringToPicosFailureTest, ParseStringToPicosTest) {
+  const ParseStringToPicosFailureTestCase& test_case = GetParam();
+
+  PicoTime pico_time;
+  ParseTimestampError error;
+  EXPECT_THAT(
+      ParseStringToTimestamp("%Y-%m-%d %H:%M:%E*S%Ez", test_case.input_string,
+                             absl::UTCTimeZone(), &pico_time, &error),
+      StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_EQ(error, test_case.expected_error);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ParseStringToPicosFailureTests, ParseStringToPicosFailureTest,
+    testing::ValuesIn<ParseStringToPicosFailureTestCase>({
+        // less that lower bound error case.
+        {"0000-12-31 23:59:59.999999999999+00",
+         ParseTimestampError::kLessThanLowerBound},
+
+        // Because of the time zone specified, the timestamp value is lower than
+        // the valid lower bound.
+        {"0001-01-01 00:00:00+05", ParseTimestampError::kLessThanLowerBound},
+
+        // greater than upper bound error case.
+        {"10000-01-01 00:00:00+00",
+         ParseTimestampError::kGreaterThanUpperBound},
+
+        // Because of the time zone specified, the timestamp value is greater
+        // than
+        // the valid upper bound.
+        {"9999-12-31 23:59:59.999999999999-05",
+         ParseTimestampError::kGreaterThanUpperBound},
+
+        // other error case.
+        {"abcd", ParseTimestampError::kMalformed},
+    }));
 
 }  // namespace
 }  // namespace functions

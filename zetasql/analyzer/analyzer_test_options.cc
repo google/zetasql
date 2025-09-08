@@ -47,6 +47,7 @@ const char* const kAllowUndeclaredParameters = "allow_undeclared_parameters";
 const char* const kParameterMode = "parameter_mode";
 const char* const kPositionalParameters = "positional_parameter_types";
 const char* const kTestExtractTableNames = "test_extract_table_names";
+const char* const kTestListSelectExpressions = "test_list_select_expressions";
 const char* const kShowExtractedTableNames = "show_extracted_table_names";
 const char* const kShowTableResolutionTime = "show_table_resolution_time";
 const char* const kShowResolvedAST = "show_resolved_ast";
@@ -133,6 +134,7 @@ void RegisterAnalyzerTestOptions(
   test_case_options->RegisterString(kParameterMode, "named");
   test_case_options->RegisterString(kPositionalParameters, "");
   test_case_options->RegisterBool(kTestExtractTableNames, true);
+  test_case_options->RegisterBool(kTestListSelectExpressions, true);
   test_case_options->RegisterBool(kShowExtractedTableNames, false);
   test_case_options->RegisterBool(kShowTableResolutionTime, false);
   test_case_options->RegisterBool(kShowResolvedAST, true);
@@ -151,7 +153,7 @@ void RegisterAnalyzerTestOptions(
   test_case_options->RegisterBool(kShowSqlBuilderOutput, false);
   test_case_options->RegisterBool(kShowSqlBuilderResolvedASTDiff, false);
   test_case_options->RegisterString(kSqlBuilderTargetSyntaxMapMode, "");
-  test_case_options->RegisterString(kLanguageFeatures, "");
+  test_case_options->RegisterString(kLanguageFeatures, "MAXIMUM");
   test_case_options->RegisterString(kInScopeExpressionColumnName, "");
   test_case_options->RegisterString(kInScopeExpressionColumnType,
                                     "`zetasql_test__.KitchenSinkPB`");

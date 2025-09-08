@@ -45,7 +45,7 @@ static void CompareParseTrees(const ASTNode* expected_tree,
       << from_unparsed;
 }
 
-class UnparserQueryTest : public testing::TestWithParam<std::string_view> {};
+class UnparserQueryTest : public testing::TestWithParam<absl::string_view> {};
 
 INSTANTIATE_TEST_SUITE_P(
     UnparserQueryTestSuite, UnparserQueryTest,
@@ -59,7 +59,7 @@ INSTANTIATE_TEST_SUITE_P(
         "  (0).`0`\n"));
 
 TEST_P(UnparserQueryTest, QueryStatementParsesThenUnparses) {
-  std::string_view query_string = GetParam();
+  absl::string_view query_string = GetParam();
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_EXPECT_OK(ParseStatement(query_string, ParserOptions(), &parser_output));
   ASSERT_THAT(parser_output->statement(), NotNull());

@@ -1,6 +1,6 @@
 # Tests for the FOR UPDATE clause, including all join varieties and combinations.
 
-[default language_features=FOR_UPDATE]
+[default language_features=NONE,+FOR_UPDATE]
 
 # FOR UPDATE in CTE subquery of WITH statement.
 with t1 as (select a, b from t for update) select * from t1;

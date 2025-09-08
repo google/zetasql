@@ -1,3 +1,4 @@
+[default language_features=MAXIMUM]
 export model model.name with connection connection1 options(uri="destination")
 --
 ExportModelStmt

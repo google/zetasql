@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <variant>
@@ -117,17 +118,17 @@ void FilterParameters(
 class EvaluatorTableIteratorWrapper : public EvaluatorTableIterator {
  public:
   EvaluatorTableIteratorWrapper(
-      std::unique_ptr<PreparedQuery> prepared_query,
+      std::unique_ptr<PreparedStatement> prepared_statement,
       std::unique_ptr<EvaluatorTableIterator> iterator,
       const ParseLocationPoint& location)
-      : prepared_query_(std::move(prepared_query)),
+      : prepared_statement_(std::move(prepared_statement)),
         iterator_(std::move(iterator)),
         location_(location) {}
 
   EvaluatorTableIteratorWrapper(const EvaluatorTableIteratorWrapper&) = delete;
   EvaluatorTableIteratorWrapper& operator=(
       const EvaluatorTableIteratorWrapper&) = delete;
-  ~EvaluatorTableIteratorWrapper() override {}
+  ~EvaluatorTableIteratorWrapper() override = default;
 
   int NumColumns() const override { return iterator_->NumColumns(); }
   absl::Status Status() const override { return iterator_->Status(); }
@@ -162,7 +163,7 @@ class EvaluatorTableIteratorWrapper : public EvaluatorTableIterator {
  private:
   // Set from ExecuteQueryWithResult(), must be kept alive for iterator_
   // to remain valid.
-  std::unique_ptr<PreparedQuery> prepared_query_;
+  std::unique_ptr<PreparedStatement> prepared_statement_;
   std::unique_ptr<EvaluatorTableIterator> iterator_;
   const ParseLocationPoint location_;
   int next_row_count_ = 0;
@@ -288,20 +289,6 @@ absl::StatusOr<const ArrayType*> GetTableType(
   }
 }
 
-bool IsDml(const ResolvedStatement* statement) {
-  return statement->node_kind() == RESOLVED_INSERT_STMT ||
-         statement->node_kind() == RESOLVED_UPDATE_STMT ||
-         statement->node_kind() == RESOLVED_DELETE_STMT ||
-         statement->node_kind() == RESOLVED_MERGE_STMT;
-}
-
-bool IsSupportedDdl(const ResolvedStatement* statement) {
-  // Other DDL statements will be supported in the future.
-  return statement->node_kind() == RESOLVED_CREATE_FUNCTION_STMT ||
-         statement->node_kind() == RESOLVED_CREATE_TABLE_FUNCTION_STMT ||
-         statement->node_kind() == RESOLVED_CREATE_CONSTANT_STMT;
-}
-
 // Returns a Value which holds the tabledata described in the given iterator:
 // - The returned value is an array, with one element per row in the table.
 // - If <is_value_table> is true, the table must contain exactly one column.
@@ -392,17 +379,47 @@ StatementEvaluatorImpl::StatementEvaluation::DoDmlSideEffects(
     ++num_rows_modified;
     std::vector<Value> key;
     for (int i = 0; i < table->PrimaryKey().value().size(); ++i) {
-      key.push_back(iterator->GetOriginalKeyValue(i));
+      // Even if the evaluation of an INSERT statement succeeds, it is still
+      // possible that its side-effect can't be applied if it is a sub-statement
+      // in a multi-stmt.
+      //
+      // For example, consider the following multi-stmt query:
+      //
+      // <query>
+      // |> FORK (
+      //   |> INSERT INTO t
+      // ), (
+      //   |> INSERT INTO t
+      // )
+      //
+      // The evaluation of both the INSERT can succeed, but only one should
+      // can be applied successfully.
+      //
+      // As a result, we use GetColumnValue() instead of GetOriginalKeyValue()
+      // to get the key value of the current INSERT statement, and check if
+      // it whether it exists in the table already.
+      Value value;
+      if (is_insert) {
+        value = iterator->GetColumnValue(i);
+      } else {
+        value = iterator->GetOriginalKeyValue(i);
+      }
+      key.push_back(value);
     }
     auto row_it = row_idxs_by_key.find(key);
     bool row_found = row_it != row_idxs_by_key.end();
 
+    // The error code for update and delete is "InternalError" but it is
+    // "OutOfRangeError" for insert. This is because currently only INSERT
+    // can be used in a multi-stmt, in which case it is possible that the
+    // side effect evaluation succeeds for multiple sub-statements but only one
+    // can be applied.
     if ((is_update || is_delete) && !row_found) {
       return absl::InternalError(
           "Unable to find primary key for row in UPDATE/DELETE operation");
     }
     if (is_insert && row_found) {
-      return absl::InternalError("Key already exists for INSERT operation");
+      return absl::OutOfRangeError("Key already exists for INSERT operation");
     }
 
     if (is_delete) {
@@ -439,13 +456,65 @@ StatementEvaluatorImpl::StatementEvaluation::DoDmlSideEffects(
   return num_rows_modified;
 }
 
-absl::Status StatementEvaluatorImpl::StatementEvaluation::ProcessDdlStatement(
+absl::StatusOr<Value>
+StatementEvaluatorImpl::StatementEvaluation::ProcessDdlStatement(
     const ResolvedStatement* statement,
-    const EvaluatorOptions& evaluator_options) {
+    const EvaluatorOptions& evaluator_options,
+    std::optional<PreparedStatement::StmtResult> result) {
   if (evaluator()->catalog_for_temp_objects() == nullptr) {
     return zetasql_base::FailedPreconditionErrorBuilder()
            << "DDL statements require the catalog for temp objects to be set "
               "by calling EnableCreationOfTempObjects() first";
+  }
+
+  if (statement->node_kind() == RESOLVED_CREATE_TABLE_AS_SELECT_STMT) {
+    ZETASQL_RET_CHECK(result.has_value());
+    const auto* ctas_stmt = statement->GetAs<ResolvedCreateTableAsSelectStmt>();
+    if (ctas_stmt->create_mode() !=
+        ResolvedCreateTableAsSelectStmt::CREATE_DEFAULT) {
+      return absl::UnimplementedError(
+          "Only the default create mode is supported");
+    }
+    if (ctas_stmt->create_scope() !=
+        ResolvedCreateTableAsSelectStmt::CREATE_TEMP) {
+      return absl::UnimplementedError(
+          "Only the temp create scope is supported");
+    }
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<SimpleTable> table,
+                     MakeTableFromCreateTable(*ctas_stmt));
+
+    std::vector<std::vector<Value>> rows;
+    if (result->table_iterator != nullptr) {
+      while (result->table_iterator->NextRow()) {
+        std::vector<Value> row;
+        if (ctas_stmt->is_value_table()) {
+          row.push_back(result->table_iterator->GetValue(0));
+        } else {
+          for (int i = 0; i < result->table_iterator->NumColumns(); ++i) {
+            row.push_back(result->table_iterator->GetValue(i));
+          }
+        }
+        rows.push_back(std::move(row));
+      }
+      ZETASQL_RETURN_IF_ERROR(result->table_iterator->Status());
+    }
+    table->SetContents(rows);
+
+    const std::string table_name = table->Name();
+
+    if (!evaluator()->catalog_for_temp_objects()->AddOwnedTableIfNotPresent(
+            table_name, std::move(table))) {
+      return zetasql_base::OutOfRangeErrorBuilder()
+             << "Table " << table_name << " already exists";
+    }
+
+    const StructType* struct_type;
+    ZETASQL_RETURN_IF_ERROR(type_factory()->MakeStructType(
+        {{kCreatedObjectType, type_factory()->get_string()},
+         {kCreatedObjectName, type_factory()->get_string()}},
+        &struct_type));
+    return Value::MakeStruct(
+        struct_type, {Value::String("Temp Table"), Value::String(table_name)});
   }
 
   if (statement->node_kind() == RESOLVED_CREATE_CONSTANT_STMT) {
@@ -469,11 +538,9 @@ absl::Status StatementEvaluatorImpl::StatementEvaluation::ProcessDdlStatement(
         {{kCreatedObjectType, type_factory()->get_string()},
          {kCreatedObjectName, type_factory()->get_string()}},
         &struct_type));
-    ZETASQL_ASSIGN_OR_RETURN(result_, Value::MakeStruct(
-                                  struct_type, {Value::String("Temp Constant"),
-                                                Value::String(constant_name)}));
     evaluator()->TakeOwnership(std::move(analyzer_output_));
-    return absl::OkStatus();
+    return Value::MakeStruct(struct_type, {Value::String("Temp Constant"),
+                                           Value::String(constant_name)});
   }
 
   if (statement->node_kind() == RESOLVED_CREATE_FUNCTION_STMT) {
@@ -494,18 +561,14 @@ absl::Status StatementEvaluatorImpl::StatementEvaluation::ProcessDdlStatement(
         {{kCreatedObjectType, type_factory()->get_string()},
          {kCreatedObjectName, type_factory()->get_string()}},
         &struct_type));
-    ZETASQL_ASSIGN_OR_RETURN(result_, Value::MakeStruct(
-                                  struct_type, {Value::String("Temp Function"),
-                                                Value::String(function_name)}));
-
     evaluator()->TakeOwnership(std::move(analyzer_output_));
-    return absl::OkStatus();
+    return Value::MakeStruct(struct_type, {Value::String("Temp Function"),
+                                           Value::String(function_name)});
   }
 
-  if (resolved_statement()->node_kind() ==
-      RESOLVED_CREATE_TABLE_FUNCTION_STMT) {
+  if (statement->node_kind() == RESOLVED_CREATE_TABLE_FUNCTION_STMT) {
     const ResolvedCreateTableFunctionStmt* stmt =
-        resolved_statement()->GetAs<ResolvedCreateTableFunctionStmt>();
+        statement->GetAs<ResolvedCreateTableFunctionStmt>();
     stmt->create_scope();  // Mark accessed so TEMP can be ignored.
     ZETASQL_ASSIGN_OR_RETURN(auto tvf, MakeTVFFromCreateTableFunction(*stmt));
 
@@ -522,17 +585,15 @@ absl::Status StatementEvaluatorImpl::StatementEvaluation::ProcessDdlStatement(
         {{kCreatedObjectType, type_factory()->get_string()},
          {kCreatedObjectName, type_factory()->get_string()}},
         &struct_type));
-    ZETASQL_ASSIGN_OR_RETURN(
-        result_, Value::MakeStruct(struct_type,
-                                   {Value::String("Temp Table-valued Function"),
-                                    Value::String(tvf_name)}));
     evaluator()->TakeOwnership(std::move(analyzer_output_));
-    return absl::OkStatus();
+    return Value::MakeStruct(
+        struct_type,
+        {Value::String("Temp Table-valued Function"), Value::String(tvf_name)});
   }
 
   return zetasql_base::UnimplementedErrorBuilder()
          << "Statement type not supported by StatementEvaluator: "
-         << resolved_statement()->node_kind_string();
+         << statement->node_kind_string();
 }
 
 absl::Status StatementEvaluatorImpl::ExpressionEvaluation::EvaluateImpl(
@@ -559,6 +620,166 @@ absl::Status StatementEvaluatorImpl::ExpressionEvaluation::EvaluateImpl(
   return absl::OkStatus();
 }
 
+// Aggregates a list of StatusOr results from a multi-statement query into a
+// single Status. If there are no errors, returns OK. If there is one error,
+// returns that error. If there are multiple errors, returns a single status
+// that summarizes all of them.
+static absl::Status AggregateStatuses(
+    const std::vector<absl::StatusOr<Value>>& multi_statement_results) {
+  std::vector<absl::Status> errors;
+  bool has_internal_error = false;
+  for (const auto& result : multi_statement_results) {
+    if (!result.ok()) {
+      errors.push_back(result.status());
+      if (result.status().code() == absl::StatusCode::kInternal) {
+        has_internal_error = true;
+      }
+    }
+  }
+
+  if (errors.empty()) {
+    return absl::OkStatus();
+  }
+
+  if (errors.size() == 1) {
+    return errors[0];
+  }
+
+  std::string aggregated_error_message = absl::StrCat(
+      "Multiple errors in multi-statement query (", errors.size(), " total):");
+  for (const auto& error : errors) {
+    absl::StrAppend(&aggregated_error_message, "\n  ", error.message());
+  }
+
+  absl::StatusCode code = has_internal_error ? absl::StatusCode::kInternal
+                                             : absl::StatusCode::kOutOfRange;
+  return absl::Status(code, aggregated_error_message);
+}
+
+static absl::StatusOr<Value> MakeDmlResult(
+    int num_rows_modified, Value new_table,
+    EvaluatorTableIterator* returning_table_iter, TypeFactory* type_factory) {
+  const StructType* struct_type;
+  if (returning_table_iter == nullptr) {
+    ZETASQL_RETURN_IF_ERROR(type_factory->MakeStructType(
+        {{kDMLOutputNumRowsModifiedColumnName, type_factory->get_int64()},
+         {kDMLOutputAllRowsColumnName, new_table.type()}},
+        &struct_type));
+    return Value::MakeStruct(
+        struct_type, {Value::Int64(num_rows_modified), std::move(new_table)});
+  } else {
+    ZETASQL_ASSIGN_OR_RETURN(Value returning_table_value,
+                     IteratorToValue(type_factory, returning_table_iter,
+                                     /*is_value_table=*/false));
+
+    ZETASQL_RETURN_IF_ERROR(type_factory->MakeStructType(
+        {{kDMLOutputNumRowsModifiedColumnName, type_factory->get_int64()},
+         {kDMLOutputAllRowsColumnName, new_table.type()},
+         {kDMLOutputReturningColumnName, returning_table_value.type()}},
+        &struct_type));
+    return Value::MakeStruct(
+        struct_type, {Value::Int64(num_rows_modified), std::move(new_table),
+                      std::move(returning_table_value)});
+  }
+}
+
+absl::StatusOr<Value>
+StatementEvaluatorImpl::StatementEvaluation::ProcessSingleStmtResult(
+    PreparedStatement::StmtResult stmt_result,
+    const EvaluatorOptions& evaluator_options) {
+  const ResolvedStatement* sub_stmt = stmt_result.statement;
+  switch (stmt_result.kind) {
+    case PreparedStatementBase::StmtKind::kQuery: {
+      return IteratorToValue(
+          type_factory(), stmt_result.table_iterator.get(),
+          sub_stmt->GetAs<ResolvedQueryStmt>()->is_value_table());
+    }
+    case PreparedStatementBase::StmtKind::kDML: {
+      ZETASQL_ASSIGN_OR_RETURN(
+          int num_rows_modified,
+          DoDmlSideEffects(stmt_result.modify_result.table_modify_iter.get()));
+      ZETASQL_ASSIGN_OR_RETURN(
+          Value new_table,
+          GetTableContents(stmt_result.modify_result.table_modify_iter->table(),
+                           type_factory()));
+      return MakeDmlResult(num_rows_modified, std::move(new_table),
+                           stmt_result.modify_result.returning_table_iter.get(),
+                           type_factory());
+    }
+    case PreparedStatementBase::StmtKind::kCTAS: {
+      return ProcessDdlStatement(sub_stmt, evaluator_options,
+                                 std::move(stmt_result));
+    }
+  }
+}
+
+absl::StatusOr<Value>
+StatementEvaluatorImpl::StatementEvaluation::EvaluateQueryStatement(
+    const QueryOptions& query_options) {
+  // Execute twice to get two iterators. One for the result Value, and one
+  // to return from ExecuteQueryWithResult.
+  ZETASQL_ASSIGN_OR_RETURN(auto result1,
+                   prepared_statement_->ExecuteAfterPrepare(query_options));
+  ZETASQL_RET_CHECK_EQ(result1.size(), 1);
+  auto& result_or1 = result1[0];
+  if (!result_or1.ok()) return result_or1.status();
+
+  ZETASQL_ASSIGN_OR_RETURN(auto result2,
+                   prepared_statement_->ExecuteAfterPrepare(query_options));
+  ZETASQL_RET_CHECK_EQ(result2.size(), 1);
+  auto& result_or2 = result2[0];
+  if (!result_or2.ok()) return result_or2.status();
+
+  table_iterator_ = std::move(result_or2->table_iterator);
+  const ResolvedQueryStmt* query_stmt =
+      resolved_statement()->GetAs<ResolvedQueryStmt>();
+  return IteratorToValue(type_factory(), result_or1->table_iterator.get(),
+                         query_stmt->is_value_table());
+}
+
+absl::Status
+StatementEvaluatorImpl::StatementEvaluation::EvaluateWithPreparedStatement(
+    const AnalyzerOptions& analyzer_options,
+    const EvaluatorOptions& evaluator_options,
+    const SystemVariableValuesMap& system_variables,
+    std::variant<ParameterValueList, ParameterValueMap> parameters) {
+  prepared_statement_ = std::make_unique<PreparedStatement>(
+      resolved_statement(), evaluator_options);
+  ZETASQL_RETURN_IF_ERROR(prepared_statement_->Prepare(analyzer_options, nullptr));
+
+  QueryOptions query_options;
+  if (std::holds_alternative<ParameterValueMap>(parameters)) {
+    query_options.parameters = std::get<ParameterValueMap>(parameters);
+  } else {
+    query_options.ordered_parameters = std::get<ParameterValueList>(parameters);
+  }
+  query_options.system_variables = system_variables;
+
+  if (resolved_statement()->node_kind() == RESOLVED_QUERY_STMT) {
+    ZETASQL_ASSIGN_OR_RETURN(Value result, EvaluateQueryStatement(query_options));
+    results_.push_back(std::move(result));
+    return absl::OkStatus();
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(PreparedStatement::StmtResults multi_stmt_results,
+                   prepared_statement_->ExecuteAfterPrepare(query_options));
+
+  if (resolved_statement()->node_kind() != RESOLVED_MULTI_STMT) {
+    ZETASQL_RET_CHECK_EQ(multi_stmt_results.size(), 1);
+  }
+
+  for (absl::StatusOr<PreparedStatement::StmtResult>& result :
+       multi_stmt_results) {
+    if (!result.ok()) {
+      results_.push_back(result.status());
+      continue;
+    }
+    results_.push_back(
+        ProcessSingleStmtResult(std::move(*result), evaluator_options));
+  }
+  return AggregateStatuses(results_);
+}
+
 absl::Status StatementEvaluatorImpl::StatementEvaluation::EvaluateImpl(
     absl::string_view sql, const AnalyzerOptions& analyzer_options,
     Catalog* catalog, const EvaluatorOptions& evaluator_options,
@@ -566,109 +787,45 @@ absl::Status StatementEvaluatorImpl::StatementEvaluation::EvaluateImpl(
     std::variant<ParameterValueList, ParameterValueMap> parameters) {
   ZETASQL_RETURN_IF_ERROR(Analyze(sql, analyzer_options, catalog));
 
-  // Use PreparedQuery to evaluate query statements to minimize dependencies on
-  // the evaluator's internals.
-  if (resolved_statement()->node_kind() == RESOLVED_QUERY_STMT) {
-    const ResolvedQueryStmt* query_stmt =
-        resolved_statement()->GetAs<ResolvedQueryStmt>();
-    prepared_query_ =
-        std::make_unique<PreparedQuery>(query_stmt, evaluator_options);
-    ZETASQL_RETURN_IF_ERROR(prepared_query_->Prepare(analyzer_options, nullptr));
-    std::unique_ptr<EvaluatorTableIterator> result_iterator;
-    if (std::holds_alternative<ParameterValueMap>(parameters)) {
-      const auto& named_params = std::get<ParameterValueMap>(parameters);
-      ZETASQL_ASSIGN_OR_RETURN(result_iterator, prepared_query_->Execute(
-                                            named_params, system_variables));
-      ZETASQL_ASSIGN_OR_RETURN(table_iterator_, prepared_query_->Execute(
-                                            named_params, system_variables));
-    } else {
-      const auto& positional_params = std::get<ParameterValueList>(parameters);
-      ZETASQL_ASSIGN_OR_RETURN(result_iterator,
-                       prepared_query_->ExecuteWithPositionalParams(
-                           positional_params, system_variables));
-      ZETASQL_ASSIGN_OR_RETURN(table_iterator_,
-                       prepared_query_->ExecuteWithPositionalParams(
-                           positional_params, system_variables));
+  switch (resolved_statement()->node_kind()) {
+    case RESOLVED_CREATE_FUNCTION_STMT:
+    case RESOLVED_CREATE_TABLE_FUNCTION_STMT:
+    case RESOLVED_CREATE_CONSTANT_STMT: {
+      ZETASQL_RET_CHECK(results_.empty());
+      results_.push_back(ProcessDdlStatement(resolved_statement(),
+                                             evaluator_options,
+                                             /*result=*/std::nullopt));
+      return results_.back().status();
     }
-    ZETASQL_ASSIGN_OR_RETURN(result_,
-                     IteratorToValue(type_factory(), result_iterator.get(),
-                                     query_stmt->is_value_table()));
-    return absl::OkStatus();
-  } else if (IsDml(resolved_statement())) {
-    PreparedModify prepared_modify(resolved_statement(), evaluator_options);
-    ZETASQL_RETURN_IF_ERROR(prepared_modify.Prepare(analyzer_options, nullptr));
+    case RESOLVED_QUERY_STMT:
+    case RESOLVED_INSERT_STMT:
+    case RESOLVED_UPDATE_STMT:
+    case RESOLVED_DELETE_STMT:
+    case RESOLVED_MERGE_STMT:
+    case RESOLVED_CREATE_TABLE_AS_SELECT_STMT:
+    case RESOLVED_MULTI_STMT:
+      return EvaluateWithPreparedStatement(analyzer_options, evaluator_options,
+                                           system_variables, parameters);
 
-    std::unique_ptr<EvaluatorTableModifyIterator> table_modify_iter = nullptr;
-    std::unique_ptr<EvaluatorTableIterator> returning_table_iter = nullptr;
-    if (std::holds_alternative<ParameterValueMap>(parameters)) {
-      const auto& named_params = std::get<ParameterValueMap>(parameters);
-      ZETASQL_ASSIGN_OR_RETURN(table_modify_iter,
-                       prepared_modify.Execute(named_params, system_variables,
-                                               &returning_table_iter));
-    } else {
-      const auto& positional_params = std::get<ParameterValueList>(parameters);
-      ZETASQL_ASSIGN_OR_RETURN(
-          table_modify_iter,
-          prepared_modify.ExecuteWithPositionalParams(
-              positional_params, system_variables, &returning_table_iter));
+    case RESOLVED_ASSIGNMENT_STMT: {
+      // Assignments to script variables and @@timezone are handled internally
+      // within ScriptExecutor.  If we see an assignment statement here, that
+      // means we're assigning to something else, which is not supported.
+      const ResolvedAssignmentStmt* assign_stmt =
+          resolved_statement()->GetAs<ResolvedAssignmentStmt>();
+      return MakeEvalError()
+             << "Unsupported system variable for assignment: "
+             << "@@"
+             << absl::StrJoin(assign_stmt->target()
+                                  ->GetAs<ResolvedSystemVariable>()
+                                  ->name_path(),
+                              ".");
     }
-    ZETASQL_ASSIGN_OR_RETURN(int num_rows_modified,
-                     DoDmlSideEffects(table_modify_iter.get()));
-
-    // The "result" of a DML operation is a STRUCT with two fields -
-    // the number of rows modified, followed by an ArrayValue
-    // representing the entire content of the new table.
-    ZETASQL_ASSIGN_OR_RETURN(
-        Value new_table,
-        GetTableContents(table_modify_iter->table(), type_factory()));
-    const StructType* struct_type;
-    if (returning_table_iter == nullptr) {
-      ZETASQL_RETURN_IF_ERROR(type_factory()->MakeStructType(
-          {{kDMLOutputNumRowsModifiedColumnName, type_factory()->get_int64()},
-           {kDMLOutputAllRowsColumnName, new_table.type()}},
-          &struct_type));
-      result_ = Value::Struct(
-          struct_type, {Value::Int64(num_rows_modified), std::move(new_table)});
-    } else {
-      ZETASQL_ASSIGN_OR_RETURN(
-          Value returning_table_value,
-          IteratorToValue(type_factory(), returning_table_iter.get(),
-                          /*is_value_table=*/false));
-
-      ZETASQL_RETURN_IF_ERROR(type_factory()->MakeStructType(
-          {{kDMLOutputNumRowsModifiedColumnName, type_factory()->get_int64()},
-           {kDMLOutputAllRowsColumnName, new_table.type()},
-           {kDMLOutputReturningColumnName, returning_table_value.type()}},
-          &struct_type));
-      result_ = Value::Struct(
-          struct_type, {Value::Int64(num_rows_modified), std::move(new_table),
-                        std::move(returning_table_value)});
-    }
-
-    return absl::OkStatus();
-  } else if (IsSupportedDdl(resolved_statement())) {
-    ZETASQL_RETURN_IF_ERROR(
-        ProcessDdlStatement(resolved_statement(), evaluator_options));
-    return absl::OkStatus();
+    default:
+      return zetasql_base::UnimplementedErrorBuilder()
+             << "Statement type not supported by StatementEvaluator: "
+             << resolved_statement()->node_kind_string();
   }
-
-  // Assignments to script variables and @@timezone are handled internally
-  // within ScriptExecutor.  If we see an assignment statement here, that means
-  // we're assigning to something else, which is not supported.
-  if (resolved_statement()->node_kind() == RESOLVED_ASSIGNMENT_STMT) {
-    const ResolvedAssignmentStmt* assign_stmt =
-        resolved_statement()->GetAs<ResolvedAssignmentStmt>();
-    return MakeEvalError() << "Unsupported system variable for assignment: "
-                           << "@@"
-                           << absl::StrJoin(
-                                  assign_stmt->target()
-                                      ->GetAs<ResolvedSystemVariable>()
-                                      ->name_path(),
-                                  ".");
-  }
-  return zetasql_base::UnimplementedErrorBuilder()
-         << "Statement type not supported by StatementEvaluator: "
-         << resolved_statement()->node_kind_string();
 }
 
 namespace {
@@ -695,6 +852,18 @@ absl::StatusOr<Value> MakeStatusOrValue(const absl::Status& status,
   return status;
 }
 
+absl::StatusOr<Value> MakeStatusOrValue(
+    const absl::Status& status,
+    const std::vector<absl::StatusOr<Value>>& results) {
+  ZETASQL_RET_CHECK_LE(results.size(), 1);
+  if (results.size() == 1) {
+    return results[0];
+  }
+  // This can happen, for example, when the statement fails with an analysis
+  // error, no statement is executed, and thus `results` is empty.
+  return status;
+}
+
 }  // namespace
 
 absl::Status StatementEvaluatorImpl::ExecuteStatement(
@@ -703,10 +872,22 @@ absl::Status StatementEvaluatorImpl::ExecuteStatement(
   absl::Status status =
       WrapIfHandleable(evaluation.Evaluate(executor, this, segment));
   if (callback_ != nullptr) {
-    const absl::StatusOr<Value> status_or_result =
-        MakeStatusOrValue(status, evaluation);
-    callback_->OnStatementResult(segment, evaluation.resolved_statement(),
-                                 status_or_result);
+    if (evaluation.resolved_statement() == nullptr) {
+      // Analysis-time error.
+      callback_->OnStatementResult(segment, nullptr, status);
+    } else if (evaluation.resolved_statement()->node_kind() ==
+               RESOLVED_MULTI_STMT) {
+      // Multi-statement.
+      ZETASQL_RET_CHECK(!evaluation.results().empty());
+      callback_->OnMultiStatementResult(
+          segment, evaluation.resolved_statement(), evaluation.results());
+    } else {
+      // Single statement.
+      ZETASQL_RET_CHECK_LE(evaluation.results().size(), 1);
+      callback_->OnStatementResult(
+          segment, evaluation.resolved_statement(),
+          MakeStatusOrValue(status, evaluation.results()));
+    }
   }
   return status;
 }
@@ -721,18 +902,18 @@ StatementEvaluatorImpl::ExecuteQueryWithResult(const ScriptExecutor& executor,
   StatementEvaluation evaluation;
   absl::Status status =
       WrapIfHandleable(evaluation.Evaluate(executor, this, segment));
-  const absl::StatusOr<Value> status_or_result =
-      MakeStatusOrValue(status, evaluation);
+  ZETASQL_RET_CHECK_LE(evaluation.results().size(), 1);
   if (callback_ != nullptr) {
-    callback_->OnStatementResult(segment, evaluation.resolved_statement(),
-                                 status_or_result);
+    callback_->OnStatementResult(
+        segment, evaluation.resolved_statement(),
+        MakeStatusOrValue(status, evaluation.results()));
   }
   if (!status.ok()) {
     return status;
   }
 
   return std::make_unique<EvaluatorTableIteratorWrapper>(
-      evaluation.get_prepared_query(), evaluation.get_table_iterator(),
+      evaluation.get_prepared_statement(), evaluation.get_table_iterator(),
       segment.node()->location().start());
 }
 
@@ -807,7 +988,7 @@ absl::StatusOr<int> StatementEvaluatorImpl::EvaluateCaseExpression(
 
   ParserOptions parser_options(initial_analyzer_options_.id_string_pool(),
                                initial_analyzer_options_.arena(),
-                               &initial_analyzer_options_.language());
+                               initial_analyzer_options_.language());
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_RET_CHECK_OK(ParseExpression(query_str, parser_options, &parser_output));
   ScriptSegment query_segment =

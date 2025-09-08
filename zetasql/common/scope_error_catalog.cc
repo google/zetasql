@@ -125,7 +125,7 @@ absl::Status ScopeErrorCatalog::FindConstantWithPathPrefix(
 
 template <class ObjectType>
 absl::Status ScopeErrorCatalog::FindObjectBuiltinOnly(
-    const std::string_view object_type_name,
+    const absl::string_view object_type_name,
     const absl::Span<const std::string> path, const ObjectType** object,
     const FindOptions& options, CatalogFindMethod<ObjectType> find_method) {
   absl::Status find_status =

@@ -15,6 +15,7 @@
 #
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "quoting",
@@ -275,6 +276,8 @@ cc_library(
         "//zetasql/public:parse_location",
         "@com_google_absl//absl/base:nullability",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:string_view",
     ],
 )

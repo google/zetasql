@@ -2,6 +2,7 @@
 #
 # CREATE CONSTANT statements need to be enabled in order to get resolved.
 # TODO: Enable Java support.
+[default language_features=NONE]
 [default no_java]
 [statement_context=module]
 [supported_statement_kinds=CREATE_FUNCTION]

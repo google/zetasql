@@ -415,7 +415,7 @@ void SimpleCatalog::AddSequence(absl::string_view name,
 
 void SimpleCatalog::AddType(absl::string_view name, const Type* type) {
   absl::MutexLock l(&mutex_);
-  ABSL_CHECK(types_.insert({absl::AsciiStrToLower(name), type}).second);
+  ABSL_CHECK(types_.insert({absl::AsciiStrToLower(name), type}).second) << name;
 }
 
 void SimpleCatalog::AddCatalog(absl::string_view name, Catalog* catalog) {
@@ -556,7 +556,7 @@ void SimpleCatalog::AddOwnedTableValuedFunction(
 }
 
 void SimpleCatalog::AddOwnedTableValuedFunction(
-    const std::string& name, const TableValuedFunction* function) {
+    absl::string_view name, const TableValuedFunction* function) {
   AddOwnedTableValuedFunction(name, absl::WrapUnique(function));
 }
 
@@ -918,12 +918,15 @@ void SimpleCatalog::AddZetaSQLFunctions(
 absl::Status SimpleCatalog::AddBuiltinFunctionsAndTypesImpl(
     const BuiltinFunctionOptions& options, bool add_types) {
   absl::flat_hash_map<std::string, std::unique_ptr<Function>> function_map;
+  absl::flat_hash_map<std::string, std::unique_ptr<TableValuedFunction>>
+      table_valued_function_map;
   // We have to call type_factory() while not holding mutex_.
   TypeFactory* type_factory = this->type_factory();
   absl::flat_hash_map<std::string, const Type*> type_map;
 
   ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionsAndTypes(options, *type_factory,
-                                              function_map, type_map));
+                                              function_map, type_map,
+                                              table_valued_function_map));
   for (auto& function_pair : function_map) {
     const std::vector<std::string>& path =
         function_pair.second->FunctionNamePath();
@@ -946,6 +949,15 @@ absl::Status SimpleCatalog::AddBuiltinFunctionsAndTypesImpl(
       }
     }
     catalog->AddOwnedFunction(path.back(), std::move(function_pair.second));
+  }
+  for (auto& table_valued_function_pair : table_valued_function_map) {
+    const std::vector<std::string>& path =
+        table_valued_function_pair.second->function_name_path();
+    // Namespaced TVFs are not supported for builtins. Change this when
+    // there is need for namespaced TVF support.
+    ZETASQL_RET_CHECK_EQ(path.size(), 1);
+    AddOwnedTableValuedFunction(path.back(),
+                                std::move(table_valued_function_pair.second));
   }
   if (add_types) {
     for (const auto& [name, type] : type_map) {
@@ -1025,6 +1037,50 @@ int SimpleCatalog::RemoveFunctions(
   return RemoveFunctionsLocked(predicate, removed);
 }
 
+int SimpleCatalog::RemoveTablesLocked(
+    std::function<bool(const Table*)> predicate,
+    std::vector<std::unique_ptr<const Table>>& removed) {
+  int num_removed = 0;
+  for (auto& [_, sub_catalog] : catalogs_) {
+    if (sub_catalog == this) {
+      continue;
+    }
+    if (sub_catalog->Is<SimpleCatalog>()) {
+      num_removed +=
+          sub_catalog->GetAs<SimpleCatalog>()->RemoveTables(predicate, removed);
+    }
+  }
+
+  std::vector<std::string> table_names_to_remove;
+  for (const auto& [name, table] : tables_) {
+    if (predicate(table)) {
+      table_names_to_remove.push_back(name);
+    }
+  }
+
+  for (const std::string& name : table_names_to_remove) {
+    tables_.erase(name);
+    global_names_.erase(name);
+  }
+  num_removed += table_names_to_remove.size();
+
+  for (auto it = owned_tables_.begin(); it != owned_tables_.end();) {
+    if (predicate(it->get())) {
+      removed.emplace_back(std::move(*it));
+      it = owned_tables_.erase(it);
+    } else {
+      ++it;
+    }
+  }
+  return num_removed;
+}
+
+int SimpleCatalog::RemoveTables(std::function<bool(const Table*)> predicate) {
+  absl::MutexLock l(&mutex_);
+  std::vector<std::unique_ptr<const Table>> removed;
+  return RemoveTablesLocked(predicate, removed);
+}
+
 int SimpleCatalog::RemoveTableValuedFunctionsLocked(
     std::function<bool(const TableValuedFunction*)> predicate,
     std::vector<std::unique_ptr<const TableValuedFunction>>& removed) {
@@ -1050,6 +1106,43 @@ int SimpleCatalog::RemoveTableValuedFunctionsLocked(
     if (predicate(it->get())) {
       removed.emplace_back(std::move(*it));
       owned_table_valued_functions_.erase(it);
+    }
+  }
+  return num_removed;
+}
+
+int SimpleCatalog::RemoveConstants(
+    std::function<bool(const Constant*)> predicate) {
+  absl::MutexLock l(&mutex_);
+  std::vector<std::unique_ptr<const Constant>> removed;
+  return RemoveConstantsLocked(predicate, removed);
+}
+
+int SimpleCatalog::RemoveConstantsLocked(
+    std::function<bool(const Constant*)> predicate,
+    std::vector<std::unique_ptr<const Constant>>& removed) {
+  int num_removed = 0;
+  for (auto& [_, sub_catalog] : catalogs_) {
+    if (sub_catalog == this) {
+      // This avoids deadlock for recursive simple catalogs.
+      continue;
+    }
+    if (sub_catalog->Is<SimpleCatalog>()) {
+      num_removed += sub_catalog->GetAs<SimpleCatalog>()->RemoveConstants(
+          predicate, removed);
+    }
+  }
+  num_removed += absl::erase_if(
+      constants_,
+      [predicate](std::pair<const std::string, const Constant*> pair) {
+        return predicate(pair.second);
+      });
+  for (auto it = owned_constants_.begin(); it != owned_constants_.end();) {
+    if (predicate(it->get())) {
+      removed.emplace_back(std::move(*it));
+      it = owned_constants_.erase(it);
+    } else {
+      ++it;
     }
   }
   return num_removed;
@@ -1441,7 +1534,7 @@ absl::Status SimpleCatalog::SerializeImpl(
   const absl::flat_hash_map<std::string, const PropertyGraph*> property_graphs(
       property_graphs_.begin(), property_graphs_.end());
   for (const auto& entry : property_graphs) {
-    std::string_view graph_name = entry.first;
+    absl::string_view graph_name = entry.first;
     const PropertyGraph* const property_graph = entry.second;
     if (!property_graph->Is<SimplePropertyGraph>()) {
       return ::zetasql_base::UnknownErrorBuilder()

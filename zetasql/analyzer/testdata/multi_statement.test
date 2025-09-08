@@ -4,6 +4,7 @@
 
 # With no options, we use the regular AnalyzeStatement, which cannot handle
 # multiple statements.
+[default language_features=MAXIMUM]
 select 1;
 select 2;
 --

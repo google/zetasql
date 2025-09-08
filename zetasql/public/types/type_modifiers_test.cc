@@ -96,7 +96,7 @@ TEST(TypeModifiersTest, Creation) {
         type_factory.MakeArrayType(types::StringType(), &array_of_string_type));
     std::unique_ptr<AnnotationMap> annotation_map =
         AnnotationMap::Create(array_of_string_type);
-    annotation_map->AsArrayMap()->mutable_element()->SetAnnotation(
+    annotation_map->AsStructMap()->mutable_field(0)->SetAnnotation(
         static_cast<int>(AnnotationKind::kCollation),
         SimpleValue::String("und:ci"));
     annotation_map->Normalize();

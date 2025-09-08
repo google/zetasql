@@ -55,6 +55,7 @@
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/proto_type.h"
+#include "zetasql/public/types/struct_type.h"
 #include "zetasql/reference_impl/statement_evaluator.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node.h"
@@ -240,6 +241,26 @@ constexpr auto kSqlModeMap = std::array<SqlModeMap, 3>({{
 constexpr parser::MacroExpansionMode kMacroExpansionMode =
     parser::MacroExpansionMode::kStrict;
 
+// Gets a mutable SimpleTable from a const Table*. This is a hack to work around
+// the const-ness of the catalog API. It also verifies that the table is a temp
+// table from the current session.
+static absl::StatusOr<SimpleTable*> GetMutableTempSimpleTable(
+    const Table* table, ExecuteQueryConfig& config) {
+  const Table* temp_table;
+  if (!config.wrapper_catalog()->FindTable({table->Name()}, &temp_table).ok()) {
+    return absl::InvalidArgumentError(
+        "DML statements can only be applied to temporary tables "
+        "created in the current session");
+  }
+  if (table->GetAs<SimpleTable>() == nullptr) {
+    return absl::UnimplementedError(
+        "DML statements is only supported for SimpleTable");
+  }
+  // This is a hacky way to mutate the table because currently `SimpleCatalog`
+  // can only return const Table*.
+  return const_cast<SimpleTable*>(table->GetAs<SimpleTable>());
+}
+
 // This callback is used to store the results of the statements executed.
 // Current implementation stores the vector of all the results.
 // Mapping of query/statement to result shall be done when needed.
@@ -273,7 +294,97 @@ class EvaluatorCallback : public StatementEvaluatorCallback {
     }
   }
 
+  absl::Status SetTableContents(
+      const Table* table,
+      const std::vector<std::vector<Value>>& rows) override {
+    ZETASQL_ASSIGN_OR_RETURN(SimpleTable * mutable_table,
+                     GetMutableTempSimpleTable(table, config_));
+    mutable_table->SetContents(rows);
+    return absl::OkStatus();
+  }
+
+  void OnMultiStatementResult(
+      const ScriptSegment& segment, const ResolvedStatement* resolved_stmt,
+      const std::vector<absl::StatusOr<Value>>& status_or_results) override {
+    absl::Status status =
+        ProcessMultiResult(segment, resolved_stmt, status_or_results);
+    if (!status.ok()) {
+      ABSL_LOG(ERROR) << "Failed to process multi-statement result for statement: "
+                 << segment.GetSegmentText() << " status: " << status;
+    }
+  }
+
  private:
+  absl::Status ProcessMultiResult(
+      const ScriptSegment& segment, const ResolvedStatement* resolved_stmt,
+      const std::vector<absl::StatusOr<Value>>& status_or_results) {
+    absl::string_view segment_text = segment.GetSegmentText();
+    if (segment_text.empty() || resolved_stmt == nullptr) {
+      // The callback is also called for declarations etc
+      return absl::OkStatus();
+    }
+
+    // Keep adapters alive for the iterators.
+    std::vector<std::unique_ptr<ValueAsTableAdapter>> adapters;
+    std::vector<absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>> iters;
+    iters.reserve(status_or_results.size());
+    adapters.reserve(status_or_results.size());
+
+    for (const auto& result : status_or_results) {
+      if (!result.ok()) {
+        iters.push_back(result.status());
+        continue;
+      }
+      Value value = result.value();
+      // StatementEvaluatorImpl returns a Value for all statement kinds if the
+      // execution is successful.
+      ZETASQL_RET_CHECK(value.has_content());
+
+      // DML and DDL statements return a struct value instead of an array. Wrap
+      // it inside an array of struct so that we can use the ValueAsTableAdapter
+      // to convert it to an iterator.
+      if (value.type()->IsStruct()) {
+        const ArrayType* array_type;
+        ZETASQL_RET_CHECK_OK(
+            config_.type_factory()->MakeArrayType(value.type(), &array_type));
+        absl::StatusOr<Value> array_value =
+            Value::MakeArray(array_type, {value});
+        ZETASQL_RET_CHECK_OK(array_value.status());
+        value = *array_value;
+      }
+
+      absl::StatusOr<std::unique_ptr<ValueAsTableAdapter>> adapter_or =
+          ValueAsTableAdapter::Create(value);
+      if (!adapter_or.ok()) {
+        iters.push_back(adapter_or.status());
+        continue;
+      }
+      std::unique_ptr<ValueAsTableAdapter> adapter = std::move(*adapter_or);
+
+      absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> iter =
+          adapter->CreateEvaluatorTableIterator();
+      if (!iter.ok()) {
+        iters.push_back(iter.status());
+        continue;
+      }
+      iters.push_back(std::move(*iter));
+      adapters.push_back(std::move(adapter));
+    }
+
+    // In script mode, we want to always print the statement text, so we always
+    // call StartStatement() with is_first as false.
+    ZETASQL_RETURN_IF_ERROR(writer_.StartStatement(/*is_first=*/false));
+    (void)writer_.statement_text(segment_text);
+    if (config_.tool_modes().contains(ToolMode::kResolve)) {
+      ZETASQL_RETURN_IF_ERROR(writer_.resolved(*resolved_stmt));
+    }
+
+    if (!iters.empty()) {
+      ZETASQL_RETURN_IF_ERROR(writer_.executed_multi(*resolved_stmt, std::move(iters)));
+    }
+    return absl::OkStatus();
+  }
+
   absl::Status ProcessResult(absl::string_view segment_text,
                              const ResolvedStatement* resolved_stmt,
                              const absl::StatusOr<Value>& result) {
@@ -592,11 +703,24 @@ absl::Status ExecuteQueryConfig::SetCatalogFromString(absl::string_view value) {
   ZETASQL_ASSIGN_OR_RETURN(SelectableCatalog * selectable_catalog,
                    FindSelectableCatalog(value));
 
-  ZETASQL_ASSIGN_OR_RETURN(Catalog * catalog, selectable_catalog->GetCatalog(
-                                          analyzer_options().language()));
-  SetBaseCatalog(catalog);
+  // An acceptor that sets the base catalog in the config.
+  class ConfigCatalogAcceptor : public CatalogAcceptor {
+   public:
+    explicit ConfigCatalogAcceptor(ExecuteQueryConfig& config)
+        : config_(config) {}
 
-  return absl::OkStatus();
+    void Accept(Catalog* catalog) override { config_.SetBaseCatalog(catalog); }
+    void Accept(std::unique_ptr<Catalog> catalog) override {
+      config_.SetOwnedBaseCatalog(std::move(catalog));
+    }
+
+   private:
+    ExecuteQueryConfig& config_;
+  };
+
+  ConfigCatalogAcceptor acceptor(*this);
+  return selectable_catalog->ProvideCatalog(analyzer_options().language(),
+                                            &acceptor);
 }
 
 absl::Status AddTablesFromFlags(ExecuteQueryConfig& config) {
@@ -735,6 +859,11 @@ ExecuteQueryConfig::ExecuteQueryConfig()
 void ExecuteQueryConfig::SetBaseCatalog(Catalog* catalog) {
   base_catalog_ = catalog;
   RebuildMultiCatalog();
+}
+
+void ExecuteQueryConfig::SetOwnedBaseCatalog(std::unique_ptr<Catalog> catalog) {
+  owned_base_catalog_ = std::move(catalog);
+  SetBaseCatalog(owned_base_catalog_.get());
 }
 
 void ExecuteQueryConfig::SetBuiltinsCatalogFromLanguageOptions(
@@ -933,19 +1062,150 @@ static absl::Status UnanalyzeQuery(const ResolvedNode* resolved_node,
   return writer.unanalyze(formatted_sql);
 }
 
-// If `resolved_node` is a DDL CREATE statement, try to add the created
-// object to the catalog.  We do this even if not in execute mode since later
-// statements may depend on these objects for analysis.
-static absl::Status HandleDDL(
-    const ResolvedNode* resolved_node, ExecuteQueryConfig& config,
-    ExecuteQueryWriter& writer, std::unique_ptr<ParserOutput>* parser_output,
-    std::unique_ptr<const AnalyzerOutput>* analyzer_output,
-    bool* executed_as_ddl) {
-  const bool is_ctas = resolved_node->Is<ResolvedCreateTableAsSelectStmt>();
+static bool IsDdlStatement(const ResolvedNode* node) {
+  switch (node->node_kind()) {
+    case RESOLVED_CREATE_FUNCTION_STMT:
+    case RESOLVED_CREATE_TABLE_FUNCTION_STMT:
+    case RESOLVED_CREATE_TABLE_AS_SELECT_STMT:
+    case RESOLVED_CREATE_TABLE_STMT:
+    case RESOLVED_CREATE_CONSTANT_STMT:
+      return true;
+    default:
+      return false;
+  }
+}
 
-  switch (resolved_node->node_kind()) {
+static bool IsDmlStatement(const ResolvedNode* node) {
+  switch (node->node_kind()) {
+    case RESOLVED_INSERT_STMT:
+    case RESOLVED_DELETE_STMT:
+    case RESOLVED_UPDATE_STMT:
+      return true;
+    default:
+      return false;
+  }
+}
+
+// If `stmt_result` is not provided, it means the statement is not executed,
+// and the function adds an empty table corresponding to `resolved_stmt` to the
+// catalog. This is needed to resolve subsequent statements that depend on the
+// table when the mode is not "execute".
+static absl::Status ApplyCreateTableStmt(
+    const ResolvedStatement* resolved_stmt,
+    const std::optional<const PreparedStatement::StmtResult*>& stmt_result,
+    ExecuteQueryConfig& config, ExecuteQueryWriter& writer) {
+  ZETASQL_RET_CHECK(resolved_stmt->Is<ResolvedCreateTableStmt>() ||
+            resolved_stmt->Is<ResolvedCreateTableAsSelectStmt>());
+  const auto* stmt = resolved_stmt->GetAs<ResolvedCreateTableStmtBase>();
+  const bool is_ctas = resolved_stmt->Is<ResolvedCreateTableAsSelectStmt>();
+
+  // Mark accessed so TEMP can be ignored.
+  stmt->create_scope();
+  // Mark create_mode accessed so that MakeTableFromCreateTable
+  // doesn't return error status for REPLACE mode. It is handled down below.
+  stmt->create_mode();
+  // Mark accessed so that OPTIONS can be ignored.
+  stmt->option_list();
+
+  if (is_ctas && !stmt_result.has_value()) {
+    // No CTAS results provided, mark query as accessed without populating
+    // any rows. This can happen when the mode is not "execute".
+    const auto* ctas = stmt->GetAs<ResolvedCreateTableAsSelectStmt>();
+    for (auto& col : ctas->output_column_list()) {
+      col->MarkFieldsAccessed();
+    }
+    ctas->query()->MarkFieldsAccessed();
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<SimpleTable> table,
+                   MakeTableFromCreateTable(*stmt));
+
+  // For CREATE TABLE, or CTAS without results, `rows` will be empty.
+  std::vector<std::vector<Value>> rows;
+  if (is_ctas && stmt_result.has_value()) {
+    ZETASQL_RET_CHECK((*stmt_result)->table_iterator != nullptr);
+    // Populate table from iterator for CTAS with results.
+    auto* table_iterator = stmt_result.value()->table_iterator.get();
+    const auto* ctas_stmt =
+        resolved_stmt->GetAs<ResolvedCreateTableAsSelectStmt>();
+    while (table_iterator->NextRow()) {
+      std::vector<Value> row;
+      if (ctas_stmt->is_value_table()) {
+        row.push_back(table_iterator->GetValue(0));
+      } else {
+        for (int i = 0; i < table_iterator->NumColumns(); ++i) {
+          row.push_back(table_iterator->GetValue(i));
+        }
+      }
+      rows.push_back(std::move(row));
+    }
+    ZETASQL_RETURN_IF_ERROR(table_iterator->Status());
+  }
+
+  const std::string table_name = table->Name();
+  std::string status_msg;
+
+  switch (stmt->create_mode()) {
+    case ResolvedCreateTableStmtBase::CREATE_DEFAULT: {
+      const Table* existing_table;
+      if (config.wrapper_catalog()
+              ->FindTable(stmt->name_path(), &existing_table)
+              .ok()) {
+        return zetasql_base::InvalidArgumentErrorBuilder()
+               << "Table already exists: " << table_name;
+      }
+      table->SetContents(rows);
+      config.wrapper_catalog()->AddOwnedTable(std::move(table));
+      status_msg = "Table created";
+      break;
+    }
+    case ResolvedCreateTableStmtBase::CREATE_IF_NOT_EXISTS:
+      if (const Table* existing_table;
+          config.wrapper_catalog()
+              ->FindTable(stmt->name_path(), &existing_table)
+              .ok()) {
+        status_msg = "Table creation skipped";
+      } else {
+        table->SetContents(rows);
+        ZETASQL_RET_CHECK(config.wrapper_catalog()->AddOwnedTableIfNotPresent(
+            table_name, std::move(table)));
+        status_msg = "Table created";
+      }
+      break;
+    case ResolvedCreateTableStmtBase::CREATE_OR_REPLACE:
+      config.wrapper_catalog()->RemoveTables([&table_name](const Table* t) {
+        return zetasql_base::CaseEqual(t->Name(), table_name);
+      });
+      table->SetContents(rows);
+      config.wrapper_catalog()->AddOwnedTable(table_name, std::move(table));
+      status_msg = "Table created or replaced";
+      break;
+    default:
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << "Unexpected create mode: "
+             << ResolvedCreateStatementEnums::CreateMode_Name(
+                    stmt->create_mode());
+  }
+
+  ZETASQL_RETURN_IF_ERROR(writer.log(status_msg));
+  return absl::OkStatus();
+}
+
+// If `resolved_node` is a DDL CREATE statement, try to add the created
+// object to the catalog.
+// This function is called in two scenarios:
+// 1. With `stmt_result = std::nullopt`: This occurs during single-statement
+//    execution. Standalone DDLs are always evaluated even when not in
+//    execute mode to update the catalog for analysis of subsequent statements.
+// 2. With a valid `stmt_result`: This occurs during multi-statement execution
+//    for supported DDL statements like CTAS.
+static absl::Status ApplyDdlSideEffects(
+    const ResolvedStatement* resolved_stmt,
+    std::optional<const PreparedStatement::StmtResult*> stmt_result,
+    ExecuteQueryConfig& config, ExecuteQueryWriter& writer) {
+  switch (resolved_stmt->node_kind()) {
     case RESOLVED_CREATE_FUNCTION_STMT: {
-      const auto* stmt = resolved_node->GetAs<ResolvedCreateFunctionStmt>();
+      const auto* stmt = resolved_stmt->GetAs<ResolvedCreateFunctionStmt>();
       ZETASQL_ASSIGN_OR_RETURN(auto function, MakeFunctionFromCreateFunction(
                                           *stmt, /*function_options=*/nullptr));
 
@@ -957,7 +1217,7 @@ static absl::Status HandleDDL(
     }
     case RESOLVED_CREATE_TABLE_FUNCTION_STMT: {
       const ResolvedCreateTableFunctionStmt* stmt =
-          resolved_node->GetAs<ResolvedCreateTableFunctionStmt>();
+          resolved_stmt->GetAs<ResolvedCreateTableFunctionStmt>();
       stmt->create_scope();  // Mark accessed so TEMP can be ignored.
       ZETASQL_ASSIGN_OR_RETURN(auto tvf, MakeTVFFromCreateTableFunction(*stmt));
 
@@ -970,42 +1230,10 @@ static absl::Status HandleDDL(
     }
     case RESOLVED_CREATE_TABLE_AS_SELECT_STMT:
     case RESOLVED_CREATE_TABLE_STMT: {
-      const ResolvedCreateTableStmtBase* stmt =
-          resolved_node->GetAs<ResolvedCreateTableStmtBase>();
-      stmt->create_scope();  // Mark accessed so TEMP can be ignored.
-
-      if (is_ctas) {
-        // Mark query-related fields accessed so we don't get an error.
-        // We should undo this if we start to support executing CTAS.
-        const auto* ctas = stmt->GetAs<ResolvedCreateTableAsSelectStmt>();
-        for (auto& col : ctas->output_column_list()) {
-          col->MarkFieldsAccessed();
-        }
-        ctas->query()->MarkFieldsAccessed();
-      }
-
-      ZETASQL_ASSIGN_OR_RETURN(auto table, MakeTableFromCreateTable(*stmt));
-
-      if (!is_ctas) {
-        // The table will return zero rows when queried.
-        table->SetContents({});
-      } else {
-        // Execution will fail scanning tables created with CTAS because there's
-        // no data. To fix this, we could return the SimpleTable*, pass it to
-        // ExplainAndOrExecuteSql, and have that run the contained query and
-        // capture its result into this table.
-      }
-
-      const std::string name = table->Name();
-      if (!config.wrapper_catalog()->AddOwnedTableIfNotPresent(
-              name, std::move(table))) {
-        return zetasql_base::InvalidArgumentErrorBuilder() << "Table already exists";
-      }
-      ZETASQL_RETURN_IF_ERROR(writer.log("Table registered."));
-      break;
+      return ApplyCreateTableStmt(resolved_stmt, stmt_result, config, writer);
     }
     case RESOLVED_CREATE_CONSTANT_STMT: {
-      const auto* stmt = resolved_node->GetAs<ResolvedCreateConstantStmt>();
+      const auto* stmt = resolved_stmt->GetAs<ResolvedCreateConstantStmt>();
       ZETASQL_ASSIGN_OR_RETURN(auto owned_constant,
                        MakeConstantFromCreateConstant(*stmt));
       SQLConstant* sql_constant = owned_constant.get();
@@ -1033,13 +1261,286 @@ static absl::Status HandleDDL(
       break;
     }
     default:
-      // Not a DDL statement so we don't need AddFunctionArtifacts below.
-      return absl::OkStatus();
+      return absl::UnimplementedError(
+          absl::StrCat("Unsupported DDL statement kind: ",
+                       resolved_stmt->node_kind_string()));
   }
 
-  // Common code after handling any DDL CREATE successfully.
-  config.AddArtifacts(std::move(*parser_output), std::move(*analyzer_output));
-  *executed_as_ddl = !is_ctas;
+  return absl::OkStatus();
+}
+
+static absl::StatusOr<const ArrayType*> GetTableType(
+    TypeFactory* type_factory, const EvaluatorTableIterator* iterator,
+    bool is_value_table) {
+  if (is_value_table) {
+    if (iterator->NumColumns() != 1) {
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << "is_value_table specified, but table has "
+             << iterator->NumColumns() << " instead of 1";
+    }
+    const ArrayType* result;
+    ZETASQL_RETURN_IF_ERROR(
+        type_factory->MakeArrayType(iterator->GetColumnType(0), &result));
+    return result;
+  } else {
+    std::vector<StructField> fields;
+    fields.reserve(iterator->NumColumns());
+    for (int i = 0; i < iterator->NumColumns(); ++i) {
+      fields.emplace_back(iterator->GetColumnName(i),
+                          iterator->GetColumnType(i));
+    }
+    const StructType* elem_type;
+    ZETASQL_RETURN_IF_ERROR(type_factory->MakeStructType(fields, &elem_type));
+
+    const ArrayType* result;
+    ZETASQL_RETURN_IF_ERROR(type_factory->MakeArrayType(elem_type, &result));
+    return result;
+  }
+}
+
+// Returns a Value which holds the tabledata described in the given iterator:
+// - The returned value is an array, with one element per row in the table.
+// - If `is_value_table` is true, the table must contain exactly one column.
+//      Each element of the array corresponds to a value in the table.
+// - Otherwise, each element of the array is a struct, with one field per
+//      column. Each field is the value of the corresponding row/column.
+//
+// This function is the inverse of the `ValueAsTableAdapter` class.
+static absl::StatusOr<Value> IteratorToValue(TypeFactory* type_factory,
+                                             EvaluatorTableIterator* iterator,
+                                             bool is_value_table) {
+  ZETASQL_ASSIGN_OR_RETURN(const ArrayType* type,
+                   GetTableType(type_factory, iterator, is_value_table));
+  std::vector<Value> values;
+  while (iterator->NextRow()) {
+    if (is_value_table) {
+      ABSL_CHECK_EQ(iterator->NumColumns(), 1);
+      values.push_back(iterator->GetValue(0));
+      ZETASQL_RET_CHECK(iterator->GetValue(0).is_valid());
+    } else {
+      std::vector<Value> fields;
+      fields.reserve(iterator->NumColumns());
+      for (int i = 0; i < iterator->NumColumns(); ++i) {
+        ZETASQL_RET_CHECK(iterator->GetValue(i).is_valid());
+        fields.push_back(iterator->GetValue(i));
+      }
+      ZETASQL_ASSIGN_OR_RETURN(
+          Value value,
+          Value::MakeStruct(type->AsArray()->element_type()->AsStruct(),
+                            std::move(fields)));
+      values.push_back(std::move(value));
+    }
+  }
+  ZETASQL_RETURN_IF_ERROR(iterator->Status());
+  return Value::MakeArrayFromValidatedInputs(type, std::move(values));
+}
+
+static absl::StatusOr<Value> GetTableContents(const Table* table,
+                                              TypeFactory* type_factory) {
+  std::vector<int> column_idxs;
+  column_idxs.reserve(table->NumColumns());
+  for (int i = 0; i < table->NumColumns(); ++i) {
+    column_idxs.push_back(i);
+  }
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<EvaluatorTableIterator> iter,
+                   table->CreateEvaluatorTableIterator(column_idxs));
+  return IteratorToValue(type_factory, iter.get(), table->IsValueTable());
+}
+
+static absl::StatusOr<std::unique_ptr<ValueAsTableAdapter>> ApplyDmlSideEffects(
+    const ResolvedStatement* resolved_stmt,
+    PreparedStatement::StmtResult stmt_result, ExecuteQueryConfig& config) {
+  if (resolved_stmt->node_kind() != RESOLVED_INSERT_STMT) {
+    return absl::UnimplementedError(
+        "Only INSERT statements are supported in multi-statement queries");
+  }
+  if (stmt_result.table_iterator != nullptr) {
+    return absl::UnimplementedError(
+        "DML statements with THEN RETURN clauses are not supported");
+  }
+  EvaluatorTableModifyIterator* iterator =
+      stmt_result.modify_result.table_modify_iter.get();
+  ZETASQL_RET_CHECK(iterator != nullptr);
+
+  const Table* table = iterator->table();
+  ZETASQL_ASSIGN_OR_RETURN(SimpleTable * mutable_table,
+                   GetMutableTempSimpleTable(table, config));
+
+  TypeFactory* type_factory = config.type_factory();
+  ZETASQL_ASSIGN_OR_RETURN(Value original_table_value,
+                   GetTableContents(table, type_factory));
+
+  std::vector<std::vector<Value>> rows;
+  if (original_table_value.has_content()) {
+    for (const Value& row : original_table_value.elements()) {
+      if (table->IsValueTable()) {
+        rows.push_back({row});
+      } else {
+        rows.push_back(row.fields());
+      }
+    }
+  }
+
+  const std::optional<std::vector<int>>& primary_key = table->PrimaryKey();
+  if (!primary_key.has_value()) {
+    return absl::InvalidArgumentError(
+        "DML statements require the table to have a primary key.");
+  }
+  const std::vector<int>& primary_key_column_indices = *primary_key;
+  absl::flat_hash_map<std::vector<Value>, int> row_idxs_by_key;
+  for (int i = 0; i < rows.size(); ++i) {
+    std::vector<Value> key;
+    key.reserve(primary_key_column_indices.size());
+    for (int idx : primary_key_column_indices) {
+      key.push_back(rows[i][idx]);
+    }
+    row_idxs_by_key[key] = i;
+  }
+
+  int num_rows_modified = 0;
+  while (iterator->NextRow()) {
+    ++num_rows_modified;
+    ZETASQL_RET_CHECK(iterator->GetOperation() ==
+              EvaluatorTableModifyIterator::Operation::kInsert);
+    std::vector<Value> key;
+    for (int i = 0; i < table->PrimaryKey().value().size(); ++i) {
+      // Even if the evaluation of an INSERT statement succeeds, it is still
+      // possible that its side-effect can't be applied if it is a sub-statement
+      // in a multi-stmt.
+      //
+      // For example, consider the following multi-stmt query:
+      //
+      // <query>
+      // |> FORK (
+      //   |> INSERT INTO t
+      // ), (
+      //   |> INSERT INTO t
+      // )
+      //
+      // The evaluation of both the INSERT can succeed, but only one should
+      // can be applied successfully.
+      //
+      // As a result, we use GetColumnValue() instead of GetOriginalKeyValue()
+      // to get the key value of the current INSERT statement, and check if
+      // it whether it exists in the table already.
+      key.push_back(iterator->GetColumnValue(i));
+    }
+    auto row_it = row_idxs_by_key.find(key);
+    bool row_found = row_it != row_idxs_by_key.end();
+
+    if (row_found) {
+      return absl::OutOfRangeError("Key already exists for INSERT operation");
+    }
+
+    std::vector<Value> columns;
+    for (int i = 0; i < table->NumColumns(); ++i) {
+      ZETASQL_RET_CHECK(iterator->GetColumnValue(i).is_valid());
+      columns.push_back(iterator->GetColumnValue(i));
+    }
+    rows.push_back(std::move(columns));
+  }
+  ZETASQL_RETURN_IF_ERROR(iterator->Status());
+
+  mutable_table->SetContents(rows);
+
+  const StructType* row_type;
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeStructType(
+      {{"rows_modified", type_factory->get_int64()}}, &row_type));
+  const ArrayType* array_type;
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeArrayType(row_type, &array_type));
+  ZETASQL_ASSIGN_OR_RETURN(
+      Value row_value,
+      Value::MakeStruct(row_type, {Value::Int64(num_rows_modified)}));
+  ZETASQL_ASSIGN_OR_RETURN(Value result_value,
+                   Value::MakeArray(array_type, {row_value}));
+  return ValueAsTableAdapter::Create(result_value);
+}
+
+static absl::Status ExecuteAndOrExplainStatement(
+    const ResolvedStatement* resolved_node, ExecuteQueryConfig& config,
+    ExecuteQueryWriter& writer) {
+  auto prepared_stmt = std::make_unique<PreparedStatement>(
+      resolved_node, config.evaluator_options());
+  ZETASQL_RETURN_IF_ERROR(
+      prepared_stmt->Prepare(config.analyzer_options(), config.catalog()));
+
+  if (config.has_tool_mode(ToolMode::kExplain)) {
+    ZETASQL_ASSIGN_OR_RETURN(std::string explain, prepared_stmt->ExplainAfterPrepare());
+    explain.append(1, '\n');
+    ZETASQL_RETURN_IF_ERROR(writer.explained(*resolved_node, explain));
+  }
+
+  if (!config.has_tool_mode(ToolMode::kExecute)) {
+    return absl::OkStatus();
+  }
+
+  QueryOptions query_options;
+  query_options.parameters = config.query_parameter_values();
+
+  ZETASQL_ASSIGN_OR_RETURN(PreparedStatement::StmtResults multi_stmt_result,
+                   prepared_stmt->ExecuteAfterPrepare(query_options));
+
+  if (resolved_node->Is<ResolvedQueryStmt>()) {
+    ZETASQL_RET_CHECK_EQ(multi_stmt_result.size(), 1);
+    auto& result = multi_stmt_result[0];
+    if (!result.ok()) {
+      return result.status();
+    }
+    ZETASQL_RET_CHECK(result->table_iterator != nullptr);
+    ZETASQL_RETURN_IF_ERROR(
+        writer.executed(*resolved_node, std::move(result->table_iterator)));
+    return absl::OkStatus();
+  }
+
+  std::vector<absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>> iters;
+  // The EvaluatorTableIterator created from ValueAsTableAdapters require the
+  // ValueAsTableAdapters to outlive them.
+  std::vector<std::unique_ptr<ValueAsTableAdapter>> adapters;
+  bool contains_ddl = false;
+  for (auto& result : multi_stmt_result) {
+    if (!result.ok()) {
+      iters.push_back(result.status());
+      continue;
+    }
+    auto& stmt_result = *result;
+    const auto* sub_stmt = stmt_result.statement;
+
+    switch (stmt_result.kind) {
+      case PreparedStatementBase::StmtKind::kQuery:
+        ZETASQL_RET_CHECK(stmt_result.table_iterator != nullptr);
+        iters.push_back(std::move(stmt_result.table_iterator));
+        break;
+      case PreparedStatementBase::StmtKind::kDML: {
+        absl::StatusOr<std::unique_ptr<ValueAsTableAdapter>> adapter =
+            ApplyDmlSideEffects(sub_stmt, std::move(stmt_result), config);
+        if (!adapter.ok()) {
+          iters.push_back(adapter.status());
+        } else {
+          adapters.push_back(std::move(adapter).value());
+          iters.push_back(adapters.back()->CreateEvaluatorTableIterator());
+        }
+        break;
+      }
+      case PreparedStatementBase::StmtKind::kCTAS:
+        contains_ddl = true;
+        auto status =
+            ApplyDdlSideEffects(sub_stmt, &stmt_result, config, writer);
+        if (!status.ok()) {
+          iters.push_back(status);
+        }
+        break;
+    }
+  }
+
+  if (contains_ddl) {
+    // Stores the prepared statement in the config so that the resolved asts
+    // referenced by the DDL objects can stay alive.
+    config.AddArtifact(std::move(prepared_stmt));
+  }
+
+  if (!iters.empty()) {
+    ZETASQL_RETURN_IF_ERROR(writer.executed_multi(*resolved_node, std::move(iters)));
+  }
 
   return absl::OkStatus();
 }
@@ -1050,27 +1551,11 @@ static absl::Status ExplainAndOrExecuteSql(const ResolvedNode* resolved_node,
                                            absl::string_view sql) {
   switch (config.sql_mode()) {
     case SqlMode::kQuery: {
-      ZETASQL_RET_CHECK_EQ(resolved_node->node_kind(), RESOLVED_QUERY_STMT);
-
-      PreparedQuery query{resolved_node->GetAs<ResolvedQueryStmt>(),
-                          config.evaluator_options()};
-      ZETASQL_RETURN_IF_ERROR(
-          query.Prepare(config.analyzer_options(), config.catalog()));
-
-      if (config.has_tool_mode(ToolMode::kExplain)) {
-        ZETASQL_ASSIGN_OR_RETURN(std::string explain, query.ExplainAfterPrepare());
-        explain.append(1, '\n');
-        ZETASQL_RETURN_IF_ERROR(writer.explained(*resolved_node, explain));
-      }
-
-      if (config.has_tool_mode(ToolMode::kExecute)) {
-        ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<EvaluatorTableIterator> iter,
-                         query.ExecuteAfterPrepare(
-                             {.parameters = config.query_parameter_values()}));
-        ZETASQL_RETURN_IF_ERROR(writer.executed(*resolved_node, std::move(iter)));
-      }
-
-      return absl::OkStatus();
+      ZETASQL_RET_CHECK(resolved_node->node_kind() == RESOLVED_MULTI_STMT ||
+                resolved_node->node_kind() == RESOLVED_QUERY_STMT ||
+                IsDdlStatement(resolved_node) || IsDmlStatement(resolved_node));
+      return ExecuteAndOrExplainStatement(
+          resolved_node->GetAs<ResolvedStatement>(), config, writer);
     }
     case SqlMode::kExpression: {
       ZETASQL_RET_CHECK(resolved_node->IsExpression());
@@ -1227,6 +1712,15 @@ static absl::Status ExecuteDescribe(const ResolvedNode* resolved_node,
                  << (column->IsPseudoColumn() ? " (pseudo-column)" : "")
                  << std::endl;
         }
+      }
+      if (const auto& primary_key = table->PrimaryKey();
+          primary_key.has_value()) {
+        std::vector<std::string> primary_key_strings;
+        for (const int column_index : *primary_key) {
+          primary_key_strings.push_back(table->GetColumn(column_index)->Name());
+        }
+        output << "Primary key: " << "("
+               << absl::StrJoin(primary_key_strings, ", ") << ")" << std::endl;
       }
       // This could include more of the other metadata that's available on
       // Table or Column.  It currently just has the main schema details.
@@ -1571,11 +2065,25 @@ static absl::Status ExecuteOneQuery(absl::string_view script,
     ZETASQL_RETURN_IF_ERROR(callback(resolved_node));
   }
 
-  // This transfers ownership of `parser_output` and `analyzer_output` and
-  // clears the copies here if this creates any DDL objects.
+  // Only standalone DDL statements are executed even if not in "execute"
+  // mode; DDLs in a multi-stmt are not.
   bool executed_as_ddl = false;
-  ZETASQL_RETURN_IF_ERROR(HandleDDL(resolved_node, config, writer, &parser_output,
-                            &analyzer_output, &executed_as_ddl));
+  if (IsDdlStatement(resolved_node)) {
+    // This transfers ownership of `parser_output` and `analyzer_output` and
+    // clears the copies here if this creates any DDL objects.
+    config.AddArtifact(std::move(parser_output))
+        .AddArtifact(std::move(analyzer_output));
+    // If the mode is execute, and this is a CREATE TABLE AS SELECT statement,
+    // then we must evaluate the query before creating the table. Otherwise,
+    // we can apply the DDL side effects immediately.
+    if (!resolved_node->Is<ResolvedCreateTableAsSelectStmt>() ||
+        !config.has_tool_mode(ToolMode::kExecute)) {
+      ZETASQL_RETURN_IF_ERROR(
+          ApplyDdlSideEffects(resolved_node->GetAs<ResolvedStatement>(),
+                              /*stmt_result=*/std::nullopt, config, writer));
+      executed_as_ddl = true;
+    }
+  }
 
   if (config.has_tool_mode(ToolMode::kUnAnalyze)) {
     ZETASQL_RETURN_IF_ERROR(UnanalyzeQuery(resolved_node, config, writer));
@@ -1583,8 +2091,13 @@ static absl::Status ExecuteOneQuery(absl::string_view script,
 
   if (config.has_tool_mode(ToolMode::kExplain) ||
       config.has_tool_mode(ToolMode::kExecute)) {
+    if (executed_as_ddl) {
+      return absl::OkStatus();
+    }
     if (resolved_node->node_kind() == RESOLVED_QUERY_STMT ||
-        resolved_node->IsExpression()) {
+        resolved_node->node_kind() == RESOLVED_MULTI_STMT ||
+        resolved_node->IsExpression() || IsDdlStatement(resolved_node) ||
+        IsDmlStatement(resolved_node)) {
       ZETASQL_RETURN_IF_ERROR(
           ExplainAndOrExecuteSql(resolved_node, config, writer, script));
     } else if (config.has_tool_mode(ToolMode::kExplain)) {
@@ -1597,8 +2110,6 @@ static absl::Status ExecuteOneQuery(absl::string_view script,
         ZETASQL_RETURN_IF_ERROR(ExecuteDescribe(resolved_node, config, writer));
       } else if (resolved_node->node_kind() == RESOLVED_SHOW_STMT) {
         ZETASQL_RETURN_IF_ERROR(ExecuteShow(resolved_node, config, writer));
-      } else if (executed_as_ddl) {
-        // Execution handled in HandleDDL above.
       } else {
         return absl::InvalidArgumentError(
             absl::StrCat("The statement ", resolved_node->node_kind_string(),

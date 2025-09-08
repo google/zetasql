@@ -355,6 +355,9 @@ absl::Status ProtoType::GetTypeKindFromFieldDescriptor(
         case FieldFormat::DEFAULT_FORMAT:
           *kind = TYPE_BYTES;
           break;
+        case FieldFormat::TIMESTAMP:
+          *kind = TYPE_TIMESTAMP;
+          break;
         case FieldFormat::ST_GEOGRAPHY_ENCODED:
           *kind = TYPE_GEOGRAPHY;
           break;
@@ -363,9 +366,6 @@ absl::Status ProtoType::GetTypeKindFromFieldDescriptor(
           break;
         case FieldFormat::BIGNUMERIC:
           *kind = TYPE_BIGNUMERIC;
-          break;
-        case FieldFormat::TIMESTAMP_PICOS:
-          *kind = TYPE_TIMESTAMP_PICOS;
           break;
         case FieldFormat::INTERVAL:
           *kind = TYPE_INTERVAL;
@@ -441,7 +441,7 @@ absl::Status ProtoType::GetTypeKindFromFieldDescriptor(
 absl::Status ProtoType::FieldDescriptorToTypeKind(
     bool ignore_annotations, const google::protobuf::FieldDescriptor* field,
     TypeKind* kind) {
-  if (field->label() == google::protobuf::FieldDescriptor::LABEL_REPEATED) {
+  if (field->is_repeated()) {
     *kind = TYPE_ARRAY;
   } else if (field->options().GetExtension(zetasql::is_measure)) {
     *kind = TYPE_MEASURE;
@@ -455,7 +455,7 @@ absl::Status ProtoType::FieldDescriptorToTypeKind(
 absl::Status ProtoType::FieldDescriptorToTypeKind(
     const google::protobuf::FieldDescriptor* field, bool use_obsolete_timestamp,
     TypeKind* kind) {
-  if (field->label() == google::protobuf::FieldDescriptor::LABEL_REPEATED) {
+  if (field->is_repeated()) {
     *kind = TYPE_ARRAY;
   } else if (field->options().GetExtension(zetasql::is_measure)) {
     *kind = TYPE_MEASURE;

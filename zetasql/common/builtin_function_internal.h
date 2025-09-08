@@ -34,11 +34,13 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 
@@ -139,6 +141,8 @@ using FunctionIdToNameMap =
 using NameToFunctionMap =
     absl::flat_hash_map<std::string, std::unique_ptr<Function>>;
 using NameToTypeMap = absl::flat_hash_map<std::string, const Type*>;
+using NameToTableValuedFunctionMap =
+    absl::flat_hash_map<std::string, std::unique_ptr<TableValuedFunction>>;
 
 bool ArgumentsAreComparable(const std::vector<InputArgumentType>& arguments,
                             const LanguageOptions& language_options,
@@ -154,28 +158,28 @@ bool ArgumentsArrayType(const std::vector<InputArgumentType>& arguments,
 // separated for pretty printing.
 // TODO: Consider removing this callback, since Function now knows
 // whether it is operator, and has correct sql_name to print.
-std::string InfixFunctionSQL(const std::string& display_name,
-                             const std::vector<std::string>& inputs);
+std::string InfixFunctionSQL(absl::string_view display_name,
+                             absl::Span<const std::string> inputs);
 
-std::string PreUnaryFunctionSQL(const std::string& display_name,
-                                const std::vector<std::string>& inputs);
+std::string PreUnaryFunctionSQL(absl::string_view display_name,
+                                absl::Span<const std::string> inputs);
 
-std::string PostUnaryFunctionSQL(const std::string& display_name,
-                                 const std::vector<std::string>& inputs);
+std::string PostUnaryFunctionSQL(absl::string_view display_name,
+                                 absl::Span<const std::string> inputs);
 
-std::string DateAddOrSubFunctionSQL(const std::string& display_name,
-                                    const std::vector<std::string>& inputs);
+std::string DateAddOrSubFunctionSQL(absl::string_view display_name,
+                                    absl::Span<const std::string> inputs);
 
-std::string CountStarFunctionSQL(const std::vector<std::string>& inputs);
+std::string CountStarFunctionSQL(absl::Span<const std::string> inputs);
 
-std::string AnonCountStarFunctionSQL(const std::vector<std::string>& inputs);
+std::string AnonCountStarFunctionSQL(absl::Span<const std::string> inputs);
 
 std::string SignatureTextForAnonCountStarFunction(
     const LanguageOptions& language_options, const Function& function,
     const FunctionSignature& signature);
 
 std::string SignatureTextForAnonCountStarWithReportFunction(
-    const std::string& report_format, const LanguageOptions& language_options,
+    absl::string_view report_format, const LanguageOptions& language_options,
     const Function& function, const FunctionSignature& signature);
 
 std::string SignatureTextForAnonQuantilesWithReportFunction(
@@ -183,58 +187,58 @@ std::string SignatureTextForAnonQuantilesWithReportFunction(
     const Function& function, const FunctionSignature& signature);
 
 std::string AnonSumWithReportJsonFunctionSQL(
-    const std::vector<std::string>& inputs);
+    absl::Span<const std::string> inputs);
 
 std::string AnonSumWithReportProtoFunctionSQL(
-    const std::vector<std::string>& inputs);
+    absl::Span<const std::string> inputs);
 
 std::string AnonAvgWithReportJsonFunctionSQL(
-    const std::vector<std::string>& inputs);
+    absl::Span<const std::string> inputs);
 
 std::string AnonAvgWithReportProtoFunctionSQL(
     const std::vector<std::string>& inputs);
 
 std::string AnonCountWithReportJsonFunctionSQL(
-    const std::vector<std::string>& inputs);
+    absl::Span<const std::string> inputs);
 
 std::string AnonCountWithReportProtoFunctionSQL(
-    const std::vector<std::string>& inputs);
+    absl::Span<const std::string> inputs);
 
 std::string AnonCountStarWithReportJsonFunctionSQL(
-    const std::vector<std::string>& inputs);
+    absl::Span<const std::string> inputs);
 
 std::string AnonCountStarWithReportProtoFunctionSQL(
-    const std::vector<std::string>& inputs);
+    absl::Span<const std::string> inputs);
 
 std::string AnonQuantilesWithReportJsonFunctionSQL(
     const std::vector<std::string>& inputs);
 
 std::string AnonQuantilesWithReportProtoFunctionSQL(
-    const std::vector<std::string>& inputs);
+    absl::Span<const std::string> inputs);
 
-std::string BetweenFunctionSQL(const std::vector<std::string>& inputs);
+std::string BetweenFunctionSQL(absl::Span<const std::string> inputs);
 
-std::string InListFunctionSQL(const std::vector<std::string>& inputs);
+std::string InListFunctionSQL(absl::Span<const std::string> inputs);
 
-std::string LikeAnyFunctionSQL(const std::vector<std::string>& inputs);
+std::string LikeAnyFunctionSQL(absl::Span<const std::string> inputs);
 
-std::string NotLikeAnyFunctionSQL(const std::vector<std::string>& inputs);
+std::string NotLikeAnyFunctionSQL(absl::Span<const std::string> inputs);
 
 std::string LikeAllFunctionSQL(const std::vector<std::string>& inputs);
 
-std::string NotLikeAllFunctionSQL(const std::vector<std::string>& inputs);
+std::string NotLikeAllFunctionSQL(absl::Span<const std::string> inputs);
 
-std::string CaseWithValueFunctionSQL(const std::vector<std::string>& inputs);
+std::string CaseWithValueFunctionSQL(absl::Span<const std::string> inputs);
 
-std::string CaseNoValueFunctionSQL(const std::vector<std::string>& inputs);
+std::string CaseNoValueFunctionSQL(absl::Span<const std::string> inputs);
 
 std::string InArrayFunctionSQL(const std::vector<std::string>& inputs);
 
-std::string LikeAnyArrayFunctionSQL(const std::vector<std::string>& inputs);
+std::string LikeAnyArrayFunctionSQL(absl::Span<const std::string> inputs);
 
 std::string NotLikeAnyArrayFunctionSQL(const std::vector<std::string>& inputs);
 
-std::string LikeAllArrayFunctionSQL(const std::vector<std::string>& inputs);
+std::string LikeAllArrayFunctionSQL(absl::Span<const std::string> inputs);
 
 std::string NotLikeAllArrayFunctionSQL(const std::vector<std::string>& inputs);
 
@@ -246,11 +250,11 @@ std::string SafeArrayAtOffsetFunctionSQL(
     const std::vector<std::string>& inputs);
 
 std::string SubscriptFunctionSQL(const std::vector<std::string>& inputs);
-std::string SubscriptWithKeyFunctionSQL(const std::vector<std::string>& inputs);
+std::string SubscriptWithKeyFunctionSQL(absl::Span<const std::string> inputs);
 std::string SubscriptWithOffsetFunctionSQL(
-    const std::vector<std::string>& inputs);
+    absl::Span<const std::string> inputs);
 std::string SubscriptWithOrdinalFunctionSQL(
-    const std::vector<std::string>& inputs);
+    absl::Span<const std::string> inputs);
 
 std::string SafeArrayAtOrdinalFunctionSQL(
     const std::vector<std::string>& inputs);
@@ -260,21 +264,21 @@ std::string ProtoMapAtKeySQL(const std::vector<std::string>& inputs);
 std::string SafeProtoMapAtKeySQL(const std::vector<std::string>& inputs);
 
 std::string GenerateDateTimestampArrayFunctionSQL(
-    const std::string& function_name, const std::vector<std::string>& inputs);
+    const std::string& function_name, absl::Span<const std::string> inputs);
 
 // For MakeArray we explicitly prepend the array type to the function sql, thus
 // array-type-name is expected to be passed as the first element of inputs.
-std::string MakeArrayFunctionSQL(const std::vector<std::string>& inputs);
+std::string MakeArrayFunctionSQL(absl::Span<const std::string> inputs);
 
-std::string ExtractFunctionSQL(const std::vector<std::string>& inputs);
+std::string ExtractFunctionSQL(absl::Span<const std::string> inputs);
 
-std::string ExtractDateOrTimeFunctionSQL(
-    const std::string& date_part, const std::vector<std::string>& inputs);
+std::string ExtractDateOrTimeFunctionSQL(const std::string& date_part,
+                                         absl::Span<const std::string> inputs);
 
 bool ArgumentIsStringLiteral(const InputArgumentType& argument);
 
 absl::Status CheckBitwiseOperatorArgumentsHaveSameType(
-    const std::string& operator_string,
+    absl::string_view operator_string,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
@@ -294,7 +298,7 @@ absl::Status CheckLastDayArguments(
     const LanguageOptions& language_options);
 
 absl::Status CheckExtractPreResolutionArguments(
-    const std::vector<InputArgumentType>& arguments,
+    absl::Span<const InputArgumentType> arguments,
     const LanguageOptions& language_options);
 
 absl::Status CheckExtractPostResolutionArguments(
@@ -303,7 +307,7 @@ absl::Status CheckExtractPostResolutionArguments(
     const LanguageOptions& language_options);
 
 absl::Status CheckDateDatetimeTimestampAddSubArguments(
-    const std::string& function_name,
+    absl::string_view function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
@@ -322,28 +326,27 @@ absl::StatusOr<const Type*> GetOrMakeEnumValueDescriptorType(
     const AnalyzerOptions& analyzer_options);
 
 absl::Status CheckTimeAddSubArguments(
-    const std::string& function_name,
+    absl::string_view function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
 absl::Status CheckGenerateDateArrayArguments(
-    const std::vector<InputArgumentType>& arguments,
+    absl::Span<const InputArgumentType> arguments,
     const LanguageOptions& language_options);
 
 absl::Status CheckGenerateTimestampArrayArguments(
-    const std::vector<InputArgumentType>& arguments,
+    absl::Span<const InputArgumentType> arguments,
     const LanguageOptions& language_options);
 
 absl::Status CheckFormatPostResolutionArguments(
     const FunctionSignature& /*signature*/,
-    const std::vector<InputArgumentType>& arguments,
+    absl::Span<const InputArgumentType> arguments,
     const LanguageOptions& language_options);
 
 absl::Status CheckIsSupportedKeyType(
     absl::string_view function_name,
     const std::set<std::string>& supported_key_types,
-    int key_type_argument_index,
-    const std::vector<InputArgumentType>& arguments,
+    int key_type_argument_index, absl::Span<const InputArgumentType> arguments,
     const LanguageOptions& language_options);
 
 const std::set<std::string>& GetSupportedKeyTypes();
@@ -354,16 +357,16 @@ bool IsStringLiteralComparedToBytes(const InputArgumentType& lhs_arg,
                                     const InputArgumentType& rhs_arg);
 
 std::string NoMatchingSignatureForCaseNoValueFunction(
-    const std::string& qualified_function_name,
-    const std::vector<InputArgumentType>& arguments, ProductMode product_mode);
+    absl::string_view qualified_function_name,
+    absl::Span<const InputArgumentType> arguments, ProductMode product_mode);
 
 std::string NoMatchingSignatureForInFunction(
-    const std::string& qualified_function_name,
-    const std::vector<InputArgumentType>& arguments, ProductMode product_mode);
+    absl::string_view qualified_function_name,
+    absl::Span<const InputArgumentType> arguments, ProductMode product_mode);
 
 std::string NoMatchingSignatureForInArrayFunction(
-    const std::string& qualified_function_name,
-    const std::vector<InputArgumentType>& arguments, ProductMode product_mode);
+    absl::string_view qualified_function_name,
+    absl::Span<const InputArgumentType> arguments, ProductMode product_mode);
 
 std::string NoMatchingSignatureForLikeExprFunction(
     const std::string& qualified_function_name,
@@ -371,15 +374,15 @@ std::string NoMatchingSignatureForLikeExprFunction(
 
 std::string NoMatchingSignatureForLikeExprArrayFunction(
     const std::string& qualified_function_name,
-    const std::vector<InputArgumentType>& arguments, ProductMode product_mode);
+    absl::Span<const InputArgumentType> arguments, ProductMode product_mode);
 
 std::string NoMatchingSignatureForComparisonOperator(
-    const std::string& operator_name,
-    const std::vector<InputArgumentType>& arguments, ProductMode product_mode);
+    absl::string_view operator_name,
+    absl::Span<const InputArgumentType> arguments, ProductMode product_mode);
 
 std::string NoMatchingSignatureForFunctionUsingInterval(
     const std::string& qualified_function_name,
-    const std::vector<InputArgumentType>& arguments, ProductMode product_mode,
+    absl::Span<const InputArgumentType> arguments, ProductMode product_mode,
     int index_of_interval_argument);
 
 std::string NoMatchingSignatureForDateOrTimeAddOrSubFunction(
@@ -395,17 +398,17 @@ std::string NoMatchingSignatureForSubscript(
     const std::vector<InputArgumentType>& arguments, ProductMode product_mode);
 
 absl::Status CheckArgumentsSupportEquality(
-    const std::string& comparison_name, const FunctionSignature& /*signature*/,
+    absl::string_view comparison_name, const FunctionSignature& /*signature*/,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
 absl::Status CheckArgumentsSupportGrouping(
-    const std::string& comparison_name, const FunctionSignature& signature,
+    absl::string_view comparison_name, const FunctionSignature& signature,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
 absl::Status CheckArgumentsSupportComparison(
-    const std::string& comparison_name, const FunctionSignature& /*signature*/,
+    absl::string_view comparison_name, const FunctionSignature& /*signature*/,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
@@ -415,7 +418,7 @@ absl::Status CheckMinMaxArguments(
     const LanguageOptions& language_options);
 
 absl::Status CheckGreatestLeastArguments(
-    const std::string& function_name,
+    absl::string_view function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
@@ -428,7 +431,7 @@ absl::Status CheckArrayConcatArguments(
     const LanguageOptions& language_options);
 
 absl::Status CheckArrayIsDistinctArguments(
-    const std::vector<InputArgumentType>& arguments,
+    absl::Span<const InputArgumentType> arguments,
     const LanguageOptions& language_options);
 
 absl::Status CheckInArrayArguments(
@@ -450,33 +453,38 @@ std::string AnonCountStarBadArgumentErrorPrefix(const FunctionSignature&,
 // an OVER clause.
 FunctionOptions DefaultAggregateFunctionOptions();
 
+// Create a `FunctionSignatureOptions` with the given SQL definition that
+// will be inlined by `REWRITE_BUILTIN_FUNCTION_INLINER`.
+FunctionSignatureOptions SetDefinitionForInlining(absl::string_view sql,
+                                                  bool enabled = true);
+
 // Checks if an arithmetic operation has a floating point type as its
 // input.
 std::string CheckHasFloatingPointArgument(
     const FunctionSignature& matched_signature,
-    const std::vector<InputArgumentType>& arguments);
+    absl::Span<const InputArgumentType> arguments);
 
 // Checks if at least one input argument has NUMERIC type.
 std::string CheckHasNumericTypeArgument(
     const FunctionSignature& matched_signature,
-    const std::vector<InputArgumentType>& arguments);
+    absl::Span<const InputArgumentType> arguments);
 
 // Checks if all input arguments have NUMERIC or BIGNUMERIC type,
 // including the case without input arguments.
 std::string CheckAllArgumentsHaveNumericOrBigNumericType(
     const FunctionSignature& matched_signature,
-    const std::vector<InputArgumentType>& arguments);
+    absl::Span<const InputArgumentType> arguments);
 
 // Checks if there is at least one input argument and the last argument
 // has NUMERIC type or BIGNUMERIC type.
 std::string CheckLastArgumentHasNumericOrBigNumericType(
     const FunctionSignature& matched_signature,
-    const std::vector<InputArgumentType>& arguments);
+    absl::Span<const InputArgumentType> arguments);
 
 // Checks if at least one input argument has BIGNUMERIC type.
 std::string CheckHasBigNumericTypeArgument(
     const FunctionSignature& matched_signature,
-    const std::vector<InputArgumentType>& arguments);
+    absl::Span<const InputArgumentType> arguments);
 
 // Checks if at least one input argument has INTERVAL type.
 std::string CheckHasIntervalTypeArgument(
@@ -506,7 +514,7 @@ absl::StatusOr<const Type*> ComputeResultTypeForTopStruct(
 absl::StatusOr<const Type*> ComputeResultTypeForNearestNeighborsStruct(
     Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
     const FunctionSignature& /*signature*/,
-    const std::vector<InputArgumentType>& arguments,
+    absl::Span<const InputArgumentType> arguments,
     const AnalyzerOptions& analyzer_options);
 
 void InsertCreatedFunction(NameToFunctionMap* functions,
@@ -580,6 +588,12 @@ void InsertSimpleNamespaceFunction(
     absl::string_view name, Function::Mode mode,
     std::initializer_list<FunctionSignatureProxy> signatures,
     FunctionOptions function_options);
+
+absl::Status InsertSimpleTableValuedFunction(
+    NameToTableValuedFunctionMap* table_valued_functions,
+    const ZetaSQLBuiltinFunctionOptions& options, absl::string_view name,
+    const std::vector<FunctionSignatureOnHeap>& signatures,
+    TableValuedFunctionOptions table_valued_function_options);
 
 absl::Status InsertType(NameToTypeMap* types,
                         const ZetaSQLBuiltinFunctionOptions& options,
@@ -775,6 +789,10 @@ void GetEncryptionFunctions(TypeFactory* type_factory,
 void GetGeographyFunctions(TypeFactory* type_factory,
                            const ZetaSQLBuiltinFunctionOptions& options,
                            NameToFunctionMap* functions);
+
+void GetCompressionFunctions(TypeFactory* type_factory,
+                             const ZetaSQLBuiltinFunctionOptions& options,
+                             NameToFunctionMap* functions);
 
 void GetAnonFunctions(TypeFactory* type_factory,
                       const ZetaSQLBuiltinFunctionOptions& options,

@@ -19,7 +19,8 @@
 
 # Arithmetic between UINT64 and signed ints is invalid.  Those error tests
 # follow this one.
-[language_features={{NUMERIC_TYPE|}}]
+[default language_features=NONE]
+[language_features=NONE,{{+NUMERIC_TYPE|}}]
 select `int32` + `int32`,
        `int32` + `int64`,
        `int32` + `uint32`,
@@ -71,7 +72,7 @@ select `int32` + `int32`,
        `numeric` + `numeric`
 from SimpleTypes;
 --
-ALTERNATION GROUP: NUMERIC_TYPE
+ALTERNATION GROUP: +NUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -377,7 +378,7 @@ ERROR: No matching signature for operator +
        ^
 ==
 
-[language_features={{BIGNUMERIC_TYPE,NUMERIC_TYPE|NUMERIC_TYPE|}}]
+[language_features=NONE,{{+BIGNUMERIC_TYPE,+NUMERIC_TYPE|+NUMERIC_TYPE|}}]
 select `int32` + `bignumeric`,
        `uint32` + `bignumeric`,
        `int64` + `bignumeric`,
@@ -396,7 +397,7 @@ select `int32` + `bignumeric`,
        `bignumeric` + `bignumeric`
 from SimpleTypes;
 --
-ALTERNATION GROUP: BIGNUMERIC_TYPE,NUMERIC_TYPE
+ALTERNATION GROUP: +BIGNUMERIC_TYPE,+NUMERIC_TYPE
 --
 
 QueryStmt
@@ -501,7 +502,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, float#8, double#9, numeric#16, bignumeric#17], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 7, 8, 15, 16])
 --
-ALTERNATION GROUP: NUMERIC_TYPE
+ALTERNATION GROUP: +NUMERIC_TYPE
 --
 ERROR: No matching signature for operator +
   Argument types: INT32, BIGNUMERIC
@@ -594,7 +595,7 @@ select `uint64` + `int64`
        ^
 ==
 
-[language_features={{NUMERIC_TYPE|}}]
+[language_features=NONE,{{+NUMERIC_TYPE|}}]
 select `int32` - `int32`,
        `int32` - `int64`,
        `int32` - `uint32`,
@@ -648,7 +649,7 @@ select `int32` - `int32`,
        `numeric` - `numeric`
 from SimpleTypes;
 --
-ALTERNATION GROUP: NUMERIC_TYPE
+ALTERNATION GROUP: +NUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -966,7 +967,7 @@ ERROR: No matching signature for operator -
        ^
 ==
 
-[language_features={{BIGNUMERIC_TYPE,NUMERIC_TYPE|NUMERIC_TYPE|}}]
+[language_features=NONE,{{+BIGNUMERIC_TYPE,+NUMERIC_TYPE|+NUMERIC_TYPE|}}]
 select `int32` - `bignumeric`,
        `uint32` - `bignumeric`,
        `int64` - `bignumeric`,
@@ -985,7 +986,7 @@ select `int32` - `bignumeric`,
        `bignumeric` - `bignumeric`
 from SimpleTypes;
 --
-ALTERNATION GROUP: BIGNUMERIC_TYPE,NUMERIC_TYPE
+ALTERNATION GROUP: +BIGNUMERIC_TYPE,+NUMERIC_TYPE
 --
 
 QueryStmt
@@ -1090,7 +1091,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, float#8, double#9, numeric#16, bignumeric#17], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 7, 8, 15, 16])
 --
-ALTERNATION GROUP: NUMERIC_TYPE
+ALTERNATION GROUP: +NUMERIC_TYPE
 --
 ERROR: No matching signature for operator -
   Argument types: INT32, BIGNUMERIC
@@ -1183,7 +1184,7 @@ select `uint64` - `int64`
        ^
 ==
 
-[language_features={{NUMERIC_TYPE|}}]
+[language_features=NONE,{{+NUMERIC_TYPE|}}]
 select `int32` * `int32`,
        `int32` * `int64`,
        `int32` * `uint32`,
@@ -1237,7 +1238,7 @@ select `int32` * `int32`,
        `numeric` * `numeric`
 from SimpleTypes;
 --
-ALTERNATION GROUP: NUMERIC_TYPE
+ALTERNATION GROUP: +NUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -1555,7 +1556,7 @@ ERROR: No matching signature for operator *
        ^
 ==
 
-[language_features={{BIGNUMERIC_TYPE,NUMERIC_TYPE|NUMERIC_TYPE|}}]
+[language_features=NONE,{{+BIGNUMERIC_TYPE,+NUMERIC_TYPE|+NUMERIC_TYPE|}}]
 select `int32` * `bignumeric`,
        `uint32` * `bignumeric`,
        `int64` * `bignumeric`,
@@ -1574,7 +1575,7 @@ select `int32` * `bignumeric`,
        `bignumeric` * `bignumeric`
 from SimpleTypes;
 --
-ALTERNATION GROUP: BIGNUMERIC_TYPE,NUMERIC_TYPE
+ALTERNATION GROUP: +BIGNUMERIC_TYPE,+NUMERIC_TYPE
 --
 
 QueryStmt
@@ -1679,7 +1680,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, float#8, double#9, numeric#16, bignumeric#17], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 7, 8, 15, 16])
 --
-ALTERNATION GROUP: NUMERIC_TYPE
+ALTERNATION GROUP: +NUMERIC_TYPE
 --
 ERROR: No matching signature for operator *
   Argument types: INT32, BIGNUMERIC
@@ -1785,7 +1786,7 @@ select `uint64` * `int64`
 # NUMERIC_TYPE language feature is turned on then the signature {NUMERIC,
 # NUMERIC} is added to the supported set and that variant of division is
 # selected resulting in the NUMERIC division result type.
-[language_features={{NUMERIC_TYPE|}}]
+[language_features=NONE,{{+NUMERIC_TYPE|}}]
 select `int32` / `int32`,
        `int32` / `int64`,
        `int32` / `uint32`,
@@ -1843,7 +1844,7 @@ select `int32` / `int32`,
        `numeric` / `numeric`
 from SimpleTypes;
 --
-ALTERNATION GROUP: NUMERIC_TYPE
+ALTERNATION GROUP: +NUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -2551,7 +2552,7 @@ QueryStmt
 # BIGNUMERIC_TYPE language feature is turned on then the signature {BIGNUMERIC,
 # BIGNUMERIC} is added to the supported set and that variant of division is
 # selected resulting in the BIGNUMERIC division result type.
-[language_features={{BIGNUMERIC_TYPE,NUMERIC_TYPE|}}]
+[language_features=NONE,{{+BIGNUMERIC_TYPE,+NUMERIC_TYPE|}}]
 select `int32` / `bignumeric`,
        `uint32` / `bignumeric`,
        `int64` / `bignumeric`,
@@ -2570,7 +2571,7 @@ select `int32` / `bignumeric`,
        `bignumeric` / `bignumeric`
 from SimpleTypes;
 --
-ALTERNATION GROUP: BIGNUMERIC_TYPE,NUMERIC_TYPE
+ALTERNATION GROUP: +BIGNUMERIC_TYPE,+NUMERIC_TYPE
 --
 
 QueryStmt
@@ -2794,7 +2795,7 @@ QueryStmt
 
 # The signatures for +, -, * are all the same so we will assume they all behave
 # the same way.
-[language_features={{NUMERIC_TYPE|}}]
+[language_features=NONE,{{+NUMERIC_TYPE|}}]
 select int32 + 1, int64 + 1, uint32 + 1, uint64 + 1, float + 1, double + 1,
        numeric + 1,
        '---------------------------------' as separator,
@@ -2808,7 +2809,7 @@ select int32 + 1, int64 + 1, uint32 + 1, uint64 + 1, float + 1, double + 1,
        1.0 + double, 1.0 + numeric
 from SimpleTypes;
 --
-ALTERNATION GROUP: NUMERIC_TYPE
+ALTERNATION GROUP: +NUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -2995,7 +2996,7 @@ ERROR: No matching signature for operator +
        ^
 ==
 
-[language_features={{BIGNUMERIC_TYPE|}}]
+[language_features=NONE,{{+BIGNUMERIC_TYPE|}}]
 select bignumeric + 1,
        '---------------------------------' as separator,
        1 + bignumeric,
@@ -3005,7 +3006,7 @@ select bignumeric + 1,
        1.0 + bignumeric
 from SimpleTypes;
 --
-ALTERNATION GROUP: BIGNUMERIC_TYPE
+ALTERNATION GROUP: +BIGNUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -3056,7 +3057,7 @@ select bignumeric + 1,
        ^
 ==
 
-[language_features={{NUMERIC_TYPE|}}]
+[language_features=NONE,{{+NUMERIC_TYPE|}}]
 select int32 / 1, int64 / 1, uint32 / 1, uint64 / 1, float / 1, double / 1,
        numeric / 1,
        '---------------------------------' as separator,
@@ -3070,7 +3071,7 @@ select int32 / 1, int64 / 1, uint32 / 1, uint64 / 1, float / 1, double / 1,
        1.0 / double, 1.0 / numeric
 from SimpleTypes;
 --
-ALTERNATION GROUP: NUMERIC_TYPE
+ALTERNATION GROUP: +NUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -3429,7 +3430,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, float#8, double#9, numeric#16], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 7, 8, 15])
 ==
 
-[language_features={{BIGNUMERIC_TYPE|}}]
+[language_features=NONE,{{+BIGNUMERIC_TYPE|}}]
 select bignumeric / 1,
        '---------------------------------' as separator,
        1 / bignumeric,
@@ -3439,7 +3440,7 @@ select bignumeric / 1,
        1.0 / bignumeric
 from SimpleTypes;
 --
-ALTERNATION GROUP: BIGNUMERIC_TYPE
+ALTERNATION GROUP: +BIGNUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -3557,7 +3558,7 @@ select double + NULL from SimpleTypes;
                 ^
 ==
 
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 select numeric + NULL from SimpleTypes;
 --
 ERROR: Operands of + cannot be literal NULL [at 1:18]
@@ -3565,7 +3566,7 @@ select numeric + NULL from SimpleTypes;
                  ^
 ==
 
-[language_features=BIGNUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE]
 select bignumeric + NULL from SimpleTypes;
 --
 ERROR: Operands of + cannot be literal NULL [at 1:21]
@@ -3612,7 +3613,7 @@ select NULL = double from SimpleTypes;
        ^
 ==
 
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 select NULL = numeric from SimpleTypes;
 --
 ERROR: Operands of = cannot be literal NULL [at 1:8]
@@ -3620,7 +3621,7 @@ select NULL = numeric from SimpleTypes;
        ^
 ==
 
-[language_features=BIGNUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE]
 select NULL = bignumeric from SimpleTypes;
 --
 ERROR: Operands of = cannot be literal NULL [at 1:8]
@@ -4045,12 +4046,12 @@ QueryStmt
 ==
 
 # Tests numeric column plus INT64/UINT64 literal.
-[language_features={{NUMERIC_TYPE|}}]
+[language_features=NONE,{{+NUMERIC_TYPE|}}]
 select numeric + 2000000000000,
        numeric + 10000000000000000000
 from SimpleTypes;
 --
-ALTERNATION GROUP: NUMERIC_TYPE
+ALTERNATION GROUP: +NUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -4086,12 +4087,12 @@ select numeric + 2000000000000,
 ==
 
 # Tests bignumeric column plus INT64/UINT64 literal.
-[language_features={{BIGNUMERIC_TYPE|}}]
+[language_features=NONE,{{+BIGNUMERIC_TYPE|}}]
 select bignumeric + 2000000000000,
        bignumeric + 10000000000000000000
 from SimpleTypes;
 --
-ALTERNATION GROUP: BIGNUMERIC_TYPE
+ALTERNATION GROUP: +BIGNUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -4302,7 +4303,7 @@ QueryStmt
 ==
 
 # Tests integer columns with double literals.
-[language_features={{NUMERIC_TYPE,BIGNUMERIC_TYPE|}}]
+[language_features=NONE,{{+NUMERIC_TYPE,+BIGNUMERIC_TYPE|}}]
 select int32 + 1.0,
        int64 + 1.0,
        uint32 + 1.0,
@@ -4311,7 +4312,7 @@ select int32 + 1.0,
        bignumeric + 1.0
 from SimpleTypes;
 --
-ALTERNATION GROUP: NUMERIC_TYPE,BIGNUMERIC_TYPE
+ALTERNATION GROUP: +NUMERIC_TYPE,+BIGNUMERIC_TYPE
 
 --
 QueryStmt
@@ -4406,13 +4407,13 @@ QueryStmt
 ==
 
 # Tests literal division
-[language_features={{NUMERIC_TYPE|}}]
+[language_features=NONE,{{+NUMERIC_TYPE|}}]
 select 1 / 2, 1.0 / 2, 1 / 2.0, 1.0 / 2.0,
        numeric '1' / 2, numeric '1' / 2.1,
        1 / numeric '2', 1.1 / numeric '2.1'
 from SimpleTypes;
 --
-ALTERNATION GROUP: NUMERIC_TYPE
+ALTERNATION GROUP: +NUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -4470,12 +4471,12 @@ ERROR: NUMERIC literals are not supported [at 2:8]
        ^
 ==
 
-[language_features={{BIGNUMERIC_TYPE|}}]
+[language_features=NONE,{{+BIGNUMERIC_TYPE|}}]
 select bignumeric '1' / 2, bignumeric '1' / 2.1,
        1 / bignumeric '2', 1.1 / bignumeric '2.1'
 from SimpleTypes;
 --
-ALTERNATION GROUP: BIGNUMERIC_TYPE
+ALTERNATION GROUP: +BIGNUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=

@@ -297,7 +297,7 @@ FROM
 ==
 
 # Test LATERAL with the successive ON rewrite, with CROSS in the middle.
-[language_features=ALLOW_CONSECUTIVE_ON]
+[language_features=NONE,+ALLOW_CONSECUTIVE_ON]
 SELECT *
 FROM t
        LEFT OUTER JOIN LATERAL tvf1(t.k) AS x

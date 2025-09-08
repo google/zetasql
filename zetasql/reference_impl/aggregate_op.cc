@@ -22,7 +22,6 @@
 #include <iterator>
 #include <memory>
 #include <optional>
-#include <queue>
 #include <string>
 #include <utility>
 #include <vector>
@@ -43,7 +42,6 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_collation.h"
 #include "absl/cleanup/cleanup.h"
-#include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
@@ -2549,11 +2547,22 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> GrainLockingOp::CreateIterator(
     // Should be only one slot for the measure variable.
     ZETASQL_RET_CHECK_EQ(next_input->num_slots(), 1);
     const Value& measure_value = next_input->slot(0).value();
-    // Measure value is NULL. This can only happen if the measure propagated
-    // past an OUTER JOIN, which is currently blocked on implementation support
-    // for aggregate filtering. Once aggregate filtering is supported, we can
-    // remove this restriction and just skip NULL measure values.
-    ZETASQL_RET_CHECK(!measure_value.is_null());
+    // Measure value is NULL. This can only happen in 2 cases:
+    //
+    // 1. If the measure propagated past an OUTER JOIN. This case is currently
+    //    blocked on implementation support for aggregate filtering. For this
+    //    case, we simply skip the NULL measure value.
+    //
+    // 2. If the measure value is produced by scanning an empty relation (e.g.
+    //    via LIMIT 0 or a WHERE condition that discards all rows).
+    //
+    // Either way, we simply skip the NULL measure value. Note that skipping
+    // NULL measure values does not affect correctness of the underlying
+    // aggregate functions invoked by the measure (i.e. It is still correct to
+    // skip NULL measure values for measures like "ARRAY_AGG(X RESPECT NULLS)".
+    if (measure_value.is_null()) {
+      continue;
+    }
 
     // Create a TupleData for the grain locking keys.
     ZETASQL_ASSIGN_OR_RETURN(
@@ -2650,25 +2659,42 @@ RelationalOp* GraphPathSearchOp::mutable_input() {
 
 namespace {
 
+// Count all edges (1 per singleton, and n per group variable) in the path.
 absl::StatusOr<int> GetPathLength(const TupleData* path) {
   int len = 0;
   for (const TupleSlot& element_or_group_var : path->slots()) {
-    if (element_or_group_var.value().type_kind() == TYPE_GRAPH_PATH) {
-      continue;
-    }
     if (element_or_group_var.value().type_kind() == TYPE_GRAPH_ELEMENT) {
       len += element_or_group_var.value().IsEdge() ? 1 : 0;
       continue;
     }
-    ZETASQL_RET_CHECK(element_or_group_var.value().type_kind() == TYPE_ARRAY);
-    const Type* element_type =
-        element_or_group_var.value().type()->AsArray()->element_type();
-    ZETASQL_RET_CHECK(element_type->IsGraphElement());
-    len += element_type->AsGraphElement()->IsNode()
-               ? 0
-               : element_or_group_var.value().num_elements();
+    if (element_or_group_var.value().type_kind() == TYPE_ARRAY) {
+      const Type* element_type =
+          element_or_group_var.value().type()->AsArray()->element_type();
+      ZETASQL_RET_CHECK(element_type->IsGraphElement());
+      len += element_type->AsGraphElement()->IsNode()
+                 ? 0
+                 : element_or_group_var.value().num_elements();
+      continue;
+    }
+    // The slot type should be GRAPH_ELEMENT (for a singleton) or ARRAY
+    // (for a group variable).
+    // Otherwise, the slot must be a cost slot or a path variable slot.
+    ZETASQL_RET_CHECK(element_or_group_var.value().type()->IsNumerical() ||
+              element_or_group_var.value().type_kind() == TYPE_GRAPH_PATH)
+        << element_or_group_var.value().type()->DebugString();
   }
   return len;
+}
+
+absl::StatusOr<Value> GetPathCost(const TupleData* path) {
+  std::vector<Value> cost_values;
+  for (const TupleSlot& slot : path->slots()) {
+    if (slot.value().type()->IsNumerical()) {
+      cost_values.push_back(slot.value());
+    }
+  }
+  ZETASQL_RET_CHECK_EQ(cost_values.size(), 1) << "Expected single value for path cost";
+  return cost_values[0];
 }
 
 int GetTailSlotIndex(const TupleData* path) {
@@ -2751,7 +2777,13 @@ GraphPathSearchOp::CreateIterator(absl::Span<const TupleData* const> params,
       ZETASQL_ASSIGN_OR_RETURN(const int path_len, GetPathLength(next_input));
       auto copied_path = std::make_unique<TupleData>(next_input->slots());
       std::vector<PathWithCost> all_paths;
-      PathWithCost path_with_cost = {.cost = Value::Int64(path_len),
+      Value path_weight;
+      if (IsCheapestPathSearch()) {
+        ZETASQL_ASSIGN_OR_RETURN(path_weight, GetPathCost(next_input));
+      } else {
+        path_weight = Value::Int64(path_len);
+      }
+      PathWithCost path_with_cost = {.cost = std::move(path_weight),
                                      .path = std::move(copied_path)};
       all_paths.push_back(std::move(path_with_cost));
       group_key_to_selected_path.emplace(TupleDataPtr(group_key.get()),
@@ -2843,6 +2875,48 @@ bool GraphShortestPathSearchOp::IsOutputDeterministic(
 std::string GraphShortestPathSearchOp::DebugInternal(const std::string& indent,
                                                      bool verbose) const {
   return DebugInternalHelper("GraphShortestPathSearchOp", indent, verbose);
+}
+
+absl::StatusOr<std::unique_ptr<GraphPathSearchOp>>
+GraphCheapestPathSearchOp::Create(std::unique_ptr<RelationalOp> path_op,
+                                  std::unique_ptr<ValueExpr> path_count) {
+  if (path_count != nullptr) {
+    ZETASQL_RET_CHECK(path_count->output_type()->IsInt64());
+  }
+  return absl::WrapUnique(
+      new GraphCheapestPathSearchOp(std::move(path_op), std::move(path_count)));
+}
+
+absl::Status GraphCheapestPathSearchOp::AddPathWithCost(
+    std::vector<PathWithCost>& all_paths, const TupleData* next_input,
+    EvaluationContext* context, int64_t max_path_count) const {
+  ZETASQL_ASSIGN_OR_RETURN(Value next_input_cost, GetPathCost(next_input));
+  auto copied_path = std::make_unique<TupleData>(next_input->slots());
+  all_paths.emplace_back(PathWithCost{.cost = std::move(next_input_cost),
+                                      .path = std::move(copied_path)});
+  return absl::OkStatus();
+}
+
+absl::Status GraphCheapestPathSearchOp::MaybeSortPaths(
+    std::vector<PathWithCost>& all_paths) const {
+  // Sort the paths in ascending order of cost.
+  std::stable_sort(all_paths.begin(), all_paths.end());
+  return absl::OkStatus();
+}
+
+bool GraphCheapestPathSearchOp::IsOutputDeterministic(
+    std::vector<PathWithCost>& paths, int64_t path_count) const {
+  if (paths.size() <= path_count) {
+    return true;
+  }
+  // CHEAPEST k is non-deterministic if the kth cheapest path could be replaced
+  // by the (k+1)th cheapest path.
+  return !paths[path_count - 1].cost.Equals(paths[path_count].cost);
+}
+
+std::string GraphCheapestPathSearchOp::DebugInternal(const std::string& indent,
+                                                     bool verbose) const {
+  return DebugInternalHelper("GraphCheapestPathSearchOp", indent, verbose);
 }
 
 absl::StatusOr<std::unique_ptr<GraphPathSearchOp>> GraphAnyPathSearchOp::Create(

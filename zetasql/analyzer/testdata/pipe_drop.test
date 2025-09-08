@@ -1,4 +1,4 @@
-[default language_features=PIPES,PIPE_STATIC_DESCRIBE]
+[default language_features=MAXIMUM,+PIPES,+PIPE_STATIC_DESCRIBE]
 from KeyValue
 |> STATIC_DESCRIBE
 |> drop keY

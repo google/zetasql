@@ -21,7 +21,9 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <utility>
 
+#include "zetasql/public/constant_evaluator.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/functions/differential_privacy.pb.h"
 #include "zetasql/public/type.h"
@@ -179,10 +181,12 @@ class FunctionEpsilonAssignerImpl : public FunctionEpsilonAssigner {
  public:
   explicit FunctionEpsilonAssignerImpl(
       double split_remainder_epsilon, double total_epsilon,
-      std::optional<double> group_selection_epsilon)
+      std::optional<double> group_selection_epsilon,
+      std::unique_ptr<ConstantEvaluator> evaluator)
       : split_remainder_epsilon_(split_remainder_epsilon),
         total_epsilon_(total_epsilon),
-        group_selection_epsilon_(group_selection_epsilon) {}
+        group_selection_epsilon_(group_selection_epsilon),
+        evaluator_(std::move(evaluator)) {}
 
   absl::StatusOr<double> GetEpsilonForFunction(
       const ResolvedFunctionCallBase* function_call) override {
@@ -190,13 +194,13 @@ class FunctionEpsilonAssignerImpl : public FunctionEpsilonAssigner {
     if (epsilon_expr == nullptr) {
       return split_remainder_epsilon_;
     }
-    ZETASQL_RET_CHECK_EQ(epsilon_expr->node_kind(), RESOLVED_LITERAL);
-    const ResolvedLiteral* epsilon_literal =
-        epsilon_expr->GetAs<ResolvedLiteral>();
-    if (epsilon_literal->value().is_null()) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        Value epsilon_value, evaluator_->Evaluate(*epsilon_expr),
+        _.SetPrepend()
+            << "Error evaluating `epsilon` named-argument expression: ");
+    if (epsilon_value.is_null()) {
       return split_remainder_epsilon_;
     }
-    const Value& epsilon_value = epsilon_literal->value();
     ZETASQL_RET_CHECK(epsilon_value.type()->IsDouble());
     return epsilon_value.double_value();
   }
@@ -223,10 +227,16 @@ class FunctionEpsilonAssignerImpl : public FunctionEpsilonAssigner {
   // The epsilon for group selection.  In case this is a nullopt, no group
   // selection is used in this query.
   const std::optional<double> group_selection_epsilon_;
+
+  // The evaluator for evaluating non-literals that are constant expressions.
+  std::unique_ptr<ConstantEvaluator> evaluator_;
 };
 
 class EpsilonParameterCollectingVisitor : public ResolvedASTVisitor {
  public:
+  explicit EpsilonParameterCollectingVisitor(ConstantEvaluator* evaluator)
+      : evaluator_(evaluator) {}
+
   absl::Status VisitResolvedAggregateFunctionCall(
       const ResolvedAggregateFunctionCall* node) override {
     ZETASQL_RET_CHECK(!epsilon_parameter_.has_value());
@@ -241,9 +251,11 @@ class EpsilonParameterCollectingVisitor : public ResolvedASTVisitor {
       // Epsilon not set.
       return absl::OkStatus();
     }
-    ZETASQL_RET_CHECK_EQ(epsilon_expr->node_kind(), RESOLVED_LITERAL);
-    const Value& epsilon_value =
-        epsilon_expr->GetAs<ResolvedLiteral>()->value();
+    // epsilon named argument
+    ZETASQL_ASSIGN_OR_RETURN(
+        Value epsilon_value, evaluator_->Evaluate(*epsilon_expr),
+        _.SetPrepend()
+            << "Error evaluating `epsilon` named-argument expression: ");
     if (!epsilon_value.is_null()) {
       ZETASQL_RET_CHECK(epsilon_value.type()->IsDouble());
       epsilon_parameter_ = epsilon_value.double_value();
@@ -263,9 +275,10 @@ class EpsilonParameterCollectingVisitor : public ResolvedASTVisitor {
 
  private:
   std::optional<double> epsilon_parameter_;
+  ConstantEvaluator* evaluator_;  // not owned
 };
 
-const ResolvedExpr* GetValueOfOptionOrNull(
+const ResolvedExpr* GetExprOfOptionOrNull(
     absl::Span<const std::unique_ptr<const ResolvedOption>> option_list,
     absl::string_view option_name) {
   for (const std::unique_ptr<const ResolvedOption>& option : option_list) {
@@ -278,32 +291,35 @@ const ResolvedExpr* GetValueOfOptionOrNull(
 
 absl::StatusOr<std::optional<double>> GetDoubleValuedOptionIfPresent(
     const ResolvedDifferentialPrivacyAggregateScan* scan,
-    absl::string_view option_name) {
+    absl::string_view option_name, ConstantEvaluator* evaluator) {
   const ResolvedExpr* expr =
-      GetValueOfOptionOrNull(scan->option_list(), option_name);
+      GetExprOfOptionOrNull(scan->option_list(), option_name);
   if (expr == nullptr) {
     return std::nullopt;
   }
-  ZETASQL_RET_CHECK_EQ(expr->node_kind(), RESOLVED_LITERAL);
-  ZETASQL_RET_CHECK(expr->type()->IsDouble());
-  const ResolvedLiteral* literal = expr->GetAs<ResolvedLiteral>();
-  if (literal->value().is_null()) {
+  ZETASQL_ASSIGN_OR_RETURN(Value value, evaluator->Evaluate(*expr),
+                   _.SetPrepend()
+                       << "Error evaluating DP OPTION " << option_name << ": ");
+  if (value.is_null()) {
     return std::nullopt;
   }
-  return literal->value().double_value();
+  ZETASQL_RET_CHECK(expr->type()->IsDouble());
+  return value.double_value();
 }
 
 absl::StatusOr<bool> HasNonNullMinPrivacyUnitsPerGroupOption(
-    const ResolvedDifferentialPrivacyAggregateScan* scan) {
-  const ResolvedExpr* min_privacy_units_per_group = GetValueOfOptionOrNull(
+    const ResolvedDifferentialPrivacyAggregateScan* scan,
+    ConstantEvaluator* evaluator) {
+  const ResolvedExpr* min_privacy_units_per_group = GetExprOfOptionOrNull(
       scan->option_list(), kOptionMinPrivacyUnitsPerGroup);
   if (min_privacy_units_per_group == nullptr) {
     return false;
   }
-  ZETASQL_RET_CHECK_EQ(min_privacy_units_per_group->node_kind(), RESOLVED_LITERAL);
-  return !min_privacy_units_per_group->GetAs<ResolvedLiteral>()
-              ->value()
-              .is_null();
+  ZETASQL_ASSIGN_OR_RETURN(Value value,
+                   evaluator->Evaluate(*min_privacy_units_per_group),
+                   _.SetPrepend() << "Error evaluating DP OPTION "
+                                  << kOptionMinPrivacyUnitsPerGroup << ": ");
+  return !value.is_null();
 }
 
 absl::Status CheckEpsilonOption(double scan_epsilon,
@@ -343,10 +359,11 @@ class ThresholdExprColumnIdCollector : public ResolvedASTVisitor {
 // returns a NullDouble, no epsilon has been set for the group selection, and
 // even budget splitting should be used.
 absl::StatusOr<std::optional<Value>> ExtractGroupSelectionEpsilon(
-    const ResolvedDifferentialPrivacyAggregateScan* scan) {
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::optional<double> options_group_selection_epsilon,
-      GetDoubleValuedOptionIfPresent(scan, kOptionGroupSelectionEpsilon));
+    const ResolvedDifferentialPrivacyAggregateScan* scan,
+    ConstantEvaluator* evaluator) {
+  ZETASQL_ASSIGN_OR_RETURN(std::optional<double> options_group_selection_epsilon,
+                   GetDoubleValuedOptionIfPresent(
+                       scan, kOptionGroupSelectionEpsilon, evaluator));
   if (options_group_selection_epsilon.has_value()) {
     return Value::Double(options_group_selection_epsilon.value());
   }
@@ -358,7 +375,7 @@ absl::StatusOr<std::optional<Value>> ExtractGroupSelectionEpsilon(
   // referring to the group selection aggregation.
   if (scan->group_selection_threshold_expr() == nullptr) {
     // No threshold set, we must use public groups.
-    const ResolvedExpr* group_selection_strategy = GetValueOfOptionOrNull(
+    const ResolvedExpr* group_selection_strategy = GetExprOfOptionOrNull(
         scan->option_list(), kOptionGroupSelectionStrategy);
     ZETASQL_RET_CHECK(group_selection_strategy != nullptr);
     ZETASQL_RET_CHECK_EQ(group_selection_strategy->GetAs<ResolvedLiteral>()
@@ -402,15 +419,21 @@ absl::StatusOr<std::optional<Value>> ExtractGroupSelectionEpsilon(
     // per-aggregation epsilon feature is unset.
     return Value::NullDouble();
   }
-  ZETASQL_RET_CHECK_EQ(group_selection_epsilon_expr->node_kind(), RESOLVED_LITERAL);
-  return group_selection_epsilon_expr->GetAs<ResolvedLiteral>()->value();
+  ZETASQL_ASSIGN_OR_RETURN(
+      Value value, evaluator->Evaluate(*group_selection_epsilon_expr),
+      _.SetPrepend() << "Error evaluating epsilon for group selection: ");
+  return value;
 }
 
 }  // namespace
 
 absl::StatusOr<std::unique_ptr<FunctionEpsilonAssigner>>
 FunctionEpsilonAssigner::CreateFromScan(
-    const ResolvedDifferentialPrivacyAggregateScan* scan) {
+    const ResolvedDifferentialPrivacyAggregateScan* scan,
+    std::unique_ptr<ConstantEvaluator> evaluator) {
+  ZETASQL_RET_CHECK(evaluator != nullptr);
+  ZETASQL_RET_CHECK(scan != nullptr);
+
   double parameter_epsilon_sum = 0;
   int num_functions_even_splitting = scan->aggregate_list_size();
   bool has_any_function_with_epsilon_parameter = false;
@@ -419,15 +442,16 @@ FunctionEpsilonAssigner::CreateFromScan(
   // a column to the aggregate list counting the exact number of distinct users
   // per group/partition. Thus, in that case, the `aggregate_list` contains
   // an additional item without a parameter named `epsilon`.
-  ZETASQL_ASSIGN_OR_RETURN(bool has_non_null_min_privacy_units_per_group_option,
-                   HasNonNullMinPrivacyUnitsPerGroupOption(scan));
+  ZETASQL_ASSIGN_OR_RETURN(
+      bool has_non_null_min_privacy_units_per_group_option,
+      HasNonNullMinPrivacyUnitsPerGroupOption(scan, evaluator.get()));
   if (has_non_null_min_privacy_units_per_group_option) {
     --num_functions_even_splitting;
   }
 
   for (const std::unique_ptr<const ResolvedComputedColumnBase>& aggregate :
        scan->aggregate_list()) {
-    EpsilonParameterCollectingVisitor visitor;
+    EpsilonParameterCollectingVisitor visitor(evaluator.get());
     ZETASQL_RET_CHECK_OK(aggregate->Accept(&visitor));
     std::optional<double> epsilon_parameter =
         visitor.GetEpsilonParameterIfPresent();
@@ -439,7 +463,8 @@ FunctionEpsilonAssigner::CreateFromScan(
   }
 
   ZETASQL_ASSIGN_OR_RETURN(std::optional<double> scan_epsilon,
-                   GetDoubleValuedOptionIfPresent(scan, kArgumentNameEpsilon));
+                   GetDoubleValuedOptionIfPresent(scan, kArgumentNameEpsilon,
+                                                  evaluator.get()));
   if (scan_epsilon.has_value()) {
     ZETASQL_RETURN_IF_ERROR(
         CheckEpsilonOption(scan_epsilon.value(), parameter_epsilon_sum));
@@ -459,7 +484,7 @@ FunctionEpsilonAssigner::CreateFromScan(
       const double split_remainder_epsilon =
           remaining_epsilon / num_functions_even_splitting;
       ZETASQL_ASSIGN_OR_RETURN(std::optional<Value> group_selection_epsilon_value,
-                       ExtractGroupSelectionEpsilon(scan));
+                       ExtractGroupSelectionEpsilon(scan, evaluator.get()));
       std::optional<double> group_selection_epsilon;
       if (group_selection_epsilon_value.has_value()) {
         if (group_selection_epsilon_value.value().is_null()) {
@@ -471,7 +496,7 @@ FunctionEpsilonAssigner::CreateFromScan(
       }
       return std::make_unique<FunctionEpsilonAssignerImpl>(
           split_remainder_epsilon, scan_epsilon.value(),
-          group_selection_epsilon);
+          group_selection_epsilon, std::move(evaluator));
     }
   }
 
@@ -479,7 +504,7 @@ FunctionEpsilonAssigner::CreateFromScan(
     // All aggregates have an epsilon parameter.  Epsilon in the OPTIONS is
     // optional in this case.
     ZETASQL_ASSIGN_OR_RETURN(std::optional<Value> group_selection_epsilon_value,
-                     ExtractGroupSelectionEpsilon(scan));
+                     ExtractGroupSelectionEpsilon(scan, evaluator.get()));
     std::optional<double> group_selection_epsilon;
     if (group_selection_epsilon_value.has_value()) {
       ZETASQL_RET_CHECK(!group_selection_epsilon_value.value().is_null());
@@ -487,19 +512,35 @@ FunctionEpsilonAssigner::CreateFromScan(
           group_selection_epsilon_value.value().double_value();
     }
     return std::make_unique<FunctionEpsilonAssignerImpl>(
-        0, parameter_epsilon_sum, group_selection_epsilon);
+        0, parameter_epsilon_sum, group_selection_epsilon,
+        std::move(evaluator));
   }
 
   ZETASQL_RET_CHECK(!scan_epsilon.has_value());
   if (has_any_function_with_epsilon_parameter) {
     return absl::OutOfRangeError(
         "Differential privacy option EPSILON must be set and non-NULL if some "
-        "aggregate functions have no EPSILON argument");
+        "aggregate functions have no EPSILON argument, or, if group selection "
+        "is required, the option GROUP_SELECTION_EPSILON is unset or NULL");
   } else {
     // Backwards compatible error message.
     return absl::InvalidArgumentError(
         "Differential privacy option EPSILON must be set and non-NULL");
   }
+}
+
+absl::StatusOr<std::unique_ptr<FunctionEpsilonAssigner>>
+FunctionEpsilonAssigner::CreateFromScan(
+    const ResolvedDifferentialPrivacyAggregateScan* scan) {
+  class LiteralOnlyEvaluator : public ConstantEvaluator {
+   public:
+    absl::StatusOr<Value> Evaluate(const ResolvedExpr& expr) override {
+      ZETASQL_RET_CHECK_EQ(expr.node_kind(), RESOLVED_LITERAL) << expr.DebugString();
+      return expr.GetAs<ResolvedLiteral>()->value();
+    }
+  };
+  return FunctionEpsilonAssigner::CreateFromScan(
+      scan, std::make_unique<LiteralOnlyEvaluator>());
 }
 
 }  // namespace anonymization

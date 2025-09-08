@@ -1,3 +1,4 @@
+[default language_features=NONE]
 [default show_sqlbuilder_output]
 
 # Ensure the resolver checks for the language option.
@@ -21,7 +22,7 @@ ERROR: LATERAL join is not supported [at 3:13]
             ^
 ==
 
-[language_features=SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH]
 SELECT *
   FROM KeyValue AS t1
   LEFT JOIN LATERAL GRAPH_TABLE(aml MATCH (n) RETURN n.name) AS g TABLESAMPLE bernoulli (10 percent)
@@ -32,7 +33,7 @@ ERROR: Syntax error: Unexpected keyword GRAPH_TABLE [at 3:21]
                     ^
 ==
 
-[default language_features=LATERAL_JOIN,TABLE_VALUED_FUNCTIONS,TABLESAMPLE,TABLESAMPLE_FROM_TABLE_VALUED_FUNCTIONS,MATCH_RECOGNIZE,SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+LATERAL_JOIN,+TABLE_VALUED_FUNCTIONS,+TABLESAMPLE,+TABLESAMPLE_FROM_TABLE_VALUED_FUNCTIONS,+MATCH_RECOGNIZE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 # LATERAL on the leftmost item is accepted in the parser and caught as a resolver error.
 SELECT * FROM LATERAL (select * from KeyValue) AS t1 JOIN KeyValue AS t2 USING (key)

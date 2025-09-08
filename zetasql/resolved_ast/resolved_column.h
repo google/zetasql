@@ -116,8 +116,8 @@ class ResolvedColumn {
   // <table_name> and <name> are for display only, have no defined meaning and
   // are required to be non-empty.  Semantic behavior must never be defined
   // using these names.
-  const std::string table_name() const { return table_name_.ToString(); }
-  const std::string name() const { return name_.ToString(); }
+  std::string table_name() const { return table_name_.ToString(); }
+  std::string name() const { return name_.ToString(); }
   IdString table_name_id() const { return table_name_; }
   IdString name_id() const { return name_; }
 

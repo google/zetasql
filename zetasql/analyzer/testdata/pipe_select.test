@@ -1,4 +1,4 @@
-[default language_features=PIPES,ANALYTIC_FUNCTIONS,SELECT_STAR_EXCEPT_REPLACE]
+[default language_features=MAXIMUM,+PIPES,+ANALYTIC_FUNCTIONS,+SELECT_STAR_EXCEPT_REPLACE]
 select 1 x, 2 y
 |> select *, x+y as z
 |> select x, z
@@ -46,7 +46,7 @@ ERROR: Aggregate function COUNT(*) not allowed in pipe SELECT [at 2:15]
               ^
 ==
 
-[language_features=PIPES]
+[language_features=NONE,+PIPES]
 select 1 x
 |> select sum(x) OVER ()
 --
@@ -682,7 +682,7 @@ QueryStmt
 
 # This shows a pipe SELECT with an inferred table type passed in (for a
 # braced proto constructor).
-[language_features=PIPES,BRACED_PROTO_CONSTRUCTORS]
+[language_features=NONE,+PIPES,+BRACED_PROTO_CONSTRUCTORS]
 SELECT NEW zetasql_test__.KitchenSinkPB {
   int64_key_1: 1
   int64_key_2: 2
@@ -736,7 +736,7 @@ ERROR: Protocol buffer zetasql_test__.KitchenSinkPB.Nested does not have a field
 
 # This shows type inferrence is not currently passed through pipe WHERE
 # to pipe SELECT.
-[language_features=PIPES,BRACED_PROTO_CONSTRUCTORS]
+[language_features=NONE,+PIPES,+BRACED_PROTO_CONSTRUCTORS]
 SELECT NEW zetasql_test__.KitchenSinkPB {
   int64_key_1: 1
   int64_key_2: 2
@@ -798,12 +798,12 @@ FROM KeyValue
 --
 QueryStmt
 +-output_column_list=
-| +-$pipe_select.$field1#5 AS `$field1` [INT64]
+| +-$pipe_select.$field1#6 AS `$field1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$pipe_select.$field1#5]
+    +-column_list=[$pipe_select.$field1#6]
     +-expr_list=
-    | +-$field1#5 :=
+    | +-$field1#6 :=
     |   +-GetStructField
     |     +-type=INT64
     |     +-expr=
@@ -811,22 +811,22 @@ QueryStmt
     |     +-field_idx=0
     +-input_scan=
       +-ProjectScan
-        +-column_list=[$analytic.$analytic1#6, $preproject.$struct#4]
+        +-column_list=[$analytic.$analytic1#5, $preproject.$struct#4]
         +-expr_list=
         | +-$struct#4 :=
         |   +-MakeStruct
         |     +-type=STRUCT<INT64>
         |     +-field_list=
-        |       +-ColumnRef(type=INT64, column=$analytic.$analytic1#6)
+        |       +-ColumnRef(type=INT64, column=$analytic.$analytic1#5)
         +-input_scan=
           +-AnalyticScan
-            +-column_list=[$analytic.$analytic1#6]
+            +-column_list=[$analytic.$analytic1#5]
             +-input_scan=
             | +-TableScan(table=KeyValue)
             +-function_group_list=
               +-AnalyticFunctionGroup
                 +-analytic_function_list=
-                  +-$analytic1#6 :=
+                  +-$analytic1#5 :=
                     +-AnalyticFunctionCall(ZetaSQL:$count_star() -> INT64)
                       +-window_frame=
                         +-WindowFrame(frame_unit=ROWS)

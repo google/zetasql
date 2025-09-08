@@ -1,3 +1,4 @@
+[default language_features=NONE]
 select key from KeyValue TABLESAMPLE SYSTEM (1 ROWS)
 --
 ERROR: TABLESAMPLE not supported [at 1:26]
@@ -5,7 +6,7 @@ select key from KeyValue TABLESAMPLE SYSTEM (1 ROWS)
                          ^
 ==
 
-[default language_features=TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE]
+[default language_features=NONE,+TABLESAMPLE,+STRATIFIED_RESERVOIR_TABLESAMPLE]
 select key
 from KeyValue RESERVOIR TABLESAMPLE RESERVOIR (100 ROWS) REPEATABLE(10)
 --
@@ -803,7 +804,7 @@ QueryStmt
 ==
 
 # Stratified TableSample disabled.
-[language_features=TABLESAMPLE]
+[language_features=NONE,+TABLESAMPLE]
 select * from KeyValue TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY key)
 --
 ERROR: TABLESAMPLE does not support the PARTITION BY clause [at 1:56]

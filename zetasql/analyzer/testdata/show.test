@@ -1,3 +1,4 @@
+[default language_features=MAXIMUM]
 show TABLES;
 --
 ShowStmt(identifier="TABLES")

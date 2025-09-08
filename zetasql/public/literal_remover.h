@@ -17,12 +17,13 @@
 #ifndef ZETASQL_PUBLIC_LITERAL_REMOVER_H_
 #define ZETASQL_PUBLIC_LITERAL_REMOVER_H_
 
+#include <functional>
+#include <optional>
 #include <string>
 
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/container/node_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 
@@ -35,6 +36,12 @@ using GeneratedParameterMap = absl::flat_hash_map<std::string, Value>;
 using IgnoredOptionNames =
     absl::flat_hash_set<std::string, zetasql_base::StringViewCaseHash,
                         zetasql_base::StringViewCaseEqual>;
+// A callback function that can be provided to override parameter name
+// generation for a given literal. If the function returns a string, that name
+// will be used for the parameter. If it returns std::nullopt, the default
+// parameter name generation logic will be used instead.
+using ParameterNameOverrideCallback =
+    std::function<std::optional<std::string>(const ResolvedLiteral* literal)>;
 
 struct LiteralReplacementOptions {
   // Set of option names to ignore in literal replacements.
@@ -42,6 +49,10 @@ struct LiteralReplacementOptions {
 
   // Scrub literals in the LIMIT, OFFSET clauses.
   bool scrub_limit_offset = true;
+
+  // If non-null, this callback will be invoked for each literal to allow
+  // overriding the default parameter name generation.
+  ParameterNameOverrideCallback parameter_name_override_callback = nullptr;
 };
 
 // Replaces literals in <sql> by new query parameters and returns the new query

@@ -1,6 +1,6 @@
 [default enabled_ast_rewrites=DEFAULTS]
 
-[default language_features=INLINE_LAMBDA_ARGUMENT]
+[default language_features=NONE,+INLINE_LAMBDA_ARGUMENT]
 SELECT ARRAY_TRANSFORM([1,2,3], e -> e>0);
 --
 QueryStmt

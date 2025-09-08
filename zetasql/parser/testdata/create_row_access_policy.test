@@ -95,14 +95,14 @@ CREATE ROW ACCESS POLICY ON n1.t1 GRANT TO ('foo@google.com', 'mdbgroup/bar') FI
 
 create row access policy on n1.t1 grant to ('foo@google.com', 'mdbgroup/bar';
 --
-ERROR: Syntax error: Expected ")" or "," but got ";" [at 1:77]
+ERROR: Syntax error: Expected ")" but got ";" [at 1:77]
 create row access policy on n1.t1 grant to ('foo@google.com', 'mdbgroup/bar';
                                                                             ^
 ==
 
 create row access policy on n1.t1) filter using(true);
 --
-ERROR: Syntax error: Expected keyword USING but got ")" [at 1:34]
+ERROR: Syntax error: Unexpected ")" [at 1:34]
 create row access policy on n1.t1) filter using(true);
                                  ^
 ==
@@ -123,7 +123,7 @@ create row access policy on t1 grant to (foo) filter using(true);
 
 create policy on t1 grant to ('foo@google.com') filter using(true);
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword POLICY [at 1:8]
+ERROR: Syntax error: Unexpected keyword POLICY [at 1:8]
 create policy on t1 grant to ('foo@google.com') filter using(true);
        ^
 ==
@@ -135,32 +135,32 @@ grant to ('foo@google.com') filter using(true);
 --
 ALTERNATION GROUP: temp
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword ROW [at 1:13]
+ERROR: Syntax error: Unexpected keyword ROW [at 1:13]
 create temp row access policy on t1
             ^
 --
 ALTERNATION GROUP: temporary
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword ROW [at 1:18]
+ERROR: Syntax error: Unexpected keyword ROW [at 1:18]
 create temporary row access policy on t1
                  ^
 --
 ALTERNATION GROUP: public
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword ROW [at 1:15]
+ERROR: Syntax error: Unexpected keyword ROW [at 1:15]
 create public row access policy on t1
               ^
 --
 ALTERNATION GROUP: private
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword ROW [at 1:16]
+ERROR: Syntax error: Unexpected keyword ROW [at 1:16]
 create private row access policy on t1
                ^
 ==
 
 create row access policy on t1 @{a=1} grant to ('foo@google.com') filter using(true);
 --
-ERROR: Syntax error: Expected keyword USING but got "@" [at 1:32]
+ERROR: Syntax error: Unexpected "@" [at 1:32]
 create row access policy on t1 @{a=1} grant to ('foo@google.com') filter usin...
                                ^
 ==

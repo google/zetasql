@@ -106,7 +106,7 @@ absl::Status ConvertExprToTargetType(
     TypeFactory* type_factory, AnnotatedType target_type,
     std::unique_ptr<const ResolvedExpr>* resolved_expr) {
   Resolver resolver(catalog, type_factory, &analyzer_options);
-  return ConvertInternalErrorLocationToExternal(
+  return ConvertInternalErrorPayloadsToExternal(
       resolver.CoerceExprToType(&ast_expression, target_type,
                                 Resolver::kImplicitAssignment, resolved_expr),
       sql);

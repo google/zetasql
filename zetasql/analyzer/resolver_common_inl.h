@@ -33,10 +33,14 @@
 
 namespace zetasql {
 
+#ifndef __EMSCRIPTEN__
 #define RETURN_ERROR_IF_OUT_OF_STACK_SPACE()                                   \
   ZETASQL_RETURN_IF_NOT_ENOUGH_STACK(                                        \
       "Out of stack space due to deeply nested query expression during query " \
       "resolution")
+#else
+#define RETURN_ERROR_IF_OUT_OF_STACK_SPACE()
+#endif  // __EMSCRIPTEN__
 
 template <class NODE_TYPE>
 absl::Status Resolver::ResolveHintsForNode(const ASTHint* ast_hints,

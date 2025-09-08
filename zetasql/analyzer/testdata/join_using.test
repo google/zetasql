@@ -1,3 +1,4 @@
+[default language_features=MAXIMUM]
 select *
 from KeyValue kv1 join KeyValue kv2 using (value)
 --
@@ -1045,7 +1046,7 @@ ERROR: Column bad_field in USING clause not found on left side of join [at 3:51]
                                                   ^
 ==
 
-[language_features={{|ARRAY_EQUALITY}}]
+[language_features=NONE,{{|+ARRAY_EQUALITY}}]
 select 1
 from KitchenSinkValueTable k1 JOIN
      KitchenSinkValueTable k2 USING (int64_key_1, repeated_bool_val)
@@ -1056,7 +1057,7 @@ ERROR: Column 'repeated_bool_val' in USING has types that do not support equalit
      KitchenSinkValueTable k2 USING (int64_key_1, repeated_bool_val)
                                                   ^
 --
-ALTERNATION GROUP: ARRAY_EQUALITY
+ALTERNATION GROUP: +ARRAY_EQUALITY
 --
 QueryStmt
 +-output_column_list=
@@ -2630,7 +2631,7 @@ QueryStmt
         +-has_using=TRUE
 ==
 
-[language_features={{|ARRAY_EQUALITY}}]
+[language_features=NONE,{{|+ARRAY_EQUALITY}}]
 select a.key, a.Int32Array, b.Int32Array
 from ComplexTypes a join ComplexTypes b using(Int32Array);
 --
@@ -2640,7 +2641,7 @@ ERROR: Column 'Int32Array' in USING has types that do not support equality compa
 from ComplexTypes a join ComplexTypes b using(Int32Array);
                                               ^
 --
-ALTERNATION GROUP: ARRAY_EQUALITY
+ALTERNATION GROUP: +ARRAY_EQUALITY
 --
 QueryStmt
 +-output_column_list=

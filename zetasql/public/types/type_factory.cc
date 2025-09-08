@@ -39,6 +39,7 @@
 #include "zetasql/public/functions/differential_privacy.pb.h"
 #include "zetasql/public/functions/normalize_mode.pb.h"
 #include "zetasql/public/functions/range_sessionize_mode.pb.h"
+#include "zetasql/public/functions/rank_type.pb.h"
 #include "zetasql/public/functions/rounding_mode.pb.h"
 #include "zetasql/public/functions/unsupported_fields.pb.h"
 #include "zetasql/public/options.pb.h"
@@ -59,6 +60,7 @@
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_deserializer.h"
+#include "zetasql/base/case.h"
 #include "absl/algorithm/container.h"
 #include "absl/base/attributes.h"
 #include "absl/base/nullability.h"
@@ -117,7 +119,6 @@ static const auto* StaticTypeSet() {
       types::StringType(),
       types::BytesType(),
       types::TimestampType(),
-      types::TimestampPicosType(),
       types::DateType(),
       types::DatetimeType(),
       types::TimeType(),
@@ -239,9 +240,6 @@ const Type* TypeFactory::get_float() { return types::FloatType(); }
 const Type* TypeFactory::get_double() { return types::DoubleType(); }
 const Type* TypeFactory::get_date() { return types::DateType(); }
 const Type* TypeFactory::get_timestamp() { return types::TimestampType(); }
-const Type* TypeFactory::get_timestamp_picos() {
-  return types::TimestampPicosType();
-}
 const Type* TypeFactory::get_time() { return types::TimeType(); }
 const Type* TypeFactory::get_datetime() { return types::DatetimeType(); }
 const Type* TypeFactory::get_interval() { return types::IntervalType(); }
@@ -1046,12 +1044,6 @@ static const Type* s_timestamp_type() {
   return s_timestamp_type;
 }
 
-static const Type* s_timestamp_picos_type() {
-  static const Type* s_timestamp_picos_type =
-      new SimpleType(s_type_factory(), TYPE_TIMESTAMP_PICOS);
-  return s_timestamp_picos_type;
-}
-
 static const Type* s_date_type() {
   static const Type* s_date_type = new SimpleType(s_type_factory(), TYPE_DATE);
   return s_date_type;
@@ -1189,24 +1181,6 @@ static const EnumType* GetDifferentialPrivacyGroupSelectionStrategyEnumType() {
   return s_differential_privacy_group_selection_strategy_enum_type;
 }
 
-static absl::StatusOr<const EnumType*>
-GetDifferentialPrivacyCountDistinctContributionBoundingStrategyEnumType() {
-  // Need a pointer, because `StatusOr` is not trivially deconstructible.
-  static const absl::StatusOr<const EnumType*>*
-      s_count_distinct_contribution_bounding_strategy_enum_type =
-          new absl::StatusOr<const EnumType*>(
-              []() -> absl::StatusOr<const EnumType*> {
-                const EnumType* enum_type;
-                ZETASQL_RETURN_IF_ERROR(internal::TypeFactoryHelper::MakeOpaqueEnumType(
-                    s_type_factory(),
-                    functions::DifferentialPrivacyEnums::
-                        CountDistinctContributionBoundingStrategy_descriptor(),
-                    &enum_type, {}));
-                return enum_type;
-              }());
-  return *s_count_distinct_contribution_bounding_strategy_enum_type;
-}
-
 static const EnumType* GetRangeSessionizeModeEnumType() {
   static const EnumType* s_range_sessionize_option_enum_type = [] {
     const EnumType* enum_type;
@@ -1306,12 +1280,6 @@ static const ArrayType* s_timestamp_array_type() {
   return s_timestamp_array_type;
 }
 
-static const ArrayType* s_timestamp_picos_array_type() {
-  static const ArrayType* s_timestamp_picos_array_type =
-      MakeArrayType(s_type_factory()->get_timestamp_picos());
-  return s_timestamp_picos_array_type;
-}
-
 static const ArrayType* s_date_array_type() {
   static const ArrayType* s_date_array_type =
       MakeArrayType(s_type_factory()->get_date());
@@ -1383,6 +1351,40 @@ static const EnumType* GetArrayZipModeEnumType() {
   return s_array_zip_mode_enum_type;
 }
 
+template <typename Enum>
+struct EnumTraits;
+
+template <>
+struct EnumTraits<functions::DifferentialPrivacyEnums::
+                      CountDistinctContributionBoundingStrategy> {
+  static const google::protobuf::EnumDescriptor* descriptor() {
+    return functions::DifferentialPrivacyEnums::
+        CountDistinctContributionBoundingStrategy_descriptor();
+  }
+};
+
+template <>
+struct EnumTraits<functions::RankTypeEnums::RankType> {
+  static const google::protobuf::EnumDescriptor* descriptor() {
+    return functions::RankTypeEnums::RankType_descriptor();
+  }
+};
+
+template <typename Enum>
+absl::StatusOr<const EnumType*> GetEnumType() {
+  // Need a pointer, because `StatusOr` is not trivially deconstructible.
+  static const absl::StatusOr<const EnumType*>* s_enum_type =
+      new absl::StatusOr<const EnumType*>(
+          []() -> absl::StatusOr<const EnumType*> {
+            const EnumType* enum_type;
+            ZETASQL_RETURN_IF_ERROR(internal::TypeFactoryHelper::MakeOpaqueEnumType(
+                s_type_factory(), EnumTraits<Enum>::descriptor(), &enum_type,
+                /*catalog_name_path=*/{}));
+            return enum_type;
+          }());
+  return *s_enum_type;
+}
+
 }  // namespace
 
 namespace types {
@@ -1398,7 +1400,6 @@ const Type* StringType() { return s_string_type(); }
 const Type* BytesType() { return s_bytes_type(); }
 const Type* DateType() { return s_date_type(); }
 const Type* TimestampType() { return s_timestamp_type(); }
-const Type* TimestampPicosType() { return s_timestamp_picos_type(); }
 const Type* TimeType() { return s_time_type(); }
 const Type* DatetimeType() { return s_datetime_type(); }
 const Type* IntervalType() { return s_interval_type(); }
@@ -1418,9 +1419,11 @@ const EnumType* DifferentialPrivacyReportFormatEnumType() {
 const EnumType* DifferentialPrivacyGroupSelectionStrategyEnumType() {
   return GetDifferentialPrivacyGroupSelectionStrategyEnumType();
 }
+
 absl::StatusOr<const EnumType*>
 DifferentialPrivacyCountDistinctContributionBoundingStrategyEnumType() {
-  return GetDifferentialPrivacyCountDistinctContributionBoundingStrategyEnumType();  // NOLINT
+  return GetEnumType<functions::DifferentialPrivacyEnums::
+                         CountDistinctContributionBoundingStrategy>();
 }
 const EnumType* RangeSessionizeModeEnumType() {
   return GetRangeSessionizeModeEnumType();
@@ -1441,9 +1444,7 @@ const ArrayType* StringArrayType() { return s_string_array_type(); }
 const ArrayType* BytesArrayType() { return s_bytes_array_type(); }
 
 const ArrayType* TimestampArrayType() { return s_timestamp_array_type(); }
-const ArrayType* TimestampPicosArrayType() {
-  return s_timestamp_picos_array_type();
-}
+
 const ArrayType* DateArrayType() { return s_date_array_type(); }
 
 const ArrayType* DatetimeArrayType() { return s_datetime_array_type(); }
@@ -1486,8 +1487,6 @@ const Type* TypeFromSimpleTypeKind(TypeKind type_kind) {
       return BytesType();
     case TYPE_TIMESTAMP:
       return TimestampType();
-    case TYPE_TIMESTAMP_PICOS:
-      return TimestampPicosType();
     case TYPE_DATE:
       return DateType();
     case TYPE_TIME:
@@ -1537,8 +1536,7 @@ const ArrayType* ArrayTypeFromSimpleTypeKind(TypeKind type_kind) {
       return BytesArrayType();
     case TYPE_TIMESTAMP:
       return TimestampArrayType();
-    case TYPE_TIMESTAMP_PICOS:
-      return TimestampPicosArrayType();
+
     case TYPE_DATE:
       return DateArrayType();
     case TYPE_TIME:
@@ -1569,6 +1567,40 @@ const ArrayType* ArrayTypeFromSimpleTypeKind(TypeKind type_kind) {
 const EnumType* ArrayZipModeEnumType() { return GetArrayZipModeEnumType(); }
 
 const EnumType* BitwiseAggModeEnumType() { return GetBitwiseAggModeEnumType(); }
+
+absl::StatusOr<const EnumType*> RankTypeEnumType() {
+  return GetEnumType<functions::RankTypeEnums::RankType>();
+}
+
+absl::StatusOr<const EnumType*> GetOpaqueEnumTypeFromSqlName(
+    absl::string_view enum_name) {
+  ZETASQL_ASSIGN_OR_RETURN(
+      const EnumType* count_distinct_contribution_bounding_strategy_enum_type,
+      types::
+          DifferentialPrivacyCountDistinctContributionBoundingStrategyEnumType());  // NOLINT
+  ZETASQL_ASSIGN_OR_RETURN(const EnumType* rank_type_enum_type,
+                   types::RankTypeEnumType());
+
+  static const auto* kStaticEnumMap =
+      new absl::flat_hash_map<absl::string_view, const EnumType*,
+                              zetasql_base::StringViewCaseHash,
+                              zetasql_base::StringViewCaseEqual>{
+          {"DIFFERENTIAL_PRIVACY_REPORT_FORMAT",
+           types::DifferentialPrivacyReportFormatEnumType()},
+          {"DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY",
+           types::DifferentialPrivacyGroupSelectionStrategyEnumType()},
+          {"DIFFERENTIAL_PRIVACY_COUNT_DISTINCT_CONTRIBUTION_BOUNDING_STRATEGY",
+           count_distinct_contribution_bounding_strategy_enum_type},
+          {"ROUNDING_MODE", types::RoundingModeEnumType()},
+          {"ARRAY_FIND_MODE", types::ArrayFindModeEnumType()},
+          {"RANGE_SESSIONIZE_MODE", types::RangeSessionizeModeEnumType()},
+          {"ARRAY_ZIP_MODE", types::ArrayZipModeEnumType()},
+          {"BITWISE_AGG_MODE", types::BitwiseAggModeEnumType()},
+          {"UNSUPPORTED_FIELDS", types::UnsupportedFieldsEnumType()},
+          {"RANK_TYPE", rank_type_enum_type},
+      };
+  return zetasql_base::FindPtrOrNull(*kStaticEnumMap, enum_name);
+}
 
 static const RangeType* MakeRangeType(const Type* element_type) {
   const RangeType* range_type;

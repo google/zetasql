@@ -18,29 +18,36 @@
 #define ZETASQL_TOOLS_EXECUTE_QUERY_SELECTABLE_CATALOG_H_
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/language_options.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
 
+// An interface that accepts a catalog and optionally takes ownership.
+class CatalogAcceptor {
+ public:
+  virtual ~CatalogAcceptor() = default;
+  virtual void Accept(Catalog* catalog) = 0;
+  virtual void Accept(std::unique_ptr<Catalog> catalog) = 0;
+};
+
 // This describes a Catalog that can be selected in execute_query.
 class SelectableCatalog {
  public:
-  // This is a callback that returns a Catalog.
-  // The callback retains ownership of the returned Catalog.
-  using GetCatalogCallback =
-      std::function<absl::StatusOr<Catalog*>(const LanguageOptions&)>;
+  // This is a callback that can accept a Catalog.
+  using CatalogCallback =
+      std::function<absl::Status(const LanguageOptions&, CatalogAcceptor*)>;
 
   SelectableCatalog(const std::string& name, const std::string& description,
-                    GetCatalogCallback callback)
-      : name_(name),
-        description_(description),
-        get_catalog_callback_(callback) {}
+                    CatalogCallback callback)
+      : name_(name), description_(description), catalog_callback_(callback) {}
   virtual ~SelectableCatalog() = default;
 
   SelectableCatalog(const SelectableCatalog&) = delete;
@@ -51,19 +58,17 @@ class SelectableCatalog {
   // This is a description of this catalog.
   virtual absl::string_view description() const { return description_; }
 
-  // This callback returns the actual Catalog object.
-  // It may be lazily created, and then shared across multiple requests.
-  // The caller does not take ownership, so this Catalog must stay alive.
-  virtual absl::StatusOr<Catalog*> GetCatalog(
-      const LanguageOptions& language_options) {
-    return get_catalog_callback_(language_options);
+  // Calls the acceptor with a catalog for the given language options.
+  absl::Status ProvideCatalog(const LanguageOptions& language_options,
+                              CatalogAcceptor* acceptor) {
+    return catalog_callback_(language_options, acceptor);
   }
 
  private:
   std::string name_;
   std::string description_;
 
-  GetCatalogCallback get_catalog_callback_;
+  CatalogCallback catalog_callback_;
 };
 
 struct SelectableCatalogInfo {

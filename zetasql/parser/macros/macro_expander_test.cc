@@ -179,7 +179,9 @@ StackFrame* /*absl_nullable*/ CreateChainedStackFrames(
 MATCHER_P(FrameEq, expected, "") {
   return ExplainMatchResult(
       FieldsAre(Eq(expected.name), Eq(expected.frame_type),
-                Eq(expected.location), _ /*error_source*/, _ /*parent*/,
+                Eq(expected.location), _ /*input_text*/,
+                _ /*offset_in_original_input*/, _ /*input_start_line_offset*/,
+                _ /*input_start_column_offset*/, _ /*parent*/,
                 Conditional(arg.frame_type == StackFrame::FrameType::kMacroArg,
                             NotNull(), IsNull()) /*invocation_frame*/),
       arg, result_listener);
@@ -277,17 +279,35 @@ static Location MakeLocation(int start_offset, int end_offset) {
 
 static absl::StatusOr<ExpansionOutput> ExpandMacros(
     const absl::string_view text, const MacroCatalog& macro_catalog,
-    bool is_strict,
-    DiagnosticOptions diagnostic_options = {
-        .error_message_options = {
-            .mode = ErrorMessageMode::ERROR_MESSAGE_ONE_LINE}}) {
+    MacroExpanderOptions macro_expander_options = {
+        .diagnostic_options = {
+            .error_message_options = {
+                .mode = ErrorMessageMode::ERROR_MESSAGE_ONE_LINE}}}) {
   return MacroExpander::ExpandMacros(std::make_unique<FlexTokenProvider>(
                                          kTopFileName, text, /*start_offset=*/0,
                                          /*end_offset=*/std::nullopt,
                                          /*offset_in_original_input=*/0,
                                          /*force_flex=*/false),
-                                     is_strict, macro_catalog,
-                                     diagnostic_options);
+                                     macro_catalog, macro_expander_options);
+}
+
+static absl::StatusOr<ExpansionOutput> ExpandMacros(
+    const absl::string_view text, const MacroCatalog& macro_catalog,
+    bool is_strict,
+    DiagnosticOptions diagnostic_options = {
+        .error_message_options = {
+            .mode = ErrorMessageMode::ERROR_MESSAGE_ONE_LINE}}) {
+  return MacroExpander::ExpandMacros(
+      std::make_unique<FlexTokenProvider>(kTopFileName, text,
+                                          /*start_offset=*/0,
+                                          /*end_offset=*/std::nullopt,
+                                          /*offset_in_original_input=*/0,
+                                          /*force_flex=*/false),
+      macro_catalog,
+      {
+          .is_strict = is_strict,
+          .diagnostic_options = diagnostic_options,
+      });
 }
 
 // This function needs to return void due to the assertions.
@@ -312,18 +332,44 @@ static void RegisterMacros(absl::string_view source,
     ASSERT_TRUE(def_macro_stmt != nullptr);
     ZETASQL_ASSERT_OK(macro_catalog.RegisterMacro(
         {.source_text = source,
-         .location = def_macro_stmt->GetParseLocationRange(),
-         .name_location = def_macro_stmt->name()->GetParseLocationRange(),
-         .body_location = def_macro_stmt->body()->GetParseLocationRange(),
+         .location = def_macro_stmt->location(),
+         .name_location = def_macro_stmt->name()->location(),
+         .body_location = def_macro_stmt->body()->location(),
          .definition_start_offset = start_offset}));
   }
+}
+
+static void RegisterMacroAt(absl::string_view source,
+                            MacroCatalog& macro_catalog, int start_offset,
+                            int original_start_line,
+                            int original_start_column) {
+  ParseResumeLocation location =
+      ParseResumeLocation::FromStringView(kDefsFileName, source);
+  bool at_end_of_input = false;
+  std::unique_ptr<ParserOutput> output;
+  ZETASQL_ASSERT_OK(ParseNextStatement(
+      &location, ParserOptions(LanguageOptions(), MacroExpansionMode::kLenient),
+      &output, &at_end_of_input));
+  ASSERT_TRUE(output->statement() != nullptr);
+  auto def_macro_stmt =
+      output->statement()->GetAsOrNull<ASTDefineMacroStatement>();
+  ASSERT_TRUE(def_macro_stmt != nullptr);
+  ZETASQL_ASSERT_OK(macro_catalog.RegisterMacro({
+      .source_text = source,
+      .location = def_macro_stmt->location(),
+      .name_location = def_macro_stmt->name()->location(),
+      .body_location = def_macro_stmt->body()->location(),
+      .definition_start_offset = start_offset,
+      .definition_start_line = original_start_line,
+      .definition_start_column = original_start_column,
+  }));
 }
 
 // This test is to ensure that the size of the StackFrame struct does not
 // change unexpectedly. If it does, it may indicate that the size of the
 // StackFrame struct has increased unexpectedly, which could have performance
 // implications.
-TEST(StackFrameTest, SizeOfStackFrame) { EXPECT_EQ(sizeof(StackFrame), 152); }
+TEST(StackFrameTest, SizeOfStackFrame) { EXPECT_EQ(sizeof(StackFrame), 120); }
 
 TEST(MacroExpanderTest, ExpandsEmptyMacros) {
   MacroCatalog macro_catalog;
@@ -369,17 +415,21 @@ TEST(MacroExpanderTest, ErrorsCanPrintLocation_EmptyFileNames) {
       .body_location = MakeLocation("", 15, 20),
   }));
 
-  EXPECT_THAT(MacroExpander::ExpandMacros(
-                  std::make_unique<FlexTokenProvider>(
-                      "", "$m2()",
-                      /*start_offset=*/0, /*end_offset=*/std::nullopt,
-                      /*offset_in_original_input=*/0,
-                      /*force_flex=*/false),
-                  /*is_strict=*/true, macro_catalog,
-                  {{.mode = ErrorMessageMode::ERROR_MESSAGE_ONE_LINE}}),
-              StatusIs(_, Eq("Macro 'unknown' not found. [at 1:16]; "
-                             "Expanded from macro:m [at 1:17]; "
-                             "Expanded from macro:m2 [at 1:1]")));
+  EXPECT_THAT(
+      MacroExpander::ExpandMacros(
+          std::make_unique<FlexTokenProvider>("", "$m2()",
+                                              /*start_offset=*/0,
+                                              /*end_offset=*/std::nullopt,
+                                              /*offset_in_original_input=*/0,
+                                              /*force_flex=*/false),
+          macro_catalog,
+          {.is_strict = true,
+           .diagnostic_options =
+               {.error_message_options =
+                    {.mode = ErrorMessageMode::ERROR_MESSAGE_ONE_LINE}}}),
+      StatusIs(_, Eq("Macro 'unknown' not found. [at 1:16]; "
+                     "Expanded from macro:m [at 1:17]; "
+                     "Expanded from macro:m2 [at 1:1]")));
 }
 
 TEST(MacroExpanderTest, ErrorsOrWarningsDoNotTruncateCaretContext) {
@@ -455,9 +505,8 @@ TEST(MacroExpanderTest, TracksCountOfUnexpandedTokensConsumedIncludingEOF) {
       /*force_flex=*/false);
   auto arena = std::make_unique<zetasql_base::UnsafeArena>(/*block_size=*/1024);
   std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  MacroExpander expander(std::move(token_provider), /*is_strict=*/false,
-                         macro_catalog, arena.get(), stack_frames,
-                         DiagnosticOptions{},
+  MacroExpander expander(std::move(token_provider), macro_catalog, arena.get(),
+                         stack_frames, MacroExpanderOptions{},
                          /*parent_location=*/nullptr);
 
   ASSERT_THAT(expander.GetNextToken(),
@@ -477,9 +526,8 @@ TEST(MacroExpanderTest,
       /*force_flex=*/false);
   auto arena = std::make_unique<zetasql_base::UnsafeArena>(/*block_size=*/1024);
   std::vector<std::unique_ptr<StackFrame>> stack_frames;
-  MacroExpander expander(std::move(token_provider), /*is_strict=*/false,
-                         macro_catalog, arena.get(), stack_frames,
-                         DiagnosticOptions{},
+  MacroExpander expander(std::move(token_provider), macro_catalog, arena.get(),
+                         stack_frames, MacroExpanderOptions{},
                          /*parent_location=*/nullptr);
 
   ASSERT_THAT(expander.GetNextToken(), IsOkAndHolds(TokenIs(TokenWithLocation{
@@ -2882,6 +2930,317 @@ TEST(MacroExpanderStackFramesTest, TestInvocationFrame) {
   EXPECT_EQ(token.text, "ABC");
   EXPECT_EQ(token.stack_frame->frame_type, StackFrame::FrameType::kMacroArg);
   EXPECT_EQ(token.stack_frame->invocation_frame->name, "macro:m2");
+}
+
+TEST(MacroExpanderExpansionStateTest,
+     ShouldReturnErrorIfTooManyMacroInvocations) {
+  MacroCatalog macro_catalog;
+  RegisterMacros(
+      "DEFINE MACRO m1 $1;\n"
+      "DEFINE MACRO m2 $m1($m1($1));"
+      "DEFINE MACRO m3 $m2($m2($1));"
+      "DEFINE MACRO m4 $m3($m3($1));"
+      "DEFINE MACRO m5 $m4($m4($1));",
+      macro_catalog);
+  // Main query : SELECT $m5(ABC)
+  // The number of invocations is 63.
+
+  // DEFINE MACRO $m1(ABC), Let's consider this as a base case I(1)
+  // here One Invocation is $m1(ABC) and another invocation to expand the
+  // argument ABC.
+  // I(1) = 2
+  // I(2) = (I(1) * 2) + 2 = 6
+  // I(3) = (I(2) * 2) + 2 = 14
+  // I(4) = (I(3) * 2) + 2 = 30
+  // I(5) = (I(4) * 2 + 2 = 62
+
+  // 62 invocations are needed for expanding $m5(ABC), and 1 more for the main
+  // query, So total 63 invocations are needed.
+
+  // At limit 63, it should return OK.
+  MacroExpanderOptions macro_expander_options = {.max_macro_invocations = 63};
+  ZETASQL_EXPECT_OK(ExpandMacros("$m5(ABC)", macro_catalog, macro_expander_options));
+
+  // At limit 62, it should return error.
+  macro_expander_options = {.max_macro_invocations = 62};
+  EXPECT_THAT(ExpandMacros("$m5(ABC)", macro_catalog, macro_expander_options),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("Too many macro invocations")));
+}
+
+TEST(MacroExpanderExpansionStateTest,
+     NestedMacroInvocationShouldBeCountedAsMacroInvocation) {
+  MacroCatalog macro_catalog;
+  RegisterMacros(
+      "DEFINE MACRO m1 Hello World;\n"
+      "DEFINE MACRO m2 $m1;\n",
+      macro_catalog);
+
+  // Main query : SELECT $m2()
+  // The number of invocations is 3.
+  // The first invocation is on main query: SELECT  $m2()
+  // The second invocation is $m2
+  // The third invocation is $m1
+  // NOTE : Here there is invocation of m1 and m2 does not uses () that is why
+  // we are not counting argument expansion of m2 and m1.
+
+  // At limit 3, it should return OK.
+  MacroExpanderOptions macro_expander_options = {.max_macro_invocations = 3};
+  ZETASQL_EXPECT_OK(ExpandMacros("SELECT $m2", macro_catalog, macro_expander_options));
+
+  // At limit 2, it should return error.
+  macro_expander_options = {.max_macro_invocations = 2};
+  EXPECT_THAT(
+      ExpandMacros("SELECT $m2()", macro_catalog, macro_expander_options),
+      StatusIs(absl::StatusCode::kInternal,
+               HasSubstr("Too many macro invocations")));
+}
+
+TEST(MacroExpanderExpansionStateTest,
+     ArgumentExpansionShouldBeCountedAsMacroInvocation) {
+  MacroCatalog macro_catalog;
+  RegisterMacros("DEFINE MACRO m1 $1 $1;\n", macro_catalog);
+
+  // Main query : SELECT $m1(ABC)
+  // The number of invocations is 3.
+  // The first invocation is on main query: SELECT  $m1(ABC)
+  // The second invocation is $m1(ABC)
+  // The third invocation is for argument expansion"ABC"
+  // Multiple usage of $1 should not be counted as macro invocation.
+
+  // At limit 3, it should return OK.
+  MacroExpanderOptions macro_expander_options = {.max_macro_invocations = 3};
+  ZETASQL_EXPECT_OK(
+      ExpandMacros("SELECT $m1(ABC)", macro_catalog, macro_expander_options));
+
+  // At limit 2, it should return error.
+  macro_expander_options = {.max_macro_invocations = 2};
+  EXPECT_THAT(
+      ExpandMacros("SELECT $m1(ABC)", macro_catalog, macro_expander_options),
+      StatusIs(absl::StatusCode::kInternal,
+               HasSubstr("Too many macro invocations")));
+}
+
+TEST(MacroExpanderExpansionStateTest,
+     MultipleArgumentExpansionShouldBeCountedAsMacroInvocation) {
+  MacroCatalog macro_catalog;
+  RegisterMacros("DEFINE MACRO m1 $1 $2;\n", macro_catalog);
+
+  // Main query : SELECT $m1(ABC, DEF)
+  // The number of invocations is 3.
+  // The first invocation is on main query: SELECT  $m1(ABC, DEF)
+  // The second invocation is $m1(ABC, DEF)
+  // The third invocation is for argument expansion "ABC"
+  // The fourth invocation is for argument expansion "DEF"
+
+  // At limit 4, it should return OK.
+  MacroExpanderOptions macro_expander_options = {.max_macro_invocations = 4};
+  ZETASQL_EXPECT_OK(ExpandMacros("SELECT $m1(ABC, DEF)", macro_catalog,
+                         macro_expander_options));
+
+  // At limit 3, it should return error.
+  macro_expander_options = {.max_macro_invocations = 3};
+  EXPECT_THAT(ExpandMacros("SELECT $m1(ABC, DEF)", macro_catalog,
+                           macro_expander_options),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("Too many macro invocations")));
+}
+
+TEST(MacroExpanderExpansionStateTest,
+     ArgumentExpansionWithMacroInvocationShouldBeCountedAsMacroInvocation) {
+  MacroCatalog macro_catalog;
+  RegisterMacros(
+      "DEFINE MACRO m Hello world;\n"
+      "DEFINE MACRO m1 $1;\n",
+      macro_catalog);
+
+  // Main query : SELECT '$m1($m)'
+  // The number of invocations is 3.
+  // The first invocation is on main query: SELECT  $m1($m)
+  // The second invocation is $m1($m)
+  // The third invocation is for argument expansion "$m"
+  // The fourth invocation is for macro expansion "$m"
+
+  // At limit 4, it should return OK.
+  MacroExpanderOptions macro_expander_options = {.max_macro_invocations = 4};
+  ZETASQL_EXPECT_OK(
+      ExpandMacros("SELECT $m1($m)", macro_catalog, macro_expander_options));
+
+  // At limit 3, it should return error.
+  macro_expander_options = {.max_macro_invocations = 3};
+  EXPECT_THAT(
+      ExpandMacros("SELECT $m1($m)", macro_catalog, macro_expander_options),
+      StatusIs(absl::StatusCode::kInternal,
+               HasSubstr("Too many macro invocations")));
+}
+
+TEST(MacroExpanderExpansionStateTest,
+     LiteralExpansionShouldBeCountedAsMacroInvocation) {
+  MacroCatalog macro_catalog;
+  RegisterMacros("DEFINE MACRO m1 $1;\n", macro_catalog);
+
+  // Main query : SELECT '$m1(ABC)'
+  // The number of invocations is 4.
+  // The first invocation is on main query: SELECT  '$m1(ABC)'
+  // The second invocation is for literal expansion: '$m1(ABC)'
+  // The third invocation is for m1(ABC)
+  // The fourth invocation is for argument expansion"ABC"
+
+  // At limit 4, it should return OK.
+  MacroExpanderOptions macro_expander_options = {.max_macro_invocations = 4};
+  ZETASQL_EXPECT_OK(
+      ExpandMacros("SELECT '$m1(ABC)'", macro_catalog, macro_expander_options));
+
+  // At limit 3, it should return error.
+  macro_expander_options = {.max_macro_invocations = 3};
+  EXPECT_THAT(
+      ExpandMacros("SELECT '$m1(ABC)'", macro_catalog, macro_expander_options),
+      StatusIs(absl::StatusCode::kInternal,
+               HasSubstr("Too many macro invocations")));
+}
+
+void VerifyStackFrameInputAndOffsets(
+    const StackFrame* stack_frame, absl::string_view expected_name,
+    absl::string_view expected_invocation_string,
+    absl::string_view expected_input_text,
+    int expected_offset_in_original_input, int expected_input_start_line_offset,
+    int expected_input_start_column_offset) {
+  ASSERT_THAT(stack_frame, NotNull());
+  EXPECT_EQ(stack_frame->name, expected_name);
+  EXPECT_EQ(stack_frame->GetInvocationString(), expected_invocation_string);
+  EXPECT_EQ(stack_frame->input_text, expected_input_text);
+  EXPECT_EQ(stack_frame->offset_in_original_input,
+            expected_offset_in_original_input);
+  EXPECT_EQ(stack_frame->input_start_line_offset,
+            expected_input_start_line_offset);
+  EXPECT_EQ(stack_frame->input_start_column_offset,
+            expected_input_start_column_offset);
+}
+
+TEST(MacroExpanderStackFramesTest, FramesShouldHaveCorrectInvocationString) {
+  MacroCatalog macro_catalog;
+  RegisterMacros(
+      "DEFINE MACRO one 1;\n"
+      "DEFINE MACRO two 2;\n"
+      "DEFINE MACRO add $1 + $2;\n"
+      "DEFINE MACRO outer $add($one(), $two());  # Extra comment",
+      macro_catalog);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto output, ExpandMacros("SELECT $outer", macro_catalog,
+                                                 /*is_strict=*/false));
+  // Expanded String : SELECT 1 + 2
+  EXPECT_EQ(output.expanded_tokens.size(), 5);
+
+  // Token : 1
+  // 1 -> $one() -> arg:$1 -> ArgUsage:$1 -> outer
+  // Verify the chain of frames for first token.
+  std::string expected_input_text =
+      "DEFINE MACRO one 1;\n"
+      "DEFINE MACRO two 2;\n"
+      "DEFINE MACRO add $1 + $2;\n"
+      "DEFINE MACRO outer $add($one(), $two());  # Extra comment";
+  StackFrame* stack_frame = output.expanded_tokens[1].stack_frame;
+  VerifyStackFrameInputAndOffsets(stack_frame, "macro:one", "$one()",
+                                  expected_input_text,
+                                  /*expected_offset_in_original_input=*/65,
+                                  /*expected_input_start_line_offset=*/1,
+                                  /*expected_input_start_column_offset=*/1);
+
+  stack_frame = stack_frame->parent;
+  VerifyStackFrameInputAndOffsets(stack_frame, "arg:$1", "$one()",
+                                  expected_input_text,
+                                  /*expected_offset_in_original_input=*/65,
+                                  /*expected_input_start_line_offset=*/1,
+                                  /*expected_input_start_column_offset=*/1);
+
+  stack_frame = stack_frame->parent;
+  VerifyStackFrameInputAndOffsets(stack_frame, "$1", "$1", expected_input_text,
+                                  /*expected_offset_in_original_input=*/39,
+                                  /*expected_input_start_line_offset=*/1,
+                                  /*expected_input_start_column_offset=*/1);
+
+  stack_frame = stack_frame->parent;
+  VerifyStackFrameInputAndOffsets(stack_frame, "macro:add",
+                                  "$add($one(), $two())", expected_input_text,
+                                  /*expected_offset_in_original_input=*/65,
+                                  /*expected_input_start_line_offset=*/1,
+                                  /*expected_input_start_column_offset=*/1);
+
+  stack_frame = stack_frame->parent;
+  VerifyStackFrameInputAndOffsets(stack_frame, "macro:outer", "$outer",
+                                  "SELECT $outer",
+                                  /*expected_offset_in_original_input=*/0,
+                                  /*expected_input_start_line_offset=*/1,
+                                  /*expected_input_start_column_offset=*/1);
+}
+
+TEST(MacroExpanderStackFramesTest,
+     FrameShouldHaveCorrectInputOffsetsWithDifferentRegistrationLocations) {
+  MacroCatalog macro_catalog;
+  RegisterMacroAt("DEFINE MACRO one 1;", macro_catalog, /*start_offset=*/0,
+                  /*original_start_line=*/1, /*original_start_column=*/1);
+  RegisterMacroAt("DEFINE MACRO two 2;", macro_catalog,
+                  /*start_offset=*/23, /*original_start_line=*/5,
+                  /*original_start_column=*/1);
+  RegisterMacroAt("DEFINE MACRO add $1 + $2;", macro_catalog,
+                  /*start_offset=*/45, /*original_start_line=*/8,
+                  /*original_start_column=*/1);
+  RegisterMacroAt("DEFINE MACRO outer $add($one(), $two());", macro_catalog,
+                  /*start_offset=*/71,
+                  /*original_start_line=*/9, /*original_start_column=*/1);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto output, ExpandMacros("SELECT $outer", macro_catalog,
+                                                 /*is_strict=*/false));
+  // Expanded String : SELECT 1 + 2
+  EXPECT_EQ(output.expanded_tokens.size(), 5);
+
+  // Token : 1
+  // 1 -> $one() -> arg:$1 -> ArgUsage:$1 -> outer
+  // Verify the chain of frames for first token.
+  StackFrame* stack_frame = output.expanded_tokens[1].stack_frame;
+  VerifyStackFrameInputAndOffsets(stack_frame, "macro:one", "$one()",
+                                  "DEFINE MACRO outer $add($one(), $two());",
+                                  /*expected_offset_in_original_input=*/71,
+                                  /*expected_input_start_line_offset=*/9,
+                                  /*expected_input_start_column_offset=*/1);
+
+  // Verify the location of $one() is on line 9, column 25.
+  ParseLocationTranslator parse_location_translator(stack_frame->input_text);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto line_and_column,
+      parse_location_translator.GetLineAndColumnAfterTabExpansion(
+          stack_frame->LocationRangeWithoutStartOffset().start()));
+  EXPECT_EQ(line_and_column.first + stack_frame->input_start_line_offset - 1,
+            9);
+  EXPECT_EQ(line_and_column.second + stack_frame->input_start_column_offset - 1,
+            25);
+
+  stack_frame = stack_frame->parent;
+  VerifyStackFrameInputAndOffsets(stack_frame, "arg:$1", "$one()",
+                                  "DEFINE MACRO outer $add($one(), $two());",
+                                  /*expected_offset_in_original_input=*/71,
+                                  /*expected_input_start_line_offset=*/9,
+                                  /*expected_input_start_column_offset=*/1);
+
+  stack_frame = stack_frame->parent;
+  VerifyStackFrameInputAndOffsets(stack_frame, "$1", "$1",
+                                  "DEFINE MACRO add $1 + $2;",
+                                  /*expected_offset_in_original_input=*/45,
+                                  /*expected_input_start_line_offset=*/8,
+                                  /*expected_input_start_column_offset=*/1);
+
+  stack_frame = stack_frame->parent;
+  VerifyStackFrameInputAndOffsets(stack_frame, "macro:add",
+                                  "$add($one(), $two())",
+                                  "DEFINE MACRO outer $add($one(), $two());",
+                                  /*expected_offset_in_original_input=*/71,
+                                  /*expected_input_start_line_offset=*/9,
+                                  /*expected_input_start_column_offset=*/1);
+
+  stack_frame = stack_frame->parent;
+  VerifyStackFrameInputAndOffsets(stack_frame, "macro:outer", "$outer",
+                                  "SELECT $outer",
+                                  /*expected_offset_in_original_input=*/0,
+                                  /*expected_input_start_line_offset=*/1,
+                                  /*expected_input_start_column_offset=*/1);
 }
 
 }  // namespace macros

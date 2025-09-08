@@ -52,6 +52,7 @@ enum SchemaObjectKind {
   kSnapshotTable = 15;
   kPropertyGraph = 16;
   kExternalSchema = 18;
+  kSequence = 20;
 }
 
 message ASTBinaryExpressionEnums {

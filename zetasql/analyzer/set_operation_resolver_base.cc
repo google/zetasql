@@ -23,6 +23,7 @@
 #include "zetasql/analyzer/input_argument_type_resolver_helper.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/coercer.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/input_argument_type.h"
@@ -40,9 +41,9 @@
 namespace zetasql {
 
 SetOperationResolverBase::SetOperationResolverBase(
-    const LanguageOptions& language_options, Coercer& coercer,
+    const AnalyzerOptions& analyzer_options, Coercer& coercer,
     ColumnFactory& column_factory)
-    : language_options_(language_options),
+    : analyzer_options_(analyzer_options),
       coercer_(coercer),
       column_factory_(column_factory) {}
 
@@ -92,7 +93,8 @@ std::string SetOperationResolverBase::GetSQLForOperation(
   }
 }
 
-InputArgumentType SetOperationResolverBase::GetColumnInputArgumentType(
+absl::StatusOr<InputArgumentType>
+SetOperationResolverBase::GetColumnInputArgumentType(
     const ResolvedColumn& column, const ResolvedScan* resolved_scan) const {
   // If this column was computed, find the expr that computed it.
   const ResolvedExpr* expr = nullptr;
@@ -101,7 +103,7 @@ InputArgumentType SetOperationResolverBase::GetColumnInputArgumentType(
   }
   if (expr != nullptr) {
     return GetInputArgumentTypeForExpr(
-        expr, /*pick_default_type_for_untyped_expr=*/false);
+        expr, /*pick_default_type_for_untyped_expr=*/false, analyzer_options_);
   } else {
     return InputArgumentType(column.type());
   }
@@ -134,7 +136,8 @@ SetOperationResolverBase::GetSuperTypesOfSetOperation(
     bool column_types_must_support_grouping =
         op_type != ResolvedSetOperationScan::UNION_ALL;
     if (column_types_must_support_grouping &&
-        !supertype->SupportsGrouping(language_options_, &no_grouping_type)) {
+        !supertype->SupportsGrouping(analyzer_options_.language(),
+                                     &no_grouping_type)) {
       return MakeSqlErrorAt(error_location)
              << "Column " << column_identifier_in_error_string(i) << " in "
              << GetSQLForOperation(op_type)

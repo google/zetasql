@@ -40,9 +40,9 @@ namespace zetasql {
 
 template <typename NameListT>
 typename NameListT::value_type ClosestNameImpl(
-    std::string_view mistyped_name, const NameListT& possible_names,
+    absl::string_view mistyped_name, const NameListT& possible_names,
     absl::FunctionRef<bool(char, char)> char_equal_fn,
-    absl::FunctionRef<int(std::string_view, std::string_view)>
+    absl::FunctionRef<int(absl::string_view, absl::string_view)>
         string_compare_fn) {
   if (mistyped_name.size() <
       absl::GetFlag(FLAGS_zetasql_min_length_required_for_edit_distance)) {
@@ -90,7 +90,7 @@ std::string ClosestName(absl::string_view mistyped_name,
   // TODO: Should this be case insensitive like SuggestEnumValue?
   return ClosestNameImpl(
       mistyped_name, possible_names, std::equal_to<char>(),
-      [](std::string_view a, std::string_view b) { return a.compare(b); });
+      [](absl::string_view a, absl::string_view b) { return a.compare(b); });
 }
 
 std::string SuggestEnumValue(const EnumType* type,
@@ -117,7 +117,7 @@ std::string SuggestEnumValue(const EnumType* type,
         return absl::ascii_toupper(a) == absl::ascii_toupper(b);
       },
       // Case insensitive string comparison.
-      [](std::string_view a, std::string_view b) {
+      [](absl::string_view a, absl::string_view b) {
         return zetasql_base::CaseCompare(a, b);
       }));
 }

@@ -1,4 +1,4 @@
-[default language_features=PIPES,PIPE_STATIC_DESCRIBE,ANALYTIC_FUNCTIONS]
+[default language_features=NONE,+PIPES,+PIPE_STATIC_DESCRIBE,+ANALYTIC_FUNCTIONS]
 from KeyValue
 |> STATIC_DESCRIBE
 |> SET kEY = 'abc'
@@ -656,7 +656,7 @@ ERROR: Aggregate function SUM not allowed in pipe SET clause [at 2:18]
                  ^
 ==
 
-[language_features=PIPES]
+[language_features=NONE,+PIPES]
 from KeyValue
 |> set key = sum(key) OVER ()
 --
@@ -932,7 +932,7 @@ ERROR: Column name in pipe SET not found in input table: TestConstantProto [at 3
 # for SELECT and SET.
 # TODO Enable java support for collation.
 [no_java]
-[language_features=PIPES{{|,ANNOTATION_FRAMEWORK|,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT}}]
+[language_features=NONE,+PIPES{{|,+ANNOTATION_FRAMEWORK|,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT}}]
 from CollatedTable
 |> select string_ci, concat(string_ci, "xxx") as newcol1,
       null as newcol2
@@ -940,7 +940,7 @@ from CollatedTable
 --
 ALTERNATION GROUPS:
     <empty>
-    ,ANNOTATION_FRAMEWORK
+    ,+ANNOTATION_FRAMEWORK
 --
 QueryStmt
 +-output_column_list=
@@ -967,7 +967,7 @@ QueryStmt
         +-input_scan=
           +-TableScan(column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
 --
-ALTERNATION GROUP: ,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT
+ALTERNATION GROUP: ,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT
 --
 QueryStmt
 +-output_column_list=
@@ -1067,3 +1067,108 @@ QueryStmt
             |     +-default_value=[]
             +-input_scan=
               +-TableScan(column_list=[TestExtraValueTable.value#1], table=TestExtraValueTable, column_index_list=[0], alias="vt")
+==
+
+# SET on a value table makes output a non-value-table.
+# TODO Is this right?
+FROM TestExtraValueTable vt
+|> STATIC_DESCRIBE
+|> SET vt='abc'
+|> STATIC_DESCRIBE
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_set.vt#4 AS vt [STRING]
++-query=
+  +-StaticDescribeScan
+    +-column_list=[$pipe_set.vt#4]
+    +-describe_text=
+    |   """
+    |   NameList:
+    |     vt STRING $pipe_set.vt#4
+    |   NameScope:
+    |     Names:
+    |       Filename -> STRING (TestExtraValueTable.Filename#2) (implicit) (pseudo-column)
+    |       RowId -> BYTES (TestExtraValueTable.RowId#3) (implicit) (pseudo-column)
+    |       vt -> STRING ($pipe_set.vt#4)
+    |   """
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$pipe_set.vt#4]
+        +-expr_list=
+        | +-vt#4 := Literal(type=STRING, value="abc")
+        +-input_scan=
+          +-StaticDescribeScan
+            +-describe_text=
+            |   """
+            |   NameList (is_value_table = true):
+            |     vt zetasql_test__.TestExtraPB TestExtraValueTable.value#1 (value table)
+            |   NameScope:
+            |     Names:
+            |       Filename -> STRING (TestExtraValueTable.Filename#2) (implicit) (pseudo-column)
+            |       RowId -> BYTES (TestExtraValueTable.RowId#3) (implicit) (pseudo-column)
+            |     Range variables:
+            |       vt -> RANGE_VARIABLE<$value>
+            |     Value table columns:
+            |       TestExtraValueTable.value#1
+            |   """
+            +-input_scan=
+              +-TableScan(table=TestExtraValueTable, alias="vt")
+==
+
+# SET on OFFSET, which acts like a value table, makes it a non-value-table.
+# TODO Is this right?
+FROM UNNEST(["abc"]) WITH OFFSET
+|> STATIC_DESCRIBE
+|> SET offset=offset+1
+|> STATIC_DESCRIBE
+--
+QueryStmt
++-output_column_list=
+| +-$array.$unnest1#1 AS `$unnest1` [STRING]
+| +-$pipe_set.offset#3 AS offset [INT64]
++-query=
+  +-StaticDescribeScan
+    +-column_list=[$array.$unnest1#1, $array_offset.offset#2, $pipe_set.offset#3]
+    +-describe_text=
+    |   """
+    |   NameList:
+    |     <unnamed> STRING $array.$unnest1#1 (value table) (excluded_field_names offset)
+    |     offset INT64 $pipe_set.offset#3
+    |   NameScope:
+    |     Names:
+    |       offset -> INT64 ($pipe_set.offset#3)
+    |     Value table columns:
+    |       $array.$unnest1#1 (excluded_field_names offset)
+    |   """
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$array.$unnest1#1, $array_offset.offset#2, $pipe_set.offset#3]
+        +-expr_list=
+        | +-offset#3 :=
+        |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |     +-ColumnRef(type=INT64, column=$array_offset.offset#2)
+        |     +-Literal(type=INT64, value=1)
+        +-input_scan=
+          +-StaticDescribeScan
+            +-column_list=[$array.$unnest1#1, $array_offset.offset#2]
+            +-describe_text=
+            |   """
+            |   NameList:
+            |     <unnamed> STRING $array.$unnest1#1 (value table)
+            |     offset INT64 $array_offset.offset#2 (value table)
+            |   NameScope:
+            |     Range variables:
+            |       offset -> RANGE_VARIABLE<$value>
+            |     Value table columns:
+            |       $array.$unnest1#1
+            |       $array_offset.offset#2
+            |   """
+            +-input_scan=
+              +-ArrayScan
+                +-column_list=[$array.$unnest1#1, $array_offset.offset#2]
+                +-array_expr_list=
+                | +-Literal(type=ARRAY<STRING>, value=["abc"])
+                +-element_column_list=[$array.$unnest1#1]
+                +-array_offset_column=
+                  +-ColumnHolder(column=$array_offset.offset#2)

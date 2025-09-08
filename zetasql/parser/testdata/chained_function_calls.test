@@ -117,7 +117,7 @@ SELECT
 
 # Almost all leaf expressions (literals, keywords, etc) work before chained
 # function calls, including those with spaces.
-[language_features=BRACED_PROTO_CONSTRUCTORS]
+[language_features=NONE,+BRACED_PROTO_CONSTRUCTORS]
 SELECT
   true.x(),
   null.x(),
@@ -749,7 +749,7 @@ SELECT
 ==
 
 # Precedence for binary operators LIKE, IS DISTINCT FROM.
-[language_features=IS_DISTINCT]
+[language_features=NONE,+IS_DISTINCT]
 SELECT (x).y() LIKE (y).z(),
        (x).y() IS DISTINCT FROM (y).z(),
 --
@@ -907,7 +907,7 @@ SELECT x.()(y)
 ==
 
 # Chained call with suffixes like OVER and hints on some calls.
-[language_features=WITH_GROUP_ROWS]
+[language_features=NONE,+WITH_GROUP_ROWS]
 SELECT (abc)
   .f()
   .g() OVER ()
@@ -958,7 +958,7 @@ SELECT
 ==
 
 # Using suffixed function calls to start the chain.
-[language_features=WITH_GROUP_ROWS]
+[language_features=NONE,+WITH_GROUP_ROWS]
 SELECT
   f() OVER ().g(),
   f() @{hint=123}.g(),
@@ -1226,7 +1226,7 @@ SELECT
 ==
 
 # Test all function call modifiers on a chained call.
-[language_features=WITH_GROUP_ROWS]
+[language_features=NONE,+WITH_GROUP_ROWS]
 select
   true.f(DISTINCT),
   true.f(IGNORE NULLS),
@@ -1301,7 +1301,8 @@ QueryStatement [0-363] [select   true...format=json)),]
               Identifier(f) [223-224] [f]
             BooleanLiteral(true) [218-222] [true]
             LimitOffset [225-233] [LIMIT 10]
-              IntLiteral(10) [231-233] [10]
+              Limit [225-233] [LIMIT 10]
+                IntLiteral(10) [231-233] [10]
         SelectColumn [238-273] [true.f() WITH...(SELECT 1)]
           FunctionCall(is_chained_call=true) [238-273] [true.f() WITH...(SELECT 1)]
             PathExpression [243-244] [f]

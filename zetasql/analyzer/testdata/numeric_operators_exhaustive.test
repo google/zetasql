@@ -5,13 +5,14 @@
 # types. The analyzer output for each alternation should be the same with and
 # without NUMERIC_TYPE enabled except for the error cases, which will include
 # the extra NUMERIC signature when it is enabled.
-[language_features={{NUMERIC_TYPE|}}]
+[default language_features=MAXIMUM]
+[language_features=NONE,{{+NUMERIC_TYPE|}}]
 select div({{int32|uint32|int64|uint64|1|1.0}},
            {{int32|uint32|int64|uint64|1|1.0}})
 from SimpleTypes;
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int32,int32
+    +NUMERIC_TYPE,int32,int32
     int32,int32
 --
 QueryStmt
@@ -31,7 +32,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int32,uint32
+    +NUMERIC_TYPE,int32,uint32
     int32,uint32
 --
 QueryStmt
@@ -51,7 +52,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int32#1, uint32#3], table=SimpleTypes, column_index_list=[0, 2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int32,int64
+    +NUMERIC_TYPE,int32,int64
     int32,int64
 --
 QueryStmt
@@ -69,7 +70,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
 --
-ALTERNATION GROUP: NUMERIC_TYPE,int32,uint64
+ALTERNATION GROUP: +NUMERIC_TYPE,int32,uint64
 --
 
 ERROR: No matching signature for function DIV
@@ -84,7 +85,7 @@ select div(int32,
        ^
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int32,1
+    +NUMERIC_TYPE,int32,1
     int32,1
 --
 QueryStmt
@@ -102,7 +103,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
 --
-ALTERNATION GROUP: NUMERIC_TYPE,int32,1.0
+ALTERNATION GROUP: +NUMERIC_TYPE,int32,1.0
 --
 ERROR: No matching signature for function DIV
   Argument types: INT32, DOUBLE
@@ -116,7 +117,7 @@ select div(int32,
        ^
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,int32
+    +NUMERIC_TYPE,uint32,int32
     uint32,int32
 --
 QueryStmt
@@ -136,7 +137,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int32#1, uint32#3], table=SimpleTypes, column_index_list=[0, 2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,uint32
+    +NUMERIC_TYPE,uint32,uint32
     uint32,uint32
 --
 QueryStmt
@@ -156,7 +157,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint32#3], table=SimpleTypes, column_index_list=[2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,int64
+    +NUMERIC_TYPE,uint32,int64
     uint32,int64
 --
 QueryStmt
@@ -175,7 +176,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int64#2, uint32#3], table=SimpleTypes, column_index_list=[1, 2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,uint64
+    +NUMERIC_TYPE,uint32,uint64
     uint32,uint64
 --
 QueryStmt
@@ -194,7 +195,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[uint32#3, uint64#4], table=SimpleTypes, column_index_list=[2, 3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,1
+    +NUMERIC_TYPE,uint32,1
     uint32,1
 --
 QueryStmt
@@ -212,7 +213,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.uint32#3], table=SimpleTypes, column_index_list=[2])
 --
-ALTERNATION GROUP: NUMERIC_TYPE,uint32,1.0
+ALTERNATION GROUP: +NUMERIC_TYPE,uint32,1.0
 --
 ERROR: No matching signature for function DIV
   Argument types: UINT32, DOUBLE
@@ -226,7 +227,7 @@ select div(uint32,
        ^
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int64,int32
+    +NUMERIC_TYPE,int64,int32
     int64,int32
 --
 QueryStmt
@@ -245,7 +246,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int64,uint32
+    +NUMERIC_TYPE,int64,uint32
     int64,uint32
 --
 QueryStmt
@@ -264,7 +265,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int64#2, uint32#3], table=SimpleTypes, column_index_list=[1, 2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int64,int64
+    +NUMERIC_TYPE,int64,int64
     int64,int64
 --
 QueryStmt
@@ -281,7 +282,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 --
-ALTERNATION GROUP: NUMERIC_TYPE,int64,uint64
+ALTERNATION GROUP: +NUMERIC_TYPE,int64,uint64
 --
 ERROR: No matching signature for function DIV
   Argument types: INT64, UINT64
@@ -295,7 +296,7 @@ select div(int64,
        ^
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int64,1
+    +NUMERIC_TYPE,int64,1
     int64,1
 --
 QueryStmt
@@ -312,7 +313,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 --
-ALTERNATION GROUP: NUMERIC_TYPE,int64,1.0
+ALTERNATION GROUP: +NUMERIC_TYPE,int64,1.0
 --
 ERROR: No matching signature for function DIV
   Argument types: INT64, DOUBLE
@@ -325,7 +326,7 @@ ERROR: No matching signature for function DIV
 select div(int64,
        ^
 --
-ALTERNATION GROUP: NUMERIC_TYPE,uint64,int32
+ALTERNATION GROUP: +NUMERIC_TYPE,uint64,int32
 --
 ERROR: No matching signature for function DIV
   Argument types: UINT64, INT32
@@ -339,7 +340,7 @@ select div(uint64,
        ^
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint64,uint32
+    +NUMERIC_TYPE,uint64,uint32
     uint64,uint32
 --
 QueryStmt
@@ -357,7 +358,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[uint32#3, uint64#4], table=SimpleTypes, column_index_list=[2, 3])
 --
-ALTERNATION GROUP: NUMERIC_TYPE,uint64,int64
+ALTERNATION GROUP: +NUMERIC_TYPE,uint64,int64
 --
 ERROR: No matching signature for function DIV
   Argument types: UINT64, INT64
@@ -371,7 +372,7 @@ select div(uint64,
        ^
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint64,uint64
+    +NUMERIC_TYPE,uint64,uint64
     uint64,uint64
 --
 QueryStmt
@@ -389,7 +390,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint64#4], table=SimpleTypes, column_index_list=[3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint64,1
+    +NUMERIC_TYPE,uint64,1
     uint64,1
 --
 QueryStmt
@@ -406,7 +407,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.uint64#4], table=SimpleTypes, column_index_list=[3])
 --
-ALTERNATION GROUP: NUMERIC_TYPE,uint64,1.0
+ALTERNATION GROUP: +NUMERIC_TYPE,uint64,1.0
 --
 ERROR: No matching signature for function DIV
   Argument types: UINT64, DOUBLE
@@ -420,7 +421,7 @@ select div(uint64,
        ^
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,int32
+    +NUMERIC_TYPE,1,int32
     1,int32
 --
 QueryStmt
@@ -439,7 +440,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,uint32
+    +NUMERIC_TYPE,1,uint32
     1,uint32
 --
 QueryStmt
@@ -458,7 +459,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint32#3], table=SimpleTypes, column_index_list=[2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,int64
+    +NUMERIC_TYPE,1,int64
     1,int64
 --
 QueryStmt
@@ -476,7 +477,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,uint64
+    +NUMERIC_TYPE,1,uint64
     1,uint64
 --
 QueryStmt
@@ -494,7 +495,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint64#4], table=SimpleTypes, column_index_list=[3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,1
+    +NUMERIC_TYPE,1,1
     1,1
 --
 QueryStmt
@@ -511,7 +512,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(table=SimpleTypes)
 --
-ALTERNATION GROUP: NUMERIC_TYPE,1,1.0
+ALTERNATION GROUP: +NUMERIC_TYPE,1,1.0
 --
 ERROR: No matching signature for function DIV
   Argument types: INT64, DOUBLE
@@ -524,7 +525,7 @@ ERROR: No matching signature for function DIV
 select div(1,
        ^
 --
-ALTERNATION GROUP: NUMERIC_TYPE,1.0,int32
+ALTERNATION GROUP: +NUMERIC_TYPE,1.0,int32
 --
 ERROR: No matching signature for function DIV
   Argument types: DOUBLE, INT32
@@ -537,7 +538,7 @@ ERROR: No matching signature for function DIV
 select div(1.0,
        ^
 --
-ALTERNATION GROUP: NUMERIC_TYPE,1.0,uint32
+ALTERNATION GROUP: +NUMERIC_TYPE,1.0,uint32
 --
 ERROR: No matching signature for function DIV
   Argument types: DOUBLE, UINT32
@@ -551,8 +552,8 @@ select div(1.0,
        ^
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1.0,int64
-    NUMERIC_TYPE,1.0,1
+    +NUMERIC_TYPE,1.0,int64
+    +NUMERIC_TYPE,1.0,1
 --
 ERROR: No matching signature for function DIV
   Argument types: DOUBLE, INT64
@@ -565,7 +566,7 @@ ERROR: No matching signature for function DIV
 select div(1.0,
        ^
 --
-ALTERNATION GROUP: NUMERIC_TYPE,1.0,uint64
+ALTERNATION GROUP: +NUMERIC_TYPE,1.0,uint64
 --
 ERROR: No matching signature for function DIV
   Argument types: DOUBLE, UINT64
@@ -578,7 +579,7 @@ ERROR: No matching signature for function DIV
 select div(1.0,
        ^
 --
-ALTERNATION GROUP: NUMERIC_TYPE,1.0,1.0
+ALTERNATION GROUP: +NUMERIC_TYPE,1.0,1.0
 --
 ERROR: No matching signature for function DIV
   Argument types: DOUBLE, DOUBLE
@@ -749,7 +750,7 @@ select div(1.0,
 ==
 
 # Test the interaction between NUMERIC and other types.
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 select div(numeric,{{int32|uint32|int64|uint64|numeric|1|1.0}})
 from SimpleTypes;
 --
@@ -860,7 +861,7 @@ QueryStmt
 # b/110204269
 # The NUMERIC signature for GENERATE_ARRAY should only apply when one of the
 # arguments is NUMERIC, even if the language feature is enabled.
-[language_features={{|NUMERIC_TYPE}}]
+[language_features=NONE,{{|+NUMERIC_TYPE}}]
 SELECT GENERATE_ARRAY(0.0, x, 1.0) FROM (SELECT {{1|NUMERIC '1'}} AS x);
 --
 ALTERNATION GROUP: 1
@@ -892,7 +893,7 @@ ERROR: NUMERIC literals are not supported [at 1:49]
 SELECT GENERATE_ARRAY(0.0, x, 1.0) FROM (SELECT NUMERIC '1' AS x);
                                                 ^
 --
-ALTERNATION GROUP: NUMERIC_TYPE,1
+ALTERNATION GROUP: +NUMERIC_TYPE,1
 --
 QueryStmt
 +-output_column_list=
@@ -915,7 +916,7 @@ QueryStmt
         +-input_scan=
           +-SingleRowScan
 --
-ALTERNATION GROUP: NUMERIC_TYPE,NUMERIC '1'
+ALTERNATION GROUP: +NUMERIC_TYPE,NUMERIC '1'
 --
 QueryStmt
 +-output_column_list=

@@ -24,7 +24,6 @@
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/annotation/collation.h"
-#include "zetasql/public/annotation/timestamp_precision.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type_factory.h"
@@ -55,25 +54,6 @@ void AnnotationPropagator::InitializeAnnotationSpecs(
   if (analyzer_options.language().LanguageFeatureEnabled(
           FEATURE_COLLATION_SUPPORT)) {
     owned_annotation_specs_.push_back(std::make_unique<CollationAnnotation>());
-  }
-
-  if (analyzer_options.language().LanguageFeatureEnabled(
-          FEATURE_TIMESTAMP_PRECISION_ANNOTATION)) {
-    int default_precision = -1;
-    if (analyzer_options.language().LanguageFeatureEnabled(
-            FEATURE_TIMESTAMP_PICOS)) {
-      ABSL_DCHECK(analyzer_options.language().LanguageFeatureEnabled(
-          FEATURE_TIMESTAMP_NANOS));
-      default_precision = 12;
-    } else if (analyzer_options.language().LanguageFeatureEnabled(
-                   FEATURE_TIMESTAMP_NANOS)) {
-      default_precision = 9;
-    } else {
-      default_precision = 6;
-    }
-    ABSL_DCHECK_GE(default_precision, 0);
-    owned_annotation_specs_.push_back(
-        std::make_unique<TimestampPrecisionAnnotation>(default_precision));
   }
 
   // Copy ZetaSQL annotation specs to combined_annotation_specs_

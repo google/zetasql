@@ -9,7 +9,7 @@
 # Simple function name.
 # TODO: Enable Java support.
 [default no_java]
-[default language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS,WITH_ON_SUBQUERY]
+[default language_features=NONE,+TABLE_VALUED_FUNCTIONS,+CREATE_TABLE_FUNCTION,+TEMPLATE_FUNCTIONS,+WITH_ON_SUBQUERY]
 [default no_run_deserializer]
 [default test_extract_table_names]
 create table function myfunc (  )
@@ -563,7 +563,7 @@ create temporary table function myfunc (  )
 CreateTableFunctionStmt(name_path=myfunc, create_scope=CREATE_TEMP, signature=() -> TABLE<x STRING>, has_explicit_return_schema=TRUE, language="testlang")
 ==
 
-[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+CREATE_TABLE_FUNCTION,+TEMPLATE_FUNCTIONS]
 [statement_context={{|module}}]
 create {{public|private}} table function myfunc (  )
   returns table<x string> language testlang ;
@@ -1267,7 +1267,7 @@ CreateTableFunctionStmt
 ==
 
 # Table return type with a SQL body that includes the WITH clause.
-[language_features=WITH_ON_SUBQUERY,TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS]
+[language_features=NONE,+WITH_ON_SUBQUERY,+TABLE_VALUED_FUNCTIONS,+CREATE_TABLE_FUNCTION,+TEMPLATE_FUNCTIONS]
 create temporary table function maketable(t table<x int64, y string>)
   returns table<x int64, y string> as
     with w1 as (select x, y from t)
@@ -1306,7 +1306,7 @@ CreateTableFunctionStmt
 # A subplan in the WITH clause has the same name as a table argument.
 # The WITH clause takes precedence, so references to the name always resolve to
 # the subplan.
-[language_features=WITH_ON_SUBQUERY,TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS]
+[language_features=NONE,+WITH_ON_SUBQUERY,+TABLE_VALUED_FUNCTIONS,+CREATE_TABLE_FUNCTION,+TEMPLATE_FUNCTIONS]
 create temporary table function maketable(t table<x int64, y string>)
   returns table<a int64, b string> as
     with t as (select 1 as a, "abc" as b)
@@ -2713,7 +2713,7 @@ CreateTableFunctionStmt(name_path=f, argument_name_list=[t], signature=(ANY TYPE
 # This is tvf_templated_select_int64_arg_with_name_ambiguity in the sample
 # catalog. It illustrates the effect of letting scalar argument names hide
 # column names on the resolution of non-template TVF definitions.
-[language_features=CREATE_TABLE_FUNCTION]
+[language_features=NONE,+CREATE_TABLE_FUNCTION]
 CREATE TABLE FUNCTION f(x INT64)
 AS SELECT x FROM (SELECT -99 AS x)
 --
@@ -2742,7 +2742,7 @@ CreateTableFunctionStmt
 # the catalog or a table argument. The name resolves to the argument.
 # TODO: Fix the table name extraction for this case.
 [no_test_extract_table_names]
-[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+CREATE_TABLE_FUNCTION]
 CREATE TABLE FUNCTION foo_tvf(KeyValue TABLE<Key INT64, Value INT64>) AS
 SELECT count(*) AS count_star
 FROM KeyValue;
@@ -2775,7 +2775,7 @@ CreateTableFunctionStmt
 # rolled out, and there are no remaining references.
 # TODO: Fix the table name extraction for this case.
 [no_test_extract_table_names]
-[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TABLE_SYNTAX_RESOLVE_ARGUMENT_LAST]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+CREATE_TABLE_FUNCTION,+TABLE_SYNTAX_RESOLVE_ARGUMENT_LAST]
 CREATE TABLE FUNCTION foo_tvf(KeyValue TABLE<Key INT64, Value INT64>) AS
 SELECT count(*) AS count_star
 FROM tvf_one_relation_arg_with_fixed_output(TABLE KeyValue);
@@ -2817,7 +2817,7 @@ FROM tvf_one_relation_arg_with_fixed_output(TABLE KeyValue);
 
 # `TABLE KeyValue` is correctly resolved to the function argument `KeyValue`,
 # even when table `KeyValue` exists in the catalog.
-[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+CREATE_TABLE_FUNCTION]
 CREATE TABLE FUNCTION foo_tvf(KeyValue TABLE<Key INT64, Value INT64>) AS
 SELECT count(*) AS count_star
 FROM tvf_one_relation_arg_with_fixed_output(TABLE KeyValue);
@@ -2917,7 +2917,7 @@ CreateTableFunctionStmt
   +-t.y#4 AS y [STRING]
 ==
 
-[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,MULTILEVEL_AGGREGATION,TEMPLATE_FUNCTIONS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+CREATE_TABLE_FUNCTION,+MULTILEVEL_AGGREGATION,+TEMPLATE_FUNCTIONS]
 CREATE TABLE FUNCTION TvfMultiAggGroupingConstants(TwoIntsTableArg {{TABLE<first INT64, second INT64>|ANY TABLE}}, int64_arg {{INT64|ANY TYPE}}) AS
 SELECT
   SUM(first + int64_arg GROUP BY first) AS result
@@ -2963,7 +2963,7 @@ ALTERNATION GROUP: ANY TABLE,ANY TYPE
 CreateTableFunctionStmt(name_path=TvfMultiAggGroupingConstants, argument_name_list=[TwoIntsTableArg, int64_arg], signature=(ANY TABLE TwoIntsTableArg, ANY TYPE int64_arg) -> ANY TABLE, language="SQL", code="SELECT\n  SUM(first + int64_arg GROUP BY first) AS result\nFROM TwoIntsTableArg")
 ==
 
-[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,MULTILEVEL_AGGREGATION,TEMPLATE_FUNCTIONS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+CREATE_TABLE_FUNCTION,+MULTILEVEL_AGGREGATION,+TEMPLATE_FUNCTIONS]
 # `second` is not a grouping const for the multi-level aggregate.
 CREATE TABLE FUNCTION TvfMultiAggGroupingConstantsFailure(TwoIntsTableArg {{TABLE<first INT64, second INT64>|ANY TABLE}}, int64_arg {{INT64|ANY TYPE}}) AS
 SELECT
@@ -2989,7 +2989,7 @@ ALTERNATION GROUP: ANY TABLE,ANY TYPE
 CreateTableFunctionStmt(name_path=TvfMultiAggGroupingConstantsFailure, argument_name_list=[TwoIntsTableArg, int64_arg], signature=(ANY TABLE TwoIntsTableArg, ANY TYPE int64_arg) -> ANY TABLE, language="SQL", code="SELECT\n  SUM(second + int64_arg GROUP BY first) AS result\nFROM TwoIntsTableArg")
 ==
 
-[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,MULTILEVEL_AGGREGATION]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+CREATE_TABLE_FUNCTION,+MULTILEVEL_AGGREGATION]
 CREATE TABLE FUNCTION TvfComplexMultiAgg(TwoIntsTable TABLE<first INT64, second INT64>, int64_arg INT64) AS
 SELECT
   SUM(int64_arg + S.int64 GROUP BY int64_arg) AS result_1,
@@ -3069,7 +3069,7 @@ CreateTableFunctionStmt
 ################################################################################
 
 # The create TABLE function language feature is disabled for this query.
-[language_features=]
+[language_features=NONE]
 create table function myfunc (  )
   returns table<x string> language testlang ;
 --
@@ -4028,3 +4028,42 @@ CreateTableFunctionStmt
 | +-TwoIntegers.key#1 AS a [INT64]
 | +-TwoIntegers.value#2 AS b [INT64]
 +-sql_security=SQL_SECURITY_INVOKER
+
+==
+
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+CREATE_TABLE_FUNCTION,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
+create temporary table function f(t1 table<x int64, y string>,
+                                          t2 table<x int64, y string>)
+  returns table<x int64, y string> as
+    graph aml return 1 as x, 'foo' as y
+
+--
+CreateTableFunctionStmt
++-name_path=f
++-create_scope=CREATE_TEMP
++-argument_name_list=[t1, t2]
++-signature=(TABLE<x INT64, y STRING> t1, TABLE<x INT64, y STRING> t2) -> TABLE<x INT64, y STRING>
++-has_explicit_return_schema=TRUE
++-language="SQL"
++-code="graph aml return 1 as x, 'foo' as y"
++-query=
+| +-GraphTableScan
+|   +-column_list=$graph_table.[x#1, y#2]
+|   +-property_graph=aml
+|   +-input_scan=
+|     +-GraphLinearScan
+|       +-column_list=$graph_table.[x#1, y#2]
+|       +-scan_list=
+|         +-GraphLinearScan
+|           +-column_list=$graph_table.[x#1, y#2]
+|           +-scan_list=
+|             +-ProjectScan
+|               +-column_list=$graph_table.[x#1, y#2]
+|               +-expr_list=
+|               | +-x#1 := Literal(type=INT64, value=1)
+|               | +-y#2 := Literal(type=STRING, value="foo")
+|               +-input_scan=
+|                 +-SingleRowScan
++-output_column_list=
+  +-$graph_table.x#1 AS x [INT64]
+  +-$graph_table.y#2 AS y [STRING]

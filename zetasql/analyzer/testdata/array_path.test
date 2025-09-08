@@ -1,5 +1,5 @@
 [default enabled_ast_rewrites=DEFAULTS]
-[default language_features=UNNEST_AND_FLATTEN_ARRAYS,JSON_TYPE,PROTO_DEFAULT_IF_NULL,INLINE_LAMBDA_ARGUMENT,CHAINED_FUNCTION_CALLS]
+[default language_features=MAXIMUM,+UNNEST_AND_FLATTEN_ARRAYS,+JSON_TYPE,+PROTO_DEFAULT_IF_NULL,+INLINE_LAMBDA_ARGUMENT,+CHAINED_FUNCTION_CALLS]
 
 select value
 from ArrayTypes t, unnest(t.ProtoArray.int32_val1) value

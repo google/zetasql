@@ -87,11 +87,12 @@ using ::testing::ElementsAre;
 using ::testing::Eq;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
+using ::testing::Pointee;
+using ::testing::Property;
 using ::testing::UnorderedElementsAre;
 using ::zetasql_base::testing::IsOkAndHolds;
 using ::zetasql_base::testing::StatusIs;
 using ExpressionOptions = ::zetasql::PreparedExpression::ExpressionOptions;
-using QueryOptions = ::zetasql::PreparedQuery::QueryOptions;
 
 class UDFEvalTest : public ::testing::Test {
  public:
@@ -6408,6 +6409,748 @@ TEST_F(PreparedQueryProtoTest, ArbitraryProtoValuedExpression) {
   // We have to deserialize the proto-valued expression twice because it is not
   // of the form column.field_path.
   EXPECT_EQ(GetNumProtoDeserializations(), 2);
+}
+
+TEST(EvaluatorTest, PreparedQueryExecuteFailedPrepare) {
+  const std::string sql = "CREATE TABLE T AS SELECT 1 AS col;";
+  AnalyzerOptions analyzer_options;
+  analyzer_options.mutable_language()->SetSupportsAllStatementKinds();
+  SimpleCatalog catalog("test");
+  PreparedQuery prepared_query(sql, EvaluatorOptions());
+  EXPECT_THAT(
+      prepared_query.Prepare(analyzer_options, &catalog),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Statement kind RESOLVED_CREATE_TABLE_AS_SELECT_STMT "
+                         "does not correspond to a query")));
+  EXPECT_THAT(prepared_query.Execute(QueryOptions()),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid prepared expression/query")));
+}
+
+TEST(EvaluatorTest, PreparedModifyExecuteFailedPrepare) {
+  const std::string sql = "SELECT 1;";
+  PreparedModify prepared_modify(sql, EvaluatorOptions());
+  AnalyzerOptions analyzer_options;
+  analyzer_options.mutable_language()->SetSupportsAllStatementKinds();
+  SimpleCatalog catalog("test");
+  EXPECT_THAT(prepared_modify.Prepare(analyzer_options, &catalog),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Statement kind RESOLVED_QUERY_STMT does not "
+                                 "correspond to a DML statement")));
+  EXPECT_THAT(prepared_modify.Execute(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid prepared expression/query")));
+}
+
+class PreparedStatementTest : public ::testing::Test {
+ public:
+  void SetUp() override {
+    catalog_.AddBuiltinFunctions(
+        BuiltinFunctionOptions::AllReleasedFunctions());
+    analyzer_options_.mutable_language()->SetSupportsAllStatementKinds();
+
+    // Enable various pipe features to support testing multi-statements.
+    analyzer_options_.mutable_language()->EnableLanguageFeature(FEATURE_PIPES);
+    analyzer_options_.mutable_language()->EnableLanguageFeature(
+        FEATURE_PIPE_TEE);
+    analyzer_options_.mutable_language()->EnableLanguageFeature(
+        FEATURE_PIPE_FORK);
+    analyzer_options_.mutable_language()->EnableLanguageFeature(
+        FEATURE_PIPE_CREATE_TABLE);
+    analyzer_options_.mutable_language()->EnableLanguageFeature(
+        FEATURE_PIPE_INSERT);
+    analyzer_options_.mutable_language()->EnableLanguageFeature(
+        FEATURE_CREATE_TABLE_AS_SELECT_COLUMN_LIST);
+  }
+
+  void AddTableT() {
+    auto t_table = std::make_unique<SimpleTable>(
+        "t",
+        std::vector<SimpleTable::NameAndType>{{"col", types::Int64Type()}});
+    // We need to explicitly set the contents to empty so that
+    // `SimpleTable::evaluator_table_iterator_factory_` is populated.
+    t_table->SetContents({});
+    ZETASQL_ASSERT_OK(t_table->SetPrimaryKey({0}));
+    catalog_.AddOwnedTable(std::move(t_table));
+  }
+
+  Catalog* catalog() { return &catalog_; }
+  const AnalyzerOptions& analyzer_options() const { return analyzer_options_; }
+
+ protected:
+  SimpleCatalog catalog_{"test_catalog"};
+  AnalyzerOptions analyzer_options_;
+};
+
+TEST_F(PreparedStatementTest, CoreFunctionality_SimpleCTE) {
+  // Test a simple CTE followed by a SELECT that uses it.
+  const std::string sql = R"sql(
+     SELECT 1 AS x, 'a' AS y
+     |> FORK (
+       |> SELECT *
+     )
+   )sql";
+  PreparedStatement prepared_stmt(sql, EvaluatorOptions());
+  ZETASQL_ASSERT_OK(prepared_stmt.Prepare(analyzer_options(), catalog()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto results, prepared_stmt.Execute());
+  ASSERT_EQ(results.size(), 1);
+
+  // The SELECT statement.
+  ZETASQL_ASSERT_OK(results[0]);
+  {
+    EXPECT_EQ(results[0]->kind, PreparedStatementBase::StmtKind::kQuery);
+    EXPECT_THAT(
+        results[0]->statement,
+        Pointee(Property(&ResolvedStatement::node_kind, RESOLVED_QUERY_STMT)));
+    auto& iter = results[0]->table_iterator;
+    ASSERT_NE(iter, nullptr);
+    ASSERT_TRUE(iter->NextRow());
+    EXPECT_EQ(iter->GetValue(0), Int64(1));
+    EXPECT_EQ(iter->GetValue(1), String("a"));
+    ASSERT_FALSE(iter->NextRow());
+    ZETASQL_ASSERT_OK(iter->Status());
+  }
+}
+
+TEST_F(PreparedStatementTest, CoreFunctionality_CTEWithSelectAndInsert) {
+  // Test a CTE followed by a SELECT and an INSERT that both use the CTE.
+  AddTableT();
+  const std::string sql = R"sql(
+     SELECT 42 AS col
+     |> FORK (
+       |> SELECT *
+     ), (
+       |> INSERT INTO t(col)
+     )
+   )sql";
+  PreparedStatement prepared_stmt(sql, EvaluatorOptions());
+  ZETASQL_ASSERT_OK(prepared_stmt.Prepare(analyzer_options(), catalog()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto results, prepared_stmt.Execute());
+  ASSERT_EQ(results.size(), 2);
+
+  // Statement 1: SELECT
+  ZETASQL_ASSERT_OK(results[0]);
+  {
+    EXPECT_EQ(results[0]->kind, PreparedStatementBase::StmtKind::kQuery);
+    EXPECT_THAT(
+        results[0]->statement,
+        Pointee(Property(&ResolvedStatement::node_kind, RESOLVED_QUERY_STMT)));
+    auto& iter = results[0]->table_iterator;
+    ASSERT_NE(iter, nullptr);
+    ASSERT_TRUE(iter->NextRow());
+    EXPECT_EQ(iter->GetValue(0), Int64(42));
+    ASSERT_FALSE(iter->NextRow());
+    ZETASQL_ASSERT_OK(iter->Status());
+  }
+
+  // Statement 2: INSERT
+  ZETASQL_ASSERT_OK(results[1]);
+  {
+    EXPECT_EQ(results[1]->kind, PreparedStatementBase::StmtKind::kDML);
+    EXPECT_THAT(
+        results[1]->statement,
+        Pointee(Property(&ResolvedStatement::node_kind, RESOLVED_INSERT_STMT)));
+    auto& iter = results[1]->modify_result.table_modify_iter;
+    ASSERT_NE(iter, nullptr);
+    ASSERT_TRUE(iter->NextRow());
+    EXPECT_EQ(iter->GetOperation(),
+              EvaluatorTableModifyIterator::Operation::kInsert);
+    EXPECT_EQ(iter->GetColumnValue(0), Int64(42));
+    ASSERT_FALSE(iter->NextRow());
+    ZETASQL_ASSERT_OK(iter->Status());
+  }
+}
+
+TEST_F(PreparedStatementTest, CoreFunctionality_CTEWithNamedParameter) {
+  // Test a CTE that uses a named parameter, followed by a SELECT.
+  const std::string sql = R"sql(
+     SELECT @p1 AS x
+     |> FORK (
+       |> SELECT *
+     )
+   )sql";
+
+  AnalyzerOptions options = analyzer_options();
+  ZETASQL_ASSERT_OK(options.AddQueryParameter("p1", types::Int64Type()));
+
+  PreparedStatement prepared_stmt(sql, EvaluatorOptions());
+  ZETASQL_ASSERT_OK(prepared_stmt.Prepare(options, catalog()));
+
+  QueryOptions query_options;
+  query_options.parameters = {{"p1", Int64(42)}};
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto results, prepared_stmt.Execute(query_options));
+  ASSERT_EQ(results.size(), 1);
+
+  // The SELECT statement.
+  ZETASQL_ASSERT_OK(results[0]);
+  {
+    EXPECT_EQ(results[0]->kind, PreparedStatementBase::StmtKind::kQuery);
+    EXPECT_THAT(
+        results[0]->statement,
+        Pointee(Property(&ResolvedStatement::node_kind, RESOLVED_QUERY_STMT)));
+    auto& iter = results[0]->table_iterator;
+    ASSERT_NE(iter, nullptr);
+    ASSERT_TRUE(iter->NextRow());
+    EXPECT_EQ(iter->GetValue(0), Int64(42));
+    ASSERT_FALSE(iter->NextRow());
+    ZETASQL_ASSERT_OK(iter->Status());
+  }
+}
+
+TEST_F(PreparedStatementTest, CoreFunctionality_CTEWithPositionalParameter) {
+  // Test a CTE that uses a positional parameter, followed by a SELECT.
+  const std::string sql = R"sql(
+     SELECT ? AS x
+     |> FORK (
+       |> SELECT *
+     )
+   )sql";
+
+  AnalyzerOptions options = analyzer_options();
+  options.set_parameter_mode(PARAMETER_POSITIONAL);
+  ZETASQL_ASSERT_OK(options.AddPositionalQueryParameter(types::Int64Type()));
+
+  PreparedStatement prepared_stmt(sql, EvaluatorOptions());
+  ZETASQL_ASSERT_OK(prepared_stmt.Prepare(options, catalog()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto results,
+                       prepared_stmt.ExecuteWithPositionalParams({Int64(123)}));
+  ASSERT_EQ(results.size(), 1);
+
+  // The SELECT statement.
+  ZETASQL_ASSERT_OK(results[0]);
+  {
+    EXPECT_EQ(results[0]->kind, PreparedStatementBase::StmtKind::kQuery);
+    EXPECT_THAT(
+        results[0]->statement,
+        Pointee(Property(&ResolvedStatement::node_kind, RESOLVED_QUERY_STMT)));
+    auto& iter = results[0]->table_iterator;
+    ASSERT_NE(iter, nullptr);
+    ASSERT_TRUE(iter->NextRow());
+    EXPECT_EQ(iter->GetValue(0), Int64(123));
+    ASSERT_FALSE(iter->NextRow());
+    ZETASQL_ASSERT_OK(iter->Status());
+  }
+}
+
+TEST_F(PreparedStatementTest, CoreFunctionality_DependentCTE) {
+  // Test two CTEs where the second CTE depends on the first.
+  const std::string sql = R"sql(
+     SELECT 1 AS x
+     |> FORK (
+       |> SELECT x + 1 AS y
+       |> FORK (
+         |> SELECT *
+       )
+     )
+   )sql";
+  PreparedStatement prepared_stmt(sql, EvaluatorOptions());
+  ZETASQL_ASSERT_OK(prepared_stmt.Prepare(analyzer_options(), catalog()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto results, prepared_stmt.Execute());
+  ASSERT_EQ(results.size(), 1);
+
+  // The SELECT statement.
+  ZETASQL_ASSERT_OK(results[0]);
+  {
+    EXPECT_EQ(results[0]->kind, PreparedStatementBase::StmtKind::kQuery);
+    EXPECT_THAT(
+        results[0]->statement,
+        Pointee(Property(&ResolvedStatement::node_kind, RESOLVED_QUERY_STMT)));
+    auto& iter = results[0]->table_iterator;
+    ASSERT_NE(iter, nullptr);
+    ASSERT_TRUE(iter->NextRow());
+    EXPECT_EQ(iter->GetValue(0), Int64(2));
+    ASSERT_FALSE(iter->NextRow());
+    ZETASQL_ASSERT_OK(iter->Status());
+  }
+}
+
+TEST_F(PreparedStatementTest, ErrorHandling_FailingCTECausesCascadingFailure) {
+  // Test a CTE that fails at runtime, causing the subsequent SELECT to fail as
+  // well.
+  const std::string sql = R"sql(
+     SELECT 1/0 AS x
+     |> FORK (
+       |> SELECT *
+     )
+   )sql";
+  PreparedStatement prepared_stmt(sql, EvaluatorOptions());
+  ZETASQL_ASSERT_OK(prepared_stmt.Prepare(analyzer_options(), catalog()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto results, prepared_stmt.Execute());
+  ASSERT_EQ(results.size(), 1);
+
+  // The SELECT statement fails because its prerequisite CTE fails.
+  EXPECT_THAT(
+      results[0],
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Prerequisite CreateWithEntryStmt failed, "
+                         "statement index: 0 error: division by zero")));
+}
+
+TEST_F(PreparedStatementTest, ErrorHandling_SuccessfulCTEFailOnSelect) {
+  // Test a successful CTE followed by a SELECT that fails at runtime.
+  const std::string sql = R"sql(
+     SELECT 1 AS x
+     |> FORK (
+       |> SELECT 1/0
+     )
+   )sql";
+  PreparedStatement prepared_stmt(sql, EvaluatorOptions());
+  ZETASQL_ASSERT_OK(prepared_stmt.Prepare(analyzer_options(), catalog()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto results, prepared_stmt.Execute());
+  ASSERT_EQ(results.size(), 1);
+
+  // The SELECT statement fails.
+  EXPECT_THAT(results[0], StatusIs(absl::StatusCode::kOutOfRange,
+                                   HasSubstr("division by zero")));
+}
+
+TEST_F(PreparedStatementTest, ErrorHandling_FailOnDML) {
+  // Test a successful CTE and SELECT, followed by a DML statement that fails
+  // at runtime.
+  AddTableT();
+  const std::string sql = R"sql(
+     SELECT 1 AS x
+     |> FORK (
+       |> CREATE TABLE t1
+     ), (
+       -- Table t has primary key on col, so this will fail.
+       |> UNION ALL (SELECT 1)
+       |> INSERT INTO t(col)
+     )
+   )sql";
+  PreparedStatement prepared_stmt(sql, EvaluatorOptions());
+  ZETASQL_ASSERT_OK(prepared_stmt.Prepare(analyzer_options(), catalog()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto results, prepared_stmt.Execute());
+  ASSERT_EQ(results.size(), 2);
+
+  // Statement 1: CREATE TABLE
+  ZETASQL_ASSERT_OK(results[0]);
+  {
+    EXPECT_EQ(results[0]->kind, PreparedStatementBase::StmtKind::kCTAS);
+    EXPECT_THAT(results[0]->statement,
+                Pointee(Property(&ResolvedStatement::node_kind,
+                                 RESOLVED_CREATE_TABLE_AS_SELECT_STMT)));
+    auto& iter = results[0]->table_iterator;
+    ASSERT_NE(iter, nullptr);
+    ASSERT_TRUE(iter->NextRow());
+    EXPECT_EQ(iter->GetValue(0), Int64(1));
+    ASSERT_FALSE(iter->NextRow());
+    ZETASQL_ASSERT_OK(iter->Status());
+  }
+
+  // Statement 2: INSERT (fails)
+  EXPECT_THAT(
+      results[1],
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Failed to insert row with primary key "
+                         "({pk#col:1}) due to previously inserted row")));
+}
+
+TEST_F(PreparedStatementTest, ErrorHandling_CascadingFailureFromCTE) {
+  // Test a failing CTE (using ERROR) followed by multiple statements that
+  // should all be skipped.
+  AddTableT();
+  const std::string sql = R"sql(
+     SELECT ERROR('cascading failure') AS x
+     |> FORK (
+       |> SELECT *
+     ), (
+       |> INSERT INTO t(col)
+     )
+   )sql";
+  PreparedStatement prepared_stmt(sql, EvaluatorOptions());
+  ZETASQL_ASSERT_OK(prepared_stmt.Prepare(analyzer_options(), catalog()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto results, prepared_stmt.Execute());
+  ASSERT_EQ(results.size(), 2);
+
+  // Statement 1: SELECT (fails)
+  EXPECT_THAT(
+      results[0],
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Prerequisite CreateWithEntryStmt failed, "
+                         "statement index: 0 error: cascading failure")));
+
+  // Statement 2: INSERT (fails)
+  EXPECT_THAT(
+      results[1],
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Prerequisite CreateWithEntryStmt failed, "
+                         "statement index: 0 error: cascading failure")));
+}
+
+TEST_F(PreparedStatementTest, Stateful_DMLInvisibility) {
+  // An INSERT's effects are not visible to a subsequent SELECT in the same
+  // batch.
+  AddTableT();
+  const std::string sql = R"sql(
+     FROM t
+     |> FORK (
+       |> INSERT INTO t(col)
+     ), (
+       |> AGGREGATE COUNT(*)
+     )
+   )sql";
+  PreparedStatement prepared_stmt(sql, EvaluatorOptions());
+  ZETASQL_ASSERT_OK(prepared_stmt.Prepare(analyzer_options(), catalog()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto results, prepared_stmt.Execute());
+  ASSERT_EQ(results.size(), 2);
+
+  // Statement 1: INSERT
+  ZETASQL_ASSERT_OK(results[0]);
+  EXPECT_EQ(results[0]->kind, PreparedStatementBase::StmtKind::kDML);
+  EXPECT_THAT(
+      results[0]->statement,
+      Pointee(Property(&ResolvedStatement::node_kind, RESOLVED_INSERT_STMT)));
+
+  // Statement 2: SELECT COUNT(1)
+  ZETASQL_ASSERT_OK(results[1]);
+  {
+    EXPECT_EQ(results[1]->kind, PreparedStatementBase::StmtKind::kQuery);
+    EXPECT_THAT(
+        results[1]->statement,
+        Pointee(Property(&ResolvedStatement::node_kind, RESOLVED_QUERY_STMT)));
+    auto& iter = results[1]->table_iterator;
+    ASSERT_NE(iter, nullptr);
+    ASSERT_TRUE(iter->NextRow());
+    // The table 't' was initially empty. The INSERT is not visible.
+    EXPECT_EQ(iter->GetValue(0), Int64(0));
+    ASSERT_FALSE(iter->NextRow());
+    ZETASQL_ASSERT_OK(iter->Status());
+  }
+}
+
+TEST_F(PreparedStatementTest, Stateful_DDLInvisibility) {
+  // A CREATE OR REPLACE TABLE statement is accepted but the new table contents
+  // are not visible within the batch.
+  AddTableT();
+  const std::string sql = R"sql(
+     FROM t
+     |> FORK (
+       |> UNION ALL (SELECT 100000)
+       |> CREATE OR REPLACE TABLE t(col INT64)
+     ), (
+       |> SELECT *
+     )
+   )sql";
+  PreparedStatement prepared_stmt(sql, EvaluatorOptions());
+  ZETASQL_ASSERT_OK(prepared_stmt.Prepare(analyzer_options(), catalog()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto results, prepared_stmt.Execute());
+  ASSERT_EQ(results.size(), 2);
+
+  // Statement 1: CREATE OR REPLACE TABLE
+  ZETASQL_ASSERT_OK(results[0]);
+  {
+    EXPECT_EQ(results[0]->kind, PreparedStatementBase::StmtKind::kCTAS);
+    EXPECT_THAT(results[0]->statement,
+                Pointee(Property(&ResolvedStatement::node_kind,
+                                 RESOLVED_CREATE_TABLE_AS_SELECT_STMT)));
+    auto& iter = results[0]->table_iterator;
+    ASSERT_NE(iter, nullptr);
+    ASSERT_TRUE(iter->NextRow());
+    EXPECT_EQ(iter->GetValue(0), Int64(100000));
+    ASSERT_FALSE(iter->NextRow());
+    ZETASQL_ASSERT_OK(iter->Status());
+  }
+
+  // Statement 2: SELECT *
+  ZETASQL_ASSERT_OK(results[1]);
+  {
+    EXPECT_EQ(results[1]->kind, PreparedStatementBase::StmtKind::kQuery);
+    EXPECT_THAT(
+        results[1]->statement,
+        Pointee(Property(&ResolvedStatement::node_kind, RESOLVED_QUERY_STMT)));
+    auto& iter = results[1]->table_iterator;
+    ASSERT_NE(iter, nullptr);
+    // The CREATE OR REPLACE is not visible to this SELECT.
+    ASSERT_FALSE(iter->NextRow());
+    ZETASQL_ASSERT_OK(iter->Status());
+  }
+}
+
+TEST_F(PreparedStatementTest, Stateful_CTEVisibilityForMultipleStatements) {
+  // A single CTE is visible to multiple subsequent statements of different
+  // types.
+  AddTableT();
+  const std::string sql = R"sql(
+     SELECT 1 AS x, 2 AS y
+     |> FORK (
+       |> SELECT x
+     ), (
+       |> SELECT x + y
+       |> INSERT INTO t(col)
+     )
+   )sql";
+  PreparedStatement prepared_stmt(sql, EvaluatorOptions());
+  ZETASQL_ASSERT_OK(prepared_stmt.Prepare(analyzer_options(), catalog()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto results, prepared_stmt.Execute());
+  ASSERT_EQ(results.size(), 2);
+
+  // Statement 1: SELECT
+  ZETASQL_ASSERT_OK(results[0]);
+  {
+    EXPECT_EQ(results[0]->kind, PreparedStatementBase::StmtKind::kQuery);
+    EXPECT_THAT(
+        results[0]->statement,
+        Pointee(Property(&ResolvedStatement::node_kind, RESOLVED_QUERY_STMT)));
+    auto& iter = results[0]->table_iterator;
+    ASSERT_NE(iter, nullptr);
+    ASSERT_TRUE(iter->NextRow());
+    EXPECT_EQ(iter->GetValue(0), Int64(1));
+    ASSERT_FALSE(iter->NextRow());
+    ZETASQL_ASSERT_OK(iter->Status());
+  }
+
+  // Statement 2: INSERT
+  ZETASQL_ASSERT_OK(results[1]);
+  {
+    EXPECT_EQ(results[1]->kind, PreparedStatementBase::StmtKind::kDML);
+    EXPECT_THAT(
+        results[1]->statement,
+        Pointee(Property(&ResolvedStatement::node_kind, RESOLVED_INSERT_STMT)));
+    auto& iter = results[1]->modify_result.table_modify_iter;
+    ASSERT_NE(iter, nullptr);
+    ASSERT_TRUE(iter->NextRow());
+    EXPECT_EQ(iter->GetOperation(),
+              EvaluatorTableModifyIterator::Operation::kInsert);
+    EXPECT_EQ(iter->GetColumnValue(0), Int64(3));
+    ASSERT_FALSE(iter->NextRow());
+    ZETASQL_ASSERT_OK(iter->Status());
+  }
+}
+
+TEST_F(PreparedStatementTest, Stateful_FailingCTEPreventsDDL) {
+  // A failing CTE prevents subsequent DDL from executing.
+  const std::string sql = R"sql(
+     SELECT 1/0 AS x
+     |> FORK (
+       |> SELECT *
+     ), (
+       |> CREATE TABLE t1
+     )
+   )sql";
+  PreparedStatement prepared_stmt(sql, EvaluatorOptions());
+  ZETASQL_ASSERT_OK(prepared_stmt.Prepare(analyzer_options(), catalog()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto results, prepared_stmt.Execute());
+  ASSERT_EQ(results.size(), 2);
+
+  // Statement 1: SELECT (fails)
+  EXPECT_THAT(
+      results[0],
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Prerequisite CreateWithEntryStmt failed, "
+                         "statement index: 0 error: division by zero")));
+
+  // Statement 2: CREATE TABLE (fails)
+  EXPECT_THAT(
+      results[1],
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Prerequisite CreateWithEntryStmt failed, "
+                         "statement index: 0 error: division by zero")));
+}
+
+TEST_F(PreparedStatementTest, ExplainAfterPrepare) {
+  PreparedStatement prepared_stmt(R"sql(
+     SELECT 1 AS x
+     |> FORK (
+       |> SELECT x
+     )
+   )sql",
+                                  EvaluatorOptions());
+  ZETASQL_ASSERT_OK(prepared_stmt.Prepare(analyzer_options(), catalog()));
+  EXPECT_THAT(prepared_stmt.ExplainAfterPrepare(),
+              IsOkAndHolds(Eq("MultiStmtExpr(\n"
+                              "+-$fork_cte_1 := ArrayNestExpr(is_with_table=0\n"
+                              "| +-element: NewStructExpr(\n"
+                              "| | +-type: STRUCT<x INT64>,\n"
+                              "| | +-0 x: $x),\n"
+                              "| +-input: ComputeOp(\n"
+                              "|   +-map: {\n"
+                              "|   | +-$x := ConstExpr(1)},\n"
+                              "|   +-input: EnumerateOp(ConstExpr(1)))),\n"
+                              "+-ArrayNestExpr(is_with_table=0\n"
+                              "| +-element: NewStructExpr(\n"
+                              "| | +-type: STRUCT<x INT64>,\n"
+                              "| | +-0 x: $x),\n"
+                              "| +-input: ArrayScanOp(\n"
+                              "|   +-$x := field[0]:x,\n"
+                              "|   +-array: $fork_cte_1)))")));
+}
+
+TEST_F(PreparedStatementTest, StandaloneSelect) {
+  const std::string sql = "SELECT 1;";
+  PreparedStatement prepared_stmt(sql, EvaluatorOptions());
+  ZETASQL_ASSERT_OK(prepared_stmt.Prepare(analyzer_options(), catalog()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto results, prepared_stmt.Execute());
+  ASSERT_EQ(results.size(), 1);
+
+  ZETASQL_ASSERT_OK(results[0]);
+  EXPECT_EQ(results[0]->kind, PreparedStatementBase::StmtKind::kQuery);
+  EXPECT_THAT(
+      results[0]->statement,
+      Pointee(Property(&ResolvedStatement::node_kind, RESOLVED_QUERY_STMT)));
+  auto& iter = results[0]->table_iterator;
+  ASSERT_NE(iter, nullptr);
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Int64(1));
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_ASSERT_OK(iter->Status());
+}
+
+TEST_F(PreparedStatementTest, StandaloneSelectWithNamedParameter) {
+  const std::string sql = "SELECT @p1;";
+  AnalyzerOptions options = analyzer_options();
+  ZETASQL_ASSERT_OK(options.AddQueryParameter("p1", types::Int64Type()));
+
+  PreparedStatement prepared_stmt(sql, EvaluatorOptions());
+  ZETASQL_ASSERT_OK(prepared_stmt.Prepare(options, catalog()));
+
+  QueryOptions query_options;
+  query_options.parameters = {{"p1", Int64(42)}};
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto results, prepared_stmt.Execute(query_options));
+  ASSERT_EQ(results.size(), 1);
+
+  ZETASQL_ASSERT_OK(results[0]);
+  EXPECT_EQ(results[0]->kind, PreparedStatementBase::StmtKind::kQuery);
+  auto& iter = results[0]->table_iterator;
+  ASSERT_NE(iter, nullptr);
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Int64(42));
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_ASSERT_OK(iter->Status());
+}
+
+TEST_F(PreparedStatementTest, StandaloneSelectWithPositionalParameter) {
+  const std::string sql = "SELECT ?;";
+  AnalyzerOptions options = analyzer_options();
+  options.set_parameter_mode(PARAMETER_POSITIONAL);
+  ZETASQL_ASSERT_OK(options.AddPositionalQueryParameter(types::Int64Type()));
+
+  PreparedStatement prepared_stmt(sql, EvaluatorOptions());
+  ZETASQL_ASSERT_OK(prepared_stmt.Prepare(options, catalog()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto results,
+                       prepared_stmt.ExecuteWithPositionalParams({Int64(123)}));
+  ASSERT_EQ(results.size(), 1);
+
+  ZETASQL_ASSERT_OK(results[0]);
+  EXPECT_EQ(results[0]->kind, PreparedStatementBase::StmtKind::kQuery);
+  auto& iter = results[0]->table_iterator;
+  ASSERT_NE(iter, nullptr);
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Int64(123));
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_ASSERT_OK(iter->Status());
+}
+
+TEST_F(PreparedStatementTest, StandaloneInsert) {
+  AddTableT();
+  const std::string sql = "INSERT INTO t(col) VALUES (1);";
+  PreparedStatement prepared_stmt(sql, EvaluatorOptions());
+  ZETASQL_ASSERT_OK(prepared_stmt.Prepare(analyzer_options(), catalog()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto results, prepared_stmt.Execute());
+  ASSERT_EQ(results.size(), 1);
+
+  ZETASQL_ASSERT_OK(results[0]);
+  EXPECT_EQ(results[0]->kind, PreparedStatementBase::StmtKind::kDML);
+  auto& iter = results[0]->modify_result.table_modify_iter;
+  ASSERT_NE(iter, nullptr);
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetOperation(),
+            EvaluatorTableModifyIterator::Operation::kInsert);
+  EXPECT_EQ(iter->GetColumnValue(0), Int64(1));
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_ASSERT_OK(iter->Status());
+}
+
+TEST_F(PreparedStatementTest, StandaloneCreateTable) {
+  const std::string sql =
+      "CREATE TABLE new_table (col INT64) AS SELECT 1 AS col;";
+  PreparedStatement prepared_stmt(sql, EvaluatorOptions());
+  ZETASQL_ASSERT_OK(prepared_stmt.Prepare(analyzer_options(), catalog()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto results, prepared_stmt.Execute());
+  ASSERT_EQ(results.size(), 1);
+
+  ZETASQL_ASSERT_OK(results[0]);
+  EXPECT_EQ(results[0]->kind, PreparedStatementBase::StmtKind::kCTAS);
+  auto& iter = results[0]->table_iterator;
+  ASSERT_NE(iter, nullptr);
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Int64(1));
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_ASSERT_OK(iter->Status());
+}
+
+TEST_F(PreparedStatementTest, ExecuteFailedPrepare_StandaloneQuery) {
+  const std::string sql = "SELECT 1 FROM NonExistentTable;";
+  PreparedStatement prepared_stmt(sql, EvaluatorOptions());
+  EXPECT_THAT(prepared_stmt.Prepare(analyzer_options(), catalog()),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Table not found: NonExistentTable")));
+  EXPECT_THAT(prepared_stmt.Execute(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid prepared expression/query")));
+}
+
+TEST_F(PreparedStatementTest, ExecuteFailedPrepare_StandaloneDML) {
+  AddTableT();
+  const std::string sql = "INSERT INTO t(non_existent_col) VALUES (1);";
+  PreparedStatement prepared_stmt(sql, EvaluatorOptions());
+  EXPECT_THAT(
+      prepared_stmt.Prepare(analyzer_options(), catalog()),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Column non_existent_col is not present in table t")));
+  EXPECT_THAT(prepared_stmt.Execute(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid prepared expression/query")));
+}
+
+TEST_F(PreparedStatementTest, ExecuteFailedPrepare_MultiStmt) {
+  const std::string sql = R"sql(
+     SELECT 1 AS x
+     |> FORK (
+       |> SELECT z
+     )
+   )sql";
+  PreparedStatement prepared_stmt(sql, EvaluatorOptions());
+  EXPECT_THAT(prepared_stmt.Prepare(analyzer_options(), catalog()),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Unrecognized name: z")));
+  EXPECT_THAT(prepared_stmt.Execute(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid prepared expression/query")));
+}
+
+TEST_F(PreparedStatementTest,
+       ConstructorWithResolvedGeneralizedQueryStmtFails) {
+  const std::string sql = R"sql(
+    SELECT 1 AS x
+    |> FORK (
+      |> SELECT x
+    )
+  )sql";
+
+  AnalyzerOptions options = analyzer_options();
+  options.disable_rewrite(REWRITE_GENERALIZED_QUERY_STMT);
+
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  TypeFactory type_factory;
+  ZETASQL_ASSERT_OK(AnalyzeStatement(sql, options, catalog(), &type_factory,
+                             &analyzer_output));
+
+  const ResolvedStatement* resolved_statement =
+      analyzer_output->resolved_statement();
+
+  ASSERT_EQ(resolved_statement->node_kind(), RESOLVED_GENERALIZED_QUERY_STMT);
+
+  PreparedStatement prepared_stmt(resolved_statement, EvaluatorOptions());
+  EXPECT_THAT(prepared_stmt.Prepare(options, catalog()),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Evaluator does not support statement kind: "
+                                 "GeneralizedQueryStmt")));
+  EXPECT_THAT(prepared_stmt.Execute(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid prepared expression/query")));
 }
 
 }  // namespace

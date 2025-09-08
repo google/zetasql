@@ -1,4 +1,4 @@
-[default language_features=TABLE_VALUED_FUNCTIONS,TVF_PSEUDO_COLUMNS]
+[default language_features=MAXIMUM,+TABLE_VALUED_FUNCTIONS,+TVF_PSEUDO_COLUMNS]
 
 # Call TVF with pseudo columns that strip them with select all
 SELECT *

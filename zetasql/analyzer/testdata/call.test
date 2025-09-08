@@ -1,4 +1,5 @@
 # Empty parameter list.
+[default language_features=NONE]
 call proc_no_args()
 --
 CallStmt(procedure=proc_no_args, signature=() -> BOOL)
@@ -256,7 +257,7 @@ call proc_on_int32("string")
 ==
 
 # No SAFE-mode procedure calls.
-[language_features={{|SAFE_FUNCTION_CALL}}]
+[language_features=NONE,{{|+SAFE_FUNCTION_CALL}}]
 call safe.proc_on_bool(true)
 --
 ERROR: Procedure not found: safe.proc_on_bool [at 1:6]

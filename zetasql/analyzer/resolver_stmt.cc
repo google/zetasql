@@ -260,6 +260,7 @@ absl::Status Resolver::ValidateStatementIsReturnable(
     case RESOLVED_CREATE_CONNECTION_STMT:
     case RESOLVED_CREATE_CONSTANT_STMT:
     case RESOLVED_CREATE_PROCEDURE_STMT:
+    case RESOLVED_CREATE_SEQUENCE_STMT:
     case RESOLVED_CLONE_DATA_STMT:
     case RESOLVED_EXPORT_MODEL_STMT:
     case RESOLVED_EXPORT_METADATA_STMT:
@@ -298,6 +299,7 @@ absl::Status Resolver::ValidateStatementIsReturnable(
     case RESOLVED_ALTER_DATABASE_STMT:
     case RESOLVED_ALTER_SCHEMA_STMT:
     case RESOLVED_ALTER_EXTERNAL_SCHEMA_STMT:
+    case RESOLVED_ALTER_SEQUENCE_STMT:
     case RESOLVED_ALTER_TABLE_STMT:
     case RESOLVED_ALTER_VIEW_STMT:
     case RESOLVED_RENAME_STMT:
@@ -921,6 +923,12 @@ absl::Status Resolver::ResolveStatement(
             statement->GetAsOrDie<ASTAlterConnectionStatement>(), &stmt));
       }
       break;
+    case AST_ALTER_SEQUENCE_STATEMENT:
+      if (language().SupportsStatementKind(RESOLVED_ALTER_SEQUENCE_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveAlterSequenceStatement(
+            statement->GetAsOrDie<ASTAlterSequenceStatement>(), &stmt));
+      }
+      break;
     case AST_CREATE_DATABASE_STATEMENT:
       if (language().SupportsStatementKind(RESOLVED_CREATE_DATABASE_STMT)) {
         ZETASQL_RETURN_IF_ERROR(ResolveCreateDatabaseStatement(
@@ -960,6 +968,12 @@ absl::Status Resolver::ResolveStatement(
       if (language().SupportsStatementKind(RESOLVED_CREATE_PROCEDURE_STMT)) {
         ZETASQL_RETURN_IF_ERROR(ResolveCreateProcedureStatement(
             statement->GetAsOrDie<ASTCreateProcedureStatement>(), &stmt));
+      }
+      break;
+    case AST_CREATE_SEQUENCE_STATEMENT:
+      if (language().SupportsStatementKind(RESOLVED_CREATE_SEQUENCE_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveCreateSequenceStatement(
+            statement->GetAsOrDie<ASTCreateSequenceStatement>(), &stmt));
       }
       break;
     case AST_EXECUTE_IMMEDIATE_STATEMENT:
@@ -1120,10 +1134,18 @@ absl::Status Resolver::ResolveCreateStatementLikeTableName(
     const ResolvedColumn resolved_column = ResolvedColumn(
         AllocateColumnId(), table_name_id_string, column_name,
         AnnotatedType(column->GetType(), column->GetTypeAnnotationMap()));
+
+    ZETASQL_ASSIGN_OR_RETURN(
+        auto column_annotations,
+        MakeResolvedColumnAnnotationsFromAnnotationMap(
+            resolved_column.type_annotation_map(), /*options_list=*/{}));
+
     column_definition_list->push_back(MakeResolvedColumnDefinition(
         column_name.ToString(), resolved_column.type(),
-        /*annotations=*/nullptr, /*is_hidden=*/false, resolved_column,
-        /*generated_column_info=*/nullptr, /*default_value=*/nullptr));
+        /*annotations=*/std::move(column_annotations),
+        /*is_hidden=*/false, resolved_column,
+        /*generated_column_info=*/nullptr,
+        /*default_value=*/nullptr));
   }
   *like_table = found_like_table;
   return absl::OkStatus();
@@ -1250,7 +1272,15 @@ constexpr absl::string_view kIdentityColumnMaxValueString = "MAXVALUE";
 constexpr absl::string_view kIdentityColumnMinValueString = "MINVALUE";
 
 absl::StatusOr<Value> MakeDefaultValueForIdentityColumnAttribute(
-    const Type* type, const IdentityColumnAttribute attribute) {
+    const Type* type, bool skip_type_match_check,
+    const IdentityColumnAttribute attribute) {
+  // If `skip_type_match_check` is true, it means that the column type is not
+  // available (e.g. when doing an ALTER COLUMN IF EXISTS statement and the
+  // column does not exist). In this case, we return an arbitrary value.
+  if (skip_type_match_check) {
+    return Value::Int64(kIdentityColumnStartWithIncrementByDefault);
+  }
+
   ZETASQL_RET_CHECK(type->IsInteger())
       << "Unsupported type for identity column: " << type->DebugString();
   if (type->IsInt32()) {
@@ -1325,7 +1355,7 @@ absl::Status ValidateIdentityColumnAttributes(
 
 absl::StatusOr<Value> Resolver::ResolveIdentityColumnAttribute(
     const ASTExpression* attribute_expr, const Type* type,
-    absl::string_view attribute_name) {
+    bool skip_type_match_check, absl::string_view attribute_name) {
   ZETASQL_RET_CHECK(attribute_expr != nullptr);
 
   std::unique_ptr<const ResolvedExpr> resolved_attribute_expr;
@@ -1339,15 +1369,28 @@ absl::StatusOr<Value> Resolver::ResolveIdentityColumnAttribute(
   // Implicitly convert the identity column attribute literal to the identity
   // column type (if necessary), or return an error if the types are
   // incompatible.
-  ZETASQL_RETURN_IF_ERROR(
-      CoerceExprToType(
-          attribute_expr, AnnotatedType(type, /*annotation_map=*/nullptr),
-          kImplicitAssignment,
-          " value has type $1 which cannot be assigned to an identity "
-          "column with type $0",
-          &resolved_attribute_expr))
-          .SetPrepend()
-      << attribute_name;
+  if (!skip_type_match_check) {
+    ZETASQL_RETURN_IF_ERROR(
+        CoerceExprToType(
+            attribute_expr, AnnotatedType(type, /*annotation_map=*/nullptr),
+            kImplicitAssignment,
+            " value has type $1 which cannot be assigned to an identity "
+            "column with type $0",
+            &resolved_attribute_expr))
+            .SetPrepend()
+        << attribute_name;
+  }
+
+  // Check that the identity column attribute is an integer value. This is to
+  // ensure that the attribute is an integer value even if the type is not
+  // provided (e.g. when doing an ALTER COLUMN IF EXISTS statement).
+  if (!resolved_attribute_expr->GetAs<ResolvedLiteral>()
+           ->value()
+           .type()
+           ->IsInteger()) {
+    return MakeSqlErrorAt(attribute_expr)
+           << "Identity column attributes must be an integer value";
+  }
 
   return resolved_attribute_expr->GetAs<ResolvedLiteral>()->value();
 }
@@ -1355,15 +1398,18 @@ absl::StatusOr<Value> Resolver::ResolveIdentityColumnAttribute(
 absl::Status Resolver::ResolveIdentityColumnInfo(
     const ASTIdentityColumnInfo* ast_identity_column,
     const NameList& column_name_list, const Type* type,
+    bool skip_type_match_check,
     std::unique_ptr<ResolvedIdentityColumnInfo>* output) {
   ZETASQL_RET_CHECK(ast_identity_column != nullptr);
-  if (type == nullptr) {
-    return MakeSqlErrorAt(ast_identity_column)
-           << "An identity column must have an explicit type";
-  }
-  if (!type->IsInteger()) {
-    return MakeSqlErrorAt(ast_identity_column)
-           << "Identity columns must have an integer type";
+  if (!skip_type_match_check) {
+    if (type == nullptr) {
+      return MakeSqlErrorAt(ast_identity_column)
+             << "An identity column must have an explicit type";
+    }
+    if (!type->IsInteger()) {
+      return MakeSqlErrorAt(ast_identity_column)
+             << "Identity columns must have an integer type";
+    }
   }
 
   Value resolved_start_with;
@@ -1374,44 +1420,50 @@ absl::Status Resolver::ResolveIdentityColumnInfo(
   // For each identity column attribute, either use the value provided in
   // ast_identity_column or apply the default.
   if (ast_identity_column->start_with_value() != nullptr) {
-    ZETASQL_ASSIGN_OR_RETURN(resolved_start_with,
-                     ResolveIdentityColumnAttribute(
-                         ast_identity_column->start_with_value()->value(), type,
-                         kIdentityColumnStartWithString));
+    ZETASQL_ASSIGN_OR_RETURN(
+        resolved_start_with,
+        ResolveIdentityColumnAttribute(
+            ast_identity_column->start_with_value()->value(), type,
+            skip_type_match_check, kIdentityColumnStartWithString));
   } else {
-    ZETASQL_ASSIGN_OR_RETURN(resolved_start_with,
-                     MakeDefaultValueForIdentityColumnAttribute(
-                         type, IdentityColumnAttribute::kStartWith));
+    ZETASQL_ASSIGN_OR_RETURN(
+        resolved_start_with,
+        MakeDefaultValueForIdentityColumnAttribute(
+            type, skip_type_match_check, IdentityColumnAttribute::kStartWith));
   }
   if (ast_identity_column->increment_by_value() != nullptr) {
-    ZETASQL_ASSIGN_OR_RETURN(resolved_increment_by,
-                     ResolveIdentityColumnAttribute(
-                         ast_identity_column->increment_by_value()->value(),
-                         type, kIdentityColumnIncrementByString));
+    ZETASQL_ASSIGN_OR_RETURN(
+        resolved_increment_by,
+        ResolveIdentityColumnAttribute(
+            ast_identity_column->increment_by_value()->value(), type,
+            skip_type_match_check, kIdentityColumnIncrementByString));
   } else {
     ZETASQL_ASSIGN_OR_RETURN(resolved_increment_by,
                      MakeDefaultValueForIdentityColumnAttribute(
-                         type, IdentityColumnAttribute::kIncrementBy));
+                         type, skip_type_match_check,
+                         IdentityColumnAttribute::kIncrementBy));
   }
   if (ast_identity_column->max_value() != nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(resolved_max_value,
                      ResolveIdentityColumnAttribute(
                          ast_identity_column->max_value()->value(), type,
-                         kIdentityColumnMaxValueString));
+                         skip_type_match_check, kIdentityColumnMaxValueString));
   } else {
-    ZETASQL_ASSIGN_OR_RETURN(resolved_max_value,
-                     MakeDefaultValueForIdentityColumnAttribute(
-                         type, IdentityColumnAttribute::kMaxValue));
+    ZETASQL_ASSIGN_OR_RETURN(
+        resolved_max_value,
+        MakeDefaultValueForIdentityColumnAttribute(
+            type, skip_type_match_check, IdentityColumnAttribute::kMaxValue));
   }
   if (ast_identity_column->min_value() != nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(resolved_min_value,
                      ResolveIdentityColumnAttribute(
                          ast_identity_column->min_value()->value(), type,
-                         kIdentityColumnMinValueString));
+                         skip_type_match_check, kIdentityColumnMinValueString));
   } else {
-    ZETASQL_ASSIGN_OR_RETURN(resolved_min_value,
-                     MakeDefaultValueForIdentityColumnAttribute(
-                         type, IdentityColumnAttribute::kMinValue));
+    ZETASQL_ASSIGN_OR_RETURN(
+        resolved_min_value,
+        MakeDefaultValueForIdentityColumnAttribute(
+            type, skip_type_match_check, IdentityColumnAttribute::kMinValue));
   }
 
   // Validate the identity column attributes.
@@ -1429,6 +1481,7 @@ absl::Status Resolver::ResolveIdentityColumnInfo(
 absl::Status Resolver::ResolveGeneratedColumnInfo(
     const ASTGeneratedColumnInfo* ast_generated_column,
     const NameList& column_name_list, const Type* opt_type,
+    bool skip_type_match_check,
     std::unique_ptr<ResolvedGeneratedColumnInfo>* output) {
   static constexpr char kComputedColumn[] = "computed column expression";
   const ResolvedGeneratedColumnInfoEnums::StoredMode stored_mode =
@@ -1452,7 +1505,7 @@ absl::Status Resolver::ResolveGeneratedColumnInfo(
     std::unique_ptr<ResolvedIdentityColumnInfo> identity_column_info;
     ZETASQL_RETURN_IF_ERROR(ResolveIdentityColumnInfo(
         ast_generated_column->identity_column_info(), column_name_list,
-        opt_type, &identity_column_info));
+        opt_type, skip_type_match_check, &identity_column_info));
 
     *output = MakeResolvedGeneratedColumnInfo(
         /*expression=*/nullptr, stored_mode, generated_mode,
@@ -1485,6 +1538,10 @@ absl::Status Resolver::ResolveGeneratedColumnInfo(
   *output = MakeResolvedGeneratedColumnInfo(std::move(resolved_expression),
                                             stored_mode, generated_mode,
                                             /*identity_column_info=*/nullptr);
+
+  // Location can be used to extract the expression sql.
+  output->get()->SetParseLocationRange(
+      ast_generated_column->expression()->location());
 
   return absl::OkStatus();
 }
@@ -1931,9 +1988,9 @@ absl::Status Resolver::ResolveColumnSchema(
       return MakeSqlErrorAt(schema->generated_column_info())
              << "Generated columns are not supported";
     }
-    ZETASQL_RETURN_IF_ERROR(ResolveGeneratedColumnInfo(schema->generated_column_info(),
-                                               column_name_list, *resolved_type,
-                                               generated_column_info));
+    ZETASQL_RETURN_IF_ERROR(ResolveGeneratedColumnInfo(
+        schema->generated_column_info(), column_name_list, *resolved_type,
+        /*skip_type_match_check=*/false, generated_column_info));
     if (*resolved_type == nullptr &&
         (*generated_column_info)->expression() != nullptr) {
       // Propagates the type from the expression into the ColumnDefinition.
@@ -2529,7 +2586,7 @@ absl::Status Resolver::ResolveCreateExternalSchemaStatement(
 }
 
 absl::Status Resolver::ValidateIndexKeyExpressionForCreateSearchOrVectorIndex(
-    std::string_view index_type,
+    absl::string_view index_type,
     const ASTOrderingExpression& ordering_expression,
     const ResolvedExpr& resolved_expr) {
   if (ordering_expression.ordering_spec() !=
@@ -3947,7 +4004,7 @@ absl::Status Resolver::ResolveQueryAndOutputColumns(
       }
       ZETASQL_ASSIGN_OR_RETURN(
           column_annotations,
-          MakeResolvedColumnAnnotationsWithCollation(
+          MakeResolvedColumnAnnotationsFromAnnotationMap(
               named_column.column().type_annotation_map(), options_list));
 
       column_definition_list->push_back(MakeResolvedColumnDefinition(
@@ -3961,18 +4018,30 @@ absl::Status Resolver::ResolveQueryAndOutputColumns(
 }
 
 absl::StatusOr<std::unique_ptr<ResolvedColumnAnnotations>>
-Resolver::MakeResolvedColumnAnnotationsWithCollation(
+Resolver::MakeResolvedColumnAnnotationsFromAnnotationMap(
     const AnnotationMap* type_annotation_map,
     const ASTOptionsList* options_list) {
-  std::unique_ptr<ResolvedColumnAnnotations> column_annotations;
+  std::unique_ptr<ResolvedColumnAnnotations> column_annotations = nullptr;
   std::vector<std::unique_ptr<const ResolvedOption>> resolved_options_list;
   ZETASQL_RETURN_IF_ERROR(ResolveOptionsList(options_list,
                                      /*allow_alter_array_operators=*/false,
                                      &resolved_options_list));
-  if (language().LanguageFeatureEnabled(FEATURE_COLLATION_SUPPORT) &&
-      type_annotation_map != nullptr &&
-      type_annotation_map->Has<CollationAnnotation>()) {
-    std::unique_ptr<const ResolvedLiteral> collation_name_expr;
+
+  if (type_annotation_map == nullptr) {
+    return resolved_options_list.empty()
+               ? std::move(column_annotations)
+               : MakeResolvedColumnAnnotations(
+                     /*collation_name=*/nullptr, /*not_null=*/false,
+                     std::move(resolved_options_list), /*child_list=*/{},
+                     TypeParameters());
+  }
+
+  std::unique_ptr<const ResolvedLiteral> collation_name_expr;
+  TypeParameters type_parameters;
+  std::vector<std::unique_ptr<const ResolvedColumnAnnotations>> child_list;
+
+  if (!type_annotation_map->IsStructMap()) {
+    // The type annotation map is for a simple type.
     const SimpleValue* collation_name_value =
         type_annotation_map->GetAnnotation(CollationAnnotation::GetId());
     if (collation_name_value != nullptr) {
@@ -3981,50 +4050,32 @@ Resolver::MakeResolvedColumnAnnotationsWithCollation(
       collation_name_expr = MakeResolvedLiteralWithoutLocation(
           Value::StringValue(collation_name_value->string_value()));
     }
-    std::vector<std::unique_ptr<const ResolvedColumnAnnotations>> child_list;
-    if (type_annotation_map->IsArrayMap()) {
-      const AnnotationMap* element_map =
-          type_annotation_map->AsArrayMap()->element();
-      if (element_map != nullptr && element_map->Has<CollationAnnotation>()) {
-        ZETASQL_ASSIGN_OR_RETURN(auto element_annotation,
-                         MakeResolvedColumnAnnotationsWithCollation(
-                             element_map, /*options_list=*/{}));
-        child_list.push_back(std::move(element_annotation));
+  } else if (type_annotation_map->IsStructMap()) {
+    // The type annotation map is for a complex type.
+    int last_non_empty_index = -1;
+    for (int i = 0; i < type_annotation_map->AsStructMap()->num_fields(); i++) {
+      std::unique_ptr<ResolvedColumnAnnotations> field_annotation;
+      const AnnotationMap* field_map =
+          type_annotation_map->AsStructMap()->field(i);
+      if (field_map != nullptr) {
+        last_non_empty_index = i;
+        ZETASQL_ASSIGN_OR_RETURN(field_annotation,
+                         MakeResolvedColumnAnnotationsFromAnnotationMap(
+                             field_map, /*options_list=*/{}));
+      } else {
+        // All children must be non-null, otherwise Resolver::PruneColumnLists
+        // will crash when calling GetDescendantsSatisfying.
+        field_annotation = MakeResolvedColumnAnnotations();
       }
-    } else if (type_annotation_map->IsStructMap()) {
-      int last_non_empty_index = -1;
-      for (int i = 0; i < type_annotation_map->AsStructMap()->num_fields();
-           i++) {
-        std::unique_ptr<ResolvedColumnAnnotations> field_annotation;
-        const AnnotationMap* field_map =
-            type_annotation_map->AsStructMap()->field(i);
-        if (field_map != nullptr && field_map->Has<CollationAnnotation>()) {
-          last_non_empty_index = i;
-          ZETASQL_ASSIGN_OR_RETURN(field_annotation,
-                           MakeResolvedColumnAnnotationsWithCollation(
-                               field_map, /*options_list=*/{}));
-        } else {
-          // All children must be non-null, otherwise Resolver::PruneColumnLists
-          // will crash when calling GetDescendantsSatisfying.
-          field_annotation = MakeResolvedColumnAnnotations();
-        }
-        child_list.push_back(std::move(field_annotation));
-      }
-      // Shorten the child_list to be able to hold the last non-empty element.
-      child_list.resize(last_non_empty_index + 1);
+      child_list.push_back(std::move(field_annotation));
     }
-    return MakeResolvedColumnAnnotations(
-        std::move(collation_name_expr), /*not_null=*/false,
-        std::move(resolved_options_list), std::move(child_list),
-        TypeParameters());
+    // Shorten the child_list to be able to hold the last non-empty element.
+    child_list.resize(last_non_empty_index + 1);
   }
 
-  return resolved_options_list.empty()
-             ? std::move(column_annotations)
-             : MakeResolvedColumnAnnotations(
-                   /*collation_name=*/nullptr, /*not_null=*/false,
-                   std::move(resolved_options_list), /*child_list=*/{},
-                   TypeParameters());
+  return MakeResolvedColumnAnnotations(
+      std::move(collation_name_expr), /*not_null=*/false,
+      std::move(resolved_options_list), std::move(child_list), type_parameters);
 }
 
 absl::Status Resolver::ResolveAndAdaptQueryAndOutputColumns(
@@ -5556,7 +5607,7 @@ absl::Status Resolver::ResolveCreateProcedureStatement(
   std::string code_string;
   if (ast_statement->language() != nullptr) {
     if (!language().LanguageFeatureEnabled(FEATURE_NON_SQL_PROCEDURE)) {
-      return MakeSqlErrorAt(ast_statement)
+      return MakeSqlErrorAt(ast_statement->language())
              << "LANGUAGE clause is not supported";
     }
     if (ast_statement->body() != nullptr) {
@@ -6624,8 +6675,11 @@ absl::Status Resolver::ResolveCallStatement(
     }
     ZETASQL_RETURN_IF_ERROR(
         ResolveStandaloneExpr(sql_, ast_tvf_argument->expr(), &expr));
-    input_arg_types[i] = GetInputArgumentTypeForExpr(
-        expr.get(), /*pick_default_type_for_untyped_expr=*/false);
+    ZETASQL_ASSIGN_OR_RETURN(
+        input_arg_types[i],
+        GetInputArgumentTypeForExpr(
+            expr.get(), /*pick_default_type_for_untyped_expr=*/false,
+            analyzer_options()));
     resolved_args_exprs[i] = std::move(expr);
   }
 
@@ -6640,8 +6694,8 @@ absl::Status Resolver::ResolveCallStatement(
           arg_locations, input_arg_types, signature,
           /* allow_argument_coercion=*/true, /*name_scope=*/nullptr,
           &result_signature, &signature_match_result,
-          /*arg_index_mapping=*/nullptr,
-          /*arg_overrides=*/nullptr));
+          /*arg_index_mapping=*/nullptr, /*arg_overrides=*/nullptr,
+          /*lambda_ast_nodes=*/nullptr));
   if (!is_match) {
     return MakeSqlErrorAt(ast_call->procedure_name())
            << Function::GetGenericNoMatchingFunctionSignatureErrorMessage(
@@ -7699,6 +7753,27 @@ Resolver::CreateNameScopeWithAccessErrorForDefaultExpr(
   ZETASQL_RETURN_IF_ERROR(empty_scope->CopyNameScopeWithOverridingNameTargets(
       error_name_targets, &target_scope));
   return target_scope;
+}
+
+absl::Status Resolver::ResolveCreateSequenceStatement(
+    const ASTCreateSequenceStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  ResolvedCreateStatement::CreateScope create_scope;
+  ResolvedCreateStatement::CreateMode create_mode;
+  std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
+
+  // Resolve CREATE clauses then OPTIONS clauses.
+  ZETASQL_RETURN_IF_ERROR(ResolveCreateStatementOptions(
+      ast_statement, /*statement_type=*/"CREATE SEQUENCE", &create_scope,
+      &create_mode));
+
+  ZETASQL_RETURN_IF_ERROR(ResolveOptionsList(ast_statement->options_list(),
+                                     /*allow_alter_array_operators=*/false,
+                                     &resolved_options));
+  *output = MakeResolvedCreateSequenceStmt(
+      ast_statement->name()->ToIdentifierVector(), create_scope, create_mode,
+      std::move(resolved_options));
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

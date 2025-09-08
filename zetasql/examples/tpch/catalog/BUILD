@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("//zetasql/tools/execute_query/web:embed_files.bzl", "gen_string_constant_header_file")
 
 package(

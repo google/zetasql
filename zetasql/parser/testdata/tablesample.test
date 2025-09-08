@@ -1596,7 +1596,8 @@ QueryStatement [0-73] [select a FROM...a LIMIT 5]
         PathExpression [64-65] [a]
           Identifier(a) [64-65] [a]
     LimitOffset [66-73] [LIMIT 5]
-      IntLiteral(5) [72-73] [5]
+      Limit [66-73] [LIMIT 5]
+        IntLiteral(5) [72-73] [5]
 --
 SELECT
   a

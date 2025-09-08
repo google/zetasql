@@ -1,4 +1,4 @@
-[default language_features=PIPES]
+[default language_features=NONE,+PIPES]
 
 SELECT 1 |> AS t
 --

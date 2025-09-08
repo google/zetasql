@@ -90,6 +90,10 @@ class MapType : public ContainerType {
 
   int nesting_depth() const override;
 
+  // Validates resolved type parameters for map key and value.
+  absl::Status ValidateResolvedTypeParameters(
+      const TypeParameters& type_parameters, ProductMode mode) const override;
+
  protected:
   bool EqualsForSameKind(const Type* that, bool equivalent) const override;
 

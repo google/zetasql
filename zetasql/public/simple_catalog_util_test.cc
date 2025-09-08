@@ -17,7 +17,10 @@
 #include "zetasql/public/simple_catalog_util.h"
 
 #include <memory>
+#include <optional>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/analyzer.h"
@@ -35,7 +38,11 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
+#include "zetasql/base/status_macros.h"
 
+using ::testing::HasSubstr;
 using ::testing::MatchesRegex;
 using ::testing::Not;
 using ::zetasql_base::testing::IsOk;
@@ -347,5 +354,139 @@ TEST(SimpleCatalogUtilTest, AddTVFFromCreateTableFunction) {
                                             analyzer_output, catalog),
               StatusIs(absl::StatusCode::kUnimplemented));
 }
+
+// Helper function to analyze a CREATE TABLE statement and return the resolved
+// statement.
+static absl::StatusOr<std::unique_ptr<const AnalyzerOutput>>
+AnalyzeCreateTableStmt(absl::string_view sql, AnalyzerOptions& options,
+                       Catalog& catalog, TypeFactory& type_factory) {
+  options.mutable_language()->AddSupportedStatementKind(
+      RESOLVED_CREATE_TABLE_STMT);
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  ZETASQL_RETURN_IF_ERROR(AnalyzeStatement(sql, options, &catalog, &type_factory,
+                                   &analyzer_output));
+  if (!analyzer_output->resolved_statement()->Is<ResolvedCreateTableStmt>()) {
+    return absl::InvalidArgumentError(
+        "Statement is not a CREATE TABLE statement");
+  }
+  return analyzer_output;
+}
+
+struct MakeTableFromCreateTableTestParams {
+  std::string name;
+  std::string create_sql;
+  absl::Status expected_analysis_status = absl::OkStatus();
+  absl::Status expected_make_table_status = absl::OkStatus();
+  std::optional<std::vector<int>> expected_primary_key;
+};
+
+class MakeTableFromCreateTableTest
+    : public ::testing::TestWithParam<MakeTableFromCreateTableTestParams> {
+ protected:
+  MakeTableFromCreateTableTest()
+      : catalog_("simple"), analyzer_options_([] {
+          AnalyzerOptions options;
+          options.mutable_language()->AddSupportedStatementKind(
+              RESOLVED_CREATE_TABLE_STMT);
+          options.mutable_language()->EnableLanguageFeature(
+              FEATURE_UNENFORCED_PRIMARY_KEYS);
+          return options;
+        }()) {}
+
+  SimpleCatalog catalog_;
+  AnalyzerOptions analyzer_options_;
+  TypeFactory type_factory_;
+};
+
+TEST_P(MakeTableFromCreateTableTest, MakeTableFromCreateTable) {
+  const MakeTableFromCreateTableTestParams& params = GetParam();
+
+  absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> analyzer_output =
+      AnalyzeCreateTableStmt(params.create_sql, analyzer_options_, catalog_,
+                             type_factory_);
+
+  if (!params.expected_analysis_status.ok()) {
+    EXPECT_THAT(analyzer_output.status(),
+                StatusIs(params.expected_analysis_status.code(),
+                         HasSubstr(params.expected_analysis_status.message())));
+    return;
+  }
+  ZETASQL_ASSERT_OK(analyzer_output);
+
+  const auto* stmt = (*analyzer_output)
+                         ->resolved_statement()
+                         ->GetAs<ResolvedCreateTableStmt>();
+
+  absl::StatusOr<std::unique_ptr<SimpleTable>> table =
+      MakeTableFromCreateTable(*stmt);
+
+  if (!params.expected_make_table_status.ok()) {
+    EXPECT_THAT(
+        table.status(),
+        StatusIs(params.expected_make_table_status.code(),
+                 HasSubstr(params.expected_make_table_status.message())));
+    return;
+  }
+  ZETASQL_ASSERT_OK(table);
+
+  if (params.expected_primary_key.has_value()) {
+    EXPECT_TRUE((*table)->PrimaryKey().has_value());
+    EXPECT_THAT((*table)->PrimaryKey().value(),
+                testing::ElementsAreArray(params.expected_primary_key.value()));
+  } else {
+    EXPECT_FALSE((*table)->PrimaryKey().has_value());
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    MakeTableFromCreateTableTests, MakeTableFromCreateTableTest,
+    ::testing::ValuesIn<MakeTableFromCreateTableTestParams>({
+        {
+            .name = "NoPrimaryKey",
+            .create_sql = "CREATE TABLE t (c1 INT64)",
+        },
+        {
+            .name = "PrimaryKeySingleColumn",
+            .create_sql =
+                "CREATE TABLE t (k1 INT64, v STRING, PRIMARY KEY (k1))",
+            .expected_primary_key = std::vector<int>{0},
+        },
+        {
+            .name = "PrimaryKeyMultipleColumns",
+            .create_sql = "CREATE TABLE t (c1 INT64, c2 STRING, c3 BOOL, "
+                          "PRIMARY KEY (c2, c1))",
+            .expected_primary_key = std::vector<int>{1, 0},
+        },
+        {
+            .name = "PrimaryKeyZeroColumns",
+            .create_sql = "CREATE TABLE t (c1 INT64, c2 STRING, c3 BOOL, "
+                          "PRIMARY KEY ())",
+            .expected_primary_key = std::vector<int>{},
+        },
+        {
+            .name = "PrimaryKeyUnenforcedFieldNotAccessed",
+            .create_sql =
+                "CREATE TABLE t (c1 INT64, PRIMARY KEY (c1) NOT ENFORCED)",
+            .expected_make_table_status = absl::UnimplementedError(
+                "Unimplemented feature (ResolvedPrimaryKey::unenforced not "
+                "accessed and has non-default value)"),
+        },
+        {
+            .name = "PrimaryKeyCaseInsensitive",
+            .create_sql = "CREATE TABLE t (ColA INT64, ColB STRING, PRIMARY "
+                          "KEY (cOLb, COLa))",
+            .expected_primary_key = std::vector<int>{1, 0},
+        },
+        {
+            .name = "PrimaryKeyColumnNotFound",
+            .create_sql =
+                "CREATE TABLE t (c1 INT64, PRIMARY KEY (non_existent))",
+            .expected_analysis_status = absl::InvalidArgumentError(
+                "Unsupported primary key column non_existent either does not "
+                "exist or is a pseudocolumn"),
+        },
+    }),
+    [](const ::testing::TestParamInfo<MakeTableFromCreateTableTest::ParamType>&
+           info) { return info.param.name; });
 
 }  // namespace zetasql

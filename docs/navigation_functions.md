@@ -908,5 +908,7 @@ FROM UNNEST(['c', NULL, 'b', 'a']) AS x;
 
 ```
 
+[sketches]: https://github.com/google/zetasql/blob/master/docs/sketches.md
+
 [window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 

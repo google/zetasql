@@ -273,7 +273,7 @@ class SimpleCatalog : public EnumerableCatalog {
       std::unique_ptr<TableValuedFunction>* table_function);
   bool AddOwnedTableValuedFunctionIfNotPresent(
       std::unique_ptr<TableValuedFunction>* table_function);
-  void AddOwnedTableValuedFunction(const std::string& name,
+  void AddOwnedTableValuedFunction(absl::string_view name,
                                    const TableValuedFunction* function);
   void AddOwnedTableValuedFunction(const TableValuedFunction* function)
       ABSL_LOCKS_EXCLUDED(mutex_);
@@ -429,13 +429,53 @@ class SimpleCatalog : public EnumerableCatalog {
   int RemoveFunctions(std::function<bool(const Function*)> predicate)
       ABSL_LOCKS_EXCLUDED(mutex_);
   // Implements RemoveFunction without de-allocating any owned functions.
-  // Owned functions are insteawd transerred to 'removed' and the invoking
+  // Owned functions are instead transferred to 'removed' and the invoking
   // context is responsible for de-allocation.
   int RemoveFunctions(std::function<bool(const Function*)> predicate,
                       std::vector<std::unique_ptr<const Function>>& removed)
       ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock l(&mutex_);
     return RemoveFunctionsLocked(predicate, removed);
+  }
+
+  // Removes all tables that satisfy <predicate> from this catalog and from
+  // all sub-catalogs that are SimpleCatalog. Returns the number of tables
+  // removed.
+  //
+  // Owned tables that are removed are de-allocated after all calls to
+  // <predicate> are complete so that <predicate> can safely
+  // de-reference Table*s it captures from the invoking context.
+  int RemoveTables(std::function<bool(const Table*)> predicate)
+      ABSL_LOCKS_EXCLUDED(mutex_);
+
+  // Implements RemoveTables without de-allocating any owned tables.
+  // Owned tables are instead transferred to 'removed' and the invoking
+  // context is responsible for de-allocation.
+  int RemoveTables(std::function<bool(const Table*)> predicate,
+                   std::vector<std::unique_ptr<const Table>>& removed)
+      ABSL_LOCKS_EXCLUDED(mutex_) {
+    absl::MutexLock l(&mutex_);
+    return RemoveTablesLocked(predicate, removed);
+  }
+
+  // Removes all constants that satisfy <predicate> from this catalog and from
+  // all sub-catalogs that are SimpleCatalog. Returns the number of constants
+  // removed.
+  //
+  // Owned constants that are removed are de-allocated after all calls to
+  // <predicate> are complete so that <predicate> can safely
+  // de-reference Constant*s it captures from the invoking context.
+  int RemoveConstants(std::function<bool(const Constant*)> predicate)
+      ABSL_LOCKS_EXCLUDED(mutex_);
+
+  // Implements RemoveConstants without de-allocating any owned constants.
+  // Owned constants are instead transferred to 'removed' and the invoking
+  // context is responsible for de-allocation.
+  int RemoveConstants(std::function<bool(const Constant*)> predicate,
+                      std::vector<std::unique_ptr<const Constant>>& removed)
+      ABSL_LOCKS_EXCLUDED(mutex_) {
+    absl::MutexLock l(&mutex_);
+    return RemoveConstantsLocked(predicate, removed);
   }
 
   // Removes all types that satisfy <predicate> from this catalog and from
@@ -598,6 +638,15 @@ class SimpleCatalog : public EnumerableCatalog {
   int RemoveFunctionsLocked(
       std::function<bool(const Function*)> predicate,
       std::vector<std::unique_ptr<const Function>>& removed)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  int RemoveTablesLocked(std::function<bool(const Table*)> predicate,
+                         std::vector<std::unique_ptr<const Table>>& removed)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  int RemoveConstantsLocked(
+      std::function<bool(const Constant*)> predicate,
+      std::vector<std::unique_ptr<const Constant>>& removed)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   // Implements RemoveTableValuedFunctions without de-allocating any owned
@@ -857,9 +906,7 @@ class SimpleTable : public Table {
 
   // Resets `anonymization_info_`, implying that the table does not support
   // anonymization queries.
-  void ResetAnonymizationInfo() {
-    anonymization_info_.reset();
-  }
+  void ResetAnonymizationInfo() { anonymization_info_.reset(); }
 
   // Returns anonymization info for a table, including a column reference that
   // indicates the userid column for anonymization purposes.
@@ -875,9 +922,8 @@ class SimpleTable : public Table {
   // DescriptorPools in order to reconstruct the Type. The map may be
   // non-empty and may be used across calls to this method in order to
   // serialize multiple types. The map may NOT be null.
-  absl::Status Serialize(
-      FileDescriptorSetMap* file_descriptor_set_map,
-      SimpleTableProto* proto) const;
+  absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
+                         SimpleTableProto* proto) const;
 
   // Deserializes SimpleTable from proto using TypeDeserializer.
   static absl::StatusOr<std::unique_ptr<SimpleTable>> Deserialize(

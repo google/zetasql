@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -30,12 +31,14 @@
 #include "google/type/timeofday.pb.h"
 #include "zetasql/common/builtin_function_internal.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
+#include "zetasql/public/functions/regexp.h"
 #include "zetasql/public/functions/unsupported_fields.pb.h"
 #include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/language_options.h"
@@ -58,6 +61,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -66,17 +70,6 @@ class AnalyzerOptions;
 static FunctionSignatureOptions SetRewriter(ResolvedASTRewrite rewriter) {
   return FunctionSignatureOptions().set_rewrite_options(
       FunctionSignatureRewriteOptions().set_rewriter(rewriter));
-}
-
-// Create a `FunctionSignatureOptions` that configures a SQL definition that
-// will be inlined by `REWRITE_BUILTIN_FUNCTION_INLINER`.
-static FunctionSignatureOptions SetDefinitionForInlining(absl::string_view sql,
-                                                         bool enabled = true) {
-  return FunctionSignatureOptions().set_rewrite_options(
-      FunctionSignatureRewriteOptions()
-          .set_enabled(enabled)
-          .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
-          .set_sql(sql));
 }
 
 // Generates a good error message when concatenating paths that should
@@ -486,6 +479,48 @@ void GetStringFunctions(TypeFactory* type_factory,
                  edit_distance_signature, FunctionOptions());
 }
 
+namespace {
+absl::StatusOr<const Type*> ComputeResultTypeForRegexpExtractGroups(
+    Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
+    const FunctionSignature& signature,
+    absl::Span<const InputArgumentType> arguments,
+    const AnalyzerOptions& analyzer_options) {
+  ZETASQL_RET_CHECK_EQ(arguments.size(), 2);
+
+  const InputArgumentType& regexp_arg = arguments[1];
+  ZETASQL_RET_CHECK(regexp_arg.is_literal() && !regexp_arg.is_literal_null())
+      << "Function context id: " << signature.context_id()
+      << ", regexp_arg: " << regexp_arg.DebugString();
+
+  absl::StatusOr<std::unique_ptr<const functions::RegExp>> regexp;
+  if (regexp_arg.type()->IsString()) {
+    regexp =
+        functions::MakeRegExpUtf8(regexp_arg.literal_value()->string_value());
+  } else if (regexp_arg.type()->IsBytes()) {
+    regexp =
+        functions::MakeRegExpBytes(regexp_arg.literal_value()->bytes_value());
+  } else {
+    ZETASQL_RET_CHECK_FAIL() << "Invalid type for regexp argument: "
+                     << regexp_arg.type()->DebugString();
+  }
+
+  if (!regexp.ok()) {
+    return zetasql_base::StatusBuilder(regexp.status())
+               .SetCode(absl::StatusCode::kInvalidArgument)
+           << "Invalid regexp";
+  }
+
+  // At this stage, type suffixes are ignored and the fields in the result
+  // struct are set to the source type. A cast is added later to the resolved
+  // AST during function call resolution.
+  ZETASQL_ASSIGN_OR_RETURN(const Type* result_type,
+                   regexp.value()->ExtractGroupsResultStruct(
+                       type_factory, analyzer_options.language(),
+                       /*derive_field_types=*/false));
+  return result_type;
+}
+}  // namespace
+
 void GetRegexFunctions(TypeFactory* type_factory,
                        const ZetaSQLBuiltinFunctionOptions& options,
                        NameToFunctionMap* functions) {
@@ -571,6 +606,42 @@ void GetRegexFunctions(TypeFactory* type_factory,
                   {bytes_array_type,
                    {bytes_type, bytes_type},
                    FN_REGEXP_EXTRACT_ALL_BYTES}});
+
+  FunctionOptions regexp_extract_groups_options;
+  regexp_extract_groups_options.set_compute_result_type_callback(
+      &ComputeResultTypeForRegexpExtractGroups);
+  regexp_extract_groups_options.set_pre_resolution_argument_constraint(
+      [](absl::Span<const InputArgumentType> args,
+         const LanguageOptions& language_options) -> absl::Status {
+        ZETASQL_RET_CHECK_EQ(args.size(), 2);
+        if (args[1].type() == nullptr ||
+            (!args[1].type()->IsString() && !args[1].type()->IsBytes())) {
+          return MakeSqlError()
+                 << "The regexp argument of REGEXP_EXTRACT_GROUPS "
+                    "must be a STRING or BYTES";
+        }
+        if (!args[1].is_literal()) {
+          return MakeSqlError()
+                 << "The regexp argument of REGEXP_EXTRACT_GROUPS "
+                    "must be a literal";
+        }
+        return absl::OkStatus();
+      });
+
+  InsertFunction(
+      functions, options, "regexp_extract_groups", SCALAR,
+      {{ARG_TYPE_ARBITRARY,  // Result type set by callback.
+        {string_type,
+         {string_type,
+          FunctionArgumentTypeOptions().set_must_be_analysis_constant()}},
+        FN_REGEXP_EXTRACT_GROUPS_STRING,
+        FunctionSignatureOptions().set_rejects_collation()},
+       {ARG_TYPE_ARBITRARY,
+        {bytes_type,
+         {bytes_type,
+          FunctionArgumentTypeOptions().set_must_be_analysis_constant()}},
+        FN_REGEXP_EXTRACT_GROUPS_BYTES}},
+      regexp_extract_groups_options);
 }
 
 absl::Status GetProto3ConversionFunctions(
@@ -776,13 +847,8 @@ static FunctionSignatureOnHeap NullIfZeroSig(const Type* type,
   FunctionArgumentType input_arg{
       type, FunctionArgumentTypeOptions().set_argument_name("input",
                                                             kPositionalOnly)};
-  return FunctionSignatureOnHeap(
-      type, {input_arg}, id,
-      FunctionSignatureOptions().set_rewrite_options(
-          FunctionSignatureRewriteOptions()
-              .set_enabled(true)
-              .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
-              .set_sql(kNullIfZeroTemplate)));
+  return FunctionSignatureOnHeap(type, {input_arg}, id,
+                                 SetDefinitionForInlining(kNullIfZeroTemplate));
 }
 
 static FunctionSignatureOnHeap ZeroIfNullSig(const Type* type,
@@ -793,13 +859,8 @@ static FunctionSignatureOnHeap ZeroIfNullSig(const Type* type,
   FunctionArgumentType input_arg{
       type, FunctionArgumentTypeOptions().set_argument_name("input",
                                                             kPositionalOnly)};
-  return FunctionSignatureOnHeap(
-      type, {input_arg}, id,
-      FunctionSignatureOptions().set_rewrite_options(
-          FunctionSignatureRewriteOptions()
-              .set_enabled(true)
-              .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
-              .set_sql(kZeroIfNullTemplate)));
+  return FunctionSignatureOnHeap(type, {input_arg}, id,
+                                 SetDefinitionForInlining(kZeroIfNullTemplate));
 }
 
 void GetConditionalFunctions(TypeFactory* type_factory,
@@ -1155,11 +1216,9 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                              &GetOrMakeEnumValueDescriptorType));
   }
 
-  auto apply_rewrite_options =
-      FunctionSignatureRewriteOptions()
-          .set_enabled(true)
-          .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
-          .set_sql(R"sql(transform(value))sql");
+  constexpr absl::string_view kApplyTemplate = R"sql(
+    transform(value)
+  )sql";
 
   // APPLY(value, lambda) -> lambda(value)
   InsertFunction(
@@ -1172,10 +1231,9 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
              FunctionArgumentTypeOptions().set_argument_name("transform",
                                                              kPositionalOnly))},
         FN_APPLY,
-        FunctionSignatureOptions()
+        SetDefinitionForInlining(kApplyTemplate)
             .AddRequiredLanguageFeature(FEATURE_INLINE_LAMBDA_ARGUMENT)
-            .AddRequiredLanguageFeature(FEATURE_CHAINED_FUNCTION_CALLS)
-            .set_rewrite_options(std::move(apply_rewrite_options))}},
+            .AddRequiredLanguageFeature(FEATURE_CHAINED_FUNCTION_CALLS)}},
       FunctionOptions().set_supports_safe_error_mode(
           options.language_options.LanguageFeatureEnabled(
               FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
@@ -2608,9 +2666,26 @@ void GetTrigonometricFunctions(TypeFactory* type_factory,
                                const ZetaSQLBuiltinFunctionOptions& options,
                                NameToFunctionMap* functions) {
   const Type* double_type = type_factory->get_double();
+  const Type* const numeric_type = type_factory->get_numeric();
+  const Type* const bignumeric_type = type_factory->get_bignumeric();
 
   const Function::Mode SCALAR = Function::SCALAR;
 
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_RADIANS_DEGREES_FUNCTIONS)) {
+    InsertFunction(
+        functions, options, "radians", SCALAR,
+        {{double_type,
+          {FunctionArgumentType(double_type,
+                                FunctionArgumentTypeOptions().set_argument_name(
+                                    "input", kPositionalOnly))},
+          FN_RADIANS_DOUBLE,
+          SetDefinitionForInlining(R"sql(
+                    (input * PI() / 180.0)
+                  )sql")},
+         {numeric_type, {numeric_type}, FN_RADIANS_NUMERIC},
+         {bignumeric_type, {bignumeric_type}, FN_RADIANS_BIGNUMERIC}});
+  }
   InsertSimpleFunction(functions, options, "cos", SCALAR,
                        {{double_type, {double_type}, FN_COS_DOUBLE}});
   InsertSimpleFunction(functions, options, "cosh", SCALAR,
@@ -2651,6 +2726,21 @@ void GetTrigonometricFunctions(TypeFactory* type_factory,
                        {{double_type, {double_type}, FN_SECH_DOUBLE}});
   InsertSimpleFunction(functions, options, "coth", SCALAR,
                        {{double_type, {double_type}, FN_COTH_DOUBLE}});
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_RADIANS_DEGREES_FUNCTIONS)) {
+    InsertFunction(
+        functions, options, "degrees", SCALAR,
+        {{FunctionArgumentType(double_type,
+                               FunctionArgumentTypeOptions().set_argument_name(
+                                   "input", kPositionalOnly)),
+          {double_type},
+          FN_DEGREES_DOUBLE,
+          SetDefinitionForInlining(R"sql(
+                    (input * 180.0 / PI())
+                  )sql")},
+         {numeric_type, {numeric_type}, FN_DEGREES_NUMERIC},
+         {bignumeric_type, {bignumeric_type}, FN_DEGREES_BIGNUMERIC}});
+  }
   if (options.language_options.LanguageFeatureEnabled(FEATURE_PI_FUNCTIONS)) {
     constexpr absl::string_view kPiDoubleTemplate = R"sql(
     3.1415926535897931
@@ -3483,6 +3573,42 @@ void GetGeographyFunctions(TypeFactory* type_factory,
                     {int64_type, dbscan_arg_options}},
                    FN_ST_CLUSTERDBSCAN}},
                  geography_required_analytic);
+}
+
+void GetCompressionFunctions(TypeFactory* type_factory,
+                             const ZetaSQLBuiltinFunctionOptions& options,
+                             NameToFunctionMap* functions) {
+  const Function::Mode SCALAR = Function::SCALAR;
+  const Type* int64_type = types::Int64Type();
+  const Type* string_type = types::StringType();
+  const Type* bytes_type = types::BytesType();
+
+  const FunctionArgumentType level_arg(
+      {int64_type, FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
+                       .set_argument_name("level", kPositionalOrNamed)
+                       .set_default(Value::Int64(3))});
+  const FunctionArgumentType size_limit_arg(
+      {int64_type, FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
+                       .set_argument_name("size_limit", kNamedOnly)
+                       .set_default(Value::Int64(1 << 30))});
+  const FunctionOptions compression_and_named_arg_required =
+      FunctionOptions()
+          .AddRequiredLanguageFeature(zetasql::FEATURE_NAMED_ARGUMENTS);
+
+  InsertFunction(
+      functions, options, "zstd_compress", SCALAR,
+      {{bytes_type, {bytes_type, level_arg}, FN_ZSTD_COMPRESS_FROM_BYTES},
+       {bytes_type, {string_type, level_arg}, FN_ZSTD_COMPRESS_FROM_STRING}},
+      compression_and_named_arg_required);
+  InsertFunction(
+      functions, options, "zstd_decompress_to_bytes", SCALAR,
+      {{bytes_type, {bytes_type, size_limit_arg}, FN_ZSTD_DECOMPRESS_TO_BYTES}},
+      compression_and_named_arg_required);
+  InsertFunction(functions, options, "zstd_decompress_to_string", SCALAR,
+                 {{string_type,
+                   {bytes_type, size_limit_arg},
+                   FN_ZSTD_DECOMPRESS_TO_STRING}},
+                 compression_and_named_arg_required);
 }
 
 void GetTypeOfFunction(TypeFactory* type_factory,

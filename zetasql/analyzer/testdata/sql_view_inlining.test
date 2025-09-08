@@ -1,6 +1,7 @@
 # TODO: Enable view inlining for tests in this file.
 
 # Because SQLView is not serialized.
+[default language_features=MAXIMUM]
 [default no_java]
 [default enabled_ast_rewrites=ALL]
 
@@ -1882,7 +1883,7 @@ QueryStmt
               +-TableScan(column_list=ScanTableView.[a#5, b#6], table=TwoIntegers, column_index_list=[0, 1])
 ==
 
-[language_features=TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS]
 # Scan a view indirectly by providing it as a TVF argument.
 SELECT *
 FROM tvf_templated_select_relation_arg_using_select_star(TABLE TwoIntsView);

@@ -34,7 +34,7 @@ absl::btree_set<ResolvedASTRewrite> MinimalRewritesForReference();
 // namespace.
 class RewriteSet : public absl::btree_set<ResolvedASTRewrite> {
  public:
-  RewriteSet() {}
+  RewriteSet() = default;
   explicit RewriteSet(const absl::btree_set<ResolvedASTRewrite>& set)
       : absl::btree_set<ResolvedASTRewrite>(set) {}
 };

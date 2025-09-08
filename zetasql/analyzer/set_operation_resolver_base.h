@@ -22,10 +22,10 @@
 #include <vector>
 
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/coercer.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/input_argument_type.h"
-#include "zetasql/public/language_options.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/resolved_ast/column_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -39,7 +39,7 @@ namespace zetasql {
 // operation.
 class SetOperationResolverBase {
  public:
-  SetOperationResolverBase(const LanguageOptions& language_options,
+  SetOperationResolverBase(const AnalyzerOptions& analyzer_options,
                            Coercer& coercer, ColumnFactory& column_factory);
 
   // Returns the SQL string for the given set operation type enum.
@@ -52,7 +52,7 @@ class SetOperationResolverBase {
 
   // Returns the input argument type for the given `column` in the context of
   // the `resolved_scan`.
-  InputArgumentType GetColumnInputArgumentType(
+  absl::StatusOr<InputArgumentType> GetColumnInputArgumentType(
       const ResolvedColumn& column, const ResolvedScan* resolved_scan) const;
 
   // Coerces the types given by `column_type_lists` into a list of common
@@ -79,7 +79,7 @@ class SetOperationResolverBase {
       std::function<void(const ResolvedColumn&)> record_column_access);
 
  private:
-  const LanguageOptions& language_options_;
+  const AnalyzerOptions& analyzer_options_;
   Coercer& coercer_;
   ColumnFactory& column_factory_;
 };

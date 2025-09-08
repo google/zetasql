@@ -21,6 +21,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -602,9 +603,7 @@ class AnalyzerOptions {
   void set_default_time_zone(absl::TimeZone timezone) {
     data_->default_timezone = timezone;
   }
-  const absl::TimeZone default_time_zone() const {
-    return data_->default_timezone;
-  }
+  absl::TimeZone default_time_zone() const { return data_->default_timezone; }
 
   void set_default_anon_function_report_format(absl::string_view format) {
     data_->default_anon_function_report_format = format;
@@ -812,29 +811,12 @@ class AnalyzerOptions {
     data_->error_message_stability = stability;
   }
 
-  // Controls whether enhanced error redaction is enabled.
-  //
-  // When enabled, error redaction attempts to preserve enough information about
-  // the error to make it readable to a human, while still keeping it stable so
-  // that the unredacted error message can change without breaking tests that
-  // rely on the redacted error message. When enabled, only specific types of
-  // error message support redaction (see error_helpers.cc for details).
-  //
-  // This value is ignored when error_message_stability() is PRODUCTION.
-  bool enable_enhanced_error_redaction() const {
-    return data_->enhanced_error_redaction;
-  }
-  void set_enhanced_error_redaction(bool enable) {
-    data_->enhanced_error_redaction = enable;
-  }
-
   // Returns the ErrorMessageOptions to use for this AnalyzerOptions.
   ErrorMessageOptions error_message_options() const {
     return ErrorMessageOptions{
         .mode = data_->error_message_mode,
         .attach_error_location_payload = data_->attach_error_location_payload,
         .stability = data_->error_message_stability,
-        .enhanced_error_redaction = data_->enhanced_error_redaction,
     };
   }
 
@@ -1071,7 +1053,12 @@ class AnalyzerOptions {
     // in ErrorMessageOptions for details).
     //
     // Ignored when error_message_stability does not enable redaction.
-    bool enhanced_error_redaction = false;
+    std::optional<bool> enhanced_error_redaction = std::nullopt;
+
+    // If true, then when analyzing the body of a templated SQL function,
+    // the analyzer should ignore any set lookup expression callback.
+    bool suspend_lookup_expression_callback_when_resolving_templated_function =
+        false;
 
     // Constant evaluator to use for SQLConstant evaluation.
     // If nullptr, do not evaluate SQLConstant at analysis time.

@@ -141,6 +141,8 @@ struct QueryResultStats {
   int ordered_result_count = 0;
   int verified_graph_count = 0;
   int verified_graph_nonempty_result_count = 0;
+  int verified_measure_aggregation_count = 0;
+  int verified_measure_aggregation_nonempty_result_count = 0;
 };
 
 class SQLTestBase : public ::testing::TestWithParam<std::string> {

@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstddef>
+#include <cstdint>
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -54,6 +55,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/substitute.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -61,8 +63,6 @@ namespace zetasql {
 namespace parser {
 namespace macros {
 
-// TODO: we should also employ a cycle detector to find infinitie
-//           macro call recursion and give the users a good error message.
 #define RETURN_ERROR_IF_OUT_OF_STACK_SPACE() \
   ZETASQL_RETURN_IF_NOT_ENOUGH_STACK(      \
       "Out of stack space due to deeply nested macro calls.")
@@ -162,31 +162,32 @@ std::vector<absl::Status> MacroExpander::WarningCollector::ReleaseWarnings() {
 }
 
 MacroExpander::MacroExpander(
-    std::unique_ptr<TokenProviderBase> token_provider, bool is_strict,
+    std::unique_ptr<TokenProviderBase> token_provider,
     const MacroCatalog& macro_catalog, zetasql_base::UnsafeArena* arena,
     std::vector<std::unique_ptr<StackFrame>>& stack_frames,
-    DiagnosticOptions diagnostic_options,
+    MacroExpanderOptions macro_expander_options,
     StackFrame* /*absl_nullable*/ parent_location)
-    : MacroExpander(std::move(token_provider), is_strict, macro_catalog, arena,
+    : MacroExpander(std::move(token_provider), macro_catalog, arena,
                     stack_frames,
                     // Public constructor, expansion state uses the owned
                     // (empty) expansion state from this MacroExpander.
                     owned_expansion_state_,
-                    /*call_arguments=*/{}, diagnostic_options,
+                    /*call_arguments=*/{}, macro_expander_options,
                     /*override_warning_collector=*/nullptr, parent_location) {}
 
 absl::StatusOr<ExpansionOutput> MacroExpander::ExpandMacros(
-    std::unique_ptr<TokenProviderBase> token_provider, bool is_strict,
-    const MacroCatalog& macro_catalog, DiagnosticOptions diagnostic_options) {
+    std::unique_ptr<TokenProviderBase> token_provider,
+    const MacroCatalog& macro_catalog,
+    MacroExpanderOptions macro_expander_options) {
   ExpansionOutput expansion_output;
   ExpansionState expansion_state;
   expansion_output.arena = CreateUnsafeArena();
-  WarningCollector warning_collector(diagnostic_options.max_warning_count);
+  WarningCollector warning_collector(
+      macro_expander_options.diagnostic_options.max_warning_count);
   ZETASQL_RETURN_IF_ERROR(ExpandMacrosInternal(
-      std::move(token_provider), is_strict, macro_catalog,
-      expansion_output.arena.get(), expansion_output.stack_frames,
-      expansion_state,
-      /*call_arguments=*/{}, diagnostic_options,
+      std::move(token_provider), macro_catalog, expansion_output.arena.get(),
+      expansion_output.stack_frames, expansion_state,
+      /*call_arguments=*/{}, macro_expander_options,
       /*parent_location=*/nullptr, &expansion_output.location_map,
       expansion_output.expanded_tokens, warning_collector,
       // Only the top-level comments should be preserved.
@@ -197,9 +198,10 @@ absl::StatusOr<ExpansionOutput> MacroExpander::ExpandMacros(
 
 absl::Status MacroExpander::MakeSqlErrorAt(const ParseLocationPoint& location,
                                            absl::string_view message) {
-  return MakeSqlErrorWithStackFrame(
-      location, message, token_provider_->input(), parent_location_,
-      token_provider_->offset_in_original_input(), diagnostic_options_);
+  return MakeSqlErrorWithStackFrame(location, message, token_provider_->input(),
+                                    parent_location_,
+                                    token_provider_->offset_in_original_input(),
+                                    macro_expander_options_.diagnostic_options);
 }
 
 absl::StatusOr<TokenWithLocation> MacroExpander::GetNextToken() {
@@ -285,28 +287,6 @@ StackFrame* /*absl_nonnull*/ AllocateStackFrame(
   return stack_frames.back().get();
 }
 
-// Converts the error source proto to struct.
-// This is used to convert the error source proto to struct.
-// This struct have string_view instead of string, So it is a necessary to
-// allocate the string in the arena.
-static StackFrame::ErrorSource ConvertErrorSourceProtoToStruct(
-    const ErrorSource& error_source_proto, zetasql_base::UnsafeArena* arena) {
-  StackFrame::ErrorSource error_source;
-  error_source.error_message =
-      AllocateString(error_source_proto.error_message(), arena);
-  error_source.filename =
-      AllocateString(error_source_proto.error_location().filename(), arena);
-  error_source.error_message_caret_string =
-      AllocateString(error_source_proto.error_message_caret_string(), arena);
-  error_source.line = error_source_proto.error_location().line();
-  error_source.column = error_source_proto.error_location().column();
-  error_source.input_start_line_offset =
-      error_source_proto.error_location().input_start_line_offset();
-  error_source.input_start_column_offset =
-      error_source_proto.error_location().input_start_column_offset();
-  return error_source;
-};
-
 absl::string_view MacroExpander::MaybeAllocateConcatenation(
     absl::string_view a, absl::string_view b) {
   if (a.empty()) {
@@ -319,10 +299,12 @@ absl::string_view MacroExpander::MaybeAllocateConcatenation(
   return AllocateString(absl::StrCat(a, b), arena_);
 }
 
+// TODO : Update token provider to have the options or state of macro expander.
+// So that this can be moved into the token provider.
 absl::StatusOr<TokenWithLocation> MacroExpander::ConsumeInputToken() {
   ZETASQL_ASSIGN_OR_RETURN(TokenWithLocation token,
                    token_provider_->ConsumeNextToken());
-  if (is_strict_) {
+  if (macro_expander_options_.is_strict) {
     return token;
   }
 
@@ -351,7 +333,7 @@ absl::Status MacroExpander::LoadPotentiallySplicingTokens() {
     if (token.kind != Token::COMMENT) {
       break;
     }
-    ZETASQL_ASSIGN_OR_RETURN(token, token_provider_->ConsumeNextToken());
+    ZETASQL_ASSIGN_OR_RETURN(token, ConsumeInputToken());
     splicing_buffer_.push(token);
   }
 
@@ -462,7 +444,7 @@ absl::Status MacroExpander::LoadUntilParenthesesBalance() {
 // For example, a macro invocation with unbalanced parens is always an error.
 absl::Status MacroExpander::RaiseErrorOrAddWarning(absl::Status status) {
   ZETASQL_RET_CHECK(!status.ok());
-  if (is_strict_) {
+  if (macro_expander_options_.is_strict) {
     return status;
   }
   ZETASQL_RET_CHECK_OK(warning_collector_.AddWarning(std::move(status)));
@@ -476,7 +458,8 @@ absl::StatusOr<TokenWithLocation> MacroExpander::Splice(
   ZETASQL_RET_CHECK(!pending_token.text.empty());
   ZETASQL_RET_CHECK_NE(pending_token.kind, Token::UNAVAILABLE);
 
-  if (diagnostic_options_.warn_on_identifier_splicing || is_strict_) {
+  if (macro_expander_options_.diagnostic_options.warn_on_identifier_splicing ||
+      macro_expander_options_.is_strict) {
     ZETASQL_RETURN_IF_ERROR(RaiseErrorOrAddWarning(MakeSqlErrorAt(
         location, absl::StrFormat("Splicing tokens (%s) and (%s)",
                                   pending_token.text, incoming_token.text))));
@@ -709,8 +692,9 @@ absl::Status MacroExpander::ParseAndExpandArgs(
       splicing_buffer_.front().kind != Token::LPAREN) {
     // No arguments for this invocation. Generate any necessary warnings or
     // errors before returning.
-    if (diagnostic_options_.warn_on_macro_invocation_with_no_parens ||
-        is_strict_) {
+    if (macro_expander_options_.diagnostic_options
+            .warn_on_macro_invocation_with_no_parens ||
+        macro_expander_options_.is_strict) {
       ZETASQL_RETURN_IF_ERROR(RaiseErrorOrAddWarning(MakeSqlErrorAt(
           unexpanded_macro_invocation_token.location.end(),
           absl::StrFormat("Invocation of macro '%s' missing argument list.",
@@ -811,6 +795,12 @@ absl::Status MacroExpander::ParseAndExpandArgs(
                     token_provider_->filename(),
                     arg_end_offset +
                         token_provider_->offset_in_original_input())),
+            token_provider_->input(),
+            token_provider_->offset_in_original_input(),
+            macro_expander_options_.diagnostic_options.error_message_options
+                .input_original_start_line,
+            macro_expander_options_.diagnostic_options.error_message_options
+                .input_original_start_column,
             &macro_invocation_stack_frame,
             /*invocation_frame=*/&macro_invocation_stack_frame));
     std::vector<TokenWithLocation> expanded_arg;
@@ -824,9 +814,10 @@ absl::Status MacroExpander::ParseAndExpandArgs(
         // If we only pass the arg as the input, the location offsets will start
         // from 0.
         token_provider_->CreateNewInstance(arg_start_offset, arg_end_offset),
-        is_strict_, macro_catalog_, arena_, stack_frames_, expansion_state_,
-        call_arguments_, diagnostic_options_, child_stack_frame, location_map_,
-        expanded_arg, warning_collector_, &max_arg_ref_index_in_current_arg,
+        macro_catalog_, arena_, stack_frames_, expansion_state_,
+        call_arguments_, macro_expander_options_, child_stack_frame,
+        location_map_, expanded_arg, warning_collector_,
+        &max_arg_ref_index_in_current_arg,
         /*drop_comments=*/true));
 
     // Delink the macro invocation from the argument expansion.
@@ -956,6 +947,12 @@ absl::Status MacroExpander::ExpandMacroArgumentReference(
         copy_stack_frame->parent,
         MakeStackFrame(AllocateString(absl::StrCat("$", arg_index), arena_),
                        StackFrame::FrameType::kArgRef, token.location,
+                       token_provider_->input(),
+                       token_provider_->offset_in_original_input(),
+                       macro_expander_options_.diagnostic_options
+                           .error_message_options.input_original_start_line,
+                       macro_expander_options_.diagnostic_options
+                           .error_message_options.input_original_start_column,
                        parent_location_));
   }
   return absl::OkStatus();
@@ -963,58 +960,18 @@ absl::Status MacroExpander::ExpandMacroArgumentReference(
 
 absl::StatusOr<StackFrame* /*absl_nonnull*/> MacroExpander::MakeStackFrame(
     absl::string_view frame_name, StackFrame::FrameType frame_type,
-    ParseLocationRange location, StackFrame* /*absl_nullable*/ parent_location,
+    ParseLocationRange location, absl::string_view input_text,
+    int offset_in_original_input, int input_start_line_offset,
+    int input_start_column_offset, StackFrame* /*absl_nullable*/ parent_location,
     StackFrame* /*absl_nullable*/ invocation_frame) const {
-  ErrorSource error_source;
-  if (frame_type == StackFrame::FrameType::kArgRef) {
-    error_source.set_error_message(
-        absl::StrCat(frame_name, " is getting used at"));
-  } else if (frame_type == StackFrame::FrameType::kMacroArg) {
-    error_source.set_error_message(
-        absl::StrCat("Which is ", frame_name, ", and got created at"));
-  } else {
-    error_source.set_error_message(absl::StrCat("Expanded from ", frame_name));
-  }
-
-  ParseLocationTranslator location_translator(token_provider_->input());
-  std::pair<int, int> line_and_column;
-
-  // Relative to `input()`
-  ParseLocationPoint start_relative_to_input = location.start();
-  start_relative_to_input.SetByteOffset(
-      start_relative_to_input.GetByteOffset() -
-      token_provider_->offset_in_original_input());
-
-  ZETASQL_ASSIGN_OR_RETURN(line_and_column,
-                   location_translator.GetLineAndColumnAfterTabExpansion(
-                       start_relative_to_input),
-                   _ << "Location " << location.start().GetString()
-                     << "not found in:\n"
-                     << token_provider_->input());
-
-  ErrorLocation* err_loc = error_source.mutable_error_location();
-  if (!token_provider_->filename().empty()) {
-    err_loc->set_filename(token_provider_->filename());
-  }
-  err_loc->set_line(line_and_column.first);
-  err_loc->set_column(line_and_column.second);
-
-  const ErrorMessageOptions& error_message_options =
-      diagnostic_options_.error_message_options;
-  err_loc->set_input_start_line_offset(
-      error_message_options.input_original_start_line - 1);
-  err_loc->set_input_start_column_offset(
-      error_message_options.input_original_start_column - 1);
-
-  error_source.set_error_message_caret_string(
-      GetErrorStringWithCaret(token_provider_->input(), *err_loc));
-
   StackFrame* stack_frame = AllocateStackFrame(stack_frames_);
   stack_frame->frame_type = frame_type;
   stack_frame->name = frame_name;
   stack_frame->location = std::move(location);
-  stack_frame->error_source =
-      ConvertErrorSourceProtoToStruct(error_source, arena_);
+  stack_frame->input_text = input_text;
+  stack_frame->offset_in_original_input = offset_in_original_input;
+  stack_frame->input_start_line_offset = input_start_line_offset;
+  stack_frame->input_start_column_offset = input_start_column_offset;
   stack_frame->parent = parent_location;
   stack_frame->invocation_frame = invocation_frame;
   return stack_frame;
@@ -1043,6 +1000,11 @@ absl::Status MacroExpander::ExpandMacroInvocation(
                              ParseLocationPoint::FromByteOffset(
                                  token.location.end().filename(),
                                  token.location.end().GetByteOffset())),
+          token_provider_->input(), token_provider_->offset_in_original_input(),
+          macro_expander_options_.diagnostic_options.error_message_options
+              .input_original_start_line,
+          macro_expander_options_.diagnostic_options.error_message_options
+              .input_original_start_column,
           parent_location_));
 
   bool has_explicit_unexpanded_arg;
@@ -1051,11 +1013,11 @@ absl::Status MacroExpander::ExpandMacroInvocation(
       ParseAndExpandArgs(token, expanded_args, has_explicit_unexpanded_arg,
                          invocation_end_offset, *macro_invocation_stack_frame));
 
-  DiagnosticOptions child_diagnsotic_options = diagnostic_options_;
+  MacroExpanderOptions child_macro_expander_options = macro_expander_options_;
   // The line & column in source when expanding the invocation reads from those
   // of the macro in question, not the top-level.
   ErrorMessageOptions& child_error_options =
-      child_diagnsotic_options.error_message_options;
+      child_macro_expander_options.diagnostic_options.error_message_options;
   child_error_options.input_original_start_line =
       macro_info.definition_start_line;
   child_error_options.input_original_start_column =
@@ -1081,10 +1043,10 @@ absl::Status MacroExpander::ExpandMacroInvocation(
                           "Cycle detected in macro expansion");
   }
   ZETASQL_RETURN_IF_ERROR(ExpandMacrosInternal(
-      std::move(child_token_provider), is_strict_, macro_catalog_, arena_,
-      stack_frames_, expansion_state_, std::move(expanded_args),
-      child_diagnsotic_options, macro_invocation_stack_frame, location_map_,
-      expanded_tokens, warning_collector_, &max_arg_ref_in_definition,
+      std::move(child_token_provider), macro_catalog_, arena_, stack_frames_,
+      expansion_state_, std::move(expanded_args), child_macro_expander_options,
+      macro_invocation_stack_frame, location_map_, expanded_tokens,
+      warning_collector_, &max_arg_ref_in_definition,
       /*drop_comments=*/true));
   // Track that we are no longer in a cycle including this macro.
   expansion_state_.UnmarkAsVisited(macro_invocation_stack_frame->name);
@@ -1119,7 +1081,8 @@ absl::StatusOr<TokenWithLocation> MacroExpander::ExpandLiteral(
     TokenWithLocation pending_token, TokenWithLocation literal_token) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
-  if (is_strict_ && !diagnostic_options_.warn_on_literal_expansion) {
+  if (macro_expander_options_.is_strict &&
+      !macro_expander_options_.diagnostic_options.warn_on_literal_expansion) {
     // Strict mode does not expand literals, and we are not producing the
     // warning on macros in literals.
     return AdvancePendingToken(std::move(pending_token),
@@ -1181,7 +1144,8 @@ absl::StatusOr<TokenWithLocation> MacroExpander::ExpandLiteral(
             literal_content_start_offset + end_index +
             token_provider_->offset_in_original_input());
 
-        if (diagnostic_options_.warn_on_literal_expansion) {
+        if (macro_expander_options_.diagnostic_options
+                .warn_on_literal_expansion) {
           ZETASQL_RETURN_IF_ERROR(warning_collector_.AddWarning(MakeSqlErrorAt(
               paren_location,
               "Argument lists are not allowed inside literals")));
@@ -1237,7 +1201,7 @@ absl::StatusOr<TokenWithLocation> MacroExpander::ExpandLiteral(
     unexpanded_macro_start_point.SetByteOffset(
         invocation_start_offset + token_provider_->offset_in_original_input());
 
-    if (diagnostic_options_.warn_on_literal_expansion) {
+    if (macro_expander_options_.diagnostic_options.warn_on_literal_expansion) {
       ZETASQL_RETURN_IF_ERROR(warning_collector_.AddWarning(
           MakeSqlErrorAt(unexpanded_macro_start_point,
                          "Macro expansion in literals is deprecated. Strict "
@@ -1246,14 +1210,14 @@ absl::StatusOr<TokenWithLocation> MacroExpander::ExpandLiteral(
 
     num_chars_read = end_index - 1;
 
-    if (is_strict_) {
+    if (macro_expander_options_.is_strict) {
       // Do not expand. Simply continue checking for other warnings.
       continue;
     }
 
     ZETASQL_RETURN_IF_ERROR(ExpandMacrosInternal(
-        std::move(child_token_provider), is_strict_, macro_catalog_, arena_,
-        stack_frames_, expansion_state_, call_arguments_, diagnostic_options_,
+        std::move(child_token_provider), macro_catalog_, arena_, stack_frames_,
+        expansion_state_, call_arguments_, macro_expander_options_,
         parent_location_, location_map_, expanded_tokens, warning_collector_,
         /*out_max_arg_ref_index=*/nullptr, /*drop_comments=*/true));
 
@@ -1324,7 +1288,7 @@ absl::StatusOr<TokenWithLocation> MacroExpander::ExpandLiteral(
     }
   }
 
-  if (is_strict_) {
+  if (macro_expander_options_.is_strict) {
     return original_literal_token;
   }
 
@@ -1333,21 +1297,33 @@ absl::StatusOr<TokenWithLocation> MacroExpander::ExpandLiteral(
 }
 
 absl::Status MacroExpander::ExpandMacrosInternal(
-    std::unique_ptr<TokenProviderBase> token_provider, bool is_strict,
+    std::unique_ptr<TokenProviderBase> token_provider,
     const MacroCatalog& macro_catalog, zetasql_base::UnsafeArena* arena,
     std::vector<std::unique_ptr<StackFrame>>& stack_frames,
     ExpansionState& expansion_state,
     const std::vector<std::vector<TokenWithLocation>>& call_arguments,
-    DiagnosticOptions diagnostic_options,
+    MacroExpanderOptions macro_expander_options,
     StackFrame* /*absl_nullable*/ parent_location,
     absl::btree_map<size_t, Expansion>* location_map,
     std::vector<TokenWithLocation>& output_token_list,
     WarningCollector& warning_collector, int* out_max_arg_ref_index,
     bool drop_comments) {
+  // Increase the invocation count before any expansion.
+  expansion_state.IncrementInvocationCount();
+
+  // Check if the total number of macro invocations is within the limit.
+  int64_t total_number_of_macro_invocations =
+      expansion_state.GetTotalNumberOfMacroInvocations();
+  if (total_number_of_macro_invocations >
+      macro_expander_options.max_macro_invocations) {
+    return absl::InternalError(absl::Substitute(
+        "Too many macro invocations: $0", total_number_of_macro_invocations));
+  }
+
   auto expander = absl::WrapUnique(new MacroExpander(
-      std::move(token_provider), is_strict, macro_catalog, arena, stack_frames,
-      expansion_state, call_arguments, diagnostic_options, &warning_collector,
-      parent_location));
+      std::move(token_provider), macro_catalog, arena, stack_frames,
+      expansion_state, call_arguments, macro_expander_options,
+      &warning_collector, parent_location));
   expander->location_map_ = location_map;
   while (true) {
     ZETASQL_ASSIGN_OR_RETURN(TokenWithLocation token, expander->GetNextToken());

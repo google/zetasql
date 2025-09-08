@@ -1,5 +1,41 @@
 [default required_features=PIVOT]
 [prepare_database]
+CREATE CONSTANT QUARTER1 = 'Q1';
+==
+
+[prepare_database]
+CREATE CONSTANT QUARTER2 = 'Q2';
+==
+
+[prepare_database]
+CREATE CONSTANT QUARTER3 = 'Q3';
+==
+
+[prepare_database]
+CREATE CONSTANT QUARTER4 = 'Q4';
+==
+
+[prepare_database]
+CREATE CONSTANT ITEM1 = STRUCT(10 AS value, 20 AS value2);
+==
+
+[prepare_database]
+CREATE CONSTANT ITEM2 = STRUCT(200 AS value, 300 AS value2);
+==
+
+[prepare_database]
+CREATE CONSTANT C10 = cAST(10 AS INT64);
+==
+
+[prepare_database]
+CREATE CONSTANT C20 = CAST(20 AS INT64);
+==
+
+[prepare_database]
+CREATE CONSTANT CNULL = CAST(NULL AS INT64);
+==
+
+[prepare_database]
 CREATE TABLE t1 AS
   SELECT * FROM UNNEST([
     STRUCT(1 AS rowid, 1 AS x, 100 AS y, 1000 AS z),
@@ -699,3 +735,86 @@ ARRAY<STRUCT<b INT64, c INT64, _1 INT64, _2 INT64, _3 INT64>>[unknown order:
   {1, 1, 9, 0, 0},
   {2, 2, 0, 7, 0}
 ]
+==
+
+[required_features=PIVOT,ANALYSIS_CONSTANT_PIVOT_COLUMN]
+[name=pivot_on_string_sql_constant]
+WITH Produce AS (
+  SELECT 'Kale' AS product, 51 AS sales, 'Q1' AS quarter, 2020 AS year
+  UNION ALL
+  SELECT 'Kale', 23, 'Q1', 2020
+  UNION ALL
+  SELECT 'Kale', 45, 'Q3', 2020
+  UNION ALL
+  SELECT 'Kale', 3, 'Q4', 2020
+  UNION ALL
+  SELECT 'Kale', 70, 'Q1', 2021
+  UNION ALL
+  SELECT 'Kale', 85, 'Q2', 2021
+  UNION ALL
+  SELECT 'Apple', 77, 'Q1', 2020
+  UNION ALL
+  SELECT 'Apple', 0, 'Q2', 2020
+  UNION ALL
+  SELECT 'Apple', 1, 'Q1', 2021
+  UNION ALL
+  SELECT 'Peach', 4, 'Q1', 2021
+)
+SELECT *
+FROM
+  Produce
+    PIVOT(
+      SUM(sales)
+        FOR
+          quarter IN (QUARTER1, QUARTER2, QUARTER3, QUARTER4)
+    );
+--
+ARRAY<STRUCT<product STRING, year INT64, Q1 INT64, Q2 INT64, Q3 INT64, Q4 INT64>>[unknown order:
+  {"Apple", 2020, 77, 0, NULL, NULL},
+  {"Apple", 2021, 1, NULL, NULL, NULL},
+  {"Kale", 2020, 74, NULL, 45, 3},
+  {"Kale", 2021, 70, 85, NULL, NULL},
+  {"Peach", 2021, 4, NULL, NULL, NULL}
+]
+==
+
+[required_features=PIVOT,ANALYSIS_CONSTANT_PIVOT_COLUMN]
+[name=pivot_on_int64_and_null_sql_constant]
+WITH
+  Items AS (
+    SELECT 'A' AS name, 10 AS category, 100 AS value, NULL as other_category
+    UNION ALL
+    SELECT 'B', 20, 150,  20
+    UNION ALL
+    SELECT 'C', NULL, 200, 30
+  )
+SELECT *
+FROM
+  Items
+    PIVOT(
+     SUM(value) FOR other_category IN (C10, C20, CNULL));
+--
+ARRAY<STRUCT<name STRING, category INT64, _10 INT64, _20 INT64, NULL INT64>>[unknown order:
+  {"A", 10, NULL, NULL, 100},
+  {"B", 20, NULL, 150, NULL},
+  {"C", NULL, NULL, NULL, NULL}
+]
+==
+
+[required_features=PIVOT,ANALYSIS_CONSTANT_PIVOT_COLUMN,GROUP_BY_STRUCT]
+[name=pivot_on_struct_sql_constant]
+WITH KeyValue AS (
+  SELECT STRUCT< value INT64, value2 INT64 > (10, 20) AS Key, 'ItemType1' AS Value UNION ALL
+  SELECT STRUCT< value INT64, value2 INT64 > (5, 15) AS Key, 'ItemType2' AS Value
+)
+SELECT * FROM KeyValue
+PIVOT(COUNT(Key) FOR Key IN (
+  ITEM1, ITEM2 AS item2
+));
+--
+ARRAY<STRUCT<
+        Value STRING,
+        value_10_value2_20 INT64,
+        item2 INT64
+      >>
+[unknown order:{"ItemType1", 1, 0}, {"ItemType2", 0, 0}]

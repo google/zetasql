@@ -65,6 +65,15 @@ SELECT IF(FALSE, MAKE_INTERVAL(0, 10, 2), ERROR("error"))
 ERROR: generic::out_of_range: error
 ==
 
+[name=interval_to_interval_cast]
+[required_features=INTERVAL_TYPE]
+# This query is useful because it doesn't fold the INTERVAL -> INTERVAL cast
+# on the THEN side.
+SELECT IF(TRUE, MAKE_INTERVAL(0, 10, 2), ERROR("error"))
+--
+ARRAY<STRUCT<INTERVAL>>[{0-10 2 0:0:0}]
+==
+
 [name=error_as_json]
 [required_features=JSON_TYPE]
 SELECT IF(FALSE, JSON '1', ERROR("error"))

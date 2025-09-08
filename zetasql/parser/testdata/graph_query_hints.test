@@ -1,5 +1,5 @@
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
+[default language_features=NONE,+SQL_GRAPH]
 
 # Element pattern hints
 SELECT * from GRAPH_TABLE(

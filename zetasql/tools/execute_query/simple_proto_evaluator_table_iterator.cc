@@ -20,15 +20,26 @@
 
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 
 SimpleProtoEvaluatorTableIterator::SimpleProtoEvaluatorTableIterator(
-    const ProtoType* proto_type)
-    : proto_type_(proto_type) {}
+    const ProtoType* proto_type, absl::Span<const int> columns)
+    : proto_type_(proto_type), num_columns_(columns.size()) {
+  // The analyzer might prune the one column if it's not used, and then
+  // ask to read zero columns.
+  ABSL_CHECK_LE(columns.size(), 1);
+  if (!columns.empty()) {
+    ABSL_CHECK_EQ(columns[0], 0);
+  }
+}
 
-int SimpleProtoEvaluatorTableIterator::NumColumns() const { return 1; }
+int SimpleProtoEvaluatorTableIterator::NumColumns() const {
+  return num_columns_;
+}
 
 std::string SimpleProtoEvaluatorTableIterator::GetColumnName(int i) const {
   ABSL_CHECK_EQ(i, 0);

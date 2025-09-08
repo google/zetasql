@@ -342,6 +342,11 @@ class LanguageOptions {
   // Copyable
 };
 
+// Returns the LanguageVersion that a given LanguageFeature is associated with.
+// If the feature is not associated with a version, returns
+// LANGUAGE_VERSION_UNSPECIFIED.
+LanguageVersion LanguageFeatureVersion(LanguageFeature feature);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_PUBLIC_LANGUAGE_OPTIONS_H_

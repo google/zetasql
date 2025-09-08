@@ -119,8 +119,7 @@ static void AppendImportedModuleNamePaths(
           // requires a quoted file path. However, the grammar does not so we
           // need to handle it here.
           absl::Status error =
-              MakeSqlErrorAtPoint(
-                  ast_import_statement->GetParseLocationRange().start())
+              MakeSqlErrorAtPoint(ast_import_statement->location().start())
               << "Invalid IMPORT PROTO statement. IMPORT PROTO must be "
                  "followed by a file path (with quotes), e.g. IMPORT PROTO "
                  "'path/to/file.proto'";

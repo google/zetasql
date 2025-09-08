@@ -14,6 +14,8 @@
 // limitations under the License.
 //
 
+// LINT: LEGACY_NAMES
+
 syntax = "proto2";
 
 package zetasql;
@@ -177,6 +179,8 @@ enum SignatureArgumentKind {
   ARG_TYPE_GRAPH_ELEMENT = 21;
   // Graph path type
   ARG_TYPE_GRAPH_PATH = 30;
+  // Graph type
+  ARG_TYPE_GRAPH = 32;
 
   // Sequence type.
   ARG_TYPE_SEQUENCE = 22;

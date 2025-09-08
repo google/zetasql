@@ -265,7 +265,7 @@ absl::Status GetParseTokens(const ParseTokenOptions& options,
   ParseLocationRange location;
   while (true) {
     parser::Token bison_token;
-    status = ConvertInternalErrorLocationToExternal(
+    status = ConvertInternalErrorPayloadsToExternal(
         tokenizer->GetNextToken(&location /* input and output */, &bison_token),
         resume_location->input());
     if (!status.ok()) {
@@ -278,7 +278,7 @@ absl::Status GetParseTokens(const ParseTokenOptions& options,
     std::string image(absl::ClippedSubstr(
         resume_location->input(), location.start().GetByteOffset(),
         location.end().GetByteOffset() - location.start().GetByteOffset()));
-    status = ConvertInternalErrorLocationToExternal(
+    status = ConvertInternalErrorPayloadsToExternal(
         ConvertBisonToken(bison_token, is_adjacent_to_prior_token, location,
                           std::move(image), tokens),
         resume_location->input());

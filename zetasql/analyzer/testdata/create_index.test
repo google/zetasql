@@ -1,3 +1,4 @@
+[default language_features=NONE]
 create index i1 on KeyValue(Value) options (x=1);
 --
 CreateIndexStmt
@@ -1674,7 +1675,7 @@ CREATE VECTOR INDEX index0 ON KeyValue(key) PARTITION BY value options()
                                             ^
 ==
 
-[language_features=CREATE_INDEX_PARTITION_BY]
+[language_features=NONE,+CREATE_INDEX_PARTITION_BY]
 CREATE INDEX index0 ON KeyValue(key) PARTITION BY value options()
 --
 ERROR: PARTITION BY is not supported for CREATE INDEX. [at 1:38]
@@ -1683,7 +1684,7 @@ CREATE INDEX index0 ON KeyValue(key) PARTITION BY value options()
 
 ==
 
-[language_features=CREATE_INDEX_PARTITION_BY]
+[language_features=NONE,+CREATE_INDEX_PARTITION_BY]
 CREATE SEARCH INDEX index0 ON KeyValue(key) PARTITION BY value options()
 --
 ERROR: PARTITION BY is not supported for CREATE SEARCH INDEX. [at 1:45]
@@ -1692,7 +1693,7 @@ CREATE SEARCH INDEX index0 ON KeyValue(key) PARTITION BY value options()
 
 ==
 
-[language_features=CREATE_INDEX_PARTITION_BY]
+[language_features=NONE,+CREATE_INDEX_PARTITION_BY]
 CREATE VECTOR INDEX index0 ON KeyValue(key) PARTITION BY value options()
 --
 CreateIndexStmt
@@ -1711,7 +1712,7 @@ CreateIndexStmt
   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
 ==
 
-[language_features=CREATE_INDEX_PARTITION_BY]
+[language_features=NONE,+CREATE_INDEX_PARTITION_BY]
 CREATE VECTOR INDEX index0 ON KeyValue(key) PARTITION BY col_not_exist options()
 --
 ERROR: Unrecognized name: col_not_exist [at 1:58]

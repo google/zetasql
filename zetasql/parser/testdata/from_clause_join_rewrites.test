@@ -1,6 +1,6 @@
 # This file contains test cases to test joins with consecutive ON/USING clauses
 # Simple test case
-[default language_features=ALLOW_CONSECUTIVE_ON]
+[default language_features=NONE,+ALLOW_CONSECUTIVE_ON]
 select * from a join b join c join d on cond1 on cond2 on cond3;
 --
 QueryStatement [0-63] [select * from...cond2 on cond3]
@@ -1115,7 +1115,7 @@ FROM
 ==
 
 # Test the case when allow_consecutive_on is turned off
-[language_features=]
+[language_features=NONE]
 select * from t1 join t2 join t3 on c1 on c2
 --
 ERROR: Syntax error: Expected end of input but got keyword ON [at 1:40]

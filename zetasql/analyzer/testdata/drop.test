@@ -1,3 +1,4 @@
+[default language_features=MAXIMUM]
 DROP TABLE foo;
 --
 DropStmt(object_type="TABLE", is_if_exists=FALSE, name_path=foo)
@@ -109,3 +110,18 @@ ALTERNATION GROUP: IF EXISTS,CASCADE
 ERROR: Syntax error: 'CASCADE' is not supported for DROP EXTERNAL SCHEMA [at 1:40]
 DROP EXTERNAL SCHEMA IF EXISTS foo.bar CASCADE;
                                        ^
+==
+
+DROP SEQUENCE foo;
+--
+DropStmt(object_type="SEQUENCE", is_if_exists=FALSE, name_path=foo)
+==
+
+DROP SEQUENCE foo.bar.baz;
+--
+DropStmt(object_type="SEQUENCE", is_if_exists=FALSE, name_path=foo.bar.baz)
+==
+
+DROP SEQUENCE IF EXISTS foo.bar.baz;
+--
+DropStmt(object_type="SEQUENCE", is_if_exists=TRUE, name_path=foo.bar.baz)

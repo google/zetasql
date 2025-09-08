@@ -40,7 +40,7 @@ enum FunctionSignatureId {
   // in ranges:
   //
   // 0002-0999 Non-standard function calls    (NextId: 310)
-  // 1000-1099 String functions               (NextId: 1084)
+  // 1000-1099 String functions               (NextId: 1086)
   // 1100-1199 Control flow functions         (NextId: 1108)
   // 1200-1299 Time functions                 (Fully used)
   // 1300-1399 Math functions                 (Fully used)
@@ -48,19 +48,20 @@ enum FunctionSignatureId {
   // 1500-1599 Analytic functions             (NextId: 1519)
   // 1600-1699 Misc functions                 (Fully used)
   // 1700-1799 Net functions                  (NextId: 1716)
-  // 1800-1899 More time functions            (NextId: 1868)
+  // 1800-1899 More time functions            (NextId: 1872)
   // 1900-1999 Hashing/encryption functions   (NextId: 1938)
   // 2000-2199 Geography functions            (NextId: 2096)
   // 2200-2299 Anonymization functions        (NextId: 2232)
-  // 2300-2499 Numeric, more math & distances (NextId: 2388)
+  // 2300-2499 Numeric, more math & distances (NextId: 2394)
   // 2500-2599 Array and proto map functions  (NextId: 2561)
-  // 2600-2699 More misc functions.           (NextId: 2690)
-  // 2700-2799 Aggregate functions II         (NextId: 2797)
+  // 2600-2699 More misc functions.           (NextId: 2694)
+  // 2700-2799 Aggregate functions II         (Fully used)
   // 2800-2899 Differential Privacy functions (NextId: 2840)
   // 2900-2999 Range functions                (NextId: 2921)
   // 3000-3099 Map functions                  (NextId: 3001)
   // 3100-3199 Measure functions              (NextId: 3101)
   // 3200-3299 MATCH_RECOGNIZE functions      (NextId: 3207)
+  // 3300-3399 Aggregate functions III        (NextId: 3303)
 
   // enum value                       // Related function name
   // ----------                       // ---------------------
@@ -326,6 +327,10 @@ enum FunctionSignatureId {
       1080;  // regex_instr(bytes, bytes[, int64[, int64[, int64]]])
   FN_SPLIT_SUBSTR =
       1083;  // split_substr(string, string, int64[, int64]) -> string
+  FN_REGEXP_EXTRACT_GROUPS_STRING =
+      1084;  // regexp_extract_groups(string, string) -> struct
+  FN_REGEXP_EXTRACT_GROUPS_BYTES =
+      1085;  // regexp_extract_groups(bytes, bytes) -> struct
 
   // Control flow functions
   FN_IF = 1100;  // if
@@ -371,6 +376,9 @@ enum FunctionSignatureId {
   FN_DATETIME_TRUNC = 1818;   // datetime_trunc
   FN_TIME_TRUNC = 1819;       // time_trunc
   FN_TIMESTAMP_TRUNC = 1264;  // timestamp_trunc
+
+  FN_ADD_MONTHS_DATE = 1870;      // add_months(date, int64) -> date
+  FN_ADD_MONTHS_DATETIME = 1871;  // add_months(datetime, int64) -> datetime
 
   FN_DATE_FROM_UNIX_DATE = 1225;  // date_from_unix_date
   FN_TIMESTAMP_FROM_INT64_SECONDS = 1289;  // timestamp_seconds
@@ -437,14 +445,17 @@ enum FunctionSignatureId {
   // Signature specific to extracting the DATETIME date part from a TIMESTAMP.
   FN_EXTRACT_DATETIME_FROM_TIMESTAMP = 1811;  // $extract_datetime
 
-  FN_FORMAT_DATE = 1293;       // format_date
-  FN_FORMAT_DATETIME = 1820;   // format_datetime
-  FN_FORMAT_TIME = 1821;       // format_time
-  FN_FORMAT_TIMESTAMP = 1294;  // format_timestamp
-  FN_PARSE_DATE = 1295;        // parse_date
-  FN_PARSE_DATETIME = 1822;    // parse_datetime
-  FN_PARSE_TIME = 1823;        // parse_time
-  FN_PARSE_TIMESTAMP = 1296;   // parse_timestamp
+  FN_FORMAT_DATE = 1293;                     // format_date
+  FN_FORMAT_DATETIME = 1820;                 // format_datetime
+  FN_FORMAT_TIME = 1821;                     // format_time
+  FN_FORMAT_TIMESTAMP = 1294;                // format_timestamp
+  FN_PARSE_DATE = 1295;                      // parse_date
+  FN_PARSE_DATETIME = 1822;                  // parse_datetime
+  FN_PARSE_TIME = 1823;                      // parse_time
+  FN_PARSE_TIMESTAMP = 1296;                 // parse_timestamp
+  FN_PARSE_TIMESTAMP_WITH_PRECISION = 1868;  // parse_timestamp with precision
+  FN_PARSE_TIMESTAMP_WITH_PRECISION_AND_TIMEZONE =
+      1869;  // parse_timestamp with precision
 
   FN_LAST_DAY_DATE = 1843;      // last_day date
   FN_LAST_DAY_DATETIME = 1844;  // last_day datetime
@@ -597,25 +608,31 @@ enum FunctionSignatureId {
   FN_ZEROIFNULL_NUMERIC = 2343;     // zeroifnull
   FN_ZEROIFNULL_BIGNUMERIC = 2344;  // zeroifnull
 
-  FN_COS_DOUBLE = 1328;    // cos
-  FN_COSH_DOUBLE = 1329;   // cosh
-  FN_ACOS_DOUBLE = 1330;   // acos
-  FN_ACOSH_DOUBLE = 1331;  // acosh
-  FN_SIN_DOUBLE = 1332;    // sin
-  FN_SINH_DOUBLE = 1333;   // sinh
-  FN_ASIN_DOUBLE = 1334;   // asin
-  FN_ASINH_DOUBLE = 1335;  // asinh
-  FN_TAN_DOUBLE = 1336;    // tan
-  FN_TANH_DOUBLE = 1337;   // tanh
-  FN_ATAN_DOUBLE = 1338;   // atan
-  FN_ATANH_DOUBLE = 1339;  // atanh
-  FN_ATAN2_DOUBLE = 1340;  // atan2
-  FN_CSC_DOUBLE = 2316;    // csc
-  FN_SEC_DOUBLE = 2317;    // sec
-  FN_COT_DOUBLE = 2318;    // cot
-  FN_CSCH_DOUBLE = 2319;   // csch
-  FN_SECH_DOUBLE = 2320;   // sech
-  FN_COTH_DOUBLE = 2321;   // coth
+  FN_COS_DOUBLE = 1328;          // cos
+  FN_COSH_DOUBLE = 1329;         // cosh
+  FN_ACOS_DOUBLE = 1330;         // acos
+  FN_ACOSH_DOUBLE = 1331;        // acosh
+  FN_SIN_DOUBLE = 1332;          // sin
+  FN_SINH_DOUBLE = 1333;         // sinh
+  FN_ASIN_DOUBLE = 1334;         // asin
+  FN_ASINH_DOUBLE = 1335;        // asinh
+  FN_TAN_DOUBLE = 1336;          // tan
+  FN_TANH_DOUBLE = 1337;         // tanh
+  FN_ATAN_DOUBLE = 1338;         // atan
+  FN_ATANH_DOUBLE = 1339;        // atanh
+  FN_ATAN2_DOUBLE = 1340;        // atan2
+  FN_CSC_DOUBLE = 2316;          // csc
+  FN_SEC_DOUBLE = 2317;          // sec
+  FN_COT_DOUBLE = 2318;          // cot
+  FN_CSCH_DOUBLE = 2319;         // csch
+  FN_SECH_DOUBLE = 2320;         // sech
+  FN_COTH_DOUBLE = 2321;         // coth
+  FN_RADIANS_DOUBLE = 2391;      // radians(double) -> double
+  FN_RADIANS_NUMERIC = 2392;     // radians(numeric) -> numeric
+  FN_RADIANS_BIGNUMERIC = 2393;  // radians(bignumeric) -> bignumeric
+  FN_DEGREES_DOUBLE = 2388;      // degrees
+  FN_DEGREES_NUMERIC = 2389;     // degrees
+  FN_DEGREES_BIGNUMERIC = 2390;  // degrees
 
   // Aggregate functions.
   // TODO: Add missing type signatures.
@@ -762,6 +779,12 @@ enum FunctionSignatureId {
   FN_KLL_QUANTILES_EXTRACT_POINT_INT64 = 1464;   // scalar
   FN_KLL_QUANTILES_EXTRACT_POINT_UINT64 = 1465;  // scalar
   FN_KLL_QUANTILES_EXTRACT_POINT_DOUBLE = 1466;  // scalar
+  FN_KLL_QUANTILES_MERGE_RELATIVE_RANK_INT64 = 2797;
+  FN_KLL_QUANTILES_MERGE_RELATIVE_RANK_UINT64 = 2798;
+  FN_KLL_QUANTILES_MERGE_RELATIVE_RANK_DOUBLE = 2799;
+  FN_KLL_QUANTILES_EXTRACT_RELATIVE_RANK_INT64 = 3300;   // scalar
+  FN_KLL_QUANTILES_EXTRACT_RELATIVE_RANK_UINT64 = 3301;  // scalar
+  FN_KLL_QUANTILES_EXTRACT_RELATIVE_RANK_DOUBLE = 3302;  // scalar
 
   // Analytic functions.
   FN_DENSE_RANK = 1500;                  // dense_rank
@@ -1658,4 +1681,13 @@ enum FunctionSignatureId {
   FN_CLASSIFIER = 3204;        // CLASSIFIER() -> string
   FN_NEXT = 3205;              // next
   FN_PREV = 3206;              // prev
+
+  // zstd_compress(bytes[, int64]) -> bytes
+  FN_ZSTD_COMPRESS_FROM_BYTES = 2690;
+  // zstd_compress(string[, int64]) -> bytes
+  FN_ZSTD_COMPRESS_FROM_STRING = 2691;
+  // zstd_decompress_to_bytes(bytes[, int64]) -> bytes
+  FN_ZSTD_DECOMPRESS_TO_BYTES = 2692;
+  // zstd_decompress_to_string(bytes[, int64]) -> string
+  FN_ZSTD_DECOMPRESS_TO_STRING = 2693;
 }

@@ -53,7 +53,7 @@ from t1, (select bad syntax here)
                             ^
 ==
 
-[default language_features=PIPES]
+[default language_features=NONE,+PIPES]
 from t
 --
 QueryStatement [0-6] [from t]
@@ -136,7 +136,7 @@ select 1
 
 # Test the errors for other operators not allowed after FROM queries.
 # Common ones give a suggestion to use the pipe operator.
-[language_features={{|PIPES}}]
+[language_features=NONE,{{|+PIPES}}]
 from t
 {{where true|group by 1|having x|qualify y|offset 10}}
 --
@@ -151,31 +151,31 @@ ERROR: Syntax error: Unexpected FROM [at 1:1]
 from t
 ^
 --
-ALTERNATION GROUP: PIPES,where true
+ALTERNATION GROUP: +PIPES,where true
 --
 ERROR: Syntax error: WHERE not supported after FROM query; Consider using pipe operator `|> WHERE` [at 2:1]
 where true
 ^
 --
-ALTERNATION GROUP: PIPES,group by 1
+ALTERNATION GROUP: +PIPES,group by 1
 --
 ERROR: Syntax error: GROUP BY not supported after FROM query; Consider using pipe operator `|> AGGREGATE` [at 2:1]
 group by 1
 ^
 --
-ALTERNATION GROUP: PIPES,having x
+ALTERNATION GROUP: +PIPES,having x
 --
 ERROR: Syntax error: Expected end of input but got keyword HAVING [at 2:1]
 having x
 ^
 --
-ALTERNATION GROUP: PIPES,qualify y
+ALTERNATION GROUP: +PIPES,qualify y
 --
 ERROR: Syntax error: Expected end of input but got keyword QUALIFY [at 2:1]
 qualify y
 ^
 --
-ALTERNATION GROUP: PIPES,offset 10
+ALTERNATION GROUP: +PIPES,offset 10
 --
 ERROR: Syntax error: Expected end of input but got integer literal "10" [at 2:8]
 offset 10
@@ -185,7 +185,7 @@ offset 10
 # LIMIT, ORDER BY and set operations are not allowed when starting from a
 # standalone FROM.  The FROM clause is a whole query, not a query_primary.
 # These suggest using the pipe operator, or parenthesizing, which also works.
-[language_features={{|PIPES}}]
+[language_features=NONE,{{|+PIPES}}]
 from t
 {{limit 5|order by x|union all from t2|intersect|except distinct abc}}
 --
@@ -200,31 +200,31 @@ ERROR: Syntax error: Unexpected FROM [at 1:1]
 from t
 ^
 --
-ALTERNATION GROUP: PIPES,limit 5
+ALTERNATION GROUP: +PIPES,limit 5
 --
 ERROR: Syntax error: LIMIT not supported after FROM query; Consider using pipe operator `|> LIMIT` or parentheses around the FROM query [at 2:1]
 limit 5
 ^
 --
-ALTERNATION GROUP: PIPES,order by x
+ALTERNATION GROUP: +PIPES,order by x
 --
 ERROR: Syntax error: ORDER BY not supported after FROM query; Consider using pipe operator `|> ORDER BY` or parentheses around the FROM query [at 2:1]
 order by x
 ^
 --
-ALTERNATION GROUP: PIPES,union all from t2
+ALTERNATION GROUP: +PIPES,union all from t2
 --
 ERROR: Syntax error: UNION not supported after FROM query; Consider using pipe operator `|> UNION` or parentheses around the FROM query [at 2:1]
 union all from t2
 ^
 --
-ALTERNATION GROUP: PIPES,intersect
+ALTERNATION GROUP: +PIPES,intersect
 --
 ERROR: Syntax error: INTERSECT not supported after FROM query; Consider using pipe operator `|> INTERSECT` or parentheses around the FROM query [at 2:1]
 intersect
 ^
 --
-ALTERNATION GROUP: PIPES,except distinct abc
+ALTERNATION GROUP: +PIPES,except distinct abc
 --
 ERROR: Syntax error: EXCEPT not supported after FROM query; Consider using pipe operator `|> EXCEPT` or parentheses around the FROM query [at 2:1]
 except distinct abc
@@ -251,7 +251,7 @@ union
 ==
 
 # Helpful error for FROM after a set op.
-[language_features={{|PIPES}}]
+[language_features=NONE,{{|+PIPES}}]
 select 1
 union all
 from t2
@@ -262,7 +262,7 @@ ERROR: Syntax error: Unexpected FROM [at 3:1]
 from t2
 ^
 --
-ALTERNATION GROUP: PIPES
+ALTERNATION GROUP: +PIPES
 --
 ERROR: Syntax error: Unexpected FROM; FROM queries following a set operation must be parenthesized [at 3:1]
 from t2
@@ -271,7 +271,7 @@ from t2
 
 # Helpful error for FROM after a set op.  Separate parser rule for second
 # vs third or later input query.
-[language_features={{|PIPES}}]
+[language_features=NONE,{{|+PIPES}}]
 select 1
 intersect all
 select 2
@@ -284,7 +284,7 @@ ERROR: Syntax error: Unexpected FROM [at 5:1]
 from t3
 ^
 --
-ALTERNATION GROUP: PIPES
+ALTERNATION GROUP: +PIPES
 --
 ERROR: Syntax error: Unexpected FROM; FROM queries following a set operation must be parenthesized [at 5:1]
 from t3
@@ -482,7 +482,7 @@ FROM
 
 select * from tvf(from t)
 --
-ERROR: Syntax error: Unexpected keyword FROM [at 1:19]
+ERROR: Syntax error: Expected ")" but got keyword FROM [at 1:19]
 select * from tvf(from t)
                   ^
 ==

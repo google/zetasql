@@ -359,7 +359,7 @@ absl::Status Resolver::ResolveExprWithFunctionArguments(
   disallowing_query_parameters_with_error_ =
       "Query parameters cannot be used inside SQL function bodies";
   std::unique_ptr<const ResolvedExpr> resolved_expr;
-  ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationToExternal(
+  ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorPayloadsToExternal(
       ResolveExpr(ast_expr, expr_resolution_info, &resolved_expr), sql));
   *output = std::move(resolved_expr);
   return absl::OkStatus();
@@ -397,7 +397,7 @@ absl::Status Resolver::ResolveQueryStatementWithFunctionArguments(
         "Query parameters cannot be used inside SQL function bodies";
   }
   std::unique_ptr<ResolvedStatement> resolved_statement;
-  ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationToExternal(
+  ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorPayloadsToExternal(
       ResolveQueryStatement(query_stmt, &resolved_statement, output_name_list),
       sql));
 
@@ -414,7 +414,7 @@ absl::Status Resolver::ResolveQueryStatementWithFunctionArguments(
     std::unique_ptr<const ResolvedScan> output_query =
         resolved_query->release_query();
 
-    ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationToExternal(
+    ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorPayloadsToExternal(
         CheckSQLBodyReturnTypesAndCoerceIfNeeded(
             /*statement_location=*/nullptr, *specified_output_schema,
             output_name_list->get(), &output_query, &output_column_list),
@@ -744,7 +744,8 @@ absl::Status Resolver::ResolvePathExpressionAsType(
 }
 
 // Get name of a hint or option formatted appropriately for error messages.
-static std::string HintName(std::string_view qualifier, std::string_view name) {
+static std::string HintName(absl::string_view qualifier,
+                            absl::string_view name) {
   return absl::StrCat((qualifier.empty() ? "" : ToIdentifierLiteral(qualifier)),
                       (qualifier.empty() ? "" : "."),
                       ToIdentifierLiteral(name));
@@ -767,8 +768,8 @@ static constexpr const char* GetHintOrOptionName(
 }
 
 static absl::StatusOr<AllowedOptionProperties> GetHintOrOptionProperties(
-    const AllowedHintsAndOptions& allowed, std::string_view qualifier,
-    const ASTIdentifier* ast_name, std::string_view name,
+    const AllowedHintsAndOptions& allowed, absl::string_view qualifier,
+    const ASTIdentifier* ast_name, absl::string_view name,
     Resolver::HintOrOptionType hint_or_option_type) {
   auto process_select_with_options =
       [&](const auto& option_map) -> absl::StatusOr<AllowedOptionProperties> {
@@ -2032,14 +2033,15 @@ absl::Status Resolver::RecordImpliedAccess(const ResolvedStatement* statement) {
     // mark it as a READ because the user could use a UDF or other indirect
     // means and infer information about the array that should only be
     // accessible via READ.
-    // If array_update_list_size() is greater than zero, we also mark it as a
-    // READ because the lack of an exception gives information that the array
-    // size is at least as big as the supplied offset.
-    // Finally, if the target is not directly a ResolvedColumnRef, then it's a
-    // GetProto/StructField and should be treated as a READ because the proto
-    // will need to be read before it is modified and written back.
+    // If update_item_element_list_size() is greater than zero, we also mark it
+    // as a READ because the lack of an exception gives information that the
+    // access into the collection was valid. Finally, if the target is not
+    // directly a ResolvedColumnRef, then it must be a field access (ex:
+    // GetProtoField, GetStructField) and should be treated as a READ because
+    // the accessed object will need to be read before it is modified and
+    // written back.
     bool is_implied_read =
-        updateItem->array_update_list_size() > 0 ||
+        updateItem->update_item_element_list_size() > 0 ||
         updateItem->insert_list_size() > 0 ||
         updateItem->update_list_size() > 0 ||
         updateItem->delete_list_size() > 0 ||

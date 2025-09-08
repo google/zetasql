@@ -21,9 +21,11 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/status_payload_utils.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_generated.h"
 #include "zetasql/proto/internal_error_location.pb.h"
+#include "zetasql/proto/internal_fix_suggestion.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "absl/status/status.h"
@@ -101,16 +103,16 @@ absl::Status StatusWithInternalErrorLocation(const absl::Status& status,
 }
 
 absl::Status MakeStatusWithErrorLocation(absl::StatusCode code,
-                                         std::string_view message,
-                                         std::string_view filename,
-                                         std::string_view query,
+                                         absl::string_view message,
+                                         absl::string_view filename,
+                                         absl::string_view query,
                                          const ASTNode* ast_node,
                                          bool include_leftmost_child) {
   const absl::Status status =
       zetasql_base::StatusBuilder(code).AttachPayload(
           MakeInternalErrorLocation(ast_node, filename, include_leftmost_child))
       << message;
-  return ConvertInternalErrorLocationToExternal(status, query);
+  return ConvertInternalErrorPayloadsToExternal(status, query);
 }
 
 InternalErrorLocation MakeInternalErrorLocation(
@@ -132,10 +134,18 @@ absl::Status WrapNestedErrorStatus(const ASTNode* ast_location,
   zetasql_base::StatusBuilder error_status_builder =
       absl::IsInternal(input_status) ? zetasql_base::StatusBuilder(input_status)
                                      : MakeSqlError();
-  return error_status_builder.AttachPayload(
-             SetErrorSourcesFromStatus(MakeInternalErrorLocation(ast_location),
-                                       input_status, error_source_mode))
-         << error_message;
+  absl::Status error_status =
+      error_status_builder.AttachPayload(
+          SetErrorSourcesFromStatus(MakeInternalErrorLocation(ast_location),
+                                    input_status, error_source_mode))
+      << error_message;
+  if (internal::HasPayloadWithType<InternalErrorFixSuggestions>(input_status)) {
+    internal::AttachPayload(
+        &error_status,
+        internal::GetPayload<InternalErrorFixSuggestions>(input_status));
+  }
+
+  return error_status;
 }
 
 ::absl::Status MakeSqlErrorIfPresent(const ASTNode* ast_node) {
@@ -144,6 +154,34 @@ absl::Status WrapNestedErrorStatus(const ASTNode* ast_location,
   } else {
     return absl::OkStatus();
   }
+}
+
+absl::Status& AddFixSuggestionToStatus(absl::Status& status,
+                                       absl::string_view title,
+                                       const ParseLocationPoint& start_location,
+                                       const ParseLocationPoint& end_location,
+                                       absl::string_view new_text) {
+  InternalFix fix;
+  fix.set_title(title);
+  InternalTextEdit* edit = fix.mutable_edits()->add_text_edits();
+  edit->mutable_range()->mutable_start()->set_byte_offset(
+      start_location.GetByteOffset());
+  edit->mutable_range()->mutable_start()->set_filename(
+      start_location.filename());
+  edit->mutable_range()->set_length(end_location.GetByteOffset() -
+                                    start_location.GetByteOffset());
+  edit->set_new_text(new_text);
+  if (internal::HasPayloadWithType<InternalErrorFixSuggestions>(status)) {
+    auto fix_copy = internal::GetPayload<InternalErrorFixSuggestions>(status);
+    *fix_copy.add_fix_suggestions() = fix;
+    internal::ErasePayloadTyped<InternalErrorFixSuggestions>(&status);
+    internal::AttachPayload(&status, fix_copy);
+    return status;
+  }
+  InternalErrorFixSuggestions fixes;
+  *fixes.add_fix_suggestions() = fix;
+  internal::AttachPayload(&status, fixes);
+  return status;
 }
 
 }  // namespace zetasql

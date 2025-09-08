@@ -33,7 +33,8 @@ class SimpleProtoEvaluatorTableIterator : public EvaluatorTableIterator {
  public:
   static constexpr char kValueColumnName[] = "value";
 
-  explicit SimpleProtoEvaluatorTableIterator(const ProtoType* proto_type);
+  explicit SimpleProtoEvaluatorTableIterator(const ProtoType* proto_type,
+                                             absl::Span<const int> columns);
   int NumColumns() const override;
   std::string GetColumnName(int i) const override;
   const Type* GetColumnType(int i) const override;
@@ -45,6 +46,9 @@ class SimpleProtoEvaluatorTableIterator : public EvaluatorTableIterator {
   const ProtoType* proto_type_ = nullptr;
   Value current_value_;
   absl::Status status_;
+  // The analyzer might prune the one column if it's not used in which case
+  // num_columns_ will be zero. Otherwise its 1.
+  int num_columns_;
 };
 
 }  // namespace zetasql

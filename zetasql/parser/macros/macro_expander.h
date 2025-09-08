@@ -18,6 +18,7 @@
 #define ZETASQL_PARSER_MACROS_MACRO_EXPANDER_H_
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <queue>
 #include <string>
@@ -52,6 +53,18 @@ class MacroExpanderBase {
   virtual int num_unexpanded_tokens_consumed() const = 0;
 };
 
+// Options to configure the macro expander.
+struct MacroExpanderOptions {
+  // If true, the expander will return errors instead of warnings.
+  bool is_strict = false;
+  // Options for diagnostics, such as warnings and error messages.
+  DiagnosticOptions diagnostic_options = {};
+
+  // The maximum number of macro invocations per macro expansion call.
+  // This is a safeguard against exponential macro expansions,
+  int64_t max_macro_invocations = 10000;
+};
+
 // A struct that holds the expansion details for a macro.
 // TODO: fix the names, e.g. full_match is actually "invocation"
 struct Expansion {
@@ -81,10 +94,9 @@ struct ExpansionOutput {
 class MacroExpander final : public MacroExpanderBase {
  public:
   MacroExpander(std::unique_ptr<TokenProviderBase> token_provider,
-                bool is_strict, const MacroCatalog& macro_catalog,
-                zetasql_base::UnsafeArena* arena,
+                const MacroCatalog& macro_catalog, zetasql_base::UnsafeArena* arena,
                 std::vector<std::unique_ptr<StackFrame>>& stack_frames,
-                DiagnosticOptions diagnostic_options,
+                MacroExpanderOptions macro_expander_options,
                 StackFrame* /*absl_nullable*/ parent_location);
 
   MacroExpander(const MacroExpander&) = delete;
@@ -96,9 +108,8 @@ class MacroExpander final : public MacroExpanderBase {
 
   // Convenient non-streaming API to return all expanded tokens.
   static absl::StatusOr<ExpansionOutput> ExpandMacros(
-      std::unique_ptr<TokenProviderBase> token_provider, bool is_strict,
-      const MacroCatalog& macro_catalog,
-      DiagnosticOptions diagnostic_options = {});
+      std::unique_ptr<TokenProviderBase> token_provider,
+      const MacroCatalog& macro_catalog, MacroExpanderOptions options = {});
 
  private:
   // Collects warnings from the current expansion across all levels, hiding the
@@ -121,7 +132,7 @@ class MacroExpander final : public MacroExpanderBase {
     std::vector<absl::Status> warnings_;
   };
 
-  // Tracks the state of macro expansion to detect recursion.
+  // Tracks the global state of macro expansion to detect recursion.
   class ExpansionState {
    public:
     ExpansionState() = default;
@@ -138,29 +149,39 @@ class MacroExpander final : public MacroExpanderBase {
       visited_macros_.erase(macro_invocation_name);
     }
 
+    void IncrementInvocationCount() { ++total_number_of_macro_invocations_; }
+
+    int64_t GetTotalNumberOfMacroInvocations() const {
+      return total_number_of_macro_invocations_;
+    }
+
    private:
     // Track visited macros in current expansion chain. If a new macro is pushed
     // which has already been visited, then it indicates a cycle.
     absl::flat_hash_set<absl::string_view> visited_macros_;
+
+    // Track the total number of macro invocations. This also includes argument
+    // expansions. This is a total number of count for `ExpandMacrosInternal`.
+    int64_t total_number_of_macro_invocations_ = 0;
   };
 
   MacroExpander(
-      std::unique_ptr<TokenProviderBase> token_provider, bool is_strict,
+      std::unique_ptr<TokenProviderBase> token_provider,
       const MacroCatalog& macro_catalog, zetasql_base::UnsafeArena* arena,
       std::vector<std::unique_ptr<StackFrame>>& stack_frames,
       ExpansionState& expansion_state,
       const std::vector<std::vector<TokenWithLocation>> call_arguments,
-      DiagnosticOptions diagnostic_options,
+      MacroExpanderOptions macro_expander_options,
       WarningCollector* override_warning_collector,
       StackFrame* /*absl_nullable*/ parent_location)
       : token_provider_(std::move(token_provider)),
-        is_strict_(is_strict),
         macro_catalog_(macro_catalog),
         arena_(arena),
         stack_frames_(stack_frames),
         call_arguments_(std::move(call_arguments)),
-        diagnostic_options_(diagnostic_options),
-        owned_warning_collector_(diagnostic_options.max_warning_count),
+        macro_expander_options_(macro_expander_options),
+        owned_warning_collector_(
+            macro_expander_options.diagnostic_options.max_warning_count),
         warning_collector_(override_warning_collector == nullptr
                                ? owned_warning_collector_
                                : *override_warning_collector),
@@ -170,12 +191,12 @@ class MacroExpander final : public MacroExpanderBase {
   // Because this function may be called internally (e.g. when expanding
   // a nested macro), it appends to `out_warnings`, instead of replacing it.
   static absl::Status ExpandMacrosInternal(
-      std::unique_ptr<TokenProviderBase> token_provider, bool is_strict,
+      std::unique_ptr<TokenProviderBase> token_provider,
       const MacroCatalog& macro_catalog, zetasql_base::UnsafeArena* arena,
       std::vector<std::unique_ptr<StackFrame>>& stack_frames,
       ExpansionState& expansion_state,
       const std::vector<std::vector<TokenWithLocation>>& call_arguments,
-      DiagnosticOptions diagnostic_options,
+      MacroExpanderOptions macro_expander_options,
       StackFrame* /*absl_nullable*/ parent_location,
       absl::btree_map<size_t, Expansion>* location_map,
       std::vector<TokenWithLocation>& output_token_list,
@@ -309,12 +330,12 @@ class MacroExpander final : public MacroExpanderBase {
   // the filename and input of the underlying `token_provider_`.
   absl::StatusOr<StackFrame* /*absl_nonnull*/> MakeStackFrame(
       absl::string_view frame_name, StackFrame::FrameType frame_type,
-      ParseLocationRange location, StackFrame* /*absl_nullable*/ parent_location,
+      ParseLocationRange location, absl::string_view input_text,
+      int offset_in_original_input, int input_start_line_offset,
+      int input_start_column_offset, StackFrame* /*absl_nullable*/ parent_location,
       StackFrame* /*absl_nullable*/ invocation_frame = nullptr) const;
 
   std::unique_ptr<TokenProviderBase> token_provider_;
-
-  const bool is_strict_;
 
   // The macro catalog which contains current definitions.
   // Never changes during the expansion of a statement.
@@ -349,8 +370,8 @@ class MacroExpander final : public MacroExpanderBase {
   // the 0th one, end in YYEOF.
   const std::vector<std::vector<TokenWithLocation>> call_arguments_;
 
-  // Controls error message options.
-  const DiagnosticOptions diagnostic_options_;
+  // Controls the behavior of the macro expander.
+  const MacroExpanderOptions macro_expander_options_;
 
   // Holds whitespaces that will prepend whatever comes next. For example, when
   // expanding `   $empty $empty$empty 123`, we do not assume the first $empty

@@ -1,4 +1,4 @@
-[default language_features=PIPES,GROUP_BY_ROLLUP,GROUPING_SETS,GROUPING_BUILTIN,SELECT_STAR_EXCEPT_REPLACE]
+[default language_features=NONE,+PIPES,+GROUP_BY_ROLLUP,+GROUPING_SETS,+GROUPING_BUILTIN,+SELECT_STAR_EXCEPT_REPLACE]
 select 1 x, 2 y
 |> AGGREGATE GROUP BY x, y
 --
@@ -801,7 +801,7 @@ QueryStmt
 ==
 
 # Window functions not allowed.
-[language_features=PIPES,ANALYTIC_FUNCTIONS]
+[language_features=NONE,+PIPES,+ANALYTIC_FUNCTIONS]
 select 1 x
 |> AGGREGATE sum(x), 1 + sum(x) OVER ()
 --
@@ -1484,7 +1484,7 @@ ERROR: Column name key is ambiguous [at 4:10]
 ==
 
 # Test a GROUP BY alias in regular syntax, with FEATURE_PIPES on or off.
-[language_features={{PIPES|}}]
+[language_features=NONE,{{+PIPES|}}]
 select COUNT(*)
 from KeyValue
 GROUP BY key AS alias
@@ -1498,14 +1498,14 @@ GROUP BY key AS alias
 # columns.
 # TODO Enable java support for collation.
 [no_java]
-[language_features=PIPES{{|,ANNOTATION_FRAMEWORK|,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT}}]
+[language_features=NONE,+PIPES{{|,+ANNOTATION_FRAMEWORK|,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT}}]
 from CollatedTable
 |> AGGREGATE MAX(COALESCE(string_ci)) as max_ci
    GROUP BY COALESCE(string_ci) AS grouping_ci
 --
 ALTERNATION GROUPS:
     <empty>
-    ,ANNOTATION_FRAMEWORK
+    ,+ANNOTATION_FRAMEWORK
 --
 QueryStmt
 +-output_column_list=
@@ -1526,7 +1526,7 @@ QueryStmt
           +-FunctionCall(ZetaSQL:coalesce(repeated(1) STRING) -> STRING)
             +-ColumnRef(type=STRING, column=CollatedTable.string_ci#1{Collation:"und:ci"})
 --
-ALTERNATION GROUP: ,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT
+ALTERNATION GROUP: ,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT
 --
 QueryStmt
 +-output_column_list=
@@ -1560,7 +1560,7 @@ QueryStmt
 # Literal replacement generally doesn't work correctly for expressions, it can't
 # replace all literals in the query, see reported bug b/284358915.
 [no_enable_literal_replacement]
-[language_features=PIPES,GROUP_BY_ROLLUP{{|,GROUPING_SETS}}]
+[language_features=NONE,+PIPES,+GROUP_BY_ROLLUP{{|,+GROUPING_SETS}}]
 FROM KeyValue
 |> EXTEND STRUCT<f1 INT64, f2 STRING>(key, value) AS kv_struct1
 |> EXTEND STRUCT<f1 INT64, f2 STRING>(key+1, UPPER(value)) AS kv_struct2
@@ -1653,7 +1653,7 @@ ERROR: GROUP BY GROUPING SETS is unsupported [at 5:13]
    GROUP BY GROUPING SETS(
             ^
 --
-ALTERNATION GROUP: ,GROUPING_SETS,ROLLUP
+ALTERNATION GROUP: ,+GROUPING_SETS,ROLLUP
 --
 QueryStmt
 +-output_column_list=
@@ -1716,7 +1716,7 @@ QueryStmt
             +-column_list=
               +-ColumnRef(type=STRING, column=$groupby.value#6)
 --
-ALTERNATION GROUP: ,GROUPING_SETS,CUBE
+ALTERNATION GROUP: ,+GROUPING_SETS,CUBE
 --
 QueryStmt
 +-output_column_list=
@@ -1779,7 +1779,7 @@ QueryStmt
             +-column_list=
               +-ColumnRef(type=STRING, column=$groupby.value#6)
 --
-ALTERNATION GROUP: ,GROUPING_SETS,GROUPING SETS
+ALTERNATION GROUP: ,+GROUPING_SETS,GROUPING SETS
 --
 QueryStmt
 +-output_column_list=
@@ -2044,19 +2044,145 @@ QueryStmt
 # Unsupported equivalent expressions in ROLLUP/CUBE/GROUPING SETS fail the
 # query. STRUCT<f1 INT64>(key) is not a supported expression type in equivalent
 # expression detection method.
-[language_features=PIPES,GROUP_BY_ROLLUP,GROUPING_SETS,GROUP_BY_STRUCT]
+[language_features=NONE,+PIPES,+GROUP_BY_ROLLUP,+GROUPING_SETS,+GROUP_BY_STRUCT{{|,+MATCH_MAKE_STRUCT_IN_GROUP_BY}}]
 FROM KeyValue
 |> AGGREGATE COUNT(*) GROUP BY {{ROLLUP|CUBE|GROUPING SETS}}
     (STRUCT<f1 INT64>(key).f1, STRUCT<f1 INT64>(key).f1, value, value)
 --
+ALTERNATION GROUPS:
+    ROLLUP
+    CUBE
+    GROUPING SETS
+--
 ERROR: Unable to check whether multiple grouping set expressions are equivalent, so the output column list cannot be determined; Consider using the EXTEND operator to pre-compute these expressions and assign names, and then reference those columns by name here [at 3:32]
     (STRUCT<f1 INT64>(key).f1, STRUCT<f1 INT64>(key).f1, value, value)
                                ^
+--
+ALTERNATION GROUP: ,+MATCH_MAKE_STRUCT_IN_GROUP_BY,ROLLUP
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.f1#4 AS f1 [INT64]
+| +-$groupby.value#5 AS value [STRING]
+| +-$aggregate.$agg1#3 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$groupby.f1#4, $groupby.value#5, $aggregate.$agg1#3]
+    +-input_scan=
+    | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-group_by_list=
+    | +-f1#4 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-MakeStruct
+    | |   |   +-type=STRUCT<f1 INT64>
+    | |   |   +-field_list=
+    | |   |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    | |   +-field_idx=0
+    | +-value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+    +-aggregate_list=
+    | +-$agg1#3 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    +-grouping_set_list=
+      +-Rollup
+        +-rollup_column_list=
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=INT64, column=$groupby.f1#4)
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=INT64, column=$groupby.f1#4)
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=STRING, column=$groupby.value#5)
+          +-GroupingSetMultiColumn
+            +-column_list=
+              +-ColumnRef(type=STRING, column=$groupby.value#5)
+--
+ALTERNATION GROUP: ,+MATCH_MAKE_STRUCT_IN_GROUP_BY,CUBE
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.f1#4 AS f1 [INT64]
+| +-$groupby.value#5 AS value [STRING]
+| +-$aggregate.$agg1#3 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$groupby.f1#4, $groupby.value#5, $aggregate.$agg1#3]
+    +-input_scan=
+    | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-group_by_list=
+    | +-f1#4 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-MakeStruct
+    | |   |   +-type=STRUCT<f1 INT64>
+    | |   |   +-field_list=
+    | |   |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    | |   +-field_idx=0
+    | +-value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+    +-aggregate_list=
+    | +-$agg1#3 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    +-grouping_set_list=
+      +-Cube
+        +-cube_column_list=
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=INT64, column=$groupby.f1#4)
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=INT64, column=$groupby.f1#4)
+          +-GroupingSetMultiColumn
+          | +-column_list=
+          |   +-ColumnRef(type=STRING, column=$groupby.value#5)
+          +-GroupingSetMultiColumn
+            +-column_list=
+              +-ColumnRef(type=STRING, column=$groupby.value#5)
+--
+ALTERNATION GROUP: ,+MATCH_MAKE_STRUCT_IN_GROUP_BY,GROUPING SETS
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.f1#4 AS f1 [INT64]
+| +-$groupby.value#5 AS value [STRING]
+| +-$aggregate.$agg1#3 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$groupby.f1#4, $groupby.value#5, $aggregate.$agg1#3]
+    +-input_scan=
+    | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-group_by_list=
+    | +-f1#4 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-MakeStruct
+    | |   |   +-type=STRUCT<f1 INT64>
+    | |   |   +-field_list=
+    | |   |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    | |   +-field_idx=0
+    | +-value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+    +-aggregate_list=
+    | +-$agg1#3 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    +-grouping_set_list=
+      +-GroupingSet
+      | +-group_by_column_list=
+      |   +-ColumnRef(type=INT64, column=$groupby.f1#4)
+      +-GroupingSet
+      | +-group_by_column_list=
+      |   +-ColumnRef(type=INT64, column=$groupby.f1#4)
+      +-GroupingSet
+      | +-group_by_column_list=
+      |   +-ColumnRef(type=STRING, column=$groupby.value#5)
+      +-GroupingSet
+        +-group_by_column_list=
+          +-ColumnRef(type=STRING, column=$groupby.value#5)
 ==
 
 # Equivalent expressions in non-grouping sets queries won't be deduplicated.
 [no_enable_literal_replacement]
-[language_features=PIPES,GROUP_BY_ROLLUP,GROUP_BY_STRUCT{{|,GROUPING_SETS}}]
+[language_features=NONE,+PIPES,+GROUP_BY_ROLLUP,+GROUP_BY_STRUCT{{|,+GROUPING_SETS}}]
 FROM KeyValue
 |> AGGREGATE COUNT(*) GROUP BY STRUCT(key), STRUCT(key), value, value
 --
@@ -2338,7 +2464,7 @@ QueryStmt
 # Unsupported equivalent expressions can be added to EXTEND operator, and
 # referenced in the ROLLUP/CUBE/GROUPING SETS.
 [no_enable_literal_replacement]
-[language_features=PIPES,GROUP_BY_ROLLUP,GROUPING_SETS,GROUP_BY_STRUCT]
+[language_features=NONE,+PIPES,+GROUP_BY_ROLLUP,+GROUPING_SETS,+GROUP_BY_STRUCT]
 FROM KeyValue
 |> EXTEND STRUCT(key) AS key_struct
 |> AGGREGATE COUNT(*) GROUP BY {{ROLLUP|CUBE|GROUPING SETS}}(key_struct, key_struct)
@@ -2720,7 +2846,7 @@ QueryStmt
                   +-ColumnRef(type=STRING, column=$groupby.$groupbycol2#4)
 ==
 
-[language_features=PIPES,MULTILEVEL_AGGREGATION,ORDER_BY_IN_AGGREGATE]
+[language_features=NONE,+PIPES,+MULTILEVEL_AGGREGATION,+ORDER_BY_IN_AGGREGATE]
 FROM SimpleTypes
 |> AGGREGATE
   SUM(

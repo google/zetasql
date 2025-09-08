@@ -23,11 +23,16 @@
 
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/value.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/tools/execute_query/output_query_result.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_replace.h"
+#include "absl/strings/string_view.h"
 #include "external/mstch/mstch/include/mstch/mstch.hpp"
+#include "re2/re2.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -63,15 +68,84 @@ absl::Status RenderResultsAsTable(std::unique_ptr<EvaluatorTableIterator> iter,
   return iter->Status();
 }
 
+std::string DecorateASTDebugStringWithHTMLTags(std::string ast_debug_string) {
+  // First HTML-escape the string, since the AST tree is rendered without
+  // auto-escaping in the template processor.
+  absl::StrReplaceAll({{"&", "&amp;"}, {"<", "&lt;"}, {">", "&gt;"}},
+                      &ast_debug_string);
+
+  // Make all the node names bold.
+  // The regex matches node names that appear on their own line and are prefixed
+  // by some tree characters. The (?m) enables multi-line mode so that the ^ in
+  // the capturing group matches the start of each line separately.
+  static LazyRE2 kNodeName = {R"re((?m)(^[ |+-]*)([A-Z][A-Za-z]*))re"};
+  RE2::GlobalReplace(&ast_debug_string, *kNodeName,
+                     R"html(\1<span class="ast-node">\2</span>)html");
+
+  // Wrap all column IDs in a span, so that they can be highlighted on hover.
+  // If the Column ID is `col1#3`, the two capturing groups are `col1` and `3`
+  // and the span will have the class `col1_3`
+  static LazyRE2 kColumnId = {R"re((\$?[A-Za-z0-9_]+)#(\d+))re"};
+  RE2::GlobalReplace(&ast_debug_string, *kColumnId,
+                     R"html(<span class="ast-col \1_\2">\0</span>)html");
+
+  // For generated columns that start with a dollar-sign, the above replacement
+  // would have resulted in an invalid class name, since $ is not allowed in
+  // class names. So we fix that separately.
+  absl::StrReplaceAll({{R"html(<span class="ast-col $)html",
+                        R"html(<span class="ast-col dollar_)html"}},
+                      &ast_debug_string);
+
+  return ast_debug_string;
+}
+
 }  // namespace
 
+absl::Status ExecuteQueryWebWriter::resolved(const ResolvedNode& ast) {
+  // The result_analyzed string contains HTML, so the template contains
+  // `result_analyzed` in a triple mustache to disable HTML escaping.
+  // We make sure that the string is HTML-escaped before inserting it into the
+  // template.
+  current_statement_params_["result_analyzed"] =
+      DecorateASTDebugStringWithHTMLTags(ast.DebugString());
+  got_results_ = true;
+  return absl::OkStatus();
+}
+
 absl::Status ExecuteQueryWebWriter::executed(
-    const ResolvedNode &ast, std::unique_ptr<EvaluatorTableIterator> iter) {
+    const ResolvedNode& ast, std::unique_ptr<EvaluatorTableIterator> iter) {
   current_statement_params_["result_executed"] = true;
 
+  mstch::array tables;
+  mstch::map result_params;
   mstch::map table_params;
   ZETASQL_RETURN_IF_ERROR(RenderResultsAsTable(std::move(iter), table_params));
-  current_statement_params_["result_executed_table"] = std::move(table_params);
+  result_params["table"] = std::move(table_params);
+  tables.push_back(std::move(result_params));
+  current_statement_params_["result_executed_tables"] = std::move(tables);
+  got_results_ = true;
+  return absl::OkStatus();
+}
+
+absl::Status ExecuteQueryWebWriter::executed_multi(
+    const ResolvedNode& ast,
+    std::vector<absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>>
+        results) {
+  current_statement_params_["result_executed"] = true;
+
+  mstch::array tables;
+  for (auto& result : results) {
+    mstch::map result_params;
+    if (result.ok()) {
+      mstch::map table_params;
+      ZETASQL_RETURN_IF_ERROR(RenderResultsAsTable(std::move(*result), table_params));
+      result_params["table"] = std::move(table_params);
+    } else {
+      result_params["error"] = std::string(result.status().message());
+    }
+    tables.push_back(std::move(result_params));
+  }
+  current_statement_params_["result_executed_tables"] = std::move(tables);
   got_results_ = true;
   return absl::OkStatus();
 }

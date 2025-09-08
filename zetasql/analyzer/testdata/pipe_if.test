@@ -1,8 +1,9 @@
 # Literal replacement doesn't work because parameters don't work as constants
 # in the IF conditions yet.
+[default language_features=MAXIMUM]
 [default no_enable_literal_replacement]
 
-[language_features=PIPES]
+[language_features=NONE,+PIPES]
 FROM KeyValue
 |> IF true THEN ()
 --
@@ -11,7 +12,7 @@ ERROR: Pipe IF not supported [at 2:1]
 ^
 ==
 
-[default language_features=PIPES,PIPE_IF,PIPE_STATIC_DESCRIBE]
+[default language_features=MAXIMUM,+PIPES,+PIPE_IF,+PIPE_STATIC_DESCRIBE]
 FROM KeyValue
 |> IF true THEN ()
 --

@@ -688,7 +688,7 @@ Returns `NULL` if `array_to_search` is `NULL`.
 
 In the following example, the query first checks to see if any elements that are
 greater than 3 exist in an array (`e > 3`). Then the query checks to see if any
-any elements that are greater than 0 exist in an array (`e > 0`).
+elements that are greater than 0 exist in an array (`e > 0`).
 
 ```zetasql
 SELECT

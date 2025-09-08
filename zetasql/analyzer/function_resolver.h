@@ -42,6 +42,7 @@
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/base/attributes.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -224,7 +225,7 @@ class FunctionResolver {
   // then function arguments can be coerced to the required signature
   // type(s), otherwise they must be an exact match.
   // <name_scope> is used to resolve lambda. Resolved lambdas are put in
-  // <arg_overrides>. See
+  // <arg_overrides> and their parse ASTs are put in <lambda_ast_nodes>. See
   // <CheckResolveLambdaTypeAndCollectTemplatedArguments> about how lambda is
   // resolved.
   // <arg_index_mapping> if non-null will be updated with the
@@ -239,7 +240,9 @@ class FunctionResolver {
       std::unique_ptr<FunctionSignature>* result_signature,
       SignatureMatchResult* signature_match_result,
       std::vector<ArgIndexEntry>* arg_index_mapping,
-      std::vector<FunctionArgumentOverride>* arg_overrides) const;
+      std::vector<FunctionArgumentOverride>* arg_overrides,
+      absl::flat_hash_map<const ResolvedInlineLambda*, const ASTLambda*>*
+          lambda_ast_nodes) const;
 
   // Perform post-processing checks on CREATE AGGREGATE FUNCTION statements at
   // initial declaration time or when the functions are called later.
@@ -370,6 +373,13 @@ class FunctionResolver {
       const FunctionArgumentType& concrete_argument,
       const std::function<std::string(int)>& BadArgErrorPrefix) const;
 
+  // Computes the result annotations of the `function_call` using the provided
+  // `callback` and stores them in `function_call`. This method is called when
+  // a non-SQL function has a custom callback to compute the result annotations.
+  absl::Status CustomPropagateAnnotations(
+      const ComputeResultAnnotationsCallback& callback,
+      const ASTNode* ast_location, ResolvedFunctionCallBase& function_call);
+
  private:
   Catalog* catalog_;           // Not owned.
   TypeFactory* type_factory_;  // Not owned.
@@ -413,6 +423,8 @@ class FunctionResolver {
       std::vector<InputArgumentType>* input_arguments,
       std::vector<FunctionArgumentOverride>* arg_overrides,
       std::vector<ArgIndexEntry>* arg_index_mapping,
+      absl::flat_hash_map<const ResolvedInlineLambda*, const ASTLambda*>*
+          lambda_ast_nodes,
       std::vector<std::string>* mismatch_errors) const;
 
   // Returns user-facing text with a list of signatures along with the reason
@@ -448,8 +460,9 @@ class FunctionResolver {
   // cast failures, which should only be set to true when using SAFE_CAST.
   absl::Status ConvertLiteralToType(
       const ASTNode* ast_location, const ResolvedLiteral* argument_literal,
-      const Type* target_type, const ResolvedScan* scan,
-      bool set_has_explicit_type, bool return_null_on_error,
+      const Type* target_type, const TypeParameters& target_type_params,
+      const ResolvedScan* scan, bool set_has_explicit_type,
+      bool return_null_on_error,
       std::unique_ptr<const ResolvedLiteral>* converted_literal) const;
 
   // For COLLATE(<string_expr>, <collation_spec>) function, resolves collation
@@ -457,12 +470,12 @@ class FunctionResolver {
   absl::Status ResolveCollationForCollateFunction(
       const ASTNode* error_location, ResolvedFunctionCall* function_call);
 
-  // Computes the result annotations of the `function_call` using the provided
-  // `callback` and stores them in `function_call`. This method is called when
-  // a SQL function has a custom callback to compute the result annotations.
-  absl::Status CustomPropagateAnnotations(
-      const Type* result_type, const ComputeResultAnnotationsCallback& callback,
-      ResolvedFunctionCallBase* function_call);
+  // Re-resolves any lambdas related to arguments that have annotations.
+  absl::Status ReResolveLambdasIfNecessary(
+      const FunctionSignature* result_signature, const NameScope* name_scope,
+      const absl::flat_hash_map<const ResolvedInlineLambda*, const ASTLambda*>&
+          lambda_ast_nodes,
+      ResolvedFunctionCall* resolved_expr_out) const;
 
   friend class FunctionResolverTest;
 };

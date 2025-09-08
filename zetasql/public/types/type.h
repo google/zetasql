@@ -111,7 +111,6 @@ class Type {
   bool IsBytes() const { return kind_ == TYPE_BYTES; }
   bool IsDate() const { return kind_ == TYPE_DATE; }
   bool IsTimestamp() const { return kind_ == TYPE_TIMESTAMP; }
-  bool IsTimestampPicos() const { return kind_ == TYPE_TIMESTAMP_PICOS; }
 
   bool IsTime() const { return kind_ == TYPE_TIME; }
   bool IsDatetime() const { return kind_ == TYPE_DATETIME; }
@@ -292,7 +291,7 @@ class Type {
   // Note that this means the ZetaSQL type supports equality, but there are
   // LanguageOptions that may restrict this for particular engines.
   virtual bool SupportsEquality() const {
-    if (IsGeography() || IsJson()) {
+    if (IsGeography()) {
       return false;
     }
     if (IsTokenList()) {
@@ -464,9 +463,7 @@ class Type {
   // updated.
   virtual std::string ShortTypeName(ProductMode mode) const;
   virtual std::string ShortTypeName(ProductMode mode,
-                                    bool use_external_float32_unused) const {
-    return ShortTypeName(mode);
-  }
+                                    bool use_external_float32) const;
 
   // Same as above, but returns a SQL name that is reparseable as part of a
   // query. This is not intended for user-facing informational or error

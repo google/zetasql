@@ -8,6 +8,7 @@
 # 3) HAVING expressions in or not in SELECT list
 
 # No GROUP BY, aggregation in HAVING, aggregation in SELECT list.
+[default language_features=MAXIMUM]
 select sum(key)
 from KeyValue
 having sum(key) > 5;
@@ -654,7 +655,7 @@ having count(array(select x from unnest(xs) as x)) >= 3;
 #
 # This fails since the HAVING clause is logically evaluated before analytic
 # functions.
-[language_features=ANALYTIC_FUNCTIONS]
+[language_features=NONE,+ANALYTIC_FUNCTIONS]
 select sum(key) over () as b
 from keyvalue
 having b > 5;
@@ -664,7 +665,7 @@ having b > 5;
        ^
 ==
 
-[language_features=ANALYTIC_FUNCTIONS]
+[language_features=NONE,+ANALYTIC_FUNCTIONS]
 select sum(key) over() as b
 from keyvalue
 having sum(b) > 5;
@@ -674,7 +675,7 @@ having sum(b) > 5;
            ^
 ==
 
-[language_features=ANALYTIC_FUNCTIONS]
+[language_features=NONE,+ANALYTIC_FUNCTIONS]
 select array_agg(id) over () as xs
 from (select 1 id union all select 2 id) messages
 having count((select xs)) >= 3;
@@ -684,7 +685,7 @@ having count((select xs)) >= 3;
                      ^
 ==
 
-[language_features=ANALYTIC_FUNCTIONS]
+[language_features=NONE,+ANALYTIC_FUNCTIONS]
 select array_agg(id) over() as xs
 from (select 1 id union all select 2 id) messages
 having count(array(select x from unnest(xs) as x)) >= 3;

@@ -1,5 +1,5 @@
-[default language_features=BRACED_PROTO_CONSTRUCTORS]
-[language_features=]
+[default language_features=NONE,+BRACED_PROTO_CONSTRUCTORS]
+[language_features=NONE]
 # Braced constructors disabled
 SELECT NEW x {}
 --

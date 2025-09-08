@@ -235,7 +235,7 @@ drop all row policies foo on t1;
 
 drop all row policy on t1;
 --
-ERROR: Syntax error: Expected keyword POLICIES but got keyword POLICY [at 1:14]
+ERROR: Syntax error: Expected keyword ACCESS or keyword POLICIES but got keyword POLICY [at 1:14]
 drop all row policy on t1;
              ^
 

@@ -7003,7 +7003,7 @@ class JsonFlattenTest : public ::testing::TestWithParam<
   // Create a vector of `JSONValueConstRef`s from a vector of `JSONValue`s.
   // The original values must outlive the references.
   static std::vector<JSONValueConstRef> VectorOfRefs(
-      const std::vector<JSONValue>& values) {
+      absl::Span<const JSONValue> values) {
     std::vector<JSONValueConstRef> refs;
     refs.reserve(values.size());
     for (const JSONValue& value : values) {

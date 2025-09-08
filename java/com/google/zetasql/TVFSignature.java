@@ -19,6 +19,7 @@ package com.google.zetasql;
 
 import static java.util.stream.Collectors.joining;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.zetasql.DeprecationWarningProtos.DeprecationWarning;
 import com.google.zetasql.DeprecationWarningProtos.DeprecationWarning.Kind;
@@ -28,6 +29,7 @@ import com.google.zetasql.ErrorLocationOuterClass.ErrorSource;
 import com.google.zetasql.FunctionProtos.TVFArgumentProto;
 import com.google.zetasql.FunctionProtos.TVFConnectionProto;
 import com.google.zetasql.FunctionProtos.TVFDescriptorProto;
+import com.google.zetasql.FunctionProtos.TVFGraphProto;
 import com.google.zetasql.FunctionProtos.TVFModelProto;
 import com.google.zetasql.FunctionProtos.TVFSignatureOptionsProto;
 import com.google.zetasql.FunctionProtos.TVFSignatureProto;
@@ -358,18 +360,21 @@ public final class TVFSignature implements Serializable {
     private final TVFModel model;
     private final TVFConnection connection;
     private final TVFDescriptor descriptor;
+    private final TVFGraph graph;
 
     public TVFArgument(
         ValueWithType scalar,
         TVFRelation relation,
         TVFModel model,
         TVFConnection connection,
-        TVFDescriptor descriptor) {
+        TVFDescriptor descriptor,
+        TVFGraph graph) {
       this.scalar = scalar;
       this.relation = relation;
       this.model = model;
       this.connection = connection;
       this.descriptor = descriptor;
+      this.graph = graph;
     }
 
     /** Deserializes an argument from a proto. */
@@ -394,7 +399,9 @@ public final class TVFSignature implements Serializable {
           proto.hasDescriptorArgument()
               ? TVFDescriptor.deserialize(proto.getDescriptorArgument())
               : null;
-      return new TVFArgument(arg, relation, model, connection, descriptor);
+      TVFGraph graph =
+          proto.hasGraphArgument() ? TVFGraph.deserialize(proto.getGraphArgument()) : null;
+      return new TVFArgument(arg, relation, model, connection, descriptor, graph);
     }
 
     /** Serializes this argument to a proto. */
@@ -414,6 +421,9 @@ public final class TVFSignature implements Serializable {
       }
       if (descriptor != null) {
         builder.setDescriptorArgument(descriptor.serialize());
+      }
+      if (graph != null) {
+        builder.setGraphArgument(graph.serialize());
       }
       return builder.build();
     }
@@ -439,6 +449,9 @@ public final class TVFSignature implements Serializable {
       if (descriptor != null) {
         return descriptor.toString();
       }
+      if (graph != null) {
+        return graph.toString();
+      }
       return "TVFArgument";
     }
 
@@ -455,12 +468,13 @@ public final class TVFSignature implements Serializable {
           && Objects.equals(relation, that.relation)
           && Objects.equals(model, that.model)
           && Objects.equals(connection, that.connection)
-          && Objects.equals(descriptor, that.descriptor);
+          && Objects.equals(descriptor, that.descriptor)
+          && Objects.equals(graph, that.graph);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(scalar, relation, model, connection, descriptor);
+      return Objects.hash(scalar, relation, model, connection, descriptor, graph);
     }
   }
 
@@ -625,6 +639,32 @@ public final class TVFSignature implements Serializable {
     @Override
     public int hashCode() {
       return Objects.hash(name, fullName);
+    }
+  }
+
+  /** A graph. */
+  @AutoValue
+  public abstract static class TVFGraph implements Serializable {
+
+    static TVFGraph create(String name, String fullName) {
+      return new AutoValue_TVFSignature_TVFGraph(name, fullName);
+    }
+
+    abstract String name();
+
+    abstract String fullName();
+
+    public static TVFGraph deserialize(TVFGraphProto proto) {
+      return create(proto.getName(), proto.getFullName());
+    }
+
+    public TVFGraphProto serialize() {
+      return TVFGraphProto.newBuilder().setName(name()).setFullName(fullName()).build();
+    }
+
+    @Override
+    public String toString() {
+      return "ANY GRAPH";
     }
   }
 

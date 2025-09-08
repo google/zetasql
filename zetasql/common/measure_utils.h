@@ -72,6 +72,15 @@ absl::StatusOr<std::unique_ptr<const ResolvedExpr>> ExtractTopLevelAggregates(
         extracted_aggregates,
     ColumnFactory& column_factory);
 
+// Certain scans (e.g. ResolvedAggregateScan) are not allowed to emit MEASURE
+// typed columns. Return an internal error if `scan` is not allowed to emit
+// MEASURE types and a MEASURE typed column is found in its `column_list`.
+absl::Status ValidateScanCanEmitMeasureColumns(const ResolvedScan* scan);
+
+// Validates that `resolved_expr` is a valid measure expression.
+absl::Status ValidateMeasureExpression(absl::string_view measure_expr,
+                                       const ResolvedExpr& resolved_expr);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_COMMON_MEASURE_UTILS_H_

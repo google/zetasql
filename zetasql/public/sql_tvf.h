@@ -27,7 +27,6 @@
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/status/status.h"
-#include "zetasql/base/status.h"
 
 // This file is includes interfaces and classes related to NON-templated SQL
 // TVFs.  Currently, the only class implemented is SQLTableValuedFunction.
@@ -48,7 +47,7 @@ namespace zetasql {
 // 'CREATE TABLE FUNCTION ... AS <sql query>'
 //
 // The current implementation only supports a single table function signature.
-// TODO: Extend this implementation to support multiple different
+// TODO - Extend this implementation to support multiple different
 // signatures (differing number and/or names of arguments).
 class SQLTableValuedFunction : public TableValuedFunction {
  public:
@@ -82,7 +81,7 @@ class SQLTableValuedFunction : public TableValuedFunction {
       const std::vector<TVFInputArgumentType>& actual_arguments,
       const FunctionSignature& concrete_signature, Catalog* catalog,
       TypeFactory* type_factory,
-      std::shared_ptr<TVFSignature>* tvf_signature) const override;
+      std::shared_ptr<TVFSignature>* tvf_signature) const final;
 
   // Returns the associated CREATE TABLE FUNCTION statement.
   const ResolvedCreateTableFunctionStmt* ResolvedStatement() const {

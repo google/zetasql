@@ -1,7 +1,8 @@
 # Tests for MODULE-related statements (MODULE and IMPORT).
 
+[default language_features=MAXIMUM]
 [default statement_context=module]
-[language_features={{|EXPERIMENTAL_MODULES}}]
+[language_features=NONE,{{|+EXPERIMENTAL_MODULES}}]
 [supported_statement_kinds={{|MODULE|IMPORT}}]
 module foo;
 --
@@ -15,20 +16,20 @@ module foo;
 --
 ALTERNATION GROUPS:
     IMPORT
-    EXPERIMENTAL_MODULES,IMPORT
+    +EXPERIMENTAL_MODULES,IMPORT
 --
 ERROR: Statement not supported: ModuleStatement [at 1:1]
 module foo;
 ^
 --
 ALTERNATION GROUPS:
-    EXPERIMENTAL_MODULES,
-    EXPERIMENTAL_MODULES,MODULE
+    +EXPERIMENTAL_MODULES,
+    +EXPERIMENTAL_MODULES,MODULE
 --
 ModuleStmt(name_path=foo)
 ==
 
-[language_features={{|EXPERIMENTAL_MODULES}}]
+[language_features=NONE,{{|+EXPERIMENTAL_MODULES}}]
 import module foo;
 --
 ALTERNATION GROUP: <empty>
@@ -37,14 +38,14 @@ ERROR: The MODULEs feature is not supported, including IMPORT MODULE [at 1:1]
 import module foo;
 ^
 --
-ALTERNATION GROUP: EXPERIMENTAL_MODULES
+ALTERNATION GROUP: +EXPERIMENTAL_MODULES
 --
 ImportStmt(import_kind=MODULE, name_path=foo, alias_path=foo)
 ==
 
 # MODULE tests
 # Module names can be path expressions
-[default language_features=EXPERIMENTAL_MODULES]
+[default language_features=MAXIMUM,+EXPERIMENTAL_MODULES]
 module a.b;
 --
 ModuleStmt(name_path=a.b)
@@ -65,7 +66,7 @@ ModuleStmt
 ==
 
 # IMPORT tests
-[language_features={{|EXPERIMENTAL_MODULES}}]
+[language_features=NONE,{{|+EXPERIMENTAL_MODULES}}]
 [supported_statement_kinds={{|MODULE|IMPORT}}]
 import module foo;
 --
@@ -79,15 +80,15 @@ import module foo;
 --
 ALTERNATION GROUPS:
     MODULE
-    EXPERIMENTAL_MODULES,MODULE
+    +EXPERIMENTAL_MODULES,MODULE
 --
 ERROR: Statement not supported: ImportStatement [at 1:1]
 import module foo;
 ^
 --
 ALTERNATION GROUPS:
-    EXPERIMENTAL_MODULES,
-    EXPERIMENTAL_MODULES,IMPORT
+    +EXPERIMENTAL_MODULES,
+    +EXPERIMENTAL_MODULES,IMPORT
 --
 ImportStmt(import_kind=MODULE, name_path=foo, alias_path=foo)
 ==

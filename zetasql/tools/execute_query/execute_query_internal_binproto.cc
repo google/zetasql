@@ -23,6 +23,8 @@
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/proto_type.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/tools/execute_query/simple_proto_evaluator_table_iterator.h"
 #include "absl/status/status.h"
@@ -42,17 +44,19 @@ class BinaryProtoEvaluatorTableIterator
   BinaryProtoEvaluatorTableIterator(absl::string_view path,
                                     const ProtoType* proto_type,
                                     absl::Span<const int> columns)
-      : SimpleProtoEvaluatorTableIterator(proto_type), path_(path) {
-    ABSL_CHECK_EQ(columns.size(), 1);
-    ABSL_CHECK_EQ(columns[0], 0);
-  }
+      : SimpleProtoEvaluatorTableIterator(proto_type, columns), path_(path) {}
 
   bool NextRow() override {
     if (done_) {
       return false;
     }
     done_ = true;
-
+    // The analyzer might prune the single column if it's not used. We return an
+    // empty struct value in such cases.
+    if (num_columns_ == 0) {
+      current_value_ = Value::Struct(types::EmptyStructType(), {});
+      return true;
+    }
     std::string data;
     status_ = internal::GetContents(path_, &data);
     if (!status_.ok()) return false;

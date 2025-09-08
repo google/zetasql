@@ -114,3 +114,20 @@ ARRAY<STRUCT<dept_id INT64, INT64, DOUBLE, ARRAY<>>>[unknown order:
     ARRAY<INT64>[known order:25, 37, 42]
   }
 ]
+
+==
+
+[required_features=MULTILEVEL_AGGREGATION,ORDER_BY_IN_AGGREGATE]
+[name=multi_level_agg_distinct_order_by]
+# Similar to b/435003883
+with t as (select 1 as x)
+select array_agg(struct(array_agg(distinct x+1 order by x+1)) group by x+1),
+       array_agg(struct(array_agg(distinct x+1 order by x+1)) group by x+1)
+ from t
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
+  {
+    ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[2]}],
+    ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[2]}]
+  }
+]

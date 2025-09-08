@@ -21,7 +21,6 @@
 #include <functional>
 #include <limits>
 #include <memory>
-#include <new>
 #include <optional>
 #include <set>
 #include <string>
@@ -30,6 +29,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/proto/function.pb.h"
+#include "zetasql/public/constness_level.pb.h"
 #include "zetasql/public/deprecation_warning.pb.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/language_options.h"
@@ -125,9 +125,16 @@ class FunctionArgumentTypeOptions {
   ~FunctionArgumentTypeOptions() = default;
 
   ArgumentCardinality cardinality() const { return data_->cardinality; }
-  bool must_be_constant() const { return data_->must_be_constant; }
+  bool must_be_constant() const {
+    return data_->constness_level ==
+           ConstnessLevelProto::LEGACY_LITERAL_OR_PARAMETER;
+  }
+  bool must_be_analysis_constant() const {
+    return data_->constness_level == ConstnessLevelProto::ANALYSIS_CONST;
+  }
   bool must_be_constant_expression() const {
-    return data_->must_be_constant_expression;
+    return data_->constness_level ==
+           ConstnessLevelProto::LEGACY_CONSTANT_EXPRESSION;
   }
   bool must_be_non_null() const { return data_->must_be_non_null; }
   bool is_not_aggregate() const { return data_->is_not_aggregate; }
@@ -147,14 +154,14 @@ class FunctionArgumentTypeOptions {
 
   bool has_min_value() const { return data_->has_min_value; }
   bool has_max_value() const { return data_->has_max_value; }
-  const int64_t min_value() const { return data_->min_value; }
-  const int64_t max_value() const { return data_->max_value; }
+  int64_t min_value() const { return data_->min_value; }
+  int64_t max_value() const { return data_->max_value; }
 
   bool has_relation_input_schema() const {
     return data_->relation_input_schema != nullptr;
   }
 
-  const std::optional<int> get_resolve_descriptor_names_table_offset() const {
+  std::optional<int> get_resolve_descriptor_names_table_offset() const {
     return data_->descriptor_resolution_table_offset;
   }
 
@@ -192,11 +199,46 @@ class FunctionArgumentTypeOptions {
     return *this;
   }
   FunctionArgumentTypeOptions& set_must_be_constant(bool v = true) {
-    data_->must_be_constant = v;
+    if (v) {
+      ABSL_DCHECK(data_->constness_level ==
+                 ConstnessLevelProto::CONSTNESS_UNSPECIFIED ||
+             data_->constness_level ==
+                 ConstnessLevelProto::LEGACY_LITERAL_OR_PARAMETER)
+          << "Cannot set must_be_constant when another constness "
+             "level is already set.";
+      ;
+      data_->constness_level = ConstnessLevelProto::LEGACY_LITERAL_OR_PARAMETER;
+      return *this;
+    }
+    data_->constness_level = ConstnessLevelProto::CONSTNESS_UNSPECIFIED;
+    return *this;
+  }
+  FunctionArgumentTypeOptions& set_must_be_analysis_constant(bool v = true) {
+    if (v) {
+      ABSL_DCHECK(data_->constness_level ==
+                 ConstnessLevelProto::CONSTNESS_UNSPECIFIED ||
+             data_->constness_level == ConstnessLevelProto::ANALYSIS_CONST)
+          << "Cannot set must_be_analysis_constant when another constness "
+             "level is already set.";
+      data_->constness_level = ConstnessLevelProto::ANALYSIS_CONST;
+      return *this;
+    }
+    data_->constness_level = ConstnessLevelProto::CONSTNESS_UNSPECIFIED;
     return *this;
   }
   FunctionArgumentTypeOptions& set_must_be_constant_expression(bool v = true) {
-    data_->must_be_constant_expression = v;
+    if (v) {
+      ABSL_DCHECK(data_->constness_level ==
+                 ConstnessLevelProto::CONSTNESS_UNSPECIFIED ||
+             data_->constness_level ==
+                 ConstnessLevelProto::LEGACY_CONSTANT_EXPRESSION)
+          << "Cannot set must_be_constant_expression when another constness "
+             "level is already set.";
+      ;
+      data_->constness_level = ConstnessLevelProto::LEGACY_CONSTANT_EXPRESSION;
+      return *this;
+    }
+    data_->constness_level = ConstnessLevelProto::CONSTNESS_UNSPECIFIED;
     return *this;
   }
   FunctionArgumentTypeOptions& set_must_be_non_null(bool v = true) {
@@ -305,6 +347,14 @@ class FunctionArgumentTypeOptions {
   // The result is formatted as SQL that can be included inside a function
   // signature in CREATE FUNCTION, DROP FUNCTION, etc, if possible.
   std::string GetSQLDeclaration(ProductMode product_mode) const;
+
+  // Same as thee above `GetSQLDeclaration`, but setting `use_external_float32`
+  // to true will return FLOAT32 as the type name for TYPE_FLOAT in
+  // PRODUCT_EXTERNAL mode.
+  // TODO: Remove this signature once FLOAT32 is used by default
+  // for PRODUCT_EXTERNAL.
+  std::string GetSQLDeclaration(ProductMode product_mode,
+                                bool use_external_float32) const;
 
   // Sets the ParseLocationRange of the argument name. Returns the modified
   // class object.
@@ -468,6 +518,11 @@ class FunctionArgumentTypeOptions {
     // the form of F(<arg> AS <alias>).
     ArgumentAliasKind argument_alias_kind = FunctionEnums::ARGUMENT_NON_ALIASED;
 
+    // Constness level required by the argument, stored internally, and set by
+    // must be constant options.
+    ConstnessLevelProto::Level constness_level =
+        ConstnessLevelProto::CONSTNESS_UNSPECIFIED;
+
     // If true on function input argument, uses the array element's collation
     // when calculating the function's propagation or operation collation. If
     // true on function's result_type, the propagation collation should be set
@@ -475,28 +530,6 @@ class FunctionArgumentTypeOptions {
     // The option should only be turned on when the type of the
     // FunctionArgumentType is array.
     bool uses_array_element_for_collation = false;
-
-    // If true, this argument must be constant.
-    // Currently, this means the argument must be a literal or parameter.
-    // This is checked after overload resolution, so a function cannot be
-    // overloaded on constant vs non-constant arguments.
-    bool must_be_constant = false;
-
-    // If true, this argument must be constant expression or value.
-    //
-    // Rules:
-    // - literals and parameters are constant
-    // - column references are not constant
-    // - correlated column references
-    // - scalar functions are constant if FunctionOptions::volatility is
-    //   IMMUTABLE or STABLE, and if all arguments are constant
-    // - aggregate and analytic functions are not constant
-    // - DDL CONSTANTs
-    // - expression subqueries are not constant
-    // - built-in operators like CAST and CASE and struct field access are
-    //   constant if all arguments are constant
-    // - UDF argument references
-    bool must_be_constant_expression = false;
 
     // If true, this argument cannot be NULL.
     // An error will be returned if this overload is chosen and the argument
@@ -597,6 +630,12 @@ class FunctionArgumentType {
     return FunctionArgumentType(ARG_TYPE_MODEL);
   }
 
+  // Construct a graph argument type for a table-valued function. This argument
+  // will accept any graph.
+  static FunctionArgumentType AnyGraph() {
+    return FunctionArgumentType(ARG_TYPE_GRAPH);
+  }
+
   // Constructs a connection argument type for a table-valued function. This
   // argument will accept any connection.
   static FunctionArgumentType AnyConnection() {
@@ -673,9 +712,8 @@ class FunctionArgumentType {
       const FunctionArgumentTypeProto& proto,
       const TypeDeserializer& type_deserializer);
 
-  absl::Status Serialize(
-      FileDescriptorSetMap* file_descriptor_set_map,
-      FunctionArgumentTypeProto* proto) const;
+  absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
+                         FunctionArgumentTypeProto* proto) const;
 
   const FunctionArgumentTypeOptions& options() const { return *options_; }
 
@@ -685,6 +723,9 @@ class FunctionArgumentType {
   ArgumentCardinality cardinality() const { return options_->cardinality(); }
 
   bool must_be_constant() const { return options_->must_be_constant(); }
+  bool must_be_analysis_constant() const {
+    return options_->must_be_analysis_constant();
+  }
   bool must_be_constant_expression() const {
     return options_->must_be_constant_expression();
   }
@@ -701,6 +742,20 @@ class FunctionArgumentType {
   const Type* type() const { return type_; }
 
   SignatureArgumentKind kind() const { return kind_; }
+
+  SignatureArgumentKind original_kind() const {
+    ABSL_DCHECK_NE(original_kind_,
+              SignatureArgumentKind::
+                  __SignatureArgumentKind__switch_must_have_a_default__)
+        << DebugString(/*verbose=*/true);
+    return original_kind_;
+  }
+  void set_original_kind(SignatureArgumentKind kind) {
+    ABSL_DCHECK_NE(kind, SignatureArgumentKind::
+                        __SignatureArgumentKind__switch_must_have_a_default__)
+        << DebugString(/*verbose=*/true);
+    original_kind_ = kind;
+  }
 
   // Returns information about a lambda typed function argument.
   const ArgumentTypeLambda& lambda() const {
@@ -723,9 +778,9 @@ class FunctionArgumentType {
   bool IsConnection() const { return kind_ == ARG_TYPE_CONNECTION; }
   bool IsLambda() const { return kind_ == ARG_TYPE_LAMBDA; }
   bool IsSequence() const { return kind_ == ARG_TYPE_SEQUENCE; }
+  bool IsGraph() const { return kind_ == ARG_TYPE_GRAPH; }
   bool IsFixedRelation() const {
-    return kind_ == ARG_TYPE_RELATION &&
-        options_->has_relation_input_schema();
+    return kind_ == ARG_TYPE_RELATION && options_->has_relation_input_schema();
   }
   bool IsVoid() const { return kind_ == ARG_TYPE_VOID; }
 
@@ -750,9 +805,7 @@ class FunctionArgumentType {
 
   // Returns TRUE if the argument has a default value provided in the argument
   // option.
-  bool HasDefault() const {
-    return options_->get_default().has_value();
-  }
+  bool HasDefault() const { return options_->get_default().has_value(); }
   // Returns default value provided in the argument option, or std::nullopt if
   // the argument does not have a default value.
   const std::optional<Value>& GetDefault() const {
@@ -802,6 +855,14 @@ class FunctionArgumentType {
   // signature in CREATE FUNCTION, DROP FUNCTION, etc, if possible.
   std::string GetSQLDeclaration(ProductMode product_mode) const;
 
+  // Same as thee above `GetSQLDeclaration`, but setting `use_external_float32`
+  // to true will return FLOAT32 as the type name for TYPE_FLOAT in
+  // PRODUCT_EXTERNAL mode.
+  // TODO: Remove this signature once FLOAT32 is used by default
+  // for PRODUCT_EXTERNAL.
+  std::string GetSQLDeclaration(ProductMode product_mode,
+                                bool use_external_float32) const;
+
   static std::string SignatureArgumentKindToString(SignatureArgumentKind kind);
 
  private:
@@ -818,6 +879,13 @@ class FunctionArgumentType {
       ArgumentCardinality cardinality = FunctionEnums::REQUIRED);
 
   SignatureArgumentKind kind_;
+
+  // Used during resolution for annotations propagation to find correlated
+  // templated arguments. This must be set for concrete signatures, and never
+  // appears in the final tree.
+  // This is also why it's never serialized in the proto.
+  SignatureArgumentKind original_kind_ = SignatureArgumentKind::
+      __SignatureArgumentKind__switch_must_have_a_default__;
 
   // Indicates how many times a concrete argument occurred in a concrete
   // function signature.  REQUIRED concrete arguments must occur exactly 1
@@ -1036,18 +1104,6 @@ class FunctionSignatureRewriteOptions {
 using FunctionSignatureArgumentConstraintsCallback = std::function<std::string(
     const FunctionSignature&, const std::vector<InputArgumentType>&)>;
 
-// The input arguments to `ComputeResultAnnotationsCallback`. We use a struct
-// to make it easier to add arguments to the callback.
-struct AnnotationCallbackArgs {
-  // The concrete return type of the SQL function. Must not be nullptr.
-  const Type* result_type;
-
-  // The annotations of the input arguments. Must be of the same size as the
-  // function's concrete arguments. If an argument does not have annotations,
-  // the corresponding argument_annotation is nullptr.
-  std::vector<const AnnotationMap*> argument_annotations;
-};
-
 // This callback calculates the annotations for the function signature's result
 // type. It is used when a SQL function signature needs non-default annotation
 // propagation logic.
@@ -1060,7 +1116,8 @@ struct AnnotationCallbackArgs {
 // for the query.
 using ComputeResultAnnotationsCallback =
     std::function<absl::StatusOr<const AnnotationMap*>(
-        const AnnotationCallbackArgs& args, TypeFactory& type_factory)>;
+        const ResolvedFunctionCallBase& function_call,
+        TypeFactory& type_factory)>;
 
 class FunctionSignatureOptions {
  public:
@@ -1358,7 +1415,9 @@ class FunctionSignature {
 
   // Copy a FunctionSignature, assigning a new context_ptr or context_id.
   FunctionSignature(const FunctionSignature& old, void* context_ptr)
-      : FunctionSignature(old) { context_ptr_ = context_ptr; }
+      : FunctionSignature(old) {
+    context_ptr_ = context_ptr;
+  }
   FunctionSignature(const FunctionSignature& old, int64_t context_id)
       : FunctionSignature(old) {
     context_id_ = context_id;
@@ -1379,13 +1438,10 @@ class FunctionSignature {
       const FunctionSignatureProto& proto,
       const TypeDeserializer& type_deserializer);
 
-  absl::Status Serialize(
-      FileDescriptorSetMap* file_descriptor_set_map,
-      FunctionSignatureProto* proto) const;
+  absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
+                         FunctionSignatureProto* proto) const;
 
-  const FunctionArgumentTypeList& arguments() const {
-    return arguments_;
-  }
+  const FunctionArgumentTypeList& arguments() const { return arguments_; }
 
   const FunctionArgumentType& argument(int idx) const {
     return arguments_[idx];
@@ -1415,9 +1471,7 @@ class FunctionSignature {
     return ConcreteArgument(concrete_idx).type();
   }
 
-  const FunctionArgumentType& result_type() const {
-    return result_type_;
-  }
+  const FunctionArgumentType& result_type() const { return result_type_; }
 
   // These methods use state populated during construction, if the signature is
   // valid. With invalid signatures (init_status() is not OK), these may not be
@@ -1443,8 +1497,7 @@ class FunctionSignature {
   // Types given 'language_options', and returns true if found.  This
   // function considers ProductMode, TimestampMode, and enabled features
   // that affect supported types.
-  bool HasUnsupportedType(
-      const LanguageOptions& language_options) const;
+  bool HasUnsupportedType(const LanguageOptions& language_options) const;
 
   // The context is a union where only one of context_ptr_ and context_id_
   // is valid.  The caller distinguishes which is valid based on the
@@ -1510,15 +1563,22 @@ class FunctionSignature {
   std::string GetSQLDeclaration(absl::Span<const std::string> argument_names,
                                 ProductMode product_mode) const;
 
+  // Same as thee above `GetSQLDeclaration`, but setting `use_external_float32`
+  // to true will return FLOAT32 as the type name for TYPE_FLOAT in
+  // PRODUCT_EXTERNAL mode.
+  // TODO: Remove this signature once FLOAT32 is used by default
+  // for PRODUCT_EXTERNAL.
+  std::string GetSQLDeclaration(absl::Span<const std::string> argument_names,
+                                ProductMode product_mode,
+                                bool use_external_float32) const;
+
   bool IsDeprecated() const { return options_.is_deprecated(); }
 
   bool IsInternal() const { return options_.is_internal(); }
 
   bool IsHidden() const { return options_.is_hidden(); }
 
-  void SetIsDeprecated(bool value) {
-    options_.set_is_deprecated(value);
-  }
+  void SetIsDeprecated(bool value) { options_.set_is_deprecated(value); }
 
   void SetArgumentConstraintsCallback(
       FunctionSignatureArgumentConstraintsCallback callback) {
@@ -1541,6 +1601,11 @@ class FunctionSignature {
   }
 
   void SetConcreteResultType(const Type* type);
+
+  // Please use the overloaded function without original_kind. The original kind
+  // should be automatically inferred from the signature itself.
+  void SetConcreteResultType(const Type* type,
+                             SignatureArgumentKind original_kind);
 
   // Returns true if this function signature contains any templated arguments.
   bool IsTemplated() const {
@@ -1568,8 +1633,8 @@ class FunctionSignature {
 
   // Returns true if this signature should be hidden in the supported signature
   // list in signature mismatch error message.
-  // Signatures are hidden if they are internal, deprecated, explictly hidden or
-  // unsupported according to LanguageOptions.
+  // Signatures are hidden if they are internal, deprecated, explicitly hidden
+  // or unsupported according to LanguageOptions.
   bool HideInSupportedSignatureList(
       const LanguageOptions& language_options) const;
 

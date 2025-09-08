@@ -1,6 +1,7 @@
 # NOTE: CREATE VIEW tests are identical to those for
 # CREATE TABLE AS SELECT tests, except for the keyword and some error messages.
 
+[default language_features=NONE]
 create view tt
 as select 1 a, 2 b
 --
@@ -71,7 +72,7 @@ create private view MyView as select * from KeyValue
 ==
 
 [statement_context=module]
-[language_features=VIEWS_IN_MODULES]
+[language_features=NONE,+VIEWS_IN_MODULES]
 create {{|temp|public|private}} view MyView as select * from KeyValue
 --
 ALTERNATION GROUP: <empty>
@@ -124,7 +125,7 @@ CreateViewStmt
 ==
 
 [statement_context=module]
-[language_features=VIEWS_IN_MODULES]
+[language_features=NONE,+VIEWS_IN_MODULES]
 create {{public|private}} view MyView {{|SQL SECURITY DEFINER|SQL SECURITY INVOKER}} as select * from KeyValue
 --
 ALTERNATION GROUP: public,
@@ -189,7 +190,7 @@ create private view MyView SQL SECURITY INVOKER as select * from KeyValue
 ==
 
 [statement_context=module]
-[language_features=VIEWS_IN_MODULES]
+[language_features=NONE,+VIEWS_IN_MODULES]
 create or replace {{public|private}} view MyView as select * from KeyValue
 --
 ALTERNATION GROUP: public
@@ -206,7 +207,7 @@ create or replace private view MyView as select * from KeyValue
 ==
 
 [statement_context=module]
-[language_features=VIEWS_IN_MODULES]
+[language_features=NONE,+VIEWS_IN_MODULES]
 create {{public|private}} view if not exists MyView as select * from KeyValue
 --
 ALTERNATION GROUP: public
@@ -223,7 +224,7 @@ create private view if not exists MyView as select * from KeyValue
 ==
 
 [statement_context=module]
-[language_features=VIEWS_IN_MODULES]
+[language_features=NONE,+VIEWS_IN_MODULES]
 create {{materialized|approx}} view MyView as select * from KeyValue
 --
 ALTERNATION GROUP: materialized
@@ -1265,11 +1266,11 @@ create  view tt(a, b)
 ==
 
 # Create view with explicit column list with column options.
-[default language_features={{CREATE_VIEW_WITH_COLUMN_LIST,CREATE_VIEWS_WITH_COLUMN_OPTIONS|CREATE_VIEW_WITH_COLUMN_LIST}}]
+[default language_features=NONE,{{+CREATE_VIEW_WITH_COLUMN_LIST,+CREATE_VIEWS_WITH_COLUMN_OPTIONS|+CREATE_VIEW_WITH_COLUMN_LIST}}]
 create {{materialized|approx|}} view tt(c1 OPTIONS(description="col1"), c2, c3 OPTIONS())
 as select 1, 2, 3
 --
-ALTERNATION GROUP: CREATE_VIEW_WITH_COLUMN_LIST,CREATE_VIEWS_WITH_COLUMN_OPTIONS,materialized
+ALTERNATION GROUP: +CREATE_VIEW_WITH_COLUMN_LIST,+CREATE_VIEWS_WITH_COLUMN_OPTIONS,materialized
 --
 CreateMaterializedViewStmt
 +-name_path=tt
@@ -1300,7 +1301,7 @@ CreateMaterializedViewStmt
   +-ColumnDefinition(name="c2", type=INT64, column=tt.$col2#5)
   +-ColumnDefinition(name="c3", type=INT64, column=tt.$col3#6)
 --
-ALTERNATION GROUP: CREATE_VIEW_WITH_COLUMN_LIST,CREATE_VIEWS_WITH_COLUMN_OPTIONS,approx
+ALTERNATION GROUP: +CREATE_VIEW_WITH_COLUMN_LIST,+CREATE_VIEWS_WITH_COLUMN_OPTIONS,approx
 --
 CreateApproxViewStmt
 +-name_path=tt
@@ -1331,7 +1332,7 @@ CreateApproxViewStmt
   +-ColumnDefinition(name="c2", type=INT64, column=tt.$col2#5)
   +-ColumnDefinition(name="c3", type=INT64, column=tt.$col3#6)
 --
-ALTERNATION GROUP: CREATE_VIEW_WITH_COLUMN_LIST,CREATE_VIEWS_WITH_COLUMN_OPTIONS,
+ALTERNATION GROUP: +CREATE_VIEW_WITH_COLUMN_LIST,+CREATE_VIEWS_WITH_COLUMN_OPTIONS,
 --
 CreateViewStmt
 +-name_path=tt
@@ -1362,19 +1363,19 @@ CreateViewStmt
   +-ColumnDefinition(name="c2", type=INT64, column=tt.$col2#5)
   +-ColumnDefinition(name="c3", type=INT64, column=tt.$col3#6)
 --
-ALTERNATION GROUP: CREATE_VIEW_WITH_COLUMN_LIST,materialized
+ALTERNATION GROUP: +CREATE_VIEW_WITH_COLUMN_LIST,materialized
 --
 ERROR: CREATE MATERIALIZED VIEW with column options not supported [at 1:39]
 create materialized view tt(c1 OPTIONS(description="col1"), c2, c3 OPTIONS())
                                       ^
 --
-ALTERNATION GROUP: CREATE_VIEW_WITH_COLUMN_LIST,approx
+ALTERNATION GROUP: +CREATE_VIEW_WITH_COLUMN_LIST,approx
 --
 ERROR: CREATE APPROX VIEW with column options not supported [at 1:33]
 create approx view tt(c1 OPTIONS(description="col1"), c2, c3 OPTIONS())
                                 ^
 --
-ALTERNATION GROUP: CREATE_VIEW_WITH_COLUMN_LIST,
+ALTERNATION GROUP: +CREATE_VIEW_WITH_COLUMN_LIST,
 --
 ERROR: CREATE VIEW with column options not supported [at 1:27]
 create  view tt(c1 OPTIONS(description="col1"), c2, c3 OPTIONS())
@@ -1383,7 +1384,7 @@ create  view tt(c1 OPTIONS(description="col1"), c2, c3 OPTIONS())
 
 # Create view with or without explicit column.
 # Results for the alternations should be the same except has_explicit_columns.
-[default language_features=CREATE_VIEW_WITH_COLUMN_LIST]
+[default language_features=NONE,+CREATE_VIEW_WITH_COLUMN_LIST]
 create view v {{|(a,b)}}
 as select 1 a, 2 b;
 
@@ -2050,3 +2051,36 @@ CreateViewStmt
 +-column_definition_list=
   +-ColumnDefinition(name="a", type=INT64, column=sCANtABLEvIEW.a#3)
   +-ColumnDefinition(name="b", type=INT64, column=sCANtABLEvIEW.b#4)
+
+==
+
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
+CREATE TEMP VIEW v AS
+GRAPH aml
+RETURN 1 as x
+--
+CreateViewStmt
++-name_path=v
++-create_scope=CREATE_TEMP
++-output_column_list=
+| +-$graph_table.x#1 AS x [INT64]
++-query=
+| +-GraphTableScan
+|   +-column_list=[$graph_table.x#1]
+|   +-property_graph=aml
+|   +-input_scan=
+|     +-GraphLinearScan
+|       +-column_list=[$graph_table.x#1]
+|       +-scan_list=
+|         +-GraphLinearScan
+|           +-column_list=[$graph_table.x#1]
+|           +-scan_list=
+|             +-ProjectScan
+|               +-column_list=[$graph_table.x#1]
+|               +-expr_list=
+|               | +-x#1 := Literal(type=INT64, value=1)
+|               +-input_scan=
+|                 +-SingleRowScan
++-sql="GRAPH aml\nRETURN 1 as x"
++-column_definition_list=
+  +-ColumnDefinition(name="x", type=INT64, column=v.x#2)

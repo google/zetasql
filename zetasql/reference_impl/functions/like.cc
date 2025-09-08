@@ -18,6 +18,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/public/collator.h"
@@ -182,7 +183,7 @@ absl::StatusOr<Value> EvaluateQuantifiedLike(
   switch (params.operation_type) {
     case QuantifiedLikeEvaluationParams::kLike:
       ZETASQL_RET_CHECK_EQ(result_values.size(), 1);
-      return result_values[0];
+      return std::move(result_values[0]);
     case QuantifiedLikeEvaluationParams::kLikeAny:
       return LogicalOr(result_values);
     case QuantifiedLikeEvaluationParams::kLikeAll:

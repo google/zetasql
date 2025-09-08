@@ -1,3 +1,4 @@
+[default language_features=MAXIMUM]
 analyze OPTIONS(p1=a1,p2=a2) SimpleTypes(int32,int64,double)
 --
 AnalyzeStmt

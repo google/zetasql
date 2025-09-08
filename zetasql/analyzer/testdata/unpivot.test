@@ -1,7 +1,7 @@
 [default enabled_ast_rewrites=DEFAULTS]
-[default language_features=UNPIVOT,TABLESAMPLE,TABLE_VALUED_FUNCTIONS]
+[default language_features=MAXIMUM,+UNPIVOT,+TABLESAMPLE,+TABLE_VALUED_FUNCTIONS]
 
-[language_features={{|UNPIVOT}}]
+[language_features=NONE,{{|+UNPIVOT}}]
 SELECT * FROM KeyValue UNPIVOT(a for b in (Key));
 --
 ALTERNATION GROUP: <empty>
@@ -10,7 +10,7 @@ ERROR: UNPIVOT is not supported [at 1:24]
 SELECT * FROM KeyValue UNPIVOT(a for b in (Key));
                        ^
 --
-ALTERNATION GROUP: UNPIVOT
+ALTERNATION GROUP: +UNPIVOT
 --
 QueryStmt
 +-output_column_list=
@@ -296,7 +296,7 @@ SELECT * FROM UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
                                      ^
 ==
 
-[language_features=UNPIVOT,TABLESAMPLE,TABLE_VALUED_FUNCTIONS{{|,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
+[language_features=NONE,+UNPIVOT,+TABLESAMPLE,+TABLE_VALUED_FUNCTIONS{{|,+DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
 # 2 UNNESTs
 SELECT * FROM UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
 --
@@ -329,14 +329,14 @@ UNPIVOT is not allowed with array scans. This will become an error [at 2:63]
                                                    ^
 [zetasql.DeprecationWarning] { kind: PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN }
 --
-ALTERNATION GROUP: ,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
+ALTERNATION GROUP: ,+DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
 --
 ERROR: UNPIVOT is not allowed with array scans [at 2:63]
 ...UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
                                                    ^
 ==
 
-[language_features=UNPIVOT,TABLESAMPLE,TABLE_VALUED_FUNCTIONS{{|,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
+[language_features=NONE,+UNPIVOT,+TABLESAMPLE,+TABLE_VALUED_FUNCTIONS{{|,+DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
 # Table with UNNEST
 SELECT * FROM KeyValue, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
 --
@@ -366,14 +366,14 @@ SELECT * FROM KeyValue, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
                                                ^
 [zetasql.DeprecationWarning] { kind: PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN }
 --
-ALTERNATION GROUP: ,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
+ALTERNATION GROUP: ,+DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
 --
 ERROR: UNPIVOT is not allowed with array scans [at 2:48]
 SELECT * FROM KeyValue, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
                                                ^
 ==
 
-[language_features=UNPIVOT,TABLESAMPLE,TABLE_VALUED_FUNCTIONS{{|,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
+[language_features=NONE,+UNPIVOT,+TABLESAMPLE,+TABLE_VALUED_FUNCTIONS{{|,+DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
 # Table with 2 UNNESTs
 SELECT * FROM KeyValue, UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
 --
@@ -410,7 +410,7 @@ UNPIVOT is not allowed with array scans. This will become an error [at 2:73]
                                                    ^
 [zetasql.DeprecationWarning] { kind: PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN }
 --
-ALTERNATION GROUP: ,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
+ALTERNATION GROUP: ,+DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
 --
 ERROR: UNPIVOT is not allowed with array scans [at 2:73]
 ...UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
@@ -2808,3 +2808,11 @@ UNPIVOT(sales FOR quarter IN (Q1, Q2, Q3, Q4))
 ERROR: Unrecognized name: Q1 [at 6:31]
 UNPIVOT(sales FOR quarter IN (Q1, Q2, Q3, Q4))
                               ^
+==
+
+SELECT * FROM UNNEST([1, 2, 3]) {{WITH OFFSET|WITH OFFSET x|WITH OFFSET AS x}}
+UNPIVOT(a for b in (c)) AS x;
+--
+ERROR: UNPIVOT is not allowed with array scans [at 2:1]
+UNPIVOT(a for b in (c)) AS x;
+^

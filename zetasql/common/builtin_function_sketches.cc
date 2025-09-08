@@ -30,6 +30,7 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
+#include "zetasql/public/functions/rank_type.pb.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
@@ -40,6 +41,7 @@
 #include "zetasql/public/value.h"
 #include "absl/base/no_destructor.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/log/log.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
@@ -365,6 +367,82 @@ void GetKllQuantilesFunctions(TypeFactory* type_factory,
         FN_KLL_QUANTILES_EXTRACT_POINT_DOUBLE}},
       prepare_function_options(scalar_function_options_disallow_external_usage,
                                "extract_point"));
+
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_KLL_QUANTILES_EXTRACT_RELATIVE_RANK)) {
+    // Merge_relative_rank
+    FunctionArgumentTypeOptions value_arg_option(
+        FunctionArgumentType::REQUIRED);
+    value_arg_option.set_argument_name("value", kNamedOnly);
+    auto rank_type = types::RankTypeEnumType();
+    if (rank_type.ok()) {
+      FunctionArgumentType rank_type_arg(
+          rank_type.value(),
+          FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
+              .set_default(Value::Enum(
+                  rank_type.value()->AsEnum(),
+                  static_cast<int>(
+                      zetasql::functions::RankTypeEnums::FRACTION_LESS_THAN)))
+              .set_argument_name("rank_type", kNamedOnly));
+
+      InsertNamespaceFunction(
+          functions, options, "kll_quantiles", "merge_relative_rank_int64",
+          AGGREGATE,
+          {{double_type,
+            {bytes_type, {int64_type, value_arg_option}, rank_type_arg},
+            FN_KLL_QUANTILES_MERGE_RELATIVE_RANK_INT64}},
+          DefaultAggregateFunctionOptions());
+      InsertNamespaceFunction(
+          functions, options, "kll_quantiles", "merge_relative_rank_uint64",
+          AGGREGATE,
+          {{double_type,
+            {bytes_type, {uint64_type, value_arg_option}, rank_type_arg},
+            FN_KLL_QUANTILES_MERGE_RELATIVE_RANK_UINT64}},
+          aggregate_analytic_function_options_and_not_allow_external_usage);
+      // Insert function for double type. This function inserts
+      // "merge_relative_rank_double" or "merge_relative_rank_float64" based on
+      // flag FEATURE_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+      InsertNamespaceFunction(
+          functions, options, "kll_quantiles",
+          make_function_name("merge_relative_rank"), AGGREGATE,
+          {{double_type,
+            {bytes_type, {double_type, value_arg_option}, rank_type_arg},
+            FN_KLL_QUANTILES_MERGE_RELATIVE_RANK_DOUBLE}},
+          prepare_function_options(
+              aggregate_analytic_function_options_and_not_allow_external_usage,
+              "merge_relative_rank"));
+
+      // Extract_relative_rank
+      InsertNamespaceFunction(
+          functions, options, "kll_quantiles", "extract_relative_rank_int64",
+          SCALAR,
+          {{double_type,
+            {bytes_type, {int64_type, value_arg_option}, rank_type_arg},
+            FN_KLL_QUANTILES_EXTRACT_RELATIVE_RANK_INT64}},
+          FunctionOptions());
+      InsertNamespaceFunction(
+          functions, options, "kll_quantiles", "extract_relative_rank_uint64",
+          SCALAR,
+          {{double_type,
+            {bytes_type, {uint64_type, value_arg_option}, rank_type_arg},
+            FN_KLL_QUANTILES_EXTRACT_RELATIVE_RANK_UINT64}},
+          scalar_function_options_disallow_external_usage);
+      // Insert function for double type. This function inserts
+      // "extract_relative_rank_double" or "extract_relative_rank_float64" based
+      // on flag FEATURE_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+      InsertNamespaceFunction(
+          functions, options, "kll_quantiles",
+          make_function_name("extract_relative_rank"), SCALAR,
+          {{double_type,
+            {bytes_type, {double_type, value_arg_option}, rank_type_arg},
+            FN_KLL_QUANTILES_EXTRACT_RELATIVE_RANK_DOUBLE}},
+          prepare_function_options(
+              scalar_function_options_disallow_external_usage,
+              "extract_relative_rank"));
+    } else {
+      ABSL_LOG(ERROR) << "Failed to get rank type enum type: " << rank_type.status();
+    }
+  }
 }
 
 }  // namespace zetasql

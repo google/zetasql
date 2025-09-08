@@ -67,7 +67,7 @@ class SimpleErrorCollector
 
   bool HasError() const { return !error_.empty(); }
   const std::string& GetError() const { return error_; }
-  const void ClearError() { error_.clear(); }
+  void ClearError() { error_.clear(); }
 
  private:
   std::string error_;

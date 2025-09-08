@@ -28,6 +28,7 @@
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/property_graph.h"
 #include "zetasql/public/select_with_mode.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
@@ -247,26 +248,6 @@ struct ExprResolutionInfo {
                      const ASTExpression* top_level_ast_expr_in = nullptr,
                      IdString column_alias_in = IdString());
 
-  // TODO This constructor is bad and should be removed.
-  // It's too subtle that landing on this constructor with the args in this
-  // particular order results in different implicit behavior for
-  // allows_analytic, allows_aggregation, etc.
-  //
-  // Construct an ExprResolutionInfo that allows analytic expressions.
-  // Aggregation is allowed unless <clause_name_in> is passed in.
-  // (But each is allowed only if the QueryResolutionInfo allows it.)
-  // Does not take ownership of <query_resolution_info_in>.
-  // Currently used for initially resolving select list columns, and
-  // resolving LIMIT with an empty NameScope, so never resolves against
-  // post-grouping columns.
-  // Also used for expressions in pipe operators that could include
-  // window functions like pipe WHERE and EXTEND.
-  ExprResolutionInfo(const NameScope* name_scope_in,
-                     QueryResolutionInfo* query_resolution_info_in,
-                     const ASTExpression* top_level_ast_expr_in = nullptr,
-                     IdString column_alias_in = IdString(),
-                     const char* clause_name_in = nullptr);
-
   // Construct a ExprResolutionInfo from `parent`, setting the namescope to
   // `post_grouping_name_scope` and the `QueryResolutionInfo` to
   // `new_query_resolution_info`. In general, `ExprResolutionInfo` should have
@@ -435,12 +416,17 @@ class ResolvedTVFArg {
     descriptor_ = std::move(descriptor);
     type_ = DESCRIPTOR;
   }
+  void SetGraph(const PropertyGraph* graph) {
+    graph_ = graph;
+    type_ = GRAPH;
+  }
 
   bool IsExpr() const { return type_ == EXPR; }
   bool IsScan() const { return type_ == SCAN; }
   bool IsModel() const { return type_ == MODEL; }
   bool IsConnection() const { return type_ == CONNECTION; }
   bool IsDescriptor() const { return type_ == DESCRIPTOR; }
+  bool IsGraph() const { return type_ == GRAPH; }
 
   absl::StatusOr<const ResolvedScan*> GetScan() const {
     ZETASQL_RET_CHECK(IsScan());
@@ -465,6 +451,10 @@ class ResolvedTVFArg {
   absl::StatusOr<std::shared_ptr<const NameList>> GetNameList() const {
     ZETASQL_RET_CHECK(IsScan());
     return name_list_;
+  }
+  absl::StatusOr<const PropertyGraph*> GetGraph() const {
+    ZETASQL_RET_CHECK(IsGraph());
+    return graph_;
   }
   bool IsPipeInputTable() const { return is_pipe_input_table_; }
 
@@ -496,7 +486,8 @@ class ResolvedTVFArg {
     SCAN,
     MODEL,
     CONNECTION,
-    DESCRIPTOR
+    DESCRIPTOR,
+    GRAPH,
   } type_ = UNDEFINED;
 
   std::unique_ptr<const ResolvedExpr> expr_;
@@ -504,6 +495,7 @@ class ResolvedTVFArg {
   std::unique_ptr<const ResolvedModel> model_;
   std::unique_ptr<const ResolvedConnection> connection_;
   std::unique_ptr<const ResolvedDescriptor> descriptor_;
+  const PropertyGraph* graph_ = nullptr;
 
   // If type is SCAN, the NameList of the table being scanned.
   std::shared_ptr<const NameList> name_list_;

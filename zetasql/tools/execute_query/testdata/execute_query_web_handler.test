@@ -1,9 +1,13 @@
+[mode=analyze execute]
+
 # Simple query
 select 1;
 --
-query:select 1;
+query:# Simple query
+select 1;
 
 mode_execute
+mode_analyze
 sql_mode_query
 target_syntax_mode_standard
 table:<table>
@@ -20,6 +24,17 @@ table:<table>
       </tr>
   </tbody>
 </table>
+
+result_analyzed:<span class="ast-node">QueryStmt</span>
++-output_column_list=
+| +-$query.<span class="ast-col dollar_col1_1">$col1#1</span> AS `$col1` [INT64]
++-query=
+  +-<span class="ast-node">ProjectScan</span>
+    +-column_list=[$query.<span class="ast-col dollar_col1_1">$col1#1</span>]
+    +-expr_list=
+    | +-<span class="ast-col dollar_col1_1">$col1#1</span> := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-<span class="ast-node">SingleRowScan</span>
 \
 ==
 
@@ -211,21 +226,21 @@ table:<table>
   </tbody>
 </table>
 
-result_analyzed:QueryStmt
+result_analyzed:<span class="ast-node">QueryStmt</span>
 +-output_column_list=
-| +-$query.num#1 AS num [INT64]
-| +-$query.num_square#2 AS num_square [INT64]
+| +-$query.<span class="ast-col num_1">num#1</span> AS num [INT64]
+| +-$query.<span class="ast-col num_square_2">num_square#2</span> AS num_square [INT64]
 +-query=
-  +-ProjectScan
-    +-column_list=$query.[num#1, num_square#2]
+  +-<span class="ast-node">ProjectScan</span>
+    +-column_list=$query.[<span class="ast-col num_1">num#1</span>, <span class="ast-col num_square_2">num_square#2</span>]
     +-expr_list=
-    | +-num#1 := Constant(x, type=INT64, value=0)
-    | +-num_square#2 :=
-    |   +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -&gt; INT64)
-    |     +-Constant(x, type=INT64, value=0)
-    |     +-Constant(x, type=INT64, value=0)
+    | +-<span class="ast-col num_1">num#1</span> := Constant(x, type=INT64, value=0)
+    | +-<span class="ast-col num_square_2">num_square#2</span> :=
+    |   +-<span class="ast-node">FunctionCall</span>(ZetaSQL:$multiply(INT64, INT64) -&gt; INT64)
+    |     +-<span class="ast-node">Constant</span>(x, type=INT64, value=0)
+    |     +-<span class="ast-node">Constant</span>(x, type=INT64, value=0)
     +-input_scan=
-      +-SingleRowScan
+      +-<span class="ast-node">SingleRowScan</span>
 
 statement_text:SELECT x as num, x * x as num_square
 table:<table>
@@ -245,21 +260,21 @@ table:<table>
   </tbody>
 </table>
 
-result_analyzed:QueryStmt
+result_analyzed:<span class="ast-node">QueryStmt</span>
 +-output_column_list=
-| +-$query.num#1 AS num [INT64]
-| +-$query.num_square#2 AS num_square [INT64]
+| +-$query.<span class="ast-col num_1">num#1</span> AS num [INT64]
+| +-$query.<span class="ast-col num_square_2">num_square#2</span> AS num_square [INT64]
 +-query=
-  +-ProjectScan
-    +-column_list=$query.[num#1, num_square#2]
+  +-<span class="ast-node">ProjectScan</span>
+    +-column_list=$query.[<span class="ast-col num_1">num#1</span>, <span class="ast-col num_square_2">num_square#2</span>]
     +-expr_list=
-    | +-num#1 := Constant(x, type=INT64, value=1)
-    | +-num_square#2 :=
-    |   +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -&gt; INT64)
-    |     +-Constant(x, type=INT64, value=1)
-    |     +-Constant(x, type=INT64, value=1)
+    | +-<span class="ast-col num_1">num#1</span> := Constant(x, type=INT64, value=1)
+    | +-<span class="ast-col num_square_2">num_square#2</span> :=
+    |   +-<span class="ast-node">FunctionCall</span>(ZetaSQL:$multiply(INT64, INT64) -&gt; INT64)
+    |     +-<span class="ast-node">Constant</span>(x, type=INT64, value=1)
+    |     +-<span class="ast-node">Constant</span>(x, type=INT64, value=1)
     +-input_scan=
-      +-SingleRowScan
+      +-<span class="ast-node">SingleRowScan</span>
 
 statement_text:SELECT x as num, x * x as num_square
 table:<table>
@@ -279,21 +294,21 @@ table:<table>
   </tbody>
 </table>
 
-result_analyzed:QueryStmt
+result_analyzed:<span class="ast-node">QueryStmt</span>
 +-output_column_list=
-| +-$query.num#1 AS num [INT64]
-| +-$query.num_square#2 AS num_square [INT64]
+| +-$query.<span class="ast-col num_1">num#1</span> AS num [INT64]
+| +-$query.<span class="ast-col num_square_2">num_square#2</span> AS num_square [INT64]
 +-query=
-  +-ProjectScan
-    +-column_list=$query.[num#1, num_square#2]
+  +-<span class="ast-node">ProjectScan</span>
+    +-column_list=$query.[<span class="ast-col num_1">num#1</span>, <span class="ast-col num_square_2">num_square#2</span>]
     +-expr_list=
-    | +-num#1 := Constant(x, type=INT64, value=2)
-    | +-num_square#2 :=
-    |   +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -&gt; INT64)
-    |     +-Constant(x, type=INT64, value=2)
-    |     +-Constant(x, type=INT64, value=2)
+    | +-<span class="ast-col num_1">num#1</span> := Constant(x, type=INT64, value=2)
+    | +-<span class="ast-col num_square_2">num_square#2</span> :=
+    |   +-<span class="ast-node">FunctionCall</span>(ZetaSQL:$multiply(INT64, INT64) -&gt; INT64)
+    |     +-<span class="ast-node">Constant</span>(x, type=INT64, value=2)
+    |     +-<span class="ast-node">Constant</span>(x, type=INT64, value=2)
     +-input_scan=
-      +-SingleRowScan
+      +-<span class="ast-node">SingleRowScan</span>
 \
 ==
 
@@ -380,3 +395,42 @@ table:<table>
   </tbody>
 </table>
 \
+==
+
+# Test executed_multi with a mix of successful and failed results.
+[enabled_language_features=DEV]
+[enabled_ast_rewrites=ALL]
+[mode=execute]
+select 1
+|> fork (
+  |> select *
+), (
+  |> select error("this is an error")
+)
+--
+query:select 1
+|&gt; fork (
+  |&gt; select *
+), (
+  |&gt; select error(&quot;this is an error&quot;)
+)
+
+mode_execute
+sql_mode_query
+target_syntax_mode_standard
+table:<table>
+  <thead>
+    <tr>
+        <th>#&zwnj;</th>
+        <th>&zwnj;</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>1</td>
+          <td>1</td>
+      </tr>
+  </tbody>
+</table>
+
+error:this is an error

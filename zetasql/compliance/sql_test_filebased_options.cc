@@ -104,6 +104,10 @@ constexpr absl::string_view kForbiddenFeatures = "forbidden_features";
 // test_driver.h for details.
 constexpr absl::string_view kPrimaryKeyMode = "primary_key_mode";
 
+// If set, a copy of the test database is passed to the reference driver. This
+// is useful for tests that have side effects, such as DDL statements.
+constexpr absl::string_view kUseTestDatabaseCopy = "use_test_database_copy";
+
 FilebasedSQLTestCaseOptions::FilebasedSQLTestCaseOptions() {}
 
 static absl::flat_hash_set<std::string> SplitProtosOrEnums(
@@ -275,6 +279,7 @@ FilebasedSQLTestFileOptions::ProcessTestCase(absl::string_view test_case,
   case_opts->extract_labels_ = options_->GetBool(kExtractLabels);
   case_opts->skip_required_feature_integrity_check_ =
       options_->GetBool(kSkipRequiredFeatureIntegrityCheck);
+  case_opts->use_test_database_copy_ = options_->GetBool(kUseTestDatabaseCopy);
 
   // Sometimes the first "...\n==" block in a test file is just setting up
   // option defaults. This is fine, but we want to skip name validation.
@@ -348,6 +353,7 @@ FilebasedSQLTestFileOptions::FilebasedSQLTestFileOptions(
   options_->RegisterString(kDefaultTimeZone, "");
   options_->RegisterString(kPrimaryKeyMode,
                            PrimaryKeyModeName(PrimaryKeyMode::DEFAULT));
+  options_->RegisterBool(kUseTestDatabaseCopy, false);
 }
 
 }  // namespace zetasql

@@ -83,7 +83,6 @@ public abstract class Type implements Serializable {
           entry(TypeKind.TYPE_STRUCT, "STRUCT"),
           entry(TypeKind.TYPE_PROTO, "PROTO"),
           entry(TypeKind.TYPE_TIMESTAMP, "TIMESTAMP"),
-          entry(TypeKind.TYPE_TIMESTAMP_PICOS, "TIMESTAMP_PICOS"),
           entry(TypeKind.TYPE_TIME, "TIME"),
           entry(TypeKind.TYPE_DATETIME, "DATETIME"),
           entry(TypeKind.TYPE_GEOGRAPHY, "GEOGRAPHY"),
@@ -204,10 +203,6 @@ public abstract class Type implements Serializable {
 
   public boolean isTimestamp() {
     return kind == TypeKind.TYPE_TIMESTAMP;
-  }
-
-  public boolean isTimestampPicos() {
-    return kind == TypeKind.TYPE_TIMESTAMP_PICOS;
   }
 
   public boolean isDatetime() {

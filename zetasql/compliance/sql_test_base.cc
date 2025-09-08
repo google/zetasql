@@ -724,6 +724,11 @@ std::string StatementResultToString(const StatementResult& stmt_result) {
     status_or = std::move(status_without_error_mode_payload);
   }
 
+  if (stmt_result.line == 0 || stmt_result.column == 0) {
+    // No location information available.
+    return SQLTestBase::ToString(status_or);
+  }
+
   return absl::StrCat(GetLocationString(stmt_result), " ",
                       SQLTestBase::ToString(status_or));
 }
@@ -765,6 +770,8 @@ bool CompareScriptResults(const ScriptResult& expected,
 }
 }  // namespace
 
+// TODO: b/388309312 - Change the string representation to start with
+// "MultiStmtResult" instead.
 std::string ScriptResultToString(const ScriptResult& result) {
   return absl::StrCat(
       "ScriptResult\n",
@@ -1281,8 +1288,12 @@ static void ExtractComplianceLabelsFromResolvedAST(
     if (IsInDevelopment(feature)) {
       compliance_labels.emplace(kInDevelopmentLabel);
     }
-    compliance_labels.insert(
-        absl::StrCat("LanguageFeature:", LanguageFeature_Name(feature)));
+    LanguageVersion version = LanguageFeatureVersion(feature);
+    std::string version_name = version == LANGUAGE_VERSION_UNSPECIFIED
+                                   ? ""
+                                   : LanguageVersion_Name(version);
+    compliance_labels.insert(absl::StrCat("LanguageFeature:", version_name, ":",
+                                          LanguageFeature_Name(feature)));
     if (feature == FEATURE_TIMESTAMP_NANOS) {
       time_resolution_label = kTimeResolutionNanosLabel;
     }
@@ -1312,9 +1323,14 @@ static void ExtractComplianceLabelsFromResolvedAST(
   AutoLanguageOptions options_cleanup(reference_driver);
   LanguageOptions language_options = reference_driver->language_options();
   language_options.SetEnabledLanguageFeatures({});
-  language_options.SetSupportedStatementKinds(
-      {RESOLVED_QUERY_STMT, RESOLVED_INSERT_STMT, RESOLVED_UPDATE_STMT,
-       RESOLVED_DELETE_STMT});
+  language_options.SetSupportedStatementKinds({
+      RESOLVED_QUERY_STMT,
+      RESOLVED_INSERT_STMT,
+      RESOLVED_UPDATE_STMT,
+      RESOLVED_DELETE_STMT,
+      RESOLVED_GENERALIZED_QUERY_STMT,
+      RESOLVED_GENERALIZED_QUERY_SUBPIPELINE,
+  });
   for (LanguageFeature feature : required_features) {
     language_options.EnableLanguageFeature(feature);
   }
@@ -1663,6 +1679,25 @@ absl::StatusOr<ComplianceTestCaseResult> SQLTestBase::ExecuteStatement(
   return ExecuteTestCase().driver_output();
 }
 
+// Converts a multi-statement result to a single value if there is only one
+// result.
+static absl::StatusOr<SQLTestBase::ComplianceTestCaseResult>
+ToValueIfSingleResult(absl::StatusOr<MultiStmtResult> multi_result) {
+  if (!multi_result.ok()) {
+    return multi_result.status();
+  }
+  const std::vector<StatementResult>& statement_results =
+      multi_result->statement_results;
+  if (statement_results.size() == 1) {
+    const absl::StatusOr<Value>& result = statement_results[0].result;
+    if (!result.ok()) {
+      return result.status();
+    }
+    return result.value();
+  }
+  return *multi_result;
+}
+
 SQLTestBase::TestResults SQLTestBase::ExecuteTestCase() {
   sql_ = absl::StripAsciiWhitespace(sql_);
 
@@ -1704,10 +1739,20 @@ SQLTestBase::TestResults SQLTestBase::ExecuteTestCase() {
           execute_statement_type_factory(), aux_output);
       is_deterministic_output = aux_output.is_deterministic_output;
     } else {
+      std::optional<TestDatabase> test_db;
+      if (test_case_options_ != nullptr &&
+          test_case_options_->use_test_database_copy()) {
+        // Creates a test database to verify statements with side effects, such
+        // as DDL and DML statements. A copy is created so that test cases can
+        // be executed independently.
+        test_db.emplace(test_db_);
+      }
       ReferenceDriver::ExecuteStatementAuxOutput aux_output;
-      result = reference_driver()->ExecuteStatementForReferenceDriver(
-          sql_, parameters_, GetExecuteStatementOptions(),
-          execute_statement_type_factory(), aux_output);
+      result = ToValueIfSingleResult(
+          reference_driver()->ExecuteGeneralizedStatementForReferenceDriver(
+              sql_, parameters_, GetExecuteStatementOptions(),
+              execute_statement_type_factory(), aux_output,
+              test_db.has_value() ? &*test_db : nullptr));
       is_deterministic_output = aux_output.is_deterministic_output;
     }
   } else {
@@ -1715,8 +1760,8 @@ SQLTestBase::TestResults SQLTestBase::ExecuteTestCase() {
       result = driver()->ExecuteScript(sql_, parameters_,
                                        execute_statement_type_factory());
     } else {
-      result = driver()->ExecuteStatement(sql_, parameters_,
-                                          execute_statement_type_factory());
+      result = ToValueIfSingleResult(driver()->ExecuteGeneralizedStatement(
+          sql_, parameters_, execute_statement_type_factory()));
     }
   }
   stats_->RecordStatementExecutionTime(absl::Now() - start_time);
@@ -2127,7 +2172,11 @@ void SQLTestBase::StepPrepareDatabase() {
             .status(),
         "Failed to create table");
     if (statement_workflow_ == CANCELLED) return;
-    std::string table_name = aux_output.created_table_name.value_or("");
+    const std::vector<std::string>& created_table_names =
+        aux_output.created_table_names;
+    EXPECT_LE(created_table_names.size(), 1);
+    std::string table_name =
+        created_table_names.empty() ? "" : created_table_names[0];
     ABSL_CHECK(zetasql_base::ContainsKey(test_db_.tables, table_name));
     *test_db_.tables[table_name].options.mutable_required_features() =
         test_case_options_->required_features();
@@ -2323,9 +2372,10 @@ void SQLTestBase::StepExecuteStatementCheckResult() {
       uses_unsupported_type = aux_output.uses_unsupported_type.value_or(false);
     } else {
       ReferenceDriver::ExecuteStatementAuxOutput aux_output;
-      ref_result = reference_driver()->ExecuteStatementForReferenceDriver(
-          sql_, parameters_, GetExecuteStatementOptions(),
-          execute_statement_type_factory(), aux_output);
+      ref_result = ToValueIfSingleResult(
+          reference_driver()->ExecuteGeneralizedStatementForReferenceDriver(
+              sql_, parameters_, GetExecuteStatementOptions(),
+              execute_statement_type_factory(), aux_output));
       uses_unsupported_type = aux_output.uses_unsupported_type.value_or(false);
     }
     if (uses_unsupported_type) {
@@ -2922,7 +2972,7 @@ void SQLTestBase::SetUp() { ZETASQL_EXPECT_OK(CreateDatabase(TestDatabase{})); }
 // requires the FEATURE_ENABLE_MEASURES feature.
 // It is currently impossible to define measures via SQL or use DDL to add
 // measure columns to a table. This makes compliance testing for measures
-// difficult; as a result we use this temporary workaround to add pre-defined
+// difficult; as a result we use this temporary workaround to add predefined
 // tables with measure columns to the test database.
 // TODO: b/350555383 - Remove this function once we can define measures via SQL
 // or use DDL to add measure columns to a table.
@@ -2937,16 +2987,16 @@ static void MaybeAddMeasureTables(
   if (add_tables_with_measures) {
     Value measure_table_single_key_as_value = test_values::StructArray(
         {"key", "country", "quantity", "price", "date_str", "nullable_str"},
-        {{1ll, "USA", 5ll, 10, "Jan 2024", Value::NullString()},
-         {2ll, "USA", 15ll, 20, "Jan 2024", "not_null"},
-         {3ll, "USA", 30ll, 30, "Feb 2024", "not_null"},
-         {4ll, "Canada", 20ll, 40, "Jan 2024", "not_null"},
-         {5ll, "Canada", 20ll, 50, "Jan 2024", Value::NullString()},
-         {6ll, "Canada", 35ll, 60, "Feb 2024", Value::NullString()},
-         {7ll, "Canada", 25ll, 70, "Feb 2024", "not_null"},
-         {8ll, "Mexico", 25ll, 80, "Jan 2024", "not_null"},
-         {9ll, "Mexico", 25ll, 90, "Jan 2024", Value::NullString()},
-         {10ll, "Mexico", 50ll, 100, "Feb 2024", "not_null"}},
+        {{1ll, "USA", 5ll, 10ll, "Jan 2024", Value::NullString()},
+         {2ll, "USA", 15ll, 20ll, "Jan 2024", "not_null"},
+         {3ll, "USA", 30ll, 30ll, "Feb 2024", "not_null"},
+         {4ll, "Canada", 20ll, 40ll, "Jan 2024", "not_null"},
+         {5ll, "Canada", 20ll, 50ll, "Jan 2024", Value::NullString()},
+         {6ll, "Canada", 35ll, 60ll, "Feb 2024", Value::NullString()},
+         {7ll, "Canada", 25ll, 70ll, "Feb 2024", "not_null"},
+         {8ll, "Mexico", 25ll, 80ll, "Jan 2024", "not_null"},
+         {9ll, "Mexico", 25ll, 90ll, "Jan 2024", Value::NullString()},
+         {10ll, "Mexico", 50ll, 100ll, "Feb 2024", "not_null"}},
         InternalValue::kIgnoresOrder);
     std::vector<MeasureColumnDef> measure_column_defs = {
         {"measure_sum_price", "SUM(price)"},
@@ -2957,6 +3007,8 @@ static void MaybeAddMeasureTables(
         {"measure_array_agg_nullable_str_ignore_nulls",
          "ARRAY_AGG(nullable_str IGNORE NULLS)"},
         {"measure_array_agg_country_limit_one", "ARRAY_AGG(country LIMIT 1)"},
+        {"measure_array_agg_price_respect_nulls",
+         "ARRAY_AGG(price RESPECT NULLS)"},
         {"measure_pseudo_column_sum_price", "SUM(price)",
          /*is_pseudo_column=*/true},
         {"measure_sum_price_via_subquery", "SUM((SELECT price))",
@@ -2967,6 +3019,17 @@ static void MaybeAddMeasureTables(
         {"measure_sum_price_plus_one_via_subquery",
          "SUM(price) + (SELECT SUM(1) FROM UNNEST([1]))",
          /*is_pseudo_column=*/true},
+        {"measure_with_deeply_nested_subquery",
+         "SUM((SELECT x FROM (SELECT (SELECT SUM(price) FROM UNNEST([1])) AS "
+         "x)))"},
+        {"measure_literal_one", "1", /*is_pseudo_column=*/true},
+        {"measure_one_plus_one", "1 + 1", /*is_pseudo_column=*/true},
+        {"measure_scalar_subquery",
+         "(SELECT SUM(x) FROM UNNEST([1, 2, 3]) AS x)",
+         /*is_pseudo_column=*/true},
+        {"measure_with_enum_in_function_signature", "BIT_XOR(quantity)",
+         /*is_pseudo_column=*/true},
+        {"measure_aggregation_in_in_expr", "SUM(price) IN ((SELECT 1))"},
     };
     std::vector<int> row_identity_columns = {0};
     TestTable measure_table_single_key = {
@@ -2991,6 +3054,10 @@ absl::Status SQLTestBase::CreateDatabase() {
   // test_db_.
   ZETASQL_RETURN_IF_ERROR(driver()->CreateDatabase(test_db_));
   ZETASQL_RETURN_IF_ERROR(reference_driver()->CreateDatabase(test_db_));
+
+  if (!constant_stmt_cache_.empty()) {
+    ZETASQL_RETURN_IF_ERROR(AddConstants(constant_stmt_cache_, /*cache_stmts=*/false));
+  }
 
   if (!udf_stmt_cache_.empty()) {
     ZETASQL_RETURN_IF_ERROR(AddFunctions(udf_stmt_cache_, /*cache_stmts=*/false));

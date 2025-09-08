@@ -1,4 +1,4 @@
-[default language_features=PIPES]
+[default language_features=NONE,+PIPES]
 from t
 |> TABLESAMPLE RESERVOIR (100 ROWS) REPEATABLE(10)
 |> TABLESAMPLE RESERVOIR (cast(100 as int32) ROWS) REPEATABLE(cast(10 as int32))

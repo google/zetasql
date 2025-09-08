@@ -16,6 +16,9 @@
 
 """ Defines blaze extensions for use testing zetasql engines. """
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 # Invoke the ZetaSQL compliance test suite against a SQL engine.
 #
 # Usage:
@@ -106,8 +109,7 @@ def sql_e2e_test(
 
     data = data + known_error_files
     args = args + ["--known_error_files=%s" % ",".join(known_error_fullpaths)]
-
-    native.cc_test(
+    cc_test(
         name = name,
         data = data,
         args = args,

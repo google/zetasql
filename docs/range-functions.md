@@ -22,8 +22,7 @@ ZetaSQL supports the following range functions.
 </td>
   <td>
     Splits a range into an array of subranges.
-    <br>For more information, see <a href="https://github.com/google/zetasql/blob/master/docs/range-functions.md">Range functions</a>.
-
+    
   </td>
 </tr>
 

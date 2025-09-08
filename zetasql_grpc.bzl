@@ -16,6 +16,7 @@
 
 """ Rule for gRPC C++ API generation """
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@com_github_grpc_grpc//bazel:generate_cc.bzl", "generate_cc")
 
 def cc_grpc_library(name, srcs, deps, **kwargs):
@@ -31,8 +32,7 @@ def cc_grpc_library(name, srcs, deps, **kwargs):
         well_known_protos = True,
         **kwargs
     )
-
-    native.cc_library(
+    cc_library(
         name = name,
         srcs = [codegen_grpc_target],
         hdrs = [codegen_grpc_target],

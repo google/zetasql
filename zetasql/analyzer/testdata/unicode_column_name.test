@@ -1,3 +1,4 @@
+[default language_features=MAXIMUM]
 [default zetasql_idstring_allow_unicode_characters]
 
 [no_java]

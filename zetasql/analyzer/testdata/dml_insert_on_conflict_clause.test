@@ -1,5 +1,6 @@
 # Tests for ON CONFLICT clause in INSERT DML
 
+[default language_features=MAXIMUM]
 INSERT INTO KeyValue(Key) VALUES(1) ON CONFLICT DO NOTHING;
 --
 ERROR: ON CONFLICT is not supported [at 1:37]
@@ -14,7 +15,7 @@ INSERT OR REPLACE INTO KeyValue(Key) VALUES(1) ON CONFLICT DO UPDATE SET Key ...
                                                ^
 ==
 
-[default language_features=INSERT_ON_CONFLICT_CLAUSE,DML_RETURNING]
+[default language_features=MAXIMUM,+INSERT_ON_CONFLICT_CLAUSE,+DML_RETURNING]
 
 INSERT INTO KeyValue(Key) VALUES(1) ON CONFLICT {{|(Key)|(Key, value)|(Key, Key)|(`Key`, `Key`)}}
 DO NOTHING;

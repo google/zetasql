@@ -4,6 +4,7 @@
 
 # SELECT * doesn't show the pseudo-columns.
 # They are also pruned from TableScan.
+[default language_features=MAXIMUM]
 select * from EnumTable
 --
 QueryStmt

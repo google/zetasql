@@ -2,7 +2,13 @@
 # verified as correct.
 [default no_show_parse_location_text]
 
-ALTER {{CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} foo set OPTIONS
+ALTER {{SEQUENCE|CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} foo set OPTIONS
+--
+ALTERNATION GROUP: SEQUENCE
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:31]
+ALTER SEQUENCE foo set OPTIONS
+                              ^
 --
 ALTERNATION GROUP: CONNECTION
 --
@@ -45,13 +51,13 @@ ALTERNATION GROUP: MATERIALIZED VIEW
 ERROR: Syntax error: Expected "(" but got end of statement [at 1:40]
 ALTER MATERIALIZED VIEW foo set OPTIONS
                                        ^
+
 --
 ALTERNATION GROUP: MODEL
 --
 ERROR: Syntax error: Expected "(" but got end of statement [at 1:28]
 ALTER MODEL foo set OPTIONS
                            ^
-
 --
 ALTERNATION GROUP: APPROX VIEW
 --
@@ -60,20 +66,26 @@ ALTER APPROX VIEW foo set OPTIONS
                                  ^
 ==
 
-ALTER {{CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} foo set timestamp;
+ALTER {{SEQUENCE|CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} foo set timestamp;
+--
+ALTERNATION GROUP: SEQUENCE
+--
+ERROR: Syntax error: Expected keyword AS or keyword DEFAULT or keyword ON or keyword OPTIONS but got keyword TIMESTAMP [at 1:24]
+ALTER SEQUENCE foo set timestamp;
+                       ^
 --
 ALTERNATION GROUP: CONNECTION
 --
 ERROR: Syntax error: Expected keyword AS or keyword DEFAULT or keyword ON or keyword OPTIONS but got keyword TIMESTAMP [at 1:26]
 ALTER CONNECTION foo set timestamp;
                          ^
+
 --
 ALTERNATION GROUP: DATABASE
 --
 ERROR: Syntax error: Expected keyword AS or keyword DEFAULT or keyword ON or keyword OPTIONS but got keyword TIMESTAMP [at 1:24]
 ALTER DATABASE foo set timestamp;
                        ^
-
 --
 ALTERNATION GROUP: SCHEMA
 --
@@ -118,7 +130,13 @@ ALTER APPROX VIEW foo set timestamp;
                           ^
 ==
 
-ALTER {{CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} foo drop;
+ALTER {{SEQUENCE|CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} foo drop;
+--
+ALTERNATION GROUP: SEQUENCE
+--
+ERROR: Syntax error: Unexpected ";" [at 1:24]
+ALTER SEQUENCE foo drop;
+                       ^
 --
 ALTERNATION GROUP: CONNECTION
 --
@@ -623,8 +641,24 @@ AlterApproxViewStatement(is_if_exists) [0-52]
 ALTER APPROX VIEW IF EXISTS adsdw.foo SET OPTIONS()
 ==
 
-ALTER {{CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} adsdw.foo SET OPTIONS (
+ALTER {{SEQUENCE|CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} adsdw.foo SET OPTIONS (
   quota_accounting_owner='adsdw-etl@google.com');
+--
+ALTERNATION GROUP: SEQUENCE
+--
+AlterSequenceStatement [0-87]
+  PathExpression [15-24]
+    Identifier(adsdw) [15-20]
+    Identifier(foo) [21-24]
+  AlterActionList [25-87]
+    SetOptionsAction [25-87]
+      OptionsList [37-87]
+        OptionsEntry [41-86]
+          Identifier(quota_accounting_owner) [41-63]
+          StringLiteral [64-86]
+            StringLiteralComponent('adsdw-etl@google.com') [64-86]
+--
+ALTER SEQUENCE adsdw.foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com')
 --
 ALTERNATION GROUP: CONNECTION
 --
@@ -639,6 +673,7 @@ AlterConnectionStatement [0-89]
           Identifier(quota_accounting_owner) [43-65]
           StringLiteral [66-88]
             StringLiteralComponent('adsdw-etl@google.com') [66-88]
+
 --
 ALTER CONNECTION adsdw.foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com')
 --
@@ -723,7 +758,6 @@ AlterViewStatement [0-83]
           Identifier(quota_accounting_owner) [37-59]
           StringLiteral [60-82]
             StringLiteralComponent('adsdw-etl@google.com') [60-82]
-
 --
 ALTER VIEW adsdw.foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com')
 --
@@ -776,7 +810,22 @@ AlterApproxViewStatement [0-90]
 ALTER APPROX VIEW adsdw.foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com')
 ==
 
-ALTER {{CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} adsdw.foo SET OPTIONS (ttl_seconds=3600);
+ALTER {{SEQUENCE|CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} adsdw.foo SET OPTIONS (ttl_seconds=3600);
+--
+ALTERNATION GROUP: SEQUENCE
+--
+AlterSequenceStatement [0-55]
+  PathExpression [15-24]
+    Identifier(adsdw) [15-20]
+    Identifier(foo) [21-24]
+  AlterActionList [25-55]
+    SetOptionsAction [25-55]
+      OptionsList [37-55]
+        OptionsEntry [38-54]
+          Identifier(ttl_seconds) [38-49]
+          IntLiteral(3600) [50-54]
+--
+ALTER SEQUENCE adsdw.foo SET OPTIONS(ttl_seconds = 3600)
 --
 ALTERNATION GROUP: CONNECTION
 --
@@ -914,7 +963,22 @@ AlterApproxViewStatement [0-58]
 ALTER APPROX VIEW adsdw.foo SET OPTIONS(ttl_seconds = 3600)
 ==
 
-ALTER {{CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} adsdw.foo SET OPTIONS (ttl_seconds=NULL);
+ALTER {{SEQUENCE|CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} adsdw.foo SET OPTIONS (ttl_seconds=NULL);
+--
+ALTERNATION GROUP: SEQUENCE
+--
+AlterSequenceStatement [0-55]
+  PathExpression [15-24]
+    Identifier(adsdw) [15-20]
+    Identifier(foo) [21-24]
+  AlterActionList [25-55]
+    SetOptionsAction [25-55]
+      OptionsList [37-55]
+        OptionsEntry [38-54]
+          Identifier(ttl_seconds) [38-49]
+          NullLiteral(NULL) [50-54]
+--
+ALTER SEQUENCE adsdw.foo SET OPTIONS(ttl_seconds = NULL)
 --
 ALTERNATION GROUP: CONNECTION
 --
@@ -1052,8 +1116,26 @@ AlterApproxViewStatement [0-58]
 ALTER APPROX VIEW adsdw.foo SET OPTIONS(ttl_seconds = NULL)
 ==
 
-ALTER {{CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} foo SET OPTIONS (
+ALTER {{SEQUENCE|CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} foo SET OPTIONS (
   quota_accounting_owner = 'adsdw-etl@google.com', ttl_seconds=3600);
+--
+ALTERNATION GROUP: SEQUENCE
+--
+AlterSequenceStatement [0-101]
+  PathExpression [15-18]
+    Identifier(foo) [15-18]
+  AlterActionList [19-101]
+    SetOptionsAction [19-101]
+      OptionsList [31-101]
+        OptionsEntry [35-82]
+          Identifier(quota_accounting_owner) [35-57]
+          StringLiteral [60-82]
+            StringLiteralComponent('adsdw-etl@google.com') [60-82]
+        OptionsEntry [84-100]
+          Identifier(ttl_seconds) [84-95]
+          IntLiteral(3600) [96-100]
+--
+ALTER SEQUENCE foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com', ttl_seconds = 3600)
 --
 ALTERNATION GROUP: CONNECTION
 --

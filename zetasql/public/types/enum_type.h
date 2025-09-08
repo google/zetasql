@@ -218,6 +218,10 @@ class EnumType : public Type {
   absl::Status DeserializeValueContent(const ValueProto& value_proto,
                                        ValueContent* value) const override;
 
+  // Returns true if the type is supported by the given language options.
+  absl::StatusOr<bool> IsSupported(
+      const LanguageOptions& language_options) const;
+
   const google::protobuf::EnumDescriptor* const enum_descriptor_;  // Not owned.
   const internal::CatalogName* const catalog_name_;      // Optional.
   const bool is_opaque_;

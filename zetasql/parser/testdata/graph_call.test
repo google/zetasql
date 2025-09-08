@@ -1,5 +1,5 @@
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 # Omitted capture list
 select gt.* from
@@ -399,7 +399,7 @@ ERROR: Syntax error: Unexpected "?" [at 5:5]
 --
 ALTERNATION GROUP: a + 1
 --
-ERROR: Syntax error: Expected ")" or "," but got "+" [at 5:7]
+ERROR: Syntax error: Expected ")" but got "+" [at 5:7]
     a + 1
       ^
 --
@@ -411,7 +411,7 @@ ERROR: Syntax error: Unexpected "(" [at 5:5]
 --
 ALTERNATION GROUP: f(x)
 --
-ERROR: Syntax error: Expected ")" or "," but got "(" [at 5:6]
+ERROR: Syntax error: Expected ")" but got "(" [at 5:6]
     f(x)
      ^
 --
@@ -525,3 +525,14 @@ FROM
       n,
       blah
   ) AS gt
+
+==
+
+# We don't support "GRAPH g" arguments
+graph aml
+call tvf_graph(GRAPH aml)
+return 1 as one
+--
+ERROR: Syntax error: Expected ")" but got identifier "aml" [at 2:22]
+call tvf_graph(GRAPH aml)
+                     ^

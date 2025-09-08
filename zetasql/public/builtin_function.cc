@@ -28,6 +28,7 @@
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "absl/container/flat_hash_map.h"
@@ -46,21 +47,26 @@ class AnalyzerOptions;
 using NameToFunctionMap =
     absl::flat_hash_map<std::string, std::unique_ptr<Function>>;
 using NameToFunctionPtrMap = absl::flat_hash_map<std::string, const Function*>;
+using NameToTableValuedFunctionPtrMap =
+    absl::flat_hash_map<std::string, const TableValuedFunction*>;
 using NameToTypeMap = absl::flat_hash_map<std::string, const Type*>;
+using NameToTableValuedFunctionMap =
+    absl::flat_hash_map<std::string, std::unique_ptr<TableValuedFunction>>;
 
-std::pair<const NameToFunctionPtrMap&, const NameToTypeMap&>
-GetBuiltinFunctionsAndTypesForDefaultOptions() {
-  static const auto kFunctionsAndTypes =
-      []() -> std::pair<const NameToFunctionPtrMap&, const NameToTypeMap&> {
+BuiltinFunctionsAndTypes GetDefaultBuiltinFunctionsAndTypes() {
+  static const auto kFunctionsAndTypes = []() -> BuiltinFunctionsAndTypes {
     // Process lifetime.
     static auto& type_factory = *(new TypeFactory);
     static auto& types = *(new NameToTypeMap);
     static auto& unowned_functions = *(new NameToFunctionPtrMap);
+    static auto& unowned_table_valued_functions =
+        *(new NameToTableValuedFunctionPtrMap);
 
     NameToFunctionMap owned_functions;
+    NameToTableValuedFunctionMap owned_table_valued_functions;
     absl::Status status = GetBuiltinFunctionsAndTypes(
         BuiltinFunctionOptions::AllReleasedFunctions(), type_factory,
-        owned_functions, types);
+        owned_functions, types, owned_table_valued_functions);
     // Non-OK status can be returned if the builtins_options is configured
     // incorrectly, or if an internal invariant is broken do to a bug in the
     // ZetaSQL library.
@@ -68,18 +74,23 @@ GetBuiltinFunctionsAndTypesForDefaultOptions() {
     for (auto& [name, function] : owned_functions) {
       unowned_functions.emplace(name, function.release());
     }
-    return {unowned_functions, types};
+    for (auto& [name, function] : owned_table_valued_functions) {
+      unowned_table_valued_functions.emplace(name, function.release());
+    }
+    return BuiltinFunctionsAndTypes(unowned_functions, types,
+                                    unowned_table_valued_functions);
   }();
   return kFunctionsAndTypes;
 }
 
 static const FunctionIdToNameMap& GetFunctionIdToNameMap() {
-  static FunctionIdToNameMap* id_map = [] () {
+  static FunctionIdToNameMap* id_map = []() {
     // Initialize map from ZetaSQL function to function names.
     FunctionIdToNameMap* id_map = new FunctionIdToNameMap();
     TypeFactory type_factory;
     NameToTypeMap types_ignored;
     NameToFunctionMap functions;
+    NameToTableValuedFunctionMap table_valued_functions;
 
     // Enable the maximum language features.  This enables retrieving a maximum
     // set of functions and signatures.
@@ -92,9 +103,9 @@ static const FunctionIdToNameMap& GetFunctionIdToNameMap() {
     options.EnableMaximumLanguageFeaturesForDevelopment();
     options.set_product_mode(PRODUCT_INTERNAL);
 
-    absl::Status status =
-        GetBuiltinFunctionsAndTypes(BuiltinFunctionOptions(options),
-                                    type_factory, functions, types_ignored);
+    absl::Status status = GetBuiltinFunctionsAndTypes(
+        BuiltinFunctionOptions(options), type_factory, functions, types_ignored,
+        table_valued_functions);
     ZETASQL_DCHECK_OK(status);
 
     for (const auto& function_entry : functions) {
@@ -103,14 +114,28 @@ static const FunctionIdToNameMap& GetFunctionIdToNameMap() {
         if (signature.options().is_aliased_signature()) {
           continue;
         }
-        zetasql_base::InsertOrDie(
-            id_map,
-            static_cast<FunctionSignatureId>(signature.context_id()),
+        const bool inserted = zetasql_base::InsertIfNotPresent(
+            id_map, static_cast<FunctionSignatureId>(signature.context_id()),
             function_entry.first);
+        ABSL_DCHECK(inserted) << "Duplicate signature id: "
+                         << signature.context_id();
+      }
+    }
+    for (const auto& table_valued_function_entry : table_valued_functions) {
+      for (const FunctionSignature& signature :
+           table_valued_function_entry.second->signatures()) {
+        if (signature.options().is_aliased_signature()) {
+          continue;
+        }
+        const bool inserted = zetasql_base::InsertIfNotPresent(
+            id_map, static_cast<FunctionSignatureId>(signature.context_id()),
+            table_valued_function_entry.first);
+        ABSL_DCHECK(inserted) << "Duplicate signature id: "
+                         << signature.context_id();
       }
     }
     return id_map;
-  } ();
+  }();
   return *id_map;
 }
 
@@ -183,10 +208,10 @@ static absl::Status ValidateBuiltinFunctionsAgainstOptions(
   return absl::OkStatus();
 }
 
-absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
-                                         TypeFactory& type_factory,
-                                         NameToFunctionMap& functions,
-                                         NameToTypeMap& types) {
+absl::Status GetBuiltinFunctionsAndTypes(
+    const BuiltinFunctionOptions& options, TypeFactory& type_factory,
+    NameToFunctionMap& functions, NameToTypeMap& types,
+    NameToTableValuedFunctionMap& table_valued_functions) {
   // TODO: Enable these preconditions with global presubmit.
   // ZETASQL_RET_CHECK(types.empty());
   // ZETASQL_RET_CHECK(functions.empty());
@@ -229,6 +254,7 @@ absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
   if (options.language_options.LanguageFeatureEnabled(FEATURE_GEOGRAPHY)) {
     GetGeographyFunctions(&type_factory, options, &functions);
   }
+  GetCompressionFunctions(&type_factory, options, &functions);
   if (options.language_options.LanguageFeatureEnabled(FEATURE_ANONYMIZATION)) {
     GetAnonFunctions(&type_factory, options, &functions);
   }
@@ -267,9 +293,17 @@ absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
   return ValidateBuiltinFunctionsAgainstOptions(options, output_properties);
 }
 
+absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
+                                         TypeFactory& type_factory,
+                                         NameToFunctionMap& functions,
+                                         NameToTypeMap& types) {
+  NameToTableValuedFunctionMap table_valued_functions;
+  return GetBuiltinFunctionsAndTypes(options, type_factory, functions, types,
+                                     table_valued_functions);
+}
+
 bool FunctionMayHaveUnintendedArgumentCoercion(const Function* function) {
-  if (function->NumSignatures() == 0 ||
-      !function->ArgumentsAreCoercible()) {
+  if (function->NumSignatures() == 0 || !function->ArgumentsAreCoercible()) {
     return false;
   }
   // This only tests between signature arguments at the same argument
@@ -306,8 +340,7 @@ bool FunctionMayHaveUnintendedArgumentCoercion(const Function* function) {
         }
       }
     }
-    if (has_signed_arguments &&
-        has_floating_point_arguments &&
+    if (has_signed_arguments && has_floating_point_arguments &&
         !has_unsigned_arguments) {
       return true;
     }

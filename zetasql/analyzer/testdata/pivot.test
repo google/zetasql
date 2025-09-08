@@ -1,4 +1,4 @@
-[default language_features=PIVOT,NUMERIC_TYPE,BIGNUMERIC_TYPE,CIVIL_TIME,GROUP_BY_ARRAY,GROUP_BY_STRUCT,TABLESAMPLE,IS_DISTINCT,NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,HAVING_IN_AGGREGATE]
+[default language_features=MAXIMUM,+PIVOT,+NUMERIC_TYPE,+BIGNUMERIC_TYPE,+CIVIL_TIME,+GROUP_BY_ARRAY,+GROUP_BY_STRUCT,+TABLESAMPLE,+IS_DISTINCT,+NULL_HANDLING_MODIFIER_IN_AGGREGATE,+ORDER_BY_IN_AGGREGATE,+LIMIT_IN_AGGREGATE,+HAVING_IN_AGGREGATE]
 
 # ERROR: Pivot on value table via UNNEST
 SELECT * FROM UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN (0, 1));
@@ -8,7 +8,7 @@ SELECT * FROM UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN (0, 1));
                                      ^
 ==
 
-[language_features=PIVOT{{|,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
+[language_features=NONE,+PIVOT{{|,+DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
 # 2 UNNESTs
 SELECT * FROM UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN (0, 1));
 --
@@ -41,14 +41,14 @@ PIVOT is not allowed with array scans. This will become an error [at 2:63]
                                                    ^
 [zetasql.DeprecationWarning] { kind: PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN }
 --
-ALTERNATION GROUP: ,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
+ALTERNATION GROUP: ,+DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
 --
 ERROR: PIVOT is not allowed with array scans [at 2:63]
 ...UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key...
                                                    ^
 ==
 
-[language_features=PIVOT{{|,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
+[language_features=NONE,+PIVOT{{|,+DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
 # Table with UNNEST
 SELECT * FROM KeyValue, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN (0, 1));
 --
@@ -78,14 +78,14 @@ SELECT * FROM KeyValue, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN ...
                                                ^
 [zetasql.DeprecationWarning] { kind: PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN }
 --
-ALTERNATION GROUP: ,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
+ALTERNATION GROUP: ,+DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
 --
 ERROR: PIVOT is not allowed with array scans [at 2:48]
 SELECT * FROM KeyValue, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN ...
                                                ^
 ==
 
-[language_features=PIVOT{{|,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
+[language_features=NONE,+PIVOT{{|,+DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
 # Table with 2 UNNESTs
 SELECT * FROM KeyValue, UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN (0, 1));
 --
@@ -122,14 +122,14 @@ PIVOT is not allowed with array scans. This will become an error [at 2:73]
                                                    ^
 [zetasql.DeprecationWarning] { kind: PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN }
 --
-ALTERNATION GROUP: ,DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
+ALTERNATION GROUP: ,+DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
 --
 ERROR: PIVOT is not allowed with array scans [at 2:73]
 ...UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key...
                                                    ^
 ==
 
-[language_features={{|PIVOT,IS_DISTINCT|PIVOT,IS_DISTINCT,SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=NONE,{{|+PIVOT,+IS_DISTINCT|+PIVOT,+IS_DISTINCT,+SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(COUNT(Value) FOR Key IN (0 AS zero, 1 AS one));
 --
@@ -139,7 +139,7 @@ ERROR: PIVOT is not supported [at 1:24]
 SELECT * FROM KeyValue PIVOT(COUNT(Value) FOR Key IN (0 AS zero, 1 AS one));
                        ^
 --
-ALTERNATION GROUP: PIVOT,IS_DISTINCT
+ALTERNATION GROUP: +PIVOT,+IS_DISTINCT
 --
 QueryStmt
 +-output_column_list=
@@ -243,7 +243,7 @@ QueryStmt
                         +-input_scan=
                           +-SingleRowScan
 --
-ALTERNATION GROUP: PIVOT,IS_DISTINCT,SIMPLIFY_PIVOT_REWRITE
+ALTERNATION GROUP: +PIVOT,+IS_DISTINCT,+SIMPLIFY_PIVOT_REWRITE
 --
 QueryStmt
 +-output_column_list=
@@ -308,7 +308,7 @@ QueryStmt
                 +-Literal(type=STRING, value=NULL)
 ==
 
-[language_features={{|PIVOT}}]
+[language_features=NONE,{{|+PIVOT}}]
 SELECT * FROM (SELECT Key, Value FROM KeyValue) PIVOT(COUNT(Value) FOR Key IN (0 AS zero, 1 AS one));
 --
 ALTERNATION GROUP: <empty>
@@ -317,7 +317,7 @@ ERROR: PIVOT is not supported [at 1:49]
 SELECT * FROM (SELECT Key, Value FROM KeyValue) PIVOT(COUNT(Value) FOR Key IN...
                                                 ^
 --
-ALTERNATION GROUP: PIVOT
+ALTERNATION GROUP: +PIVOT
 --
 QueryStmt
 +-output_column_list=
@@ -351,16 +351,16 @@ QueryStmt
           +-PivotColumn(column=$pivot.one#7, pivot_expr_index=0, pivot_value_index=1)
 ==
 
-[language_features={{TABLE_VALUED_FUNCTIONS|TABLE_VALUED_FUNCTIONS,PIVOT}}]
+[language_features=NONE,{{+TABLE_VALUED_FUNCTIONS|+TABLE_VALUED_FUNCTIONS,+PIVOT}}]
 select 1 from tvf_no_args() PIVOT(COUNT(column_bytes) FOR column_bool IN (TRUE AS t, FALSE AS f));
 --
-ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS
+ALTERNATION GROUP: +TABLE_VALUED_FUNCTIONS
 --
 ERROR: PIVOT is not supported [at 1:29]
 select 1 from tvf_no_args() PIVOT(COUNT(column_bytes) FOR column_bool IN (TRU...
                             ^
 --
-ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS,PIVOT
+ALTERNATION GROUP: +TABLE_VALUED_FUNCTIONS,+PIVOT
 --
 QueryStmt
 +-output_column_list=
@@ -385,18 +385,18 @@ QueryStmt
           +-Literal(type=BOOL, value=false)
 ==
 
-[language_features={{TABLE_VALUED_FUNCTIONS|TABLE_VALUED_FUNCTIONS,PIVOT}}]
+[language_features=NONE,{{+TABLE_VALUED_FUNCTIONS|+TABLE_VALUED_FUNCTIONS,+PIVOT}}]
 select * from tvf_one_relation_arg_with_fixed_output(
     (SELECT * FROM (SELECT Key, Value FROM KeyValue) PIVOT(COUNT(Value)
     FOR Key IN (0 AS zero, 1 AS one))));
 --
-ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS
+ALTERNATION GROUP: +TABLE_VALUED_FUNCTIONS
 --
 ERROR: PIVOT is not supported [at 2:54]
     (SELECT * FROM (SELECT Key, Value FROM KeyValue) PIVOT(COUNT(Value)
                                                      ^
 --
-ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS,PIVOT
+ALTERNATION GROUP: +TABLE_VALUED_FUNCTIONS,+PIVOT
 --
 QueryStmt
 +-output_column_list=
@@ -443,17 +443,17 @@ QueryStmt
         +-function_call_signature=(ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
-[language_features={{TABLE_VALUED_FUNCTIONS|TABLE_VALUED_FUNCTIONS,PIVOT}}]
+[language_features=NONE,{{+TABLE_VALUED_FUNCTIONS|+TABLE_VALUED_FUNCTIONS,+PIVOT}}]
 SELECT * FROM KeyValue, KeyValue
 PIVOT(COUNT(Key) FOR Value IN ('Value_1' AS v1, 'Value_2' AS v2));
 --
-ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS
+ALTERNATION GROUP: +TABLE_VALUED_FUNCTIONS
 --
 ERROR: PIVOT is not supported [at 2:1]
 PIVOT(COUNT(Key) FOR Value IN ('Value_1' AS v1, 'Value_2' AS v2));
 ^
 --
-ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS,PIVOT
+ALTERNATION GROUP: +TABLE_VALUED_FUNCTIONS,+PIVOT
 --
 QueryStmt
 +-output_column_list=
@@ -599,7 +599,7 @@ SELECT * FROM KeyValue PIVOT(1 + SUM(Key) FOR Key IN (0, 1));
 ==
 
 # Zero-argument aggregate function in pivot expr
-[language_features=PIVOT,IS_DISTINCT{{|,SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=NONE,+PIVOT,+IS_DISTINCT{{|,+SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(COUNT(*) FOR Key IN (0 AS zero, 1 AS one));
 --
@@ -700,7 +700,7 @@ QueryStmt
                         +-input_scan=
                           +-SingleRowScan
 --
-ALTERNATION GROUP: ,SIMPLIFY_PIVOT_REWRITE
+ALTERNATION GROUP: ,+SIMPLIFY_PIVOT_REWRITE
 --
 QueryStmt
 +-output_column_list=
@@ -763,7 +763,7 @@ QueryStmt
 ==
 
 # Two-argument aggregate function in pivot expr
-[language_features=PIVOT,IS_DISTINCT{{|,SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=NONE,+PIVOT,+IS_DISTINCT{{|,+SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(CORR(Key, Key + 1) FOR Key IN (0 AS zero, 1 AS one));
 --
@@ -891,7 +891,7 @@ QueryStmt
               |           +-SingleRowScan
               +-ColumnRef(type=DOUBLE, column=$pivot.$pivot_expr_arg#9)
 --
-ALTERNATION GROUP: ,SIMPLIFY_PIVOT_REWRITE
+ALTERNATION GROUP: ,+SIMPLIFY_PIVOT_REWRITE
 --
 QueryStmt
 +-output_column_list=
@@ -1081,13 +1081,210 @@ QueryStmt
           +-PivotColumn(column=$pivot.v2#6, pivot_expr_index=0, pivot_value_index=1)
 ==
 
-# IN exprs with named constants, query parameters and system variables
+[language_features=NONE,{{+ANALYSIS_CONSTANT_PIVOT_COLUMN,|}}+PIVOT]
+# IN exprs with named constant, query parameter and system variable.
 SELECT * FROM KeyValue
 PIVOT(SUM(Key) FOR Key IN (TestConstantInt64, @@int64_system_variable,
                            @test_param_int32));
 --
-ERROR: Generating an implicit alias for this PIVOT value is not supported; please provide an explicit alias [at 2:28]
+ALTERNATION GROUP: +ANALYSIS_CONSTANT_PIVOT_COLUMN,
+--
+ERROR: Generating an implicit alias for this PIVOT value is not supported; please provide an explicit alias [at 3:47]
 PIVOT(SUM(Key) FOR Key IN (TestConstantInt64, @@int64_system_variable,
+                                              ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Generating an implicit alias for this PIVOT value is not supported; please provide an explicit alias [at 3:28]
+PIVOT(SUM(Key) FOR Key IN (TestConstantInt64, @@int64_system_variable,
+                           ^
+==
+
+[prepare_database=db1]
+[use_constant_evaluator]
+CREATE CONSTANT TEST_DATE = CAST('2024-01-01' AS DATE);
+--
+CreateConstantStmt
++-name_path=TEST_DATE
++-expr=
+  +-Literal(type=DATE, value=2024-01-01, has_explicit_type=TRUE)
+==
+
+[prepare_database=db1]
+[use_constant_evaluator]
+CREATE CONSTANT TEST_TIME = CAST('12:34:56' AS TIME);
+--
+CreateConstantStmt
++-name_path=TEST_TIME
++-expr=
+  +-Literal(type=TIME, value=12:34:56, has_explicit_type=TRUE)
+==
+
+[prepare_database=db1]
+[use_constant_evaluator]
+CREATE CONSTANT SQLCONSTANT = 1;
+--
+CreateConstantStmt
++-name_path=SQLCONSTANT
++-expr=
+  +-Literal(type=INT64, value=1)
+==
+
+[language_features=NONE,{{+ANALYSIS_CONSTANT_PIVOT_COLUMN,|}}+PIVOT]
+[use_database=db1]
+# IN exprs with sql constants.
+SELECT * FROM KeyValue
+PIVOT(SUM(Key) FOR Key IN (SQLCONSTANT));
+--
+ALTERNATION GROUP: +ANALYSIS_CONSTANT_PIVOT_COLUMN,
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.Value#4 AS Value [STRING]
+| +-$pivot._1#5 AS _1 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.Value#4, $pivot._1#5]
+    +-input_scan=
+      +-PivotScan
+        +-column_list=[$groupby.Value#4, $pivot._1#5]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-Value#4 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        +-pivot_expr_list=
+        | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |   +-parse_location=60-68
+        |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-for_expr=
+        | +-ColumnRef(parse_location=73-76, type=INT64, column=KeyValue.Key#1)
+        +-pivot_value_list=
+        | +-Constant(SQLCONSTANT, type=INT64, value=1)
+        +-pivot_column_list=
+          +-PivotColumn(column=$pivot._1#5, pivot_expr_index=0, pivot_value_index=0)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Generating an implicit alias for this PIVOT value is not supported; please provide an explicit alias [at 3:28]
+PIVOT(SUM(Key) FOR Key IN (SQLCONSTANT));
+                           ^
+==
+
+[language_features=NONE,{{+ANALYSIS_CONSTANT_PIVOT_COLUMN,|}}+PIVOT]
+[enabled_ast_rewrites=DEFAULTS]
+
+# IN exprs with named constants.
+SELECT * FROM KeyValue
+PIVOT(SUM(Key) FOR Key IN (TestConstantInt64));
+--
+ALTERNATION GROUP: +ANALYSIS_CONSTANT_PIVOT_COLUMN,
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.Value#4 AS Value [STRING]
+| +-$pivot._1#5 AS _1 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.Value#4, $pivot._1#5]
+    +-input_scan=
+      +-PivotScan
+        +-column_list=[$groupby.Value#4, $pivot._1#5]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-Value#4 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        +-pivot_expr_list=
+        | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |   +-parse_location=62-70
+        |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-for_expr=
+        | +-ColumnRef(parse_location=75-78, type=INT64, column=KeyValue.Key#1)
+        +-pivot_value_list=
+        | +-Constant(TestConstantInt64, type=INT64, value=1)
+        +-pivot_column_list=
+          +-PivotColumn(column=$pivot._1#5, pivot_expr_index=0, pivot_value_index=0)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.Value#4 AS Value [STRING]
+| +-$pivot._1#5 AS _1 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.Value#4, $pivot._1#5]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.Value#4, $pivot._1#5]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pivot.$pivot_value#6, $pivot.$pivot_expr_arg#7]
+        |   +-expr_list=
+        |   | +-$pivot_value#6 := ColumnRef(parse_location=75-78, type=INT64, column=KeyValue.Key#1)
+        |   | +-$pivot_expr_arg#7 := ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   +-input_scan=
+        |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-Value#4 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        +-aggregate_list=
+          +-_1#5 :=
+            +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+              +-SubqueryExpr
+                +-type=INT64
+                +-subquery_type=SCALAR
+                +-parameter_list=
+                | +-ColumnRef(type=INT64, column=$pivot.$pivot_value#6)
+                | +-ColumnRef(type=INT64, column=$pivot.$pivot_expr_arg#7)
+                +-subquery=
+                  +-ProjectScan
+                    +-column_list=[$expr_subquery.$col1#14]
+                    +-expr_list=
+                    | +-$col1#14 :=
+                    |   +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+                    |     +-SubqueryExpr
+                    |     | +-type=BOOL
+                    |     | +-subquery_type=EXISTS
+                    |     | +-parameter_list=
+                    |     | | +-ColumnRef(type=INT64, column=$subquery1.pivot_column#9)
+                    |     | | +-ColumnRef(type=INT64, column=$subquery1.pivot_value#10)
+                    |     | +-subquery=
+                    |     |   +-SetOperationScan
+                    |     |     +-column_list=[$intersect_all.pivot_column#13]
+                    |     |     +-op_type=INTERSECT_ALL
+                    |     |     +-input_item_list=
+                    |     |       +-SetOperationItem
+                    |     |       | +-scan=
+                    |     |       | | +-ProjectScan
+                    |     |       | |   +-column_list=[$intersect_all1.pivot_column#11]
+                    |     |       | |   +-expr_list=
+                    |     |       | |   | +-pivot_column#11 := ColumnRef(type=INT64, column=$subquery1.pivot_column#9, is_correlated=TRUE)
+                    |     |       | |   +-input_scan=
+                    |     |       | |     +-SingleRowScan
+                    |     |       | +-output_column_list=[$intersect_all1.pivot_column#11]
+                    |     |       +-SetOperationItem
+                    |     |         +-scan=
+                    |     |         | +-ProjectScan
+                    |     |         |   +-column_list=[$intersect_all2.pivot_value#12]
+                    |     |         |   +-expr_list=
+                    |     |         |   | +-pivot_value#12 := ColumnRef(type=INT64, column=$subquery1.pivot_value#10, is_correlated=TRUE)
+                    |     |         |   +-input_scan=
+                    |     |         |     +-SingleRowScan
+                    |     |         +-output_column_list=[$intersect_all2.pivot_value#12]
+                    |     +-ColumnRef(type=INT64, column=$subquery1.orig_arg#8)
+                    |     +-Literal(type=INT64, value=NULL)
+                    +-input_scan=
+                      +-ProjectScan
+                        +-column_list=$subquery1.[orig_arg#8, pivot_column#9, pivot_value#10]
+                        +-expr_list=
+                        | +-orig_arg#8 := ColumnRef(type=INT64, column=$pivot.$pivot_expr_arg#7, is_correlated=TRUE)
+                        | +-pivot_column#9 := ColumnRef(type=INT64, column=$pivot.$pivot_value#6, is_correlated=TRUE)
+                        | +-pivot_value#10 := Constant(TestConstantInt64, type=INT64, value=1)
+                        +-input_scan=
+                          +-SingleRowScan
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Generating an implicit alias for this PIVOT value is not supported; please provide an explicit alias [at 3:28]
+PIVOT(SUM(Key) FOR Key IN (TestConstantInt64));
                            ^
 ==
 
@@ -1263,7 +1460,7 @@ QueryStmt
 ==
 
 # Multiple pivot exprs, with and without aliases
-[language_features=PIVOT,IS_DISTINCT{{|,SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=NONE,+PIVOT,+IS_DISTINCT{{|,+SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue
 PIVOT(
@@ -1647,8 +1844,8 @@ QueryStmt
 ALTERNATION GROUPS:
      AS sum_key_plus_1,,AS one
      AS sum_key_plus_1,,
-    ,SIMPLIFY_PIVOT_REWRITE, AS sum_key_plus_1,,AS one
-    ,SIMPLIFY_PIVOT_REWRITE, AS sum_key_plus_1,,
+    ,+SIMPLIFY_PIVOT_REWRITE, AS sum_key_plus_1,,AS one
+    ,+SIMPLIFY_PIVOT_REWRITE, AS sum_key_plus_1,,
 --
 ERROR: PIVOT expression must specify an alias unless it is the only pivot expression in the PIVOT clause [at 4:3]
   AVG(Key + 1)
@@ -1659,16 +1856,16 @@ ALTERNATION GROUPS:
      AS avg_key_plus_1,
     AS one
     <empty>
-    ,SIMPLIFY_PIVOT_REWRITE,, AS avg_key_plus_1,AS one
-    ,SIMPLIFY_PIVOT_REWRITE,, AS avg_key_plus_1,
-    ,SIMPLIFY_PIVOT_REWRITE,,,AS one
-    ,SIMPLIFY_PIVOT_REWRITE,,,
+    ,+SIMPLIFY_PIVOT_REWRITE,, AS avg_key_plus_1,AS one
+    ,+SIMPLIFY_PIVOT_REWRITE,, AS avg_key_plus_1,
+    ,+SIMPLIFY_PIVOT_REWRITE,,,AS one
+    ,+SIMPLIFY_PIVOT_REWRITE,,,
 --
 ERROR: PIVOT expression must specify an alias unless it is the only pivot expression in the PIVOT clause [at 3:3]
   SUM(Key + 1),
   ^
 --
-ALTERNATION GROUP: ,SIMPLIFY_PIVOT_REWRITE, AS sum_key_plus_1, AS avg_key_plus_1,AS one
+ALTERNATION GROUP: ,+SIMPLIFY_PIVOT_REWRITE, AS sum_key_plus_1, AS avg_key_plus_1,AS one
 --
 QueryStmt
 +-output_column_list=
@@ -1774,7 +1971,7 @@ QueryStmt
                 +-ColumnRef(type=INT64, column=$pivot.$pivot_expr_arg#12)
                 +-Literal(type=INT64, value=NULL)
 --
-ALTERNATION GROUP: ,SIMPLIFY_PIVOT_REWRITE, AS sum_key_plus_1, AS avg_key_plus_1,
+ALTERNATION GROUP: ,+SIMPLIFY_PIVOT_REWRITE, AS sum_key_plus_1, AS avg_key_plus_1,
 --
 QueryStmt
 +-output_column_list=
@@ -4344,14 +4541,14 @@ QueryStmt
 ==
 
 # Aggregate function not on allowlist, but supports null handling modifiers
-[language_features=PIVOT,IS_DISTINCT,NULL_HANDLING_MODIFIER_IN_AGGREGATE{{|,SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=NONE,+PIVOT,+IS_DISTINCT,+NULL_HANDLING_MODIFIER_IN_AGGREGATE{{|,+SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(ARRAY_AGG(Value {{|IGNORE NULLS|RESPECT NULLS}})
 FOR Key IN (0 AS zero, 1 AS one));
 --
 ALTERNATION GROUPS:
     <empty>
-    ,SIMPLIFY_PIVOT_REWRITE,
+    ,+SIMPLIFY_PIVOT_REWRITE,
 --
 [PRE-REWRITE AST]
 QueryStmt
@@ -4492,7 +4689,7 @@ QueryStmt
 --
 ALTERNATION GROUPS:
     RESPECT NULLS
-    ,SIMPLIFY_PIVOT_REWRITE,RESPECT NULLS
+    ,+SIMPLIFY_PIVOT_REWRITE,RESPECT NULLS
 --
 [PRE-REWRITE AST]
 QueryStmt
@@ -4525,7 +4722,7 @@ Rewrite ERROR: generic::unimplemented: Use of RESPECT NULLS in aggregate functio
 SELECT * FROM KeyValue PIVOT(ARRAY_AGG(Value RESPECT NULLS)
                              ^
 --
-ALTERNATION GROUP: ,SIMPLIFY_PIVOT_REWRITE,IGNORE NULLS
+ALTERNATION GROUP: ,+SIMPLIFY_PIVOT_REWRITE,IGNORE NULLS
 --
 QueryStmt
 +-output_column_list=
@@ -4596,7 +4793,7 @@ QueryStmt
 # Aggregate function not on allowlist and doesn't supports null handling
 # modifiers
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=PIVOT,IS_DISTINCT,NULL_HANDLING_MODIFIER_IN_AGGREGATE{{|,SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=NONE,+PIVOT,+IS_DISTINCT,+NULL_HANDLING_MODIFIER_IN_AGGREGATE{{|,+SIMPLIFY_PIVOT_REWRITE}}]
 SELECT * FROM KeyValue PIVOT(
   APPROX_TOP_COUNT(Value, 1)FOR Key IN (0 AS zero, 1 AS one));
 --
@@ -4634,7 +4831,7 @@ Rewrite ERROR: generic::unimplemented: Use of aggregate function APPROX_TOP_COUN
 
 # While ANY_VALUE() is a null-respecting function, it is special-cased in the
 # PIVOT rewriter to work.
-[language_features=PIVOT,IS_DISTINCT,NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,HAVING_IN_AGGREGATE{{|,SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=NONE,+PIVOT,+IS_DISTINCT,+NULL_HANDLING_MODIFIER_IN_AGGREGATE,+ORDER_BY_IN_AGGREGATE,+LIMIT_IN_AGGREGATE,+HAVING_IN_AGGREGATE{{|,+SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(ANY_VALUE(Value) FOR Key IN (0 AS zero, 1 AS one));
 --
@@ -4794,7 +4991,7 @@ QueryStmt
                   +-limit=
                     +-Literal(type=INT64, value=1)
 --
-ALTERNATION GROUP: ,SIMPLIFY_PIVOT_REWRITE
+ALTERNATION GROUP: ,+SIMPLIFY_PIVOT_REWRITE
 --
 QueryStmt
 +-output_column_list=
@@ -4913,7 +5110,7 @@ QueryStmt
 
 # ANY_VALUE() for array types has special rewriter implementation
 # to avoid arrays of arrays
-[language_features=PIVOT,IS_DISTINCT,NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,HAVING_IN_AGGREGATE{{|,SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=NONE,+PIVOT,+IS_DISTINCT,+NULL_HANDLING_MODIFIER_IN_AGGREGATE,+ORDER_BY_IN_AGGREGATE,+LIMIT_IN_AGGREGATE,+HAVING_IN_AGGREGATE{{|,+SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(
   ANY_VALUE([Value]) FOR Key IN (0 AS zero, 1 AS one));
@@ -5137,7 +5334,7 @@ QueryStmt
                   +-limit=
                     +-Literal(type=INT64, value=1)
 --
-ALTERNATION GROUP: ,SIMPLIFY_PIVOT_REWRITE
+ALTERNATION GROUP: ,+SIMPLIFY_PIVOT_REWRITE
 --
 QueryStmt
 +-output_column_list=
@@ -5318,7 +5515,7 @@ QueryStmt
 ==
 
 # Make sure the rewritten version of ANY_VALUE() handles groupby columns
-[language_features=PIVOT,IS_DISTINCT,NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,HAVING_IN_AGGREGATE{{|,SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=NONE,+PIVOT,+IS_DISTINCT,+NULL_HANDLING_MODIFIER_IN_AGGREGATE,+ORDER_BY_IN_AGGREGATE,+LIMIT_IN_AGGREGATE,+HAVING_IN_AGGREGATE{{|,+SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM (SELECT Key, Value, Key + 1 AS kp1 FROM KeyValue)
 PIVOT(ANY_VALUE(Value) FOR Key IN (0 AS zero, 1 AS one));
@@ -5505,7 +5702,7 @@ QueryStmt
                   +-limit=
                     +-Literal(type=INT64, value=1)
 --
-ALTERNATION GROUP: ,SIMPLIFY_PIVOT_REWRITE
+ALTERNATION GROUP: ,+SIMPLIFY_PIVOT_REWRITE
 --
 QueryStmt
 +-output_column_list=
@@ -5651,7 +5848,7 @@ QueryStmt
 # Analyzer not on allowlist and function supports null-handling modifiers,
 # but this time, the language option to enable null-handling modifiers is not
 # enabled.
-[language_features=PIVOT,IS_DISTINCT{{|,SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=NONE,+PIVOT,+IS_DISTINCT{{|,+SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(ARRAY_AGG(Value) FOR Key IN (0 AS zero, 1 AS one));
 --
@@ -5688,7 +5885,7 @@ SELECT * FROM KeyValue PIVOT(ARRAY_AGG(Value) FOR Key IN (0 AS zero, 1 AS one));
 
 # Rewriter still works when PIVOT is enabled without IS DISTINCT FROM feature
 # (which the pivot rewriter makes use of internally)
-[language_features=PIVOT{{|,SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=NONE,+PIVOT{{|,+SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(COUNT(Value) FOR Key IN (0 AS zero, 1 AS one));
 --
@@ -6419,7 +6616,7 @@ QueryStmt
 ==
 
 # Subquery in PIVOT expr (not supported by rewriter)
-[language_features=PIVOT,IS_DISTINCT{{|,SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=NONE,+PIVOT,+IS_DISTINCT{{|,+SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * From KeyValue2
   PIVOT(
@@ -6569,7 +6766,7 @@ QueryStmt
                         +-input_scan=
                           +-SingleRowScan
 --
-ALTERNATION GROUP: ,SIMPLIFY_PIVOT_REWRITE
+ALTERNATION GROUP: ,+SIMPLIFY_PIVOT_REWRITE
 --
 QueryStmt
 +-output_column_list=
@@ -6679,7 +6876,7 @@ QueryStmt
 #
 # (Overriding feature options, as FEATURE_GROUP_BY_STRUCT must be off for
 #  this test).
-[language_features=PIVOT]
+[language_features=NONE,+PIVOT]
 select * from (
     select struct(1,2), 100 AS y union all
     select struct(1,2), 101 AS y union all
@@ -6698,7 +6895,7 @@ PIVOT(SUM(y) FOR true in (true));
 #
 # (Overriding feature options, as FEATURE_GROUP_BY_STRUCT must be off for
 #  this test).
-[language_features=PIVOT]
+[language_features=NONE,+PIVOT]
 select * from (
     select struct(1,2) AS x, 100 AS y union all
     select struct(1,2) AS x, 101 AS y union all
@@ -6713,7 +6910,7 @@ PIVOT(SUM(y) FOR true in (true));
 ==
 
 [mode=expression]
-[language_features=PIVOT,IS_DISTINCT{{|,SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=NONE,+PIVOT,+IS_DISTINCT{{|,+SIMPLIFY_PIVOT_REWRITE}}]
 [enabled_ast_rewrites=ALL]
 ARRAY(
   SELECT AS STRUCT * FROM KeyValue PIVOT(COUNT(Value) FOR Key IN (0 AS zero, 1 AS one))
@@ -6841,7 +7038,7 @@ SubqueryExpr
                             +-input_scan=
                               +-SingleRowScan
 --
-ALTERNATION GROUP: ,SIMPLIFY_PIVOT_REWRITE
+ALTERNATION GROUP: ,+SIMPLIFY_PIVOT_REWRITE
 --
 SubqueryExpr
 +-type=ARRAY<STRUCT<zero INT64, one INT64>>
@@ -7005,7 +7202,7 @@ ERROR: Unrecognized name: product [at 16:20]
                    ^
 ==
 
-[language_features=PIVOT,UNNEST_AND_FLATTEN_ARRAYS]
+[language_features=NONE,+PIVOT,+UNNEST_AND_FLATTEN_ARRAYS]
 # Regression test for b/330921238: IN expr used with constant FLATTEN expression
 SELECT * FROM KeyValue
 PIVOT(SUM(Key) FOR Key IN (
@@ -7057,7 +7254,7 @@ QueryStmt
           +-PivotColumn(column=$pivot.v2#6, pivot_expr_index=0, pivot_value_index=1)
 ==
 
-[language_features=PIVOT,UNNEST_AND_FLATTEN_ARRAYS,GROUP_BY_STRUCT,GROUP_BY_ARRAY]
+[language_features=NONE,+PIVOT,+UNNEST_AND_FLATTEN_ARRAYS,+GROUP_BY_STRUCT,+GROUP_BY_ARRAY]
 # Regression test for b/330921238: IN expr used with constant FLATTEN expression
 WITH T AS (
   SELECT 'hello' AS x, STRUCT([STRUCT(1 AS quantity), STRUCT(2 AS quantity)] AS sales) AS y, 100 AS z, 1 AS quantity
@@ -7073,3 +7270,375 @@ ERROR: IN expression in PIVOT clause must be constant [at 8:3]
   ^
 ==
 
+[prepare_database=db1]
+[use_constant_evaluator]
+CREATE CONSTANT QUARTER1 = 'Q1';
+--
+CreateConstantStmt
++-name_path=QUARTER1
++-expr=
+  +-Literal(type=STRING, value="Q1")
+==
+
+[prepare_database=db1]
+[use_constant_evaluator]
+CREATE CONSTANT INT_CATEGORY_A = 10;
+--
+CreateConstantStmt
++-name_path=INT_CATEGORY_A
++-expr=
+  +-Literal(type=INT64, value=10)
+==
+
+[prepare_database=db1]
+[use_constant_evaluator]
+CREATE CONSTANT ITEM1 = STRUCT< value INT64, value2 INT64 > (1, 2);
+--
+CreateConstantStmt
++-name_path=ITEM1
++-expr=
+  +-Literal(type=STRUCT<value INT64, value2 INT64>, value={value:1, value2:2}, has_explicit_type=TRUE)
+==
+
+[use_database=db1]
+[language_features=NONE,+PIVOT,+ANALYSIS_CONSTANT_PIVOT_COLUMN]
+WITH PRODUCE AS (
+  SELECT 'Kale' as product, 51 as sales, 'Q1' as quarter, 2020 as year UNION ALL
+  SELECT 'Kale', 3, 'Q1', 2020 UNION ALL
+  SELECT 'Kale', NULL, 'Q1', 2020 UNION ALL
+  SELECT 'Kale', 23, 'Q2', 2020 UNION ALL
+  SELECT 'Kale', 45, 'Q3', 2020 UNION ALL
+  SELECT 'Kale', 3, 'Q4', 2020
+)
+SELECT *
+FROM
+  Produce
+    PIVOT(
+      SUM(sales)
+        FOR
+          quarter IN (QUARTER1)
+    );
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.product#34 AS product [STRING]
+| +-$groupby.year#35 AS year [INT64]
+| +-$pivot.Q1#36 AS Q1 [INT64]
++-query=
+  +-WithScan
+    +-column_list=[$groupby.product#34, $groupby.year#35, $pivot.Q1#36]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="PRODUCE"
+    |   +-with_subquery=
+    |     +-SetOperationScan
+    |       +-column_list=$union_all.[product#25, sales#26, quarter#27, year#28]
+    |       +-op_type=UNION_ALL
+    |       +-input_item_list=
+    |         +-SetOperationItem
+    |         | +-scan=
+    |         | | +-ProjectScan
+    |         | |   +-column_list=$union_all1.[product#1, sales#2, quarter#3, year#4]
+    |         | |   +-expr_list=
+    |         | |   | +-product#1 := Literal(type=STRING, value="Kale")
+    |         | |   | +-sales#2 := Literal(type=INT64, value=51)
+    |         | |   | +-quarter#3 := Literal(type=STRING, value="Q1")
+    |         | |   | +-year#4 := Literal(type=INT64, value=2020)
+    |         | |   +-input_scan=
+    |         | |     +-SingleRowScan
+    |         | +-output_column_list=$union_all1.[product#1, sales#2, quarter#3, year#4]
+    |         +-SetOperationItem
+    |         | +-scan=
+    |         | | +-ProjectScan
+    |         | |   +-column_list=$union_all2.[$col1#5, $col2#6, $col3#7, $col4#8]
+    |         | |   +-expr_list=
+    |         | |   | +-$col1#5 := Literal(type=STRING, value="Kale")
+    |         | |   | +-$col2#6 := Literal(type=INT64, value=3)
+    |         | |   | +-$col3#7 := Literal(type=STRING, value="Q1")
+    |         | |   | +-$col4#8 := Literal(type=INT64, value=2020)
+    |         | |   +-input_scan=
+    |         | |     +-SingleRowScan
+    |         | +-output_column_list=$union_all2.[$col1#5, $col2#6, $col3#7, $col4#8]
+    |         +-SetOperationItem
+    |         | +-scan=
+    |         | | +-ProjectScan
+    |         | |   +-column_list=$union_all3.[$col1#9, $col2#10, $col3#11, $col4#12]
+    |         | |   +-expr_list=
+    |         | |   | +-$col1#9 := Literal(type=STRING, value="Kale")
+    |         | |   | +-$col2#10 := Literal(type=INT64, value=NULL)
+    |         | |   | +-$col3#11 := Literal(type=STRING, value="Q1")
+    |         | |   | +-$col4#12 := Literal(type=INT64, value=2020)
+    |         | |   +-input_scan=
+    |         | |     +-SingleRowScan
+    |         | +-output_column_list=$union_all3.[$col1#9, $col2#10, $col3#11, $col4#12]
+    |         +-SetOperationItem
+    |         | +-scan=
+    |         | | +-ProjectScan
+    |         | |   +-column_list=$union_all4.[$col1#13, $col2#14, $col3#15, $col4#16]
+    |         | |   +-expr_list=
+    |         | |   | +-$col1#13 := Literal(type=STRING, value="Kale")
+    |         | |   | +-$col2#14 := Literal(type=INT64, value=23)
+    |         | |   | +-$col3#15 := Literal(type=STRING, value="Q2")
+    |         | |   | +-$col4#16 := Literal(type=INT64, value=2020)
+    |         | |   +-input_scan=
+    |         | |     +-SingleRowScan
+    |         | +-output_column_list=$union_all4.[$col1#13, $col2#14, $col3#15, $col4#16]
+    |         +-SetOperationItem
+    |         | +-scan=
+    |         | | +-ProjectScan
+    |         | |   +-column_list=$union_all5.[$col1#17, $col2#18, $col3#19, $col4#20]
+    |         | |   +-expr_list=
+    |         | |   | +-$col1#17 := Literal(type=STRING, value="Kale")
+    |         | |   | +-$col2#18 := Literal(type=INT64, value=45)
+    |         | |   | +-$col3#19 := Literal(type=STRING, value="Q3")
+    |         | |   | +-$col4#20 := Literal(type=INT64, value=2020)
+    |         | |   +-input_scan=
+    |         | |     +-SingleRowScan
+    |         | +-output_column_list=$union_all5.[$col1#17, $col2#18, $col3#19, $col4#20]
+    |         +-SetOperationItem
+    |           +-scan=
+    |           | +-ProjectScan
+    |           |   +-column_list=$union_all6.[$col1#21, $col2#22, $col3#23, $col4#24]
+    |           |   +-expr_list=
+    |           |   | +-$col1#21 := Literal(type=STRING, value="Kale")
+    |           |   | +-$col2#22 := Literal(type=INT64, value=3)
+    |           |   | +-$col3#23 := Literal(type=STRING, value="Q4")
+    |           |   | +-$col4#24 := Literal(type=INT64, value=2020)
+    |           |   +-input_scan=
+    |           |     +-SingleRowScan
+    |           +-output_column_list=$union_all6.[$col1#21, $col2#22, $col3#23, $col4#24]
+    +-query=
+      +-ProjectScan
+        +-column_list=[$groupby.product#34, $groupby.year#35, $pivot.Q1#36]
+        +-input_scan=
+          +-PivotScan
+            +-column_list=[$groupby.product#34, $groupby.year#35, $pivot.Q1#36]
+            +-input_scan=
+            | +-WithRefScan(column_list=PRODUCE.[product#29, sales#30, quarter#31, year#32], with_query_name="PRODUCE")
+            +-group_by_list=
+            | +-product#34 := ColumnRef(type=STRING, column=PRODUCE.product#29)
+            | +-year#35 := ColumnRef(type=INT64, column=PRODUCE.year#32)
+            +-pivot_expr_list=
+            | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+            |   +-parse_location=342-352
+            |   +-ColumnRef(type=INT64, column=PRODUCE.sales#30)
+            +-for_expr=
+            | +-ColumnRef(parse_location=375-382, type=STRING, column=PRODUCE.quarter#31)
+            +-pivot_value_list=
+            | +-Constant(QUARTER1, type=STRING, value="Q1")
+            +-pivot_column_list=
+              +-PivotColumn(column=$pivot.Q1#36, pivot_expr_index=0, pivot_value_index=0)
+==
+
+[use_database=db1]
+[language_features=NONE,+PIVOT,+ANALYSIS_CONSTANT_PIVOT_COLUMN]
+WITH KeyValue AS (
+  SELECT 10 AS Key, 'ValueA' AS Value UNION ALL
+  SELECT 20 AS Key, 'ValueB' AS Value
+)
+SELECT * FROM KeyValue
+PIVOT(SUM(Key) FOR Key IN (
+  INT_CATEGORY_A
+));
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.Value#10 AS Value [STRING]
+| +-$pivot._10#11 AS _10 [INT64]
++-query=
+  +-WithScan
+    +-column_list=[$groupby.Value#10, $pivot._10#11]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="KeyValue"
+    |   +-with_subquery=
+    |     +-SetOperationScan
+    |       +-column_list=$union_all.[Key#5, Value#6]
+    |       +-op_type=UNION_ALL
+    |       +-input_item_list=
+    |         +-SetOperationItem
+    |         | +-scan=
+    |         | | +-ProjectScan
+    |         | |   +-column_list=$union_all1.[Key#1, Value#2]
+    |         | |   +-expr_list=
+    |         | |   | +-Key#1 := Literal(type=INT64, value=10)
+    |         | |   | +-Value#2 := Literal(type=STRING, value="ValueA")
+    |         | |   +-input_scan=
+    |         | |     +-SingleRowScan
+    |         | +-output_column_list=$union_all1.[Key#1, Value#2]
+    |         +-SetOperationItem
+    |           +-scan=
+    |           | +-ProjectScan
+    |           |   +-column_list=$union_all2.[Key#3, Value#4]
+    |           |   +-expr_list=
+    |           |   | +-Key#3 := Literal(type=INT64, value=20)
+    |           |   | +-Value#4 := Literal(type=STRING, value="ValueB")
+    |           |   +-input_scan=
+    |           |     +-SingleRowScan
+    |           +-output_column_list=$union_all2.[Key#3, Value#4]
+    +-query=
+      +-ProjectScan
+        +-column_list=[$groupby.Value#10, $pivot._10#11]
+        +-input_scan=
+          +-PivotScan
+            +-column_list=[$groupby.Value#10, $pivot._10#11]
+            +-input_scan=
+            | +-WithRefScan(column_list=KeyValue.[Key#7, Value#8], with_query_name="KeyValue")
+            +-group_by_list=
+            | +-Value#10 := ColumnRef(type=STRING, column=KeyValue.Value#8)
+            +-pivot_expr_list=
+            | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+            |   +-parse_location=136-144
+            |   +-ColumnRef(type=INT64, column=KeyValue.Key#7)
+            +-for_expr=
+            | +-ColumnRef(parse_location=149-152, type=INT64, column=KeyValue.Key#7)
+            +-pivot_value_list=
+            | +-Constant(INT_CATEGORY_A, type=INT64, value=10)
+            +-pivot_column_list=
+              +-PivotColumn(column=$pivot._10#11, pivot_expr_index=0, pivot_value_index=0)
+==
+
+[use_database=db1]
+[language_features=NONE,{{+ANALYSIS_CONSTANT_PIVOT_COLUMN,|}}+PIVOT,+GROUP_BY_STRUCT]
+WITH KeyValue AS (
+  SELECT STRUCT< value INT64, value2 INT64 > (10, 20) AS Key, 'ItemType1' AS Value UNION ALL
+  SELECT STRUCT< value INT64, value2 INT64 > (5, 15) AS Key, 'ItemType2' AS Value
+)
+SELECT * FROM KeyValue
+PIVOT(COUNT(Key) FOR Key IN (
+  ITEM1
+));
+--
+ALTERNATION GROUP: +ANALYSIS_CONSTANT_PIVOT_COLUMN,
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.Value#10 AS Value [STRING]
+| +-$pivot.value_1_value2_2#11 AS value_1_value2_2 [INT64]
++-query=
+  +-WithScan
+    +-column_list=[$groupby.Value#10, $pivot.value_1_value2_2#11]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="KeyValue"
+    |   +-with_subquery=
+    |     +-SetOperationScan
+    |       +-column_list=$union_all.[Key#5, Value#6]
+    |       +-op_type=UNION_ALL
+    |       +-input_item_list=
+    |         +-SetOperationItem
+    |         | +-scan=
+    |         | | +-ProjectScan
+    |         | |   +-column_list=$union_all1.[Key#1, Value#2]
+    |         | |   +-expr_list=
+    |         | |   | +-Key#1 := Literal(type=STRUCT<value INT64, value2 INT64>, value={value:10, value2:20}, has_explicit_type=TRUE)
+    |         | |   | +-Value#2 := Literal(type=STRING, value="ItemType1")
+    |         | |   +-input_scan=
+    |         | |     +-SingleRowScan
+    |         | +-output_column_list=$union_all1.[Key#1, Value#2]
+    |         +-SetOperationItem
+    |           +-scan=
+    |           | +-ProjectScan
+    |           |   +-column_list=$union_all2.[Key#3, Value#4]
+    |           |   +-expr_list=
+    |           |   | +-Key#3 := Literal(type=STRUCT<value INT64, value2 INT64>, value={value:5, value2:15}, has_explicit_type=TRUE)
+    |           |   | +-Value#4 := Literal(type=STRING, value="ItemType2")
+    |           |   +-input_scan=
+    |           |     +-SingleRowScan
+    |           +-output_column_list=$union_all2.[Key#3, Value#4]
+    +-query=
+      +-ProjectScan
+        +-column_list=[$groupby.Value#10, $pivot.value_1_value2_2#11]
+        +-input_scan=
+          +-PivotScan
+            +-column_list=[$groupby.Value#10, $pivot.value_1_value2_2#11]
+            +-input_scan=
+            | +-WithRefScan(column_list=KeyValue.[Key#7, Value#8], with_query_name="KeyValue")
+            +-group_by_list=
+            | +-Value#10 := ColumnRef(type=STRING, column=KeyValue.Value#8)
+            +-pivot_expr_list=
+            | +-AggregateFunctionCall(ZetaSQL:count(STRUCT<value INT64, value2 INT64>) -> INT64)
+            |   +-parse_location=225-235
+            |   +-ColumnRef(type=STRUCT<value INT64, value2 INT64>, column=KeyValue.Key#7)
+            +-for_expr=
+            | +-ColumnRef(parse_location=240-243, type=STRUCT<value INT64, value2 INT64>, column=KeyValue.Key#7)
+            +-pivot_value_list=
+            | +-Constant(ITEM1, type=STRUCT<value INT64, value2 INT64>, value={value:1, value2:2})
+            +-pivot_column_list=
+              +-PivotColumn(column=$pivot.value_1_value2_2#11, pivot_expr_index=0, pivot_value_index=0)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Generating an implicit alias for this PIVOT value is not supported; please provide an explicit alias [at 7:3]
+  ITEM1
+  ^
+==
+
+[use_database=db1]
+SELECT * FROM (SELECT 1 x, CAST('2015-06-23' AS DATE) y) t
+PIVOT(
+  SUM(x)
+  FOR y IN (TEST_DATE as Date)
+);
+--
+QueryStmt
++-output_column_list=
+| +-$pivot.Date#4 AS Date [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$pivot.Date#4]
+    +-input_scan=
+      +-PivotScan
+        +-column_list=[$pivot.Date#4]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=t.[x#1, y#2]
+        |   +-expr_list=
+        |   | +-x#1 := Literal(type=INT64, value=1)
+        |   | +-y#2 := Literal(type=DATE, value=2015-06-23, has_explicit_type=TRUE)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-pivot_expr_list=
+        | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |   +-parse_location=68-74
+        |   +-ColumnRef(type=INT64, column=t.x#1)
+        +-for_expr=
+        | +-ColumnRef(parse_location=81-82, type=DATE, column=t.y#2)
+        +-pivot_value_list=
+        | +-Constant(TEST_DATE, type=DATE, value=2024-01-01)
+        +-pivot_column_list=
+          +-PivotColumn(column=$pivot.Date#4, pivot_expr_index=0, pivot_value_index=0)
+==
+
+# Example of a PIVOT value that is not supported by AppendPivotColumnName function
+# because it's a TIME value and does not have an explicit alias.
+[use_database=db1]
+[language_features=NONE,+PIVOT,+ANALYSIS_CONSTANT_PIVOT_COLUMN]
+WITH PRODUCE AS (
+  SELECT 'Kale' as product, 51 as sales, test_time as quarter_val, 2020 as year UNION ALL
+  SELECT 'Kale', 3, test_time, 2020
+)
+SELECT *
+FROM
+  Produce
+    PIVOT(
+      SUM(sales)
+        FOR
+          quarter_val IN (test_time)
+    );
+
+--
+ERROR: PIVOT values of type TIME must specify an alias [at 11:27]
+          quarter_val IN (test_time)
+                          ^
+==
+
+SELECT
+  *
+FROM
+  UNNEST(ARRAY[1, 2, 3]) {{WITH OFFSET|WITH OFFSET x|WITH OFFSET AS x}}
+  UNPIVOT(a FOR b IN ((c))) AS x
+--
+ERROR: UNPIVOT is not allowed with array scans [at 5:3]
+  UNPIVOT(a FOR b IN ((c))) AS x
+  ^

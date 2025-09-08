@@ -1,0 +1,41 @@
+# Tests for STATIC_DESCRIBE currently just check that execution works, treating
+# STATIC_DESCRIBE as a no-op.  There's no way to check that the static logging
+# side-effect actually happens.
+
+[prepare_database]
+CREATE TABLE KeyValue
+AS
+SELECT 1 AS key, "value1" AS value
+--
+ARRAY<STRUCT<key INT64, value STRING>>[{1, "value1"}]
+==
+
+[default required_features=PIPES,PIPE_STATIC_DESCRIBE]
+[name=static_describe]
+FROM KeyValue
+|> STATIC_DESCRIBE
+--
+ARRAY<STRUCT<key INT64, value STRING>>[{1, "value1"}]
+==
+
+[name=static_describe_twice]
+FROM KeyValue
+|> STATIC_DESCRIBE
+|> AS kv
+|> EXTEND key+1
+|> STATIC_DESCRIBE
+|> SELECT *
+--
+ARRAY<STRUCT<key INT64, value STRING, INT64>>[{1, "value1", 2}]
+==
+
+[name=static_describe_in_subquery]
+SELECT (select key+1 |> STATIC_DESCRIBE),
+       (FROM unnest([1,5,3,0]) x |> static_describe |> aggregate max(x))
+FROM (
+  FROM KeyValue
+  |> set key = key+1
+  |> static_describe
+)
+--
+ARRAY<STRUCT<INT64, INT64>>[{3, 5}]

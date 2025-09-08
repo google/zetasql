@@ -302,6 +302,9 @@ bool TypeParameters::MatchType(const Type* type) const {
   if (IsNumericTypeParameters()) {
     return type->IsNumericType() || type->IsBigNumericType();
   }
+  if (IsTimestampTypeParameters()) {
+    return type->IsTimestamp();
+  }
   if (IsExtendedTypeParameters()) {
     // TODO: When integrating with extended type, we can call a virtual
     // function on the 'type' object that indicates whether the specific

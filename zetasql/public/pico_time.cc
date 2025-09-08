@@ -116,4 +116,21 @@ absl::StatusOr<PicoTime> PicoTime::FromUnixPicos(absl::int128 unix_picos) {
   return PicoTime(seconds, picos);
 }
 
+int PicoTime::Precision() const {
+  if (picos_ != 0) {
+    return 12;
+  }
+  int64_t nanos = absl::ToInt64Nanoseconds(
+      time_ - absl::FromUnixSeconds(absl::ToUnixSeconds(time_)));
+  if (nanos == 0) {
+    return 0;
+  } else if (nanos % 1000000 == 0) {
+    return 3;
+  } else if (nanos % 1000 == 0) {
+    return 6;
+  } else {
+    return 9;
+  }
+}
+
 }  // namespace zetasql

@@ -1,5 +1,5 @@
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 
 # PGQ Edge pattern with cost
 select * from graph_table(
@@ -864,7 +864,7 @@ RETURN
   1 AS col
 ==
 
-[language_features=BRACED_PROTO_CONSTRUCTORS]
+[language_features=NONE,+BRACED_PROTO_CONSTRUCTORS]
 GRAPH my.graph.name
 MATCH -[cost cost {a:b}]->
 RETURN 1 as col
@@ -910,7 +910,7 @@ RETURN
   1 AS col
 ==
 
-[language_features=BRACED_PROTO_CONSTRUCTORS]
+[language_features=NONE,+BRACED_PROTO_CONSTRUCTORS]
 GRAPH my.graph.name
 MATCH -[cost {a:b} COST {a:b}]->
 RETURN 1 as col
@@ -1644,7 +1644,8 @@ QueryStatement [0-94] [GRAPH my.graph...TURN 1 as col]
                                     Identifier(table) [50-55] [table]
                                     Identifier(x) [56-57] [x]
                             LimitOffset [58-65] [limit 1]
-                              IntLiteral(1) [64-65] [1]
+                              Limit [58-65] [limit 1]
+                                IntLiteral(1) [64-65] [1]
                         PathExpression [69-70] [b]
                           Identifier(b) [69-70] [b]
             GqlReturn [79-94] [RETURN 1 as col]

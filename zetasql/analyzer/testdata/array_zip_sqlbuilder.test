@@ -1,6 +1,6 @@
 [default show_sqlbuilder_output]
 [default no_show_resolved_ast]
-[default language_features=ARRAY_ZIP,INLINE_LAMBDA_ARGUMENT,NAMED_ARGUMENTS]
+[default language_features=MAXIMUM,+ARRAY_ZIP,+INLINE_LAMBDA_ARGUMENT,+NAMED_ARGUMENTS]
 # Two-array no arrays have argument alias
 SELECT ARRAY_ZIP([1, 2], ['s', 't'])
 --

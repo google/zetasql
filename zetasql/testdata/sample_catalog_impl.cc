@@ -16,6 +16,7 @@
 
 #include "zetasql/testdata/sample_catalog_impl.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <iterator>
@@ -26,13 +27,13 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "google/protobuf/descriptor.pb.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/internal_property_graph.h"
 #include "zetasql/common/measure_analysis_utils.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/annotation/collation.h"
-#include "zetasql/public/annotation/timestamp_precision.h"
 #include "zetasql/public/anon_function.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/builtin_function_options.h"
@@ -71,6 +72,7 @@
 #include "zetasql/testdata/referenced_schema.pb.h"
 #include "zetasql/testdata/sample_annotation.h"
 #include "zetasql/testdata/test_proto3.pb.h"
+#include "zetasql/public/functions/differential_privacy.pb.h"
 #include "absl/base/attributes.h"
 #include "absl/base/const_init.h"
 #include "absl/base/no_destructor.h"
@@ -368,14 +370,39 @@ ComputeResultTypeCallbackToStructUseArgumentAliases(
   return struct_type;
 }
 
+// Returns the annotation maps of the input arguments of the `function_call`.
+static std::vector<const AnnotationMap*> GetArgumentAnnotations(
+    const ResolvedFunctionCallBase& function_call) {
+  std::vector<const AnnotationMap*> argument_annotations;
+  if (!function_call.argument_list().empty()) {
+    for (const std::unique_ptr<const ResolvedExpr>& argument :
+         function_call.argument_list()) {
+      argument_annotations.push_back(argument->type_annotation_map());
+    }
+  } else {
+    // The function uses `generic_argument_list` to store its arguments.
+    for (const std::unique_ptr<const ResolvedFunctionArgument>& argument :
+         function_call.generic_argument_list()) {
+      if (argument->expr() == nullptr) {
+        // Only arguments of type `expr` can have collations.
+        argument_annotations.push_back(nullptr);
+      } else {
+        argument_annotations.push_back(argument->expr()->type_annotation_map());
+      }
+    }
+  }
+  return argument_annotations;
+}
+
 // f(collation_1, ..., collation_n) -> STRUCT<collation_1, ..., collation_n>.
 // If the return value is nullptr it means no collations.
 static absl::StatusOr<const AnnotationMap*>
-ComputeResultAnnotationsCallbackToStruct(const AnnotationCallbackArgs& args,
-                                         TypeFactory& type_factory) {
-  const Type* result_type = args.result_type;
-  const std::vector<const AnnotationMap*>& arguments =
-      args.argument_annotations;
+ComputeResultAnnotationsCallbackToStruct(
+    const ResolvedFunctionCallBase& function_call, TypeFactory& type_factory) {
+  const Type* result_type = function_call.type();
+  std::vector<const AnnotationMap*> arguments =
+      GetArgumentAnnotations(function_call);
+
   // Can only handle struct type, where each argument becomes a field of the
   // struct.
   ZETASQL_RET_CHECK(result_type->IsStruct());
@@ -415,10 +442,10 @@ ComputeResultAnnotationsCallbackToStruct(const AnnotationCallbackArgs& args,
 // If the return value is nullptr it means no collations.
 static absl::StatusOr<const AnnotationMap*>
 ComputeResultAnnotationsCallbackArraysToArrayOfStruct(
-    const AnnotationCallbackArgs& args, TypeFactory& type_factory) {
-  const Type* result_type = args.result_type;
-  const std::vector<const AnnotationMap*>& arguments =
-      args.argument_annotations;
+    const ResolvedFunctionCallBase& function_call, TypeFactory& type_factory) {
+  const Type* result_type = function_call.type();
+  std::vector<const AnnotationMap*> arguments =
+      GetArgumentAnnotations(function_call);
 
   // The return type must be ARRAY<STRUCT>.
   ZETASQL_RET_CHECK(result_type->IsArray());
@@ -479,11 +506,13 @@ ComputeResultAnnotationsCallbackArraysToArrayOfStruct(
 // f(annotation_1, ..., annotation_n) -> annotation_n.
 static absl::StatusOr<const AnnotationMap*>
 ComputeResultAnnotationsCallbackUseTheFinalAnnotation(
-    const AnnotationCallbackArgs& args, TypeFactory& type_factory) {
-  const Type* result_type = args.result_type;
+    const ResolvedFunctionCallBase& function_call, TypeFactory& type_factory) {
+  const Type* result_type = function_call.type();
   ZETASQL_RET_CHECK_EQ(result_type, type_factory.get_string());
-  const std::vector<const AnnotationMap*>& arguments =
-      args.argument_annotations;
+
+  std::vector<const AnnotationMap*> arguments =
+      GetArgumentAnnotations(function_call);
+
   std::unique_ptr<AnnotationMap> annotation_map =
       AnnotationMap::Create(result_type);
   // We only check collation because currently the only supported annotation for
@@ -508,9 +537,9 @@ ComputeResultAnnotationsCallbackUseTheFinalAnnotation(
 // This is to verify that the thrown error is used as why a function call is
 // invalid.
 static absl::StatusOr<const AnnotationMap*>
-ComputeResultAnnotationsCallbackSqlError(const AnnotationCallbackArgs& args,
-                                         TypeFactory& type_factory) {
-  for (const AnnotationMap* argument : args.argument_annotations) {
+ComputeResultAnnotationsCallbackSqlError(
+    const ResolvedFunctionCallBase& function_call, TypeFactory& type_factory) {
+  for (const AnnotationMap* argument : GetArgumentAnnotations(function_call)) {
     if (argument != nullptr && !argument->Empty()) {
       return MakeSqlError() << "Arguments should not have annotations";
     }
@@ -615,7 +644,6 @@ absl::Status SampleCatalogImpl::LoadCatalogImpl(
   LoadConnections();
   LoadSequences();
   LoadProtoTables();
-  ZETASQL_RETURN_IF_ERROR(LoadMeasureTables());
   LoadViews(language_options);
   LoadNestedCatalogs();
   LoadFunctions();
@@ -632,18 +660,22 @@ absl::Status SampleCatalogImpl::LoadCatalogImpl(
   LoadDescriptorTableValuedFunctions();
   LoadConnectionTableValuedFunctions();
   LoadTableValuedFunctionsWithDeprecationWarnings();
+  LoadTableValuedFunctionsWithMultipleSignatures();
   LoadTemplatedSQLTableValuedFunctions();
   LoadTableValuedFunctionsWithAnonymizationUid();
+  LoadTableValuedFunctionsWithOptionalRelations();
   LoadProcedures();
   LoadConstants();
   LoadWellKnownLambdaArgFunctions();
   LoadContrivedLambdaArgFunctions();
   LoadSqlFunctions(language_options);
+  ZETASQL_RETURN_IF_ERROR(LoadMeasureTables());
   LoadNonTemplatedSqlTableValuedFunctions(language_options);
   ZETASQL_RETURN_IF_ERROR(LoadAmlBasedPropertyGraphs());
   LoadMultiSrcDstEdgePropertyGraphs();
   LoadCompositeKeyPropertyGraphs();
   LoadPropertyGraphWithDynamicLabelAndProperties();
+  LoadPropertyGraphWithDynamicMultiLabelsAndProperties();
   return absl::OkStatus();
 }
 
@@ -866,6 +898,15 @@ absl::Status SampleCatalogImpl::LoadTables() {
                                           {"int_c", types_->get_int64()},
                                           {"int_d", types_->get_int64()}});
   AddOwnedTable(multiple_columns_table);
+
+  SimpleTable* key_value_with_primary_key_table = new SimpleTable(
+      "KeyValueWithPrimaryKey",
+      {{"Key", types_->get_int64()}, {"Value", types_->get_string()}});
+  key_value_with_primary_key_table->SetContents(
+      {{Value::Int64(1), Value::String("a")},
+       {Value::Int64(2), Value::String("b")}});
+  ZETASQL_RETURN_IF_ERROR(key_value_with_primary_key_table->SetPrimaryKey({0}));
+  AddOwnedTable(key_value_with_primary_key_table);
 
   SimpleTable* update_to_default_table = new SimpleTable(
       "UpdateToDefaultTable", {{"writable", types_->get_int64()}});
@@ -1214,133 +1255,6 @@ absl::Status SampleCatalogImpl::LoadTables() {
                                                     /*is_owned=*/true));
   AddOwnedTable(collated_table_with_proto);
 
-  // Create table with timestamp precision annotation.
-  auto timestamp_precision_table = new SimpleTable("TimestampPrecisionTable");
-
-  // Create timestamp 12 annotation map.
-  const AnnotationMap* timestamp_12_annotation_map;
-  {
-    std::unique_ptr<AnnotationMap> annotation_map =
-        AnnotationMap::Create(types_->get_timestamp());
-    annotation_map->SetAnnotation<TimestampPrecisionAnnotation>(
-        SimpleValue::Int64(12));
-    ZETASQL_ASSIGN_OR_RETURN(timestamp_12_annotation_map,
-                     types_->TakeOwnership(std::move(annotation_map)));
-  }
-  // Create timestamp 12 column.
-  auto timestamp_12_column = new SimpleColumn(
-      timestamp_precision_table->Name(), "timestamp_12",
-      AnnotatedType(types_->get_timestamp(), timestamp_12_annotation_map));
-
-  // Create timestamp 9 annotation map.
-  const AnnotationMap* timestamp_9_annotation_map;
-  {
-    std::unique_ptr<AnnotationMap> annotation_map =
-        AnnotationMap::Create(types_->get_timestamp());
-    annotation_map->SetAnnotation<TimestampPrecisionAnnotation>(
-        SimpleValue::Int64(9));
-    ZETASQL_ASSIGN_OR_RETURN(timestamp_9_annotation_map,
-                     types_->TakeOwnership(std::move(annotation_map)));
-  }
-  // Create timestamp 9 column.
-  auto timestamp_9_column = new SimpleColumn(
-      timestamp_precision_table->Name(), "timestamp_9",
-      AnnotatedType(types_->get_timestamp(), timestamp_9_annotation_map));
-
-  // Create timestamp 6 annotation map.
-  const AnnotationMap* timestamp_6_annotation_map;
-  {
-    std::unique_ptr<AnnotationMap> annotation_map =
-        AnnotationMap::Create(types_->get_timestamp());
-    annotation_map->SetAnnotation<TimestampPrecisionAnnotation>(
-        SimpleValue::Int64(6));
-    ZETASQL_ASSIGN_OR_RETURN(timestamp_6_annotation_map,
-                     types_->TakeOwnership(std::move(annotation_map)));
-  }
-  // Create timestamp 6 column.
-  auto timestamp_6_column = new SimpleColumn(
-      timestamp_precision_table->Name(), "timestamp_6",
-      AnnotatedType(types_->get_timestamp(), timestamp_6_annotation_map));
-
-  // Create timestamp 3 annotation map.
-  const AnnotationMap* timestamp_3_annotation_map;
-  {
-    std::unique_ptr<AnnotationMap> annotation_map =
-        AnnotationMap::Create(types_->get_timestamp());
-    annotation_map->SetAnnotation<TimestampPrecisionAnnotation>(
-        SimpleValue::Int64(3));
-    ZETASQL_ASSIGN_OR_RETURN(timestamp_3_annotation_map,
-                     types_->TakeOwnership(std::move(annotation_map)));
-  }
-  // Create timestamp 3 column.
-  auto timestamp_3_column = new SimpleColumn(
-      timestamp_precision_table->Name(), "timestamp_3",
-      AnnotatedType(types_->get_timestamp(), timestamp_3_annotation_map));
-
-  // Create unannotated timestamp column.
-  auto unannotated_timestamp_column = new SimpleColumn(
-      timestamp_precision_table->Name(), "timestamp_unannotated",
-      AnnotatedType(types_->get_timestamp(), /*annotation_map=*/nullptr));
-
-  // ARRAY<TIMESTAMP{precision: 3}>
-  const Type* arr_timestamp_3_type;
-  ZETASQL_RET_CHECK_OK(
-      types_->MakeArrayType(types_->get_timestamp(), &arr_timestamp_3_type));
-  const AnnotationMap* arr_timestamp_3_annotation_map;
-  {
-    std::unique_ptr<AnnotationMap> annotation_map =
-        AnnotationMap::Create(arr_timestamp_3_type);
-    ZETASQL_RETURN_IF_ERROR(annotation_map->AsArrayMap()->CloneIntoElement(
-        timestamp_3_annotation_map));
-    ZETASQL_ASSIGN_OR_RETURN(arr_timestamp_3_annotation_map,
-                     types_->TakeOwnership(std::move(annotation_map)));
-  }
-  auto arr_timestamp_3_column = new SimpleColumn(
-      timestamp_precision_table->Name(), "arr_timestamp_3",
-      AnnotatedType(arr_timestamp_3_type, arr_timestamp_3_annotation_map));
-
-  // STRUCT<timestamp_3, timestamp_12>
-  const Type* struct_timestamp_3_12_type;
-  ZETASQL_RET_CHECK_OK(
-      types_->MakeStructType({{"ts_field_3", types_->get_timestamp()},
-                              {"ts_field_12", types_->get_timestamp()}},
-                             &struct_timestamp_3_12_type));
-  const AnnotationMap* struct_timestamp_3_12_annotation_map;
-  {
-    std::unique_ptr<AnnotationMap> annotation_map =
-        AnnotationMap::Create(struct_timestamp_3_12_type);
-    ZETASQL_RETURN_IF_ERROR(annotation_map->AsStructMap()->CloneIntoField(
-        0, timestamp_3_annotation_map));
-    ZETASQL_RETURN_IF_ERROR(annotation_map->AsStructMap()->CloneIntoField(
-        1, timestamp_12_annotation_map));
-
-    ZETASQL_ASSIGN_OR_RETURN(struct_timestamp_3_12_annotation_map,
-                     types_->TakeOwnership(std::move(annotation_map)));
-  }
-  auto struct_timestamp_3_12_column = new SimpleColumn(
-      timestamp_precision_table->Name(), "struct_timestamp_3_12",
-      AnnotatedType(struct_timestamp_3_12_type,
-                    struct_timestamp_3_12_annotation_map));
-
-  // Add timestamp columns to timestamp precision table.
-  ZETASQL_RET_CHECK_OK(timestamp_precision_table->AddColumn(timestamp_12_column,
-                                                    /*is_owned=*/true));
-  ZETASQL_RET_CHECK_OK(timestamp_precision_table->AddColumn(timestamp_9_column,
-                                                    /*is_owned=*/true));
-  ZETASQL_RET_CHECK_OK(timestamp_precision_table->AddColumn(timestamp_6_column,
-                                                    /*is_owned=*/true));
-  ZETASQL_RET_CHECK_OK(timestamp_precision_table->AddColumn(timestamp_3_column,
-                                                    /*is_owned=*/true));
-  ZETASQL_RET_CHECK_OK(
-      timestamp_precision_table->AddColumn(unannotated_timestamp_column,
-                                           /*is_owned=*/true));
-  ZETASQL_RET_CHECK_OK(timestamp_precision_table->AddColumn(arr_timestamp_3_column,
-                                                    /*is_owned=*/true));
-  ZETASQL_RET_CHECK_OK(
-      timestamp_precision_table->AddColumn(struct_timestamp_3_12_column,
-                                           /*is_owned=*/true));
-  AddOwnedTable(timestamp_precision_table);
-
   auto generic_annotation_test_table = new SimpleTable("AnnotatedTable");
 
   const AnnotationMap* generic_test_annotation_map_for_string_field;
@@ -1478,6 +1392,13 @@ absl::Status SampleCatalogImpl::LoadTables() {
        {"bignumeric", types_->get_bignumeric()},
        {"json", types_->get_json()},
        {"uuid", types_->get_uuid()}}));
+
+  {
+    auto table_with_single_int64_array_col = std::make_unique<SimpleTable>(
+        "TableWithSingleInt64ArrayCol",
+        std::vector<SimpleTable::NameAndType>{{"array_col", int64array_type_}});
+    AddOwnedTable(table_with_single_int64_array_col.release());
+  }
 
   {
     auto simple_table_with_uid =
@@ -1662,18 +1583,51 @@ absl::Status SampleCatalogImpl::LoadTables() {
   return absl::OkStatus();
 }  // NOLINT(readability/fn_size)
 
+// If `is_value_table` is true, validate that the first column in
+// `columns_not_owned` is a non-pseudo column representing the row type of the
+// value table and that all other columns and measures are pseudo columns.
+static absl::Status ValidateValueTableness(
+    absl::Span<const Column* const> columns_not_owned,
+    absl::Span<const MeasureColumnDef> measures, bool is_value_table) {
+  // If not a value table, no validation is needed.
+  if (!is_value_table) {
+    return absl::OkStatus();
+  }
+  // Count the number of non-pseudo columns in the table.
+  int non_pseudo_column_count = 0;
+  std::for_each(columns_not_owned.begin(), columns_not_owned.end(),
+                [&non_pseudo_column_count](const Column* column) {
+                  if (!column->IsPseudoColumn()) {
+                    ++non_pseudo_column_count;
+                  }
+                });
+  std::for_each(measures.begin(), measures.end(),
+                [&non_pseudo_column_count](const MeasureColumnDef& measure) {
+                  if (!measure.is_pseudo_column) {
+                    ++non_pseudo_column_count;
+                  }
+                });
+  ZETASQL_RET_CHECK_EQ(non_pseudo_column_count, 1);
+  // Make sure the first column is the non-pseudo column.
+  ZETASQL_RET_CHECK(!columns_not_owned.empty());
+  ZETASQL_RET_CHECK(!columns_not_owned[0]->IsPseudoColumn());
+  return absl::OkStatus();
+}
+
 absl::Status SampleCatalogImpl::AddTableWithMeasures(
     AnalyzerOptions& analyzer_options, absl::string_view table_name,
     std::vector<const Column*> columns_not_owned,
     std::optional<absl::flat_hash_set<int>> row_identity_column_indices,
-    std::vector<MeasureColumnDef> measures) {
-  const int column_count = static_cast<int>(columns_not_owned.size());
+    std::vector<MeasureColumnDef> measures, bool is_value_table) {
+  ZETASQL_RETURN_IF_ERROR(
+      ValidateValueTableness(columns_not_owned, measures, is_value_table));
   auto table = std::make_unique<SimpleTable>(table_name, columns_not_owned,
                                              /*take_ownership=*/true);
+  table->set_is_value_table(is_value_table);
   if (row_identity_column_indices.has_value()) {
     for (int row_identity_column_index : row_identity_column_indices.value()) {
       ZETASQL_RET_CHECK_GE(row_identity_column_index, 0);
-      ZETASQL_RET_CHECK_LT(row_identity_column_index, column_count);
+      ZETASQL_RET_CHECK_LT(row_identity_column_index, columns_not_owned.size());
     }
     ZETASQL_RETURN_IF_ERROR(table->SetRowIdentityColumns(
         std::vector<int>(row_identity_column_indices.value().begin(),
@@ -1696,6 +1650,16 @@ absl::Status SampleCatalogImpl::LoadMeasureTables() {
   analyzer_options.mutable_language()->EnableLanguageFeature(
       FEATURE_MULTILEVEL_AGGREGATION);
   analyzer_options.mutable_language()->EnableLanguageFeature(FEATURE_JSON_TYPE);
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_WITH_EXPRESSION);
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_FIRST_AND_LAST_N);
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_INLINE_LAMBDA_ARGUMENT);
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_BITWISE_AGGREGATE_BYTES_SIGNATURES);
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_NAMED_ARGUMENTS);
 
   ZETASQL_RETURN_IF_ERROR(AddTableWithMeasures(
       analyzer_options, "MeasureTable_SingleKey",
@@ -1708,22 +1672,21 @@ absl::Status SampleCatalogImpl::LoadMeasureTables() {
                         types_->get_int64())},
       /*row_identity_column_indices=*/absl::flat_hash_set<int>{0},
       /*measures=*/
-      {
-          {"measure_count_star", "COUNT(*)"},
-          {"measure_count_star_per_key", "COUNT(* GROUP BY key)"},
-          {"measure_count_distinct_key", "COUNT(DISTINCT key)"},
-          {"measure_count_key_per_key", "COUNT(1 GROUP BY key)"},
-          {"measure_sum_quantity", "SUM(quantity)"},
-          {"measure_sum_price", "SUM(price)"},
-          {"measure_sum_price_times_quantity", "SUM(price * quantity)"},
-          {"measure_ratio_price_to_quantity", "SUM(price) / SUM(quantity)"},
-          {"measure_ratio_price_to_quantity_per_key",
-           "SUM(ANY_VALUE(price) GROUP BY key) / "
-           "SUM(ANY_VALUE(quantity) GROUP BY key)"},
-          {"measure_complex_ratio_metric",
-           "SUM(AVG(price) + MIN(price) GROUP BY key) / "
-           "SUM(AVG(price) + MAX(price) GROUP BY key)"},
-      }));
+      {{"measure_count_star", "COUNT(*)"},
+       {"measure_count_star_per_key", "COUNT(* GROUP BY key)"},
+       {"measure_count_distinct_key", "COUNT(DISTINCT key)"},
+       {"measure_count_key_per_key", "COUNT(1 GROUP BY key)"},
+       {"measure_sum_quantity", "SUM(quantity)"},
+       {"measure_sum_price", "SUM(price)"},
+       {"measure_sum_price_times_quantity", "SUM(price * quantity)"},
+       {"measure_ratio_price_to_quantity", "SUM(price) / SUM(quantity)"},
+       {"measure_ratio_price_to_quantity_per_key",
+        "SUM(ANY_VALUE(price) GROUP BY key) / "
+        "SUM(ANY_VALUE(quantity) GROUP BY key)"},
+       {"measure_complex_ratio_metric",
+        "SUM(AVG(price) + MIN(price) GROUP BY key) / "
+        "SUM(AVG(price) + MAX(price) GROUP BY key)"}},
+      /*is_value_table=*/false));
 
   ZETASQL_RETURN_IF_ERROR(AddTableWithMeasures(
       analyzer_options, "MeasureTable_TwoKeys",
@@ -1745,7 +1708,8 @@ absl::Status SampleCatalogImpl::LoadMeasureTables() {
        {"measure_ratio_price_to_quantity", "SUM(price) / SUM(quantity)"},
        {"measure_ratio_price_to_quantity_per_key",
         "SUM(ANY_VALUE(price) GROUP BY key1,key2) / "
-        "SUM(ANY_VALUE(quantity) GROUP BY key1,key2)"}}));
+        "SUM(ANY_VALUE(quantity) GROUP BY key1,key2)"}},
+      /*is_value_table=*/false));
 
   ZETASQL_RETURN_IF_ERROR(AddTableWithMeasures(
       analyzer_options, "MeasureTable_DifferentNames",
@@ -1759,14 +1723,16 @@ absl::Status SampleCatalogImpl::LoadMeasureTables() {
                         types_->get_int64())},
       /*row_identity_column_indices=*/absl::flat_hash_set<int>{0},
       /*measures=*/
-      {{"measure_count_star_different_name", "COUNT(*)"}}));
+      {{"measure_count_star_different_name", "COUNT(*)"}},
+      /*is_value_table=*/false));
 
   ZETASQL_RETURN_IF_ERROR(
       AddTableWithMeasures(analyzer_options, "MeasureTable_NoRowIdentity",
                            {new SimpleColumn("MeasureTable_NoRowIdentity",
                                              "key", types_->get_int64())},
                            /*row_identity_column_indices=*/std::nullopt,
-                           /*measures=*/{{"measure_count_star", "COUNT(*)"}}));
+                           /*measures=*/{{"measure_count_star", "COUNT(*)"}},
+                           /*is_value_table=*/false));
 
   ZETASQL_RETURN_IF_ERROR(AddTableWithMeasures(
       analyzer_options, "MeasureTable_NonGroupableRowIdentity",
@@ -1774,7 +1740,7 @@ absl::Status SampleCatalogImpl::LoadMeasureTables() {
                         types_->get_json())},
       /*row_identity_column_indices=*/absl::flat_hash_set<int>{0},
       /*measures=*/
-      {{"measure_count_star", "COUNT(*)"}}));
+      {{"measure_count_star", "COUNT(*)"}}, /*is_value_table=*/false));
 
   ZETASQL_RETURN_IF_ERROR(AddTableWithMeasures(
       analyzer_options, "MeasureTable_WithPseudoColumns",
@@ -1792,7 +1758,8 @@ absl::Status SampleCatalogImpl::LoadMeasureTables() {
           {"measure_count_star", "COUNT(*)", /*is_pseudo_column=*/true},
           {"measure_count_star_per_key", "COUNT(* GROUP BY key)",
            /*is_pseudo_column=*/true},
-      }));
+      },
+      /*is_value_table=*/false));
 
   ZETASQL_RETURN_IF_ERROR(AddTableWithMeasures(
       analyzer_options, "MeasureTable_WithSubqueryMeasureExprs",
@@ -1806,17 +1773,174 @@ absl::Status SampleCatalogImpl::LoadMeasureTables() {
                         types_->get_int64())},
       /*row_identity_column_indices=*/absl::flat_hash_set<int>{0},
       /*measures=*/
+      {{"measure_with_top_level_subquery",
+        "SUM(price) + (SELECT SUM(1) FROM UNNEST([1]))"},
+       {"measure_with_simple_subquery_in_aggregate_function",
+        "SUM((SELECT price))"},
+       {"measure_with_aggregate_subquery_in_aggregate_function",
+        "SUM((SELECT SUM(price) FROM UNNEST([1])))"},
+       {"measure_with_multiple_subqueries",
+        "SUM((SELECT SUM(price) FROM UNNEST([1]))) + (SELECT SUM(1) FROM "
+        "UNNEST([1]))"},
+       {"measure_with_deeply_nested_subquery",
+        "SUM((SELECT x FROM (SELECT (SELECT SUM(price) FROM UNNEST([1])) AS "
+        "x)))"},
+       {"measure_literal_one", "1", /*is_pseudo_column=*/true},
+       {"measure_one_plus_one", "1 + 1", /*is_pseudo_column=*/true},
+       {"measure_scalar_subquery",
+        "(SELECT SUM(x) FROM UNNEST([1, 2, 3]) AS x)",
+        /*is_pseudo_column=*/true}},
+      /*is_value_table=*/false));
+
+  ZETASQL_RETURN_IF_ERROR(AddTableWithMeasures(
+      analyzer_options, "MeasureTable_WithUdfs",
+      {new SimpleColumn("MeasureTable_WithUdfs", "key", types_->get_int64()),
+       new SimpleColumn("MeasureTable_WithUdfs", "country",
+                        types_->get_string()),
+       new SimpleColumn("MeasureTable_WithUdfs", "quantity",
+                        types_->get_int64()),
+       new SimpleColumn("MeasureTable_WithUdfs", "price", types_->get_int64())},
+      /*row_identity_column_indices=*/absl::flat_hash_set<int>{0},
+      /*measures=*/
       {
-          {"measure_with_top_level_subquery",
-           "SUM(price) + (SELECT SUM(1) FROM UNNEST([1]))"},
-          {"measure_with_simple_subquery_in_aggregate_function",
-           "SUM((SELECT price))"},
-          {"measure_with_aggregate_subquery_in_aggregate_function",
-           "SUM((SELECT SUM(price) FROM UNNEST([1])))"},
-          {"measure_with_multiple_subqueries",
-           "SUM((SELECT SUM(price) FROM UNNEST([1]))) + (SELECT SUM(1) FROM "
-           "UNNEST([1]))"},
-      }));
+          {"measure_with_top_level_udf", "SUM(price) + NullaryPi()"},
+          {"measure_with_udf_in_argument", "SUM(UnaryIncrement(price))"},
+          {"measure_with_udf_and_multilevel_aggregation",
+           "SUM(ANY_VALUE(UnaryIncrement(price)) group by "
+           "UnaryIncrement(key))"},
+          {"measure_with_udf_containing_multilevel_aggregation",
+           "SUM(COUNT(UnaryIncrement(price)) + NullaryWithMultiLevelAgg() "
+           "group by key)"},
+      },
+      /*is_value_table=*/false));
+
+  // The column `arg` has a name conflict with the function argument of
+  // template UDF `TimesTwo(arg)`
+  // We deliberately use column name arg to ensure that the templated
+  // UDF TimesTwo(arg) resolves arg against the function argument name rather
+  // than the name of the column on the table.
+  ZETASQL_RETURN_IF_ERROR(AddTableWithMeasures(
+      analyzer_options, "MeasureTable_WithTemplatedUdfs",
+      {new SimpleColumn("MeasureTable_WithTemplatedUdfs", "key",
+                        types_->get_int64()),
+       new SimpleColumn("MeasureTable_WithTemplatedUdfs", "country",
+                        types_->get_string()),
+       new SimpleColumn("MeasureTable_WithTemplatedUdfs", "arg",
+                        types_->get_int64()),
+       new SimpleColumn("MeasureTable_WithTemplatedUdfs", "price",
+                        types_->get_int64())},
+      /*row_identity_column_indices=*/absl::flat_hash_set<int>{0},
+      /*measures=*/
+      {
+          {"measure_with_top_level_udf",
+           "SUM(price) + SUM_DOUBLE_ARRAY([1, 2])"},
+          {"measure_with_udf_in_argument", "SUM(TimesTwo(price))"},
+          {"measure_with_udf_and_multilevel_aggregation",
+           "SUM(ANY_VALUE(TimesTwo(price)) group by "
+           "TimesTwo(key))"},
+          {"measure_with_udf_containing_multilevel_aggregation",
+           "SUM(COUNT(TimesTwo(price)) + NullaryWithMultiLevelAgg() "
+           "group by key)"},
+          {"measure_with_name_conflict_on_arg",
+           "SUM(ANY_VALUE(TimesTwo(price + 1)) + COUNT(TimesTwo(price + 2)) "
+           "group by key)"},
+      },
+      /*is_value_table=*/false));
+
+  ZETASQL_RETURN_IF_ERROR(AddTableWithMeasures(
+      analyzer_options, "StructValueTable_WithMeasures",
+      {new SimpleColumn("StructValueTable_WithMeasures", "value",
+                        doubly_nested_struct_type_),
+       new SimpleColumn("StructValueTable_WithMeasures", "key",
+                        types_->get_int64(), {.is_pseudo_column = true})},
+      /*row_identity_column_indices=*/absl::flat_hash_set<int>{1},
+      /*measures=*/
+      {{"measure_count_star", "COUNT(*)", /*is_pseudo_column=*/true},
+       {"measure_sum_e", "SUM(e)", /*is_pseudo_column=*/true},
+       {"measure_ratio_sum_a_to_sum_c", "SUM(f.d.a) / SUM(f.c)",
+        /*is_pseudo_column=*/true},
+       {"measure_sum_key", "SUM(key)", /*is_pseudo_column=*/true}},
+      /*is_value_table=*/true));
+
+  ZETASQL_RETURN_IF_ERROR(AddTableWithMeasures(
+      analyzer_options, "KitchenSinkValueTable_WithMeasures",
+      {new SimpleColumn("KitchenSinkValueTable_WithMeasures", "value",
+                        proto_KitchenSinkPB_),
+       new SimpleColumn("KitchenSinkValueTable_WithMeasures", "key",
+                        types_->get_int64(), {.is_pseudo_column = true})},
+      /*row_identity_column_indices=*/absl::flat_hash_set<int>{1},
+      /*measures=*/
+      {{"measure_count_star", "COUNT(*)", /*is_pseudo_column=*/true},
+       {"measure_sum_int64", "SUM(int64_val)", /*is_pseudo_column=*/true},
+       {"measure_ratio_sum_int64_to_sum_int32",
+        "SUM(int64_val) / SUM(int32_val)",
+        /*is_pseudo_column=*/true},
+       {"measure_sum_key", "SUM(key)", /*is_pseudo_column=*/true}},
+      /*is_value_table=*/true));
+
+  ZETASQL_RETURN_IF_ERROR(AddTableWithMeasures(
+      analyzer_options, "Int64ValueTable_WithMeasures",
+      {new SimpleColumn("Int64ValueTable_WithMeasures", "value",
+                        types_->get_int64()),
+       new SimpleColumn("Int64ValueTable_WithMeasures", "key",
+                        types_->get_int64(), {.is_pseudo_column = true})},
+      /*row_identity_column_indices=*/absl::flat_hash_set<int>{1},
+      /*measures=*/
+      {{"measure_count_star", "COUNT(*)", /*is_pseudo_column=*/true},
+       {"measure_sum_key", "SUM(key)", /*is_pseudo_column=*/true},
+       {"measure_literal_one", "1", /*is_pseudo_column=*/true},
+       {"measure_one_plus_one", "1 + 1", /*is_pseudo_column=*/true},
+       {"measure_scalar_subquery",
+        "(SELECT SUM(x) FROM UNNEST([1, 2, 3]) AS x)",
+        /*is_pseudo_column=*/true}},
+      /*is_value_table=*/true));
+
+  // Table containing measure expressions that would ordinarily trigger
+  // rewrites. We disable these rewrites during measure expression analysis.
+  ZETASQL_RETURN_IF_ERROR(AddTableWithMeasures(
+      analyzer_options, "MeasureTable_WithRewritableExprs",
+      {new SimpleColumn("MeasureTable_WithRewritableExprs", "key",
+                        types_->get_int64()),
+       new SimpleColumn("MeasureTable_WithRewritableExprs", "country",
+                        types_->get_string()),
+       new SimpleColumn("MeasureTable_WithRewritableExprs", "quantity",
+                        types_->get_int64()),
+       new SimpleColumn("MeasureTable_WithRewritableExprs", "price",
+                        types_->get_int64())},
+      /*row_identity_column_indices=*/absl::flat_hash_set<int>{0},
+      /*measures=*/
+      {{"measure_with_with_expr", "WITH(a AS SUM(price), a + 1)",
+        /*is_pseudo_column=*/true},
+       {"measure_with_array_remove_last_n",
+        "ARRAY_REMOVE_LAST_N([1,2], SUM(price))", /*is_pseudo_column=*/true}},
+      /*is_value_table=*/false));
+
+  // Table containing complex measure expressions that had triggered RQG
+  // failures in the past.
+  const Type* array_int64_type = nullptr;
+  ZETASQL_CHECK_OK(types_->MakeArrayType(types_->get_int64(), &array_int64_type));
+  ZETASQL_RETURN_IF_ERROR(AddTableWithMeasures(
+      analyzer_options, "MeasureTable_ComplexExprs",
+      {new SimpleColumn("MeasureTable_ComplexExprs", "key",
+                        types_->get_int64()),
+       new SimpleColumn("MeasureTable_ComplexExprs", "country",
+                        types_->get_string()),
+       new SimpleColumn("MeasureTable_ComplexExprs", "array_val",
+                        array_int64_type)},
+      /*row_identity_column_indices=*/absl::flat_hash_set<int>{0},
+      /*measures=*/
+      {{"measure_with_in_subquery",
+        "COUNTIF(((key) IN (SELECT scan_alias.a_2 AS renamed FROM (SELECT "
+        "key "
+        "AS a_1, key AS a_2) AS scan_alias)))"},
+       {"measure_with_lambda_containing_with_expr",
+        "SUM(ARRAY_FILTER([1, 2, 3], e -> WITH(a1 AS array_val, a2 AS key, "
+        "true))[OFFSET(0)])"},
+       {"measure_sum_one", "SUM(1)"},
+       {"measure_string_agg", "STRING_AGG(country, ',')"},
+       {"measure_bit_and", "BIT_AND(CAST(country AS BYTES), mode => 'PAD')"},
+       {"measure_aggregation_in_in_expr", "SUM(key) IN ((SELECT 1))"}},
+      /*is_value_table=*/false));
 
   return absl::OkStatus();
 }
@@ -3504,6 +3628,17 @@ void SampleCatalogImpl::LoadFunctions2() {
                                 .set_must_be_constant_expression());
   function->AddSignature(
       {types_->get_bool(), {string_const_expression_arg}, /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add function with analysis constant argument.
+  function = new Function("fn_with_analysis_constant_arg", "sample_functions",
+                          Function::SCALAR);
+  const auto any_analysis_const_arg = zetasql::FunctionArgumentType(
+      ARG_TYPE_ARBITRARY, zetasql::FunctionArgumentTypeOptions()
+                              .set_cardinality(FunctionArgumentType::REQUIRED)
+                              .set_must_be_analysis_constant());
+  function->AddSignature(
+      {types_->get_bool(), {any_analysis_const_arg}, /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
 
   {
@@ -5764,9 +5899,6 @@ absl::Status SampleCatalogImpl::LoadEnhancedAmlPropertyGraph() {
   auto knows_label = std::make_unique<SimpleGraphElementLabel>(
       "Knows", property_graph_name_path, property_dcls_knows);
 
-  auto property_dcls_located_in =
-      absl::flat_hash_set<const GraphPropertyDeclaration*>{
-          city_id_property_dcl.get(), country_id_property_dcl.get()};
   auto located_in_label = std::make_unique<SimpleGraphElementLabel>(
       "LocatedIn", property_graph_name_path, property_dcls_knows);
 
@@ -6162,6 +6294,311 @@ void SampleCatalogImpl::LoadMultiSrcDstEdgePropertyGraphs() {
 
   std::vector<std::unique_ptr<const GraphPropertyDeclaration>> property_dcls;
   property_dcls.push_back(std::move(value_property_dcl));
+
+  auto property_graph = std::make_unique<SimplePropertyGraph>(
+      std::move(property_graph_name_path), std::move(node_tables),
+      std::move(edge_tables), std::move(labels), std::move(property_dcls));
+  catalog_->AddOwnedPropertyGraph(std::move(property_graph));
+}
+
+// The loading function is based on the schema below, featuring dynamic
+// multi-labels for nodes, single label for edges and properties.
+//
+// CREATE TABLE DynamicMultiLabelGraphNode (
+//   id INT64 PRIMARY KEY,
+//   nodeLabelCol ARRAY<STRING>,
+//   code INT64,
+//   nodeJsonProp JSON
+// );
+//
+// CREATE TABLE DynamicSingleLabelGraphEdge (
+//   id INT64 PRIMARY KEY,
+//   dst_id INT64,
+//   edgeLabelCol STRING,
+//   category STRING,
+//   edgeJsonProp JSON
+// );
+//
+// CREATE PROPERTY GRAPH aml_dynamic_multi
+//  NODE TABLES(
+//   DynamicMultiLabelGraphNode
+//     DEFAULT LABEL PROPERTIES ALL COLUMNS
+//     LABEL Entity PROPERTIES (code)
+//     DYNAMIC LABEL (nodeLabelCol)
+//     DYNAMIC PROPERTIES (nodeJsonProp)
+//  )
+//  EDGE TABLES(
+//   DynamicSingleLabelGraphEdge
+//     SOURCE KEY (id) REFERENCES DynamicMultiLabelGraphNode(id)
+//     DESTINATION KEY (dst_id) REFERENCES DynamicMultiLabelGraphNode(id)
+//     DEFAULT LABEL PROPERTIES ALL COLUMNS
+//     LABEL Connection PROPERTIES (category)
+//     DYNAMIC LABEL (edgeLabelCol)
+//     DYNAMIC PROPERTIES (edgeJsonProp)
+//  );
+
+void SampleCatalogImpl::LoadPropertyGraphWithDynamicMultiLabelsAndProperties() {
+  const std::vector<std::string> property_graph_name_path{"aml_dynamic_multi"};
+  typedef std::pair<std::string, const Type*> NameAndType;
+
+  // Define the node table with an ARRAY<STRING> for multi-label.
+  auto* graph_dynamic_node_source_table = new SimpleTable(
+      "DynamicMultiLabelGraphNode",
+      std::vector<NameAndType>{{"id", types_->get_int64()},
+                               {"nodeLabelCol", types::StringArrayType()},
+                               {"code", types_->get_int64()},
+                               {"nodeJsonProp", types_->get_json()}});
+  ZETASQL_CHECK_OK(graph_dynamic_node_source_table->SetPrimaryKey({0}));
+  AddOwnedTable(graph_dynamic_node_source_table);
+
+  auto* graph_dynamic_edge_source_table = new SimpleTable(
+      "DynamicSingleLabelGraphEdge",
+      std::vector<NameAndType>{{"id", types_->get_int64()},
+                               {"dst_id", types_->get_int64()},
+                               {"edgeLabelCol", types_->get_string()},
+                               {"category", types_->get_string()},
+                               {"edgeJsonProp", types_->get_json()}});
+  ZETASQL_CHECK_OK(graph_dynamic_edge_source_table->SetPrimaryKey({0, 1}));
+  AddOwnedTable(graph_dynamic_edge_source_table);
+
+  // Property declarations
+  auto id_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
+      "id", property_graph_name_path, types_->get_int64());
+  auto dst_id_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
+      "dst_id", property_graph_name_path, types_->get_int64());
+  // The nodeLabelCol property is now an array of strings.
+  auto node_label_col_property_dcl =
+      std::make_unique<SimpleGraphPropertyDeclaration>(
+          "nodeLabelCol", property_graph_name_path, types::StringArrayType());
+  auto edge_label_col_property_dcl =
+      std::make_unique<SimpleGraphPropertyDeclaration>(
+          "edgeLabelCol", property_graph_name_path, types_->get_string());
+  auto code_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
+      "code", property_graph_name_path, types_->get_int64());
+  auto node_json_prop_property_dcl =
+      std::make_unique<SimpleGraphPropertyDeclaration>(
+          "nodeJsonProp", property_graph_name_path, types_->get_json());
+  auto edge_json_prop_property_dcl =
+      std::make_unique<SimpleGraphPropertyDeclaration>(
+          "edgeJsonProp", property_graph_name_path, types_->get_json());
+  auto category_property_dcl = std::make_unique<SimpleGraphPropertyDeclaration>(
+      "category", property_graph_name_path, types_->get_string());
+
+  // Labels
+  auto graph_node_label_dcl = std::make_unique<SimpleGraphElementLabel>(
+      "DynamicMultiLabelGraphNode", property_graph_name_path,
+      absl::flat_hash_set<const GraphPropertyDeclaration*>{
+          id_property_dcl.get(), node_label_col_property_dcl.get(),
+          code_property_dcl.get(), node_json_prop_property_dcl.get()});
+
+  auto graph_edge_label_dcl = std::make_unique<SimpleGraphElementLabel>(
+      "DynamicSingleLabelGraphEdge", property_graph_name_path,
+      absl::flat_hash_set<const GraphPropertyDeclaration*>{
+          id_property_dcl.get(), dst_id_property_dcl.get(),
+          edge_label_col_property_dcl.get(), category_property_dcl.get(),
+          edge_json_prop_property_dcl.get()});
+
+  auto entity_label_dcl = std::make_unique<SimpleGraphElementLabel>(
+      "Entity", property_graph_name_path,
+      absl::flat_hash_set<const GraphPropertyDeclaration*>{
+          code_property_dcl.get()});
+
+  auto connection_label_dcl = std::make_unique<SimpleGraphElementLabel>(
+      "Connection", property_graph_name_path,
+      absl::flat_hash_set<const GraphPropertyDeclaration*>{
+          category_property_dcl.get()});
+
+  std::vector<std::unique_ptr<const GraphPropertyDefinition>>
+      property_defs_node, property_defs_edge;
+
+  // DynamicMultiLabelGraphNode node table static properties definitions.
+  auto graph_node_id_column_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(),
+      graph_dynamic_node_source_table->FindColumnByName("id"));
+  auto graph_node_id_prop_ref = std::make_unique<SimpleGraphPropertyDefinition>(
+      id_property_dcl.get(), "id");
+  InternalPropertyGraph::InternalSetResolvedExpr(
+      graph_node_id_prop_ref.get(), graph_node_id_column_ref.get());
+  property_defs_node.push_back(std::move(graph_node_id_prop_ref));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(graph_node_id_column_ref));
+
+  // Resolve the nodeLabelCol with the updated ARRAY<STRING> type.
+  auto graph_node_label_col_ref = MakeResolvedCatalogColumnRef(
+      types::StringArrayType(),
+      graph_dynamic_node_source_table->FindColumnByName("nodeLabelCol"));
+  const ResolvedExpr* graph_node_label_col_ref_ptr =
+      graph_node_label_col_ref.get();
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(graph_node_label_col_ref));
+
+  auto graph_node_label_col_prop_ref =
+      std::make_unique<SimpleGraphPropertyDefinition>(
+          node_label_col_property_dcl.get(), "nodeLabelCol");
+  InternalPropertyGraph::InternalSetResolvedExpr(
+      graph_node_label_col_prop_ref.get(), graph_node_label_col_ref_ptr);
+  property_defs_node.push_back(std::move(graph_node_label_col_prop_ref));
+
+  auto graph_node_code_column_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(),
+      graph_dynamic_node_source_table->FindColumnByName("code"));
+  auto graph_node_code_prop_ref =
+      std::make_unique<SimpleGraphPropertyDefinition>(code_property_dcl.get(),
+                                                      "code");
+  InternalPropertyGraph::InternalSetResolvedExpr(
+      graph_node_code_prop_ref.get(), graph_node_code_column_ref.get());
+  property_defs_node.push_back(std::move(graph_node_code_prop_ref));
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(graph_node_code_column_ref));
+
+  auto graph_node_json_prop_column_ref = MakeResolvedCatalogColumnRef(
+      types_->get_json(),
+      graph_dynamic_node_source_table->FindColumnByName("nodeJsonProp"));
+  const ResolvedExpr* graph_node_json_prop_column_ref_ptr =
+      graph_node_json_prop_column_ref.get();
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(graph_node_json_prop_column_ref));
+
+  auto graph_node_json_prop_prop_ref =
+      std::make_unique<SimpleGraphPropertyDefinition>(
+          node_json_prop_property_dcl.get(), "nodeJsonProp");
+  InternalPropertyGraph::InternalSetResolvedExpr(
+      graph_node_json_prop_prop_ref.get(), graph_node_json_prop_column_ref_ptr);
+  property_defs_node.push_back(std::move(graph_node_json_prop_prop_ref));
+
+  // DynamicMultiLabelGraphNode dynamic label.
+  auto graph_node_dynamic_label =
+      std::make_unique<SimpleGraphDynamicLabel>("nodeLabelCol");
+  InternalPropertyGraph::InternalSetResolvedExpr(graph_node_dynamic_label.get(),
+                                                 graph_node_label_col_ref_ptr);
+
+  // DynamicMultiLabelGraphNode dynamic properties.
+  auto graph_node_dynamic_properties =
+      std::make_unique<SimpleGraphDynamicProperties>("nodeJsonProp");
+  InternalPropertyGraph::InternalSetResolvedExpr(
+      graph_node_dynamic_properties.get(), graph_node_json_prop_column_ref_ptr);
+
+  auto dynamic_graph_node_table = std::make_unique<const SimpleGraphNodeTable>(
+      graph_dynamic_node_source_table->Name(), property_graph_name_path,
+      graph_dynamic_node_source_table, std::vector<int>{0},
+      absl::flat_hash_set<const GraphElementLabel*>{graph_node_label_dcl.get(),
+                                                    entity_label_dcl.get()},
+      std::move(property_defs_node), std::move(graph_node_dynamic_label),
+      std::move(graph_node_dynamic_properties));
+
+  // DynamicSingleLabelGraphEdge edge table static properties definitions.
+  auto graph_edge_id_column_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(),
+      graph_dynamic_edge_source_table->FindColumnByName("id"));
+  auto graph_edge_id_prop_ref = std::make_unique<SimpleGraphPropertyDefinition>(
+      id_property_dcl.get(), "id");
+  InternalPropertyGraph::InternalSetResolvedExpr(
+      graph_edge_id_prop_ref.get(), graph_edge_id_column_ref.get());
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(graph_edge_id_column_ref));
+  property_defs_edge.push_back(std::move(graph_edge_id_prop_ref));
+
+  auto graph_edge_dst_id_column_ref = MakeResolvedCatalogColumnRef(
+      types_->get_int64(),
+      graph_dynamic_edge_source_table->FindColumnByName("dst_id"));
+  auto graph_edge_dst_id_prop_ref =
+      std::make_unique<SimpleGraphPropertyDefinition>(dst_id_property_dcl.get(),
+                                                      "dst_id");
+  InternalPropertyGraph::InternalSetResolvedExpr(
+      graph_edge_dst_id_prop_ref.get(), graph_edge_dst_id_column_ref.get());
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(graph_edge_dst_id_column_ref));
+  property_defs_edge.push_back(std::move(graph_edge_dst_id_prop_ref));
+
+  auto graph_edge_label_col_ref = MakeResolvedCatalogColumnRef(
+      types_->get_string(),
+      graph_dynamic_edge_source_table->FindColumnByName("edgeLabelCol"));
+  const ResolvedExpr* graph_edge_label_col_ref_ptr =
+      graph_edge_label_col_ref.get();
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(graph_edge_label_col_ref));
+  auto graph_edge_label_col_prop_ref =
+      std::make_unique<SimpleGraphPropertyDefinition>(
+          edge_label_col_property_dcl.get(), "edgeLabelCol");
+  InternalPropertyGraph::InternalSetResolvedExpr(
+      graph_edge_label_col_prop_ref.get(), graph_edge_label_col_ref_ptr);
+  property_defs_edge.push_back(std::move(graph_edge_label_col_prop_ref));
+
+  auto graph_edge_category_column_ref = MakeResolvedCatalogColumnRef(
+      types_->get_string(),
+      graph_dynamic_edge_source_table->FindColumnByName("category"));
+  auto graph_edge_category_prop_ref =
+      std::make_unique<SimpleGraphPropertyDefinition>(
+          category_property_dcl.get(), "category");
+  InternalPropertyGraph::InternalSetResolvedExpr(
+      graph_edge_category_prop_ref.get(), graph_edge_category_column_ref.get());
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(graph_edge_category_column_ref));
+  property_defs_edge.push_back(std::move(graph_edge_category_prop_ref));
+
+  auto graph_edge_json_prop_column_ref = MakeResolvedCatalogColumnRef(
+      types_->get_json(),
+      graph_dynamic_edge_source_table->FindColumnByName("edgeJsonProp"));
+  const ResolvedExpr* graph_edge_json_prop_column_ref_ptr =
+      graph_edge_json_prop_column_ref.get();
+  owned_resolved_graph_property_definitions_.push_back(
+      std::move(graph_edge_json_prop_column_ref));
+  auto graph_edge_json_prop_prop_ref =
+      std::make_unique<SimpleGraphPropertyDefinition>(
+          edge_json_prop_property_dcl.get(), "edgeJsonProp");
+  InternalPropertyGraph::InternalSetResolvedExpr(
+      graph_edge_json_prop_prop_ref.get(), graph_edge_json_prop_column_ref_ptr);
+  property_defs_edge.push_back(std::move(graph_edge_json_prop_prop_ref));
+
+  // DynamicSingleLabelGraphEdge dynamic label.
+  auto graph_edge_dynamic_label =
+      std::make_unique<SimpleGraphDynamicLabel>("edgeLabelCol");
+  InternalPropertyGraph::InternalSetResolvedExpr(graph_edge_dynamic_label.get(),
+                                                 graph_edge_label_col_ref_ptr);
+
+  // DynamicSingleLabelGraphEdge dynamic properties.
+  auto graph_edge_dynamic_properties =
+      std::make_unique<SimpleGraphDynamicProperties>("edgeJsonProp");
+  InternalPropertyGraph::InternalSetResolvedExpr(
+      graph_edge_dynamic_properties.get(), graph_edge_json_prop_column_ref_ptr);
+
+  auto dynamic_graph_edge_table = std::make_unique<const SimpleGraphEdgeTable>(
+      graph_dynamic_edge_source_table->Name(), property_graph_name_path,
+      graph_dynamic_edge_source_table, std::vector<int>{0, 1},
+      absl::flat_hash_set<const GraphElementLabel*>{connection_label_dcl.get(),
+                                                    graph_edge_label_dcl.get()},
+      std::move(property_defs_edge),
+      std::make_unique<const SimpleGraphNodeTableReference>(
+          dynamic_graph_node_table.get(), std::vector<int>{0},
+          std::vector<int>{0}),
+      std::make_unique<const SimpleGraphNodeTableReference>(
+          dynamic_graph_node_table.get(), std::vector<int>{1},
+          std::vector<int>{0}),
+      std::move(graph_edge_dynamic_label),
+      std::move(graph_edge_dynamic_properties));
+
+  // Property graph
+  std::vector<std::unique_ptr<const GraphNodeTable>> node_tables;
+  node_tables.push_back(std::move(dynamic_graph_node_table));
+
+  std::vector<std::unique_ptr<const GraphEdgeTable>> edge_tables;
+  edge_tables.push_back(std::move(dynamic_graph_edge_table));
+
+  std::vector<std::unique_ptr<const GraphElementLabel>> labels;
+  labels.push_back(std::move(graph_node_label_dcl));
+  labels.push_back(std::move(entity_label_dcl));
+  labels.push_back(std::move(connection_label_dcl));
+  labels.push_back(std::move(graph_edge_label_dcl));
+
+  std::vector<std::unique_ptr<const GraphPropertyDeclaration>> property_dcls;
+  property_dcls.push_back(std::move(id_property_dcl));
+  property_dcls.push_back(std::move(dst_id_property_dcl));
+  property_dcls.push_back(std::move(node_label_col_property_dcl));
+  property_dcls.push_back(std::move(edge_label_col_property_dcl));
+  property_dcls.push_back(std::move(code_property_dcl));
+  property_dcls.push_back(std::move(node_json_prop_property_dcl));
+  property_dcls.push_back(std::move(edge_json_prop_property_dcl));
+  property_dcls.push_back(std::move(category_property_dcl));
 
   auto property_graph = std::make_unique<SimplePropertyGraph>(
       std::move(property_graph_name_path), std::move(node_tables),
@@ -6895,6 +7332,39 @@ void SampleCatalogImpl::LoadTableValuedFunctions2() {
                             /*extra_relation_input_columns_allowed=*/false),
                         {FunctionArgumentType::AnyRelation()}, context_id++),
       output_schema_two_types));
+
+  // Add a TVF which always returns failure for argument constraint check.
+  TVFPostResolutionArgumentConstraintsCallback tvf_argument_check =
+      [](const FunctionSignature& signature,
+         const std::vector<TVFInputArgumentType>& arguments,
+         const LanguageOptions& language_options) {
+        return absl::InvalidArgumentError(
+            "Invalid argument, this TVF returns failure for argument "
+            "constraint check");
+      };
+  catalog_->AddOwnedTableValuedFunction(new TableValuedFunction(
+      {"tvf_with_arg_constraint_check_failure"},
+      FunctionSignature(FunctionArgumentType::AnyRelation(), {}, context_id++),
+      TableValuedFunctionOptions().set_post_resolution_argument_constraint(
+          tvf_argument_check)));
+
+  // Add a TVF with non empty group name
+  TVFComputeResultTypeCallback result_type_callback =
+      [](Catalog* catalog, TypeFactory* type_factory,
+         const FunctionSignature& signature,
+         const std::vector<TVFInputArgumentType>& actual_arguments,
+         const AnalyzerOptions& analyzer_options) {
+        return new TVFSignature(actual_arguments,
+                                TVFRelation({TVFRelation::Column(
+                                    "col", type_factory->get_string())}),
+                                TVFSignatureOptions());
+      };
+  catalog_->AddOwnedTableValuedFunction(new TableValuedFunction(
+      {"tvf_with_group_name"}, "Group",
+      {FunctionSignature(FunctionArgumentType::AnyRelation(), {},
+                         context_id++)},
+      TableValuedFunctionOptions().set_compute_result_type_callback(
+          result_type_callback)));
 
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_two_models_with_fixed_output"},
@@ -8740,8 +9210,8 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithDeprecationWarnings() {
           context_id++),
       output_schema_two_types));
 
-  // Add a TVF with three arguments: The first one is required model; The
-  // second is a string with default; The third is named optional table.
+  // Add a TVF with two arguments: The first one is an optional table; The
+  // second one is a named optional string with default.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_optional_table_default_mandatory_string"},
       FunctionSignature(
@@ -8778,6 +9248,145 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithDeprecationWarnings() {
                    .set_cardinality(FunctionArgumentType::OPTIONAL))},
           context_id++),
       output_schema_two_types));
+
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_graph"},
+      FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                            output_schema_two_types,
+                            /*extra_relation_input_columns_allowed=*/false),
+                        {FunctionArgumentType::AnyGraph()}, context_id++),
+      output_schema_two_types));
+
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"bad_tvf_graph_not_first_argument"},
+      FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                            output_schema_two_types,
+                            /*extra_relation_input_columns_allowed=*/false),
+                        {types::Int64Type(), FunctionArgumentType::AnyGraph()},
+                        context_id++),
+      output_schema_two_types));
+}
+
+void SampleCatalogImpl::LoadTableValuedFunctionsWithMultipleSignatures() {
+  TVFRelation tvf_relation({{kColumnNameKey, types::Int64Type()},
+                            {kColumnNameValue, types::StringType()}});
+  FunctionArgumentType tvf_schema(FunctionArgumentType::RelationWithSchema(
+      tvf_relation, /*extra_relation_input_columns_allowed=*/false));
+  FunctionArgumentType output_schema(tvf_schema);
+  int64_t context_id = 0;
+
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_overload_single_arg"},
+      std::vector<FunctionSignature>{
+          FunctionSignature(tvf_schema, {types::BoolType()}, context_id++),
+          FunctionSignature(tvf_schema, {types::BytesType()}, context_id++),
+          FunctionSignature(tvf_schema, {types::DoubleType()}, context_id++),
+          FunctionSignature(tvf_schema, {types::StringType()}, context_id++),
+          FunctionSignature(tvf_schema, {types::IntervalType()}, context_id++),
+          FunctionSignature(tvf_schema, {FunctionArgumentType::AnyRelation()},
+                            context_id++),
+          FunctionSignature(tvf_schema, {FunctionArgumentType::AnyModel()},
+                            context_id++),
+          FunctionSignature(tvf_schema, {FunctionArgumentType::AnyConnection()},
+                            context_id++),
+          FunctionSignature(tvf_schema,
+                            {FunctionArgumentType::AnyRelation(),
+                             FunctionArgumentType::AnyDescriptor()},
+                            context_id++),
+      },
+      tvf_relation));
+
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_overload_int64_or_float_or_double_args"},
+      std::vector<FunctionSignature>{
+          FunctionSignature(tvf_schema, {types::Int64Type()}, context_id++),
+          FunctionSignature(tvf_schema, {types::FloatType()}, context_id++),
+          FunctionSignature(tvf_schema, {types::DoubleType()}, context_id++),
+      },
+      tvf_relation));
+
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_overload_date_time_timestamp_args"},
+      std::vector<FunctionSignature>{
+          FunctionSignature(tvf_schema, {types::DateType()}, context_id++),
+          FunctionSignature(tvf_schema, {types::TimeType()}, context_id++),
+          FunctionSignature(tvf_schema, {types::TimestampType()}, context_id++),
+      },
+      tvf_relation));
+
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_overload_templated_or_fixed_relation"},
+      std::vector<FunctionSignature>{
+          FunctionSignature(tvf_schema, {FunctionArgumentType::AnyRelation()},
+                            context_id++),
+          FunctionSignature(tvf_schema, {tvf_schema}, context_id++),
+      },
+      tvf_relation));
+
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_overload_int64_or_relation_arg"},
+      std::vector<FunctionSignature>{
+          FunctionSignature(tvf_schema, {types::Int64Type()}, context_id++),
+          FunctionSignature(tvf_schema, {FunctionArgumentType::AnyRelation()},
+                            context_id++),
+      },
+      tvf_relation));
+
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_overload_1_2_4_int64_args"},
+      {FunctionSignature(tvf_schema,
+                         FunctionArgumentTypeList(1, types::Int64Type()),
+                         context_id++),
+       FunctionSignature(tvf_schema,
+                         FunctionArgumentTypeList(2, types::Int64Type()),
+                         context_id++),
+       FunctionSignature(tvf_schema,
+                         FunctionArgumentTypeList(4, types::Int64Type()),
+                         context_id++)},
+      tvf_relation));
+
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_overload_with_repeated_args"},
+      {FunctionSignature(tvf_schema, {types::StringType()}, context_id++),
+       FunctionSignature(tvf_schema,
+                         {FunctionArgumentType(types::StringType(),
+                                               FunctionArgumentType::REPEATED)},
+                         context_id++)},
+      tvf_relation));
+
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_overload_with_optional_args"},
+      {FunctionSignature(tvf_schema, {types::Int64Type()}, context_id++),
+       FunctionSignature(tvf_schema,
+                         {types::Int64Type(),
+                          FunctionArgumentType(types::Int64Type(),
+                                               FunctionArgumentType::OPTIONAL)},
+                         context_id++)},
+      tvf_relation));
+
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_overload_positional_or_named_args"},
+      {FunctionSignature(tvf_schema,
+                         {FunctionArgumentType(
+                              types::Int64Type(),
+                              FunctionArgumentTypeOptions().set_argument_name(
+                                  "arg_a", kPositionalOnly)),
+                          FunctionArgumentType(
+                              types::Int64Type(),
+                              FunctionArgumentTypeOptions().set_argument_name(
+                                  "arg_b", kPositionalOnly))},
+                         context_id++),
+       FunctionSignature(tvf_schema,
+                         {FunctionArgumentType(
+                              types::Int64Type(),
+                              FunctionArgumentTypeOptions().set_argument_name(
+                                  "arg_c", kNamedOnly)),
+                          FunctionArgumentType(
+                              types::Int64Type(),
+                              FunctionArgumentTypeOptions().set_argument_name(
+                                  "arg_d", kNamedOnly))},
+                         context_id++)},
+      tvf_relation));
 }
 
 // Add a SQL table function to catalog starting from a full create table
@@ -9667,6 +10276,28 @@ void SampleCatalogImpl::LoadTemplatedSQLTableValuedFunctions() {
         /*tvf_options=*/{}));
   }
 
+  {
+    catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
+        {"tvf_templated_select_array_max_function"},
+        FunctionSignature(
+            FunctionArgumentType::AnyRelation(),
+            {FunctionArgumentType::AnyRelation(),
+             FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                  FunctionArgumentType::REQUIRED)},
+            /*context_id=*/1),
+        /*arg_name_list=*/{"InputTable", "threshold"},
+        ParseResumeLocation::FromString(R"sql(
+          WITH TempTable AS (
+            SELECT
+              ARRAY<INT64>[array_col[0], array_col[1]] AS first_two_elements,
+              ARRAY<INT64>[array_col[2], array_col[3]] AS next_two_elements
+            FROM InputTable
+          )
+          SELECT * FROM TempTable
+          WHERE ARRAY_MAX(first_two_elements) < threshold AND
+            ARRAY_MAX(next_two_elements) > threshold)sql")));
+  }
+
   // A templated TVF which calls a templated TVF.
   catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
       {"tvf_templated_select_nested_typeof_function"},
@@ -9730,32 +10361,32 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithAnonymizationUid() {
   int context_id = 0;
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_no_args_with_anonymization_uid"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_all_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        FunctionArgumentTypeList(), context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_all_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         FunctionArgumentTypeList(), context_id++)},
       AnonymizationInfo::Create({"column_int64"}).value_or(nullptr),
       output_schema_all_types));
 
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_relation_arg_with_anonymization_uid"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_all_types,
               /*extra_relation_input_columns_allowed=*/false),
           FunctionArgumentTypeList({FunctionArgumentType(ARG_TYPE_RELATION)}),
-          context_id++),
+          context_id++)},
       AnonymizationInfo::Create({"column_int64"}).value_or(nullptr),
       output_schema_all_types));
 
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_templated_arg_with_anonymization_uid"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_all_types,
               /*extra_relation_input_columns_allowed=*/false),
           FunctionArgumentTypeList({FunctionArgumentType(ARG_TYPE_ARBITRARY)}),
-          context_id++),
+          context_id++)},
       AnonymizationInfo::Create({"column_int64"}).value_or(nullptr),
       output_schema_all_types));
 
@@ -9764,10 +10395,10 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithAnonymizationUid() {
 
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_no_args_with_nested_anonymization_uid"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_proto,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        FunctionArgumentTypeList(), context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_proto,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         FunctionArgumentTypeList(), context_id++)},
       AnonymizationInfo::Create({"user_info", "int32_val1"}).value_or(nullptr),
       output_schema_proto));
 
@@ -9776,10 +10407,10 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithAnonymizationUid() {
 
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_no_args_value_table_with_anonymization_uid"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_proto_value_table,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        FunctionArgumentTypeList(), context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_proto_value_table,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         FunctionArgumentTypeList(), context_id++)},
       AnonymizationInfo::Create({"int32_val1"}).value_or(nullptr),
       output_schema_proto_value_table));
 
@@ -9789,10 +10420,10 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithAnonymizationUid() {
 
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_no_args_value_table_with_nested_anonymization_uid"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_proto_value_table_with_nested_int,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        FunctionArgumentTypeList(), context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_proto_value_table_with_nested_int,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         FunctionArgumentTypeList(), context_id++)},
       AnonymizationInfo::Create({"nested_value", "nested_int64"})
           .value_or(nullptr),
       output_schema_proto_value_table_with_nested_int));
@@ -9801,13 +10432,64 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithAnonymizationUid() {
   // b/254939522
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_no_args_value_table_with_invalid_nested_anonymization_uid"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_proto_value_table_with_nested_int,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        FunctionArgumentTypeList(), context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_proto_value_table_with_nested_int,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         FunctionArgumentTypeList(), context_id++)},
       AnonymizationInfo::Create({"nested_value.nested_int64"})
           .value_or(nullptr),
       output_schema_proto_value_table_with_nested_int));
+}
+
+void SampleCatalogImpl::LoadTableValuedFunctionsWithOptionalRelations() {
+  TVFRelation output_schema = TVFRelation::ValueTable(types_->get_int64());
+
+  int64_t context_id = 0;
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_optional_relation_named_scalar"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType(zetasql::ARG_TYPE_RELATION,
+                                FunctionArgumentType::OPTIONAL),
+           FunctionArgumentType(
+               types_->get_string(),
+               FunctionArgumentTypeOptions()
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)
+                   .set_argument_name("foobar", kNamedOnly))},
+          context_id),
+      output_schema));
+
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_optional_relations_named_scalar"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType(zetasql::ARG_TYPE_RELATION,
+                                FunctionArgumentType::OPTIONAL),
+           FunctionArgumentType(zetasql::ARG_TYPE_RELATION,
+                                FunctionArgumentType::OPTIONAL),
+           FunctionArgumentType(
+               types_->get_string(),
+               FunctionArgumentTypeOptions()
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)
+                   .set_argument_name("foobar", kNamedOnly))},
+          context_id),
+      output_schema));
+
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_optional_relation_optional_scalar"},
+      FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                            output_schema,
+                            /*extra_relation_input_columns_allowed=*/false),
+                        {FunctionArgumentType(zetasql::ARG_TYPE_RELATION,
+                                              FunctionArgumentType::OPTIONAL),
+                         FunctionArgumentType(zetasql::types::StringType(),
+                                              FunctionArgumentType::OPTIONAL)},
+                        context_id),
+      output_schema));
 }
 
 void SampleCatalogImpl::AddProcedureWithArgumentType(std::string type_name,
@@ -10070,6 +10752,22 @@ void SampleCatalogImpl::LoadConstants() {
   ZETASQL_CHECK_OK(SimpleConstant::Create(std::vector<std::string>{"int_variable_foo"},
                                   Value::Int32(4), &int_variable_foo));
   catalog_->AddOwnedConstant(std::move(int_variable_foo));
+
+  // Load constants with report format enum types
+  std::unique_ptr<SimpleConstant> PROTO_ENUM;
+  ZETASQL_CHECK_OK(SimpleConstant::Create(
+      std::vector<std::string>{"PROTO_ENUM"},
+      Value::Enum(types::DifferentialPrivacyReportFormatEnumType(),
+                  functions::DifferentialPrivacyEnums::PROTO),
+      &PROTO_ENUM));
+  catalog_->AddOwnedConstant(PROTO_ENUM.release());
+  std::unique_ptr<SimpleConstant> JSON_ENUM;
+  ZETASQL_CHECK_OK(SimpleConstant::Create(
+      std::vector<std::string>{"JSON_ENUM"},
+      Value::Enum(types::DifferentialPrivacyReportFormatEnumType(),
+                  functions::DifferentialPrivacyEnums::JSON),
+      &JSON_ENUM));
+  catalog_->AddOwnedConstant(JSON_ENUM.release());
 }
 
 void SampleCatalogImpl::LoadConnections() {
@@ -10362,7 +11060,6 @@ void SampleCatalogImpl::AddSqlDefinedFunctionFromCreate(
   language.EnableLanguageFeature(FEATURE_LIMIT_IN_AGGREGATE);
   language.EnableLanguageFeature(FEATURE_NULL_HANDLING_MODIFIER_IN_AGGREGATE);
   language.EnableLanguageFeature(FEATURE_MULTILEVEL_AGGREGATION);
-  language.EnableLanguageFeature(FEATURE_MULTILEVEL_AGGREGATION_IN_UDAS);
   language.EnableLanguageFeature(FEATURE_LATERAL_JOIN);
   language.EnableLanguageFeature(FEATURE_GROUP_BY_STRUCT);
   AnalyzerOptions analyzer_options;
@@ -10904,11 +11601,23 @@ void SampleCatalogImpl::LoadAggregateSqlFunctions(
       );)sql",
       language_options, /*inline_sql_functions=*/true);
 
+  // Templated UDA which uses TYPEOF, so that the body can be rewritten by the
+  // TemplatedFunctionCallRewriter.
   AddSqlDefinedFunctionFromCreate(
       R"sql(
       CREATE AGGREGATE FUNCTION TemplatedUdaCountIfTypeOfIsString(x ANY TYPE) AS (
           COUNTIF(TYPEOF(x) = 'STRING')
       );)sql",
+      language_options, /*inline_sql_functions=*/false);
+
+  // Templated UDA which calls multiple UDAs, one of which has a body that can
+  // be rewritten by the TemplatedFunctionCallRewriter.
+  AddSqlDefinedFunctionFromCreate(
+      R"sql(
+      CREATE AGGREGATE FUNCTION TemplatedUdaCallsRewritableUda(x ANY TYPE) AS (
+          TemplatedUdaCountIfTypeOfIsString(x) + COUNT(*)
+      );
+      )sql",
       language_options, /*inline_sql_functions=*/false);
 }
 

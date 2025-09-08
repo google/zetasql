@@ -1,3 +1,4 @@
+[default language_features=NONE]
 SELECT LENGTH([1,2], e->e>0);
 --
 ERROR: Lambda is not supported [at 1:22]
@@ -5,7 +6,7 @@ SELECT LENGTH([1,2], e->e>0);
                      ^
 ==
 
-[default language_features=INLINE_LAMBDA_ARGUMENT,NAMED_ARGUMENTS]
+[default language_features=NONE,+INLINE_LAMBDA_ARGUMENT,+NAMED_ARGUMENTS]
 SELECT e -> e > 0;
 --
 ERROR: Syntax error: Expected end of input but got "->" [at 1:10]
@@ -1552,7 +1553,7 @@ SELECT fn_array_filter([1], e -> LENGTH(fn_array_filter([e], e->e > "")) > 0);
        ^
 ==
 
-[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+MAP_TYPE,+INLINE_LAMBDA_ARGUMENT]
 SELECT fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(
   MAP_FROM_ARRAY([('a', 1)]), e -> 1);
 --
@@ -1579,7 +1580,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+MAP_TYPE,+INLINE_LAMBDA_ARGUMENT]
 SELECT fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(
   MAP_FROM_ARRAY([(1, "a")]), e -> 1);
 --
@@ -1591,7 +1592,7 @@ SELECT fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(
        ^
 ==
 
-[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+MAP_TYPE,+INLINE_LAMBDA_ARGUMENT]
 SELECT fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(
   MAP_FROM_ARRAY([('a', 1)]), e -> CONCAT(e, 'a'));
 --
@@ -1603,7 +1604,7 @@ SELECT fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(
        ^
 ==
 
-[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+MAP_TYPE,+INLINE_LAMBDA_ARGUMENT]
 SELECT
   fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(NULL, e -> CONCAT(e, 'a'));
 --
@@ -1613,3 +1614,110 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_MAP_TYPE_ANY_1_2_L
     Failed to infer type <T1> [at 2:3]
   fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(NULL, e -> CONCAT(e, 'a'));
   ^
+==
+
+# Regression test for b/439566179.
+# b/b/166482992): java tests cannot yet support annotations.
+[language_features=MAXIMUM,+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK]
+[enabled_ast_rewrites=ALL]
+[no_java]
+SELECT ARRAY_TRANSFORM([STRUCT(1 AS a, COLLATE('x', 'und:ci') AS b)], (e) -> 'a')
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<STRUCT<a INT64, b STRING>> array_to_transform, FUNCTION<STRUCT<a INT64, b STRING>->STRING> transformation) -> ARRAY<STRING>)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b STRING>) -> ARRAY<STRUCT<a INT64, b STRING>>)
+    |     |     +-type_annotation_map=<<_,{Collation:"und:ci"}>>
+    |     |     +-MakeStruct
+    |     |       +-type=STRUCT<a INT64, b STRING>
+    |     |       +-type_annotation_map=<_,{Collation:"und:ci"}>
+    |     |       +-field_list=
+    |     |         +-Literal(type=INT64, value=1)
+    |     |         +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |     |           +-type_annotation_map={Collation:"und:ci"}
+    |     |           +-Literal(type=STRING, value="x")
+    |     |           +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |     +-FunctionArgument
+    |       +-inline_lambda=
+    |         +-InlineLambda
+    |           +-argument_list=[$lambda_arg.e#2<_,{Collation:"und:ci"}>]
+    |           +-body=
+    |             +-Literal(type=STRING, value="a")
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-SubqueryExpr
+    |     +-type=ARRAY<STRING>
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#8]
+    |         +-expr_list=
+    |         | +-$col1#8 :=
+    |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRUCT<a INT64, b STRING>>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<STRUCT<a INT64, b STRING>>, type_annotation_map=<<_,{Collation:"und:ci"}>>, column=$subquery1.array_to_transform#4<<_,{Collation:"und:ci"}>>)
+    |         |     +-Literal(type=ARRAY<STRING>, value=NULL)
+    |         |     +-SubqueryExpr
+    |         |       +-type=ARRAY<STRING>
+    |         |       +-subquery_type=ARRAY
+    |         |       +-parameter_list=
+    |         |       | +-ColumnRef(type=ARRAY<STRUCT<a INT64, b STRING>>, type_annotation_map=<<_,{Collation:"und:ci"}>>, column=$subquery1.array_to_transform#4<<_,{Collation:"und:ci"}>>)
+    |         |       +-subquery=
+    |         |         +-OrderByScan
+    |         |           +-column_list=[$expr_subquery.$col1#7]
+    |         |           +-is_ordered=TRUE
+    |         |           +-input_scan=
+    |         |           | +-ProjectScan
+    |         |           |   +-column_list=[$array.element#5<_,{Collation:"und:ci"}>, $array_offset.off#6, $expr_subquery.$col1#7]
+    |         |           |   +-expr_list=
+    |         |           |   | +-$col1#7 := Literal(type=STRING, value="a")
+    |         |           |   +-input_scan=
+    |         |           |     +-ArrayScan
+    |         |           |       +-column_list=[$array.element#5<_,{Collation:"und:ci"}>, $array_offset.off#6]
+    |         |           |       +-array_expr_list=
+    |         |           |       | +-ColumnRef(type=ARRAY<STRUCT<a INT64, b STRING>>, type_annotation_map=<<_,{Collation:"und:ci"}>>, column=$subquery1.array_to_transform#4<<_,{Collation:"und:ci"}>>, is_correlated=TRUE)
+    |         |           |       +-element_column_list=[$array.element#5<_,{Collation:"und:ci"}>]
+    |         |           |       +-array_offset_column=
+    |         |           |         +-ColumnHolder(column=$array_offset.off#6)
+    |         |           +-order_by_item_list=
+    |         |             +-OrderByItem
+    |         |               +-column_ref=
+    |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#6)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$subquery1.array_to_transform#4<<_,{Collation:"und:ci"}>>]
+    |             +-expr_list=
+    |             | +-array_to_transform#4 :=
+    |             |   +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b STRING>) -> ARRAY<STRUCT<a INT64, b STRING>>)
+    |             |     +-type_annotation_map=<<_,{Collation:"und:ci"}>>
+    |             |     +-MakeStruct
+    |             |       +-type=STRUCT<a INT64, b STRING>
+    |             |       +-type_annotation_map=<_,{Collation:"und:ci"}>
+    |             |       +-field_list=
+    |             |         +-Literal(type=INT64, value=1)
+    |             |         +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |             |           +-type_annotation_map={Collation:"und:ci"}
+    |             |           +-Literal(type=STRING, value="x")
+    |             |           +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan

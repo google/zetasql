@@ -1,4 +1,5 @@
 # Creating proto3 messages using NEW
+[default language_features=NONE]
 SELECT NEW zetasql_test__.SimpleProto3Message(expr1 as int32_val)
 FROM (SELECT 1 as expr1 UNION ALL
       SELECT NULL)
@@ -1158,7 +1159,7 @@ SELECT Proto3KitchenSink.field_that_doesnt_exist
 # FEATURE_IGNORE_PROTO3_USE_DEFAULTS causes the use_defaults and
 # use_field_defaults annotations to be ignored for proto3 scalar fields.
 ##########################################################################
-[language_features={{|IGNORE_PROTO3_USE_DEFAULTS}}]
+[language_features=NONE,{{|+IGNORE_PROTO3_USE_DEFAULTS}}]
 SELECT Proto3KitchenSink.int32_val, Proto3KitchenSink.int64_val,
        Proto3KitchenSink.date
 FROM Proto3Table
@@ -1198,7 +1199,7 @@ QueryStmt
       +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1])
 ==
 
-[language_features={{|IGNORE_PROTO3_USE_DEFAULTS}}]
+[language_features=NONE,{{|+IGNORE_PROTO3_USE_DEFAULTS}}]
 SELECT Proto3KitchenSink.nullable_string, Proto3KitchenSink.nullable_date
 FROM Proto3Table
 --
@@ -1230,7 +1231,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1])
 --
-ALTERNATION GROUP: IGNORE_PROTO3_USE_DEFAULTS
+ALTERNATION GROUP: +IGNORE_PROTO3_USE_DEFAULTS
 --
 QueryStmt
 +-output_column_list=
@@ -1259,7 +1260,7 @@ QueryStmt
       +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1])
 ==
 
-[language_features={{|IGNORE_PROTO3_USE_DEFAULTS}}]
+[language_features=NONE,{{|+IGNORE_PROTO3_USE_DEFAULTS}}]
 SELECT Proto3KitchenSink.repeated_int32_val, Proto3KitchenSink.repeated_date
 FROM Proto3Table
 --
@@ -1290,7 +1291,7 @@ QueryStmt
       +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1])
 ==
 
-[language_features={{|IGNORE_PROTO3_USE_DEFAULTS}}]
+[language_features=NONE,{{|+IGNORE_PROTO3_USE_DEFAULTS}}]
 SELECT Proto3KitchenSink.nested_value,
        Proto3KitchenSink.nested_value.nested_int64
 FROM Proto3Table
@@ -1326,7 +1327,7 @@ QueryStmt
       +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1])
 ==
 
-[language_features={{|IGNORE_PROTO3_USE_DEFAULTS}}]
+[language_features=NONE,{{|+IGNORE_PROTO3_USE_DEFAULTS}}]
 SELECT Proto3KitchenSink.nullable_nested_value.nested_int64,
        Proto3KitchenSink.nullable_nested_value.nested_repeated_int64,
        Proto3KitchenSink.nullable_nested_value.date
@@ -1383,7 +1384,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1])
 --
-ALTERNATION GROUP: IGNORE_PROTO3_USE_DEFAULTS
+ALTERNATION GROUP: +IGNORE_PROTO3_USE_DEFAULTS
 --
 QueryStmt
 +-output_column_list=
@@ -1435,7 +1436,7 @@ QueryStmt
       +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1])
 ==
 
-[language_features={{|IGNORE_PROTO3_USE_DEFAULTS}}]
+[language_features=NONE,{{|+IGNORE_PROTO3_USE_DEFAULTS}}]
 SELECT Proto3KitchenSink.test_map
 FROM Proto3Table
 --
@@ -1460,7 +1461,7 @@ QueryStmt
 # TODO: We should be ignoring the proto3 defaults when the feature
 # flag is set, but we still obey them. This test is to demonstrate a problem
 # that is fixed in a subsequent CL.
-[language_features={{|IGNORE_PROTO3_USE_DEFAULTS}}]
+[language_features=NONE,{{|+IGNORE_PROTO3_USE_DEFAULTS}}]
 SELECT Proto3KitchenSink.small_message_no_use_defaults.*
 FROM Proto3Table;
 --
@@ -1494,7 +1495,7 @@ QueryStmt
         +-input_scan=
           +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1])
 --
-ALTERNATION GROUP: IGNORE_PROTO3_USE_DEFAULTS
+ALTERNATION GROUP: +IGNORE_PROTO3_USE_DEFAULTS
 --
 QueryStmt
 +-output_column_list=

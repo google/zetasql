@@ -631,6 +631,16 @@ static FunctionSignature GetAddFunction(TypeFactory* factory) {
   return add_function;
 }
 
+// Model simple operator '+' for float32.
+static FunctionSignature GetAddFunctionForFloat32(TypeFactory* factory) {
+  FunctionArgumentTypeList arguments;
+  arguments.push_back(FunctionArgumentType(factory->get_float()));
+  arguments.push_back(FunctionArgumentType(factory->get_float()));
+  FunctionSignature add_function(FunctionArgumentType(factory->get_float()),
+                                 arguments, nullptr);
+  return add_function;
+}
+
 // Model functions with function-type arguments like ARRAY_FILTER.
 static FunctionSignature GetArrayFilterFunction(TypeFactory* factory) {
   FunctionArgumentTypeList arguments;
@@ -896,6 +906,21 @@ TEST(FunctionSignatureTests, FunctionSignatureTestsExternalProductMode) {
   EXPECT_EQ("(x <array<T1>>, y FUNCTION<<T1>->BOOL>) RETURNS <array<T1>>",
             array_filter_function.GetSQLDeclaration(
                 /*argument_names=*/{"x", "y"}, ProductMode::PRODUCT_EXTERNAL));
+}
+
+TEST(FunctionSignatureTests, FunctionSignatureTestsFloat32) {
+  TypeFactory factory;
+  FunctionSignature float32_function = GetAddFunctionForFloat32(&factory);
+  EXPECT_EQ("(FLOAT, FLOAT) RETURNS FLOAT",
+            float32_function.GetSQLDeclaration({} /* arg_names */,
+                                               ProductMode::PRODUCT_INTERNAL));
+  EXPECT_EQ("(FLOAT, FLOAT) RETURNS FLOAT",
+            float32_function.GetSQLDeclaration({} /* arg_names */,
+                                               ProductMode::PRODUCT_EXTERNAL));
+  EXPECT_EQ("(FLOAT32, FLOAT32) RETURNS FLOAT32",
+            float32_function.GetSQLDeclaration({} /* arg_names */,
+                                               ProductMode::PRODUCT_EXTERNAL,
+                                               /*use_external_float32=*/true));
 }
 
 TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
@@ -1872,7 +1897,7 @@ TEST(FunctionSignatureTests, TestIsTemplatedArgument) {
     // values.
     enum_size += SignatureArgumentKind_IsValid(i);
   }
-  ASSERT_EQ(32, enum_size);
+  ASSERT_EQ(33, enum_size);
 
   std::set<SignatureArgumentKind> templated_kinds;
   templated_kinds.insert(ARG_TYPE_ANY_1);
@@ -1908,6 +1933,7 @@ TEST(FunctionSignatureTests, TestIsTemplatedArgument) {
   std::set<SignatureArgumentKind> non_templated_kinds;
   non_templated_kinds.insert(ARG_TYPE_FIXED);
   non_templated_kinds.insert(ARG_TYPE_VOID);
+  templated_kinds.insert(ARG_TYPE_GRAPH);
 
   for (const FunctionArgumentType& type : GetTemplatedArgumentTypes(&factory)) {
     tests.push_back({type, true});
@@ -2079,16 +2105,15 @@ TEST(FunctionSignatureTests, TestArgumentConstraints) {
       [](const FunctionSignature& signature,
          absl::Span<const InputArgumentType> arguments) { return ""; };
   FunctionSignature nonconcrete_signature(
-      types::Int64Type(), {{types::StringType(), /*num_occurrences=*/-1}},
+      types::Int64Type(), {{ARG_TYPE_ANY_1, /*num_occurrences=*/1}},
       /*context_id=*/-1,
       FunctionSignatureOptions().set_constraints(noop_constraints_callback));
   // Calling the argument constraint callback on a non-concrete signature should
   // result in a ABSL_DCHECK failure.
-  EXPECT_THAT(
-      nonconcrete_signature.CheckArgumentConstraints(/*arguments=*/{}),
-      StatusIs(absl::StatusCode::kInternal,
-               HasSubstr("FunctionSignatureArgumentConstraintsCallback "
-                         "must be called with a concrete signature")));
+  EXPECT_THAT(nonconcrete_signature.CheckArgumentConstraints(/*arguments=*/{}),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("FunctionSignatureArgumentConstraintsCallback "
+                                 "must be called with concrete arguments")));
 
   FunctionSignature concrete_signature(
       {types::Int64Type(), FunctionArgumentType::REQUIRED,
@@ -2369,7 +2394,8 @@ TEST(FunctionSignatureTests, SetConcreteResultTypePreservesArgumentOptions) {
           FunctionArgumentTypeOptions().set_uses_array_element_for_collation()),
       {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
       /*context_id=*/-1);
-  result_arg_has_options.SetConcreteResultType(types::Int64Type());
+  result_arg_has_options.SetConcreteResultType(
+      types::Int64Type(), SignatureArgumentKind::ARG_TYPE_FIXED);
   EXPECT_TRUE(result_arg_has_options.result_type()
                   .options()
                   .uses_array_element_for_collation());

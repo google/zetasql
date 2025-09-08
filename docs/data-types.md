@@ -2845,7 +2845,7 @@ with a timezone that observes DST, the following rules apply:
 + During the transition from standard time to DST, one hour is skipped. A
   civil time from the skipped hour is treated the same as if it were written
   an hour later. For example, in the `America/Los_Angeles` time zone, the hour
-  between 2 AM and 3 AM on May 10, 2024 is skipped on a clock. The times
+  between 2 AM and 3 AM on March 10, 2024 is skipped on a clock. The times
   2:30 AM and 3:30 AM on that date are treated as the same point in time:
 
   ```zetasql

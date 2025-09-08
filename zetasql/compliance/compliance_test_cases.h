@@ -293,7 +293,7 @@ class ShardedTest : public BaseT {
   const std::string& test_name() const { return test_name_; }
 
   void set_index(const size_t index) { index_ = index; }
-  const size_t index() const { return index_; }
+  size_t index() const { return index_; }
 
   // Runs the test.
   virtual void RunTest() = 0;

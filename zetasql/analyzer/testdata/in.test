@@ -1,3 +1,4 @@
+[default language_features=MAXIMUM]
 select 'a' IN ('a', 'b', 'c');
 --
 QueryStmt
@@ -906,7 +907,7 @@ select 99999999999999999999 IN (select double from SimpleTypes)
        ^
 ==
 
-[language_features={{|ARRAY_EQUALITY}}]
+[language_features=NONE,{{|+ARRAY_EQUALITY}}]
 select ARRAY<int32>[1, 2, 3] IN (select array_agg(key) from TestTable)
 --
 ALTERNATION GROUP: <empty>
@@ -915,7 +916,7 @@ ERROR: Cannot execute IN subquery with uncomparable types ARRAY<INT32> and ARRAY
 select ARRAY<int32>[1, 2, 3] IN (select array_agg(key) from TestTable)
        ^
 --
-ALTERNATION GROUP: ARRAY_EQUALITY
+ALTERNATION GROUP: +ARRAY_EQUALITY
 --
 QueryStmt
 +-output_column_list=
@@ -946,7 +947,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|ARRAY_EQUALITY}}]
+[language_features=NONE,{{|+ARRAY_EQUALITY}}]
 select ARRAY<int64>[1] IN ([1], [2], [3])
 --
 ALTERNATION GROUP: <empty>
@@ -955,7 +956,7 @@ ERROR: IN is not defined for arguments of type ARRAY<INT64> [at 1:24]
 select ARRAY<int64>[1] IN ([1], [2], [3])
                        ^
 --
-ALTERNATION GROUP: ARRAY_EQUALITY
+ALTERNATION GROUP: +ARRAY_EQUALITY
 --
 QueryStmt
 +-output_column_list=
@@ -1145,7 +1146,7 @@ select struct(cast(1 as int64)) IN (select struct(cast(1 as int32)))
 # Coercion is supported for IN UNNEST, though. Fixed in b/24130693.
 # (The element can be coerced, but the array can only be coerced if it is a
 # literal or a parameter.)
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select struct(cast(1 as int32)) IN UNNEST([struct(cast(1 as int64))])
 --
 QueryStmt
@@ -1164,7 +1165,7 @@ QueryStmt
 ==
 
 # Another variant from b/24130693 (fixed).
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select cast(1 as uint64) IN UNNEST([1, 2])
 --
 ALTERNATION GROUP: <empty>
@@ -1173,7 +1174,7 @@ ERROR: No matching signature for operator IN UNNEST for argument types: UINT64, 
 select cast(1 as uint64) IN UNNEST([1, 2])
                          ^
 --
-ALTERNATION GROUP: CAST_DIFFERENT_ARRAY_TYPES
+ALTERNATION GROUP: +CAST_DIFFERENT_ARRAY_TYPES
 --
 QueryStmt
 +-output_column_list=
@@ -1191,7 +1192,7 @@ QueryStmt
 ==
 
 # Another variant from b/24130693 (fixed).
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select cast(1 as int32) IN UNNEST([2,3])
 --
 ALTERNATION GROUP: <empty>
@@ -1200,7 +1201,7 @@ ERROR: No matching signature for operator IN UNNEST for argument types: INT32, A
 select cast(1 as int32) IN UNNEST([2,3])
                         ^
 --
-ALTERNATION GROUP: CAST_DIFFERENT_ARRAY_TYPES
+ALTERNATION GROUP: +CAST_DIFFERENT_ARRAY_TYPES
 --
 QueryStmt
 +-output_column_list=
@@ -1218,7 +1219,7 @@ QueryStmt
 ==
 
 # Another variant from b/24130693 (fixed).
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select 123 IN UNNEST(array<int32>[123])
 --
 QueryStmt
@@ -1238,12 +1239,12 @@ QueryStmt
 
 # Another variant from b/24130693 (fixed). We decided not to support implicit
 # coercion of non-literal arrays.
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select {{1|s.int64}} IN UNNEST([s.int32]) from SimpleTypes s
 --
 ALTERNATION GROUPS:
     1
-    CAST_DIFFERENT_ARRAY_TYPES,1
+    +CAST_DIFFERENT_ARRAY_TYPES,1
 --
 QueryStmt
 +-output_column_list=
@@ -1262,7 +1263,7 @@ QueryStmt
 --
 ALTERNATION GROUPS:
     s.int64
-    CAST_DIFFERENT_ARRAY_TYPES,s.int64
+    +CAST_DIFFERENT_ARRAY_TYPES,s.int64
 --
 ERROR: No matching signature for operator IN UNNEST for argument types: INT64, ARRAY<INT32> [at 1:16]
 select s.int64 IN UNNEST([s.int32]) from SimpleTypes s
@@ -1271,12 +1272,12 @@ select s.int64 IN UNNEST([s.int32]) from SimpleTypes s
 
 # Array literals can only be implicitly coerced if they are not explicitly
 # typed. This is a caveat from b/24130693 (fixed).
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select cast(1 as int64) IN UNNEST({{|ARRAY<INT32>}}[1, 2, 3])
 --
 ALTERNATION GROUPS:
     <empty>
-    CAST_DIFFERENT_ARRAY_TYPES,
+    +CAST_DIFFERENT_ARRAY_TYPES,
 --
 QueryStmt
 +-output_column_list=
@@ -1294,7 +1295,7 @@ QueryStmt
 --
 ALTERNATION GROUPS:
     ARRAY<INT32>
-    CAST_DIFFERENT_ARRAY_TYPES,ARRAY<INT32>
+    +CAST_DIFFERENT_ARRAY_TYPES,ARRAY<INT32>
 --
 ERROR: No matching signature for operator IN UNNEST for argument types: INT64, ARRAY<INT32> [at 1:25]
 select cast(1 as int64) IN UNNEST(ARRAY<INT32>[1, 2, 3])
@@ -1302,7 +1303,7 @@ select cast(1 as int64) IN UNNEST(ARRAY<INT32>[1, 2, 3])
 ==
 
 # Another variant from b/24130693 (fixed).
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select "TESTENUM0" IN UNNEST([TestEnum]) from EnumTable
 --
 QueryStmt
@@ -1322,7 +1323,7 @@ QueryStmt
 ==
 
 # Another variant from b/24130693 (fixed).
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select null in unnest([1, 2, 3])
 --
 QueryStmt
@@ -1340,7 +1341,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select null in unnest(["foo", "bar", "baz"])
 --
 QueryStmt
@@ -1360,7 +1361,7 @@ QueryStmt
 
 # Another variant from b/24130693 (fixed).
 
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select cast(1 as int32) in unnest(null)
 --
 ERROR: Second argument of IN UNNEST must be an array but was NULL [at 1:25]
@@ -1368,7 +1369,7 @@ select cast(1 as int32) in unnest(null)
                         ^
 ==
 
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select null in unnest(null)
 --
 ERROR: Second argument of IN UNNEST must be an array but was NULL [at 1:13]
@@ -1376,7 +1377,7 @@ select null in unnest(null)
             ^
 ==
 
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select struct(cast(1 as int64)) IN UNNEST([struct(cast(1 as int32))])
 --
 ERROR: No matching signature for operator IN UNNEST for argument types: STRUCT<INT64>, ARRAY<STRUCT<INT32>> [at 1:33]
@@ -1384,7 +1385,7 @@ select struct(cast(1 as int64)) IN UNNEST([struct(cast(1 as int32))])
                                 ^
 ==
 
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select struct(cast(1 as zetasql_test__.TestEnum))
     IN UNNEST([struct('TESTENUM1')])
 --
@@ -1393,7 +1394,7 @@ ERROR: No matching signature for operator IN UNNEST for argument types: STRUCT<z
     ^
 ==
 
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select struct('TESTENUM1')
     IN UNNEST([struct(cast(1 as zetasql_test__.TestEnum))])
 --
@@ -1426,7 +1427,7 @@ select struct(1) IN (select struct('abc'))
        ^
 ==
 
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select struct(1) IN UNNEST([struct('abc')])
 --
 ERROR: No matching signature for operator IN UNNEST for argument types: STRUCT<INT64>, ARRAY<STRUCT<STRING>> [at 1:18]
@@ -1632,12 +1633,12 @@ select cast(1 as int32) IN (@test_param_array)
 
 select cast(1 as int32) IN @test_param_array
 --
-ERROR: Syntax error: Expected "(" or keyword UNNEST but got "@" [at 1:28]
+ERROR: Syntax error: Unexpected "@" [at 1:28]
 select cast(1 as int32) IN @test_param_array
                            ^
 ==
 
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select cast(1 as int32) IN UNNEST(@test_param_array)
 --
 QueryStmt
@@ -1700,7 +1701,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select KitchenSink IN UNNEST(ARRAY<`zetasql_test__.KitchenSinkPB`>[])
 from TestTable
 --
@@ -1709,7 +1710,7 @@ select KitchenSink IN UNNEST(ARRAY<`zetasql_test__.KitchenSinkPB`>[])
                    ^
 ==
 
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select KitchenSink.int32_val IN UNNEST(ARRAY<`zetasql_test__.KitchenSinkPB`>[])
 from TestTable
 --
@@ -1732,7 +1733,7 @@ select 1 IN UNNEST(1)
          ^
 ==
 
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select 1
 from TestTable T
 where T.KitchenSink.string_val IN UNNEST(T.KitchenSink.repeated_string_val)
@@ -1766,7 +1767,7 @@ QueryStmt
               +-default_value=[]
 ==
 
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select key
 from KeyValue
 where key IN UNNEST( (select ARRAY_AGG(key) from KeyValue) )
@@ -1802,7 +1803,7 @@ QueryStmt
                             +-ColumnRef(type=INT64, column=KeyValue.Key#3)
 ==
 
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select 1
 from TestTable T
 where T.KitchenSink.date IN UNNEST(ARRAY(select T.KitchenSink.date))

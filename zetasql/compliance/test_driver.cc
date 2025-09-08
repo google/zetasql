@@ -193,4 +193,16 @@ absl::StatusOr<TestDatabase> DeserializeTestDatabase(
   return db;
 }
 
+absl::StatusOr<Value> TestDriver::MultiStmtResultToValue(
+    const absl::StatusOr<MultiStmtResult>& multi_result) {
+  ZETASQL_RETURN_IF_ERROR(multi_result.status());
+  if (multi_result->statement_results.empty()) {
+    return absl::OutOfRangeError("No statement results produced");
+  }
+  if (multi_result->statement_results.size() > 1) {
+    return absl::OutOfRangeError("More than one statement result produced");
+  }
+  return multi_result->statement_results[0].result;
+}
+
 }  // namespace zetasql

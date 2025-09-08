@@ -415,6 +415,12 @@ TEST(EnumTypeTest, EnumTypeIsSupported) {
       types::BitwiseAggModeEnumType()->IsSupportedType(product_internal));
   EXPECT_TRUE(
       types::BitwiseAggModeEnumType()->IsSupportedType(proto_base_enabled));
+
+  auto rank_type_enum_type = types::RankTypeEnumType();
+  ASSERT_TRUE(rank_type_enum_type.ok());
+  EXPECT_TRUE(rank_type_enum_type.value()->IsSupportedType(product_external));
+  EXPECT_TRUE(rank_type_enum_type.value()->IsSupportedType(product_internal));
+  EXPECT_TRUE(rank_type_enum_type.value()->IsSupportedType(proto_base_enabled));
 }
 
 }  // namespace zetasql

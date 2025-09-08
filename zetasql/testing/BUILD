@@ -14,6 +14,10 @@
 # limitations under the License.
 #
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 package(default_visibility = ["//zetasql/base:zetasql_implementation"])
 
 cc_library(
@@ -160,6 +164,9 @@ cc_library(
         "//zetasql/public/types",
         "//zetasql/testdata:test_proto3_cc_proto",
         "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:string_view",
         "@com_google_googleapis//google/type:date_cc_proto",
         "@com_google_googleapis//google/type:latlng_cc_proto",
         "@com_google_googleapis//google/type:timeofday_cc_proto",

@@ -98,7 +98,6 @@ using zetasql::types::JsonArrayType;
 using zetasql::types::NumericArrayType;
 using zetasql::types::StringArrayType;
 using zetasql::types::TimestampArrayType;
-using zetasql::types::TimestampPicosArrayType;
 using zetasql::types::Uint32ArrayType;
 using zetasql::types::Uint64ArrayType;
 
@@ -556,7 +555,7 @@ Value Value::DatetimeFromPacked64Micros(int64_t v) {
   return Value(datetime);
 }
 
-absl::StatusOr<std::string_view> Value::EnumName() const {
+absl::StatusOr<absl::string_view> Value::EnumName() const {
   if (metadata_.type_kind() != TYPE_ENUM) {
     return absl::InvalidArgumentError("Not an enum value");
   }
@@ -604,7 +603,6 @@ int64_t Value::ToInt64() const {
     case TYPE_PROTO:
     case TYPE_TIME:
     case TYPE_DATETIME:
-    case TYPE_TIMESTAMP_PICOS:
     default:
       ABSL_LOG(FATAL) << "Cannot coerce " << TypeKind_Name(type_kind())
                  << " to int64";
@@ -653,7 +651,6 @@ double Value::ToDouble() const {
     case TYPE_ENUM:
       return enum_value();
     case TYPE_TIMESTAMP:
-    case TYPE_TIMESTAMP_PICOS:
     case TYPE_STRING:
     case TYPE_BYTES:
     case TYPE_ARRAY:
@@ -726,6 +723,7 @@ absl::CivilDay Value::ToCivilDay() const {
 absl::Time Value::ToTime() const {
   ABSL_CHECK(!is_null()) << "Null value";
   ABSL_CHECK_EQ(TYPE_TIMESTAMP, metadata_.type_kind()) << "Not a timestamp value";
+  ABSL_DCHECK_EQ(timestamp_picos_ptr_->value().ToPicoTime().SubNanoseconds(), 0);
   return timestamp_picos_ptr_->value().ToAbslTime();
 }
 
@@ -905,7 +903,6 @@ static bool TypesSupportSqlEquals(const Type* type1, const Type* type2) {
     case TYPE_KIND_PAIR(TYPE_BYTES, TYPE_BYTES):
     case TYPE_KIND_PAIR(TYPE_DATE, TYPE_DATE):
     case TYPE_KIND_PAIR(TYPE_TIMESTAMP, TYPE_TIMESTAMP):
-    case TYPE_KIND_PAIR(TYPE_TIMESTAMP_PICOS, TYPE_TIMESTAMP_PICOS):
     case TYPE_KIND_PAIR(TYPE_TIME, TYPE_TIME):
     case TYPE_KIND_PAIR(TYPE_DATETIME, TYPE_DATETIME):
     case TYPE_KIND_PAIR(TYPE_INTERVAL, TYPE_INTERVAL):
@@ -919,6 +916,7 @@ static bool TypesSupportSqlEquals(const Type* type1, const Type* type2) {
     case TYPE_KIND_PAIR(TYPE_GRAPH_ELEMENT, TYPE_GRAPH_ELEMENT):
     case TYPE_KIND_PAIR(TYPE_GRAPH_PATH, TYPE_GRAPH_PATH):
     case TYPE_KIND_PAIR(TYPE_UUID, TYPE_UUID):
+    case TYPE_KIND_PAIR(TYPE_JSON, TYPE_JSON):
       return true;
     case TYPE_KIND_PAIR(TYPE_EXTENDED, TYPE_EXTENDED):
       return type1->SupportsEquality() && type1->Equivalent(type2);
@@ -965,7 +963,6 @@ Value Value::SqlEquals(const Value& that) const {
     case TYPE_KIND_PAIR(TYPE_BYTES, TYPE_BYTES):
     case TYPE_KIND_PAIR(TYPE_DATE, TYPE_DATE):
     case TYPE_KIND_PAIR(TYPE_TIMESTAMP, TYPE_TIMESTAMP):
-    case TYPE_KIND_PAIR(TYPE_TIMESTAMP_PICOS, TYPE_TIMESTAMP_PICOS):
     case TYPE_KIND_PAIR(TYPE_TIME, TYPE_TIME):
     case TYPE_KIND_PAIR(TYPE_DATETIME, TYPE_DATETIME):
     case TYPE_KIND_PAIR(TYPE_INTERVAL, TYPE_INTERVAL):
@@ -973,6 +970,7 @@ Value Value::SqlEquals(const Value& that) const {
     case TYPE_KIND_PAIR(TYPE_NUMERIC, TYPE_NUMERIC):
     case TYPE_KIND_PAIR(TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
     case TYPE_KIND_PAIR(TYPE_UUID, TYPE_UUID):
+    case TYPE_KIND_PAIR(TYPE_JSON, TYPE_JSON):
     case TYPE_KIND_PAIR(TYPE_EXTENDED, TYPE_EXTENDED):
       return Value::Bool(Equals(that));
     case TYPE_KIND_PAIR(TYPE_GRAPH_ELEMENT, TYPE_GRAPH_ELEMENT): {
@@ -1089,7 +1087,6 @@ static bool TypesSupportSqlLessThan(const Type* type1, const Type* type2) {
     case TYPE_KIND_PAIR(TYPE_BYTES, TYPE_BYTES):
     case TYPE_KIND_PAIR(TYPE_DATE, TYPE_DATE):
     case TYPE_KIND_PAIR(TYPE_TIMESTAMP, TYPE_TIMESTAMP):
-    case TYPE_KIND_PAIR(TYPE_TIMESTAMP_PICOS, TYPE_TIMESTAMP_PICOS):
     case TYPE_KIND_PAIR(TYPE_TIME, TYPE_TIME):
     case TYPE_KIND_PAIR(TYPE_DATETIME, TYPE_DATETIME):
     case TYPE_KIND_PAIR(TYPE_INTERVAL, TYPE_INTERVAL):
@@ -1101,6 +1098,7 @@ static bool TypesSupportSqlLessThan(const Type* type1, const Type* type2) {
     case TYPE_KIND_PAIR(TYPE_INT64, TYPE_UINT64):
     case TYPE_KIND_PAIR(TYPE_UINT64, TYPE_INT64):
     case TYPE_KIND_PAIR(TYPE_UUID, TYPE_UUID):
+    case TYPE_KIND_PAIR(TYPE_JSON, TYPE_JSON):
       return true;
     case TYPE_KIND_PAIR(TYPE_EXTENDED, TYPE_EXTENDED):
       return type1->SupportsEquality() && type1->Equivalent(type2);
@@ -1133,7 +1131,6 @@ Value Value::SqlLessThan(const Value& that) const {
     case TYPE_KIND_PAIR(TYPE_BYTES, TYPE_BYTES):
     case TYPE_KIND_PAIR(TYPE_DATE, TYPE_DATE):
     case TYPE_KIND_PAIR(TYPE_TIMESTAMP, TYPE_TIMESTAMP):
-    case TYPE_KIND_PAIR(TYPE_TIMESTAMP_PICOS, TYPE_TIMESTAMP_PICOS):
     case TYPE_KIND_PAIR(TYPE_TIME, TYPE_TIME):
     case TYPE_KIND_PAIR(TYPE_DATETIME, TYPE_DATETIME):
     case TYPE_KIND_PAIR(TYPE_ENUM, TYPE_ENUM):
@@ -1142,6 +1139,7 @@ Value Value::SqlLessThan(const Value& that) const {
     case TYPE_KIND_PAIR(TYPE_INTERVAL, TYPE_INTERVAL):
     case TYPE_KIND_PAIR(TYPE_RANGE, TYPE_RANGE):
     case TYPE_KIND_PAIR(TYPE_UUID, TYPE_UUID):
+    case TYPE_KIND_PAIR(TYPE_JSON, TYPE_JSON):
     case TYPE_KIND_PAIR(TYPE_EXTENDED, TYPE_EXTENDED):
       return Value::Bool(LessThan(that));
     case TYPE_KIND_PAIR(TYPE_FLOAT, TYPE_FLOAT):
@@ -1785,14 +1783,6 @@ Value TimestampArray(absl::Span<const TimestampPicosValue> values) {
     value_vector.push_back(Value::Timestamp(v));
   }
   return Value::Array(TimestampArrayType(), value_vector);
-}
-
-Value TimestampPicosArray(absl::Span<const TimestampPicosValue> values) {
-  std::vector<Value> value_vector;
-  for (const auto& v : values) {
-    value_vector.push_back(Value::TimestampPicos(v));
-  }
-  return Value::Array(TimestampPicosArrayType(), value_vector);
 }
 
 Value DateArray(absl::Span<const absl::CivilDay> values) {

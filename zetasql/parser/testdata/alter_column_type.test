@@ -68,7 +68,7 @@ ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE (STRING);
 
 ALTER TABLE foo ALTER COLUMN bar SET TYPE STRING;
 --
-ERROR: Syntax error: Expected keyword DATA or keyword DEFAULT or keyword OPTIONS but got keyword TYPE [at 1:38]
+ERROR: Syntax error: Expected keyword DATA or keyword DEFAULT or keyword GENERATED or keyword OPTIONS but got keyword TYPE [at 1:38]
 ALTER TABLE foo ALTER COLUMN bar SET TYPE STRING;
                                      ^
 
@@ -417,39 +417,3 @@ AlterTableStatement [0-105] [ALTER TABLE...b NUMERIC>]
               Identifier(NUMERIC) [97-104] [NUMERIC]
 --
 ALTER TABLE foo ALTER COLUMN IF EXISTS bar SET DATA TYPE STRUCT< a STRING COLLATE 'unicode:ci', b NUMERIC >
-==
-
-ALTER TABLE foo ALTER COLUMN bar DROP GENERATED;
---
-AlterTableStatement [0-47] [ALTER TABLE...GENERATED]
-  PathExpression [12-15] [foo]
-    Identifier(foo) [12-15] [foo]
-  AlterActionList [16-47] [ALTER COLUMN...GENERATED]
-    AlterColumnDropGeneratedAction [16-47] [ALTER COLUMN...GENERATED]
-      Identifier(bar) [29-32] [bar]
---
-ALTER TABLE foo ALTER COLUMN bar DROP GENERATED
-==
-
-ALTER TABLE IF EXISTS foo ALTER COLUMN bar DROP GENERATED;
---
-AlterTableStatement(is_if_exists) [0-57] [ALTER TABLE...GENERATED]
-  PathExpression [22-25] [foo]
-    Identifier(foo) [22-25] [foo]
-  AlterActionList [26-57] [ALTER COLUMN...GENERATED]
-    AlterColumnDropGeneratedAction [26-57] [ALTER COLUMN...GENERATED]
-      Identifier(bar) [39-42] [bar]
---
-ALTER TABLE IF EXISTS foo ALTER COLUMN bar DROP GENERATED
-==
-
-ALTER TABLE foo ALTER COLUMN IF EXISTS bar DROP GENERATED;
---
-AlterTableStatement [0-57] [ALTER TABLE...GENERATED]
-  PathExpression [12-15] [foo]
-    Identifier(foo) [12-15] [foo]
-  AlterActionList [16-57] [ALTER COLUMN...GENERATED]
-    AlterColumnDropGeneratedAction(is_if_exists) [16-57] [ALTER COLUMN...GENERATED]
-      Identifier(bar) [39-42] [bar]
---
-ALTER TABLE foo ALTER COLUMN IF EXISTS bar DROP GENERATED

@@ -271,6 +271,12 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
     return DefaultVisit(node);
   }
 
+  absl::Status VisitResolvedDescribeScan(
+      const ResolvedDescribeScan* node) override {
+    applicable_rewrites_->insert(REWRITE_PIPE_DESCRIBE);
+    return DefaultVisit(node);
+  }
+
   absl::Status VisitResolvedPipeIfScan(
       const ResolvedPipeIfScan* node) override {
     applicable_rewrites_->insert(REWRITE_PIPE_IF);
@@ -302,7 +308,9 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
     for (const std::unique_ptr<const ResolvedGroupingSetBase>&
              grouping_set_base : node->grouping_set_list()) {
       if (grouping_set_base->Is<ResolvedRollup>() ||
-          grouping_set_base->Is<ResolvedCube>()) {
+          grouping_set_base->Is<ResolvedCube>() ||
+          grouping_set_base->Is<ResolvedGroupingSetList>() ||
+          grouping_set_base->Is<ResolvedGroupingSetProduct>()) {
         applicable_rewrites_->insert(ResolvedASTRewrite::REWRITE_GROUPING_SET);
         break;
       }

@@ -21,6 +21,7 @@
 
 #include "zetasql/public/options.pb.h"
 #include "absl/base/attributes.h"
+#include "absl/base/macros.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 
@@ -85,24 +86,6 @@ struct ErrorMessageOptions {
   bool attach_error_location_payload = false;
   ErrorMessageStability stability = ERROR_MESSAGE_STABILITY_UNSPECIFIED;
 
-  // If true, enables an enhanced form of error redaction which preserves some
-  // information about the error in a stable way. This is intended as a
-  // middle-ground for golden files in engine tests, keeping enough information
-  // in the expected error message for a human to be able to confirm that
-  // the error is as expected, but without exposing too much, in a way that
-  // would impede ZetaSQL's ability to change its error messages.
-  //
-  // To allow additional error redaction cases to be implemented in the future
-  // without breaking tests, setting this true will cause a crash in debug
-  // builds should an error message be obtained that the code does not know
-  // how to redact. If false, the redacted message is always "SQL ERROR", with
-  // no restrictions are what messages are/are not supported.
-  //
-  // This field is ignored unless `stability` actually triggers redaction (
-  //  e.g. ERROR_MESSAGE_STABILITY_TEST_REDACTED or
-  //       ERROR_MESSAGE_STABILITY_TEST_REDACTED_WITH_PAYLOADS).
-  bool enhanced_error_redaction = false;
-
   // The original line & column of the input text.
   // Used when the input is from a larger, unavailable source.
   // Note that these are the actual 1-based line and column, *NOT* offsets.
@@ -147,6 +130,34 @@ absl::Status MaybeUpdateErrorFromPayload(ErrorMessageMode mode,
 absl::Status UpdateErrorLocationPayloadWithFilenameIfNotPresent(
     const absl::Status& status, absl::string_view filename);
 
+// Replaces internal error payloads with external payloads.
+// `sql` should be the sql that was parsed; it is used to convert the error
+// location from line/column to byte offset or vice versa. This function is
+// called on all errors before returning them to the client.
+//
+// `input_start_line_offset` and `input_start_column_offset` are used when
+// `sql` isn't the full source, but rather starts at those offsets. The
+// offsets are passed separately because location is relative to `input`, and
+// for the caret substring to work correctly, `input_start_line_offset` and
+// `input_start_column_offset` are added only after the caret string has been
+// extracted.
+// `input_start_byte_offset` is the number of bytes in the original input before
+// the input `sql`. As the given internal location would have offsets relative
+// to that larger original input, the `input_start_byte_offset` needs to be
+// subtracted in order to calculate the offset in the input `sql` (e.g. for
+// the caret substring).
+absl::Status ConvertInternalErrorPayloadsToExternal(
+    absl::Status status, absl::string_view sql, int input_start_line_offset,
+    int input_start_column_offset, int input_start_byte_offset);
+
+// Replaces internal error payloads with external payloads, assuming that the
+// input has no start offsets. `sql` should be the sql that was parsed; it is
+// used to convert the error location from line/column to byte offset or vice
+// versa. This function is called on all errors before returning them to the
+// client.
+absl::Status ConvertInternalErrorPayloadsToExternal(absl::Status status,
+                                                    absl::string_view sql);
+
 // If <status> is OK or if it does not have a InternalErrorLocation payload,
 // returns <status>. Otherwise, replaces the InternalErrorLocation payload by an
 // ErrorLocation payload. 'query' should be the query that was parsed; it is
@@ -168,10 +179,29 @@ absl::Status UpdateErrorLocationPayloadWithFilenameIfNotPresent(
 // to that larger original input, the `input_start_byte_offset` needs to be
 // subtracted in order to calculate the offset in the input `query` (e.g. for
 // the caret substring).
-absl::Status ConvertInternalErrorLocationToExternal(
-    absl::Status status, absl::string_view query,
-    int input_start_line_offset = 0, int input_start_column_offset = 0,
-    int input_start_byte_offset = 0);
+ABSL_DEPRECATED("Inline me!")
+inline absl::Status ConvertInternalErrorLocationToExternal(
+    absl::Status status, absl::string_view query, int input_start_line_offset,
+    int input_start_column_offset, int input_start_byte_offset) {
+  return ConvertInternalErrorPayloadsToExternal(
+      status, query, input_start_line_offset, input_start_column_offset,
+      input_start_byte_offset);
+}
+
+// If <status> is OK or if it does not have a InternalErrorLocation payload,
+// returns <status>. Otherwise, replaces the InternalErrorLocation payload by an
+// ErrorLocation payload. 'query' should be the query that was parsed; it is
+// used to convert the error location from line/column to byte offset or vice
+// versa. This function is called on all errors before returning them to
+// the client.
+//
+// An InternalErrorLocation contained in 'status' must be valid for
+// 'query'. If it is not, then this function returns an internal error.
+ABSL_DEPRECATED("Inline me!")
+inline absl::Status ConvertInternalErrorLocationToExternal(
+    absl::Status status, absl::string_view query) {
+  return ConvertInternalErrorPayloadsToExternal(status, query);
+}
 
 // The type url for the ErrorMessageMode payload. Used to indicate what mode
 // was applied to a given error message (e.g. caret on same line or multiline).

@@ -1,7 +1,7 @@
 # Tests for the FOR UPDATE clause with all the combinations of ORDER BY, LIMIT
 # and OFFSET clauses.
 
-[default language_features=FOR_UPDATE]
+[default language_features=NONE,+FOR_UPDATE]
 
 # ORDER BY and FOR UPDATE in query.
 select a, b from Table1 order by a for update;
@@ -53,7 +53,8 @@ QueryStatement [0-42] [select a,...for update]
           PathExpression [17-23] [Table1]
             Identifier(Table1) [17-23] [Table1]
     LimitOffset [24-31] [limit 3]
-      IntLiteral(3) [30-31] [3]
+      Limit [24-31] [limit 3]
+        IntLiteral(3) [30-31] [3]
     LockMode [32-42] [for update]
 --
 SELECT
@@ -83,7 +84,8 @@ QueryStatement [0-51] [select a,...for update]
           PathExpression [17-23] [Table1]
             Identifier(Table1) [17-23] [Table1]
     LimitOffset [24-40] [limit 3 offset 1]
-      IntLiteral(3) [30-31] [3]
+      Limit [24-31] [limit 3]
+        IntLiteral(3) [30-31] [3]
       IntLiteral(1) [39-40] [1]
     LockMode [41-51] [for update]
 --
@@ -118,7 +120,8 @@ QueryStatement [0-62] [select a,...for update]
         PathExpression [33-34] [a]
           Identifier(a) [33-34] [a]
     LimitOffset [35-51] [limit 3 offset 1]
-      IntLiteral(3) [41-42] [3]
+      Limit [35-42] [limit 3]
+        IntLiteral(3) [41-42] [3]
       IntLiteral(1) [50-51] [1]
     LockMode [52-62] [for update]
 --

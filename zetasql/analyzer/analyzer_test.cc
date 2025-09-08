@@ -19,6 +19,7 @@
 #include <cstddef>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -980,6 +981,50 @@ TEST_F(AnalyzerOptionsTest, LiteralReplacementIgnoreAllowlistedOptions) {
   EXPECT_EQ(generated_parameters["_p0_BOOL"], Value::Bool(true));
   EXPECT_EQ(generated_parameters["_p1_INT64"], Value::Int64(1));
   EXPECT_EQ(generated_parameters["_p2_STRING"], Value::String("Yes"));
+}
+
+// Example of using a callback to override parameter name generation for a given
+// literal.
+TEST_F(AnalyzerOptionsTest, LiteralReplacementWithCallback) {
+  std::unique_ptr<const AnalyzerOutput> output;
+  options_.set_record_parse_locations(true);
+  std::string sql = "SELECT 1, 2";
+  ZETASQL_EXPECT_OK(
+      AnalyzeStatement(sql, options_, catalog(), &type_factory_, &output));
+
+  std::vector<const ResolvedNode*> literal_nodes;
+  output->resolved_statement()->GetDescendantsWithKinds({RESOLVED_LITERAL},
+                                                        &literal_nodes);
+  ASSERT_EQ(2, literal_nodes.size());
+  const ResolvedLiteral* literal1 = literal_nodes[0]->GetAs<ResolvedLiteral>();
+  ASSERT_EQ(literal1->value(), Value::Int64(1));
+
+  absl::flat_hash_map<const ResolvedLiteral*, std::string>
+      predefined_literal_parameter_name_map = {{literal1, "my_param"}};
+  zetasql::LiteralReplacementOptions options;
+  options.parameter_name_override_callback =
+      [&predefined_literal_parameter_name_map](
+          const zetasql::ResolvedLiteral* literal)
+      -> std::optional<std::string> {
+    if (auto it = predefined_literal_parameter_name_map.find(literal);
+        it != predefined_literal_parameter_name_map.end()) {
+      return it->second;  // Return overridden name if literal is in map.
+    }
+    return std::nullopt;  // Fall back to default naming.
+  };
+
+  std::string new_sql;
+  LiteralReplacementMap literal_map;
+  GeneratedParameterMap generated_parameters;
+  ZETASQL_ASSERT_OK(ReplaceLiteralsByParameters(
+      sql, options, options_, output->resolved_statement(), &literal_map,
+      &generated_parameters, &new_sql));
+  EXPECT_EQ("SELECT @my_param, @_p0_INT64", new_sql);
+  EXPECT_EQ(2, literal_map.size());
+  EXPECT_EQ(literal_map[literal1], "my_param");
+  EXPECT_EQ(2, generated_parameters.size());
+  EXPECT_EQ(generated_parameters["my_param"], Value::Int64(1));
+  EXPECT_EQ(generated_parameters["_p0_INT64"], Value::Int64(2));
 }
 
 MATCHER_P(HasDeprecationWarning, expected_message, "") {

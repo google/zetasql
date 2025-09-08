@@ -28,14 +28,18 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/analyzer/path_expression_span.h"
+#include "zetasql/common/reflection.pb.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/catalog_helper.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/base/case.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
@@ -144,6 +148,23 @@ std::string NamedColumn::DebugString() const {
            ? absl::StrCat(" (value table)",
                           ExclusionsDebugString(excluded_field_names_))
            : ""));
+}
+
+void NamedColumn::Describe(ProductMode product_mode,
+                           reflection::Column* reflection_column) const {
+  // Note: Pseudo-columns need to be populated with the same fields, but are
+  // handled separately in NameScope::DescribeInto.
+  if (is_value_table_column_) {
+    // For value tables, set the column name to <value>.
+    // Its name will be added later as the table_alias from the corresponding
+    // range variable.
+    reflection_column->set_column_name("<value>");
+    // `excluded_field_names_` is not included here yet.
+    reflection_column->set_is_value_table_column(true);
+  } else if (!IsInternalAlias(name_)) {
+    reflection_column->set_column_name(name_.ToString());
+  }
+  reflection_column->set_type(column_.type()->ShortTypeName(product_mode));
 }
 
 NameScope::NameScope(const NameScope* previous_scope,
@@ -804,6 +825,143 @@ std::string NameScope::DebugString(
     absl::StrAppend(&out, "\n", indent, "NOTE: Disallows correlated access!\n");
   }
   return out;
+}
+
+void NameScope::DescribeInto(
+    reflection::ResultTable* result_table,
+    const IdStringHashMapCase<int>& name_list_column_names_count,
+    const absl::flat_hash_map<ResolvedColumn, std::vector<int>>&
+        name_list_columns_map) const {
+  // Track the pseudo-columns added so far.
+  absl::flat_hash_set<ResolvedColumn> pseudo_columns_added;
+  // Track all column names added, adding in pseudo-column names.
+  IdStringHashMapCase<int> all_column_names_count =
+      name_list_column_names_count;
+
+  // The first pass over NameTargets handles range variables.
+  for (const auto& name_pair : names()) {
+    const IdString& name = name_pair.first;
+    const NameTarget& name_target = name_pair.second;
+
+    if (name_target.IsRangeVariable()) {
+      // Handle range variables ("table aliases" in the proto).
+      reflection::TableAlias* table_alias = result_table->add_table_alias();
+      table_alias->set_name(name.ToString());
+      name_target.scan_columns()->DescribeInto(table_alias);
+
+      // Handle columns under the range variable.
+      for (const NamedColumn& named_column :
+           name_target.scan_columns()->columns()) {
+        const IdString& column_name = named_column.name();
+
+        // Try attaching this table alias to a NameList column.
+        // If any ResolvedColumn is uniquely pointed to by one range variable,
+        // that range variable will be its reported table alias.
+        const ResolvedColumn& column = named_column.column();
+        if (name_list_columns_map.contains(column)) {
+          for (int index : name_list_columns_map.at(column)) {
+            ABSL_DCHECK_LT(index, result_table->column_size());
+            reflection::Column* reflection_column =
+                result_table->mutable_column(index);
+            if (!zetasql_base::StringViewCaseEqual()(
+                    reflection_column->column_name(), column_name.ToString()) &&
+                !IsInternalAlias(column_name)) {
+              // The NameList column name doesn't match the name under the
+              // range variable, so don't show the alias on that column.
+              // We still show table aliases for anonymous columns, which will
+              // have column name "<unnamed>".
+              // We compare names case insensitively mainly because of the
+              // JOIN USING case, where the output column name uses the case
+              // written in USING, which might not match.  But it probably
+              // still makes sense to show the table alias attached.
+              continue;
+            }
+
+            if (!reflection_column->has_table_alias()) {
+              reflection_column->set_table_alias(name.ToString());
+            } else {
+              // We found a second table alias pointing at the same column.
+              // We'll just leave the first one.
+              // There's no test for this branch because I'm not aware of any
+              // case that makes a NameScope like this.
+            }
+          }
+        }
+      }
+
+      // Handle pseudo-columns under the range variable.
+      for (const NamedColumn& named_column :
+           name_target.scan_columns()->GetNamedPseudoColumns()) {
+        const IdString& column_name = named_column.name();
+        const ResolvedColumn& column = named_column.column();
+
+        // This mirrors NamedColumn::Describe that handles non-pseudo-columns.
+        reflection::Column* reflection_column =
+            result_table->add_pseudo_column();
+        reflection_column->set_column_name(column_name.ToString());
+        reflection_column->set_table_alias(name.ToString());
+        reflection_column->set_type(
+            column.type()->ShortTypeName(ProductMode::PRODUCT_INTERNAL));
+
+        pseudo_columns_added.insert(column);
+        ++all_column_names_count[column_name];
+      }
+    }
+  }
+
+  // Do a second pass over NameTargets to find any pseudo-columns in the
+  // top-level NameScope that weren't found under a range variable above.
+  for (const auto& name_pair : names()) {
+    const IdString& name = name_pair.first;
+    const NameTarget& name_target = name_pair.second;
+
+    if (name_target.IsColumn()) {
+      const ResolvedColumn column = name_target.column();
+      // If a NameScope column name didn't occur in the NameList, it must be
+      // a pseudo-column.
+      if (!IsInternalAlias(name) && !pseudo_columns_added.contains(column) &&
+          !name_list_column_names_count.contains(name)) {
+        // This mirrors NamedColumn::Describe that handles non-pseudo-columns.
+        reflection::Column* reflection_column =
+            result_table->add_pseudo_column();
+        reflection_column->set_column_name(name.ToString());
+        reflection_column->set_type(
+            column.type()->ShortTypeName(ProductMode::PRODUCT_INTERNAL));
+      }
+    } else if (name_target.IsAmbiguous()) {
+      // If we have an ambiguous name marker, include that under the
+      // pseudo-columns list with <ambiguous> in the type.
+      // This seems like a reasonable reflection of why this name isn't
+      // queryable, without making a separate list of ambiguous column names.
+
+      // If the name was in the column list twice already, we don't need to
+      // show the <ambiguous> entry in the pseudo-columns.
+      if (zetasql_base::FindWithDefault(all_column_names_count, name, 0) <= 1) {
+        reflection::Column* reflection_column =
+            result_table->add_pseudo_column();
+        reflection_column->set_column_name(name.ToString());
+        reflection_column->set_type("<ambiguous>");
+      }
+    }
+  }
+
+  // Sort the lists to make the output deterministic.
+  // Constraints on NameScope mean these lists cannot have duplicate names.
+  std::sort(
+      result_table->mutable_table_alias()->pointer_begin(),
+      result_table->mutable_table_alias()->pointer_end(),
+      [](const reflection::TableAlias* a, const reflection::TableAlias* b) {
+        return zetasql_base::CaseLess()(a->name(), b->name());
+      });
+  std::sort(result_table->mutable_pseudo_column()->pointer_begin(),
+            result_table->mutable_pseudo_column()->pointer_end(),
+            [](const reflection::Column* a, const reflection::Column* b) {
+              int comp = zetasql_base::CaseCompare(a->table_alias(),
+                                                              b->table_alias());
+              if (comp != 0) return comp < 0;
+              return zetasql_base::CaseLess()(a->column_name(),
+                                                         b->column_name());
+            });
 }
 
 void NameScope::InsertNameTargetsIfNotPresent(
@@ -1573,6 +1731,9 @@ absl::Status NameList::MergeFrom(const NameList& other,
     }
 
     if (replacement_column != nullptr) {
+      // This always makes a NamedColumn without is_value_table.
+      // TODO Is that right?  Pipe SET columns become
+      // non-value-tables.
       columns_.push_back(NamedColumn(new_name, *replacement_column,
                                      /*is_explicit=*/true));
     } else if (excluded_field_names == nullptr ||
@@ -1615,10 +1776,21 @@ absl::Status NameList::MergeFrom(const NameList& other,
                               named_column.is_explicit(),
                               new_excluded_field_names);
       } else if (renamed_column) {
-        columns_.push_back(NamedColumn(new_name, named_column.column(),
-                                       /*is_explicit=*/true,
-                                       named_column.excluded_field_names()));
+        if (named_column.is_value_table_column()) {
+          // Using this constructor makes a NamedColumn with is_value_table.
+          columns_.push_back(NamedColumn(new_name, named_column.column(),
+                                         /*is_explicit=*/true,
+                                         named_column.excluded_field_names()));
+        } else {
+          columns_.push_back(NamedColumn(new_name, named_column.column(),
+                                         /*is_explicit=*/true));
+        }
       } else {
+        // TODO There's a bug here where with flatten_to_table
+        // (e.g. pipe AS), we get a column marked is_value_table but not
+        // listed in value_table_columns, so it doesn't work consistently.
+        // I think value_table_columns needs to be updated here too, like it
+        // is in the !flatten_to_table branch above.
         columns_.push_back(named_column);
       }
     }
@@ -1919,6 +2091,65 @@ std::string NameList::DebugString(absl::string_view indent) const {
     absl::StrAppend(&out, "\n", name_scope_contents);
   }
   return out;
+}
+
+reflection::ResultTable NameList::Describe(ProductMode product_mode) const {
+  reflection::ResultTable result_table;
+
+  if (is_value_table()) {
+    result_table.set_is_value_table(true);
+  }
+
+  // Build the set of names in the NameList, so pseudo-columns can be detected.
+  // The value is the number of times the column name occurs.
+  IdStringHashMapCase<int> name_list_column_names_count;
+
+  // Build multi-map of ResolvedColumn to column offsets in the `column` array.
+  // There's no multimap class so we use a vector value.
+  absl::flat_hash_map<ResolvedColumn, std::vector<int>> name_list_columns_map;
+
+  for (const NamedColumn& named_column : columns_) {
+    if (!IsInternalAlias(named_column.name())) {
+      ++name_list_column_names_count[named_column.name()];
+    }
+
+    name_list_columns_map[named_column.column()].push_back(
+        result_table.column_size());
+
+    named_column.Describe(product_mode, result_table.add_column());
+  }
+
+  name_scope_.DescribeInto(&result_table, name_list_column_names_count,
+                           name_list_columns_map);
+
+  return result_table;
+}
+
+void NameList::DescribeInto(reflection::TableAlias* table_alias,
+                            bool include_pseudo_columns) const {
+  for (const NamedColumn& named_column : columns()) {
+    const IdString& column_name = named_column.name();
+
+    if (is_value_table()) {
+      table_alias->add_column_name("<value>");
+    } else if (IsInternalAlias(column_name)) {
+      table_alias->add_column_name("<unnamed>");
+    } else {
+      table_alias->add_column_name(column_name.ToString());
+    }
+  }
+
+  if (include_pseudo_columns) {
+    for (const NamedColumn& named_column : GetNamedPseudoColumns()) {
+      const IdString& column_name = named_column.name();
+
+      if (IsInternalAlias(column_name)) {
+        table_alias->add_pseudo_column_name("<unnamed>");
+      } else {
+        table_alias->add_pseudo_column_name(column_name.ToString());
+      }
+    }
+  }
 }
 
 }  // namespace zetasql

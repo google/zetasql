@@ -1,3 +1,4 @@
+[default language_features=NONE]
 [default enabled_ast_rewrites=DEFAULTS]
 
 select apply(10, x->x+1)
@@ -8,19 +9,19 @@ select apply(10, x->x+1)
 ==
 
 # Need both language features or the function doesn't show up.
-[language_features=NAMED_ARGUMENTS{{|,INLINE_LAMBDA_ARGUMENT}}{{|,CHAINED_FUNCTION_CALLS}}]
+[language_features=NONE,+NAMED_ARGUMENTS{{|,+INLINE_LAMBDA_ARGUMENT}}{{|,+CHAINED_FUNCTION_CALLS}}]
 select apply()
 --
 ALTERNATION GROUPS:
     <empty>
-    ,CHAINED_FUNCTION_CALLS
-    ,INLINE_LAMBDA_ARGUMENT,
+    ,+CHAINED_FUNCTION_CALLS
+    ,+INLINE_LAMBDA_ARGUMENT,
 --
 ERROR: Function not found: APPLY [at 1:8]
 select apply()
        ^
 --
-ALTERNATION GROUP: ,INLINE_LAMBDA_ARGUMENT,,CHAINED_FUNCTION_CALLS
+ALTERNATION GROUP: ,+INLINE_LAMBDA_ARGUMENT,,+CHAINED_FUNCTION_CALLS
 --
 ERROR: No matching signature for function APPLY with no arguments
   Signature: APPLY(T1, FUNCTION<T1->T2>)
@@ -29,7 +30,7 @@ select apply()
        ^
 ==
 
-[default language_features=INLINE_LAMBDA_ARGUMENT,CHAINED_FUNCTION_CALLS,NAMED_ARGUMENTS]
+[default language_features=NONE,+INLINE_LAMBDA_ARGUMENT,+CHAINED_FUNCTION_CALLS,+NAMED_ARGUMENTS]
 
 select apply(10, x->x+1)
 --
@@ -316,24 +317,24 @@ select apply(10, ()->rand())
 
 # SAFE.APPLY has a different rewrite to add IFERROR.
 # IFERROR covers the APPLY computation but not computing its input.
-[language_features=INLINE_LAMBDA_ARGUMENT,CHAINED_FUNCTION_CALLS{{|,SAFE_FUNCTION_CALL}}{{|,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS}}]
+[language_features=NONE,+INLINE_LAMBDA_ARGUMENT,+CHAINED_FUNCTION_CALLS{{|,+SAFE_FUNCTION_CALL}}{{|,+SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS}}]
 select safe.apply(sqrt(-10), x->sqrt(x))
 --
 ALTERNATION GROUPS:
     <empty>
-    ,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS
+    ,+SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS
 --
 ERROR: Function calls with SAFE are not supported [at 1:8]
 select safe.apply(sqrt(-10), x->sqrt(x))
        ^
 --
-ALTERNATION GROUP: ,SAFE_FUNCTION_CALL,
+ALTERNATION GROUP: ,+SAFE_FUNCTION_CALL,
 --
 ERROR: Function apply does not support SAFE error mode [at 1:8]
 select safe.apply(sqrt(-10), x->sqrt(x))
        ^
 --
-ALTERNATION GROUP: ,SAFE_FUNCTION_CALL,,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS
+ALTERNATION GROUP: ,+SAFE_FUNCTION_CALL,,+SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS
 --
 QueryStmt
 +-output_column_list=

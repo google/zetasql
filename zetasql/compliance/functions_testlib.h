@@ -180,6 +180,7 @@ std::vector<FunctionTestCall> GetFunctionTestsDatetimeAddSub();
 std::vector<FunctionTestCall> GetFunctionTestsDatetimeDiff();
 std::vector<FunctionTestCall> GetFunctionTestsDatetimeTrunc();
 std::vector<FunctionTestCall> GetFunctionTestsLastDay();
+std::vector<FunctionTestCall> GetFunctionTestsAddMonths();
 std::vector<FunctionTestCall> GetFunctionTestsTimeAddSub();
 std::vector<FunctionTestCall> GetFunctionTestsTimeDiff();
 std::vector<FunctionTestCall> GetFunctionTestsTimeTrunc();
@@ -195,9 +196,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatDateTimestamp();
 std::vector<FunctionTestCall> GetFunctionTestsFormatDatetime();
 std::vector<FunctionTestCall> GetFunctionTestsFormatTime();
 std::vector<FunctionTestCall> GetFunctionTestsParseDateTimestamp();
-std::vector<FunctionTestCall> GetFunctionTestsParseTimestampPicos();
 std::vector<FunctionTestCall> GetFunctionTestsCastStringToDateTimestamp();
-std::vector<FunctionTestCall> GetFunctionTestsCastStringToTimestampPicos();
 std::vector<FunctionTestCall> GetFunctionTestsTimestampConversion();
 std::vector<FunctionTestCall> GetFunctionTestsTimestampFromDate();
 
@@ -211,11 +210,6 @@ std::vector<FunctionTestCall> GetFunctionTestsConvertTimestampToDatetime();
 
 // Tests for CAST formatting of time types.
 std::vector<FunctionTestCall> GetFunctionTestsCastFormatDateTimestamp();
-
-std::vector<FunctionTestCall>
-GetFunctionTestsCastFormatTimestampPicosSuccessTests();
-std::vector<FunctionTestCall>
-GetFunctionTestsCastFormatTimestampPicosFailureTests();
 
 std::vector<FunctionTestCall> GetFunctionTestsIntervalConstructor();
 std::vector<FunctionTestCall> GetFunctionTestsIntervalComparisons();
@@ -269,9 +263,11 @@ std::vector<FunctionTestCall> GetFunctionTestsTranslate();
 std::vector<FunctionTestCall> GetFunctionTestsInitCap();
 std::vector<FunctionTestCall> GetFunctionTestsRegexp();
 std::vector<FunctionTestCall> GetFunctionTestsRegexp2(bool include_feature_set);
+std::vector<FunctionTestCall> GetFunctionTestsRegexpExtractGroups();
+std::vector<FunctionTestCall>
+GetFunctionTestsRegexpExtractGroupsWithoutAutoCasting();
 std::vector<FunctionTestCall> GetFunctionTestsRegexpInstr();
 std::vector<FunctionTestCall> GetFunctionTestsFormat();
-std::vector<FunctionTestCall> GetFunctionTestsFormatWithExternalModeFloatType();
 std::vector<FunctionTestCall> GetFunctionTestsArray();
 std::vector<FunctionTestCall> GetFunctionTestsNormalize();
 std::vector<FunctionTestCall> GetFunctionTestsBase32();

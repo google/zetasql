@@ -74,7 +74,7 @@ using zetasql_base::testing::IsOk;
 using zetasql_base::testing::StatusIs;
 
 static ParseResumeLocation ComputeExpressionResumeLocation(
-    std::string_view module_filename, const absl::string_view sql,
+    absl::string_view module_filename, const absl::string_view sql,
     const ASTNode* sql_body) {
   absl::string_view trimmed_sql = sql;
   if (sql_body != nullptr) {
@@ -585,7 +585,7 @@ class LazyResolutionConstantTest : public ::testing::Test {
   }
 
   absl::StatusOr<std::unique_ptr<LazyResolutionConstant>>
-  CreateAndInitializeConstant(std::string_view sql) {
+  CreateAndInitializeConstant(absl::string_view sql) {
     std::unique_ptr<ParserOutput> parser_output;
     const absl::Status parse_status =
         ParseStatement(sql, parser_options_, &parser_output);
@@ -1025,7 +1025,7 @@ class LazyResolutionFunctionTest : public ::testing::Test {
   }
 
   absl::StatusOr<std::unique_ptr<LazyResolutionFunction>>
-  CreateAndInitializeFunction(std::string_view sql,
+  CreateAndInitializeFunction(absl::string_view sql,
                               FunctionEnums::Mode function_mode) {
     std::unique_ptr<ParserOutput> parser_output;
     const absl::Status parse_status =
@@ -1124,7 +1124,7 @@ class LazyResolutionViewTest : public ::testing::Test {
   }
 
   absl::StatusOr<std::unique_ptr<LazyResolutionView>> CreateAndInitializeView(
-      std::string_view sql) {
+      absl::string_view sql) {
     std::unique_ptr<ParserOutput> parser_output;
     const absl::Status parse_status =
         ParseStatement(sql, parser_options_, &parser_output);

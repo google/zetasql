@@ -1,5 +1,5 @@
 # Positive simplest case
-[default language_features=WITH_GROUP_ROWS]
+[default language_features=NONE,+WITH_GROUP_ROWS]
 SELECT f(x) WITH GROUP ROWS (SELECT x FROM GROUP_ROWS()) FROM T;
 --
 
@@ -200,7 +200,8 @@ QueryStatement [0-202] [SELECT   SUM...GROUP BY f1]
                     PathExpression [151-153] [f3]
                       Identifier(f3) [151-153] [f3]
                 LimitOffset [160-182] [LIMIT 2       OFFSET 1]
-                  IntLiteral(2) [166-167] [2]
+                  Limit [160-167] [LIMIT 2]
+                    IntLiteral(2) [166-167] [2]
                   IntLiteral(1) [181-182] [1]
       FromClause [184-190] [FROM T]
         TablePathExpression [189-190] [T]
@@ -1369,7 +1370,7 @@ FROM
 ==
 
 # WITH GROUP ROWS feature disabled
-[language_features=]
+[language_features=NONE]
 SELECT f(x) WITH GROUP ROWS (SELECT x FROM GROUP_ROWS()) FROM T;
 --
 ERROR: WITH GROUP ROWS is not supported [at 1:13]

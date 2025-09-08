@@ -18,10 +18,13 @@ load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
 load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
 load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
 load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 # Placeholder: load py_binary
 load("//zetasql/resolved_ast:build_rules.bzl", "gen_resolved_ast_files")
+
+DEFAULT_VISIBILITY = ["//zetasql:zetasql_implementation"]
 
 package(default_visibility = ["//zetasql/base:zetasql_implementation"])
 
@@ -309,6 +312,7 @@ cc_library(
         "//zetasql/public:sql_view",
         "//zetasql/public:strings",
         "//zetasql/public:templated_sql_function",
+        "//zetasql/public:templated_sql_tvf_no_resolver",
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
@@ -358,6 +362,7 @@ cc_library(
         "//zetasql/base:varsetter",
         "//zetasql/common:function_utils",
         "//zetasql/common:graph_element_utils",
+        "//zetasql/common:measure_utils",
         "//zetasql/common:thread_stack",
         "//zetasql/parser:parse_tree",
         "//zetasql/public:analyzer",
@@ -373,7 +378,6 @@ cc_library(
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/public/annotation:collation",
-        "//zetasql/public/annotation:timestamp_precision",
         "//zetasql/public/functions:date_time_util",
         "//zetasql/public/functions:datetime_cc_proto",
         "//zetasql/public/functions:differential_privacy_cc_proto",
@@ -745,6 +749,7 @@ cc_test(
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:catalog",
+        "//zetasql/public:function",
         "//zetasql/public:function_cc_proto",
         "//zetasql/public:function_headers",
         "//zetasql/public:id_string",

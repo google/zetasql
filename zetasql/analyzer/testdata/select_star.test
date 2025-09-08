@@ -1,3 +1,4 @@
+[default language_features=MAXIMUM]
 select *
 --
 ERROR: SELECT * must have a FROM clause [at 1:8]

@@ -21,7 +21,7 @@
 # different result (e.g., a case failing in C++ because of argument constraints
 # would pass in Java.). So disabling Java mode here.
 [default no_java]
-[default language_features=NAMED_ARGUMENTS]
+[default language_features=NONE,+NAMED_ARGUMENTS]
 SELECT
   fn_named_opt_args_nonnull_nonnegative_constraints("o1", 1, 3.14)
 --

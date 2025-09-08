@@ -1,4 +1,4 @@
-[default language_features=EXTERNAL_SCHEMA_DDL]
+[default language_features=NONE,+EXTERNAL_SCHEMA_DDL]
 CREATE EXTERNAL SCHEMA foo WITH CONNECTION connection1 OPTIONS()
 --
 CreateExternalSchemaStmt
@@ -111,7 +111,7 @@ CREATE EXTERNAL SCHEMA foo WITH CONNECTION connection1 OPTIONS(x=1, x=5)
                                                                     ^
 ==
 
-[language_features=]
+[language_features=NONE]
 CREATE EXTERNAL SCHEMA foo WITH CONNECTION connection1 OPTIONS(x=1)
 --
 ERROR: CREATE EXTERNAL SCHEMA is not supported [at 1:1]

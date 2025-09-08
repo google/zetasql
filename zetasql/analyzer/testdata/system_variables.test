@@ -1,4 +1,5 @@
 # Simple retrieval of system variable
+[default language_features=NONE]
 SELECT @@int64_system_variable;
 --
 QueryStmt

@@ -1,4 +1,5 @@
-[language_features=PIPES]
+[default language_features=NONE]
+[language_features=NONE,+PIPES]
 FROM KeyValue
 |> CREATE TABLE t2
 --
@@ -11,7 +12,7 @@ ERROR: Pipe CREATE TABLE not supported [at 2:1]
 # statement kinds are enabled.
 # TODO SQLBuilder doesn't work for pipe CREATE TABLE yet.
 [default no_run_sqlbuilder]
-[default language_features=PIPES,PIPE_CREATE_TABLE,PIPE_FORK,PIPE_TEE,PIPE_IF,CREATE_TABLE_AS_SELECT_COLUMN_LIST,WITH_ON_SUBQUERY,WITH_RECURSIVE,ENABLE_MEASURES]
+[default language_features=NONE,+PIPES,+PIPE_CREATE_TABLE,+PIPE_FORK,+PIPE_TEE,+PIPE_IF,+CREATE_TABLE_AS_SELECT_COLUMN_LIST,+WITH_ON_SUBQUERY,+WITH_RECURSIVE,+ENABLE_MEASURES]
 [enabled_ast_rewrites=DEFAULTS]
 [supported_statement_kinds={{QUERY|GENERALIZED_QUERY|QUERY,GENERALIZED_QUERY|INSERT}}]
 FROM KeyValue
@@ -149,7 +150,7 @@ ERROR: The number of columns in the column definition list does not match the nu
 
 # This one also shows that column lists are only allowed if
 # CREATE_TABLE_AS_SELECT_COLUMN_LIST is set, to match regular CTAS.
-[language_features=PIPES,PIPE_CREATE_TABLE{{|,CREATE_TABLE_AS_SELECT_COLUMN_LIST}}]
+[language_features=NONE,+PIPES,+PIPE_CREATE_TABLE{{|,+CREATE_TABLE_AS_SELECT_COLUMN_LIST}}]
 from KeyValue
 |> CREATE TABLE t1 (key INT64, value STRING)
 --
@@ -159,7 +160,7 @@ ERROR: Pipe CREATE TABLE with column definition list is unsupported [at 2:20]
 |> CREATE TABLE t1 (key INT64, value STRING)
                    ^
 --
-ALTERNATION GROUP: ,CREATE_TABLE_AS_SELECT_COLUMN_LIST
+ALTERNATION GROUP: ,+CREATE_TABLE_AS_SELECT_COLUMN_LIST
 --
 GeneralizedQueryStmt
 +-query=
@@ -406,7 +407,7 @@ GeneralizedQueryStmt
 
 # CREATE TABLE with PARTITION BY
 # pseudo_column_list comes from the default test setup of SetDdlPseudoColumns.
-[language_features=PIPES,PIPE_CREATE_TABLE{{|,CREATE_TABLE_PARTITION_BY}}]
+[language_features=NONE,+PIPES,+PIPE_CREATE_TABLE{{|,+CREATE_TABLE_PARTITION_BY}}]
 from KeyValue
 |> CREATE TABLE t1 PARTITION BY key
 --
@@ -416,7 +417,7 @@ ERROR: Pipe CREATE TABLE with PARTITION BY is unsupported [at 2:20]
 |> CREATE TABLE t1 PARTITION BY key
                    ^
 --
-ALTERNATION GROUP: ,CREATE_TABLE_PARTITION_BY
+ALTERNATION GROUP: ,+CREATE_TABLE_PARTITION_BY
 --
 GeneralizedQueryStmt
 +-query=
@@ -439,7 +440,7 @@ GeneralizedQueryStmt
 
 # CREATE TABLE with CLUSTER BY
 # pseudo_column_list comes from the default test setup of SetDdlPseudoColumns.
-[language_features=PIPES,PIPE_CREATE_TABLE{{|,CREATE_TABLE_CLUSTER_BY}}]
+[language_features=NONE,+PIPES,+PIPE_CREATE_TABLE{{|,+CREATE_TABLE_CLUSTER_BY}}]
 from KeyValue
 |> CREATE TABLE t1 CLUSTER BY value
 --
@@ -449,7 +450,7 @@ ERROR: Pipe CREATE TABLE with CLUSTER BY is unsupported [at 2:20]
 |> CREATE TABLE t1 CLUSTER BY value
                    ^
 --
-ALTERNATION GROUP: ,CREATE_TABLE_CLUSTER_BY
+ALTERNATION GROUP: ,+CREATE_TABLE_CLUSTER_BY
 --
 GeneralizedQueryStmt
 +-query=
@@ -497,7 +498,7 @@ GeneralizedQueryStmt
 ==
 
 # CREATE TABLE with a FOREIGN KEY.
-[language_features=PIPES,PIPE_CREATE_TABLE,CREATE_TABLE_AS_SELECT_COLUMN_LIST{{|,FOREIGN_KEYS}}]
+[language_features=NONE,+PIPES,+PIPE_CREATE_TABLE,+CREATE_TABLE_AS_SELECT_COLUMN_LIST{{|,+FOREIGN_KEYS}}]
 select 123 key
 |> CREATE TABLE t1 (key INT64,
                     foreign key(key) references KeyValue(key))
@@ -508,7 +509,7 @@ ERROR: Foreign keys are not supported [at 3:21]
                     foreign key(key) references KeyValue(key))
                     ^
 --
-ALTERNATION GROUP: ,FOREIGN_KEYS
+ALTERNATION GROUP: ,+FOREIGN_KEYS
 --
 GeneralizedQueryStmt
 +-query=
@@ -634,7 +635,7 @@ GeneralizedQueryStmt
 
 # CREATE TABLE with CLONE - not allowed, since we always have an
 # input table.
-[language_features=PIPES,PIPE_CREATE_TABLE,CREATE_TABLE_AS_SELECT_COLUMN_LIST,CREATE_TABLE_CLONE]
+[language_features=NONE,+PIPES,+PIPE_CREATE_TABLE,+CREATE_TABLE_AS_SELECT_COLUMN_LIST,+CREATE_TABLE_CLONE]
 FROM KeyValue
 |> CREATE TABLE t2 CLONE KeyValue
 --
@@ -645,7 +646,7 @@ ERROR: CREATE TABLE CLONE cannot be used in pipe CREATE TABLE [at 2:4]
 
 # CREATE TABLE with COPY - not allowed, since we always have an input
 # table.
-[language_features=PIPES,PIPE_CREATE_TABLE,CREATE_TABLE_AS_SELECT_COLUMN_LIST,CREATE_TABLE_COPY]
+[language_features=NONE,+PIPES,+PIPE_CREATE_TABLE,+CREATE_TABLE_AS_SELECT_COLUMN_LIST,+CREATE_TABLE_COPY]
 FROM KeyValue
 |> CREATE TABLE t2 COPY KeyValue
 --
@@ -655,7 +656,7 @@ ERROR: CREATE TABLE COPY cannot be used in pipe CREATE TABLE [at 2:4]
 ==
 
 # CREATE TABLE with LIKE
-[language_features=PIPES,PIPE_CREATE_TABLE,CREATE_TABLE_AS_SELECT_COLUMN_LIST,CREATE_TABLE_LIKE]
+[language_features=NONE,+PIPES,+PIPE_CREATE_TABLE,+CREATE_TABLE_AS_SELECT_COLUMN_LIST,+CREATE_TABLE_LIKE]
 [create_table_like_not_scanned]
 SELECT 1, 'abc'{{|, 456}}
 |> CREATE TABLE t2 LIKE KeyValue
@@ -693,7 +694,7 @@ ERROR: The number of columns in the LIKE table does not match the number of colu
 
 # CREATE TABLE with `collate`
 # Literal replacement doens't work on the COLLATE string.
-[language_features=PIPES,PIPE_CREATE_TABLE,CREATE_TABLE_AS_SELECT_COLUMN_LIST,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
+[language_features=NONE,+PIPES,+PIPE_CREATE_TABLE,+CREATE_TABLE_AS_SELECT_COLUMN_LIST,+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK]
 [no_enable_literal_replacement]
 From KeyValue
 |> CREATE TABLE t2 DEFAULT COLLATE 'und:ci'
@@ -717,7 +718,7 @@ GeneralizedQueryStmt
 ==
 
 # CREATE TABLE with WITH CONNECTION
-[language_features=PIPES,PIPE_CREATE_TABLE,CREATE_TABLE_AS_SELECT_COLUMN_LIST,CREATE_TABLE_WITH_CONNECTION]
+[language_features=NONE,+PIPES,+PIPE_CREATE_TABLE,+CREATE_TABLE_AS_SELECT_COLUMN_LIST,+CREATE_TABLE_WITH_CONNECTION]
 From KeyValue
 |> CREATE TABLE t2
    WITH CONNECTION connection2
@@ -770,7 +771,7 @@ GeneralizedQueryStmt
 
 # CREATE TABLE with `ttl`
 # Not fully implemented yet - the deletion policy isn't in the output.
-[language_features=PIPES,PIPE_CREATE_TABLE,CREATE_TABLE_AS_SELECT_COLUMN_LIST,TTL]
+[language_features=NONE,+PIPES,+PIPE_CREATE_TABLE,+CREATE_TABLE_AS_SELECT_COLUMN_LIST,+TTL]
 SELECT 1 x
 |> CREATE TABLE t2{{| (x INT64)}}
    ROW DELETION POLICY ( x < 10 )

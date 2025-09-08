@@ -1721,6 +1721,9 @@ to produce a result. The result can be `TRUE`, `FALSE`, or `NULL`:
 | `FALSE`   | `TRUE`    |
 | `NULL`    | `NULL`    |
 
+The order of evaluation of operands to `AND` and `OR` can vary, and evaluation
+can be skipped if unnecessary.
+
 **Examples**
 
 The examples in this section reference a table called `entry_table`:
@@ -3583,21 +3586,22 @@ variable_assignment:
 
 **Description**
 
-Create one or more variables. Each variable can be used in subsequent
+Creates one or more variables. Each variable can be used in subsequent
 expressions within the `WITH` expression. Returns the value of
 `result_expression`.
 
 +   `variable_assignment`: Introduces a variable. The variable name must be
     unique within a given `WITH` expression. Each expression can reference the
     variables that come before it. For example, if you create variable `a`,
-    then follow it with variable `b`, you can reference `a` inside of `b`'s
-    expression.
+    then follow it with variable `b`, then you can reference `a` inside of the
+    expression for `b`.
 
     +   `variable_name`: The name of the variable.
 
     +   `expression`: The value to assign to the variable.
-+   `result_expression`: An expression that's the `WITH` expression's result.
-    `result_expression` can use all of the variables defined before it.
++   `result_expression`: An expression that can use all of the variables defined
+    before it. The value of `result_expression` is returned by the `WITH`
+    expression.
 
 **Return Type**
 
@@ -3605,13 +3609,12 @@ expressions within the `WITH` expression. Returns the value of
 
 **Requirements and Caveats**
 
-+   A given variable may only be assigned once in a given `WITH` clause.
++   A variable can only be assigned once within a `WITH` expression.
 +   Variables created during `WITH` may not be used
     in analytic or aggregate
     function arguments. For example,
     `WITH(a AS ..., SUM(a))` produces an error.
-+   Volatile expressions (for example, `RAND()`) behave
-    as if they are evaluated only once.
++   Each variable's expression is evaluated only once.
 
 **Examples**
 
@@ -3631,9 +3634,8 @@ SELECT WITH(a AS '123',               -- a is '123'
  *-------------*/
 ```
 
-In the following example, the volatile expression `RAND()` behaves as if it's
-evaluated only once. This means the value of the result expression will always
-be zero:
+In the following example, the volatile expression `RAND()` is evaluated once.
+The value of the result expression is always `0.0`:
 
 ```zetasql
 SELECT WITH(a AS RAND(), a - a);
@@ -3646,7 +3648,7 @@ SELECT WITH(a AS RAND(), a - a);
 ```
 
 Aggregate or analytic function
-results can be stored in variables. In this example, an average is computed:
+results can be stored in variables.
 
 ```zetasql
 SELECT WITH(s AS SUM(input), c AS COUNT(input), s/c)
@@ -3660,17 +3662,39 @@ FROM UNNEST([1.0, 2.0, 3.0]) AS input;
 ```
 
 Variables can't be used in aggregate or
-analytic function call arguments:
+analytic function call arguments.
 
 ```zetasql
 SELECT WITH(diff AS a - b, AVG(diff))
 FROM UNNEST([
               STRUCT(1 AS a, 2 AS b),
               STRUCT(3 AS a, 4 AS b),
-              STRUCT(5 AS a, 6 AS b),
+              STRUCT(5 AS a, 6 AS b)
             ]);
 
 -- ERROR: WITH variables like 'diff' can't be used in aggregate or analytic
 -- function arguments.
+```
+
+A `WITH` expression is different from a `WITH` clause. The following example
+shows a query that uses both:
+
+```zetasql
+WITH my_table AS (
+  SELECT 1 AS x, 2 AS y
+  UNION ALL
+  SELECT 3 AS x, 4 AS y
+  UNION ALL
+  SELECT 5 AS x, 6 AS y
+)
+SELECT WITH(a AS SUM(x), b AS COUNT(x), a/b) AS avg_x, AVG(y) AS avg_y
+FROM my_table
+WHERE x > 1;
+
+/*-------+-------+
+ | avg_x | avg_y |
+ +-------+-------+
+ | 4     | 5     |
+ +-------+-------*/
 ```
 

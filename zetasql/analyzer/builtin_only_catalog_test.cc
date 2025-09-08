@@ -119,19 +119,80 @@ TEST(BuiltinOnlyCatalogTest, FindFunctionResetAllows) {
   EXPECT_THAT(out, IsNull());
 }
 
-TEST(BuiltinOnlyCatalogTest, FindTableValuedFunction) {
+TEST(BuiltinOnlyCatalogTest, FindTVFZetaSQLBuiltin) {
   auto catalog = std::make_unique<SimpleCatalog>("test_catalog");
-  catalog->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
-      std::vector<std::string>{"TestTVF"},
-      {FunctionArgumentType::AnyRelation(), {}, nullptr},
-      TVFRelation{{TVFSchemaColumn("a", types::Int64Type(), false)}}));
+  std::vector<std::string> name_path = {"TestFunction"};
+  auto function = std::make_unique<TableValuedFunction>(name_path, "ZetaSQL");
+  catalog->AddTableValuedFunction(function.get());
   auto builtin_only_catalog = BuiltinOnlyCatalog("builtin_catalog", *catalog);
 
-  // There are no builtin table valued functions, so always returns kNotFound.
+  const TableValuedFunction* out;
+  ZETASQL_EXPECT_OK(builtin_only_catalog.FindTableValuedFunction(name_path, &out, {}));
+  EXPECT_EQ(out, function.get());
+}
+
+TEST(BuiltinOnlyCatalogTest, FindTVFNonBuiltin) {
+  auto catalog = std::make_unique<SimpleCatalog>("test_catalog");
+  std::vector<std::string> name_path = {"TestFunction"};
+  auto function =
+      std::make_unique<TableValuedFunction>(name_path, "NotBuiltin");
+  catalog->AddTableValuedFunction(function.get());
+  auto builtin_only_catalog = BuiltinOnlyCatalog("builtin_catalog", *catalog);
+
+  // By default, don't allow non-ZetaSQL-builtin TVFs; return
+  // kInvalidArgument if the underlying catalog returns such a TVF.
   const TableValuedFunction* out;
   EXPECT_THAT(
-      builtin_only_catalog.FindTableValuedFunction({"TestTVF"}, &out, {}),
-      StatusIs(absl::StatusCode::kNotFound));
+      builtin_only_catalog.FindTableValuedFunction({"TestFunction"}, &out, {}),
+      StatusIs(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(out, IsNull());
+}
+
+TEST(BuiltinOnlyCatalogTest, FindTVFEngineBuiltin) {
+  auto catalog = std::make_unique<SimpleCatalog>("test_catalog");
+  std::vector<std::string> name_path = {"TestFunction"};
+  auto function =
+      std::make_unique<TableValuedFunction>(name_path, "EngineBuiltin");
+  catalog->AddTableValuedFunction(function.get());
+  auto builtin_only_catalog = BuiltinOnlyCatalog("builtin_catalog", *catalog);
+
+  // Caller can specify allowed groups to be treat as builtin.
+  const TableValuedFunction* out;
+  builtin_only_catalog.set_allowed_function_groups({"EngineBuiltin"});
+  ZETASQL_EXPECT_OK(builtin_only_catalog.FindTableValuedFunction(name_path, &out, {}));
+  EXPECT_EQ(out, function.get());
+}
+
+TEST(BuiltinOnlyCatalogTest, FindTVFEngineBuiltinCaseSensitive) {
+  auto catalog = std::make_unique<SimpleCatalog>("test_catalog");
+  std::vector<std::string> name_path = {"TestFunction"};
+  auto function =
+      std::make_unique<TableValuedFunction>(name_path, "EngineBuiltin");
+  catalog->AddTableValuedFunction(function.get());
+  auto builtin_only_catalog = BuiltinOnlyCatalog("builtin_catalog", *catalog);
+
+  // Allowed groups are case sensitive.
+  const TableValuedFunction* out;
+  builtin_only_catalog.set_allowed_function_groups({"ENGINEBuiltin"});
+  EXPECT_THAT(builtin_only_catalog.FindTableValuedFunction(name_path, &out, {}),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(out, IsNull());
+}
+
+TEST(BuiltinOnlyCatalogTest, FindTVFResetAllows) {
+  auto catalog = std::make_unique<SimpleCatalog>("test_catalog");
+  std::vector<std::string> name_path = {"TestFunction"};
+  auto function =
+      std::make_unique<TableValuedFunction>(name_path, "EngineBuiltin");
+  catalog->AddTableValuedFunction(function.get());
+  auto builtin_only_catalog = BuiltinOnlyCatalog("builtin_catalog", *catalog);
+
+  // Reset allows function restores default behavior.
+  const TableValuedFunction* out;
+  builtin_only_catalog.set_allowed_function_groups({"EngineBuiltin"});
+  builtin_only_catalog.reset_allows();
+  EXPECT_THAT(builtin_only_catalog.FindTableValuedFunction(name_path, &out, {}),
+              StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(out, IsNull());
 }
 

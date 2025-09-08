@@ -1,4 +1,4 @@
-[default language_features=ORDER_BY_COLLATE,ANALYTIC_FUNCTIONS]
+[default language_features=MAXIMUM,+ORDER_BY_COLLATE,+ANALYTIC_FUNCTIONS]
 
 select `string` col from SimpleTypes
 order by col COLLATE {{"en_US"|@test_param_string|r"en_US"}}
@@ -418,10 +418,10 @@ QueryStmt
                         +-WindowFrameExpr(boundary_type=CURRENT ROW)
 ==
 
-[language_features={{ORDER_BY_COLLATE|}}]
+[language_features=NONE,{{+ORDER_BY_COLLATE|}}]
 select `string` from SimpleTypes order by 1 COLLATE "en_US"
 --
-ALTERNATION GROUP: ORDER_BY_COLLATE
+ALTERNATION GROUP: +ORDER_BY_COLLATE
 --
 QueryStmt
 +-output_column_list=
@@ -446,10 +446,10 @@ select `string` from SimpleTypes order by 1 COLLATE "en_US"
                                             ^
 ==
 
-[language_features={{ORDER_BY_COLLATE,ANALYTIC_FUNCTIONS|ORDER_BY_COLLATE|ANALYTIC_FUNCTIONS|}}]
+[language_features=NONE,{{+ORDER_BY_COLLATE,+ANALYTIC_FUNCTIONS|+ORDER_BY_COLLATE|+ANALYTIC_FUNCTIONS|}}]
 select afn_agg() over (order by value COLLATE "en_US") from KeyValue
 --
-ALTERNATION GROUP: ORDER_BY_COLLATE,ANALYTIC_FUNCTIONS
+ALTERNATION GROUP: +ORDER_BY_COLLATE,+ANALYTIC_FUNCTIONS
 --
 QueryStmt
 +-output_column_list=
@@ -483,14 +483,14 @@ QueryStmt
                         +-WindowFrameExpr(boundary_type=CURRENT ROW)
 --
 ALTERNATION GROUPS:
-    ORDER_BY_COLLATE
+    +ORDER_BY_COLLATE
     <empty>
 --
 ERROR: Analytic functions not supported [at 1:8]
 select afn_agg() over (order by value COLLATE "en_US") from KeyValue
        ^
 --
-ALTERNATION GROUP: ANALYTIC_FUNCTIONS
+ALTERNATION GROUP: +ANALYTIC_FUNCTIONS
 --
 ERROR: COLLATE is not supported [at 1:39]
 select afn_agg() over (order by value COLLATE "en_US") from KeyValue

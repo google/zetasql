@@ -1,3 +1,4 @@
+[default language_features=NONE]
 select key, value from (select key, value from KeyValue);
 --
 QueryStmt

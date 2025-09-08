@@ -709,8 +709,8 @@ FROM KeyValue ORDER BY Value;
 --
 ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
   {NULL, NULL, NULL},
-  {"Value1", false, false},
-  {"Value2", true, true}
+  {"Value1", true, true},
+  {"Value2", false, false}
 ]
 ==
 

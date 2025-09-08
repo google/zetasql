@@ -1,3 +1,4 @@
+[default language_features=MAXIMUM]
 select error('abc')
 --
 QueryStmt
@@ -165,7 +166,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=NONE,{{|+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select coalesce('abc', cast(error('def') as bytes))
 --
 ALTERNATION GROUP: <empty>
@@ -178,7 +179,7 @@ ERROR: No matching signature for function COALESCE
 select coalesce('abc', cast(error('def') as bytes))
        ^
 --
-ALTERNATION GROUP: IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
+ALTERNATION GROUP: +IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
 --
 QueryStmt
 +-output_column_list=
@@ -313,7 +314,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
 ==
 
-[language_features=SAFE_FUNCTION_CALL]
+[language_features=NONE,+SAFE_FUNCTION_CALL]
 select concat(b'123', safe.error('abc'))
 --
 QueryStmt

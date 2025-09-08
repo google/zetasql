@@ -1043,6 +1043,42 @@ SELECT
 ARRAY<STRUCT<MAP<STRING, INT64>>>[unknown order:{{}}, {{"a": 1, "b": 2}}]
 ==
 
+[name=map_filter_lambda_error]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+SELECT
+  MAP_FILTER(MAP_FROM_ARRAY([(1.5, 0)]), (k, v) -> 1/v = 1);
+--
+ERROR: generic::out_of_range: division by zero: 1 / 0
+==
+
+[name=map_safe_filter_lambda_error]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT,SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+SELECT
+  SAFE.MAP_FILTER(MAP_FROM_ARRAY([(1.5, 0), (2.5, 1)]), (k, v) -> v = 1) as no_error_raised,
+  SAFE.MAP_FILTER(MAP_FROM_ARRAY([(1.5, 0)]), (k, v) -> 1/v = 1) as error_raised;
+--
+ARRAY<STRUCT<
+        no_error_raised MAP<DOUBLE, INT64>,
+        error_raised MAP<DOUBLE, INT64>
+      >>[{{2.5: 1}, NULL}]
+==
+
+[name=map_filter_nested_error]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+SELECT
+  MAP_FILTER(MAP_FROM_ARRAY([(1.5, MAP_FROM_ARRAY([('a', 1), ('b', 2)])), (2.5, NULL)]), (k, v) -> MAP_FILTER(v, (k, v) -> ERROR('foo')) IS NOT NULL)
+--
+ERROR: generic::out_of_range: foo
+==
+
+[name=map_safe_filter_nested_no_error]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT,SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+SELECT
+  SAFE.MAP_FILTER(MAP_FROM_ARRAY([(1.5, MAP_FROM_ARRAY([('a', 1), ('b', 2)])), (2.5, NULL)]), (k, v) -> MAP_FILTER(v, (k, v) -> ERROR('foo')) IS NOT NULL)
+--
+ARRAY<STRUCT<MAP<DOUBLE, MAP<STRING, INT64>>>>[{NULL}]
+==
+
 [name=map_cardinality]
 SELECT
   MAP_CARDINALITY(MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<STRING, INT64>>))) as null_map,

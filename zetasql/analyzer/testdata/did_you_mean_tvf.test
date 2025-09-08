@@ -7,7 +7,7 @@
 # TODO: Enable Java support.
 
 [default no_java]
-[default language_features=TABLE_VALUED_FUNCTIONS]
+[default language_features=MAXIMUM,+TABLE_VALUED_FUNCTIONS]
 
 select column_bool from foo(true)
 --

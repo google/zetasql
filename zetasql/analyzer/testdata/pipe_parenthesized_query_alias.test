@@ -1,4 +1,4 @@
-[default language_features=PIPES,PIPE_STATIC_DESCRIBE]
+[default language_features=MAXIMUM,+PIPES,+PIPE_STATIC_DESCRIBE]
 
 (SELECT * FROM KeyValue) AS kv
 |> STATIC_DESCRIBE
@@ -153,6 +153,8 @@ QueryStmt
     |       Value -> STRING (KeyValue.Value#2) (implicit)
     |     Range variables:
     |       qq -> RANGE_VARIABLE<Key,Value>
+    |
+    |   Result is ordered.
     |   """
     +-input_scan=
       +-LimitOffsetScan

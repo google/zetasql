@@ -271,3 +271,41 @@ EXPORT DATA OPTIONS () AS
 ERROR: Syntax error: Unexpected end of statement [at 1:26]
 EXPORT DATA OPTIONS () AS
                          ^
+
+==
+
+EXPORT DATA AS
+GRAPH g
+MATCH (a)
+RETURN 1 as x
+--
+ExportDataStatement [0-46] [EXPORT DATA...RETURN 1 as x]
+  Query [15-46] [GRAPH g MATCH...RETURN 1 as x]
+    GqlQuery [15-46] [GRAPH g MATCH...RETURN 1 as x]
+      GraphTableQuery [15-46] [GRAPH g MATCH...RETURN 1 as x]
+        PathExpression [21-22] [g]
+          Identifier(g) [21-22] [g]
+        GqlOperatorList [23-46] [MATCH (a) RETURN 1 as x]
+          GqlOperatorList [23-46] [MATCH (a) RETURN 1 as x]
+            GqlMatch [23-32] [MATCH (a)]
+              GraphPattern [29-32] [(a)]
+                GraphPathPattern [29-32] [(a)]
+                  GraphNodePattern [29-32] [(a)]
+                    GraphElementPatternFiller [30-31] [a]
+                      Identifier(a) [30-31] [a]
+            GqlReturn [33-46] [RETURN 1 as x]
+              Select [40-46] [1 as x]
+                SelectList [40-46] [1 as x]
+                  SelectColumn [40-46] [1 as x]
+                    IntLiteral(1) [40-41] [1]
+                    Alias [42-46] [as x]
+                      Identifier(x) [45-46] [x]
+
+--
+EXPORT DATA AS
+GRAPH g
+MATCH
+  (a)
+RETURN
+  1 AS x
+

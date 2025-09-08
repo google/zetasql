@@ -1,4 +1,4 @@
-[default language_features=PIPES,GROUP_BY_ROLLUP,GROUPING_SETS,GROUPING_BUILTIN,NULLS_FIRST_LAST_IN_ORDER_BY,GROUP_BY_STRUCT]
+[default language_features=MAXIMUM,+PIPES,+GROUP_BY_ROLLUP,+GROUPING_SETS,+GROUPING_BUILTIN,+NULLS_FIRST_LAST_IN_ORDER_BY,+GROUP_BY_STRUCT]
 
 # Test GROUP BY, with and without AND ORDER, with order suffixes on some items.
 from KeyValue

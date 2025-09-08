@@ -1,0 +1,272 @@
+# This file includes tests for standalone subpipelines, outside of queries.
+[default mode=subpipeline]
+|> WHERE true
+--
+ERROR: ParseSubpipeline requires FEATURE_PIPES is enabled [at 1:1]
+|> WHERE true
+^
+==
+
+# Try with an empty subpipeline.
+--
+ERROR: ParseSubpipeline requires FEATURE_PIPES is enabled [at 1:1]
+
+^
+==
+
+[default language_features=NONE,+PIPES,+PIPE_FORK]
+|> WHERE true
+--
+Subpipeline [0-13] [|> WHERE true]
+  PipeWhere [0-13] [|> WHERE true]
+    WhereClause [3-13] [WHERE true]
+      BooleanLiteral(true) [9-13] [true]
+--
+|> WHERE
+     true
+==
+
+# Empty subpipeline is not allowed.
+--
+ERROR: Syntax error: Unexpected end of subpipeline [at 1:1]
+
+^
+==
+
+|> CROSS JOIN abc
+|> WHERE true
+|> AGGREGATE count(*)
+--
+Subpipeline [0-53] [|> CROSS JOIN...EGATE count(*)]
+  PipeJoin [0-17] [|> CROSS JOIN abc]
+    Join(CROSS) [2-17] [CROSS JOIN abc]
+      PipeJoinLhsPlaceholder [3-17] [CROSS JOIN abc]
+      Location [3-13] [CROSS JOIN]
+      TablePathExpression [14-17] [abc]
+        PathExpression [14-17] [abc]
+          Identifier(abc) [14-17] [abc]
+  PipeWhere [18-31] [|> WHERE true]
+    WhereClause [21-31] [WHERE true]
+      BooleanLiteral(true) [27-31] [true]
+  PipeAggregate [32-53] [|> AGGREGATE count(*)]
+    Select [35-53] [AGGREGATE count(*)]
+      SelectList [45-53] [count(*)]
+        SelectColumn [45-53] [count(*)]
+          FunctionCall [45-53] [count(*)]
+            PathExpression [45-50] [count]
+              Identifier(count) [45-50] [count]
+            Star(*) [51-52] [*]
+--
+|> CROSS JOIN
+   abc
+|> WHERE
+     true
+|> AGGREGATE
+     count(*)
+==
+
+|> AGGREGATE COUNT(*) AS x
+   GROUP BY y+1 AS y1
+|> AGGREGATE
+   GROUP AND ORDER BY y+1
+--
+Subpipeline [0-87] [|> AGGREGATE...ORDER BY y+1]
+  PipeAggregate [0-48] [|> AGGREGATE...y+1 AS y1]
+    Select [3-48] [AGGREGATE...y+1 AS y1]
+      SelectList [13-26] [COUNT(*) AS x]
+        SelectColumn [13-26] [COUNT(*) AS x]
+          FunctionCall [13-21] [COUNT(*)]
+            PathExpression [13-18] [COUNT]
+              Identifier(COUNT) [13-18] [COUNT]
+            Star(*) [19-20] [*]
+          Alias [22-26] [AS x]
+            Identifier(x) [25-26] [x]
+      GroupBy [30-48] [GROUP BY y+1 AS y1]
+        GroupingItem [39-48] [y+1 AS y1]
+          BinaryExpression(+) [39-42] [y+1]
+            PathExpression [39-40] [y]
+              Identifier(y) [39-40] [y]
+            IntLiteral(1) [41-42] [1]
+          Alias [43-48] [AS y1]
+            Identifier(y1) [46-48] [y1]
+  PipeAggregate [49-87] [|> AGGREGATE...ORDER BY y+1]
+    Select [52-87] [AGGREGATE...ORDER BY y+1]
+      SelectList [61-61] []
+      GroupBy(and_order_by=true) [65-87] [GROUP AND ORDER BY y+1]
+        GroupingItem [84-87] [y+1]
+          BinaryExpression(+) [84-87] [y+1]
+            PathExpression [84-85] [y]
+              Identifier(y) [84-85] [y]
+            IntLiteral(1) [86-87] [1]
+--
+|> AGGREGATE
+     COUNT(*) AS x
+   GROUP BY y + 1 AS y1
+|> AGGREGATE
+   GROUP AND ORDER BY y + 1
+==
+
+|> FORK (
+      |> WHERE true
+    ), (
+      |> AGGREGATE COUNT(*)
+    )
+--
+Subpipeline [0-72] [|> FORK (...COUNT(*)     )]
+  PipeFork [0-72] [|> FORK (...COUNT(*)     )]
+    Subpipeline [8-35] [(       |> WHERE true     )]
+      PipeWhere [16-29] [|> WHERE true]
+        WhereClause [19-29] [WHERE true]
+          BooleanLiteral(true) [25-29] [true]
+    Subpipeline [37-72] [(       |>...COUNT(*)     )]
+      PipeAggregate [45-66] [|> AGGREGATE COUNT(*)]
+        Select [48-66] [AGGREGATE COUNT(*)]
+          SelectList [58-66] [COUNT(*)]
+            SelectColumn [58-66] [COUNT(*)]
+              FunctionCall [58-66] [COUNT(*)]
+                PathExpression [58-63] [COUNT]
+                  Identifier(COUNT) [58-63] [COUNT]
+                Star(*) [64-65] [*]
+--
+|> FORK (
+     |> WHERE
+          true
+   ), (
+     |> AGGREGATE
+          COUNT(*)
+   )
+==
+
+# Parenthesized subpipelines aren't allowed here.
+(|> WHERE true)
+--
+ERROR: Syntax error: Unexpected "(" [at 1:1]
+(|> WHERE true)
+^
+==
+
+# Parenthesized subpipelines aren't allowed here.
+()
+--
+ERROR: Syntax error: Unexpected "(" [at 1:1]
+()
+^
+==
+
+FROM abc
+--
+ERROR: Syntax error: Unexpected keyword FROM [at 1:1]
+FROM abc
+^
+==
+
+SELECT * FROM abc
+--
+ERROR: Syntax error: Unexpected keyword SELECT [at 1:1]
+SELECT * FROM abc
+^
+==
+
+abc
+--
+ERROR: Syntax error: Unexpected identifier "abc" [at 1:1]
+abc
+^
+==
+
+1 + 2
+--
+ERROR: Syntax error: Unexpected integer literal "1" [at 1:1]
+1 + 2
+^
+==
+
+# Subpipelines are allowed to have a trailing semicolon.
+|> WHERE true;
+--
+Subpipeline [0-13] [|> WHERE true]
+  PipeWhere [0-13] [|> WHERE true]
+    WhereClause [3-13] [WHERE true]
+      BooleanLiteral(true) [9-13] [true]
+--
+|> WHERE
+     true
+==
+
+|> WHERE true;;
+--
+ERROR: Syntax error: Expected end of input but got ";" [at 1:15]
+|> WHERE true;;
+              ^
+==
+
+;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:1]
+;
+^
+==
+
+# Extra garbage after the subpipeline.
+|> DESCRIBE
+{{|;}}
++ 1
+--
+ERROR: Syntax error: Expected end of input but got "+" [at 3:1]
++ 1
+^
+==
+
+# Extra garbage after the subpipeline.
+|> DESCRIBE
+{{|;}}
+SELECT 1
+--
+ERROR: Syntax error: Expected end of input but got keyword SELECT [at 3:1]
+SELECT 1
+^
+==
+
+|>
+--
+ERROR: Syntax error: Expected keyword JOIN but got end of subpipeline [at 1:3]
+|>
+  ^
+==
+
+|> bad_operator
+--
+ERROR: Syntax error: Expected keyword JOIN but got identifier "bad_operator" [at 1:4]
+|> bad_operator
+   ^
+==
+
+|> SELECT * FROM t
+--
+ERROR: Syntax error: Expected end of input but got keyword FROM [at 1:13]
+|> SELECT * FROM t
+            ^
+==
+
+# More pipe operators after a semicolon.
+|> WHERE true;
+|> WHERE false
+--
+ERROR: Syntax error: Expected end of input but got "|>" [at 2:1]
+|> WHERE false
+^
+==
+
+# Hints aren't supported on standalone subpipelines.
+@{hint=1} |> WHERE true
+--
+ERROR: Syntax error: Unexpected "@" [at 1:1]
+@{hint=1} |> WHERE true
+^
+==
+
+@{hint=1}
+--
+ERROR: Syntax error: Unexpected "@" [at 1:1]
+@{hint=1}
+^

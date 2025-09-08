@@ -244,16 +244,6 @@ absl::Status GetProtoFieldDefault(const ProtoFieldDefaultOptions& options,
       }
       break;
     }
-    // TODO: This type is deprecated but is still returned by
-    // FieldDescriptorToTypeKind. Remove once it's fully deprecated.
-    case TYPE_TIMESTAMP_PICOS: {
-      // The default value is the same as the default for other Timestamp types.
-      // No explicit default should be defined for encoded bytes.
-      ZETASQL_ASSIGN_OR_RETURN(TimestampPicosValue value,
-                       TimestampPicosValue::FromUnixPicos(0));
-      *default_value = Value::TimestampPicos(value);
-      break;
-    }
     case TYPE_TIMESTAMP: {
       // For the new timestamp type, widen or truncate the value given the
       // field's annotation.

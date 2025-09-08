@@ -7,7 +7,7 @@
 ################################################################################
 #
 # Empty argument list.
-[default language_features=TABLE_VALUED_FUNCTIONS]
+[default language_features=NONE,+TABLE_VALUED_FUNCTIONS]
 select 1 from tvf_no_args()
 --
 QueryStmt
@@ -567,7 +567,7 @@ QueryStmt
       +-TVFScan(column_list=tvf_no_args_return_all_pod_types.[column_date#3, column_double#4, column_int32#6, column_time#9, column_uint64#11], tvf=tvf_no_args_return_all_pod_types(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[2, 3, 5, 8, 10], function_call_signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
 ==
 
-[language_features=TABLE_VALUED_FUNCTIONS,INTERVAL_TYPE]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+INTERVAL_TYPE]
 # Test several TVFs, each of which accepts one argument of some POD type.
 select column_bool from tvf_exactly_1_bool_arg(true) union all
 select column_bool from tvf_exactly_1_bytes_arg(cast("" as bytes)) union all
@@ -2570,7 +2570,7 @@ QueryStmt
 # argument name and a column name introduced by an inline subquery. The
 # resolution of that name inside the TVF body changes from resolving to the
 # column name to argument name when choosing argument names first.
-[language_features=TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS]
 SELECT * FROM tvf_templated_select_int64_arg_with_name_ambiguity(33);
 --
 QueryStmt
@@ -2617,7 +2617,7 @@ QueryStmt
 #
 # The TVF language feature is disabled for this query.
 #
-[language_features=]
+[language_features=NONE]
 select 1 from tvf_no_args()
 --
 ERROR: Table-valued functions are not supported [at 1:15]

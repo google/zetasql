@@ -3447,11 +3447,11 @@ SELECT JSON_QUERY(JSON '{"a": null}', "$.a"); -- Returns a JSON 'null'
 SELECT JSON_QUERY(JSON '{"a": null}', "$.b"); -- Returns a SQL NULL
 ```
 
-[JSONPath-format]: https://github.com/google/zetasql/blob/master/docs/jsonpath_format.md#JSONPath_format
+[JSONPath-format]: #JSONPath_format
 
 [differences-json-and-string]: #differences_json_and_string
 
-[JSONPath-mode]: https://github.com/google/zetasql/blob/master/docs/jsonpath_format.md#JSONPath_mode
+[JSONPath-mode]: #JSONPath_mode
 
 ## `JSON_QUERY_ARRAY`
 

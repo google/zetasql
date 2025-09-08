@@ -1,4 +1,5 @@
 # DOS newlines inside multi-line strings.
+[default language_features=MAXIMUM]
 select '''abc
 def''',
 r'''abc

@@ -53,7 +53,7 @@ namespace {
 
 // TODO: Update NULL handling for SOURCE/DEST/ALL_DIFFERENT/SAME
 // when NULL graph elements are supported.
-absl::Status CheckNonNullArguments(std::string_view func_or_op_name,
+absl::Status CheckNonNullArguments(absl::string_view func_or_op_name,
                                    absl::Span<const Value> args) {
   if (absl::c_any_of(args, [](const Value& x) { return x.is_null(); })) {
     return ::zetasql_base::OutOfRangeErrorBuilder()
@@ -275,7 +275,7 @@ absl::StatusOr<Value> AllDifferentGraphElementFunction::Eval(
   ZETASQL_RETURN_IF_ERROR(CheckNonNullArguments("function ALL_DIFFERENT", args));
   ZETASQL_RET_CHECK(absl::c_all_of(
       args, [](const Value& x) { return x.type()->IsGraphElement(); }));
-  absl::flat_hash_set<std::string_view> hashed_identifier;
+  absl::flat_hash_set<absl::string_view> hashed_identifier;
   hashed_identifier.reserve(args.size());
   for (const Value& arg : args) {
     hashed_identifier.insert(arg.GetIdentifier());
@@ -736,7 +736,7 @@ absl::StatusOr<Value> DynamicPropertyEqualsFunction::Eval(
   if (graph_element.is_null() || args[2].is_null()) {
     return Value::Null(output_type());
   }
-  std::string_view property_name = args[1].string_value();
+  absl::string_view property_name = args[1].string_value();
   ZETASQL_RET_CHECK_EQ(
       graph_element.type()->AsGraphElement()->FindPropertyType(property_name),
       nullptr)

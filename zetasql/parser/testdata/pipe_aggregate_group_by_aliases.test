@@ -2,7 +2,7 @@
 # After the tests with pipe syntax, it has tests for GROUP BY with aliases in
 # regular syntax, with FEATURE_PIPES turned on and off.
 
-[default language_features=PIPES]
+[default language_features=NONE,+PIPES]
 # GROUP BY supports aliases with AS.
 select 1
 |> AGGREGATE count(*) as x, count(*) z
@@ -166,7 +166,7 @@ ERROR: Syntax error: Expected ")" or "," but got keyword AS [at 3:34]
 # Now we replicate the same tests as above, in regular SQL syntax,
 # with FEATURE_PIPES turned on or off.  Aliases in GROUP BY are
 # always rejected.
-[language_features={{PIPES|}}]
+[language_features=NONE,{{+PIPES|}}]
 select COUNT(*)
 from t
 GROUP BY x AS y
@@ -177,7 +177,7 @@ GROUP BY x AS y
 ==
 
 # GROUP BY aliases without AS.
-[language_features={{PIPES|}}]
+[language_features=NONE,{{+PIPES|}}]
 select COUNT(*)
 from t
 GROUP BY x y
@@ -188,13 +188,13 @@ GROUP BY x y
 ==
 
 # GROUPING_SETS, etc, don't support aliases.
-[language_features={{PIPES|}}]
+[language_features=NONE,{{+PIPES|}}]
 select COUNT(*)
 from t
 GROUP BY {{ROLLUP|CUBE|GROUPING SETS}}(x,y) AS z
 --
 ALTERNATION GROUPS:
-    PIPES,ROLLUP
+    +PIPES,ROLLUP
     ROLLUP
 --
 ERROR: Syntax error: Expected end of input but got keyword AS [at 3:22]
@@ -202,7 +202,7 @@ GROUP BY ROLLUP(x,y) AS z
                      ^
 --
 ALTERNATION GROUPS:
-    PIPES,CUBE
+    +PIPES,CUBE
     CUBE
 --
 ERROR: Syntax error: Expected end of input but got keyword AS [at 3:20]
@@ -210,7 +210,7 @@ GROUP BY CUBE(x,y) AS z
                    ^
 --
 ALTERNATION GROUPS:
-    PIPES,GROUPING SETS
+    +PIPES,GROUPING SETS
     GROUPING SETS
 --
 ERROR: Syntax error: Expected end of input but got keyword AS [at 3:29]
@@ -219,7 +219,7 @@ GROUP BY GROUPING SETS(x,y) AS z
 ==
 
 # GROUP BY () doesn't support aliases.
-[language_features={{PIPES|}}]
+[language_features=NONE,{{+PIPES|}}]
 select COUNT(*)
 from t
 GROUP BY () AS z
@@ -230,7 +230,7 @@ GROUP BY () AS z
 ==
 
 # Aliases inside ROLLUP not allowed.
-[language_features={{PIPES|}}]
+[language_features=NONE,{{+PIPES|}}]
 select COUNT(*)
 from t
 GROUP BY ROLLUP(x, x+1 AS y)
@@ -241,7 +241,7 @@ GROUP BY ROLLUP(x, x+1 AS y)
 ==
 
 # Aliases inside GROUPING SETS not allowed.
-[language_features={{PIPES|}}]
+[language_features=NONE,{{+PIPES|}}]
 select COUNT(*)
 from t
 GROUP BY GROUPING SETS(x, x+1 AS y, ROLLUP(x AS y), CUBE(z AS zz))

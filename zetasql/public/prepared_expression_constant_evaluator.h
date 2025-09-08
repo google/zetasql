@@ -21,6 +21,7 @@
 
 #include "zetasql/public/constant_evaluator.h"
 #include "zetasql/public/evaluator.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/status/statusor.h"
@@ -32,13 +33,19 @@ namespace zetasql {
 class PreparedExpressionConstantEvaluator final : public ConstantEvaluator {
  public:
   explicit PreparedExpressionConstantEvaluator(EvaluatorOptions options)
-      : options_(std::move(options)) {}
+      : eval_options_(std::move(options)) {}
+
+  PreparedExpressionConstantEvaluator(EvaluatorOptions options,
+                                      const LanguageOptions& language_options)
+      : eval_options_(std::move(options)),
+        language_options_(language_options) {}
 
   absl::StatusOr<Value> Evaluate(
       const ResolvedExpr& constant_expression) override;
 
  private:
-  const EvaluatorOptions options_;
+  const EvaluatorOptions eval_options_;
+  const LanguageOptions language_options_;
 };
 
 }  // namespace zetasql

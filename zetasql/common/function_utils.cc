@@ -21,6 +21,7 @@
 
 #include "zetasql/public/function.h"
 #include "zetasql/public/function_signature.h"
+#include "absl/container/flat_hash_set.h"
 #include "zetasql/base/check.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
@@ -35,18 +36,34 @@ bool FunctionIsOperator(const Function& function) {
 }
 
 void UpdateArgsForGetSQL(const FunctionSignature* signature,
-                         std::vector<std::string>* args) {
+                         std::vector<std::string>* args,
+                         const absl::flat_hash_set<int>& unset_arg_indices) {
   if (signature != nullptr) {
     int arg_index = 0;
     // If the argument is mandatory-named, we have to use that name. Once we
     // specify a named argument, all subsequent arguments must be named.
     bool has_named_only_argument = false;
+    // If there is an unset optional relation argument, which is omitted in the
+    // SQLBuilder output, we specify the name for the subsequent
+    // positional_or_named arguments. This is because in cases where
+    // multiple optional positional arguments exists, we do not know which
+    // position an argument is intended for if an earlier one is missing.
+    bool has_unset_relation = false;
     for (int i = 0;
          i < signature->arguments().size() && arg_index < args->size(); ++i) {
       const FunctionArgumentType& arg = signature->argument(i);
+      if (unset_arg_indices.contains(i)) {
+        // "repeated" is not considered here because unset_arg_indices can
+        // currently only contain relation arguments, which cannot be repeated
+        // and cannot follow a repeated argument.
+        has_unset_relation = true;
+        continue;
+      }
       if (!arg.repeated()) {
         if (arg.options().named_argument_kind() == kNamedOnly ||
-            has_named_only_argument) {
+            has_named_only_argument ||
+            (arg.options().named_argument_kind() == kPositionalOrNamed &&
+             has_unset_relation)) {
           ABSL_DCHECK(!arg.argument_name().empty());
           ABSL_DCHECK_NE(arg.options().named_argument_kind(), kPositionalOnly)
               << "Positional only argument found after named only argument";

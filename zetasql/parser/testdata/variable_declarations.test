@@ -1,5 +1,6 @@
 # Single declaration
 [default mode=script]
+[default node_kind=VariableDeclaration]
 DECLARE x STRING{{;|}}
 --
 ALTERNATION GROUP: ;
@@ -161,6 +162,7 @@ SELECT
 ==
 
 # Declaration inside a begin/end block
+[node_kind=BeginStatement]
 BEGIN
   DECLARE x INT32;
   SELECT x;
@@ -194,6 +196,7 @@ END
 ==
 
 # 'declare' used as an identifier
+[node_kind=QueryStatement]
 SELECT * from declare
 --
 Script [0-21] [SELECT * from declare]
@@ -328,6 +331,7 @@ DECLARE INT32;
 ==
 
 # Declaration in unsupported context (error)
+[node_kind=IfStatement]
 IF true THEN
   DECLARE x INT32;
 END IF;
@@ -349,6 +353,7 @@ IF true THEN
 END IF ;
 ==
 
+[node_kind=IfStatement]
 IF declare then
   DECLARE x INT64;
 END IF;
@@ -372,6 +377,7 @@ END IF ;
 ==
 
 # Declaration followed by a non-declaration (error)
+[node_kind=QueryStatement]
 SELECT 5;
 DECLARE x INT32;
 --
@@ -398,6 +404,7 @@ DECLARE x INT32 ;
 
 
 # Declaration followed by a non-declaration, inside of a block (error)
+[node_kind=BeginStatement]
 BEGIN
   SELECT 5;
   DECLARE x INT32;
@@ -676,6 +683,7 @@ END
 ==
 
 # Declaring variables of the same name in different, but non-overlapping scopes.
+[node_kind=BeginStatement]
 BEGIN
   DECLARE x INT32;
 END;
@@ -714,6 +722,7 @@ END
 
 # Attempting to re-declare a variable after the completion of a begin/end block.
 # (Error, since declaration is not at the start of its block).
+[node_kind=BeginStatement]
 BEGIN
   DECLARE x INT32;
 END;

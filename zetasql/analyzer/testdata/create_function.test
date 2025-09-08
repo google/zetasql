@@ -1,4 +1,4 @@
-[default language_features=TEMPLATE_FUNCTIONS]
+[default language_features=NONE,+TEMPLATE_FUNCTIONS]
 create function myfunc() returns string;
 --
 ERROR: Function must specify LANGUAGE or have a SQL body in parentheses [at 1:1]
@@ -964,7 +964,7 @@ create function f(x any type, y int64)
 
 # ZetaSQL returns an error in the presence of ANY TYPE parameters if the
 # language feature is disabled.
-[language_features=]
+[language_features=NONE]
 create function f(x any type, y int64) as (x + y);
 --
 ERROR: Functions with templated arguments are not supported [at 1:21]
@@ -984,7 +984,7 @@ ERROR: To write SQL functions, omit the LANGUAGE clause and write the function b
 ==
 
 # ST_GeogFromText requires constant as second argument.
-[language_features=GEOGRAPHY]
+[language_features=NONE,+GEOGRAPHY]
 create function myfunc(a string, b boolean) as (st_geogfromtext(a, b));
 --
 ERROR: Argument 2 to ST_GEOGFROMTEXT must be a literal or query parameter [at 1:68]
@@ -1124,7 +1124,7 @@ ERROR: Type with collation name is not supported in function signatures [at 2:18
 create function fn( a int32, b string 'und:ci' ) returns string
 language testlang as "return 's';"
 --
-ERROR: Syntax error: Expected ")" or "," but got string literal 'und:ci' [at 1:39]
+ERROR: Syntax error: Expected ")" but got string literal 'und:ci' [at 1:39]
 create function fn( a int32, b string 'und:ci' ) returns string
                                       ^
 
@@ -1150,7 +1150,7 @@ options ( a=b, b=c, c=d, a=z );
                          ^
 ==
 
-[language_features={{CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION,REMOTE_FUNCTION|CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION|REMOTE_FUNCTION|}}]
+[language_features=NONE,{{+CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION,+REMOTE_FUNCTION|+CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION|+REMOTE_FUNCTION|}}]
 create function myfunc() returns boolean
 remote with connection `` as (false);
 --
@@ -1159,20 +1159,20 @@ remote with connection `` as (false);
                        ^
 ==
 
-[language_features={{CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION,REMOTE_FUNCTION|CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION|REMOTE_FUNCTION|}}]
+[language_features=NONE,{{+CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION,+REMOTE_FUNCTION|+CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION|+REMOTE_FUNCTION|}}]
 create function myfunc() returns boolean
 remote with connection default as (false);
 --
 ALTERNATION GROUPS:
-    CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION,REMOTE_FUNCTION
-    REMOTE_FUNCTION
+    +CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION,+REMOTE_FUNCTION
+    +REMOTE_FUNCTION
 --
 ERROR: CONNECTION DEFAULT is not supported [at 2:24]
 remote with connection default as (false);
                        ^
 --
 ALTERNATION GROUPS:
-    CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
+    +CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
     <empty>
 --
 ERROR: Keyword REMOTE is not supported [at 2:1]
@@ -1182,14 +1182,14 @@ remote with connection default as (false);
 
 
 # LANGUAGE clause with WITH CONNECTION
-[language_features={{CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION,REMOTE_FUNCTION|CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION|REMOTE_FUNCTION|}}]
+[language_features=NONE,{{+CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION,+REMOTE_FUNCTION|+CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION|+REMOTE_FUNCTION|}}]
 create function myfunc() returns string
 language javascript
 with connection connection1 as """5""";
 --
 ALTERNATION GROUPS:
-    CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION,REMOTE_FUNCTION
-    CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
+    +CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION,+REMOTE_FUNCTION
+    +CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
 --
 CreateFunctionStmt
 +-name_path=myfunc
@@ -1201,7 +1201,7 @@ CreateFunctionStmt
 +-connection=
   +-Connection(connection=connection1)
 --
-ALTERNATION GROUP: REMOTE_FUNCTION
+ALTERNATION GROUP: +REMOTE_FUNCTION
 --
 ERROR: WITH CONNECTION clause should be preceded by keyword REMOTE and can't be used together with LANGUAGE clause [at 3:1]
 with connection connection1 as """5""";
@@ -1215,19 +1215,19 @@ with connection connection1 as """5""";
 ==
 
 # WITH CONNECTION, without LANGUAGE clause and REMOTE
-[language_features={{CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION,REMOTE_FUNCTION|CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION|REMOTE_FUNCTION|}}]
+[language_features=NONE,{{+CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION,+REMOTE_FUNCTION|+CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION|+REMOTE_FUNCTION|}}]
 create function myfunc() returns INT64
 with connection connection1 AS ((SELECT 1));
 --
 ALTERNATION GROUPS:
-    CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION,REMOTE_FUNCTION
-    CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
+    +CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION,+REMOTE_FUNCTION
+    +CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
 --
 ERROR: WITH CONNECTION clause should be preceded by keyword REMOTE or must be used with LANGUAGE clause [at 2:1]
 with connection connection1 AS ((SELECT 1));
 ^
 --
-ALTERNATION GROUP: REMOTE_FUNCTION
+ALTERNATION GROUP: +REMOTE_FUNCTION
 --
 ERROR: WITH CONNECTION clause should be preceded by keyword REMOTE and can't be used together with LANGUAGE clause [at 2:1]
 with connection connection1 AS ((SELECT 1));
@@ -1240,7 +1240,7 @@ with connection connection1 AS ((SELECT 1));
 ^
 ==
 
-[language_features=MULTILEVEL_AGGREGATION]
+[language_features=NONE,+MULTILEVEL_AGGREGATION]
 CREATE FUNCTION MultiLevelAggInUdfIsInvalid(x INT64) AS (
   SUM(x GROUP BY x)
 )
@@ -1250,7 +1250,7 @@ ERROR: Aggregate function SUM not allowed in SQL function body [at 2:3]
   ^
 ==
 
-[language_features=MULTILEVEL_AGGREGATION]
+[language_features=NONE,+MULTILEVEL_AGGREGATION]
 CREATE FUNCTION InvalidMultiLevelAggInUdfIsInvalid(x STRING) AS (
   CONCAT(x GROUP BY x)
 )

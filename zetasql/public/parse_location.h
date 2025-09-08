@@ -160,7 +160,7 @@ class ParseLocationRange {
     // have different filenames. We ABSL_CHECK that condition here.
     ZETASQL_RET_CHECK_EQ(start().filename(), end().filename());
     ParseLocationRangeProto proto;
-    proto.set_filename(std::string(start().filename()));
+    proto.set_filename(start().filename());
     proto.set_start(start().GetByteOffset());
     proto.set_end(end().GetByteOffset());
     return proto;

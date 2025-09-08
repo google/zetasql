@@ -1,16 +1,16 @@
 # NOTE: CREATE MODEL tests are derived from those for CREATE TABLE AS SELECT and
 # CREATE VIEW tests.
-[default language_features=CREATE_MODEL_WITH_ALIASED_QUERY_LIST,REMOTE_MODEL,REMOTE_FUNCTION]
+[default language_features=NONE,+CREATE_MODEL_WITH_ALIASED_QUERY_LIST,+REMOTE_MODEL,+REMOTE_FUNCTION]
 
-[language_features={{REMOTE_MODEL,|CREATE_MODEL_WITH_ALIASED_QUERY_LIST,|}}REMOTE_FUNCTION]
+[language_features=NONE,{{+REMOTE_MODEL,|+CREATE_MODEL_WITH_ALIASED_QUERY_LIST,|}}+REMOTE_FUNCTION]
 # Bare statement
 create model t1
 --
-ALTERNATION GROUP: REMOTE_MODEL,
+ALTERNATION GROUP: +REMOTE_MODEL,
 --
 CreateModelStmt(name_path=t1)
 --
-ALTERNATION GROUP: CREATE_MODEL_WITH_ALIASED_QUERY_LIST,
+ALTERNATION GROUP: +CREATE_MODEL_WITH_ALIASED_QUERY_LIST,
 --
 ERROR: Either the AS SELECT clause or AS aliased query list is required for CREATE MODEL [at 2:1]
 create model t1
@@ -23,10 +23,10 @@ create model t1
 ^
 ==
 
-[language_features={{REMOTE_MODEL,|}}REMOTE_FUNCTION]
+[language_features=NONE,{{+REMOTE_MODEL,|}}+REMOTE_FUNCTION]
 create model t1 input (i1 INT64, i2 FLOAT64) output (o1 BOOL)
 --
-ALTERNATION GROUP: REMOTE_MODEL,
+ALTERNATION GROUP: +REMOTE_MODEL,
 --
 CreateModelStmt
 +-name_path=t1
@@ -43,12 +43,12 @@ create model t1 input (i1 INT64, i2 FLOAT64) output (o1 BOOL)
                 ^
 ==
 
-[language_features={{REMOTE_MODEL,|}}REMOTE_FUNCTION]
+[language_features=NONE,{{+REMOTE_MODEL,|}}+REMOTE_FUNCTION]
 create model t1 input (i1 INT64, i2 FLOAT64) output (o1 BOOL)
 transform (a + b as t)
 --
 
-ALTERNATION GROUP: REMOTE_MODEL,
+ALTERNATION GROUP: +REMOTE_MODEL,
 
 --
 ERROR: The TRANSFORM clause cannot be used without AS SELECT clause [at 2:1]
@@ -62,10 +62,10 @@ create model t1 input (i1 INT64, i2 FLOAT64) output (o1 BOOL)
                 ^
 ==
 
-[language_features={{REMOTE_MODEL,|}}REMOTE_FUNCTION]
+[language_features=NONE,{{+REMOTE_MODEL,|}}+REMOTE_FUNCTION]
 create model t1 transform (a + b as t)
 --
-ALTERNATION GROUP: REMOTE_MODEL,
+ALTERNATION GROUP: +REMOTE_MODEL,
 --
 ERROR: The TRANSFORM clause cannot be used without AS SELECT clause [at 1:17]
 create model t1 transform (a + b as t)
@@ -95,10 +95,10 @@ transform (a + b as t)
 ^
 ==
 
-[language_features={{REMOTE_MODEL,|}}REMOTE_FUNCTION]
+[language_features=NONE,{{+REMOTE_MODEL,|}}+REMOTE_FUNCTION]
 create model t1 remote
 --
-ALTERNATION GROUP: REMOTE_MODEL,
+ALTERNATION GROUP: +REMOTE_MODEL,
 --
 CreateModelStmt(name_path=t1, is_remote=TRUE)
 --
@@ -109,10 +109,10 @@ create model t1 remote
 ^
 ==
 
-[language_features={{REMOTE_MODEL,|}}REMOTE_FUNCTION]
+[language_features=NONE,{{+REMOTE_MODEL,|}}+REMOTE_FUNCTION]
 create model t1 with connection connection1 as select 1 a
 --
-ALTERNATION GROUP: REMOTE_MODEL,
+ALTERNATION GROUP: +REMOTE_MODEL,
 --
 ERROR: WITH CONNECTION clause can be specified only for remote models [at 1:17]
 create model t1 with connection connection1 as select 1 a
@@ -125,10 +125,10 @@ create model t1 with connection connection1 as select 1 a
                 ^
 ==
 
-[language_features={{REMOTE_MODEL,|}}REMOTE_FUNCTION]
+[language_features=NONE,{{+REMOTE_MODEL,|}}+REMOTE_FUNCTION]
 create model t1 remote with connection connection1
 --
-ALTERNATION GROUP: REMOTE_MODEL,
+ALTERNATION GROUP: +REMOTE_MODEL,
 --
 CreateModelStmt
 +-name_path=t1
@@ -143,10 +143,10 @@ create model t1 remote with connection connection1
 ^
 ==
 
-[language_features={{REMOTE_MODEL,|}}REMOTE_FUNCTION]
+[language_features=NONE,{{+REMOTE_MODEL,|}}+REMOTE_FUNCTION]
 create model t1 options (abc = def)
 --
-ALTERNATION GROUP: REMOTE_MODEL,
+ALTERNATION GROUP: +REMOTE_MODEL,
 --
 CreateModelStmt
 +-name_path=t1
@@ -405,7 +405,7 @@ transform (c as A, c+B as d, *)
 ^
 ==
 
-[language_features=ANALYTIC_FUNCTIONS]
+[language_features=NONE,+ANALYTIC_FUNCTIONS]
 create model Z
 transform (row_number() over() as A, max(c+B) over() as d, sum(b) over() + max(c) over() + 1 as e, *)
 options ()
@@ -582,7 +582,7 @@ transform (SUM(c) AS t)
            ^
 ==
 
-[language_features=ANALYTIC_FUNCTIONS]
+[language_features=NONE,+ANALYTIC_FUNCTIONS]
 create model Z
 transform (SUM(c) OVER (PARTITION BY b) AS t)
 options ()
@@ -593,7 +593,7 @@ transform (SUM(c) OVER (PARTITION BY b) AS t)
            ^
 ==
 
-[language_features=ANALYTIC_FUNCTIONS]
+[language_features=NONE,+ANALYTIC_FUNCTIONS]
 create model Z
 transform (SUM(c) OVER (ORDER BY b) AS t)
 options ()
@@ -604,7 +604,7 @@ transform (SUM(c) OVER (ORDER BY b) AS t)
            ^
 ==
 
-[language_features=ANALYTIC_FUNCTIONS]
+[language_features=NONE,+ANALYTIC_FUNCTIONS]
 create model Z
 transform (SUM(key) OVER w AS t)
 options ()
@@ -1020,7 +1020,7 @@ as select * from t2;
 ==
 
 # Create model with transform and collation in the output column. Annotations should be accessed.
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT]
 [no_java]
 CREATE MODEL m
 TRANSFORM(CAST(e AS INT64) k)
@@ -1064,7 +1064,7 @@ CreateModelStmt
 
 # Create model with aliased query list is not supported yet if language feature
 # flag is not turned on yet.
-[language_features=]
+[language_features=NONE]
 create model m
 as
 (
@@ -1312,7 +1312,7 @@ create model t1 options (abc = def, abc = 2)
                                     ^
 ==
 
-[language_features=PIPES]
+[language_features=NONE,+PIPES]
 CREATE MODEL m
 AS
 FROM KeyValue
@@ -1327,7 +1327,7 @@ CreateModelStmt
 ==
 
 # Test with input from a pipe query with pruning, like the case in b/399439396.
-[language_features=PIPES]
+[language_features=NONE,+PIPES]
 CREATE MODEL m
 AS
 FROM KeyValue
@@ -1342,3 +1342,32 @@ CreateModelStmt
     +-column_list=[KeyValue.Key#1]
     +-input_scan=
       +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+
+==
+
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
+create model m AS
+graph aml
+return 1 as x
+--
+CreateModelStmt
++-name_path=m
++-output_column_list=
+| +-$graph_table.x#1 AS x [INT64]
++-query=
+  +-GraphTableScan
+    +-column_list=[$graph_table.x#1]
+    +-property_graph=aml
+    +-input_scan=
+      +-GraphLinearScan
+        +-column_list=[$graph_table.x#1]
+        +-scan_list=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.x#1]
+            +-scan_list=
+              +-ProjectScan
+                +-column_list=[$graph_table.x#1]
+                +-expr_list=
+                | +-x#1 := Literal(type=INT64, value=1)
+                +-input_scan=
+                  +-SingleRowScan

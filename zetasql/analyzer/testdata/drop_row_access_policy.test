@@ -1,3 +1,4 @@
+[default language_features=NONE]
 DROP ROW ACCESS POLICY foo ON bar;
 --
 DropRowAccessPolicyStmt(name="foo", target_name_path=bar)
@@ -48,17 +49,17 @@ DropRowAccessPolicyStmt(is_drop_all=TRUE, target_name_path=namespace.`all table`
 ==
 
 # Test that the ACCESS keyword can be included without the feature.
-[language_features={{ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX|}}]
+[language_features=NONE,{{+ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX|}}]
 DROP ALL ROW ACCESS POLICIES ON bar;
 --
 DropRowAccessPolicyStmt(is_drop_all=TRUE, target_name_path=bar)
 ==
 
 # Test that the ACCESS keyword must be included with the feature.
-[language_features={{ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX|}}]
+[language_features=NONE,{{+ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX|}}]
 DROP ALL ROW POLICIES ON bar;
 --
-ALTERNATION GROUP: ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX
+ALTERNATION GROUP: +ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX
 --
 DropRowAccessPolicyStmt(is_drop_all=TRUE, target_name_path=bar)
 --

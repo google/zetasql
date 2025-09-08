@@ -890,7 +890,7 @@ with recursive test AS (
   union all
   select n+1
   from test
-) with depth {{|as depth}} {{|max 10|between ? and @p}}
+) with depth {{|as depth}} {{|max 10|between ? and @p|between 'a' and 'b'}}
 select n from test
 --
 ALTERNATION GROUP: <empty>
@@ -1074,6 +1074,12 @@ SELECT
 FROM
   test
 --
+ALTERNATION GROUP: between 'a' and 'b'
+--
+ERROR: Syntax error: Unexpected string literal 'a' [at 6:23]
+) with depth  between 'a' and 'b'
+                      ^
+--
 ALTERNATION GROUP: as depth,
 --
 QueryStatement [0-119] [with recursive...from test]
@@ -1198,6 +1204,7 @@ FROM
   test
 --
 ALTERNATION GROUP: as depth,between ? and @p
+
 --
 QueryStatement [0-135] [with recursive...from test]
   Query [0-135] [with recursive...from test]
@@ -1260,3 +1267,21 @@ SELECT
   n
 FROM
   test
+--
+ALTERNATION GROUP: as depth,between 'a' and 'b'
+--
+ERROR: Syntax error: Unexpected string literal 'a' [at 6:31]
+) with depth as depth between 'a' and 'b'
+                              ^
+==
+
+# Graph queries in WITH statements aren't supported.
+WITH t1 AS (
+  GRAPH aml
+  RETURN 1 as one
+)
+SELECT * FROM t1
+--
+ERROR: Syntax error: Unexpected keyword GRAPH [at 2:3]
+  GRAPH aml
+  ^

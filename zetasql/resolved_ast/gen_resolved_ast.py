@@ -311,8 +311,14 @@ SCALAR_MATCH_RECOGNIZE_PATTERN_ANCHOR_MODE = EnumScalarType(
     'Mode', 'ResolvedMatchRecognizePatternAnchor'
 )
 
-SCALAR_PROPERTY_GRAPH = ScalarType('const PropertyGraph*',
-                                   'PropertyGraphRefProto', 'PropertyGraph')
+SCALAR_PROPERTY_GRAPH = ScalarType(
+    'const PropertyGraph*',
+    'PropertyGraphRefProto',
+    'PropertyGraph',
+    java_default='null',
+    cpp_default='nullptr',
+    not_serialize_if_default=True,
+)
 SCALAR_GRAPH_PROPERTY_DECLARATION = ScalarType(
     'const GraphPropertyDeclaration*',
     'GraphPropertyDeclarationRefProto',
@@ -621,7 +627,7 @@ def Field(name,
 
 # You can use `tag_id=GetTempTagId()` until doing the final submit.
 # That will avoid merge conflicts when syncing in other changes.
-NEXT_NODE_TAG_ID = 300
+NEXT_NODE_TAG_ID = 308
 
 
 def GetTempTagId():
@@ -977,35 +983,55 @@ class TreeGenerator(object):
     jinja_env.filters['is_node_ptr'] = IsNodePtr
     jinja_env.filters['is_node_vector'] = IsNodeVector
 
-    # These can be used to make relative links and targets within a doc.
-    # {{name|as_link}} will make emit name with a link to "#name".
-    # {{name|as_target}} will make emit name and make it a target for "#name".
-    def AsLink(text):
-      # Markup makes this not get re-escaped.
-      return markupsafe.Markup('<a href="#%s">%s</a>' % (text, text))
-
-    def AsTarget(text):
-      return markupsafe.Markup('<a name="%s">%s</a>' % (text, text))
-
-    jinja_env.filters['as_link'] = AsLink
-    jinja_env.filters['as_target'] = AsTarget
-
     # This can be used to find node names in a string (e.g. a c++ return type)
     # and turn them into relative links inside the doc.
-    linkify_re = re.compile('(Resolved[a-zA-Z]*)')
+    linkify_re = re.compile(r'\b(Resolved[a-zA-Z]*)\b')
+
+    # These fix cases where we make a link to a plural node name with an extra
+    # "s" or "ies" on the end.  e.g. "#ResolvedExprs" -> "#ResolvedExpr".
+    # For simplicity, we strip the "s" even for a couple of nodes that actually
+    # end with "s".
+    fix_linkify_re1 = re.compile(r'(#Resolved[a-zA-Z]*)ies\b')
+    fix_linkify_re2 = re.compile(r'(#Resolved[a-zA-Z]*)s\b')
+
+    # These do the corresponding change on a node name.
+    unplural_re1 = re.compile(r'ies$')
+    unplural_re2 = re.compile(r's$')
 
     def LinkifyNodeNames(text):
       # Escape the text which may include strings like std::vector<xxx>,
       # and Markup the output to not be escaped further.
       text = markupsafe.escape(text)
-      match = linkify_re.search(text)
-      if match:
-        name = match.groups()[0]
-        return markupsafe.Markup(text.replace(name, AsLink(name)))
-      else:
-        return text
+      text = linkify_re.sub(r'<a href="#\1">\1</a>', text)
+      text = fix_linkify_re1.sub(r'\1y', text)  # Suffix "ies" -> "y"
+      text = fix_linkify_re2.sub(r'\1', text)   # Suffix "s" -> ""
+      text = markupsafe.Markup(text)
+      return text
+
+    def Unplural(name):
+      # Strip off plural suffixes from a node name.
+      name = unplural_re1.sub(r'y', name)  # Suffix "ies" -> "y"
+      name = unplural_re2.sub(r'', name)   # Suffix "s" -> ""
+      return name
 
     jinja_env.filters['linkify_node_names'] = LinkifyNodeNames
+    jinja_env.filters['unplural'] = Unplural
+
+    # These can be used to make relative links and targets within a doc.
+    # {{name|as_link}} will make emit name with a link to "#name".
+    # {{name|as_target}} will make emit name and make it a target for "#name".
+    # To make links from comments work, where node names might be written as
+    # plurals, we always strip the "s", even for a couple of nodes that actually
+    # end with "s".
+    def AsLink(text):
+      # Markup makes this not get re-escaped.
+      return markupsafe.Markup('<a href="#%s">%s</a>' % (Unplural(text), text))
+
+    def AsTarget(text):
+      return markupsafe.Markup('<a name="%s">%s</a>' % (Unplural(text), text))
+
+    jinja_env.filters['as_link'] = AsLink
+    jinja_env.filters['as_target'] = AsTarget
 
     # {{items|sort_by_name}} can be used to sort a list of objects by name.
     def SortByName(items):
@@ -1809,6 +1835,19 @@ def main(unused_argv):
                       """,
               vector=True,
               is_optional_constructor_arg=True,
+          ),
+          Field(
+              'group_by_hint_list',
+              'ResolvedOption',
+              tag_id=10,
+              ignorable=IGNORABLE,
+              is_constructor_arg=False,
+              vector=True,
+              comment="""
+              Hint for the group by list. Only applicable when
+              FEATURE_MULTILEVEL_AGGREGATION is enabled and `group_by_list`
+              is non-empty.
+                      """,
           ),
           Field(
               'group_by_aggregate_list',
@@ -2685,6 +2724,18 @@ value.
               """)
 
   gen.AddNode(
+      name='ResolvedUnsetArgumentScan',
+      tag_id=301,
+      parent='ResolvedScan',
+      fields=[],
+      comment="""
+      Represents an optional TVF relation argument, where the relation is
+      omitted. This node can only occur as an argument to a TVFScan. The
+      column_list for this node is always empty.
+              """,
+  )
+
+  gen.AddNode(
       name='ResolvedTableScan',
       tag_id=20,
       parent='ResolvedScan',
@@ -3001,6 +3052,101 @@ value.
       grouping set, rollup and cube nodes. It doesn't have any actual fields.
               """,
       fields=[],
+  )
+
+  gen.AddNode(
+    name='ResolvedGroupingSetList',
+    tag_id=302,
+    parent='ResolvedGroupingSetBase',
+    comment="""
+    Represents the list of grouping sets corresponding to a GROUPING SETS.
+    For example, `GROUPING SETS(a, CUBE(b, c), ROLLUP(d, e, f))` can be
+    represented as:
+
+    GroupingSetList
+    +-elem_list=
+      +-GroupingSet
+      | +-group_by_column_list= ...
+      |   +-ColumnRef(...)
+      +-Cube
+      | +-cube_column_list=
+      |   +-GroupingSetMultiColumn ...
+      |   +-GroupingSetMultiColumn ...
+      +-Rollup
+        +-rollup_column_list=
+          +-GroupingSetMultiColumn ...
+          +-GroupingSetMultiColumn ...
+          +-GroupingSetMultiColumn ...
+
+    Although elem_list contains elements of type ResolvedGroupingSetBase,
+    only ResolvedGroupingSet, ResolvedRollup, and
+    ResolvedCube are valid derivative types.
+
+    Currently, the only use case is to represents the input set for grouping
+    sets cartesian product (see ResolvedGroupingSetProduct). In the future, this
+    node can potentially be used for other use cases, e.g. nested grouping sets.
+    """,
+    fields=[
+      Field(
+        'elem_list',
+        'ResolvedGroupingSetBase',
+        tag_id=2,
+        vector=True,
+      )
+    ]
+  )
+
+  gen.AddNode(
+    name='ResolvedGroupingSetProduct',
+    tag_id=303,
+    parent='ResolvedGroupingSetBase',
+    comment="""
+    Represents the cartesian product of the grouping sets stored in
+    `input_list`. Each element in `input_list` should either be a
+    ResolvedGroupingSetList, ResolvedGroupingSet, ResolvedRollup or
+    ResolvedCube.
+
+    For example, the expression
+    `GROUP BY GROUPING SETS(a, ROLLUP(d)), ROLLUP(e, f)`
+    can be represented as:
+
+    GroupingSetProduct
+    +-input_list=
+      +-GroupingSetList  # Represents GROUPING SETS(a, ROLLUP(d))
+      | +-elem_list=
+      |   +-GroupingSet
+      |   | +-group_by_column_list= ...
+      |   |   +-ColumnRef(...)
+      |   +-Rollup
+      |     +-rollup_column_list=
+      |       +-GroupingSetMultiColumn ...
+      +-Rollup . # Represents ROLLUP(e, f)
+        +-rollup_column_list=
+          +-GroupingSetMultiColumn ...
+          +-GroupingSetMultiColumn ...
+
+    The GroupingSetList is then expanded to:
+    [(a), (b, c), (b), (c), (), (d), ()]
+    The Rollup is expanded to:
+    [(e, f), (e), (f), ()].
+    Then, a cartesian product will be performed on the two grouping sets,
+    resulting in:
+    [(a, e, f), (a, e), (a, f), (a),
+     (b, c, e, f), (b, c, e), (b, c, f), (b, c)
+     ...]
+
+    At least two elements are required in the input_list.
+    ResolvedGroupingSetProduct cannot be used when there
+    is only one non-composite ResolvedGroupingSetBase.
+    """,
+    fields=[
+      Field(
+        'input_list',
+        'ResolvedGroupingSetBase',
+        tag_id=2,
+        vector=True,
+      )
+    ]
   )
 
   gen.AddNode(
@@ -3399,26 +3545,26 @@ value.
       name='ResolvedLimitOffsetScan',
       tag_id=28,
       parent='ResolvedScan',
-      comment="""
-      Apply a LIMIT and optional OFFSET to the rows from input_scan. Emit all
-      rows after OFFSET rows have been scanned and up to LIMIT total rows
-      emitted. The offset is the number of rows to skip.
-      E.g., OFFSET 1 means to skip one row, so the first row emitted will be the
+      comment="""Apply an optional LIMIT and optional OFFSET to the rows from
+      input_scan. Emit all rows after OFFSET rows have been scanned and up to
+      LIMIT total rows emitted. The offset is the number of rows to skip. E.g.,
+      OFFSET 1 means to skip one row, so the first row emitted will be the
       second ROW, provided the LIMIT is greater than zero.
 
-      The arguments to LIMIT <int64> OFFSET <int64> must be non-negative
-      integer literals or (possibly casted) query parameters.  Query
-      parameter values must be checked at run-time by ZetaSQL compliant
-      backend systems.
+      The arguments to LIMIT <int64> OFFSET <int64> must be constant expressions
+      which return a type that coerces to INT64.
 
       OFFSET is optional and the absence of OFFSET implies OFFSET 0.
+      When FEATURE_LIMIT_ALL is enabled, LIMIT is optional and the absence
+      of LIMIT implies LIMIT ALL. Otherwise, LIMIT is required and should be
+      non-null.
               """,
       fields=[
-          Field(
-              'input_scan', 'ResolvedScan', tag_id=2, propagate_order=True),
+          Field('input_scan', 'ResolvedScan', tag_id=2, propagate_order=True),
           Field('limit', 'ResolvedExpr', tag_id=3),
-          Field('offset', 'ResolvedExpr', tag_id=4)
-      ])
+          Field('offset', 'ResolvedExpr', tag_id=4),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedWithRefScan',
@@ -4245,7 +4391,6 @@ value.
               SCALAR_FUNCTION_SIGNATURE_PTR,
               tag_id=7,
               ignorable=IGNORABLE,
-              is_optional_constructor_arg=True,
           ),
       ],
   )
@@ -4295,6 +4440,7 @@ value.
       * `descriptor_arg` represents a descriptor object function argument.
       * `inline_lambda` represents a lambda function argument.
       * `sequence` represents a sequence object function argument.
+      * `graph` represents a graph function argument.
 
       This node could be used in multiple places:
       * ResolvedTVFScan supports all of these.
@@ -4347,6 +4493,12 @@ value.
               'ResolvedSequence',
               ignorable=IGNORABLE_DEFAULT,
               tag_id=9,
+          ),
+          Field(
+              'graph',
+              SCALAR_PROPERTY_GRAPH,
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=11,
           ),
           Field(
               'argument_alias',
@@ -6694,47 +6846,49 @@ value.
       <target> and <set_value> will be present, and all other fields will be
       unset.
 
-      For an array element update (e.g. SET a.b[<expr>].c = <value>),
-        - <target> is set to the array,
-        - <element_column> is a new ResolvedColumn that can be used inside the
-          update items to refer to the array element.
-        - <array_update_list> will have a node corresponding to the offset into
-          that array and the modification to that array element.
+      For an update to a container element via a subscript expression (e.g.
+      `SET a.b[<expr>].c = <value>`),
+        - <target> is set to the container itself (e.g. `a.b`),
+        - <element_column> is a new ResolvedColumn referring to the element of
+          the container (e.g. the element at `a.b[<expr>]`). This is used inside
+          the update items to refer to the element.
+        - <update_item_element_list> will have an `UpdateItemElement` node
+          corresponding to the subscript expression and the modification to that
+          element.
       For example, for SET a.b[<expr>].c = <value>, we have
          ResolvedUpdateItem
          +-<target> = a.b
          +-<element_column> = <x>
-         +-<array_update_list>
-           +-ResolvedUpdateArrayItem
-             +-<offset> = <expr>
+         +-<update_item_element_list>
+           +-ResolvedUpdateItemElement
+             +-<subscript> = <expr>
              +-<update_item> = ResolvedUpdateItem
                +-<target> = <x>.c
                +-<set_value> = <value>
 
       The engine is required to fail the update if there are two elements of
-      <array_update_list> corresponding to offset expressions that evaluate to
-      the same value. These are considered to be conflicting updates.
+      <update_item_element_list> corresponding to subscript expressions that
+      evaluate to the same value. These are considered to be conflicting
+      updates.
 
-      Multiple updates to the same array are always represented as multiple
-      elements of <array_update_list> under a single ResolvedUpdateItem
-      corresponding to that array. <array_update_list> will only have one
-      element for modifications to an array-valued subfield of an array element.
-      E.g., for SET a[<expr1>].b[<expr2>] = 5, a[<expr3>].b[<expr4>] = 6, we
-      will have:
+      Multiple updates to the same container are always represented as multiple
+      elements of <update_item_element_list> under a single ResolvedUpdateItem
+      corresponding to that container. E.g., for
+      `SET a[<expr1>].b[<expr2>] = 5, a[<expr3>].b[<expr4>] = 6`, we will have:
           ResolvedUpdateItem
           +-<target> = a
           +-<element_column> = x
-          +-<array_update_list>
-            +-ResolvedUpdateArrayItem
-              +-<offset> = <expr1>
+          +-<update_item_element_list>
+            +-ResolvedUpdateItemElement
+              +-<subscript> = <expr1>
               +-ResolvedUpdateItem for <x>.b[<expr2>] = 5
-            +-ResolvedUpdateArrayItem
-              +-<offset> = <expr3>
+            +-ResolvedUpdateItemElement
+              +-<subscript> = <expr3>
               +-ResolvedUpdateItem for <x>.b[<expr4>] = 6
       The engine must give a runtime error if <expr1> and <expr3> evaluate to
-      the same thing. Notably, it does not have to understand that the
-      two ResolvedUpdateItems corresponding to "b" refer to the same array iff
-      <expr1> and <expr3> evaluate to the same thing.
+      the same thing. Notably, it does not have to determine whether the
+      two ResolvedUpdateItems corresponding to "b" refer to the same location
+      iff <expr1> and <expr3> evaluate to the same thing.
 
       TODO: Consider allowing the engine to execute an update like
       SET a[<expr1>].b = 1, a[<expr2>].c = 2 even if <expr1> == <expr2> since
@@ -6744,10 +6898,11 @@ value.
       as <expr2> != <expr4> in that case.
 
       For nested DML, <target> and <element_column> will both be set, and one or
-      more of the nested statement lists will be non-empty. <target> must have
-      ARRAY type, and <element_column> introduces a ResolvedColumn representing
-      elements of that array. The nested statement lists will always be empty in
-      a ResolvedUpdateItem child of a ResolvedUpdateArrayItem node.
+      more of the nested statement lists will be non-empty. <target> must be a
+      subscriptable type, and <element_column> introduces a ResolvedColumn
+      representing the subscripted elements. The list nodes referring to nested
+      DML statements will always be empty in a ResolvedUpdateItem child of a
+      ResolvedUpdateItemElement node.
 
       See (broken link) for more detail.
               """,
@@ -6773,18 +6928,18 @@ value.
               ResolvedUpdateItem containing this scan.
 
               This node is also used to represent a modification of a single
-              array element (when it occurs as a child of a
-              ResolvedUpdateArrayItem node).  In that case, the expression
+              container element (when it occurs as a child of a
+              ResolvedUpdateItemElement node).  In that case, the expression
               starts with a ResolvedColumnRef referencing the <element_column>
               from its grandparent ResolvedUpdateItem. (E.g., for "SET a[<expr>]
               = 5", the grandparent ResolvedUpdateItem has <target> "a", the
-              parent ResolvedUpdateArrayItem has offset <expr>, and this node
-              has <set_value> 5 and target corresponding to the grandparent's
-              <element_column> field.)
+              parent ResolvedUpdateItemElement has subscript <expr>, and this
+              node has <set_value> 5 and target corresponding to the
+              grandparent's <element_column> field.)
 
-              For either a nested UPDATE or an array modification, there may be
-              a path of field accesses after the initial ResolvedColumnRef,
-              represented by a chain of GetField nodes.
+              For either a nested UPDATE or a subscript element modification,
+              there may be a path of field accesses after the initial
+              ResolvedColumnRef, represented by a chain of GetField nodes.
 
               NOTE: We use the same GetField nodes as we do for queries, but
               they are not treated the same.  Here, they express a path inside
@@ -6811,28 +6966,26 @@ value.
               tag_id=4,
               comment="""
               The ResolvedColumn introduced to represent the elements of the
-              array being updated.  This works similarly to
-              ArrayScan::element_column.
+              container type being updated.
 
-              <target> must have array type, and this column has the array's
-              element type.
+              <target> must be a subscriptable container type, and this column
+              has the type of the subscripted container element.
 
               This column can be referenced inside the nested statements below.
                       """,
           ),
           Field(
-              'array_update_list',
-              'ResolvedUpdateArrayItem',
+              'update_item_element_list',
+              'ResolvedUpdateItemElement',
               tag_id=8,
               vector=True,
               ignorable=IGNORABLE_DEFAULT,
               comment="""
-              Array element modifications to apply. Each item runs on the value
-              of <element_column> specified by ResolvedUpdateArrayItem.offset.
-              This field is always empty if the analyzer option
-              FEATURE_ARRAY_ELEMENTS_WITH_SET is disabled.
+              Subscript element modifications to apply. Each item applies to the
+              value of the <element_column> specified by
+              ResolvedUpdateItemElement.subscript.
 
-              The engine must fail if two elements in this list have offset
+              The engine must fail if two elements in this list have subscript
               expressions that evaluate to the same value.
               TODO: Consider generalizing this to allow
               SET a[<expr1>].b = ..., a[<expr2>].c = ...
@@ -6851,7 +7004,7 @@ value.
               DELETEs are applied before INSERTs or UPDATEs.
 
               It is legal for the same input element to match multiple DELETEs.
-                      """,
+              """,
           ),
           Field(
               'update_list',
@@ -6885,34 +7038,65 @@ value.
                       """,
           ),
       ],
+      # TODO: b/428949919 - Remove once all callers are migrated.
+      extra_defs="""
+      ABSL_DEPRECATED("Use `update_item_element_list()` instead")
+      inline const
+      std::vector<std::unique_ptr<const ResolvedUpdateItemElement>>&
+      array_update_list() const {
+        return update_item_element_list();
+      }
+      ABSL_DEPRECATED("Use `update_item_element_list_size()` instead")
+      inline const size_t
+      array_update_list_size() const {
+        return update_item_element_list_size();
+      }
+      ABSL_DEPRECATED("Use `add_update_item_element_list()` instead")
+      inline void
+      add_array_update_list(
+           std::unique_ptr<const ResolvedUpdateItemElement> item) {
+        add_update_item_element_list(std::move(item));
+      }
+      """,
   )
 
   gen.AddNode(
-      name='ResolvedUpdateArrayItem',
+      name='ResolvedUpdateItemElement',
       tag_id=102,
       parent='ResolvedArgument',
       comment="""
-      For an array element modification, this node represents the offset
-      expression and the modification, but not the array. E.g., for
-      SET a[<expr>] = 5, this node represents a modification of "= 5" to offset
-      <expr> of the array defined by the parent node.
+      This node represents the element modification of a container, but does not
+      include the container itself. E.g., for `SET container_col[<expr>] = 5`,
+      this node represents a modification of "= 5" on the element at subscript
+      <expr>. The container `container_col` is defined by the parent node.
               """,
       fields=[
           Field(
-              'offset',
+              'subscript',
               'ResolvedExpr',
               tag_id=2,
               comment="""
-              The array offset to be modified.
-                      """),
+              The subscript expression to be used.
+                      """,
+          ),
           Field(
               'update_item',
               'ResolvedUpdateItem',
               tag_id=3,
               comment="""
-              The modification to perform to the array element.
-                      """)
-      ])
+              The modification to perform to the container object, at the
+              given subscript expression. E.g. (= 5) in the example above.
+                      """,
+          ),
+      ],
+      # TODO: b/428949919 - Remove once all callers are migrated.
+      extra_defs="""
+      ABSL_DEPRECATED("Use `subscript()` instead")
+       inline const ResolvedExpr* offset() const {
+         return subscript();
+       }
+      """,
+  )
 
   gen.AddNode(
       name='ResolvedUpdateStmt',
@@ -7696,6 +7880,34 @@ value.
       from the given column.
               """,
       fields=[])
+
+  gen.AddNode(
+      name='ResolvedAlterColumnSetGeneratedAction',
+      tag_id=304,
+      parent='ResolvedAlterColumnAction',
+      comment="""
+      Alter column set generated action:
+        ALTER COLUMN [IF EXISTS] <column> SET GENERATED AS <generation_clause>
+
+      <generation_clause> sets how the generated value is computed. Currently
+      only altering a column to be an identity column is supported.
+      It only impacts future inserted rows, and has no impact on existing rows.
+      This is a metadata only operation.
+
+      Resolver validates that the identity column attributes can be coerced to
+      the column type when <column> exists. If <column> is not found and
+      <is_if_exists> is true, Resolver skips the type match check.
+
+      Note: This action is only used for setting a non-generated column to be a
+      generated column; existing generated columns cannot be updated with this
+      action. At most one column can be set to be an identity column in a table.
+              """,
+      fields=[
+          Field(
+              'generated_column_info', 'ResolvedGeneratedColumnInfo', tag_id=4
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAlterColumnSetDataTypeAction',
@@ -10539,7 +10751,7 @@ ResolvedArgumentRef(y)
        ResolvedGraphDynamicLabelSpecification is a schema entity that defines
        the dynamic label specification.
        The dynamic label specification is a column reference, and the column
-       type needs to be of STRING. The `label_expr` field is a
+       type needs to be of STRING or ARRAY<STRING>. The `label_expr` field is a
        ResolvedColumnRef type.
      """,
       fields=[
@@ -10751,8 +10963,24 @@ ResolvedArgumentRef(y)
         a path pattern.
       """,
       fields=[
-          Field('lower_bound', 'ResolvedExpr', tag_id=2),
-          Field('upper_bound', 'ResolvedExpr', tag_id=3),
+          Field(
+              'lower_bound',
+              'ResolvedExpr',
+              tag_id=2,
+              comment="""
+            The lower bound of a bounded or unbounded quantification.
+            Can not be omitted.
+            """,
+          ),
+          Field(
+              'upper_bound',
+              'ResolvedExpr',
+              tag_id=3,
+              comment="""
+            The upper bound of a bounded or unbounded quantification. When
+            omitted, this is an unbounded quantification.
+            """,
+          ),
       ],
   )
 
@@ -11405,6 +11633,32 @@ ResolvedArgumentRef(y)
   )
 
   gen.AddNode(
+      name='ResolvedDescribeScan',
+      tag_id=300,
+      parent='ResolvedScan',
+      comment="""
+      This represents the pipe DESCRIBE operator, which is controlled by
+      FEATURE_PIPE_DESCRIBE.
+
+      This scan always returns a one-row result table with one STRING column,
+      containing a textual description of the input table's schema.
+
+      The `input_scan` is included so it isn't lost.  It isn't necessary to
+      execute that scan since the output row doesn't depend on it, but engines
+      may need to process it for ACL checks or other validation.
+
+      `describe_expr` is the single column to project.  It's expression is
+      a literal value and cannot reference columns from `input_scan`.
+
+      The output `column_list` can only contain that new column.
+      """,
+      fields=[
+          Field('input_scan', 'ResolvedScan', tag_id=2),
+          Field('describe_expr', 'ResolvedComputedColumn', tag_id=3),
+      ],
+  )
+
+  gen.AddNode(
       name='ResolvedStaticDescribeScan',
       tag_id=251,
       parent='ResolvedScan',
@@ -11939,6 +12193,43 @@ ResolvedArgumentRef(y)
               """,
           ),
       ],
+  )
+
+  gen.AddNode(
+      name='ResolvedCreateSequenceStmt',
+      tag_id=306,
+      parent='ResolvedCreateStatement',
+      comment="""
+      This represents a CREATE SEQUENCE statement, i.e.,
+      CREATE [OR REPLACE] SEQUENCE
+        [IF NOT EXISTS] <name_path> [OPTIONS <option_list>];
+
+      <name> is the name of the fully qualified sequence.
+      <option_list> is the list of options for the sequence.
+      """,
+      fields=[
+          Field(
+              'option_list',
+              'ResolvedOption',
+              tag_id=2,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedAlterSequenceStmt',
+      tag_id=307,
+      parent='ResolvedAlterObjectStmt',
+      comment="""
+      This represents a ALTER SEQUENCE statement, i.e.,
+      ALTER SEQUENCE [IF EXISTS] <name_path> SET OPTIONS(option_list)
+
+      <name> is the name of the fully qualified sequence.
+      <option_list> is the list of options for the sequence.
+              """,
+      fields=[],
   )
 
   gen.Generate(

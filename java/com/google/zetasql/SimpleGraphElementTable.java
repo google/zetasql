@@ -185,4 +185,19 @@ public abstract class SimpleGraphElementTable implements GraphElementTable {
   public GraphDynamicProperties getDynamicProperties() {
     return dynamicProperties;
   }
+
+  @Override
+  public DynamicLabelCardinality dynamicLabelCardinality() {
+    if (!hasDynamicLabel()) {
+      return DynamicLabelCardinality.UNKNOWN;
+    }
+    Type type = table.findColumnByName(getDynamicLabel().getLabelExpression()).getType();
+    if (type.isString()) {
+      return DynamicLabelCardinality.SINGLE;
+    }
+    if (type.isArray() && type.asArray().getElementType().isString()) {
+      return DynamicLabelCardinality.MULTIPLE;
+    }
+    return DynamicLabelCardinality.UNKNOWN;
+  }
 }

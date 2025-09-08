@@ -66,7 +66,7 @@ RETURNS int64 LANGUAGE testlang
 # Only one modifier is allowed
 CREATE TEMP PUBLIC function foo() returns int64 language testlang;
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword PUBLIC [at 1:13]
+ERROR: Syntax error: Unexpected keyword PUBLIC [at 1:13]
 CREATE TEMP PUBLIC function foo() returns int64 language testlang;
             ^
 ==
@@ -74,7 +74,7 @@ CREATE TEMP PUBLIC function foo() returns int64 language testlang;
 # Only one modifier is allowed
 CREATE PUBLIC TEMPORARY function foo() returns int64 language testlang;
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword TEMPORARY [at 1:15]
+ERROR: Syntax error: Unexpected keyword TEMPORARY [at 1:15]
 CREATE PUBLIC TEMPORARY function foo() returns int64 language testlang;
               ^
 ==
@@ -82,7 +82,7 @@ CREATE PUBLIC TEMPORARY function foo() returns int64 language testlang;
 # Only one modifier is allowed
 CREATE TEMPORARY PRIVATE function foo() returns int64 language testlang;
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword PRIVATE [at 1:18]
+ERROR: Syntax error: Unexpected keyword PRIVATE [at 1:18]
 CREATE TEMPORARY PRIVATE function foo() returns int64 language testlang;
                  ^
 ==
@@ -90,7 +90,7 @@ CREATE TEMPORARY PRIVATE function foo() returns int64 language testlang;
 # Only one modifier is allowed
 CREATE PRIVATE TEMP function foo() returns int64 language testlang;
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword TEMP [at 1:16]
+ERROR: Syntax error: Unexpected keyword TEMP [at 1:16]
 CREATE PRIVATE TEMP function foo() returns int64 language testlang;
                ^
 ==
@@ -98,7 +98,7 @@ CREATE PRIVATE TEMP function foo() returns int64 language testlang;
 # Only one modifier is allowed
 CREATE PRIVATE PUBLIC function foo() returns int64 language testlang;
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword PUBLIC [at 1:16]
+ERROR: Syntax error: Unexpected keyword PUBLIC [at 1:16]
 CREATE PRIVATE PUBLIC function foo() returns int64 language testlang;
                ^
 ==
@@ -106,7 +106,7 @@ CREATE PRIVATE PUBLIC function foo() returns int64 language testlang;
 # Only one modifier is allowed
 CREATE PUBLIC PRIVATE function foo() returns int64 language testlang;
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword PRIVATE [at 1:15]
+ERROR: Syntax error: Unexpected keyword PRIVATE [at 1:15]
 CREATE PUBLIC PRIVATE function foo() returns int64 language testlang;
               ^
 ==
@@ -149,7 +149,7 @@ RETURNS int64 LANGUAGE testlang
 # Modifiers other than TEMP, TEMPORARY, PUBLIC, and PRIVATE do not work.
 CREATE public.private function foo() returns int64 language testlang;
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got "." [at 1:14]
+ERROR: Syntax error: Unexpected "." [at 1:14]
 CREATE public.private function foo() returns int64 language testlang;
              ^
 ==
@@ -169,7 +169,7 @@ CREATE IDENTIFIER_MODIFIER function foo() returns int64 language testlang;
 # This modifier 'BEGIN' is an unreserved keyword.
 CREATE BEGIN function foo() returns int64 language testlang;
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword BEGIN [at 1:8]
+ERROR: Syntax error: Unexpected keyword BEGIN [at 1:8]
 CREATE BEGIN function foo() returns int64 language testlang;
        ^
 ==
@@ -179,7 +179,7 @@ CREATE BEGIN function foo() returns int64 language testlang;
 # This modifier 'AND' is a reserved keyword.
 CREATE AND function foo() returns int64 language testlang;
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword AND [at 1:8]
+ERROR: Syntax error: Unexpected keyword AND [at 1:8]
 CREATE AND function foo() returns int64 language testlang;
        ^
 ==
@@ -190,6 +190,6 @@ CREATE AND function foo() returns int64 language testlang;
 # identifier path
 CREATE ALL function foo() returns int64 language testlang;
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword ALL [at 1:8]
+ERROR: Syntax error: Unexpected keyword ALL [at 1:8]
 CREATE ALL function foo() returns int64 language testlang;
        ^

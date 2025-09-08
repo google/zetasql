@@ -32,6 +32,9 @@
 #include "zetasql/testdata/test_proto3.pb.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "zetasql/base/check.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
+#include "google/protobuf/compiler/importer.h"
 #include "google/protobuf/descriptor.h"
 
 namespace zetasql {
@@ -53,6 +56,47 @@ bool HasFloatingPointNumber(const zetasql::Type* type) {
   } else {
     return false;
   }
+}
+
+std::vector<const Type*> ZetaSqlComplexTestTypes(
+    zetasql::TypeFactory* type_factory,
+    google::protobuf::compiler::Importer* importer) {
+  for (const std::string& filepath : ZetaSqlTestProtoFilepaths()) {
+    importer->Import(filepath);
+  }
+
+  std::vector<const Type*> output;
+
+  for (const std::string& proto_name : ZetaSqlRandomTestProtoNames()) {
+    const google::protobuf::Descriptor* descriptor =
+        importer->pool()->FindMessageTypeByName(proto_name);
+    ABSL_CHECK(descriptor != nullptr)
+        << "Cannot fine Proto Message Type: " << proto_name
+        << ", available files: "
+        << absl::StrJoin(ZetaSqlTestProtoFilepaths(), ",");
+
+    const Type* proto_type;
+    ZETASQL_CHECK_OK(type_factory->MakeProtoType(descriptor, &proto_type));
+    output.push_back(proto_type);
+  }
+
+  for (const std::string& enum_name : ZetaSqlTestEnumNames()) {
+    const google::protobuf::EnumDescriptor* descriptor =
+        importer->pool()->FindEnumTypeByName(enum_name);
+    ABSL_CHECK(descriptor != nullptr)
+        << "Cannot fine Enum Type: " << enum_name << ", available files: "
+        << absl::StrJoin(ZetaSqlTestProtoFilepaths(), ",");
+    const Type* enum_type;
+    ZETASQL_CHECK_OK(type_factory->MakeEnumType(descriptor, &enum_type));
+    output.push_back(enum_type);
+  }
+
+  const Type* struct_int64_type;
+  ZETASQL_CHECK_OK(type_factory->MakeStructType(
+      {{"int64_val", zetasql::types::Int64Type()}}, &struct_int64_type));
+  output.push_back(struct_int64_type);
+
+  return output;
 }
 
 std::vector<const Type*> ZetaSqlComplexTestTypes(

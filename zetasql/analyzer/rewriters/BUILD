@@ -16,6 +16,9 @@
 
 # Contains rewriters for zetasql analyzers.
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 package(
     default_visibility = ["//zetasql/base:zetasql_implementation"],
 )
@@ -238,6 +241,7 @@ cc_library(
         "//zetasql/public:builtin_function_cc_proto",
         "//zetasql/public:catalog",
         "//zetasql/public:function",
+        "//zetasql/public:function_cc_proto",
         "//zetasql/public:id_string",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:rewriter_interface",
@@ -339,6 +343,7 @@ cc_library(
         "//zetasql/resolved_ast:resolved_ast_builder",
         "//zetasql/resolved_ast:resolved_ast_rewrite_visitor",
         "//zetasql/resolved_ast:rewrite_utils",
+        "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/cleanup",
         "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/container:flat_hash_map",
@@ -471,9 +476,11 @@ cc_library(
         "//zetasql/resolved_ast:resolved_ast_rewrite_visitor",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/types:span",
     ],
 )
 
@@ -665,6 +672,25 @@ cc_library(
 )
 
 cc_library(
+    name = "pipe_describe_rewriter",
+    srcs = ["pipe_describe_rewriter.cc"],
+    hdrs = ["pipe_describe_rewriter.h"],
+    deps = [
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/public:rewriter_interface",
+        "//zetasql/public:value",
+        "//zetasql/public/types",
+        "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:column_factory",
+        "//zetasql/resolved_ast:resolved_ast_builder",
+        "//zetasql/resolved_ast:resolved_ast_rewrite_visitor",
+        "//zetasql/resolved_ast:rewrite_utils",
+        "@com_google_absl//absl/status:statusor",
+    ],
+)
+
+cc_library(
     name = "rewrite_subpipeline",
     srcs = ["rewrite_subpipeline.cc"],
     hdrs = ["rewrite_subpipeline.h"],
@@ -767,14 +793,19 @@ cc_library(
     hdrs = ["templated_function_call_rewriter.h"],
     deps = [
         ":rewriter_relevance_checker",
+        "//zetasql/base",
+        "//zetasql/base:ret_check",
         "//zetasql/base:status",
+        "//zetasql/public:analyzer_options",
         "//zetasql/public:catalog",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:templated_sql_function",
         "//zetasql/public:templated_sql_tvf_no_resolver",
         "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:column_factory",
         "//zetasql/resolved_ast:resolved_ast_rewrite_visitor",
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
+        "//zetasql/resolved_ast:rewrite_utils",
         "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/status:statusor",
     ],

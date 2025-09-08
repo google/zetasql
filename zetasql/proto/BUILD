@@ -72,6 +72,7 @@ proto_library(
     srcs = ["function.proto"],
     deps = [
         "//zetasql/public:annotation_proto",
+        "//zetasql/public:constness_level_proto",
         "//zetasql/public:deprecation_warning_proto",
         "//zetasql/public:function_proto",
         "//zetasql/public:options_proto",

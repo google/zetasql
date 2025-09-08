@@ -42,7 +42,7 @@ const int kTabWidth = 8;
 InternalErrorLocation ParseLocationPoint::ToInternalErrorLocation() const {
   InternalErrorLocation error_location;
   if (!filename_.empty()) {
-    error_location.set_filename(std::string(filename_));
+    error_location.set_filename(filename_);
   }
   error_location.set_byte_offset(byte_offset_);
   return error_location;

@@ -1,4 +1,4 @@
-[default language_features=CREATE_TABLE_AS_SELECT_COLUMN_LIST,ORDER_BY_IN_AGGREGATE,ORDER_BY_COLLATE,ANALYTIC_FUNCTIONS,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,GROUP_BY_ARRAY,GROUP_BY_STRUCT,CREATE_TABLE_FIELD_ANNOTATIONS,PARAMETERIZED_TYPES,NUMERIC_TYPE,NAMED_ARGUMENTS,INLINE_LAMBDA_ARGUMENT,ARRAY_ORDERING,TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,COLLATION_IN_EXPLICIT_CAST,PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN,GROUPING_SETS,GROUP_BY_ROLLUP,GROUPING_BUILTIN,USE_OPERATION_COLLATION_FOR_NULLIF]
+[default language_features=MAXIMUM,+CREATE_TABLE_AS_SELECT_COLUMN_LIST,+ORDER_BY_IN_AGGREGATE,+ORDER_BY_COLLATE,+ANALYTIC_FUNCTIONS,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+GROUP_BY_ARRAY,+GROUP_BY_STRUCT,+CREATE_TABLE_FIELD_ANNOTATIONS,+PARAMETERIZED_TYPES,+NUMERIC_TYPE,+NAMED_ARGUMENTS,+INLINE_LAMBDA_ARGUMENT,+ARRAY_ORDERING,+TABLE_VALUED_FUNCTIONS,+CREATE_TABLE_FUNCTION,+COLLATION_IN_EXPLICIT_CAST,+PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN,+GROUPING_SETS,+GROUP_BY_ROLLUP,+GROUPING_BUILTIN,+USE_OPERATION_COLLATION_FOR_NULLIF]
 
 # Cast string with collation to string type.
 select cast(string_ci AS STRING),
@@ -115,7 +115,7 @@ select collate('abc');
        ^
 ==
 
-[language_features=]
+[language_features=NONE]
 # COLLATE function is not found when the language feature is turned off.
 select collate('abc', 'und:ci');
 --
@@ -217,7 +217,7 @@ QueryStmt
           +-WithRefScan(column_list=test.[string_ci#5, string_binary#6, struct_with_string_ci#7, array_with_string_ci#8], with_query_name="test")
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE,+COLLATION_IN_WITH_RECURSIVE]
 with recursive
   t as (select 1 as ind, COLLATE('a', 'und:ci') as string_ci union {{all|distinct}}
   (select ind + 1 as ind, string_ci from t where ind < 3))
@@ -340,7 +340,7 @@ QueryStmt
     +-recursive=TRUE
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE]
 with recursive
   t as (select 1 as ind, COLLATE('a', 'und:ci') as string_ci union {{all|distinct}}
   (select ind + 1 as ind, string_ci from t where ind < 3))
@@ -359,7 +359,7 @@ ERROR: Collation is not supported in recursive queries [at 2:9]
         ^
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE,+COLLATION_IN_WITH_RECURSIVE]
 with recursive
   t as (select 1 as ind, string_ci from CollatedTable union {{all|distinct}}
   (select ind + 1 as ind, concat(string_ci, 'foo') from t where ind < 3))
@@ -483,7 +483,7 @@ QueryStmt
 
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE]
 with recursive
   t as (select 1 as ind, 'a' as string_ci union {{all|distinct}}
   (select ind + 1 as ind, COLLATE('a', 'und:ci') as string_ci from t where ind < 3))
@@ -502,7 +502,7 @@ ERROR: Collation is not supported in recursive queries [at 2:9]
         ^
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE,+COLLATION_IN_WITH_RECURSIVE]
 with recursive
   t as (select 1 as ind, 'a' as string_ci union {{all|distinct}}
   (select ind + 1 as ind, COLLATE('a', 'und:ci') as string_ci from t where ind < 3))
@@ -514,7 +514,7 @@ ERROR: Collation conflict: "null" vs. "{Collation:"und:ci"}"; in column 2 of rec
    ^
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE,+COLLATION_IN_WITH_RECURSIVE]
 with recursive
   t as (select 1 as ind, COLLATE('a', 'binary') as string_binary union {{all|distinct}}
   (select ind + 1 as ind, COLLATE('a', '') as string_ci from t where ind < 3))
@@ -526,7 +526,7 @@ ERROR: Collation conflict: "{Collation:"binary"}" vs. "null"; in column 2 of rec
    ^
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE,+COLLATION_IN_WITH_RECURSIVE]
 WITH RECURSIVE t AS (
   SELECT '1' AS n UNION ALL SELECT collate('2', 'und:ci') AS n UNION ALL SELECT '3' AS n
   UNION ALL SELECT concat(n, '1') FROM t)
@@ -607,7 +607,7 @@ QueryStmt
 ==
 
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE,+COLLATION_IN_WITH_RECURSIVE]
 WITH RECURSIVE t AS (
   SELECT '1' AS n UNION ALL SELECT collate('2', 'und:ci') AS n UNION ALL SELECT '3' AS n
   UNION ALL SELECT collate(n, '') FROM t)
@@ -619,7 +619,7 @@ ERROR: Collation conflict: "{Collation:"und:ci"}" vs. "null"; in column 1 of rec
 
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE,+COLLATION_IN_WITH_RECURSIVE]
 WITH RECURSIVE
   t1 AS (SELECT * FROM t2),
   t2 AS (SELECT * FROM t3 CROSS JOIN t4),
@@ -698,7 +698,7 @@ QueryStmt
     +-recursive=TRUE
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE,+COLLATION_IN_WITH_RECURSIVE]
 WITH RECURSIVE
   t1 AS (SELECT collate('a', 'und:ci') AS n UNION ALL SELECT concat(n, 'a') FROM t1 WHERE n < 'c')
 SELECT * FROM t1;
@@ -760,7 +760,7 @@ QueryStmt
     +-recursive=TRUE
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE,+COLLATION_IN_WITH_RECURSIVE]
 WITH RECURSIVE
   t1 AS (SELECT * FROM KeyValue),
   KeyValue AS (SELECT * FROM UNNEST(['a', collate('A', 'und:ci')]))
@@ -805,7 +805,7 @@ QueryStmt
     +-recursive=TRUE
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE,+COLLATION_IN_WITH_RECURSIVE]
 WITH RECURSIVE
   t1 AS (SELECT collate(key, '') FROM KeyValue),
   KeyValue AS (SELECT key FROM UNNEST(['a', collate('A', 'und:ci')]) as key)
@@ -855,7 +855,7 @@ QueryStmt
     +-recursive=TRUE
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE,+COLLATION_IN_WITH_RECURSIVE]
 WITH RECURSIVE
   KeyValue AS (SELECT * FROM UNNEST(['a', collate('A', 'und:ci')])),
   t1 AS (SELECT * FROM KeyValue)
@@ -900,7 +900,7 @@ QueryStmt
     +-recursive=TRUE
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE,WITH_ON_SUBQUERY]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE,+COLLATION_IN_WITH_RECURSIVE,+WITH_ON_SUBQUERY]
 # Due to name shadowing, this query is allowed (not a multi-element cycle)
 WITH RECURSIVE
   t1 AS (SELECT * FROM t2),
@@ -954,7 +954,7 @@ QueryStmt
     +-recursive=TRUE
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE,WITH_ON_SUBQUERY]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE,+COLLATION_IN_WITH_RECURSIVE,+WITH_ON_SUBQUERY]
 # Not a multi-element cycle, due to 't1' being a forward reference in inner,
 # recursive WITH
 WITH RECURSIVE
@@ -1023,7 +1023,7 @@ QueryStmt
     +-recursive=TRUE
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE,WITH_ON_SUBQUERY]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE,+COLLATION_IN_WITH_RECURSIVE,+WITH_ON_SUBQUERY]
 # Not recursive at all, due to inner t2 shadowing outer t2
 WITH RECURSIVE
   t1 AS (SELECT * FROM t2),
@@ -1079,7 +1079,7 @@ QueryStmt
 ==
 
 # Items in non-recursive term and recursive term have different collation
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE,+COLLATION_IN_WITH_RECURSIVE]
 with recursive
   t as (select 1 as ind, string_ci from CollatedTable union all
   (select ind + 1 as ind, collate(string_ci, 'binary') from t where ind < 3))
@@ -1090,7 +1090,7 @@ ERROR: Collation conflict: "binary" vs. "und:ci"; in column 2, item 2 of recursi
         ^
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE,+COLLATION_IN_WITH_RECURSIVE]
 # Prototype with annotation doesn't propropagte for recursive scan
 with recursive
   t as (select 1 as ind, proto_with_collation from CollatedTableWithProto union all
@@ -1102,7 +1102,7 @@ ERROR: Collation conflict: "{Collation:"und:ci"}" vs. "null"; in column 2 of rec
    ^
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+LIKE_ANY_SOME_ALL,+LIKE_ANY_SOME_ALL_SUBQUERY]
 
 # Test propagation of collation through subquery
 select
@@ -1175,31 +1175,27 @@ QueryStmt
     | |       +-input_scan=
     | |         +-TableScan(column_list=[CollatedTable.string_ci#13{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
     | +-$col5#29 :=
-    | | +-FunctionCall(ZetaSQL:$like_any(STRING, repeated(1) STRING) -> BOOL)
-    | |   +-Literal(type=STRING, value="abc")
-    | |   +-SubqueryExpr
-    | |     +-type=STRING
-    | |     +-type_annotation_map={Collation:"und:ci"}
-    | |     +-subquery_type=SCALAR
-    | |     +-subquery=
-    | |       +-ProjectScan
-    | |         +-column_list=[CollatedTable.string_ci#17{Collation:"und:ci"}]
-    | |         +-input_scan=
-    | |           +-TableScan(column_list=[CollatedTable.string_ci#17{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
-    | |   +-collation_list=[und:ci]
+    | | +-SubqueryExpr
+    | |   +-type=BOOL
+    | |   +-subquery_type=LIKE_ANY
+    | |   +-in_expr=
+    | |   | +-Literal(type=STRING, value="abc")
+    | |   +-subquery=
+    | |     +-ProjectScan
+    | |       +-column_list=[CollatedTable.string_ci#17{Collation:"und:ci"}]
+    | |       +-input_scan=
+    | |         +-TableScan(column_list=[CollatedTable.string_ci#17{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
     | +-$col6#30 :=
-    |   +-FunctionCall(ZetaSQL:$like_all(STRING, repeated(1) STRING) -> BOOL)
-    |     +-Literal(type=STRING, value="abc")
-    |     +-SubqueryExpr
-    |       +-type=STRING
-    |       +-type_annotation_map={Collation:"und:ci"}
-    |       +-subquery_type=SCALAR
-    |       +-subquery=
-    |         +-ProjectScan
-    |           +-column_list=[CollatedTable.string_ci#21{Collation:"und:ci"}]
-    |           +-input_scan=
-    |             +-TableScan(column_list=[CollatedTable.string_ci#21{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
-    |     +-collation_list=[und:ci]
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=LIKE_ALL
+    |     +-in_expr=
+    |     | +-Literal(type=STRING, value="abc")
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[CollatedTable.string_ci#21{Collation:"und:ci"}]
+    |         +-input_scan=
+    |           +-TableScan(column_list=[CollatedTable.string_ci#21{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
     +-input_scan=
       +-SingleRowScan
 ==
@@ -1461,7 +1457,7 @@ QueryStmt
 ==
 
 # Test comparing two arrays with the same CI collation succeed
-[language_features=ARRAY_EQUALITY,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
+[language_features=NONE,+ARRAY_EQUALITY,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT]
 select array_with_string_ci = [string_ci]
 from CollatedTable
 --
@@ -1734,7 +1730,7 @@ QueryStmt
                         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
 ==
 
-[language_features=QUALIFY,ANALYTIC_FUNCTIONS,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
+[language_features=NONE,+QUALIFY,+ANALYTIC_FUNCTIONS,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT]
 # Test that collation propagates into the QUALIFY clause.
 select (string_agg(string_binary) over ()) as a
 from CollatedTable
@@ -1827,14 +1823,14 @@ FROM CollatedTable
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#8{Collation:"und:ci"} AS `$col1` [STRING]
-| +-$query.$col2#9<{Collation:"und:ci"}> AS `$col2` [ARRAY<STRING>]
-| +-$query.$col3#10 AS `$col3` [BOOL]
+| +-$query.$col1#11{Collation:"und:ci"} AS `$col1` [STRING]
+| +-$query.$col2#12<{Collation:"und:ci"}> AS `$col2` [ARRAY<STRING>]
+| +-$query.$col3#13 AS `$col3` [BOOL]
 +-query=
   +-ProjectScan
-    +-column_list=$query.[$col1#8, $col2#9, $col3#10]
+    +-column_list=$query.[$col1#11, $col2#12, $col3#13]
     +-expr_list=
-    | +-$col1#8 :=
+    | +-$col1#11 :=
     | | +-FunctionCall(sample_functions:fn_fp_T_LAMBDA_RET_T(STRING, FUNCTION<STRING->STRING>) -> STRING)
     | |   +-type_annotation_map={Collation:"und:ci"}
     | |   +-FunctionArgument
@@ -1843,10 +1839,10 @@ QueryStmt
     | |   +-FunctionArgument
     | |     +-inline_lambda=
     | |       +-InlineLambda
-    | |         +-argument_list=[$lambda_arg.e#5]
+    | |         +-argument_list=[$lambda_arg.e#6{Collation:"und:ci"}]
     | |         +-body=
-    | |           +-ColumnRef(type=STRING, column=$lambda_arg.e#5)
-    | +-$col2#9 :=
+    | |           +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$lambda_arg.e#6{Collation:"und:ci"})
+    | +-$col2#12 :=
     | | +-FunctionCall(ZetaSQL:array_filter(ARRAY<STRING> array_to_filter, FUNCTION<STRING->BOOL> condition) -> ARRAY<STRING>)
     | |   +-type_annotation_map=<{Collation:"und:ci"}>
     | |   +-FunctionArgument
@@ -1855,12 +1851,13 @@ QueryStmt
     | |   +-FunctionArgument
     | |     +-inline_lambda=
     | |       +-InlineLambda
-    | |         +-argument_list=[$lambda_arg.e#6]
+    | |         +-argument_list=[$lambda_arg.e#8{Collation:"und:ci"}]
     | |         +-body=
     | |           +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-    | |             +-ColumnRef(type=STRING, column=$lambda_arg.e#6)
+    | |             +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$lambda_arg.e#8{Collation:"und:ci"})
     | |             +-Literal(type=STRING, value="abc")
-    | +-$col3#10 :=
+    | |             +-collation_list=[und:ci]
+    | +-$col3#13 :=
     |   +-FunctionCall(ZetaSQL:array_includes(ARRAY<STRING> array_to_search, FUNCTION<STRING->BOOL> condition) -> BOOL)
     |     +-FunctionArgument
     |     | +-expr=
@@ -1868,11 +1865,12 @@ QueryStmt
     |     +-FunctionArgument
     |       +-inline_lambda=
     |         +-InlineLambda
-    |           +-argument_list=[$lambda_arg.e#7]
+    |           +-argument_list=[$lambda_arg.e#10{Collation:"und:ci"}]
     |           +-body=
     |             +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-    |               +-ColumnRef(type=STRING, column=$lambda_arg.e#7)
+    |               +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$lambda_arg.e#10{Collation:"und:ci"})
     |               +-Literal(type=STRING, value="abc")
+    |               +-collation_list=[und:ci]
     +-input_scan=
       +-TableScan(column_list=CollatedTable.[string_ci#1, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 3])
 ==
@@ -1889,12 +1887,12 @@ SELECT ARRAY_TRANSFORM(
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#6<{Collation:"uni:cs"}> AS `$col1` [ARRAY<STRING>]
+| +-$query.$col1#7<{Collation:"uni:cs"}> AS `$col1` [ARRAY<STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#6<{Collation:"uni:cs"}>]
+    +-column_list=[$query.$col1#7<{Collation:"uni:cs"}>]
     +-expr_list=
-    | +-$col1#6 :=
+    | +-$col1#7 :=
     |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<STRUCT<a INT32, b STRING>> array_to_transform, FUNCTION<STRUCT<a INT32, b STRING>->STRING> transformation) -> ARRAY<STRING>)
     |     +-type_annotation_map=<{Collation:"uni:cs"}>
     |     +-FunctionArgument
@@ -1911,7 +1909,7 @@ QueryStmt
     |     +-FunctionArgument
     |       +-inline_lambda=
     |         +-InlineLambda
-    |           +-argument_list=[$lambda_arg.a#5]
+    |           +-argument_list=[$lambda_arg.a#6<_,{Collation:"und:ci"}>]
     |           +-body=
     |             +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
     |               +-type_annotation_map={Collation:"uni:cs"}
@@ -1921,7 +1919,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+JSON_ARRAY_FUNCTIONS]
 
 # All cases with non-default propagation rule.
 select
@@ -2012,7 +2010,7 @@ QueryStmt
       +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2, struct_with_string_ci#3, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 1, 2, 3])
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+JSON_ARRAY_FUNCTIONS]
 # Collation is disallowed on the function arguments
 select
   json_extract_array(string_ci),
@@ -2023,7 +2021,7 @@ ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') t
   ^
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+JSON_ARRAY_FUNCTIONS]
 # Collation is disallowed on the function arguments
 select
   json_extract(string_ci),
@@ -2037,7 +2035,7 @@ ERROR: No matching signature for function JSON_EXTRACT
   ^
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+JSON_ARRAY_FUNCTIONS]
 # Collation is disallowed on the function arguments
 select
   json_extract_string_array(string_ci),
@@ -2048,7 +2046,7 @@ ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') t
   ^
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+JSON_ARRAY_FUNCTIONS]
 # Collation is disallowed on the function arguments
 select
   json_extract_scalar(string_ci),
@@ -2059,7 +2057,7 @@ ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') t
   ^
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+JSON_ARRAY_FUNCTIONS]
 # Collation is disallowed on the function arguments
 select
   json_query_array(string_ci),
@@ -2070,7 +2068,7 @@ ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') t
   ^
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+JSON_ARRAY_FUNCTIONS]
 # Collation is disallowed on the function arguments
 select
   json_query(string_ci),
@@ -2084,7 +2082,7 @@ ERROR: No matching signature for function JSON_QUERY
   ^
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+JSON_ARRAY_FUNCTIONS]
 # Collation is disallowed on the function arguments
 select
   json_value(string_ci),
@@ -2095,7 +2093,7 @@ ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') t
   ^
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+JSON_ARRAY_FUNCTIONS]
 # Collation is disallowed on the function arguments
 select
   json_value_array(string_ci),
@@ -2106,7 +2104,7 @@ ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') t
   ^
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+LIKE_ANY_SOME_ALL]
 # Collation is allowed on LIKE operands
 select
   string_ci LIKE 'abc',
@@ -2128,7 +2126,7 @@ QueryStmt
       +-TableScan(column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+LIKE_ANY_SOME_ALL]
 # Different explicit collations are disallowed on LIKE operands
 select
   string_ci LIKE COLLATE('abc', 'binary'),
@@ -2139,7 +2137,7 @@ ERROR: Collation conflict: "binary" vs. "und:ci". Collation on argument 2 ("bina
   ^
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ADDITIONAL_STRING_FUNCTIONS]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+ADDITIONAL_STRING_FUNCTIONS]
 # Collation is disallowed on the function arguments
 select
   translate(string_ci, "a", "b")
@@ -2150,7 +2148,7 @@ ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') t
   ^
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ADDITIONAL_STRING_FUNCTIONS]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+ADDITIONAL_STRING_FUNCTIONS]
 # Collation is disallowed on the function arguments
 select
   initcap(string_ci, "abc")
@@ -2301,7 +2299,7 @@ select concat(string_ci, string_binary)
        ^
 ==
 
-[language_features=ARRAY_EQUALITY,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
+[language_features=NONE,+ARRAY_EQUALITY,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT]
 # Throw an error if array arguments have different collation
 select array_with_string_ci = array_agg(distinct string_binary)
 from CollatedTable
@@ -2392,7 +2390,7 @@ QueryStmt
 # <collation_list> set for each of the ResolvedAnalyticFunctionCall.
 # See (broken link).
 # Cases are ordered alphabetically.
-[language_features=NUMERIC_TYPE,ANALYTIC_FUNCTIONS,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
+[language_features=NONE,+NUMERIC_TYPE,+ANALYTIC_FUNCTIONS,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT]
 
 select
   -- PERCENTILE_DISC(<T1>, FLOAT64 /*must_be_non_null*/ NOT AGGREGATE)
@@ -2434,7 +2432,7 @@ QueryStmt
 # <collation_list> set for each of the ResolvedFunctionCall.
 # See (broken link).
 # Cases are ordered alphabetically.
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,IS_DISTINCT,ADDITIONAL_STRING_FUNCTIONS,LIKE_ANY_SOME_ALL]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+IS_DISTINCT,+ADDITIONAL_STRING_FUNCTIONS,+LIKE_ANY_SOME_ALL]
 
 select
   -- $between
@@ -3025,7 +3023,7 @@ QueryStmt
 # Coercing struct in scan through internal CAST - with recursive.
 # Column in non-recursive term is casted and has collation.
 [no_run_sqlbuilder]
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_EQUALITY]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+ARRAY_EQUALITY]
 select
   nullif(string_ci, 'abc'),
   nullif(array_with_string_ci, ["abc"]),
@@ -3116,7 +3114,7 @@ select nullif(string_ci, string_binary),
        ^
 ==
 
-[language_features=ARRAY_EQUALITY,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,USE_OPERATION_COLLATION_FOR_NULLIF]
+[language_features=NONE,+ARRAY_EQUALITY,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+USE_OPERATION_COLLATION_FOR_NULLIF]
 # Array arguments with collation of nullif function
 select nullif(array_with_string_ci, ["abc"]),
 from CollatedTable
@@ -4767,7 +4765,7 @@ from t1 outer join t2 using (col_a)
 ==
 
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=PIVOT,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT{{|,SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=NONE,+PIVOT,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT{{|,+SIMPLIFY_PIVOT_REWRITE}}]
 # PIVOT FOR expression with collation is not supported
 select * FROM (select string_ci, string_binary from CollatedTable)
 PIVOT(string_agg(distinct string_ci) FOR string_binary IN ('Value_1' AS v1, 'Value_2' AS v2));
@@ -4813,7 +4811,7 @@ PIVOT(string_agg(distinct string_ci) FOR string_binary IN ('Value_1' AS v1, '...
 ==
 
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=PIVOT,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
+[language_features=NONE,+PIVOT,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT]
 # PIVOT aggregation with collation is not supported
 select * FROM (select string_ci, string_binary, 'abc' value from CollatedTable)
 PIVOT(string_agg(distinct string_ci) FOR value IN ('Value_1' AS v1, 'Value_2' AS v2));
@@ -4864,7 +4862,7 @@ PIVOT(string_agg(distinct string_ci) FOR value IN ('Value_1' AS v1, 'Value_2'...
 
 # PIVOT aggregation with collated arguments is not supported
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=PIVOT,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,IS_DISTINCT]
+[language_features=NONE,+PIVOT,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+IS_DISTINCT]
 select * FROM (select string_ci, string_binary, 'abc' value from CollatedTable)
 PIVOT(string_agg(string_ci) FOR value IN ('Value_1' AS v1, 'Value_2' AS v2));
 --
@@ -4912,7 +4910,7 @@ PIVOT(string_agg(string_ci) FOR value IN ('Value_1' AS v1, 'Value_2' AS v2));
 
 # PIVOT - pivot value is collated
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=PIVOT,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,IS_DISTINCT{{|,SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=NONE,+PIVOT,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+IS_DISTINCT{{|,+SIMPLIFY_PIVOT_REWRITE}}]
 select * FROM (select string_ci, collate(string_binary, '') as col, 'foo' as value from CollatedTable)
 PIVOT(string_agg(distinct col) FOR value IN (collate('Value_1', 'und:ci') AS v1, 'Value_2' AS v2));
 --
@@ -5058,7 +5056,7 @@ QueryStmt
                           +-SingleRowScan
               +-distinct=TRUE
 --
-ALTERNATION GROUP: ,SIMPLIFY_PIVOT_REWRITE
+ALTERNATION GROUP: ,+SIMPLIFY_PIVOT_REWRITE
 --
 QueryStmt
 +-output_column_list=
@@ -5161,7 +5159,7 @@ QueryStmt
 ==
 
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=PIVOT,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT{{|,SIMPLIFY_PIVOT_REWRITE}}]
+[language_features=NONE,+PIVOT,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT{{|,+SIMPLIFY_PIVOT_REWRITE}}]
 # PIVOT - group by collated columns
 select * FROM (select string_ci, collate(string_binary, '') as col, 'foo' as value from CollatedTable)
 PIVOT(string_agg(distinct col) FOR value IN ('Value_1' AS v1, 'Value_2' AS v2));
@@ -5351,7 +5349,7 @@ QueryStmt
 ==
 
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=UNPIVOT,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
+[language_features=NONE,+UNPIVOT,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT]
 SELECT *
 FROM CollatedTable
 UNPIVOT
@@ -5364,7 +5362,7 @@ ERROR: Collation "und:ci" in UNPIVOT IN clause is not supported [at 4:25]
 ==
 
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=UNPIVOT,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
+[language_features=NONE,+UNPIVOT,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT]
 SELECT *
 FROM (SELECT "abc" regular_value, * FROM CollatedTable)
 UNPIVOT
@@ -6376,7 +6374,7 @@ CreateViewStmt
     +-column=t.array_with_string_ci#8<{Collation:"und:ci"}>
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE]
 # CREATE RECURSIVE VIEW with collation in output columns is not supported.
 create {{materialized|}} recursive view t
 AS (
@@ -6401,7 +6399,7 @@ ERROR: Collation is not supported in recursive queries [at 4:3]
   ^
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE]
 # CREATE RECURSIVE VIEW with collation in output columns is not supported.
 create {{materialized|}} recursive view t
 AS (
@@ -6658,7 +6656,7 @@ create table t (a int64, b string collate @test_param_string);
                                           ^
 ==
 
-[language_features=CREATE_TABLE_LIKE,CREATE_TABLE_PARTITION_BY,CREATE_TABLE_CLUSTER_BY,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
+[language_features=NONE,+CREATE_TABLE_LIKE,+CREATE_TABLE_PARTITION_BY,+CREATE_TABLE_CLUSTER_BY,+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK]
 [create_table_like_not_scanned]
 create table t1 like KeyValue DEFAULT COLLATE 'und:ci' partition by Key cluster by Key options(table_option=1) ;
 --
@@ -7243,7 +7241,7 @@ CreateFunctionStmt
   +-ArgumentRef(type=STRING, name="x")
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,UNNEST_AND_FLATTEN_ARRAYS]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+UNNEST_AND_FLATTEN_ARRAYS]
 SELECT FLATTEN([STRUCT(COLLATE('a', 'und:ci') as x, 1 as y)].x);
 --
 ERROR: Collation is not allowed on input array to FLATTEN (<<"und:ci",_>>) [at 1:8]
@@ -7251,7 +7249,7 @@ SELECT FLATTEN([STRUCT(COLLATE('a', 'und:ci') as x, 1 as y)].x);
        ^
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,UNNEST_AND_FLATTEN_ARRAYS]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+UNNEST_AND_FLATTEN_ARRAYS]
 # The path expression is effectively a single array.
 SELECT FLATTEN([COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci')]);
 --
@@ -7260,7 +7258,7 @@ SELECT FLATTEN([COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci')]);
        ^
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,UNNEST_AND_FLATTEN_ARRAYS]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+UNNEST_AND_FLATTEN_ARRAYS]
 # The path expression is effectively a single array.
 SELECT FLATTEN(STRUCT([COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci')] as x, 1 as y).x);
 --
@@ -7269,7 +7267,7 @@ SELECT FLATTEN(STRUCT([COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci')] as x, ...
        ^
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT]
 # Collation in explicit CAST is not supported when flag
 # FEATURE_COLLATION_IN_EXPLICIT_CAST is off.
 SELECT
@@ -7315,7 +7313,7 @@ QueryStmt
       +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
 ==
 
-[language_features=CAST_DIFFERENT_ARRAY_TYPES,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,COLLATION_IN_EXPLICIT_CAST]
+[language_features=NONE,+CAST_DIFFERENT_ARRAY_TYPES,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+COLLATION_IN_EXPLICIT_CAST]
 SELECT
   CAST(['a', 'b'] AS ARRAY<STRING COLLATE 'und:ci'>),
   CAST(array_with_string_ci AS ARRAY<STRING COLLATE 'binary'>),
@@ -7524,7 +7522,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=FORMAT_IN_CAST,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,COLLATION_IN_EXPLICIT_CAST]
+[language_features=NONE,+FORMAT_IN_CAST,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+COLLATION_IN_EXPLICIT_CAST]
 # CAST with <format> and <time_zone> arguments.
 SELECT
   CAST(b'abcd' AS STRING COLLATE 'und:ci' FORMAT 'HEX'),
@@ -7594,7 +7592,7 @@ QueryStmt
 # TODO: Move to cast.test once Java implementation of Collation and
 # AnnotationMap is completed.
 # Test format with type parameters and collation on format string
-[language_features=FORMAT_IN_CAST,PARAMETERIZED_TYPES,NUMERIC_TYPE,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,COLLATION_IN_EXPLICIT_CAST]
+[language_features=NONE,+FORMAT_IN_CAST,+PARAMETERIZED_TYPES,+NUMERIC_TYPE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+COLLATION_IN_EXPLICIT_CAST]
 select cast(`string` as bytes format CAST(123 as STRING(MAX) COLLATE 'und:ci')) from SimpleTypes;
 --
 QueryStmt
@@ -7619,7 +7617,7 @@ QueryStmt
 # TODO: Move to cast.test once Java implementation of Collation and
 # AnnotationMap is completed.
 # Test format with type parameters and collation
-[language_features=FORMAT_IN_CAST,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,PARAMETERIZED_TYPES,NUMERIC_TYPE,COLLATION_IN_EXPLICIT_CAST]
+[language_features=NONE,+FORMAT_IN_CAST,+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK,+PARAMETERIZED_TYPES,+NUMERIC_TYPE,+COLLATION_IN_EXPLICIT_CAST]
 select cast(b'string' as STRING(10) COLLATE 'und:ci' format 'hex') from SimpleTypes;
 --
 QueryStmt
@@ -7750,7 +7748,7 @@ QueryStmt
 # The collated column exist in the ResolvedFlatten node. The corresponding
 # ResolvedColumnRef nodes still have the right annotations after rewriting.
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,UNNEST_AND_FLATTEN_ARRAYS]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+UNNEST_AND_FLATTEN_ARRAYS]
 SELECT FLATTEN(ARRAY(
   SELECT y
   FROM CollatedTable as x, TestStructValueTable as y
@@ -7884,7 +7882,7 @@ QueryStmt
 
 # The collated column is correlated inside Flatten function.
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,UNNEST_AND_FLATTEN_ARRAYS]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+UNNEST_AND_FLATTEN_ARRAYS]
 SELECT FLATTEN(ARRAY(
   SELECT y
   FROM TestStructValueTable y
@@ -8501,7 +8499,7 @@ QueryStmt
 # When both ARRAY<STRING> argument and STRING argument have collation attached,
 # verify that the element collation of the first argument and the collation on
 # the second argument are the same, then mark that in collation_list.
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_FIND_FUNCTIONS]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+ARRAY_FIND_FUNCTIONS]
 SELECT ARRAY_OFFSET([collate("hello", "und:ci"), collate("zetasql", "und:ci")], {{"HELLO"|collate("HELLO", "und:ci")}})
 --
 ALTERNATION GROUP: "HELLO"
@@ -8562,7 +8560,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_FIND_FUNCTIONS]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+ARRAY_FIND_FUNCTIONS]
 SELECT ARRAY_OFFSETS([collate("hello", "und:ci"), collate("zetasql", "und:ci")], "HELLO")
 --
 QueryStmt
@@ -8590,7 +8588,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_FIND_FUNCTIONS]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+ARRAY_FIND_FUNCTIONS]
 SELECT ARRAY_FIND([collate("hello", "und:ci"), collate("zetasql", "und:ci")], "HELLO")
 --
 QueryStmt
@@ -8620,7 +8618,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_FIND_FUNCTIONS]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+ARRAY_FIND_FUNCTIONS]
 SELECT ARRAY_FIND_ALL([collate("hello", "und:ci"), collate("zetasql", "und:ci")], "HELLO")
 --
 QueryStmt
@@ -8649,7 +8647,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_AGGREGATION_FUNCTIONS]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+ARRAY_AGGREGATION_FUNCTIONS]
 SELECT ARRAY_MIN([collate("hello", "und:ci")])
 --
 QueryStmt
@@ -8673,7 +8671,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ARRAY_AGGREGATION_FUNCTIONS]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+ARRAY_AGGREGATION_FUNCTIONS]
 SELECT ARRAY_MAX([collate("hello", "und:ci")])
 --
 QueryStmt
@@ -8711,7 +8709,7 @@ QueryStmt
       +-TVFScan
         +-column_list=tvf_templated_select_collated_output_columns_with_collate_function.[col_ci#1, col_array_ci#2, col_struct_ci#3]
         +-tvf=tvf_templated_select_collated_output_columns_with_collate_function((ANY TYPE, ANY TYPE) -> ANY TABLE)
-        +-signature=(literal STRING, literal INT64) -> TABLE<col_ci STRING COLLATE 'und:ci', col_array_ci ARRAY<STRING COLLATE 'und:ci'>, col_struct_ci STRUCT<STRING COLLATE 'und:ci', INT64>>
+        +-signature=(literal STRING, literal INT64) -> TABLE<col_ci STRING{Collation:"und:ci"}, col_array_ci ARRAY<STRING><{Collation:"und:ci"}>, col_struct_ci STRUCT<STRING, INT64><{Collation:"und:ci"},_>>
         +-argument_list=
         | +-FunctionArgument
         | | +-expr=
@@ -8723,7 +8721,7 @@ QueryStmt
         +-function_call_signature=(STRING, INT64) -> ANY TABLE
 
 With Templated SQL TVF signature:
-  tvf_templated_select_collated_output_columns_with_collate_function(literal STRING, literal INT64) -> TABLE<col_ci STRING COLLATE 'und:ci', col_array_ci ARRAY<STRING COLLATE 'und:ci'>, col_struct_ci STRUCT<STRING COLLATE 'und:ci', INT64>>
+  tvf_templated_select_collated_output_columns_with_collate_function(literal STRING, literal INT64) -> TABLE<col_ci STRING{Collation:"und:ci"}, col_array_ci ARRAY<STRING><{Collation:"und:ci"}>, col_struct_ci STRUCT<STRING, INT64><{Collation:"und:ci"},_>>
 containing resolved templated query:
 QueryStmt
 +-output_column_list=
@@ -8774,7 +8772,7 @@ QueryStmt
       +-TVFScan
         +-column_list=tvf_templated_select_collated_output_columns_with_collated_column_ref.[concat_ci#1, array_with_string_ci#2, struct_with_string_ci#3]
         +-tvf=tvf_templated_select_collated_output_columns_with_collated_column_ref((ANY TYPE) -> ANY TABLE)
-        +-signature=(literal STRING) -> TABLE<concat_ci STRING COLLATE 'und:ci', array_with_string_ci ARRAY<STRING COLLATE 'und:ci'>, struct_with_string_ci STRUCT<a INT32, b STRING COLLATE 'und:ci'>>
+        +-signature=(literal STRING) -> TABLE<concat_ci STRING{Collation:"und:ci"}, array_with_string_ci ARRAY<STRING><{Collation:"und:ci"}>, struct_with_string_ci STRUCT<a INT32, b STRING><_,{Collation:"und:ci"}>>
         +-argument_list=
         | +-FunctionArgument
         |   +-expr=
@@ -8783,7 +8781,7 @@ QueryStmt
         +-function_call_signature=(STRING) -> ANY TABLE
 
 With Templated SQL TVF signature:
-  tvf_templated_select_collated_output_columns_with_collated_column_ref(literal STRING) -> TABLE<concat_ci STRING COLLATE 'und:ci', array_with_string_ci ARRAY<STRING COLLATE 'und:ci'>, struct_with_string_ci STRUCT<a INT32, b STRING COLLATE 'und:ci'>>
+  tvf_templated_select_collated_output_columns_with_collated_column_ref(literal STRING) -> TABLE<concat_ci STRING{Collation:"und:ci"}, array_with_string_ci ARRAY<STRING><{Collation:"und:ci"}>, struct_with_string_ci STRUCT<a INT32, b STRING><_,{Collation:"und:ci"}>>
 containing resolved templated query:
 QueryStmt
 +-output_column_list=
@@ -8819,7 +8817,7 @@ QueryStmt
       +-TVFScan
         +-column_list=tvf_templated_select_collated_output_columns_with_relation_arg.[col_ci#2, col_array_ci#3, col_struct_ci#4]
         +-tvf=tvf_templated_select_collated_output_columns_with_relation_arg((ANY TABLE, INT64) -> ANY TABLE)
-        +-signature=(TABLE<col_str STRING>, literal INT64) -> TABLE<col_ci STRING COLLATE 'und:ci', col_array_ci ARRAY<STRING COLLATE 'und:ci'>, col_struct_ci STRUCT<STRING COLLATE 'und:ci', INT64>>
+        +-signature=(TABLE<col_str STRING>, literal INT64) -> TABLE<col_ci STRING{Collation:"und:ci"}, col_array_ci ARRAY<STRING><{Collation:"und:ci"}>, col_struct_ci STRUCT<STRING, INT64><{Collation:"und:ci"},_>>
         +-argument_list=
         | +-FunctionArgument
         | | +-scan=
@@ -8837,7 +8835,7 @@ QueryStmt
         +-function_call_signature=(ANY TABLE, INT64) -> ANY TABLE
 
 With Templated SQL TVF signature:
-  tvf_templated_select_collated_output_columns_with_relation_arg(TABLE<col_str STRING>, literal INT64) -> TABLE<col_ci STRING COLLATE 'und:ci', col_array_ci ARRAY<STRING COLLATE 'und:ci'>, col_struct_ci STRUCT<STRING COLLATE 'und:ci', INT64>>
+  tvf_templated_select_collated_output_columns_with_relation_arg(TABLE<col_str STRING>, literal INT64) -> TABLE<col_ci STRING{Collation:"und:ci"}, col_array_ci ARRAY<STRING><{Collation:"und:ci"}>, col_struct_ci STRUCT<STRING, INT64><{Collation:"und:ci"},_>>
 containing resolved templated query:
 QueryStmt
 +-output_column_list=
@@ -8886,7 +8884,7 @@ QueryStmt
       +-TVFScan
         +-column_list=[tvf_templated_select_collated_output_column_as_value_table.$col0#1{Collation:"und:ci"}]
         +-tvf=tvf_templated_select_collated_output_column_as_value_table((ANY TYPE, ANY TYPE) -> ANY TABLE)
-        +-signature=(literal STRING, literal STRING) -> TABLE<STRING COLLATE 'und:ci'>
+        +-signature=(literal STRING, literal STRING) -> TABLE<STRING{Collation:"und:ci"}>
         +-argument_list=
         | +-FunctionArgument
         | | +-expr=
@@ -8898,7 +8896,7 @@ QueryStmt
         +-function_call_signature=(STRING, STRING) -> ANY TABLE
 
 With Templated SQL TVF signature:
-  tvf_templated_select_collated_output_column_as_value_table(literal STRING, literal STRING) -> TABLE<STRING COLLATE 'und:ci'>
+  tvf_templated_select_collated_output_column_as_value_table(literal STRING, literal STRING) -> TABLE<STRING{Collation:"und:ci"}>
 containing resolved templated query:
 QueryStmt
 +-output_column_list=
@@ -8955,7 +8953,7 @@ create table function tvf(x STRING, y INT64) as (
 CreateTableFunctionStmt
 +-name_path=tvf
 +-argument_name_list=[x, y]
-+-signature=(STRING x, INT64 y) -> TABLE<col_ci STRING COLLATE 'und:ci', col_array_ci ARRAY<STRING COLLATE 'und:ci'>, col_struct_ci STRUCT<STRING COLLATE 'und:ci', INT64>>
++-signature=(STRING x, INT64 y) -> TABLE<col_ci STRING{Collation:"und:ci"}, col_array_ci ARRAY<STRING><{Collation:"und:ci"}>, col_struct_ci STRUCT<STRING, INT64><{Collation:"und:ci"},_>>
 +-language="SQL"
 +-code="select\n    COLLATE(x, 'und:ci') as col_ci,\n    [COLLATE(x, 'und:ci')] as col_array_ci,\n    (COLLATE(x, 'und:ci'), y) as col_struct_ci"
 +-query=
@@ -9004,7 +9002,7 @@ create table function tvf(x STRING, y INT64) as (
 CreateTableFunctionStmt
 +-name_path=tvf
 +-argument_name_list=[x, y]
-+-signature=(STRING x, INT64 y) -> TABLE<concat_ci STRING COLLATE 'und:ci', array_with_string_ci ARRAY<STRING COLLATE 'und:ci'>, struct_with_string_ci STRUCT<a INT32, b STRING COLLATE 'und:ci'>>
++-signature=(STRING x, INT64 y) -> TABLE<concat_ci STRING{Collation:"und:ci"}, array_with_string_ci ARRAY<STRING><{Collation:"und:ci"}>, struct_with_string_ci STRUCT<a INT32, b STRING><_,{Collation:"und:ci"}>>
 +-language="SQL"
 +-code="select\n    CONCAT(x, string_ci) as concat_ci,\n    array_with_string_ci,\n    struct_with_string_ci\n  from CollatedTable"
 +-query=
@@ -9036,7 +9034,7 @@ create table function tvf(x TABLE<col_str STRING>, y INT64) as (
 CreateTableFunctionStmt
 +-name_path=tvf
 +-argument_name_list=[x, y]
-+-signature=(TABLE<col_str STRING> x, INT64 y) -> TABLE<col_ci STRING COLLATE 'und:ci', col_array_ci ARRAY<STRING COLLATE 'und:ci'>, col_struct_ci STRUCT<STRING COLLATE 'und:ci', INT64>>
++-signature=(TABLE<col_str STRING> x, INT64 y) -> TABLE<col_ci STRING{Collation:"und:ci"}, col_array_ci ARRAY<STRING><{Collation:"und:ci"}>, col_struct_ci STRUCT<STRING, INT64><{Collation:"und:ci"},_>>
 +-language="SQL"
 +-code="select\n    COLLATE(col_str, 'und:ci') as col_ci,\n    [COLLATE(col_str, 'und:ci')] as col_array_ci,\n    (COLLATE(col_str, 'und:ci'), y) as col_struct_ci\n  from x"
 +-query=
@@ -9085,7 +9083,7 @@ create table function tvf(x TABLE<STRUCT<str_field STRING>>) as (
 CreateTableFunctionStmt
 +-name_path=tvf
 +-argument_name_list=[x]
-+-signature=(TABLE<STRUCT<str_field STRING>> x) -> TABLE<col_ci STRING COLLATE 'und:ci', col_array_ci ARRAY<STRING COLLATE 'und:ci'>, col_struct_ci STRUCT<STRING COLLATE 'und:ci', INT64>>
++-signature=(TABLE<STRUCT<str_field STRING>> x) -> TABLE<col_ci STRING{Collation:"und:ci"}, col_array_ci ARRAY<STRING><{Collation:"und:ci"}>, col_struct_ci STRUCT<STRING, INT64><{Collation:"und:ci"},_>>
 +-language="SQL"
 +-code="select\n    COLLATE(str_field, 'und:ci') as col_ci,\n    [COLLATE(str_field, 'und:ci')] as col_array_ci,\n    (COLLATE(str_field, 'und:ci'), 1) as col_struct_ci\n  from x"
 +-query=
@@ -9142,7 +9140,7 @@ create table function tvf(x STRING) as (
 CreateTableFunctionStmt
 +-name_path=tvf
 +-argument_name_list=[x]
-+-signature=(STRING x) -> TABLE<STRUCT<col_ci STRING COLLATE 'und:ci', col_binary STRING COLLATE 'binary'>>
++-signature=(STRING x) -> TABLE<STRUCT<col_ci STRING, col_binary STRING><{Collation:"und:ci"},{Collation:"binary"}>>
 +-language="SQL"
 +-code="select as value struct(COLLATE(x, 'und:ci') as col_ci, COLLATE(x, 'binary') as col_binary)"
 +-query=
@@ -9202,14 +9200,14 @@ QueryStmt
     +-input_scan=
       +-TVFScan
         +-column_list=ScalarArgWithCollatedOutputCols.[col_ci#1, col_array_ci#2, col_struct_ci#3]
-        +-tvf=ScalarArgWithCollatedOutputCols((STRING arg0) -> TABLE<col_ci STRING COLLATE 'und:ci', col_array_ci ARRAY<STRING COLLATE 'und:ci'>, col_struct_ci STRUCT<ARRAY<STRING COLLATE 'und:ci'>, INT64>>)
-        +-signature=(literal STRING) -> TABLE<col_ci STRING COLLATE 'und:ci', col_array_ci ARRAY<STRING COLLATE 'und:ci'>, col_struct_ci STRUCT<ARRAY<STRING COLLATE 'und:ci'>, INT64>>
+        +-tvf=ScalarArgWithCollatedOutputCols((STRING arg0) -> TABLE<col_ci STRING{Collation:"und:ci"}, col_array_ci ARRAY<STRING><{Collation:"und:ci"}>, col_struct_ci STRUCT<ARRAY<STRING>, INT64><<{Collation:"und:ci"}>,_>>)
+        +-signature=(literal STRING) -> TABLE<col_ci STRING{Collation:"und:ci"}, col_array_ci ARRAY<STRING><{Collation:"und:ci"}>, col_struct_ci STRUCT<ARRAY<STRING>, INT64><<{Collation:"und:ci"}>,_>>
         +-argument_list=
         | +-FunctionArgument
         |   +-expr=
         |     +-Literal(type=STRING, value="abc")
         +-column_index_list=[0, 1, 2]
-        +-function_call_signature=(STRING arg0) -> TABLE<col_ci STRING COLLATE 'und:ci', col_array_ci ARRAY<STRING COLLATE 'und:ci'>, col_struct_ci STRUCT<ARRAY<STRING COLLATE 'und:ci'>, INT64>>
+        +-function_call_signature=(STRING arg0) -> TABLE<col_ci STRING{Collation:"und:ci"}, col_array_ci ARRAY<STRING><{Collation:"und:ci"}>, col_struct_ci STRUCT<ARRAY<STRING>, INT64><<{Collation:"und:ci"}>,_>>
 ==
 
 select * from TableArgWithCollatedOutputCols((select 'abc' as a))
@@ -9225,8 +9223,8 @@ QueryStmt
     +-input_scan=
       +-TVFScan
         +-column_list=TableArgWithCollatedOutputCols.[col_ci#2, col_array_ci#3, col_struct_ci#4]
-        +-tvf=TableArgWithCollatedOutputCols((TABLE<a STRING> arg0) -> TABLE<col_ci STRING COLLATE 'und:ci', col_array_ci ARRAY<STRING COLLATE 'und:ci'>, col_struct_ci STRUCT<ARRAY<STRING COLLATE 'und:ci'>, INT64>>)
-        +-signature=(TABLE<a STRING>) -> TABLE<col_ci STRING COLLATE 'und:ci', col_array_ci ARRAY<STRING COLLATE 'und:ci'>, col_struct_ci STRUCT<ARRAY<STRING COLLATE 'und:ci'>, INT64>>
+        +-tvf=TableArgWithCollatedOutputCols((TABLE<a STRING> arg0) -> TABLE<col_ci STRING{Collation:"und:ci"}, col_array_ci ARRAY<STRING><{Collation:"und:ci"}>, col_struct_ci STRUCT<ARRAY<STRING>, INT64><<{Collation:"und:ci"}>,_>>)
+        +-signature=(TABLE<a STRING>) -> TABLE<col_ci STRING{Collation:"und:ci"}, col_array_ci ARRAY<STRING><{Collation:"und:ci"}>, col_struct_ci STRUCT<ARRAY<STRING>, INT64><<{Collation:"und:ci"}>,_>>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
@@ -9238,7 +9236,7 @@ QueryStmt
         |   |     +-SingleRowScan
         |   +-argument_column_list=[$subquery1.a#1]
         +-column_index_list=[0, 1, 2]
-        +-function_call_signature=(TABLE<a STRING> arg0) -> TABLE<col_ci STRING COLLATE 'und:ci', col_array_ci ARRAY<STRING COLLATE 'und:ci'>, col_struct_ci STRUCT<ARRAY<STRING COLLATE 'und:ci'>, INT64>>
+        +-function_call_signature=(TABLE<a STRING> arg0) -> TABLE<col_ci STRING{Collation:"und:ci"}, col_array_ci ARRAY<STRING><{Collation:"und:ci"}>, col_struct_ci STRUCT<ARRAY<STRING>, INT64><<{Collation:"und:ci"}>,_>>
 ==
 
 select * from ValueTableArgWithCollatedOutputCols((select as struct 'abc' str_field))
@@ -9254,8 +9252,8 @@ QueryStmt
     +-input_scan=
       +-TVFScan
         +-column_list=ValueTableArgWithCollatedOutputCols.[col_ci#3, col_array_ci#4, col_struct_ci#5]
-        +-tvf=ValueTableArgWithCollatedOutputCols((TABLE<STRUCT<str_field STRING>> arg0) -> TABLE<col_ci STRING COLLATE 'und:ci', col_array_ci ARRAY<STRING COLLATE 'und:ci'>, col_struct_ci STRUCT<ARRAY<STRING COLLATE 'und:ci'>, INT64>>)
-        +-signature=(TABLE<STRUCT<str_field STRING>>) -> TABLE<col_ci STRING COLLATE 'und:ci', col_array_ci ARRAY<STRING COLLATE 'und:ci'>, col_struct_ci STRUCT<ARRAY<STRING COLLATE 'und:ci'>, INT64>>
+        +-tvf=ValueTableArgWithCollatedOutputCols((TABLE<STRUCT<str_field STRING>> arg0) -> TABLE<col_ci STRING{Collation:"und:ci"}, col_array_ci ARRAY<STRING><{Collation:"und:ci"}>, col_struct_ci STRUCT<ARRAY<STRING>, INT64><<{Collation:"und:ci"}>,_>>)
+        +-signature=(TABLE<STRUCT<str_field STRING>>) -> TABLE<col_ci STRING{Collation:"und:ci"}, col_array_ci ARRAY<STRING><{Collation:"und:ci"}>, col_struct_ci STRUCT<ARRAY<STRING>, INT64><<{Collation:"und:ci"}>,_>>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
@@ -9276,7 +9274,7 @@ QueryStmt
         |   |         +-SingleRowScan
         |   +-argument_column_list=[$make_struct.$struct#2]
         +-column_index_list=[0, 1, 2]
-        +-function_call_signature=(TABLE<STRUCT<str_field STRING>> arg0) -> TABLE<col_ci STRING COLLATE 'und:ci', col_array_ci ARRAY<STRING COLLATE 'und:ci'>, col_struct_ci STRUCT<ARRAY<STRING COLLATE 'und:ci'>, INT64>>
+        +-function_call_signature=(TABLE<STRUCT<str_field STRING>> arg0) -> TABLE<col_ci STRING{Collation:"und:ci"}, col_array_ci ARRAY<STRING><{Collation:"und:ci"}>, col_struct_ci STRUCT<ARRAY<STRING>, INT64><<{Collation:"und:ci"}>,_>>
 ==
 
 select * from ScalarArgWithCollatedOutputValueTableCol('abc')
@@ -9290,14 +9288,14 @@ QueryStmt
     +-input_scan=
       +-TVFScan
         +-column_list=[ScalarArgWithCollatedOutputValueTableCol.$col0#1{Collation:"und:ci"}]
-        +-tvf=ScalarArgWithCollatedOutputValueTableCol((STRING arg0) -> TABLE<STRING COLLATE 'und:ci'>)
-        +-signature=(literal STRING) -> TABLE<STRING COLLATE 'und:ci'>
+        +-tvf=ScalarArgWithCollatedOutputValueTableCol((STRING arg0) -> TABLE<STRING{Collation:"und:ci"}>)
+        +-signature=(literal STRING) -> TABLE<STRING{Collation:"und:ci"}>
         +-argument_list=
         | +-FunctionArgument
         |   +-expr=
         |     +-Literal(type=STRING, value="abc")
         +-column_index_list=[0]
-        +-function_call_signature=(STRING arg0) -> TABLE<STRING COLLATE 'und:ci'>
+        +-function_call_signature=(STRING arg0) -> TABLE<STRING{Collation:"und:ci"}>
 ==
 
 select * from tvf_templated_select_any_scalar_arg(COLLATE('abc', 'und:ci'))
@@ -9471,7 +9469,7 @@ as (COLLATE(x, 'und:ci'));
    ^
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,CREATE_AGGREGATE_FUNCTION]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+CREATE_AGGREGATE_FUNCTION]
 # Collation in return type of SQL function body is not allowed. The function
 # is a SQL aggregate function.
 create aggregate function myfunc(x STRING)
@@ -9573,7 +9571,7 @@ QueryStmt
       +-TableScan(column_list=[CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>], table=CollatedTable, column_index_list=[2])
 ==
 
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE,+COLLATION_IN_WITH_RECURSIVE]
 # Coercing struct in scan through internal CAST - IN subquery.
 # Left struct type has no collation and the right struct type has collation but
 # the feture FEATURE_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN is
@@ -9703,7 +9701,7 @@ QueryStmt
 
 # Coercing struct in scan through internal CAST - IN subquery.
 # The struct being casted has ARRAY field with collation.
-[language_features=ARRAY_EQUALITY,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,COLLATION_IN_EXPLICIT_CAST,PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN]
+[language_features=NONE,+ARRAY_EQUALITY,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+COLLATION_IN_EXPLICIT_CAST,+PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN]
 SELECT STRUCT<x INT64, y ARRAY<STRING>>(1, ['a']) IN
 (SELECT (1, [COLLATE('abc', 'und:ci')]))
 --
@@ -9935,7 +9933,7 @@ QueryStmt
 ==
 
 [no_run_sqlbuilder]
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE,PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE,+COLLATION_IN_WITH_RECURSIVE,+PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN]
 # TODO: enable the unparser once STRUCT<STRING COLLATE '...'> syntax
 # is supported.
 # Coercing struct in scan through internal CAST - with recursive.
@@ -10045,7 +10043,7 @@ QueryStmt
 ==
 
 [no_run_sqlbuilder]
-[language_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,WITH_RECURSIVE,COLLATION_IN_WITH_RECURSIVE,PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN]
+[language_features=NONE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+WITH_RECURSIVE,+COLLATION_IN_WITH_RECURSIVE,+PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN]
 # TODO: enable the unparser once STRUCT<STRING COLLATE '...'> syntax
 # is supported.
 # Coercing struct in scan through internal CAST - with recursive.
@@ -10387,7 +10385,7 @@ QueryStmt
 ==
 
 # Disable GROUPING_SETS, in which case rollup won't go through rewriters, this is the current code path.
-[language_features=COLLATION_SUPPORT,GROUP_BY_ROLLUP,ANNOTATION_FRAMEWORK]
+[language_features=NONE,+COLLATION_SUPPORT,+GROUP_BY_ROLLUP,+ANNOTATION_FRAMEWORK]
 SELECT COUNT(*), string_ci, string_binary
 FROM CollatedTable
 GROUP BY ROLLUP(string_ci, string_binary, UPPER(string_ci))
@@ -10538,7 +10536,7 @@ QueryStmt
 ==
 
 # ORDER BY with collation coming from the table.
-[language_features=MATCH_RECOGNIZE,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
+[language_features=NONE,+MATCH_RECOGNIZE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT]
 select * from CollatedTable MATCH_RECOGNIZE(
   ORDER BY string_ci || string_ci, string_binary || string_binary
   MEASURES min(string_binary) AS x
@@ -10619,7 +10617,7 @@ QueryStmt
 ==
 
 [show_sqlbuilder_output]
-[language_features=MATCH_RECOGNIZE,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,NULLS_FIRST_LAST_IN_ORDER_BY]
+[language_features=NONE,+MATCH_RECOGNIZE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+NULLS_FIRST_LAST_IN_ORDER_BY]
 # Partition by with collation and computed exprs.
 # Also notice that partitioning columns are included in the output.
 select * from CollatedTable MATCH_RECOGNIZE(
@@ -10781,7 +10779,7 @@ FROM
 ==
 
 # Collation through the MEASURES clause.
-[language_features=MATCH_RECOGNIZE,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,ORDER_BY_IN_AGGREGATE]
+[language_features=NONE,+MATCH_RECOGNIZE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+ORDER_BY_IN_AGGREGATE]
 SELECT * FROM CollatedTable MATCH_RECOGNIZE(
   ORDER BY string_binary
   MEASURES ARRAY_AGG(string_ci) AS arr

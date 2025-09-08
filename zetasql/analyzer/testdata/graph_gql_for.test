@@ -1,4 +1,4 @@
-[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 [default no_test_extract_table_names]
 # Conflicting element column name
 select gt.* from
@@ -41,7 +41,7 @@ ERROR: Ambiguous name: offset_alias [at 4:3]
   ^
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 # Conflicting element column name with group var
 select gt.* from
 graph_table(aml
@@ -55,7 +55,7 @@ ERROR: Ambiguous name: a [at 5:3]
   ^
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 # Conflicting offset column name with group var
 select gt.* from
 graph_table(aml
@@ -69,7 +69,7 @@ ERROR: Ambiguous name: b [at 5:3]
   ^
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 # Only ARRAY type expressions are allowed
 select gt.* from
 graph_table(aml
@@ -156,7 +156,7 @@ QueryStmt
 ==
 
 [no_java]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT]
 # array expr has collation
 select gt.* from
 graph_table(aml
@@ -234,7 +234,7 @@ QueryStmt
                       +-GraphRefScan(column_list=[$element_table.n#1, $graph_table.x#2{Collation:"und:ci"}])
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+INLINE_LAMBDA_ARGUMENT]
 # array expr is a function call
 select gt.* from
 graph_table(aml
@@ -481,7 +481,7 @@ QueryStmt
                       +-GraphRefScan(column_list=$graph_table.[x#1, y#2])
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 # array expr is a group variable
 select gt.* from
 graph_table(aml

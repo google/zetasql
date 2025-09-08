@@ -79,16 +79,38 @@ main {
   padding: 0.5rem 1rem;
 }
 
+#header .header-right {
+  float: right;
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
 #header a {
   text-decoration: none;
   color: #fff;
+}
+
+.avatar {
+  border-radius: 50%;
+  border: 1px solid #0f73b5;
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+}
+
+/* Undos dark mode filter for avatar images */
+@media (prefers-color-scheme: dark) {
+  .avatar {
+    filter: invert(90%) hue-rotate(180deg) contrast(105%);
+  }
 }
 
 #header #share-link {
   float: right;
   font-size: 0.5em;
   padding: 0.4em 0.6em;
-  background-color: #0f73b5;;
+  background-color: #0f73b5;
   border-radius: 0.5em;
   border: 1px solid #0f73b5;
   color: #fff;
@@ -276,4 +298,15 @@ hr {
   background-color: #111;
   margin-top: 1.5em;
   margin-bottom: 1.5em;
+}
+
+.ast-node {
+  font-weight: bold;
+}
+
+/* For highlighting all column ID nodes when you hover over one of them. */
+.ast-col.highlighted,
+.ast-col.highlighted-sticky{
+  background-color: #ff5;
+  outline: 1px solid #ffa500;
 }

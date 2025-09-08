@@ -24,6 +24,8 @@
 
 namespace zetasql {
 
+// TODO: b/439682125 - Everything in this file should be moved to internal, it's
+// only used by internal tests.
 inline constexpr absl::string_view kLanguageFeatures = "language_features";
 
 // Returns a collection of LanguageFeatures that must be enabled for the

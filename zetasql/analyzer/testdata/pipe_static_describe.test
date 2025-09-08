@@ -1,4 +1,5 @@
-[language_features=PIPE_STATIC_DESCRIBE]
+[default language_features=MAXIMUM]
+[language_features=NONE,+PIPE_STATIC_DESCRIBE]
 select * from KeyValue
 |> STATIC_DESCRIBE
 --
@@ -7,7 +8,7 @@ ERROR: Pipe query syntax not supported [at 2:1]
 ^
 ==
 
-[language_features=PIPES]
+[language_features=NONE,+PIPES]
 from KeyValue
 |> STATIC_DESCRIBE
 --
@@ -16,7 +17,7 @@ ERROR: Pipe STATIC_DESCRIBE not supported [at 2:1]
 ^
 ==
 
-[default language_features=PIPES,PIPE_STATIC_DESCRIBE]
+[default language_features=MAXIMUM,+PIPES,+PIPE_STATIC_DESCRIBE]
 
 from KeyValue
 |> STATIC_DESCRIBE
@@ -238,6 +239,8 @@ QueryStmt
     |     Names:
     |       Key -> INT64 (KeyValue.Key#1) (implicit)
     |       Value -> STRING (KeyValue.Value#2) (implicit)
+    |
+    |   Result is ordered.
     |   """
     +-input_scan=
       +-OrderByScan

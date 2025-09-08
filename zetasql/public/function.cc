@@ -563,10 +563,12 @@ absl::Status Function::CheckPostResolutionArgumentConstraints(
   if (PostResolutionConstraints() == nullptr) {
     return absl::OkStatus();
   }
-  ZETASQL_RET_CHECK(signature.IsConcrete())
-      << "CheckPostResolutionArgumentConstraints of "
-      << QualifiedSQLName()
-      << " must be called with a concrete signature";
+  ZETASQL_RET_CHECK(signature.IsConcrete() ||
+            (signature.HasConcreteArguments() &&
+             GetComputeResultTypeCallback() != nullptr))
+      << "CheckPostResolutionArgumentConstraints of " << QualifiedSQLName()
+      << " must be called with a concrete signature, or concrete arguments"
+      << " with a ComputeResultTypeCallback";
   ZETASQL_RET_CHECK_EQ(signature.NumConcreteArguments(), arguments.size())
       << "Concrete arguments of " << QualifiedSQLName()
       << " must match the actual argument list";
@@ -753,6 +755,14 @@ bool Function::SupportsDistinctModifier() const {
 
 bool Function::SupportsGroupByModifier() const {
   return function_options_.supports_group_by_modifier;
+}
+
+bool Function::SupportsWhereModifier() const {
+  return function_options_.supports_where_modifier;
+}
+
+bool Function::SupportsHavingFilterModifier() const {
+  return function_options_.supports_having_filter_modifier;
 }
 
 bool Function::SupportsClampedBetweenModifier() const {

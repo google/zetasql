@@ -1,4 +1,5 @@
 # Tests for truncate statement.
+[default language_features=MAXIMUM]
 TRUNCATE TABLE TestTable;
 --
 TruncateStmt

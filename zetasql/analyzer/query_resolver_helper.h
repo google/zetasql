@@ -127,6 +127,8 @@ struct GroupingSetInfo {
   GroupingSetKind kind;
 };
 
+using GroupingSetInfoList = std::vector<GroupingSetInfo>;
+
 // A struct to preserve the column ids in the grouping set.
 struct GroupingSetIds {
   // The list of column ids of the grouping set, with the same preserved struct
@@ -299,9 +301,23 @@ struct QueryGroupByAndAggregateInfo {
                      FieldPathHashOperator, FieldPathExpressionEqualsOperator>
       group_by_expr_map;
 
-  // This is a list of grouping sets, or an empty vector if the query doesn't
-  // have ROLLUP, CUBE, or GROPING SETS.
-  std::vector<GroupingSetInfo> grouping_set_list;
+  // Stores a list of grouping set lists. The cartesian product of these lists
+  // forms the final set of grouping sets for the query.
+  //
+  // Each inner GroupingSetInfoList represents a single grouping item from the
+  // GROUP BY clause. For example, in GROUP BY ROLLUP(a, b), c, GROUPING SETS(d,
+  // e), the  grouping_set_product_inputs will contain three GroupingSetInfoList
+  // elements:
+  // - A list for ROLLUP(a, b).
+  // - A list for c.
+  // - A list for GROUPING SETS(d, e).
+  //
+  // The inner list will contain multiple GroupingSetInfo items only when it
+  // represents a GROUPING SETS clause with multiple elements. An empty
+  // grouping_set_product_inputs indicates that the query does not use any
+  // grouping sets (e.g., GROUP BY a, b or GROUP BY ()). Each element within the
+  // grouping_set_product_inputs must be non-empty.
+  std::vector<GroupingSetInfoList> grouping_set_product_inputs;
 
   // Columns referenced by GROUPING function calls. A GROUPING function call
   // has a single ResolvedComputedColumn argument per call as well as an
@@ -360,6 +376,31 @@ struct QueryGroupByAndAggregateInfo {
   void Reset();
 };
 
+// DotStarSourceExprInfo holds information about the source expression that is
+// input to the dot-star operator. For instance, given an expression 'a.*',
+// DotStarSourceExprInfo would contain information about the expression 'a'.
+struct DotStarSourceExprInfo {
+  // The AST expression of the source expression.
+  const ASTExpression* ast_expr = nullptr;
+
+  // After the first column in the expansion processes this in the 2nd pass,
+  // it should set this to true.
+  bool is_finalized = false;
+
+  // The original column assigned to the dot-star source expression in the
+  // first pass.
+  ResolvedColumn original_resolved_column;
+
+  // The expression to compute the dot-star source column.
+  // We hold onto this expression because in the general case, we do not know
+  // until the 2nd pass whether it'll be a pre- or post-grouping expression.
+  std::unique_ptr<const ResolvedExpr> resolved_expr;
+
+  bool has_aggregation = false;
+  bool has_analytic = false;
+  bool has_volatile = false;
+};
+
 // SelectColumnState contains state related to an expression in the
 // select-list of a query, while it is being resolved.  This is used and
 // mutated in multiple passes while resolving the SELECT-list and GROUP BY.
@@ -369,7 +410,8 @@ struct SelectColumnState {
       const ASTSelectColumn* ast_select_column, IdString alias_in,
       bool is_explicit_in, bool has_aggregation_in, bool has_analytic_in,
       bool has_volatile_in,
-      std::unique_ptr<const ResolvedExpr> resolved_expr_in)
+      std::unique_ptr<const ResolvedExpr> resolved_expr_in,
+      DotStarSourceExprInfo* dot_star_source_expr_info_in)
       : ast_select_column(ast_select_column),
         ast_expr(ast_select_column->expression()),
         ast_grouping_item_order(ast_select_column->grouping_item_order()),
@@ -379,7 +421,8 @@ struct SelectColumnState {
         resolved_expr(std::move(resolved_expr_in)),
         has_aggregation(has_aggregation_in),
         has_analytic(has_analytic_in),
-        has_volatile(has_volatile_in) {}
+        has_volatile(has_volatile_in),
+        dot_star_source_expr_info(dot_star_source_expr_info_in) {}
 
   SelectColumnState(const SelectColumnState&) = delete;
   SelectColumnState& operator=(const SelectColumnState&) = delete;
@@ -475,6 +518,12 @@ struct SelectColumnState {
   // be set if the column must be computed before the AggregateScan (so
   // it will not necessarily always be set if is_group_by_column is true).
   ResolvedColumn resolved_pre_group_by_select_column;
+
+  // Info needed to re-resolve a dot-star source expression in the 2nd pass.
+  // This information is shared among all columns in the expansion, but the 2nd
+  // pass should process it only once.
+  // This is owned by QueryResolutionInfo in the dedicated list.
+  DotStarSourceExprInfo* dot_star_source_expr_info = nullptr;
 };
 
 // This class contains a SelectColumnState for each column in the SELECT list
@@ -496,7 +545,8 @@ class SelectColumnStateList {
   void AddSelectColumn(const ASTSelectColumn* ast_select_column, IdString alias,
                        bool is_explicit, bool has_aggregation,
                        bool has_analytic, bool has_volatile,
-                       std::unique_ptr<const ResolvedExpr> resolved_expr);
+                       std::unique_ptr<const ResolvedExpr> resolved_expr,
+                       DotStarSourceExprInfo* dot_star_source_expr_info);
 
   // Add an already created SelectColumnState. If save_mapping is true, saves a
   // mapping from the alias to this SelectColumnState. The mapping is later used
@@ -645,8 +695,8 @@ class QueryResolutionInfo {
   const ResolvedComputedColumn* GetEquivalentGroupByComputedColumnOrNull(
       const ResolvedExpr* expr) const;
 
-  // Adds a grouping set to the grouping_set_list.
-  void AddGroupingSet(const GroupingSetInfo& grouping_set);
+  // Adds a grouping set list to the input_list.
+  void AddGroupingSetList(GroupingSetInfoList&& grouping_set_list);
 
   // Adds a GROUPING <column> to the grouping_call_list.
   void AddGroupingColumn(std::unique_ptr<const ResolvedGroupingCall> column);
@@ -682,6 +732,15 @@ class QueryResolutionInfo {
       const ASTFunctionCall* ast_function_call,
       std::unique_ptr<const ResolvedComputedColumnBase> column);
 
+  // Registers a dot star column whose resolved column is updated.
+  // The expanded columns need to remap to the new column in the second pass.
+  absl::Status AddDotStarColumnToRemap(const ResolvedColumn& old_column,
+                                       const ResolvedColumn& new_column);
+
+  // Returns the new column to remap to, or nullptr if there is no remapping.
+  const ResolvedColumn* GetDotStarColumnToRemapOrNull(
+      const ResolvedColumn& column) const;
+
   // Creates a new AnalyticFunctionResolver, but preserves the
   // NamedWindowInfoMap from the existing one.
   void ResetAnalyticResolver(Resolver* resolver);
@@ -715,7 +774,7 @@ class QueryResolutionInfo {
   // Returns whether or not the query includes a GROUP BY ROLLUP, GROUP BY CUBE,
   // or GROUP BY GROUPING SETS.
   bool HasGroupByGroupingSets() const {
-    return !group_by_info_.grouping_set_list.empty();
+    return !group_by_info_.grouping_set_product_inputs.empty();
   }
 
   // Returns whether the query contains GROUPING function calls. grouping_list
@@ -998,14 +1057,12 @@ class QueryResolutionInfo {
     return tmp;
   }
 
-  std::vector<std::pair<const ResolvedColumn, const ASTExpression*>>*
-  dot_star_columns_with_aggregation_for_second_pass_resolution() {
-    return &dot_star_columns_with_aggregation_for_second_pass_resolution_;
-  }
-
-  std::vector<std::pair<const ResolvedColumn, const ASTExpression*>>*
-  dot_star_columns_with_analytic_for_second_pass_resolution() {
-    return &dot_star_columns_with_analytic_for_second_pass_resolution_;
+  DotStarSourceExprInfo* AddDotStarSourceExpression(
+      DotStarSourceExprInfo info) {
+    info.is_finalized = false;
+    dot_star_source_expr_info_.push_back(
+        std::make_unique<DotStarSourceExprInfo>(std::move(info)));
+    return dot_star_source_expr_info_.back().get();
   }
 
   std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
@@ -1149,19 +1206,10 @@ class QueryResolutionInfo {
   std::vector<std::unique_ptr<const ResolvedComputedColumn>>
       columns_to_compute_after_analytic_;
 
-  // Unowned pointers for columns that must have their expressions
-  // (re)resolved in a second pass after grouping/aggregation analysis
-  // is performed.  Once (re)resolved, the ResolvedExpr is added to
-  // <columns_to_compute_after_aggregation_>.
-  std::vector<std::pair<const ResolvedColumn, const ASTExpression*>>
-      dot_star_columns_with_aggregation_for_second_pass_resolution_;
-
-  // Unowned pointers for columns that must have their expressions
-  // (re)resolved in a second pass after grouping/aggregation analysis
-  // is performed.  Once (re)resolved, the ResolvedExpr is added to
-  // <columns_to_compute_after_analytic_>.
-  std::vector<std::pair<const ResolvedColumn, const ASTExpression*>>
-      dot_star_columns_with_analytic_for_second_pass_resolution_;
+  // Stores information about dot-star source expressions for the 2nd pass
+  // resolution.
+  std::vector<std::unique_ptr<DotStarSourceExprInfo>>
+      dot_star_source_expr_info_;
 
   // GROUP BY and aggregation information.  Also (re)used for
   // SELECT DISTINCT.
@@ -1233,6 +1281,12 @@ class QueryResolutionInfo {
   // Indicates that this QRI is used to resolve nested aggregations and
   // modifiers in a multi-level aggregation.
   bool is_nested_aggregation_ = false;
+
+  // Maintains a map of dot-star columns that need to be remapped to a new
+  // ResolvedColumn (e.g. because the source expression changed to a post-
+  // grouping column or analytic functions got re-resolved).
+  absl::flat_hash_map<const ResolvedColumn, const ResolvedColumn>
+      dot_star_columns_to_remap_;
 };
 
 // A class for lazily identifying untyped literal expressions produced by

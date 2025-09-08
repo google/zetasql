@@ -1,3 +1,4 @@
+[default language_features=MAXIMUM]
 [default enabled_ast_rewrites=DEFAULTS,-WITH_EXPR,+INLINE_SQL_FUNCTIONS]
 
 SELECT udf_templated_return_one();
@@ -421,7 +422,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+INLINE_LAMBDA_ARGUMENT]
 SELECT SUM_DOUBLE_ARRAY(GENERATE_ARRAY(1, 2, 3));
 --
 QueryStmt

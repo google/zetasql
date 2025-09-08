@@ -1,4 +1,5 @@
-[language_features={{|CONCAT_MIXED_TYPES}}]
+[default language_features=MAXIMUM]
+[language_features=NONE,{{|+CONCAT_MIXED_TYPES}}]
 select concat("a", "b");
 --
 QueryStmt
@@ -16,7 +17,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|CONCAT_MIXED_TYPES}}]
+[language_features=NONE,{{|+CONCAT_MIXED_TYPES}}]
 select concat(b"a", b"b");
 --
 QueryStmt
@@ -34,10 +35,10 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{CONCAT_MIXED_TYPES,IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES|CONCAT_MIXED_TYPES}}]
+[language_features=NONE,{{+CONCAT_MIXED_TYPES,+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES|+CONCAT_MIXED_TYPES}}]
 select concat("a", b"b");
 --
-ALTERNATION GROUP: CONCAT_MIXED_TYPES,IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
+ALTERNATION GROUP: +CONCAT_MIXED_TYPES,+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
 --
 QueryStmt
 +-output_column_list=
@@ -53,7 +54,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: CONCAT_MIXED_TYPES
+ALTERNATION GROUP: +CONCAT_MIXED_TYPES
 --
 ERROR: No matching signature for function CONCAT
   Argument types: STRING, BYTES
@@ -65,7 +66,7 @@ select concat("a", b"b");
        ^
 ==
 
-[language_features=CONCAT_MIXED_TYPES]
+[language_features=NONE,+CONCAT_MIXED_TYPES]
 select concat(1, b"b");
 --
 ERROR: No matching signature for function CONCAT
@@ -78,7 +79,7 @@ select concat(1, b"b");
        ^
 ==
 
-[language_features=CONCAT_MIXED_TYPES]
+[language_features=NONE,+CONCAT_MIXED_TYPES]
 select concat("a", 1)
 --
 QueryStmt
@@ -96,7 +97,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=CONCAT_MIXED_TYPES]
+[language_features=NONE,+CONCAT_MIXED_TYPES]
 select concat(n, "a") from unnest([1,2,3]) n
 --
 QueryStmt
@@ -119,7 +120,7 @@ QueryStmt
         +-element_column_list=[$array.n#1]
 ==
 
-[language_features=CONCAT_MIXED_TYPES]
+[language_features=NONE,+CONCAT_MIXED_TYPES]
 [allow_undeclared_parameters]
 select concat(NULL)
 --
@@ -138,7 +139,7 @@ QueryStmt
 [UNDECLARED_PARAMETERS]
 ==
 
-[language_features=CONCAT_MIXED_TYPES]
+[language_features=NONE,+CONCAT_MIXED_TYPES]
 [allow_undeclared_parameters]
 select concat(x, NULL, @param) from unnest([1]) x
 --
@@ -165,7 +166,7 @@ QueryStmt
 param: STRING
 ==
 
-[language_features=CONCAT_MIXED_TYPES]
+[language_features=NONE,+CONCAT_MIXED_TYPES]
 [allow_undeclared_parameters]
 [parameter_mode=positional]
 select concat(?, ?)
@@ -188,7 +189,7 @@ STRING
 STRING
 ==
 
-[language_features=CONCAT_MIXED_TYPES]
+[language_features=NONE,+CONCAT_MIXED_TYPES]
 [allow_undeclared_parameters]
 select concat(@param, b"b")
 --
@@ -209,7 +210,7 @@ QueryStmt
 param: BYTES
 ==
 
-[language_features=CONCAT_MIXED_TYPES]
+[language_features=NONE,+CONCAT_MIXED_TYPES]
 [parameter_mode=positional]
 [allow_undeclared_parameters]
 select concat(?, b"b")
@@ -231,7 +232,7 @@ QueryStmt
 BYTES
 ==
 
-[language_features=CONCAT_MIXED_TYPES]
+[language_features=NONE,+CONCAT_MIXED_TYPES]
 select concat(1 > 0, 0-5, 3.14+0, CAST(10 AS UINT64), CURRENT_TIMESTAMP, CURRENT_DATE)
 --
 QueryStmt
@@ -264,7 +265,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=CONCAT_MIXED_TYPES,CIVIL_TIME]
+[language_features=NONE,+CONCAT_MIXED_TYPES,+CIVIL_TIME]
 select concat(CURRENT_DATETIME, CURRENT_TIME)
 --
 QueryStmt
@@ -284,7 +285,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=CONCAT_MIXED_TYPES,INTERVAL_TYPE]
+[language_features=NONE,+CONCAT_MIXED_TYPES,+INTERVAL_TYPE]
 select concat("a", current_date - '2000-01-01');
 --
 QueryStmt
@@ -305,7 +306,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=CONCAT_MIXED_TYPES,NUMERIC_TYPE]
+[language_features=NONE,+CONCAT_MIXED_TYPES,+NUMERIC_TYPE]
 select concat(CAST(9876543210.123 AS NUMERIC))
 --
 QueryStmt
@@ -322,7 +323,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=CONCAT_MIXED_TYPES,GEOGRAPHY]
+[language_features=NONE,+CONCAT_MIXED_TYPES,+GEOGRAPHY]
 select concat(ST_GEOGPOINT(0, 0))
 --
 ERROR: No matching signature for function CONCAT
@@ -335,7 +336,7 @@ select concat(ST_GEOGPOINT(0, 0))
        ^
 ==
 
-[language_features=CONCAT_MIXED_TYPES]
+[language_features=NONE,+CONCAT_MIXED_TYPES]
 select concat([1,2,3])
 --
 ERROR: No matching signature for function CONCAT
@@ -348,7 +349,7 @@ select concat([1,2,3])
        ^
 ==
 
-[language_features=CONCAT_MIXED_TYPES]
+[language_features=NONE,+CONCAT_MIXED_TYPES]
 select concat((1,"foo"))
 --
 ERROR: No matching signature for function CONCAT
@@ -361,7 +362,7 @@ select concat((1,"foo"))
        ^
 ==
 
-[language_features=CONCAT_MIXED_TYPES]
+[language_features=NONE,+CONCAT_MIXED_TYPES]
 select concat(new zetasql_test__.EmptyMessage())
 --
 QueryStmt
@@ -379,7 +380,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=CONCAT_MIXED_TYPES]
+[language_features=NONE,+CONCAT_MIXED_TYPES]
 select concat(CAST(1 as zetasql_test__.TestEnum))
 --
 QueryStmt
@@ -396,7 +397,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=CONCAT_MIXED_TYPES,SAFE_FUNCTION_CALL]
+[language_features=NONE,+CONCAT_MIXED_TYPES,+SAFE_FUNCTION_CALL]
 select safe.concat(x) from unnest([1.0, -3.2]) x
 --
 QueryStmt
@@ -418,13 +419,13 @@ QueryStmt
         +-element_column_list=[$array.x#1]
 ==
 
-[language_features={{CONCAT_MIXED_TYPES,|}}TEMPLATE_FUNCTIONS]
+[language_features=NONE,{{+CONCAT_MIXED_TYPES,|}}+TEMPLATE_FUNCTIONS]
 CREATE FUNCTION MY_CONCAT(a ANY TYPE) AS (CONCAT(a, a));
 --
 CreateFunctionStmt(name_path=MY_CONCAT, return_type=STRUCT<>, argument_name_list=[a], signature=(ANY TYPE a) -> ANY TYPE, language="SQL", code="CONCAT(a, a)")
 ==
 
-[language_features={{|CONCAT_MIXED_TYPES}}]
+[language_features=NONE,{{|+CONCAT_MIXED_TYPES}}]
 SELECT 'abc' || 2
 --
 ALTERNATION GROUP: <empty>
@@ -440,7 +441,7 @@ ERROR: No matching signature for operator ||
 SELECT 'abc' || 2
        ^
 --
-ALTERNATION GROUP: CONCAT_MIXED_TYPES
+ALTERNATION GROUP: +CONCAT_MIXED_TYPES
 --
 QueryStmt
 +-output_column_list=
@@ -457,7 +458,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|CONCAT_MIXED_TYPES}}]
+[language_features=NONE,{{|+CONCAT_MIXED_TYPES}}]
 SELECT ARRAY<INT32>[1] || 2
 --
 ERROR: No matching signature for operator ||
@@ -472,7 +473,7 @@ SELECT ARRAY<INT32>[1] || 2
        ^
 ==
 
-[language_features={{|CONCAT_MIXED_TYPES}}]
+[language_features=NONE,{{|+CONCAT_MIXED_TYPES}}]
 SELECT ["abc"] || [2]
 --
 ERROR: No matching signature for operator ||

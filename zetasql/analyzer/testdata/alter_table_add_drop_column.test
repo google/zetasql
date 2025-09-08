@@ -1,3 +1,4 @@
+[default language_features=MAXIMUM]
 ALTER TABLE KeyValue ADD COLUMN bar STRING;
 --
 AlterTableStmt
@@ -183,7 +184,7 @@ ALTER TABLE KeyValue ADD COLUMN bar FOO;
 ==
 
 # Add with column attributes
-[language_features={{|CREATE_TABLE_NOT_NULL}}]
+[language_features=NONE,{{|+CREATE_TABLE_NOT_NULL}}]
 ALTER TABLE KeyValue ADD COLUMN bar STRING NOT NULL;
 --
 ALTERNATION GROUP: <empty>
@@ -192,7 +193,7 @@ ERROR: NOT NULL constraint is unsupported [at 1:44]
 ALTER TABLE KeyValue ADD COLUMN bar STRING NOT NULL;
                                            ^
 --
-ALTERNATION GROUP: CREATE_TABLE_NOT_NULL
+ALTERNATION GROUP: +CREATE_TABLE_NOT_NULL
 --
 AlterTableStmt
 +-name_path=KeyValue
@@ -317,7 +318,7 @@ ALTER TABLE KeyValue DROP COLUMN key, DROP COLUMN foo;
 ==
 
 # Add column with default value
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 ALTER TABLE KeyValue ADD COLUMN foo STRING DEFAULT 'abc';
 --
@@ -340,7 +341,7 @@ AlterTableStmt
 
 # Add column with default value, column type is date, default value is string
 # (disallowed).
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 ALTER TABLE KeyValue ADD COLUMN foo DATE DEFAULT 'random string';
 --
@@ -351,7 +352,7 @@ ALTER TABLE KeyValue ADD COLUMN foo DATE DEFAULT 'random string';
 
 # Add column with default value expression that reference existing column
 # (disallowed).
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 ALTER TABLE KeyValue ADD COLUMN foo INT64 DEFAULT value + 100;
 --
@@ -362,7 +363,7 @@ ALTER TABLE KeyValue ADD COLUMN foo INT64 DEFAULT value + 100;
 
 # Add column with default value expression that reference a new column
 # (disallowed).
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 ALTER TABLE KeyValue
   ADD COLUMN foo INT64,
@@ -374,7 +375,7 @@ ERROR: Default value expressions cannot reference columns [at 3:32]
 ==
 
 # Add column with default value expression that reference itself (disallowed)
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 ALTER TABLE KeyValue ADD COLUMN foo STRING DEFAULT foo;
 --
@@ -385,7 +386,7 @@ ALTER TABLE KeyValue ADD COLUMN foo STRING DEFAULT foo;
 
 # Add column with default value expression that reference a existing column in
 # different case.
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 ALTER TABLE KeyValue ADD COLUMN foo STRING DEFAULT VALUE;
 --
@@ -395,7 +396,7 @@ ALTER TABLE KeyValue ADD COLUMN foo STRING DEFAULT VALUE;
 ==
 
 # Add column with default value expression that reference a dropped column.
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 ALTER TABLE KeyValue DROP COLUMN key, ADD COLUMN foo STRING DEFAULT Key;
 --
@@ -406,7 +407,7 @@ ALTER TABLE KeyValue DROP COLUMN key, ADD COLUMN foo STRING DEFAULT Key;
 ==
 
 # Add column with default value expression that reference a random identifier
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 ALTER TABLE KeyValue ADD COLUMN foo STRING DEFAULT random_identifier;
 --
@@ -417,7 +418,7 @@ ALTER TABLE KeyValue ADD COLUMN foo STRING DEFAULT random_identifier;
 
 # Add column with default value, column type is date, default value is string
 # (disallowed).
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 ALTER TABLE KeyValue ADD COLUMN foo DATE DEFAULT 'random string';
 --
@@ -427,7 +428,7 @@ ALTER TABLE KeyValue ADD COLUMN foo DATE DEFAULT 'random string';
 ==
 
 # Add column with default value which has scalar subquery (disallowed).
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 ALTER TABLE KeyValue ADD COLUMN foo INT64 DEFAULT (select 1);
 --
@@ -437,7 +438,7 @@ ALTER TABLE KeyValue ADD COLUMN foo INT64 DEFAULT (select 1);
 ==
 
 # Add column with default value which contains lambda function.
-[language_features=COLUMN_DEFAULT_VALUE,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE,+INLINE_LAMBDA_ARGUMENT]
 [no_enable_literal_replacement]
 ALTER TABLE KeyValue ADD COLUMN e ARRAY<STRING> DEFAULT ARRAY_FILTER(['a'], e -> e = 'a');
 --
@@ -471,7 +472,7 @@ AlterTableStmt
 ==
 
 # Add column if not exists with default value existing column.
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 ALTER TABLE KeyValue ADD COLUMN IF NOT EXISTS key STRING DEFAULT 'abc';
 --
@@ -493,7 +494,7 @@ AlterTableStmt
 ==
 
 # Add column with default value existing column.
-[language_features=COLUMN_DEFAULT_VALUE]
+[language_features=NONE,+COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 ALTER TABLE KeyValue ADD COLUMN key STRING DEFAULT 'abc';
 --

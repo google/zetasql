@@ -1,4 +1,5 @@
 # Tests for the TYPEOF function.
+[default language_features=NONE]
 [default enabled_ast_rewrites=DEFAULTS]
 
 SELECT TYPEOF(NULL);
@@ -8,7 +9,7 @@ SELECT TYPEOF(NULL);
        ^
 ==
 
-[default language_features=TYPEOF_FUNCTION]
+[default language_features=NONE,+TYPEOF_FUNCTION]
 SELECT TYPEOF({{NULL|1|1+1}});
 --
 ALTERNATION GROUP: NULL
@@ -199,7 +200,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=SAFE_FUNCTION_CALL,TYPEOF_FUNCTION]
+[language_features=NONE,+SAFE_FUNCTION_CALL,+TYPEOF_FUNCTION]
 SELECT SAFE.TYPEOF(1);
 --
 QueryStmt

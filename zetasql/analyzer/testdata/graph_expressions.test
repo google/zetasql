@@ -1,4 +1,4 @@
-[default language_features=SQL_GRAPH]
+[default language_features=NONE,+SQL_GRAPH]
 [default no_test_extract_table_names]
 [default show_sqlbuilder_output]
 
@@ -578,7 +578,7 @@ ERROR: Property unknown is not defined in PropertyGraph aml [at 3:57]
 
 ==
 
-[language_features=SQL_GRAPH,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+SQL_GRAPH,+INLINE_LAMBDA_ARGUMENT]
 
 select * from graph_table(
   aml
@@ -749,7 +749,7 @@ FROM
      aml_1.a_3 AS has_birthday;
 ==
 
-[language_features=SQL_GRAPH{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=NONE,+SQL_GRAPH{{|,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select 1 from graph_table(
   aml
   match (n)
@@ -763,7 +763,7 @@ ERROR: Graph element typed expression is not allowed here [at 4:13]
   columns ([n] as array_of_n)
             ^
 --
-ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 QueryStmt
 +-output_column_list=
@@ -842,7 +842,7 @@ FROM
      1 AS a_5;
 ==
 
-[language_features=SQL_GRAPH{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=NONE,+SQL_GRAPH{{|,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 [no_run_sqlbuilder]
 select 1 from graph_table(
   aml
@@ -857,7 +857,7 @@ ERROR: Graph element typed expression is not allowed here [at 3:25]
   match (n where struct(n as e).e.id > 0)
                         ^
 --
-ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 QueryStmt
 +-output_column_list=
@@ -924,7 +924,7 @@ ERROR: Graph element typed expression is not allowed here [at 4:38]
                                      ^
 ==
 
-[language_features=SQL_GRAPH{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=NONE,+SQL_GRAPH{{|,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select 1 from graph_table(
   aml
   match (n)
@@ -937,7 +937,7 @@ ERROR: Graph element typed expression is not allowed here [at 4:13]
   columns ((n is null) as n_is_null)
             ^
 --
-ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 QueryStmt
 +-output_column_list=
@@ -1016,7 +1016,7 @@ FROM
      1 AS a_5;
 ==
 
-[language_features=SQL_GRAPH{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=NONE,+SQL_GRAPH{{|,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select 1 from graph_table(
   aml
   match (n)
@@ -1032,7 +1032,7 @@ ERROR: No matching signature for function IF
   columns (if(true, n, n) AS if_expr)
            ^
 --
-ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 QueryStmt
 +-output_column_list=
@@ -1113,7 +1113,7 @@ FROM
      1 AS a_5;
 ==
 
-[language_features=SQL_GRAPH{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=NONE,+SQL_GRAPH{{|,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select 1 from graph_table(
   aml
   match (n)
@@ -1129,7 +1129,7 @@ ERROR: No matching signature for aggregate function ARRAY_AGG
   columns (array_length((SELECT array_agg(n) FROM (select 1))) as arr_length)
                                 ^
 --
-ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 QueryStmt
 +-output_column_list=
@@ -1642,7 +1642,7 @@ ERROR: No matching signature for function ALL_DIFFERENT
 
 ==
 
-[language_features=SQL_GRAPH,JSON_TYPE,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[language_features=NONE,+SQL_GRAPH,+JSON_TYPE,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [no_run_sqlbuilder]
 select * from graph_table(
   aml
@@ -1725,7 +1725,7 @@ QueryStmt
 
 ==
 
-[language_features=SQL_GRAPH,JSON_TYPE,NAMED_ARGUMENTS,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[language_features=NONE,+SQL_GRAPH,+JSON_TYPE,+NAMED_ARGUMENTS,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 select * from graph_table(
   aml
   match (n) -[e]-> (m)
@@ -2307,7 +2307,7 @@ ERROR: Operand to IS LABELED must be a graph element [at 4:11]
           ^
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 # <is labeled predicate> currently only supports column references
 SELECT * FROM GRAPH_TABLE(
   aml
@@ -2320,7 +2320,7 @@ ERROR: Operand to IS LABELED must be a column reference [at 5:11]
           ^
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 # <is labeled predicate> returns error if label is not applicable to LHS
 # based on inconsistent element types (node vs edge)
 SELECT * FROM GRAPH_TABLE(
@@ -2646,7 +2646,7 @@ FROM
 ==
 
 # TODO: b/348064840 - Add test cases for path variables
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 select gt.* from graph_table(
   aml
   match (n), (-[e]-){3}
@@ -2823,7 +2823,7 @@ FROM
      aml_1.a_6 AS edge_name;
 ==
 
-[language_features=SQL_GRAPH,JSON_TYPE,JSON_MUTATOR_FUNCTIONS{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=NONE,+SQL_GRAPH,+JSON_TYPE,+JSON_MUTATOR_FUNCTIONS{{|,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 [no_run_sqlbuilder]
 select 1 from graph_table(
   aml
@@ -2841,7 +2841,7 @@ ERROR: No matching signature for function JSON_ARRAY_APPEND
   columns(JSON_ARRAY_APPEND(JSON '[]', '$', a) AS json_array_append)
           ^
 --
-ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 QueryStmt
 +-output_column_list=
@@ -2878,7 +2878,7 @@ QueryStmt
               +-Literal(type=BOOL, value=true)
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY{{|,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select 1 from graph_table(
   aml
   match (a:Person)
@@ -2897,7 +2897,7 @@ ERROR: No matching signature for aggregate function ANY_VALUE
   return ANY_VALUE(a) AS any_value,
          ^
 --
-ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 QueryStmt
 +-output_column_list=
@@ -2996,7 +2996,7 @@ FROM
      1 AS a_7;
 ==
 
-[language_features=SQL_GRAPH{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=NONE,+SQL_GRAPH{{|,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select 1 from graph_table(
   aml
   match (a:Person)
@@ -3009,7 +3009,7 @@ ERROR: LEAST is not defined for arguments of type GRAPH_NODE(aml)<age UINT32, bi
           ^
 ==
 
-[language_features=SQL_GRAPH{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=NONE,+SQL_GRAPH{{|,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select 1 from graph_table(
   aml
   match (a:Person)
@@ -3021,7 +3021,7 @@ ERROR: MAX is not defined for arguments of type GRAPH_NODE(aml)<age UINT32, birt
           ^
 ==
 
-[language_features=SQL_GRAPH,ANALYTIC_FUNCTIONS{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=NONE,+SQL_GRAPH,+ANALYTIC_FUNCTIONS{{|,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select 1 from (
 select FIRST_VALUE(a) OVER (ORDER BY a.id) from graph_table(
   aml
@@ -3037,7 +3037,7 @@ ERROR: Graph element typed expression is not allowed here [at 5:11]
   columns(a)
           ^
 --
-ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 QueryStmt
 +-output_column_list=
@@ -3171,7 +3171,7 @@ FROM
      1 AS a_10;
 ==
 
-[language_features=SQL_GRAPH,NAMED_ARGUMENTS,TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS,TABLE_VALUED_FUNCTIONS{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=NONE,+SQL_GRAPH,+NAMED_ARGUMENTS,+TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS,+TABLE_VALUED_FUNCTIONS{{|,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select x.id from tvf_templated_select_any_scalar_arg((select a from graph_table(
   aml
   match (a:Person)
@@ -3184,7 +3184,7 @@ ERROR: Graph element typed expression is not allowed here [at 4:11]
   columns(a)
           ^
 --
-ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 QueryStmt
 +-output_column_list=
@@ -3291,7 +3291,7 @@ FROM
      tvfscan_4.x.id AS id;
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,INLINE_LAMBDA_ARGUMENT,CAST_DIFFERENT_ARRAY_TYPES,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,+INLINE_LAMBDA_ARGUMENT,+CAST_DIFFERENT_ARRAY_TYPES,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 select ARRAY_LENGTH(arr) from graph_table(
   aml
   MATCH ANY ((x IS Person)-[y]->(z IS Account|Person)){3}
@@ -3424,7 +3424,7 @@ FROM
      ARRAY_LENGTH(graphtablescan_6.a_5) AS a_7;
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,INLINE_LAMBDA_ARGUMENT,CAST_DIFFERENT_ARRAY_TYPES,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,+INLINE_LAMBDA_ARGUMENT,+CAST_DIFFERENT_ARRAY_TYPES,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 select * from graph_table(
   aml
   MATCH ANY ((x IS Person)-[y]->(z IS Account|Person)){3}
@@ -3560,7 +3560,7 @@ FROM
 ==
 
 # Repro test for b/355707672
-[language_features=SQL_GRAPH,NAMED_ARGUMENTS,TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS,TABLE_VALUED_FUNCTIONS,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,SQL_GRAPH_ADVANCED_QUERY]
+[language_features=NONE,+SQL_GRAPH,+NAMED_ARGUMENTS,+TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS,+TABLE_VALUED_FUNCTIONS,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,+SQL_GRAPH_ADVANCED_QUERY]
 select (select x from graph_table(aml match (n:Person) return x))
 from tvf_templated_select_any_scalar_arg(1)
 --
@@ -3677,7 +3677,7 @@ FROM
      ) AS a_2;
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_PATH_TYPE,JSON_TYPE]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_PATH_TYPE,+JSON_TYPE]
 [no_run_sqlbuilder]
 select * from graph_table(
   aml
@@ -3751,7 +3751,7 @@ QueryStmt
               +-Literal(type=BOOL, value=false)
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_PATH_TYPE,JSON_TYPE,NAMED_ARGUMENTS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_PATH_TYPE,+JSON_TYPE,+NAMED_ARGUMENTS]
 select * from graph_table(
   aml
   match p=(n) -[e]-> (m)
@@ -3861,7 +3861,7 @@ FROM
      aml_1.a_6 AS js_p;
 ==
 
-[language_features=SQL_GRAPH{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=NONE,+SQL_GRAPH{{|,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select * from graph_table(
   aml
   match (a) -[e]-> (b)
@@ -3874,14 +3874,14 @@ ERROR: Graph element typed expression is not allowed here [at 4:11]
   columns(a <= a as v)
           ^
 --
-ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 ERROR: Less than is not defined for arguments of type GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING> [at 4:11]
   columns(a <= a as v)
           ^
 ==
 
-[language_features=SQL_GRAPH{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=NONE,+SQL_GRAPH{{|,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select * from graph_table(
   aml
   match (a) -[e]-> (b)
@@ -3894,14 +3894,14 @@ ERROR: Graph element typed expression is not allowed here [at 4:11]
   columns(e <= e as v)
           ^
 --
-ALTERNATION GROUP: ,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
+ALTERNATION GROUP: ,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT
 --
 ERROR: Less than is not defined for arguments of type GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, targetAccountId INT64> [at 4:11]
   columns(e <= e as v)
           ^
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_PATH_TYPE]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_PATH_TYPE]
 select * from graph_table(
   aml
   match p=(n) -[e]-> (m)

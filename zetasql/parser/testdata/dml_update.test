@@ -557,7 +557,7 @@ update T SET set = 5
              ^
 ==
 
-[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features=NONE,{{|+ALLOW_DASHES_IN_TABLE_NAME}}]
 update a-100.b.c
 set x=y
 --
@@ -567,7 +567,7 @@ ERROR: Syntax error: Table name contains '-' character. The dashed identifier pa
 update a-100.b.c
        ^
 --
-ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: +ALLOW_DASHES_IN_TABLE_NAME
 --
 UpdateStatement [0-24] [update a-100.b.c set x=y]
   PathExpression [7-16] [a-100.b.c]

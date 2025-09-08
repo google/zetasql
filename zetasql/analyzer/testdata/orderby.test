@@ -1,3 +1,4 @@
+[default language_features=MAXIMUM]
 select 1, 2, 3 from KeyValue order by 2 desc, 3, 1 asc;
 --
 QueryStmt
@@ -546,7 +547,7 @@ order by 1;
 ==
 
 # Cannot ORDER BY array unless the relevant language feature is enabled.
-[language_features={{|ARRAY_ORDERING}}]
+[language_features=NONE,{{|+ARRAY_ORDERING}}]
 select Int32Array from ComplexTypes
 order by 1;
 --
@@ -556,7 +557,7 @@ ERROR: ORDER BY does not support expressions of type ARRAY<INT32> [at 2:10]
 order by 1;
          ^
 --
-ALTERNATION GROUP: ARRAY_ORDERING
+ALTERNATION GROUP: +ARRAY_ORDERING
 --
 QueryStmt
 +-output_column_list=
@@ -575,7 +576,7 @@ QueryStmt
 
 # Cannot ORDER BY array with unorderable element type even if the array
 # ordering language feature is enabled.
-[language_features={{|ARRAY_ORDERING}}]
+[language_features=NONE,{{|+ARRAY_ORDERING}}]
 select [KitchenSink] from ComplexTypes
 order by 1;
 --
@@ -768,6 +769,7 @@ QueryStmt
 # ORDER BY a bunch of redundant expressions and ordinals.  TODO: Do
 # duplicate column elimination - do not add new ResolvedColumns for order by
 # expressions if they are already present.
+[no_enable_literal_replacement]
 select * from KeyValue
 order by key, value, 1, 2, value, 1, key, 2, key + 1, 1, key + 1
 --
@@ -781,13 +783,9 @@ QueryStmt
     +-is_ordered=TRUE
     +-input_scan=
     | +-ProjectScan
-    |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $orderby.$orderbycol9#3, $orderby.$orderbycol11#4]
+    |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $orderby.$orderbycol9#3]
     |   +-expr_list=
     |   | +-$orderbycol9#3 :=
-    |   | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
-    |   | |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-    |   | |   +-Literal(type=INT64, value=1)
-    |   | +-$orderbycol11#4 :=
     |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
     |   |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
     |   |     +-Literal(type=INT64, value=1)
@@ -826,12 +824,13 @@ QueryStmt
       |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
       +-OrderByItem
         +-column_ref=
-          +-ColumnRef(type=INT64, column=$orderby.$orderbycol11#4)
+          +-ColumnRef(type=INT64, column=$orderby.$orderbycol9#3)
 ==
 
 # ORDER BY redundant column references, ordinals and expressions after
 # UNION ALL. TODO: Do duplicate column elimination - do not add new
 # ResolvedColumns for order by expressions if they are already present.
+[no_enable_literal_replacement]
 select key as key1, value as value1
 from KeyValue
 union all
@@ -849,13 +848,9 @@ QueryStmt
     +-is_ordered=TRUE
     +-input_scan=
     | +-ProjectScan
-    |   +-column_list=[$union_all.key1#5, $union_all.value1#6, $orderby.$orderbycol9#7, $orderby.$orderbycol11#8]
+    |   +-column_list=[$union_all.key1#5, $union_all.value1#6, $orderby.$orderbycol9#7]
     |   +-expr_list=
     |   | +-$orderbycol9#7 :=
-    |   | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
-    |   | |   +-ColumnRef(type=INT64, column=$union_all.key1#5)
-    |   | |   +-Literal(type=INT64, value=1)
-    |   | +-$orderbycol11#8 :=
     |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
     |   |     +-ColumnRef(type=INT64, column=$union_all.key1#5)
     |   |     +-Literal(type=INT64, value=1)
@@ -911,7 +906,7 @@ QueryStmt
       |   +-ColumnRef(type=INT64, column=$union_all.key1#5)
       +-OrderByItem
         +-column_ref=
-          +-ColumnRef(type=INT64, column=$orderby.$orderbycol11#8)
+          +-ColumnRef(type=INT64, column=$orderby.$orderbycol9#7)
 ==
 
 # Order by expression
@@ -1472,7 +1467,7 @@ QueryStmt
           +-ColumnRef(type=STRING, column=$distinct.maxvalue#6)
 ==
 
-[language_features=ANALYTIC_FUNCTIONS]
+[language_features=NONE,+ANALYTIC_FUNCTIONS]
 select distinct value, rank() over (order by key) as rankvalue from keyvalue
 order by value, 2;
 --
@@ -1514,7 +1509,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$distinct.rankvalue#6)
 ==
 
-[language_features=ANALYTIC_FUNCTIONS]
+[language_features=NONE,+ANALYTIC_FUNCTIONS]
 select distinct value, rank() over (order by key) as rankvalue from keyvalue
 order by value, rankvalue;
 --
@@ -1556,7 +1551,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$distinct.rankvalue#6)
 ==
 
-[language_features=ANALYTIC_FUNCTIONS]
+[language_features=NONE,+ANALYTIC_FUNCTIONS]
 select distinct value, key from keyvalue
 order by value, rank() over (order by key);
 --
@@ -3067,7 +3062,7 @@ select 1 FROM UNNEST([1,2,3]) as e WITH OFFSET o GROUP BY e ORDER BY o
                                                                      ^
 ==
 
-[language_features=GROUP_BY_STRUCT]
+[language_features=NONE,+GROUP_BY_STRUCT]
 SELECT TestStruct
 FROM ComplexTypes
 GROUP BY TestStruct
@@ -3115,7 +3110,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#8)
 ==
 
-[language_features=GROUP_BY_STRUCT]
+[language_features=NONE,+GROUP_BY_STRUCT]
 SELECT TestStruct.d as TestStruct
 FROM ComplexTypes ct
 GROUP BY TestStruct, ct.TestStruct
@@ -3171,7 +3166,7 @@ ORDER BY TestStruct.c
                     ^
 ==
 
-[language_features=ANALYTIC_FUNCTIONS{{|,NULLS_FIRST_LAST_IN_ORDER_BY}}]
+[language_features=NONE,+ANALYTIC_FUNCTIONS{{|,+NULLS_FIRST_LAST_IN_ORDER_BY}}]
 select key from KeyValue order by key nulls {{first|last}};
 --
 ALTERNATION GROUP: first
@@ -3186,7 +3181,7 @@ ERROR: NULLS FIRST and NULLS LAST are not supported [at 1:39]
 select key from KeyValue order by key nulls last;
                                       ^
 --
-ALTERNATION GROUP: ,NULLS_FIRST_LAST_IN_ORDER_BY,first
+ALTERNATION GROUP: ,+NULLS_FIRST_LAST_IN_ORDER_BY,first
 --
 QueryStmt
 +-output_column_list=
@@ -3203,7 +3198,7 @@ QueryStmt
         | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         +-null_order=NULLS_FIRST
 --
-ALTERNATION GROUP: ,NULLS_FIRST_LAST_IN_ORDER_BY,last
+ALTERNATION GROUP: ,+NULLS_FIRST_LAST_IN_ORDER_BY,last
 --
 QueryStmt
 +-output_column_list=

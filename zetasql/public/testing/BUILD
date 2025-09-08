@@ -14,6 +14,9 @@
 # limitations under the License.
 #
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 package(
     default_visibility = ["//visibility:public"],
 )
@@ -24,9 +27,11 @@ cc_library(
     srcs = ["test_case_options_util.cc"],
     hdrs = ["test_case_options_util.h"],
     deps = [
-        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/common:options_utils",
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
+        "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_file_based_test_driver//file_based_test_driver:test_case_options",

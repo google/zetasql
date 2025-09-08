@@ -20,6 +20,7 @@
 #include <memory>
 #include <optional>
 
+#include "zetasql/public/constant_evaluator.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/status/statusor.h"
@@ -77,6 +78,16 @@ class FunctionEpsilonAssigner {
   // scan. Returns an error in case the sum of all `epsilon` named arguments
   // exceeds the `epsilon` option of the scan. Must be a rewritten scan, so that
   // additional aggregations for group selection might already have been added.
+  //
+  // The evaluator must be provided and cannot be null.  It is used to evaluate
+  // DP options and named-arguments on DP aggregation functions.
+  static absl::StatusOr<std::unique_ptr<FunctionEpsilonAssigner>>
+  CreateFromScan(const ResolvedDifferentialPrivacyAggregateScan* scan,
+                 std::unique_ptr<ConstantEvaluator> evaluator);
+
+  // Deprecated function that will be removed once all engines are migrated to
+  // the new factory function that also accepts an evaluator (see above).
+  [[deprecated("Use the function that accepts an evaluator instead.")]]
   static absl::StatusOr<std::unique_ptr<FunctionEpsilonAssigner>>
   CreateFromScan(const ResolvedDifferentialPrivacyAggregateScan* scan);
 

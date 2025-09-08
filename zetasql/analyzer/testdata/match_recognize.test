@@ -1,7 +1,7 @@
-[default language_features=MATCH_RECOGNIZE,TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS,NULLS_FIRST_LAST_IN_ORDER_BY,ANALYTIC_FUNCTIONS,ORDER_BY_IN_AGGREGATE]
+[default language_features=MAXIMUM,+MATCH_RECOGNIZE]
 [default show_sqlbuilder_output]
 
-[language_features=NULLS_FIRST_LAST_IN_ORDER_BY{{|,MATCH_RECOGNIZE}}]
+[language_features=MAXIMUM{{,-MATCH_RECOGNIZE|}}]
 # In many of these basic cases, we're intentionally using:
 # 1. SELECT *, to verify the output columns from MATCH_RECOGNIZE
 # 2. Complex expressions over aggregates in the MEASURES clause to ensure they
@@ -16,14 +16,14 @@ select * from KeyValue MATCH_RECOGNIZE(
 )
 --
 ALTERNATION GROUPS:
-    key DESC
-    key + 1 DESC NULLS FIRST
+    ,-MATCH_RECOGNIZE,key DESC
+    ,-MATCH_RECOGNIZE,key + 1 DESC NULLS FIRST
 --
 ERROR: MATCH_RECOGNIZE is not supported [at 5:24]
 select * from KeyValue MATCH_RECOGNIZE(
                        ^
 --
-ALTERNATION GROUP: ,MATCH_RECOGNIZE,key DESC
+ALTERNATION GROUP: key DESC
 --
 QueryStmt
 +-output_column_list=
@@ -139,7 +139,7 @@ FROM
 |> SELECT
      (matchrecognizescan_7.a_4) - (matchrecognizescan_7.a_5) AS m;
 --
-ALTERNATION GROUP: ,MATCH_RECOGNIZE,key + 1 DESC NULLS FIRST
+ALTERNATION GROUP: key + 1 DESC NULLS FIRST
 --
 QueryStmt
 +-output_column_list=
@@ -277,7 +277,7 @@ FROM
      (matchrecognizescan_9.a_6) - (matchrecognizescan_9.a_7) AS m;
 ==
 
-[language_features=NULLS_FIRST_LAST_IN_ORDER_BY{{|,MATCH_RECOGNIZE}}]
+[language_features=MAXIMUM{{,-MATCH_RECOGNIZE|}}]
 # subquery
 select * from (SELECT * FROM KeyValue) AS k MATCH_RECOGNIZE(
   ORDER BY {{key DESC|key + 1 DESC NULLS FIRST}}
@@ -289,14 +289,14 @@ select * from (SELECT * FROM KeyValue) AS k MATCH_RECOGNIZE(
 )
 --
 ALTERNATION GROUPS:
-    key DESC
-    key + 1 DESC NULLS FIRST
+    ,-MATCH_RECOGNIZE,key DESC
+    ,-MATCH_RECOGNIZE,key + 1 DESC NULLS FIRST
 --
 ERROR: MATCH_RECOGNIZE is not supported [at 2:45]
 select * from (SELECT * FROM KeyValue) AS k MATCH_RECOGNIZE(
                                             ^
 --
-ALTERNATION GROUP: ,MATCH_RECOGNIZE,key DESC
+ALTERNATION GROUP: key DESC
 --
 QueryStmt
 +-output_column_list=
@@ -415,7 +415,7 @@ FROM
 |> SELECT
      (matchrecognizescan_7.a_4) - (matchrecognizescan_7.a_5) AS m;
 --
-ALTERNATION GROUP: ,MATCH_RECOGNIZE,key + 1 DESC NULLS FIRST
+ALTERNATION GROUP: key + 1 DESC NULLS FIRST
 --
 QueryStmt
 +-output_column_list=
@@ -556,7 +556,7 @@ FROM
      (matchrecognizescan_9.a_6) - (matchrecognizescan_9.a_7) AS m;
 ==
 
-[language_features=NULLS_FIRST_LAST_IN_ORDER_BY{{|,MATCH_RECOGNIZE}}]
+[language_features=MAXIMUM{{,-MATCH_RECOGNIZE|}}]
 # UNNEST
 select * from UNNEST(['abc', 'def']) AS value MATCH_RECOGNIZE(
   ORDER BY {{key DESC|key + 1 DESC NULLS FIRST}}
@@ -572,7 +572,7 @@ select * from UNNEST(['abc', 'def']) AS value MATCH_RECOGNIZE(
                                               ^
 ==
 
-[language_features=NULLS_FIRST_LAST_IN_ORDER_BY{{|,MATCH_RECOGNIZE}}]
+[language_features=MAXIMUM{{,-MATCH_RECOGNIZE|}}]
 # 2 UNNESTs
 select * from UNNEST([1, 2]) AS key, UNNEST(['abc', 'def']) AS value
 MATCH_RECOGNIZE(
@@ -589,7 +589,7 @@ MATCH_RECOGNIZE(
 ^
 ==
 
-[language_features=NULLS_FIRST_LAST_IN_ORDER_BY{{|,MATCH_RECOGNIZE}}]
+[language_features=MAXIMUM{{,-MATCH_RECOGNIZE|}}]
 # Table with 2 UNNESTs
 select * from UNNEST([1, 2]) AS key, UNNEST(['abc', 'def']) AS value
 MATCH_RECOGNIZE(
@@ -606,7 +606,7 @@ MATCH_RECOGNIZE(
 ^
 ==
 
-[language_features=TABLE_VALUED_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY{{|,MATCH_RECOGNIZE}}]
+[language_features=MAXIMUM{{,-MATCH_RECOGNIZE|}}]
 # TVF
 select * from tvf_no_args()
 MATCH_RECOGNIZE(
@@ -618,13 +618,13 @@ MATCH_RECOGNIZE(
     B AS NOT column_bool
 )
 --
-ALTERNATION GROUP: <empty>
+ALTERNATION GROUP: ,-MATCH_RECOGNIZE
 --
 ERROR: MATCH_RECOGNIZE is not supported [at 3:1]
 MATCH_RECOGNIZE(
 ^
 --
-ALTERNATION GROUP: ,MATCH_RECOGNIZE
+ALTERNATION GROUP: <empty>
 --
 QueryStmt
 +-output_column_list=
@@ -726,7 +726,7 @@ FROM
      matchrecognizescan_6.a_4 AS m;
 ==
 
-[language_features=NULLS_FIRST_LAST_IN_ORDER_BY{{|,MATCH_RECOGNIZE}}]
+[language_features=MAXIMUM{{,-MATCH_RECOGNIZE|}}]
 # parenthesized join
 select * from (KeyValue t1 INNER JOIN KeyValue t2 ON t1.key = t2.key)
 MATCH_RECOGNIZE(
@@ -740,14 +740,14 @@ MATCH_RECOGNIZE(
 --
 
 ALTERNATION GROUPS:
-    t1.key DESC
-    t1.key + 1 DESC NULLS FIRST
+    ,-MATCH_RECOGNIZE,t1.key DESC
+    ,-MATCH_RECOGNIZE,t1.key + 1 DESC NULLS FIRST
 --
 ERROR: MATCH_RECOGNIZE is not supported [at 3:1]
 MATCH_RECOGNIZE(
 ^
 --
-ALTERNATION GROUP: ,MATCH_RECOGNIZE,t1.key DESC
+ALTERNATION GROUP: t1.key DESC
 --
 QueryStmt
 +-output_column_list=
@@ -905,7 +905,7 @@ FROM
 |> SELECT
      (matchrecognizescan_11.a_8) - (matchrecognizescan_11.a_9) AS m;
 --
-ALTERNATION GROUP: ,MATCH_RECOGNIZE,t1.key + 1 DESC NULLS FIRST
+ALTERNATION GROUP: t1.key + 1 DESC NULLS FIRST
 --
 QueryStmt
 +-output_column_list=
@@ -1075,7 +1075,7 @@ FROM
      (matchrecognizescan_12.a_9) - (matchrecognizescan_12.a_10) AS m;
 ==
 
-[language_features=SQL_GRAPH,NULLS_FIRST_LAST_IN_ORDER_BY{{|,MATCH_RECOGNIZE}}]
+[language_features=MAXIMUM,+SQL_GRAPH,{{,-MATCH_RECOGNIZE|}}]
 select * from graph_table(aml MATCH (n) COLUMNS(n.age AS key, n.name AS value))
 MATCH_RECOGNIZE(
   ORDER BY {{key DESC|key + 1 DESC NULLS FIRST}}
@@ -1087,14 +1087,14 @@ MATCH_RECOGNIZE(
 )
 --
 ALTERNATION GROUPS:
-    key DESC
-    key + 1 DESC NULLS FIRST
+    ,-MATCH_RECOGNIZE,key DESC
+    ,-MATCH_RECOGNIZE,key + 1 DESC NULLS FIRST
 --
 ERROR: MATCH_RECOGNIZE is not supported [at 2:1]
 MATCH_RECOGNIZE(
 ^
 --
-ALTERNATION GROUP: ,MATCH_RECOGNIZE,key DESC
+ALTERNATION GROUP: key DESC
 --
 QueryStmt
 +-output_column_list=
@@ -1145,12 +1145,16 @@ QueryStmt
             |     |   +-expr=
             |     |   | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
             |     |   +-property=age(UINT32)
+            |     |   +-property_name=
+            |     |     +-Literal(type=STRING, value="age", has_explicit_type=TRUE)
             |     +-value#3 :=
             |       +-GraphGetElementProperty
             |         +-type=STRING
             |         +-expr=
             |         | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
             |         +-property=name(STRING)
+            |         +-property_name=
+            |           +-Literal(type=STRING, value="name", has_explicit_type=TRUE)
             +-analytic_function_group_list=
             | +-AnalyticFunctionGroup
             |   +-order_by=
@@ -1264,7 +1268,7 @@ FROM
 |> SELECT
      (matchrecognizescan_9.a_6) - (matchrecognizescan_9.a_7) AS m;
 --
-ALTERNATION GROUP: ,MATCH_RECOGNIZE,key + 1 DESC NULLS FIRST
+ALTERNATION GROUP: key + 1 DESC NULLS FIRST
 --
 QueryStmt
 +-output_column_list=
@@ -1324,12 +1328,16 @@ QueryStmt
             |         |   +-expr=
             |         |   | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
             |         |   +-property=age(UINT32)
+            |         |   +-property_name=
+            |         |     +-Literal(type=STRING, value="age", has_explicit_type=TRUE)
             |         +-value#3 :=
             |           +-GraphGetElementProperty
             |             +-type=STRING
             |             +-expr=
             |             | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
             |             +-property=name(STRING)
+            |             +-property_name=
+            |               +-Literal(type=STRING, value="name", has_explicit_type=TRUE)
             +-analytic_function_group_list=
             | +-AnalyticFunctionGroup
             |   +-order_by=
@@ -2434,7 +2442,7 @@ ERROR: Aggregate function MAX not allowed in MATCH_RECOGNIZE DEFINE predicate [a
 
 # Conditional evaluation is not yet supported
 # Conditional on the whole MATCH_RECOGNIZE operation
-[language_features=MATCH_RECOGNIZE,ENFORCE_CONDITIONAL_EVALUATION]
+[language_features=MAXIMUM,+MATCH_RECOGNIZE,+ENFORCE_CONDITIONAL_EVALUATION]
 SELECT IF(key = 0, NULL,
         (select * from KeyValue MATCH_RECOGNIZE(
           ORDER BY 1/outer_tbl.key        # Could be a div by zero error
@@ -2453,7 +2461,7 @@ ERROR: Conditional evaluation is not supported with MATCH_RECOGNIZE [at 2:33]
 
 # Conditional evaluation is not yet supported
 # Conditional on aggregations in the MATCH_RECOGNIZE clause
-[language_features=MATCH_RECOGNIZE,ENFORCE_CONDITIONAL_EVALUATION]
+[language_features=MAXIMUM,+MATCH_RECOGNIZE,+ENFORCE_CONDITIONAL_EVALUATION]
 select * from KeyValue MATCH_RECOGNIZE(
   ORDER BY 1/key
   MEASURES IF(min(length(value)) > 0, min(1/length(value)), NULL) AS x
@@ -3478,7 +3486,6 @@ ERROR: Ordinals are not allowed in MATCH_RECOGNIZE ORDER BY clause [at 2:12]
            ^
 ==
 
-[language_features=MATCH_RECOGNIZE,JSON_TYPE]
 # ORDER BY expressions must be of an orderable type. JSON is not orderable.
 select * from KeyValue MATCH_RECOGNIZE(
   ORDER BY JSON'{"f":1}'
@@ -3488,12 +3495,11 @@ select * from KeyValue MATCH_RECOGNIZE(
     A AS length(value) < 10
 )
 --
-ERROR: Ordering by expressions of type JSON is not allowed [at 3:12]
+ERROR: Ordering by expressions of type JSON is not allowed [at 2:12]
   ORDER BY JSON'{"f":1}'
            ^
 ==
 
-[language_features=MATCH_RECOGNIZE,ORDER_BY_COLLATE]
 # ORDER BY with collation
 select * from KeyValue MATCH_RECOGNIZE(
   ORDER BY value COLLATE "en_US"
@@ -4176,7 +4182,6 @@ FROM
      matchrecognizescan_5.a_3 AS m;
 ==
 
-[language_features=MATCH_RECOGNIZE,WITH_ON_SUBQUERY]
 # DML column in partition by
 DELETE FROM KeyValue WHERE
   (
@@ -4354,7 +4359,6 @@ WHERE
   ) > 0;
 ==
 
-[language_features=MATCH_RECOGNIZE,WITH_ON_SUBQUERY]
 # DML column in partition by with duplication
 DELETE FROM KeyValue WHERE
   (
@@ -4539,7 +4543,6 @@ WHERE
   ) > 0;
 ==
 
-[language_features=MATCH_RECOGNIZE,WITH_ON_SUBQUERY]
 # DML column referenced in measures, including with scoping to variables.
 DELETE FROM KeyValue WHERE
   (
@@ -4865,7 +4868,6 @@ WHERE
   ) > 0;
 ==
 
-[language_features=MATCH_RECOGNIZE,NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,HAVING_IN_AGGREGATE,LIMIT_IN_AGGREGATE]
 # Modifiers on the measure aggregations
 select * from KeyValue MATCH_RECOGNIZE(
   ORDER BY value
@@ -6588,19 +6590,19 @@ SELECT * FROM KeyValue MATCH_RECOGNIZE (
 --
 ALTERNATION GROUP: @test_param_string
 --
-ERROR: Syntax error: Unexpected "@" [at 7:12]
+ERROR: Syntax error: Expected ")" but got "@" [at 7:12]
   OPTIONS (@test_param_string = true)
            ^
 --
 ALTERNATION GROUP: @p
 --
-ERROR: Syntax error: Unexpected "@" [at 7:12]
+ERROR: Syntax error: Expected ")" but got "@" [at 7:12]
   OPTIONS (@p = true)
            ^
 --
 ALTERNATION GROUP: ?
 --
-ERROR: Syntax error: Unexpected "?" [at 7:12]
+ERROR: Syntax error: Expected ")" but got "?" [at 7:12]
   OPTIONS (? = true)
            ^
 --
@@ -6941,7 +6943,6 @@ RETURNS INT64 AS (
 
 # Grouping constants, catalog constants, correlated references, etc are OK since
 # they're the same for all rows.
-[language_features=MATCH_RECOGNIZE,TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS,WITH_ON_SUBQUERY,INLINE_LAMBDA_ARGUMENT]
 CREATE TEMP FUNCTION tvf(fn_arg INT64) RETURNS ARRAY<INT64> AS (
   (WITH outer_tbl AS (SELECT [1, 2] AS arr, 1 AS a)
    SELECT
@@ -7758,7 +7759,6 @@ FROM
 
 # Test case for the GROUPING() function. PARTITION BY operates like grouping but
 # we do not have grouping sets.
-[language_features=MATCH_RECOGNIZE,GROUPING_BUILTIN]
 SELECT * FROM KeyValue MATCH_RECOGNIZE(
   PARTITION BY Key
   ORDER BY Key
@@ -7774,7 +7774,6 @@ ERROR: GROUPING must have an argument that exists within the group-by expression
 ==
 
 # Regression test for b/379925625
-[language_features=MATCH_RECOGNIZE,WITH_EXPRESSION]
 SELECT * FROM KeyValue MATCH_RECOGNIZE(
   PARTITION BY with(x AS key, x+1), key
   ORDER BY with(y AS key, y+1)
@@ -9006,7 +9005,6 @@ FROM
 # Regression test for b/394128431 where the row range info is not passed to and
 # from subqueries.
 # Same level, in top-level agg, pattern variable comes first
-[language_features=MATCH_RECOGNIZE,MULTILEVEL_AGGREGATION]
 SELECT * FROM KeyValue MATCH_RECOGNIZE(
   ORDER BY key
   MEASURES
@@ -9025,7 +9023,6 @@ ERROR: Correlated access to MATCH_RECOGNIZE columns in the MEASURES clause is no
 # Regression test for b/394128431 where the row range info is not passed to and
 # from subqueries.
 # Same level, in top-level agg, subquery comes first
-[language_features=MATCH_RECOGNIZE,MULTILEVEL_AGGREGATION]
 SELECT * FROM KeyValue MATCH_RECOGNIZE(
   ORDER BY key
   MEASURES
@@ -9044,7 +9041,6 @@ ERROR: Correlated access to MATCH_RECOGNIZE columns in the MEASURES clause is no
 # Regression test for b/394128431 where the row range info is not passed to and
 # from subqueries.
 # Multilevel agg, pattern variable access in GROUP BY
-[language_features=MATCH_RECOGNIZE,MULTILEVEL_AGGREGATION]
 SELECT * FROM KeyValue MATCH_RECOGNIZE(
   ORDER BY key
   MEASURES
@@ -9063,7 +9059,6 @@ ERROR: Correlated access to MATCH_RECOGNIZE columns in the MEASURES clause is no
 # Regression test for b/394128431 where the row range info is not passed to and
 # from subqueries.
 # Multilevel agg, subquery in GROUP BY
-[language_features=MATCH_RECOGNIZE,MULTILEVEL_AGGREGATION]
 SELECT * FROM KeyValue MATCH_RECOGNIZE(
   ORDER BY key
   MEASURES
@@ -9083,7 +9078,6 @@ ERROR: Correlated access to MATCH_RECOGNIZE columns in the MEASURES clause is no
 # from subqueries.
 # Like the above but for DEFINE. Currently DEFINE doesn't allow references to
 # pattenr variables nor aggregation.
-[language_features=MATCH_RECOGNIZE,MULTILEVEL_AGGREGATION]
 SELECT * FROM KeyValue MATCH_RECOGNIZE(
   ORDER BY key
   MEASURES 1 AS one
@@ -9097,7 +9091,6 @@ ERROR: Correlated access to MATCH_RECOGNIZE columns in the DEFINE clause is not 
                  ^
 ==
 
-[language_features=MATCH_RECOGNIZE,WITH_EXPRESSION]
 # WITH() expr inside DEFINE should not count as correlated access.
 SELECT * FROM KeyValue MATCH_RECOGNIZE(
   ORDER BY key

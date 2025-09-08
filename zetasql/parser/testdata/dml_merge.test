@@ -1175,7 +1175,7 @@ WHEN NOT MATCHED BY SOURCE THEN
   ROW
 ==
 
-[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features=NONE,{{|+ALLOW_DASHES_IN_TABLE_NAME}}]
 MERGE INTO my-project-123.a.t
 USING project-789-abc.b.s
 ON t1 = s1
@@ -1187,7 +1187,7 @@ ERROR: Syntax error: Table name contains '-' character. The dashed identifier pa
 MERGE INTO my-project-123.a.t
            ^
 --
-ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: +ALLOW_DASHES_IN_TABLE_NAME
 --
 MergeStatement [0-109] [MERGE INTO...INSERT ROW]
   PathExpression [11-29] [my-project-123.a.t]

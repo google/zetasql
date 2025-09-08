@@ -34,15 +34,16 @@
 #include <string>
 
 #include "zetasql/public/evaluator_base.h"  
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 
 // See evaluator_base.h for the full interface and usage instructions.
 class PreparedExpression : public PreparedExpressionBase {
  public:
-  explicit PreparedExpression(const std::string& sql,
+  explicit PreparedExpression(absl::string_view sql,
                               TypeFactory* type_factory = nullptr);
-  PreparedExpression(const std::string& sql, const EvaluatorOptions& options);
+  PreparedExpression(absl::string_view sql, const EvaluatorOptions& options);
   PreparedExpression(const ResolvedExpr* expression,
                      const EvaluatorOptions& options);
 };
@@ -50,16 +51,24 @@ class PreparedExpression : public PreparedExpressionBase {
 // See evaluator_base.h for the full interface and usage instructions.
 class PreparedQuery : public PreparedQueryBase {
  public:
-  PreparedQuery(const std::string& sql, const EvaluatorOptions& options);
+  PreparedQuery(absl::string_view sql, const EvaluatorOptions& options);
   PreparedQuery(const ResolvedQueryStmt* stmt, const EvaluatorOptions& options);
 };
 
 // See evaluator_base.h for the full interface and usage instructions.
 class PreparedModify : public PreparedModifyBase {
  public:
-  PreparedModify(const std::string& sql, const EvaluatorOptions& options);
+  PreparedModify(absl::string_view sql, const EvaluatorOptions& options);
   PreparedModify(const ResolvedStatement* stmt,
                  const EvaluatorOptions& options);
+};
+
+// See evaluator_base.h for the full interface and usage instructions.
+class PreparedStatement : public PreparedStatementBase {
+ public:
+  PreparedStatement(const std::string& sql, const EvaluatorOptions& options);
+  PreparedStatement(const ResolvedStatement* stmt,
+                    const EvaluatorOptions& options);
 };
 
 }  // namespace zetasql

@@ -1,4 +1,5 @@
 # Alter table alter constraint is not supported in analyzer yet.
+[default language_features=MAXIMUM]
 alter table t alter constraint a_gt_zero ENFORCED;
 --
 ERROR: ALTER CONSTRAINT ENFORCED/NOT ENFORCED is not supported [at 1:15]

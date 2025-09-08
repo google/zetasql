@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "zetasql/base/path.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/language_options.h"
@@ -32,6 +33,9 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
+#include "file_based_test_driver/file_based_test_driver.h"
+#include "file_based_test_driver/run_test_case_result.h"
 
 using ::testing::ContainerEq;
 using ::testing::HasSubstr;
@@ -154,14 +158,13 @@ std::vector<OtherTestCase> GetOtherTestCases() {
 
 TEST(IsValidStatementSyntaxTest, BasicStatements) {
   for (const ValidTestCase& valid_test_case : GetValidTestCases()) {
-    ZETASQL_EXPECT_OK(IsValidStatementSyntax(valid_test_case.sql,
-                                     ERROR_MESSAGE_WITH_PAYLOAD))
+    ZETASQL_EXPECT_OK(
+        IsValidStatementSyntax(valid_test_case.sql, ERROR_MESSAGE_WITH_PAYLOAD))
         << valid_test_case.sql;
   }
   for (const ErrorTestCase& invalid_test_case : GetInvalidSyntaxTestCases()) {
-    const absl::Status status =
-        IsValidStatementSyntax(invalid_test_case.sql,
-                               ERROR_MESSAGE_WITH_PAYLOAD);
+    const absl::Status status = IsValidStatementSyntax(
+        invalid_test_case.sql, ERROR_MESSAGE_WITH_PAYLOAD);
     EXPECT_THAT(
         status,
         StatusIs(absl::StatusCode::kInvalidArgument,
@@ -169,16 +172,14 @@ TEST(IsValidStatementSyntaxTest, BasicStatements) {
   }
   for (const OtherTestCase& other_test_case : GetOtherTestCases()) {
     const absl::Status status =
-        IsValidStatementSyntax(other_test_case.sql,
-                               ERROR_MESSAGE_WITH_PAYLOAD);
+        IsValidStatementSyntax(other_test_case.sql, ERROR_MESSAGE_WITH_PAYLOAD);
     EXPECT_THAT(status, StatusIs(absl::StatusCode::kInvalidArgument,
                                  HasSubstr("Syntax error")));
   }
 
   // Test that we get an error location payload from the error Status.
-  absl::Status status =
-      IsValidStatementSyntax("SELECT * FROM oops I did it again",
-                             ERROR_MESSAGE_WITH_PAYLOAD);
+  absl::Status status = IsValidStatementSyntax(
+      "SELECT * FROM oops I did it again", ERROR_MESSAGE_WITH_PAYLOAD);
   // The syntax error location is at the 'did', since 'oops' is interpreted
   // as a table name and 'I' is interpreted as the alias.
   EXPECT_EQ(
@@ -217,9 +218,10 @@ TEST(IsValidNextStatementSyntaxTest, BasicStatements) {
     // Validate that the updated ParseResumeLocation byte location is what
     // we expect.
     EXPECT_EQ(parse_resume_location.byte_position(),
-              valid_test_case.byte_position) << valid_test_case.sql;
+              valid_test_case.byte_position)
+        << valid_test_case.sql;
     EXPECT_EQ(at_end_of_input, valid_test_case.at_end_of_input)
-         << valid_test_case.sql;
+        << valid_test_case.sql;
   }
   for (const ErrorTestCase& invalid_test_case : GetInvalidSyntaxTestCases()) {
     ParseResumeLocation parse_resume_location =
@@ -242,7 +244,8 @@ TEST(IsValidNextStatementSyntaxTest, BasicStatements) {
     // Validate that the updated ParseResumeLocation byte location is what
     // we expect.
     EXPECT_EQ(parse_resume_location.byte_position(),
-              other_test_case.byte_position) << other_test_case.sql;
+              other_test_case.byte_position)
+        << other_test_case.sql;
     EXPECT_FALSE(at_end_of_input) << other_test_case.sql;
   }
 
@@ -250,9 +253,8 @@ TEST(IsValidNextStatementSyntaxTest, BasicStatements) {
   ParseResumeLocation parse_resume_location =
       ParseResumeLocation::FromString("SELECT * FROM oops I did it again");
   bool at_end_of_input;
-  absl::Status status =
-      IsValidNextStatementSyntax(&parse_resume_location,
-                                 ERROR_MESSAGE_WITH_PAYLOAD, &at_end_of_input);
+  absl::Status status = IsValidNextStatementSyntax(
+      &parse_resume_location, ERROR_MESSAGE_WITH_PAYLOAD, &at_end_of_input);
   EXPECT_THAT(status, StatusIs(absl::StatusCode::kInvalidArgument,
                                HasSubstr("Syntax error")));
   EXPECT_THAT(
@@ -294,9 +296,9 @@ TEST(IsValidNextStatementSyntaxTest, MultiStatementsTest) {
   statement_count = 0;
   absl::Status status;
   while (status.ok() && !at_end_of_input) {
-    status = IsValidNextStatementSyntax(
-        &parse_resume_location, ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
-        &at_end_of_input);
+    status = IsValidNextStatementSyntax(&parse_resume_location,
+                                        ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
+                                        &at_end_of_input);
     statement_count++;
   }
   EXPECT_FALSE(status.ok());
@@ -314,9 +316,8 @@ TEST(GetNextStatementKindAndPropertiesTest, BasicStatements) {
               ResolvedNodeKind_Name(valid_test_case.statement_kind))
         << valid_test_case.sql;
     StatementProperties statement_properties;
-    ZETASQL_ASSERT_OK(GetNextStatementProperties(parse_resume_location,
-                                         LanguageOptions(),
-                                         &statement_properties))
+    ZETASQL_ASSERT_OK(GetNextStatementProperties(
+        parse_resume_location, LanguageOptions(), &statement_properties))
         << valid_test_case.sql;
     ASSERT_EQ(ResolvedNodeKind_Name(kind),
               ResolvedNodeKind_Name(statement_properties.node_kind))
@@ -330,9 +331,8 @@ TEST(GetNextStatementKindAndPropertiesTest, BasicStatements) {
               ResolvedNodeKind_Name(invalid_test_case.statement_kind))
         << invalid_test_case.sql;
     StatementProperties statement_properties;
-    ZETASQL_ASSERT_OK(GetNextStatementProperties(parse_resume_location,
-                                         LanguageOptions(),
-                                         &statement_properties))
+    ZETASQL_ASSERT_OK(GetNextStatementProperties(
+        parse_resume_location, LanguageOptions(), &statement_properties))
         << invalid_test_case.sql;
     ASSERT_EQ(ResolvedNodeKind_Name(kind),
               ResolvedNodeKind_Name(statement_properties.node_kind))
@@ -346,9 +346,8 @@ TEST(GetNextStatementKindAndPropertiesTest, BasicStatements) {
               ResolvedNodeKind_Name(other_test_case.statement_kind))
         << other_test_case.sql;
     StatementProperties statement_properties;
-    ZETASQL_ASSERT_OK(GetNextStatementProperties(parse_resume_location,
-                                         LanguageOptions(),
-                                         &statement_properties))
+    ZETASQL_ASSERT_OK(GetNextStatementProperties(
+        parse_resume_location, LanguageOptions(), &statement_properties))
         << other_test_case.sql;
     ASSERT_EQ(ResolvedNodeKind_Name(kind),
               ResolvedNodeKind_Name(statement_properties.node_kind))
@@ -361,9 +360,9 @@ struct StatementPropertiesTestCase {
   std::string sql;
 
   // The expected properties of <sql>.
-  ResolvedNodeKind statement_kind;    // The statement's kind
+  ResolvedNodeKind statement_kind;  // The statement's kind
   StatementProperties::StatementCategory statement_category;  // DDL, DML, etc.
-  bool is_create_temp_object;         // CREATE TEMP TABLE, etc.
+  bool is_create_temp_object;  // CREATE TEMP TABLE, etc.
   absl::btree_map<std::string, std::string> hint_map;  // Statement level hints.
 };
 
@@ -474,15 +473,14 @@ std::vector<StatementPropertiesTestCase> GetStatementPropertiesTestCases() {
 }
 
 TEST(GetNextStatementPropertiesTest, BasicStatements) {
-  for (const StatementPropertiesTestCase& test_case
-           : GetStatementPropertiesTestCases()) {
+  for (const StatementPropertiesTestCase& test_case :
+       GetStatementPropertiesTestCases()) {
     ParseResumeLocation parse_resume_location =
         ParseResumeLocation::FromString(test_case.sql);
 
     StatementProperties statement_properties;
-    ZETASQL_ASSERT_OK(GetNextStatementProperties(parse_resume_location,
-                                         LanguageOptions(),
-                                         &statement_properties))
+    ZETASQL_ASSERT_OK(GetNextStatementProperties(
+        parse_resume_location, LanguageOptions(), &statement_properties))
         << test_case.sql;
 
     EXPECT_EQ(ResolvedNodeKind_Name(test_case.statement_kind),
@@ -511,7 +509,7 @@ TEST(GetNextStatementPropertiesTest, BasicStatements) {
     std::string fetched_hints;
     for (const auto& map_entry : statement_properties_hint_map) {
       absl::StrAppend(&fetched_hints, map_entry.first, "=", map_entry.second,
-                    ";");
+                      ";");
     }
     EXPECT_EQ(expected_hints, fetched_hints) << test_case.sql;
 
@@ -760,5 +758,38 @@ INSTANTIATE_TEST_SUITE_P(
                                   {"SELECT 🍝"},
                                   /*expect_to_fail=*/true}));
 
+static void RunFileBasedTest(
+    absl::string_view test_case_input,
+    file_based_test_driver::RunTestCaseResult* test_result) {
+  LanguageOptions language_options;
+  language_options.EnableMaximumLanguageFeatures();
+
+  absl::StatusOr<std::vector<absl::string_view>> result =
+      ListSelectColumnExpressionsFromFinalSelectClause(test_case_input,
+                                                       language_options);
+
+  if (result.ok()) {
+    std::vector<std::string> indexed_expressions;
+    indexed_expressions.reserve(result->size());
+    for (int i = 0; i < result->size(); ++i) {
+      indexed_expressions.push_back(absl::StrCat(i, ": ", (*result)[i]));
+    }
+    test_result->AddTestOutput(absl::StrJoin(indexed_expressions, "\n"));
+  } else {
+    // Format the error message to match the expected output format.
+    test_result->AddTestOutput(
+        absl::StrCat(absl::StatusCodeToString(result.status().code()), ": ",
+                     result.status().message()));
+  }
+}
+
+TEST(ListSelectColumnExpressionsFromFinalSelectClauseFileBased, FileBasedTest) {
+  const std::string filename = zetasql_base::JoinPath(
+      ::testing::SrcDir(),
+      "com_google_zetasql/zetasql/public/list_select_expressions.test");
+
+  EXPECT_TRUE(file_based_test_driver::RunTestCasesFromFiles(filename,
+                                                            &RunFileBasedTest));
+}
 }  // namespace
 }  // namespace zetasql

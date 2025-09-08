@@ -1,7 +1,60 @@
 # TODO: b/316422061 - Consider replacing unnested ARRAYs in tests with tables
 # defined with [create_table] once the bug with schema objects is resolved.
 ### CREATE FUNCTION STATEMENTS ###
-[default required_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_IN_UDAS]
+[default required_features=MULTILEVEL_AGGREGATION]
+[prepare_database]
+CREATE TEMP AGGREGATE FUNCTION SumTimesTwo(a INT64) AS (SUM(a) + SUM(a))
+==
+[prepare_database]
+CREATE TEMP AGGREGATE FUNCTION MaxTimesTwo(a INT64) AS (MAX(a) + MAX(a))
+==
+[prepare_database]
+CREATE TEMP AGGREGATE FUNCTION CountTimesTwo(a INT64) AS (COUNT(a) + COUNT(a))
+==
+[prepare_database]
+CREATE TEMP AGGREGATE FUNCTION AvgTimesTwo(a INT64) AS (AVG(a) + AVG(a))
+==
+[prepare_database]
+[prepare_database_additional_features=MULTILEVEL_AGGREGATION_ON_UDAS]
+CREATE TEMP AGGREGATE FUNCTION SumTimesTwoOverMaxByKey(key STRING, value INT64) AS (
+  SumTimesTwo(MAX(value) GROUP BY key)
+);
+==
+[prepare_database]
+[prepare_database_additional_features=MULTILEVEL_AGGREGATION_ON_UDAS]
+CREATE TEMP AGGREGATE FUNCTION MaxTimesTwoOverMaxByKey(key STRING, value INT64) AS (
+  MaxTimesTwo(MAX(value) GROUP BY key)
+);
+==
+[prepare_database]
+[prepare_database_additional_features=MULTILEVEL_AGGREGATION_ON_UDAS]
+CREATE TEMP AGGREGATE FUNCTION CountTimesTwoOverMaxByKey(key STRING, value INT64) AS (
+  CountTimesTwo(MAX(value) GROUP BY key)
+);
+==
+[prepare_database]
+CREATE TEMP AGGREGATE FUNCTION SumSquares(a INT64) AS (SUM(a * a))
+==
+[prepare_database]
+[required_features=TEMPLATE_FUNCTIONS,MULTILEVEL_AGGREGATION]
+CREATE TEMP AGGREGATE FUNCTION TemplatedSumSquares(a ANY TYPE) AS (
+  SUM(a * a)
+);
+==
+[prepare_database]
+[prepare_database_additional_features=MULTILEVEL_AGGREGATION_ON_UDAS]
+CREATE TEMP AGGREGATE FUNCTION SumSquaresOverSumTimesTwoByKey(key STRING, a INT64) AS (
+  SumSquares(SumTimesTwo(a) GROUP BY key)
+);
+==
+[prepare_database]
+CREATE TEMP AGGREGATE FUNCTION BunchOfAggs(a INT64) AS (
+  STRUCT(
+    SUM(a) AS sum_a,
+    AVG(a) AS avg_a,
+    COUNT(DISTINCT a) AS count_distinct_a)
+)
+==
 [prepare_database]
 CREATE TEMP AGGREGATE FUNCTION NullaryUDAWithMultiLevelAgg()
 RETURNS INT64
@@ -59,7 +112,7 @@ CREATE TEMP AGGREGATE FUNCTION SumOfDistinctValues(value INT64) AS (
 );
 ==
 [prepare_database]
-[required_features=TEMPLATE_FUNCTIONS,MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_IN_UDAS]
+[required_features=TEMPLATE_FUNCTIONS,MULTILEVEL_AGGREGATION]
 CREATE TEMP AGGREGATE FUNCTION TemplatedSumOfDistinctValues(value ANY TYPE) AS (
   SUM(value GROUP BY value)
 );
@@ -70,7 +123,7 @@ CREATE TEMP AGGREGATE FUNCTION SumOfAveragesForDistinctKey(key STRING, value INT
 );
 ==
 [prepare_database]
-[required_features=TEMPLATE_FUNCTIONS,MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_IN_UDAS]
+[required_features=TEMPLATE_FUNCTIONS,MULTILEVEL_AGGREGATION]
 CREATE TEMP AGGREGATE FUNCTION TemplatedSumOfAveragesForDistinctKey(key ANY TYPE, value INT64) AS (
   SUM(AVG(value) GROUP BY key)
 );
@@ -117,6 +170,16 @@ CREATE TEMP FUNCTION UdfCallingUdas() AS
       ('bar', 20)])
 ));
 ==
+[prepare_database]
+CREATE TEMP AGGREGATE FUNCTION SumPlusCountPlusOne(value INT64) AS (
+  SUM(value) + COUNT(value) + 1
+);
+==
+[prepare_database]
+CREATE TEMP AGGREGATE FUNCTION CountStarPlusOne() AS (
+  COUNT(*) + 1
+);
+==
 
 [name=call_nullary_uda_with_multi_level_agg]
 [default skip_required_feature_integrity_check]
@@ -158,7 +221,7 @@ ARRAY<STRUCT<INT64>>[{10}]
 ==
 
 [name=call_templated_sum_of_distinct_values]
-[required_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_IN_UDAS]
+[required_features=MULTILEVEL_AGGREGATION]
 SELECT TemplatedSumOfDistinctValues(x) FROM UNNEST([1, 2, 2, 3, 3, 3, 3, 4, 4]) as x;
 --
 ARRAY<STRUCT<INT64>>[{10}]
@@ -180,7 +243,7 @@ ARRAY<STRUCT<key1 STRING, DOUBLE>>[known order:{"bar", 140}, {"foo", 27}]
 ==
 
 [name=call_templated_sum_of_averages_for_distinct_key]
-[required_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_IN_UDAS]
+[required_features=MULTILEVEL_AGGREGATION]
 SELECT key1, TemplatedSumOfAveragesForDistinctKey(key2, value) FROM UNNEST(
     ARRAY<STRUCT<key1 STRING, key2 BOOL, value INT64>>[
       ('foo', true, 10),
@@ -244,7 +307,7 @@ SELECT SumWithStructFieldAccesses(struct_arg) FROM UNNEST(
 ARRAY<STRUCT<INT64>>[{100}]
 ==
 
-[required_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_IN_UDAS,GROUP_BY_ROLLUP,GROUPING_BUILTIN]
+[required_features=MULTILEVEL_AGGREGATION,GROUP_BY_ROLLUP,GROUPING_BUILTIN]
 [name=call_sum_of_distinct_values_group_by_rollup]
 SELECT
   GROUPING(col1) as col1_is_aggregated,
@@ -276,7 +339,7 @@ ARRAY<STRUCT<
              {1, 1, 63}]
 ==
 
-[required_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_IN_UDAS,GROUPING_SETS,GROUPING_BUILTIN]
+[required_features=MULTILEVEL_AGGREGATION,GROUPING_SETS,GROUPING_BUILTIN]
 [name=call_sum_of_distinct_values_group_by_cube]
 SELECT
   GROUPING(col1) as col1_is_aggregated,
@@ -310,7 +373,7 @@ ARRAY<STRUCT<
              {1, 1, 63}]
 ==
 
-[required_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_IN_UDAS,GROUPING_SETS,GROUPING_BUILTIN]
+[required_features=MULTILEVEL_AGGREGATION,GROUPING_SETS,GROUPING_BUILTIN]
 [name=call_sum_of_distinct_values_group_by_grouping_sets]
 SELECT
   GROUPING(col1) as col1_is_aggregated,
@@ -359,3 +422,318 @@ ARRAY<STRUCT<DOUBLE>>[{104}]
 SELECT UdfCallingUdas();
 --
 ARRAY<STRUCT<DOUBLE>>[{485}]
+==
+
+[name=call_uda_mixed_with_multi_level_aggs]
+SELECT SumPlusCountPlusOne(value),
+       COUNT(value GROUP BY value),
+       CountStarPlusOne(),
+       SumOfDistinctValues(value),
+       RatioOfSumOfMaxValuesForDistinctKeys(key1, key2, value)
+FROM UNNEST(
+ARRAY<STRUCT<key1 STRING, key2 STRING, value INT64>>[
+  ('foo', 'a', 10),
+  ('foo', 'a', -30),
+  ('foo', 'b', 7),
+  ('bar', 'b', 10),
+  ('bar', 'b', -50),
+  ('bar', 'a', 90)])
+--
+ARRAY<STRUCT<INT64, INT64, INT64, INT64, DOUBLE>>[{44, 5, 7, 27, 1}]
+==
+
+[name=call_uda_nested_inside_multi_level_agg]
+SELECT SUM(CountStarPlusOne() GROUP BY key1),
+       MAX(SumPlusCountPlusOne(value) GROUP BY key1, key2),
+       COUNT(value GROUP BY value)
+FROM UNNEST(
+ARRAY<STRUCT<key1 STRING, key2 STRING, value INT64>>[
+  ('foo', 'a', 10),
+  ('foo', 'a', -30),
+  ('foo', 'b', 7),
+  ('bar', 'b', 10),
+  ('bar', 'b', -50),
+  ('bar', 'a', 90)])
+--
+ARRAY<STRUCT<INT64, INT64, INT64>>[{8, 92, 5}]
+==
+
+[name=call_uda_mixed_with_multi_level_aggs_complex]
+SELECT SumPlusCountPlusOne(value),
+       UdaCallingOtherUdas(key1, key2, value),
+       FLOOR(SumOfAveragesForDistinctKey(key2, value)),
+       FLOOR(SUM(AVG(value) GROUP BY key2)),
+       COUNT(value GROUP BY value)
+FROM UNNEST(
+ARRAY<STRUCT<key1 STRING, key2 STRING, value INT64>>[
+  ('foo', 'a', 10),
+  ('foo', 'a', -30),
+  ('foo', 'b', 7),
+  ('bar', 'b', 10),
+  ('bar', 'b', -50),
+  ('bar', 'a', 90)])
+--
+ARRAY<STRUCT<INT64, DOUBLE, DOUBLE, DOUBLE, INT64>>[{44, 104, 12, 12, 5}]
+==
+
+[name=call_uda_nested_inside_multi_level_agg_complex]
+SELECT SUM(SumOfDistinctValues(value) GROUP BY key1),
+       COUNT(RatioOfSumOfMaxValuesForDistinctKeys(key1, key2, value) GROUP BY key1, key2),
+       MAX(UdaCallingOtherUdas(key1, key2, value) GROUP BY key2)
+FROM UNNEST(
+ARRAY<STRUCT<key1 STRING, key2 STRING, value INT64>>[
+  ('foo', 'a', 10),
+  ('foo', 'a', -30),
+  ('foo', 'b', 7),
+  ('bar', 'b', 10),
+  ('bar', 'b', -50),
+  ('bar', 'a', 90)])
+--
+ARRAY<STRUCT<INT64, INT64, DOUBLE>>[{37, 4, 183}]
+==
+
+[required_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_ON_UDAS]
+[name=call_sum_squares_with_group_by]
+SELECT SumSquares(MAX(val) GROUP BY key)
+FROM UNNEST([
+  STRUCT('a' AS key, 1 AS val),
+  STRUCT('a', 2),
+  STRUCT('b', 3)
+]);
+--
+ARRAY<STRUCT<INT64>>[{13}]
+==
+
+[required_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_ON_UDAS]
+[name=call_sum_squares_with_group_by_2]
+SELECT SumSquares(CountStarPlusOne() - 1 GROUP BY key)
+FROM UNNEST([
+  STRUCT('a' AS key, 1 AS val),
+  STRUCT('a', 2),
+  STRUCT('b', 3)
+]);
+--
+ARRAY<STRUCT<INT64>>[{5}]
+==
+
+[required_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_ON_UDAS]
+[name=call_templated_sum_squares_with_group_by]
+SELECT TemplatedSumSquares(SumOfAveragesForDistinctKey(inner_key, val) GROUP BY outer_key)
+FROM UNNEST([
+  STRUCT('x' as outer_key, 'a' AS inner_key, 1 AS val),
+  STRUCT('x', 'a', 3),
+  STRUCT('x', 'b', 7),
+  STRUCT('y', 'a', 25),
+  STRUCT('y', 'a', 15),
+  STRUCT('y', 'b', 10)
+]);
+--
+ARRAY<STRUCT<DOUBLE>>[{981}]
+==
+
+[required_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_ON_UDAS]
+[name=call_bunch_of_aggs_with_group_by]
+SELECT BunchOfAggs(SUM(val) GROUP BY key)
+FROM UNNEST([
+  STRUCT('a' AS key, 1 AS val),
+  STRUCT('a', 2),
+  STRUCT('b', 3),
+  STRUCT('b', 4)
+]);
+--
+ARRAY<STRUCT<STRUCT<
+                    sum_a INT64,
+                    avg_a DOUBLE,
+                    count_distinct_a INT64
+                  >>>[{{10, 5, 2}}]
+==
+
+[required_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_ON_UDAS]
+[name=call_sum_of_distinct_values_with_group_by]
+SELECT SumOfDistinctValues(CountStarPlusOne() GROUP BY key)
+FROM UNNEST([
+  STRUCT('a' AS key, 1 AS val),
+  STRUCT('a', 1),
+  STRUCT('a', 2),
+  STRUCT('b', 3),
+  STRUCT('b', 3),
+  STRUCT('b', 4)
+]);
+--
+ARRAY<STRUCT<INT64>>[{4}]
+==
+
+[required_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_ON_UDAS]
+[name=call_templated_sum_of_distinct_values_with_group_by]
+SELECT TemplatedSumOfDistinctValues(COUNT(DISTINCT val) GROUP BY key)
+FROM UNNEST([
+  STRUCT('a' AS key, 1 AS val),
+  STRUCT('a', 1),
+  STRUCT('a', 2),
+  STRUCT('b', 3),
+  STRUCT('b', 3),
+  STRUCT('b', 4)
+]);
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+
+[required_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_ON_UDAS]
+[name=call_sum_times_two_over_max_by_key]
+SELECT SumTimesTwoOverMaxByKey(key2, value)
+FROM UNNEST(
+ARRAY<STRUCT<key1 STRING, key2 STRING, value INT64>>[
+  ('foo', 'a', 1),
+  ('foo', 'a', 5),
+  ('foo', 'b', 7),
+  ('bar', 'b', 2),
+  ('bar', 'b', 4),
+  ('bar', 'a', 6)])
+GROUP BY key1
+ORDER BY key1
+--
+ARRAY<STRUCT<INT64>>[known order:{20}, {24}]
+==
+
+[required_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_ON_UDAS]
+[name=call_avg_times_two_over_sum__times_two_over_max_by_key]
+SELECT AvgTimesTwo(SumTimesTwoOverMaxByKey(key2, value) GROUP BY key1)
+FROM UNNEST(
+ARRAY<STRUCT<key1 STRING, key2 STRING, value INT64>>[
+  ('foo', 'a', 1),
+  ('foo', 'a', 5),
+  ('foo', 'b', 7),
+  ('bar', 'b', 2),
+  ('bar', 'b', 4),
+  ('bar', 'a', 6)])
+--
+ARRAY<STRUCT<DOUBLE>>[{44}]
+==
+
+[required_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_ON_UDAS]
+[name=call_max_times_two_over_max_by_key]
+SELECT MaxTimesTwoOverMaxByKey(key2, value)
+FROM UNNEST(
+ARRAY<STRUCT<key1 STRING, key2 STRING, value INT64>>[
+  ('foo', 'a', 1),
+  ('foo', 'a', 5),
+  ('foo', 'b', 7),
+  ('bar', 'b', 2),
+  ('bar', 'b', 4),
+  ('bar', 'a', 6)])
+GROUP BY key1
+ORDER BY key1
+--
+ARRAY<STRUCT<INT64>>[known order:{12}, {14}]
+==
+
+[required_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_ON_UDAS]
+[name=call_avg_times_two_over_max_times_two_over_max_by_key]
+SELECT AvgTimesTwo(MaxTimesTwoOverMaxByKey(key2, value) GROUP BY key1)
+FROM UNNEST(
+ARRAY<STRUCT<key1 STRING, key2 STRING, value INT64>>[
+  ('foo', 'a', 1),
+  ('foo', 'a', 5),
+  ('foo', 'b', 7),
+  ('bar', 'b', 2),
+  ('bar', 'b', 4),
+  ('bar', 'a', 6)])
+--
+ARRAY<STRUCT<DOUBLE>>[{26}]
+==
+
+[required_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_ON_UDAS]
+[name=call_count_times_two_over_max_by_key]
+SELECT CountTimesTwoOverMaxByKey(key2, value)
+FROM UNNEST(
+ARRAY<STRUCT<key1 STRING, key2 STRING, value INT64>>[
+  ('foo', 'a', 1),
+  ('foo', 'a', 5),
+  ('foo', 'b', 7),
+  ('bar', 'b', 2),
+  ('bar', 'b', 4),
+  ('bar', 'a', 6)])
+GROUP BY key1
+ORDER BY key1
+--
+ARRAY<STRUCT<INT64>>[known order:{4}, {4}]
+==
+
+[required_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_ON_UDAS]
+[name=call_avg_times_two_over_count_times_two_over_max_by_key]
+SELECT AvgTimesTwo(CountTimesTwoOverMaxByKey(key2, value) GROUP BY key1)
+FROM UNNEST(
+ARRAY<STRUCT<key1 STRING, key2 STRING, value INT64>>[
+  ('foo', 'a', 1),
+  ('foo', 'a', 5),
+  ('foo', 'b', 7),
+  ('bar', 'b', 2),
+  ('bar', 'b', 4),
+  ('bar', 'a', 6)])
+--
+ARRAY<STRUCT<DOUBLE>>[{8}]
+==
+
+[required_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_ON_UDAS]
+[name=call_sum_squares_over_sum_times_two_by_key]
+SELECT SumSquaresOverSumTimesTwoByKey(key2, value)
+FROM UNNEST(
+ARRAY<STRUCT<key1 STRING, key2 STRING, value INT64>>[
+  ('foo', 'a', 1),
+  ('foo', 'a', 5),
+  ('foo', 'b', 7),
+  ('bar', 'b', 2),
+  ('bar', 'b', 4),
+  ('bar', 'a', 6)])
+GROUP BY key1
+ORDER BY key1
+--
+ARRAY<STRUCT<INT64>>[known order:{288}, {340}]
+==
+
+[required_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_ON_UDAS]
+[name=call_avg_times_two_over_sum_squares_over_sum_times_two_by_key]
+SELECT AVG(SumSquaresOverSumTimesTwoByKey(key2, value) GROUP BY key1)
+FROM UNNEST(
+ARRAY<STRUCT<key1 STRING, key2 STRING, value INT64>>[
+  ('foo', 'a', 1),
+  ('foo', 'a', 5),
+  ('foo', 'b', 7),
+  ('bar', 'b', 2),
+  ('bar', 'b', 4),
+  ('bar', 'a', 6)])
+--
+ARRAY<STRUCT<DOUBLE>>[{314}]
+==
+
+[required_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_ON_UDAS]
+[name=call_array_agg_sum_with_non_aggregate_args_and_group_by]
+SELECT ArrayAggSumWithNonAggregateArgs(key, SUM(value), 1, 100 GROUP BY key)
+FROM UNNEST(
+ARRAY<STRUCT<key STRING, value INT64>>[
+  ('foo', 70),
+  ('foo', 20),
+  ('bar', 30),
+  ('bar', 10),
+  ('bar', 20)
+]);
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:161, 191]}]
+==
+
+[required_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_ON_UDAS]
+[name=call_multiple_top_level_udas_with_group_by]
+SELECT SUM(CountStarPlusOne() GROUP BY key1),
+       SumTimesTwo(CountStarPlusOne() GROUP BY key1),
+       MaxTimesTwo(SumPlusCountPlusOne(value) GROUP BY key1, key2),
+       CountTimesTwo(value GROUP BY value)
+FROM UNNEST(
+ARRAY<STRUCT<key1 STRING, key2 STRING, value INT64>>[
+  ('foo', 'a', 1),
+  ('foo', 'a', 5),
+  ('foo', 'b', 7),
+  ('bar', 'b', 2),
+  ('bar', 'b', 4),
+  ('bar', 'a', 6)])
+--
+ARRAY<STRUCT<INT64, INT64, INT64, INT64>>[{8, 16, 18, 12}]

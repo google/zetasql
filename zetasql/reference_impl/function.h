@@ -39,6 +39,7 @@
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
+#include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
@@ -48,6 +49,7 @@
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/tuple.h"
 #include "zetasql/reference_impl/tuple_comparator.h"
+#include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/base/macros.h"
 #include "absl/container/flat_hash_map.h"
@@ -218,6 +220,8 @@ enum class FunctionKind {
   kSech,
   kCoth,
   kPi,
+  kRadians,
+  kDegrees,
   kPiNumeric,
   kPiBigNumeric,
   // Least and greatest functions
@@ -361,6 +365,7 @@ enum class FunctionKind {
   kCodePointsToBytes,
   kRegexpExtract,
   kRegexpExtractAll,
+  kRegexpExtractGroups,
   kRegexpInstr,
   kRegexpContains,
   kRegexpMatch,
@@ -414,6 +419,7 @@ enum class FunctionKind {
   kTimestampDiff,
   kTimestampTrunc,
   kTimestampBucket,
+  kAddMonths,
   kCurrentDate,
   kCurrentDatetime,
   kCurrentTime,
@@ -580,6 +586,10 @@ enum class FunctionKind {
   kMapFilter,
   // AGG(measure) function
   kMeasureAgg,
+  // Compression functions
+  kZstdCompress,
+  kZstdDecompressToBytes,
+  kZstdDecompressToString,
 };
 
 // Provides two utility methods to look up a built-in function name or function
@@ -738,6 +748,32 @@ class BuiltinScalarFunction : public ScalarFunctionBody {
   std::vector<zetasql_base::optional_ref<AlgebraArg>> extended_args_;
 };
 
+// Abstract built-in Table Valued Function.
+class BuiltinTableValuedFunction : public TableValuedFunctionBody {
+ public:
+  BuiltinTableValuedFunction(const BuiltinTableValuedFunction&) = delete;
+  BuiltinTableValuedFunction& operator=(const BuiltinTableValuedFunction&) =
+      delete;
+
+  explicit BuiltinTableValuedFunction(FunctionKind kind) : kind_(kind) {}
+
+  ~BuiltinTableValuedFunction() override = default;
+
+  FunctionKind kind() const { return kind_; }
+
+  static absl::StatusOr<std::unique_ptr<TableValuedFunctionCallExpr>>
+  CreateCall(FunctionKind kind, std::vector<TvfAlgebraArgument> arguments,
+             std::vector<TVFSchemaColumn> output_columns,
+             std::vector<VariableId> variables,
+             std::shared_ptr<FunctionSignature> function_call_signature);
+
+  static absl::StatusOr<std::unique_ptr<BuiltinTableValuedFunction>> Create(
+      FunctionKind kind);
+
+ private:
+  FunctionKind kind_;
+};
+
 // Alternate form of BuiltinScalarFunction that is easier to implement for
 // functions that are slow enough that return absl::StatusOr<Value> from
 // Eval() doesn't really matter.
@@ -876,6 +912,17 @@ class BuiltinFunctionRegistry {
       const std::function<BuiltinScalarFunction*(FunctionKind, const Type*)>&
           constructor);
 
+  // Returns an unowned pointer to the TVF. The caller is responsible for
+  // cleanup.
+  static absl::StatusOr<BuiltinTableValuedFunction*> GetTableValuedFunction(
+      FunctionKind kind);
+
+  // Registers a TVF implementation for one or more FunctionKinds.
+  static void RegisterTableValuedFunction(
+      std::initializer_list<FunctionKind> kinds,
+      const std::function<BuiltinTableValuedFunction*(FunctionKind)>&
+          constructor);
+
  private:
   BuiltinFunctionRegistry() = default;
 
@@ -883,6 +930,10 @@ class BuiltinFunctionRegistry {
       std::function<BuiltinScalarFunction*(const Type*)>;
   static absl::flat_hash_map<FunctionKind, ScalarFunctionConstructor>&
   GetFunctionMap();
+  using TableValuedFunctionConstructor =
+      std::function<BuiltinTableValuedFunction*()>;
+  static absl::flat_hash_map<FunctionKind, TableValuedFunctionConstructor>&
+  GetTableValuedFunctionMap();
 
   static absl::Mutex mu_;
 };
@@ -1711,6 +1762,14 @@ class LastDayFunction : public SimpleBuiltinScalarFunction {
                              EvaluationContext* context) const override;
 };
 
+class AddMonthsFunction : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
 class ExtractFromFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
@@ -2407,7 +2466,23 @@ absl::Status MakeMaxArrayValueByteSizeExceededError(
     int64_t max_value_byte_size, const zetasql_base::SourceLocation& source_loc);
 
 // Returns TimestampScale to use based on language options.
-functions::TimestampScale GetTimestampScale(const LanguageOptions& options);
+// `support_picos` should be set to true when the caller operates on types that
+// support Picosecond precision, such as TIMESTAMP, and should be set to false
+// for other types such as DATETIME, TIME, INTERVAL, etc.
+functions::TimestampScale GetTimestampScale(const LanguageOptions& options,
+                                            bool support_picos = false);
+
+template <typename OutType, typename InType1, typename InType2>
+struct BinaryExecutor {
+  typedef bool (*ptr)(InType1, InType2, OutType*, absl::Status* error);
+};
+
+template <typename OutType, typename InType1 = OutType,
+          typename InType2 = OutType>
+bool InvokeBinary(
+    typename BinaryExecutor<OutType, InType1, InType2>::ptr function,
+    absl::Span<const Value> args, Value* result, absl::Status* status);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_REFERENCE_IMPL_FUNCTION_H_

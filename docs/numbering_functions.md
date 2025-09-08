@@ -44,8 +44,12 @@ numbering functions.
 </tr>
 
 <tr>
-  <td><a href="https://github.com/google/zetasql/blob/master/docs/numbering_functions.md#IS_FIRST"><code>IS_FIRST</code></a>
-</td>
+  <td>
+    
+    <a href="https://github.com/google/zetasql/blob/master/docs/numbering_functions.md#is_first"><code>IS_FIRST</code></a>
+
+    
+  </td>
   <td>
         Returns <code>true</code> if this row is in the first <code>k</code> rows (1-based) within the window.
     

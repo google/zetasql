@@ -28,6 +28,8 @@
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/testdata/sample_catalog_impl.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/log/log.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -43,19 +45,23 @@ static std::vector<SelectableCatalog*>* InitSelectableCatalogsVector() {
   auto catalogs = std::make_unique<std::vector<SelectableCatalog*>>();
 
   catalogs->push_back(new SelectableCatalog(
-      "none", "Empty catalog", [](const LanguageOptions&) {
+      "none", "Empty catalog",
+      [](const LanguageOptions&, CatalogAcceptor* acceptor) {
         static auto catalog = new SimpleCatalog("simple_catalog");
-        return catalog;
+        acceptor->Accept(catalog);
+        return absl::OkStatus();
       }));
 
   catalogs->push_back(new SelectableCatalog(
       "sample", "Analyzer-test schema",
-      [](const LanguageOptions& language_options) -> absl::StatusOr<Catalog*> {
+      [](const LanguageOptions& language_options,
+         CatalogAcceptor* acceptor) -> absl::Status {
         static auto* sample_catalog_map =
             new absl::flat_hash_map<LanguageOptions,
                                     std::unique_ptr<SampleCatalogImpl>>();
         if (sample_catalog_map->contains(language_options)) {
-          return (*sample_catalog_map)[language_options]->catalog();
+          acceptor->Accept((*sample_catalog_map)[language_options]->catalog());
+          return absl::OkStatus();
         }
 
         auto sample_catalog = std::make_unique<SampleCatalogImpl>();
@@ -63,17 +69,19 @@ static std::vector<SelectableCatalog*>* InitSelectableCatalogsVector() {
             BuiltinFunctionOptions(language_options)));
         Catalog* catalog = sample_catalog->catalog();
         (*sample_catalog_map)[language_options] = std::move(sample_catalog);
-        return catalog;
+        acceptor->Accept(catalog);
+        return absl::OkStatus();
       }));
 
   catalogs->push_back(new SelectableCatalog(
       "tpch", "TPCH tables (1MB)",
-      [](const LanguageOptions&) -> absl::StatusOr<Catalog*> {
+      [](const LanguageOptions&, CatalogAcceptor* acceptor) -> absl::Status {
         static auto* catalog =
             new absl::StatusOr<std::unique_ptr<Catalog>>(MakeTpchCatalog());
 
         ZETASQL_RETURN_IF_ERROR(catalog->status());
-        return catalog->value().get();
+        acceptor->Accept(catalog->value().get());
+        return absl::OkStatus();
       }));
 
   return catalogs.release();

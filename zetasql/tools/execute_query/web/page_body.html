@@ -129,9 +129,14 @@
           {{#result}}
             {{#result_executed}}
             <h3>Execute</h3>
-              {{#result_executed_table}}
-                <pre class="output executed">{{> table}}</pre>
-              {{/result_executed_table}}
+              {{#result_executed_tables}}
+                {{#table}}
+                  <pre class="output executed">{{> table}}</pre>
+                {{/table}}
+                {{#error}}
+                  <pre id="error">{{error}}</pre>
+                {{/error}}
+              {{/result_executed_tables}}
               {{#result_executed_text}}
                 <pre class="output executed">{{result_executed_text}}</pre>
               {{/result_executed_text}}
@@ -139,7 +144,7 @@
 
             {{#result_analyzed}}
             <h3>Analyze</h3>
-            <pre class="output analyzed"><code class="language-less">{{result_analyzed}}</code></pre>
+            <pre class="output analyzed"><code class="language-less">{{{result_analyzed}}}</code></pre>
             {{/result_analyzed}}
 
             {{#result_parsed}}

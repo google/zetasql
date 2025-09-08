@@ -52,6 +52,7 @@
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/types/span.h"
 #include "google/protobuf/descriptor.h"
@@ -160,7 +161,6 @@ class TypeFactory : public TypeFactoryBase {
   const Type* get_double();
   const Type* get_date();
   const Type* get_timestamp();
-  const Type* get_timestamp_picos();
   const Type* get_time();
   const Type* get_datetime();
   const Type* get_interval();
@@ -600,7 +600,6 @@ const Type* StringType();
 const Type* BytesType();
 const Type* DateType();
 const Type* TimestampType();
-const Type* TimestampPicosType();
 const Type* TimeType();
 const Type* DatetimeType();
 const Type* IntervalType();
@@ -623,7 +622,6 @@ const ArrayType* DoubleArrayType();
 const ArrayType* StringArrayType();
 const ArrayType* BytesArrayType();
 const ArrayType* TimestampArrayType();
-const ArrayType* TimestampPicosArrayType();
 const ArrayType* DateArrayType();
 const ArrayType* DatetimeArrayType();
 const ArrayType* TimeArrayType();
@@ -712,6 +710,15 @@ const EnumType* RangeSessionizeModeEnumType();
 // Accessor for the ZetaSQL enum Type (functions::UnsupportedFields)
 // that represents how does TO_JSON handle fields of unsupported types.
 const EnumType* UnsupportedFieldsEnumType();
+
+// Accessor for the ZetaSQL enum Type (functions::RankEnums::RankType)
+// that specifies how to calculate the relative rank of a value within
+// a KLL sketch.
+absl::StatusOr<const EnumType*> RankTypeEnumType();
+
+// Returns the opaque enum type, given its SQL name.
+absl::StatusOr<const EnumType*> GetOpaqueEnumTypeFromSqlName(
+    absl::string_view enum_name);
 
 // Return a type of 'type_kind' if 'type_kind' is a simple type, otherwise
 // returns nullptr. This is similar to TypeFactory::MakeSimpleType, but doesn't

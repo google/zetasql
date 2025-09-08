@@ -1,3 +1,4 @@
+[default language_features=NONE]
 [default ddl_pseudo_column_mode=none]
 
 create external table a.b.c.T
@@ -106,7 +107,7 @@ create external table a.b.c.T(y string)
                              ^
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST]
 create external table a.b.c.T(x int64 options(description="integer field"), y string)
 options (x = 5, y = abc, z = ['uri', 'uri2'])
 --
@@ -128,7 +129,7 @@ CreateExternalTableStmt
   +-ColumnDefinition(name="y", type=STRING, column=a.b.c.T.y#2)
 ==
 
-[language_features=CREATE_TABLE_NOT_NULL,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST]
+[language_features=NONE,+CREATE_TABLE_NOT_NULL,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST]
 create external table a.b.c.T(x int64 NOT NULL)
 options ()
 --
@@ -143,7 +144,7 @@ CreateExternalTableStmt
     +-column=a.b.c.T.x#1
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST]
 create external table a.b.c.T(x int64 HIDDEN)
 options ()
 --
@@ -153,7 +154,7 @@ CreateExternalTableStmt
   +-ColumnDefinition(name="x", type=INT64, is_hidden=TRUE, column=a.b.c.T.x#1)
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST]
 create external table a.b.c.T(x int64, y string, PRIMARY KEY(x))
 options (x = 5, y = abc, z = ['uri', 'uri2'])
 --
@@ -170,7 +171,7 @@ CreateExternalTableStmt
   +-PrimaryKey(column_offset_list=[0], column_name_list=[x])
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CHECK_CONSTRAINT]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+CHECK_CONSTRAINT]
 create external table t(a int64, b int64, check (a > b))
 options (x = 5)
 --
@@ -191,7 +192,7 @@ CreateExternalTableStmt
     +-enforced=TRUE
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,FOREIGN_KEYS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+FOREIGN_KEYS]
 create external table a.b.c.T(first int64, second string, FOREIGN KEY (first) REFERENCES Value (value))
 options (x = 5, y = abc, z = ['uri', 'uri2'])
 --
@@ -208,7 +209,7 @@ CreateExternalTableStmt
   +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=Value, referenced_column_offset_list=[0], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=first)
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST]
 create {{|or replace}} {{|temporary|temp}} external table {{|if not exists}}
 a.b.c.T(x int64) options (a=b)
 --
@@ -298,27 +299,27 @@ create or replace temp external table if not exists
 ^
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST]
 create external table a.b.c.T(x int64)
 partition by x
 options ()
 --
-ERROR: Syntax error: Expected keyword OPTIONS [at 1:39]
-create external table a.b.c.T(x int64)
-                                      ^
+ERROR: Syntax error: Expected keyword DEFAULT or keyword LIKE or keyword OPTIONS or keyword WITH but got keyword PARTITION [at 2:1]
+partition by x
+^
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST]
 create external table a.b.c.T(x int64)
 cluster by x
 options ()
 --
-ERROR: Syntax error: Expected keyword OPTIONS [at 1:39]
-create external table a.b.c.T(x int64)
-                                      ^
+ERROR: Syntax error: Expected keyword DEFAULT or keyword LIKE or keyword OPTIONS or keyword WITH but got keyword CLUSTER [at 2:1]
+cluster by x
+^
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CHECK_CONSTRAINT]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+CHECK_CONSTRAINT]
 create external table t(a int64, check (a > b))
 options (x = 5)
 --
@@ -336,7 +337,7 @@ with partition columns
 ^
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table t(a int64)
 with partition columns
 options (x = 5)
@@ -351,7 +352,7 @@ CreateExternalTableStmt
   +-WithPartitionColumns
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table t
 with partition columns
 options (x = 5)
@@ -364,7 +365,7 @@ CreateExternalTableStmt
   +-WithPartitionColumns
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table t
 with partition columns()
 options (x = 5)
@@ -374,7 +375,7 @@ with partition columns()
                        ^
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table t
 with partition columns(x int64)
 options (x = 5)
@@ -389,7 +390,7 @@ CreateExternalTableStmt
       +-ColumnDefinition(name="x", type=INT64, column=t.x#1)
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table t(a int64)
 with partition columns(y int64, z string)
 options (x = 5)
@@ -407,7 +408,7 @@ CreateExternalTableStmt
       +-ColumnDefinition(name="z", type=STRING, column=t.z#3)
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table t(a int64)
 with partition columns(a int64, z string)
 options (x = 5)
@@ -417,7 +418,7 @@ with partition columns(a int64, z string)
                        ^
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table t(a int64, primary key (b))
 with partition columns(b int64)
 options (x = 5)
@@ -428,7 +429,7 @@ create external table t(a int64, primary key (b))
 
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CHECK_CONSTRAINT,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+CHECK_CONSTRAINT,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table t(a int64, check (b > 0))
 with partition columns(b int64)
 options (x = 5)
@@ -439,7 +440,7 @@ create external table t(a int64, check (b > 0))
 
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table t(a int64)
 with partition columns(b int64 primary key)
 options (x = 5)
@@ -449,7 +450,7 @@ with partition columns(b int64 primary key)
                        ^
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table t(a int64)
 with partition columns(b int64 options(description="partition column"))
 options (x = 5)
@@ -459,7 +460,7 @@ with partition columns(b int64 options(description="partition column"))
                        ^
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table t(a int64)
 with partition columns(b int64, primary key (b))
 options (x = 5)
@@ -469,7 +470,7 @@ with partition columns(b int64, primary key (b))
                                 ^
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_TABLE_NOT_NULL,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+CREATE_TABLE_NOT_NULL,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table t(a int64)
 with partition columns(b int64 not null)
 options (x = 5)
@@ -479,7 +480,7 @@ with partition columns(b int64 not null)
                        ^
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,FOREIGN_KEYS,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+FOREIGN_KEYS,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table t(FOREIGN KEY (b) REFERENCES Value (value))
 with partition columns(b int64)
 options (x = 5)
@@ -489,7 +490,7 @@ create external table t(FOREIGN KEY (b) REFERENCES Value (value))
 ^
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,FOREIGN_KEYS,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+FOREIGN_KEYS,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table t(a int64, FOREIGN KEY (b) REFERENCES Value (value))
 with partition columns(b int64)
 options (x = 5)
@@ -499,7 +500,7 @@ create external table t(a int64, FOREIGN KEY (b) REFERENCES Value (value))
                                               ^
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_CONNECTION,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table projectid.datasetid.tablename(x int64)
 with partition columns
 with connection conn
@@ -510,7 +511,7 @@ with connection conn
                 ^
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_CONNECTION,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table projectid.datasetid.tablename(x int64)
 with connection default
 options (x=foo)
@@ -528,7 +529,7 @@ CreateExternalTableStmt
 
 [no_java]
 [use_database=SpecialCatalog]
-[language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_CONNECTION,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table projectid.datasetid.tablename(x int64)
 with connection default
 options (x=foo)
@@ -538,7 +539,7 @@ with connection default
                 ^
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_CONNECTION,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table projectid.datasetid.tablename(x int64)
 with connection ``
 options (x=foo)
@@ -549,7 +550,7 @@ with connection ``
                 ^
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_CONNECTION,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table projectid.datasetid.tablename(x int64)
 with connection connection1
 options (x=foo)
@@ -565,19 +566,19 @@ CreateExternalTableStmt
   +-Connection(connection=connection1)
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_CONNECTION,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table projectid.datasetid.tablename(x int64)
 with connection `connection2`
 with partition columns
 options (x=bar)
 --
 
-ERROR: Syntax error: Expected keyword OPTIONS [at 2:30]
-with connection `connection2`
-                             ^
+ERROR: Syntax error: Expected keyword OPTIONS but got keyword WITH [at 3:1]
+with partition columns
+^
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_CONNECTION,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table projectid.datasetid.tablename(x int64)
 with partition columns
 with connection `connection2`
@@ -596,7 +597,7 @@ CreateExternalTableStmt
   +-WithPartitionColumns
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_CONNECTION,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table t(x int64)
 with partition columns (
   y int64
@@ -619,7 +620,7 @@ CreateExternalTableStmt
       +-ColumnDefinition(name="y", type=INT64, column=t.y#2)
 ==
 
-[language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[language_features=NONE,+CREATE_EXTERNAL_TABLE_WITH_CONNECTION,+CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,+CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
 create external table t(x int64)
 with partition columns (
   y int64

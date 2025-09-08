@@ -659,8 +659,17 @@ template<>
 absl::StatusOr<const TableValuedFunction*> RestoreFromImpl(
     const TableValuedFunctionRefProto& proto,
     const ResolvedNode::RestoreParams& params) {
+  // Serialized table valued function names include the group. We do not need
+  // this to look up a table valued function in the catalog.
+  const std::vector<absl::string_view> group_and_name =
+      absl::StrSplit(proto.name(), ":");
+  if (group_and_name.empty()) {
+    return zetasql_base::InvalidArgumentErrorBuilder(zetasql_base::SourceLocation::current())
+        << "Tried to parse table valued function with blank name: "
+        << absl::StrCat(proto);
+  }
   const TableValuedFunction* func;
-  const std::vector<std::string> path = absl::StrSplit(proto.name(), '.');
+  const std::vector<std::string> path = absl::StrSplit(group_and_name.back(), '.');
   ZETASQL_RETURN_IF_ERROR(params.catalog->FindTableValuedFunction(path, &func));
   return func;
 }
@@ -924,6 +933,10 @@ static absl::Status SaveToImpl(
       for (const auto& name : arg.descriptor_argument().column_names()) {
         *(descriptor_proto->add_column_name()) = name;
       }
+    } else if (arg.is_graph()) {
+      TVFGraphProto* graph_proto = arg_proto->mutable_graph_argument();
+      graph_proto->set_name(arg.graph().graph()->Name());
+      graph_proto->set_full_name(arg.graph().graph()->FullName());
     } else {
       ZETASQL_ASSIGN_OR_RETURN(const InputArgumentType& arg_type,
                        arg.GetScalarArgType());
@@ -983,6 +996,12 @@ absl::StatusOr<std::shared_ptr<TVFSignature>> RestoreFromImpl(
         names.push_back(name);
       }
       input_args.push_back(TVFInputArgumentType(TVFDescriptorArgument(names)));
+    } else if (argument.has_graph_argument()) {
+      const PropertyGraph* graph;
+      const std::vector<std::string> path = absl::StrSplit(
+        argument.graph_argument().full_name(), '.');
+      ZETASQL_RETURN_IF_ERROR(params.catalog->FindPropertyGraph(path, graph));
+      input_args.push_back(TVFInputArgumentType(TVFGraphArgument(graph)));
     } else {
       const ValueWithTypeProto& scalar_arg = argument.scalar_argument();
       if (scalar_arg.has_value()) {

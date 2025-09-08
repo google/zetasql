@@ -1238,7 +1238,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFromProtoDuration() {
       {"from_proto", {ProtoDuration(0, 12345)}, Micros(12)},
       {"from_proto", {ProtoDuration(0, -12345)}, Micros(-12)},
       {"from_proto", {ProtoDuration(10, 10)}, Seconds(10)},
-      {"from_proto", {ProtoDuration(-10, 10)}, Seconds(-10)},
+      {"from_proto", {ProtoDuration(-10, -10)}, Seconds(-10)},
       {"from_proto",
        {ProtoDuration(123456, 123456)},
        SecondsNanos(123456, 123000)},
@@ -1253,6 +1253,27 @@ std::vector<FunctionTestCall> GetFunctionTestsFromProtoDuration() {
        {ProtoDuration(TimeUtil::kDurationMinSeconds,
                       TimeUtil::kDurationMinNanoseconds)},
        SecondsNanos(TimeUtil::kDurationMinSeconds, -999999000)},
+      // Bad input (value out of range)
+      {"from_proto",
+       {ProtoDuration(TimeUtil::kDurationMinSeconds - 1, 0)},
+       NullInterval(),
+       OUT_OF_RANGE},
+      {"from_proto",
+       {ProtoDuration(TimeUtil::kDurationMaxSeconds + 1, 0)},
+       NullInterval(),
+       OUT_OF_RANGE},
+      {"from_proto",
+       {ProtoDuration(0, TimeUtil::kDurationMinNanoseconds - 1)},
+       NullInterval(),
+       OUT_OF_RANGE},
+      {"from_proto",
+       {ProtoDuration(0, TimeUtil::kDurationMaxNanoseconds + 1)},
+       NullInterval(),
+       OUT_OF_RANGE},
+      // Bad input - For durations of one second or more, a non-zero value for
+      // the nanos field must be of the same sign as the seconds field.
+      {"from_proto", {ProtoDuration(1, -1)}, NullInterval(), OUT_OF_RANGE},
+      {"from_proto", {ProtoDuration(-1, 1)}, NullInterval(), OUT_OF_RANGE},
   };
   for (FunctionTestCall& test : tests_scale_micro) {
     test.params.AddRequiredFeatures(

@@ -27,6 +27,7 @@
 #include "zetasql/common/measure_analysis_utils.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/builtin_function_options.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/language_options.h"
@@ -103,7 +104,7 @@ class SampleCatalogImpl {
       AnalyzerOptions& analyzer_options, absl::string_view table_name,
       std::vector<const Column*> columns_not_owned,
       std::optional<absl::flat_hash_set<int>> row_identity_column_indices,
-      std::vector<MeasureColumnDef> measures);
+      std::vector<MeasureColumnDef> measures, bool is_value_table);
 
   void AddFunctionWithArgumentType(std::string type_name, const Type* arg_type);
 
@@ -140,6 +141,7 @@ class SampleCatalogImpl {
   void LoadMultiSrcDstEdgePropertyGraphs();
   void LoadCompositeKeyPropertyGraphs();
   void LoadPropertyGraphWithDynamicLabelAndProperties();
+  void LoadPropertyGraphWithDynamicMultiLabelsAndProperties();
 
   // Loads several table-valued functions into the sample catalog. For a full
   // list of the signatures added, please see the beginning of the method
@@ -152,6 +154,7 @@ class SampleCatalogImpl {
   void LoadConnectionTableValuedFunctions();
   void LoadDescriptorTableValuedFunctions();
   void LoadTableValuedFunctionsWithDeprecationWarnings();
+  void LoadTableValuedFunctionsWithMultipleSignatures();
 
   // Add a SQL table function to catalog starting from a full create table
   // function statement.
@@ -163,6 +166,7 @@ class SampleCatalogImpl {
       const LanguageOptions& language_options);
   void LoadTemplatedSQLTableValuedFunctions();
   void LoadTableValuedFunctionsWithAnonymizationUid();
+  void LoadTableValuedFunctionsWithOptionalRelations();
 
   void AddProcedureWithArgumentType(std::string type_name,
                                     const Type* arg_type);

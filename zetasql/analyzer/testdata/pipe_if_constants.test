@@ -1,7 +1,7 @@
 # This file tests various kinds of constant expressions in pipe IF.
 # Literal replacement doesn't work because parameters don't work as constants
 # in the IF conditions yet.
-[default language_features=PIPES,PIPE_IF,PIPE_STATIC_DESCRIBE]
+[default language_features=MAXIMUM,+PIPES,+PIPE_IF,+PIPE_STATIC_DESCRIBE]
 [default no_enable_literal_replacement]
 
 # Literal constants

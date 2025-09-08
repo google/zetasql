@@ -55,6 +55,7 @@
 namespace zetasql {
 
 class QueryExpression;
+class GqlReturnOpSQLBuilder;
 
 struct CopyableState {
   // Stores the path used to access the resolved columns, keyed by column_id.
@@ -105,19 +106,20 @@ struct CopyableState {
 
   // A stack of stacks. An element of an inner stack corresponds to a
   // ResolvedUpdateItem node that is currently being processed, and stores the
-  // target SQL for that node and the array offset SQL (empty if not applicable)
-  // of the ResolvedUpdateArrayItem child currently being processed. We start a
-  // new stack just before we process a ResolvedUpdateItem node from a
-  // ResolvedUpdateStmt (as opposed to a ResolvedUpdateArrayItem).
+  // target SQL for that node and the subscript expression SQL (empty if not
+  // applicable) of the ResolvedUpdateItemElement child currently being
+  // processed. We start a new stack just before we process a ResolvedUpdateItem
+  // node from a ResolvedUpdateStmt (as opposed to a ResolvedUpdateItemElement).
   //
   // Stacks are added/removed in GetUpdateItemListSQL. Target SQL is set in
-  // VisitResolvedUpdateItem. Offset SQL is set in
-  // VisitResolvedUpdateArrayItem. An inner stack is used to construct a target
-  // in VisitResolvedUpdateItem when there are no ResolvedUpdateArrayItem
-  // children.
-  std::deque<std::deque<
-      std::pair<std::string /* target_sql */, std::string /* offset_sql */>>>
-      update_item_targets_and_offsets;
+  // VisitResolvedUpdateItem. The subscript expression SQL is set in
+  // VisitResolvedUpdateItemElement. An inner stack is used to construct a
+  // target in VisitResolvedUpdateItem when there are no
+  // ResolvedUpdateItemElement children.
+  std::deque<
+      std::deque<std::pair<std::string /* target_sql */,
+                           std::string /* container_element_access_sql */>>>
+      update_item_targets;
 
   // A stack of dml target paths kept to parallel the nesting of dml statements.
   // Populated in VisitResolvedUpdateItem and used in
@@ -197,7 +199,7 @@ class SQLBuilder : public ResolvedASTVisitor {
                                bool use_external_float32 = false)
         : language_options(language_options),
           use_external_float32(use_external_float32) {}
-    ~SQLBuilderOptions() {}
+    ~SQLBuilderOptions() = default;
 
     // Language options included enabled/disabled features and product mode,
     // whether the generated SQL is for INTERNAL or EXTERNAL mode.  For example,
@@ -364,15 +366,17 @@ class SQLBuilder : public ResolvedASTVisitor {
   }
 
   // Returns a stack of stack of update item target path and alias.
-  std::deque<std::deque<
-      std::pair</* target_sql */ std::string, /* offset_sql */ std::string>>>&
-  mutable_update_item_targets_and_offsets() {
-    return state_.update_item_targets_and_offsets;
+  std::deque<
+      std::deque<std::pair</* target_sql */ std::string,
+                           /* container_element_access_sql */ std::string>>>&
+  mutable_update_item_targets() {
+    return state_.update_item_targets;
   }
-  const std::deque<std::deque<
-      std::pair</* target_sql */ std::string, /* offset_sql */ std::string>>>&
-  update_item_targets_and_offsets() const {
-    return state_.update_item_targets_and_offsets;
+  const std::deque<
+      std::deque<std::pair</* target_sql */ std::string,
+                           /* container_element_access_sql */ std::string>>>&
+  update_item_targets() const {
+    return state_.update_item_targets;
   }
 
   // Set the max seen alias id.
@@ -405,6 +409,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedCreateExternalSchemaStmt* node) override;
   absl::Status VisitResolvedCreateTableStmt(
       const ResolvedCreateTableStmt* node) override;
+  absl::Status VisitResolvedCreateSequenceStmt(
+      const ResolvedCreateSequenceStmt* node) override;
   absl::Status VisitResolvedCreateSnapshotTableStmt(
       const ResolvedCreateSnapshotTableStmt* node) override;
   absl::Status VisitResolvedCreateTableAsSelectStmt(
@@ -504,6 +510,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedAlterSchemaStmt* node) override;
   absl::Status VisitResolvedAlterExternalSchemaStmt(
       const ResolvedAlterExternalSchemaStmt* node) override;
+  absl::Status VisitResolvedAlterSequenceStmt(
+      const ResolvedAlterSequenceStmt* node) override;
   absl::Status VisitResolvedAlterTableSetOptionsStmt(
       const ResolvedAlterTableSetOptionsStmt* node) override;
   absl::Status VisitResolvedAlterTableStmt(
@@ -591,8 +599,8 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status VisitResolvedDMLValue(const ResolvedDMLValue* node) override;
   absl::Status VisitResolvedInsertRow(const ResolvedInsertRow* node) override;
   absl::Status VisitResolvedUpdateItem(const ResolvedUpdateItem* node) override;
-  absl::Status VisitResolvedUpdateArrayItem(
-      const ResolvedUpdateArrayItem* node) override;
+  absl::Status VisitResolvedUpdateItemElement(
+      const ResolvedUpdateItemElement* node) override;
   absl::Status VisitResolvedPrivilege(const ResolvedPrivilege* node) override;
   absl::Status VisitResolvedAggregateHavingModifier(
       const ResolvedAggregateHavingModifier* node) override;
@@ -641,6 +649,8 @@ class SQLBuilder : public ResolvedASTVisitor {
                                               bool is_gql);
   absl::Status VisitResolvedSingleRowScan(
       const ResolvedSingleRowScan* node) override;
+  absl::Status VisitResolvedUnsetArgumentScan(
+      const ResolvedUnsetArgumentScan* node) override;
   absl::Status VisitResolvedMatchRecognizeScan(
       const ResolvedMatchRecognizeScan* node) override;
   absl::StatusOr<std::string> GeneratePatternExpression(
@@ -650,6 +660,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedUnpivotScan* node) override;
   absl::Status VisitResolvedGroupRowsScan(
       const ResolvedGroupRowsScan* node) override;
+  absl::Status VisitResolvedDescribeScan(
+      const ResolvedDescribeScan* node) override;
   absl::Status VisitResolvedStaticDescribeScan(
       const ResolvedStaticDescribeScan* node) override;
   absl::Status VisitResolvedAssertScan(const ResolvedAssertScan* node) override;
@@ -727,7 +739,7 @@ class SQLBuilder : public ResolvedASTVisitor {
       absl::Span<const ResolvedColumn> column_list,
       absl::Span<const std::unique_ptr<const ResolvedComputedColumn>>
           shape_expr_list,
-      const std::string& table_alias, SQLAliasPairList* select_list,
+      absl::string_view table_alias, SQLAliasPairList* select_list,
       std::string* sql);
   absl::Status ProcessGqlSubquery(const ResolvedSubqueryExpr* node,
                                   std::string& output_sql);
@@ -871,7 +883,7 @@ class SQLBuilder : public ResolvedASTVisitor {
   //
   // The placeholder scan will be updated to the real recursive scan when the
   // ResolvedRecursiveScan itself is visited.
-  void AddPlaceholderRecursiveScan(const std::string& query_name);
+  void AddPlaceholderRecursiveScan(absl::string_view query_name);
 
  public:
   absl::Status DefaultVisit(const ResolvedNode* node) override;
@@ -879,6 +891,15 @@ class SQLBuilder : public ResolvedASTVisitor {
  protected:
   SQLBuilder(int* max_seen_alias_id_root_ptr, const SQLBuilderOptions& options,
              const CopyableState& state);
+
+  // Allows subclasses to override the default SQL builder for GQL RETURN
+  // statements.
+  virtual std::unique_ptr<GqlReturnOpSQLBuilder> CreateGqlReturnOpSQLBuilder(
+      const ResolvedColumnList& output_column_list,
+      std::optional<absl::btree_map<ResolvedColumn, std::string>>
+          output_column_to_alias,
+      int* max_seen_alias_id, const SQLBuilderOptions& options,
+      const CopyableState& state);
 
   // Holds SQL text of nodes representing expressions/subqueries and
   // QueryExpression for scan nodes.
@@ -959,6 +980,10 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedColumnAnnotations* annotations,
       const ResolvedGeneratedColumnInfo* generated_column_info,
       const ResolvedColumnDefaultValue* default_value, std::string* text);
+
+  absl::Status AppendGeneratedColumnInfo(
+      const ResolvedGeneratedColumnInfo* generated_column_info,
+      std::string* text);
 
   absl::StatusOr<std::string> GetHintListString(
       absl::Span<const std::unique_ptr<const ResolvedOption>> hint_list);
@@ -1091,7 +1116,7 @@ class SQLBuilder : public ResolvedASTVisitor {
           table_and_column_info_list,
       std::string* sql);
 
-  static std::string GetOptionalObjectType(const std::string& object_type);
+  static std::string GetOptionalObjectType(absl::string_view object_type);
 
   // Get the "<privilege_list> ON <object_type> <name_path>" part of a GRANT or
   // REVOKE statement.
@@ -1130,7 +1155,7 @@ class SQLBuilder : public ResolvedASTVisitor {
   // Caller owns the returned QueryExpression.
   absl::StatusOr<std::unique_ptr<QueryExpression>> ProcessQuery(
       const ResolvedScan* query,
-      const std::vector<std::unique_ptr<const ResolvedOutputColumn>>&
+      absl::Span<const std::unique_ptr<const ResolvedOutputColumn>>
           output_column_list);
 
   static absl::Status AddNullHandlingModifier(
@@ -1186,9 +1211,7 @@ class SQLBuilder : public ResolvedASTVisitor {
 
   // Helper function for adding SQL for aggregate and group by lists.
   absl::Status ProcessAggregateScanBase(
-      const ResolvedAggregateScanBase* node,
-      const std::vector<GroupingSetIds>& grouping_set_ids_list,
-      const std::vector<int>& rollup_column_id_list,
+      const ResolvedAggregateScanBase* node, bool is_differencial_privacy_scan,
       absl::flat_hash_map<int /*grouping_column_id*/,
                           int /*grouping_argument_group_by_column_id*/>
           grouping_column_id_map,
@@ -1218,12 +1241,12 @@ class SQLBuilder : public ResolvedASTVisitor {
   // table_constraints, to sql.
   absl::Status ProcessTableElementsBase(
       std::string* sql,
-      const std::vector<std::unique_ptr<const ResolvedColumnDefinition>>&
+      absl::Span<const std::unique_ptr<const ResolvedColumnDefinition>>
           column_definition_list,
       const ResolvedPrimaryKey* resolved_primary_key,
-      const std::vector<std::unique_ptr<const ResolvedForeignKey>>&
+      absl::Span<const std::unique_ptr<const ResolvedForeignKey>>
           foreign_key_list,
-      const std::vector<std::unique_ptr<const ResolvedCheckConstraint>>&
+      absl::Span<const std::unique_ptr<const ResolvedCheckConstraint>>
           check_constraint_list);
   // Helper function to append foreign key table constraint.
   absl::StatusOr<std::string> ProcessForeignKey(
@@ -1300,11 +1323,6 @@ class SQLBuilder : public ResolvedASTVisitor {
 
  private:
   CopyableState state_;
-
-  // The column ids of the target table for DML statements. Those are not
-  // aliased and some places need to use their names directly, like in GQL
-  // CALL () variable scope list.
-  absl::flat_hash_set<int> dml_target_column_ids_;
 
   bool IsPipeSyntaxTargetMode() {
     return options_.target_syntax_mode == TargetSyntaxMode::kPipe;
@@ -1401,6 +1419,7 @@ class SQLBuilder : public ResolvedASTVisitor {
     // The implicit input table is not printed.
     kGqlImplicit,
     // When there is no implicit input table, e.g. CALL tvf(...) without PER.
+    // There may be an implicit graph input.
     // This proceeds similar to SQL, but doesn't attach an alias to the scan.
     kGqlExplicit,
   };
@@ -1448,6 +1467,81 @@ class SQLBuilder : public ResolvedASTVisitor {
   // being visited again free of any error handling context for the other
   // expressions.
   absl::flat_hash_set<const ResolvedScan*> scans_to_collapse_;
+};
+
+// This resolved AST visitor is used to restore the SQL for a GQL RETURN
+// statement in a way that collapses the nested scans into a one liner. It
+// memorizes important states during traversal of the resolved AST and only
+// output the GQL text after it is done with the traversal.
+class GqlReturnOpSQLBuilder : public SQLBuilder {
+ public:
+  explicit GqlReturnOpSQLBuilder(
+      const ResolvedColumnList& output_column_list,
+      std::optional<absl::btree_map<ResolvedColumn, std::string>>
+          output_column_to_alias,
+      int* max_seen_alias_id, const SQLBuilderOptions& options,
+      const CopyableState& state);
+
+  std::vector<std::string> GetOutputColumnAliases();
+
+  std::string GetReturnColumnExpr(const ResolvedColumn& column);
+
+  std::string gql();
+
+  absl::Status VisitResolvedGraphRefScan(
+      const ResolvedGraphRefScan* node) override;
+
+  bool IsDistinctAggregateScan(const ResolvedAggregateScan* node);
+
+  absl::Status VisitResolvedAggregateScan(
+      const ResolvedAggregateScan* node) override;
+
+  absl::Status VisitResolvedAnalyticScan(
+      const ResolvedAnalyticScan* node) override;
+
+  absl::Status VisitResolvedProjectScan(
+      const ResolvedProjectScan* node) override;
+
+  absl::Status VisitResolvedOrderByScan(
+      const ResolvedOrderByScan* node) override;
+
+  absl::Status VisitResolvedLimitOffsetScan(
+      const ResolvedLimitOffsetScan* node) override;
+
+  absl::Status VisitResolvedSubqueryExpr(
+      const ResolvedSubqueryExpr* node) override;
+
+  absl::Status ProcessInputScan(const ResolvedScan* node);
+
+ private:
+  // Final output column list of the GQL RETURN clause.
+  ResolvedColumnList output_column_list_;
+  absl::btree_map<ResolvedColumn, std::string> output_column_to_alias_;
+
+  // Stores the SQL expression of computed columns computed by intermediate
+  // scans. It will only be used to output the SQL for the final column list.
+  // We only output their SQL after we are done with traversing the entire tree
+  // that represents the RETURN clause.
+  absl::flat_hash_map<int, std::string> column_id_to_sql_;
+
+  // Final column list of GROUP BY clause.
+  std::vector<ResolvedColumn> group_by_list_;
+
+  // Stores the SQL expression of the computed columns used in the final column
+  // list of ORDER BY clause.
+  absl::btree_map<ResolvedColumn, std::string> order_by_column_to_sql_;
+
+  // True if DISTINCT is present.
+  bool is_distinct_ = false;
+
+  // Non-empty if OFFSET is present.
+  std::string offset_sql_;
+
+  // Non-empty if LIMIT is present.
+  std::string limit_sql_;
+
+  // Only set to true if the current visit is under a GQL subquery context.
+  bool is_subquery_context_ = false;
 };
 
 }  // namespace zetasql

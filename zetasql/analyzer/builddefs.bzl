@@ -16,11 +16,13 @@
 
 """ Macros for the creation of analyzer test targets """
 
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 def gen_analyzer_test(filename):
     """ Create an analyzer cc_test using queries in testdata/<filename>.  """
     name = "analyzer_" + filename.replace(".", "_")
     datafile = "testdata/" + filename
-    native.cc_test(
+    cc_test(
         name = name,
         size = "medium",
         data = [datafile],

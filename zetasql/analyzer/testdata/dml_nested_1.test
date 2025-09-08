@@ -1,5 +1,6 @@
 # Nested UPDATE whose WHERE clause needs to access another column in the table.
-[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
+[default language_features=MAXIMUM]
+[language_features=NONE,{{|+CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable t
 SET (
   UPDATE t.KitchenSink.repeated_int32_val v
@@ -15,7 +16,7 @@ ERROR: Unrecognized name: KitchenSink [at 5:13]
 --
 ALTERNATION GROUPS:
     TestTable.
-    CORRELATED_REFS_IN_NESTED_DML,TestTable.
+    +CORRELATED_REFS_IN_NESTED_DML,TestTable.
 --
 ERROR: Unrecognized name: TestTable [at 5:13]
   WHERE v = TestTable.KitchenSink.int64_val)
@@ -28,8 +29,8 @@ ERROR: Unrecognized name: t [at 5:13]
             ^
 --
 ALTERNATION GROUPS:
-    CORRELATED_REFS_IN_NESTED_DML,
-    CORRELATED_REFS_IN_NESTED_DML,t.
+    +CORRELATED_REFS_IN_NESTED_DML,
+    +CORRELATED_REFS_IN_NESTED_DML,t.
 --
 UpdateStmt
 +-table_scan=
@@ -71,7 +72,7 @@ UpdateStmt
 ==
 
 # Nested INSERT that needs to access another column in the table.
-[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features=NONE,{{|+CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable t
 SET (
   INSERT t.KitchenSink.repeated_int32_val
@@ -86,7 +87,7 @@ ERROR: Unrecognized name: KitchenSink [at 4:11]
 --
 ALTERNATION GROUPS:
     TestTable.
-    CORRELATED_REFS_IN_NESTED_DML,TestTable.
+    +CORRELATED_REFS_IN_NESTED_DML,TestTable.
 --
 ERROR: Unrecognized name: TestTable [at 4:11]
   VALUES (TestTable.KitchenSink.int64_val))
@@ -99,8 +100,8 @@ ERROR: Unrecognized name: t [at 4:11]
           ^
 --
 ALTERNATION GROUPS:
-    CORRELATED_REFS_IN_NESTED_DML,
-    CORRELATED_REFS_IN_NESTED_DML,t.
+    +CORRELATED_REFS_IN_NESTED_DML,
+    +CORRELATED_REFS_IN_NESTED_DML,t.
 --
 UpdateStmt
 +-table_scan=
@@ -136,7 +137,7 @@ UpdateStmt
 ==
 
 # Nested INSERT with a query that needs to access another column in the table.
-[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features=NONE,{{|+CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable t
 SET (
   INSERT t.KitchenSink.repeated_int32_val
@@ -151,7 +152,7 @@ ERROR: Table not found: KitchenSink.repeated_int64_val [at 4:17]
 --
 ALTERNATION GROUPS:
     TestTable.
-    CORRELATED_REFS_IN_NESTED_DML,TestTable.
+    +CORRELATED_REFS_IN_NESTED_DML,TestTable.
 --
 ERROR: Table not found: TestTable.KitchenSink.repeated_int64_val [at 4:17]
   SELECT * FROM TestTable.KitchenSink.repeated_int64_val)
@@ -163,13 +164,13 @@ ERROR: Table not found: t.KitchenSink.repeated_int64_val [at 4:17]
   SELECT * FROM t.KitchenSink.repeated_int64_val)
                 ^
 --
-ALTERNATION GROUP: CORRELATED_REFS_IN_NESTED_DML,
+ALTERNATION GROUP: +CORRELATED_REFS_IN_NESTED_DML,
 --
 ERROR: Aliases referenced in the from clause must refer to preceding scans, and cannot refer to columns on those scans. KitchenSink refers to a column and must be qualified with a table name. [at 4:17]
   SELECT * FROM KitchenSink.repeated_int64_val)
                 ^
 --
-ALTERNATION GROUP: CORRELATED_REFS_IN_NESTED_DML,t.
+ALTERNATION GROUP: +CORRELATED_REFS_IN_NESTED_DML,t.
 --
 UpdateStmt
 +-table_scan=
@@ -217,7 +218,7 @@ UpdateStmt
 ==
 
 # Triply-nested INSERT with query that references columns at the various levels.
-[language_features=CORRELATED_REFS_IN_NESTED_DML]
+[language_features=NONE,+CORRELATED_REFS_IN_NESTED_DML]
 UPDATE RecursivePBTable t SET (
   UPDATE t.RecursivePB.repeated_recursive_pb a SET (
     UPDATE a.repeated_recursive_pb b SET (
@@ -320,7 +321,7 @@ UpdateStmt
 
 # Nested INSERT with a query that needs to access another column in the table,
 # and that also involves a subquery with correlated references.
-[language_features=CORRELATED_REFS_IN_NESTED_DML]
+[language_features=NONE,+CORRELATED_REFS_IN_NESTED_DML]
 UPDATE TestTable t SET
   (INSERT KitchenSink.repeated_int64_val
    SELECT t.KitchenSink.int32_val + (SELECT (SELECT Key) FROM KeyValue))
@@ -388,7 +389,7 @@ UpdateStmt
 ==
 
 # Nested DELETE whose WHERE clause needs to access another column in the table.
-[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features=NONE,{{|+CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable T SET
   (DELETE T.KitchenSink.repeated_int32_val v
    WHERE v = {{|TestTable.|t.}}KitchenSink.int64_val)
@@ -402,7 +403,7 @@ ERROR: Unrecognized name: KitchenSink [at 3:14]
 --
 ALTERNATION GROUPS:
     TestTable.
-    CORRELATED_REFS_IN_NESTED_DML,TestTable.
+    +CORRELATED_REFS_IN_NESTED_DML,TestTable.
 --
 ERROR: Unrecognized name: TestTable [at 3:14]
    WHERE v = TestTable.KitchenSink.int64_val)
@@ -415,8 +416,8 @@ ERROR: Unrecognized name: t [at 3:14]
              ^
 --
 ALTERNATION GROUPS:
-    CORRELATED_REFS_IN_NESTED_DML,
-    CORRELATED_REFS_IN_NESTED_DML,t.
+    +CORRELATED_REFS_IN_NESTED_DML,
+    +CORRELATED_REFS_IN_NESTED_DML,t.
 --
 UpdateStmt
 +-table_scan=
@@ -450,7 +451,7 @@ UpdateStmt
 ==
 
 # Nested DELETE where the alias overrides the table alias.
-[language_features=CORRELATED_REFS_IN_NESTED_DML]
+[language_features=NONE,+CORRELATED_REFS_IN_NESTED_DML]
 UPDATE TestTable t
 SET (
   DELETE t.KitchenSink.repeated_int32_val t
@@ -490,7 +491,7 @@ UpdateStmt
 ==
 
 # Nested UPDATE where the alias overrides the table alias.
-[language_features=CORRELATED_REFS_IN_NESTED_DML]
+[language_features=NONE,+CORRELATED_REFS_IN_NESTED_DML]
 UPDATE TestTable t
 SET (
   UPDATE t.KitchenSink.repeated_int32_val t
@@ -551,7 +552,7 @@ ERROR: Cannot access field int32_val on a value with type INT32 [at 4:17]
 ==
 
 # Nested DELETE where the alias masks a column from the table.
-[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features=NONE,{{|+CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable t
 SET (
   DELETE t.KitchenSink.repeated_int32_val KitchenSink
@@ -591,7 +592,7 @@ UpdateStmt
 ==
 
 # Nested UPDATE where the alias masks a column from the table.
-[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features=NONE,{{|+CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable t
 SET (
   UPDATE t.KitchenSink.repeated_int32_val KitchenSink
@@ -645,7 +646,7 @@ UpdateStmt
 
 # Nested UPDATE where we allow outside column names on the right hand side, and
 # then incorrectly try to use one on the left hand side.
-[language_features=CORRELATED_REFS_IN_NESTED_DML]
+[language_features=NONE,+CORRELATED_REFS_IN_NESTED_DML]
 UPDATE TestTable t SET
   key = 0,
   (UPDATE KitchenSink.repeated_int32_val
@@ -659,7 +660,7 @@ ERROR: Unrecognized name: key [at 4:8]
 ==
 
 # Nested UPDATE where we use the target on both sides of a SET.
-[language_features=CORRELATED_REFS_IN_NESTED_DML]
+[language_features=NONE,+CORRELATED_REFS_IN_NESTED_DML]
 UPDATE TestTable t SET
   (UPDATE KitchenSink.repeated_int32_val r
    SET r = r + 1
@@ -702,7 +703,7 @@ UpdateStmt
 ==
 
 # Nested DELETE using a correlation reference in the FROM clause of a subquery.
-[language_features=CORRELATED_REFS_IN_NESTED_DML]
+[language_features=NONE,+CORRELATED_REFS_IN_NESTED_DML]
 UPDATE TestTable t SET
   (DELETE t.KitchenSink.repeated_int32_val v
    WHERE v = (SELECT MAX(val)
@@ -760,7 +761,7 @@ UpdateStmt
 ==
 
 # Nested UPDATE using a correlation reference in the FROM clause of a subquery.
-[language_features=CORRELATED_REFS_IN_NESTED_DML]
+[language_features=NONE,+CORRELATED_REFS_IN_NESTED_DML]
 UPDATE TestTable t SET
   (UPDATE t.KitchenSink.repeated_int32_val v
    SET v = (SELECT MAX(val)
@@ -825,7 +826,7 @@ UpdateStmt
 ==
 
 # Nested INSERT using a correlation reference in the FROM clause of a subquery.
-[language_features=CORRELATED_REFS_IN_NESTED_DML]
+[language_features=NONE,+CORRELATED_REFS_IN_NESTED_DML]
 UPDATE TestTable t SET
   (INSERT t.KitchenSink.repeated_int32_val
    VALUES ((SELECT MAX(val)
@@ -885,7 +886,7 @@ UpdateStmt
 ==
 
 # Nested DELETE using a correlation reference that is multiple levels out.
-[language_features=CORRELATED_REFS_IN_NESTED_DML]
+[language_features=NONE,+CORRELATED_REFS_IN_NESTED_DML]
 UPDATE TestTable t SET
   (UPDATE t.KitchenSink.nested_repeated_value n SET
      (DELETE n.nested_repeated_int64 v
@@ -939,7 +940,7 @@ UpdateStmt
 ==
 
 # Nested UPDATE using a correlation reference that is multiple levels out.
-[language_features=CORRELATED_REFS_IN_NESTED_DML]
+[language_features=NONE,+CORRELATED_REFS_IN_NESTED_DML]
 UPDATE TestTable t SET
   (UPDATE t.KitchenSink.nested_repeated_value n SET
      (UPDATE n.nested_repeated_int64 v
@@ -1000,7 +1001,7 @@ UpdateStmt
 ==
 
 # Nested INSERT using a correlation reference that is multiple levels out.
-[language_features=CORRELATED_REFS_IN_NESTED_DML]
+[language_features=NONE,+CORRELATED_REFS_IN_NESTED_DML]
 UPDATE TestTable t SET
   (UPDATE t.KitchenSink.nested_repeated_value n SET
      (INSERT n.nested_repeated_int64
@@ -1057,7 +1058,7 @@ UpdateStmt
 
 # Attempt to reference a field/column name (the latter from an outer scope)
 # in the FROM clause of a subquery in a nested DELETE.
-[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features=NONE,{{|+CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable t SET
   (DELETE KitchenSink.nested_repeated_value
    WHERE nested_int64 = (select max(key) from
@@ -1066,7 +1067,7 @@ WHERE true
 --
 ALTERNATION GROUPS:
     nested_repeated_int64
-    CORRELATED_REFS_IN_NESTED_DML,nested_repeated_int64
+    +CORRELATED_REFS_IN_NESTED_DML,nested_repeated_int64
 --
 ERROR: Table not found: nested_repeated_int64 (Unqualified identifiers in a FROM clause are always resolved as tables. Identifier nested_repeated_int64 is in scope but unqualified names cannot be resolved here.) [at 4:26]
                          nested_repeated_int64))
@@ -1078,7 +1079,7 @@ ERROR: Table not found: KitchenSink [at 4:26]
                          KitchenSink))
                          ^
 --
-ALTERNATION GROUP: CORRELATED_REFS_IN_NESTED_DML,KitchenSink
+ALTERNATION GROUP: +CORRELATED_REFS_IN_NESTED_DML,KitchenSink
 --
 ERROR: Table not found: KitchenSink (Unqualified identifiers in a FROM clause are always resolved as tables. Identifier KitchenSink is in scope but unqualified names cannot be resolved here.) [at 4:26]
                          KitchenSink))
@@ -1088,7 +1089,7 @@ ERROR: Table not found: KitchenSink (Unqualified identifiers in a FROM clause ar
 # Attempt to reference a field/column name (the latter from an outer scope)
 # in the FROM clause of a subquery on the right hand side of a nested UPDATE
 # item.
-[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features=NONE,{{|+CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable t SET
   (UPDATE KitchenSink.nested_repeated_value
    SET nested_int64 = (select max(key) from
@@ -1098,7 +1099,7 @@ WHERE true
 --
 ALTERNATION GROUPS:
     nested_repeated_int64
-    CORRELATED_REFS_IN_NESTED_DML,nested_repeated_int64
+    +CORRELATED_REFS_IN_NESTED_DML,nested_repeated_int64
 --
 ERROR: Table not found: nested_repeated_int64 (Unqualified identifiers in a FROM clause are always resolved as tables. Identifier nested_repeated_int64 is in scope but unqualified names cannot be resolved here.) [at 4:24]
                        nested_repeated_int64)
@@ -1110,7 +1111,7 @@ ERROR: Table not found: KitchenSink [at 4:24]
                        KitchenSink)
                        ^
 --
-ALTERNATION GROUP: CORRELATED_REFS_IN_NESTED_DML,KitchenSink
+ALTERNATION GROUP: +CORRELATED_REFS_IN_NESTED_DML,KitchenSink
 --
 ERROR: Table not found: KitchenSink (Unqualified identifiers in a FROM clause are always resolved as tables. Identifier KitchenSink is in scope but unqualified names cannot be resolved here.) [at 4:24]
                        KitchenSink)
@@ -1119,7 +1120,7 @@ ERROR: Table not found: KitchenSink (Unqualified identifiers in a FROM clause ar
 
 # Attempt to reference a field/column name (the latter from an outer scope)
 # in the FROM clause of a subquery in a nested INSERT.
-[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features=NONE,{{|+CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable t SET
   (INSERT KitchenSink.nested_repeated_value
    VALUES ((select max(key) from
@@ -1128,7 +1129,7 @@ WHERE true
 --
 ALTERNATION GROUPS:
     nested_repeated_int64
-    CORRELATED_REFS_IN_NESTED_DML,nested_repeated_int64
+    +CORRELATED_REFS_IN_NESTED_DML,nested_repeated_int64
 --
 ERROR: Table not found: nested_repeated_int64 [at 4:13]
             nested_repeated_int64)))
@@ -1140,7 +1141,7 @@ ERROR: Table not found: KitchenSink [at 4:13]
             KitchenSink)))
             ^
 --
-ALTERNATION GROUP: CORRELATED_REFS_IN_NESTED_DML,KitchenSink
+ALTERNATION GROUP: +CORRELATED_REFS_IN_NESTED_DML,KitchenSink
 --
 ERROR: Table not found: KitchenSink (Unqualified identifiers in a FROM clause are always resolved as tables. Identifier KitchenSink is in scope but unqualified names cannot be resolved here.) [at 4:13]
             KitchenSink)))
@@ -1148,7 +1149,7 @@ ERROR: Table not found: KitchenSink (Unqualified identifiers in a FROM clause ar
 ==
 
 # A more complex test of scoping from inside a nested DELETE.
-[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features=NONE,{{|+CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable t
 SET (
   DELETE t.KitchenSink.nested_repeated_group c
@@ -1171,15 +1172,15 @@ ERROR: Unrecognized name: t [at 4:39]
 --
 ALTERNATION GROUPS:
     TestTable.
-    CORRELATED_REFS_IN_NESTED_DML,TestTable.
+    +CORRELATED_REFS_IN_NESTED_DML,TestTable.
 --
 ERROR: Unrecognized name: TestTable [at 4:39]
   WHERE (c.idstr IS NULL) AND (c.id = TestTable.key))
                                       ^
 --
 ALTERNATION GROUPS:
-    CORRELATED_REFS_IN_NESTED_DML,
-    CORRELATED_REFS_IN_NESTED_DML,t.
+    +CORRELATED_REFS_IN_NESTED_DML,
+    +CORRELATED_REFS_IN_NESTED_DML,t.
 --
 UpdateStmt
 +-table_scan=
@@ -1249,7 +1250,7 @@ UpdateStmt
 ==
 
 # A more complex test of scoping from inside a nested UPDATE.
-[language_features={{|CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features=NONE,{{|+CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable t
 SET (
   UPDATE t.KitchenSink.nested_repeated_group c
@@ -1273,15 +1274,15 @@ ERROR: Unrecognized name: t [at 4:14]
 --
 ALTERNATION GROUPS:
     TestTable.
-    CORRELATED_REFS_IN_NESTED_DML,TestTable.
+    +CORRELATED_REFS_IN_NESTED_DML,TestTable.
 --
 ERROR: Unrecognized name: TestTable [at 4:14]
   SET c.id = TestTable.key
              ^
 --
 ALTERNATION GROUPS:
-    CORRELATED_REFS_IN_NESTED_DML,
-    CORRELATED_REFS_IN_NESTED_DML,t.
+    +CORRELATED_REFS_IN_NESTED_DML,
+    +CORRELATED_REFS_IN_NESTED_DML,t.
 --
 UpdateStmt
 +-table_scan=
@@ -1355,7 +1356,7 @@ UpdateStmt
 ==
 
 # Using a WITH clause inside a query in a nested INSERT.
-[language_features={{|WITH_ON_SUBQUERY}}]
+[language_features=NONE,{{|+WITH_ON_SUBQUERY}}]
 UPDATE TestTable SET
   (INSERT KitchenSink.repeated_int32_val
      (with Q as (select 1) select * from Q))
@@ -1367,7 +1368,7 @@ ERROR: WITH is not supported on subqueries in this language version [at 3:7]
      (with Q as (select 1) select * from Q))
       ^
 --
-ALTERNATION GROUP: WITH_ON_SUBQUERY
+ALTERNATION GROUP: +WITH_ON_SUBQUERY
 --
 UpdateStmt
 +-table_scan=
@@ -1599,7 +1600,7 @@ UpdateStmt
                   +-Literal(type=INT32, value=0)
 ==
 
-[language_features=ARRAY_ELEMENTS_WITH_SET]
+[language_features=NONE,+ARRAY_ELEMENTS_WITH_SET]
 UPDATE ComplexTypes SET Int32Array[OFFSET(1)] = 0
 WHERE true
 --
@@ -1615,9 +1616,9 @@ UpdateStmt
     | +-ColumnRef(type=ARRAY<INT32>, column=ComplexTypes.Int32Array#4)
     +-element_column=
     | +-ColumnHolder(column=$array.$element#7)
-    +-array_update_list=
-      +-UpdateArrayItem
-        +-offset=
+    +-update_item_element_list=
+      +-UpdateItemElement
+        +-subscript=
         | +-Literal(type=INT64, value=1)
         +-update_item=
           +-UpdateItem
@@ -1629,7 +1630,7 @@ UpdateStmt
                   +-Literal(type=INT32, value=0)
 ==
 
-[language_features=ARRAY_ELEMENTS_WITH_SET]
+[language_features=NONE,+ARRAY_ELEMENTS_WITH_SET]
 UPDATE ComplexTypes SET Int32Array[OFFSET(1)] = 0
 WHERE Int32Array[OFFSET(1)] = 1
 --
@@ -1649,9 +1650,9 @@ UpdateStmt
     | +-ColumnRef(type=ARRAY<INT32>, column=ComplexTypes.Int32Array#4)
     +-element_column=
     | +-ColumnHolder(column=$array.$element#7)
-    +-array_update_list=
-      +-UpdateArrayItem
-        +-offset=
+    +-update_item_element_list=
+      +-UpdateItemElement
+        +-subscript=
         | +-Literal(type=INT64, value=1)
         +-update_item=
           +-UpdateItem
@@ -1663,7 +1664,7 @@ UpdateStmt
                   +-Literal(type=INT32, value=0)
 ==
 
-[language_features=ARRAY_ELEMENTS_WITH_SET]
+[language_features=NONE,+ARRAY_ELEMENTS_WITH_SET]
 UPDATE RecursivePBTable SET
   RecursivePB.repeated_recursive_pb[OFFSET(1)]
              .repeated_recursive_pb[OFFSET(2)]
@@ -1687,9 +1688,9 @@ UpdateStmt
     |   +-default_value=[]
     +-element_column=
     | +-ColumnHolder(column=$array.$element#2)
-    +-array_update_list=
-      +-UpdateArrayItem
-        +-offset=
+    +-update_item_element_list=
+      +-UpdateItemElement
+        +-subscript=
         | +-Literal(type=INT64, value=1)
         +-update_item=
           +-UpdateItem
@@ -1702,9 +1703,9 @@ UpdateStmt
             |   +-default_value=[]
             +-element_column=
             | +-ColumnHolder(column=$array.$element#3)
-            +-array_update_list=
-              +-UpdateArrayItem
-                +-offset=
+            +-update_item_element_list=
+              +-UpdateItemElement
+                +-subscript=
                 | +-Literal(type=INT64, value=2)
                 +-update_item=
                   +-UpdateItem
@@ -1721,7 +1722,7 @@ UpdateStmt
                           +-Literal(type=INT64, value=5)
 ==
 
-[language_features=ARRAY_ELEMENTS_WITH_SET]
+[language_features=NONE,+ARRAY_ELEMENTS_WITH_SET]
 UPDATE RecursivePBTable SET
   RecursivePB.repeated_recursive_pb[OFFSET(1)]
              .repeated_recursive_pb[OFFSET(2)]
@@ -1767,9 +1768,9 @@ UpdateStmt
     |   +-default_value=[]
     +-element_column=
     | +-ColumnHolder(column=$array.$element#2)
-    +-array_update_list=
-      +-UpdateArrayItem
-        +-offset=
+    +-update_item_element_list=
+      +-UpdateItemElement
+        +-subscript=
         | +-Literal(type=INT64, value=1)
         +-update_item=
           +-UpdateItem
@@ -1782,9 +1783,9 @@ UpdateStmt
             |   +-default_value=[]
             +-element_column=
             | +-ColumnHolder(column=$array.$element#3)
-            +-array_update_list=
-              +-UpdateArrayItem
-                +-offset=
+            +-update_item_element_list=
+              +-UpdateItemElement
+                +-subscript=
                 | +-Literal(type=INT64, value=2)
                 +-update_item=
                   +-UpdateItem
@@ -1801,7 +1802,7 @@ UpdateStmt
                           +-Literal(type=INT64, value=5)
 ==
 
-[language_features=ARRAY_ELEMENTS_WITH_SET]
+[language_features=NONE,+ARRAY_ELEMENTS_WITH_SET]
 UPDATE RecursivePBTable SET
   RecursivePB.repeated_recursive_pb[OFFSET(1)]
              .repeated_recursive_pb[OFFSET(2)] = NULL
@@ -1824,9 +1825,9 @@ UpdateStmt
     |   +-default_value=[]
     +-element_column=
     | +-ColumnHolder(column=$array.$element#2)
-    +-array_update_list=
-      +-UpdateArrayItem
-        +-offset=
+    +-update_item_element_list=
+      +-UpdateItemElement
+        +-subscript=
         | +-Literal(type=INT64, value=1)
         +-update_item=
           +-UpdateItem
@@ -1839,9 +1840,9 @@ UpdateStmt
             |   +-default_value=[]
             +-element_column=
             | +-ColumnHolder(column=$array.$element#3)
-            +-array_update_list=
-              +-UpdateArrayItem
-                +-offset=
+            +-update_item_element_list=
+              +-UpdateItemElement
+                +-subscript=
                 | +-Literal(type=INT64, value=2)
                 +-update_item=
                   +-UpdateItem
@@ -1853,7 +1854,7 @@ UpdateStmt
                           +-Literal(type=PROTO<zetasql_test__.RecursivePB>, value=NULL)
 ==
 
-[language_features=ARRAY_ELEMENTS_WITH_SET]
+[language_features=NONE,+ARRAY_ELEMENTS_WITH_SET]
 UPDATE RecursivePBTable SET
   RecursivePB.repeated_recursive_pb[OFFSET(1)]
              .repeated_recursive_pb[OFFSET(2)] = NULL
@@ -1892,9 +1893,9 @@ UpdateStmt
     |   +-default_value=[]
     +-element_column=
     | +-ColumnHolder(column=$array.$element#2)
-    +-array_update_list=
-      +-UpdateArrayItem
-        +-offset=
+    +-update_item_element_list=
+      +-UpdateItemElement
+        +-subscript=
         | +-Literal(type=INT64, value=1)
         +-update_item=
           +-UpdateItem
@@ -1907,9 +1908,9 @@ UpdateStmt
             |   +-default_value=[]
             +-element_column=
             | +-ColumnHolder(column=$array.$element#3)
-            +-array_update_list=
-              +-UpdateArrayItem
-                +-offset=
+            +-update_item_element_list=
+              +-UpdateItemElement
+                +-subscript=
                 | +-Literal(type=INT64, value=2)
                 +-update_item=
                   +-UpdateItem

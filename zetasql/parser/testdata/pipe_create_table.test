@@ -1,7 +1,7 @@
 # This tests pipe CREATE TABLE with various modifiers.
 # All modifiers from CreateTableStatement are allowed except
 # for the AS-query.
-[default language_features=PIPES]
+[default language_features=NONE,+PIPES]
 
 from t
 |> CREATE TABLE t2

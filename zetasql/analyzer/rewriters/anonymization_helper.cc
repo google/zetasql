@@ -759,9 +759,7 @@ class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
 
   // Public groups state that is kept over multiple anonymization / differential
   // privacy aggregate scans.
-  std::unique_ptr<GlobalPublicGroupsQueryNameProvider>
-      global_public_groups_query_name_provider_ =
-          std::make_unique<GlobalPublicGroupsQueryNameProvider>();
+  GlobalPublicGroupsQueryNameProvider global_public_groups_query_name_provider_;
 
   std::vector<std::unique_ptr<WithEntryRewriteState>> with_entries_;
 };
@@ -1791,17 +1789,18 @@ constexpr absl::string_view SetOperationTypeToString(
 // contains user data (AnonymizationInfo).
 class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
  public:
-  explicit PerUserRewriterVisitor(
+  PerUserRewriterVisitor(
       ColumnFactory* allocator, TypeFactory* type_factory, Resolver* resolver,
       std::vector<std::unique_ptr<WithEntryRewriteState>>& with_entries,
       SelectWithModeName select_with_mode_name,
-      PublicGroupsState* public_groups_state)
+      PublicGroupsState* public_groups_state, RewriterVisitor* parent_visitor)
       : allocator_(allocator),
         type_factory_(type_factory),
         resolver_(resolver),
         with_entries_(with_entries),
         select_with_mode_name_(select_with_mode_name),
-        public_groups_state_(public_groups_state) {}
+        public_groups_state_(public_groups_state),
+        parent_visitor_(parent_visitor) {}
 
   std::optional<ResolvedColumn> uid_column() const {
     if (current_uid_.column.IsInitialized()) {
@@ -2321,7 +2320,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     // Rewrite and copy the left scan.
     PerUserRewriterVisitor left_visitor(allocator_, type_factory_, resolver_,
                                         with_entries_, select_with_mode_name_,
-                                        public_groups_state_);
+                                        public_groups_state_, parent_visitor_);
     ZETASQL_RETURN_IF_ERROR(node->left_scan()->Accept(&left_visitor));
     const ResolvedColumn& left_uid = left_visitor.current_uid_.column;
     found_public_groups_join_ |= left_visitor.GetFoundPublicGroupsJoin();
@@ -2332,7 +2331,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     // Rewrite and copy the right scan.
     PerUserRewriterVisitor right_visitor(allocator_, type_factory_, resolver_,
                                          with_entries_, select_with_mode_name_,
-                                         public_groups_state_);
+                                         public_groups_state_, parent_visitor_);
     ZETASQL_RETURN_IF_ERROR(node->right_scan()->Accept(&right_visitor));
     const ResolvedColumn& right_uid = right_visitor.current_uid_.column;
     found_public_groups_join_ |= right_visitor.GetFoundPublicGroupsJoin();
@@ -2631,7 +2630,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     for (const auto& input_item : node->input_item_list()) {
       PerUserRewriterVisitor input_item_visitor(
           allocator_, type_factory_, resolver_, with_entries_,
-          select_with_mode_name_, public_groups_state_);
+          select_with_mode_name_, public_groups_state_, parent_visitor_);
       ZETASQL_RETURN_IF_ERROR(input_item->Accept(&input_item_visitor));
       UidColumnState uid = input_item_visitor.current_uid_;
       ZETASQL_ASSIGN_OR_RETURN(
@@ -2716,9 +2715,28 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     return absl::OkStatus();
   }
 
-  /////////////////////////////////////////////////////////////////////////////
-  // For these scans, the $uid column can be implicitly projected
-  /////////////////////////////////////////////////////////////////////////////
+  absl::Status VisitResolvedDifferentialPrivacyAggregateScan(
+      const ResolvedDifferentialPrivacyAggregateScan* node) override {
+    if (!resolver_->language().LanguageFeatureEnabled(
+            FEATURE_DIFFERENTIAL_PRIVACY_NESTED)) {
+      return ResolvedASTDeepCopyVisitor::
+          VisitResolvedDifferentialPrivacyAggregateScan(node);
+    }
+    // Rewrite nested queries.
+    ZETASQL_RETURN_IF_ERROR(node->Accept(parent_visitor_));
+    ZETASQL_ASSIGN_OR_RETURN(auto rewritten_scan,
+                     parent_visitor_->ConsumeRootNode<ResolvedScan>());
+    PushNodeToStack(std::move(rewritten_scan));
+
+    // The $uid column should not be set for nested queries.
+    ZETASQL_RET_CHECK(!current_uid_.column.IsInitialized());
+
+    return absl::OkStatus();
+  }
+
+/////////////////////////////////////////////////////////////////////////////
+// For these scans, the $uid column can be implicitly projected
+/////////////////////////////////////////////////////////////////////////////
 #define PROJECT_UID(resolved_scan)                                        \
   absl::Status Visit##resolved_scan(const resolved_scan* node) override { \
     ZETASQL_RETURN_IF_ERROR(CopyVisit##resolved_scan(node));                      \
@@ -2741,10 +2759,10 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   PROJECT_UID(ResolvedSampleScan);
 #undef PROJECT_UID
 
-  /////////////////////////////////////////////////////////////////////////////
-  // As of now unsupported per-user scans
-  // TODO: Provide a user-friendly error message
-  /////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
+// As of now unsupported per-user scans
+// TODO: Provide a user-friendly error message
+/////////////////////////////////////////////////////////////////////////////
 #define UNSUPPORTED(resolved_scan)                                            \
   absl::Status Visit##resolved_scan(const resolved_scan* node) override {     \
     return MakeSqlErrorAtNode(*node)                                          \
@@ -2799,9 +2817,9 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     return column;
   }
 
-  ColumnFactory* allocator_;                                     // unowned
-  TypeFactory* type_factory_;                                    // unowned
-  Resolver* resolver_;                                           // unowned
+  ColumnFactory* allocator_;   // unowned
+  TypeFactory* type_factory_;  // unowned
+  Resolver* resolver_;         // unowned
   std::vector<std::unique_ptr<WithEntryRewriteState>>&
       with_entries_;  // unowned
 
@@ -2812,6 +2830,8 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   absl::flat_hash_map<ResolvedColumn, ResolvedColumn> column_replacements_;
   absl::flat_hash_map<ResolvedColumn, ResolvedColumn>
       public_groups_join_replacements_;  // original -> replaced
+
+  RewriterVisitor* parent_visitor_;  // unowned
 };
 
 absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
@@ -2866,7 +2886,7 @@ RewriterVisitor::RewritePerUserTransform(
     PublicGroupsState* public_groups_state) {
   PerUserRewriterVisitor per_user_visitor(allocator_, type_factory_, resolver_,
                                           with_entries_, select_with_mode_name,
-                                          public_groups_state);
+                                          public_groups_state, this);
   ZETASQL_RETURN_IF_ERROR(node->input_scan()->Accept(&per_user_visitor));
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedScan> rewritten_scan,
                    per_user_visitor.ConsumeRootNode<ResolvedScan>());
@@ -4155,6 +4175,7 @@ absl::StatusOr<std::string> PublicGroupsState::RecordPublicGroupsWithScan(
       columns_->insert(column);
       return column;
     }
+
     absl::flat_hash_set<ResolvedColumn>* columns_;  // unowned
   };
 
@@ -5042,7 +5063,7 @@ RewriterVisitor::VisitResolvedDifferentialPrivacyAggregateScanTemplate(
             BoundContributionsAcrossGroups(privacy_options_spec,
                                            *analyzer_options_),
             DPNodeSpecificData<NodeType>::kGroupSelectionErrorPrefix,
-            global_public_groups_query_name_provider_.get()));
+            &global_public_groups_query_name_provider_));
   }
 
   ZETASQL_ASSIGN_OR_RETURN(std::optional<const ResolvedExpr*> options_uid_column,

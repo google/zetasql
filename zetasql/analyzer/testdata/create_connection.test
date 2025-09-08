@@ -1,3 +1,4 @@
+[default language_features=MAXIMUM]
 CREATE CONNECTION foo
 --
 CreateConnectionStmt(name_path=foo)
@@ -18,7 +19,7 @@ CREATE CONNECTION foo OPTIONS(x=1, x=5)
 
 CREATE TEMP CONNECTION foo OPTIONS(x=1)
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword CONNECTION [at 1:13]
+ERROR: Syntax error: Unexpected keyword CONNECTION [at 1:13]
 CREATE TEMP CONNECTION foo OPTIONS(x=1)
             ^
 ==
@@ -60,7 +61,7 @@ CREATE OR REPLACE  CONNECTION IF NOT EXISTS foo.bar.baz OPTIONS (a=1, b=2)
 
 CREATE TEMP CONNECTION foo OPTIONS(x=1)
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword CONNECTION [at 1:13]
+ERROR: Syntax error: Unexpected keyword CONNECTION [at 1:13]
 CREATE TEMP CONNECTION foo OPTIONS(x=1)
             ^
 ==

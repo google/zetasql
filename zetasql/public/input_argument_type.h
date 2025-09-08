@@ -78,6 +78,14 @@ class InputArgumentType {
                     const std::vector<InputArgumentType>& field_types)
       : category_(kTypedExpression), type_(type), field_types_(field_types) {}
 
+  // Constructor for analysis time constant expressions.
+  // It takes a StatusOr<Value> because the constant evaluator that produces the
+  // value of the expression may throw an error, but we want to defer the error
+  // handling to when the constant value of the argument is used.
+  // REQUIRES: `constant_value` does not contain fatal error (kInternal or
+  // kResourceExhausted) or runtime error (kOutOfRange).
+  explicit InputArgumentType(absl::StatusOr<Value> constant_value);
+
   ~InputArgumentType() {}
 
   // This may return nullptr (such as for lambda).
@@ -90,6 +98,13 @@ class InputArgumentType {
   const InputArgumentType& field_type(int i) const {
     return field_types_.at(i);
   }
+
+  // Returns true if the argument is an analysis time constant.
+  bool is_analysis_time_constant() const { return constant_value_.has_value(); }
+
+  // Returns the analysis time constant value.
+  // REQUIRES: is_analysis_time_constant() returns true.
+  absl::StatusOr<Value> GetAnalysisTimeConstantValue() const;
 
   // Check for or get a literal value.
   // WARNING: Untyped literals ("NULL" or "[]") are not included here.
@@ -128,9 +143,7 @@ class InputArgumentType {
   }
 
   // Check for either literal (typed) or untyped NULL or [].
-  bool is_null() const {
-    return is_literal_null() || is_untyped_null();
-  }
+  bool is_null() const { return is_literal_null() || is_untyped_null(); }
   bool is_empty_array() const {
     return is_literal_empty_array() || is_untyped_empty_array();
   }
@@ -153,10 +166,9 @@ class InputArgumentType {
   bool is_lambda() const { return category_ == kLambda; }
   bool is_sequence() const { return category_ == kSequence; }
   bool is_descriptor() const { return category_ == kDescriptor; }
+  bool is_graph() const { return category_ == kGraph; }
 
-  bool is_default_argument_value() const {
-    return is_default_argument_value_;
-  }
+  bool is_default_argument_value() const { return is_default_argument_value_; }
 
   std::optional<IdString> argument_alias() const { return argument_alias_; }
 
@@ -195,8 +207,7 @@ class InputArgumentType {
   // Represents an argument type for untyped empty array that is coercible to
   // any other array type. By convention, <type_> defaults to ARRAY<INT64>.
   static InputArgumentType UntypedEmptyArray() {
-    return InputArgumentType(kUntypedEmptyArray,
-                             types::Int64ArrayType());
+    return InputArgumentType(kUntypedEmptyArray, types::Int64ArrayType());
   }
 
   // Represents an argument type for untyped query parameters that is coercible
@@ -233,6 +244,11 @@ class InputArgumentType {
   // table-valued functions. For more information about descriptor
   // argument, see table_valued_function.h.
   static InputArgumentType DescriptorInputArgumentType();
+
+  // Constructor for graph argument. Only for use when analyzing
+  // table-valued functions. For more information about graph
+  // argument, see table_valued_function.h.
+  static InputArgumentType GraphInputArgumentType();
 
   // Constructor for lambda arguments. Only for use when analyzing lambda
   // arguments.
@@ -276,7 +292,8 @@ class InputArgumentType {
     kConnection,
     kDescriptor,
     kLambda,
-    kSequence
+    kSequence,
+    kGraph,
   };
 
   explicit InputArgumentType(Category category, const Type* type)
@@ -290,7 +307,13 @@ class InputArgumentType {
   // currently looks at types and fails if they aren't present.
   const Type* type_ = nullptr;
 
+  // TODO: b/277365877 - Deprecate this in favor of `constant_value_`.
   std::optional<Value> literal_value_;  // only set for kTypedLiteral.
+
+  // Analysis time constant value.
+  // When this is set for kTypedExpression, it means that this is a named
+  // constant.
+  std::optional<absl::StatusOr<Value>> constant_value_;
 
   // True if this InputArgumentType was constructed from a default function
   // argument value.
@@ -326,7 +349,6 @@ class InputArgumentType {
   // copyable and there is only need for one TVFConnectionArgument instance to
   // exist.
   std::shared_ptr<const TVFConnectionArgument> connection_arg_;
-  // Copyable.
 
   // The alias of the argument this InputArgumentType corresponds to. If the
   // argument does not support aliases, `argument_alias_` = std::nullopt.
@@ -336,6 +358,8 @@ class InputArgumentType {
   // This assessment is independent of whether or not
   // `literal_value_` has a value.
   bool is_literal_for_constness_ = false;
+
+  // Copyable.
 };
 
 // Only hashes the type kind, not the type itself (so two different enums will

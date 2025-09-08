@@ -565,9 +565,11 @@ FunctionCallBuilder::MakeArray(
   FunctionArgumentType result_type(array_type,
                                    catalog_signature->result_type().options(),
                                    /*num_occurrences=*/1);
+  result_type.set_original_kind(ARG_ARRAY_TYPE_ANY_1);
   FunctionArgumentType arguments_type(array_type->element_type(),
                                       catalog_signature->argument(0).options(),
                                       static_cast<int>(elements.size()));
+  arguments_type.set_original_kind(ARG_TYPE_ANY_1);
   FunctionSignature make_array_signature(result_type, {arguments_type},
                                          catalog_signature->context_id(),
                                          catalog_signature->options());
@@ -610,12 +612,15 @@ FunctionCallBuilder::ArrayFirstN(std::unique_ptr<const ResolvedExpr> array,
   FunctionArgumentType result_type(array->type(),
                                    catalog_signature->result_type().options(),
                                    /*num_occurrences=*/1);
+  result_type.set_original_kind(ARG_ARRAY_TYPE_ANY_1);
   FunctionArgumentType array_arg(array->type(),
                                  catalog_signature->argument(0).options(),
                                  /*num_occurrences=*/1);
+  array_arg.set_original_kind(ARG_TYPE_ANY_1);
   FunctionArgumentType n_arg(n->type(),
                              catalog_signature->argument(1).options(),
                              /*num_occurrences=*/1);
+  n_arg.set_original_kind(ARG_TYPE_FIXED);
 
   FunctionSignature concrete_signature(result_type, {array_arg, n_arg},
                                        catalog_signature->context_id(),
@@ -657,14 +662,23 @@ FunctionCallBuilder::ArrayConcat(
 
   // Construct arguments type and result type to pass to FunctionSignature.
   const Type* type = arrays[0]->type();
-  FunctionSignature array_concat_signature(
-      {type, catalog_signature->result_type().options(),
-       /*num_occurrences=*/1},
-      {{type, catalog_signature->argument(0).options(),
-        /*num_occurrences=*/1},
-       {type, catalog_signature->argument(1).options(),
-        static_cast<int>(arrays.size() - 1)}},
-      catalog_signature->context_id(), catalog_signature->options());
+
+  FunctionArgumentType result_type(type,
+                                   catalog_signature->result_type().options(),
+                                   /*num_occurrences=*/1);
+  result_type.set_original_kind(ARG_ARRAY_TYPE_ANY_1);
+
+  FunctionArgumentType arg1(type, catalog_signature->argument(0).options(),
+                            /*num_occurrences=*/1);
+  arg1.set_original_kind(ARG_ARRAY_TYPE_ANY_1);
+  FunctionArgumentType arg2(
+      type, catalog_signature->argument(1).options(),
+      /*num_occurrences=*/static_cast<int>(arrays.size() - 1));
+  arg2.set_original_kind(ARG_ARRAY_TYPE_ANY_1);
+
+  FunctionSignature array_concat_signature(result_type, {arg1, arg2},
+                                           catalog_signature->context_id(),
+                                           catalog_signature->options());
 
   std::unique_ptr<ResolvedFunctionCall> resolved_function =
       MakeResolvedFunctionCall(type, array_concat_fn, array_concat_signature,
@@ -894,9 +908,11 @@ FunctionCallBuilder::FunctionCallWithSameTypeArgumentsSupportingOrdering(
   // Construct arguments type and result type to pass to FunctionSignature.
   FunctionArgumentType result_type(
       type, catalog_signature->result_type().options(), /*num_occurrences=*/1);
+  result_type.set_original_kind(ARG_TYPE_ANY_1);
   FunctionArgumentType arguments_type(type,
                                       catalog_signature->argument(0).options(),
                                       static_cast<int>(expressions.size()));
+  arguments_type.set_original_kind(ARG_TYPE_ANY_1);
   FunctionSignature concrete_signature(result_type, {arguments_type},
                                        catalog_signature->context_id(),
                                        catalog_signature->options());
@@ -955,9 +971,11 @@ FunctionCallBuilder::Coalesce(
   FunctionArgumentType result_type(super_type,
                                    catalog_signature->result_type().options(),
                                    /*num_occurrences=*/1);
+  result_type.set_original_kind(ARG_TYPE_ANY_1);
   FunctionArgumentType arguments_type(super_type,
                                       catalog_signature->argument(0).options(),
                                       static_cast<int>(expressions.size()));
+  arguments_type.set_original_kind(ARG_TYPE_ANY_1);
   FunctionSignature coalesce_signature(result_type, {arguments_type},
                                        catalog_signature->context_id(),
                                        catalog_signature->options());
@@ -1780,12 +1798,15 @@ FunctionCallBuilder::ArrayAtOffset(
       array_expr->type()->AsArray()->element_type(),
       catalog_signature->result_type().options(),
       /*num_occurrences=*/1);
+  result_type.set_original_kind(ARG_TYPE_ANY_1);
   FunctionArgumentType array_arg(array_expr->type(),
                                  catalog_signature->argument(0).options(),
                                  /*num_occurrences=*/1);
+  array_arg.set_original_kind(ARG_ARRAY_TYPE_ANY_1);
   FunctionArgumentType offset_arg(offset_expr->type(),
                                   catalog_signature->argument(1).options(),
                                   /*num_occurrences=*/1);
+  offset_arg.set_original_kind(ARG_TYPE_FIXED);
 
   FunctionSignature concrete_signature(result_type, {array_arg, offset_arg},
                                        catalog_signature->context_id(),
@@ -1832,15 +1853,19 @@ FunctionCallBuilder::ArraySlice(
   FunctionArgumentType result_type(array_expr->type(),
                                    catalog_signature->result_type().options(),
                                    /*num_occurrences=*/1);
+  result_type.set_original_kind(ARG_ARRAY_TYPE_ANY_1);
   FunctionArgumentType array_arg(array_expr->type(),
                                  catalog_signature->argument(0).options(),
                                  /*num_occurrences=*/1);
+  array_arg.set_original_kind(ARG_ARRAY_TYPE_ANY_1);
   FunctionArgumentType start_offset_arg(
       start_offset_expr->type(), catalog_signature->argument(1).options(),
       /*num_occurrences=*/1);
+  start_offset_arg.set_original_kind(ARG_TYPE_FIXED);
   FunctionArgumentType end_offset_arg(end_offset_expr->type(),
                                       catalog_signature->argument(2).options(),
                                       /*num_occurrences=*/1);
+  end_offset_arg.set_original_kind(ARG_TYPE_FIXED);
 
   FunctionSignature concrete_signature(
       result_type, {array_arg, start_offset_arg, end_offset_arg},
@@ -1898,12 +1923,15 @@ FunctionCallBuilder::ArrayToString(
       array_expr->type()->AsArray()->element_type(),
       catalog_signature->result_type().options(),
       /*num_occurrences=*/1);
+  result_type.set_original_kind(ARG_TYPE_FIXED);
   FunctionArgumentType array_arg(array_expr->type(),
                                  catalog_signature->argument(0).options(),
                                  /*num_occurrences=*/1);
+  array_arg.set_original_kind(ARG_TYPE_FIXED);
   FunctionArgumentType delimiter_arg(delimiter_expr->type(),
                                      catalog_signature->argument(1).options(),
                                      /*num_occurrences=*/1);
+  delimiter_arg.set_original_kind(ARG_TYPE_FIXED);
 
   FunctionSignature concrete_signature(result_type, {array_arg, delimiter_arg},
                                        catalog_signature->context_id(),
@@ -2427,12 +2455,21 @@ absl::Status FunctionCallBuilder::GetBuiltinFunctionFromCatalog(
     absl::string_view function_name, const Function** fn_out) {
   ZETASQL_RET_CHECK_NE(fn_out, nullptr);
   ZETASQL_RET_CHECK_EQ(*fn_out, nullptr);
-  ZETASQL_RETURN_IF_ERROR(catalog_.FindFunction({std::string(function_name)}, fn_out,
+  return GetBuiltinFunctionFromCatalog(
+      std::vector<std::string>{std::string(function_name)}, fn_out);
+}
+
+absl::Status FunctionCallBuilder::GetBuiltinFunctionFromCatalog(
+    absl::Span<const std::string> function_path, const Function** fn_out) {
+  ZETASQL_RET_CHECK_NE(fn_out, nullptr);
+  ZETASQL_RET_CHECK_EQ(*fn_out, nullptr);
+  ZETASQL_RETURN_IF_ERROR(catalog_.FindFunction(function_path, fn_out,
                                         analyzer_options_.find_options()));
   if (fn_out == nullptr || *fn_out == nullptr ||
       !(*fn_out)->IsZetaSQLBuiltin()) {
-    return absl::NotFoundError(absl::Substitute(
-        "Required built-in function \"$0\" not available.", function_name));
+    return absl::NotFoundError(
+        absl::Substitute("Required built-in function \"$0\" not available.",
+                         absl::StrJoin(function_path, ".")));
   }
   return absl::OkStatus();
 }
@@ -2706,16 +2743,19 @@ FunctionCallBuilder::ExtractForDpApproxCountDistinct(
   FunctionArgumentType result_type(catalog_signature.result_type().type(),
                                    catalog_signature.result_type().options(),
                                    /*num_occurrences=*/1);
+  result_type.set_original_kind(ARG_TYPE_FIXED);
 
   FunctionArgumentType partial_merge_result_type(
       catalog_signature.argument(0).type(),
       catalog_signature.argument(0).options(),
       /*num_occurrences=*/1);
+  partial_merge_result_type.set_original_kind(ARG_TYPE_FIXED);
 
   FunctionArgumentType noisy_count_distinct_privacy_ids_expr_type(
       catalog_signature.argument(1).type(),
       catalog_signature.argument(1).options(),
       /*num_occurrences=*/1);
+  noisy_count_distinct_privacy_ids_expr_type.set_original_kind(ARG_TYPE_FIXED);
 
   FunctionSignature concrete_signature(
       result_type,
@@ -2803,4 +2843,173 @@ FunctionCallBuilder::IsNotDistinctFrom(
       .set_function_call_info(std::make_shared<ResolvedFunctionCallInfo>())
       .Build();
 }
+
+static absl::StatusOr<enum zetasql::FunctionSignatureId>
+GetHllInitFunctionSignatureId(const Type* input_type) {
+  switch (input_type->kind()) {
+    case TYPE_INT32:
+      return FN_HLL_COUNT_INIT_INT64;
+    case TYPE_INT64:
+      return FN_HLL_COUNT_INIT_INT64;
+    case TYPE_UINT64:
+      return FN_HLL_COUNT_INIT_UINT64;
+    case TYPE_STRING:
+      return FN_HLL_COUNT_INIT_STRING;
+    case TYPE_BYTES:
+      return FN_HLL_COUNT_INIT_BYTES;
+    default:
+      ZETASQL_RET_CHECK_FAIL() << "Unsupported input argument type for HLL_COUNT.INIT: "
+                       << input_type->DebugString();
+  }
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedAggregateFunctionCall>>
+FunctionCallBuilder::HllInit(std::unique_ptr<const ResolvedExpr> expr) {
+  ZETASQL_ASSIGN_OR_RETURN(enum zetasql::FunctionSignatureId hll_init_fn_sig_id,
+                   GetHllInitFunctionSignatureId(expr->type()));
+  FunctionArgumentTypeList hll_init_fn_args_types;
+  hll_init_fn_args_types.emplace_back(expr->type(), /*num_occurrences=*/1);
+  std::vector<std::unique_ptr<const ResolvedExpr>> hll_init_fn_args;
+  hll_init_fn_args.push_back(std::move(expr));
+  const Function* hll_init_fn = nullptr;
+  ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog(
+      std::vector<std::string>{"hll_count", "init"}, &hll_init_fn));
+  FunctionSignature hll_init_fn_sig(
+      FunctionArgumentType(types::BytesType(), /*num_occurrences=*/1),
+      hll_init_fn_args_types, hll_init_fn_sig_id);
+  return ResolvedAggregateFunctionCallBuilder()
+      .set_type(types::BytesType())
+      .set_function(hll_init_fn)
+      .set_signature(hll_init_fn_sig)
+      .set_argument_list(std::move(hll_init_fn_args))
+      .set_error_mode(ResolvedFunctionCall::DEFAULT_ERROR_MODE)
+      .Build();
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedAggregateFunctionCall>>
+FunctionCallBuilder::HllMergePartial(std::unique_ptr<const ResolvedExpr> expr) {
+  FunctionArgumentTypeList hll_merge_fn_args_types;
+  hll_merge_fn_args_types.emplace_back(expr->type(), /*num_occurrences=*/1);
+  std::vector<std::unique_ptr<const ResolvedExpr>> hll_merge_fn_args;
+  hll_merge_fn_args.push_back(std::move(expr));
+  const Function* hll_merge_fn = nullptr;
+  std::vector<std::string> function_name = {"hll_count", "merge_partial"};
+  ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog(function_name, &hll_merge_fn));
+  FunctionSignature hll_merge_fn_sig(
+      FunctionArgumentType(types::BytesType(), /*num_occurrences=*/1),
+      hll_merge_fn_args_types, FN_HLL_COUNT_MERGE_PARTIAL);
+  return ResolvedAggregateFunctionCallBuilder()
+      .set_type(types::BytesType())
+      .set_function(hll_merge_fn)
+      .set_signature(hll_merge_fn_sig)
+      .set_argument_list(std::move(hll_merge_fn_args))
+      .set_error_mode(ResolvedFunctionCall::DEFAULT_ERROR_MODE)
+      .Build();
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedAggregateFunctionCall>>
+FunctionCallBuilder::HllMerge(std::unique_ptr<const ResolvedExpr> expr) {
+  FunctionArgumentTypeList hll_merge_fn_args_types;
+  hll_merge_fn_args_types.emplace_back(expr->type(), /*num_occurrences=*/1);
+  std::vector<std::unique_ptr<const ResolvedExpr>> hll_merge_fn_args;
+  hll_merge_fn_args.push_back(std::move(expr));
+  const Function* hll_merge_fn = nullptr;
+  std::vector<std::string> function_name = {"hll_count", "merge"};
+  ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog(function_name, &hll_merge_fn));
+  FunctionSignature hll_merge_fn_sig(
+      FunctionArgumentType(types::Int64Type(), /*num_occurrences=*/1),
+      hll_merge_fn_args_types, FN_HLL_COUNT_MERGE);
+  return ResolvedAggregateFunctionCallBuilder()
+      .set_type(types::Int64Type())
+      .set_function(hll_merge_fn)
+      .set_signature(hll_merge_fn_sig)
+      .set_argument_list(std::move(hll_merge_fn_args))
+      .set_error_mode(ResolvedFunctionCall::DEFAULT_ERROR_MODE)
+      .Build();
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
+FunctionCallBuilder::HllExtract(std::unique_ptr<const ResolvedExpr> expr) {
+  FunctionArgumentTypeList hll_extract_fn_args_types;
+  hll_extract_fn_args_types.emplace_back(expr->type(), /*num_occurrences=*/1);
+  std::vector<std::unique_ptr<const ResolvedExpr>> hll_extract_fn_args;
+  hll_extract_fn_args.push_back(std::move(expr));
+  const Function* hll_extract_fn = nullptr;
+  ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog(
+      std::vector<std::string>{"hll_count", "extract"}, &hll_extract_fn));
+  FunctionSignature hll_extract_fn_sig(
+      FunctionArgumentType(types::Int64Type(), /*num_occurrences=*/1),
+      hll_extract_fn_args_types, FN_HLL_COUNT_EXTRACT);
+  return ResolvedFunctionCallBuilder()
+      .set_type(types::Int64Type())
+      .set_function(hll_extract_fn)
+      .set_signature(hll_extract_fn_sig)
+      .set_argument_list(std::move(hll_extract_fn_args))
+      .set_error_mode(ResolvedFunctionCall::DEFAULT_ERROR_MODE)
+      .set_function_call_info(std::make_shared<ResolvedFunctionCallInfo>())
+      .Build();
+}
+
+// Visitor to detect the max column id in a ResolvedAST.
+class MaxColumnIdVisitor : public zetasql::ResolvedASTRewriteVisitor {
+ public:
+  static absl::StatusOr<int> GetMaxColumnId(
+      const zetasql::ResolvedNode* node) {
+    MaxColumnIdVisitor rewriter;
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const zetasql::ResolvedNode> copied_node,
+                     zetasql::ResolvedASTDeepCopyVisitor::Copy(node));
+    auto rewriter_output_unused = rewriter.VisitAll(std::move(copied_node));
+    return rewriter.get_max_column_id();
+  }
+
+  absl::StatusOr<zetasql::ResolvedColumn> PostVisitResolvedColumn(
+      const zetasql::ResolvedColumn& column) override {
+    if (column.column_id() > max_column_id_) {
+      max_column_id_ = std::max(max_column_id_, column.column_id());
+    }
+    return column;
+  }
+
+  int get_max_column_id() { return max_column_id_; }
+
+ private:
+  MaxColumnIdVisitor() = default;
+  int max_column_id_ = 0;
+};
+
+absl::StatusOr<int> GetMaxColumnId(const zetasql::ResolvedNode* node) {
+  return MaxColumnIdVisitor::GetMaxColumnId(node);
+}
+
+// Visitor to detect if a ResolvedAST contains a ResolvedColumn.
+class ContainsResolvedColumnVisitor
+    : public zetasql::ResolvedASTRewriteVisitor {
+ public:
+  static absl::StatusOr<bool> ContainsResolvedColumn(
+      const zetasql::ResolvedNode* node) {
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const zetasql::ResolvedNode> copied_node,
+                     zetasql::ResolvedASTDeepCopyVisitor::Copy(node));
+    ContainsResolvedColumnVisitor rewriter;
+    auto rewriter_output_unused = rewriter.VisitAll(std::move(copied_node));
+    return rewriter.ContainsResolvedColumn();
+  }
+
+  absl::StatusOr<zetasql::ResolvedColumn> PostVisitResolvedColumn(
+      const zetasql::ResolvedColumn& column) override {
+    contains_resolved_column_ = true;
+    return column;
+  }
+
+  bool ContainsResolvedColumn() { return contains_resolved_column_; }
+
+ private:
+  ContainsResolvedColumnVisitor() = default;
+  bool contains_resolved_column_ = false;
+};
+
+absl::StatusOr<bool> ContainsResolvedColumn(
+    const zetasql::ResolvedNode* node) {
+  return ContainsResolvedColumnVisitor::ContainsResolvedColumn(node);
+}
+
 }  // namespace zetasql

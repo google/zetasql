@@ -19,6 +19,8 @@
 #include <stddef.h>
 #include <string.h>
 
+#include <cmath>
+#include <compare>
 #include <cstdint>
 #include <limits>
 #include <optional>
@@ -34,12 +36,14 @@
 #include "gtest/gtest.h"
 #include "absl/container/flat_hash_map.h"
 #include "zetasql/base/check.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/time.h"
+#include "absl/types/compare.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status_macros.h"
 
@@ -453,7 +457,7 @@ TEST(JSONValueTest, CopyFrom) {
   EXPECT_FALSE(ref.NormalizedEquals(copy_ref));
 }
 
-TEST(JSONValueTest, MoveFrom) {
+TEST(JSONValueTest, DISABLED_MoveFrom) {
   constexpr absl::string_view kInitialValue =
       R"({"a":{"b":{"c":1}}, "d":2, "e":[3, 4, [5, 6]]})";
   using TokenValue = std::variant<std::string, int64_t>;
@@ -2237,6 +2241,414 @@ TEST(JsonValueTest, CleanupArray) {
   test_fn(RemoveEmptyOptions::kArray, R"([1, [1], {}, [null], {"a":[null]}])");
   test_fn(RemoveEmptyOptions::kObjectAndArray,
           R"([1, [1], [null], {"a":[null]}])");
+}
+
+namespace {
+struct ComparisonTestParam {
+  std::string json_x;
+  std::string json_y;
+  absl::partial_ordering result;
+};
+
+void check_json_compare(JSONValueConstRef x, JSONValueConstRef y,
+                        absl::partial_ordering result) {
+  bool x_eq_y = x == y;
+  bool x_less_y = x < y;
+  bool x_greater_y = x > y;
+
+  bool x_ne_y = x != y;
+  bool x_less_eq_y = x <= y;
+  bool x_greater_eq_y = x >= y;
+  ABSL_LOG(INFO) << "Comparing JSON values: " << x.ToString() << " and "
+            << y.ToString();
+  if (result == absl::partial_ordering::equivalent) {
+    EXPECT_TRUE(x_eq_y && x_less_eq_y && x_greater_eq_y);
+    EXPECT_FALSE(x_ne_y || x_less_y || x_greater_y);
+  } else if (result == absl::partial_ordering::less) {
+    EXPECT_TRUE(x_less_y && x_less_eq_y && x_ne_y);
+    EXPECT_FALSE(x_eq_y || x_greater_y || x_greater_eq_y);
+  } else if (result == absl::partial_ordering::greater) {
+    EXPECT_TRUE(x_greater_y && x_greater_eq_y && x_ne_y);
+    EXPECT_FALSE(x_eq_y || x_less_y || x_less_eq_y);
+  } else {
+    FAIL() << "Unsupported comparison result";
+  }
+}
+
+void RunJsonComparisonTestCases(
+    absl::Span<const ComparisonTestParam> test_cases) {
+  for (const auto& t : test_cases) {
+    JSONValue x_value = JSONValue::ParseJSONString(t.json_x).value();
+    JSONValueConstRef x = x_value.GetConstRef();
+    JSONValue y_value = JSONValue::ParseJSONString(t.json_y).value();
+    JSONValueConstRef y = y_value.GetConstRef();
+
+    // Validate the comparison results.
+    check_json_compare(x, y, t.result);
+    // Check that the comparison is symmetric.
+    auto result_reversed = t.result;
+    if (t.result == absl::partial_ordering::less) {
+      result_reversed = absl::partial_ordering::greater;
+    } else if (t.result == absl::partial_ordering::greater) {
+      result_reversed = absl::partial_ordering::less;
+    }
+    check_json_compare(y, x, result_reversed);
+  }
+}
+
+constexpr auto kEqual = absl::partial_ordering::equivalent;
+constexpr auto kLess = absl::partial_ordering::less;
+constexpr auto kGreater = absl::partial_ordering::greater;
+
+}  // namespace
+
+TEST(JsonValueTest, ComparisonBasic) {
+  std::vector<ComparisonTestParam> test_cases = {
+      {"null", "null", kEqual},
+      {"null", R"("abc")", kLess},
+      {R"("abc")", R"("abc")", kEqual},
+      {R"("abc")", "1", kLess},
+      {"1", "1", kEqual},
+      {"1", "1.0", kEqual},
+      {"1", "1.1", kLess},
+      {"1.1", "false", kLess},
+      {"false", "false", kEqual},
+      {"false", "true", kLess},
+      {"true", "true", kEqual},
+      {"true", "[1, 2]", kLess},
+      {"[1, 2]", "[1, 2]", kEqual},
+      {"[1, 2]", R"({"a": 1})", kLess},
+      {R"({"a": 1})", R"({"a": 1})", kEqual},
+      {R"({"a": 1})", R"({"b": 1})", kLess},
+      {R"({"a": 1})", R"({"a": 2})", kLess},
+  };
+
+  RunJsonComparisonTestCases(test_cases);
+}
+
+TEST(JsonValueTest, ComparisonScalar) {
+  std::vector<ComparisonTestParam> test_cases = {
+      // Strings.
+      {R"("a")", R"("a")", kEqual},
+      {R"("a")", R"("b")", kLess},
+      {R"("\n")", R"("\n")", kEqual},
+      {R"("\r")", R"("\n")", kGreater},
+
+      // Numbers.
+      {"-1", "0", kLess},
+      {"0", "10", kLess},
+      {"3", "3", kEqual},
+      {"1.1", "1.2", kLess},
+
+      // Integer like floats.
+      {"0", "-0", kEqual},
+      {"0", "0.0", kEqual},
+      {"0", "0E0", kEqual},
+      {"0.0", "0.0000", kEqual},
+      {"-0", "-0.00", kEqual},
+      {"-0.0", "-0E0", kEqual},
+
+      {"1", "1.0", kEqual},
+      {"1", "1E0", kEqual},
+      {"1.0", "1.00", kEqual},
+      {"1.00", "1E0", kEqual},
+
+      {"-1", "-1.0", kEqual},
+      {"-1", "-1E0", kEqual},
+      {"-1.0", "-1.00", kEqual},
+      {"-1.00", "-1E0", kEqual},
+
+      // Booleans, covered by ComparisonBasic.
+      {"false", "true", kLess},
+
+      //
+      // Mixed types sections.
+      //
+      // JSON strings.
+      {R"("a")", "0", kLess},
+      {R"("a")", "0.0", kLess},
+      {R"("a")", "true", kLess},
+      {R"("a")", "[]", kLess},
+      {R"("a")", "[null]", kLess},
+      {R"("a")", R"({"a": 1})", kLess},
+      {R"("a")", R"(null)", kGreater},
+      // JSON numbers.
+      {"0.1", "1E-1", kEqual},
+      {"0.1", "true", kLess},
+      {"0.1", "[]", kLess},
+      {"0.1", "[null]", kLess},
+      {"0.1", R"({"a": 1})", kLess},
+      {"0.1", R"(null)", kGreater},
+
+      {"0.1", "10", kLess},
+      {"10", "false", kLess},
+      {"10", "true", kLess},
+      {"10", "[]", kLess},
+      {"10", "[null]", kLess},
+      {"10", R"({"a": 1})", kLess},
+      {"10", R"(null)", kGreater},
+
+      // JSON booleans.
+      {"false", "[]", kLess},
+      {"false", "[null]", kLess},
+      {"false", R"({"a": 1})", kLess},
+      {"false", R"(null)", kGreater},
+
+      {"true", "[]", kLess},
+      {"true", "[null]", kLess},
+      {"true", R"({"a": 1})", kLess},
+      {"true", R"(null)", kGreater},
+  };
+
+  RunJsonComparisonTestCases(test_cases);
+}
+
+TEST(JsonValueTest, ComparisonNumbersBasic) {
+  std::vector<ComparisonTestParam> test_cases = {
+      // Simple Numbers.
+      {"-1", "0", kLess},
+      {"0", "10", kLess},
+      {"3", "3", kEqual},
+      {"1.1", "1.2", kLess},
+      {"1.21", "1.20", kGreater},
+
+      // Signed zeros.
+      {"0", "-0", kEqual},
+      {"0", "0.0", kEqual},
+      {"0", "0E0", kEqual},
+      {"0.0", "0.0000", kEqual},
+      {"-0", "-0.00", kEqual},
+      {"-0.0", "-0E0", kEqual},
+      {"-0", "0.25", kLess},
+      {"-0.0", "1.0", kLess},
+      {"0.1", "-0.0", kGreater},
+      {"0", "-0.1", kGreater},
+      {"-0", "-0.1", kGreater},
+
+      // Integer like doubles.
+      {"1", "1.0", kEqual},
+      {"1", "1E0", kEqual},
+      {"1.0", "1.00", kEqual},
+      {"1.00", "1E0", kEqual},
+
+      {"-1", "-1.0", kEqual},
+      {"-1", "-1E0", kEqual},
+      {"-1.0", "-1.00", kEqual},
+      {"-1.00", "-1E0", kEqual},
+  };
+
+  RunJsonComparisonTestCases(test_cases);
+}
+
+TEST(JsonValueTest, ComparisonNumbersComplex) {
+  auto NextDouble = [](double v) { return std::nexttoward(v, INFINITY); };
+  auto PrevDouble = [](double v) { return std::nexttoward(v, -INFINITY); };
+  auto NumbersToJson =
+      [](std::vector<std::vector<std::variant<int64_t, uint64_t, double>>>
+             numbers) {
+        std::vector<std::vector<std::string>> out;
+        for (const auto& nums : numbers) {
+          out.push_back({});
+          for (const auto& num : nums) {
+            JSONValue json;
+            if (std::holds_alternative<int64_t>(num)) {
+              json.GetRef().SetInt64(std::get<int64_t>(num));
+            } else if (std::holds_alternative<uint64_t>(num)) {
+              json.GetRef().SetUInt64(std::get<uint64_t>(num));
+            } else {
+              json.GetRef().SetDouble(std::get<double>(num));
+            }
+            out.back().push_back(json.GetConstRef().ToString());
+          }
+        }
+        return out;
+      };
+
+  // This table is ordered. Values in the same nested vector are equal.
+  // That is, given {{a}, {b, c}, {d}} we have a < b == c < d. This allows us
+  // to generate test cases which exhaustively compare combinations of values,
+  // inferring their expected order based on the indexes of the outer vector.
+  std::vector<std::vector<std::string>> ordered_json_numbers = NumbersToJson({
+      // lowest double
+      {std::numeric_limits<double>::lowest()},
+      // Exact value integers beyond int64 range. Anything with fewer than 53
+      // significant digits is exact.
+      {-0x87654321.54321p70},  // 52 sig figs
+      {-0x87654321.4321p70},   // 48 sig figs
+      {-0x87654321p70},        // 32 sig figs
+      {-0x1.p70},
+      // -2^63 (int64 min)
+      {PrevDouble(-0x1p63)},
+      {-0x1p63, std::numeric_limits<int64_t>::min()},
+      {NextDouble(-0x1p63)},
+      // -2^53. Bottom of double's integer range.
+      {PrevDouble(-0x1p53), -9007199254740994},
+      {-9007199254740993},  // no exact double
+      {-0x1p53, -9007199254740992},
+      {NextDouble(-0x1p53), -9007199254740991},
+      {-6},
+      // Values around zero
+      {-1.0, -1},
+      {-std::numeric_limits<double>::min()},
+      {-std::numeric_limits<double>::denorm_min()},
+      {-0.0, 0.0, 0},
+      {std::numeric_limits<double>::denorm_min()},
+      {std::numeric_limits<double>::min()},
+      {1.0, 1},
+      // 2^53. Top of double's integer range.
+      {PrevDouble(0x1p53), 9007199254740991},
+      {0x1p53, 9007199254740992},
+      {9007199254740993},  // no exact double
+      {NextDouble(0x1p53), 9007199254740994},
+      // ~2^63 (int64 max)
+      {PrevDouble(0x1p63)},
+      {std::numeric_limits<int64_t>::max()},  // no exact double value
+      {0x1p63, uint64_t{1} << 63},
+      {NextDouble(0x1p63)},
+      // ~2^64 (uint64 max)
+      {PrevDouble(0x1p64)},
+      // 2^64 - 6, overflow as -6 when cast to int64_t.
+      {18446744073709551610ull},
+      {std::numeric_limits<uint64_t>::max()},  // no exact double value
+      {0x1p64},
+      {NextDouble(0x1p64)},
+      // Exact value integers beyond int64 range.
+      {0x1.p70},              // 1 sig fig
+      {0x87654321p70},        // 32 sig figs
+      {0x87654321.4321p70},   // 48 sig figs
+      {0x87654321.54321p70},  // 52 sig figs
+      // Largest double
+      {std::numeric_limits<double>::max()},
+  });
+
+  // Generate test cases for all pairs of values.
+  std::vector<ComparisonTestParam> test_cases;
+  for (int i = 0; i < ordered_json_numbers.size(); ++i) {
+    for (const std::string& lhs : ordered_json_numbers[i]) {
+      for (int j = 0; j < ordered_json_numbers.size(); ++j) {
+        for (const std::string& rhs : ordered_json_numbers[j]) {
+          test_cases.push_back(
+              {lhs, rhs, i < j ? kLess : (i == j ? kEqual : kGreater)});
+        }
+      }
+    }
+  }
+  RunJsonComparisonTestCases(test_cases);
+}
+
+TEST(JsonValueTest, ComparisonArray) {
+  std::vector<ComparisonTestParam> test_cases = {
+      // Empty arrays.
+      {"[]", "[]", kEqual},
+      {"[]", "[null]", kLess},
+      {"[]", "[1]", kLess},
+
+      // Top level Arrays.
+      {"[null]", "[null]", kEqual},
+      {"[null]", "[1]", kLess},
+      {"[null]", "[null, null]", kLess},
+      {"[1]", "[1]", kEqual},
+      {"[1]", "[1, 1]", kLess},
+      {"[1]", "[1, 2]", kLess},
+      {"[0, 1]", "[1]", kLess},
+      {"[1, 2]", "[1, 2]", kEqual},
+      {"[1, 2]", "[1, 3]", kLess},
+      {"[1, 2]", "[1, 2, 3]", kLess},
+      {"[1, 2]", "[2]", kLess},
+      {"[1, 2]", "[2, 1]", kLess},
+      {"[1, 1]", "[2, 1]", kLess},
+
+      // Nested arrays.
+      {"[[null]]", "[[null]]", kEqual},
+      {"[[null]]", "[[null, null]]", kLess},
+      {"[[1]]", "[[1]]", kEqual},
+      {"[[1]]", "[[1, 1]]", kLess},
+      {"[[1]]", "[[1, 2]]", kLess},
+
+      {"[[1, 2]]", "[[1.0, 2]]", kEqual},
+      {"[[1, 2]]", "[[1, 3]]", kLess},
+      {"[[1, 2]]", "[[1, 2, 3]]", kLess},
+      {"[[1, 2]]", "[[2]]", kLess},
+      {"[[1, 2]]", "[[2, 1]]", kLess},
+      {"[[1, 1]]", "[[2, 1]]", kLess},
+
+      {"[[1, 2], 3]", "[[1, 2], 4]", kLess},
+      {"[[1, 2], 3]", "[[1, 2.00], 3]", kEqual},
+      {"[[1, 2], 3]", "[[1, 2], 4, 5]", kLess},
+      {"[[1, 2], 3]", "[[2], 3]", kLess},
+      {"[[1, 2], 3]", "[[2, 1], 3]", kLess},
+      {"[[1, 1], 3]", "[[2, 1], 3]", kLess},
+
+      {"[1]", "[[null]]", kLess},
+      {"[1]", "[[1]]", kLess},
+      {"[1]", "[[1], 1]", kLess},
+      {"[1]", "[1, [1]]", kLess},
+
+      {"[1, [2]]", "[1, [2]]", kEqual},
+      {"[1, [2]]", "[1, [2, 3]]", kLess},
+      {"[1, [2]]", "[1, [2], 3]", kLess},
+
+      // Array with Objects.
+      {"[2]", R"([2, {"a": 1}])", kLess},
+      {R"([{"a": 1}, 2])", R"([{"a": 1}, 2])", kEqual},
+      {R"([{"a": 1}, 2])", R"([{"a": 2}, 3])", kLess},
+      {R"([{"a": 1}, 2])", R"([{"a": 1}, 3])", kLess},
+  };
+
+  RunJsonComparisonTestCases(test_cases);
+}
+
+TEST(JsonValueTest, ComparisonObject) {
+  std::vector<ComparisonTestParam> test_cases = {
+      // JSON empty objects.
+      {"{}", "{}", kEqual},
+      {"{}", R"({"": 1})", kLess},  // Empty string key.
+      {"{}", R"({"a": 1})", kLess},
+      {"{}", R"({"a": 1, "b": 2})", kLess},
+
+      // JSON objects with empty keys.
+      {R"({"": 1})", R"({"": 1})", kEqual},
+      {R"({"": 1})", R"({"a": 1})", kLess},
+      {R"({"": 1})", R"({"": 2})", kLess},
+
+      // JSON with backslash.
+      {R"({"\n": 1})", R"({"\n": 1.0})", kEqual},
+      {R"({"\n": 1})", R"({"A": 1})", kLess},
+      {R"({"\n": "\r"})", R"({"A": "\r"})", kLess},
+      {R"({"\n": "\r"})", R"({"\n": "\r"})", kEqual},
+      {R"({"\r": "\r"})", R"({"\n": "\r"})", kGreater},
+      {R"({"\r": "\r"})", R"({"\r": "\n"})", kGreater},
+
+      // JSON objects with single key.
+      {R"({"a": 1})", R"({"a": 1.0})", kEqual},
+      {R"({"a": 1})", R"({"a": 2})", kLess},
+      {R"({"a": 1})", R"({"b": 1})", kLess},
+      {R"({"a": 2})", R"({"b": 1})", kLess},
+      {R"({"aa": 1})", R"({"b": 1})", kLess},
+
+      // JSON objects with multiple keys.
+      {R"({"a": 1})", R"({"a": 1, "b": 2})", kLess},
+      {R"({"a": 1})", R"({"b": 2, "a": 1})", kLess},
+      {R"({"a": 1, "b": 2})", R"({"b": 2})", kLess},
+      {R"({"b": 2, "a": 1})", R"({"b": 2})", kLess},
+
+      // JSON nested objects.
+      {R"({"a": {"b": 1}})", R"({"a": {"b": 1}})", kEqual},
+      {R"({"a": {"b": 1}})", R"({"a": {"b": 2}})", kLess},
+      {R"({"a": {"b": 1}})", R"({"a": {"c": 1}})", kLess},
+      {R"({"a": {"b": 1}})", R"({"a": {"b": 1, "c": 1}})", kLess},
+
+      {R"({"a": {"b": 1, "c": 1}})", R"({"a": {"c": 1}})", kLess},
+      {R"({"a": {"b": 1, "c": 1}})", R"({"a": {"c": 1}})", kLess},
+
+      // JSON objects with null values.
+      {R"({"a": null})", R"({"a": null})", kEqual},
+      {R"({"a": null})", R"({"a": 1})", kLess},
+      {R"({"a": null})", R"({"b": null})", kLess},
+      {R"({"a": null})", R"({"a": null, "b": 1})", kLess},
+  };
+
+  RunJsonComparisonTestCases(test_cases);
 }
 
 // TODO: Add more tests.

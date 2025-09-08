@@ -1,4 +1,4 @@
-[default language_features=CORRESPONDING_FULL]
+[default language_features=MAXIMUM,+CORRESPONDING_FULL]
 [default no_show_resolved_ast]
 [default show_sqlbuilder_output]
 

@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <variant>
@@ -73,6 +74,12 @@ class StatementEvaluatorCallback {
   virtual void OnStatementResult(
       const ScriptSegment& segment, const ResolvedStatement* resolved_stmt,
       const absl::StatusOr<Value>& status_or_result) {}
+
+  // Invoked on an attempted multi-statement evaluation, whether each
+  // sub-statement is successful or not.
+  virtual void OnMultiStatementResult(
+      const ScriptSegment& segment, const ResolvedStatement* resolved_stmt,
+      const std::vector<absl::StatusOr<Value>>& status_or_results) {}
 
   // Invoked on an attempted expression evaluation, whether successful or not.
   virtual void OnScalarExpressionResult(
@@ -252,14 +259,16 @@ class StatementEvaluatorImpl : public StatementEvaluator {
   class StatementEvaluation : public Evaluation {
    public:
     const ResolvedStatement* resolved_statement() const;
-    const Value& result() const { return result_; }
+    const std::vector<absl::StatusOr<Value>>& results() const {
+      return results_;
+    }
     // Returns the table iterator from the last executed query statement.
     // The returned iterator must not outlive this object.
     std::unique_ptr<EvaluatorTableIterator> get_table_iterator() {
       return std::move(table_iterator_);
     }
-    std::unique_ptr<PreparedQuery> get_prepared_query() {
-      return std::move(prepared_query_);
+    std::unique_ptr<PreparedStatement> get_prepared_statement() {
+      return std::move(prepared_statement_);
     }
 
    protected:
@@ -275,6 +284,28 @@ class StatementEvaluatorImpl : public StatementEvaluator {
                          const AnalyzerOptions& analyzer_options,
                          Catalog* catalog);
 
+    // Evaluates a statement using a PreparedStatement. This handles single
+    // statements (queries, DML, CTAS) and multi-statement queries. The results
+    // are stored in the `results_` member variable.
+    absl::Status EvaluateWithPreparedStatement(
+        const AnalyzerOptions& analyzer_options,
+        const EvaluatorOptions& evaluator_options,
+        const SystemVariableValuesMap& system_variables,
+        std::variant<ParameterValueList, ParameterValueMap> parameters);
+
+    // Evaluates the query statement stored prepared by `prepared_statement_`.
+    // This is a special case because it needs to
+    // produce both a result Value and a table iterator for streaming. It
+    // currently executes the query twice to achieve this (not ideal).
+    absl::StatusOr<Value> EvaluateQueryStatement(
+        const QueryOptions& query_options);
+
+    // Converts the raw StmtResult into a final Value and handles
+    // side-effects for DDL and DML statements.
+    absl::StatusOr<Value> ProcessSingleStmtResult(
+        PreparedStatement::StmtResult stmt_result,
+        const EvaluatorOptions& evaluator_options);
+
     // Invoked after executing a DML statement; updates the modified table to
     // reflect the result. Returns the total number of rows inserted, modified,
     // or removed.
@@ -283,15 +314,26 @@ class StatementEvaluatorImpl : public StatementEvaluator {
 
     // Invoked for handling a DDL statement. Creates temp objects and adds them
     // to the catalog for temp objects.
-    absl::Status ProcessDdlStatement(const ResolvedStatement* statement,
-                                     const EvaluatorOptions& evaluator_options);
+    //
+    // The optional `result` parameter should be passed in if applying the
+    // side-effects requires evaluating the statement, such as CTAS statements.
+    absl::StatusOr<Value> ProcessDdlStatement(
+        const ResolvedStatement* statement,
+        const EvaluatorOptions& evaluator_options,
+        std::optional<PreparedStatement::StmtResult> result);
 
     // Set from Execute().
-    Value result_;
+    //
+    // `results_` is empty if the statement fails at analysis-time.
+    //
+    // If the statement is executed,
+    // - For multi-statement, it contains the results of the sub-statements.
+    // - For single statement, it contains one element.
+    std::vector<absl::StatusOr<Value>> results_;
 
     // Set from Execute(), must be kept alive for table_iterator_ to remain
     // valid.
-    std::unique_ptr<PreparedQuery> prepared_query_;
+    std::unique_ptr<PreparedStatement> prepared_statement_;
 
     // Set from Execute().
     std::unique_ptr<EvaluatorTableIterator> table_iterator_;

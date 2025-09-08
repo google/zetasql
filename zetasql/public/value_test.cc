@@ -801,39 +801,6 @@ TEST_F(ValueTest, TimestampWithPicoseconds) {
   EXPECT_EQ(ts, ts2);
 }
 
-TEST_F(ValueTest, TimestampPicos) {
-  absl::TimeZone pst;
-  ASSERT_TRUE(absl::LoadTimeZone("America/Los_Angeles", &pst));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto pico_time,
-      PicoTime::Create(
-          absl::FromCivil(absl::CivilSecond(2022, 9, 16, 12, 43, 0), pst),
-          999999999999));
-  const Value ts =
-      Value::TimestampPicos(zetasql::TimestampPicosValue(pico_time));
-  EXPECT_EQ(ts.DebugString(/*verbose=*/true),
-            "Timestamp_picos(2022-09-16 19:43:00.999999999999+00)");
-  EXPECT_EQ(ts.DebugString(), "2022-09-16 19:43:00.999999999999+00");
-  EXPECT_EQ(ts.Format(),
-            "Timestamp_picos(2022-09-16 19:43:00.999999999999+00)");
-  EXPECT_EQ(ts.Format(/*print_top_level_type=*/false),
-            "2022-09-16 19:43:00.999999999999+00");
-  // TODO: Update the SQL literal to use TIMESTAMP once type
-  // annotation is added.
-  EXPECT_EQ(ts.GetSQLLiteral(),
-            R"sql(TIMESTAMP_PICOS "2022-09-16 19:43:00.999999999999+00")sql");
-  EXPECT_EQ(ts.GetSQL(),
-            R"sql(TIMESTAMP_PICOS "2022-09-16 19:43:00.999999999999+00")sql");
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto pico_time2,
-      PicoTime::Create(
-          absl::FromCivil(absl::CivilSecond(2022, 9, 16, 12, 43, 0), pst),
-          999999999999));
-  const Value ts2 =
-      Value::TimestampPicos(zetasql::TimestampPicosValue(pico_time2));
-  EXPECT_EQ(ts, ts2);
-}
-
 TEST_F(ValueTest, Interval) {
   EXPECT_TRUE(Value::NullInterval().is_null());
   EXPECT_EQ(TYPE_INTERVAL, Value::NullInterval().type_kind());
@@ -1323,7 +1290,6 @@ TEST_F(ValueTest, HashCode) {
       Value::NullString(),
       Value::NullDate(),
       Value::NullTimestamp(),
-      Value::NullTimestampPicos(),
       Value::NullTime(),
       Value::NullDatetime(),
       Value::NullGeography(),
@@ -1375,12 +1341,6 @@ TEST_F(ValueTest, HashCode) {
       Value::Timestamp(
           absl::FromCivil(absl::CivilSecond(2018, 2, 14, 16, 36, 11), utc) +
           absl::Nanoseconds(2)),
-      Value::TimestampPicos(*TimestampPicosValue::Create(
-          absl::FromCivil(absl::CivilSecond(2018, 2, 14, 16, 36, 11), utc) +
-          absl::Nanoseconds(1))),
-      Value::TimestampPicos(*TimestampPicosValue::Create(
-          absl::FromCivil(absl::CivilSecond(2018, 2, 14, 16, 36, 11), utc) +
-          absl::Nanoseconds(2))),
       Value::Time(TimeValue::FromHMSAndNanos(16, 36, 11, 1)),
       Value::Time(TimeValue::FromHMSAndNanos(16, 36, 11, 2)),
       Value::Datetime(
@@ -1392,7 +1352,7 @@ TEST_F(ValueTest, HashCode) {
       Value::BigNumeric(BigNumericValue(int64_t{1001})),
       Value::BigNumeric(BigNumericValue(int64_t{1002})),
       Value::Json(JSONValue(int64_t{1})),
-      Value::UnvalidatedJsonString("value"),
+      Value::UnvalidatedJsonString("\"value\""),
       TokenListFromToken("t1"),
       TokenListFromToken("t2"),
       // Enums of two different types.
@@ -1418,7 +1378,7 @@ TEST_F(ValueTest, HashCode) {
                          JSONValue(std::string("\"foo\"")),
                          JSONValue::ParseJSONString("{\"a\": 10}").value()}),
       values::UnvalidatedJsonStringArray({}),
-      values::UnvalidatedJsonStringArray({"1", "{\"a:}", "foo"}),
+      values::UnvalidatedJsonStringArray({"1", "{\"a:\": \"foo\"}"}),
 
       values::EmptyArray(array_enum_type),
       values::Array(array_enum_type, {values::Enum(enum_type, 0)}),
@@ -2287,23 +2247,6 @@ TEST_F(ValueTest, TimestampWithPicosecondsArray) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(TimestampPicosValue t2,
                        TimestampPicosValue::Create(ParseTimeHm("13:00")));
   EXPECT_EQ(v1, values::TimestampArray({t1, t2}));
-}
-
-TEST_F(ValueTest, TimestampPicosArray) {
-  Value v1 = values::TimestampPicosArray(
-      {*TimestampPicosValue::Create(ParseTimeHm("12:00")),
-       *TimestampPicosValue::Create(ParseTimeHm("13:00"))});
-  EXPECT_EQ(v1.DebugString(),
-            "[1970-01-01 12:00:00+00, 1970-01-01 13:00:00+00]");
-  EXPECT_EQ(v1.FullDebugString(),
-            "Array[Timestamp_picos(1970-01-01 12:00:00+00), "
-            "Timestamp_picos(1970-01-01 13:00:00+00)]");
-  ZETASQL_ASSERT_OK_AND_ASSIGN(TimestampPicosValue t1,
-                       TimestampPicosValue::Create(ParseTimeHm("12:00")));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(TimestampPicosValue t2,
-                       TimestampPicosValue::Create(ParseTimeHm("13:00")));
-  Value v2 = values::TimestampPicosArray({t1, t2});
-  EXPECT_EQ(v1, v2);
 }
 
 TEST_F(ValueTest, JsonArray) {
@@ -5676,13 +5619,13 @@ TEST_F(ValueTest, Serialize) {
   SerializeDeserialize(Value::Json(JSONValue()));
   SerializeDeserialize(Value::Json(JSONValue(int64_t{1})));
   SerializeDeserialize(Value::Json(JSONValue(int64_t{-1})));
-  SerializeDeserialize(Value::UnvalidatedJsonString("value"));
+  SerializeDeserialize(Value::UnvalidatedJsonString("\"value\""));
 
   SerializeDeserialize(EmptyArray(types::JsonArrayType()));
   SerializeDeserialize(
       Array({Value::NullJson(), Value::Json(JSONValue(int64_t{-1})),
              Value::Json(JSONValue(int64_t{1})),
-             Value::UnvalidatedJsonString("value")}));
+             Value::UnvalidatedJsonString("{\"key\": true}")}));
 
   SerializeDeserialize(NullString());
   SerializeDeserialize(String("Hello, world!"));
@@ -5715,16 +5658,6 @@ TEST_F(ValueTest, Serialize) {
       Array({NullTimestamp(),
              TimestampFromUnixMicros(zetasql::types::kTimestampMin),
              TimestampFromUnixMicros(zetasql::types::kTimestampMax)}));
-
-  SerializeDeserialize(Value::NullTimestampPicos());
-  SerializeDeserialize(Value::TimestampPicos(
-      *TimestampPicosValue::Create(absl::FromUnixMicros(-5364662400000000))));
-  SerializeDeserialize(Null(types::TimestampPicosArrayType()));
-  SerializeDeserialize(EmptyArray(types::TimestampPicosArrayType()));
-  SerializeDeserialize(
-      Array({Value::NullTimestampPicos(),
-             Value::TimestampPicos(*TimestampPicosValue::Create(
-                 absl::FromUnixMicros(-5364662400000000)))}));
 
   SerializeDeserialize(NullDatetime());
   SerializeDeserialize(Datetime(
@@ -6593,6 +6526,33 @@ TEST_F(ValueTest, DeserializeInvalidMapFails) {
   }
 }
 
+TEST_F(ValueTest, MetadataChecks) {
+  Value::Metadata metadata_int32(TypeKind::TYPE_INT32);
+  EXPECT_EQ(metadata_int32.has_type_pointer(), false);
+  EXPECT_EQ(metadata_int32.type_kind(), TypeKind::TYPE_INT32);
+  EXPECT_EQ(metadata_int32.value_extended_content(), 0);
+  EXPECT_EQ(metadata_int32.preserves_order(), Value::kPreservesOrder);
+  EXPECT_EQ(metadata_int32.is_null(), false);
+
+  Value::Metadata metadata_int32_null(TypeKind::TYPE_INT32, /*is_null=*/true,
+                                      /*preserves_order=*/false,
+                                      /*value_extended_content=*/123);
+  EXPECT_EQ(metadata_int32_null.has_type_pointer(), false);
+  EXPECT_EQ(metadata_int32_null.type_kind(), TypeKind::TYPE_INT32);
+  EXPECT_EQ(metadata_int32_null.value_extended_content(), 123);
+  EXPECT_EQ(metadata_int32_null.preserves_order(), false);
+  EXPECT_EQ(metadata_int32_null.is_null(), true);
+
+  Value::Metadata metadata_int64(TypeKind::TYPE_INT64, /*is_null=*/false,
+                                 /*preserves_order=*/true,
+                                 /*value_extended_content=*/456);
+  EXPECT_EQ(metadata_int64.has_type_pointer(), false);
+  EXPECT_EQ(metadata_int64.type_kind(), TypeKind::TYPE_INT64);
+  EXPECT_EQ(metadata_int64.value_extended_content(), 456);
+  EXPECT_EQ(metadata_int64.preserves_order(), true);
+  EXPECT_EQ(metadata_int64.is_null(), false);
+}
+
 // Test that Value::DebugString stack overflow cutoffs work and we don't crash.
 static void StackOverflowTest() {
   TypeFactory factory;
@@ -6788,19 +6748,6 @@ void MakeSortedVector<UuidValue>(std::vector<zetasql::Value>* values) {
       UuidValue::FromString("ffffffff-ffff-ffff-ffff-ffffffffffff").value()));
 }
 
-template <>
-void MakeSortedVector<TimestampPicosValue>(
-    std::vector<zetasql::Value>* values) {
-  // NULL
-  values->push_back(Value::NullTimestampPicos());
-  // Lowest value
-  values->push_back(Value::TimestampPicos(TimestampPicosValue::MinValue()));
-  // Unix epoch
-  values->push_back(Value::TimestampPicos(TimestampPicosValue()));
-  // Highest value
-  values->push_back(Value::TimestampPicos(TimestampPicosValue::MaxValue()));
-}
-
 // Date ranges.
 template <>
 void MakeSortedVector<std::pair<int32_t, int32_t>>(
@@ -6982,7 +6929,6 @@ TEST_F(ValueCompareTest, SortOrder) {
   TestSortOrder<double>();
   TestSortOrder<NumericValue>();
   TestSortOrder<BigNumericValue>();
-  TestSortOrder<TimestampPicosValue>();
   TestSortOrder<UuidValue>();
   // Date ranges.
   TestSortOrder<std::pair<int32_t, int32_t>>();

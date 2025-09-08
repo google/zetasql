@@ -334,7 +334,7 @@ class JsonFlattenFunction : public SimpleBuiltinScalarFunction {
  public:
   JsonFlattenFunction()
       : SimpleBuiltinScalarFunction(FunctionKind::kJsonFlatten,
-                                    types::StringArrayType()) {}
+                                    types::JsonArrayType()) {}
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              absl::Span<const Value> args,
                              EvaluationContext* context) const override;
@@ -1426,6 +1426,30 @@ absl::StatusOr<Value> JsonStripNullsFunction::Eval(
   return Value::Json(std::move(result));
 }
 
+absl::StatusOr<Value> JsonContainsFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_EQ(args.size(), 2);
+  ZETASQL_RET_CHECK(args[0].type()->IsJson());
+  ZETASQL_RET_CHECK(args[1].type()->IsJson());
+
+  // Check if JSON input is NULL.
+  if (args[0].is_null() || args[1].is_null()) {
+    return Value::NullBool();
+  }
+  JSONParsingOptions json_parsing_options =
+      GetJSONParsingOptions(context->GetLanguageOptions());
+  JSONValue input_backing, target_backing;
+  ZETASQL_ASSIGN_OR_RETURN(
+      JSONValueConstRef input,
+      GetJSONValueConstRef(args[0], json_parsing_options, input_backing));
+  ZETASQL_ASSIGN_OR_RETURN(
+      JSONValueConstRef target,
+      GetJSONValueConstRef(args[1], json_parsing_options, target_backing));
+
+  return Value::Bool(functions::JsonContains(input, target));
+}
+
 absl::StatusOr<Value> JsonKeysFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
@@ -1605,6 +1629,11 @@ void RegisterBuiltinJsonFunctions() {
       {FunctionKind::kJsonArrayAppend},
       [](FunctionKind kind, const zetasql::Type* output_type) {
         return new JsonArrayInsertAppendFunction(kind);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kJsonContains},
+      [](FunctionKind kind, const zetasql::Type* output_type) {
+        return new JsonContainsFunction();
       });
   BuiltinFunctionRegistry::RegisterScalarFunction(
       {FunctionKind::kJsonKeys},

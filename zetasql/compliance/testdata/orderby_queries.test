@@ -8822,3 +8822,12 @@ FROM (
 )
 --
 ARRAY<STRUCT<INT64>>[{3}]
+
+==
+
+[name=order_by_same_column_twice_similar_to_b435003883]
+with t as (select 1 as x)
+select x+1, x+1 from t
+order by x+1, x+1
+--
+ARRAY<STRUCT<INT64, INT64>>[{2, 2}]

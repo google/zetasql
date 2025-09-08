@@ -641,9 +641,9 @@ Token LookaheadTransformer::ApplyTokenDisambiguation(
       }
       break;
     case Token::KW_OPTIONS:
-      if (Lookback2() == Token::LB_WITH_IN_SELECT_WITH_OPTIONS &&
+      if (Lookback2() == Token::LB_WITH_IN_WITH_OPTIONS &&
           Lookahead1() == Token::LPAREN) {
-        return Token::KW_OPTIONS_IN_SELECT_WITH_OPTIONS;
+        return Token::KW_OPTIONS_IN_WITH_OPTIONS;
       }
       break;
     case Token::KW_UPDATE:
@@ -1128,12 +1128,13 @@ LookaheadTransformer::Create(
     if (macro_catalog == nullptr) {
       macro_catalog = empty_macro_catalog();
     }
+    parser::macros::MacroExpanderOptions macro_expander_options{
+        .is_strict = macro_expansion_mode == MacroExpansionMode::kStrict,
+    };
     macro_expander = std::make_unique<MacroExpander>(
-        std::move(token_provider),
-        /*is_strict=*/macro_expansion_mode == MacroExpansionMode::kStrict,
-        *macro_catalog, arena, stack_frames,
-        // TODO: pass the real ErrorMessageOptions.
-        DiagnosticOptions{}, /*parent_location=*/nullptr);
+        std::move(token_provider), *macro_catalog, arena, stack_frames,
+        macro_expander_options,
+        /*parent_location=*/nullptr);
   } else {
     ZETASQL_RET_CHECK(macro_catalog == nullptr);
     macro_expander = std::make_unique<NoOpExpander>(std::move(token_provider));

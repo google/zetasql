@@ -57,8 +57,7 @@ EnumType::EnumType(const TypeFactory* factory,
   ABSL_CHECK(enum_descriptor_ != nullptr);
 }
 
-EnumType::~EnumType() {
-}
+EnumType::~EnumType() {}
 
 bool EnumType::EqualsForSameKind(const Type* that, bool equivalent) const {
   const EnumType* other = that->AsEnum();
@@ -145,7 +144,7 @@ std::string EnumType::ShortTypeName() const {
       "zetasql.functions.DateTimestampPart") {
     return "DATE_TIME_PART";
   } else if (enum_descriptor()->full_name() ==
-      "zetasql.functions.NormalizeMode") {
+             "zetasql.functions.NormalizeMode") {
     return "NORMALIZE_MODE";
   }
 
@@ -244,18 +243,28 @@ bool EnumType::EqualsImpl(const EnumType* const type1,
   return false;
 }
 
+bool EnumType::IsSupportedType(const LanguageOptions& language_options) const {
+  auto status_or_is_supported = IsSupported(language_options);
+  ZETASQL_DCHECK_OK(status_or_is_supported);
+  return status_or_is_supported.value_or(false);
+}
+
 // TODO: b/328508766 - respect is_opaque_ for builtin enum type instead of
 // language feature
-bool EnumType::IsSupportedType(const LanguageOptions& language_options) const {
+absl::StatusOr<bool> EnumType::IsSupported(
+    const LanguageOptions& language_options) const {
   if (Equivalent(types::DifferentialPrivacyReportFormatEnumType())) {
     return language_options.LanguageFeatureEnabled(
         FEATURE_DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS);
   }
   // If below enums were not created as a builtin type, falls through to
   // the generic logic below.
+  ZETASQL_ASSIGN_OR_RETURN(const EnumType* rank_type_enum_type,
+                   types::RankTypeEnumType());
   if (is_opaque_ && (Equivalent(types::ArrayZipModeEnumType()) ||
                      Equivalent(types::UnsupportedFieldsEnumType()) ||
-                     Equivalent(types::BitwiseAggModeEnumType()))) {
+                     Equivalent(types::BitwiseAggModeEnumType()) ||
+                     Equivalent(rank_type_enum_type))) {
     return true;
   }
 
@@ -267,13 +276,11 @@ bool EnumType::IsSupportedType(const LanguageOptions& language_options) const {
     return true;
   }
 
-  if (types::
-          DifferentialPrivacyCountDistinctContributionBoundingStrategyEnumType()
-              .ok() &&
-      Equivalent(
-          types::
-              DifferentialPrivacyCountDistinctContributionBoundingStrategyEnumType()  // NOLINT
-                  .value())) {
+  ZETASQL_ASSIGN_OR_RETURN(
+      const EnumType* count_distinct_contribution_bounding_strategy_enum_type,
+      types::
+          DifferentialPrivacyCountDistinctContributionBoundingStrategyEnumType());  // NOLINT
+  if (Equivalent(count_distinct_contribution_bounding_strategy_enum_type)) {
     return true;
   }
 

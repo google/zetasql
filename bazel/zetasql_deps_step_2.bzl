@@ -19,7 +19,6 @@
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
-load("@llvm_toolchain//:toolchains.bzl", "llvm_register_toolchains")
 load("@rules_bison//bison:bison.bzl", "bison_register_toolchains")
 load("@rules_flex//flex:flex.bzl", "flex_register_toolchains")
 load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
@@ -27,9 +26,22 @@ load("@rules_m4//m4:m4.bzl", "m4_register_toolchains")
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies")
 load("@rules_proto//proto:setup.bzl", "rules_proto_setup")
 load("@rules_proto//proto:toolchains.bzl", "rules_proto_toolchains")
+load("@toolchains_llvm//toolchain:deps.bzl", "bazel_toolchain_dependencies")
+load("@toolchains_llvm//toolchain:rules.bzl", "llvm_toolchain")
 
 def _load_deps_from_step_1():
-    llvm_register_toolchains()
+    bazel_toolchain_dependencies()
+    llvm_toolchain(
+        name = "llvm_toolchain",
+        llvm_versions = {
+            "": "16.0.0",
+            # The LLVM repo stops providing pre-built binaries for the MacOS x86_64
+            # architecture for versions >= 16.0.0: https://github.com/llvm/llvm-project/releases,
+            # but our Kokoro MacOS tests are still using x86_64 (ventura).
+            # TODO: Upgrade the MacOS version to sonoma-slcn.
+            "darwin-x86_64": "15.0.7",
+        },
+    )
     rules_foreign_cc_dependencies()
 
 def textmapper_dependencies():
@@ -171,16 +183,29 @@ def zetasql_deps_step_2(
             #    SHA256=$(sha256sum ${COMMIT}.tar.gz | cut -f1 -d' ')
             #    rm ${COMMIT}.tar.gz
             #    echo \# Commit from $(date --iso-8601=date)
-            #    echo url = \"$URL\",
-            #    echo sha256 = \"$SHA256\",
-            #    echo strip_prefix = \"${PREFIX}${COMMIT}\",
-            #
+            #    echo absl_url = \"$URL\",
+            #    echo absl_sha256 = \"$SHA256\",
+            #    echo absl_strip_prefix = \"${PREFIX}${COMMIT}\",
+
+            # Commit from 2024-07-15
+            absl_sha256 = "04612122377806a412124a89f6258206783d4d53fbc5ad4c9cdc1f3b49411bfb"
+            absl_url = "https://github.com/abseil/abseil-cpp/archive/eb852207758a773965301d0ae717e4235fc5301a.tar.gz"
+            absl_strip_prefix = "abseil-cpp-eb852207758a773965301d0ae717e4235fc5301a"
             http_archive(
                 name = "com_google_absl",
-                # Commit from 2024-07-15
-                sha256 = "04612122377806a412124a89f6258206783d4d53fbc5ad4c9cdc1f3b49411bfb",
-                url = "https://github.com/abseil/abseil-cpp/archive/eb852207758a773965301d0ae717e4235fc5301a.tar.gz",
-                strip_prefix = "abseil-cpp-eb852207758a773965301d0ae717e4235fc5301a",
+                sha256 = absl_sha256,
+                url = absl_url,
+                strip_prefix = absl_strip_prefix,
+            )
+
+            # Fetch a copy of the repository with the name "abseil-cpp". This is needed
+            # because the RE2 library expects the Abseil repository to be named "abseil-cpp",
+            # and other deps expect "com_google_absl".
+            http_archive(
+                name = "abseil-cpp",
+                sha256 = absl_sha256,
+                url = absl_url,
+                strip_prefix = absl_strip_prefix,
             )
 
         # required by many python libraries
@@ -393,14 +418,14 @@ py_library(
     if analyzer_deps:
         # RE2 Regex Framework, mostly used in unit tests.
         if not native.existing_rule("com_googlesource_code_re2"):
-            # 2023-06-01
+            # 2025-08-05
             http_archive(
                 name = "com_googlesource_code_re2",
                 urls = [
-                    "https://github.com/google/re2/archive/03da4fc0857c285e3a26782f6bc8931c4c950df4.tar.gz",
+                    "https://github.com/google/re2/archive/85c7c0fb1163b0bd83a7951f5a205ee7b489e33e.tar.gz",
                 ],
-                sha256 = "ef516fb84824a597c4d5d0d6d330daedb18363b5a99eda87d027e6bdd9cba299",
-                strip_prefix = "re2-03da4fc0857c285e3a26782f6bc8931c4c950df4",
+                sha256 = "bdb61bacaf880fc0433686af103a0dea4edfb804a53d087ae529c7690bf41fb9",
+                strip_prefix = "re2-85c7c0fb1163b0bd83a7951f5a205ee7b489e33e",
             )
 
         # Jinja2.

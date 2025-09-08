@@ -1,5 +1,5 @@
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
+[default language_features=NONE,+SQL_GRAPH]
 
 # Quantification on a node pattern is not allowed
 select * from graph_table(
@@ -565,7 +565,7 @@ SELECT one FROM GRAPH_TABLE(
   COLUMNS(1 AS one)
   )
 --
-ERROR: Syntax error: Expected "@" or "@@" or integer literal but got "@" [at 3:27]
+ERROR: Syntax error: Expected "}" but got "@" [at 3:27]
   MATCH((a)->(c)){@lower, @{hint_not_param}}
                           ^
 ==
@@ -580,18 +580,6 @@ SELECT one FROM GRAPH_TABLE(
 ERROR: Syntax error: Expected "," but got floating point literal "1.1" [at 3:19]
   MATCH((a)->(c)){1.1, 2.3}
                   ^
-==
-
-# Upper bound must always be provided in a quantifier
-select * from graph_table(
-  my.graph.name
-  MATCH ((a)-[b]->(c)){1,}
-  COLUMNS(1 AS One)
-)
---
-ERROR: Syntax error: Expected "@" or "@@" or integer literal but got "}" [at 3:26]
-  MATCH ((a)-[b]->(c)){1,}
-                         ^
 ==
 
 # Multiple path quantifiers in same MATCH
@@ -960,3 +948,5 @@ MATCH
   ) { 1, 3 }
 RETURN
   1 AS result
+==
+

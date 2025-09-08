@@ -1,6 +1,6 @@
 # TODO: Remove this after parse locations have been manually
 # verified as correct.
-[default language_features=TTL]
+[default language_features=NONE,+TTL]
 [default no_show_parse_location_text]
 alter table foo set options(opt_t = 1), add constraint a_is_positive check(a > 0), alter constraint bar enforced, alter constraint baz set options(opt_a = true);
 --
@@ -246,7 +246,7 @@ ALTER TABLE foo ADD CONSTRAINT fk_A FOREIGN KEY(A) REFERENCES T(B) MATCH SIMPLE 
   DROP CONSTRAINT a_gt_zero
 ==
 
-[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features=NONE,{{|+ALLOW_DASHES_IN_TABLE_NAME}}]
 alter table foo-bar-123.baz set options(opt_t = 1), add constraint a_is_positive check(a > 0), alter constraint bar enforced, alter constraint baz set options(opt_a = true);
 --
 ALTERNATION GROUP: <empty>
@@ -255,7 +255,7 @@ ERROR: Syntax error: Table name contains '-' character. The dashed identifier pa
 alter table foo-bar-123.baz set options(opt_t = 1), add constraint a_is_posit...
             ^
 --
-ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: +ALLOW_DASHES_IN_TABLE_NAME
 --
 AlterTableStatement [0-172]
   PathExpression [12-27]

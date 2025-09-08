@@ -1,6 +1,6 @@
-[default language_features=QUALIFY,ANALYTIC_FUNCTIONS]
+[default language_features=MAXIMUM,+QUALIFY,+ANALYTIC_FUNCTIONS]
 
-[language_features=ANALYTIC_FUNCTIONS]
+[language_features=NONE,+ANALYTIC_FUNCTIONS]
 select 1 from KeyValue WHERE true QUALIFY row_number() over ()
 --
 ERROR: QUALIFY is not supported [at 1:35]

@@ -175,15 +175,19 @@
 #include <vector>
 
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "absl/base/attributes.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/clock.h"
@@ -260,12 +264,12 @@ class PreparedExpressionBase {
   // be allocated from 'type_factory'.  Otherwise, the returned Value is
   // allocated using an internal TypeFactory and is only valid for the lifetime
   // of the PreparedExpression.
-  explicit PreparedExpressionBase(const std::string& sql,
+  explicit PreparedExpressionBase(absl::string_view sql,
                                   TypeFactory* type_factory = nullptr);
 
   // Constructor. Additional options can be provided by filling out the
   // EvaluatorOptions struct.
-  PreparedExpressionBase(const std::string& sql,
+  PreparedExpressionBase(absl::string_view sql,
                          const EvaluatorOptions& options);
 
   // Constructs a PreparedExpression using a ResolvedExpr directly. Does not
@@ -455,12 +459,25 @@ class PreparedExpressionBase {
   std::unique_ptr<internal::Evaluator> evaluator_;
 };
 
+struct QueryOptions {
+  // Parameters for the expression. Represented as a map or unordered list.
+  // At most one of these can be specified.
+  std::optional<ParameterValueMap> parameters;
+
+  // Allows for a more efficient evaluation by requiring for the <parameters>
+  // to be passed in a particular order.
+  std::optional<ParameterValueList> ordered_parameters;
+
+  // Optional system variables for all variants of Execute.
+  SystemVariableValuesMap system_variables;
+};
+
 // See evaluator_base.h for the full interface and usage instructions.
 class PreparedQueryBase {
  public:
   // Constructor. Additional options can be provided by filling out the
   // EvaluatorOptions struct.
-  PreparedQueryBase(const std::string& sql, const EvaluatorOptions& options);
+  PreparedQueryBase(absl::string_view sql, const EvaluatorOptions& options);
 
   // Constructs a PreparedQuery using a ResolvedQueryStmt directly. Does not
   // take ownership of <stmt>. <stmt> must outlive this object.
@@ -519,19 +536,9 @@ class PreparedQueryBase {
   // REQUIRES: Prepare() or Execute() has been called successfully.
   absl::StatusOr<int> GetPositionalParameterCount() const;
 
-  // Options struct for Execute() and ExecuteAfterPrepareWithOrderedParams()
-  // function calls.
-  struct QueryOptions {
-    // Parameters for the expression. Represented as a map or unordered list.
-    // At most one of these can be specified.
-    std::optional<ParameterValueMap> parameters;
-    // Allows for a more efficient evaluation by requiring for the <parameters>
-    // to be passed in a particular order.
-    std::optional<ParameterValueList> ordered_parameters;
-
-    // Optional system variables for all variants of Execute.
-    SystemVariableValuesMap system_variables;
-  };
+  // Kept for compatibility with existing code. We can't use the
+  // "[[deprecated]]" annotation here until c++ 23.
+  using QueryOptions = zetasql::QueryOptions;
 
   // Execute the query. This object must outlive the return value.
   //
@@ -702,7 +709,7 @@ class PreparedModifyBase {
   // AnalyzerOptions::set_prune_unused_columns(false)).
   PreparedModifyBase(const ResolvedStatement* stmt,
                      const EvaluatorOptions& options);
-  PreparedModifyBase(const std::string& sql, const EvaluatorOptions& options);
+  PreparedModifyBase(absl::string_view sql, const EvaluatorOptions& options);
   PreparedModifyBase(const PreparedModifyBase&) = delete;
   PreparedModifyBase& operator=(const PreparedModifyBase&) = delete;
 
@@ -812,6 +819,205 @@ class PreparedModifyBase {
 
  private:
   std::unique_ptr<internal::Evaluator> evaluator_;
+};
+
+// Represents DML statement results, which contains the row modifications and
+// the THEN RETURN clause results, if present.
+//
+// It is used by the `Execute*` methods of `PreparedStatement`, where the return
+// result can contain an `EvaluatorModifyResult`, if the statement is a DML
+// statement or a multi-statement that contains a DML statement.
+//
+// PreparedModifyBase uses this internally but doesn't expose it.  The result
+// iterators are returned directly from `Execute*` methods.
+struct EvaluatorModifyResult {
+  EvaluatorModifyResult() = default;
+
+  EvaluatorModifyResult(
+      std::unique_ptr<EvaluatorTableModifyIterator> table_modify_iter,
+      std::unique_ptr<EvaluatorTableIterator> returning_table_iter)
+      : table_modify_iter(std::move(table_modify_iter)),
+        returning_table_iter(std::move(returning_table_iter)) {}
+
+  // Represents modifications to the rows in a single table.
+  std::unique_ptr<EvaluatorTableModifyIterator> table_modify_iter;
+
+  // Represent the table result for THEN RETURN clauses. It is null if the DML
+  // statement does not have a THEN RETURN clause.
+  std::unique_ptr<EvaluatorTableIterator> returning_table_iter;
+};
+
+// Prepares and executes a SQL statement.  This API supports queries, DML, DDL,
+// and multi-statements (see (broken link)).
+//
+// The Execute* methods return a vector of StmtResult, where each result
+// is an error if the statement (or sub-statement in the multi-statement) fails,
+// or an execution result. See the comment of `StmtResult` for more details.
+//
+// **Usage Example:**
+//
+// ```cc
+//   const std::string sql = R"sql(
+//     SELECT 1 AS x, 2 AS y
+//     |> FORK (
+//       |> SELECT x
+//     ), (
+//       |> INSERT INTO t(x, y)
+//     ), (
+//       |> CREATE TABLE MyNewTable
+//     )
+//   )sql";
+//
+//   SimpleCatalog catalog(...);
+//   AnalyzerOptions options(...);
+//   // ... set up catalog and options ...
+//
+//   PreparedStatementBase prepared_stmt(sql, EvaluatorOptions());
+//   ZETASQL_RETURN_IF_ERROR(prepared_stmt.Prepare(options, &catalog));
+//   ZETASQL_ASSIGN_OR_RETURN(PreparedStatementBase::StmtResults results,
+//                    prepared_stmt.Execute());
+//
+//   // results.size() will be 3, one for each result output:
+//   // 1. The `SELECT x FROM $fork_cte` statement for `|> SELECT x`.
+//   // 2. The `INSERT INTO t(x, y) FROM $fork_cte` statement for
+//   //    `|> INSERT INTO t(x, y)`.
+//   // 3. The `CREATE TABLE MyNewTable FROM $fork_cte` statement for
+//   //    `|> CREATE TABLE MyNewTable`.
+//   //
+//   // $fork_cte is a CTE defined for the pipe input, corresponding to the
+//   // `SELECT 1 AS x, 2 AS y` query.
+//
+//   // Iterate through the results:
+//
+//   for (const auto& result : results) {
+//     if (!result.ok()) {
+//       // ... handle error ...
+//       continue;
+//     }
+//     switch (result->kind) {
+//       case PreparedStatementBase::StmtKind::kQuery:
+//         ZETASQL_RET_CHECK(result.table_iterator != nullptr);
+//         // Access `table_iterator` to get back the results.
+//         ...
+//         break;
+//       case PreparedStatementBase::StmtKind::kDML:
+//         // Access `modify_result` to get back the modifications.
+//         ZETASQL_RET_CHECK(result.modify_result.table_modify_iter != nullptr);
+//         ...
+//         if (result.modify_result.returning_table_iter != nullptr) {
+//           // ... process the THEN RETURN clause result ...
+//         }
+//         break;
+//       case PreparedStatementBase::StmtKind::kCTAS:
+//         ZETASQL_RET_CHECK(result.table_iterator != nullptr);
+//         // Access `table_iterator` to get back the contents of the table.
+//         ...
+//         break;
+//     }
+//   }
+// ```
+//
+// **Execution Semantics for Multi-statements:**
+// - All statements in a multi-statement query operate on the same initial
+// snapshot of the database.
+// - The side effects of one statement (e.g., from DML or DDL) are NOT visible
+// to subsequent statements within the same `Execute` call.
+//
+// TODO: Currently the evaluation of multi-statements uses `ValueExpr`s instead
+// `RelationalOp`s, meaning it loads all the rows into memory directly.
+// We should update the algebrizer to produce `RelationalOp`s for multi-stmts
+// to support more efficient evaluation.
+class PreparedStatementBase {
+ public:
+  enum class StmtKind {
+    // A query statement.
+    kQuery,
+    // A CREATE TABLE AS SELECT statement.
+    kCTAS,
+    // A DML statement, e.g. INSERT, UPDATE, DELETE.
+    kDML,
+  };
+
+  struct StmtResult {
+    // The `kind` field indicates the type of result:
+    // 1. `kQuery`: A query statement that returns a result set.
+    //   `table_iterator` is populated.
+    // 2. `kCTAS`: A `CREATE TABLE AS SELECT` statement. `table_iterator` is
+    //   populated with the contents of the new table. The metadata information,
+    //   including table name and schema, is stored in the resolved AST,
+    //   accessible via `statement`, which is a
+    //   `ResolvedCreateTableAsSelectStmt`.
+    // 3. `kDML`: A DML statement. `modify_result` is populated with a
+    //   description of the row modifications. If the DML statement also has a
+    //   `THEN RETURN` clause, `table_iterator` will be populated with the
+    //   returned rows.
+    StmtKind kind;
+
+    // Populated if the statement returns a table, for example a
+    // `ResolvedQueryStmt`.
+    std::unique_ptr<EvaluatorTableIterator> table_iterator;
+
+    // Populated if the statement is a DML statement.
+    EvaluatorModifyResult modify_result;
+
+    // The resolved statement for this result.
+    const ResolvedStatement* statement;
+  };
+
+  using StmtResults = std::vector<absl::StatusOr<StmtResult>>;
+
+  PreparedStatementBase(const std::string& sql,
+                        const EvaluatorOptions& options);
+
+  // Note: This API does not support `ResolvedGeneralizedQueryStmt` directly.
+  // It assumes those were rewritten to `ResolvedMultiStmt` already using the
+  // REWRITE_GENERALIZED_QUERY_STMT rewriter (which is enabled in the default
+  // analyzer options). See (broken link).
+  PreparedStatementBase(const ResolvedStatement* stmt,
+                        const EvaluatorOptions& options);
+
+  PreparedStatementBase(const PreparedStatementBase&) = delete;
+  PreparedStatementBase& operator=(const PreparedStatementBase&) = delete;
+
+  virtual ~PreparedStatementBase() = 0;
+
+  // This method can optionally be called before Execute() to set analyzer
+  // options and to return parsing and analysis errors, if any.
+  absl::Status Prepare(const AnalyzerOptions& options,
+                       Catalog* catalog = nullptr);
+
+  // Executes the multi-statement query.
+  //
+  // If Prepare() has not been called, the first call to Execute will call
+  // Prepare with implicitly constructed AnalyzerOptions.
+  absl::StatusOr<StmtResults> Execute(QueryOptions options = QueryOptions());
+
+  // Same as 'Execute', but uses positional instead of named parameters.
+  absl::StatusOr<StmtResults> ExecuteWithPositionalParams(
+      ParameterValueList positional_parameters,
+      SystemVariableValuesMap system_variables = {});
+
+  // This is the same as Execute, but is a const method, and requires that
+  // Prepare has already been called.
+  absl::StatusOr<StmtResults> ExecuteAfterPrepare(
+      QueryOptions options = QueryOptions()) const;
+
+  // Same as 'ExecuteAfterPrepare', but uses positional instead of named
+  // parameters.
+  absl::StatusOr<StmtResults> ExecuteAfterPrepareWithPositionalParams(
+      ParameterValueList positional_parameters,
+      SystemVariableValuesMap system_variables = {}) const;
+
+  // Returns a human-readable representation of how this multi-statement query
+  // would actually be executed.
+  absl::StatusOr<std::string> ExplainAfterPrepare() const;
+
+  // Gets the resolved statement.
+  const ResolvedStatement* resolved_statement() const;
+
+ private:
+  std::unique_ptr<internal::Evaluator> evaluator_;
+  std::vector<const ResolvedStatement*> sub_statements_;
 };
 
 }  // namespace zetasql

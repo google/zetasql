@@ -202,6 +202,14 @@ class TableNameResolver {
   absl::Status FindInGraphTableQuery(const ASTGraphTableQuery* graph_query,
                                      const AliasSet& external_visible_aliases,
                                      AliasSet* local_visible_aliases);
+  absl::Status FindInGraphPatternQuery(
+      const ASTGqlGraphPatternQuery* graph_pattern_query,
+      const AliasSet& external_visible_aliases,
+      AliasSet* local_visible_aliases);
+  absl::Status FindInGraphLinearOpsQuery(
+      const ASTGqlLinearOpsQuery* graph_linear_ops_query,
+      const AliasSet& external_visible_aliases,
+      AliasSet* local_visible_aliases);
 
   absl::Status FindInGqlCallsOnNamedTvfsUnder(
       const ASTGraphTableQuery* graph_query,
@@ -616,6 +624,13 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
       }
       break;
 
+    case AST_CREATE_SEQUENCE_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_CREATE_SEQUENCE_STMT)) {
+        return absl::OkStatus();
+      }
+      break;
+
     case AST_CLONE_DATA_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_CLONE_DATA_STMT)) {
@@ -944,6 +959,12 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
               RESOLVED_ALTER_EXTERNAL_SCHEMA_STMT) &&
           analyzer_options_->language().LanguageFeatureEnabled(
               FEATURE_EXTERNAL_SCHEMA_DDL)) {
+        return absl::OkStatus();
+      }
+      break;
+    case AST_ALTER_SEQUENCE_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_ALTER_SEQUENCE_STMT)) {
         return absl::OkStatus();
       }
       break;
@@ -1469,6 +1490,17 @@ absl::Status TableNameResolver::FindInQueryExpression(
       return FindInGraphTableQuery(
           query_expr->GetAs<ASTGqlQuery>()->graph_table(), visible_aliases,
           new_aliases);
+      break;
+    case AST_GQL_GRAPH_PATTERN_QUERY:
+      return FindInGraphPatternQuery(
+          query_expr->GetAs<ASTGqlGraphPatternQuery>(), visible_aliases,
+          new_aliases);
+      break;
+    case AST_GQL_LINEAR_OPS_QUERY:
+      return FindInGraphLinearOpsQuery(
+          query_expr->GetAs<ASTGqlLinearOpsQuery>(), visible_aliases,
+          new_aliases);
+      break;
     default:
       return MakeSqlErrorAt(query_expr)
              << "Unhandled query_expr:\n" << query_expr->DebugString();
@@ -1827,6 +1859,30 @@ absl::Status TableNameResolver::FindInGraphTableQuery(
 
   // Find in any nested subqueries
   return FindInExpressionsUnder(graph_query, external_visible_aliases);
+}
+
+absl::Status TableNameResolver::FindInGraphPatternQuery(
+    const ASTGqlGraphPatternQuery* graph_pattern_query,
+    const AliasSet& external_visible_aliases, AliasSet* local_visible_aliases) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
+  // Find in any nested subqueries
+  return FindInExpressionsUnder(
+      graph_pattern_query->graph_pattern()->where_clause(),
+      external_visible_aliases);
+}
+
+absl::Status TableNameResolver::FindInGraphLinearOpsQuery(
+    const ASTGqlLinearOpsQuery* linear_ops_query,
+    const AliasSet& external_visible_aliases, AliasSet* local_visible_aliases) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
+  // Find in any nested subqueries within each linear op
+  const auto& operators = linear_ops_query->linear_ops()->operators();
+  for (const auto& op : operators) {
+    ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(op, external_visible_aliases));
+  }
+  return absl::OkStatus();
 }
 
 absl::Status TableNameResolver::FindInGqlCallsOnNamedTvfsUnder(

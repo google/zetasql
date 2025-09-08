@@ -361,3 +361,45 @@ known_errors {
   label: "graph_table_gql_extended_test:any_with_ties_counting_hops"
   label: "graph_table_gql_extended_test:shortest_with_ties"
 }
+
+known_errors {
+  mode: ALLOW_UNIMPLEMENTED
+  reason: "Measure type rewriter does not support scalar subqueries that emit measure columns"
+  label: "measures_test:aggregate_measure_from_scalar_subquery"
+  label: "measures_test:aggregate_measure_from_scalar_subquery_in_with_query"
+  label: "measures_test:measure_exprs_with_clauses_non_deterministic"
+  label: "measures_test:measure_from_with_expr_assignment_list_as_scalar_subquery"
+  label: "measures_test:measure_from_with_expr_from_scalar_subquery"
+}
+
+known_errors {
+  mode: ALLOW_UNIMPLEMENTED
+  reason: "Aggregate functions with GROUP BY modifiers are not supported in ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter"
+  label: "measures_test:measure_exprs_with_clauses_non_deterministic"
+}
+
+known_errors {
+  mode: ALLOW_UNIMPLEMENTED
+  reason: "Measure type rewriter does not support WITH expressions emitting a measure type"
+  label: "measures_test:measure_from_with_expr_assignment_list_as_column_ref"
+  label: "measures_test:measure_from_with_expr_from_column_ref"
+}
+
+known_errors {
+  mode: ALLOW_UNIMPLEMENTED
+  reason: "Measure type rewriter expects argument to AGG function to be a direct column reference"
+  label: "measures_test:null_measure_value_from_limit_zero"
+  label: "measures_test:null_measure_value_from_where_false"
+}
+
+# TODO: b/439843654 - Remove this once MULTILEVEL_AGGREGATION_ON_UDAS is
+# removed from development. Currently, the reference driver with all rewrites
+# does not respect prepare_database_additional_features.
+known_errors {
+  mode: ALLOW_ERROR
+  reason: "Reference driver with all rewrites does not support GROUP BY modifiers"
+  label: "call_sql_udas_with_multi_level_agg_test:call_count_times_two_over_max_by_key"
+  label: "call_sql_udas_with_multi_level_agg_test:call_max_times_two_over_max_by_key"
+  label: "call_sql_udas_with_multi_level_agg_test:call_sum_squares_over_sum_times_two_by_key"
+  label: "call_sql_udas_with_multi_level_agg_test:call_sum_times_two_over_max_by_key"
+}

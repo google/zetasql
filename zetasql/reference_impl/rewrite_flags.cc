@@ -48,7 +48,8 @@ absl::btree_set<ResolvedASTRewrite> MinimalRewritesForReference() {
       // TODO: Remove this once the aggregation threshold rewriter
       // and anonymization rewriter are updated to follow the correct pattern.
       REWRITE_AGGREGATION_THRESHOLD,
-      REWRITE_INLINE_SQL_VIEWS
+      REWRITE_GENERALIZED_QUERY_STMT,
+      REWRITE_INLINE_SQL_VIEWS,
       // (broken link) end
       // clang-format on
   };

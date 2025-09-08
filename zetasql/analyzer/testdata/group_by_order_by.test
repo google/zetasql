@@ -1,4 +1,5 @@
 # ORDER BY select list column ordinal works as intended.
+[default language_features=MAXIMUM]
 WITH T AS (
   SELECT 1 AS a, 1000 AS b
 )
@@ -514,3 +515,16 @@ QueryStmt
               +-ColumnRef(type=INT64, column=$groupby.c#6)
 ==
 
+[language_features=NONE,+JSON_TYPE]
+# b/425900366 Support GROUP BY on JSON fields
+
+WITH json_table AS (SELECT JSON '{"Name": "ana"}' AS json_col, 5 AS points UNION ALL
+                    SELECT JSON '{"Name": "ana"}' AS json_col, 7 AS points UNION ALL
+                    SELECT JSON '{"Name": "bob"}' AS json_col, 9 AS points)
+SELECT sum(points), json_col.Name FROM json_table
+GROUP BY json_col.Name;
+
+--
+ERROR: Grouping by expressions of type JSON is not allowed [at 7:10]
+GROUP BY json_col.Name;
+         ^

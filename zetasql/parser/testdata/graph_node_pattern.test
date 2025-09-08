@@ -1,5 +1,5 @@
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
+[default language_features=NONE,+SQL_GRAPH]
 # General node pattern query with a complex WHERE clause
 select * from
   graph_table(my.graph.name

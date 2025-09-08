@@ -2,7 +2,7 @@
 # Which replaces group_selection_threshold_expr with the user defined function
 # counting unique user counts.
 # More details are in (broken link).
-[default language_features=DIFFERENTIAL_PRIVACY,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,DIFFERENTIAL_PRIVACY_THRESHOLDING,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS,NAMED_ARGUMENTS,JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+[default language_features=NONE,+DIFFERENTIAL_PRIVACY,+TABLE_VALUED_FUNCTIONS,+TEMPLATE_FUNCTIONS,+CREATE_TABLE_FUNCTION,+DIFFERENTIAL_PRIVACY_THRESHOLDING,+DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS,+NAMED_ARGUMENTS,+JSON_TYPE,+JSON_VALUE_EXTRACTION_FUNCTIONS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 
 #########################################
@@ -506,7 +506,7 @@ QueryStmt
 
 ==
 
-[language_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED,DIFFERENTIAL_PRIVACY_THRESHOLDING,NAMED_ARGUMENTS,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE]
+[language_features=NONE,+DIFFERENTIAL_PRIVACY,+DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED,+DIFFERENTIAL_PRIVACY_THRESHOLDING,+NAMED_ARGUMENTS,+TABLESAMPLE,+STRATIFIED_RESERVOIR_TABLESAMPLE]
 # Count star with max_groups_contributed or max_rows_contributed
 # We should use this count for group_selection_threshold_expr.
 select with differential_privacy options ({{max_groups_contributed|max_rows_contributed}}=5)
@@ -599,7 +599,7 @@ Rewrite ERROR: generic::unimplemented: Unimplemented aggregation: COUNT(*) while
 ########## COUNT($X) ###############
 #########################################
 
-[language_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_THRESHOLDING,NAMED_ARGUMENTS,NUMERIC_TYPE]
+[language_features=NONE,+DIFFERENTIAL_PRIVACY,+DIFFERENTIAL_PRIVACY_THRESHOLDING,+NAMED_ARGUMENTS,+NUMERIC_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 # Count(non-NULL literal) counting unique users.
 # We should use this count for group_selection_threshold_expr.
@@ -2564,7 +2564,7 @@ QueryStmt
 # sum(1) with NUMERIC type calculating unique users.
 # We should not use this count for group_selection_threshold because for the
 # new syntax group_selection_threshold is expected to be int64.
-[language_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_THRESHOLDING,NAMED_ARGUMENTS,NUMERIC_TYPE]
+[language_features=NONE,+DIFFERENTIAL_PRIVACY,+DIFFERENTIAL_PRIVACY_THRESHOLDING,+NAMED_ARGUMENTS,+NUMERIC_TYPE]
 select with differential_privacy SUM(cast(1 as NUMERIC), contribution_bounds_per_group => (0, 1))
 from SimpleTypesWithAnonymizationUid;
 --

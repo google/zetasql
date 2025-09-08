@@ -1,0 +1,581 @@
+[default language_features=MAXIMUM,+CREATE_AGGREGATE_FUNCTION,+TEMPLATE_FUNCTIONS,+MULTILEVEL_AGGREGATION,+AGGREGATE_FILTERING,+MULTILEVEL_AGGREGATION_ON_UDAS]
+[default show_sqlbuilder_output]
+[default enabled_ast_rewrites=ALL,-WITH_EXPR]
+
+SELECT
+  SumOfAggregateArgs(int64 WHERE int64 > 10)
+FROM SimpleTypes;
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(Lazy_resolution_function:SumOfAggregateArgs(INT64 agg_arg) -> INT64)
+              +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+              +-where_expr=
+                +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+                  +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+                  +-Literal(type=INT64, value=10)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  SumOfAggregateArgs(simpletypes_2.a_1
+    WHERE
+      (simpletypes_2.a_1) > 10) AS a_3
+FROM
+  (
+    SELECT
+      SimpleTypes.int64 AS a_1
+    FROM
+      SimpleTypes
+  ) AS simpletypes_2;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int64 AS a_1
+|> AS simpletypes_2
+|> AGGREGATE
+     SumOfAggregateArgs(simpletypes_2.a_1
+       WHERE
+         (simpletypes_2.a_1) > 10) AS a_3;
+
+Rewrite ERROR: WHERE filter modifier is not supported on calls to aggregate function Lazy_resolution_function:SumOfAggregateArgs
+==
+
+SELECT
+  SumOfAggregateArgs(MAX(int64) WHERE bool GROUP BY string HAVING MIN(int64) > 10)
+FROM SimpleTypes;
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#23 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#23]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#23]
+        +-input_scan=
+        | +-TableScan(column_list=SimpleTypes.[int64#2, string#5, bool#7], table=SimpleTypes, column_index_list=[1, 4, 6])
+        +-aggregate_list=
+          +-$agg1#23 :=
+            +-AggregateFunctionCall(Lazy_resolution_function:SumOfAggregateArgs(INT64 agg_arg) -> INT64)
+              +-ColumnRef(type=INT64, column=$aggregate.$agg1#21)
+              +-where_expr=
+              | +-ColumnRef(type=BOOL, column=SimpleTypes.bool#7)
+              +-group_by_list=
+              | +-$groupbymod#20 := ColumnRef(type=STRING, column=SimpleTypes.string#5)
+              +-group_by_aggregate_list=
+              | +-$agg1#21 :=
+              | | +-AggregateFunctionCall(ZetaSQL:max(INT64) -> INT64)
+              | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+              | +-$agg2#22 :=
+              |   +-AggregateFunctionCall(ZetaSQL:min(INT64) -> INT64)
+              |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+              +-having_expr=
+                +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+                  +-ColumnRef(type=INT64, column=$aggregate.$agg2#22)
+                  +-Literal(type=INT64, value=10)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  SumOfAggregateArgs(MAX(simpletypes_4.a_1)
+    WHERE
+      simpletypes_4.a_3
+    GROUP BY simpletypes_4.a_2
+    HAVING(MIN(simpletypes_4.a_1)) > 10) AS a_5
+FROM
+  (
+    SELECT
+      SimpleTypes.int64 AS a_1,
+      SimpleTypes.string AS a_2,
+      SimpleTypes.bool AS a_3
+    FROM
+      SimpleTypes
+  ) AS simpletypes_4;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int64 AS a_1,
+     SimpleTypes.string AS a_2,
+     SimpleTypes.bool AS a_3
+|> AS simpletypes_4
+|> AGGREGATE
+     SumOfAggregateArgs(MAX(simpletypes_4.a_1)
+       WHERE
+         simpletypes_4.a_3
+       GROUP BY simpletypes_4.a_2
+       HAVING(MIN(simpletypes_4.a_1)) > 10) AS a_5;
+
+Rewrite ERROR: GROUP BY modifier is not supported on calls to aggregate function Lazy_resolution_function:SumOfAggregateArgs
+==
+
+CREATE AGGREGATE FUNCTION WrappedMultiLevel(e {{INT64|ANY TYPE}}) AS (
+  SUM(e WHERE e > 10)
+);
+--
+
+
+ALTERNATION GROUP: INT64
+--
+CreateFunctionStmt
++-name_path=WrappedMultiLevel
++-return_type=INT64
++-argument_name_list=[e]
++-signature=(INT64 e) -> INT64
++-is_aggregate=TRUE
++-language="SQL"
++-code="SUM(e WHERE e > 10)"
++-aggregate_expression_list=
+| +-$agg1#1 :=
+|   +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+|     +-ArgumentRef(parse_location=64-65, type=INT64, name="e", argument_kind=AGGREGATE)
+|     +-where_expr=
+|       +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+|         +-ArgumentRef(parse_location=72-73, type=INT64, name="e", argument_kind=AGGREGATE)
+|         +-Literal(type=INT64, value=10)
++-function_expression=
+  +-ColumnRef(type=INT64, column=$aggregate.$agg1#1)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE AGGREGATE FUNCTION WrappedMultiLevel(e INT64)
+RETURNS INT64 AS (
+  SUM(e
+    WHERE
+      e > 10)
+);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+CREATE AGGREGATE FUNCTION WrappedMultiLevel(e INT64)
+RETURNS INT64 AS (
+  SUM(e
+    WHERE
+      e > 10)
+);
+--
+ALTERNATION GROUP: ANY TYPE
+--
+CreateFunctionStmt(name_path=WrappedMultiLevel, return_type=STRUCT<>, argument_name_list=[e], signature=(ANY TYPE e) -> ANY TYPE, is_aggregate=TRUE, language="SQL", code="SUM(e WHERE e > 10)")
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE AGGREGATE FUNCTION WrappedMultiLevel(e ANY TYPE)
+AS (
+  SUM(e
+    WHERE
+      e > 10)
+);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+CREATE AGGREGATE FUNCTION WrappedMultiLevel(e ANY TYPE)
+AS (
+  SUM(e
+    WHERE
+      e > 10)
+);
+==
+
+SELECT WrappedAggWithWhereModifier(e) FROM UNNEST([1, 2, 3]) AS e
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#2 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#2]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#2]
+        +-input_scan=
+        | +-ArrayScan
+        |   +-column_list=[$array.e#1]
+        |   +-array_expr_list=
+        |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+        |   +-element_column_list=[$array.e#1]
+        +-aggregate_list=
+          +-$agg1#2 :=
+            +-AggregateFunctionCall(Templated_SQL_Function:WrappedAggWithWhereModifier(INT64) -> INT64)
+              +-ColumnRef(type=INT64, column=$array.e#1)
+
+With Templated SQL function call:
+  Templated_SQL_Function:WrappedAggWithWhereModifier(INT64) -> INT64
+containing resolved templated expression:
+ColumnRef(type=INT64, column=$aggregate.$agg1#1)
+
+  $agg1#1 :=
+    +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+      +-ArgumentRef(parse_location=4-5, type=INT64, name="e", argument_kind=AGGREGATE)
+      +-where_expr=
+        +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+          +-ArgumentRef(parse_location=12-13, type=INT64, name="e", argument_kind=AGGREGATE)
+          +-Literal(type=INT64, value=10)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  WRAPPEDAGGWITHWHEREMODIFIER(a_1) AS a_2
+FROM
+  UNNEST(ARRAY< INT64 >[1, 2, 3] AS a_1);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  UNNEST(ARRAY< INT64 >[1, 2, 3] AS a_1)
+|> AGGREGATE
+     WRAPPEDAGGWITHWHEREMODIFIER(a_1) AS a_2;
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#2 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#2]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$aggregate.$agg1#2]
+        +-expr_list=
+        | +-$agg1#2 := ColumnRef(type=INT64, column=$aggregate.$agg1#4)
+        +-input_scan=
+          +-AggregateScan
+            +-column_list=[$aggregate.$agg1#4]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[$array.e#1, $inlined_WrappedAggWithWhereModifier.e#3]
+            |   +-expr_list=
+            |   | +-e#3 := ColumnRef(type=INT64, column=$array.e#1)
+            |   +-input_scan=
+            |     +-ArrayScan
+            |       +-column_list=[$array.e#1]
+            |       +-array_expr_list=
+            |       | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+            |       +-element_column_list=[$array.e#1]
+            +-aggregate_list=
+              +-$agg1#4 :=
+                +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                  +-ColumnRef(type=INT64, column=$inlined_WrappedAggWithWhereModifier.e#3)
+                  +-where_expr=
+                    +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+                      +-ColumnRef(type=INT64, column=$inlined_WrappedAggWithWhereModifier.e#3)
+                      +-Literal(type=INT64, value=10)
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aggregatescan_5.a_4 AS a_6
+FROM
+  (
+    SELECT
+      SUM(projectscan_3.a_2
+        WHERE
+          (projectscan_3.a_2) > 10) AS a_4
+    FROM
+      (
+        SELECT
+          a_1 AS a_1,
+          a_1 AS a_2
+        FROM
+          UNNEST(ARRAY< INT64 >[1, 2, 3] AS a_1)
+      ) AS projectscan_3
+  ) AS aggregatescan_5;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  UNNEST(ARRAY< INT64 >[1, 2, 3] AS a_1)
+|> SELECT
+     a_1 AS a_1,
+     a_1 AS a_2
+|> AS projectscan_3
+|> AGGREGATE
+     SUM(projectscan_3.a_2
+       WHERE
+         (projectscan_3.a_2) > 10) AS a_4
+|> AS aggregatescan_5
+|> SELECT
+     aggregatescan_5.a_4 AS a_6;
+
+==
+
+SELECT
+  SumOfAggregateArgs(MAX(int64) GROUP BY bool HAVING COUNT(*) > 10)
+FROM SimpleTypes;
+--
+
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#23 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#23]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#23]
+        +-input_scan=
+        | +-TableScan(column_list=SimpleTypes.[int64#2, bool#7], table=SimpleTypes, column_index_list=[1, 6])
+        +-aggregate_list=
+          +-$agg1#23 :=
+            +-AggregateFunctionCall(Lazy_resolution_function:SumOfAggregateArgs(INT64 agg_arg) -> INT64)
+              +-ColumnRef(type=INT64, column=$aggregate.$agg1#21)
+              +-group_by_list=
+              | +-$groupbymod#20 := ColumnRef(type=BOOL, column=SimpleTypes.bool#7)
+              +-group_by_aggregate_list=
+              | +-$agg1#21 :=
+              | | +-AggregateFunctionCall(ZetaSQL:max(INT64) -> INT64)
+              | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+              | +-$agg2#22 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+              +-having_expr=
+                +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+                  +-ColumnRef(type=INT64, column=$aggregate.$agg2#22)
+                  +-Literal(type=INT64, value=10)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  SumOfAggregateArgs(MAX(simpletypes_3.a_1)
+    GROUP BY simpletypes_3.a_2
+    HAVING(COUNT(*)) > 10) AS a_4
+FROM
+  (
+    SELECT
+      SimpleTypes.int64 AS a_1,
+      SimpleTypes.bool AS a_2
+    FROM
+      SimpleTypes
+  ) AS simpletypes_3;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int64 AS a_1,
+     SimpleTypes.bool AS a_2
+|> AS simpletypes_3
+|> AGGREGATE
+     SumOfAggregateArgs(MAX(simpletypes_3.a_1)
+       GROUP BY simpletypes_3.a_2
+       HAVING(COUNT(*)) > 10) AS a_4;
+
+Rewrite ERROR: GROUP BY modifier is not supported on calls to aggregate function Lazy_resolution_function:SumOfAggregateArgs
+==
+
+CREATE AGGREGATE FUNCTION WrappedMultiLevel(e {{INT64|ANY TYPE}}) AS (
+  SUM(e GROUP BY e HAVING COUNT(*) > 10)
+);
+--
+ALTERNATION GROUP: INT64
+--
+CreateFunctionStmt
++-name_path=WrappedMultiLevel
++-return_type=INT64
++-argument_name_list=[e]
++-signature=(INT64 e) -> INT64
++-is_aggregate=TRUE
++-language="SQL"
++-code="SUM(e GROUP BY e HAVING COUNT(*) > 10)"
++-aggregate_expression_list=
+| +-$agg1#3 :=
+|   +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+|     +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#1)
+|     +-group_by_list=
+|     | +-$groupbymod#1 := ArgumentRef(parse_location=75-76, type=INT64, name="e", argument_kind=AGGREGATE)
+|     +-group_by_aggregate_list=
+|     | +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+|     +-having_expr=
+|       +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+|         +-ColumnRef(type=INT64, column=$aggregate.$agg1#2)
+|         +-Literal(type=INT64, value=10)
++-function_expression=
+  +-ColumnRef(type=INT64, column=$aggregate.$agg1#3)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE AGGREGATE FUNCTION WrappedMultiLevel(e INT64)
+RETURNS INT64 AS (
+  SUM(e
+    GROUP BY e
+    HAVING(COUNT(*)) > 10)
+);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+CREATE AGGREGATE FUNCTION WrappedMultiLevel(e INT64)
+RETURNS INT64 AS (
+  SUM(e
+    GROUP BY e
+    HAVING(COUNT(*)) > 10)
+);
+--
+ALTERNATION GROUP: ANY TYPE
+--
+CreateFunctionStmt(name_path=WrappedMultiLevel, return_type=STRUCT<>, argument_name_list=[e], signature=(ANY TYPE e) -> ANY TYPE, is_aggregate=TRUE, language="SQL", code="SUM(e GROUP BY e HAVING COUNT(*) > 10)")
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+CREATE AGGREGATE FUNCTION WrappedMultiLevel(e ANY TYPE)
+AS (
+  SUM(e
+    GROUP BY e
+    HAVING COUNT(*) > 10)
+);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+CREATE AGGREGATE FUNCTION WrappedMultiLevel(e ANY TYPE)
+AS (
+  SUM(e
+    GROUP BY e
+    HAVING COUNT(*) > 10)
+);
+
+==
+
+SELECT WrappedAggWithHavingModifier(e) FROM UNNEST([1, 2, 3]) AS e
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#2 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#2]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#2]
+        +-input_scan=
+        | +-ArrayScan
+        |   +-column_list=[$array.e#1]
+        |   +-array_expr_list=
+        |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+        |   +-element_column_list=[$array.e#1]
+        +-aggregate_list=
+          +-$agg1#2 :=
+            +-AggregateFunctionCall(Templated_SQL_Function:WrappedAggWithHavingModifier(INT64) -> INT64)
+              +-ColumnRef(type=INT64, column=$array.e#1)
+
+With Templated SQL function call:
+  Templated_SQL_Function:WrappedAggWithHavingModifier(INT64) -> INT64
+containing resolved templated expression:
+ColumnRef(type=INT64, column=$aggregate.$agg1#3)
+
+  $agg1#3 :=
+    +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+      +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#1)
+      +-group_by_list=
+      | +-$groupbymod#1 := ArgumentRef(parse_location=15-16, type=INT64, name="e", argument_kind=AGGREGATE)
+      +-group_by_aggregate_list=
+      | +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+      +-having_expr=
+        +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+          +-ColumnRef(type=INT64, column=$aggregate.$agg1#2)
+          +-Literal(type=INT64, value=10)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  WRAPPEDAGGWITHHAVINGMODIFIER(a_1) AS a_2
+FROM
+  UNNEST(ARRAY< INT64 >[1, 2, 3] AS a_1);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  UNNEST(ARRAY< INT64 >[1, 2, 3] AS a_1)
+|> AGGREGATE
+     WRAPPEDAGGWITHHAVINGMODIFIER(a_1) AS a_2;
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#2 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#2]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$aggregate.$agg1#2]
+        +-expr_list=
+        | +-$agg1#2 := ColumnRef(type=INT64, column=$aggregate.$agg1#4)
+        +-input_scan=
+          +-AggregateScan
+            +-column_list=[$aggregate.$agg1#4]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[$array.e#1, $inlined_WrappedAggWithHavingModifier.e#3]
+            |   +-expr_list=
+            |   | +-e#3 := ColumnRef(type=INT64, column=$array.e#1)
+            |   +-input_scan=
+            |     +-ArrayScan
+            |       +-column_list=[$array.e#1]
+            |       +-array_expr_list=
+            |       | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+            |       +-element_column_list=[$array.e#1]
+            +-aggregate_list=
+              +-$agg1#4 :=
+                +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                  +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#5)
+                  +-group_by_list=
+                  | +-$groupbymod#5 := ColumnRef(type=INT64, column=$inlined_WrappedAggWithHavingModifier.e#3)
+                  +-group_by_aggregate_list=
+                  | +-$agg1#6 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+                  +-having_expr=
+                    +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+                      +-ColumnRef(type=INT64, column=$aggregate.$agg1#6)
+                      +-Literal(type=INT64, value=10)
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aggregatescan_5.a_4 AS a_6
+FROM
+  (
+    SELECT
+      SUM(projectscan_3.a_2
+        GROUP BY projectscan_3.a_2
+        HAVING(COUNT(*)) > 10) AS a_4
+    FROM
+      (
+        SELECT
+          a_1 AS a_1,
+          a_1 AS a_2
+        FROM
+          UNNEST(ARRAY< INT64 >[1, 2, 3] AS a_1)
+      ) AS projectscan_3
+  ) AS aggregatescan_5;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  UNNEST(ARRAY< INT64 >[1, 2, 3] AS a_1)
+|> SELECT
+     a_1 AS a_1,
+     a_1 AS a_2
+|> AS projectscan_3
+|> AGGREGATE
+     SUM(projectscan_3.a_2
+       GROUP BY projectscan_3.a_2
+       HAVING(COUNT(*)) > 10) AS a_4
+|> AS aggregatescan_5
+|> SELECT
+     aggregatescan_5.a_4 AS a_6;

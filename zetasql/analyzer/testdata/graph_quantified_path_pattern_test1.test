@@ -1,4 +1,4 @@
-[default language_features=SQL_GRAPH,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [default no_test_extract_table_names]
 
 # General bounded path quantifier

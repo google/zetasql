@@ -89,6 +89,7 @@ static MatchResultProto ToProto(const MatchResult& match_result,
                                 const ResolvedMatchRecognizeScan& scan,
                                 const TestMatchOptions& options) {
   MatchResultProto match_result_proto;
+  match_result_proto.mutable_match()->Reserve(match_result.new_matches.size());
   for (const struct Match& new_match : match_result.new_matches) {
     match_result_proto.add_match(GetMatchTestOutput(new_match, scan, options));
   }

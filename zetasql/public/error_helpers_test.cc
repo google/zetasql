@@ -17,7 +17,6 @@
 #include "zetasql/public/error_helpers.h"
 
 #include <map>
-#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -30,21 +29,26 @@
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/common/testing/status_payload_matchers.h"
 #include "zetasql/proto/internal_error_location.pb.h"
+#include "zetasql/proto/internal_fix_suggestion.pb.h"
 #include "zetasql/proto/script_exception.pb.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/deprecation_warning.pb.h"
 #include "zetasql/public/error_location.pb.h"
+#include "zetasql/public/fix_suggestion.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/flags/declare.h"
+#include "absl/flags/flag.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/source_location.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
+
+ABSL_DECLARE_FLAG(std::string, zetasql_minimized_error_message_tag);
 
 namespace zetasql {
 
@@ -94,7 +98,7 @@ TEST(ErrorHelpersTest, FormatError) {
 
   absl::Status status2 =
       MakeSqlErrorAtPoint(ParseLocationPoint::FromByteOffset(74)) << "Message2";
-  status2 = ConvertInternalErrorLocationToExternal(status2, dummy_query);
+  status2 = ConvertInternalErrorPayloadsToExternal(status2, dummy_query);
   EXPECT_EQ(
       "generic::invalid_argument: Message2 "
       "[zetasql.ErrorLocation] { line: 4 column: 9 input_start_line_offset: "
@@ -112,7 +116,7 @@ TEST(ErrorHelpersTest, FormatError) {
       ::zetasql_base::UnknownErrorBuilder().AttachPayload(
           ParseLocationPoint::FromByteOffset(1).ToInternalErrorLocation())
       << "Message4";
-  status4 = ConvertInternalErrorLocationToExternal(status4, dummy_query);
+  status4 = ConvertInternalErrorPayloadsToExternal(status4, dummy_query);
   EXPECT_EQ(
       "generic::unknown: Message4 "
       "[zetasql.ErrorLocation] { line: 1 column: 2 input_start_line_offset: "
@@ -140,7 +144,7 @@ TEST(ErrorHelpersTest, FormatError) {
       MakeSqlErrorAtPoint(ParseLocationPoint::FromByteOffset(43))
           .AttachPayload(extra_extension)
       << "Message6";
-  status6 = ConvertInternalErrorLocationToExternal(status6, dummy_query);
+  status6 = ConvertInternalErrorPayloadsToExternal(status6, dummy_query);
   EXPECT_THAT(
       internal::StatusToString(status6),
       AllOf(
@@ -171,7 +175,7 @@ TEST(ErrorHelpersTest, ErrorLocationHelpers) {
       ::zetasql_base::UnknownErrorBuilder().AttachPayload(
           ParseLocationPoint::FromByteOffset(1).ToInternalErrorLocation())
       << "Message2";
-  status2 = ConvertInternalErrorLocationToExternal(status2, "123\n456");
+  status2 = ConvertInternalErrorPayloadsToExternal(status2, "123\n456");
   EXPECT_EQ(
       "generic::unknown: Message2 "
       "[zetasql.ErrorLocation] { line: 1 column: 2 input_start_line_offset: "
@@ -199,7 +203,7 @@ TEST(ErrorHelpersTest, ErrorLocationHelpers) {
       MakeSqlErrorAtPoint(ParseLocationPoint::FromByteOffset(11))
           .AttachPayload(extra_extension)
       << "Message3";
-  status3 = ConvertInternalErrorLocationToExternal(status3, "123\n456\n78901");
+  status3 = ConvertInternalErrorPayloadsToExternal(status3, "123\n456\n78901");
   std::string status3_str = internal::StatusToString(status3);
 
   EXPECT_THAT(
@@ -608,7 +612,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorLocationPayloadTests) {
 
   // Convert the status InternalErrorLocation to ErrorLocation for this test.
   absl::Status status_with_error_location =
-      ConvertInternalErrorLocationToExternal(
+      ConvertInternalErrorPayloadsToExternal(
           status_with_internal_error_location, dummy_query);
   EXPECT_EQ("Message2 [at 4:9]", FormatError(status_with_error_location));
   const std::string expected_string2 = "Message2 [at 4:9]";
@@ -647,7 +651,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorLocationPayloadTests) {
   EXPECT_EQ("generic::unknown: Message3 "
             "[zetasql.InternalErrorLocation] { byte_offset: 3 }",
             FormatError(status3));
-  status3 = ConvertInternalErrorLocationToExternal(status3, dummy_query);
+  status3 = ConvertInternalErrorPayloadsToExternal(status3, dummy_query);
   EXPECT_EQ(
       "generic::unknown: Message3 [zetasql.ErrorLocation] "
       "{ line: 1 column: 4 input_start_line_offset: 0 "
@@ -702,7 +706,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorLocationPayloadTests) {
           HasSubstr("[zetasql.InternalErrorLocation] { byte_offset: 43 }"),
           HasSubstr("[zetasql_test__.TestStatusPayload] { value: \"abc\" }")));
 
-  status5 = ConvertInternalErrorLocationToExternal(status5, dummy_query);
+  status5 = ConvertInternalErrorPayloadsToExternal(status5, dummy_query);
   EXPECT_EQ(
       "Message5 [at 2:22] "
       "[zetasql_test__.TestStatusPayload] { value: \"abc\" }",
@@ -732,7 +736,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorLocationPayloadTests) {
       MakeSqlErrorAtPoint(ParseLocationPoint::FromByteOffset(43))
           .AttachPayload(extra_extension)
       << "Message6";
-  status6 = ConvertInternalErrorLocationToExternal(status6, dummy_query);
+  status6 = ConvertInternalErrorPayloadsToExternal(status6, dummy_query);
   const std::string expected_payload_string6 =
       "Message6 [at 2:22] [zetasql_test__.TestStatusPayload] "
       "{ value: \"abc\" }";
@@ -752,6 +756,95 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorLocationPayloadTests) {
   test_cases.emplace_back(dummy_query, status6, expected_result);
 
   RunTests(test_cases);
+}
+
+TEST(ErrorHelpersTest, ConvertsInternalErrorFixSuggestionsToExternal) {
+  const std::string dummy_query =
+      "0123\n"
+      "456\n"
+      "789\n";
+  absl::Status status_with_internal_fix_suggestions =
+      MakeSqlErrorAtPoint(ParseLocationPoint::FromByteOffset(2))
+      << "Error message";
+  InternalErrorFixSuggestions internal_fix_suggestions;
+
+  InternalFix* valid_fix = internal_fix_suggestions.add_fix_suggestions();
+  valid_fix->set_title("Valid fix");
+  InternalTextEdit* edit_1 = valid_fix->mutable_edits()->add_text_edits();
+  edit_1->set_new_text("111");
+  edit_1->mutable_range()->mutable_start()->set_filename("file_1.sql");
+  edit_1->mutable_range()->mutable_start()->set_byte_offset(3);
+  edit_1->mutable_range()->set_length(2);
+  InternalTextEdit* edit_2 = valid_fix->mutable_edits()->add_text_edits();
+  edit_2->set_new_text("222");
+  edit_2->mutable_range()->mutable_start()->set_filename("file_2.sql");
+  edit_2->mutable_range()->mutable_start()->set_byte_offset(8);
+  edit_2->mutable_range()->set_length(1);
+
+  InternalFix* fix_with_missing_edit_range =
+      internal_fix_suggestions.add_fix_suggestions();
+  fix_with_missing_edit_range->set_title("Fix with missing edit range");
+  InternalTextEdit* edit_3 =
+      fix_with_missing_edit_range->mutable_edits()->add_text_edits();
+  edit_3->set_new_text("333");
+  InternalTextEdit* edit_4 =
+      fix_with_missing_edit_range->mutable_edits()->add_text_edits();
+  edit_4->set_new_text("444");
+  edit_4->mutable_range()->mutable_start()->set_filename("file_4.sql");
+  edit_4->mutable_range()->mutable_start()->set_byte_offset(0);
+  edit_4->mutable_range()->set_length(3);
+
+  InternalFix* fix_with_missing_text_edits =
+      internal_fix_suggestions.add_fix_suggestions();
+  fix_with_missing_text_edits->set_title("Fix with missing text edits");
+
+  internal::AttachPayload(&status_with_internal_fix_suggestions,
+                          internal_fix_suggestions);
+
+  absl::Status status_with_external_fix_suggestions =
+      ConvertInternalErrorPayloadsToExternal(
+          status_with_internal_fix_suggestions, dummy_query);
+
+  EXPECT_FALSE(internal::HasPayloadWithType<InternalErrorFixSuggestions>(
+      status_with_external_fix_suggestions));
+  ASSERT_TRUE(internal::HasPayloadWithType<ErrorFixSuggestions>(
+      status_with_external_fix_suggestions));
+  // Fixes with missing or invalid edit locations are skipped.
+  EXPECT_THAT(internal::GetPayload<ErrorFixSuggestions>(
+                  status_with_external_fix_suggestions),
+              EqualsProto(R"pb(
+                fix_suggestions {
+                  title: "Valid fix"
+                  edits {
+                    text_edits {
+                      range {
+                        start {
+                          filename: "file_1.sql"
+                          line: 1
+                          column: 4
+                          input_start_line_offset: 0
+                          input_start_column_offset: 0
+                        }
+                        length: 2
+                      }
+                      new_text: "111"
+                    }
+                    text_edits {
+                      range {
+                        start {
+                          filename: "file_2.sql"
+                          line: 2
+                          column: 4
+                          input_start_line_offset: 0
+                          input_start_column_offset: 0
+                        }
+                        length: 1
+                      }
+                      new_text: "222"
+                    }
+                  }
+                }
+              )pb"));
 }
 
 TEST(ErrorHelpersTest, BasicErrorSourcePayloadTests) {
@@ -1104,7 +1197,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromNestedErrorSourcePayloadTests) {
                     "error_message_caret_string: \"abcdefghijklmnopqrs\\n  ^\" "
                     "error_location { "
                     "line: 1 column: 3 filename: \"filename\" } } }")));
-  status = ConvertInternalErrorLocationToExternal(status, dummy_query);
+  status = ConvertInternalErrorPayloadsToExternal(status, dummy_query);
 
   const std::string expected_oneline_string =
       "ErrorMessage [at 2:22]; "
@@ -1303,13 +1396,12 @@ static absl::Status UpdateWithRedaction(
 
 static absl::Status UpdateWithEnhancedRedaction(
     const absl::Status& status, absl::string_view query,
-    ErrorMessageStability stability = ERROR_MESSAGE_STABILITY_TEST_REDACTED) {
+    ErrorMessageStability stability = ERROR_MESSAGE_STABILITY_TEST_MINIMIZED) {
   return MaybeUpdateErrorFromPayload(
       ErrorMessageOptions{
           .mode = ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
           .attach_error_location_payload = true,
-          .stability = stability,
-          .enhanced_error_redaction = true},
+          .stability = stability},
       query, status);
 }
 
@@ -1385,6 +1477,10 @@ static void AttachAllRedactablePaylaods(absl::Status& status) {
   ScriptException script_exception;
   script_exception.set_message("script exception");
   internal::AttachPayload(&status, script_exception);
+
+  ErrorFixSuggestions error_fix_suggestions;
+  error_fix_suggestions.add_fix_suggestions()->set_title("fix");
+  internal::AttachPayload(&status, error_fix_suggestions);
 }
 
 static void AttachExtraPayload(absl::Status& status) {
@@ -1407,7 +1503,8 @@ TEST(ErrorHelpersTest,
             Not(StatusHasGenericPayload(kErrorMessageModeUrl)),
             Not(StatusHasPayload<ErrorLocation>()),
             Not(StatusHasPayload<DeprecationWarning>()),
-            Not(StatusHasPayload<ScriptException>())));
+            Not(StatusHasPayload<ScriptException>()),
+            Not(StatusHasPayload<ErrorFixSuggestions>())));
 }
 
 TEST(ErrorHelpersTest,
@@ -1424,7 +1521,8 @@ TEST(ErrorHelpersTest,
             Not(StatusHasGenericPayload(kErrorMessageModeUrl)),
             Not(StatusHasPayload<ErrorLocation>()),
             Not(StatusHasPayload<DeprecationWarning>()),
-            Not(StatusHasPayload<ScriptException>())));
+            Not(StatusHasPayload<ScriptException>()),
+            Not(StatusHasPayload<ErrorFixSuggestions>())));
 }
 
 TEST(ErrorHelpersTest, RedecatMessageKeepPayload_InternalError) {
@@ -1448,7 +1546,8 @@ TEST(ErrorHelpersTest, RedecatMessageKeepPayload_WithZetaSQLPayloads) {
             StatusHasGenericPayload(kErrorMessageModeUrl),
             StatusHasPayload<ErrorLocation>(),
             StatusHasPayload<DeprecationWarning>(),
-            StatusHasPayload<ScriptException>()));
+            StatusHasPayload<ScriptException>(),
+            StatusHasPayload<ErrorFixSuggestions>()));
 }
 
 TEST(ErrorHelpersTest, RedecatMessageKeepPayload_WithExtraPayloads) {
@@ -1466,7 +1565,8 @@ TEST(ErrorHelpersTest, RedecatMessageKeepPayload_WithExtraPayloads) {
             StatusHasGenericPayload(kErrorMessageModeUrl),
             StatusHasPayload<ErrorLocation>(),
             StatusHasPayload<DeprecationWarning>(),
-            StatusHasPayload<ScriptException>()));
+            StatusHasPayload<ScriptException>(),
+            StatusHasPayload<ErrorFixSuggestions>()));
 }
 
 MATCHER_P2(HasErrorLocationPayload, line, column, "") {
@@ -1509,8 +1609,8 @@ TEST_P(ErrorHelpersTestParameterized,
       MakeSqlErrorAtPoint(ParseLocationPoint::FromByteOffset(error_byte_offset))
       << "Error: some failure";
 
-  status = ConvertInternalErrorLocationToExternal(status, query, line_offset,
-                                                  column_offset);
+  status = ConvertInternalErrorPayloadsToExternal(status, query, line_offset,
+                                                  column_offset, 0);
 
   EXPECT_THAT(MaybeUpdateErrorFromPayload(
                   ErrorMessageOptions{.mode = mode,

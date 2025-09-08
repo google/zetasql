@@ -4,7 +4,8 @@
 # It's just testing that the pipe operator works, and that
 # name scoping on pipe inputs works as expected.
 
-[language_features=PIPES]
+[default language_features=NONE]
+[language_features=NONE,+PIPES]
 from TestTable
 |> TABLESAMPLE BERNOULLI (10 PERCENT)
 --
@@ -13,7 +14,7 @@ ERROR: TABLESAMPLE not supported [at 2:4]
    ^
 ==
 
-[default language_features=PIPES,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE]
+[default language_features=NONE,+PIPES,+TABLESAMPLE,+STRATIFIED_RESERVOIR_TABLESAMPLE]
 
 from TestTable
 |> TABLESAMPLE BERNOULLI (10.5 PERCENT)

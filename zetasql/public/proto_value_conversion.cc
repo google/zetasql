@@ -31,8 +31,10 @@
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/pico_time.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/proto/wire_format_annotation.pb.h"
+#include "zetasql/public/timestamp_picos_value.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/uuid_value.h"
@@ -203,6 +205,19 @@ static absl::string_view ExtractValue(const absl::Cord& value_bytes,
   return copy_value;
 }
 
+bool IsMicrosInt64Format(const google::protobuf::FieldDescriptor* field,
+                         const FieldFormat::Format field_format) {
+  return field->cpp_type() == google::protobuf::FieldDescriptor::CPPTYPE_INT64 ||
+         (field_format == FieldFormat::TIMESTAMP_MICROS &&
+          field->type() == google::protobuf::FieldDescriptor::TYPE_UINT64);
+}
+
+bool IsTimestampPicosProtoFormat(const google::protobuf::FieldDescriptor* field) {
+  return field->type() == google::protobuf::FieldDescriptor::TYPE_BYTES &&
+         field->options().GetExtension(zetasql::format) ==
+             FieldFormat::TIMESTAMP;
+}
+
 absl::Status MergeValueToProtoField(const Value& value,
                                     const google::protobuf::FieldDescriptor* field,
                                     bool use_wire_format_annotations,
@@ -353,33 +368,51 @@ absl::Status MergeValueToProtoField(const Value& value,
       return absl::OkStatus();
     }
     case TYPE_TIMESTAMP: {
-      ZETASQL_RET_CHECK(field->cpp_type() == google::protobuf::FieldDescriptor::CPPTYPE_INT64 ||
-                (field_format == FieldFormat::TIMESTAMP_MICROS &&
-                 field->type() == google::protobuf::FieldDescriptor::TYPE_UINT64))
-          << field->type_name();
-      ZETASQL_ASSIGN_OR_RETURN(functions::TimestampScale scale,
-                       FormatToScale(field_format));
-      int64_t converted_timestamp;
-      if (!functions::ConvertBetweenTimestamps(value.ToUnixMicros(),
-                                               functions::kMicroseconds, scale,
-                                               &converted_timestamp)
-               .ok()) {
-        return ::zetasql_base::OutOfRangeErrorBuilder().LogError()
-               << "Cannot encode timestamp: " << value.ToUnixMicros()
-               << " with format: " << FieldFormat::Format_Name(field_format);
-      }
+      ZETASQL_RET_CHECK(IsMicrosInt64Format(field, field_format) ||
+                IsTimestampPicosProtoFormat(field))
+          << field->DebugString();
+      if (IsMicrosInt64Format(field, field_format)) {
+        ZETASQL_ASSIGN_OR_RETURN(functions::TimestampScale scale,
+                         FormatToScale(field_format));
+        int64_t converted_timestamp;
+        if (!functions::ConvertBetweenTimestamps(value.ToUnixMicros(),
+                                                 functions::kMicroseconds,
+                                                 scale, &converted_timestamp)
+                 .ok()) {
+          return ::zetasql_base::OutOfRangeErrorBuilder().LogError()
+                 << "Cannot encode timestamp: " << value.ToUnixMicros()
+                 << " with format: " << FieldFormat::Format_Name(field_format);
+        }
 
-      if (field->type() == google::protobuf::FieldDescriptor::TYPE_UINT64) {
-        if (field->is_repeated()) {
-          reflection->AddUInt64(proto_out, field, converted_timestamp);
+        if (field->type() == google::protobuf::FieldDescriptor::TYPE_UINT64) {
+          if (field->is_repeated()) {
+            reflection->AddUInt64(proto_out, field, converted_timestamp);
+          } else {
+            reflection->SetUInt64(proto_out, field, converted_timestamp);
+          }
         } else {
-          reflection->SetUInt64(proto_out, field, converted_timestamp);
+          if (field->is_repeated()) {
+            reflection->AddInt64(proto_out, field, converted_timestamp);
+          } else {
+            reflection->SetInt64(proto_out, field, converted_timestamp);
+          }
         }
       } else {
+        TimestampPicosValue timestamp_picos_value = value.ToUnixPicos();
+        PicoTime pico = timestamp_picos_value.ToPicoTime();
+        ValueProto value_proto;
+        auto* timestamp_picos_proto =
+            value_proto.mutable_timestamp_picos_value();
+        auto [seconds, picos] = pico.SecondsAndPicoseconds();
+        timestamp_picos_proto->set_seconds(seconds);
+        timestamp_picos_proto->set_picos(picos);
+        absl::Cord serialized_value_proto = value_proto.SerializeAsCord();
         if (field->is_repeated()) {
-          reflection->AddInt64(proto_out, field, converted_timestamp);
+          reflection->AddString(proto_out, field,
+                                std::string(serialized_value_proto));
         } else {
-          reflection->SetInt64(proto_out, field, converted_timestamp);
+          reflection->SetString(proto_out, field,
+                                std::string(serialized_value_proto));
         }
       }
       return absl::OkStatus();
@@ -646,7 +679,8 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
       !type->IsTime() && !type->IsDatetime() && !type->IsGeography() &&
       !type->IsNumericType() && !type->IsBigNumericType() &&
       !type->IsTokenList() && !type->IsRange() && !type->IsInterval() &&
-      !type->IsJsonType() && !type->IsUuid()) {
+      !type->IsJsonType() && !type->IsUuid() &&
+      !(type->IsBytes() && field_format == FieldFormat::TIMESTAMP)) {
     ZETASQL_RET_CHECK_EQ(FieldFormat::DEFAULT_FORMAT, field_format)
         << "Format " << FieldFormat::Format_Name(field_format)
         << " not supported for zetasql type " << type->DebugString();
@@ -873,34 +907,48 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
       return absl::OkStatus();
     }
     case TypeKind::TYPE_TIMESTAMP: {
-      ZETASQL_RET_CHECK(field->cpp_type() == google::protobuf::FieldDescriptor::CPPTYPE_INT64 ||
-                (field_format == FieldFormat::TIMESTAMP_MICROS &&
-                 field->type() == google::protobuf::FieldDescriptor::TYPE_UINT64))
+      ZETASQL_RET_CHECK(IsMicrosInt64Format(field, field_format) ||
+                IsTimestampPicosProtoFormat(field))
           << field->DebugString();
-      ZETASQL_ASSIGN_OR_RETURN(functions::TimestampScale scale,
-                       FormatToScale(field_format));
-      int64_t encoded_timestamp;
-      if (field->cpp_type() == google::protobuf::FieldDescriptor::CPPTYPE_UINT64) {
-        encoded_timestamp =
-            field->is_repeated()
-                ? reflection->GetRepeatedUInt64(proto, field, index)
-                : reflection->GetUInt64(proto, field);
+      if (IsMicrosInt64Format(field, field_format)) {
+        ZETASQL_ASSIGN_OR_RETURN(functions::TimestampScale scale,
+                         FormatToScale(field_format));
+        int64_t encoded_timestamp;
+        if (field->cpp_type() == google::protobuf::FieldDescriptor::CPPTYPE_UINT64) {
+          encoded_timestamp =
+              field->is_repeated()
+                  ? reflection->GetRepeatedUInt64(proto, field, index)
+                  : reflection->GetUInt64(proto, field);
+        } else {
+          encoded_timestamp =
+              field->is_repeated()
+                  ? reflection->GetRepeatedInt64(proto, field, index)
+                  : reflection->GetInt64(proto, field);
+        }
+        int64_t micros;
+        if (!functions::ConvertBetweenTimestamps(
+                 encoded_timestamp, scale, functions::kMicroseconds, &micros)
+                 .ok()) {
+          return ::zetasql_base::OutOfRangeErrorBuilder().LogError()
+                 << "Invalid encoded timestamp: " << encoded_timestamp
+                 << " with format: " << FieldFormat::Format_Name(field_format);
+        }
+        *value_out = Value::TimestampFromUnixMicros(micros);
+        return absl::OkStatus();
       } else {
-        encoded_timestamp =
-            field->is_repeated()
-                ? reflection->GetRepeatedInt64(proto, field, index)
-                : reflection->GetInt64(proto, field);
+        ValueProto value_proto;
+        std::string value =
+            field->is_repeated() ?
+            reflection->GetRepeatedString(proto, field, index) :
+            reflection->GetString(proto, field);
+        if (!value_proto.ParseFromString(value)) {
+          return absl::Status(absl::StatusCode::kInvalidArgument,
+                              "Failed to parse ValueProto from cord");
+        }
+        ZETASQL_ASSIGN_OR_RETURN(*value_out, Value::Deserialize(
+                                         value_proto, types::TimestampType()));
+        return absl::OkStatus();
       }
-      int64_t micros;
-      if (!functions::ConvertBetweenTimestamps(
-               encoded_timestamp, scale, functions::kMicroseconds, &micros)
-               .ok()) {
-        return ::zetasql_base::OutOfRangeErrorBuilder().LogError()
-               << "Invalid encoded timestamp: " << encoded_timestamp
-               << " with format: " << FieldFormat::Format_Name(field_format);
-      }
-      *value_out = Value::TimestampFromUnixMicros(micros);
-      return absl::OkStatus();
     }
     case TypeKind::TYPE_DATETIME: {
       ZETASQL_RET_CHECK_EQ(google::protobuf::FieldDescriptor::CPPTYPE_INT64, field->cpp_type())

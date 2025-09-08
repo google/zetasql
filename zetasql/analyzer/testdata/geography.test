@@ -1,4 +1,4 @@
-[default language_features=GEOGRAPHY]
+[default language_features=NONE,+GEOGRAPHY]
 
 select * from GeographyTable
 --
@@ -657,7 +657,7 @@ select * from GeographyTable order by geo1
                                       ^
 ==
 
-[language_features=ANALYTIC_FUNCTIONS]
+[language_features=NONE,+ANALYTIC_FUNCTIONS]
 select count(*) over(partition by geo1) from GeographyTable
 --
 ERROR: Partitioning by expressions of type GEOGRAPHY is not allowed [at 1:35]
@@ -665,7 +665,7 @@ select count(*) over(partition by geo1) from GeographyTable
                                   ^
 ==
 
-[language_features=ANALYTIC_FUNCTIONS]
+[language_features=NONE,+ANALYTIC_FUNCTIONS]
 select count(*) over(order by geo1) from GeographyTable
 --
 ERROR: Ordering by expressions of type GEOGRAPHY is not allowed [at 1:31]
@@ -684,10 +684,10 @@ select st_geogpoint(1.1, 2.2, 3)
        ^
 ==
 
-[language_features=GEOGRAPHY,NAMED_ARGUMENTS{{,EXTENDED_GEOGRAPHY_PARSERS|}}]
+[language_features=NONE,+GEOGRAPHY,+NAMED_ARGUMENTS{{,+EXTENDED_GEOGRAPHY_PARSERS|}}]
 select st_geogfromtext('point(0 0)', planar => TRUE)
 --
-ALTERNATION GROUP: ,EXTENDED_GEOGRAPHY_PARSERS
+ALTERNATION GROUP: ,+EXTENDED_GEOGRAPHY_PARSERS
 --
 QueryStmt
 +-output_column_list=
@@ -715,7 +715,7 @@ select st_geogfromtext('point(0 0)', planar => TRUE)
        ^
 ==
 
-[language_features=GEOGRAPHY,NAMED_ARGUMENTS,EXTENDED_GEOGRAPHY_PARSERS]
+[language_features=NONE,+GEOGRAPHY,+NAMED_ARGUMENTS,+EXTENDED_GEOGRAPHY_PARSERS]
 select
   # Permutation of named arguments produce same resolved AST.
   st_geogfromtext('point(0 0)', planar => true, make_valid => false, oriented => true),
@@ -810,7 +810,7 @@ QueryStmt
 
 ==
 
-[language_features=GEOGRAPHY,NAMED_ARGUMENTS,EXTENDED_GEOGRAPHY_PARSERS]
+[language_features=NONE,+GEOGRAPHY,+NAMED_ARGUMENTS,+EXTENDED_GEOGRAPHY_PARSERS]
 select st_geogfromtext('point(0 0)', planar => x) from unnest([true, false]) x
 --
 ERROR: Argument 'planar' to ST_GEOGFROMTEXT must be a literal or query parameter [at 1:38]
@@ -819,7 +819,7 @@ select st_geogfromtext('point(0 0)', planar => x) from unnest([true, false]) x
 ==
 
 # Invalid signature: omitted required argument
-[language_features=GEOGRAPHY,NAMED_ARGUMENTS,EXTENDED_GEOGRAPHY_PARSERS]
+[language_features=NONE,+GEOGRAPHY,+NAMED_ARGUMENTS,+EXTENDED_GEOGRAPHY_PARSERS]
 select st_bufferwithtolerance(st_geogpoint(1,2),
   tolerance_meters => 100, endcap => "flat", side => "left");
 --
@@ -831,7 +831,7 @@ select st_bufferwithtolerance(st_geogpoint(1,2),
        ^
 ==
 
-[language_features=GEOGRAPHY,NAMED_ARGUMENTS]
+[language_features=NONE,+GEOGRAPHY,+NAMED_ARGUMENTS]
 select
   # Permutation of named arguments produce same resolved AST.
   st_buffer(geo1, 100.1, num_seg_quarter_circle => 8, use_spheroid => false, endcap => 'flat', side => 'left'),
@@ -1008,7 +1008,7 @@ QueryStmt
 
 ==
 
-[language_features=GEOGRAPHY,NAMED_ARGUMENTS]
+[language_features=NONE,+GEOGRAPHY,+NAMED_ARGUMENTS]
 select s2_coveringcellids(geo1) from GeographyTable;
 --
 QueryStmt

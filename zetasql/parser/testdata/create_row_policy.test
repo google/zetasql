@@ -95,7 +95,7 @@ CREATE ROW POLICY ON n1.t1 TO 'foo@google.com', 'mdbgroup/bar' USING (1)
 
 create row policy on n1.t1 to 'foo@google.com', 'mdbgroup/bar';
 --
-ERROR: Syntax error: Expected keyword USING but got ";" [at 1:63]
+ERROR: Syntax error: Expected keyword FILTER or keyword USING but got ";" [at 1:63]
 create row policy on n1.t1 to 'foo@google.com', 'mdbgroup/bar';
                                                               ^
 ==
@@ -128,7 +128,7 @@ create row policy on t1 to foo using(true);
 
 create policy on t1 to 'foo@google.com' using(true);
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword POLICY [at 1:8]
+ERROR: Syntax error: Unexpected keyword POLICY [at 1:8]
 create policy on t1 to 'foo@google.com' using(true);
        ^
 ==
@@ -140,32 +140,32 @@ to 'foo@google.com' using(true);
 --
 ALTERNATION GROUP: temp
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword ROW [at 1:13]
+ERROR: Syntax error: Unexpected keyword ROW [at 1:13]
 create temp row policy on t1
             ^
 --
 ALTERNATION GROUP: temporary
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword ROW [at 1:18]
+ERROR: Syntax error: Unexpected keyword ROW [at 1:18]
 create temporary row policy on t1
                  ^
 --
 ALTERNATION GROUP: public
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword ROW [at 1:15]
+ERROR: Syntax error: Unexpected keyword ROW [at 1:15]
 create public row policy on t1
               ^
 --
 ALTERNATION GROUP: private
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword ROW [at 1:16]
+ERROR: Syntax error: Unexpected keyword ROW [at 1:16]
 create private row policy on t1
                ^
 ==
 
 create row policy on t1 @{a=1} to 'foo@google.com' using(true);
 --
-ERROR: Syntax error: Expected keyword USING but got "@" [at 1:25]
+ERROR: Syntax error: Unexpected "@" [at 1:25]
 create row policy on t1 @{a=1} to 'foo@google.com' using(true);
                         ^
 ==

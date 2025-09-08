@@ -563,7 +563,7 @@ class ScriptExecutorOptions {
  public:
   constexpr static int kDefaultMaximumStackDepth = 50;
 
-  ScriptExecutorOptions() {}
+  ScriptExecutorOptions() = default;
   ScriptExecutorOptions(const ScriptExecutorOptions&) = default;
   ScriptExecutorOptions& operator=(const ScriptExecutorOptions&) = default;
 
@@ -619,6 +619,15 @@ class ScriptExecutorOptions {
   // present are engine-owned.
   void PopulateFromAnalyzerOptions(const AnalyzerOptions& analyzer_options);
 
+  void set_query_parameters_check_strict_mode(
+      bool query_parameters_strict_mode) {
+    query_parameters_check_strict_mode_ = query_parameters_strict_mode;
+  }
+
+  bool query_parameters_check_strict_mode() const {
+    return query_parameters_check_strict_mode_;
+  }
+
  private:
   absl::TimeZone default_time_zone_;
   LanguageOptions language_options_;
@@ -656,6 +665,11 @@ class ScriptExecutorOptions {
   // the ScriptValidator class, once ScriptValidator is feature-complete enough
   // to replace it.
   bool dry_run_ = false;
+
+  // This is applicable only when there are no query parameters available.
+  // If true, an error is returned if a query parameter is referenced in the
+  // script. Otherwise, error can happen while executing the script.
+  bool query_parameters_check_strict_mode_ = false;
 };
 
 }  // namespace zetasql

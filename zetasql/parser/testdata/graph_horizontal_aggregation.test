@@ -1,5 +1,5 @@
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
+[default language_features=NONE,+SQL_GRAPH]
 
 select * from graph_table(aml
   MATCH (a) (-[e]->){1,3} (b)
@@ -155,7 +155,7 @@ SELECT * from graph_table(aml
 )
 
 --
-ERROR: Syntax error: Unexpected keyword GROUP [at 3:18]
+ERROR: Syntax error: Expected keyword RETURN but got keyword GROUP [at 3:18]
   let z = SUM(x) GROUP BY x
                  ^
 

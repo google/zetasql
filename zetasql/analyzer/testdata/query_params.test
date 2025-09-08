@@ -2,6 +2,7 @@
 # defined in zetasql/analyzer/run_analyzer_test.cc
 
 
+[default language_features=NONE]
 select 1 from TestTable where KitchenSink.bool_val = @test_param_bool;
 --
 QueryStmt
@@ -641,7 +642,7 @@ QueryStmt
 
 # Implicit coercion of non-empty array parameters (and literals) is now
 # supported.
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select fn_on_int64_array_returns_int64(@test_param_array)
 --
 ALTERNATION GROUP: <empty>
@@ -653,7 +654,7 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT64_ARRAY_RET
 select fn_on_int64_array_returns_int64(@test_param_array)
        ^
 --
-ALTERNATION GROUP: CAST_DIFFERENT_ARRAY_TYPES
+ALTERNATION GROUP: +CAST_DIFFERENT_ARRAY_TYPES
 --
 QueryStmt
 +-output_column_list=
@@ -671,7 +672,7 @@ QueryStmt
 ==
 
 # INT64 parameters don't implicitly coerce to INT32, even inside arrays.
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select fn_on_int32_array_returns_int32(@test_param_array_int64)
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32
@@ -683,7 +684,7 @@ select fn_on_int32_array_returns_int32(@test_param_array_int64)
 ==
 
 # Supertyping of non-empty array parameters (and literals) is now supported.
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select array_concat([TestEnum], @test_param_array_int64) From EnumTable
 --
 ALTERNATION GROUP: <empty>
@@ -695,7 +696,7 @@ ERROR: No matching signature for function ARRAY_CONCAT
 select array_concat([TestEnum], @test_param_array_int64) From EnumTable
        ^
 --
-ALTERNATION GROUP: CAST_DIFFERENT_ARRAY_TYPES
+ALTERNATION GROUP: +CAST_DIFFERENT_ARRAY_TYPES
 --
 QueryStmt
 +-output_column_list=
@@ -715,7 +716,7 @@ QueryStmt
 ==
 
 # A test involving IN UNNEST inspired by b/24130693 (fixed).
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select struct(cast(1 as int32)) IN UNNEST(@test_param_array_struct_int64)
 --
 QueryStmt
@@ -735,7 +736,7 @@ QueryStmt
 
 # Another test involving IN UNNEST inspired by b/24130693 (fixed). The query
 # fails because there is no common supertype of a parameter INT64 and a UINT64.
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select cast(1 as uint64) IN UNNEST(@test_param_array_int64)
 --
 ERROR: No matching signature for operator IN UNNEST for argument types: UINT64, ARRAY<INT64> [at 1:26]
@@ -744,7 +745,7 @@ select cast(1 as uint64) IN UNNEST(@test_param_array_int64)
 ==
 
 # Another test involving IN UNNEST inspired by b/24130693 (fixed).
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select cast(1 as int32) IN UNNEST(@test_param_array_int64)
 --
 QueryStmt
@@ -763,7 +764,7 @@ QueryStmt
 ==
 
 # Another test involving IN UNNEST inspired by b/24130693 (fixed).
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select "TESTENUM0" IN UNNEST(@test_param_array_enum)
 --
 QueryStmt
@@ -783,13 +784,13 @@ QueryStmt
 
 # Another test involving IN UNNEST inspired by b/24130693 (fixed).
 # This doesn't work because supertype rules are strict when everything is a parameter.
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select
   {{@test_param_int64|@test_param_string}} in unnest(@test_param_array_enum)
 --
 ALTERNATION GROUPS:
     @test_param_int64
-    CAST_DIFFERENT_ARRAY_TYPES,@test_param_int64
+    +CAST_DIFFERENT_ARRAY_TYPES,@test_param_int64
 --
 ERROR: No matching signature for operator IN UNNEST for argument types: INT64, ARRAY<zetasql_test__.TestEnum> [at 2:21]
   @test_param_int64 in unnest(@test_param_array_enum)
@@ -797,7 +798,7 @@ ERROR: No matching signature for operator IN UNNEST for argument types: INT64, A
 --
 ALTERNATION GROUPS:
     @test_param_string
-    CAST_DIFFERENT_ARRAY_TYPES,@test_param_string
+    +CAST_DIFFERENT_ARRAY_TYPES,@test_param_string
 --
 ERROR: No matching signature for operator IN UNNEST for argument types: STRING, ARRAY<zetasql_test__.TestEnum> [at 2:22]
   @test_param_string in unnest(@test_param_array_enum)
@@ -805,7 +806,7 @@ ERROR: No matching signature for operator IN UNNEST for argument types: STRING, 
 ==
 
 # Another test involving IN UNNEST inspired by b/24130693 (fixed).
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select TestEnum in unnest(@test_param_array_enum) from TestTable
 --
 QueryStmt
@@ -823,7 +824,7 @@ QueryStmt
       +-TableScan(column_list=[TestTable.TestEnum#2], table=TestTable, column_index_list=[1])
 ==
 
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select @test_param_int64 in unnest(array_concat([TestEnum], [])) from TestTable
 --
 QueryStmt
@@ -846,7 +847,7 @@ QueryStmt
 ==
 
 # Another test involving IN UNNEST inspired by b/24130693 (fixed).
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select null in unnest(@test_param_array_int64)
 --
 QueryStmt
@@ -865,7 +866,7 @@ QueryStmt
 ==
 
 # Another test involving IN UNNEST inspired by b/24130693 (fixed).
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES}}]
 select null in unnest(@test_param_array_string)
 --
 QueryStmt
@@ -993,10 +994,10 @@ select fn_on_struct_int32_date(@test_param_struct)
        ^
 ==
 
-[language_features={{CAST_DIFFERENT_ARRAY_TYPES|}}]
+[language_features=NONE,{{+CAST_DIFFERENT_ARRAY_TYPES|}}]
 select cast(@test_param_array as {{array<string>|array<int32>}})
 --
-ALTERNATION GROUP: CAST_DIFFERENT_ARRAY_TYPES,array<string>
+ALTERNATION GROUP: +CAST_DIFFERENT_ARRAY_TYPES,array<string>
 --
 QueryStmt
 +-output_column_list=
@@ -1012,7 +1013,7 @@ QueryStmt
       +-SingleRowScan
 --
 ALTERNATION GROUPS:
-    CAST_DIFFERENT_ARRAY_TYPES,array<int32>
+    +CAST_DIFFERENT_ARRAY_TYPES,array<int32>
     array<int32>
 --
 QueryStmt
@@ -1103,7 +1104,7 @@ QueryStmt
 # comes from user input. It detects breakage after removing resolving query
 # parameter in AnalyzeSubstitute as part of fixing b/233941129.
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+INLINE_LAMBDA_ARGUMENT]
 SELECT ARRAY_FILTER(@lambda, e->e=2)
 --
 ERROR: Query parameter 'lambda' not found [at 1:21]

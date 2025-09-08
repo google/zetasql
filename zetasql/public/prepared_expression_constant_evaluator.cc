@@ -16,16 +16,21 @@
 
 #include "zetasql/public/prepared_expression_constant_evaluator.h"
 
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/evaluator.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/status/statusor.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
 absl::StatusOr<Value> PreparedExpressionConstantEvaluator::Evaluate(
     const ResolvedExpr& constant_expression) {
-  return PreparedExpression(&constant_expression, options_).Execute();
+  PreparedExpression expr(&constant_expression, eval_options_);
+  AnalyzerOptions analyzer_options(language_options_);
+  ZETASQL_RETURN_IF_ERROR(expr.Prepare(analyzer_options, /*catalog=*/nullptr));
+  return expr.Execute();
 }
 
 }  // namespace zetasql

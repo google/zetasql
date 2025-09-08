@@ -26,31 +26,66 @@
 #include "zetasql/public/parse_location.h"
 #include "absl/base/nullability.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status_builder.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace parser {
 namespace macros {
 
-// Converts the error source struct to proto.
-static ErrorSource ConvertErrorSourceStructToProto(
-    const StackFrame::ErrorSource& error_source) {
-  ErrorSource error_source_proto;
-  error_source_proto.set_error_message(error_source.error_message);
-  error_source_proto.set_error_message_caret_string(
-      error_source.error_message_caret_string);
-  ErrorLocation* error_location = error_source_proto.mutable_error_location();
-  if (!error_source.filename.empty()) {
-    error_location->set_filename(error_source.filename);
+// Creates an `ErrorSource` proto from a given `StackFrame`. This involves
+// setting an appropriate error message based on the frame type, translating
+// the location within the stack frame's input text to line and column numbers,
+// and generating a caret string to highlight the error location.
+absl::StatusOr<ErrorSource> CreateErrorSource(
+    const StackFrame* /*absl_nonnull*/ stack_frame) {
+  ErrorSource error_source;
+  if (stack_frame->frame_type == StackFrame::FrameType::kArgRef) {
+    error_source.set_error_message(
+        absl::StrCat(stack_frame->name, " is getting used at"));
+  } else if (stack_frame->frame_type == StackFrame::FrameType::kMacroArg) {
+    error_source.set_error_message(
+        absl::StrCat("Which is ", stack_frame->name, ", and got created at"));
+  } else {
+    error_source.set_error_message(
+        absl::StrCat("Expanded from ", stack_frame->name));
   }
-  error_location->set_line(error_source.line);
-  error_location->set_column(error_source.column);
-  error_location->set_input_start_line_offset(
-      error_source.input_start_line_offset);
-  error_location->set_input_start_column_offset(
-      error_source.input_start_column_offset);
-  return error_source_proto;
+
+  ParseLocationTranslator location_translator(stack_frame->input_text);
+  std::pair<int, int> line_and_column;
+
+  // Relative to `input()`
+  ParseLocationPoint start_relative_to_input = stack_frame->location.start();
+  start_relative_to_input.SetByteOffset(
+      start_relative_to_input.GetByteOffset() -
+      stack_frame->offset_in_original_input);
+
+  ZETASQL_ASSIGN_OR_RETURN(line_and_column,
+                   location_translator.GetLineAndColumnAfterTabExpansion(
+                       start_relative_to_input),
+                   _ << "Location " << stack_frame->location.start().GetString()
+                     << " not found in:\n"
+                     << stack_frame->input_text);
+
+  ErrorLocation* err_loc = error_source.mutable_error_location();
+  if (!stack_frame->location.start().filename().empty()) {
+    err_loc->set_filename(stack_frame->location.start().filename());
+  }
+  err_loc->set_line(line_and_column.first);
+  err_loc->set_column(line_and_column.second);
+
+  // Relative to `input()`
+  err_loc->set_input_start_line_offset(stack_frame->input_start_line_offset -
+                                       1);
+  err_loc->set_input_start_column_offset(
+      stack_frame->input_start_column_offset - 1);
+
+  error_source.set_error_message_caret_string(
+      GetErrorStringWithCaret(stack_frame->input_text, *err_loc));
+  return error_source;
 }
 
 absl::Status MakeSqlErrorWithStackFrame(
@@ -64,8 +99,9 @@ absl::Status MakeSqlErrorWithStackFrame(
   const StackFrame* next_ancestor = stack_frame;
   std::vector<ErrorSource> error_sources;
   while (next_ancestor != nullptr) {
-    error_sources.push_back(
-        ConvertErrorSourceStructToProto(next_ancestor->error_source));
+    ZETASQL_ASSIGN_OR_RETURN(ErrorSource error_source,
+                     CreateErrorSource(next_ancestor));
+    error_sources.push_back(std::move(error_source));
     next_ancestor = next_ancestor->parent;
   }
   // ErrorSources are supposed to be supplied in the reverse order of display.
@@ -78,9 +114,8 @@ absl::Status MakeSqlErrorWithStackFrame(
   status_builder.AttachPayload(std::move(internal_location));
   const ErrorMessageOptions& error_options =
       diagnostic_options.error_message_options;
-  absl::Status status = ConvertInternalErrorLocationToExternal(
-      std::move(status_builder), input_text,
-      error_options.input_original_start_line - 1,
+  absl::Status status = ConvertInternalErrorPayloadsToExternal(
+      status_builder, input_text, error_options.input_original_start_line - 1,
       error_options.input_original_start_column - 1, offset_in_original_input);
   return MaybeUpdateErrorFromPayload(error_options, input_text, status);
 }

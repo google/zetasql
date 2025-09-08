@@ -1,3 +1,4 @@
+[default language_features=MAXIMUM]
 DESCRIBE foo;
 --
 DescribeStmt(object_type="", name_path=foo)

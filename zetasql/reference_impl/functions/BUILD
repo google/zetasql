@@ -21,6 +21,8 @@
 # explicitly calling the registration functions is preferred here to allow
 # the linker to prune unused modules.
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 package(
     default_visibility = ["//zetasql/base:zetasql_implementation"],
 )
@@ -30,6 +32,7 @@ cc_library(
     srcs = ["register_all.cc"],
     hdrs = ["register_all.h"],
     deps = [
+        ":compression",
         ":graph",
         ":hash",
         ":json",
@@ -220,6 +223,26 @@ cc_library(
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/types:span",
+    ],
+)
+
+cc_library(
+    name = "compression",
+    srcs = ["compression.cc"],
+    hdrs = ["compression.h"],
+    deps = [
+        "//zetasql/base:check",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value",
+        "//zetasql/public/functions:compression",
+        "//zetasql/public/types",
+        "//zetasql/reference_impl:evaluation",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings:string_view",
         "@com_google_absl//absl/types:span",
     ],
 )

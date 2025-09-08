@@ -1,6 +1,7 @@
 # Analyzer tests for ZetaSQL's untyped argument coercion behavior.
 
 # An untyped null passed as a templated array will resolve to ARRAY<INT64> if there is no templated any type.
+[default language_features=MAXIMUM]
 SELECT fn_req_any_array_returns_any_arg({{NULL|['a']}});
 --
 ALTERNATION GROUP: NULL

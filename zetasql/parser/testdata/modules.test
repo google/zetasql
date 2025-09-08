@@ -579,7 +579,7 @@ module foo.bar options;
 
 module foo.bar options("abc");
 --
-ERROR: Syntax error: Unexpected string literal "abc" [at 1:24]
+ERROR: Syntax error: Expected ")" but got string literal "abc" [at 1:24]
 module foo.bar options("abc");
                        ^
 ==
@@ -600,14 +600,14 @@ module table foo;
 
 create module foo;
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword MODULE [at 1:8]
+ERROR: Syntax error: Unexpected keyword MODULE [at 1:8]
 create module foo;
        ^
 ==
 
 create or replace module foo;
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword MODULE [at 1:19]
+ERROR: Syntax error: Unexpected keyword MODULE [at 1:19]
 create or replace module foo;
                   ^
 ==

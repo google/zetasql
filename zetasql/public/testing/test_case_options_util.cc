@@ -16,37 +16,23 @@
 
 #include "zetasql/public/testing/test_case_options_util.h"
 
-#include <string>
-#include <vector>
-
+#include "zetasql/common/options_utils.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "absl/status/statusor.h"
-#include "absl/strings/str_cat.h"
-#include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
 #include "file_based_test_driver/test_case_options.h"
-#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
 absl::StatusOr<LanguageOptions::LanguageFeatureSet> GetRequiredLanguageFeatures(
     const file_based_test_driver::TestCaseOptions& test_case_options) {
-  LanguageOptions::LanguageFeatureSet enabled_set;
-  const std::string& features_string =
-      test_case_options.GetString(kLanguageFeatures);
-  if (!features_string.empty()) {
-    const std::vector<std::string> feature_list =
-        absl::StrSplit(features_string, ',');
-    for (const std::string& feature_name : feature_list) {
-      const std::string full_feature_name =
-          absl::StrCat("FEATURE_", feature_name);
-      LanguageFeature feature;
-      ZETASQL_RET_CHECK(LanguageFeature_Parse(full_feature_name, &feature))
-          << full_feature_name;
-      enabled_set.insert(feature);
-    }
-  }
-  return enabled_set;
+  ZETASQL_ASSIGN_OR_RETURN(auto parsed_features,
+                   internal::ParseEnabledLanguageFeatures(
+                       test_case_options.GetString(kLanguageFeatures)));
+  return LanguageOptions::LanguageFeatureSet(parsed_features.options.begin(),
+                                             parsed_features.options.end());
 }
 
 }  // namespace zetasql

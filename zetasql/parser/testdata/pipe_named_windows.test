@@ -1,4 +1,4 @@
-[default language_features=PIPES]
+[default language_features=NONE,+PIPES]
 from t
 |> select sum(x) over(w), count(*) over (w2)
    window w AS (),

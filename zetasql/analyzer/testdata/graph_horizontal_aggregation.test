@@ -1,4 +1,4 @@
-[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ORDER_BY_IN_AGGREGATE]
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+ORDER_BY_IN_AGGREGATE]
 [default no_test_extract_table_names]
 
 SELECT * from graph_table(aml
@@ -500,7 +500,7 @@ QueryStmt
 
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ORDER_BY_IN_AGGREGATE]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+ORDER_BY_IN_AGGREGATE]
 
 # For aggregates that support order by, the default is path order. Take 2
 SELECT * from graph_table(aml
@@ -556,7 +556,7 @@ QueryStmt
 
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ORDER_BY_IN_AGGREGATE]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+ORDER_BY_IN_AGGREGATE]
 
 # Aggregate with non-aggregate arguments
 SELECT * from graph_table(aml
@@ -613,7 +613,7 @@ QueryStmt
 
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ORDER_BY_IN_AGGREGATE,GROUPING_BUILTIN,QUALIFY,ANALYTIC_FUNCTIONS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+ORDER_BY_IN_AGGREGATE,+GROUPING_BUILTIN,+QUALIFY,+ANALYTIC_FUNCTIONS]
 
 # Grouping is not allowed in horizontal aggregates
 SELECT * from graph_table(aml
@@ -629,7 +629,7 @@ ERROR: Horizontal aggregations of horizontal aggregations are not allowed [at 4:
 
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ORDER_BY_IN_AGGREGATE,GROUPING_BUILTIN,QUALIFY,ANALYTIC_FUNCTIONS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+ORDER_BY_IN_AGGREGATE,+GROUPING_BUILTIN,+QUALIFY,+ANALYTIC_FUNCTIONS]
 
 # Analytic functions not allowed
 SELECT * from graph_table(aml
@@ -874,7 +874,7 @@ ERROR: Horizontal aggregations of horizontal aggregations are not allowed [at 3:
 ==
 
 # Multi-level horizontal aggregations are not allowed
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY{{|,MULTILEVEL_AGGREGATION}}]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY{{|,+MULTILEVEL_AGGREGATION}}]
 SELECT * from graph_table(aml
   let x = [1,2,3]
   let y = 4
@@ -891,7 +891,7 @@ ERROR: Multi-level aggregation is not yet supported. [at 4:22]
   let z = SUM(MIN(x) GROUP BY y)
                      ^
 --
-ALTERNATION GROUP: ,MULTILEVEL_AGGREGATION
+ALTERNATION GROUP: ,+MULTILEVEL_AGGREGATION
 --
 ERROR: Horizontal aggregates do not support multi-level aggregation. [at 4:22]
   let z = SUM(MIN(x) GROUP BY y)
@@ -899,7 +899,7 @@ ERROR: Horizontal aggregates do not support multi-level aggregation. [at 4:22]
 
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,WITH_EXPRESSION]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+WITH_EXPRESSION]
 
 # No aggregations with expressions introduced in a WITH expression
 SELECT * from graph_table(aml
@@ -919,7 +919,7 @@ ERROR: Column 'a' is introduced by WITH. Columns introduced by WITH cannot be us
 # Horizontal aggregation and with expressions are fine with scalar values
 # and the WITH outside of the horizontal aggregate.
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ORDER_BY_IN_AGGREGATE,WITH_EXPRESSION]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+ORDER_BY_IN_AGGREGATE,+WITH_EXPRESSION]
 SELECT * from graph_table(aml
   let x = [1,2,3]
   let z = WITH(a as 123, ARRAY_CONCAT(ARRAY_AGG(x ORDER BY 2 * x), [a]))
@@ -992,7 +992,7 @@ QueryStmt
 
 # No WITH inside horizontal aggregations
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,WITH_EXPRESSION]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+WITH_EXPRESSION]
 SELECT * from graph_table(aml
   let x = [1,2,3]
   let z = SUM(WITH(a as [123], a))
@@ -1008,7 +1008,7 @@ ERROR: WITH expressions are not supported in horizontal aggregation. [at 3:15]
 
 # WITH expression inside horizontal aggregation.
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,WITH_EXPRESSION]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+WITH_EXPRESSION]
 SELECT * from graph_table(aml
   let x = [1,2,3]
   let z = SUM(WITH(a as 4, x + a))
@@ -1219,7 +1219,7 @@ QueryStmt
 
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+INLINE_LAMBDA_ARGUMENT]
 # ARRAY_TRANSFORM
 
 SELECT * from graph_table(aml
@@ -1312,7 +1312,7 @@ ERROR: Horizontal aggregation expression must not include a subquery [at 4:19]
                   ^
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+INLINE_LAMBDA_ARGUMENT]
 # Horizontal aggregation cannot contain lambdas
 WITH t as (SELECT 1 as a)
 SELECT * from graph_table(aml
@@ -1328,7 +1328,7 @@ ERROR: Lambda arguments are not supported in horizontal aggregation [at 5:40]
 
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+INLINE_LAMBDA_ARGUMENT]
 # Horizontal aggregation cannot contain lambdas especially if they refer to the
 # element variable
 WITH t as (SELECT 1 as a)
@@ -1345,7 +1345,7 @@ ERROR: Lambda arguments are not supported in horizontal aggregation [at 6:40]
 
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,INLINE_LAMBDA_ARGUMENT,ARRAY_FIND_FUNCTIONS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+INLINE_LAMBDA_ARGUMENT,+ARRAY_FIND_FUNCTIONS]
 # Horizontal aggregation cannot contain lambdas
 SELECT * from graph_table(aml
   let x = [1,2,3]
@@ -1360,7 +1360,7 @@ ERROR: Lambda arguments are not supported in horizontal aggregation [at 4:35]
 
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,INLINE_LAMBDA_ARGUMENT,ARRAY_FIND_FUNCTIONS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+INLINE_LAMBDA_ARGUMENT,+ARRAY_FIND_FUNCTIONS]
 # While ARRAY_FIND failed above because it used a lambda, when it uses a
 # signature that doesn't have a lambda it works
 SELECT * from graph_table(aml
@@ -1421,7 +1421,7 @@ QueryStmt
 
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY{{|,ENFORCE_CONDITIONAL_EVALUATION}}]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY{{|,+ENFORCE_CONDITIONAL_EVALUATION}}]
 
 # Resolving potentially failing aggregates
 SELECT * from graph_table(aml
@@ -1504,7 +1504,7 @@ QueryStmt
                       +-GraphRefScan(column_list=$graph_table.[x#1, y#5])
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ORDER_BY_IN_AGGREGATE{{|,ENFORCE_CONDITIONAL_EVALUATION}}]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+ORDER_BY_IN_AGGREGATE{{|,+ENFORCE_CONDITIONAL_EVALUATION}}]
 
 # Resolving potentially failing aggregates
 SELECT * from graph_table(aml
@@ -1576,7 +1576,7 @@ QueryStmt
 
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ORDER_BY_IN_AGGREGATE]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+ORDER_BY_IN_AGGREGATE]
 # Make sure the generated element column in a horizontal aggregate is not correlated
 WITH t as (SELECT 1 as a, [1,2,3] as b)
 SELECT (SELECT * from graph_table(aml let x = ARRAY_AGG(b) return x)) FROM t
@@ -1648,7 +1648,7 @@ QueryStmt
 
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ORDER_BY_IN_AGGREGATE]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+ORDER_BY_IN_AGGREGATE]
 [no_run_sqlbuilder] # ProjectScans that just project values don't unparse correctly
 
 # Even more complicated ORDER BY in ARRAY_AGG
@@ -1757,7 +1757,7 @@ QueryStmt
 
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,LIMIT_IN_AGGREGATE,HAVING_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+LIMIT_IN_AGGREGATE,+HAVING_IN_AGGREGATE,+NULL_HANDLING_MODIFIER_IN_AGGREGATE,+ORDER_BY_IN_AGGREGATE]
 # All features of ARRAY_AGG
 select * from graph_table(aml
   let single = 3
@@ -1913,7 +1913,7 @@ QueryStmt
 
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,LIMIT_IN_AGGREGATE,HAVING_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE,JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS,JSON_VALUE_EXTRACTION_FUNCTIONS,ORDER_BY_IN_AGGREGATE]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+LIMIT_IN_AGGREGATE,+HAVING_IN_AGGREGATE,+NULL_HANDLING_MODIFIER_IN_AGGREGATE,+JSON_TYPE,+JSON_CONSTRUCTOR_FUNCTIONS,+JSON_VALUE_EXTRACTION_FUNCTIONS,+ORDER_BY_IN_AGGREGATE]
 # ARRAY_AGG with data type that doesn't support equality
 select * from graph_table(aml
   let arr = [JSON_OBJECT('foo', 10, 'bar', TRUE), JSON_OBJECT('foo', 11, 'bar', FALSE)]
@@ -2004,7 +2004,7 @@ QueryStmt
 ==
 
 [default no_run_sqlbuilder]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 select * from graph_table(aml
   match (n:Syndicate)-[e]->
   let r1 = ANY_VALUE(n.SyndicateData)
@@ -2018,7 +2018,7 @@ ERROR: Horizontal aggregation without an array-typed variable is not allowed. No
 
 # Make sure that ARRAY_AGG is not allowed on an array-typed property when the
 # node variable ranges over a quantified path pattern.
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 select * from graph_table(aml
   match ((n:Syndicate)-[e]->){1,3}
   let r1 = ARRAY_AGG(n.SyndicateData)
@@ -2030,7 +2030,7 @@ ERROR: The argument to ARRAY_AGG must not be an array type but was ARRAY<INT64> 
            ^
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 select * from graph_table(aml
   match ((n:Syndicate)-[e]->){1,3}
   let r1 = ANY_VALUE(n.SyndicateData)
@@ -2130,7 +2130,7 @@ QueryStmt
                       +-GraphRefScan(column_list=[$element_table.n#4, $graph_table.r1#10])
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,UNNEST_AND_FLATTEN_ARRAYS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,+UNNEST_AND_FLATTEN_ARRAYS]
 select * from graph_table(aml
   match ((n:Syndicate)-[e]->){1,3}
   let r1 = ARRAY_AGG(n.SyndicateData)
@@ -2142,7 +2142,7 @@ ERROR: The argument to ARRAY_AGG must not be an array type but was ARRAY<INT64> 
            ^
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,UNNEST_AND_FLATTEN_ARRAYS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,+UNNEST_AND_FLATTEN_ARRAYS]
 select * from graph_table(aml
   match ((n:Syndicate)-[e]->){1,3}
   let r1 = ARRAY_AGG(flatten(n.SyndicateData))
@@ -2154,7 +2154,7 @@ ERROR: Horizontal aggregation expression must not include FLATTEN [at 3:22]
                      ^
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,UNNEST_AND_FLATTEN_ARRAYS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,+UNNEST_AND_FLATTEN_ARRAYS]
 select * from graph_table(aml
   match ((n:Syndicate)-[e]->){1,3}
   let r1 = ANY_VALUE(flatten(n.SyndicateData))
@@ -2167,7 +2167,7 @@ ERROR: Horizontal aggregation expression must not include FLATTEN [at 3:22]
 
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,UNNEST_AND_FLATTEN_ARRAYS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+UNNEST_AND_FLATTEN_ARRAYS]
 # From b/355303648
 graph aml
 let arr = [struct([1] as x), struct(null), struct([2])]
@@ -2180,7 +2180,7 @@ let r = SUM(flatten(arr.x))
 
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ORDER_BY_IN_AGGREGATE]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+ORDER_BY_IN_AGGREGATE]
 
 graph aml
 let arr = [1,2,3]
@@ -2192,7 +2192,7 @@ let r = array_agg(distinct arr)
         ^
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 graph aml
 MATCH (p:Person WHERE MIN(p.name) = 'John')
@@ -2204,7 +2204,7 @@ MATCH (p:Person WHERE MIN(p.name) = 'John')
 
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 graph aml
 MATCH (p:Person) WHERE MIN(p.name) = 'John'
@@ -2216,7 +2216,7 @@ MATCH (p:Person) WHERE MIN(p.name) = 'John'
 
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 graph aml
 MATCH ((p:Person)-[e]->(p2:Person) WHERE MIN(p.name) = 'John')
@@ -2228,7 +2228,7 @@ MATCH ((p:Person)-[e]->(p2:Person) WHERE MIN(p.name) = 'John')
 
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 graph aml
 let arr = [1,2,3]
@@ -2241,7 +2241,7 @@ MATCH (p:Person WHERE MIN(arr) = 1)
 
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 graph aml
 let arr = [1,2,3]
@@ -2303,7 +2303,7 @@ QueryStmt
 
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 graph aml
 let arr = [1,2,3]
@@ -2316,7 +2316,7 @@ MATCH ((p:Person)-[e]->(p2:Person) WHERE MIN(arr) = 1)
 
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 
 graph aml
 MATCH ((a:Account)-[t:Transfer]->{1}(a2:Account) WHERE MIN(t.amount) = 1)

@@ -17,6 +17,8 @@
 #ifndef ZETASQL_REFERENCE_IMPL_MEASURE_EVALUATION_H_
 #define ZETASQL_REFERENCE_IMPL_MEASURE_EVALUATION_H_
 
+#include <string>
+
 #include "zetasql/public/catalog.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
@@ -45,14 +47,23 @@ class MeasureColumnToExprMapping {
   absl::Status TrackMeasureColumnsEmittedByTableScan(
       const ResolvedTableScan& table_scan);
 
+  // Track the with query scan for the given `with_entry`. This is used to
+  // correctly track measure expressions for measure columns that propagate past
+  // ResolvedWithRefScans.
+  void TrackWithQueryScan(const ResolvedWithEntry& with_entry);
+
   // Resolved measure columns may be renamed with a different column id when
   // propagating past certain types of scans.  (e.g. ResolvedWithRefScans). This
   // method associates renamed measure columns emitted by `with_ref_scan` with
   // the measure expression currently associated with measure columns emitted by
-  // `with_subquery_scan`.
+  // the corresponding ResolvedWithEntry.
   absl::Status TrackMeasureColumnsRenamedByWithRefScan(
-      const ResolvedWithRefScan& with_ref_scan,
-      const ResolvedScan& with_subquery_scan);
+      const ResolvedWithRefScan& with_ref_scan);
+
+  // Tracks a measure column that is renamed by the given `resolved_expr`.
+  // If `renamed_column` is not a measure column, this method is a no-op.
+  absl::Status TrackMeasureColumnsRenamedByExpr(
+      const ResolvedColumn& renamed_column, const ResolvedExpr& resolved_expr);
 
   // Find the measure expression for the given `column`.
   absl::StatusOr<const ResolvedExpr*> GetMeasureExpr(
@@ -63,8 +74,20 @@ class MeasureColumnToExprMapping {
   absl::Status AddMeasureColumnWithExpr(const ResolvedColumn& column,
                                         const ResolvedExpr* expr);
 
+  // Resolved measure columns may be renamed with a different column id when
+  // referenced by a computed column ref. This method associates the renamed
+  // measure column with the measure expression currently associated with the
+  // original measure column.
+  absl::Status MapOriginalMeasureExprToRenamedColumn(
+      const ResolvedColumn& renamed_column,
+      const ResolvedColumn& original_column);
+
   absl::flat_hash_map<ResolvedColumn, const ResolvedExpr*>
       measure_column_to_expr_;
+  // A mapping from the name of a with query to the ResolvedScan node
+  // containing the with query.
+  absl::flat_hash_map<std::string, const ResolvedScan*>
+      with_query_name_to_scan_;
 };
 
 }  // namespace zetasql

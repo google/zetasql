@@ -5,7 +5,7 @@
 # - column match mode: BY_POSITION, CORRESPONDING, BY NAME
 # - column propagation mode: INNER, FULL
 
-[default language_features=CORRESPONDING_FULL,BY_NAME]
+[default language_features=MAXIMUM,+CORRESPONDING_FULL,+BY_NAME]
 [default enabled_ast_rewrites=DEFAULTS]
 
 SELECT int64, int32, double FROM SimpleTypes

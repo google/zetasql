@@ -23,6 +23,8 @@
 
 #include "zetasql/base/logging.h"
 #include "absl/base/casts.h"
+#include "zetasql/base/check.h"
+#include "absl/strings/string_view.h"
 #include "openssl/md5.h"
 #include "openssl/sha.h"
 #include "zetasql/base/endian.h"

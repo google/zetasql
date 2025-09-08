@@ -47,8 +47,6 @@ enum TypeKind {
   TYPE_BYTES = 9;
   TYPE_DATE = 10;
   TYPE_TIMESTAMP = 19;
-  // TODO: Deprecate this TypeKind by prefixing it with OBSOLETE_.
-  TYPE_TIMESTAMP_PICOS = 35;
   TYPE_ENUM = 15;
   TYPE_ARRAY = 16;
   TYPE_STRUCT = 17;

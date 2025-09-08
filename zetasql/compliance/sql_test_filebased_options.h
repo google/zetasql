@@ -128,6 +128,9 @@ class FilebasedSQLTestCaseOptions {
     return skip_required_feature_integrity_check_;
   }
 
+  // If true, a copy of the test database is passed to the reference driver.
+  bool use_test_database_copy() const { return use_test_database_copy_; }
+
  private:
   // Encapsulation wise, these two classes are designed to work as one.
   friend class FilebasedSQLTestFileOptions;
@@ -148,6 +151,7 @@ class FilebasedSQLTestCaseOptions {
   bool reserve_match_recognize_ = false;
   bool reserve_graph_table_ = false;
   bool skip_required_feature_integrity_check_ = false;
+  bool use_test_database_copy_ = false;
 
   FilebasedSQLTestCaseOptions();
 };

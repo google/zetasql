@@ -67,7 +67,6 @@
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/file_util.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 namespace {
@@ -106,7 +105,8 @@ class FakeRemoteTvfFactory : public RemoteTvfFactory {
  public:
   absl::StatusOr<std::unique_ptr<zetasql::TableValuedFunction>>
   CreateRemoteTVF(const ResolvedCreateTableFunctionStmt& stmt,
-                  const ModuleDetails& details) override {
+                  const ModuleDetails& details,
+                  zetasql::Catalog* module_resolution_catalog) override {
     return std::make_unique<FakeRemoteTvf>(stmt, details);
   }
 };
@@ -129,6 +129,10 @@ class ModuleTest : public ::testing::Test {
       // select list of in-development features instead.
       LanguageOptions language_options;
       language_options.EnableMaximumLanguageFeaturesForDevelopment();
+      // TODO: b/277365877 - Enable this feature in unit testing once constant
+      // evaluator in analyzer options and module factory is fully supported.
+      language_options.DisableLanguageFeature(
+          FEATURE_ANALYSIS_CONSTANT_FUNCTION_ARGUMENT);
       LanguageOptions::LanguageFeatureSet language_features =
           language_options.GetEnabledLanguageFeatures();
       analyzer_options_.mutable_language()->SetEnabledLanguageFeatures(
@@ -161,9 +165,7 @@ class ModuleTest : public ::testing::Test {
     global_catalog_->AddOwnedTable(table.release());
   }
 
-  ModuleFactory* module_factory() {
-    return module_factory_.get();
-  }
+  ModuleFactory* module_factory() { return module_factory_.get(); }
 
   // Gets a ModuleContentsFetcher. If `module_contents` is non-NULL
   // then TestModuleContentsFetcher fetches the contents from that string.
@@ -210,9 +212,7 @@ class ModuleTest : public ::testing::Test {
                                                         &module_catalog_);
   }
 
-  ModuleCatalog* module_catalog() {
-    return module_catalog_;
-  }
+  ModuleCatalog* module_catalog() { return module_catalog_; }
 
   absl::Status GetModuleContents(absl::string_view module_name,
                                  std::string* module_contents) const {
@@ -228,9 +228,7 @@ class ModuleTest : public ::testing::Test {
 
   AnalyzerOptions* mutable_analyzer_options() { return &analyzer_options_; }
 
-  TypeFactory* type_factory() {
-    return &type_factory_;
-  }
+  TypeFactory* type_factory() { return &type_factory_; }
 
   SimpleCatalog* builtin_function_catalog() const {
     return builtin_function_catalog_.get();
@@ -263,8 +261,9 @@ class ModuleTest : public ::testing::Test {
 TEST_F(ModuleTest, factory_without_fetcher_test) {
   InitModuleFactory(/*module_contents_fetcher=*/nullptr);
   ModuleCatalog* module_catalog = nullptr;
-  EXPECT_FALSE(module_factory()->CreateOrReturnModuleCatalog(
-      {"a"}, &module_catalog).ok());
+  EXPECT_FALSE(module_factory()
+                   ->CreateOrReturnModuleCatalog({"a"}, &module_catalog)
+                   .ok());
 }
 
 TEST_F(ModuleTest, empty_module_test) {
@@ -484,8 +483,8 @@ TEST_F(ModuleTest, single_statement_module_parse_failure_test) {
   const std::string simple_module =
       "module a;"
       "create public function foo(a int64) as a+1";
-  ZETASQL_ASSERT_OK(CreateModuleCatalog({"a", "B", "cc"}, "module_alias",
-                                &simple_module));
+  ZETASQL_ASSERT_OK(
+      CreateModuleCatalog({"a", "B", "cc"}, "module_alias", &simple_module));
 
   const Table* table;
   const TableValuedFunction* tvf;
@@ -539,8 +538,8 @@ TEST_F(ModuleTest, single_statement_module_test) {
   const std::string simple_module =
       "module simple_module;    "
       "create public function foo(a int64) as (a+1)";
-  ZETASQL_ASSERT_OK(CreateModuleCatalog({"a", "B", "cc"}, "module_alias",
-                                &simple_module));
+  ZETASQL_ASSERT_OK(
+      CreateModuleCatalog({"a", "B", "cc"}, "module_alias", &simple_module));
 
   const Table* table;
   const TableValuedFunction* tvf;
@@ -766,8 +765,8 @@ TEST_F(ModuleTest, multi_statement_module_test) {
   simple_modules.push_back(module_contents);
 
   for (const std::string& simple_module : simple_modules) {
-    ZETASQL_ASSERT_OK(CreateModuleCatalog({"a", "B", "cc"}, "module_alias",
-                                  &simple_module));
+    ZETASQL_ASSERT_OK(
+        CreateModuleCatalog({"a", "B", "cc"}, "module_alias", &simple_module));
 
     const Function* function;
     // Function <foo> was successfully created.
@@ -778,8 +777,7 @@ TEST_F(ModuleTest, multi_statement_module_test) {
         function->DebugString(/*verbose=*/true));
 
     ASSERT_TRUE(function->Is<SQLFunction>());
-    const SQLFunction* simple_function =
-        function->GetAs<SQLFunction>();
+    const SQLFunction* simple_function = function->GetAs<SQLFunction>();
 
     std::string expected_full_debug_string = R"(Lazy_resolution_function:foo
   (INT64 a) -> INT64 rejects_collation=TRUE
@@ -884,8 +882,8 @@ TEST_F(ModuleTest, append_module_errors_test) {
 
   // Test AppendModuleErrors() after catalog initialization, without resolving
   // any statements.
-  module_catalog()->AppendModuleErrors(/*include_nested_module_errors=*/ false,
-                                       /*include_catalog_object_errors=*/ true,
+  module_catalog()->AppendModuleErrors(/*include_nested_module_errors=*/false,
+                                       /*include_catalog_object_errors=*/true,
                                        &all_errors);
   // While only looking at this module's local errors (not nested errors),
   // without resolving the statements we expect 9 errors during initialization.
@@ -903,8 +901,7 @@ TEST_F(ModuleTest, append_module_errors_test) {
   std::vector<std::string> expected_top_level_init_errors = {
       "Module foo not found",
       "Unsupported statement kind: QueryStatement",
-      "Syntax error: Expected keyword FUNCTION "
-      "but got identifier \"FUNCTINO\"",  // (broken link)
+      "Unexpected identifier \"FUNCTINO\"",  // (broken link)
       "Function udf_init_error is invalid",
       "Function templated_udf_init_error is invalid",
       "Function uda_init_error is invalid",
@@ -915,12 +912,13 @@ TEST_F(ModuleTest, append_module_errors_test) {
   for (const std::string& expected_error : expected_top_level_init_errors) {
     EXPECT_THAT(all_errors_string, HasSubstr(expected_error))
         << "expected_error: '" << expected_error << "'"
-        << "\nall errors:\n" << all_errors_string;
+        << "\nall errors:\n"
+        << all_errors_string;
   }
 
   all_errors.clear();
-  module_catalog()->AppendModuleErrors(/*include_nested_module_errors=*/ true,
-                                       /*include_catalog_object_errors=*/ true,
+  module_catalog()->AppendModuleErrors(/*include_nested_module_errors=*/true,
+                                       /*include_catalog_object_errors=*/true,
                                        &all_errors);
   // While looking at this module's local errors and imported module errors
   // *without* resolving the statements we expect 27 errors during
@@ -956,7 +954,8 @@ TEST_F(ModuleTest, append_module_errors_test) {
   for (const std::string& expected_error : expected_top_level_init_errors) {
     EXPECT_THAT(all_errors_string, HasSubstr(expected_error))
         << "expected_error: '" << expected_error << "'"
-        << "\nall errors:\n" << all_errors_string;
+        << "\nall errors:\n"
+        << all_errors_string;
   }
 
   // Now resolve all statements, and again test AppendModuleErrors with and
@@ -969,8 +968,8 @@ TEST_F(ModuleTest, append_module_errors_test) {
   // that we do not get resolution errors for templated UDFs/UDAs/TVFs since
   // the function bodies for templated functions are not resolved until
   // they are actually called in a query.
-  module_catalog()->AppendModuleErrors(/*include_nested_module_errors=*/ false,
-                                       /*include_catalog_object_errors=*/ true,
+  module_catalog()->AppendModuleErrors(/*include_nested_module_errors=*/false,
+                                       /*include_catalog_object_errors=*/true,
                                        &all_errors);
   EXPECT_EQ(14, all_errors.size()) << StatusVectorToString(all_errors);
   all_errors_string = module_catalog()->ModuleErrorsDebugString(
@@ -990,7 +989,8 @@ TEST_F(ModuleTest, append_module_errors_test) {
   for (const std::string& expected_error : expected_top_level_errors) {
     EXPECT_THAT(all_errors_string, HasSubstr(expected_error))
         << "expected_error: '" << expected_error << "'"
-        << "\nall errors:\n" << all_errors_string;
+        << "\nall errors:\n"
+        << all_errors_string;
   }
 
   all_errors.clear();
@@ -998,8 +998,8 @@ TEST_F(ModuleTest, append_module_errors_test) {
   // than before resolution (where we originally got 21 errors):
   // 1) 4 new resolution errors in the top level module module_test_errors_main
   // 2) 4 new resolution errors in imported module module_test_errors_imported_d
-  module_catalog()->AppendModuleErrors(/*include_nested_module_errors=*/ true,
-                                       /*include_catalog_object_errors=*/ true,
+  module_catalog()->AppendModuleErrors(/*include_nested_module_errors=*/true,
+                                       /*include_catalog_object_errors=*/true,
                                        &all_errors);
   EXPECT_EQ(29, all_errors.size()) << StatusVectorToString(all_errors);
   all_errors_string = module_catalog()->ModuleErrorsDebugString(
@@ -1009,7 +1009,8 @@ TEST_F(ModuleTest, append_module_errors_test) {
   for (const std::string& expected_error : expected_top_level_errors) {
     EXPECT_THAT(all_errors_string, HasSubstr(expected_error))
         << "expected_error: '" << expected_error << "'"
-        << "\nall errors:\n" << all_errors_string;
+        << "\nall errors:\n"
+        << all_errors_string;
   }
 
   // Now evaluate all constants, and again test AppendModuleErrors with and
@@ -1019,8 +1020,8 @@ TEST_F(ModuleTest, append_module_errors_test) {
   all_errors.clear();
   // After evaluation, we expect the same 14 initialization and resolution
   // errors, plus 1 new evaluation error.
-  module_catalog()->AppendModuleErrors(/*include_nested_module_errors=*/ false,
-                                       /*include_catalog_object_errors=*/ true,
+  module_catalog()->AppendModuleErrors(/*include_nested_module_errors=*/false,
+                                       /*include_catalog_object_errors=*/true,
                                        &all_errors);
   EXPECT_EQ(15, all_errors.size()) << StatusVectorToString(all_errors);
   all_errors_string = module_catalog()->ModuleErrorsDebugString(
@@ -1035,7 +1036,8 @@ TEST_F(ModuleTest, append_module_errors_test) {
   for (const std::string& expected_error : expected_top_level_errors) {
     EXPECT_THAT(all_errors_string, HasSubstr(expected_error))
         << "expected_error: '" << expected_error << "'"
-        << "\nall errors:\n" << all_errors_string;
+        << "\nall errors:\n"
+        << all_errors_string;
   }
 
   all_errors.clear();
@@ -1043,8 +1045,8 @@ TEST_F(ModuleTest, append_module_errors_test) {
   // than before evaluation (where we originally got 29 errors):
   // 1) 1 new evaluation error in the top level module module_test_errors_main
   // 2) 1 new evaluation error in imported module module_test_errors_imported_f
-  module_catalog()->AppendModuleErrors(/*include_nested_module_errors=*/ true,
-                                       /*include_catalog_object_errors=*/ true,
+  module_catalog()->AppendModuleErrors(/*include_nested_module_errors=*/true,
+                                       /*include_catalog_object_errors=*/true,
                                        &all_errors);
   EXPECT_EQ(31, all_errors.size()) << StatusVectorToString(all_errors);
   all_errors_string = module_catalog()->ModuleErrorsDebugString(
@@ -1054,7 +1056,8 @@ TEST_F(ModuleTest, append_module_errors_test) {
   for (const std::string& expected_error : expected_top_level_errors) {
     EXPECT_THAT(all_errors_string, HasSubstr(expected_error))
         << "expected_error: '" << expected_error << "'"
-        << "\nall errors:\n" << all_errors_string;
+        << "\nall errors:\n"
+        << all_errors_string;
   }
 }
 
@@ -1325,9 +1328,8 @@ TEST_F(ModuleTest, named_constant_with_evaluation_error_is_resolved) {
   ZETASQL_ASSERT_OK(module_catalog()->FindConstant({"evaluation_error_named_constant"},
                                            &constant));
   ASSERT_THAT(constant, NotNull());
-  EXPECT_EQ(
-      "evaluation_error_named_constant=Uninitialized value",
-      constant->DebugString());
+  EXPECT_EQ("evaluation_error_named_constant=Uninitialized value",
+            constant->DebugString());
   ASSERT_TRUE(constant->Is<SQLConstant>());
   const SQLConstant* sql_constant = constant->GetAs<SQLConstant>();
 
@@ -1494,8 +1496,8 @@ TEST_F(ModuleTest, self_referencing_named_constant_is_rejected) {
 
 TEST_F(ModuleTest, named_constant_overrides_builtin_named_constant) {
   std::unique_ptr<SimpleConstant> builtin_constant;
-  ZETASQL_CHECK_OK(SimpleConstant::Create({"foo"}, Value::Int64(9999),
-                                  &builtin_constant));
+  ZETASQL_CHECK_OK(
+      SimpleConstant::Create({"foo"}, Value::Int64(9999), &builtin_constant));
   builtin_function_catalog()->AddOwnedConstant(builtin_constant.release());
 
   ZETASQL_ASSERT_OK(CreateModuleCatalog({"named_constant"}, "module_alias",
@@ -1738,10 +1740,10 @@ Select * from foo;
       "[type.googleapis.com/zetasql.ErrorLocation='\\x08\\x07\\x10\\x01\\x1a"
       "\\x01m(\\x00\\x30\\x00']";
 
-  EXPECT_EQ(module_catalog()->DebugString(/*include_module_contents=*/true),
-            absl::StrCat(
-                "Module 'm'\nModule contents:\n", module_contents,
-                R"(
+  EXPECT_EQ(
+      module_catalog()->DebugString(/*include_module_contents=*/true),
+      absl::StrCat("Module 'm'\nModule contents:\n", module_contents,
+                   R"(
 Initialized functions:
 Lazy_resolution_function:bar
 
@@ -1758,7 +1760,7 @@ Initialized constants:
 CONSTANT lorem=Uninitialized value (unknown type)
 
 )",
-                "Initialization errors:\n", unsupported_statement_error));
+                   "Initialization errors:\n", unsupported_statement_error));
 }
 
 //  A mock callback for evaluating named constants.
@@ -1852,8 +1854,7 @@ CREATE PUBLIC CONSTANT foo = 'bar';
     ZETASQL_ASSERT_OK(module_catalog()->FindConstant({"foo"}, &constant))
         << Iteration(i);
     ASSERT_THAT(constant, NotNull()) << Iteration(i);
-    EXPECT_EQ(R"(foo="bar")", constant->DebugString())
-        << Iteration(i);
+    EXPECT_EQ(R"(foo="bar")", constant->DebugString()) << Iteration(i);
 
     ASSERT_TRUE(constant->Is<SQLConstant>()) << Iteration(i);
     ZETASQL_ASSERT_OK(constant->GetAs<SQLConstant>()->evaluation_result())

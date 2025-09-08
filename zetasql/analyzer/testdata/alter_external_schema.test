@@ -1,5 +1,5 @@
 # Tests for unsupported alter schema statements.
-[default language_features=EXTERNAL_SCHEMA_DDL]
+[default language_features=NONE,+EXTERNAL_SCHEMA_DDL]
 
 ALTER EXTERNAL SCHEMA {{|IF EXISTS}} myProject.mySchema SET OPTIONS (x=1)
 --
@@ -23,7 +23,7 @@ AlterExternalSchemaStmt
 +-is_if_exists=TRUE
 ==
 
-[language_features=]
+[language_features=NONE]
 
 ALTER EXTERNAL SCHEMA {{|IF EXISTS}} myProject.mySchema SET OPTIONS (x=1)
 --
@@ -67,7 +67,7 @@ FALSE_ACTION;
 ^
 ==
 
-[language_features=COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,EXTERNAL_SCHEMA_DDL]
+[language_features=NONE,+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK,+EXTERNAL_SCHEMA_DDL]
 alter external schema if exists entity set default collate 'unicode:ci';
 --
 ERROR: ALTER EXTERNAL SCHEMA does not support SET DEFAULT COLLATE [at 1:40]

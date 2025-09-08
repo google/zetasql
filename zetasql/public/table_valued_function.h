@@ -30,18 +30,21 @@
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/deprecation_warning.pb.h"
 #include "zetasql/public/evaluator_table_iterator.h"
+#include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
+#include "zetasql/public/property_graph.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/collation.h"
 #include "zetasql/public/types/type_deserializer.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "absl/base/attributes.h"
+#include "absl/base/macros.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -67,6 +70,22 @@ class TableValuedFunctionOptionsProto;
 
 struct TVFSchemaColumn;
 
+// This callback signature takes matched signature, an argument list as input.
+// Callback implementations are intended to validate the argument list with
+// matched signature and any additional constraints on argument value which TVF
+// wants to enforce.
+using TVFPostResolutionArgumentConstraintsCallback = std::function<absl::Status(
+    const FunctionSignature&, const std::vector<TVFInputArgumentType>&,
+    const LanguageOptions&)>;
+
+// This callback signature takes matched signature, an argument list as input
+// and returns the computed output type for TVF call. New types should be
+// allocated in the provided TypeFactory.
+using TVFComputeResultTypeCallback =
+    std::function<absl::StatusOr<TVFSignature*>(
+        Catalog*, TypeFactory*, const FunctionSignature&,
+        const std::vector<TVFInputArgumentType>&, const AnalyzerOptions&)>;
+
 // Options that apply to a table-valued function.
 // The setter methods here return a reference to *self so options can be
 // constructed inline, and chained if desired.
@@ -84,10 +103,43 @@ struct TableValuedFunctionOptions {
     return *this;
   }
 
+  TableValuedFunctionOptions& set_post_resolution_argument_constraint(
+      TVFPostResolutionArgumentConstraintsCallback constraint) {
+    post_resolution_constraint_callback = std::move(constraint);
+    return *this;
+  }
+
+  TableValuedFunctionOptions& set_compute_result_type_callback(
+      TVFComputeResultTypeCallback callback) {
+    compute_result_type_callback = std::move(callback);
+    return *this;
+  }
+
   // Indicates whether to use upper case name in GetSignatureUserFacingText(),
   // which is used for error messages such as
   // "No matching signature for function ...".
   bool uses_upper_case_sql_name = true;
+
+  // If not nullptr, this callback is called after resolution to check any
+  // additional constraints on the TVF's arguments. Post-resolution checks are
+  // performed against the coerced arguments after a specific TVF signature has
+  // been matched. If the callback returns non-OK status, then analysis
+  // immediately fails. Please consult `zetasql/common/errors.h` for
+  // which status code to return. Resolver code will attach error at TVF call
+  // parse location.
+  TVFPostResolutionArgumentConstraintsCallback
+      post_resolution_constraint_callback = nullptr;
+
+  // If not nullptr, this callback is called to calculate tvf output signature.
+  // It can be used when the output type is dependent on argument types and/or
+  // argument literal values. Callers must set this callback to avoid analysis
+  // error, unless they are using TableValuedFunction subclass which overrides
+  // Resolve. Internal error will be returned when using TableValuedFunction
+  // without setting the callback and analysis will stop. If the callback
+  // returns non-OK status, then analysis immediately fails. Please consult
+  // `zetasql/common/errors.h` for which status code to return. Resolver code
+  // will attach error at TVF call parse location.
+  TVFComputeResultTypeCallback compute_result_type_callback = nullptr;
 };
 
 // This interface describes a table-valued function (TVF) available in a query
@@ -126,7 +178,30 @@ class TableValuedFunction {
     return sql_security_;
   }
 
-  // Constructs a new TVF object with the given name and argument signature.
+  // DEPRECATED - Prefer the delegated constructor which accepts
+  // `std::vector<FunctionSignature>` and a `group` argument.
+  // Constructs a new TVF object with the given name and argument signature with
+  // an empty string for group name.
+  ABSL_DEPRECATED("Inline me!")
+  TableValuedFunction(const std::vector<std::string>& function_name_path,
+                      const FunctionSignature& signature,
+                      TableValuedFunctionOptions tvf_options = {})
+      : TableValuedFunction(function_name_path, /*group=*/"",
+                            std::vector<FunctionSignature>{signature},
+                            std::move(tvf_options)) {}
+
+  // DEPRECATED - Prefer the delegated constructor which accepts
+  // `std::vector<FunctionSignature>` and the `group` argument.
+  ABSL_DEPRECATED("Inline me!")
+  explicit TableValuedFunction(
+      const std::vector<std::string>& function_name_path,
+      TableValuedFunctionOptions tvf_options = {})
+      : TableValuedFunction(function_name_path, /*group=*/"",
+                            std::vector<FunctionSignature>{},
+                            std::move(tvf_options)) {}
+
+  // Constructs a new TVF object with the given name, group and argument
+  // signatures.
   //
   // Each TVF may accept value or relation arguments. The signature specifies
   // whether each argument should be a value or a relation. For a value
@@ -135,30 +210,39 @@ class TableValuedFunction {
   // should use ARG_TYPE_RELATION, and any relation will be accepted as an
   // argument.
   TableValuedFunction(const std::vector<std::string>& function_name_path,
-                      const FunctionSignature& signature,
+                      std::string group,
+                      std::vector<FunctionSignature> signatures,
                       TableValuedFunctionOptions tvf_options = {})
       : function_name_path_(function_name_path),
-        signatures_({signature}),
+        group_(std::move(group)),
+        signatures_(std::move(signatures)),
         tvf_options_(std::move(tvf_options)) {
-    ZETASQL_CHECK_OK(signature.IsValidForTableValuedFunction());
+    for (const FunctionSignature& signature : signatures_) {
+      ZETASQL_CHECK_OK(signature.IsValidForTableValuedFunction());  // Crash ok.
+    }
   }
   // Table functions constructed this way should use AddSignature() to
   // add a related signature.
-  explicit TableValuedFunction(
-      const std::vector<std::string>& function_name_path,
-      TableValuedFunctionOptions tvf_options = {})
+  TableValuedFunction(const std::vector<std::string>& function_name_path,
+                      std::string group,
+                      TableValuedFunctionOptions tvf_options = {})
       : function_name_path_(function_name_path),
+        group_(std::move(group)),
         tvf_options_(std::move(tvf_options)) {}
 
   TableValuedFunction(const std::vector<std::string>& function_name_path,
-                      const FunctionSignature& signature,
+                      std::string group,
+                      std::vector<FunctionSignature> signatures,
                       std::unique_ptr<AnonymizationInfo> anonymization_info,
                       TableValuedFunctionOptions tvf_options = {})
       : function_name_path_(function_name_path),
-        signatures_({signature}),
+        group_(std::move(group)),
+        signatures_(std::move(signatures)),
         anonymization_info_(std::move(anonymization_info)),
         tvf_options_(std::move(tvf_options)) {
-    ZETASQL_CHECK_OK(signature.IsValidForTableValuedFunction());
+    for (const FunctionSignature& signature : signatures_) {
+      ZETASQL_CHECK_OK(signature.IsValidForTableValuedFunction());  // Crash ok.
+    }
   }
 
   TableValuedFunction(const TableValuedFunction&) = delete;
@@ -167,20 +251,35 @@ class TableValuedFunction {
 
   // Returns the name of this TVF.
   const std::string& Name() const { return function_name_path_.back(); }
-  std::string FullName() const {
-    return absl::StrJoin(function_name_path(), ".");
+
+  std::string FullName(bool include_group = true) const {
+    return absl::StrCat(
+        ((include_group && !group_.empty()) ? absl::StrCat(group_, ":") : ""),
+        absl::StrJoin(function_name_path_, "."));
   }
-  // Returns an external 'SQL' name for the function, for use in SQL strings,
+  // Returns an external 'SQL' name for the table valued function, for use in
   // error messages and anywhere else appropriate.
   std::string SQLName() const {
+    std::string name;
+    if (IsZetaSQLBuiltin()) {
+      name = FullName(/*include_group=*/false);
+    } else {
+      name = FullName();
+    }
     return this->tvf_options_.uses_upper_case_sql_name
-               ? absl::AsciiStrToUpper(FullName())
-               : FullName();
+               ? absl::AsciiStrToUpper(name)
+               : name;
   }
   const std::vector<std::string>& function_name_path() const {
     return function_name_path_;
   }
 
+  // Returns the 'group' the TVF belongs to.
+  const std::string& GetGroup() const { return group_; }
+
+  bool IsZetaSQLBuiltin() const {
+    return group_ == Function::kZetaSQLFunctionGroupName;
+  }
   // Returns the number of function signatures.
   int64_t NumSignatures() const;
 
@@ -305,7 +404,10 @@ class TableValuedFunction {
   }
 
   // The Resolve method determines the output schema of a particular call to
-  // this TVF based on the input arguments provided in the query.
+  // this TVF based on the input arguments provided in the query. The default
+  // implementation uses `compute_result_type_callback` from `tvf_options_` to
+  // compute the output schema. It is possible for subclasses to provide their
+  // own implementation which may or may not use `compute_result_type_callback`.
   //
   // ZetaSQL provides information about the number and types of these
   // arguments in 'actual_arguments'.  ZetaSQL also includes the concrete
@@ -338,7 +440,14 @@ class TableValuedFunction {
       const std::vector<TVFInputArgumentType>& actual_arguments,
       const FunctionSignature& concrete_signature, Catalog* catalog,
       TypeFactory* type_factory,
-      std::shared_ptr<TVFSignature>* output_tvf_signature) const = 0;
+      std::shared_ptr<TVFSignature>* output_tvf_signature) const;
+
+  // Returns Status indicating whether or not any specified constraints were
+  // violated. If `post_resolution_constraint_callback` is nullptr returns OK.
+  absl::Status CheckPostResolutionArgumentConstraints(
+      const FunctionSignature& signature,
+      const std::vector<TVFInputArgumentType>& arguments,
+      const LanguageOptions& language_options) const;
 
   const TableValuedFunctionOptions& tvf_options() const { return tvf_options_; }
 
@@ -354,6 +463,8 @@ class TableValuedFunction {
     std::unique_ptr<EvaluatorTableIterator> relation;
     // If set, this argument is a model.
     const Model* model;
+    // If set, this argument is a graph.
+    const PropertyGraph* graph;
   };
 
   // The CreateEvaluatorTableIterator method allows a subclass to provide TVF
@@ -410,6 +521,10 @@ class TableValuedFunction {
 
   // This is the name of this TVF.
   const std::vector<std::string> function_name_path_;
+
+  // Group in which this TVF belongs. If it is kZetaSQLFunctionGroupName
+  // it is ZetaSQL builtin.
+  const std::string group_;
 
   // The signatures describe the input arguments that this TVF accepts.
   // Currently, only one signature is supported.
@@ -469,27 +584,8 @@ struct TVFSchemaColumn {
     if (annotation_map == nullptr) {
       type_name = type->DebugString();
     } else {
-      absl::StatusOr<Collation> status_or_collation =
-          Collation::MakeCollation(*annotation_map);
-      if (!status_or_collation.ok()) {
-        type_name =
-            absl::StrCat(type->DebugString(),
-                         " [Error in making Collation from annotation_map ",
-                         annotation_map->DebugString(), ": ",
-                         status_or_collation.status().message(), "]");
-      }
-      absl::StatusOr<std::string> status_or_type_name =
-          type->TypeNameWithModifiers(
-              TypeModifiers::MakeTypeModifiers(
-                  TypeParameters(), std::move(status_or_collation).value()),
-              PRODUCT_INTERNAL);
-      if (!status_or_type_name.ok()) {
-        type_name =
-            absl::StrCat(type->DebugString(),
-                         " [Error in getting type name with modifiers: ",
-                         status_or_type_name.status().message(), "]");
-      }
-      type_name = status_or_type_name.value();
+      type_name =
+          absl::StrCat(type->DebugString(), annotation_map->DebugString());
     }
     // Prevent concatenating value column name.
     if (!is_for_value_table || is_pseudo_column) {
@@ -668,6 +764,17 @@ class TVFDescriptorArgument {
   std::vector<std::string> column_names_;
 };
 
+class TVFGraphArgument {
+ public:
+  explicit TVFGraphArgument(const PropertyGraph* graph) : graph_(graph) {}
+
+  const PropertyGraph* graph() const { return graph_; }
+  std::string DebugString() const;
+
+ private:
+  const PropertyGraph* graph_;  // Not owned.
+};
+
 // This represents one input argument to a call to a TVF.
 // Each such call includes zero or more input arguments.
 // Each input argument may be either scalar or relation.
@@ -696,6 +803,10 @@ class TVFInputArgumentType {
   explicit TVFInputArgumentType(const TVFConnectionArgument& connection)
       : kind_(TVFInputArgumentTypeKind::CONNECTION), connection_(connection) {}
 
+  // Creates a graph argument.
+  explicit TVFInputArgumentType(const TVFGraphArgument& graph)
+      : kind_(TVFInputArgumentTypeKind::GRAPH), graph_(graph) {}
+
   explicit TVFInputArgumentType(
       const TVFDescriptorArgument& descriptor_argument)
       : kind_(TVFInputArgumentTypeKind::DESCRIPTOR),
@@ -712,6 +823,7 @@ class TVFInputArgumentType {
   bool is_descriptor() const {
     return kind_ == TVFInputArgumentTypeKind::DESCRIPTOR;
   }
+  bool is_graph() const { return kind_ == TVFInputArgumentTypeKind::GRAPH; }
   absl::StatusOr<InputArgumentType> GetScalarArgType() const {
     ZETASQL_RET_CHECK(kind_ == TVFInputArgumentTypeKind::SCALAR);
     if (scalar_arg_value_ != nullptr) {
@@ -753,6 +865,11 @@ class TVFInputArgumentType {
     return descriptor_argument_;
   }
 
+  const TVFGraphArgument& graph() const {
+    ABSL_DCHECK(is_graph());
+    return graph_;
+  }
+
   std::string DebugString() const {
     if (kind_ == TVFInputArgumentTypeKind::RELATION) {
       return relation_.DebugString();
@@ -762,6 +879,8 @@ class TVFInputArgumentType {
       return connection_.DebugString();
     } else if (kind_ == TVFInputArgumentTypeKind::DESCRIPTOR) {
       return descriptor_argument_.DebugString();
+    } else if (kind_ == TVFInputArgumentTypeKind::GRAPH) {
+      return graph_.DebugString();
     } else if (scalar_arg_value_ != nullptr) {
       return InputArgumentType(*scalar_arg_value_).DebugString();
     } else {
@@ -776,19 +895,21 @@ class TVFInputArgumentType {
     MODEL,
     RELATION,
     SCALAR,
-    DESCRIPTOR
+    DESCRIPTOR,
+    GRAPH,
   };
   // Defines whether this is a relation, scalar argument or a model.
-  const TVFInputArgumentTypeKind kind_;
+  TVFInputArgumentTypeKind kind_;
 
   // TODO: Refactor and use std::optional instead of having multiple
   // member variables.
   // Only one of the following is defined, based on kind_.
-  const TVFRelation relation_ = TVFRelation({});
-  const TVFModelArgument model_ = TVFModelArgument(nullptr);
-  const TVFConnectionArgument connection_ = TVFConnectionArgument(nullptr);
-  const TVFDescriptorArgument descriptor_argument_ =
+  TVFRelation relation_ = TVFRelation({});
+  TVFModelArgument model_ = TVFModelArgument(nullptr);
+  TVFConnectionArgument connection_ = TVFConnectionArgument(nullptr);
+  TVFDescriptorArgument descriptor_argument_ =
       TVFDescriptorArgument(std::vector<std::string>());
+  TVFGraphArgument graph_ = TVFGraphArgument(nullptr);
   const Type* scalar_arg_type_ = nullptr;
 
   // This is the literal value for 'scalar_arg_type_', if applicable. We store
@@ -916,24 +1037,39 @@ class TVFSignature {
 // output schema.
 class FixedOutputSchemaTVF : public TableValuedFunction {
  public:
+  // DEPRECATED - Prefer the delegated constructor which accepts
+  // `std::vector<FunctionSignature>`.
   // Constructs a new TVF object with the given name and fixed output schema.
+  ABSL_DEPRECATED("Inline me!")
   FixedOutputSchemaTVF(const std::vector<std::string>& function_name_path,
                        const FunctionSignature& signature,
                        const TVFRelation& result_schema,
                        TableValuedFunctionOptions tvf_options = {})
-      : TableValuedFunction(function_name_path, signature, tvf_options),
-        result_schema_(result_schema) {}
+      : FixedOutputSchemaTVF(function_name_path,
+                             std::vector<FunctionSignature>{signature},
+                             result_schema, std::move(tvf_options)) {}
 
-  // Constructs a new TVF object with the given name, anonymization info and
-  // fixed output schema.
+  // Constructs a FixedOutputSchemaTVF with the given name, list of signatures,
+  // anonymization info and fixed output schema.
   FixedOutputSchemaTVF(const std::vector<std::string>& function_name_path,
-                       const FunctionSignature& signature,
+                       std::vector<FunctionSignature> signatures,
                        std::unique_ptr<AnonymizationInfo> anonymization_info,
-                       const TVFRelation& result_schema,
+                       TVFRelation result_schema,
                        TableValuedFunctionOptions tvf_options = {})
-      : TableValuedFunction(function_name_path, signature,
-                            std::move(anonymization_info), tvf_options),
-        result_schema_(result_schema) {}
+      : TableValuedFunction(
+            function_name_path, /*group=*/"", std::move(signatures),
+            std::move(anonymization_info), std::move(tvf_options)),
+        result_schema_(std::move(result_schema)) {}
+
+  // Constructs a FixedOutputSchemaTVF with the given name, list of signatures,
+  // anonymization info and fixed output schema.
+  FixedOutputSchemaTVF(const std::vector<std::string>& function_name_path,
+                       std::vector<FunctionSignature> signatures,
+                       TVFRelation result_schema,
+                       TableValuedFunctionOptions tvf_options = {})
+      : TableValuedFunction(function_name_path, /*group=*/"",
+                            std::move(signatures), std::move(tvf_options)),
+        result_schema_(std::move(result_schema)) {}
 
   FixedOutputSchemaTVF(const FixedOutputSchemaTVF&) = delete;
   FixedOutputSchemaTVF& operator=(const FixedOutputSchemaTVF&) = delete;
@@ -967,17 +1103,34 @@ class FixedOutputSchemaTVF : public TableValuedFunction {
 // to the constructor.
 class ForwardInputSchemaToOutputSchemaTVF : public TableValuedFunction {
  public:
+  // DEPRECATED - Prefer the delegated constructor which accepts
+  // `std::vector<FunctionSignature>`.
   // Constructs a new instance of this TVF with name 'function_name_path'.
   // 'signature' specifies the number and types of arguments that the TVF
   // accepts. This signature must have at least one argument and the first
   // argument must be a relation, or otherwise the Resolve method returns an
   // error.
+  ABSL_DEPRECATED("Inline me!")
   ForwardInputSchemaToOutputSchemaTVF(
       const std::vector<std::string>& function_name_path,
       const FunctionSignature& signature,
       TableValuedFunctionOptions tvf_options = {})
-      : TableValuedFunction(function_name_path, signature, tvf_options) {
-    ZETASQL_CHECK_OK(CheckIsValid());
+      : ForwardInputSchemaToOutputSchemaTVF(
+            function_name_path, std::vector<FunctionSignature>{signature},
+            std::move(tvf_options)) {}
+
+  // Constructs a new instance of this TVF with name 'function_name_path' and a
+  // list of signatures. Each sigantures specifies the number and types of
+  // arguments that the TVF accepts. This signature must have at least one
+  // argument and the first argument must be a relation, or otherwise the
+  // Resolve method returns an error.
+  ForwardInputSchemaToOutputSchemaTVF(
+      const std::vector<std::string>& function_name_path,
+      std::vector<FunctionSignature> signatures,
+      TableValuedFunctionOptions tvf_options = {})
+      : TableValuedFunction(function_name_path, /*group=*/"",
+                            std::move(signatures), std::move(tvf_options)) {
+    ZETASQL_CHECK_OK(CheckIsValid());  // Crash OK
   }
 
   ForwardInputSchemaToOutputSchemaTVF(
@@ -1014,15 +1167,31 @@ class ForwardInputSchemaToOutputSchemaTVF : public TableValuedFunction {
 class ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF
     : public TableValuedFunction {
  public:
+  // DEPRECATED - Prefer the delegated constructor which accepts
+  // `std::vector<FunctionSignature>`.
+  ABSL_DEPRECATED("Inline me!")
   ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
       const std::vector<std::string>& function_name_path,
       const FunctionSignature& signature,
       const std::vector<TVFSchemaColumn>& extra_columns,
       TableValuedFunctionOptions tvf_options = {})
-      : TableValuedFunction(function_name_path, signature, tvf_options),
+      : ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
+            function_name_path, std::vector<FunctionSignature>{signature},
+            extra_columns, std::move(tvf_options)) {}
+
+  // Constructs an instance of this TVF with the given name, a list of
+  // signatures and a list of schema columns. The first argument of each
+  // signature must be a templated relation.
+  ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
+      const std::vector<std::string>& function_name_path,
+      std::vector<FunctionSignature> signatures,
+      const std::vector<TVFSchemaColumn>& extra_columns,
+      TableValuedFunctionOptions tvf_options = {})
+      : TableValuedFunction(function_name_path, /*group=*/"",
+                            std::move(signatures), tvf_options),
         extra_columns_(extra_columns) {
-    ZETASQL_CHECK_OK(IsValidForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
-        signature.IsTemplated(), extra_columns));
+    ZETASQL_CHECK_OK(  // Crash OK
+        IsValidForwardInputSchemaToOutputSchemaWithAppendedColumnTVF());
   }
 
   ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
@@ -1046,14 +1215,14 @@ class ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory, std::unique_ptr<TableValuedFunction>* result);
 
-  // This method checks if <extra_columns> is valid. Specifically, it checks:
-  //   a. if extra column name is empty.
-  //   b. if extra column name is duplicated.
-  //   c. if input table is non-templated, which is invalid usage for this
-  //   tvf.
-  //   d. if extra column is pseudo column, which is invalid usage for this tvf.
-  absl::Status IsValidForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
-      bool isTemplated, absl::Span<const TVFSchemaColumn> extra_columns) const;
+  // This method checks if the `signatures_` and `extra_columns_` are valid.
+  // Specifically, it returns a non-OK status if:
+  //  a. extra column name is empty.
+  //  b. extra column name is duplicated.
+  //  c. extra column is a pseudo column, which is invalid usage for this tvf.
+  //  d. first argument in the signature(s) is not a templated relation.
+  absl::Status IsValidForwardInputSchemaToOutputSchemaWithAppendedColumnTVF()
+      const;
 
  private:
   const std::vector<TVFSchemaColumn> extra_columns_;

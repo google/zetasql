@@ -380,12 +380,6 @@ class EvaluationContext {
     active_group_rows_ = group_rows;
   }
 
-  // Returns true if FEATURE_TIMESTAMP_NANOS is enabled.
-  bool UseNanosTimeResolution() const {
-    return language_options_.LanguageFeatureEnabled(
-        zetasql::FEATURE_TIMESTAMP_NANOS);
-  }
-
  private:
   EvaluationContext(const EvaluationOptions& options,
                     std::shared_ptr<MemoryAccountant> memory_accountant,

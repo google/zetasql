@@ -1,3 +1,4 @@
+[default language_features=NONE]
 grant all on KeyValue to "mdbuser/user";
 --
 GrantStmt(object_type_list=``, name_path=KeyValue, grantee_list=[`mdbuser/user`])
@@ -13,7 +14,7 @@ GrantStmt
 +-grantee_list=[`mdbuser/user`]
 ==
 
-[language_features={{|PARAMETERS_IN_GRANTEE_LIST}}]
+[language_features=NONE,{{|+PARAMETERS_IN_GRANTEE_LIST}}]
 revoke select,insert on KeyValue
 from "mdbuser/user", @test_param_string, "mdbgroup/group";
 --
@@ -23,7 +24,7 @@ ERROR: The GRANTEE list only supports string literals, not parameters [at 2:22]
 from "mdbuser/user", @test_param_string, "mdbgroup/group";
                      ^
 --
-ALTERNATION GROUP: PARAMETERS_IN_GRANTEE_LIST
+ALTERNATION GROUP: +PARAMETERS_IN_GRANTEE_LIST
 --
 RevokeStmt
 +-privilege_list=
@@ -39,7 +40,7 @@ RevokeStmt
 
 # System variables are also allowed.  `sysvar.with.dots` is a system variable
 # of STRING type.
-[language_features={{|PARAMETERS_IN_GRANTEE_LIST}}]
+[language_features=NONE,{{|+PARAMETERS_IN_GRANTEE_LIST}}]
 revoke select,insert on KeyValue
 from "mdbuser/user", "mdbgroup/group", @@`sysvar.with.dots`;
 --
@@ -49,7 +50,7 @@ ERROR: The GRANTEE list only supports string literals, not system variables [at 
 from "mdbuser/user", "mdbgroup/group", @@`sysvar.with.dots`;
                                        ^
 --
-ALTERNATION GROUP: PARAMETERS_IN_GRANTEE_LIST
+ALTERNATION GROUP: +PARAMETERS_IN_GRANTEE_LIST
 --
 RevokeStmt
 +-privilege_list=
@@ -82,7 +83,7 @@ RevokeStmt
 ==
 
 # Test with parameter of non-string type.
-[language_features={{|PARAMETERS_IN_GRANTEE_LIST}}]
+[language_features=NONE,{{|+PARAMETERS_IN_GRANTEE_LIST}}]
 revoke select,insert on KeyValue
 from @test_param_int64;
 --
@@ -92,7 +93,7 @@ ERROR: The GRANTEE list only supports string literals, not parameters [at 2:6]
 from @test_param_int64;
      ^
 --
-ALTERNATION GROUP: PARAMETERS_IN_GRANTEE_LIST
+ALTERNATION GROUP: +PARAMETERS_IN_GRANTEE_LIST
 --
 ERROR: Query parameters in the GRANTEE list must be STRING type [at 2:6]
 from @test_param_int64;
@@ -131,4 +132,3 @@ RevokeStmt
 +-object_type_list=materialized.view
 +-name_path=foo
 +-grantee_list=[`user@google.com`]
-==

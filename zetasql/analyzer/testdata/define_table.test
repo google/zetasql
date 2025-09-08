@@ -1,3 +1,4 @@
+[default language_features=NONE]
 define table t1 (a=1,b="a",c=1.4,d=true)
 --
 DefineTableStmt

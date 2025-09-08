@@ -356,7 +356,7 @@ select * from mytvf((date_string => "12/25/08"));
 # Invalid TVF call with a named argument with the TABLE keyword.
 select * from mytvf(date_string => table keyvalue);
 --
-ERROR: Syntax error: Expected ")" or "," but got identifier "keyvalue" [at 1:42]
+ERROR: Syntax error: Expected ")" but got identifier "keyvalue" [at 1:42]
 select * from mytvf(date_string => table keyvalue);
                                          ^
 ==
@@ -364,7 +364,7 @@ select * from mytvf(date_string => table keyvalue);
 # Invalid TVF call with a named argument with the MODEL keyword.
 select * from mytvf(date_string => model keyvalue);
 --
-ERROR: Syntax error: Expected ")" or "," but got identifier "keyvalue" [at 1:42]
+ERROR: Syntax error: Expected ")" but got identifier "keyvalue" [at 1:42]
 select * from mytvf(date_string => model keyvalue);
                                          ^
 ==

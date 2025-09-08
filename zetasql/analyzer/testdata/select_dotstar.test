@@ -1,3 +1,4 @@
+[default language_features=NONE]
 select TestStruct.* from ComplexTypes;
 --
 QueryStmt
@@ -1008,10 +1009,10 @@ QueryStmt
 ==
 
 # Selecting fields with civil time annotations
-[language_features={{CIVIL_TIME|}}]
+[language_features=NONE,{{+CIVIL_TIME|}}]
 select CivilTimeTypesSink.nested_civil_time_fields.* from CivilTimeTestTable;
 --
-ALTERNATION GROUP: CIVIL_TIME
+ALTERNATION GROUP: +CIVIL_TIME
 --
 QueryStmt
 +-output_column_list=
@@ -1059,10 +1060,10 @@ select CivilTimeTypesSink.nested_civil_time_fields.* from CivilTimeTestTable;
 ==
 
 # Selecting fields with civil time annotations
-[language_features={{CIVIL_TIME|}}]
+[language_features=NONE,{{+CIVIL_TIME|}}]
 select CivilTimeTypesSink.* from CivilTimeTestTable;
 --
-ALTERNATION GROUP: CIVIL_TIME
+ALTERNATION GROUP: +CIVIL_TIME
 --
 QueryStmt
 +-output_column_list=
@@ -1166,11 +1167,11 @@ select CivilTimeTypesSink.* from CivilTimeTestTable;
        ^
 ==
 
-[language_features={{CIVIL_TIME|}}]
+[language_features=NONE,{{+CIVIL_TIME|}}]
 select CivilTimeTypesSink.nested_civil_time_repeated_fields.* from CivilTimeTestTable
 
 --
-ALTERNATION GROUP: CIVIL_TIME
+ALTERNATION GROUP: +CIVIL_TIME
 --
 QueryStmt
 +-output_column_list=
@@ -1218,7 +1219,7 @@ select CivilTimeTypesSink.nested_civil_time_repeated_fields.* from CivilTimeT...
 ==
 
 # Test case from b/32810432.
-[language_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE]
+[language_features=NONE,+LIMIT_IN_AGGREGATE,+ORDER_BY_IN_AGGREGATE]
 WITH my_table AS (
   SELECT 1 AS primary_key, "foo" AS value, DATE('2016-11-09') AS modified_date
 )
@@ -1869,7 +1870,7 @@ ERROR: SELECT list expression references t.key which is neither grouped nor aggr
 
 # This test dot-stars into the result of an expression that includes
 # an analytic function.
-[language_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
+[language_features=NONE,+LIMIT_IN_AGGREGATE,+ORDER_BY_IN_AGGREGATE,+ANALYTIC_FUNCTIONS]
 WITH my_table AS (
   SELECT 1 AS key, "a" AS value
 )
@@ -1879,11 +1880,11 @@ FROM my_table AS t
 --
 QueryStmt
 +-output_column_list=
-| +-$query.key#8 AS key [INT64]
-| +-$query.value#9 AS value [STRING]
+| +-$query.key#10 AS key [INT64]
+| +-$query.value#11 AS value [STRING]
 +-query=
   +-WithScan
-    +-column_list=$query.[key#8, value#9]
+    +-column_list=$query.[key#10, value#11]
     +-with_entry_list=
     | +-WithEntry
     |   +-with_query_name="my_table"
@@ -1897,15 +1898,15 @@ QueryStmt
     |         +-SingleRowScan
     +-query=
       +-ProjectScan
-        +-column_list=$query.[key#8, value#9]
+        +-column_list=$query.[key#10, value#11]
         +-expr_list=
-        | +-key#8 :=
+        | +-key#10 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
         | |   | +-ColumnRef(type=STRUCT<key INT64, value STRING>, column=$preproject.$struct#7)
         | |   +-field_idx=0
-        | +-value#9 :=
+        | +-value#11 :=
         |   +-GetStructField
         |     +-type=STRING
         |     +-expr=
@@ -1913,21 +1914,21 @@ QueryStmt
         |     +-field_idx=1
         +-input_scan=
           +-ProjectScan
-            +-column_list=[my_table.key#3, my_table.value#4, $analytic.$analytic1#11, $preproject.$struct#7]
+            +-column_list=[my_table.key#3, my_table.value#4, $analytic.$analytic1#9, $preproject.$struct#7]
             +-expr_list=
             | +-$struct#7 :=
             |   +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRUCT<key INT64, value STRING>>, INT64) -> STRUCT<key INT64, value STRING>)
-            |     +-ColumnRef(type=ARRAY<STRUCT<key INT64, value STRING>>, column=$analytic.$analytic1#11)
+            |     +-ColumnRef(type=ARRAY<STRUCT<key INT64, value STRING>>, column=$analytic.$analytic1#9)
             |     +-Literal(type=INT64, value=0)
             +-input_scan=
               +-AnalyticScan
-                +-column_list=[my_table.key#3, my_table.value#4, $analytic.$analytic1#11]
+                +-column_list=[my_table.key#3, my_table.value#4, $analytic.$analytic1#9]
                 +-input_scan=
                 | +-WithRefScan(column_list=my_table.[key#3, value#4], with_query_name="my_table")
                 +-function_group_list=
                   +-AnalyticFunctionGroup
                     +-analytic_function_list=
-                      +-$analytic1#11 :=
+                      +-$analytic1#9 :=
                         +-AnalyticFunctionCall(ZetaSQL:any_value(ARRAY<STRUCT<key INT64, value STRING>>) -> ARRAY<STRUCT<key INT64, value STRING>>)
                           +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<key INT64, value STRING>) -> ARRAY<STRUCT<key INT64, value STRING>>)
                             +-MakeStruct
@@ -1945,7 +1946,7 @@ QueryStmt
 
 # This test dot-stars into the result of an analytic function, with an
 # additional analytic function in the SELECT.
-[language_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
+[language_features=NONE,+LIMIT_IN_AGGREGATE,+ORDER_BY_IN_AGGREGATE,+ANALYTIC_FUNCTIONS]
 WITH my_table AS (
   SELECT 1 AS key, "a" AS value
 )
@@ -1959,11 +1960,11 @@ QueryStmt
 +-output_column_list=
 | +-$query.t#11 AS t [STRUCT<key INT64, value STRING>]
 | +-$analytic.$analytic1#12 AS `$col2` [INT64]
-| +-$query.key#13 AS key [INT64]
-| +-$query.value#14 AS value [STRING]
+| +-$query.key#15 AS key [INT64]
+| +-$query.value#16 AS value [STRING]
 +-query=
   +-WithScan
-    +-column_list=[$query.t#11, $analytic.$analytic1#12, $query.key#13, $query.value#14]
+    +-column_list=[$query.t#11, $analytic.$analytic1#12, $query.key#15, $query.value#16]
     +-with_entry_list=
     | +-WithEntry
     |   +-with_query_name="my_table"
@@ -1977,15 +1978,15 @@ QueryStmt
     |         +-SingleRowScan
     +-query=
       +-ProjectScan
-        +-column_list=[$query.t#11, $analytic.$analytic1#12, $query.key#13, $query.value#14]
+        +-column_list=[$query.t#11, $analytic.$analytic1#12, $query.key#15, $query.value#16]
         +-expr_list=
-        | +-key#13 :=
+        | +-key#15 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
         | |   | +-ColumnRef(type=STRUCT<key INT64, value STRING>, column=$preproject.$struct#9)
         | |   +-field_idx=0
-        | +-value#14 :=
+        | +-value#16 :=
         |   +-GetStructField
         |     +-type=STRING
         |     +-expr=
@@ -1993,15 +1994,15 @@ QueryStmt
         |     +-field_idx=1
         +-input_scan=
           +-ProjectScan
-            +-column_list=[my_table.key#3, my_table.value#4, $query.t#11, $analytic.$analytic1#12, $analytic.$analytic2#16, $preproject.$struct#9]
+            +-column_list=[my_table.key#3, my_table.value#4, $query.t#11, $analytic.$analytic1#12, $analytic.$analytic2#14, $preproject.$struct#9]
             +-expr_list=
             | +-$struct#9 :=
             |   +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRUCT<key INT64, value STRING>>, INT64) -> STRUCT<key INT64, value STRING>)
-            |     +-ColumnRef(type=ARRAY<STRUCT<key INT64, value STRING>>, column=$analytic.$analytic2#16)
+            |     +-ColumnRef(type=ARRAY<STRUCT<key INT64, value STRING>>, column=$analytic.$analytic2#14)
             |     +-Literal(type=INT64, value=0)
             +-input_scan=
               +-AnalyticScan
-                +-column_list=[my_table.key#3, my_table.value#4, $query.t#11, $analytic.$analytic1#12, $analytic.$analytic2#16]
+                +-column_list=[my_table.key#3, my_table.value#4, $query.t#11, $analytic.$analytic1#12, $analytic.$analytic2#14]
                 +-input_scan=
                 | +-ProjectScan
                 |   +-column_list=[my_table.key#3, my_table.value#4, $query.t#11]
@@ -2026,7 +2027,7 @@ QueryStmt
                       |       | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
                       |       +-end_expr=
                       |         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
-                      +-$analytic2#16 :=
+                      +-$analytic2#14 :=
                         +-AnalyticFunctionCall(ZetaSQL:any_value(ARRAY<STRUCT<key INT64, value STRING>>) -> ARRAY<STRUCT<key INT64, value STRING>>)
                           +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<key INT64, value STRING>) -> ARRAY<STRUCT<key INT64, value STRING>>)
                             +-MakeStruct
@@ -2043,7 +2044,7 @@ QueryStmt
 ==
 
 # This test dot-stars into the result of analytic function, after group by.
-[language_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
+[language_features=NONE,+LIMIT_IN_AGGREGATE,+ORDER_BY_IN_AGGREGATE,+ANALYTIC_FUNCTIONS]
 WITH my_table AS (
   SELECT 1 AS primary_key, "foo" AS value
 )
@@ -2054,10 +2055,10 @@ GROUP BY t.primary_key;
 --
 QueryStmt
 +-output_column_list=
-| +-$query.primary_key#8 AS primary_key [INT64]
+| +-$query.primary_key#9 AS primary_key [INT64]
 +-query=
   +-WithScan
-    +-column_list=[$query.primary_key#8]
+    +-column_list=[$query.primary_key#9]
     +-with_entry_list=
     | +-WithEntry
     |   +-with_query_name="my_table"
@@ -2071,9 +2072,9 @@ QueryStmt
     |         +-SingleRowScan
     +-query=
       +-ProjectScan
-        +-column_list=[$query.primary_key#8]
+        +-column_list=[$query.primary_key#9]
         +-expr_list=
-        | +-primary_key#8 :=
+        | +-primary_key#9 :=
         |   +-GetStructField
         |     +-type=INT64
         |     +-expr=
@@ -2081,15 +2082,15 @@ QueryStmt
         |     +-field_idx=0
         +-input_scan=
           +-ProjectScan
-            +-column_list=[$groupby.primary_key#7, $analytic.$analytic1#9, $preproject.$struct#6]
+            +-column_list=[$groupby.primary_key#7, $analytic.$analytic1#8, $preproject.$struct#6]
             +-expr_list=
             | +-$struct#6 :=
             |   +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRUCT<primary_key INT64>>, INT64) -> STRUCT<primary_key INT64>)
-            |     +-ColumnRef(type=ARRAY<STRUCT<primary_key INT64>>, column=$analytic.$analytic1#9)
+            |     +-ColumnRef(type=ARRAY<STRUCT<primary_key INT64>>, column=$analytic.$analytic1#8)
             |     +-Literal(type=INT64, value=0)
             +-input_scan=
               +-AnalyticScan
-                +-column_list=[$groupby.primary_key#7, $analytic.$analytic1#9]
+                +-column_list=[$groupby.primary_key#7, $analytic.$analytic1#8]
                 +-input_scan=
                 | +-AggregateScan
                 |   +-column_list=[$groupby.primary_key#7]
@@ -2100,7 +2101,7 @@ QueryStmt
                 +-function_group_list=
                   +-AnalyticFunctionGroup
                     +-analytic_function_list=
-                      +-$analytic1#9 :=
+                      +-$analytic1#8 :=
                         +-AnalyticFunctionCall(ZetaSQL:any_value(ARRAY<STRUCT<primary_key INT64>>) -> ARRAY<STRUCT<primary_key INT64>>)
                           +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<primary_key INT64>) -> ARRAY<STRUCT<primary_key INT64>>)
                             +-MakeStruct
@@ -2116,7 +2117,7 @@ QueryStmt
 ==
 
 # This test dot-stars into both an aggregate function and an analytic function.
-[language_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
+[language_features=NONE,+LIMIT_IN_AGGREGATE,+ORDER_BY_IN_AGGREGATE,+ANALYTIC_FUNCTIONS]
 WITH my_table AS (
   SELECT 1 AS primary_key, "foo" AS value, true as bool_val
 )
@@ -2132,11 +2133,11 @@ QueryStmt
 | +-$query.primary_key#13 AS primary_key [INT64]
 | +-$query.value#14 AS value [STRING]
 | +-$query.bool_val#15 AS bool_val [BOOL]
-| +-$query.pk1#16 AS pk1 [INT64]
-| +-$query.pk2#17 AS pk2 [INT64]
+| +-$query.pk1#17 AS pk1 [INT64]
+| +-$query.pk2#18 AS pk2 [INT64]
 +-query=
   +-WithScan
-    +-column_list=$query.[primary_key#13, value#14, bool_val#15, pk1#16, pk2#17]
+    +-column_list=$query.[primary_key#13, value#14, bool_val#15, pk1#17, pk2#18]
     +-with_entry_list=
     | +-WithEntry
     |   +-with_query_name="my_table"
@@ -2151,15 +2152,15 @@ QueryStmt
     |         +-SingleRowScan
     +-query=
       +-ProjectScan
-        +-column_list=$query.[primary_key#13, value#14, bool_val#15, pk1#16, pk2#17]
+        +-column_list=$query.[primary_key#13, value#14, bool_val#15, pk1#17, pk2#18]
         +-expr_list=
-        | +-pk1#16 :=
+        | +-pk1#17 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
         | |   | +-ColumnRef(type=STRUCT<pk1 INT64, pk2 INT64>, column=$preproject.$struct#11)
         | |   +-field_idx=0
-        | +-pk2#17 :=
+        | +-pk2#18 :=
         |   +-GetStructField
         |     +-type=INT64
         |     +-expr=
@@ -2167,15 +2168,15 @@ QueryStmt
         |     +-field_idx=1
         +-input_scan=
           +-ProjectScan
-            +-column_list=[$aggregate.$agg1#8, $preproject.$struct#9, $groupby.primary_key#12, $query.primary_key#13, $query.value#14, $query.bool_val#15, $analytic.$analytic1#18, $preproject.$struct#11]
+            +-column_list=[$aggregate.$agg1#8, $preproject.$struct#9, $groupby.primary_key#12, $query.primary_key#13, $query.value#14, $query.bool_val#15, $analytic.$analytic1#16, $preproject.$struct#11]
             +-expr_list=
             | +-$struct#11 :=
             |   +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRUCT<pk1 INT64, pk2 INT64>>, INT64) -> STRUCT<pk1 INT64, pk2 INT64>)
-            |     +-ColumnRef(type=ARRAY<STRUCT<pk1 INT64, pk2 INT64>>, column=$analytic.$analytic1#18)
+            |     +-ColumnRef(type=ARRAY<STRUCT<pk1 INT64, pk2 INT64>>, column=$analytic.$analytic1#16)
             |     +-Literal(type=INT64, value=0)
             +-input_scan=
               +-AnalyticScan
-                +-column_list=[$aggregate.$agg1#8, $preproject.$struct#9, $groupby.primary_key#12, $query.primary_key#13, $query.value#14, $query.bool_val#15, $analytic.$analytic1#18]
+                +-column_list=[$aggregate.$agg1#8, $preproject.$struct#9, $groupby.primary_key#12, $query.primary_key#13, $query.value#14, $query.bool_val#15, $analytic.$analytic1#16]
                 +-input_scan=
                 | +-ProjectScan
                 |   +-column_list=[$aggregate.$agg1#8, $preproject.$struct#9, $groupby.primary_key#12, $query.primary_key#13, $query.value#14, $query.bool_val#15]
@@ -2225,7 +2226,7 @@ QueryStmt
                 +-function_group_list=
                   +-AnalyticFunctionGroup
                     +-analytic_function_list=
-                      +-$analytic1#18 :=
+                      +-$analytic1#16 :=
                         +-AnalyticFunctionCall(ZetaSQL:any_value(ARRAY<STRUCT<pk1 INT64, pk2 INT64>>) -> ARRAY<STRUCT<pk1 INT64, pk2 INT64>>)
                           +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<pk1 INT64, pk2 INT64>) -> ARRAY<STRUCT<pk1 INT64, pk2 INT64>>)
                             +-MakeStruct
@@ -2245,7 +2246,7 @@ QueryStmt
 
 # This test dot-stars into an analytic function that nests an aggregate
 # function.
-[language_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
+[language_features=NONE,+LIMIT_IN_AGGREGATE,+ORDER_BY_IN_AGGREGATE,+ANALYTIC_FUNCTIONS]
 WITH my_table AS (
   SELECT 1 AS primary_key, "foo" AS value,
          DATE('2016-11-09') AS modified_date
@@ -2257,12 +2258,12 @@ GROUP BY t.primary_key;
 --
 QueryStmt
 +-output_column_list=
-| +-$query.primary_key#12 AS primary_key [INT64]
-| +-$query.value#13 AS value [STRING]
-| +-$query.modified_date#14 AS modified_date [DATE]
+| +-$query.primary_key#13 AS primary_key [INT64]
+| +-$query.value#14 AS value [STRING]
+| +-$query.modified_date#15 AS modified_date [DATE]
 +-query=
   +-WithScan
-    +-column_list=$query.[primary_key#12, value#13, modified_date#14]
+    +-column_list=$query.[primary_key#13, value#14, modified_date#15]
     +-with_entry_list=
     | +-WithEntry
     |   +-with_query_name="my_table"
@@ -2279,21 +2280,21 @@ QueryStmt
     |         +-SingleRowScan
     +-query=
       +-ProjectScan
-        +-column_list=$query.[primary_key#12, value#13, modified_date#14]
+        +-column_list=$query.[primary_key#13, value#14, modified_date#15]
         +-expr_list=
-        | +-primary_key#12 :=
+        | +-primary_key#13 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
         | |   | +-ColumnRef(type=STRUCT<primary_key INT64, value STRING, modified_date DATE>, column=$preproject.$struct#10)
         | |   +-field_idx=0
-        | +-value#13 :=
+        | +-value#14 :=
         | | +-GetStructField
         | |   +-type=STRING
         | |   +-expr=
         | |   | +-ColumnRef(type=STRUCT<primary_key INT64, value STRING, modified_date DATE>, column=$preproject.$struct#10)
         | |   +-field_idx=1
-        | +-modified_date#14 :=
+        | +-modified_date#15 :=
         |   +-GetStructField
         |     +-type=DATE
         |     +-expr=
@@ -2301,15 +2302,15 @@ QueryStmt
         |     +-field_idx=2
         +-input_scan=
           +-ProjectScan
-            +-column_list=[$aggregate.$agg1#8, $analytic.$analytic1#15, $preproject.$struct#10]
+            +-column_list=[$aggregate.$agg1#8, $analytic.$analytic1#12, $preproject.$struct#10]
             +-expr_list=
             | +-$struct#10 :=
             |   +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRUCT<primary_key INT64, value STRING, modified_date DATE>>, INT64) -> STRUCT<primary_key INT64, value STRING, modified_date DATE>)
-            |     +-ColumnRef(type=ARRAY<STRUCT<primary_key INT64, value STRING, modified_date DATE>>, column=$analytic.$analytic1#15)
+            |     +-ColumnRef(type=ARRAY<STRUCT<primary_key INT64, value STRING, modified_date DATE>>, column=$analytic.$analytic1#12)
             |     +-Literal(type=INT64, value=0)
             +-input_scan=
               +-AnalyticScan
-                +-column_list=[$aggregate.$agg1#8, $analytic.$analytic1#15]
+                +-column_list=[$aggregate.$agg1#8, $analytic.$analytic1#12]
                 +-input_scan=
                 | +-AggregateScan
                 |   +-column_list=[$aggregate.$agg1#8]
@@ -2329,7 +2330,7 @@ QueryStmt
                 +-function_group_list=
                   +-AnalyticFunctionGroup
                     +-analytic_function_list=
-                      +-$analytic1#15 :=
+                      +-$analytic1#12 :=
                         +-AnalyticFunctionCall(ZetaSQL:any_value(ARRAY<STRUCT<primary_key INT64, value STRING, modified_date DATE>>) -> ARRAY<STRUCT<primary_key INT64, value STRING, modified_date DATE>>)
                           +-ColumnRef(type=ARRAY<STRUCT<primary_key INT64, value STRING, modified_date DATE>>, column=$aggregate.$agg1#8)
                           +-window_frame=
@@ -2342,7 +2343,7 @@ QueryStmt
 
 # Similar to the previous, but also references grouping columns within
 # the nested expressions.
-[language_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
+[language_features=NONE,+LIMIT_IN_AGGREGATE,+ORDER_BY_IN_AGGREGATE,+ANALYTIC_FUNCTIONS]
 WITH my_table AS (
   SELECT 1 AS primary_key, "foo" AS value,
          DATE('2016-11-09') AS modified_date UNION ALL
@@ -2358,11 +2359,11 @@ GROUP BY t.primary_key;
 --
 QueryStmt
 +-output_column_list=
-| +-$query.any_val#21 AS any_val [STRUCT<primary_key INT64, ARRAY<STRUCT<primary_key INT64, value STRING, modified_date DATE>>>]
-| +-$query.primary_key#22 AS primary_key [INT64]
+| +-$query.any_val#22 AS any_val [STRUCT<primary_key INT64, ARRAY<STRUCT<primary_key INT64, value STRING, modified_date DATE>>>]
+| +-$query.primary_key#23 AS primary_key [INT64]
 +-query=
   +-WithScan
-    +-column_list=$query.[any_val#21, primary_key#22]
+    +-column_list=$query.[any_val#22, primary_key#23]
     +-with_entry_list=
     | +-WithEntry
     |   +-with_query_name="my_table"
@@ -2412,15 +2413,15 @@ QueryStmt
     |           +-output_column_list=$union_all3.[$col1#7, $col2#8, $col3#9]
     +-query=
       +-ProjectScan
-        +-column_list=$query.[any_val#21, primary_key#22]
+        +-column_list=$query.[any_val#22, primary_key#23]
         +-expr_list=
-        | +-any_val#21 :=
+        | +-any_val#22 :=
         | | +-GetStructField
         | |   +-type=STRUCT<primary_key INT64, ARRAY<STRUCT<primary_key INT64, value STRING, modified_date DATE>>>
         | |   +-expr=
         | |   | +-ColumnRef(type=STRUCT<any_val STRUCT<primary_key INT64, ARRAY<STRUCT<primary_key INT64, value STRING, modified_date DATE>>>, primary_key INT64>, column=$preproject.$struct#19)
         | |   +-field_idx=0
-        | +-primary_key#22 :=
+        | +-primary_key#23 :=
         |   +-GetStructField
         |     +-type=INT64
         |     +-expr=
@@ -2428,7 +2429,7 @@ QueryStmt
         |     +-field_idx=1
         +-input_scan=
           +-ProjectScan
-            +-column_list=[$groupby.primary_key#20, $aggregate.$agg1#17, $analytic.$analytic1#23, $preproject.$struct#19]
+            +-column_list=[$groupby.primary_key#20, $aggregate.$agg1#17, $analytic.$analytic1#21, $preproject.$struct#19]
             +-expr_list=
             | +-$struct#19 :=
             |   +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRUCT<any_val STRUCT<primary_key INT64, ARRAY<STRUCT<primary_key INT64, value STRING, modified_date DATE>>>, primary_key INT64>>, INT64) -> STRUCT<any_val STRUCT<primary_key INT64, ARRAY<STRUCT<primary_key INT64, value STRING, modified_date DATE>>>, primary_key INT64>)
@@ -2436,12 +2437,12 @@ QueryStmt
             |     | +-MakeStruct
             |     |   +-type=STRUCT<any_val STRUCT<primary_key INT64, ARRAY<STRUCT<primary_key INT64, value STRING, modified_date DATE>>>, primary_key INT64>
             |     |   +-field_list=
-            |     |     +-ColumnRef(type=STRUCT<primary_key INT64, ARRAY<STRUCT<primary_key INT64, value STRING, modified_date DATE>>>, column=$analytic.$analytic1#23)
+            |     |     +-ColumnRef(type=STRUCT<primary_key INT64, ARRAY<STRUCT<primary_key INT64, value STRING, modified_date DATE>>>, column=$analytic.$analytic1#21)
             |     |     +-ColumnRef(type=INT64, column=$groupby.primary_key#20)
             |     +-Literal(type=INT64, value=0)
             +-input_scan=
               +-AnalyticScan
-                +-column_list=[$groupby.primary_key#20, $aggregate.$agg1#17, $analytic.$analytic1#23]
+                +-column_list=[$groupby.primary_key#20, $aggregate.$agg1#17, $analytic.$analytic1#21]
                 +-input_scan=
                 | +-AggregateScan
                 |   +-column_list=[$groupby.primary_key#20, $aggregate.$agg1#17]
@@ -2461,7 +2462,7 @@ QueryStmt
                 +-function_group_list=
                   +-AnalyticFunctionGroup
                     +-analytic_function_list=
-                      +-$analytic1#23 :=
+                      +-$analytic1#21 :=
                         +-AnalyticFunctionCall(ZetaSQL:any_value(STRUCT<primary_key INT64, ARRAY<STRUCT<primary_key INT64, value STRING, modified_date DATE>>>) -> STRUCT<primary_key INT64, ARRAY<STRUCT<primary_key INT64, value STRING, modified_date DATE>>>)
                           +-MakeStruct
                             +-type=STRUCT<primary_key INT64, ARRAY<STRUCT<primary_key INT64, value STRING, modified_date DATE>>>
@@ -2479,7 +2480,7 @@ QueryStmt
 # This test has an aggregate function in the HAVING reference a column
 # resulting from dot-star expansion.
 # an analytic function.
-[language_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
+[language_features=NONE,+LIMIT_IN_AGGREGATE,+ORDER_BY_IN_AGGREGATE,+ANALYTIC_FUNCTIONS]
 SELECT t.*
 FROM (SELECT 1 AS key, "a" AS value) AS t
 GROUP BY key, value
@@ -2522,7 +2523,7 @@ QueryStmt
 # This test has an analytic function in the ORDER BY reference a column
 # resulting from dot-star expansion.
 # an analytic function.
-[language_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
+[language_features=NONE,+LIMIT_IN_AGGREGATE,+ORDER_BY_IN_AGGREGATE,+ANALYTIC_FUNCTIONS]
 SELECT t.*
 FROM (SELECT 1 AS key, "a" AS value) AS t
 ORDER BY sum(key) over ();
@@ -2567,7 +2568,7 @@ QueryStmt
 # Similar to the previous, but having an analytic function in the ORDER BY
 # reference a column resulting from dot-star expansion after aggregation.
 # an analytic function.
-[language_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS]
+[language_features=NONE,+LIMIT_IN_AGGREGATE,+ORDER_BY_IN_AGGREGATE,+ANALYTIC_FUNCTIONS]
 SELECT [struct(t.value, sum(t.key) as k)][OFFSET(0)].*
 FROM (SELECT 1 AS key, "a" AS value) AS t
 GROUP BY t.value
@@ -2649,7 +2650,7 @@ QueryStmt
 ==
 
 # Test case from b/64682136
-[language_features=ORDER_BY_IN_AGGREGATE]
+[language_features=NONE,+ORDER_BY_IN_AGGREGATE]
 WITH Perf_Accounts_D AS (
   SELECT 1 as customer_id, 2 as service_channel, 3 as division_id,
          4 as sub_pod_id, 5 as division_name, 6 as sub_pod_name, 7 as region,
@@ -2778,7 +2779,7 @@ QueryStmt
 ==
 
 # Test case from b/69311615.
-[language_features=LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE,ANALYTIC_FUNCTIONS,CIVIL_TIME]
+[language_features=NONE,+LIMIT_IN_AGGREGATE,+ORDER_BY_IN_AGGREGATE,+ANALYTIC_FUNCTIONS,+CIVIL_TIME]
 WITH Candidate_RowPartitions AS (
   SELECT b'x' as CompressedRowPartition, 'a' as ResourcePath,
   TIMESTAMP '2017-01-01' as ResourceModifiedTimestamp
@@ -2948,85 +2949,80 @@ QueryStmt
 
 # Test case from b/64271506.  This dot-stars directly into the result of
 # the aggregate function, without an intervening array element access.
-[language_features=ANALYTIC_FUNCTIONS]
+[language_features=NONE,+ANALYTIC_FUNCTIONS]
 SELECT (FIRST_VALUE(c) OVER (ORDER BY c.x)).*
 FROM (SELECT STRUCT(x,y) c
       FROM (SELECT 1 x, 2 y))
 --
 QueryStmt
 +-output_column_list=
-| +-$query.x#5 AS x [INT64]
-| +-$query.y#6 AS y [INT64]
+| +-$query.x#6 AS x [INT64]
+| +-$query.y#7 AS y [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=$query.[x#5, y#6]
+    +-column_list=$query.[x#6, y#7]
     +-expr_list=
-    | +-x#5 :=
+    | +-x#6 :=
     | | +-GetStructField
     | |   +-type=INT64
     | |   +-expr=
-    | |   | +-ColumnRef(type=STRUCT<x INT64, y INT64>, column=$analytic.$analytic1#4)
+    | |   | +-ColumnRef(type=STRUCT<x INT64, y INT64>, column=$analytic.$analytic1#5)
     | |   +-field_idx=0
-    | +-y#6 :=
+    | +-y#7 :=
     |   +-GetStructField
     |     +-type=INT64
     |     +-expr=
-    |     | +-ColumnRef(type=STRUCT<x INT64, y INT64>, column=$analytic.$analytic1#4)
+    |     | +-ColumnRef(type=STRUCT<x INT64, y INT64>, column=$analytic.$analytic1#5)
     |     +-field_idx=1
     +-input_scan=
-      +-ProjectScan
-        +-column_list=[$subquery1.c#3, $analytic.$analytic1#7, $analytic.$analytic1#4]
-        +-expr_list=
-        | +-$analytic1#4 := ColumnRef(type=STRUCT<x INT64, y INT64>, column=$analytic.$analytic1#7)
+      +-AnalyticScan
+        +-column_list=[$subquery1.c#3, $analytic.$analytic1#5]
         +-input_scan=
-          +-AnalyticScan
-            +-column_list=[$subquery1.c#3, $analytic.$analytic1#7]
-            +-input_scan=
-            | +-ProjectScan
-            |   +-column_list=[$subquery1.c#3, $orderby.x#8]
-            |   +-expr_list=
-            |   | +-x#8 :=
-            |   |   +-GetStructField
-            |   |     +-type=INT64
-            |   |     +-expr=
-            |   |     | +-ColumnRef(type=STRUCT<x INT64, y INT64>, column=$subquery1.c#3)
-            |   |     +-field_idx=0
-            |   +-input_scan=
-            |     +-ProjectScan
-            |       +-column_list=[$subquery1.c#3]
-            |       +-expr_list=
-            |       | +-c#3 :=
-            |       |   +-MakeStruct
-            |       |     +-type=STRUCT<x INT64, y INT64>
-            |       |     +-field_list=
-            |       |       +-ColumnRef(type=INT64, column=$subquery2.x#1)
-            |       |       +-ColumnRef(type=INT64, column=$subquery2.y#2)
-            |       +-input_scan=
-            |         +-ProjectScan
-            |           +-column_list=$subquery2.[x#1, y#2]
-            |           +-expr_list=
-            |           | +-x#1 := Literal(type=INT64, value=1)
-            |           | +-y#2 := Literal(type=INT64, value=2)
-            |           +-input_scan=
-            |             +-SingleRowScan
-            +-function_group_list=
-              +-AnalyticFunctionGroup
-                +-order_by=
-                | +-WindowOrdering
-                |   +-order_by_item_list=
-                |     +-OrderByItem
-                |       +-column_ref=
-                |         +-ColumnRef(type=INT64, column=$orderby.x#8)
-                +-analytic_function_list=
-                  +-$analytic1#7 :=
-                    +-AnalyticFunctionCall(ZetaSQL:first_value(STRUCT<x INT64, y INT64>) -> STRUCT<x INT64, y INT64>)
-                      +-ColumnRef(type=STRUCT<x INT64, y INT64>, column=$subquery1.c#3)
-                      +-window_frame=
-                        +-WindowFrame(frame_unit=RANGE)
-                          +-start_expr=
-                          | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
-                          +-end_expr=
-                            +-WindowFrameExpr(boundary_type=CURRENT ROW)
+        | +-ProjectScan
+        |   +-column_list=[$subquery1.c#3, $orderby.x#8]
+        |   +-expr_list=
+        |   | +-x#8 :=
+        |   |   +-GetStructField
+        |   |     +-type=INT64
+        |   |     +-expr=
+        |   |     | +-ColumnRef(type=STRUCT<x INT64, y INT64>, column=$subquery1.c#3)
+        |   |     +-field_idx=0
+        |   +-input_scan=
+        |     +-ProjectScan
+        |       +-column_list=[$subquery1.c#3]
+        |       +-expr_list=
+        |       | +-c#3 :=
+        |       |   +-MakeStruct
+        |       |     +-type=STRUCT<x INT64, y INT64>
+        |       |     +-field_list=
+        |       |       +-ColumnRef(type=INT64, column=$subquery2.x#1)
+        |       |       +-ColumnRef(type=INT64, column=$subquery2.y#2)
+        |       +-input_scan=
+        |         +-ProjectScan
+        |           +-column_list=$subquery2.[x#1, y#2]
+        |           +-expr_list=
+        |           | +-x#1 := Literal(type=INT64, value=1)
+        |           | +-y#2 := Literal(type=INT64, value=2)
+        |           +-input_scan=
+        |             +-SingleRowScan
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |         +-ColumnRef(type=INT64, column=$orderby.x#8)
+            +-analytic_function_list=
+              +-$analytic1#5 :=
+                +-AnalyticFunctionCall(ZetaSQL:first_value(STRUCT<x INT64, y INT64>) -> STRUCT<x INT64, y INT64>)
+                  +-ColumnRef(type=STRUCT<x INT64, y INT64>, column=$subquery1.c#3)
+                  +-window_frame=
+                    +-WindowFrame(frame_unit=RANGE)
+                      +-start_expr=
+                      | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                      +-end_expr=
+                        +-WindowFrameExpr(boundary_type=CURRENT ROW)
 ==
 
 # Dot-star directly on the result of an aggregate function.
@@ -3312,7 +3308,7 @@ QueryStmt
           +-ColumnRef(type=STRING, column=$groupby.c#6)
 ==
 
-[language_features=QUALIFY,ANALYTIC_FUNCTIONS]
+[language_features=NONE,+QUALIFY,+ANALYTIC_FUNCTIONS]
 SELECT
   STRUCT(x).*
 FROM
@@ -3386,3 +3382,96 @@ select TestStruct.* EXCEPT(a) from ComplexTypes;
 ERROR: SELECT * EXCEPT is not supported [at 1:8]
 select TestStruct.* EXCEPT(a) from ComplexTypes;
        ^
+==
+
+# Grouping expression matching on the dot-star source
+[language_features=NONE,+GROUP_BY_STRUCT]
+SELECT CAST(s AS STRUCT<x INT32, y INT32>).*
+FROM (SELECT STRUCT(1 AS a, 2 AS b) AS s)
+GROUP BY {{s|CAST(s AS STRUCT<x INT32, y INT32>)}}
+{{|HAVING x > 1}}
+--
+
+ERROR: Star expansion expression references column x which is neither grouped nor aggregated [at 1:8]
+SELECT CAST(s AS STRUCT<x INT32, y INT32>).*
+       ^
+==
+
+select TestProto.*
+from ComplexTypes
+GROUP BY TestProto
+{{|HAVING TestProto.int32_val > 1}}
+--
+
+ERROR: Grouping by expressions of type PROTO is not allowed [at 3:10]
+GROUP BY TestProto
+         ^
+==
+
+[language_features=NONE,+SQL_GRAPH]
+SELECT * FROM GRAPH_TABLE(
+  aml
+  MATCH (n)
+  RETURN n.* GROUP BY n
+);
+--
+ERROR: Syntax error: Unexpected "*" [at 4:12]
+  RETURN n.* GROUP BY n
+           ^
+==
+
+# Regression test for b/440108949
+[language_features=MAXIMUM,+PIPES]
+WITH q AS (
+FROM (SELECT [1] AS arr) AS t1
+|> JOIN UNNEST(arr) AS a
+|> AS t2
+|> LEFT JOIN (SELECT 10 AS x) AS t3 ON true
+|> select t2.*
+)
+SELECT * FROM q;
+--
+QueryStmt
++-output_column_list=
+| +-q.arr#4 AS arr [ARRAY<INT64>]
+| +-q.a#5 AS a [INT64]
++-query=
+  +-WithScan
+    +-column_list=q.[arr#4, a#5]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="q"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-column_list=[t1.arr#1, $array.a#2]
+    |       +-input_scan=
+    |         +-JoinScan
+    |           +-column_list=[t1.arr#1, $array.a#2, t3.x#3]
+    |           +-join_type=LEFT
+    |           +-left_scan=
+    |           | +-ArrayScan
+    |           |   +-column_list=[t1.arr#1, $array.a#2]
+    |           |   +-input_scan=
+    |           |   | +-ProjectScan
+    |           |   |   +-column_list=[t1.arr#1]
+    |           |   |   +-expr_list=
+    |           |   |   | +-arr#1 := Literal(type=ARRAY<INT64>, value=[1])
+    |           |   |   +-input_scan=
+    |           |   |     +-SingleRowScan
+    |           |   +-array_expr_list=
+    |           |   | +-ColumnRef(type=ARRAY<INT64>, column=t1.arr#1)
+    |           |   +-element_column_list=[$array.a#2]
+    |           +-right_scan=
+    |           | +-ProjectScan
+    |           |   +-column_list=[t3.x#3]
+    |           |   +-expr_list=
+    |           |   | +-x#3 := Literal(type=INT64, value=10)
+    |           |   +-input_scan=
+    |           |     +-SingleRowScan
+    |           +-join_expr=
+    |             +-Literal(type=BOOL, value=true)
+    +-query=
+      +-ProjectScan
+        +-column_list=q.[arr#4, a#5]
+        +-input_scan=
+          +-WithRefScan(column_list=q.[arr#4, a#5], with_query_name="q")

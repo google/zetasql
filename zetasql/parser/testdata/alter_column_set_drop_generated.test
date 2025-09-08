@@ -1,0 +1,566 @@
+ALTER TABLE foo ALTER COLUMN bar DROP GENERATED;
+--
+AlterTableStatement [0-47] [ALTER TABLE...GENERATED]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-47] [ALTER COLUMN...GENERATED]
+    AlterColumnDropGeneratedAction [16-47] [ALTER COLUMN...GENERATED]
+      Identifier(bar) [29-32] [bar]
+--
+ALTER TABLE foo ALTER COLUMN bar DROP GENERATED
+==
+
+ALTER TABLE IF EXISTS foo ALTER COLUMN bar DROP GENERATED;
+--
+AlterTableStatement(is_if_exists) [0-57] [ALTER TABLE...GENERATED]
+  PathExpression [22-25] [foo]
+    Identifier(foo) [22-25] [foo]
+  AlterActionList [26-57] [ALTER COLUMN...GENERATED]
+    AlterColumnDropGeneratedAction [26-57] [ALTER COLUMN...GENERATED]
+      Identifier(bar) [39-42] [bar]
+--
+ALTER TABLE IF EXISTS foo ALTER COLUMN bar DROP GENERATED
+==
+
+ALTER TABLE foo ALTER COLUMN IF EXISTS bar DROP GENERATED;
+--
+AlterTableStatement [0-57] [ALTER TABLE...GENERATED]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-57] [ALTER COLUMN...GENERATED]
+    AlterColumnDropGeneratedAction(is_if_exists) [16-57] [ALTER COLUMN...GENERATED]
+      Identifier(bar) [39-42] [bar]
+--
+ALTER TABLE foo ALTER COLUMN IF EXISTS bar DROP GENERATED
+==
+
+# Set generated: Identity columns
+# 1 valid combination of 0 clauses
+# 5 valid combinations of 1 clause
+# 1 valid combinations of 5 clauses
+ALTER TABLE foo
+ALTER COLUMN a SET GENERATED AS IDENTITY(),
+ALTER COLUMN b SET GENERATED AS IDENTITY(START WITH 2),
+ALTER COLUMN c SET GENERATED AS IDENTITY(INCREMENT BY -3),
+ALTER COLUMN d SET GENERATED AS IDENTITY(MAXVALUE 1000),
+ALTER COLUMN e SET GENERATED AS IDENTITY(MINVALUE 1000),
+ALTER COLUMN f SET GENERATED AS IDENTITY(CYCLE),
+ALTER COLUMN g SET GENERATED AS IDENTITY(START WITH 2 INCREMENT BY 3 MAXVALUE 1000 MINVALUE 0 CYCLE);
+--
+AlterTableStatement [0-438] [ALTER TABLE...INVALUE 0 CYCLE)]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-438] [ALTER COLUMN...NVALUE 0 CYCLE)]
+    AlterColumnSetGeneratedAction [16-58] [ALTER COLUMN...IDENTITY()]
+      Identifier(a) [29-30] [a]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [45-58] [AS IDENTITY()]
+        IdentityColumnInfo [48-58] [IDENTITY()]
+    AlterColumnSetGeneratedAction [60-114] [ALTER COLUMN...START WITH 2)]
+      Identifier(b) [73-74] [b]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [89-114] [AS IDENTITY(START WITH 2)]
+        IdentityColumnInfo [92-114] [IDENTITY(START WITH 2)]
+          IdentityColumnStartWith [101-113] [START WITH 2]
+            IntLiteral(2) [112-113] [2]
+    AlterColumnSetGeneratedAction [116-173] [ALTER COLUMN...NCREMENT BY -3)]
+      Identifier(c) [129-130] [c]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [145-173] [AS IDENTITY(INCREMENT BY -3)]
+        IdentityColumnInfo [148-173] [IDENTITY(INCREMENT BY -3)]
+          IdentityColumnIncrementBy [157-172] [INCREMENT BY -3]
+            UnaryExpression(-) [170-172] [-3]
+              IntLiteral(3) [171-172] [3]
+    AlterColumnSetGeneratedAction [175-230] [ALTER COLUMN...MAXVALUE 1000)]
+      Identifier(d) [188-189] [d]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [204-230] [AS IDENTITY(MAXVALUE 1000)]
+        IdentityColumnInfo [207-230] [IDENTITY(MAXVALUE 1000)]
+          IdentityColumnMaxValue [216-229] [MAXVALUE 1000]
+            IntLiteral(1000) [225-229] [1000]
+    AlterColumnSetGeneratedAction [232-287] [ALTER COLUMN...MINVALUE 1000)]
+      Identifier(e) [245-246] [e]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [261-287] [AS IDENTITY(MINVALUE 1000)]
+        IdentityColumnInfo [264-287] [IDENTITY(MINVALUE 1000)]
+          IdentityColumnMinValue [273-286] [MINVALUE 1000]
+            IntLiteral(1000) [282-286] [1000]
+    AlterColumnSetGeneratedAction [289-336] [ALTER COLUMN...IDENTITY(CYCLE)]
+      Identifier(f) [302-303] [f]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [318-336] [AS IDENTITY(CYCLE)]
+        IdentityColumnInfo [321-336] [IDENTITY(CYCLE)]
+    AlterColumnSetGeneratedAction [338-438] [ALTER COLUMN...NVALUE 0 CYCLE)]
+      Identifier(g) [351-352] [g]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [367-438] [AS IDENTITY...INVALUE 0 CYCLE)]
+        IdentityColumnInfo [370-438] [IDENTITY(START...ALUE 0 CYCLE)]
+          IdentityColumnStartWith [379-391] [START WITH 2]
+            IntLiteral(2) [390-391] [2]
+          IdentityColumnIncrementBy [392-406] [INCREMENT BY 3]
+            IntLiteral(3) [405-406] [3]
+          IdentityColumnMaxValue [407-420] [MAXVALUE 1000]
+            IntLiteral(1000) [416-420] [1000]
+          IdentityColumnMinValue [421-431] [MINVALUE 0]
+            IntLiteral(0) [430-431] [0]
+--
+ALTER TABLE foo ALTER COLUMN a SET GENERATED ALWAYS AS IDENTITY(), ALTER COLUMN b SET GENERATED ALWAYS AS IDENTITY(START WITH 2),
+  ALTER COLUMN c SET GENERATED ALWAYS AS IDENTITY(INCREMENT BY -3), ALTER COLUMN d SET GENERATED ALWAYS AS IDENTITY(MAXVALUE 1000),
+  ALTER COLUMN e SET GENERATED ALWAYS AS IDENTITY(MINVALUE 1000), ALTER COLUMN f SET GENERATED ALWAYS AS IDENTITY(CYCLE),
+  ALTER COLUMN g SET GENERATED ALWAYS AS IDENTITY(START WITH 2 INCREMENT BY 3 MAXVALUE 1000 MINVALUE 0 CYCLE)
+==
+
+# Set generated: Identity columns
+# 10 valid combinations of 2 clauses
+ALTER TABLE foo
+ALTER COLUMN a SET GENERATED AS IDENTITY(START WITH -1 INCREMENT BY 1.2),
+ALTER COLUMN b SET GENERATED AS IDENTITY(START WITH 1.2 MAXVALUE BIGNUMERIC "100000"),
+ALTER COLUMN c SET GENERATED AS IDENTITY(START WITH -1.3 MINVALUE -10.4),
+ALTER COLUMN d SET GENERATED AS IDENTITY(START WITH NUMERIC "1" NO CYCLE),
+ALTER COLUMN e SET GENERATED AS IDENTITY(INCREMENT BY 1.5 MAXVALUE 1.2),
+ALTER COLUMN f SET GENERATED AS IDENTITY(INCREMENT BY BIGNUMERIC "-22" MINVALUE 10),
+ALTER COLUMN g SET GENERATED AS IDENTITY(INCREMENT BY -1 CYCLE),
+ALTER COLUMN h SET GENERATED AS IDENTITY(MAXVALUE -1 MINVALUE 1.2),
+ALTER COLUMN i SET GENERATED AS IDENTITY(MAXVALUE NUMERIC "-1" NO CYCLE),
+ALTER COLUMN j SET GENERATED AS IDENTITY(MINVALUE -1 CYCLE);
+--
+AlterTableStatement [0-750] [ALTER TABLE...-1 CYCLE)]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-750] [ALTER COLUMN...-1 CYCLE)]
+    AlterColumnSetGeneratedAction [16-88] [ALTER COLUMN...CREMENT BY 1.2)]
+      Identifier(a) [29-30] [a]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [45-88] [AS IDENTITY...NCREMENT BY 1.2)]
+        IdentityColumnInfo [48-88] [IDENTITY(START...EMENT BY 1.2)]
+          IdentityColumnStartWith [57-70] [START WITH -1]
+            UnaryExpression(-) [68-70] [-1]
+              IntLiteral(1) [69-70] [1]
+          IdentityColumnIncrementBy [71-87] [INCREMENT BY 1.2]
+            FloatLiteral(1.2) [84-87] [1.2]
+    AlterColumnSetGeneratedAction [90-175] [ALTER COLUMN..."100000")]
+      Identifier(b) [103-104] [b]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [119-175] [AS IDENTITY..."100000")]
+        IdentityColumnInfo [122-175] [IDENTITY(START..."100000")]
+          IdentityColumnStartWith [131-145] [START WITH 1.2]
+            FloatLiteral(1.2) [142-145] [1.2]
+          IdentityColumnMaxValue [146-174] [MAXVALUE BIGNUMERIC "100000"]
+            BigNumericLiteral [155-174] [BIGNUMERIC "100000"]
+              StringLiteral [166-174] ["100000"]
+                StringLiteralComponent("100000") [166-174] ["100000"]
+    AlterColumnSetGeneratedAction [177-249] [ALTER COLUMN...MINVALUE -10.4)]
+      Identifier(c) [190-191] [c]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [206-249] [AS IDENTITY...MINVALUE -10.4)]
+        IdentityColumnInfo [209-249] [IDENTITY(START...NVALUE -10.4)]
+          IdentityColumnStartWith [218-233] [START WITH -1.3]
+            UnaryExpression(-) [229-233] [-1.3]
+              FloatLiteral(1.3) [230-233] [1.3]
+          IdentityColumnMinValue [234-248] [MINVALUE -10.4]
+            UnaryExpression(-) [243-248] [-10.4]
+              FloatLiteral(10.4) [244-248] [10.4]
+    AlterColumnSetGeneratedAction [251-324] [ALTER COLUMN...NO CYCLE)]
+      Identifier(d) [264-265] [d]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [280-324] [AS IDENTITY...NO CYCLE)]
+        IdentityColumnInfo [283-324] [IDENTITY(START...NO CYCLE)]
+          IdentityColumnStartWith [292-314] [START WITH NUMERIC "1"]
+            NumericLiteral [303-314] [NUMERIC "1"]
+              StringLiteral [311-314] ["1"]
+                StringLiteralComponent("1") [311-314] ["1"]
+    AlterColumnSetGeneratedAction [326-397] [ALTER COLUMN...MAXVALUE 1.2)]
+      Identifier(e) [339-340] [e]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [355-397] [AS IDENTITY...MAXVALUE 1.2)]
+        IdentityColumnInfo [358-397] [IDENTITY(INCREMEN...VALUE 1.2)]
+          IdentityColumnIncrementBy [367-383] [INCREMENT BY 1.5]
+            FloatLiteral(1.5) [380-383] [1.5]
+          IdentityColumnMaxValue [384-396] [MAXVALUE 1.2]
+            FloatLiteral(1.2) [393-396] [1.2]
+    AlterColumnSetGeneratedAction [399-482] [ALTER COLUMN...MINVALUE 10)]
+      Identifier(f) [412-413] [f]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [428-482] [AS IDENTITY...MINVALUE 10)]
+        IdentityColumnInfo [431-482] [IDENTITY(INCREMEN...NVALUE 10)]
+          IdentityColumnIncrementBy [440-469] [INCREMENT BY BIGNUMERIC "-22"]
+            BigNumericLiteral [453-469] [BIGNUMERIC "-22"]
+              StringLiteral [464-469] ["-22"]
+                StringLiteralComponent("-22") [464-469] ["-22"]
+          IdentityColumnMinValue [470-481] [MINVALUE 10]
+            IntLiteral(10) [479-481] [10]
+    AlterColumnSetGeneratedAction [484-547] [ALTER COLUMN...-1 CYCLE)]
+      Identifier(g) [497-498] [g]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [513-547] [AS IDENTITY...-1 CYCLE)]
+        IdentityColumnInfo [516-547] [IDENTITY(INCREMEN...-1 CYCLE)]
+          IdentityColumnIncrementBy [525-540] [INCREMENT BY -1]
+            UnaryExpression(-) [538-540] [-1]
+              IntLiteral(1) [539-540] [1]
+    AlterColumnSetGeneratedAction [549-615] [ALTER COLUMN...MINVALUE 1.2)]
+      Identifier(h) [562-563] [h]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [578-615] [AS IDENTITY...MINVALUE 1.2)]
+        IdentityColumnInfo [581-615] [IDENTITY(MAXVALUE...VALUE 1.2)]
+          IdentityColumnMaxValue [590-601] [MAXVALUE -1]
+            UnaryExpression(-) [599-601] [-1]
+              IntLiteral(1) [600-601] [1]
+          IdentityColumnMinValue [602-614] [MINVALUE 1.2]
+            FloatLiteral(1.2) [611-614] [1.2]
+    AlterColumnSetGeneratedAction [617-689] [ALTER COLUMN...NO CYCLE)]
+      Identifier(i) [630-631] [i]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [646-689] [AS IDENTITY...NO CYCLE)]
+        IdentityColumnInfo [649-689] [IDENTITY(MAXVALUE...NO CYCLE)]
+          IdentityColumnMaxValue [658-679] [MAXVALUE NUMERIC "-1"]
+            NumericLiteral [667-679] [NUMERIC "-1"]
+              StringLiteral [675-679] ["-1"]
+                StringLiteralComponent("-1") [675-679] ["-1"]
+    AlterColumnSetGeneratedAction [691-750] [ALTER COLUMN...-1 CYCLE)]
+      Identifier(j) [704-705] [j]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [720-750] [AS IDENTITY(MINVALUE -1 CYCLE)]
+        IdentityColumnInfo [723-750] [IDENTITY(MINVALUE -1 CYCLE)]
+          IdentityColumnMinValue [732-743] [MINVALUE -1]
+            UnaryExpression(-) [741-743] [-1]
+              IntLiteral(1) [742-743] [1]
+--
+ALTER TABLE foo ALTER COLUMN a SET GENERATED ALWAYS AS IDENTITY(START WITH -1 INCREMENT BY 1.2), ALTER COLUMN b SET GENERATED ALWAYS AS IDENTITY(START WITH 1.2 MAXVALUE BIGNUMERIC "100000"),
+  ALTER COLUMN c SET GENERATED ALWAYS AS IDENTITY(START WITH -1.3 MINVALUE -10.4), ALTER COLUMN d SET GENERATED ALWAYS AS IDENTITY(START WITH NUMERIC "1"),
+  ALTER COLUMN e SET GENERATED ALWAYS AS IDENTITY(INCREMENT BY 1.5 MAXVALUE 1.2), ALTER COLUMN f SET GENERATED ALWAYS AS IDENTITY(INCREMENT BY BIGNUMERIC "-22" MINVALUE 10),
+  ALTER COLUMN g SET GENERATED ALWAYS AS IDENTITY(INCREMENT BY -1 CYCLE), ALTER COLUMN h SET GENERATED ALWAYS AS IDENTITY(MAXVALUE -
+  1 MINVALUE 1.2), ALTER COLUMN i SET GENERATED ALWAYS AS IDENTITY(MAXVALUE NUMERIC "-1"), ALTER COLUMN j SET GENERATED ALWAYS AS IDENTITY(MINVALUE -
+  1 CYCLE)
+==
+
+# Set generated: Identity columns
+# 10 valid combinations of 3 clauses
+ALTER TABLE foo
+ALTER COLUMN a SET GENERATED AS IDENTITY(START WITH -1 INCREMENT BY 1.2 MAXVALUE 3),
+ALTER COLUMN b SET GENERATED AS IDENTITY(START WITH 1.2 INCREMENT BY 2 MAXVALUE BIGNUMERIC "100000"),
+ALTER COLUMN c SET GENERATED AS IDENTITY(START WITH -1.3 INCREMENT BY 2 CYCLE),
+ALTER COLUMN d SET GENERATED AS IDENTITY(START WITH NUMERIC "1" MAXVALUE 1000 MINVALUE 0),
+ALTER COLUMN e SET GENERATED AS IDENTITY(START WITH BIGNUMERIC "1" MAXVALUE 1000 CYCLE),
+ALTER COLUMN f SET GENERATED AS IDENTITY(START WITH 2.2 MINVALUE 1000 CYCLE),
+ALTER COLUMN g SET GENERATED AS IDENTITY(INCREMENT BY -1 MAXVALUE 1 MINVALUE -1),
+ALTER COLUMN h SET GENERATED AS IDENTITY(INCREMENT BY -1 MAXVALUE 1 CYCLE),
+ALTER COLUMN i SET GENERATED AS IDENTITY(INCREMENT BY -1 MINVALUE 1 NO CYCLE),
+ALTER COLUMN j SET GENERATED AS IDENTITY(MAXVALUE 1 MINVALUE -1 CYCLE);
+--
+AlterTableStatement [0-848] [ALTER TABLE...-1 CYCLE)]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-848] [ALTER COLUMN...-1 CYCLE)]
+    AlterColumnSetGeneratedAction [16-99] [ALTER COLUMN...MAXVALUE 3)]
+      Identifier(a) [29-30] [a]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [45-99] [AS IDENTITY...MAXVALUE 3)]
+        IdentityColumnInfo [48-99] [IDENTITY(START...MAXVALUE 3)]
+          IdentityColumnStartWith [57-70] [START WITH -1]
+            UnaryExpression(-) [68-70] [-1]
+              IntLiteral(1) [69-70] [1]
+          IdentityColumnIncrementBy [71-87] [INCREMENT BY 1.2]
+            FloatLiteral(1.2) [84-87] [1.2]
+          IdentityColumnMaxValue [88-98] [MAXVALUE 3]
+            IntLiteral(3) [97-98] [3]
+    AlterColumnSetGeneratedAction [101-201] [ALTER COLUMN..."100000")]
+      Identifier(b) [114-115] [b]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [130-201] [AS IDENTITY..."100000")]
+        IdentityColumnInfo [133-201] [IDENTITY(START..."100000")]
+          IdentityColumnStartWith [142-156] [START WITH 1.2]
+            FloatLiteral(1.2) [153-156] [1.2]
+          IdentityColumnIncrementBy [157-171] [INCREMENT BY 2]
+            IntLiteral(2) [170-171] [2]
+          IdentityColumnMaxValue [172-200] [MAXVALUE BIGNUMERIC "100000"]
+            BigNumericLiteral [181-200] [BIGNUMERIC "100000"]
+              StringLiteral [192-200] ["100000"]
+                StringLiteralComponent("100000") [192-200] ["100000"]
+    AlterColumnSetGeneratedAction [203-281] [ALTER COLUMN...BY 2 CYCLE)]
+      Identifier(c) [216-217] [c]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [232-281] [AS IDENTITY...BY 2 CYCLE)]
+        IdentityColumnInfo [235-281] [IDENTITY(START...BY 2 CYCLE)]
+          IdentityColumnStartWith [244-259] [START WITH -1.3]
+            UnaryExpression(-) [255-259] [-1.3]
+              FloatLiteral(1.3) [256-259] [1.3]
+          IdentityColumnIncrementBy [260-274] [INCREMENT BY 2]
+            IntLiteral(2) [273-274] [2]
+    AlterColumnSetGeneratedAction [283-372] [ALTER COLUMN...MINVALUE 0)]
+      Identifier(d) [296-297] [d]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [312-372] [AS IDENTITY...MINVALUE 0)]
+        IdentityColumnInfo [315-372] [IDENTITY(START...MINVALUE 0)]
+          IdentityColumnStartWith [324-346] [START WITH NUMERIC "1"]
+            NumericLiteral [335-346] [NUMERIC "1"]
+              StringLiteral [343-346] ["1"]
+                StringLiteralComponent("1") [343-346] ["1"]
+          IdentityColumnMaxValue [347-360] [MAXVALUE 1000]
+            IntLiteral(1000) [356-360] [1000]
+          IdentityColumnMinValue [361-371] [MINVALUE 0]
+            IntLiteral(0) [370-371] [0]
+    AlterColumnSetGeneratedAction [374-461] [ALTER COLUMN...1000 CYCLE)]
+      Identifier(e) [387-388] [e]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [403-461] [AS IDENTITY...1000 CYCLE)]
+        IdentityColumnInfo [406-461] [IDENTITY(START...1000 CYCLE)]
+          IdentityColumnStartWith [415-440] [START WITH BIGNUMERIC "1"]
+            BigNumericLiteral [426-440] [BIGNUMERIC "1"]
+              StringLiteral [437-440] ["1"]
+                StringLiteralComponent("1") [437-440] ["1"]
+          IdentityColumnMaxValue [441-454] [MAXVALUE 1000]
+            IntLiteral(1000) [450-454] [1000]
+    AlterColumnSetGeneratedAction [463-539] [ALTER COLUMN...1000 CYCLE)]
+      Identifier(f) [476-477] [f]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [492-539] [AS IDENTITY...1000 CYCLE)]
+        IdentityColumnInfo [495-539] [IDENTITY(START...1000 CYCLE)]
+          IdentityColumnStartWith [504-518] [START WITH 2.2]
+            FloatLiteral(2.2) [515-518] [2.2]
+          IdentityColumnMinValue [519-532] [MINVALUE 1000]
+            IntLiteral(1000) [528-532] [1000]
+    AlterColumnSetGeneratedAction [541-621] [ALTER COLUMN...MINVALUE -1)]
+      Identifier(g) [554-555] [g]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [570-621] [AS IDENTITY...MINVALUE -1)]
+        IdentityColumnInfo [573-621] [IDENTITY(INCREMEN...NVALUE -1)]
+          IdentityColumnIncrementBy [582-597] [INCREMENT BY -1]
+            UnaryExpression(-) [595-597] [-1]
+              IntLiteral(1) [596-597] [1]
+          IdentityColumnMaxValue [598-608] [MAXVALUE 1]
+            IntLiteral(1) [607-608] [1]
+          IdentityColumnMinValue [609-620] [MINVALUE -1]
+            UnaryExpression(-) [618-620] [-1]
+              IntLiteral(1) [619-620] [1]
+    AlterColumnSetGeneratedAction [623-697] [ALTER COLUMN...XVALUE 1 CYCLE)]
+      Identifier(h) [636-637] [h]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [652-697] [AS IDENTITY...AXVALUE 1 CYCLE)]
+        IdentityColumnInfo [655-697] [IDENTITY(INCREMEN...E 1 CYCLE)]
+          IdentityColumnIncrementBy [664-679] [INCREMENT BY -1]
+            UnaryExpression(-) [677-679] [-1]
+              IntLiteral(1) [678-679] [1]
+          IdentityColumnMaxValue [680-690] [MAXVALUE 1]
+            IntLiteral(1) [689-690] [1]
+    AlterColumnSetGeneratedAction [699-776] [ALTER COLUMN...NO CYCLE)]
+      Identifier(i) [712-713] [i]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [728-776] [AS IDENTITY...NO CYCLE)]
+        IdentityColumnInfo [731-776] [IDENTITY(INCREMEN...NO CYCLE)]
+          IdentityColumnIncrementBy [740-755] [INCREMENT BY -1]
+            UnaryExpression(-) [753-755] [-1]
+              IntLiteral(1) [754-755] [1]
+          IdentityColumnMinValue [756-766] [MINVALUE 1]
+            IntLiteral(1) [765-766] [1]
+    AlterColumnSetGeneratedAction [778-848] [ALTER COLUMN...-1 CYCLE)]
+      Identifier(j) [791-792] [j]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [807-848] [AS IDENTITY...-1 CYCLE)]
+        IdentityColumnInfo [810-848] [IDENTITY(MAXVALUE...-1 CYCLE)]
+          IdentityColumnMaxValue [819-829] [MAXVALUE 1]
+            IntLiteral(1) [828-829] [1]
+          IdentityColumnMinValue [830-841] [MINVALUE -1]
+            UnaryExpression(-) [839-841] [-1]
+              IntLiteral(1) [840-841] [1]
+--
+ALTER TABLE foo ALTER COLUMN a SET GENERATED ALWAYS AS IDENTITY(START WITH -1 INCREMENT BY 1.2 MAXVALUE 3),
+  ALTER COLUMN b SET GENERATED ALWAYS AS IDENTITY(START WITH 1.2 INCREMENT BY 2 MAXVALUE BIGNUMERIC "100000"),
+  ALTER COLUMN c SET GENERATED ALWAYS AS IDENTITY(START WITH -1.3 INCREMENT BY 2 CYCLE), ALTER COLUMN d SET GENERATED ALWAYS AS IDENTITY(START WITH NUMERIC "1" MAXVALUE 1000 MINVALUE 0),
+  ALTER COLUMN e SET GENERATED ALWAYS AS IDENTITY(START WITH BIGNUMERIC "1" MAXVALUE 1000 CYCLE), ALTER COLUMN f SET GENERATED ALWAYS AS IDENTITY(START WITH 2.2 MINVALUE 1000 CYCLE),
+  ALTER COLUMN g SET GENERATED ALWAYS AS IDENTITY(INCREMENT BY -1 MAXVALUE 1 MINVALUE -1), ALTER COLUMN h SET GENERATED ALWAYS AS IDENTITY(INCREMENT BY -
+  1 MAXVALUE 1 CYCLE), ALTER COLUMN i SET GENERATED ALWAYS AS IDENTITY(INCREMENT BY -1 MINVALUE 1), ALTER COLUMN j SET GENERATED ALWAYS AS IDENTITY(MAXVALUE 1 MINVALUE -
+  1 CYCLE)
+==
+
+# Set generated: Identity columns
+# 5 valid combinations of 4 clauses
+ALTER TABLE foo
+ALTER COLUMN a SET GENERATED AS IDENTITY(START WITH -1 INCREMENT BY 1.2 MAXVALUE 3 MINVALUE -1000),
+ALTER COLUMN b SET GENERATED AS IDENTITY(START WITH -1 INCREMENT BY 1.2 MAXVALUE 3 CYCLE),
+ALTER COLUMN c SET GENERATED AS IDENTITY(START WITH -1 INCREMENT BY 1.2 MINVALUE -1000 CYCLE),
+ALTER COLUMN d SET GENERATED AS IDENTITY(START WITH -1 MAXVALUE 3 MINVALUE -1000 NO CYCLE),
+ALTER COLUMN e SET GENERATED AS IDENTITY(INCREMENT BY 1.2 MAXVALUE 3 MINVALUE -1000 CYCLE);
+--
+AlterTableStatement [0-484] [ALTER TABLE...1000 CYCLE)]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-484] [ALTER COLUMN...1000 CYCLE)]
+    AlterColumnSetGeneratedAction [16-114] [ALTER COLUMN...MINVALUE -1000)]
+      Identifier(a) [29-30] [a]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [45-114] [AS IDENTITY...MINVALUE -1000)]
+        IdentityColumnInfo [48-114] [IDENTITY(START...NVALUE -1000)]
+          IdentityColumnStartWith [57-70] [START WITH -1]
+            UnaryExpression(-) [68-70] [-1]
+              IntLiteral(1) [69-70] [1]
+          IdentityColumnIncrementBy [71-87] [INCREMENT BY 1.2]
+            FloatLiteral(1.2) [84-87] [1.2]
+          IdentityColumnMaxValue [88-98] [MAXVALUE 3]
+            IntLiteral(3) [97-98] [3]
+          IdentityColumnMinValue [99-113] [MINVALUE -1000]
+            UnaryExpression(-) [108-113] [-1000]
+              IntLiteral(1000) [109-113] [1000]
+    AlterColumnSetGeneratedAction [116-205] [ALTER COLUMN...XVALUE 3 CYCLE)]
+      Identifier(b) [129-130] [b]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [145-205] [AS IDENTITY...AXVALUE 3 CYCLE)]
+        IdentityColumnInfo [148-205] [IDENTITY(START...ALUE 3 CYCLE)]
+          IdentityColumnStartWith [157-170] [START WITH -1]
+            UnaryExpression(-) [168-170] [-1]
+              IntLiteral(1) [169-170] [1]
+          IdentityColumnIncrementBy [171-187] [INCREMENT BY 1.2]
+            FloatLiteral(1.2) [184-187] [1.2]
+          IdentityColumnMaxValue [188-198] [MAXVALUE 3]
+            IntLiteral(3) [197-198] [3]
+    AlterColumnSetGeneratedAction [207-300] [ALTER COLUMN...1000 CYCLE)]
+      Identifier(c) [220-221] [c]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [236-300] [AS IDENTITY...1000 CYCLE)]
+        IdentityColumnInfo [239-300] [IDENTITY(START...1000 CYCLE)]
+          IdentityColumnStartWith [248-261] [START WITH -1]
+            UnaryExpression(-) [259-261] [-1]
+              IntLiteral(1) [260-261] [1]
+          IdentityColumnIncrementBy [262-278] [INCREMENT BY 1.2]
+            FloatLiteral(1.2) [275-278] [1.2]
+          IdentityColumnMinValue [279-293] [MINVALUE -1000]
+            UnaryExpression(-) [288-293] [-1000]
+              IntLiteral(1000) [289-293] [1000]
+    AlterColumnSetGeneratedAction [302-392] [ALTER COLUMN...NO CYCLE)]
+      Identifier(d) [315-316] [d]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [331-392] [AS IDENTITY...NO CYCLE)]
+        IdentityColumnInfo [334-392] [IDENTITY(START...NO CYCLE)]
+          IdentityColumnStartWith [343-356] [START WITH -1]
+            UnaryExpression(-) [354-356] [-1]
+              IntLiteral(1) [355-356] [1]
+          IdentityColumnMaxValue [357-367] [MAXVALUE 3]
+            IntLiteral(3) [366-367] [3]
+          IdentityColumnMinValue [368-382] [MINVALUE -1000]
+            UnaryExpression(-) [377-382] [-1000]
+              IntLiteral(1000) [378-382] [1000]
+    AlterColumnSetGeneratedAction [394-484] [ALTER COLUMN...1000 CYCLE)]
+      Identifier(e) [407-408] [e]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [423-484] [AS IDENTITY...1000 CYCLE)]
+        IdentityColumnInfo [426-484] [IDENTITY(INCREMEN...000 CYCLE)]
+          IdentityColumnIncrementBy [435-451] [INCREMENT BY 1.2]
+            FloatLiteral(1.2) [448-451] [1.2]
+          IdentityColumnMaxValue [452-462] [MAXVALUE 3]
+            IntLiteral(3) [461-462] [3]
+          IdentityColumnMinValue [463-477] [MINVALUE -1000]
+            UnaryExpression(-) [472-477] [-1000]
+              IntLiteral(1000) [473-477] [1000]
+--
+ALTER TABLE foo ALTER COLUMN a SET GENERATED ALWAYS AS IDENTITY(START WITH -1 INCREMENT BY 1.2 MAXVALUE 3 MINVALUE -
+  1000), ALTER COLUMN b SET GENERATED ALWAYS AS IDENTITY(START WITH -1 INCREMENT BY 1.2 MAXVALUE 3 CYCLE),
+  ALTER COLUMN c SET GENERATED ALWAYS AS IDENTITY(START WITH -1 INCREMENT BY 1.2 MINVALUE -1000 CYCLE),
+  ALTER COLUMN d SET GENERATED ALWAYS AS IDENTITY(START WITH -1 MAXVALUE 3 MINVALUE -1000), ALTER COLUMN e SET GENERATED ALWAYS AS IDENTITY(INCREMENT BY 1.2 MAXVALUE 3 MINVALUE -
+  1000 CYCLE)
+==
+
+# Set generated: Identity columns with valid numerical types
+ALTER TABLE foo
+ALTER COLUMN a
+SET GENERATED AS IDENTITY(START WITH -2 INCREMENT BY 1.2 MAXVALUE NUMERIC "100.1" MINVALUE BIGNUMERIC "-1000");
+--
+AlterTableStatement [0-141] [ALTER TABLE...NUMERIC "-1000")]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-141] [ALTER COLUMN...UMERIC "-1000")]
+    AlterColumnSetGeneratedAction [16-141] [ALTER COLUMN...UMERIC "-1000")]
+      Identifier(a) [29-30] [a]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [45-141] [AS IDENTITY...NUMERIC "-1000")]
+        IdentityColumnInfo [48-141] [IDENTITY(START...ERIC "-1000")]
+          IdentityColumnStartWith [57-70] [START WITH -2]
+            UnaryExpression(-) [68-70] [-2]
+              IntLiteral(2) [69-70] [2]
+          IdentityColumnIncrementBy [71-87] [INCREMENT BY 1.2]
+            FloatLiteral(1.2) [84-87] [1.2]
+          IdentityColumnMaxValue [88-112] [MAXVALUE NUMERIC "100.1"]
+            NumericLiteral [97-112] [NUMERIC "100.1"]
+              StringLiteral [105-112] ["100.1"]
+                StringLiteralComponent("100.1") [105-112] ["100.1"]
+          IdentityColumnMinValue [113-140] [MINVALUE BIGNUMERIC "-1000"]
+            BigNumericLiteral [122-140] [BIGNUMERIC "-1000"]
+              StringLiteral [133-140] ["-1000"]
+                StringLiteralComponent("-1000") [133-140] ["-1000"]
+--
+ALTER TABLE foo ALTER COLUMN a SET GENERATED ALWAYS AS IDENTITY(START WITH -2 INCREMENT BY 1.2 MAXVALUE NUMERIC "100.1" MINVALUE BIGNUMERIC "-1000")
+==
+
+# Set generated: Identity columns GENERATED ALWAYS / BY DEFAULT
+ALTER TABLE foo
+ALTER COLUMN a SET GENERATED ALWAYS AS IDENTITY(START WITH 1),
+ALTER COLUMN b SET GENERATED BY DEFAULT AS IDENTITY(START WITH 2);
+--
+AlterTableStatement [0-144] [ALTER TABLE...START WITH 2)]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-144] [ALTER COLUMN...START WITH 2)]
+    AlterColumnSetGeneratedAction [16-77] [ALTER COLUMN...START WITH 1)]
+      Identifier(a) [29-30] [a]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [45-77] [ALWAYS AS...START WITH 1)]
+        IdentityColumnInfo [55-77] [IDENTITY(START WITH 1)]
+          IdentityColumnStartWith [64-76] [START WITH 1]
+            IntLiteral(1) [75-76] [1]
+    AlterColumnSetGeneratedAction [79-144] [ALTER COLUMN...START WITH 2)]
+      Identifier(b) [92-93] [b]
+      GeneratedColumnInfo(generated_mode=BY_DEFAULT) [108-144] [BY DEFAULT...START WITH 2)]
+        IdentityColumnInfo [122-144] [IDENTITY(START WITH 2)]
+          IdentityColumnStartWith [131-143] [START WITH 2]
+            IntLiteral(2) [142-143] [2]
+--
+ALTER TABLE foo ALTER COLUMN a SET GENERATED ALWAYS AS IDENTITY(START WITH 1), ALTER COLUMN b SET GENERATED BY DEFAULT AS IDENTITY(START WITH 2)
+==
+
+# Set generated: Identity columns with IF EXISTS table
+ALTER TABLE IF EXISTS foo
+ALTER COLUMN a SET GENERATED AS IDENTITY();
+--
+AlterTableStatement(is_if_exists) [0-68] [ALTER TABLE...IDENTITY()]
+  PathExpression [22-25] [foo]
+    Identifier(foo) [22-25] [foo]
+  AlterActionList [26-68] [ALTER COLUMN...IDENTITY()]
+    AlterColumnSetGeneratedAction [26-68] [ALTER COLUMN...IDENTITY()]
+      Identifier(a) [39-40] [a]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [55-68] [AS IDENTITY()]
+        IdentityColumnInfo [58-68] [IDENTITY()]
+--
+ALTER TABLE IF EXISTS foo ALTER COLUMN a SET GENERATED ALWAYS AS IDENTITY()
+==
+
+# Set generated: Identity columns with IF EXISTS column
+ALTER TABLE foo
+ALTER COLUMN IF EXISTS a SET GENERATED AS IDENTITY();
+--
+AlterTableStatement [0-68] [ALTER TABLE...IDENTITY()]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-68] [ALTER COLUMN...IDENTITY()]
+    AlterColumnSetGeneratedAction(is_if_exists) [16-68] [ALTER COLUMN...IDENTITY()]
+      Identifier(a) [39-40] [a]
+      GeneratedColumnInfo(generated_mode=ALWAYS) [55-68] [AS IDENTITY()]
+        IdentityColumnInfo [58-68] [IDENTITY()]
+--
+ALTER TABLE foo ALTER COLUMN IF EXISTS a SET GENERATED ALWAYS AS IDENTITY()
+==
+
+# Set generated: Identity columns fails with repeated attribute
+ALTER TABLE foo
+ALTER COLUMN a SET GENERATED AS IDENTITY(START WITH 2 START WITH 4);
+--
+ERROR: Syntax error: Expected ")" but got keyword START [at 2:55]
+ALTER COLUMN a SET GENERATED AS IDENTITY(START WITH 2 START WITH 4);
+                                                      ^
+==
+
+# Set generated: Identity columns fails with out of order attributes
+ALTER TABLE foo
+ALTER COLUMN a SET GENERATED AS IDENTITY(CYCLE START WITH 4);
+--
+ERROR: Syntax error: Expected ")" but got keyword START [at 2:48]
+ALTER COLUMN a SET GENERATED AS IDENTITY(CYCLE START WITH 4);
+                                               ^
+==
+
+# Set generated: Identity columns fails with missing numerical literal
+ALTER TABLE foo
+ALTER COLUMN a SET GENERATED AS IDENTITY(START WITH MAXVALUE MINVALUE CYCLE);
+--
+ERROR: Syntax error: Unexpected keyword MAXVALUE [at 2:53]
+ALTER COLUMN a SET GENERATED AS IDENTITY(START WITH MAXVALUE MINVALUE CYCLE);
+                                                    ^
+==
+
+# Set generated: Identity columns fails with non-numerical literal
+ALTER TABLE foo
+ALTER COLUMN a SET GENERATED AS IDENTITY(START WITH "invalid_string_literal");
+--
+ERROR: Syntax error: Unexpected string literal "invalid_string_literal" [at 2:53]
+ALTER COLUMN a SET GENERATED AS IDENTITY(START WITH "invalid_string_literal");
+                                                    ^
+==
+
+# Set generated: Identity columns fails with specifying stored mode
+ALTER TABLE foo
+ALTER COLUMN a SET GENERATED AS IDENTITY(START WITH 2) STORED;
+--
+ERROR: Syntax error: Expected end of input but got keyword STORED [at 2:56]
+ALTER COLUMN a SET GENERATED AS IDENTITY(START WITH 2) STORED;
+                                                       ^
+==
+
+# Set generated: Generated expression not allowed (currently only set generated to an identity column is supported)
+ALTER TABLE foo ALTER COLUMN a SET GENERATED AS (CAST(1 as INT32));
+--
+ERROR: Syntax error: Expected keyword IDENTITY but got "(" [at 1:49]
+ALTER TABLE foo ALTER COLUMN a SET GENERATED AS (CAST(1 as INT32));
+                                                ^

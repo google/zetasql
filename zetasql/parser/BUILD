@@ -16,6 +16,8 @@
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("//bazel:bison.bzl", "genyacc")
 load("//bazel:flex.bzl", "genlex")
 load("//bazel:textmapper.bzl", "tm_syntax")
@@ -111,6 +113,16 @@ genrule(
     tools = [":gen_parse_tree"],
 )
 
+genrule(
+    name = "gen_parse_tree_md",
+    srcs = [
+        "parse_tree_generated.md.template",
+    ],
+    outs = ["parse_ast.md"],
+    cmd = "$(location :gen_parse_tree) --noallow_hash_prefix $(OUTS) $(SRCS)",
+    tools = [":gen_parse_tree"],
+)
+
 proto_library(
     name = "parse_tree_proto",
     srcs = ["parse_tree.proto"],
@@ -156,6 +168,7 @@ py_binary(
         "@io_abseil_py//absl:app",
         "@io_abseil_py//absl/flags",
         "@jinja//:jinja2",
+        "@markupsafe",
     ],
 )
 
@@ -250,6 +263,7 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/base:strings",
         "//zetasql/common:errors",
+        "//zetasql/common:status_payload_utils",
         "//zetasql/common:timer_util",
         "//zetasql/common:warning_sink",
         "//zetasql/parser/macros:macro_catalog",
@@ -328,6 +342,7 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/base:strings",
         "//zetasql/common:errors",
+        "//zetasql/common:status_payload_utils",
         "//zetasql/common:thread_stack",
         "//zetasql/common:timer_util",
         "//zetasql/common:utf_util",
@@ -661,10 +676,13 @@ cc_library(
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/common:errors",
+        "//zetasql/common:status_payload_utils",
         "//zetasql/common:thread_stack",
         "//zetasql/common:utf_util",
         "//zetasql/proto:internal_error_location_cc_proto",
+        "//zetasql/proto:internal_fix_suggestion_cc_proto",
         "//zetasql/public:deprecation_warning_cc_proto",
+        "//zetasql/public:error_helpers",
         "//zetasql/public:error_location_cc_proto",
         "//zetasql/public:id_string",
         "//zetasql/public:options_cc_proto",
@@ -726,8 +744,12 @@ cc_test(
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/common:status_payload_utils",
         "//zetasql/common/testing:proto_matchers",
+        "//zetasql/common/testing:status_payload_matchers",
+        "//zetasql/proto:internal_fix_suggestion_cc_proto",
+        "//zetasql/public:parse_location",
         "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:string_view",
     ],
 )
 
@@ -890,6 +912,7 @@ genlex(
 bzl_library(
     name = "builddefs_bzl",
     srcs = ["builddefs.bzl"],
+    deps = ["@rules_cc//cc:core_rules"],
 )
 
 exports_files([

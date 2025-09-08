@@ -1,7 +1,7 @@
 # This file tests the analytic support for non-aggregate analytic functions.
 
 # For RANK and DENSE_RANK, ORDER BY is required and PARTITION BY is optional.
-[default language_features=ANALYTIC_FUNCTIONS]
+[default language_features=NONE,+ANALYTIC_FUNCTIONS]
 select rank() over w1,
        dense_rank() over w1,
        rank() over w2,
@@ -823,14 +823,14 @@ QueryStmt
 ==
 
 # IGNORE NULLS are allowed.
-[language_features=ANALYTIC_FUNCTIONS{{,NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
+[language_features=NONE,+ANALYTIC_FUNCTIONS{{,+NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
 select
   first_value(uint32 ignore nulls) over (order by int32),
   last_value(uint32 ignore nulls) over (order by int32),
   nth_value(uint32, @test_param_int64 ignore nulls) over (order by int32)
 from simpletypes;
 --
-ALTERNATION GROUP: ,NULL_HANDLING_MODIFIER_IN_ANALYTIC
+ALTERNATION GROUP: ,+NULL_HANDLING_MODIFIER_IN_ANALYTIC
 --
 QueryStmt
 +-output_column_list=
@@ -910,14 +910,14 @@ ERROR: IGNORE NULLS and RESPECT NULLS in analytic functions are not supported [a
 ==
 
 # RESPECT NULLS are allowed.
-[language_features=ANALYTIC_FUNCTIONS{{,NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
+[language_features=NONE,+ANALYTIC_FUNCTIONS{{,+NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
 select
   nth_value(uint32, @test_param_int64 respect nulls) over (order by int32),
   last_value(uint32 respect nulls) over (order by int32),
   first_value(uint32 respect nulls) over (order by int32)
 from simpletypes;
 --
-ALTERNATION GROUP: ,NULL_HANDLING_MODIFIER_IN_ANALYTIC
+ALTERNATION GROUP: ,+NULL_HANDLING_MODIFIER_IN_ANALYTIC
 --
 QueryStmt
 +-output_column_list=
@@ -1020,7 +1020,7 @@ QueryStmt
 ==
 
 # Both arguments are NUMERIC.
-[language_features=ANALYTIC_FUNCTIONS{{|,NUMERIC_TYPE}}]
+[language_features=NONE,+ANALYTIC_FUNCTIONS{{|,+NUMERIC_TYPE}}]
 select percentile_cont(cast(key as numeric), numeric "0.5") over () from keyvalue;
 --
 ALTERNATION GROUP: <empty>
@@ -1029,7 +1029,7 @@ ERROR: Type not found: numeric [at 1:36]
 select percentile_cont(cast(key as numeric), numeric "0.5") over () from keyv...
                                    ^
 --
-ALTERNATION GROUP: ,NUMERIC_TYPE
+ALTERNATION GROUP: ,+NUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -1054,7 +1054,7 @@ QueryStmt
 
 # Only one argument is NUMERIC and the other is DOUBLE/INT64;
 # should not use the NUMERIC signature.
-[language_features=ANALYTIC_FUNCTIONS{{|,NUMERIC_TYPE}}]
+[language_features=NONE,+ANALYTIC_FUNCTIONS{{|,+NUMERIC_TYPE}}]
 select
   percentile_cont(cast(key as numeric), 0.5) over (),
   percentile_cont(cast(key as numeric), 1) over (),
@@ -1067,7 +1067,7 @@ ERROR: Type not found: numeric [at 2:31]
   percentile_cont(cast(key as numeric), 0.5) over (),
                               ^
 --
-ALTERNATION GROUP: ,NUMERIC_TYPE
+ALTERNATION GROUP: ,+NUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -1105,7 +1105,7 @@ QueryStmt
 ==
 
 # Both arguments are BIGNUMERIC.
-[language_features=ANALYTIC_FUNCTIONS{{|,BIGNUMERIC_TYPE}}]
+[language_features=NONE,+ANALYTIC_FUNCTIONS{{|,+BIGNUMERIC_TYPE}}]
 select percentile_cont(cast(key as bignumeric), bignumeric "0.5") over () from keyvalue;
 --
 ALTERNATION GROUP: <empty>
@@ -1114,7 +1114,7 @@ ERROR: Type not found: bignumeric [at 1:36]
 select percentile_cont(cast(key as bignumeric), bignumeric "0.5") over () fro...
                                    ^
 --
-ALTERNATION GROUP: ,BIGNUMERIC_TYPE
+ALTERNATION GROUP: ,+BIGNUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -1139,7 +1139,7 @@ QueryStmt
 
 # Only one argument is BIGNUMERIC and the other is DOUBLE/INT64;
 # should not use the BIGNUMERIC signature.
-[language_features=ANALYTIC_FUNCTIONS{{|,BIGNUMERIC_TYPE}}]
+[language_features=NONE,+ANALYTIC_FUNCTIONS{{|,+BIGNUMERIC_TYPE}}]
 select
   percentile_cont(cast(key as bignumeric), 0.5) over (),
   percentile_cont(cast(key as bignumeric), 1) over (),
@@ -1152,7 +1152,7 @@ ERROR: Type not found: bignumeric [at 2:31]
   percentile_cont(cast(key as bignumeric), 0.5) over (),
                               ^
 --
-ALTERNATION GROUP: ,BIGNUMERIC_TYPE
+ALTERNATION GROUP: ,+BIGNUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -1191,7 +1191,7 @@ QueryStmt
 
 # One argument is BIGNUMERIC and the other is NUMERIC;
 # should use the BIGNUMERIC signature.
-[language_features=ANALYTIC_FUNCTIONS,NUMERIC_TYPE,BIGNUMERIC_TYPE]
+[language_features=NONE,+ANALYTIC_FUNCTIONS,+NUMERIC_TYPE,+BIGNUMERIC_TYPE]
 select
   percentile_cont(cast(key as bignumeric), numeric "0.5") over (),
   percentile_cont(cast(key as numeric), bignumeric "0.5") over ()
@@ -1284,7 +1284,7 @@ QueryStmt
 ==
 
 # Only first argument is NUMERIC.
-[language_features=ANALYTIC_FUNCTIONS{{|,NUMERIC_TYPE}}]
+[language_features=NONE,+ANALYTIC_FUNCTIONS{{|,+NUMERIC_TYPE}}]
 select
   percentile_disc(cast(key as numeric), 0.5) over (),
   percentile_disc(cast(key as numeric), 1) over ()
@@ -1296,7 +1296,7 @@ ERROR: Type not found: numeric [at 2:31]
   percentile_disc(cast(key as numeric), 0.5) over (),
                               ^
 --
-ALTERNATION GROUP: ,NUMERIC_TYPE
+ALTERNATION GROUP: ,+NUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -1326,7 +1326,7 @@ QueryStmt
 ==
 
 # Only second argument is NUMERIC.
-[language_features=ANALYTIC_FUNCTIONS{{|,NUMERIC_TYPE}}]
+[language_features=NONE,+ANALYTIC_FUNCTIONS{{|,+NUMERIC_TYPE}}]
 select
   percentile_disc(key, NUMERIC "0.5") over (),
   percentile_disc(value, NUMERIC "0.5") over ()
@@ -1338,7 +1338,7 @@ ERROR: NUMERIC literals are not supported [at 2:24]
   percentile_disc(key, NUMERIC "0.5") over (),
                        ^
 --
-ALTERNATION GROUP: ,NUMERIC_TYPE
+ALTERNATION GROUP: ,+NUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -1366,7 +1366,7 @@ QueryStmt
 ==
 
 # Only first argument is BIGNUMERIC.
-[language_features=ANALYTIC_FUNCTIONS{{|,BIGNUMERIC_TYPE}}]
+[language_features=NONE,+ANALYTIC_FUNCTIONS{{|,+BIGNUMERIC_TYPE}}]
 select
   percentile_disc(cast(key as bignumeric), 0.5) over (),
   percentile_disc(cast(key as bignumeric), 1) over ()
@@ -1378,7 +1378,7 @@ ERROR: Type not found: bignumeric [at 2:31]
   percentile_disc(cast(key as bignumeric), 0.5) over (),
                               ^
 --
-ALTERNATION GROUP: ,BIGNUMERIC_TYPE
+ALTERNATION GROUP: ,+BIGNUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -1408,7 +1408,7 @@ QueryStmt
 ==
 
 # Only second argument is BIGNUMERIC.
-[language_features=ANALYTIC_FUNCTIONS{{|,BIGNUMERIC_TYPE}}]
+[language_features=NONE,+ANALYTIC_FUNCTIONS{{|,+BIGNUMERIC_TYPE}}]
 select
   percentile_disc(key, BIGNUMERIC "0.5") over (),
   percentile_disc(value, BIGNUMERIC "0.5") over ()
@@ -1420,7 +1420,7 @@ ERROR: BIGNUMERIC literals are not supported [at 2:24]
   percentile_disc(key, BIGNUMERIC "0.5") over (),
                        ^
 --
-ALTERNATION GROUP: ,BIGNUMERIC_TYPE
+ALTERNATION GROUP: ,+BIGNUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -1448,7 +1448,7 @@ QueryStmt
 ==
 
 # Mix of NUMERIC and BIGNUMERIC.
-[language_features=ANALYTIC_FUNCTIONS,NUMERIC_TYPE,BIGNUMERIC_TYPE]
+[language_features=NONE,+ANALYTIC_FUNCTIONS,+NUMERIC_TYPE,+BIGNUMERIC_TYPE]
 select
   percentile_disc(CAST(key AS NUMERIC), BIGNUMERIC "0.5") over (),
   percentile_disc(CAST(key AS BIGNUMERIC), NUMERIC "0.5") over ()
@@ -1572,10 +1572,10 @@ select percentile_disc(distinct key, 0) over () from keyvalue;
 ==
 
 # IGNORE NULLS and percentile=-0.0 are allowed for percentile_cont and percentile_disc.
-[language_features=ANALYTIC_FUNCTIONS{{,NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
+[language_features=NONE,+ANALYTIC_FUNCTIONS{{,+NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
 select percentile_{{cont|disc}}(key, -0.0 ignore nulls) over () from keyvalue;
 --
-ALTERNATION GROUP: ,NULL_HANDLING_MODIFIER_IN_ANALYTIC,cont
+ALTERNATION GROUP: ,+NULL_HANDLING_MODIFIER_IN_ANALYTIC,cont
 --
 QueryStmt
 +-output_column_list=
@@ -1598,7 +1598,7 @@ QueryStmt
                   +-Literal(type=DOUBLE, value=-0)
                   +-null_handling_modifier=IGNORE_NULLS
 --
-ALTERNATION GROUP: ,NULL_HANDLING_MODIFIER_IN_ANALYTIC,disc
+ALTERNATION GROUP: ,+NULL_HANDLING_MODIFIER_IN_ANALYTIC,disc
 --
 QueryStmt
 +-output_column_list=
@@ -1634,10 +1634,10 @@ select percentile_disc(key, -0.0 ignore nulls) over () from keyvalue;
 ==
 
 # RESPECT NULLS is allowed for percentile_cont.
-[language_features=ANALYTIC_FUNCTIONS{{,NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
+[language_features=NONE,+ANALYTIC_FUNCTIONS{{,+NULL_HANDLING_MODIFIER_IN_ANALYTIC|}}]
 select percentile_{{cont|disc}}(key, 1 respect nulls) over () from keyvalue;
 --
-ALTERNATION GROUP: ,NULL_HANDLING_MODIFIER_IN_ANALYTIC,cont
+ALTERNATION GROUP: ,+NULL_HANDLING_MODIFIER_IN_ANALYTIC,cont
 --
 QueryStmt
 +-output_column_list=
@@ -1660,7 +1660,7 @@ QueryStmt
                   +-Literal(type=DOUBLE, value=1)
                   +-null_handling_modifier=RESPECT_NULLS
 --
-ALTERNATION GROUP: ,NULL_HANDLING_MODIFIER_IN_ANALYTIC,disc
+ALTERNATION GROUP: ,+NULL_HANDLING_MODIFIER_IN_ANALYTIC,disc
 --
 QueryStmt
 +-output_column_list=
@@ -1744,7 +1744,7 @@ select percentile_disc(key, cast("inf" as double)) over () from keyvalue;
 ==
 
 # Second argument cannot be > 1 (NUMERIC type).
-[language_features=ANALYTIC_FUNCTIONS,NUMERIC_TYPE]
+[language_features=NONE,+ANALYTIC_FUNCTIONS,+NUMERIC_TYPE]
 select percentile_{{cont|disc}}(cast(key as numeric), numeric "1.000000001") over () from keyvalue;
 --
 ALTERNATION GROUP: cont
@@ -1762,7 +1762,7 @@ select percentile_disc(cast(key as numeric), numeric "1.000000001") over () f...
 ==
 
 # Second argument cannot be negative NUMERIC.
-[language_features=ANALYTIC_FUNCTIONS,NUMERIC_TYPE]
+[language_features=NONE,+ANALYTIC_FUNCTIONS,+NUMERIC_TYPE]
 select percentile_{{cont|disc}}(cast(key as numeric), numeric "-1e-9") over () from keyvalue;
 --
 ALTERNATION GROUP: cont
@@ -1779,7 +1779,7 @@ select percentile_disc(cast(key as numeric), numeric "-1e-9") over () from ke...
 ==
 
 # Second argument cannot be > 1 (BIGNUMERIC type).
-[language_features=ANALYTIC_FUNCTIONS,BIGNUMERIC_TYPE]
+[language_features=NONE,+ANALYTIC_FUNCTIONS,+BIGNUMERIC_TYPE]
 select
   percentile_{{cont|disc}}(cast(key as bignumeric),
                            bignumeric "1.00000000000000000000000000000000000001")
@@ -1801,7 +1801,7 @@ ERROR: Argument 2 to PERCENTILE_DISC must be between 0 and 1 [at 3:28]
 ==
 
 # Second argument cannot be negative BIGNUMERIC.
-[language_features=ANALYTIC_FUNCTIONS,BIGNUMERIC_TYPE]
+[language_features=NONE,+ANALYTIC_FUNCTIONS,+BIGNUMERIC_TYPE]
 select percentile_{{cont|disc}}(cast(key as bignumeric), bignumeric "-1e-38") over () from keyvalue;
 --
 ALTERNATION GROUP: cont
@@ -1877,7 +1877,7 @@ QueryStmt
 ==
 
 # IGNORE NULLS and RESPECT NULLS are not allowed for IS_FIRST() and IS_LAST().
-[language_features=ANALYTIC_FUNCTIONS,NULL_HANDLING_MODIFIER_IN_ANALYTIC]
+[language_features=NONE,+ANALYTIC_FUNCTIONS,+NULL_HANDLING_MODIFIER_IN_ANALYTIC]
 select {{is_first|is_last}}(2
                             respect nulls) over () from keyvalue;
 --
@@ -1895,7 +1895,7 @@ select is_last(2
 ==
 
 [enabled_ast_rewrites=DEFAULTS,+IS_FIRST_IS_LAST_FUNCTION]
-[language_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
+[language_features=NONE,+ANALYTIC_FUNCTIONS,+NULLS_FIRST_LAST_IN_ORDER_BY]
 select is_first(2) over (partition by key order by value{{| DESC}}{{| NULLS FIRST| NULLS LAST}})
 from keyvalue
 --
@@ -2390,7 +2390,7 @@ QueryStmt
 ==
 
 [enabled_ast_rewrites=DEFAULTS,+IS_FIRST_IS_LAST_FUNCTION]
-[language_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY]
+[language_features=NONE,+ANALYTIC_FUNCTIONS,+NULLS_FIRST_LAST_IN_ORDER_BY]
 select is_last(2) over (partition by key order by value{{| DESC}}{{| NULLS FIRST| NULLS LAST}})
 from keyvalue
 --
@@ -2945,7 +2945,7 @@ QueryStmt
 
 # Test the rewrite with SAFE - Note that the ERROR() call is replaced by a NULL
 # literal.
-[language_features=ANALYTIC_FUNCTIONS,NULLS_FIRST_LAST_IN_ORDER_BY,SAFE_FUNCTION_CALL]
+[language_features=NONE,+ANALYTIC_FUNCTIONS,+NULLS_FIRST_LAST_IN_ORDER_BY,+SAFE_FUNCTION_CALL]
 [enabled_ast_rewrites=DEFAULTS,+IS_FIRST_IS_LAST_FUNCTION]
 select SAFE.{{is_first|is_last}}(2) over (partition by key order by value)
 from keyvalue

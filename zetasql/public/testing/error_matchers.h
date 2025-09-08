@@ -285,10 +285,18 @@ MATCHER_P(IsTableNotFoundError, table_name,
 }
 
 // Matches syntax errors from ZetaSQL's parser.
+MATCHER(IsSyntaxErrorMessage,
+        "is an error message indicating the table is not found") {
+  return ExplainMatchResult(
+      AnyOf(HasSubstr("Syntax error:"), HasSubstr("SYNTAX_ERROR")), arg,
+      result_listener);
+}
+
+// Matches syntax errors from ZetaSQL's parser.
 MATCHER(IsSyntaxError, "is an error indicating failure to parse the query") {
   return ExplainMatchResult(
-      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("Syntax error:")),
-      arg, result_listener);
+      StatusIs(absl::StatusCode::kInvalidArgument, IsSyntaxErrorMessage()), arg,
+      result_listener);
 }
 
 // Matches an error with a location encoded into the error message looking for

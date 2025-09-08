@@ -1,7 +1,7 @@
 # Use (broken link) for pretty-printing the generated sql.
 [default show_sqlbuilder_output]
 [default no_show_resolved_ast]
-[default language_features=PARAMETERS_IN_GRANTEE_LIST,CREATE_TABLE_FUNCTION]
+[default language_features=NONE,+PARAMETERS_IN_GRANTEE_LIST,+CREATE_TABLE_FUNCTION]
 
 create temporary table X
 options(x=5, y='abc', z=@test_param_array, z=abc)
@@ -328,7 +328,7 @@ DROP ROW ACCESS POLICY foo ON `the namespace`.bar;
 DROP ROW ACCESS POLICY foo ON `the namespace`.bar;
 ==
 
-[language_features=ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX]
+[language_features=NONE,+ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX]
 drop all row {{access|}} policies on bar
 --
 [SQLBUILDER_TARGET_SYNTAX_MODE standard]
@@ -340,7 +340,7 @@ DROP ALL ROW ACCESS POLICIES ON bar;
 DROP ALL ROW ACCESS POLICIES ON bar;
 ==
 
-[language_features=ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX]
+[language_features=NONE,+ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX]
 drop all row {{access|}} policies on `the namespace`.`all`
 --
 [SQLBUILDER_TARGET_SYNTAX_MODE standard]
@@ -396,7 +396,7 @@ RENAME view namespace.`if` TO `the new namespace`.bar;
 RENAME view namespace.`if` TO `the new namespace`.bar;
 ==
 
-[language_features=ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX]
+[language_features=NONE,+ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX]
 create row policy on KeyValue to 'foo@google.com' using (key = 1);
 --
 [SQLBUILDER_TARGET_SYNTAX_MODE standard]
@@ -408,7 +408,7 @@ CREATE ROW ACCESS POLICY ON KeyValue GRANT TO ("foo@google.com") FILTER USING (k
 CREATE ROW ACCESS POLICY ON KeyValue GRANT TO ("foo@google.com") FILTER USING (key = 1);
 ==
 
-[language_features=ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX]
+[language_features=NONE,+ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX]
 create row policy p1 on KeyValue to 'foo@google.com', 'mdbuser/bar'
 using (key = 1);
 --
@@ -423,7 +423,7 @@ CREATE ROW ACCESS POLICY p1 ON KeyValue GRANT TO ("foo@google.com", "mdbuser/bar
 1);
 ==
 
-[language_features=ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX]
+[language_features=NONE,+ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX]
 create row policy `all` on KeyValue to 'everyone@google.com' using (false);
 --
 [SQLBUILDER_TARGET_SYNTAX_MODE standard]
@@ -435,7 +435,7 @@ CREATE ROW ACCESS POLICY `all` ON KeyValue GRANT TO ("everyone@google.com") FILT
 CREATE ROW ACCESS POLICY `all` ON KeyValue GRANT TO ("everyone@google.com") FILTER USING (false);
 ==
 
-[language_features=ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX]
+[language_features=NONE,+ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX]
 create or replace row policy p1 on KeyValue to 'foo@google.com', 'mdbuser/bar'
 using (key = 1);
 --
@@ -450,7 +450,7 @@ CREATE OR REPLACE ROW ACCESS POLICY p1 ON KeyValue GRANT TO ("foo@google.com", "
 1);
 ==
 
-[language_features=ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX]
+[language_features=NONE,+ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX]
 create row policy if not exists p1 on KeyValue to 'foo@google.com',
 'mdbuser/bar'
 using (key = 1);
@@ -957,7 +957,7 @@ RETURNS INT32 AS (
 );
 ==
 
-[language_features=CREATE_AGGREGATE_FUNCTION]
+[language_features=NONE,+CREATE_AGGREGATE_FUNCTION]
 CREATE AGGREGATE FUNCTION f(x int32, y int32 NOT AGGREGATE)
 AS (SUM(x) / y);
 --
@@ -1136,7 +1136,7 @@ drop table function foo.bar(int64) ;
                            ^
 ==
 
-[language_features=EXPERIMENTAL_MODULES]
+[language_features=NONE,+EXPERIMENTAL_MODULES]
 IMPORT MODULE a.b.c {{|AS c}} {{|OPTIONS(e=1)}};
 --
 ALTERNATION GROUPS:

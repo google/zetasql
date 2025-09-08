@@ -26,6 +26,7 @@
 
 #include "zetasql/base/arena.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/status_payload_utils.h"
 #include "zetasql/common/timer_util.h"
 #include "zetasql/common/utf_util.h"
 #include "zetasql/common/warning_sink.h"
@@ -50,7 +51,6 @@
 #include "absl/flags/flag.h"
 #include "absl/log/log.h"
 #include "absl/status/status.h"
-#include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -75,6 +75,19 @@ ABSL_FLAG(
 namespace zetasql {
 namespace parser {
 
+namespace internal {
+absl::Status ErrorIfUnparenthesizedNotExpression(ASTNode* rhs_expr) {
+  const ASTUnaryExpression* expr = rhs_expr->GetAsOrNull<ASTUnaryExpression>();
+  if (expr != nullptr && !expr->parenthesized() &&
+      expr->op() == ASTUnaryExpression::NOT) {
+    // TODO: nbales - Make this error message actionable by suggesting parens.
+    return MakeSqlErrorAtStart(rhs_expr->location())
+           << "Syntax error: Unexpected keyword NOT";
+  }
+  return absl::OkStatus();
+}
+}  // namespace internal
+
 // Bison parser return values.
 //
 // Source:
@@ -86,6 +99,8 @@ static std::string GetParserModeName(ParserMode mode) {
       return "expression";
     case ParserMode::kType:
       return "type";
+    case ParserMode::kSubpipeline:
+      return "subpipeline";
     case ParserMode::kStatement:
     case ParserMode::kNextStatement:
     case ParserMode::kNextScriptStatement:
@@ -173,15 +188,13 @@ static std::string ShortenBytesLiteralForError(absl::string_view literal) {
                           num_end_quotes));
 }
 
-// Generates an error message for a Bison syntax error at location
-// 'error_location' based on the Bison-generated error message
-// 'bison_error_message'. The other arguments should match those passed into
-// BisonParser::Parse(). It is required that 'bison_error_message' is the actual
-// error message produced by the bison parser for the given inputs.
-static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
-    const LanguageOptions& language_options, ParseLocationPoint& error_location,
-    absl::string_view bison_error_message, ParserMode mode,
-    absl::string_view input, int start_offset,
+// Generates an error message for a Bison syntax error in `parser_status`. The
+// other arguments should match those passed into `ParseInternal()`. It is
+// required that 'parser_status' is the actual error produced by the parser for
+// the given inputs.
+static absl::Status GenerateImprovedBisonSyntaxError(
+    const LanguageOptions& language_options, const absl::Status& parse_status,
+    ParserMode mode, absl::string_view input, int start_offset,
     MacroExpansionMode macro_expansion_mode,
     const macros::MacroCatalog* macro_catalog, zetasql_base::UnsafeArena* arena) {
   // Bison error messages are always of the form "syntax error, unexpected X,
@@ -194,7 +207,8 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
       "syntax error, unexpected .*, expecting (.*)"};
   // If there's no match, then 'expectations_string' will be empty.
   std::string expectations_string;
-  RE2::FullMatch(bison_error_message, *re_expectations, &expectations_string);
+  RE2::FullMatch(parse_status.message(), *re_expectations,
+                 &expectations_string);
 
   const auto& user_facing_kw_images =
       GetUserFacingImagesForSpecialKeywordsMap();
@@ -289,6 +303,13 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
     expectations_set.erase("\"-=\"");
   }
 
+  ZETASQL_RET_CHECK(zetasql::internal::HasPayloadWithType<InternalErrorLocation>(
+      parse_status));
+  InternalErrorLocation internal_error_location =
+      zetasql::internal::GetPayload<InternalErrorLocation>(parse_status);
+  ParseLocationPoint error_location =
+      ParseLocationPoint::FromInternalErrorLocation(internal_error_location);
+
   // TODO: Make this conditional on the language features that are
   // enabled, and remove other elements from the expectations that are not
   // supported by the enabled language features.
@@ -334,8 +355,8 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
       } else if (token == Token::KW_OVER) {
         // When the OVER keyword is used in the wrong place, we tell the user
         // exactly where it can be used.
-        return std::string(
-            "Syntax error: OVER keyword must follow a function call");
+        return MakeSqlErrorAtPoint(error_location)
+               << "Syntax error: OVER keyword must follow a function call";
       } else if (const KeywordInfo* keyword_info =
                      GetKeywordInfoForToken(token)) {
         actual_token_description =
@@ -375,7 +396,9 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
         // The ";" token includes trailing whitespace, and we don't want to
         // echo that back.
         actual_token_description = "\";\"";
-      } else if (token == Token::KW_OPEN_HINT) {
+      } else if (token == Token::KW_OPEN_HINT ||
+                 token == Token::KW_OPEN_INTEGER_HINT ||
+                 token == Token::OPEN_INTEGER_PREFIX_HINT) {
         // This is a single token for "@{", but we want to expose this as "@"
         // externally.
         actual_token_description = "\"@\"";
@@ -385,16 +408,17 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
         actual_token_description = absl::StrCat("\"", token_text, "\"");
       }
       if (!expectations_set.empty()) {
-        return absl::StrCat("Syntax error: Expected ",
-                            absl::StrJoin(expectations_set, " or "),
-                            " but got ", actual_token_description);
+        return MakeSqlErrorAtPoint(error_location)
+               << "Syntax error: Expected "
+               << absl::StrJoin(expectations_set, " or ") << " but got "
+               << actual_token_description;
       }
-      return absl::StrCat("Syntax error: Unexpected ",
-                          actual_token_description);
+      return MakeSqlErrorAtPoint(error_location)
+             << "Syntax error: Unexpected " << actual_token_description;
     }
   }
   ABSL_LOG(ERROR) << "Syntax error location not found in input";
-  return MakeSqlErrorAtPoint(error_location) << bison_error_message;
+  return MakeSqlErrorAtPoint(error_location) << parse_status.message();
 }
 
 // Dispatch to the appropriate parser input method based on the mode.
@@ -414,6 +438,8 @@ static absl::Status ParseByMode(ParserMode mode, Lexer& lexer, Parser& parser) {
       return parser.ParseStandaloneExpression(lexer);
     case ParserMode::kType:
       return parser.ParseStandaloneType(lexer);
+    case ParserMode::kSubpipeline:
+      return parser.ParseStandaloneSubpipeline(lexer);
     case ParserMode::kTokenizerPreserveComments:
     case ParserMode::kTokenizer:
     case ParserMode::kMacroBody:
@@ -481,8 +507,7 @@ absl::Status ParseInternal(
   // return paths are handled by MaybeStripParserError while allowing natural
   // control flow within the function body.
   return MaybeStripParserError([&]() -> absl::Status {
-    std::string error_message;
-    ParseLocationPoint error_location;
+    absl::Status parse_status;
     {  // Scope of the timer.
       auto parser_timer =
           MakeScopedTimerStarted(&runtime_info.parser_timed_value());
@@ -494,10 +519,9 @@ absl::Status ParseInternal(
       ASTNodeFactory node_factory(arena, id_string_pool);
       Parser parser(lexer.tokenizer(), language_options, node_factory,
                     warning_sink, macro_expansion_mode, &output_node,
-                    ast_statement_properties, &error_message, &error_location,
-                    statement_end_byte_offset);
+                    ast_statement_properties, statement_end_byte_offset);
 
-      absl::Status parse_status = ParseByMode(mode, lexer, parser);
+      parse_status = ParseByMode(mode, lexer, parser);
       // We want to continue if there was a parsing error or a successful parse.
       // Anything else, such as kInternal or kResourceExhausted, should be
       // returned.
@@ -531,17 +555,14 @@ absl::Status ParseInternal(
     // Bison returns error messages that start with "syntax error, ". The parser
     // logic itself will return an empty error message if it wants to generate
     // a simple "Unexpected X" error.
-    if (absl::StartsWith(error_message, "syntax error, ") ||
-        error_message.empty()) {
+    if (absl::StartsWith(parse_status.message(), "syntax error, ")) {
       // This was a Bison-generated syntax error. Generate a message that is to
       // our own liking.
-      ZETASQL_ASSIGN_OR_RETURN(
-          error_message,
-          GenerateImprovedBisonSyntaxError(
-              language_options, error_location, error_message, mode, input,
-              start_byte_offset, macro_expansion_mode, macro_catalog, arena));
+      return GenerateImprovedBisonSyntaxError(
+          language_options, parse_status, mode, input, start_byte_offset,
+          macro_expansion_mode, macro_catalog, arena);
     }
-    return MakeSqlErrorAtPoint(error_location) << error_message;
+    return parse_status;
   }());
 }
 

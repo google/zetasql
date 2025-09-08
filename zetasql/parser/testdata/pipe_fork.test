@@ -1,4 +1,4 @@
-[default language_features=PIPES]
+[default language_features=NONE,+PIPES]
 
 from t
 |> fork ()
@@ -91,7 +91,7 @@ FROM
 from t
 |> fork
 --
-ERROR: Syntax error: Expected "(" but got end of statement [at 2:8]
+ERROR: Syntax error: Expected "(" or @ for hint but got end of statement [at 2:8]
 |> fork
        ^
 ==
@@ -99,7 +99,7 @@ ERROR: Syntax error: Expected "(" but got end of statement [at 2:8]
 from t
 |> fork ,
 --
-ERROR: Syntax error: Expected "(" but got "," [at 2:9]
+ERROR: Syntax error: Expected "(" or @ for hint but got "," [at 2:9]
 |> fork ,
         ^
 ==

@@ -115,7 +115,8 @@ public interface DebugPrintableNode {
           if (hasNewlines) {
             sb.append(prefix1).append("|   \"\"\"\n");
             for (String line : field.value.split("\n", /*limit=*/-1)) {
-              sb.append(prefix1).append("|   ").append(line).append("\n");
+              String printLine = "|   " + line;
+              sb.append(prefix1).append(printLine.stripTrailing()).append("\n");
             }
             sb.append(prefix1).append("|   \"\"\"\n");
           }

@@ -7,7 +7,7 @@
 ################################################################################
 #
 [default no_java]
-[default language_features=TABLE_VALUED_FUNCTIONS]
+[default language_features=MAXIMUM,+TABLE_VALUED_FUNCTIONS]
 SELECT * FROM tvf_one_relation_one_model_arg_with_fixed_output(
     (select key,
     value from keyvalue), model onedoublemodel)
@@ -146,7 +146,7 @@ QueryStmt
 ==
 
 # Test with model and optional scalar and named table.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_model_optional_scalar_named_table(model onedoublemodel,
                                                     STRUCT(NULL), (SELECT 1))
 --
@@ -186,7 +186,7 @@ QueryStmt
 ==
 
 # Test with model and optional scalar and named table.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_model_optional_scalar_named_table(model onedoublemodel,
                                                     foobar=>(SELECT 1))
 --
@@ -223,7 +223,7 @@ QueryStmt
 ==
 
 # Test with model and optional scalar and named table.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_model_optional_scalar_named_table(model onedoublemodel,
                                                     STRUCT(NULL))
 --
@@ -254,7 +254,7 @@ QueryStmt
 ==
 
 # Test with model and string and optional table.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_model_optional_table_named_string_default(
              model onedoublemodel, (select 'abc'))
 --
@@ -291,7 +291,7 @@ QueryStmt
 ==
 
 # Test with model and string and optional table.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_model_optional_table_named_string_default(
              model onedoublemodel, (select 'abc'), (select 'abc'))
 --
@@ -337,7 +337,7 @@ QueryStmt
 ==
 
 # Test with model and string and optional table.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_model_optional_string_optional_table(model onedoublemodel,
                                                        (select 'abc'),
                                                        (select 'abc'))
@@ -384,7 +384,7 @@ QueryStmt
 ==
 
 # Test with model and string and optional table.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_model_optional_string_optional_table(model onedoublemodel,
                                                        (select 'abc'),
                                                        (select 'abc', 'def'))
@@ -432,7 +432,7 @@ QueryStmt
 ==
 
 # Test with model and string and optional table.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_model_optional_string_optional_table(model onedoublemodel,
                                                        (select 'abc'),
                                                        TABLE KeyValue2)
@@ -474,7 +474,7 @@ QueryStmt
 ==
 
 # Test with model and string and optional table.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_model_optional_string_optional_table(model onedoublemodel,
                                                        (select 'abc'))
 --
@@ -511,7 +511,7 @@ QueryStmt
 ==
 
 # Test with model and string and optional table.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_model_optional_string_optional_table(model onedoublemodel,
                                                        NULL, TABLE KeyValue2)
 --
@@ -638,7 +638,7 @@ ERROR: Table-valued function tvf_one_relation_one_model_arg_with_fixed_output ar
 # TODO: Fix this query since it should work. We should not inject a
 # NULL for missing arguments without defaults.
 # TODO: Allow the optional model to be omitted. Same below.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_optional_scalar_optional_model_named_table(1.0,
                                                              foobar=>(SELECT 1))
 --
@@ -651,26 +651,44 @@ select * from tvf_optional_scalar_optional_model_named_table(1.0,
 ==
 
 # Test with model and optional table and named scalar.
-# These aren't allowed because the optional table will get an untyped_null.
-# TODO: Fix this query since it should work. We should not inject a
-# NULL for missing arguments without defaults.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_model_optional_table_named_struct(model onedoublemodel,
                                                     foobar=>STRUCT(NULL))
 --
-ERROR: No matching signature for tvf_model_optional_table_named_struct
-  Argument types: MODEL, NULL, STRUCT<INT64>
-  Signature: TVF_MODEL_OPTIONAL_TABLE_NAMED_STRUCT(MODEL, [TABLE], [foobar => STRUCT])
-    Argument 2: expected TABLE, found NULL [at 1:15]
-select * from tvf_model_optional_table_named_struct(model onedoublemodel,
-              ^
+QueryStmt
++-output_column_list=
+| +-tvf_model_optional_table_named_struct.column_bool#1 AS column_bool [BOOL]
+| +-tvf_model_optional_table_named_struct.column_bytes#2 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_model_optional_table_named_struct.[column_bool#1, column_bytes#2]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_model_optional_table_named_struct.[column_bool#1, column_bytes#2]
+        +-tvf=tvf_model_optional_table_named_struct((ANY MODEL, optional ANY TABLE, optional <struct> foobar) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(ANY MODEL, TABLE<>, STRUCT<INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-model=
+        | |   +-Model(model=OneDoubleModel)
+        | +-FunctionArgument
+        | | +-scan=
+        | |   +-UnsetArgumentScan
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-MakeStruct
+        |       +-type=STRUCT<INT64>
+        |       +-field_list=
+        |         +-Literal(type=INT64, value=NULL)
+        +-column_index_list=[0, 1]
+        +-function_call_signature=(ANY MODEL, optional(1) ANY TABLE, optional(1) STRUCT<INT64> foobar) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
 # Test with optional model and named optional table.
 # These aren't allowed because the optional model will get an untyped_null.
 # TODO: Fix this query since it should work. We should not inject a
 # NULL for missing arguments without defaults.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_scalar_optional_model_named_table(1.0, foobar=>(SELECT 1))
 --
 ERROR: No matching signature for tvf_scalar_optional_model_named_table
@@ -685,7 +703,7 @@ select * from tvf_scalar_optional_model_named_table(1.0, foobar=>(SELECT 1))
 # These aren't allowed because the optional model will get an untyped_null.
 # TODO: Fix this query since it should work. We should not inject a
 # NULL for missing arguments without defaults.
-[language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS]
 select * from tvf_optional_scalar_named_model_named_table(1.0,
                                                           barfoo=>(SELECT 1))
 --

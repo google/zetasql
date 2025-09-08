@@ -38,10 +38,10 @@ ParseLocationRange GetFullParseLocationRange(const ASTNode* node) {
     // b/113538338 applies only for expressions.  Other node types, such
     // as statements, we can just return the parse location range directly,
     // and avoid the traversal.
-    return node->GetParseLocationRange();
+    return node->location();
   }
 
-  ParseLocationRange full_range = node->GetParseLocationRange();
+  ParseLocationRange full_range = node->location();
   std::stack<const ASTNode*> stack;
   stack.push(node);
 
@@ -49,7 +49,7 @@ ParseLocationRange GetFullParseLocationRange(const ASTNode* node) {
     const ASTNode* child_node = stack.top();
     stack.pop();
 
-    ParseLocationRange child_range = child_node->GetParseLocationRange();
+    ParseLocationRange child_range = child_node->location();
     full_range.set_start(std::min(full_range.start(), child_range.start()));
     full_range.set_end(std::max(full_range.end(), child_range.end()));
 

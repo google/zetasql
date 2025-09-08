@@ -138,8 +138,9 @@ absl::StatusOr<std::unique_ptr<ScriptExecutor>> ScriptExecutorImpl::Create(
                                           options.parsed_script_options()));
   }
   if (!options.dry_run()) {
-    ZETASQL_RETURN_IF_ERROR(
-        parsed_script->CheckQueryParameters(options.query_parameters()));
+    ZETASQL_RETURN_IF_ERROR(parsed_script->CheckQueryParameters(
+        options.query_parameters(),
+        /*is_strict_mode=*/options.query_parameters_check_strict_mode()));
   }
   std::unique_ptr<ScriptExecutorImpl> script_executor(
       new ScriptExecutorImpl(options, std::move(parsed_script), evaluator));
@@ -265,10 +266,9 @@ absl::Status ScriptExecutorImpl::GenerateStackTraceSystemVariable(
     ZETASQL_RET_CHECK_NE(frame.current_node(), nullptr);
     ParseLocationTranslator translator(frame.parsed_script()->script_text());
     std::pair<int, int> line_and_column;
-    ZETASQL_ASSIGN_OR_RETURN(
-        line_and_column,
-        translator.GetLineAndColumnAfterTabExpansion(
-            frame.current_node()->ast_node()->GetParseLocationRange().start()));
+    ZETASQL_ASSIGN_OR_RETURN(line_and_column,
+                     translator.GetLineAndColumnAfterTabExpansion(
+                         frame.current_node()->ast_node()->location().start()));
     frame_proto->set_line(line_and_column.first);
     frame_proto->set_column(line_and_column.second);
     if (frame.procedure_definition() != nullptr) {
@@ -289,21 +289,21 @@ ScriptExecutorImpl::GenerateStatementTextSystemVariable() const {
       // Show truncated statement with condition only.  Showing every statement
       // in the body would be too much.
       ParseLocationRange range;
-      range.set_start(current_node->GetParseLocationRange().start());
+      range.set_start(current_node->location().start());
       if (current_node->node_kind() == AST_IF_STATEMENT) {
         range.set_end(current_node->GetAsOrDie<ASTIfStatement>()
                           ->condition()
-                          ->GetParseLocationRange()
+                          ->location()
                           .end());
       } else if (current_node->node_kind() == AST_WHILE_STATEMENT) {
         range.set_end(current_node->GetAsOrDie<ASTWhileStatement>()
                           ->condition()
-                          ->GetParseLocationRange()
+                          ->location()
                           .end());
       } else if (current_node->node_kind() == AST_FOR_IN_STATEMENT) {
         range.set_end(current_node->GetAsOrDie<ASTForInStatement>()
                           ->query()
-                          ->GetParseLocationRange()
+                          ->location()
                           .end());
       } else {
         return zetasql_base::InternalErrorBuilder() << "Unexpected node kind.";
@@ -1748,8 +1748,9 @@ absl::Status ScriptExecutorImpl::ExecuteDynamicStatement() {
       std::move(parsed_script_or_error.value());
 
   if (!options_.dry_run()) {
-    ZETASQL_RETURN_IF_ERROR(
-        parsed_script->CheckQueryParameters(GetQueryParameters(stack_params)));
+    ZETASQL_RETURN_IF_ERROR(parsed_script->CheckQueryParameters(
+        GetQueryParameters(stack_params),
+        /*is_strict_mode=*/options_.query_parameters_check_strict_mode()));
   }
 
   const ControlFlowNode* start_node =
@@ -2053,10 +2054,12 @@ absl::StatusOr<ScriptExecutorStateProto> ScriptExecutorImpl::GetState() const {
           *stack_frame.parameters(), stack_frame_proto->mutable_parameters()));
     }
     if (!IsComplete()) {
+      ZETASQL_RET_CHECK(stack_frame.current_node() != nullptr);
+      ZETASQL_RET_CHECK(stack_frame.current_node()->ast_node() != nullptr);
       stack_frame_proto->set_current_location_byte_offset(
           stack_frame.current_node()
               ->ast_node()
-              ->GetParseLocationRange()
+              ->location()
               .start()
               .GetByteOffset());
       stack_frame_proto->set_control_flow_node_kind(
@@ -2243,7 +2246,7 @@ absl::StatusOr<std::vector<StackFrameTrace>> ScriptExecutorImpl::StackTrace()
     ParseLocationTranslator translator(
         stack_frame.parsed_script()->script_text());
     ParseLocationRange cur_stmt_range =
-        stack_frame.current_node()->ast_node()->GetParseLocationRange();
+        stack_frame.current_node()->ast_node()->location();
     std::pair<int, int> start_line_and_column, end_line_and_column;
     ZETASQL_ASSIGN_OR_RETURN(
         start_line_and_column,
@@ -2497,15 +2500,12 @@ absl::Status ScriptExecutorImpl::AdvanceInternal(
       // looping forever when dry-running a LOOP statement.
       if (edge.successor()->ast_node() != nullptr &&
           edge.predecessor()->ast_node() != nullptr &&
-          edge.successor()
+          edge.successor()->ast_node()->location().start().GetByteOffset() <=
+              edge.predecessor()
                   ->ast_node()
-                  ->GetParseLocationRange()
+                  ->location()
                   .start()
-                  .GetByteOffset() <= edge.predecessor()
-                                          ->ast_node()
-                                          ->GetParseLocationRange()
-                                          .start()
-                                          .GetByteOffset()) {
+                  .GetByteOffset()) {
         return ExitProcedure(true).status();
       }
     }

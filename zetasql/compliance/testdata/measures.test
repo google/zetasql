@@ -1,8 +1,5 @@
 [default required_features=ENABLE_MEASURES]
 [prepare_database]
-[prepare_database_additional_features=ENABLE_MEASURES]
-# TODO: b/350555383 - Remove ENABLE_MEASURES from
-# prepare_database_additional_features once measures are enabled by default.
 # TODO: b/350555383 - Remove PlaceHolderTable once we support creating Measures
 # in compliance tests.
 # The use of PlaceholderTable is a workaround for creating tables with Measures
@@ -328,7 +325,7 @@ ARRAY<STRUCT<
 ]
 ==
 
-[name=measure_aggregated_in_correlated_subquery]
+[name=measure_aggregated_in_subquery_with_correlated_non_measure_column]
 SELECT
   OuterTable.country,
   (
@@ -458,3 +455,368 @@ SELECT
 FROM MeasureTable_SingleKey
 --
 ARRAY<STRUCT<INT64>>[{550}]
+==
+
+[name=measure_not_actually_aggregated]
+SELECT
+  AGG(measure_literal_one),
+  AGG(measure_one_plus_one),
+  AGG(measure_scalar_subquery)
+FROM MeasureTable_SingleKey, UNNEST([1, 2, 3]) AS x;
+--
+ARRAY<STRUCT<INT64, INT64, INT64>>[{1, 2, 6}]
+==
+
+[name=measure_not_actually_aggregated_with_group_by]
+SELECT
+  country,
+  AGG(measure_literal_one),
+  AGG(measure_one_plus_one),
+  AGG(measure_scalar_subquery)
+FROM MeasureTable_SingleKey, UNNEST([1, 2, 3]) AS x
+GROUP BY country;
+--
+ARRAY<STRUCT<country STRING, INT64, INT64, INT64>>[unknown order:
+  {"Canada", 1, 2, 6},
+  {"Mexico", 1, 2, 6},
+  {"USA", 1, 2, 6}
+]
+==
+
+[name=measure_with_deeply_nested_subquery]
+SELECT
+  country,
+  AGG(measure_with_deeply_nested_subquery)
+FROM MeasureTable_SingleKey
+GROUP BY country;
+--
+ARRAY<STRUCT<country STRING, INT64>>[unknown order:
+  {"Canada", 220},
+  {"Mexico", 270},
+  {"USA", 60}
+]
+==
+
+[name=correlated_measure_referenced_but_not_aggregated]
+SELECT
+  key,
+  (
+    SELECT
+      key
+    FROM (
+      SELECT
+        OuterTable.key AS key,
+        OuterTable.measure_sum_price
+    )
+  )
+FROM MeasureTable_SingleKey AS OuterTable
+ORDER BY 1;
+--
+ARRAY<STRUCT<key INT64, INT64>>[known order:
+  {1, 1},
+  {2, 2},
+  {3, 3},
+  {4, 4},
+  {5, 5},
+  {6, 6},
+  {7, 7},
+  {8, 8},
+  {9, 9},
+  {10, 10}
+]
+==
+
+[name=correlated_measure_referenced_and_aggregated]
+SELECT
+  key,
+  (
+    SELECT
+      OuterTable.key + AGG(OuterTable.measure_sum_price)
+    FROM MeasureTable_SingleKey AS InnerTable
+  ),
+  (
+    SELECT
+      OuterTable.key + AGG(OuterTable.measure_sum_price_via_subquery)
+    FROM MeasureTable_SingleKey AS InnerTable
+  )
+FROM MeasureTable_SingleKey AS OuterTable
+ORDER BY 1;
+--
+ARRAY<STRUCT<key INT64, INT64, INT64>>[known order:
+  {1, 11, 11},
+  {2, 22, 22},
+  {3, 33, 33},
+  {4, 44, 44},
+  {5, 55, 55},
+  {6, 66, 66},
+  {7, 77, 77},
+  {8, 88, 88},
+  {9, 99, 99},
+  {10, 110, 110}
+]
+==
+
+[name=correlated_measure_referenced_and_aggregated_2]
+SELECT
+  key,
+  (
+    SELECT
+      OuterTable.key + AGG(correlated_measure_sum_price)
+    FROM (
+      SELECT OuterTable.measure_sum_price AS correlated_measure_sum_price
+    )
+  )
+FROM MeasureTable_SingleKey AS OuterTable
+ORDER BY 1;
+--
+ARRAY<STRUCT<key INT64, INT64>>[known order:
+  {1, 11},
+  {2, 22},
+  {3, 33},
+  {4, 44},
+  {5, 55},
+  {6, 66},
+  {7, 77},
+  {8, 88},
+  {9, 99},
+  {10, 110}
+]
+==
+
+[name=aggregate_measure_from_scalar_subquery]
+SELECT
+  OuterTable.country,
+  AGG((
+    SELECT
+      InnerTable.measure_sum_price AS inner_measure_sum_price
+    FROM MeasureTable_SingleKey AS InnerTable
+    WHERE InnerTable.country = OuterTable.country
+    ORDER BY InnerTable.key
+    LIMIT 1
+  ))
+FROM MeasureTable_SingleKey AS OuterTable
+GROUP BY 1
+ORDER BY 1;
+--
+ARRAY<STRUCT<country STRING, INT64>>[known order:
+  {"Canada", 40},
+  {"Mexico", 80},
+  {"USA", 10}
+]
+==
+
+[name=aggregate_measure_from_with_query]
+WITH w0 AS (
+  SELECT measure_sum_price AS renamed_measure FROM MeasureTable_SingleKey
+) SELECT AGG(renamed_measure) FROM (SELECT * FROM w0)
+--
+ARRAY<STRUCT<INT64>>[{550}]
+==
+
+[name=aggregate_measure_from_nested_with_query]
+WITH w0 AS (
+  SELECT measure_sum_price AS renamed_measure FROM MeasureTable_SingleKey
+), w1 AS (
+  SELECT renamed_measure AS renamed_measure_2 FROM w0
+)
+SELECT AGG(renamed_measure_2) FROM (SELECT * FROM w1)
+--
+ARRAY<STRUCT<INT64>>[{550}]
+==
+
+[name=aggregate_measure_from_scalar_subquery_in_with_query]
+WITH wq0 AS (
+  SELECT
+    (
+      SELECT
+        measure_sum_price AS a_11
+      FROM
+        MeasureTable_SingleKey
+      ORDER BY key
+      LIMIT 1
+    ) AS a_8
+  FROM ( SELECT 1 )
+)
+SELECT
+  AGG(a_8)
+FROM (SELECT * FROM wq0)
+--
+ARRAY<STRUCT<INT64>>[{10}]
+==
+
+[required_features=ENABLE_MEASURES,WITH_EXPRESSION]
+[name=measure_from_with_expr_from_column_ref]
+SELECT
+  AGG(renamed_measure)
+FROM (
+  SELECT
+    WITH(
+      a_10 AS 1 + 2,
+      Table.measure_sum_price
+    ) AS renamed_measure
+  FROM MeasureTable_SingleKey AS Table
+)
+--
+ARRAY<STRUCT<INT64>>[{550}]
+==
+
+[required_features=ENABLE_MEASURES,WITH_EXPRESSION]
+[name=measure_from_with_expr_from_scalar_subquery]
+SELECT
+  AGG(renamed_measure)
+FROM (
+  SELECT
+    WITH(
+      a_10 AS 1 + 2,
+      (
+        SELECT measure_sum_price
+        FROM MeasureTable_SingleKey
+        ORDER BY key
+        LIMIT 1
+      )
+    ) AS renamed_measure
+  FROM MeasureTable_SingleKey AS Table
+)
+--
+ARRAY<STRUCT<INT64>>[{10}]
+==
+
+[required_features=ENABLE_MEASURES,WITH_EXPRESSION]
+[name=measure_from_with_expr_assignment_list_as_column_ref]
+SELECT
+  AGG(a_10)
+FROM (
+  SELECT
+    WITH(a_11 AS alias_1.a_8, a_11) AS a_10
+  FROM (
+    SELECT
+      measure_sum_price AS a_8
+    FROM
+      MeasureTable_SingleKey
+  ) AS alias_1
+)
+--
+ARRAY<STRUCT<INT64>>[{550}]
+==
+
+[required_features=ENABLE_MEASURES,WITH_EXPRESSION]
+[name=measure_from_with_expr_assignment_list_as_scalar_subquery]
+SELECT
+  AGG(a_10)
+FROM (
+  SELECT
+    WITH(a_11 AS (SELECT alias_1.a_8), a_11) AS a_10
+  FROM (
+    SELECT
+      measure_sum_price AS a_8
+    FROM
+      MeasureTable_SingleKey
+  ) AS alias_1
+)
+--
+ARRAY<STRUCT<INT64>>[{550}]
+==
+
+[name=measure_agg_with_enum_in_function_signature]
+SELECT
+  AGG(measure_with_enum_in_function_signature)
+FROM MeasureTable_SingleKey;
+--
+ARRAY<STRUCT<INT64>>[{28}]
+==
+
+[name=measure_aggregation_in_in_expr]
+SELECT
+  country,
+  AGG(measure_aggregation_in_in_expr)
+FROM MeasureTable_SingleKey
+GROUP BY 1
+ORDER BY 1;
+--
+ARRAY<STRUCT<country STRING, BOOL>>[known order:
+  {"Canada", false},
+  {"Mexico", false},
+  {"USA", false}
+]
+==
+
+# Inspired by b/440426799.
+[name=measure_with_limit_zero]
+[required_features=ENABLE_MEASURES,MULTILEVEL_AGGREGATION,NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+SELECT
+  AGG(measure_array_agg_price_respect_nulls),
+  ARRAY_AGG(
+    ANY_VALUE(structified.price)
+    RESPECT NULLS
+    GROUP BY structified.key),
+  ARRAY_AGG(price RESPECT NULLS),
+FROM (
+  SELECT
+    STRUCT(key, price) AS structified,
+    measure_array_agg_price_respect_nulls,
+    price
+  FROM MeasureTable_SingleKey LIMIT 0
+)
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>>>[
+  {ARRAY<INT64>(NULL), ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
+]
+==
+
+# Inspired by b/440426799.
+[name=null_measure_value_from_limit_zero]
+[required_features=ENABLE_MEASURES,NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+SELECT
+  AGG((
+    SELECT
+      measure_array_agg_price_respect_nulls
+    FROM MeasureTable_SingleKey
+    LIMIT 0
+  )),
+  ARRAY_AGG(
+    (
+      SELECT
+        price
+      FROM MeasureTable_SingleKey
+      LIMIT 0
+    )
+    RESPECT NULLS
+  )
+FROM ( SELECT 1 )
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[{ARRAY<INT64>(NULL), ARRAY<INT64>[NULL]}]
+==
+# Inspired by b/440426799.
+[name=null_measure_value_from_where_false]
+[required_features=ENABLE_MEASURES,NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+SELECT
+  AGG((
+    SELECT
+      measure_array_agg_price_respect_nulls
+    FROM MeasureTable_SingleKey
+    WHERE false
+  )),
+  ARRAY_AGG(
+    (
+      SELECT
+        price
+      FROM MeasureTable_SingleKey
+      WHERE false
+    )
+    RESPECT NULLS
+  )
+FROM ( SELECT 1 )
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[{ARRAY<INT64>(NULL), ARRAY<INT64>[NULL]}]
+==
+
+# Inspired by b/440426799.
+[name=null_measure_value_from_limit_zero_2]
+[required_features=ENABLE_MEASURES,NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+SELECT
+  AGG(measure_array_agg_price_respect_nulls),
+  ARRAY_AGG(price RESPECT NULLS)
+FROM ( SELECT 1 ) CROSS JOIN
+( SELECT price, measure_array_agg_price_respect_nulls FROM MeasureTable_SingleKey LIMIT 0 )
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[{ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}]

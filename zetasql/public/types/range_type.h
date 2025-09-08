@@ -85,6 +85,9 @@ class RangeType : public ListBackedType {
   // Helper function for determining if a type is a valid range element type.
   static bool IsValidElementType(const Type* element_type);
 
+  absl::Status ValidateResolvedTypeParameters(
+      const TypeParameters& type_parameters, ProductMode mode) const override;
+
  protected:
   // Return estimated size of memory owned by this type. Range's owned memory
   // does not include its element type's memory (which is owned by some

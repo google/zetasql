@@ -1,6 +1,6 @@
 # NOTE: CREATE MODEL syntax and tests are derived from those for
 # CREATE VIEW tests, except for the keyword.
-[default language_features=REMOTE_FUNCTION]
+[default language_features=NONE,+REMOTE_FUNCTION]
 create model t1
 --
 CreateModelStatement [0-15] [create model t1]
@@ -1550,3 +1550,32 @@ a2 AS (
   FROM
     aa2
 ))
+
+==
+
+create model m AS
+graph aml
+return 1 as x
+--
+CreateModelStatement [0-41] [create model...return 1 as x]
+  PathExpression [13-14] [m]
+    Identifier(m) [13-14] [m]
+  Query [18-41] [graph aml return 1 as x]
+    GqlQuery [18-41] [graph aml return 1 as x]
+      GraphTableQuery [18-41] [graph aml return 1 as x]
+        PathExpression [24-27] [aml]
+          Identifier(aml) [24-27] [aml]
+        GqlOperatorList [28-41] [return 1 as x]
+          GqlOperatorList [28-41] [return 1 as x]
+            GqlReturn [28-41] [return 1 as x]
+              Select [35-41] [1 as x]
+                SelectList [35-41] [1 as x]
+                  SelectColumn [35-41] [1 as x]
+                    IntLiteral(1) [35-36] [1]
+                    Alias [37-41] [as x]
+                      Identifier(x) [40-41] [x]
+--
+CREATE MODEL m AS
+GRAPH aml
+RETURN
+  1 AS x

@@ -1,3 +1,4 @@
+[default language_features=NONE]
 INSERT {{| IGNORE| REPLACE| UPDATE}} INTO KeyValue (key, value)
 VALUES (1, "one"), (2, "two")
 --
@@ -422,7 +423,7 @@ INSERT KeyValue
 ==
 
 # Omit column list using SELECT subquery
-[language_features=OMIT_INSERT_COLUMN_LIST]
+[language_features=NONE,+OMIT_INSERT_COLUMN_LIST]
 INSERT KeyValue
 select * from KeyValue
 --
@@ -440,7 +441,7 @@ InsertStmt
 ==
 
 # Omit column list using VALUES
-[language_features=OMIT_INSERT_COLUMN_LIST]
+[language_features=NONE,+OMIT_INSERT_COLUMN_LIST]
 INSERT KeyValue VALUES(0, 'abc')
 --
 InsertStmt
@@ -460,7 +461,7 @@ InsertStmt
 ==
 
 # Omit column list using SELECT subquery but mismatched number of column
-[language_features=OMIT_INSERT_COLUMN_LIST]
+[language_features=NONE,+OMIT_INSERT_COLUMN_LIST]
 INSERT KeyValue
 select *, 1 from KeyValue
 --
@@ -470,7 +471,7 @@ select *, 1 from KeyValue
 ==
 
 # Omit column list using VALUES but mismatched number of column
-[language_features=OMIT_INSERT_COLUMN_LIST]
+[language_features=NONE,+OMIT_INSERT_COLUMN_LIST]
 INSERT KeyValue VALUES(1, 'abc', 100)
 --
 ERROR: Inserted row has wrong column count; Has 3, expected 2 [at 1:23]
@@ -479,7 +480,7 @@ INSERT KeyValue VALUES(1, 'abc', 100)
 ==
 
 # Omit column list using SELECT subquery but mismatched column type
-[language_features=OMIT_INSERT_COLUMN_LIST]
+[language_features=NONE,+OMIT_INSERT_COLUMN_LIST]
 INSERT KeyValue
 select 1, 100
 --
@@ -489,7 +490,7 @@ select 1, 100
 ==
 
 # Omit column list using VALUES but mismatched column type
-[language_features=OMIT_INSERT_COLUMN_LIST]
+[language_features=NONE,+OMIT_INSERT_COLUMN_LIST]
 INSERT KeyValue VALUES(1, 100)
 --
 ERROR: Value has type INT64 which cannot be inserted into column Value, which has type STRING [at 1:27]
@@ -498,7 +499,7 @@ INSERT KeyValue VALUES(1, 100)
 ==
 
 # Pseudo-columns are excluded when omitting column list
-[language_features=OMIT_INSERT_COLUMN_LIST]
+[language_features=NONE,+OMIT_INSERT_COLUMN_LIST]
 INSERT EnumTable
 select * from EnumTable
 --
@@ -516,7 +517,7 @@ InsertStmt
 ==
 
 # Pseudo-columns are excluded when omitting column list
-[language_features=OMIT_INSERT_COLUMN_LIST]
+[language_features=NONE,+OMIT_INSERT_COLUMN_LIST]
 INSERT EnumTable
 VALUES (100, 'TESTENUM0', 'ANOTHERTESTENUM2')
 --
@@ -540,7 +541,7 @@ InsertStmt
 ==
 
 # All columns are pseudo-columns
-[language_features=OMIT_INSERT_COLUMN_LIST]
+[language_features=NONE,+OMIT_INSERT_COLUMN_LIST]
 INSERT AllPseudoColumns
 SELECT * FROM AllPseudoColumns
 --
@@ -550,7 +551,7 @@ INSERT AllPseudoColumns
 ==
 
 # Non-writable columns are excluded
-[language_features=OMIT_INSERT_COLUMN_LIST]
+[language_features=NONE,+OMIT_INSERT_COLUMN_LIST]
 INSERT AllNonKeysNonWritable
 SELECT key FROM AllNonKeysNonWritable
 --
@@ -2320,7 +2321,7 @@ InsertStmt
 ==
 
 # Regression test for b/399439396.
-[language_features=PIPES]
+[language_features=NONE,+PIPES]
 [show_sqlbuilder_output]
 [enabled_ast_rewrites=DEFAULTS]
 INSERT INTO KeyValue (Key, Value) FROM AnotherKeyValue
@@ -2355,7 +2356,7 @@ FROM
 ==
 
 # Regression test for b/399439396
-[language_features=PIPES]
+[language_features=NONE,+PIPES]
 [show_sqlbuilder_output]
 INSERT INTO KeyValue (Key, Value) FROM AnotherKeyValue |> WHERE Key > 2
 --

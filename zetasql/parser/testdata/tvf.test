@@ -397,7 +397,8 @@ QueryStatement [0-232] [select * from...(1 - 2))))]
                       PathExpression [112-117] [mytvf]
                         Identifier(mytvf) [112-117] [mytvf]
                 LimitOffset [120-127] [limit 1]
-                  IntLiteral(1) [126-127] [1]
+                  Limit [120-127] [limit 1]
+                    IntLiteral(1) [126-127] [1]
           TVFArgument [150-176] [(select 1, 2 from mytvf())]
             ExpressionSubquery [150-176] [(select 1, 2 from mytvf())]
               Query [151-175] [select 1, 2 from mytvf()]
@@ -2415,7 +2416,7 @@ select * from tvf_one_relation_arg_with_fixed_output(table t(1, "abc",));
 select * from tvf_one_relation_arg_with_fixed_output(
     table t(1, "abc" order by 1));
 --
-ERROR: Syntax error: Expected ")" or "," but got keyword ORDER [at 2:22]
+ERROR: Syntax error: Expected ")" but got keyword ORDER [at 2:22]
     table t(1, "abc" order by 1));
                      ^
 ==
@@ -2425,7 +2426,7 @@ ERROR: Syntax error: Expected ")" or "," but got keyword ORDER [at 2:22]
 select * from tvf_one_relation_arg_with_fixed_output(
     table t(1, "abc" limit 10));
 --
-ERROR: Syntax error: Expected ")" or "," but got keyword LIMIT [at 2:22]
+ERROR: Syntax error: Expected ")" but got keyword LIMIT [at 2:22]
     table t(1, "abc" limit 10));
                      ^
 ==
@@ -2435,7 +2436,7 @@ ERROR: Syntax error: Expected ")" or "," but got keyword LIMIT [at 2:22]
 select * from tvf_one_relation_arg_with_fixed_output(
     table t(1, "abc" having true));
 --
-ERROR: Syntax error: Expected ")" or "," but got keyword HAVING [at 2:22]
+ERROR: Syntax error: Expected ")" but got keyword HAVING [at 2:22]
     table t(1, "abc" having true));
                      ^
 ==

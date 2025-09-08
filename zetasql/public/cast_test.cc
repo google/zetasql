@@ -584,6 +584,13 @@ TEST_P(GraphElementValueCastTest,
           /*dynamic_properties=*/{}, /*static_labels=*/{"label1"},
           /*dynamic_labels=*/{"label2"}, "ElementTable"));
   ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value dynamic_sp_a_b_multi_dynamic_labels,
+      MakeDynamicGraphElementByType(
+          type_a_b_c_d, "id", /*static_properties=*/
+          {{"a", Value::String("v0")}, {"b", Value::Int32(1)}},
+          /*dynamic_properties=*/{}, /*static_labels=*/{"label1"},
+          /*dynamic_labels=*/{"label3", "label2"}, "ElementTable"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
       const Value dynamic_sp_a_b_c_null_d_null_e_null,
       MakeDynamicElement({"graph_name"}, "id",
                          {{"a", Value::String("v0")},
@@ -616,6 +623,10 @@ TEST_P(GraphElementValueCastTest,
                         type_a_b_c_d_e),
               IsOkAndHolds(dynamic_sp_a_b_c_null_d_null_e_null));
 
+  // Multi dynamic labels do not change the properties.
+  EXPECT_THAT(CastValue(dynamic_sp_a_b_multi_dynamic_labels,
+                        absl::UTCTimeZone(), language_options_, type_a_b_c_d_e),
+              IsOkAndHolds(dynamic_sp_a_b_c_null_d_null_e_null));
   // Dynamic properties with conflicting names compared to to_type's static
   // properties are dropped.
   EXPECT_THAT(CastValue(dynamic_sp_a_b_dp_c_d, absl::UTCTimeZone(),

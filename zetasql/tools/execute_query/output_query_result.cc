@@ -154,7 +154,8 @@ absl::Status GetOutputColumnInfo(const ResolvedStatement* resolved_stmt,
 
     case RESOLVED_CREATE_CONSTANT_STMT:
     case RESOLVED_CREATE_FUNCTION_STMT:
-    case RESOLVED_CREATE_TABLE_FUNCTION_STMT: {
+    case RESOLVED_CREATE_TABLE_FUNCTION_STMT:
+    case RESOLVED_CREATE_TABLE_AS_SELECT_STMT: {
       ZETASQL_RET_CHECK(result.type()->IsStruct());
       const StructType* result_type = result.type()->AsStruct();
 

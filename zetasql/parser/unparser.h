@@ -281,6 +281,8 @@ class Unparser : public ParseTreeVisitor {
       const ASTAlterColumnDropDefaultAction* node, void* data) override;
   void visitASTAlterColumnDropGeneratedAction(
       const ASTAlterColumnDropGeneratedAction* node, void* data) override;
+  void visitASTAlterColumnSetGeneratedAction(
+      const ASTAlterColumnSetGeneratedAction* node, void* data) override;
   void visitASTDropColumnAction(const ASTDropColumnAction* node,
                                 void* data) override;
   void visitASTRenameColumnAction(const ASTRenameColumnAction* node,
@@ -341,6 +343,7 @@ class Unparser : public ParseTreeVisitor {
   void visitASTPipeMatchRecognize(const ASTPipeMatchRecognize* node,
                                   void* data) override;
   void visitASTPipeAs(const ASTPipeAs* node, void* data) override;
+  void visitASTPipeDescribe(const ASTPipeDescribe* node, void* data) override;
   void visitASTPipeStaticDescribe(const ASTPipeStaticDescribe* node,
                                   void* data) override;
   void visitASTPipeAssert(const ASTPipeAssert* node, void* data) override;
@@ -532,6 +535,8 @@ class Unparser : public ParseTreeVisitor {
   void visitASTOrderBy(const ASTOrderBy* node, void* data) override;
   void visitASTLambda(const ASTLambda* node, void* data) override;
   void visitASTLimitOffset(const ASTLimitOffset* node, void* data) override;
+  void visitASTLimit(const ASTLimit* node, void* data) override;
+  void visitASTLimitAll(const ASTLimitAll* node, void* data) override;
   void visitASTHavingModifier(const ASTHavingModifier* node,
                               void* data) override;
   void visitASTClampedBetweenModifier(const ASTClampedBetweenModifier* node,
@@ -940,6 +945,8 @@ class Unparser : public ParseTreeVisitor {
   void visitASTCreateProcedureStatement(const ASTCreateProcedureStatement* node,
                                         void* data) override;
   void visitASTNamedArgument(const ASTNamedArgument* node, void* data) override;
+  void visitASTInputTableArgument(const ASTInputTableArgument* node,
+                                  void* data) override;
   void visitASTExecuteIntoClause(const ASTExecuteIntoClause* node,
                                  void* data) override;
   void visitASTExecuteUsingArgument(const ASTExecuteUsingArgument* node,
@@ -997,6 +1004,10 @@ class Unparser : public ParseTreeVisitor {
 
   void visitASTPipeRecursiveUnion(const ASTPipeRecursiveUnion* node,
                                   void* data) override;
+  void visitASTCreateSequenceStatement(const ASTCreateSequenceStatement* node,
+                                       void* data) override;
+  void visitASTAlterSequenceStatement(const ASTAlterSequenceStatement* node,
+                                      void* data) override;
 
   // Spanner-related nodes
   void visitASTSpannerAlterColumnAction(const ASTSpannerAlterColumnAction* node,
@@ -1008,6 +1019,8 @@ class Unparser : public ParseTreeVisitor {
   void visitASTSpannerTableOptions(const ASTSpannerTableOptions* node,
                                    void* data) override;
   // End of Spanner-related nodes
+
+  void visitASTRunStatement(const ASTRunStatement* node, void* data) override;
 
  protected:
   // Set break_line to true if you want to print each child on a separate line.

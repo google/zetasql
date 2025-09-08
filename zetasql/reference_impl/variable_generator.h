@@ -40,10 +40,10 @@ using SystemVariablesAlgebrizerMap =
 // Generates variable names corresponding to parameters or columns.
 class VariableGenerator {
  public:
-  VariableGenerator() {}
+  VariableGenerator() = default;
   VariableGenerator(const VariableGenerator&) = delete;
   VariableGenerator& operator=(const VariableGenerator&) = delete;
-  ~VariableGenerator() {}
+  ~VariableGenerator() = default;
 
   // Returns a fresh variable name.
   VariableId GetNewVariableName(std::string suggested_name);
@@ -82,7 +82,7 @@ class ColumnToVariableMapping {
 
   ColumnToVariableMapping(const ColumnToVariableMapping&) = delete;
   ColumnToVariableMapping& operator=(const ColumnToVariableMapping&) = delete;
-  ~ColumnToVariableMapping() {}
+  ~ColumnToVariableMapping() = default;
 
   VariableGenerator* variable_generator() { return variable_gen_.get(); }
 

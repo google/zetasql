@@ -61,10 +61,10 @@ class ResolvedNode {
  public:
   using SUPER = void;  // Indicates that ResolvedNode has no parent.
 
-  ResolvedNode() {}
+  ResolvedNode() = default;
   ResolvedNode(const ResolvedNode&) = delete;
   ResolvedNode& operator=(const ResolvedNode&) = delete;
-  virtual ~ResolvedNode() {}
+  virtual ~ResolvedNode() = default;
 
   // Return this node's kind.
   // e.g. zetasql::RESOLVED_TABLE_SCAN for ResolvedTableScan.

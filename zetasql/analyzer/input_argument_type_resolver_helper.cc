@@ -17,10 +17,13 @@
 #include "zetasql/analyzer/input_argument_type_resolver_helper.h"
 
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/analyzer/constant_resolver_helper.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/types/type.h"
@@ -28,22 +31,29 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/base/check.h"
+#include "absl/status/status.h"
 #include "absl/types/span.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
-InputArgumentType GetInputArgumentTypeForExpr(
-    const ResolvedExpr* expr, bool pick_default_type_for_untyped_expr) {
+absl::StatusOr<InputArgumentType> GetInputArgumentTypeForExpr(
+    const ResolvedExpr* expr, bool pick_default_type_for_untyped_expr,
+    const AnalyzerOptions& analyzer_options) {
   ABSL_DCHECK(expr != nullptr);
-  bool is_literal_for_constness = expr->node_kind() == RESOLVED_LITERAL;
-  if (expr->type()->IsStruct() && expr->node_kind() == RESOLVED_MAKE_STRUCT) {
+
+  if (expr->type()->IsStruct() && expr->Is<ResolvedMakeStruct>()) {
     const ResolvedMakeStruct* struct_expr = expr->GetAs<ResolvedMakeStruct>();
     std::vector<InputArgumentType> field_types;
     field_types.reserve(struct_expr->field_list_size());
     for (const std::unique_ptr<const ResolvedExpr>& argument :
          struct_expr->field_list()) {
-      field_types.push_back(GetInputArgumentTypeForExpr(
-          argument.get(), pick_default_type_for_untyped_expr));
+      ZETASQL_ASSIGN_OR_RETURN(InputArgumentType field_arg,
+                       GetInputArgumentTypeForExpr(
+                           argument.get(), pick_default_type_for_untyped_expr,
+                           analyzer_options));
+      field_types.push_back(std::move(field_arg));
     }
     // We construct a custom InputArgumentType for structs that may have
     // some literal and some non-literal fields.
@@ -53,7 +63,7 @@ InputArgumentType GetInputArgumentTypeForExpr(
   // Literals that were explicitly casted (i.e., the original expression was
   // 'CAST(<literal> AS <type>)') are treated like non-literals with
   // respect to subsequent coercion.
-  if (expr->node_kind() == RESOLVED_LITERAL &&
+  if (expr->Is<ResolvedLiteral>() &&
       !expr->GetAs<ResolvedLiteral>()->has_explicit_type()) {
     if (!pick_default_type_for_untyped_expr) {
       if (expr->GetAs<ResolvedLiteral>()->value().is_null()) {
@@ -70,13 +80,13 @@ InputArgumentType GetInputArgumentTypeForExpr(
     return InputArgumentType(expr->GetAs<ResolvedLiteral>()->value());
   }
 
-  if (expr->node_kind() == RESOLVED_PARAMETER &&
+  if (expr->Is<ResolvedParameter>() &&
       expr->GetAs<ResolvedParameter>()->is_untyped()) {
     // Undeclared parameters can be coerced to any type.
     return InputArgumentType::UntypedQueryParameter();
   }
 
-  if (expr->node_kind() == RESOLVED_FUNCTION_CALL &&
+  if (expr->Is<ResolvedFunctionCall>() &&
       expr->GetAs<ResolvedFunctionCall>()->function()->FullName(
           true /* include_group */) == "ZetaSQL:error") {
     // This is an ERROR(message) function call.  We special case this to
@@ -91,14 +101,54 @@ InputArgumentType GetInputArgumentTypeForExpr(
     return InputArgumentType::UntypedNull();
   }
 
-  return InputArgumentType(expr->type(),
-                           expr->node_kind() == RESOLVED_PARAMETER,
+  bool is_query_parameter = expr->Is<ResolvedParameter>();
+  bool is_literal_for_constness = expr->Is<ResolvedLiteral>();
+  // TODO: b/277365877 - Upgrade this check to use `IsAnalysisConst` instead.
+  if (expr->Is<ResolvedConstant>()) {
+    if (!analyzer_options.language().LanguageFeatureEnabled(
+            FEATURE_ANALYSIS_CONSTANT_FUNCTION_ARGUMENT)) {
+      // When language feature is off, we treat the constant as a normal
+      // expression for backward compatibility.
+      return InputArgumentType(
+          /*type=*/expr->type(), is_query_parameter, is_literal_for_constness);
+    }
+
+    // If the argument is a named constant with initialized value, we can create
+    // an InputArgumentType directly from the value.
+    if (expr->GetAs<ResolvedConstant>()->constant()->HasValue()) {
+      return InputArgumentType(
+          expr->GetAs<ResolvedConstant>()->constant()->GetValue());
+    }
+
+    // Obtains the constant value with the help of ConstantEvaluator. It
+    // attempts to perform lazy evaluation against the constant body when
+    // constant does not have an uninitialized value.
+    absl::StatusOr<Value> constant_value = GetResolvedConstantValue(
+        *expr->GetAs<ResolvedConstant>(), analyzer_options);
+
+    // Do not defer or normalize existing fatal errors and return them directly:
+    // kInternal and kResourceExhausted.
+    if (absl::IsInternal(constant_value.status()) ||
+        absl::IsResourceExhausted(constant_value.status())) {
+      return constant_value.status();
+    }
+
+    // Handle runtime error. It indicates something is malfunctioning in
+    // constant evaluator.
+    ZETASQL_RET_CHECK(!absl::IsOutOfRange(constant_value.status()))
+        << "Constant evaluator returns runtime error";
+
+    return InputArgumentType(constant_value);
+  }
+
+  return InputArgumentType(expr->type(), is_query_parameter,
                            is_literal_for_constness);
 }
 
-static InputArgumentType GetInputArgumentTypeForGenericArgument(
+static absl::StatusOr<InputArgumentType> GetInputArgumentTypeForGenericArgument(
     const ASTNode* argument_ast_node, const ResolvedExpr* expr,
-    bool pick_default_type_for_untyped_expr) {
+    bool pick_default_type_for_untyped_expr,
+    const AnalyzerOptions& analyzer_options) {
   ABSL_DCHECK(argument_ast_node != nullptr);
 
   bool expects_null_expr = argument_ast_node->Is<ASTLambda>() ||
@@ -114,22 +164,27 @@ static InputArgumentType GetInputArgumentTypeForGenericArgument(
                      "sequence argument";
   }
   ABSL_DCHECK(!expects_null_expr);
-  return GetInputArgumentTypeForExpr(expr, pick_default_type_for_untyped_expr);
+  return GetInputArgumentTypeForExpr(expr, pick_default_type_for_untyped_expr,
+                                     analyzer_options);
 }
 
-void GetInputArgumentTypesForGenericArgumentList(
+absl::StatusOr<std::vector<InputArgumentType>>
+GetInputArgumentTypesForGenericArgumentList(
     const std::vector<const ASTNode*>& argument_ast_nodes,
     absl::Span<const std::unique_ptr<const ResolvedExpr>> arguments,
     bool pick_default_type_for_untyped_expr,
-    std::vector<InputArgumentType>* input_arguments) {
+    const AnalyzerOptions& analyzer_options) {
   ABSL_DCHECK_EQ(argument_ast_nodes.size(), arguments.size());
-  input_arguments->clear();
-  input_arguments->reserve(arguments.size());
+  std::vector<InputArgumentType> input_arguments;
+  input_arguments.reserve(arguments.size());
   for (int i = 0; i < argument_ast_nodes.size(); i++) {
-    input_arguments->push_back(GetInputArgumentTypeForGenericArgument(
-        argument_ast_nodes[i], arguments[i].get(),
-        pick_default_type_for_untyped_expr));
+    ZETASQL_ASSIGN_OR_RETURN(InputArgumentType arg,
+                     GetInputArgumentTypeForGenericArgument(
+                         argument_ast_nodes[i], arguments[i].get(),
+                         pick_default_type_for_untyped_expr, analyzer_options));
+    input_arguments.push_back(std::move(arg));
   }
+  return input_arguments;
 }
 
 }  // namespace zetasql

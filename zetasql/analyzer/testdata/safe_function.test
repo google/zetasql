@@ -1,4 +1,5 @@
-[language_features={{|SAFE_FUNCTION_CALL}}]
+[default language_features=MAXIMUM]
+[language_features=NONE,{{|+SAFE_FUNCTION_CALL}}]
 select safe.concat("a")
 --
 ALTERNATION GROUP: <empty>
@@ -7,7 +8,7 @@ ERROR: Function calls with SAFE are not supported [at 1:8]
 select safe.concat("a")
        ^
 --
-ALTERNATION GROUP: SAFE_FUNCTION_CALL
+ALTERNATION GROUP: +SAFE_FUNCTION_CALL
 --
 QueryStmt
 +-output_column_list=
@@ -23,7 +24,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|SAFE_FUNCTION_CALL}}]
+[language_features=NONE,{{|+SAFE_FUNCTION_CALL}}]
 select safe.safe.concat("a")
 --
 ALTERNATION GROUP: <empty>
@@ -32,14 +33,14 @@ ERROR: Function calls with SAFE are not supported [at 1:8]
 select safe.safe.concat("a")
        ^
 --
-ALTERNATION GROUP: SAFE_FUNCTION_CALL
+ALTERNATION GROUP: +SAFE_FUNCTION_CALL
 --
 ERROR: Function not found: safe.concat [at 1:8]
 select safe.safe.concat("a")
        ^
 ==
 
-[language_features={{|SAFE_FUNCTION_CALL}}]
+[language_features=NONE,{{|+SAFE_FUNCTION_CALL}}]
 select safe("a")
 --
 ERROR: Function not found: safe; Did you mean date? [at 1:8]
@@ -47,7 +48,7 @@ select safe("a")
        ^
 ==
 
-[language_features={{|SAFE_FUNCTION_CALL}}]
+[language_features=NONE,{{|+SAFE_FUNCTION_CALL}}]
 select safe.sum(key) from KeyValue kv
 --
 ALTERNATION GROUP: <empty>
@@ -56,7 +57,7 @@ ERROR: Function calls with SAFE are not supported [at 1:8]
 select safe.sum(key) from KeyValue kv
        ^
 --
-ALTERNATION GROUP: SAFE_FUNCTION_CALL
+ALTERNATION GROUP: +SAFE_FUNCTION_CALL
 --
 QueryStmt
 +-output_column_list=
@@ -75,7 +76,7 @@ QueryStmt
               +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 ==
 
-[language_features={{|SAFE_FUNCTION_CALL}}]
+[language_features=NONE,{{|+SAFE_FUNCTION_CALL}}]
 select safe.count(*) from KeyValue
 --
 ALTERNATION GROUP: <empty>
@@ -84,7 +85,7 @@ ERROR: Function calls with SAFE are not supported [at 1:8]
 select safe.count(*) from KeyValue
        ^
 --
-ALTERNATION GROUP: SAFE_FUNCTION_CALL
+ALTERNATION GROUP: +SAFE_FUNCTION_CALL
 --
 QueryStmt
 +-output_column_list=
@@ -101,7 +102,7 @@ QueryStmt
           +-$agg1#3 := AggregateFunctionCall({SAFE_ERROR_MODE} ZetaSQL:$count_star() -> INT64)
 ==
 
-[language_features=ANALYTIC_FUNCTIONS{{|,SAFE_FUNCTION_CALL}}]
+[language_features=NONE,+ANALYTIC_FUNCTIONS{{|,+SAFE_FUNCTION_CALL}}]
 select safe.sum(key) over () from KeyValue
 --
 ALTERNATION GROUP: <empty>
@@ -110,7 +111,7 @@ ERROR: Function calls with SAFE are not supported [at 1:8]
 select safe.sum(key) over () from KeyValue
        ^
 --
-ALTERNATION GROUP: ,SAFE_FUNCTION_CALL
+ALTERNATION GROUP: ,+SAFE_FUNCTION_CALL
 --
 QueryStmt
 +-output_column_list=
@@ -138,24 +139,24 @@ QueryStmt
 ==
 
 # TABLESAMPLE is not relevant here, but allows the use of comma.
-[language_features=TABLESAMPLE{{|,ANALYTIC_FUNCTIONS}}{{|,SAFE_FUNCTION_CALL}}]
+[language_features=NONE,+TABLESAMPLE{{|,+ANALYTIC_FUNCTIONS}}{{|,+SAFE_FUNCTION_CALL}}]
 select safe.rank() over (order by key) from KeyValue
 --
 ALTERNATION GROUPS:
     <empty>
-    ,SAFE_FUNCTION_CALL
+    ,+SAFE_FUNCTION_CALL
 --
 ERROR: Analytic functions not supported [at 1:8]
 select safe.rank() over (order by key) from KeyValue
        ^
 --
-ALTERNATION GROUP: ,ANALYTIC_FUNCTIONS,
+ALTERNATION GROUP: ,+ANALYTIC_FUNCTIONS,
 --
 ERROR: Function calls with SAFE are not supported [at 1:8]
 select safe.rank() over (order by key) from KeyValue
        ^
 --
-ALTERNATION GROUP: ,ANALYTIC_FUNCTIONS,,SAFE_FUNCTION_CALL
+ALTERNATION GROUP: ,+ANALYTIC_FUNCTIONS,,+SAFE_FUNCTION_CALL
 --
 QueryStmt
 +-output_column_list=
@@ -180,7 +181,7 @@ QueryStmt
               +-$analytic1#4 := AnalyticFunctionCall({SAFE_ERROR_MODE} ZetaSQL:rank() -> INT64)
 ==
 
-[language_features={{|SAFE_FUNCTION_CALL}}]
+[language_features=NONE,{{|+SAFE_FUNCTION_CALL}}]
 select safe.cast(1 as int64)
 --
 ALTERNATION GROUP: <empty>
@@ -189,7 +190,7 @@ ERROR: Function calls with SAFE are not supported [at 1:8]
 select safe.cast(1 as int64)
        ^
 --
-ALTERNATION GROUP: SAFE_FUNCTION_CALL
+ALTERNATION GROUP: +SAFE_FUNCTION_CALL
 --
 ERROR: Function not found: `cast`; Did you mean safe.cos? [at 1:8]
 select safe.cast(1 as int64)
@@ -211,7 +212,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|SAFE_FUNCTION_CALL}}]
+[language_features=NONE,{{|+SAFE_FUNCTION_CALL}}]
 select safe.timestamp_micros(12345)
 --
 ALTERNATION GROUP: <empty>
@@ -220,7 +221,7 @@ ERROR: Function calls with SAFE are not supported [at 1:8]
 select safe.timestamp_micros(12345)
        ^
 --
-ALTERNATION GROUP: SAFE_FUNCTION_CALL
+ALTERNATION GROUP: +SAFE_FUNCTION_CALL
 --
 QueryStmt
 +-output_column_list=
@@ -236,7 +237,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|SAFE_FUNCTION_CALL}}]
+[language_features=NONE,{{|+SAFE_FUNCTION_CALL}}]
 select safe.`if`(true, 1, 2)
 --
 ALTERNATION GROUP: <empty>
@@ -245,7 +246,7 @@ ERROR: Function calls with SAFE are not supported [at 1:8]
 select safe.`if`(true, 1, 2)
        ^
 --
-ALTERNATION GROUP: SAFE_FUNCTION_CALL
+ALTERNATION GROUP: +SAFE_FUNCTION_CALL
 --
 QueryStmt
 +-output_column_list=
@@ -264,7 +265,7 @@ QueryStmt
 ==
 
 # Look up a SAFE function that doesn't exist.
-[language_features={{|SAFE_FUNCTION_CALL}}]
+[language_features=NONE,{{|+SAFE_FUNCTION_CALL}}]
 select safe.bad_function_xxx()
 --
 ALTERNATION GROUP: <empty>
@@ -273,7 +274,7 @@ ERROR: Function calls with SAFE are not supported [at 1:8]
 select safe.bad_function_xxx()
        ^
 --
-ALTERNATION GROUP: SAFE_FUNCTION_CALL
+ALTERNATION GROUP: +SAFE_FUNCTION_CALL
 --
 ERROR: Function not found: bad_function_xxx [at 1:8]
 select safe.bad_function_xxx()
@@ -281,7 +282,7 @@ select safe.bad_function_xxx()
 ==
 
 # Show that suggestions still work with SAFE.
-[language_features={{|SAFE_FUNCTION_CALL}}]
+[language_features=NONE,{{|+SAFE_FUNCTION_CALL}}]
 select saFE.Concav('abc')
 --
 ALTERNATION GROUP: <empty>
@@ -290,7 +291,7 @@ ERROR: Function calls with SAFE are not supported [at 1:8]
 select saFE.Concav('abc')
        ^
 --
-ALTERNATION GROUP: SAFE_FUNCTION_CALL
+ALTERNATION GROUP: +SAFE_FUNCTION_CALL
 --
 ERROR: Function not found: Concav; Did you mean saFE.concat? [at 1:8]
 select saFE.Concav('abc')
@@ -298,7 +299,7 @@ select saFE.Concav('abc')
 ==
 
 # But suggestions don't work for an error in the SAFE keyword.
-[language_features={{|SAFE_FUNCTION_CALL}}]
+[language_features=NONE,{{|+SAFE_FUNCTION_CALL}}]
 select sale.concat('abc')
 --
 ERROR: Function not found: sale.concat [at 1:8]
@@ -306,7 +307,7 @@ select sale.concat('abc')
        ^
 ==
 
-[language_features={{|SAFE_FUNCTION_CALL}}]
+[language_features=NONE,{{|+SAFE_FUNCTION_CALL}}]
 select safe.net.parse_ip('abc')
 --
 ALTERNATION GROUP: <empty>
@@ -315,7 +316,7 @@ ERROR: Function calls with SAFE are not supported [at 1:8]
 select safe.net.parse_ip('abc')
        ^
 --
-ALTERNATION GROUP: SAFE_FUNCTION_CALL
+ALTERNATION GROUP: +SAFE_FUNCTION_CALL
 --
 QueryStmt
 +-output_column_list=
@@ -331,7 +332,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|SAFE_FUNCTION_CALL}}]
+[language_features=NONE,{{|+SAFE_FUNCTION_CALL}}]
 select safe.timestamp_add(TIMESTAMP "2017-09-15 23:59:59.999999 UTC", INTERVAL 10 DAY)
 --
 ALTERNATION GROUP: <empty>
@@ -340,7 +341,7 @@ ERROR: Function calls with SAFE are not supported [at 1:8]
 select safe.timestamp_add(TIMESTAMP "2017-09-15 23:59:59.999999 UTC", INTERVA...
        ^
 --
-ALTERNATION GROUP: SAFE_FUNCTION_CALL
+ALTERNATION GROUP: +SAFE_FUNCTION_CALL
 --
 QueryStmt
 +-output_column_list=
@@ -358,7 +359,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|SAFE_FUNCTION_CALL}}]
+[language_features=NONE,{{|+SAFE_FUNCTION_CALL}}]
 select safe.safe_supported_function();
 --
 ALTERNATION GROUP: <empty>
@@ -367,7 +368,7 @@ ERROR: Function calls with SAFE are not supported [at 1:8]
 select safe.safe_supported_function();
        ^
 --
-ALTERNATION GROUP: SAFE_FUNCTION_CALL
+ALTERNATION GROUP: +SAFE_FUNCTION_CALL
 --
 QueryStmt
 +-output_column_list=
@@ -381,7 +382,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|SAFE_FUNCTION_CALL}}]
+[language_features=NONE,{{|+SAFE_FUNCTION_CALL}}]
 select safe.safe_unsupported_function();
 --
 ALTERNATION GROUP: <empty>
@@ -390,7 +391,7 @@ ERROR: Function calls with SAFE are not supported [at 1:8]
 select safe.safe_unsupported_function();
        ^
 --
-ALTERNATION GROUP: SAFE_FUNCTION_CALL
+ALTERNATION GROUP: +SAFE_FUNCTION_CALL
 --
 ERROR: Function safe_unsupported_function does not support SAFE error mode [at 1:8]
 select safe.safe_unsupported_function();
@@ -398,7 +399,7 @@ select safe.safe_unsupported_function();
 ==
 
 # Test that the flag SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS is required
-[language_features=SAFE_FUNCTION_CALL,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+SAFE_FUNCTION_CALL,+INLINE_LAMBDA_ARGUMENT]
 [enabled_ast_rewrites=NONE]
 SELECT
   SAFE.ARRAY_TRANSFORM([-1, 0, 10], e -> 1/e)
@@ -409,7 +410,7 @@ ERROR: Function ARRAY_TRANSFORM does not support SAFE error mode [at 2:3]
 ==
 
 # Test that the flag SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS is required
-[language_features=SAFE_FUNCTION_CALL,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+SAFE_FUNCTION_CALL,+INLINE_LAMBDA_ARGUMENT]
 [enabled_ast_rewrites=NONE]
 SELECT
   SAFE.ARRAY_FILTER([-1, 0, 10], e -> 1/e > 0)
@@ -420,7 +421,7 @@ ERROR: Function ARRAY_FILTER does not support SAFE error mode [at 2:3]
 ==
 
 # Test that the flag SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS is required
-[language_features=SAFE_FUNCTION_CALL,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+SAFE_FUNCTION_CALL,+INLINE_LAMBDA_ARGUMENT]
 [enabled_ast_rewrites=NONE]
 SELECT
   SAFE.ARRAY_INCLUDES([-1, 0, 10], 0)
@@ -431,7 +432,7 @@ ERROR: Function ARRAY_INCLUDES does not support SAFE error mode [at 2:3]
 ==
 
 # Test that the flag SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS is required
-[language_features=SAFE_FUNCTION_CALL,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+SAFE_FUNCTION_CALL,+INLINE_LAMBDA_ARGUMENT]
 [enabled_ast_rewrites=NONE]
 SELECT
   SAFE.ARRAY_INCLUDES([-1, 0, 10], e -> 1/e > 0)
@@ -442,7 +443,7 @@ ERROR: Function ARRAY_INCLUDES does not support SAFE error mode [at 2:3]
 ==
 
 # Test that the flag SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS is required
-[language_features=SAFE_FUNCTION_CALL,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+SAFE_FUNCTION_CALL,+INLINE_LAMBDA_ARGUMENT]
 [enabled_ast_rewrites=NONE]
 SELECT
   SAFE.ARRAY_INCLUDES_ALL([-1, 0, 10], [1, 0])
@@ -453,7 +454,7 @@ ERROR: Function ARRAY_INCLUDES_ALL does not support SAFE error mode [at 2:3]
 ==
 
 # Test that the flag SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS is required
-[language_features=SAFE_FUNCTION_CALL,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+SAFE_FUNCTION_CALL,+INLINE_LAMBDA_ARGUMENT]
 [enabled_ast_rewrites=NONE]
 SELECT
   SAFE.ARRAY_INCLUDES_ANY([-1, 0, 10], [1, 0])
@@ -464,7 +465,7 @@ ERROR: Function ARRAY_INCLUDES_ANY does not support SAFE error mode [at 2:3]
 ==
 
 # Test all array functions with SAFE, with no rewrites
-[language_features=SAFE_FUNCTION_CALL,INLINE_LAMBDA_ARGUMENT,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+[language_features=NONE,+SAFE_FUNCTION_CALL,+INLINE_LAMBDA_ARGUMENT,+SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
 [enabled_ast_rewrites=NONE]
 SELECT
   SAFE.ARRAY_TRANSFORM([-1, 0, 10], e -> 1/e),
@@ -550,7 +551,7 @@ QueryStmt
 ==
 
 # Test all array functions with SAFE, with rewrites
-[language_features=SAFE_FUNCTION_CALL,INLINE_LAMBDA_ARGUMENT,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+[language_features=NONE,+SAFE_FUNCTION_CALL,+INLINE_LAMBDA_ARGUMENT,+SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT
   SAFE.ARRAY_TRANSFORM([-1, 0, 10], e -> 1/e),

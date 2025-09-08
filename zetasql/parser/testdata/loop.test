@@ -1,5 +1,6 @@
 [default mode=script]
-[default language_features=REPEAT,FOR_IN]
+[default language_features=NONE,+REPEAT,+FOR_IN]
+[default node_kind=WhileStatement]
 LOOP
 END LOOP
 --
@@ -416,6 +417,7 @@ ERROR: Syntax error: Expected keyword DO but got keyword SELECT [at 2:3]
   ^
 ==
 
+[node_kind=RepeatStatement]
 REPEAT
 UNTIL TRUE
 END REPEAT
@@ -432,6 +434,7 @@ UNTIL TRUE
 END REPEAT ;
 ==
 
+[node_kind=RepeatStatement]
 REPEAT
   SELECT 3;
   SELECT 5;
@@ -468,6 +471,7 @@ UNTIL TRUE
 END REPEAT ;
 ==
 
+[node_kind=RepeatStatement]
 REPEAT
   REPEAT
     SELECT x;
@@ -550,6 +554,7 @@ LOOP
 END LOOP ;
 ==
 
+[node_kind=RepeatStatement]
 REPEAT
   LOOP
     WHILE x <= 3 DO
@@ -593,6 +598,7 @@ UNTIL FALSE
 END REPEAT ;
 ==
 
+[node_kind=QueryStatement]
 SELECT Key AS REPEAT FROM KeyValue AS UNTIL;
 --
 Script [0-44] [SELECT Key...AS UNTIL;]
@@ -620,6 +626,7 @@ FROM
 ;
 ==
 
+[node_kind=RepeatStatement]
 repeat select x; select y; until false end repeat;
 --
 Script [0-50] [repeat select...end repeat;]
@@ -655,6 +662,7 @@ END REPEAT ;
 ==
 
 # Missing condition
+[node_kind=RepeatStatement]
 REPEAT
 UNTIL
 END REPEAT;
@@ -665,6 +673,7 @@ END REPEAT;
 ==
 
 # Incorrect extra semi-colon after condition
+[node_kind=RepeatStatement]
 REPEAT
 UNTIL TRUE;
 END REPEAT;
@@ -675,6 +684,7 @@ UNTIL TRUE;
 ==
 
 # Incorrect end.
+[node_kind=RepeatStatement]
 REPEAT
   SELECT 1;
 UNTIL TRUE
@@ -686,6 +696,7 @@ END LOOP;
 ==
 
 # Unclosed loop inside of Repeat.
+[node_kind=RepeatStatement]
 REPEAT
 LOOP
   SELECT 1;
@@ -698,6 +709,7 @@ UNTIL TRUE
 ==
 
 # Missing UNTIL.
+[node_kind=RepeatStatement]
 REPEAT
   SELECT 1;
 END REPEAT;
@@ -708,7 +720,8 @@ END REPEAT;
 ==
 
 # REPEAT feature disabled
-[language_features=]
+[language_features=NONE]
+[node_kind=RepeatStatement]
 REPEAT
   SELECT 3;
 UNTIL TRUE
@@ -720,6 +733,7 @@ REPEAT
 ==
 
 # FOR...IN with empty body
+[node_kind=ForInStatement]
 FOR x IN (SELECT 1)
 DO
 END FOR;
@@ -744,6 +758,7 @@ END FOR ;
 ==
 
 # FOR...IN with single line in body
+[node_kind=ForInStatement]
 FOR x IN (SELECT 1)
 DO
   SELECT x;
@@ -779,6 +794,7 @@ END FOR ;
 ==
 
 # FOR...IN with multiple lines in body
+[node_kind=ForInStatement]
 FOR x IN (SELECT 1, 2, 3)
 DO
   SELECT x;
@@ -841,6 +857,7 @@ END FOR ;
 ==
 
 # FOR...IN with FROM in query
+[node_kind=ForInStatement]
 FOR x IN (SELECT col1, col2 FROM tables.table1)
 DO
   SELECT x;
@@ -888,6 +905,7 @@ END FOR ;
 ==
 
 # FOR...IN with WITH in query
+[node_kind=ForInStatement]
 FOR x IN (WITH dogs AS (SELECT * FROM animals.dogs) SELECT name, breed FROM dogs)
 DO
   SELECT x.name;
@@ -966,6 +984,7 @@ END FOR ;
 ==
 
 # FOR...IN with PIVOT in query
+[node_kind=ForInStatement]
 FOR x IN (SELECT * FROM t PIVOT(SUM(a), SUM(b) FOR b IN (0, 1)))
 DO
   SELECT x;
@@ -1028,6 +1047,7 @@ END FOR ;
 ==
 
 # FOR...IN with TABLESAMPLE in query
+[node_kind=ForInStatement]
 FOR x IN (SELECT uId FROM Users TABLESAMPLE RESERVOIR (100 ROWS) REPEATABLE(10))
 DO
   SELECT x;
@@ -1077,6 +1097,7 @@ END FOR ;
 ==
 
 # Nested FOR...IN
+[node_kind=ForInStatement]
 FOR x IN (SELECT 1, 2, 3)
 DO
   FOR y IN (SELECT 4, 5)
@@ -1250,6 +1271,7 @@ END WHILE ;
 ==
 
 # FOR...IN in lowercase
+[node_kind=ForInStatement]
 for x in (select 1) do select x; select 2; end for;
 --
 Script [0-51] [for x in (...; end for;]
@@ -1291,7 +1313,8 @@ END FOR ;
 ==
 
 # FOR...IN disabled
-[language_features=]
+[language_features=NONE]
+[node_kind=ForInStatement]
 FOR x IN (SELECT 1)
 DO
   SELECT x;
@@ -1303,6 +1326,7 @@ FOR x IN (SELECT 1)
 ==
 
 # Incorrect semicolon after DO
+[node_kind=ForInStatement]
 FOR x IN (SELECT 1)
 DO;
   SELECT x;
@@ -1314,6 +1338,7 @@ DO;
 ==
 
 # Incorrect semicolon after query
+[node_kind=ForInStatement]
 FOR x IN (SELECT 1;)
 DO
   SELECT x;
@@ -1325,6 +1350,7 @@ FOR x IN (SELECT 1;)
 ==
 
 # Missing query
+[node_kind=ForInStatement]
 FOR x IN ()
 DO
   SELECT x;
@@ -1336,6 +1362,7 @@ FOR x IN ()
 ==
 
 # Non-query loop query
+[node_kind=ForInStatement]
 FOR x IN (INSERT INTO t(z) VALUES (2))
 DO
 END FOR;

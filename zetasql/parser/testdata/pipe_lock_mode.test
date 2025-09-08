@@ -1,6 +1,6 @@
 # Tests for the FOR UPDATE clause within queries using pipe syntax.
 
-[default language_features=FOR_UPDATE,PIPES]
+[default language_features=NONE,+FOR_UPDATE,+PIPES]
 
 # Pipe syntax and FOR UPDATE.
 from t for update

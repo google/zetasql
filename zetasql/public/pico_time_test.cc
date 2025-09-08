@@ -196,5 +196,32 @@ INSTANTIATE_TEST_SUITE_P(ToStringTests, ToStringTest,
                              {"1234-01-02 03:04:05+00", 123'456'789'012,
                               "1234-01-02 03:04:05.123456789012+00"},
                          }));
+
+struct PrecisionTestCase {
+  std::string absl_time;
+  uint64_t picoseconds;
+  int expected_precision;
+};
+
+class PrecisionTest : public ::testing::TestWithParam<PrecisionTestCase> {};
+
+TEST_P(PrecisionTest, PrecisionTest) {
+  const PrecisionTestCase test = GetParam();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto time,
+                       PicoTime::Create(PicoTimeTest::ParseTime(test.absl_time),
+                                        test.picoseconds));
+  EXPECT_EQ(time.Precision(), test.expected_precision);
+}
+
+INSTANTIATE_TEST_SUITE_P(PrecisionTests, PrecisionTest,
+                         ::testing::ValuesIn<PrecisionTestCase>({
+                             {"1234-01-02 03:04:05+00", 123'456'789'001, 12},
+                             {"1234-01-02 03:04:05+00", 123'456'789'010, 12},
+                             {"1234-01-02 03:04:05+00", 123'456'781'000, 9},
+                             {"1234-01-02 03:04:05+00", 123'456'710'000, 9},
+                             {"1234-01-02 03:04:05+00", 123'456'000'000, 6},
+                             {"1234-01-02 03:04:05+00", 123'000'000'000, 3},
+                             {"1234-01-02 03:04:05+00", 0, 0},
+                         }));
 }  // namespace
 }  // namespace zetasql

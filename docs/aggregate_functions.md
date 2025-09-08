@@ -1101,6 +1101,11 @@ window_specification:
 Gets the number of rows in the input or the number of rows with an
 expression evaluated to any value other than `NULL`.
 
+Note: If you're querying a large dataset, you can compute results faster and
+save resources by using [HLL++ functions][hll-functions] for approximate
+distinct counts. For more information, see
+[Sketches][sketches].
+
 **Definitions**
 
 + `*`: Use this value to get the number of all rows in the input.
@@ -1282,6 +1287,10 @@ FROM vendors;
  | 2      |
  *--------*/
 ```
+
+[sketches]: https://github.com/google/zetasql/blob/master/docs/sketches.md
+
+[hll-functions]: https://github.com/google/zetasql/blob/master/docs/hll_functions.md
 
 [countif]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#countif
 

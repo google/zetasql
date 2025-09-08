@@ -10,6 +10,7 @@
 # In this case the function has no arguments, but the return type is templated.
 # TODO: Enable Java support when serialization for templated SQL
 # functions is implemented.
+[default language_features=NONE]
 [default no_java]
 
 select udf_templated_return_one();
@@ -688,7 +689,7 @@ FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
 # The NULL value for argument 'x' in the second call should be converted to
 # DOUBLE explicitly, or otherwise the '<' in the templated SQL body would become
 # a comparison between two INT64s.
-[language_features={{|TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS}}]
+[language_features=NONE,{{|+TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS}}]
 SELECT
   udf_any_and_double_args_return_any(1, 314),
   udf_any_and_double_args_return_any(1, null);
@@ -734,7 +735,7 @@ FunctionCall(ZetaSQL:if(BOOL, STRING, STRING) -> STRING)
 +-Literal(type=STRING, value="a")
 +-Literal(type=STRING, value="b")
 --
-ALTERNATION GROUP: TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS
+ALTERNATION GROUP: +TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS
 --
 QueryStmt
 +-output_column_list=
@@ -777,7 +778,7 @@ FunctionCall(ZetaSQL:if(BOOL, STRING, STRING) -> STRING)
 # Before the fix, the type of 'x' in the 2nd and 3rd templated SQL function call
 # bodies would be ARRAY<INT64> which is the default type of an untyped NULL or
 # an empty array.
-[language_features={{|TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS}}]
+[language_features=NONE,{{|+TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS}}]
 SELECT
   udf_any_and_double_array_args_return_any(1, [314.0]),
   udf_any_and_double_array_args_return_any(1, null),
@@ -795,7 +796,7 @@ Function calls with SAFE are not supported [at 1:4]
 IF(x[SAFE_OFFSET(0)] < 0, 'a', 'b')
    ^
 --
-ALTERNATION GROUP: TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS
+ALTERNATION GROUP: +TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS
 --
 QueryStmt
 +-output_column_list=
@@ -845,7 +846,7 @@ FunctionCall(ZetaSQL:if(BOOL, STRING, STRING) -> STRING)
 # Cannot run with the feature disabled, or it would run into the error like
 # 'Unparsed tree does not produce same result shape as the original resolved
 # tree'.
-[language_features=TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS]
+[language_features=NONE,+TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS]
 SELECT udf_any_and_string_args_return_string_arg(TRUE, NULL);
 --
 QueryStmt
@@ -877,7 +878,7 @@ ArgumentRef(type=STRING, name="x")
 # Unlike the case above, here the function argument is an untyped parameter.
 # This test case verifies that the untyped parameter can be handled correctly
 # with and without the feature.
-[language_features=TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS]
+[language_features=NONE,+TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS]
 [allow_undeclared_parameters]
 SELECT udf_any_and_string_args_return_string_arg(TRUE, @untyped_param);
 --
@@ -914,7 +915,7 @@ untyped_param: STRING
 # The NULL value for argument 'x' in the call should be converted to DOUBLE
 # explicitly, or otherwise the '<' in the templated SQL body would become a
 # comparison between two INT64s.
-[language_features={{|TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS}}]
+[language_features=NONE,{{|+TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS}}]
 SELECT uda_any_and_double_args_return_any(3.1415, NULL)
 FROM KeyValue
 --
@@ -951,7 +952,7 @@ ColumnRef(type=STRING, column=$aggregate.$agg1#1)
         +-Literal(type=STRING, value="a")
         +-Literal(type=STRING, value="b")
 --
-ALTERNATION GROUP: TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS
+ALTERNATION GROUP: +TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS
 --
 QueryStmt
 +-output_column_list=
@@ -998,7 +999,7 @@ ColumnRef(type=STRING, column=$aggregate.$agg1#1)
 # Before the fix, the type of 'x' in the 2nd and 3rd templated SQL function call
 # bodies would be ARRAY<INT64> which is the default type of an untyped NULL or
 # an empty array.
-[language_features={{|TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS}}]
+[language_features=NONE,{{|+TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS}}]
 SELECT
   uda_any_and_double_array_args_return_any(key, [314.0]),
   uda_any_and_double_array_args_return_any(key, null),
@@ -1018,7 +1019,7 @@ Function calls with SAFE are not supported [at 1:4]
 IF(x[SAFE_OFFSET(0)] < 0, MAX(a), MIN(a))
    ^
 --
-ALTERNATION GROUP: TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS
+ALTERNATION GROUP: +TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS
 --
 QueryStmt
 +-output_column_list=
@@ -1078,7 +1079,7 @@ FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
 #
 # Before the fix, the type of 'x' in the templated SQL function call body would
 # be INT64 which is the default type of an untyped NULL.
-[language_features={{|TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS}}]
+[language_features=NONE,{{|+TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS}}]
 SELECT uda_any_and_string_args_return_string(key > 43, NULL)
 FROM
   keyValue
@@ -1102,7 +1103,7 @@ No matching signature for operator ||
 IF(LOGICAL_OR(a), x, x || '_suffix')
                      ^
 --
-ALTERNATION GROUP: TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS
+ALTERNATION GROUP: +TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS
 --
 QueryStmt
 +-output_column_list=
@@ -1248,7 +1249,7 @@ x like any ('z')
        ^
 ==
 
-[language_features=LIKE_ANY_SOME_ALL]
+[language_features=NONE,+LIKE_ANY_SOME_ALL]
 
 select udf_templated_like_any('y');
 --
@@ -1440,7 +1441,7 @@ Duplicate argument name x
 
 # Call a templated SQL function that calls a templated SQL TVF that calls the
 # original templated SQL function again, to make sure cycle detection works.
-[language_features=TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS]
 select udf_calls_tvf_calls_same_udf();
 --
 ERROR: Invalid function udf_calls_tvf_calls_same_udf [at 1:8]
@@ -1463,7 +1464,7 @@ Recursive dependencies detected when resolving function Templated_SQL_Function:u
 
 # Call a templated SQL TVF that calls a templated SQL function that calls the
 # original templated SQL TVF again, to make sure cycle detection works.
-[language_features=TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS]
 select * from tvf_calls_udf_calls_same_tvf();
 --
 ERROR: Invalid table-valued function tvf_calls_udf_calls_same_tvf [at 1:15]
@@ -1607,7 +1608,7 @@ sum(x order by x)
       ^
 ==
 
-[language_features=TEMPLATE_FUNCTIONS,WITH_GROUP_ROWS]
+[language_features=NONE,+TEMPLATE_FUNCTIONS,+WITH_GROUP_ROWS]
 SELECT WrappedGroupRows(e) FROM UNNEST([1, 2, 3]) AS e
 
 --

@@ -1253,7 +1253,7 @@ public class Value implements Serializable {
       String ascii;
 
       try {
-        ascii = toMessage().toString();
+        ascii = TextFormat.printer().printToString(toMessage());
       } catch (InvalidProtocolBufferException e) {
         ascii = "<unparseable>";
       }

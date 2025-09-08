@@ -1094,7 +1094,7 @@ SELECT CBRT(27) AS cube_root;
  *--------------------*/
 ```
 
-[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
+[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
 
 ## `CEIL`
 
@@ -1504,7 +1504,7 @@ SELECT COT(1) AS a, SAFE.COT(0) AS b;
  *---------------------+------*/
 ```
 
-[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
+[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
 
 ## `COTH`
 
@@ -1566,7 +1566,7 @@ SELECT COTH(1) AS a, SAFE.COTH(0) AS b;
  *----------------+------*/
 ```
 
-[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
+[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
 
 ## `CSC`
 
@@ -1628,7 +1628,7 @@ SELECT CSC(100) AS a, CSC(-1) AS b, SAFE.CSC(0) AS c;
  *----------------+-----------------+------*/
 ```
 
-[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
+[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
 
 ## `CSCH`
 
@@ -1690,7 +1690,7 @@ SELECT CSCH(0.5) AS a, CSCH(-2) AS b, SAFE.CSCH(0) AS c;
  *----------------+----------------+------*/
 ```
 
-[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
+[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
 
 ## `DIV`
 
@@ -3311,7 +3311,7 @@ SELECT SEC(100) AS a, SEC(-1) AS b;
  *----------------+---------------*/
 ```
 
-[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
+[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
 
 ## `SECH`
 
@@ -3369,7 +3369,7 @@ SELECT SECH(0.5) AS a, SECH(-2) AS b, SECH(100) AS c;
  *----------------+----------------+---------------------*/
 ```
 
-[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
+[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
 
 ## `SIGN`
 

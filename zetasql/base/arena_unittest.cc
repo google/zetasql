@@ -383,12 +383,12 @@ static std::less<uint32_t> int_less;
 
 template <typename T>
 struct test_hash {
-  int operator()(const T&) const{ return 0; }
+  size_t operator()(const T&) const{ return 0; }
   inline bool operator()(const T& s1, const T& s2) const { return s1 < s2; }
 };
 template <>
 struct test_hash<const char*> {
-  int operator()(const char*) const { return 0; }
+  size_t operator()(const char*) const { return 0; }
 
   inline bool operator()(const char* s1, const char* s2) const {
     return (s1 != s2) &&

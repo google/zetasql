@@ -1,5 +1,5 @@
 [default enabled_ast_rewrites=DEFAULTS]
-[default language_features=SAFE_FUNCTION_CALL]
+[default language_features=MAXIMUM,+SAFE_FUNCTION_CALL]
 
 SELECT ARRAY_SLICE([1, 2]{{|, 1}})
 --
@@ -317,7 +317,7 @@ QueryStmt
 Rewrite ERROR: generic::unimplemented: SAFE mode calls to ARRAY_SLICE are not supported.
 ==
 
-[language_features=SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,ARRAY_FIND_FUNCTIONS]
+[language_features=NONE,+SAFE_FUNCTION_CALL,+SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,+ARRAY_FIND_FUNCTIONS]
 [no_java]
 # TODO: Enable this test when enum debug string is fixed in Java
 SELECT {{|SAFE.}}ARRAY_OFFSET([], 'hello')
@@ -593,7 +593,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,ARRAY_FIND_FUNCTIONS]
+[language_features=NONE,+SAFE_FUNCTION_CALL,+SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,+ARRAY_FIND_FUNCTIONS]
 [no_java]
 # TODO: Enable this test when enum debug string is fixed in Java
 SELECT {{|SAFE.}}ARRAY_FIND([], 'hello')

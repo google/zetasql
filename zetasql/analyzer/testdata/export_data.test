@@ -1,3 +1,4 @@
+[default language_features=MAXIMUM]
 export data
 options (format=sstable, filename='/tmp/file.ss')
 as select * from KeyValue
@@ -342,7 +343,7 @@ ExportDataStmt
 # EXPORT DATA with a column of an unselectable type.
 # TODO Measures don't work in java yet.
 [no_java]
-[language_features=ENABLE_MEASURES]
+[language_features=NONE,+ENABLE_MEASURES]
 EXPORT DATA
 AS
 SELECT key, measure_count_star
@@ -351,3 +352,54 @@ FROM MeasureTable_SingleKey
 ERROR: Returning expressions of type MEASURE is not allowed [at 1:1]
 EXPORT DATA
 ^
+
+==
+
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
+EXPORT DATA OPTIONS() AS
+GRAPH aml
+MATCH (a)
+RETURN 1 as x
+--
+ExportDataStmt
++-output_column_list=
+| +-$graph_table.x#2 AS x [INT64]
++-query=
+  +-GraphTableScan
+    +-column_list=[$graph_table.x#2]
+    +-property_graph=aml
+    +-input_scan=
+      +-GraphLinearScan
+        +-column_list=[$graph_table.x#2]
+        +-scan_list=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.x#2]
+            +-scan_list=
+              +-GraphScan
+              | +-column_list=[$element_table.a#1]
+              | +-input_scan_list=
+              | | +-GraphPathScan
+              | |   +-column_list=[$element_table.a#1]
+              | |   +-input_scan_list=
+              | |   | +-GraphNodeScan
+              | |   |   +-column_list=[$element_table.a#1]
+              | |   |   +-label_expr=
+              | |   |   | +-GraphLabelNaryExpr
+              | |   |   |   +-op=OR
+              | |   |   |   +-operand_list=
+              | |   |   |     +-GraphWildCardLabel
+              | |   |   |     +-GraphLabelNaryExpr
+              | |   |   |       +-op=NOT
+              | |   |   |       +-operand_list=
+              | |   |   |         +-GraphWildCardLabel
+              | |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
+              | |   +-head=$element_table.a#1
+              | |   +-tail=$element_table.a#1
+              | +-input_scan=
+              |   +-SingleRowScan
+              +-ProjectScan
+                +-column_list=[$graph_table.x#2]
+                +-expr_list=
+                | +-x#2 := Literal(type=INT64, value=1)
+                +-input_scan=
+                  +-GraphRefScan(column_list=[$element_table.a#1])

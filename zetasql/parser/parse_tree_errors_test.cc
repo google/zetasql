@@ -23,17 +23,22 @@
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/common/testing/status_payload_matchers.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/proto/internal_fix_suggestion.pb.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 
 using ::zetasql::testing::EqualsProto;
+using ::zetasql::testing::StatusHasPayload;
 using testing::HasSubstr;
 using zetasql_base::testing::StatusIs;
 
@@ -115,7 +120,7 @@ TEST(Errors, LocationOverride) {
     return absl::OkStatus();
   };
 
-  absl::Status test_status = ConvertInternalErrorLocationToExternal(
+  absl::Status test_status = ConvertInternalErrorPayloadsToExternal(
       ReturnWithLocationOverride(RetCheckError), query);
   EXPECT_THAT(test_status, StatusIs(absl::StatusCode::kInternal));
   EXPECT_THAT(
@@ -124,16 +129,16 @@ TEST(Errors, LocationOverride) {
                 "column: 2 filename: \"fake_filename\" "
                 "input_start_line_offset: 0 input_start_column_offset: 0 }"));
 
-  ZETASQL_EXPECT_OK(ConvertInternalErrorLocationToExternal(
+  ZETASQL_EXPECT_OK(ConvertInternalErrorPayloadsToExternal(
       ReturnWithLocationOverride(&NoError), query));
 
-  test_status = ConvertInternalErrorLocationToExternal(
+  test_status = ConvertInternalErrorPayloadsToExternal(
       ReturnWithLocationOverride(&ErrorWithoutLocation), query);
   EXPECT_THAT(test_status, StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(FormatError(test_status),
               HasSubstr("No location [at fake_filename:4:2]"));
 
-  test_status = ConvertInternalErrorLocationToExternal(
+  test_status = ConvertInternalErrorPayloadsToExternal(
       ReturnWithLocationOverride(&ErrorWithLocation), query);
   EXPECT_THAT(test_status, StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(FormatError(test_status),
@@ -142,7 +147,7 @@ TEST(Errors, LocationOverride) {
   // LocationOverride only overrides location, never error code. We took the
   // philosophy that any overriding of specific error cods should be explicit
   // at the place where they need to be overridden.
-  test_status = ConvertInternalErrorLocationToExternal(
+  test_status = ConvertInternalErrorPayloadsToExternal(
       ReturnWithLocationOverride(&ErrorNonSQL), query);
   EXPECT_THAT(test_status, StatusIs(absl::StatusCode::kNotFound));
   EXPECT_THAT(
@@ -166,6 +171,83 @@ TEST(Errors, MakeSqlErrorIfPresent) {
   EXPECT_THAT(TestOnNode(node), StatusIs(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(TestOnNode(node).ToString(),
               HasSubstr("Node not supported here"));
+}
+
+TEST(WrapNestedErrorStatus, PropagatesFixPayload) {
+  absl::Status status = absl::InvalidArgumentError("Invalid query");
+  InternalErrorFixSuggestions fixes;
+  fixes.add_fix_suggestions()->set_title("Fix title");
+  internal::AttachPayload(&status, fixes);
+  FakeASTNode ast_location;
+
+  absl::Status new_status = WrapNestedErrorStatus(
+      &ast_location, "Nested error", status, ERROR_MESSAGE_WITH_PAYLOAD);
+
+  EXPECT_THAT(new_status, StatusHasPayload<InternalErrorFixSuggestions>(
+                              EqualsProto(fixes)));
+}
+
+TEST(AddFixSuggestionToStatus, AddsFirstFixSuggestion) {
+  absl::Status status = absl::InvalidArgumentError("Invalid query");
+
+  EXPECT_THAT(AddFixSuggestionToStatus(
+                  status, "Fix title",
+                  ParseLocationPoint::FromByteOffset("filename", 2),
+                  ParseLocationPoint::FromByteOffset(4), "replacement_fix"),
+              StatusHasPayload<InternalErrorFixSuggestions>(EqualsProto(R"pb(
+                fix_suggestions {
+                  title: "Fix title"
+                  edits {
+                    text_edits {
+                      range {
+                        start { byte_offset: 2 filename: "filename" }
+                        length: 2
+                      }
+                      new_text: "replacement_fix"
+                    }
+                  }
+                }
+              )pb")));
+}
+
+TEST(AddFixSuggestionToStatus, AddsMultipleFixSuggestions) {
+  absl::Status status = absl::InvalidArgumentError("Invalid query");
+
+  AddFixSuggestionToStatus(
+      status, "Fix title 1", ParseLocationPoint::FromByteOffset("filename", 11),
+      ParseLocationPoint::FromByteOffset(14), "replacement_1");
+  AddFixSuggestionToStatus(status, "Fix title 2",
+                           ParseLocationPoint::FromByteOffset("filename_2", 22),
+                           ParseLocationPoint::FromByteOffset(24),
+                           "replacement_2");
+
+  EXPECT_THAT(status,
+              StatusHasPayload<InternalErrorFixSuggestions>(EqualsProto(R"pb(
+                fix_suggestions {
+                  title: "Fix title 1"
+                  edits {
+                    text_edits {
+                      range {
+                        start { byte_offset: 11 filename: "filename" }
+                        length: 3
+                      }
+                      new_text: "replacement_1"
+                    }
+                  }
+                },
+                fix_suggestions {
+                  title: "Fix title 2"
+                  edits {
+                    text_edits {
+                      range {
+                        start { byte_offset: 22 filename: "filename_2" }
+                        length: 2
+                      }
+                      new_text: "replacement_2"
+                    }
+                  }
+                }
+              )pb")));
 }
 
 }  // namespace zetasql

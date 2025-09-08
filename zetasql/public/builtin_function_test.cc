@@ -117,23 +117,22 @@ TEST(SimpleBuiltinFunctionTests, ConstructWithProtoTest) {
   EXPECT_EQ(2, option1.rewrite_enabled.size());
   EXPECT_TRUE(
       option1.include_function_ids.find(FunctionSignatureId::FN_EQUAL) !=
-          option1.include_function_ids.end());
+      option1.include_function_ids.end());
   EXPECT_TRUE(
       option1.include_function_ids.find(FunctionSignatureId::FN_ADD_DOUBLE) !=
-          option1.include_function_ids.end());
+      option1.include_function_ids.end());
   EXPECT_TRUE(
       option1.include_function_ids.find(FunctionSignatureId::FN_ABS_DOUBLE) !=
-          option1.include_function_ids.end());
+      option1.include_function_ids.end());
   EXPECT_TRUE(
       option1.exclude_function_ids.find(FunctionSignatureId::FN_ABS_DOUBLE) !=
-          option1.exclude_function_ids.end());
-  EXPECT_TRUE(
-      option1.exclude_function_ids.find(FunctionSignatureId::FN_AND) !=
-          option1.exclude_function_ids.end());
+      option1.exclude_function_ids.end());
+  EXPECT_TRUE(option1.exclude_function_ids.find(FunctionSignatureId::FN_AND) !=
+              option1.exclude_function_ids.end());
   EXPECT_TRUE(option1.language_options.LanguageFeatureEnabled(
       LanguageFeature::FEATURE_TABLESAMPLE));
   EXPECT_FALSE(option1.language_options.LanguageFeatureEnabled(
-        LanguageFeature::FEATURE_ANALYTIC_FUNCTIONS));
+      LanguageFeature::FEATURE_ANALYTIC_FUNCTIONS));
   EXPECT_TRUE(option1.language_options.SupportsStatementKind(
       ResolvedNodeKind::RESOLVED_AGGREGATE_FUNCTION_CALL));
   EXPECT_FALSE(option1.language_options.SupportsStatementKind(
@@ -269,7 +268,7 @@ TEST(SimpleBuiltinFunctionTests, SanityTests) {
 
   // Make sure expected functions are found via name mapping.
   for (FunctionSignatureId id :
-           zetasql_base::EnumerateEnumValues<FunctionSignatureId>()) {
+       zetasql_base::EnumerateEnumValues<FunctionSignatureId>()) {
     // Skip invalid ids.
     switch (id) {
       case __FunctionSignatureId__switch_must_have_a_default__:
@@ -290,15 +289,6 @@ TEST(SimpleBuiltinFunctionTests, SanityTests) {
       case FN_APPROX_DOT_PRODUCT_INT64_WITH_PROTO_OPTIONS:
       case FN_APPROX_DOT_PRODUCT_FLOAT_WITH_PROTO_OPTIONS:
       case FN_APPROX_DOT_PRODUCT_DOUBLE_WITH_PROTO_OPTIONS:
-        continue;
-      // FEATURE_ENABLE_MEASURES is marked ideally_enabled=false, and so
-      // is not included in the available functions with the options used by
-      // this test.
-      // TODO: b/350555383 - Remove this case to re-enable the test once
-      // FEATURE_ENABLE_MEASURES is ideally enabled. We can't simply
-      // enable the feature above, as `FunctionSignatureIdToName` also
-      // constructs a map of functions, but without these features.
-      case FN_AGG:
         continue;
       default:
         break;
@@ -339,16 +329,14 @@ TEST(SimpleBuiltinFunctionTests, BasicTests) {
   ASSERT_THAT(function, NotNull());
   ASSERT_EQ(1, (*function)->NumSignatures());
   ASSERT_EQ(4, (*function)->GetSignature(0)->arguments().size());
-  ASSERT_EQ(ARG_TYPE_ANY_1,
-            (*function)->GetSignature(0)->result_type().kind());
+  ASSERT_EQ(ARG_TYPE_ANY_1, (*function)->GetSignature(0)->result_type().kind());
   EXPECT_FALSE((*function)->SupportsSafeErrorMode());
 
   function = zetasql_base::FindOrNull(functions, "$case_no_value");
   ASSERT_THAT(function, NotNull());
   ASSERT_EQ(1, (*function)->NumSignatures());
   ASSERT_EQ(3, (*function)->GetSignature(0)->arguments().size());
-  ASSERT_EQ(ARG_TYPE_ANY_1,
-            (*function)->GetSignature(0)->result_type().kind());
+  ASSERT_EQ(ARG_TYPE_ANY_1, (*function)->GetSignature(0)->result_type().kind());
   EXPECT_FALSE((*function)->SupportsSafeErrorMode());
 
   function = zetasql_base::FindOrNull(functions, "concat");
@@ -701,16 +689,15 @@ TEST(SimpleFunctionTests, TestCheckArgumentConstraints) {
                                       &enum_type));
 
   const StructType* struct_type;
-  ZETASQL_ASSERT_OK(type_factory.MakeStructType(
-      {{"a", string_type}, {"b", bytes_type}}, &struct_type));
+  ZETASQL_ASSERT_OK(type_factory.MakeStructType({{"a", string_type}, {"b", bytes_type}},
+                                        &struct_type));
 
   const ArrayType* array_type;
   ZETASQL_ASSERT_OK(type_factory.MakeArrayType(int64_type, &array_type));
 
   const ProtoType* proto_type;
-  ZETASQL_ASSERT_OK(
-      type_factory.MakeProtoType(zetasql_test__::KitchenSinkPB::descriptor(),
-                                 &proto_type));
+  ZETASQL_ASSERT_OK(type_factory.MakeProtoType(
+      zetasql_test__::KitchenSinkPB::descriptor(), &proto_type));
 
   Value delimiter = Value::String(", ");
 
@@ -718,9 +705,9 @@ TEST(SimpleFunctionTests, TestCheckArgumentConstraints) {
                                     {{int64_type, /*num_occurrences=*/1},
                                      {int64_type, /*num_occurrences=*/1}},
                                     /*context_id=*/-1};
-  const std::vector<FunctionSignatureId> function_ids =
-      {FN_LESS, FN_LESS_OR_EQUAL, FN_GREATER_OR_EQUAL, FN_GREATER, FN_EQUAL,
-       FN_NOT_EQUAL};
+  const std::vector<FunctionSignatureId> function_ids = {
+      FN_LESS,    FN_LESS_OR_EQUAL, FN_GREATER_OR_EQUAL,
+      FN_GREATER, FN_EQUAL,         FN_NOT_EQUAL};
   for (const FunctionSignatureId function_id : function_ids) {
     ASSERT_THAT(GetPreResolutionArgumentConstraints(function_id, functions),
                 IsNull());
@@ -840,30 +827,19 @@ TEST(SimpleFunctionTests, HideFunctionsForExternalMode) {
     EXPECT_NE(nullptr, zetasql_base::FindOrNull(functions, "array_length"));
   }
 }
+class OpaqueTypeTest : public ::testing::TestWithParam<ProductMode> {};
 
-TEST(SimpleFunctionTests, TestNoOpaqueTypesInProductExternl) {
-  TypeFactory type_factory;
-  ZetaSQLBuiltinFunctionOptions options;
-  options.language_options.set_product_mode(PRODUCT_EXTERNAL);
-  options.language_options.EnableMaximumLanguageFeaturesForDevelopment();
-  NameToFunctionMap functions;
-  NameToTypeMap types;
-  ZETASQL_ASSERT_OK(
-      GetBuiltinFunctionsAndTypes(options, type_factory, functions, types));
-  EXPECT_THAT(types, testing::IsEmpty());
-}
+INSTANTIATE_TEST_SUITE_P(OpaqueTypeTest, OpaqueTypeTest,
+                         ::testing::Values(PRODUCT_INTERNAL, PRODUCT_EXTERNAL));
 
-TEST(SimpleFunctionTests, TestOpaqueTypeConsistency) {
-  // Note, we test only for 'internal' mode (for now), since external mode
-  // should _not_ include opaque types (for now).
-  // See TestNoOpaqueTypesInProductExternl
-
+TEST_P(OpaqueTypeTest, TestOpaqueTypeConsistency) {
   TypeFactory type_factory;
   // Builtin functions that include an opaque type transitively in their
   // signature should also add that type with several exceptions.
   // Conversely, all added types should appear in some function signature.
   ZetaSQLBuiltinFunctionOptions options;
   options.language_options.EnableMaximumLanguageFeaturesForDevelopment();
+  options.language_options.set_product_mode(GetParam());
   NameToFunctionMap functions;
   NameToTypeMap types;
   ZETASQL_ASSERT_OK(
@@ -917,50 +893,46 @@ TEST(SimpleFunctionTests, TestFunctionSignaturesForUnintendedCoercion) {
   // of signed integer and floating point, without unsigned integer
   // signatures.
   Function function("sign", Function::kZetaSQLFunctionGroupName, SCALAR,
-                    { {int32_type, {int32_type}, FN_SIGN_INT32},
-                      {int64_type, {int64_type}, FN_SIGN_INT64},
-                      {float_type, {float_type}, FN_SIGN_FLOAT},
-                      {double_type, {double_type}, FN_SIGN_DOUBLE}},
+                    {{int32_type, {int32_type}, FN_SIGN_INT32},
+                     {int64_type, {int64_type}, FN_SIGN_INT64},
+                     {float_type, {float_type}, FN_SIGN_FLOAT},
+                     {double_type, {double_type}, FN_SIGN_DOUBLE}},
                     FunctionOptions());
   EXPECT_TRUE(FunctionMayHaveUnintendedArgumentCoercion(&function))
       << function.DebugString();
 
   // The checks work across corresponding arguments.  This fails because the
   // second argument only supports signed and floating point types.
-  Function function2("fn2", Function::kZetaSQLFunctionGroupName, SCALAR,
-                     { {int32_type, {int32_type, int32_type},
-                          nullptr /* context_ptr */},
-                       {int64_type, {int64_type, int64_type},
-                          nullptr /* context_ptr */},
-                       {uint32_type, {uint32_type, int32_type},
-                          nullptr /* context_ptr */},
-                       {uint64_type, {uint64_type, int64_type},
-                          nullptr /* context_ptr */},
-                       {float_type, {float_type, float_type},
-                          nullptr /* context_ptr */},
-                       {double_type, {double_type, double_type},
-                          nullptr /* context_ptr */}},
-                     FunctionOptions());
+  Function function2(
+      "fn2", Function::kZetaSQLFunctionGroupName, SCALAR,
+      {{int32_type, {int32_type, int32_type}, nullptr /* context_ptr */},
+       {int64_type, {int64_type, int64_type}, nullptr /* context_ptr */},
+       {uint32_type, {uint32_type, int32_type}, nullptr /* context_ptr */},
+       {uint64_type, {uint64_type, int64_type}, nullptr /* context_ptr */},
+       {float_type, {float_type, float_type}, nullptr /* context_ptr */},
+       {double_type, {double_type, double_type}, nullptr /* context_ptr */}},
+      FunctionOptions());
   EXPECT_TRUE(FunctionMayHaveUnintendedArgumentCoercion(&function2))
       << function2.DebugString();
 
   // The check works across signatures with different numbers of arguments.
   // For this function, the problematic argument is the third argument, and
   // only some of the signatures have a third argument.
-  Function function3("fn3", Function::kZetaSQLFunctionGroupName, SCALAR,
-                     { {int32_type, {int64_type, int32_type, int32_type},
-                          nullptr /* context_ptr */},
-                       {int64_type, {int64_type, int64_type},
-                          nullptr /* context_ptr */},
-                       {uint32_type, {int32_type, uint32_type, int32_type},
-                          nullptr /* context_ptr */},
-                       {uint64_type, {uint64_type, int64_type},
-                          nullptr /* context_ptr */},
-                       {float_type, {uint32_type, float_type, float_type},
-                          nullptr /* context_ptr */},
-                       {double_type, {double_type, double_type},
-                          nullptr /* context_ptr */}},
-                     FunctionOptions());
+  Function function3(
+      "fn3", Function::kZetaSQLFunctionGroupName, SCALAR,
+      {{int32_type,
+        {int64_type, int32_type, int32_type},
+        nullptr /* context_ptr */},
+       {int64_type, {int64_type, int64_type}, nullptr /* context_ptr */},
+       {uint32_type,
+        {int32_type, uint32_type, int32_type},
+        nullptr /* context_ptr */},
+       {uint64_type, {uint64_type, int64_type}, nullptr /* context_ptr */},
+       {float_type,
+        {uint32_type, float_type, float_type},
+        nullptr /* context_ptr */},
+       {double_type, {double_type, double_type}, nullptr /* context_ptr */}},
+      FunctionOptions());
   EXPECT_TRUE(FunctionMayHaveUnintendedArgumentCoercion(&function3))
       << function3.DebugString();
 
@@ -969,11 +941,11 @@ TEST(SimpleFunctionTests, TestFunctionSignaturesForUnintendedCoercion) {
   // point arguments... even though it allows possibly inadvertent coercions
   // from an UINT64 argument to the DOUBLE signature.
   Function function4("fn4", Function::kZetaSQLFunctionGroupName, SCALAR,
-                     { {int32_type, {int32_type}, nullptr /* context_ptr */},
-                       {int64_type, {int64_type}, nullptr /* context_ptr */},
-                       {uint32_type, {uint32_type}, nullptr /* context_ptr */},
-                       {float_type, {float_type}, nullptr /* context_ptr */},
-                       {double_type, {double_type}, nullptr /* context_ptr */}},
+                     {{int32_type, {int32_type}, nullptr /* context_ptr */},
+                      {int64_type, {int64_type}, nullptr /* context_ptr */},
+                      {uint32_type, {uint32_type}, nullptr /* context_ptr */},
+                      {float_type, {float_type}, nullptr /* context_ptr */},
+                      {double_type, {double_type}, nullptr /* context_ptr */}},
                      FunctionOptions());
   EXPECT_FALSE(FunctionMayHaveUnintendedArgumentCoercion(&function4))
       << function4.DebugString();
@@ -1286,7 +1258,9 @@ TEST(SimpleFunctionTests, TestAllReleasedFunctions) {
   constexpr auto kFunctionsToIgnore = zetasql_base::fixed_flat_set_of<absl::string_view>(
       {"kll_quantiles.merge_point_double", "kll_quantiles.init_double",
        "kll_quantiles.extract_point_double", "kll_quantiles.merge_double",
-       "kll_quantiles.extract_double"});
+       "kll_quantiles.extract_double",
+       "kll_quantiles.extract_relative_rank_double",
+       "kll_quantiles.merge_relative_rank_double"});
   absl::flat_hash_set<absl::string_view> min_function_names;
   for (const auto& [name, function] : min_functions) {
     if (!kFunctionsToIgnore.contains(name)) {
@@ -1317,26 +1291,37 @@ TEST(SimpleFunctionTests, TestReturningAPI) {
 }
 
 TEST(SimpleFunctionTests, TestGetAllAPI) {
-  auto [functions1, types1] = GetBuiltinFunctionsAndTypesForDefaultOptions();
-  EXPECT_THAT(functions1.size(), Gt(0));
+  auto builtins1 = GetDefaultBuiltinFunctionsAndTypes();
+  EXPECT_GE(builtins1.functions().size(), 0);
+  // There shouldn't builtin TVFs.
+  // TODO b/436522497: Change it to EXPECT_GE once a ZetaSQL-builtin TVF is
+  // added.
+  EXPECT_EQ(builtins1.table_valued_functions().size(), 0);
   // This will need changed when one of the language features that controls a
   // built-in enum is moved out of 'in_development'.
-  EXPECT_THAT(types1.size(), Gt(0));
-  for (const auto& [name, function] : functions1) {
+  EXPECT_GE(builtins1.types().size(), 0);
+  for (const auto& [name, function] : builtins1.functions()) {
     EXPECT_NE(function, nullptr);
     // Call any API to let sanitizers detect an improperly initialized object.
     EXPECT_FALSE(function->Name().empty());
   }
-  for (const auto& [name, type] : types1) {
+  for (const auto& [name, type] : builtins1.types()) {
     EXPECT_NE(type, nullptr);
     // Call any API to let sanitizers detect an improperly initialized object.
     EXPECT_FALSE(type->TypeName(PRODUCT_INTERNAL).empty());
   }
+  for (const auto& [name, tvf] : builtins1.table_valued_functions()) {
+    EXPECT_NE(tvf, nullptr);
+    // Call any API to let sanitizers detect an improperly initialized object.
+    EXPECT_FALSE(tvf->Name().empty());
+  }
 
-  auto [functions2, types2] = GetBuiltinFunctionsAndTypesForDefaultOptions();
+  auto builtins2 = GetDefaultBuiltinFunctionsAndTypes();
   // Multiple calls should return the same pointers.
-  EXPECT_THAT(functions1, Eq(functions2));
-  EXPECT_THAT(types1, Eq(types2));
+  EXPECT_THAT(builtins1.functions(), Eq(builtins2.functions()));
+  EXPECT_THAT(builtins1.types(), Eq(builtins2.types()));
+  EXPECT_THAT(builtins1.table_valued_functions(),
+              Eq(builtins2.table_valued_functions()));
 }
 
 }  // namespace zetasql

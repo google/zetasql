@@ -63,10 +63,16 @@ ARRAY<STRUCT<val INT64, BOOL, INT64>>[known order:
 ]
 ==
 
-[name=apply_execute_input_once]
+[name=apply_execute_input_once_using_rand]
 SELECT APPLY(rand(), x->x=x), APPLY(rand(), x->x-x)
 --
 ARRAY<STRUCT<BOOL, DOUBLE>>[{true, 0}]
+==
+
+[name=apply_execute_input_once_using_uuid]
+SELECT APPLY(GENERATE_UUID(), x->x=x)
+--
+ARRAY<STRUCT<BOOL>>[{true}]
 ==
 
 [name=correlated_apply]

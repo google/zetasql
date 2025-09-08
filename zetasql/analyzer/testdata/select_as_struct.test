@@ -1,6 +1,7 @@
 # NOTE: Many similar struct construction tests exist in expr_subquery.test
 # and exercise most of the same code.
 
+[default language_features=NONE]
 select as struct 1 a, 2 b, 3 c
 --
 QueryStmt

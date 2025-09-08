@@ -17,12 +17,17 @@
 #ifndef ZETASQL_PUBLIC_ANNOTATION_DEFAULT_ANNOTATION_SPEC_H_
 #define ZETASQL_PUBLIC_ANNOTATION_DEFAULT_ANNOTATION_SPEC_H_
 
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_node.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 
@@ -31,7 +36,7 @@ namespace zetasql {
 // as needed.
 class DefaultAnnotationSpec : public AnnotationSpec {
  public:
-  ~DefaultAnnotationSpec() override {}
+  ~DefaultAnnotationSpec() override = default;
 
   // Returns the name of the annotation.
   //
@@ -40,7 +45,14 @@ class DefaultAnnotationSpec : public AnnotationSpec {
   // - Otherwise, returns Annotation[<Id()>].
   virtual std::string Name() const;
 
-  // Does nothing and returns OK.
+  // Reconciles annotations for templated functions within each templated
+  // argument type, e.g. T1 (and the related ARRAY<T1>, RANGE<T1>, etc.)
+  // TODO custom functions which do not express template arg
+  // correlation through the usual framework (e.g. some complex MAP or JSON
+  // functions which rely on structs sharing some fields, etc), we should still
+  // have specific annotations on the FunctionArgTypes and the
+  // FunctionSignature, or conversely on the AnnotationSpec itself, to still
+  // have structure in the way they merge annotations across each templated arg.
   absl::Status CheckAndPropagateForFunctionCallBase(
       const ResolvedFunctionCallBase& function_call,
       AnnotationMap* result_annotation_map) override;
@@ -108,7 +120,38 @@ class DefaultAnnotationSpec : public AnnotationSpec {
   std::string AnnotationDebugString(const AnnotationMap* a) const {
     return a == nullptr ? "<null>" : a->DebugString(Id());
   }
+
+  // Propagates the annotation from `annotation_map` across all contained types
+  // to achieve the a merged annotation "supertype" per-templated arg kind,
+  // e.g. ARG_TYPE_ANY_1, ARG_ARRAY_TYPE_ANY_1, etc, to reconcile annotations
+  // of the related "group" scattered across the arguments.
+  // `type` is used only to create AnnotationMaps as we build up the result.
+  //
+  // This function is the core of the templated propagation algorithm. It is
+  // called twice, representing 2 passes:
+  // 1. In the first pass, we merge annotation maps from all the arguments and
+  //    into the appropriate argument kind slots (e.g. ARG_TYPE_ANY_1, etc.),
+  //    based on the argument's original kind and its related component
+  //    argument kinds (e.g. ARG_ARRAY_TYPE_ANY_3 needs to also merge its
+  //    child annotation map into the slot for ARG_TYPE_ANY_3).
+  // 2. In the second pass, we simply retrieve (and build up, as necessary)
+  //    the AnnotationMap merged for the argument kind slot corresponding to
+  //    the output's original argument kind.
+  //
+  //   Returns the merged AnnotationMap at the current level. This is used both
+  //   to link parent StructAnnotationMap (e.g. that of ARG_ARRAY_ANY_1) to its
+  //   child AnnotationMap (the one merged for ARG_TYPE_ANY_1).
+  absl::StatusOr<const AnnotationMap*> PropagateThroughCompositeType(
+      AnnotatedType annotated_type, SignatureArgumentKind original_kind,
+      absl::flat_hash_map<SignatureArgumentKind,
+                          std::unique_ptr<AnnotationMap>>& merging_map) const;
 };
+
+// Helper function to retrieve argument `i` from `function_call`, removing
+// the need to distinguish between `argument_list` and
+// `generic_argument_list`.
+const ResolvedNode* GetFunctionCallArgument(
+    const ResolvedFunctionCallBase& function_call, int i);
 
 }  // namespace zetasql
 

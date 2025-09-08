@@ -36,6 +36,7 @@
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/interval_value.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
@@ -106,8 +107,6 @@ struct TypeNameInfo {
   std::optional<LanguageFeature> alias_feature;
 };
 
-// TODO: Remove references to TIMESTAMP_PICOS in this file once
-// type annotation and rewriter is implemented.
 const std::map<absl::string_view, TypeNameInfo>& SimpleTypeNameInfoMap() {
   static auto result = new std::map<absl::string_view, TypeNameInfo>{
       {"int32", {TYPE_INT32, true}},
@@ -124,7 +123,6 @@ const std::map<absl::string_view, TypeNameInfo>& SimpleTypeNameInfoMap() {
       {"string", {TYPE_STRING}},
       {"date", {TYPE_DATE}},
       {"timestamp", {TYPE_TIMESTAMP}},
-      {"timestamp_picos", {TYPE_TIMESTAMP_PICOS}},
       {"time", {TYPE_TIME}},
       {"datetime", {TYPE_DATETIME}},
       {"interval", {TYPE_INTERVAL}},
@@ -216,8 +214,6 @@ const TypeKindInfo* GetSimpleTypeKindInfo(TypeKind kind) {
     result[TYPE_STRING] = TypeKindInfo::Build();
     result[TYPE_DATE] = TypeKindInfo::Build();
     result[TYPE_TIMESTAMP] = TypeKindInfo::Build();
-    result[TYPE_TIMESTAMP_PICOS] =
-        TypeKindInfo::BuildWithTypeFeature(FEATURE_TIMESTAMP_PICOS);
     result[TYPE_TIME] = TypeKindInfo::BuildWithTypeFeature(FEATURE_CIVIL_TIME);
     result[TYPE_DATETIME] =
         TypeKindInfo::BuildWithTypeFeature(FEATURE_CIVIL_TIME);
@@ -295,6 +291,24 @@ const std::string& GetBytesValue(const ValueContent& value) {
 
 std::string GetJsonString(const ValueContent& value) {
   return value.GetAs<internal::JSONRef*>()->ToString();
+}
+
+// Return a `JSONValueConstRef` for the given JSON value.
+// For unparsed JSON used by tests only, it will be parsed on the fly. Invalid
+// JSON strings will be not be supported.
+JSONValueConstRef GetValidatedJsonValue(const ValueContent& value,
+                                        JSONValue* json_value) {
+  auto json_ptr = value.GetAs<internal::JSONRef*>();
+  if (json_ptr->document().has_value()) {
+    return json_ptr->document().value();
+  }
+  const std::string* unparsed_string =
+      value.GetAs<internal::JSONRef*>()->unparsed_string();
+  auto parsed_json = JSONValue::ParseJSONString(*unparsed_string);
+  ZETASQL_CHECK_OK(parsed_json);  // Crash OK. Unparsed JSON only exists in tests.
+  ABSL_DCHECK(json_value != nullptr);
+  *json_value = JSONValue::MoveFrom(parsed_json.value().GetRef());
+  return json_value->GetConstRef();
 }
 
 const IntervalValue& GetIntervalValue(const ValueContent& value) {
@@ -464,8 +478,6 @@ std::string SimpleType::CapitalizedName() const {
       return "Date";
     case TYPE_TIMESTAMP:
       return "Timestamp";
-    case TYPE_TIMESTAMP_PICOS:
-      return "Timestamp_picos";
     case TYPE_TIME:
       return "Time";
     case TYPE_DATETIME:
@@ -522,7 +534,9 @@ TypeKind SimpleType::GetTypeKindIfSimple(
 bool SimpleType::SupportsGroupingImpl(const LanguageOptions& language_options,
                                       const Type** no_grouping_type) const {
   const bool supports_grouping =
-      !this->IsGeography() && !this->IsJson() && !this->IsTokenList() &&
+      !this->IsGeography() && !this->IsTokenList() &&
+      !(this->IsJson() && !language_options.LanguageFeatureEnabled(
+                              FEATURE_JSON_TYPE_COMPARISON)) &&
       !(this->IsFloatingPoint() && language_options.LanguageFeatureEnabled(
                                        FEATURE_DISALLOW_GROUP_BY_FLOAT));
   if (no_grouping_type != nullptr) {
@@ -548,8 +562,6 @@ void SimpleType::CopyValueContent(TypeKind kind, const ValueContent& from,
       from.GetAs<internal::BigNumericRef*>()->Ref();
       break;
     case TYPE_TIMESTAMP:
-    // TODO: Remove support for TYPE_TIMESTAMP_PICOS.
-    case TYPE_TIMESTAMP_PICOS:
       from.GetAs<internal::TimestampPicosRef*>()->Ref();
       break;
     case TYPE_INTERVAL:
@@ -592,8 +604,6 @@ void SimpleType::ClearValueContent(TypeKind kind, const ValueContent& value) {
       value.GetAs<internal::BigNumericRef*>()->Unref();
       return;
     case TYPE_TIMESTAMP:
-    // TODO: Remove support for TYPE_TIMESTAMP_PICOS.
-    case TYPE_TIMESTAMP_PICOS:
       value.GetAs<internal::TimestampPicosRef*>()->Unref();
       return;
     case TYPE_INTERVAL:
@@ -630,8 +640,6 @@ uint64_t SimpleType::GetValueContentExternallyAllocatedByteSize(
     case TYPE_BIGNUMERIC:
       return sizeof(internal::BigNumericRef);
     case TYPE_TIMESTAMP:
-    // TODO: Remove support for TYPE_TIMESTAMP_PICOS.
-    case TYPE_TIMESTAMP_PICOS:
       return sizeof(internal::TimestampPicosRef);
     case TYPE_JSON:
       return value.GetAs<internal::JSONRef*>()->physical_byte_size();
@@ -697,8 +705,6 @@ absl::HashState SimpleType::HashValueContent(const ValueContent& value,
     case TYPE_DATE:
       return absl::HashState::combine(std::move(state), GetDateValue(value));
     case TYPE_TIMESTAMP:
-    // TODO: Remove support for TYPE_TIMESTAMP_PICOS.
-    case TYPE_TIMESTAMP_PICOS:
       return absl::HashState::combine(std::move(state),
                                       GetTimestampPicosValue(value).HashCode());
     case TYPE_TIME:
@@ -721,8 +727,11 @@ absl::HashState SimpleType::HashValueContent(const ValueContent& value,
       // We have no good hasher for geography (??)
       // so we just rely on a constant for hashing.
       return absl::HashState::combine(std::move(state), kGeographyHashCode);
-    case TYPE_JSON:
-      return absl::HashState::combine(std::move(state), GetJsonString(value));
+    case TYPE_JSON: {
+      JSONValue json_value;
+      JSONValueConstRef json_ref = GetValidatedJsonValue(value, &json_value);
+      return absl::HashState::combine(std::move(state), json_ref);
+    }
     case TYPE_TOKENLIST:
       return HashTokenList(value, std::move(state));
     case TYPE_UUID:
@@ -739,6 +748,25 @@ bool AllPartsIntervalMatch(const IntervalValue& x, const IntervalValue& y) {
   return x.get_months() == y.get_months() && x.get_days() == y.get_days() &&
          x.get_micros() == y.get_micros() &&
          x.get_nano_fractions() == y.get_nano_fractions();
+}
+
+bool JsonEquals(const ValueContent& x, const ValueContent& y) {
+  JSONValue x_value;
+  JSONValueConstRef x_ptr = GetValidatedJsonValue(x, &x_value);
+  JSONValue y_value;
+  JSONValueConstRef y_ptr = GetValidatedJsonValue(y, &y_value);
+
+  return x_ptr == y_ptr;
+}
+
+bool JsonLess(const ValueContent& x, const ValueContent& y) {
+  JSONValue x_value;
+  JSONValueConstRef x_ptr = GetValidatedJsonValue(x, &x_value);
+
+  JSONValue y_value;
+  JSONValueConstRef y_ptr = GetValidatedJsonValue(y, &y_value);
+
+  return x_ptr < y_ptr;
 }
 
 bool SimpleType::ValueContentEquals(
@@ -765,8 +793,6 @@ bool SimpleType::ValueContentEquals(
     case TYPE_DATE:
       return ContentEquals<DateValueContentType>(x, y);
     case TYPE_TIMESTAMP:
-    // TODO: Remove support for TYPE_TIMESTAMP_PICOS.
-    case TYPE_TIMESTAMP_PICOS:
       return ReferencedValueEquals<internal::TimestampPicosRef>(x, y);
     case TYPE_TIME:
       return ContentEquals<TimeValueContentType>(x, y) &&
@@ -788,7 +814,7 @@ bool SimpleType::ValueContentEquals(
     case TYPE_BIGNUMERIC:
       return ReferencedValueEquals<internal::BigNumericRef>(x, y);
     case TYPE_JSON: {
-      return GetJsonString(x) == GetJsonString(y);
+      return JsonEquals(x, y);
     }
     case TYPE_TOKENLIST:
       return GetTokenListValue(x).EquivalentTo(GetTokenListValue(y));
@@ -834,8 +860,6 @@ bool SimpleType::ValueContentLess(const ValueContent& x, const ValueContent& y,
     case TYPE_DATE:
       return ContentLess<DateValueContentType>(x, y);
     case TYPE_TIMESTAMP:
-    // TODO: Remove support for TYPE_TIMESTAMP_PICOS.
-    case TYPE_TIMESTAMP_PICOS:
       return ReferencedValueLess<internal::TimestampPicosRef>(x, y);
     case TYPE_TIME:
       return ContentLess<TimeValueContentType>(x, y) ||
@@ -855,6 +879,8 @@ bool SimpleType::ValueContentLess(const ValueContent& x, const ValueContent& y,
       return ReferencedValueLess<internal::BigNumericRef>(x, y);
     case TYPE_UUID:
       return ReferencedValueLess<internal::UuidRef>(x, y);
+    case TYPE_JSON:
+      return JsonLess(x, y);
     default:
       ABSL_LOG(ERROR) << "Cannot compare " << DebugString() << " to "
                   << DebugString();
@@ -898,9 +924,7 @@ std::string SimpleType::FormatValueContent(
                  ? AddTypePrefix(s, this, options.product_mode)
                  : s;
     }
-    case TYPE_TIMESTAMP:
-    // TODO: Remove support for TYPE_TIMESTAMP_PICOS.
-    case TYPE_TIMESTAMP_PICOS: {
+    case TYPE_TIMESTAMP: {
       std::string s;
       // Failure cannot actually happen in this context since the value
       // is guaranteed to be valid.
@@ -1092,16 +1116,6 @@ absl::Status SimpleType::SerializeValueContent(const ValueContent& value,
       }
       break;
     }
-    // TODO: Remove support for TYPE_TIMESTAMP_PICOS.
-    case TYPE_TIMESTAMP_PICOS: {
-      auto* timestamp_picos_proto =
-          value_proto->mutable_timestamp_picos_value();
-      auto [seconds, picos] =
-          GetTimestampPicosValue(value).ToPicoTime().SecondsAndPicoseconds();
-      timestamp_picos_proto->set_seconds(seconds);
-      timestamp_picos_proto->set_picos(picos);
-      break;
-    }
     case TYPE_DATETIME: {
       auto* datetime_proto = value_proto->mutable_datetime_value();
       datetime_proto->set_bit_field_datetime_seconds(
@@ -1248,19 +1262,6 @@ absl::Status SimpleType::DeserializeValueContent(const ValueProto& value_proto,
       } else {
         return TypeMismatchError(value_proto);
       }
-      break;
-    }
-    // TODO: Remove support for TYPE_TIMESTAMP_PICOS.
-    case TYPE_TIMESTAMP_PICOS: {
-      if (!value_proto.has_timestamp_picos_value()) {
-        return TypeMismatchError(value_proto);
-      }
-      ZETASQL_ASSIGN_OR_RETURN(
-          PicoTime pico,
-          PicoTime::Create(absl::FromUnixSeconds(
-                               value_proto.timestamp_picos_value().seconds()),
-                           value_proto.timestamp_picos_value().picos()));
-      value->set(new internal::TimestampPicosRef(TimestampPicosValue(pico)));
       break;
     }
     case TYPE_DATETIME: {

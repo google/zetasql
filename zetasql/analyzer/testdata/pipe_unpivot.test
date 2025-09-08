@@ -12,7 +12,7 @@
 # When UNPIVOT is used on a single table FROM clause, the behavior is identical
 # for the standard syntax suffix operator and the pipe operator.  Several tests
 # show this by using an alternation {{ | \|> }} that includes a pipe or not.
-[default language_features=PIPES,PIPE_STATIC_DESCRIBE,UNPIVOT,TABLE_VALUED_FUNCTIONS]
+[default language_features=MAXIMUM,+PIPES,+PIPE_STATIC_DESCRIBE,+UNPIVOT,+TABLE_VALUED_FUNCTIONS]
 # Output with or without an alias is the same, except for
 # whether the range variable appears.
 # Output includes the unmentioned column 'Value' plus the created

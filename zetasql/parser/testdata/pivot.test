@@ -740,7 +740,8 @@ QueryStatement [0-101] [SELECT * FROM...1 LIMIT 10]
             Identifier(sum_zero) [80-88] [sum_zero]
           IntLiteral(1) [91-92] [1]
     LimitOffset [93-101] [LIMIT 10]
-      IntLiteral(10) [99-101] [10]
+      Limit [93-101] [LIMIT 10]
+        IntLiteral(10) [99-101] [10]
 --
 SELECT
   *
@@ -998,7 +999,7 @@ SELECT * FROM t PIVOT();
 # ERROR: Pivot clause with only pivot expr
 SELECT * FROM t PIVOT(x);
 --
-ERROR: Syntax error: Unexpected ")" [at 1:24]
+ERROR: Syntax error: Expected "," or keyword FOR but got ")" [at 1:24]
 SELECT * FROM t PIVOT(x);
                        ^
 ==
@@ -1280,7 +1281,7 @@ SELECT * FROM t PIVOT({{x|x,|x,y|x,y,}});
 --
 ALTERNATION GROUP: x
 --
-ERROR: Syntax error: Unexpected ")" [at 1:24]
+ERROR: Syntax error: Expected "," or keyword FOR but got ")" [at 1:24]
 SELECT * FROM t PIVOT(x);
                        ^
 --
@@ -1292,7 +1293,7 @@ SELECT * FROM t PIVOT(x,);
 --
 ALTERNATION GROUP: x,y
 --
-ERROR: Syntax error: Unexpected ")" [at 1:26]
+ERROR: Syntax error: Expected "," or keyword FOR but got ")" [at 1:26]
 SELECT * FROM t PIVOT(x,y);
                          ^
 --
@@ -1314,7 +1315,7 @@ ALTERNATION GROUPS:
     t_alias,AS t_alias
     AS t_alias
 --
-ERROR: PIVOT and WITH OFFSET cannot be combined [at 4:1]
+ERROR: Syntax error: Expected end of input but got keyword WITH [at 4:1]
 WITH OFFSET AS t_alias;
 ^
 --
@@ -1323,7 +1324,7 @@ ALTERNATION GROUPS:
     t_alias,t_alias
     t_alias
 --
-ERROR: PIVOT and WITH OFFSET cannot be combined [at 4:1]
+ERROR: Syntax error: Expected end of input but got keyword WITH [at 4:1]
 WITH OFFSET t_alias;
 ^
 --
@@ -1332,7 +1333,7 @@ ALTERNATION GROUPS:
     t_alias,
     <empty>
 --
-ERROR: PIVOT and WITH OFFSET cannot be combined [at 4:1]
+ERROR: Syntax error: Expected end of input but got keyword WITH [at 4:1]
 WITH OFFSET ;
 ^
 ==
@@ -1548,17 +1549,127 @@ PIVOT(SUM(x) FOR x IN (4, 5)) AS x;
 --
 ALTERNATION GROUP: WITH OFFSET
 --
-ERROR: Syntax error: Expected end of input but got "(" [at 2:6]
-PIVOT(SUM(x) FOR x IN (4, 5)) AS x;
-     ^
+QueryStatement [0-78] [SELECT * FROM..., 5)) AS x]
+  Query [0-78] [SELECT * FROM..., 5)) AS x]
+    Select [0-78] [SELECT * FROM..., 5)) AS x]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-78] [FROM UNNEST..., 5)) AS x]
+        TablePathExpression [14-78] [UNNEST([1,..., 5)) AS x]
+          UnnestExpression [14-31] [UNNEST([1, 2, 3])]
+            ExpressionWithOptAlias [21-30] [[1, 2, 3]]
+              ArrayConstructor [21-30] [[1, 2, 3]]
+                IntLiteral(1) [22-23] [1]
+                IntLiteral(2) [25-26] [2]
+                IntLiteral(3) [28-29] [3]
+          WithOffset [32-43] [WITH OFFSET]
+          PivotClause [44-78] [PIVOT(SUM(..., 5)) AS x]
+            PivotExpressionList [50-56] [SUM(x)]
+              PivotExpression [50-56] [SUM(x)]
+                FunctionCall [50-56] [SUM(x)]
+                  PathExpression [50-53] [SUM]
+                    Identifier(SUM) [50-53] [SUM]
+                  PathExpression [54-55] [x]
+                    Identifier(x) [54-55] [x]
+            PathExpression [61-62] [x]
+              Identifier(x) [61-62] [x]
+            PivotValueList [67-71] [4, 5]
+              PivotValue [67-68] [4]
+                IntLiteral(4) [67-68] [4]
+              PivotValue [70-71] [5]
+                IntLiteral(5) [70-71] [5]
+            Alias [74-78] [AS x]
+              Identifier(x) [77-78] [x]
 --
-ALTERNATION GROUPS:
-    WITH OFFSET x
-    WITH OFFSET AS x
+SELECT
+  *
+FROM
+  UNNEST(ARRAY[1, 2, 3]) WITH OFFSET PIVOT(SUM(x) FOR x IN (4, 5)) AS x
 --
-ERROR: Syntax error: Expected end of input but got keyword PIVOT [at 2:1]
-PIVOT(SUM(x) FOR x IN (4, 5)) AS x;
-^
+ALTERNATION GROUP: WITH OFFSET x
+--
+QueryStatement [0-80] [SELECT * FROM..., 5)) AS x]
+  Query [0-80] [SELECT * FROM..., 5)) AS x]
+    Select [0-80] [SELECT * FROM..., 5)) AS x]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-80] [FROM UNNEST..., 5)) AS x]
+        TablePathExpression [14-80] [UNNEST([1,..., 5)) AS x]
+          UnnestExpression [14-31] [UNNEST([1, 2, 3])]
+            ExpressionWithOptAlias [21-30] [[1, 2, 3]]
+              ArrayConstructor [21-30] [[1, 2, 3]]
+                IntLiteral(1) [22-23] [1]
+                IntLiteral(2) [25-26] [2]
+                IntLiteral(3) [28-29] [3]
+          WithOffset [32-45] [WITH OFFSET x]
+            Alias [44-45] [x]
+              Identifier(x) [44-45] [x]
+          PivotClause [46-80] [PIVOT(SUM(..., 5)) AS x]
+            PivotExpressionList [52-58] [SUM(x)]
+              PivotExpression [52-58] [SUM(x)]
+                FunctionCall [52-58] [SUM(x)]
+                  PathExpression [52-55] [SUM]
+                    Identifier(SUM) [52-55] [SUM]
+                  PathExpression [56-57] [x]
+                    Identifier(x) [56-57] [x]
+            PathExpression [63-64] [x]
+              Identifier(x) [63-64] [x]
+            PivotValueList [69-73] [4, 5]
+              PivotValue [69-70] [4]
+                IntLiteral(4) [69-70] [4]
+              PivotValue [72-73] [5]
+                IntLiteral(5) [72-73] [5]
+            Alias [76-80] [AS x]
+              Identifier(x) [79-80] [x]
+--
+SELECT
+  *
+FROM
+  UNNEST(ARRAY[1, 2, 3]) WITH OFFSET AS x PIVOT(SUM(x) FOR x IN (4, 5)) AS x
+--
+ALTERNATION GROUP: WITH OFFSET AS x
+--
+QueryStatement [0-83] [SELECT * FROM..., 5)) AS x]
+  Query [0-83] [SELECT * FROM..., 5)) AS x]
+    Select [0-83] [SELECT * FROM..., 5)) AS x]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-83] [FROM UNNEST..., 5)) AS x]
+        TablePathExpression [14-83] [UNNEST([1,..., 5)) AS x]
+          UnnestExpression [14-31] [UNNEST([1, 2, 3])]
+            ExpressionWithOptAlias [21-30] [[1, 2, 3]]
+              ArrayConstructor [21-30] [[1, 2, 3]]
+                IntLiteral(1) [22-23] [1]
+                IntLiteral(2) [25-26] [2]
+                IntLiteral(3) [28-29] [3]
+          WithOffset [32-48] [WITH OFFSET AS x]
+            Alias [44-48] [AS x]
+              Identifier(x) [47-48] [x]
+          PivotClause [49-83] [PIVOT(SUM(..., 5)) AS x]
+            PivotExpressionList [55-61] [SUM(x)]
+              PivotExpression [55-61] [SUM(x)]
+                FunctionCall [55-61] [SUM(x)]
+                  PathExpression [55-58] [SUM]
+                    Identifier(SUM) [55-58] [SUM]
+                  PathExpression [59-60] [x]
+                    Identifier(x) [59-60] [x]
+            PathExpression [66-67] [x]
+              Identifier(x) [66-67] [x]
+            PivotValueList [72-76] [4, 5]
+              PivotValue [72-73] [4]
+                IntLiteral(4) [72-73] [4]
+              PivotValue [75-76] [5]
+                IntLiteral(5) [75-76] [5]
+            Alias [79-83] [AS x]
+              Identifier(x) [82-83] [x]
+--
+SELECT
+  *
+FROM
+  UNNEST(ARRAY[1, 2, 3]) WITH OFFSET AS x PIVOT(SUM(x) FOR x IN (4, 5)) AS x
 --
 ALTERNATION GROUP: <empty>
 --

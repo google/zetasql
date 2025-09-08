@@ -18,6 +18,8 @@ load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
 load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
 load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load(
     "//zetasql/compliance:builddefs.bzl",
     "zetasql_compliance_test",
@@ -228,6 +230,7 @@ cc_library(
         "//zetasql/public:value",
         "//zetasql/public/functions:date_time_util",
         "//zetasql/public/types",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
@@ -344,6 +347,7 @@ cc_library(
         "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:string_view",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:span",
         "@com_google_googletest//:gtest",
@@ -529,6 +533,7 @@ cc_library(
         "//zetasql/common:status_payload_utils",
         "//zetasql/common/testing:testing_proto_util",
         "//zetasql/public:civil_time",
+        "//zetasql/public:coercer",
         "//zetasql/public:interval_value",
         "//zetasql/public:interval_value_test_util",
         "//zetasql/public:json_value",
@@ -610,7 +615,6 @@ zetasql_compliance_test(
         "--zetasql_compliance_print_array_orderedness",
     ],
     known_error_files = [
-        "//zetasql/reference_impl:reference_impl_known_errors.textproto",
         "//zetasql/compliance/known_errors:reference_impl_known_errors.textproto",
         "//zetasql/compliance/known_errors:zetasql_known_errors.textproto",
     ],

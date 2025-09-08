@@ -1707,10 +1707,10 @@ Graph Query Language (GQL) reference guide.
   { <span class="var">cross_join_operation</span> | <span class="var">condition_join_operation</span> }
 
 <span class="var">cross_join_operation</span>:
-  <span class="var"><a href="#from_clause">from_item</a></span> <span class="var">cross_join_operator</span> <span class="var"><a href="#from_clause">from_item</a></span>
+  <span class="var"><a href="#from_clause">from_item</a></span> <span class="var">cross_join_operator</span> [ <a href="#lateral_join">LATERAL</a> ] <span class="var"><a href="#from_clause">from_item</a></span>
 
 <span class="var">condition_join_operation</span>:
-  <span class="var"><a href="#from_clause">from_item</a></span> <span class="var">condition_join_operator</span> <span class="var"><a href="#from_clause">from_item</a></span> <span class="var">join_condition</span>
+  <span class="var"><a href="#from_clause">from_item</a></span> <span class="var">condition_join_operator</span> [ <a href="#lateral_join">LATERAL</a> ] <span class="var"><a href="#from_clause">from_item</a></span> <span class="var">join_condition</span>
 
 <span class="var">cross_join_operator</span>:
   { <a href="#cross_join">CROSS JOIN</a> | <a href="#comma_cross_join">,</a> }
@@ -2125,6 +2125,118 @@ FROM Roster RIGHT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
  *---------------------------*/
 ```
 
+### `LATERAL` join 
+<a id="lateral_join"></a>
+
+<pre>
+<a href="#from_clause"><span class="var">from_item</span></a> { <a href="#cross_join">CROSS JOIN</a> | <a href="#inner_join">[INNER] JOIN</a> | <a href="#left_join">LEFT [OUTER] JOIN</a> } LATERAL <a href="#from_clause"><span class="var">from_item</span></a> [ <a href="#join_conditions"><span class="var">join_condition</span></a> ]
+<a href="#from_clause"><span class="var">from_item</span></a> , LATERAL <a href="#from_clause"><span class="var">from_item</span></a>
+</pre>
+
+A `LATERAL` join enables a right `from_item` (typically a subquery, an [`UNNEST`
+operator][unnest-operator] operation or a [table-valued function
+(TVF)][tvf-concepts]) to reference columns from a left `from_item` that precedes
+it in the `FROM` clause. The right `from_item` is evaluated for each row of the
+left `from_item`.
+
+**Key Characteristics:**
+
+*   **Correlation**: The primary purpose of `LATERAL` is to enable correlated
+    subqueries in the `FROM` clause. The subquery or TVF on the right side of
+    the `LATERAL` join can depend on values from the current row of the table on
+    its left.
+*   **Row-wise evaluation**: The right side is logically re-evaluated for each
+    row of the left side. Note that re-evaluation is not guaranteed. For
+    example, when multiple rows from the left input provide identical values for
+    the columns referenced by the right input, engines are free to choose
+    whether to re-evaluate the computed right side or reuse the same computed
+    relation. In other words, the computed right input is not guaranteed to
+    reuse or regenerate volatile expressions such as RAND().
+*   **Join types**: You can use `LATERAL` with `INNER JOIN`, `LEFT OUTER JOIN`,
+    and `CROSS JOIN` (often implied by a comma). `LATERAL` is **not** allowed
+    with `RIGHT OUTER JOIN` nor `FULL OUTER JOIN`.
+
+**Behavior with join types:**
+
+*   `CROSS JOIN LATERAL` (or with comma: `, LATERAL`): If the lateral
+    subquery or TVF produces no rows for a given row from the left input, that
+    row is excluded from the final result.
+*   `INNER JOIN LATERAL`: Similar to `CROSS JOIN`, but applies the condition in
+    the `ON` clause as a filter on the `LATERAL` join.
+*   `LEFT [OUTER] JOIN LATERAL`: If the lateral subquery/TVF produces no rows
+    for a given row, the row is included in the result, with `NULL`s for columns
+    originating from the lateral subquery/TVF. `LATERAL` allows `LEFT JOIN` to
+    omit the `ON` clause (which is equivalent to `LEFT JOIN LATERAL ... ON
+    true`)
+
+**Example**
+
+These examples include statements which perform queries on the
+[`Roster`][roster-table] and [`TeamMascot`][teammascot-table], and
+[`PlayerStats`][playerstats-table] tables.
+
+The first query aims to find, for each school, the opponent player who scored
+the highest points against this school.
+
+```zetasql
+
+SELECT R.SchoolID, OP.LastName AS TopOpPlayer, OP.PointsScored
+FROM Roster AS R,
+     LATERAL (
+      SELECT PS.LastName, PS.PointsScored
+      FROM PlayerStats AS PS
+      WHERE PS.OpponentID = R.SchoolID
+      ORDER BY PointsScored DESC
+      LIMIT 1
+     ) AS OP
+ORDER BY R.SchoolID
+
+/*
+Result (using implicit CROSS JOIN with LATERAL):
++----------+---------------+--------------+
+| SchoolID | TopOpPlayer   | PointsScored |
++----------+---------------+--------------+
+| 50       | Buchanan      | 13           |
+| 51       | Adams         | 3            |
+| 52       | Adams         | 4            |
+| 57       | Coolidge      | 1            |
++----------+---------------+--------------+
+*/
+```
+
+Using `LEFT JOIN LATERAL`:
+
+```zetasql
+
+SELECT R.LastName, R.SchoolID, M.Mascot FROM Roster AS R LEFT JOIN LATERAL (
+SELECT Mascot FROM TeamMascot m WHERE m.SchoolID = R.SchoolI ) AS M ORDER BY
+R.LastName;
+
+/* SchoolID 77 has no mascot listed in the TeamMascot table. Because the join is
+`LEFT OUTER`, players from schoolID 77 still shows up in the output, with `NULL`
+padding.
+
+Result: +------------+----------+---------+ | LastName | SchoolID | Mascot |
++------------+----------+---------+ | Adams | 50 | Jaguars | | Buchanan | 52 |
+Lakers | | Coolidge | 52 | Lakers | | Davis | 51 | Knights | | Eisenhower | 77 |
+NULL | +------------+----------+---------+ */
+```
+
+**Restrictions and notes:**
+
+*   The `LATERAL` keyword is necessary to enable the correlation for the
+    subquery or TVF on the right.
+*   The right side of `LATERAL` is typically a subquery or a TVF call. It can
+    also be an [`UNNEST` operator][unnest-operator] referencing columns from the
+    left side.
+*   Ensure that the correlated columns are correctly scoped and available from
+    the left `from_item`.
+*   `LATERAL` cannot be used on the first or leftmost item in a join or a
+    parenthesized join.
+*   `LATERAL` cannot be used with RIGHT or FULL join.
+*   The `LATERAL` input on the right side can't be followed by a postfix
+    operator (`TABLESAMPLE`, `PIVOT`, etc.)
+
 ### Join conditions 
 <a id="join_conditions"></a>
 
@@ -2161,10 +2273,10 @@ input table.
 
 A `NULL` join condition evaluation is equivalent to a `FALSE` evaluation.
 
-If a column-order sensitive operation such as `UNION` or `SELECT *` is used
-with the `ON` join condition, the resulting table contains all of the columns
-from the left-hand input in order, and then all of the columns from the
-right-hand input in order.
+If a column-order sensitive operation such as `UNION` or `SELECT *` is used with
+the `ON` join condition, the resulting table contains all of the columns from
+the left input in order, and then all of the columns from the right input in
+order.
 
 **Examples**
 
@@ -2276,12 +2388,10 @@ If a column-order sensitive operation such as `UNION` or `SELECT *` is used
 with the `USING` join condition, the resulting table contains columns in this
 order:
 
-+ The columns from `column_name_list` in the order they appear in the
-  `USING` clause.
-+ All other columns of the left-hand input in the order they appear in the
-  input.
-+ All other columns of the right-hand input in the order they appear in the
-  input.
++   The columns from `column_name_list` in the order they appear in the `USING`
+    clause.
++   All other columns of the left input in the order they appear in the input.
++   All other columns of the right input in the order they appear in the input.
 
 A column name in the `USING` clause must not be qualified by a
 table name.
@@ -7262,7 +7372,7 @@ Results:
 
 [flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_arrays
 
-[working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#working_with_arrays
+[working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md
 
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
 

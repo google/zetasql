@@ -19,16 +19,17 @@
 #include <string>
 
 #include "zetasql/common/evaluator_registration_utils.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 
-PreparedExpression::PreparedExpression(const std::string& sql,
+PreparedExpression::PreparedExpression(absl::string_view sql,
                                        TypeFactory* type_factory)
     : PreparedExpressionBase(sql, type_factory) {
   internal::EnableFullEvaluatorFeatures();
 }
 
-PreparedExpression::PreparedExpression(const std::string& sql,
+PreparedExpression::PreparedExpression(absl::string_view sql,
                                        const EvaluatorOptions& options)
     : PreparedExpressionBase(sql, options) {
   internal::EnableFullEvaluatorFeatures();
@@ -40,7 +41,7 @@ PreparedExpression::PreparedExpression(const ResolvedExpr* expression,
   internal::EnableFullEvaluatorFeatures();
 }
 
-PreparedQuery::PreparedQuery(const std::string& sql,
+PreparedQuery::PreparedQuery(absl::string_view sql,
                              const EvaluatorOptions& options)
     : PreparedQueryBase(sql, options) {
   internal::EnableFullEvaluatorFeatures();
@@ -52,7 +53,7 @@ PreparedQuery::PreparedQuery(const ResolvedQueryStmt* stmt,
   internal::EnableFullEvaluatorFeatures();
 }
 
-PreparedModify::PreparedModify(const std::string& sql,
+PreparedModify::PreparedModify(absl::string_view sql,
                                const EvaluatorOptions& options)
     : PreparedModifyBase(sql, options) {
   internal::EnableFullEvaluatorFeatures();
@@ -61,6 +62,18 @@ PreparedModify::PreparedModify(const std::string& sql,
 PreparedModify::PreparedModify(const ResolvedStatement* stmt,
                                const EvaluatorOptions& options)
     : PreparedModifyBase(stmt, options) {
+  internal::EnableFullEvaluatorFeatures();
+}
+
+PreparedStatement::PreparedStatement(const std::string& sql,
+                                     const EvaluatorOptions& options)
+    : PreparedStatementBase(sql, options) {
+  internal::EnableFullEvaluatorFeatures();
+}
+
+PreparedStatement::PreparedStatement(const ResolvedStatement* stmt,
+                                     const EvaluatorOptions& options)
+    : PreparedStatementBase(stmt, options) {
   internal::EnableFullEvaluatorFeatures();
 }
 

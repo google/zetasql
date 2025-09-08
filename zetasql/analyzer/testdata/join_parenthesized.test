@@ -1,3 +1,4 @@
+[default language_features=MAXIMUM]
 select *, '--', kv1.*, '--', kv2.*, '--', kv3.*
 from KeyValue kv1 cross join (KeyValue kv2 cross join KeyValue kv3);
 --

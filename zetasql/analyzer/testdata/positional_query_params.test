@@ -4,6 +4,7 @@
 # positional_parameters list corresponds with the first positional parameter
 # and so on.
 
+[default language_features=NONE]
 [default parameter_mode=positional]
 
 select 1 from TestTable where KitchenSink.bool_val = @test_param_bool;
@@ -415,7 +416,7 @@ QueryStmt
 
 [positional_parameter_types=bool,int64,string,timestamp]
 [sql_builder_target_syntax_mode=pipe]
-[language_features=PIPES]
+[language_features=NONE,+PIPES]
 select 1
 |> where ?
 |> select ? as a, ? as b, ? as c
@@ -532,7 +533,7 @@ QueryStmt
 
 [positional_parameter_types=bool,int64,string,timestamp]
 [sql_builder_target_syntax_mode=pipe]
-[language_features=PIPES]
+[language_features=NONE,+PIPES]
 with T as (select 1 |> where ? |> select ? as a, ? as b, ? as c)
 from T
 |> extend b = "foo" as d

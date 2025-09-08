@@ -72,7 +72,10 @@ class BuiltinOnlyCatalog : public Catalog {
   absl::Status FindType(const absl::Span<const std::string>& path,
                         const Type** type,
                         const FindOptions& options = FindOptions()) override;
-  // There are no builtin TVFs, always returns kNotFound.
+  // Find the given TVF in the catalog. By default, only ZetaSQL-builtin
+  // TVFs are allowed, however `set_allowed_function_groups` can be used to
+  // allow TVFs from specific groups (e.g. those containing engine-builtin
+  // TVFs).
   absl::Status FindTableValuedFunction(
       const absl::Span<const std::string>& path,
       const TableValuedFunction** function,

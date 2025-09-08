@@ -1,4 +1,4 @@
-[default language_features=IS_DISTINCT]
+[default language_features=NONE,+IS_DISTINCT]
 SELECT 1 IS {{NOT|}} DISTINCT FROM 2;
 --
 ALTERNATION GROUP: NOT
@@ -232,7 +232,7 @@ SELECT 1 IS DISTINCT FROM 2 IS DISTINCT FROM (3 IS DISTINCT FROM 4);
 ==
 
 # IS DISTRICT FROM - feature disabled
-[language_features=]
+[language_features=NONE]
 SELECT 1 IS {{NOT|}} DISTINCT FROM 2;
 --
 ALTERNATION GROUP: NOT

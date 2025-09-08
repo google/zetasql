@@ -3,8 +3,8 @@
 # This doesn't have exhaustive tests because the behavior and code is exactly
 # the same as in normal SELECT queries.
 # See analytic_function_named_window.test, where many of these tests came from.
-[default language_features=PIPES,ANALYTIC_FUNCTIONS,PIPE_NAMED_WINDOWS]
-[language_features=PIPES{{|,ANALYTIC_FUNCTIONS}}{{|,PIPE_NAMED_WINDOWS}}]
+[default language_features=MAXIMUM,+PIPES,+ANALYTIC_FUNCTIONS,+PIPE_NAMED_WINDOWS]
+[language_features=NONE,+PIPES{{|,+ANALYTIC_FUNCTIONS}}{{|,+PIPE_NAMED_WINDOWS}}]
 # Named window works in SELECT and EXTEND.
 # Both ANALYTIC_FUNCTIONS and PIPE_NAMED_WINDOWS must be enabled.
 FROM KeyValue
@@ -13,7 +13,7 @@ FROM KeyValue
 --
 ALTERNATION GROUPS:
     SELECT
-    ,ANALYTIC_FUNCTIONS,,SELECT
+    ,+ANALYTIC_FUNCTIONS,,SELECT
 --
 ERROR: Pipe SELECT does not support the WINDOW clause [at 5:4]
    WINDOW w AS (PARTITION BY value)
@@ -21,25 +21,25 @@ ERROR: Pipe SELECT does not support the WINDOW clause [at 5:4]
 --
 ALTERNATION GROUPS:
     EXTEND
-    ,ANALYTIC_FUNCTIONS,,EXTEND
+    ,+ANALYTIC_FUNCTIONS,,EXTEND
 --
 ERROR: Pipe EXTEND does not support the WINDOW clause [at 5:4]
    WINDOW w AS (PARTITION BY value)
    ^
 --
-ALTERNATION GROUP: ,PIPE_NAMED_WINDOWS,SELECT
+ALTERNATION GROUP: ,+PIPE_NAMED_WINDOWS,SELECT
 --
 ERROR: Analytic functions not supported [at 4:11]
 |> SELECT sum(key) OVER (w), count(*) OVER w AS c
           ^
 --
-ALTERNATION GROUP: ,PIPE_NAMED_WINDOWS,EXTEND
+ALTERNATION GROUP: ,+PIPE_NAMED_WINDOWS,EXTEND
 --
 ERROR: Analytic functions not supported [at 4:11]
 |> EXTEND sum(key) OVER (w), count(*) OVER w AS c
           ^
 --
-ALTERNATION GROUP: ,ANALYTIC_FUNCTIONS,,PIPE_NAMED_WINDOWS,SELECT
+ALTERNATION GROUP: ,+ANALYTIC_FUNCTIONS,,+PIPE_NAMED_WINDOWS,SELECT
 --
 QueryStmt
 +-output_column_list=
@@ -78,7 +78,7 @@ QueryStmt
                       +-end_expr=
                         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
 --
-ALTERNATION GROUP: ,ANALYTIC_FUNCTIONS,,PIPE_NAMED_WINDOWS,EXTEND
+ALTERNATION GROUP: ,+ANALYTIC_FUNCTIONS,,+PIPE_NAMED_WINDOWS,EXTEND
 --
 QueryStmt
 +-output_column_list=
@@ -120,7 +120,7 @@ QueryStmt
 # Try to reference a named window, with or without PIPE_NAMED_WINDOWS.
 # Try for all operators that accept window functions, even if they don't
 # accept a WINDOW clause.
-[language_features=PIPES,ANALYTIC_FUNCTIONS{{|,PIPE_NAMED_WINDOWS}}]
+[language_features=NONE,+PIPES,+ANALYTIC_FUNCTIONS{{|,+PIPE_NAMED_WINDOWS}}]
 FROM KeyValue
 |> {{SELECT|EXTEND|WINDOW|WHERE|ORDER BY}} sum(key) OVER (w) > 0
 --
@@ -144,7 +144,7 @@ ERROR: Cannot reference a named window in pipe WINDOW [at 2:26]
 --
 ALTERNATION GROUPS:
     WHERE
-    ,PIPE_NAMED_WINDOWS,WHERE
+    ,+PIPE_NAMED_WINDOWS,WHERE
 --
 ERROR: Cannot reference a named window in pipe WHERE clause [at 2:25]
 |> WHERE sum(key) OVER (w) > 0
@@ -152,25 +152,25 @@ ERROR: Cannot reference a named window in pipe WHERE clause [at 2:25]
 --
 ALTERNATION GROUPS:
     ORDER BY
-    ,PIPE_NAMED_WINDOWS,ORDER BY
+    ,+PIPE_NAMED_WINDOWS,ORDER BY
 --
 ERROR: Cannot reference a named window in pipe ORDER BY clause [at 2:28]
 |> ORDER BY sum(key) OVER (w) > 0
                            ^
 --
-ALTERNATION GROUP: ,PIPE_NAMED_WINDOWS,SELECT
+ALTERNATION GROUP: ,+PIPE_NAMED_WINDOWS,SELECT
 --
 ERROR: Unrecognized window alias w [at 2:26]
 |> SELECT sum(key) OVER (w) > 0
                          ^
 --
-ALTERNATION GROUP: ,PIPE_NAMED_WINDOWS,EXTEND
+ALTERNATION GROUP: ,+PIPE_NAMED_WINDOWS,EXTEND
 --
 ERROR: Unrecognized window alias w [at 2:26]
 |> EXTEND sum(key) OVER (w) > 0
                          ^
 --
-ALTERNATION GROUP: ,PIPE_NAMED_WINDOWS,WINDOW
+ALTERNATION GROUP: ,+PIPE_NAMED_WINDOWS,WINDOW
 --
 ERROR: Unrecognized window alias w [at 2:26]
 |> WINDOW sum(key) OVER (w) > 0

@@ -21,15 +21,17 @@
 #include <vector>
 
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/input_argument_type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/types/span.h"
 
 namespace zetasql {
 
 // Get an InputArgumentType for a ResolvedExpr, identifying whether or not it
-// is a parameter and pointing at the literal value inside <expr> if
-// appropriate.  <expr> must outlive the returned object.
+// is a parameter, a literal, or an analysis time constant.
 //
 // The `pick_default_type_for_untyped_expr` argument controls how to deal
 // with an untyped input argument like a NULL or empty array literal.
@@ -37,15 +39,19 @@ namespace zetasql {
 //   when `expr` is NULL or empty array without an explicit type.
 // - When it is true, an InputArgumentType with the default type for NULL or
 //   empty array will be returned.
-InputArgumentType GetInputArgumentTypeForExpr(
-    const ResolvedExpr* expr, bool pick_default_type_for_untyped_expr);
+//
+// `analyzer_options` is used to evaluate ResolvedExpr that is an analysis time
+// constant without an initialized value.
+absl::StatusOr<InputArgumentType> GetInputArgumentTypeForExpr(
+    const ResolvedExpr* expr, bool pick_default_type_for_untyped_expr,
+    const AnalyzerOptions& analyzer_options);
 
-// Get a list of <InputArgumentType> from a list of <ASTNode> and
-// <ResolvedExpr>, invoking GetInputArgumentTypeForExpr() on each of the
-// <argument_ast_nodes> and <arguments>.
+// Returns a list of `InputArgumentType` from a list of `ASTNode` and
+// `ResolvedExpr`, invoking GetInputArgumentTypeForExpr() on each of the
+// `argument_ast_nodes` and `arguments`.
 // This method is called before signature matching. Lambdas are not resolved
-// yet. <argument_ast_nodes> are used to determine InputArgumentType for lambda
-// arguments.
+// yet. Only `argument_ast_nodes` are used to determine `InputArgumentType` for
+// lambda arguments.
 //
 // The `pick_default_type_for_untyped_expr` argument controls how to deal
 // with an untyped input argument like a NULL or empty array literal.
@@ -53,11 +59,15 @@ InputArgumentType GetInputArgumentTypeForExpr(
 //   when `expr` is NULL or empty array without an explicit type.
 // - When it is true, an InputArgumentType with the default type for NULL or
 //   empty array will be returned.
-void GetInputArgumentTypesForGenericArgumentList(
+//
+// `analyzer_options` is used to evaluate ResolvedExpr that is an analysis time
+// constant without an initialized value.
+absl::StatusOr<std::vector<InputArgumentType>>
+GetInputArgumentTypesForGenericArgumentList(
     const std::vector<const ASTNode*>& argument_ast_nodes,
     absl::Span<const std::unique_ptr<const ResolvedExpr>> arguments,
     bool pick_default_type_for_untyped_expr,
-    std::vector<InputArgumentType>* input_arguments);
+    const AnalyzerOptions& analyzer_options);
 
 }  // namespace zetasql
 

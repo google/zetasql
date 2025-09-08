@@ -1,5 +1,6 @@
 # Create unnamed policy.
 
+[default language_features=NONE]
 create row access policy on KeyValue grant to ("foo@google.com") filter using(key=123);
 --
 CreateRowAccessPolicyStmt
@@ -33,7 +34,7 @@ CreateRowAccessPolicyStmt
 
 # Create unnamed policy, multiple users.
 
-[language_features={{|PARAMETERS_IN_GRANTEE_LIST}}]
+[language_features=NONE,{{|+PARAMETERS_IN_GRANTEE_LIST}}]
 create row access policy on KeyValue
 grant to ("foo@google.com",{{| @test_param_string,}} "mdbuser/bar")
 filter using(key = 123);
@@ -57,7 +58,7 @@ ERROR: The GRANTEE list only supports string literals, not parameters [at 2:29]
 grant to ("foo@google.com", @test_param_string, "mdbuser/bar")
                             ^
 --
-ALTERNATION GROUP: PARAMETERS_IN_GRANTEE_LIST,
+ALTERNATION GROUP: +PARAMETERS_IN_GRANTEE_LIST,
 --
 CreateRowAccessPolicyStmt
 +-target_name_path=KeyValue
@@ -72,7 +73,7 @@ CreateRowAccessPolicyStmt
 |   +-Literal(type=INT64, value=123)
 +-predicate_str="key = 123"
 --
-ALTERNATION GROUP: PARAMETERS_IN_GRANTEE_LIST, @test_param_string,
+ALTERNATION GROUP: +PARAMETERS_IN_GRANTEE_LIST, @test_param_string,
 --
 CreateRowAccessPolicyStmt
 +-target_name_path=KeyValue

@@ -134,14 +134,18 @@ ThreadStackStats& GetCurrentThreadStackStats() {
 }
 
 bool ThreadHasEnoughStack() {
+#ifndef __EMSCRIPTEN__
   const size_t remaining =
       GetCurrentThreadStackStats().ThreadStackAvailableBytes();
   bool enough = remaining >= absl::GetFlag(FLAGS_zetasql_enough_stack_bytes);
 
   return enough;
+#else
+  return true;
+#endif  // __EMSCRIPTEN__
 }
 
-void LogStackExhaustion(std::string_view msg) {
+void LogStackExhaustion(absl::string_view msg) {
   return;  // TODO: Implement LogStackExhaustion()
 }
 

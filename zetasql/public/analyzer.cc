@@ -21,7 +21,6 @@
 #include <thread>
 #include <ostream>
 #include <string>
-#include <type_traits>
 #include <utility>
 
 #include "zetasql/base/logging.h"
@@ -118,7 +117,7 @@ static absl::Status FinishResolveStatementImpl(
             &analyzer_runtime_info->validator_timed_value());
     ValidatorOptions validator_options{.allowed_hints_and_options =
                                            options.allowed_hints_and_options()};
-    Validator validator(options.language(), validator_options);
+    Validator validator(options.language(), std::move(validator_options));
     ZETASQL_RETURN_IF_ERROR(
         validator.ValidateResolvedStatement(resolved_statement->get()));
   }

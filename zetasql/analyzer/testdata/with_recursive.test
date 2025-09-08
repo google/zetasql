@@ -1,5 +1,5 @@
 # out-of-order WITH entries without actual recursion
-[default language_features=WITH_RECURSIVE,ANALYTIC_FUNCTIONS,TABLE_VALUED_FUNCTIONS,TABLESAMPLE,WITH_ON_SUBQUERY,NUMERIC_TYPE,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,PIPES]
+[default language_features=NONE,+WITH_RECURSIVE,+ANALYTIC_FUNCTIONS,+TABLE_VALUED_FUNCTIONS,+TABLESAMPLE,+WITH_ON_SUBQUERY,+NUMERIC_TYPE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT,+PIPES]
 WITH RECURSIVE
   t1 AS (SELECT * FROM t2),
   t2 AS (SELECT * FROM t3 CROSS JOIN t4),
@@ -5508,7 +5508,7 @@ QueryStmt
 ==
 
 # CORRESPONDING is not allowed for set operators in WITH RECURSIVE.
-[language_features=WITH_RECURSIVE{{|,CORRESPONDING}}]
+[language_features=NONE,+WITH_RECURSIVE{{|,+CORRESPONDING}}]
 WITH RECURSIVE
   T1 AS (
     SELECT 1 AS n UNION ALL CORRESPONDING SELECT n + 1 FROM T1 WHERE n < 5)
@@ -5520,7 +5520,7 @@ ERROR: CORRESPONDING for set operations is not supported [at 3:29]
     SELECT 1 AS n UNION ALL CORRESPONDING SELECT n + 1 FROM T1 WHERE n < 5)
                             ^
 --
-ALTERNATION GROUP: ,CORRESPONDING
+ALTERNATION GROUP: ,+CORRESPONDING
 --
 ERROR: Only STRICT CORRESPONDING is supported in recursive queries [at 3:19]
     SELECT 1 AS n UNION ALL CORRESPONDING SELECT n + 1 FROM T1 WHERE n < 5)
@@ -5528,7 +5528,7 @@ ERROR: Only STRICT CORRESPONDING is supported in recursive queries [at 3:19]
 ==
 
 # FULL mode is not allowed for set operators in WITH RECURSIVE.
-[language_features=WITH_RECURSIVE{{|,CORRESPONDING}}]
+[language_features=NONE,+WITH_RECURSIVE{{|,+CORRESPONDING}}]
 WITH RECURSIVE
   T1 AS (
     SELECT 1 AS n FULL UNION ALL SELECT n + 1 FROM T1 WHERE n < 5)
@@ -5540,7 +5540,7 @@ ERROR: Column propagation mode (FULL) for set operations is not supported [at 3:
 ==
 
 # LEFT mode is not allowed for set operators in WITH RECURSIVE.
-[language_features=WITH_RECURSIVE{{|,CORRESPONDING}}]
+[language_features=NONE,+WITH_RECURSIVE{{|,+CORRESPONDING}}]
 WITH RECURSIVE
   T1 AS (
     SELECT 1 AS n LEFT UNION ALL SELECT n + 1 FROM T1 WHERE n < 5)
@@ -5552,7 +5552,7 @@ ERROR: Column propagation mode (LEFT) for set operations is not supported [at 3:
 ==
 
 # STRICT mode is not allowed for set operators in WITH RECURSIVE.
-[language_features=WITH_RECURSIVE{{|,CORRESPONDING}}]
+[language_features=NONE,+WITH_RECURSIVE{{|,+CORRESPONDING}}]
 WITH RECURSIVE
   T1 AS (
     SELECT 1 AS n UNION ALL STRICT CORRESPONDING SELECT n + 1 FROM T1 WHERE n < 5)
@@ -5564,7 +5564,7 @@ ERROR: CORRESPONDING for set operations is not supported [at 3:36]
     SELECT 1 AS n UNION ALL STRICT CORRESPONDING SELECT n + 1 FROM T1 WHERE n...
                                    ^
 --
-ALTERNATION GROUP: ,CORRESPONDING
+ALTERNATION GROUP: ,+CORRESPONDING
 --
 ERROR: Column propagation mode (STRICT) for set operations is not supported [at 3:29]
     SELECT 1 AS n UNION ALL STRICT CORRESPONDING SELECT n + 1 FROM T1 WHERE n...
@@ -5572,7 +5572,7 @@ ERROR: Column propagation mode (STRICT) for set operations is not supported [at 
 ==
 
 # CORRESPONDING is not allowed for base term either.
-[language_features=WITH_RECURSIVE{{|,CORRESPONDING}}]
+[language_features=NONE,+WITH_RECURSIVE{{|,+CORRESPONDING}}]
 WITH RECURSIVE
   T1 AS (
     SELECT 1 AS n UNION ALL CORRESPONDING SELECT 2 AS n UNION ALL SELECT n + 1 FROM T1 WHERE n < 5)
@@ -5584,7 +5584,7 @@ ERROR: CORRESPONDING for set operations is not supported [at 3:29]
     SELECT 1 AS n UNION ALL CORRESPONDING SELECT 2 AS n UNION ALL SELECT n + ...
                             ^
 --
-ALTERNATION GROUP: ,CORRESPONDING
+ALTERNATION GROUP: ,+CORRESPONDING
 --
 ERROR: Only STRICT CORRESPONDING is supported in recursive queries [at 3:19]
     SELECT 1 AS n UNION ALL CORRESPONDING SELECT 2 AS n UNION ALL SELECT n + ...
@@ -5592,7 +5592,7 @@ ERROR: Only STRICT CORRESPONDING is supported in recursive queries [at 3:19]
 ==
 
 # BY NAME doesn't work either.
-[language_features=WITH_RECURSIVE{{|,CORRESPONDING_FULL,BY_NAME}}]
+[language_features=NONE,+WITH_RECURSIVE{{|,+CORRESPONDING_FULL,+BY_NAME}}]
 WITH RECURSIVE
   T1 AS (
     SELECT 1 AS n
@@ -5610,26 +5610,26 @@ ERROR: BY NAME for set operations is not supported [at 5:15]
     UNION ALL BY NAME
               ^
 --
-ALTERNATION GROUP: ,CORRESPONDING_FULL,BY_NAME,
+ALTERNATION GROUP: ,+CORRESPONDING_FULL,+BY_NAME,
 --
 ERROR: Anonymous columns are not allowed in set operations when BY NAME is used: query 2, column 1 [at 6:5]
     SELECT n + 1 FROM T1 WHERE n < 5)
     ^
 --
-ALTERNATION GROUP: ,CORRESPONDING_FULL,BY_NAME,INNER
+ALTERNATION GROUP: ,+CORRESPONDING_FULL,+BY_NAME,INNER
 --
 ERROR: Only BY NAME is supported in recursive queries [at 4:5]
     INNER
     ^
 --
-ALTERNATION GROUP: ,CORRESPONDING_FULL,BY_NAME,LEFT
+ALTERNATION GROUP: ,+CORRESPONDING_FULL,+BY_NAME,LEFT
 --
 ERROR: Only BY NAME is supported in recursive queries [at 4:5]
     LEFT
     ^
 ==
 
-[language_features=WITH_RECURSIVE{{|,WITH_RECURSIVE_DEPTH_MODIFIER}}]
+[language_features=NONE,+WITH_RECURSIVE{{|,+WITH_RECURSIVE_DEPTH_MODIFIER}}]
 WITH RECURSIVE Fibonacci AS (
     SELECT 0 AS x, 1 AS y
       UNION ALL
@@ -5644,7 +5644,7 @@ ERROR: Recursion depth modifier is not supported [at 5:3]
 ) WITH DEPTH
   ^
 --
-ALTERNATION GROUP: ,WITH_RECURSIVE_DEPTH_MODIFIER
+ALTERNATION GROUP: ,+WITH_RECURSIVE_DEPTH_MODIFIER
 --
 QueryStmt
 +-output_column_list=
@@ -5695,7 +5695,7 @@ QueryStmt
     +-recursive=TRUE
 ==
 
-[language_features=WITH_RECURSIVE,WITH_RECURSIVE_DEPTH_MODIFIER]
+[language_features=NONE,+WITH_RECURSIVE,+WITH_RECURSIVE_DEPTH_MODIFIER]
 WITH RECURSIVE Fibonacci AS (
     SELECT 0 AS x, 1 AS y
       UNION ALL
@@ -5760,7 +5760,7 @@ QueryStmt
     +-recursive=TRUE
 ==
 
-[language_features=WITH_RECURSIVE,WITH_RECURSIVE_DEPTH_MODIFIER]
+[language_features=NONE,+WITH_RECURSIVE,+WITH_RECURSIVE_DEPTH_MODIFIER]
 WITH RECURSIVE Fibonacci AS (
     SELECT 0 AS x, 1 AS y
       UNION ALL
@@ -5774,7 +5774,7 @@ ERROR: Unrecognized name: depth [at 4:52]
                                                    ^
 ==
 
-[language_features=WITH_RECURSIVE,WITH_RECURSIVE_DEPTH_MODIFIER]
+[language_features=NONE,+WITH_RECURSIVE,+WITH_RECURSIVE_DEPTH_MODIFIER]
 WITH RECURSIVE Fibonacci AS (
     SELECT 0 AS x, 1 AS y
       UNION ALL
@@ -5839,7 +5839,7 @@ QueryStmt
     +-recursive=TRUE
 ==
 
-[language_features=WITH_RECURSIVE,WITH_RECURSIVE_DEPTH_MODIFIER]
+[language_features=NONE,+WITH_RECURSIVE,+WITH_RECURSIVE_DEPTH_MODIFIER]
 WITH RECURSIVE Fibonacci AS (
     SELECT 0 AS x, 1 AS y, 0 AS depth
       UNION ALL
@@ -5853,7 +5853,7 @@ ERROR: WITH DEPTH modifier depth column is named 'depth' which collides with one
   ^
 ==
 
-[language_features=WITH_RECURSIVE,WITH_RECURSIVE_DEPTH_MODIFIER]
+[language_features=NONE,+WITH_RECURSIVE,+WITH_RECURSIVE_DEPTH_MODIFIER]
 WITH RECURSIVE Fibonacci AS (
     SELECT 0 AS x, 1 AS y, 0 AS iteration
       UNION ALL
@@ -5867,7 +5867,7 @@ ERROR: WITH DEPTH modifier depth column is named 'iteration' which collides with
   ^
 ==
 
-[language_features=WITH_RECURSIVE,WITH_RECURSIVE_DEPTH_MODIFIER]
+[language_features=NONE,+WITH_RECURSIVE,+WITH_RECURSIVE_DEPTH_MODIFIER]
 WITH RECURSIVE Fibonacci AS (
     SELECT AS STRUCT 0 AS x, 1 AS y
       UNION ALL
@@ -5881,7 +5881,7 @@ ERROR: WITH DEPTH modifier is not allowed when the recursive query produces a va
   ^
 ==
 
-[language_features=WITH_RECURSIVE,WITH_RECURSIVE_DEPTH_MODIFIER]
+[language_features=NONE,+WITH_RECURSIVE,+WITH_RECURSIVE_DEPTH_MODIFIER]
 WITH RECURSIVE Fibonacci AS (
     SELECT 0 AS x, 1 AS y
       UNION ALL
@@ -6046,7 +6046,7 @@ QueryStmt
     +-recursive=TRUE
 ==
 
-[language_features=WITH_RECURSIVE,WITH_RECURSIVE_DEPTH_MODIFIER]
+[language_features=NONE,+WITH_RECURSIVE,+WITH_RECURSIVE_DEPTH_MODIFIER]
 WITH RECURSIVE
   NonRecusiveQuery AS (
     SELECT 1 AS value
@@ -6058,7 +6058,7 @@ ERROR: Recursion depth modifier is not allowed for non-recursive CTE named NonRe
     ^
 ==
 
-[language_features=WITH_RECURSIVE,WITH_RECURSIVE_DEPTH_MODIFIER]
+[language_features=NONE,+WITH_RECURSIVE,+WITH_RECURSIVE_DEPTH_MODIFIER]
 WITH RECURSIVE Fibonacci AS (
     SELECT 0 AS x, 1 AS y
       UNION ALL
@@ -6074,7 +6074,7 @@ ERROR: WITH DEPTH expects lower bound (Int64(2)) no larger than upper bound (Int
 ==
 
 # Top-level pipe non-set operators are not allowed in with recursive.
-[language_features=WITH_RECURSIVE,PIPES]
+[language_features=NONE,+WITH_RECURSIVE,+PIPES]
 with recursive t as (
   select 1 as col
   union all
@@ -6088,7 +6088,7 @@ with recursive t as (
                     ^
 ==
 
-[language_features=WITH_RECURSIVE,PIPES]
+[language_features=NONE,+WITH_RECURSIVE,+PIPES]
 with recursive t as (
   (
     select 1 AS col
@@ -6150,7 +6150,7 @@ QueryStmt
 ==
 
 # Limit clause wrapped inside redundant parentheses is still correctly rejected.
-[language_features=WITH_RECURSIVE]
+[language_features=NONE,+WITH_RECURSIVE]
 with recursive t as (
   (
     (
@@ -6173,7 +6173,7 @@ ERROR: A recursive query may not use LIMIT [at 9:11]
 ==
 
 # Corret usage of UNION ALL wrapped in redundant parentheses are allowed.
-[language_features=WITH_RECURSIVE]
+[language_features=NONE,+WITH_RECURSIVE]
 with recursive t as (
   (
     (
@@ -6233,7 +6233,7 @@ QueryStmt
     +-recursive=TRUE
 ==
 
-[language_features=PIPES,WITH_RECURSIVE]
+[language_features=NONE,+PIPES,+WITH_RECURSIVE]
 with recursive t as (
   select 1 as col
   |> {{union all|union distinct}} (select * from t)
@@ -6322,7 +6322,7 @@ QueryStmt
 ==
 
 # The redundant parentheses do not affect the analysis result.
-[language_features=PIPES,WITH_RECURSIVE]
+[language_features=NONE,+PIPES,+WITH_RECURSIVE]
 with recursive t as (
   (
     (
@@ -6373,7 +6373,7 @@ QueryStmt
 ==
 
 # Non-top level pipe operators are allowed.
-[language_features=PIPES,WITH_RECURSIVE]
+[language_features=NONE,+PIPES,+WITH_RECURSIVE]
 with recursive t as (
     (select 1 |> limit 5)
     union all (select * from t |> where true)
@@ -6431,7 +6431,7 @@ QueryStmt
 
 # Disallowed pipe operators are rejected even if they are wrapped in redundant
 # parentheses.
-[language_features=PIPES,WITH_RECURSIVE]
+[language_features=NONE,+PIPES,+WITH_RECURSIVE]
 with recursive t as (
   (
     (
@@ -6735,7 +6735,7 @@ ERROR: Recursive reference is not allowed in non-recursive UNION term [at 3:37]
 ==
 
 # Corresponding is not supported in with recursive.
-[language_features=WITH_RECURSIVE,PIPES{{|,CORRESPONDING}}]
+[language_features=NONE,+WITH_RECURSIVE,+PIPES{{|,+CORRESPONDING}}]
 with recursive t as (
   select 1 as col
   |> union all corresponding (select col + 1 from t where col < 3)
@@ -6748,7 +6748,7 @@ ERROR: CORRESPONDING for set operations is not supported [at 3:16]
   |> union all corresponding (select col + 1 from t where col < 3)
                ^
 --
-ALTERNATION GROUP: ,CORRESPONDING
+ALTERNATION GROUP: ,+CORRESPONDING
 --
 ERROR: Only STRICT CORRESPONDING is supported in recursive queries [at 3:6]
   |> union all corresponding (select col + 1 from t where col < 3)
@@ -6888,7 +6888,7 @@ ERROR: Cannot coerce type (INT32) of column 1 in the recursive term to type (UIN
 
 # The pipe form of with recursive is not suggested if the pipe language feature
 # FEATURE_PIPES is not enabled.
-[language_features=WITH_RECURSIVE]
+[language_features=NONE,+WITH_RECURSIVE]
 with recursive t as (
   select 1 as col
   intersect distinct
@@ -6903,7 +6903,7 @@ with recursive t as (
 
 # Pipe syntax is not supported when the language feature FEATURE_PIPES is not
 # enabled.
-[language_features=WITH_RECURSIVE]
+[language_features=NONE,+WITH_RECURSIVE]
 with recursive t as (
   select 1 as col
   |> union all (select * from t)
@@ -6913,3 +6913,25 @@ select * from t;
 ERROR: Pipe query syntax not supported [at 3:3]
   |> union all (select * from t)
   ^
+==
+
+# ERROR: WITH DEPTH with STRING lower and upper bounds.
+[language_features=NONE,+WITH_RECURSIVE,+WITH_RECURSIVE_DEPTH_MODIFIER]
+WITH RECURSIVE Fibonacci AS (
+    SELECT 0 AS x, 1 AS y
+      UNION ALL
+    SELECT y AS x, x + y AS y FROM Fibonacci
+) WITH DEPTH {{MAX @test_param_string|BETWEEN @test_param_string AND @test_param_string}}
+SELECT y FROM Fibonacci
+--
+ALTERNATION GROUP: MAX @test_param_string
+--
+ERROR: WITH DEPTH expects an integer literal or parameter [at 5:18]
+) WITH DEPTH MAX @test_param_string
+                 ^
+--
+ALTERNATION GROUP: BETWEEN @test_param_string AND @test_param_string
+--
+ERROR: WITH DEPTH expects an integer literal or parameter [at 5:22]
+) WITH DEPTH BETWEEN @test_param_string AND @test_param_string
+                     ^

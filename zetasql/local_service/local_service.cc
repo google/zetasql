@@ -216,7 +216,7 @@ class InternalPreparedExpressionState : public GenericState {
 
   static absl::StatusOr<std::unique_ptr<InternalPreparedExpressionState>>
   CreateAndPrepareExpression(
-      const std::string& sql, const AnalyzerOptionsProto& options_proto,
+      absl::string_view sql, const AnalyzerOptionsProto& options_proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       SimpleCatalog* catalog,
       absl::flat_hash_set<int64_t> owned_descriptor_pool_ids = {},

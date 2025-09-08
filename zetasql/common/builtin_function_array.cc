@@ -43,6 +43,7 @@
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/functional/bind_front.h"
@@ -58,7 +59,7 @@ namespace zetasql {
 
 // Create a `FunctionSignatureOptions` that configures a SQL definition that
 // will be inlined by `REWRITE_BUILTIN_FUNCTION_INLINER`.
-static FunctionSignatureOptions SetDefinitionForInlining(
+static FunctionSignatureOptions SetDefinitionForInliningWithGroups(
     absl::string_view sql, bool enabled = true,
     std::vector<std::string> allowed_function_groups = {}) {
   auto rewrite_options = FunctionSignatureRewriteOptions()
@@ -297,8 +298,8 @@ static FunctionSignatureOnHeap UnaryArrayFuncConcreteSig(
                       "input_array", kPositionalOnly)};
   return FunctionSignatureOnHeap(
       output_type, {input_arg}, id,
-      SetDefinitionForInlining(sql, /*enabled=*/true,
-                               std::move(allowed_function_groups)));
+      SetDefinitionForInliningWithGroups(sql, /*enabled=*/true,
+                                         std::move(allowed_function_groups)));
 }
 
 static FunctionSignatureOnHeap ArraySumSig(const Type* output_type,
@@ -1174,14 +1175,29 @@ static absl::StatusOr<const Type*> ComputeArrayZipOutputType(
 // ARRAY_ZIP(ARRAY<collation_1>, ..., ARRAY<collation_n>) ->
 // ARRAY<STRUCT<collation_1, ..., collation_n>>.
 static absl::StatusOr<const AnnotationMap*> ComputeArrayZipOutputAnnotations(
-    const AnnotationCallbackArgs& args, TypeFactory& type_factory) {
-  const Type* result_type = args.result_type;
+    const ResolvedFunctionCallBase& function_call, TypeFactory& type_factory) {
   // The last argument is array_zip_mode, so exclude it.
-  const absl::Span<const AnnotationMap* const> array_annotations =
-      absl::MakeSpan(args.argument_annotations)
-          .subspan(0, args.argument_annotations.size() - 1);
+  std::vector<const AnnotationMap*> array_annotations;
+  if (!function_call.argument_list().empty()) {
+    ZETASQL_RET_CHECK(function_call.generic_argument_list().empty());
+    ZETASQL_RET_CHECK_GE(function_call.argument_list_size(), 3);
+    for (int i = 0; i < function_call.argument_list_size() - 1; ++i) {
+      array_annotations.push_back(
+          function_call.argument_list(i)->type_annotation_map());
+    }
+  } else {
+    ZETASQL_RET_CHECK_GE(function_call.generic_argument_list_size(), 3);
+
+    for (int i = 0; i < function_call.generic_argument_list_size() - 1; ++i) {
+      // These are signatures without lambda, so all arguments are exprs.
+      array_annotations.push_back(function_call.generic_argument_list(i)
+                                      ->expr()
+                                      ->type_annotation_map());
+    }
+  }
 
   // The return type must be ARRAY<STRUCT>.
+  const Type* result_type = function_call.type();
   ZETASQL_RET_CHECK(result_type->IsArray());
   ZETASQL_RET_CHECK(result_type->AsArray()->element_type()->IsStruct());
   ZETASQL_RET_CHECK_EQ(result_type->AsArray()->element_type()->AsStruct()->num_fields(),
@@ -1202,11 +1218,11 @@ static absl::StatusOr<const AnnotationMap*> ComputeArrayZipOutputAnnotations(
 
   std::unique_ptr<AnnotationMap> annotation_map =
       AnnotationMap::Create(result_type);
-  ZETASQL_RET_CHECK(annotation_map->IsArrayMap());
-  ZETASQL_RET_CHECK(annotation_map->AsArrayMap()->element()->IsStructMap());
-  ArrayAnnotationMap* array_annotation_map = annotation_map->AsArrayMap();
+  ZETASQL_RET_CHECK(annotation_map->IsStructMap());
+  ZETASQL_RET_CHECK_EQ(annotation_map->AsStructMap()->num_fields(), 1);
+  ZETASQL_RET_CHECK(annotation_map->AsStructMap()->field(0)->IsStructMap());
   StructAnnotationMap* element_struct_annotation_map =
-      array_annotation_map->mutable_element()->AsStructMap();
+      annotation_map->AsStructMap()->mutable_field(0)->AsStructMap();
   // The annotations of each array become the field annotations for the result
   // struct element.
   ZETASQL_RET_CHECK_EQ(element_struct_annotation_map->num_fields(),
@@ -1218,7 +1234,7 @@ static absl::StatusOr<const AnnotationMap*> ComputeArrayZipOutputAnnotations(
       continue;
     }
     const AnnotationMap* argument_element_annotation_map =
-        array_annotations[i]->AsArrayMap()->element();
+        array_annotations[i]->AsStructMap()->field(0);
     ZETASQL_RETURN_IF_ERROR(element_struct_annotation_map->CloneIntoField(
         i, argument_element_annotation_map));
   }

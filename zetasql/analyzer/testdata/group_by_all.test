@@ -1,4 +1,4 @@
-[default language_features=GROUP_BY_ALL]
+[default language_features=MAXIMUM,+GROUP_BY_ALL]
 
 # SELECT clause contains non-aggregate column only
 select key{{| + 1}}
@@ -279,7 +279,7 @@ SELECT KitchenSink,
 ==
 
 # SELECT clause contains non-groupable non-aggregate column.
-[language_features=GROUP_BY_ALL{{|,GROUP_BY_ARRAY}}]
+[language_features=NONE,+GROUP_BY_ALL{{|,+GROUP_BY_ARRAY}}]
 SELECT {{KitchenSink.repeated_int32_val|Int32Array}},
        COUNT(*)
 FROM ComplexTypes
@@ -297,7 +297,7 @@ ERROR: Column `Int32Array`, which is included in the grouping list by GROUP BY A
 SELECT Int32Array,
        ^
 --
-ALTERNATION GROUP: ,GROUP_BY_ARRAY,KitchenSink.repeated_int32_val
+ALTERNATION GROUP: ,+GROUP_BY_ARRAY,KitchenSink.repeated_int32_val
 --
 QueryStmt
 +-output_column_list=
@@ -322,7 +322,7 @@ QueryStmt
         +-aggregate_list=
           +-$agg1#7 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
 --
-ALTERNATION GROUP: ,GROUP_BY_ARRAY,Int32Array
+ALTERNATION GROUP: ,+GROUP_BY_ARRAY,Int32Array
 --
 QueryStmt
 +-output_column_list=
@@ -343,7 +343,7 @@ QueryStmt
 ==
 
 # SELECT clause contains non-groupable non-aggregate column.
-[language_features=GROUP_BY_ALL{{|,GROUP_BY_STRUCT}}]
+[language_features=NONE,+GROUP_BY_ALL{{|,+GROUP_BY_STRUCT}}]
 SELECT TestStruct,
        COUNT(*)
 FROM ComplexTypes
@@ -355,7 +355,7 @@ ERROR: Column `TestStruct`, which is included in the grouping list by GROUP BY A
 SELECT TestStruct,
        ^
 --
-ALTERNATION GROUP: ,GROUP_BY_STRUCT
+ALTERNATION GROUP: ,+GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -493,7 +493,7 @@ QueryStmt
 # Repro for b/323439034: When SELECT clause does not contain aggregate column
 # and no grouping keys are chosen, it should produce AggregateScan with no
 # aggregate_list and no group_by_list.
-[language_features=GROUP_BY_ALL,GROUPING_SETS]
+[language_features=NONE,+GROUP_BY_ALL,+GROUPING_SETS]
 SELECT 'a' AS x
 FROM KeyValue
 GROUP BY {{ALL|()}}
@@ -515,7 +515,7 @@ QueryStmt
 # Repro for b/323567303:
 # When SELECT clause does not contain aggregate column and no grouping keys are
 # chosen, HAVING should not inject group_by_list.
-[language_features=GROUP_BY_ALL,GROUPING_SETS]
+[language_features=NONE,+GROUP_BY_ALL,+GROUPING_SETS]
 SELECT 'a' AS x
 FROM KeyValue
 GROUP BY {{ALL|()}}
@@ -551,7 +551,7 @@ QueryStmt
 # Repro for b/323567303:
 # When SELECT clause contains only constant computed exprs and no grouping keys
 # are chosen, HAVING should not inject group_by_list.
-[language_features=GROUP_BY_ALL,GROUPING_SETS]
+[language_features=NONE,+GROUP_BY_ALL,+GROUPING_SETS]
 SELECT (1 + 3) AS x, COUNT(*)
 FROM KeyValue
 GROUP BY ALL
@@ -775,7 +775,7 @@ QueryStmt
 # clause name scope.
 # When the select list contains `current_key` or `current_array`, we expect it
 # to show up in the group by list. Otherwise, we do not.
-[language_features=GROUP_BY_ALL,INLINE_LAMBDA_ARGUMENT,GROUP_BY_ARRAY]
+[language_features=NONE,+GROUP_BY_ALL,+INLINE_LAMBDA_ARGUMENT,+GROUP_BY_ARRAY]
 SELECT
   (
     SELECT AS STRUCT
@@ -931,7 +931,7 @@ QueryStmt
 # should work for any path expression with arbitrary lengths.
 # GROUP BY ALL should exclude such expression with no references to current FROM
 # clause name scope.
-[language_features=GROUP_BY_ALL,GROUP_BY_STRUCT,INLINE_LAMBDA_ARGUMENT,GROUP_BY_ARRAY]
+[language_features=NONE,+GROUP_BY_ALL,+GROUP_BY_STRUCT,+INLINE_LAMBDA_ARGUMENT,+GROUP_BY_ARRAY]
 WITH T AS (
   SELECT STRUCT(1 AS a1,
                 STRUCT(STRUCT(1 AS c1, 1 AS c2) AS b1, 1 AS b2) AS a2) AS x,
@@ -1077,7 +1077,7 @@ QueryStmt
 # should work for any path expression with arbitrary lengths.
 # GROUP BY ALL should exclude such expression with no references to current FROM
 # clause name scope.
-[language_features=GROUP_BY_ALL,GROUP_BY_STRUCT,INLINE_LAMBDA_ARGUMENT,GROUP_BY_ARRAY]
+[language_features=NONE,+GROUP_BY_ALL,+GROUP_BY_STRUCT,+INLINE_LAMBDA_ARGUMENT,+GROUP_BY_ARRAY]
 WITH T AS (
   SELECT STRUCT(1 AS a1,
                 STRUCT(STRUCT(1 AS c1, 1 AS c2) AS b1, 1 AS b2) AS a2) AS x,
@@ -1242,7 +1242,7 @@ SELECT *
        ^
 ==
 
-[language_features=GROUP_BY_ALL,QUALIFY,ANALYTIC_FUNCTIONS]
+[language_features=NONE,+GROUP_BY_ALL,+QUALIFY,+ANALYTIC_FUNCTIONS]
 # Window function with QUALIFY clause. No groupable or aggregate column. This is
 # equivalent to no GROUP BY clause is specified at all.
 SELECT row_number() over () AS a
@@ -1280,7 +1280,7 @@ QueryStmt
             +-Literal(type=INT64, value=1)
 ==
 
-[language_features=GROUP_BY_ALL,QUALIFY,ANALYTIC_FUNCTIONS]
+[language_features=NONE,+GROUP_BY_ALL,+QUALIFY,+ANALYTIC_FUNCTIONS]
 # Window function with QUALIFY clause. Only groupable column or aggregate column.
 SELECT {{`int64`|SUM(`int64`)}}, row_number() over () AS a
 FROM SimpleTypes WHERE true
@@ -1362,7 +1362,7 @@ QueryStmt
             +-Literal(type=INT64, value=1)
 ==
 
-[language_features=GROUP_BY_ALL,QUALIFY,ANALYTIC_FUNCTIONS]
+[language_features=NONE,+GROUP_BY_ALL,+QUALIFY,+ANALYTIC_FUNCTIONS]
 # Window function with QUALIFY clause, along with groupable column and aggregate
 # column.
 SELECT `int64`, SUM(`int32`), row_number() over () AS a
@@ -1411,7 +1411,7 @@ QueryStmt
             +-Literal(type=INT64, value=1)
 ==
 
-[language_features=GROUP_BY_ALL,SELECT_STAR_EXCEPT_REPLACE]
+[language_features=NONE,+GROUP_BY_ALL,+SELECT_STAR_EXCEPT_REPLACE]
 # SELECT with EXCEPT
 SELECT * EXCEPT (a)
 FROM (
@@ -1448,7 +1448,7 @@ QueryStmt
           +-b#3 := ColumnRef(type=INT64, column=$subquery1.b#2)
 ==
 
-[language_features=GROUP_BY_ALL,SELECT_STAR_EXCEPT_REPLACE]
+[language_features=NONE,+GROUP_BY_ALL,+SELECT_STAR_EXCEPT_REPLACE]
 # SELECT with REPLACE
 SELECT * REPLACE (0 AS a)
 FROM (
@@ -1480,7 +1480,7 @@ QueryStmt
           +-all#3 := ColumnRef(type=INT64, column=$subquery1.all#2)
 ==
 
-[language_features=GROUP_BY_ALL,SELECT_STAR_EXCEPT_REPLACE]
+[language_features=NONE,+GROUP_BY_ALL,+SELECT_STAR_EXCEPT_REPLACE]
 # SELECT with REPLACE
 WITH t1 AS (SELECT 0 AS a, 1 AS b),
      t2 AS (SELECT 3 AS c)
@@ -1582,7 +1582,7 @@ QueryStmt
               +-b#8 := ColumnRef(type=INT64, column=t2.c#6)
 ==
 
-[language_features=GROUP_BY_ALL,SELECT_STAR_EXCEPT_REPLACE]
+[language_features=NONE,+GROUP_BY_ALL,+SELECT_STAR_EXCEPT_REPLACE]
 # SELECT with REPLACE
 WITH t1 AS (SELECT 0 AS a, 1 AS b),
      t2 AS (SELECT 3 AS c)
@@ -1973,7 +1973,7 @@ QueryStmt
 # SELECT list item with non-correlated column references in current FROM clause
 # name scope. For such select item, if all of its column references are selected
 # and can be used as grouping keys, it is not added to the group by list.
-[language_features=GROUP_BY_ALL,GROUP_BY_ARRAY]
+[language_features=NONE,+GROUP_BY_ALL,+GROUP_BY_ARRAY]
 WITH T AS (SELECT 1 AS a, 2 AS b, 3 AS c)
 SELECT a, T.b, {{[T.a, T.b]|[T.b, T.c]|[T.c]}}
 FROM T
@@ -2232,7 +2232,7 @@ SELECT a, COUNT(*), (
 # grouping keys, such select item is not added to the group by list.
 # The pre-existing grouping keys is computed as the shortest prefix, a single
 # column ref.
-[language_features=GROUP_BY_ALL,GROUP_BY_STRUCT]
+[language_features=NONE,+GROUP_BY_ALL,+GROUP_BY_STRUCT]
 WITH T AS (
   SELECT STRUCT(1 AS a1, STRUCT(STRUCT(1 AS c1, 1 AS c2) AS b1, 1 AS b2) AS a2) AS x, 1 AS y
 )
@@ -2299,7 +2299,7 @@ QueryStmt
 # grouping keys, such select item is not added to the group by list.
 # The pre-existing grouping keys is computed as the shortest prefix, a path
 # expression with multiple names.
-[language_features=GROUP_BY_ALL,GROUP_BY_STRUCT]
+[language_features=NONE,+GROUP_BY_ALL,+GROUP_BY_STRUCT]
 WITH T AS (
   SELECT STRUCT(1 AS a1, STRUCT(STRUCT(1 AS c1, 1 AS c2) AS b1, 1 AS b2) AS a2) AS x, 1 AS y
 )
@@ -2367,7 +2367,7 @@ QueryStmt
 # grouping keys, such select item is not added to the group by list.
 # The pre-existing grouping keys is computed as the shortest prefix, a path
 # expression with multiple names.
-[language_features=GROUP_BY_ALL,GROUP_BY_STRUCT]
+[language_features=NONE,+GROUP_BY_ALL,+GROUP_BY_STRUCT]
 WITH T AS (
   SELECT STRUCT(1 AS a1, STRUCT(STRUCT(1 AS c1, 1 AS c2) AS b1, 1 AS b2) AS a2) AS x, 1 AS y
 )
@@ -2458,7 +2458,7 @@ QueryStmt
 # However, the detection of those pre-existing grouping keys only works for as
 # complicated as path expression, instead of any other more general / complex
 # expression.
-[language_features=GROUP_BY_ALL,GROUP_BY_STRUCT]
+[language_features=NONE,+GROUP_BY_ALL,+GROUP_BY_STRUCT]
 WITH T AS (
   SELECT STRUCT(1 AS a1, STRUCT(STRUCT(1 AS c1, 1 AS c2) AS b1, 1 AS b2) AS a2) AS x, 1 AS y
 )
@@ -2524,7 +2524,7 @@ QueryStmt
 ==
 
 # Regression test for b/310705631
-[language_features=GROUP_BY_ARRAY,GROUP_BY_ALL]
+[language_features=NONE,+GROUP_BY_ARRAY,+GROUP_BY_ALL]
 WITH Table5 AS (SELECT [1, 2, 3] AS arr_col)
 SELECT
   ( SELECT e FROM t5.arr_col AS e ) AS scalar_subq_col,
@@ -2625,7 +2625,7 @@ QueryStmt
 ==
 
 # Regression test for b/310705631
-[language_features=GROUP_BY_ARRAY,GROUP_BY_ALL]
+[language_features=NONE,+GROUP_BY_ARRAY,+GROUP_BY_ALL]
 WITH Table5 AS (SELECT [1, 2, 3] AS arr_col)
 SELECT
   ( SELECT t5.arr_col ) AS scalar_subq_col,
@@ -2677,7 +2677,7 @@ QueryStmt
 ==
 
 # Regression test for b/310705631
-[language_features=GROUP_BY_ARRAY,GROUP_BY_ALL]
+[language_features=NONE,+GROUP_BY_ARRAY,+GROUP_BY_ALL]
 WITH Table5 AS (SELECT [1, 2, 3] AS arr_col)
 SELECT
   ( SELECT e FROM UNNEST(t5.arr_col) AS e ) AS scalar_subq_col,

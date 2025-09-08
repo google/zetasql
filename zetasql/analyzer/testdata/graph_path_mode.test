@@ -1,7 +1,7 @@
 ###
 ### Path Mode handling
 ###
-[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,+SQL_GRAPH_PATH_MODE]
 [default no_test_extract_table_names]
 # No unparser due to SQLBuilder visitor not implemented for GraphMakeElement
 
@@ -1566,7 +1566,7 @@ QueryStmt
 ### Path Mode handling SQLBuilder tests
 ###
 
-[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,+SQL_GRAPH_PATH_MODE]
 [default no_test_extract_table_names]
 [default run_sqlbuilder]
 [default show_sqlbuilder_output]
@@ -3785,7 +3785,7 @@ FROM
      aml_1.a_5 AS the_answer;
 ==
 
-[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_PATH_MODE]
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,+SQL_GRAPH_PATH_MODE]
 [default no_test_extract_table_names]
 [default no_run_sqlbuilder]
 # No unparser due to SQLBuilder visitor not implemented for GraphMakeElement
@@ -6395,7 +6395,7 @@ QueryStmt
 ###
 ### Feature is disabled without path mode feature flag.
 ###
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 
 select gt.* from
 graph_table(aml

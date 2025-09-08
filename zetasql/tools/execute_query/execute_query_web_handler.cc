@@ -120,12 +120,12 @@ std::string ExecuteQueryWebRequest::DebugString() const {
   absl::string_view target_syntax_mode_name =
       ExecuteQueryConfig::target_syntax_mode_name(target_syntax_mode_);
 
-  return absl::StrCat("modes: [", absl::StrJoin(modes, ","),
-                      "], catalog: ", catalog_, ", sql_mode: ", sql_mode_name,
-                      ", target_syntax_mode: ", target_syntax_mode_name,
-                      ", query_size: ", query_.size(), ", lang_features: ",
-                      GetEnabledLanguageFeaturesOptionsStr(),
-                      ", ast_rewrites: ", GetEnabledAstRewritesOptionsStr());
+  return absl::StrCat(
+      "modes: [", absl::StrJoin(modes, ","), "], catalog: ", catalog_,
+      ", sql_mode: ", sql_mode_name, ", syntax: ", target_syntax_mode_name,
+      ", query_size: ", query_.size(),
+      ", lang_features: ", GetEnabledLanguageFeaturesOptionsStr(),
+      ", ast_rewrites: ", GetEnabledAstRewritesOptionsStr());
 }
 
 bool ExecuteQueryWebHandler::HandleRequest(

@@ -1,5 +1,5 @@
 [default reserve_graph_table]
-[default language_features=LIKE_ANY_SOME_ALL,SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+LIKE_ANY_SOME_ALL,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 GRAPH aml
 MATCH (n:Person)
@@ -915,19 +915,19 @@ RETURN true AS val
 --
 ALTERNATION GROUP: ANY
 --
-ERROR: Syntax error: Expected "(" or keyword UNNEST but got "{" [at 3:23]
+ERROR: Syntax error: Unexpected "{" [at 3:23]
 WHERE n.name LIKE ANY { MATCH (p:Person) RETURN "name" as name }
                       ^
 --
 ALTERNATION GROUP: SOME
 --
-ERROR: Syntax error: Expected "(" or keyword UNNEST but got "{" [at 3:24]
+ERROR: Syntax error: Unexpected "{" [at 3:24]
 WHERE n.name LIKE SOME { MATCH (p:Person) RETURN "name" as name }
                        ^
 --
 ALTERNATION GROUP: ALL
 --
-ERROR: Syntax error: Expected "(" or keyword UNNEST but got "{" [at 3:23]
+ERROR: Syntax error: Unexpected "{" [at 3:23]
 WHERE n.name LIKE ALL { MATCH (p:Person) RETURN "name" as name }
                       ^
 ==
@@ -1519,3 +1519,12 @@ RETURN
       (n2
       IS Person)
   }
+
+==
+
+# Subquery with GRAPH doesn't work.
+SELECT (GRAPH g RETURN 1 as one) as subquery
+--
+ERROR: Syntax error: Expected "," but got identifier "g" [at 1:15]
+SELECT (GRAPH g RETURN 1 as one) as subquery
+              ^

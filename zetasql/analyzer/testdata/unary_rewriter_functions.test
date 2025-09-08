@@ -1,5 +1,5 @@
 [default enabled_ast_rewrites=DEFAULTS]
-[default language_features=SAFE_FUNCTION_CALL]
+[default language_features=MAXIMUM,+SAFE_FUNCTION_CALL]
 
 SELECT ARRAY_FIRST([])
 --
@@ -433,7 +433,7 @@ QueryStmt
 
 # The langugage feature ARRAY_AGGREGATION_FUNCTIONS is added temporarily.
 # It will be removed once UDF naming conflicts are cleaned up.
-[language_features=SAFE_FUNCTION_CALL{{|,ARRAY_AGGREGATION_FUNCTIONS}}]
+[language_features=NONE,+SAFE_FUNCTION_CALL{{|,+ARRAY_AGGREGATION_FUNCTIONS}}]
 SELECT {{|SAFE.}}ARRAY_SUM([CAST(1.0 AS FLOAT), CAST('NAN' AS FLOAT), CAST('+inf' AS FLOAT)])
 --
 ALTERNATION GROUP: <empty>
@@ -448,7 +448,7 @@ ERROR: Function not found: ARRAY_SUM; Did you mean SAFE.array_agg? [at 1:8]
 SELECT SAFE.ARRAY_SUM([CAST(1.0 AS FLOAT), CAST('NAN' AS FLOAT), CAST('+inf' ...
        ^
 --
-ALTERNATION GROUP: ,ARRAY_AGGREGATION_FUNCTIONS,
+ALTERNATION GROUP: ,+ARRAY_AGGREGATION_FUNCTIONS,
 --
 QueryStmt
 +-output_column_list=
@@ -516,7 +516,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: ,ARRAY_AGGREGATION_FUNCTIONS,SAFE.
+ALTERNATION GROUP: ,+ARRAY_AGGREGATION_FUNCTIONS,SAFE.
 --
 QueryStmt
 +-output_column_list=
@@ -587,7 +587,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=SAFE_FUNCTION_CALL{{|,ARRAY_AGGREGATION_FUNCTIONS}}]
+[language_features=NONE,+SAFE_FUNCTION_CALL{{|,+ARRAY_AGGREGATION_FUNCTIONS}}]
 SELECT {{|SAFE.}}ARRAY_AVG([CAST(1.0 AS FLOAT), CAST('NAN' AS FLOAT), CAST('+inf' AS FLOAT)])
 --
 ALTERNATION GROUP: <empty>
@@ -602,7 +602,7 @@ ERROR: Function not found: ARRAY_AVG; Did you mean SAFE.array_agg? [at 1:8]
 SELECT SAFE.ARRAY_AVG([CAST(1.0 AS FLOAT), CAST('NAN' AS FLOAT), CAST('+inf' ...
        ^
 --
-ALTERNATION GROUP: ,ARRAY_AGGREGATION_FUNCTIONS,
+ALTERNATION GROUP: ,+ARRAY_AGGREGATION_FUNCTIONS,
 --
 QueryStmt
 +-output_column_list=
@@ -670,7 +670,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: ,ARRAY_AGGREGATION_FUNCTIONS,SAFE.
+ALTERNATION GROUP: ,+ARRAY_AGGREGATION_FUNCTIONS,SAFE.
 --
 QueryStmt
 +-output_column_list=
@@ -741,7 +741,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=SAFE_FUNCTION_CALL,ARRAY_AGGREGATION_FUNCTIONS]
+[language_features=NONE,+SAFE_FUNCTION_CALL,+ARRAY_AGGREGATION_FUNCTIONS]
 SELECT {{|SAFE.}}ARRAY_MIN(["hello", "zetasql"])
 --
 ALTERNATION GROUP: <empty>
@@ -911,7 +911,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=ARRAY_AGGREGATION_FUNCTIONS]
+[language_features=NONE,+ARRAY_AGGREGATION_FUNCTIONS]
 SELECT ARRAY_MAX([])
 --
 QueryStmt
@@ -996,7 +996,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=SAFE_FUNCTION_CALL,ARRAY_AGGREGATION_FUNCTIONS]
+[language_features=NONE,+SAFE_FUNCTION_CALL,+ARRAY_AGGREGATION_FUNCTIONS]
 SELECT ARRAY_MAX([4.5])
 --
 QueryStmt

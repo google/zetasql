@@ -130,7 +130,7 @@ SELECT
 
 CREATE TEMP MATERIALIZED VIEW v AS (SELECT 1 AS a);
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword MATERIALIZED [at 1:13]
+ERROR: Syntax error: Unexpected keyword MATERIALIZED [at 1:13]
 CREATE TEMP MATERIALIZED VIEW v AS (SELECT 1 AS a);
             ^
 ==
@@ -359,13 +359,13 @@ SELECT
 --
 ALTERNATION GROUP: materialized
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword MATERIALIZED [at 1:18]
+ERROR: Syntax error: Unexpected keyword MATERIALIZED [at 1:18]
 create temporary materialized view tt
                  ^
 --
 ALTERNATION GROUP: approx
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword APPROX [at 1:18]
+ERROR: Syntax error: Unexpected keyword APPROX [at 1:18]
 create temporary approx view tt
                  ^
 ==
@@ -1183,13 +1183,13 @@ FROM
 --
 ALTERNATION GROUP: materialized
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword MATERIALIZED [at 1:13]
+ERROR: Syntax error: Unexpected keyword MATERIALIZED [at 1:13]
 create TEMP materialized RECURSIVE view t1 as select * from t1;
             ^
 --
 ALTERNATION GROUP: approx
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword APPROX [at 1:13]
+ERROR: Syntax error: Unexpected keyword APPROX [at 1:13]
 create TEMP approx RECURSIVE view t1 as select * from t1;
             ^
 ==
@@ -1234,7 +1234,7 @@ FROM
   t1
 ==
 
-[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features=NONE,{{|+ALLOW_DASHES_IN_TABLE_NAME}}]
 create view p-g-123.d456.v1 as select * from t2;
 --
 ALTERNATION GROUP: <empty>
@@ -1243,7 +1243,7 @@ ERROR: Syntax error: Table name contains '-' character. The dashed identifier pa
 create view p-g-123.d456.v1 as select * from t2;
             ^
 --
-ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: +ALLOW_DASHES_IN_TABLE_NAME
 --
 CreateViewStatement [0-47] [create view...* from t2]
   PathExpression [12-27] [p-g-123.d456.v1]
@@ -1267,7 +1267,7 @@ FROM
   t2
 ==
 
-[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features=NONE,{{|+ALLOW_DASHES_IN_TABLE_NAME}}]
 create materialized view p-b-c.d_123.mv1 as select sum(m1) from t2 group by d1, d2;
 --
 ALTERNATION GROUP: <empty>
@@ -1276,7 +1276,7 @@ ERROR: Syntax error: Table name contains '-' character. The dashed identifier pa
 create materialized view p-b-c.d_123.mv1 as select sum(m1) from t2 group by d...
                          ^
 --
-ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: +ALLOW_DASHES_IN_TABLE_NAME
 --
 CreateMaterializedViewStatement [0-82] [create materializ...by d1, d2]
   PathExpression [25-40] [p-b-c.d_123.mv1]
@@ -1331,3 +1331,32 @@ ALTERNATION GROUP: approx
 ERROR: Syntax error: Expected keyword AS but got keyword WITH [at 1:23]
 create approx view t1 with connection `myproject.us-west-2.myconnection` as s...
                       ^
+
+==
+
+CREATE TEMP VIEW v AS
+GRAPH aml
+RETURN 1 as x
+--
+CreateViewStatement(is_temp) [0-45] [CREATE TEMP...RETURN 1 as x]
+  PathExpression [17-18] [v]
+    Identifier(v) [17-18] [v]
+  Query [22-45] [GRAPH aml RETURN 1 as x]
+    GqlQuery [22-45] [GRAPH aml RETURN 1 as x]
+      GraphTableQuery [22-45] [GRAPH aml RETURN 1 as x]
+        PathExpression [28-31] [aml]
+          Identifier(aml) [28-31] [aml]
+        GqlOperatorList [32-45] [RETURN 1 as x]
+          GqlOperatorList [32-45] [RETURN 1 as x]
+            GqlReturn [32-45] [RETURN 1 as x]
+              Select [39-45] [1 as x]
+                SelectList [39-45] [1 as x]
+                  SelectColumn [39-45] [1 as x]
+                    IntLiteral(1) [39-40] [1]
+                    Alias [41-45] [as x]
+                      Identifier(x) [44-45] [x]
+--
+CREATE TEMP VIEW v AS
+GRAPH aml
+RETURN
+  1 AS x

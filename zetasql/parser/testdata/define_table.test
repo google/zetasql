@@ -187,6 +187,6 @@ DEFINE TABLE t1(`PROTO` = "PROTO<foo>", `hash` = "HASH")
 
 define table t1 (ARRAY="a")
 --
-ERROR: Syntax error: Unexpected keyword ARRAY [at 1:18]
+ERROR: Syntax error: Expected ")" but got keyword ARRAY [at 1:18]
 define table t1 (ARRAY="a")
                  ^

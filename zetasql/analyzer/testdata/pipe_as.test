@@ -1,4 +1,4 @@
-[default language_features=PIPES]
+[default language_features=MAXIMUM,+PIPES,+PIPE_STATIC_DESCRIBE]
 select 1 x, 2 y
 |> AS t
 |> SELECT t.x, t.y, x, y, *, t.*, t
@@ -417,3 +417,157 @@ QueryStmt
         +-array_expr_list=
         | +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
         +-element_column_list=[$array.a#21]
+==
+
+# TODO Pipe AS leaves value table columns in an inconsistent state
+# when AS is used on a result table with multiple columns.
+# The column has is_value_table, but value_table_columns is missing.
+# Note how SELECT * expands the value table fields, but the fields aren't
+# implicitly selectable as they should be.
+FROM TestExtraValueTable AS vt
+|> EXTEND 5 abc
+|> STATIC_DESCRIBE
+|> AS evt1
+|> STATIC_DESCRIBE
+|> SELECT {{*|int32_val1}}
+--
+ALTERNATION GROUP: *
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.int32_val1#5 AS int32_val1 [INT32]
+| +-$pipe_select.int32_val2#6 AS int32_val2 [INT32]
+| +-$pipe_select.str_value#7 AS str_value [ARRAY<STRING>]
+| +-$pipe_extend.abc#4 AS abc [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$pipe_select.int32_val1#5, $pipe_select.int32_val2#6, $pipe_select.str_value#7, $pipe_extend.abc#4]
+    +-expr_list=
+    | +-int32_val1#5 :=
+    | | +-GetProtoField
+    | |   +-type=INT32
+    | |   +-expr=
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
+    | |   +-field_descriptor=int32_val1
+    | |   +-default_value=0
+    | +-int32_val2#6 :=
+    | | +-GetProtoField
+    | |   +-type=INT32
+    | |   +-expr=
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
+    | |   +-field_descriptor=int32_val2
+    | |   +-default_value=0
+    | +-str_value#7 :=
+    |   +-GetProtoField
+    |     +-type=ARRAY<STRING>
+    |     +-expr=
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
+    |     +-field_descriptor=str_value
+    |     +-default_value=[]
+    +-input_scan=
+      +-StaticDescribeScan
+        +-column_list=[TestExtraValueTable.value#1, $pipe_extend.abc#4]
+        +-describe_text=
+        |   """
+        |   NameList:
+        |     vt zetasql_test__.TestExtraPB TestExtraValueTable.value#1 (value table)
+        |     abc INT64 $pipe_extend.abc#4
+        |   NameScope:
+        |     Names:
+        |       Filename -> STRING (TestExtraValueTable.Filename#2) (implicit) (pseudo-column)
+        |       RowId -> BYTES (TestExtraValueTable.RowId#3) (implicit) (pseudo-column)
+        |       abc -> INT64 ($pipe_extend.abc#4)
+        |       vt -> zetasql_test__.TestExtraPB (TestExtraValueTable.value#1)
+        |     Range variables:
+        |       evt1 -> RANGE_VARIABLE<vt,abc>
+        |   """
+        +-input_scan=
+          +-StaticDescribeScan
+            +-column_list=[TestExtraValueTable.value#1, $pipe_extend.abc#4]
+            +-describe_text=
+            |   """
+            |   NameList:
+            |     vt zetasql_test__.TestExtraPB TestExtraValueTable.value#1 (value table)
+            |     abc INT64 $pipe_extend.abc#4
+            |   NameScope:
+            |     Names:
+            |       Filename -> STRING (TestExtraValueTable.Filename#2) (implicit) (pseudo-column)
+            |       RowId -> BYTES (TestExtraValueTable.RowId#3) (implicit) (pseudo-column)
+            |       abc -> INT64 ($pipe_extend.abc#4)
+            |     Range variables:
+            |       vt -> RANGE_VARIABLE<$value>
+            |     Value table columns:
+            |       TestExtraValueTable.value#1
+            |   """
+            +-input_scan=
+              +-ProjectScan
+                +-column_list=[TestExtraValueTable.value#1, $pipe_extend.abc#4]
+                +-expr_list=
+                | +-abc#4 := Literal(type=INT64, value=5)
+                +-input_scan=
+                  +-TableScan(column_list=[TestExtraValueTable.value#1], table=TestExtraValueTable, column_index_list=[0], alias="vt")
+--
+ALTERNATION GROUP: int32_val1
+--
+ERROR: Unrecognized name: int32_val1 [at 6:11]
+|> SELECT int32_val1
+          ^
+==
+
+# Unlike the query above, this works as expected.
+# The value table fields are still implicitly selectable after AS because
+# value_table_columns is filled in correctly.
+FROM TestExtraValueTable AS vt
+|> STATIC_DESCRIBE
+|> AS evt1
+|> STATIC_DESCRIBE
+|> SELECT int32_val1
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.int32_val1#4 AS int32_val1 [INT32]
++-query=
+  +-ProjectScan
+    +-column_list=[$pipe_select.int32_val1#4]
+    +-expr_list=
+    | +-int32_val1#4 :=
+    |   +-GetProtoField
+    |     +-type=INT32
+    |     +-expr=
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
+    |     +-field_descriptor=int32_val1
+    |     +-default_value=0
+    +-input_scan=
+      +-StaticDescribeScan
+        +-column_list=[TestExtraValueTable.value#1]
+        +-describe_text=
+        |   """
+        |   NameList (is_value_table = true):
+        |     evt1 zetasql_test__.TestExtraPB TestExtraValueTable.value#1 (value table)
+        |   NameScope:
+        |     Names:
+        |       Filename -> STRING (TestExtraValueTable.Filename#2) (implicit) (pseudo-column)
+        |       RowId -> BYTES (TestExtraValueTable.RowId#3) (implicit) (pseudo-column)
+        |     Range variables:
+        |       evt1 -> RANGE_VARIABLE<$value>
+        |     Value table columns:
+        |       TestExtraValueTable.value#1
+        |   """
+        +-input_scan=
+          +-StaticDescribeScan
+            +-column_list=[TestExtraValueTable.value#1]
+            +-describe_text=
+            |   """
+            |   NameList (is_value_table = true):
+            |     vt zetasql_test__.TestExtraPB TestExtraValueTable.value#1 (value table)
+            |   NameScope:
+            |     Names:
+            |       Filename -> STRING (TestExtraValueTable.Filename#2) (implicit) (pseudo-column)
+            |       RowId -> BYTES (TestExtraValueTable.RowId#3) (implicit) (pseudo-column)
+            |     Range variables:
+            |       vt -> RANGE_VARIABLE<$value>
+            |     Value table columns:
+            |       TestExtraValueTable.value#1
+            |   """
+            +-input_scan=
+              +-TableScan(column_list=[TestExtraValueTable.value#1], table=TestExtraValueTable, column_index_list=[0], alias="vt")

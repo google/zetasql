@@ -355,10 +355,11 @@ class StructAnnotationMap : public AnnotationMap {
 // nullptr to indicate that the <type> doesn't have annotation. This struct is
 // cheap to copy, should always be passed by value.
 struct AnnotatedType {
-  // TODO: Add a constructor that only takes <type> and sets
-  // <annotation_map> to nullptr implicitly.
   AnnotatedType(const Type* type, const AnnotationMap* annotation_map)
       : type(type), annotation_map(annotation_map) {}
+
+  explicit AnnotatedType(const Type* type)
+      : type(type), annotation_map(nullptr) {}
 
   const Type* type = nullptr;
 

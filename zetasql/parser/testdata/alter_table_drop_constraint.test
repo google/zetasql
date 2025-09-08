@@ -83,7 +83,7 @@ AlterTableStatement [0-49]
 ALTER TABLE constraint DROP CONSTRAINT constraint
 ==
 
-[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features=NONE,{{|+ALLOW_DASHES_IN_TABLE_NAME}}]
 ALTER TABLE foo-123.bar DROP CONSTRAINT baz
 --
 ALTERNATION GROUP: <empty>
@@ -92,7 +92,7 @@ ERROR: Syntax error: Table name contains '-' character. The dashed identifier pa
 ALTER TABLE foo-123.bar DROP CONSTRAINT baz
             ^
 --
-ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: +ALLOW_DASHES_IN_TABLE_NAME
 --
 AlterTableStatement [0-43]
   PathExpression [12-23]

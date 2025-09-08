@@ -1,5 +1,5 @@
 # This file tests the analytic support for aggregate functions.
-[default language_features=ANALYTIC_FUNCTIONS]
+[default language_features=NONE,+ANALYTIC_FUNCTIONS]
 select count(*) over w,
        count(value) over w,
        sum(key) over w,

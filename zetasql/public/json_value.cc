@@ -23,29 +23,38 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <cmath>
+#include <compare>
 #include <cstddef>
+#include <cstdint>
 #include <iterator>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <queue>
 #include <stack>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/common/multiprecision_int_impl.h"
 #include "zetasql/public/numeric_parser.h"
 #include "absl/base/optimization.h"
+#include "absl/hash/hash.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "absl/types/compare.h"
 #include "single_include/nlohmann/json.hpp"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
@@ -488,7 +497,7 @@ JSONValue::JSONValue(int64_t value) : impl_(new Impl{value}) {}
 JSONValue::JSONValue(uint64_t value) : impl_(new Impl{value}) {}
 JSONValue::JSONValue(double value) : impl_(new Impl{value}) {}
 JSONValue::JSONValue(bool value) : impl_(new Impl{value}) {}
-JSONValue::JSONValue(std::string_view value) : impl_(new Impl{value}) {}
+JSONValue::JSONValue(absl::string_view value) : impl_(new Impl{value}) {}
 
 JSONValue::JSONValue(JSONValue&& value) : impl_(std::move(value.impl_)) {}
 
@@ -701,13 +710,386 @@ bool JSONValueConstRef::NestingLevelExceedsMax(int64_t max_nesting) const {
   return false;
 }
 
-// This equality operation uses nlohmann's implementation.
-//
+// Implement the hash code function for this JSON type.
+size_t JSONValueConstRef::HashCode() const {
+  if (IsNull()) {
+    return absl::Hash<absl::string_view>()("JSONValueConstRef(NULL)");
+  }
+  if (IsString()) {
+    return absl::Hash<absl::string_view>()(GetString());
+  }
+
+  if (IsNumber()) {
+    // Special case for integer like doubles that they can equal to integers but
+    // the underlying string representation may be different, for example,
+    // JSON '1.0' vs JSON '1' are equal and their hashcodes should be the same.
+    if (IsInt64()) {
+      return absl::Hash<int64_t>()(GetInt64());
+    } else if (IsUInt64()) {
+      return absl::Hash<uint64_t>()(GetUInt64());
+    } else {
+      ABSL_DCHECK(IsDouble());
+      double val = GetDouble();
+      double trunc_val = std::trunc(val);
+      if (val == trunc_val) {
+        // This double value is an integer-like double.
+        // We use `0x1p64` as the std::numeric_limits<uint64_t>::max() can not
+        // be exactly represented as a double.
+        if (trunc_val >= 0 && trunc_val < 0x1p64) {
+          return absl::Hash<uint64_t>()(static_cast<uint64_t>(trunc_val));
+        } else if (trunc_val < 0 &&
+                   trunc_val >= std::numeric_limits<int64_t>::min()) {
+          return absl::Hash<int64_t>()(static_cast<int64_t>(trunc_val));
+        }
+      }
+      // Otherwise, it should be hashed as a normal double.
+      return absl::Hash<double>()(GetDouble());
+    }
+  }
+
+  if (IsBoolean()) {
+    return absl::Hash<bool>()(GetBoolean());
+  }
+
+  std::vector<size_t> values;
+  if (IsArray()) {
+    values.reserve(GetArraySize());
+    std::vector<JSONValueConstRef> elements = GetArrayElements();
+    for (size_t i = 0; i < GetArraySize(); ++i) {
+      values.push_back(GetArrayElement(i).HashCode());
+    }
+    return absl::HashOf(values);
+  }
+
+  ABSL_CHECK(IsObject()) << "Invalid type for JSON: " << ToString();  // Crash OK
+  values.reserve(GetObjectSize());
+  for (const auto& [key, json_ref] : GetMembers()) {
+    values.push_back(absl::HashOf(key, json_ref.HashCode()));
+  }
+  return absl::HashOf(values);
+}
+
 // In this implementation, integers and floating points can be equal by
 // casting the integer into a floating point and comparing the numbers as
 // floating points. Signed and unsigned integers can also be equal.
 bool JSONValueConstRef::NormalizedEquals(JSONValueConstRef that) const {
+  // The equality operation from nlohmann's implementation is not the SQL
+  // equality operator, and it does not compare numbers correctly.
+  // TODO: We should use the `==` operator defined in this file.
   return impl_->value == that.impl_->value;
+}
+
+namespace {
+
+template <typename Int,
+          typename = std::enable_if_t<std::is_same_v<Int, int64_t> ||
+                                      std::is_same_v<Int, uint64_t>>>
+absl::partial_ordering JsonCompareNumber(Int x, double y) {
+  // Platform sanity checks.
+  static_assert(std::numeric_limits<double>::is_iec559);
+  static_assert(std::numeric_limits<double>::digits == 53);
+  static_assert(std::numeric_limits<double>::radix == 2);
+#ifdef __EMSCRIPTEN__
+  static_assert(std::numeric_limits<int64_t>::max() == (1ULL << 63) - 1);
+#else
+  static_assert(std::numeric_limits<int64_t>::max() == (1UL << 63) - 1);
+#endif
+  static_assert(std::numeric_limits<uint64_t>::max() == ~0);
+
+  // Compute the smallest double value > std::numeric_limits<Int>::max().
+  //
+  // std::numeric_limits<Int>::max() (aka IntMax) can not be exactly represented
+  // as a double since it has more bits set than can be stored a double's 53-bit
+  // mantissa. Thus, rather than comparing directly with IntMax we compare with
+  // this value. Any double value strictly less than this value is also strictly
+  // less than IntMax since kMinDoubleBeyondIntMax - 1 ULP = IntMax - 1023/2047
+  // (for signed/unsigned respectively).
+  // In simple terms, there is no double value that falls in the gap between the
+  // IntMax and the cutoff value `kMinDoubleBeyondIntMax`.
+  constexpr double kMinDoubleBeyondIntMax =
+      std::numeric_limits<Int>::is_signed ? 0x1p63 : 0x1p64;
+
+  if (kMinDoubleBeyondIntMax <= y) {
+    // IntMax < kMinDoubleBeyondIntMax <= y so IntMax < Y.
+    // By definition x <= IntMax.
+    // Therefore, x <= IntMax < y and thus x < y.
+    return absl::partial_ordering::less;
+  }
+
+  // The IntMin bounds check is much simpler than the IntMax check above since
+  // IntMin can be exactly represented as a double.
+  if (std::numeric_limits<Int>::min() > y) {
+    // IntMin > y.
+    // By definition x >= IntMin.
+    // Therefore x >= IntMin > y and thus x > y.
+    return absl::partial_ordering::greater;
+  }
+
+  // The magnitude of the double is within the integer range.
+  double y_whole = std::trunc(y);
+  double y_frac = y - y_whole;
+  // If abs(y_whole) > 2^53 (the mantissa limit of double) then some number of
+  // lower order bits will be 0 due to a lack of precision. In effect, the
+  // integer side of the comparison here has additional precision not available
+  // to the double side. There's not much we can do about it. We either have to
+  // discard precision on the integer side, or synthesize additional precision
+  // on the double side (by padding with 0 bits).
+  //
+  // Of the two, the default c++ comparison operator discarding integer
+  // precision has weirder consequences and leads to transitive inconsistencies.
+  // For example,
+  //
+  //     int64_t a = 9007199254740992L;  // Value for 2^53.
+  //     double b = 9007199254740992.0;
+  //     int64_t c = 9007199254740993L;
+  //
+  //     EXPECT_EQ(JsonCompareNumber(a, b), 0);
+  //     EXPECT_EQ(JsonCompareNumber(c, b), 0);
+  //
+  // That is, a == b and c == b (or b == c). Transitive this implies a == c
+  // which is obviously not the case.
+  //
+  // By comparison, synthesizing additional precision on the double side (as we
+  // do here) has fewer surprising behaviors. In the example above we instead
+  // get,
+  //
+  //     EXPECT_EQ(JsonCompareNumber(a, b), 0);
+  //     EXPECT_GT(JsonCompareNumber(c, b), 0);
+  //
+  // Which implies the more sensible total order a == b < c.
+  //
+  Int y_whole_int = static_cast<Int>(y_whole);
+  constexpr double kZero = 0.0;
+
+  // When c++20 is available, we can use the following instead:
+  // return std::tie(x, kZero) <=> std::tie(y_whole_int, y_frac);
+  //
+  // C++17 equivalent:
+  if (x < y_whole_int) {
+    return absl::partial_ordering::less;
+  }
+  if (x > y_whole_int) {
+    return absl::partial_ordering::greater;
+  }
+  // At this point, x must be equal to y_whole_int.
+  // Now compare the second elements of the tuple.
+  if (y_frac > kZero) {
+    return absl::partial_ordering::less;
+  }
+  if (y_frac < kZero) {
+    return absl::partial_ordering::greater;
+  }
+  // Both parts are equal.
+  return absl::partial_ordering::equivalent;
+}
+
+template <typename Int, typename = std::enable_if_t<std::is_integral_v<Int>>>
+absl::partial_ordering JsonCompareNumber(double x, Int y) {
+  // When c++20 is available, we can use the following instead:
+  // return 0 <=> JsonCompareNumber(y, x);
+  //
+  // Reverse the order of the arguments.
+  absl::partial_ordering reversed_result = JsonCompareNumber(y, x);
+  if (reversed_result == absl::partial_ordering::less) {
+    return absl::partial_ordering::greater;
+  } else if (reversed_result == absl::partial_ordering::greater) {
+    return absl::partial_ordering::less;
+  }
+  // equivalent and unordered remain the same
+  return reversed_result;
+}
+
+// TODO: Remove this method and directly use <=> once on C++20.
+template <typename Type>
+absl::partial_ordering spaceship_operator(const Type& x, const Type& y) {
+#if defined(__cpp_impl_three_way_comparison) && \
+    __cpp_impl_three_way_comparison >= 201907L
+  return x <=> y;
+#else
+  if (x < y) {
+    return absl::partial_ordering::less;
+  } else if (x > y) {
+    return absl::partial_ordering::greater;
+  } else {
+    return absl::partial_ordering::equivalent;
+  }
+#endif
+}
+
+absl::partial_ordering CompareNlohmannJSON(const JSON& lhs, const JSON& rhs) {
+  // Null < String < Number < Boolean < Array < Object
+  auto type_ord = [](JSON::value_t type) {
+    switch (type) {
+      case JSON::value_t::null:
+        return 0;
+      case JSON::value_t::string:
+        return 1;
+      case JSON::value_t::number_integer:
+      case JSON::value_t::number_unsigned:
+      case JSON::value_t::number_float:
+        return 2;
+      case JSON::value_t::boolean:
+        return 3;
+      case JSON::value_t::array:
+        return 4;
+      case JSON::value_t::object:
+        return 5;
+      default:
+        // Other nlohmann types (e.g. binary) are not used by ZetaSQL.
+        return std::numeric_limits<int>::max();
+    }
+  };
+
+  auto lhs_type_ord = type_ord(lhs.type());
+  auto rhs_type_ord = type_ord(rhs.type());
+  if (lhs_type_ord != rhs_type_ord) {
+    // Mismatched types are ordered per `type_ord`.
+    return spaceship_operator(lhs_type_ord, rhs_type_ord);
+  }
+
+  // The nlohmann comparisons are trustworthy for identical scalar types. We
+  // will handle mismatched number types below. Since objects and arrays may
+  // contain numbers we must also handle them ourselves.
+  if (lhs.type() == rhs.type() && !lhs.is_object() && !lhs.is_array()) {
+    return spaceship_operator(lhs, rhs);
+  }
+
+  if (lhs.is_number()) {
+    // Returns true if `json` is a signed integer. This is needed because
+    // `json.is_number_integer()` returns true for both signed and unsigned
+    // integers.
+    auto is_signed_integer = [](const JSON& json) {
+      return json.type() == JSON::value_t::number_integer;
+    };
+
+    if (is_signed_integer(lhs) && rhs.is_number_unsigned()) {
+      int64_t lhs_n = lhs.get<int64_t>();
+      if (lhs_n < 0) {
+        // Signed integers are less than unsigned integers.
+        // This is a known issue in nlohmann's implementation when the big
+        // unsigned number compared with negative overflow value: b/429277821.
+        return absl::partial_ordering::less;
+      }
+      uint64_t rhs_n = rhs.get<uint64_t>();
+      return spaceship_operator<uint64_t>(static_cast<uint64_t>(lhs_n), rhs_n);
+    } else if (lhs.is_number_unsigned() && is_signed_integer(rhs)) {
+      int64_t rhs_n = rhs.get<int64_t>();
+      if (rhs_n < 0) {
+        return absl::partial_ordering::greater;
+      }
+      uint64_t lhs_n = lhs.get<uint64_t>();
+      return spaceship_operator<uint64_t>(lhs_n, static_cast<uint64_t>(rhs_n));
+    }
+
+    // Mixed number comparison with a double value.
+    if (lhs.is_number_float() && is_signed_integer(rhs)) {
+      return JsonCompareNumber<int64_t>(lhs.get<double>(), rhs.get<int64_t>());
+    } else if (lhs.is_number_float() && rhs.is_number_unsigned()) {
+      return JsonCompareNumber<uint64_t>(lhs.get<double>(),
+                                         rhs.get<uint64_t>());
+    } else if (is_signed_integer(lhs) && rhs.is_number_float()) {
+      return JsonCompareNumber<int64_t>(lhs.get<int64_t>(), rhs.get<double>());
+    } else if (lhs.is_number_unsigned() && rhs.is_number_float()) {
+      return JsonCompareNumber<uint64_t>(lhs.get<uint64_t>(),
+                                         rhs.get<double>());
+    } else {
+      ABSL_LOG(FATAL) << "Invalid number types for JSON: "  // Crash OK
+                 << lhs.dump() << ", " << rhs.dump();
+    }
+  }
+
+  if (lhs.is_array()) {
+    // Arrays are compared element by element from the beginning.
+    // The first pair of elements that are not semantically equal determines
+    // the order based on the comparison of those two elements (using these
+    // JSON comparison rules recursively). If one array's elements form a
+    // prefix of the other's, the longer array is considered greater.
+    //
+    // TODO: Replace with std::lexicographical_compare_three_way
+    // once on C++20
+    const auto& lhs_arr = lhs.get_ref<const JSON::array_t&>();
+    const auto& rhs_arr = rhs.get_ref<const JSON::array_t&>();
+    auto lhs_iter = lhs_arr.begin();
+    auto rhs_iter = rhs_arr.begin();
+    while (lhs_iter != lhs_arr.end() && rhs_iter != rhs_arr.end()) {
+      auto result = CompareNlohmannJSON(*lhs_iter, *rhs_iter);
+      if (result != absl::partial_ordering::equivalent) {
+        return result;
+      }
+      ++lhs_iter;
+      ++rhs_iter;
+    }
+    if (lhs_iter != lhs_arr.end()) {
+      return absl::partial_ordering::greater;
+    }
+    if (rhs_iter != rhs_arr.end()) {
+      return absl::partial_ordering::less;
+    }
+    return absl::partial_ordering::equivalent;
+  }
+  ABSL_DCHECK(lhs.is_object());
+  // Compare the members of the two objects in lexicographical key order.
+  //
+  // TODO: Replace with std::lexicographical_compare_three_way
+  // once on C++20
+  const auto& lhs_items = lhs.get_ref<const JSON::object_t&>();
+  const auto& rhs_items = rhs.get_ref<const JSON::object_t&>();
+  auto lhs_iter = lhs_items.begin();
+  auto rhs_iter = rhs_items.begin();
+  while (lhs_iter != lhs_items.end() && rhs_iter != rhs_items.end()) {
+    auto key_result = spaceship_operator(lhs_iter->first, rhs_iter->first);
+    if (key_result != absl::partial_ordering::equivalent) {
+      return key_result;
+    }
+    auto result = CompareNlohmannJSON(lhs_iter->second, rhs_iter->second);
+    if (result != absl::partial_ordering::equivalent) {
+      return result;
+    }
+    ++lhs_iter;
+    ++rhs_iter;
+  }
+  if (lhs_iter != lhs_items.end()) {
+    return absl::partial_ordering::greater;
+  }
+  if (rhs_iter != rhs_items.end()) {
+    return absl::partial_ordering::less;
+  }
+  return absl::partial_ordering::equivalent;
+}
+
+}  // namespace
+
+absl::partial_ordering spaceship_operator(JSONValueConstRef lhs,
+                                          JSONValueConstRef rhs) {
+  return CompareNlohmannJSON(lhs.impl_->value, rhs.impl_->value);
+}
+
+bool operator==(JSONValueConstRef lhs, JSONValueConstRef rhs) {
+  return spaceship_operator(lhs, rhs) == absl::partial_ordering::equivalent;
+}
+
+bool operator!=(JSONValueConstRef lhs, JSONValueConstRef rhs) {
+  return spaceship_operator(lhs, rhs) != absl::partial_ordering::equivalent;
+}
+
+bool operator<(JSONValueConstRef lhs, JSONValueConstRef rhs) {
+  return spaceship_operator(lhs, rhs) == absl::partial_ordering::less;
+}
+
+bool operator>(JSONValueConstRef lhs, JSONValueConstRef rhs) {
+  return spaceship_operator(lhs, rhs) == absl::partial_ordering::greater;
+}
+
+bool operator<=(JSONValueConstRef lhs, JSONValueConstRef rhs) {
+  auto result = spaceship_operator(lhs, rhs);
+  return result == absl::partial_ordering::less ||
+         result == absl::partial_ordering::equivalent;
+}
+
+bool operator>=(JSONValueConstRef lhs, JSONValueConstRef rhs) {
+  auto result = spaceship_operator(lhs, rhs);
+  return result == absl::partial_ordering::greater ||
+         result == absl::partial_ordering::equivalent;
 }
 
 JSONValueRef::JSONValueRef(JSONValue::Impl* impl)

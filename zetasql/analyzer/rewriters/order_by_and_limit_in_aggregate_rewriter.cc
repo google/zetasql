@@ -18,7 +18,6 @@
 
 #include <memory>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -53,7 +52,7 @@ namespace zetasql {
 
 namespace {
 
-const std::string_view kRewriter = "$agg_rewriter";
+const absl::string_view kRewriter = "$agg_rewriter";
 
 // OrderByAndLimitInAggregateRewriter rewrites ARRAY_AGG, STRING_AGG, and
 // ARRAY_CONCAT_AGG function calls with an ORDER BY or LIMIT clause into an

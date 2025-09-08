@@ -1,4 +1,5 @@
 # References to known constants resolve correctly.
+[default language_features=NONE]
 SELECT TestConstantInt64;
 --
 QueryStmt
@@ -689,7 +690,7 @@ QueryStmt
 # tvf_no_args, tvf_exactly_1_int64_arg.
 #
 # Disabling for Java, since TVF support is not implemented there.
-[language_features=TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS]
 [no_java]
 SELECT TestConstantInt64
 FROM {{tvf_no_args()|tvf_exactly_1_int64_arg(443)}}
@@ -733,7 +734,7 @@ QueryStmt
 #
 # Catalog contains constants tvf_no_args, tvf_exactly_1_int64_arg and TVFs
 # tvf_no_args, tvf_exactly_1_int64_arg.
-[language_features=TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS]
 [{{no_|}}replace_table_not_found_error_with_tvf_error_if_applicable]
 SELECT TestConstantInt64
 FROM {{tvf_no_args|tvf_exactly_1_int64_arg}}
@@ -769,7 +770,7 @@ FROM tvf_exactly_1_int64_arg
 #
 # Catalog contains constants tvf_no_args, tvf_exactly_1_int64_arg and TVFs
 # tvf_no_args, tvf_exactly_1_int64_arg.
-[language_features=TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS]
 SELECT {{tvf_no_args()|tvf_exactly_1_int64_arg(443)}}
 --
 ALTERNATION GROUP: tvf_no_args()
@@ -792,7 +793,7 @@ SELECT tvf_exactly_1_int64_arg(443)
 #
 # Catalog contains constants tvf_no_args, tvf_exactly_1_int64_arg and TVFs
 # tvf_no_args, tvf_exactly_1_int64_arg.
-[language_features=TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS]
 SELECT {{tvf_no_args|tvf_exactly_1_int64_arg}}
 --
 ALTERNATION GROUP: tvf_no_args

@@ -17,7 +17,6 @@
 
 package com.google.zetasql;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -256,8 +255,22 @@ public final class FunctionSignature implements Serializable {
     return debugString("");
   }
 
+  public static String signaturesToString(
+      List<FunctionSignature> signatures, boolean verbose, String prefix, String separator) {
+    StringBuilder out = new StringBuilder();
+    for (FunctionSignature signature : signatures) {
+      if (out.length() > 0) {
+        out.append(separator);
+      }
+      out.append(prefix);
+      out.append(signature.debugString(/* functionName= */ "", verbose));
+    }
+    return out.toString();
+  }
+
   public static String signaturesToString(List<FunctionSignature> signatures) {
-    return "  " + Joiner.on("\n  ").join(signatures);
+    return signaturesToString(
+        signatures, /* verbose= */ false, /* prefix= */ "  ", /* separator= */ "\n");
   }
 
   public boolean isDefaultValue() {

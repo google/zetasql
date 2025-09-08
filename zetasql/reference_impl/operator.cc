@@ -365,4 +365,61 @@ absl::Status GetSlotsForKeysAndValues(const TupleSchema& schema,
   return absl::OkStatus();
 }
 
+bool IsPosInf(const Value& value) {
+  if (value.is_null()) {
+    // A value of NULL is not positive infinity.
+    return false;
+  }
+  switch (value.type_kind()) {
+    case TYPE_FLOAT: {
+      float v = value.float_value();
+      return std::isinf(v) && v > 0;
+    }
+    case TYPE_DOUBLE: {
+      double v = value.double_value();
+      return std::isinf(v) && v > 0;
+    }
+    default:
+      return false;
+  }
+}
+
+bool IsNegInf(const Value& value) {
+  if (value.is_null()) {
+    // A value of NULL is not negative infinity.
+    return false;
+  }
+  switch (value.type_kind()) {
+    case TYPE_FLOAT: {
+      float v = value.float_value();
+      return std::isinf(v) && v < 0;
+    }
+    case TYPE_DOUBLE: {
+      double v = value.double_value();
+      return std::isinf(v) && v < 0;
+    }
+    default:
+      return false;
+  }
+}
+
+absl::StatusOr<Value> CreateTypedZeroForCost(const Type* type) {
+  switch (type->kind()) {
+    case TYPE_INT64:
+      return Value::Int64(0);
+    case TYPE_UINT64:
+      return Value::Uint64(0);
+    case TYPE_DOUBLE:
+      return Value::Double(0);
+    case TYPE_NUMERIC:
+      return Value::Numeric(NumericValue(0));
+    case TYPE_BIGNUMERIC:
+      return Value::BigNumeric(BigNumericValue(0));
+    default: {
+      ZETASQL_RET_CHECK_FAIL() << "Unexpected argument type in CreateTypedZeroForCost: "
+                       << type->DebugString();
+    }
+  }
+}
+
 }  // namespace zetasql

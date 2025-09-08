@@ -1,5 +1,5 @@
 [default enabled_ast_rewrites=ALL]
-[default language_features=TABLE_VALUED_FUNCTIONS,WITH_EXPRESSION]
+[default language_features=MAXIMUM,+TABLE_VALUED_FUNCTIONS,+WITH_EXPRESSION]
 [default no_java]
 
 SELECT *

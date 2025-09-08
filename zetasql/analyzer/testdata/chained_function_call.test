@@ -1,3 +1,4 @@
+[default language_features=NONE]
 [default sqlbuilder_target_syntax_map_mode=kChainedFunctionCall]
 
 SELECT abc().def()
@@ -14,7 +15,7 @@ SELECT abc().(def.ghi)()
               ^
 ==
 
-[default language_features=CHAINED_FUNCTION_CALLS,SAFE_FUNCTION_CALL,ANALYTIC_FUNCTIONS,INLINE_LAMBDA_ARGUMENT,NAMED_ARGUMENTS,ARRAY_AGGREGATION_FUNCTIONS,BRACED_PROTO_CONSTRUCTORS,PIPES,MULTILEVEL_AGGREGATION]
+[default language_features=NONE,+CHAINED_FUNCTION_CALLS,+SAFE_FUNCTION_CALL,+ANALYTIC_FUNCTIONS,+INLINE_LAMBDA_ARGUMENT,+NAMED_ARGUMENTS,+ARRAY_AGGREGATION_FUNCTIONS,+BRACED_PROTO_CONSTRUCTORS,+PIPES,+MULTILEVEL_AGGREGATION]
 # Call chained function calls, with and without parentheses.
 SELECT (123)
   .sqrt()
@@ -179,7 +180,7 @@ select (key).sum().bad_function()
 ==
 
 # Error for aggregate-of-aggregate underneath a bad function name.
-[language_features=CHAINED_FUNCTION_CALLS{{|,MULTILEVEL_AGGREGATION}}]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS{{|,+MULTILEVEL_AGGREGATION}}]
 select (key).sum().sum().bad_function()
 from KeyValue
 --
@@ -189,7 +190,7 @@ ERROR: Aggregations of aggregations are not allowed [at 1:20]
 select (key).sum().sum().bad_function()
                    ^
 --
-ALTERNATION GROUP: ,MULTILEVEL_AGGREGATION
+ALTERNATION GROUP: ,+MULTILEVEL_AGGREGATION
 --
 ERROR: Multi-level aggregation requires the enclosing aggregate function to have one or more GROUP BY modifiers. [at 1:20]
 select (key).sum().sum().bad_function()
@@ -267,7 +268,7 @@ SELECT (-5).safe.sqrt()
             ^
 ==
 
-[language_features=CHAINED_FUNCTION_CALLS]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS]
 SELECT (-5).sqrt().(safe.sqrt)().sqrt()
 --
 ERROR: Function calls with SAFE are not supported [at 1:21]
@@ -364,7 +365,7 @@ select (kv.*).count()
 
 # A window functions will work if it's the last thing before OVER.
 # key.sum().abs() doesn't work because ABS isn't a window function.
-[language_features=CHAINED_FUNCTION_CALLS{{|,ANALYTIC_FUNCTIONS}}]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS{{|,+ANALYTIC_FUNCTIONS}}]
 SELECT (key).sum(){{|.abs()}} OVER ()
 FROM KeyValue
 --
@@ -380,7 +381,7 @@ ERROR: Analytic functions not supported [at 1:20]
 SELECT (key).sum().abs() OVER ()
                    ^
 --
-ALTERNATION GROUP: ,ANALYTIC_FUNCTIONS,
+ALTERNATION GROUP: ,+ANALYTIC_FUNCTIONS,
 --
 QueryStmt
 +-output_column_list=
@@ -406,7 +407,7 @@ QueryStmt
                       +-end_expr=
                         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
 --
-ALTERNATION GROUP: ,ANALYTIC_FUNCTIONS,.abs()
+ALTERNATION GROUP: ,+ANALYTIC_FUNCTIONS,.abs()
 --
 ERROR: Function ABS does not support an OVER clause [at 1:20]
 SELECT (key).sum().abs() OVER ()
@@ -769,12 +770,12 @@ select (5).offset()
 
 # OFFSET(1) in array access does not work as 1.OFFSET().
 # It's part of the syntax of array accessors, not a function.
-[language_features=CHAINED_FUNCTION_CALLS{{|,BARE_ARRAY_ACCESS}}]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS{{|,+BARE_ARRAY_ACCESS}}]
 select [1,2,3][ {{offset(1)|(1).offset()}} ]
 --
 ALTERNATION GROUPS:
     offset(1)
-    ,BARE_ARRAY_ACCESS,offset(1)
+    ,+BARE_ARRAY_ACCESS,offset(1)
 --
 QueryStmt
 +-output_column_list=
@@ -796,7 +797,7 @@ ERROR: Array element access with array[position] is not supported. Use array[OFF
 select [1,2,3][ (1).offset() ]
                 ^
 --
-ALTERNATION GROUP: ,BARE_ARRAY_ACCESS,(1).offset()
+ALTERNATION GROUP: ,+BARE_ARRAY_ACCESS,(1).offset()
 --
 ERROR: OFFSET is not a function. It can only be used for array element access using array[OFFSET(position)] [at 1:21]
 select [1,2,3][ (1).offset() ]
@@ -911,7 +912,7 @@ QueryStmt
 ==
 
 # Aggregate of aggregate.
-[language_features=CHAINED_FUNCTION_CALLS{{|,MULTILEVEL_AGGREGATION}}]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS{{|,+MULTILEVEL_AGGREGATION}}]
 SELECT (key).sum().sum()
 FROM KeyValue
 --
@@ -921,7 +922,7 @@ ERROR: Aggregations of aggregations are not allowed [at 1:20]
 SELECT (key).sum().sum()
                    ^
 --
-ALTERNATION GROUP: ,MULTILEVEL_AGGREGATION
+ALTERNATION GROUP: ,+MULTILEVEL_AGGREGATION
 --
 ERROR: Multi-level aggregation requires the enclosing aggregate function to have one or more GROUP BY modifiers. [at 1:20]
 SELECT (key).sum().sum()
@@ -1322,7 +1323,7 @@ QueryStmt
 
 # Trying to do a chained call on a column name without parentheses.
 # We give a suggestion to add parentheses.
-[language_features={{|CHAINED_FUNCTION_CALLS}}]
+[language_features=NONE,{{|+CHAINED_FUNCTION_CALLS}}]
 select key.sqrt()
 from KeyValue
 --
@@ -1332,7 +1333,7 @@ ERROR: Function not found: key.sqrt [at 1:8]
 select key.sqrt()
        ^
 --
-ALTERNATION GROUP: CHAINED_FUNCTION_CALLS
+ALTERNATION GROUP: +CHAINED_FUNCTION_CALLS
 --
 ERROR: Function not found: key.sqrt; Chained function calls require parentheses on input paths; Did you mean (key).sqrt(...)? [at 1:8]
 select key.sqrt()
@@ -1341,7 +1342,7 @@ select key.sqrt()
 
 # Trying to do a chained call on a path without parentheses.
 # The suggestion uses parentheses around the input.
-[language_features={{|CHAINED_FUNCTION_CALLS}}]
+[language_features=NONE,{{|+CHAINED_FUNCTION_CALLS}}]
 select kv.key.sqrt()
 from KeyValue kv
 --
@@ -1351,7 +1352,7 @@ ERROR: Function not found: kv.key.sqrt [at 1:8]
 select kv.key.sqrt()
        ^
 --
-ALTERNATION GROUP: CHAINED_FUNCTION_CALLS
+ALTERNATION GROUP: +CHAINED_FUNCTION_CALLS
 --
 ERROR: Function not found: kv.key.sqrt; Chained function calls require parentheses on input paths; Did you mean (kv.key).sqrt(...)? [at 1:8]
 select kv.key.sqrt()
@@ -1360,7 +1361,7 @@ select kv.key.sqrt()
 
 # For a path ending with `.safe.sqrt()`, we suggest `.(safe.sqrt)()` rather than
 # `.(sqrt)()`.
-[language_features={{|CHAINED_FUNCTION_CALLS}}]
+[language_features=NONE,{{|+CHAINED_FUNCTION_CALLS}}]
 select kv.key.safe.sqrt()
 from KeyValue kv
 --
@@ -1370,7 +1371,7 @@ ERROR: Function not found: kv.key.safe.sqrt [at 1:8]
 select kv.key.safe.sqrt()
        ^
 --
-ALTERNATION GROUP: CHAINED_FUNCTION_CALLS
+ALTERNATION GROUP: +CHAINED_FUNCTION_CALLS
 --
 ERROR: Function not found: kv.key.safe.sqrt; Calling multi-part function names in chained call syntax requires parentheses; Did you mean kv.key.(safe.sqrt)(...)? [at 1:8]
 select kv.key.safe.sqrt()
@@ -1378,7 +1379,7 @@ select kv.key.safe.sqrt()
 ==
 
 # We don't make a suggestion for `safe.safe.sqrt`.
-[language_features={{|CHAINED_FUNCTION_CALLS}}]
+[language_features=NONE,{{|+CHAINED_FUNCTION_CALLS}}]
 select kv.key.safe.safe.sqrt()
 --
 ERROR: Function not found: kv.key.safe.safe.sqrt [at 1:8]
@@ -1387,7 +1388,7 @@ select kv.key.safe.safe.sqrt()
 ==
 
 # We can find a two-part function name to suggest.
-[language_features={{|CHAINED_FUNCTION_CALLS}}]
+[language_features=NONE,{{|+CHAINED_FUNCTION_CALLS}}]
 select kv.key.net.parse_ip()
 from KeyValue
 --
@@ -1397,7 +1398,7 @@ ERROR: Function not found: kv.key.net.parse_ip [at 1:8]
 select kv.key.net.parse_ip()
        ^
 --
-ALTERNATION GROUP: CHAINED_FUNCTION_CALLS
+ALTERNATION GROUP: +CHAINED_FUNCTION_CALLS
 --
 ERROR: Function not found: kv.key.net.parse_ip; Calling multi-part function names in chained call syntax requires parentheses; Did you mean kv.key.(net.parse_ip)(...)? [at 1:8]
 select kv.key.net.parse_ip()
@@ -1405,7 +1406,7 @@ select kv.key.net.parse_ip()
 ==
 
 # We can find a two-part function name to suggest, plus SAFE.
-[language_features={{|CHAINED_FUNCTION_CALLS}}]
+[language_features=NONE,{{|+CHAINED_FUNCTION_CALLS}}]
 select kv.key.safe.net.parse_ip()
 from KeyValue
 --
@@ -1415,7 +1416,7 @@ ERROR: Function not found: kv.key.safe.net.parse_ip [at 1:8]
 select kv.key.safe.net.parse_ip()
        ^
 --
-ALTERNATION GROUP: CHAINED_FUNCTION_CALLS
+ALTERNATION GROUP: +CHAINED_FUNCTION_CALLS
 --
 ERROR: Function not found: kv.key.safe.net.parse_ip; Calling multi-part function names in chained call syntax requires parentheses; Did you mean kv.key.(safe.net.parse_ip)(...)? [at 1:8]
 select kv.key.safe.net.parse_ip()
@@ -1425,7 +1426,7 @@ select kv.key.safe.net.parse_ip()
 # Trying to do a chained call on a path without parentheses, with a
 # two-part function name.
 # The suggestion uses parentheses around the function name.
-[language_features={{|CHAINED_FUNCTION_CALLS}}]
+[language_features=NONE,{{|+CHAINED_FUNCTION_CALLS}}]
 select kv.key.nested_catalog.nested_function()
 from KeyValue kv
 --
@@ -1435,7 +1436,7 @@ ERROR: Function not found: kv.key.nested_catalog.nested_function [at 1:8]
 select kv.key.nested_catalog.nested_function()
        ^
 --
-ALTERNATION GROUP: CHAINED_FUNCTION_CALLS
+ALTERNATION GROUP: +CHAINED_FUNCTION_CALLS
 --
 ERROR: Function not found: kv.key.nested_catalog.nested_function; Calling multi-part function names in chained call syntax requires parentheses; Did you mean kv.key.(nested_catalog.nested_function)(...)? [at 1:8]
 select kv.key.nested_catalog.nested_function()
@@ -1446,7 +1447,7 @@ select kv.key.nested_catalog.nested_function()
 # could work as a one or two-part name.
 # The suggestion uses the shorter name, which is actually worse here,
 # but we're not checking the base name is valid.
-[language_features={{|CHAINED_FUNCTION_CALLS}}]
+[language_features=NONE,{{|+CHAINED_FUNCTION_CALLS}}]
 select kv.key.recursive_catalog.test_function()
 from KeyValue kv
 --
@@ -1456,7 +1457,7 @@ ERROR: Function not found: kv.key.recursive_catalog.test_function [at 1:8]
 select kv.key.recursive_catalog.test_function()
        ^
 --
-ALTERNATION GROUP: CHAINED_FUNCTION_CALLS
+ALTERNATION GROUP: +CHAINED_FUNCTION_CALLS
 --
 ERROR: Function not found: kv.key.recursive_catalog.test_function; Chained function calls require parentheses on input paths; Did you mean (kv.key.recursive_catalog).test_function(...)? [at 1:8]
 select kv.key.recursive_catalog.test_function()
@@ -1464,7 +1465,7 @@ select kv.key.recursive_catalog.test_function()
 ==
 
 # If the base path is bad, we'll still get the suggested error.
-[language_features={{|CHAINED_FUNCTION_CALLS}}]
+[language_features=NONE,{{|+CHAINED_FUNCTION_CALLS}}]
 select bad.path.sqrt()
 --
 ALTERNATION GROUP: <empty>
@@ -1473,7 +1474,7 @@ ERROR: Function not found: bad.path.sqrt [at 1:8]
 select bad.path.sqrt()
        ^
 --
-ALTERNATION GROUP: CHAINED_FUNCTION_CALLS
+ALTERNATION GROUP: +CHAINED_FUNCTION_CALLS
 --
 ERROR: Function not found: bad.path.sqrt; Chained function calls require parentheses on input paths; Did you mean (bad.path).sqrt(...)? [at 1:8]
 select bad.path.sqrt()
@@ -1482,7 +1483,7 @@ select bad.path.sqrt()
 
 # If the base path is bad, we'll still get the suggested error, for
 # multi-part names.
-[language_features={{|CHAINED_FUNCTION_CALLS}}]
+[language_features=NONE,{{|+CHAINED_FUNCTION_CALLS}}]
 select bad.path.nested_catalog.nested_function()
 --
 ALTERNATION GROUP: <empty>
@@ -1491,7 +1492,7 @@ ERROR: Function not found: bad.path.nested_catalog.nested_function [at 1:8]
 select bad.path.nested_catalog.nested_function()
        ^
 --
-ALTERNATION GROUP: CHAINED_FUNCTION_CALLS
+ALTERNATION GROUP: +CHAINED_FUNCTION_CALLS
 --
 ERROR: Function not found: bad.path.nested_catalog.nested_function; Calling multi-part function names in chained call syntax requires parentheses; Did you mean bad.path.(nested_catalog.nested_function)(...)? [at 1:8]
 select bad.path.nested_catalog.nested_function()
@@ -1500,21 +1501,21 @@ select bad.path.nested_catalog.nested_function()
 
 # Make sure we don't give strange suggestions for how to use SAFE on functions
 # that's don't allow SAFE calls.
-[language_features=SAFE_FUNCTION_CALL,INLINE_LAMBDA_ARGUMENT{{|,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS}}{{|,CHAINED_FUNCTION_CALLS}}]
+[language_features=NONE,+SAFE_FUNCTION_CALL,+INLINE_LAMBDA_ARGUMENT{{|,+SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS}}{{|,+CHAINED_FUNCTION_CALLS}}]
 [sqlbuilder_target_syntax_map_mode=]
 SELECT SAFE.ARRAY_FILTER([1,2,3], e -> e>0);
 --
 ALTERNATION GROUPS:
     <empty>
-    ,CHAINED_FUNCTION_CALLS
+    ,+CHAINED_FUNCTION_CALLS
 --
 ERROR: Function ARRAY_FILTER does not support SAFE error mode [at 1:8]
 SELECT SAFE.ARRAY_FILTER([1,2,3], e -> e>0);
        ^
 --
 ALTERNATION GROUPS:
-    ,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,
-    ,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,,CHAINED_FUNCTION_CALLS
+    ,+SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,
+    ,+SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,,+CHAINED_FUNCTION_CALLS
 --
 QueryStmt
 +-output_column_list=

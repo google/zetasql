@@ -35,16 +35,19 @@
 #include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/convert_type_to_proto.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/timestamp_picos_value.h"
 #include "zetasql/public/token_list_util.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/value.h"
+#include "zetasql/public/value.pb.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "gmock/gmock.h"
@@ -56,6 +59,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/io/tokenizer.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
@@ -95,8 +99,9 @@ class ProtoValueConversionTest : public ::testing::Test {
 
   ~ProtoValueConversionTest() override = default;
 
-  absl::Status ParseLiteralExpression(absl::string_view expression_sql,
-                                      Value* value_out) {
+  absl::Status ParseLiteralExpression(
+      absl::string_view expression_sql, Value* value_out,
+      const ConvertTypeToProtoOptions& options) {
     std::unique_ptr<const AnalyzerOutput> output;
     LanguageOptions language_options;
     language_options.EnableLanguageFeature(FEATURE_NUMERIC_TYPE);
@@ -107,18 +112,87 @@ class ProtoValueConversionTest : public ::testing::Test {
     language_options.EnableLanguageFeature(FEATURE_INTERVAL_TYPE);
     language_options.EnableLanguageFeature(FEATURE_TOKENIZED_SEARCH);
     language_options.EnableLanguageFeature(FEATURE_RANGE_TYPE);
-    language_options.EnableLanguageFeature(FEATURE_UUID_TYPE);
+    language_options.EnableLanguageFeature(FEATURE_V_1_4_UUID_TYPE);
+    if (options.timestamp_format_options.timestamp_format ==
+        ConvertTypeToProtoOptions::TimestampFormat::kTimestampPicosProto) {
+      language_options.EnableLanguageFeature(FEATURE_TIMESTAMP_NANOS);
+      language_options.EnableLanguageFeature(FEATURE_TIMESTAMP_PICOS);
+    }
+    if (catalog_.functions().empty()) {
+      catalog_.AddBuiltinFunctions(
+          BuiltinFunctionOptions::AllReleasedFunctions());
+    }
     ZETASQL_RETURN_IF_ERROR(AnalyzeExpression(expression_sql,
                                       AnalyzerOptions(language_options),
                                       &catalog_, &type_factory_, &output));
     ZETASQL_RET_CHECK(output != nullptr) << expression_sql;
     const ResolvedExpr* expr = output->resolved_expr();
     ZETASQL_RET_CHECK(expr != nullptr) << expression_sql;
-    ZETASQL_RET_CHECK_EQ(RESOLVED_LITERAL, expr->node_kind())
-        << "Expression '" << expression_sql
-        << "' evaluated to non-literal: " << expr->DebugString();
-    const ResolvedLiteral* literal = expr->GetAs<ResolvedLiteral>();
-    *value_out = literal->value();
+    // When the timestamp format is kTimestampPicosProto, we need to handle
+    // different cases for the resolved expression. Specifically, when the
+    // timestamp format is in picos precision, the resolved expression can be a
+    // a MakeStruct or a FunctionCall for array. For other cases, the resolved
+    // expression should be a ResolvedLiteral.
+    if (language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_PICOS)) {
+      if (expr->node_kind() == RESOLVED_LITERAL) {
+        const ResolvedLiteral* literal = expr->GetAs<ResolvedLiteral>();
+        *value_out = literal->value();
+      } else if (expr->node_kind() == RESOLVED_MAKE_STRUCT) {
+        // The resolver provides the node kind as MakeStruct, in this case so
+        // we convert to a Struct value.
+        const ResolvedMakeStruct* make_struct =
+            expr->GetAs<ResolvedMakeStruct>();
+        const Type* type = make_struct->type();
+        std::vector<Value> field_values;
+        for (const auto& field_expr : make_struct->field_list()) {
+          ZETASQL_RET_CHECK_EQ(field_expr->node_kind(), RESOLVED_CAST);
+          const ResolvedCast* cast = field_expr->GetAs<ResolvedCast>();
+          ZETASQL_RET_CHECK(cast->expr()->node_kind() == RESOLVED_LITERAL);
+          const ResolvedLiteral* literal =
+              cast->expr()->GetAs<ResolvedLiteral>();
+          ZETASQL_ASSIGN_OR_RETURN(
+              TimestampPicosValue value,
+              TimestampPicosValue::FromString(literal->value().string_value(),
+                                              absl::UTCTimeZone(),
+                                              /*allow_tz_in_str=*/true));
+          field_values.push_back(Value::Timestamp(value));
+        }
+        ZETASQL_ASSIGN_OR_RETURN(*value_out,
+                         Value::MakeStruct(type->AsStruct(), field_values));
+      } else if (expr->node_kind() == RESOLVED_FUNCTION_CALL) {
+        // The resolver provides the node kind as FunctionCall for array, in
+        // this case so we convert to an Array value.
+        const ResolvedFunctionCall* function_call =
+            expr->GetAs<ResolvedFunctionCall>();
+        ZETASQL_RET_CHECK_EQ(function_call->function()->Name(), "$make_array");
+        const ArrayType* type = function_call->type()->AsArray();
+        std::vector<Value> element_values;
+        for (const auto& arg_expr : function_call->argument_list()) {
+          ZETASQL_RET_CHECK_EQ(arg_expr->node_kind(), RESOLVED_CAST);
+          const ResolvedCast* cast = arg_expr->GetAs<ResolvedCast>();
+          ZETASQL_RET_CHECK(cast->expr()->node_kind() == RESOLVED_LITERAL);
+          const ResolvedLiteral* literal =
+              cast->expr()->GetAs<ResolvedLiteral>();
+          ZETASQL_ASSIGN_OR_RETURN(
+              TimestampPicosValue value,
+              TimestampPicosValue::FromString(literal->value().string_value(),
+                                              absl::UTCTimeZone(),
+                                              /*allow_tz_in_str=*/true));
+          element_values.push_back(Value::Timestamp(value));
+        }
+        ZETASQL_ASSIGN_OR_RETURN(*value_out, Value::MakeArray(type, element_values));
+      } else {
+        ZETASQL_RET_CHECK_FAIL() << "Expression '" << expression_sql
+                         << "' evaluated to non-literal or MakeStruct: "
+                         << expr->DebugString();
+      }
+    } else {
+      ZETASQL_RET_CHECK_EQ(RESOLVED_LITERAL, expr->node_kind())
+          << "Expression '" << expression_sql
+          << "' evaluated to non-literal: " << expr->DebugString();
+      const ResolvedLiteral* literal = expr->GetAs<ResolvedLiteral>();
+      *value_out = literal->value();
+    }
     return absl::OkStatus();
   }
 
@@ -163,11 +237,10 @@ class ProtoValueConversionTest : public ::testing::Test {
       absl::string_view expression_sql,
       const ConvertTypeToProtoOptions& options) {
     Value value;
-    ZETASQL_RETURN_IF_ERROR(ParseLiteralExpression(expression_sql, &value));
+    ZETASQL_RETURN_IF_ERROR(ParseLiteralExpression(expression_sql, &value, options));
 
     std::unique_ptr<google::protobuf::Message> proto;
     ZETASQL_RETURN_IF_ERROR(ValueToProto(value, options, &proto));
-
     return proto;
   }
 
@@ -204,7 +277,7 @@ class ProtoValueConversionTest : public ::testing::Test {
         options.generate_nullable_element_wrappers));
 
     Value value;
-    ZETASQL_ASSERT_OK(ParseLiteralExpression(expression_sql, &value));
+    ZETASQL_ASSERT_OK(ParseLiteralExpression(expression_sql, &value, options));
 
     std::unique_ptr<google::protobuf::Message> proto;
     ZETASQL_ASSERT_OK(ValueToProto(value, options, &proto));
@@ -264,6 +337,7 @@ TEST_F(ProtoValueConversionTest, RoundTrip) {
       "STRUCT(CAST('01:23:45.678901' AS TIME))",
       "STRUCT(CAST(NULL AS TIME))",
       "STRUCT(CAST('1998-09-04 01:23:45.678901 UTC' AS TIMESTAMP))",
+      "STRUCT(TIMESTAMP '1998-09-04 01:23:45.678901 UTC')",
       "STRUCT(CAST(NULL AS TIMESTAMP))",
       "STRUCT(CAST('TYPE_ENUM' AS zetasql.TypeKind))",
       "STRUCT(CAST(NULL AS zetasql.TypeKind))",
@@ -452,7 +526,7 @@ TEST_F(ProtoValueConversionTest, DateDecimal) {
     // it to proto.
     Value value;
     ZETASQL_ASSERT_OK(ParseLiteralExpression("STRUCT(CAST('1970-01-02' AS DATE) AS d)",
-                                     &value));
+                                     &value, options));
     const StructType* struct_type = value.type()->AsStruct();
     ASSERT_TRUE(struct_type != nullptr);
     std::unique_ptr<google::protobuf::Message> proto;
@@ -620,7 +694,7 @@ TEST_F(ProtoValueConversionTest, TimestampMillis) {
   }
 }
 
-TEST_F(ProtoValueConversionTest, TimestampNanos) {
+TEST_F(ProtoValueConversionTest, TimestampNanosLegacyFormat) {
   ConvertTypeToProtoOptions options;
   options.field_format_map[TYPE_TIMESTAMP] = FieldFormat::TIMESTAMP_NANOS;
 
@@ -642,6 +716,34 @@ TEST_F(ProtoValueConversionTest, TimestampNanos) {
   }
 }
 
+TEST_F(ProtoValueConversionTest, TimestampPicosFormatVariousPrecisions) {
+  ConvertTypeToProtoOptions options;
+  options.timestamp_format_options.timestamp_format =
+      ConvertTypeToProtoOptions::TimestampFormat::kTimestampPicosProto;
+  const std::vector<std::string> tests = {
+      // Picos precision
+      {"STRUCT(CAST('1998-09-04 01:23:45.123456789123 UTC' AS TIMESTAMP) AS "
+       "t)"},
+      {"STRUCT(TIMESTAMP '1965-09-04 01:23:45.987654321987 UTC')"},
+      // Nanos precision
+      {"STRUCT(CAST('1998-09-04 01:23:45.123456789 UTC' AS TIMESTAMP) AS t)"},
+      {"STRUCT(TIMESTAMP '1965-09-04 01:23:45.987654321 UTC')"},
+      // Micros precision
+      {"STRUCT(CAST('1998-09-04 01:23:45.123456 UTC' AS TIMESTAMP) AS t)"},
+      {"STRUCT(TIMESTAMP '1965-09-04 01:23:45.987654 UTC')"},
+      // Array of timestamps in picos, nanos and millis precision
+      {"[CAST('1998-09-04 01:23:45.678901123345 UTC' AS TIMESTAMP), "
+       "CAST('1998-09-05 01:23:45.678901123345 UTC' AS TIMESTAMP)]"},
+      {"[CAST('1998-09-04 01:23:45.678901123 UTC' AS TIMESTAMP), "
+       "CAST('1998-09-05 01:23:45.678901123 UTC' AS TIMESTAMP)]"},
+      {"[CAST('1998-09-04 01:23:45.678901 UTC' AS TIMESTAMP), CAST('1998-09-05 "
+       "01:23:45.678901 UTC' AS TIMESTAMP)]"},
+      {"STRUCT(CAST(NULL AS TIMESTAMP) AS t)"}};
+  for (const auto& test_expression : tests) {
+    ASSERT_TRUE(RoundTripTest(test_expression, options));
+  }
+}
+
 TEST_F(ProtoValueConversionTest, TimestampOutOfRange) {
   const ConvertTypeToProtoOptions options;
   // We start by generating a Value with a non-null timestamp, and converting
@@ -649,7 +751,7 @@ TEST_F(ProtoValueConversionTest, TimestampOutOfRange) {
   Value value;
   ZETASQL_ASSERT_OK(ParseLiteralExpression(
       "STRUCT(CAST('1998-09-04 01:23:45.678901 UTC' AS TIMESTAMP) AS t)",
-      &value));
+      &value, options));
   const StructType* struct_type = value.type()->AsStruct();
   ASSERT_TRUE(struct_type != nullptr);
   std::unique_ptr<google::protobuf::Message> proto;
@@ -669,7 +771,7 @@ TEST_F(ProtoValueConversionTest, TimestampOutOfRange) {
 TEST_F(ProtoValueConversionTest, MatchStructFieldsByName) {
   Value value;
   ZETASQL_ASSERT_OK(ParseLiteralExpression("STRUCT<nanos INT32, seconds INT64>(0, 0)",
-                                   &value));
+                                   &value, ConvertTypeToProtoOptions()));
   const StructType* struct_type = value.type()->AsStruct();
   ASSERT_NE(struct_type, nullptr);
   // Confirming & demonstrating field order.
@@ -699,7 +801,7 @@ TEST_F(ProtoValueConversionTest, MatchStructFieldsByName) {
 TEST_F(ProtoValueConversionTest, MatchStructFieldsByName_NamesDontMatch) {
   Value value;
   ZETASQL_ASSERT_OK(ParseLiteralExpression("STRUCT<millis INT32, seconds INT64>(0, 0)",
-                                   &value));
+                                   &value, ConvertTypeToProtoOptions()));
   const StructType* struct_type = value.type()->AsStruct();
   ASSERT_NE(struct_type, nullptr);
 
@@ -715,13 +817,57 @@ TEST_F(ProtoValueConversionTest, MatchStructFieldsByName_NamesDontMatch) {
                        HasSubstr("STRUCT field 'millis' not found in proto")));
 }
 
+TEST_F(ProtoValueConversionTest, TimestampMicrosInvalidFieldFormat) {
+  // Create the proto descriptor.
+  google::protobuf::FileDescriptorProto file_proto;
+  file_proto.set_name("test.proto");
+  google::protobuf::DescriptorProto* message_type = file_proto.add_message_type();
+  message_type->set_name("M");
+  auto* field_proto = message_type->add_field();
+  field_proto->set_name("t");
+  field_proto->set_number(1);
+  field_proto->set_label(FieldDescriptorProto::LABEL_OPTIONAL);
+  field_proto->set_type(FieldDescriptorProto::TYPE_STRING);
+  field_proto->mutable_options()->SetExtension(zetasql::format,
+                                               FieldFormat::TIMESTAMP_MICROS);
+
+  // Build the proto descriptor and get the target field descriptor.
+  google::protobuf::DescriptorPool descriptor_pool(
+      google::protobuf::DescriptorPool::generated_pool());
+  const google::protobuf::FileDescriptor* file_descriptor =
+      descriptor_pool.BuildFile(file_proto);
+  ASSERT_THAT(file_descriptor, NotNull()) << file_proto.DebugString();
+  const google::protobuf::Descriptor* descriptor =
+      file_descriptor->FindMessageTypeByName("M");
+  ASSERT_THAT(descriptor, NotNull()) << descriptor->DebugString();
+  const google::protobuf::FieldDescriptor* field = descriptor->FindFieldByName("t");
+  ASSERT_THAT(field, NotNull()) << descriptor->DebugString();
+
+  // Create a default value for the target type.
+  Value value;
+  ZETASQL_ASSERT_OK(ParseLiteralExpression(
+      "CAST('1998-09-04 01:23:45.678901 UTC' AS TIMESTAMP)", &value, {}));
+
+  google::protobuf::DynamicMessageFactory message_factory;
+  std::unique_ptr<google::protobuf::Message> proto(
+      message_factory.GetPrototype(descriptor)->New());
+
+  // The field is annotated with TIMESTAMP_MICROS, but the field type is
+  // string, so an error should be raised.
+  EXPECT_THAT(
+      MergeValueToProtoField(value, field,
+                             /*use_wire_format_annotations=*/false,
+                             &message_factory, proto.get()),
+      StatusIs(absl::StatusCode::kInternal, HasSubstr("RET_CHECK failure")));
+}
+
 TEST_F(ProtoValueConversionTest, InvalidRange) {
   const ConvertTypeToProtoOptions options;
   // We start by generating a Value with a non-null range, and converting
   // it to proto.
   Value value;
   ZETASQL_ASSERT_OK(ParseLiteralExpression(
-      "STRUCT(RANGE<DATE> '[2022-12-06, 2022-12-07)' AS r)", &value));
+      "STRUCT(RANGE<DATE> '[2022-12-06, 2022-12-07)' AS r)", &value, options));
   const StructType* struct_type = value.type()->AsStruct();
   ASSERT_TRUE(struct_type != nullptr);
   std::unique_ptr<google::protobuf::Message> proto;
@@ -1029,28 +1175,29 @@ TEST_P(MergeValueToProtoFieldTest, ArrayBehavior) {
 
   // Merge an empty array.
   Value value;
-  ZETASQL_ASSERT_OK(ParseLiteralExpression("CAST([] AS ARRAY<INT64>)", &value));
+  ZETASQL_ASSERT_OK(
+      ParseLiteralExpression("CAST([] AS ARRAY<INT64>)", &value, options));
   ZETASQL_ASSERT_OK(MergeValueToProtoField(value, int64_array_field,
                                    use_wire_format_annotations_,
                                    &message_factory, proto.get()));
   EXPECT_THAT(*proto, EqualsProto(""));
 
   // Merge a singular element.
-  ZETASQL_ASSERT_OK(ParseLiteralExpression("40", &value));
+  ZETASQL_ASSERT_OK(ParseLiteralExpression("40", &value, options));
   ZETASQL_ASSERT_OK(MergeValueToProtoField(value, int64_array_field,
                                    use_wire_format_annotations_,
                                    &message_factory, proto.get()));
   EXPECT_THAT(*proto, EqualsProto("int64_array_field: 40"));
 
   // Merge an array.
-  ZETASQL_ASSERT_OK(ParseLiteralExpression("[41, 42]", &value));
+  ZETASQL_ASSERT_OK(ParseLiteralExpression("[41, 42]", &value, options));
   ZETASQL_ASSERT_OK(MergeValueToProtoField(value, int64_array_field,
                                    use_wire_format_annotations_,
                                    &message_factory, proto.get()));
   EXPECT_THAT(*proto, EqualsProto("int64_array_field: [40, 41, 42]"));
 
   // Merge a singular element.
-  ZETASQL_ASSERT_OK(ParseLiteralExpression("43", &value));
+  ZETASQL_ASSERT_OK(ParseLiteralExpression("43", &value, options));
   ZETASQL_ASSERT_OK(MergeValueToProtoField(value, int64_array_field,
                                    use_wire_format_annotations_,
                                    &message_factory, proto.get()));
@@ -1080,7 +1227,7 @@ TEST_P(MergeValueToProtoFieldTest, GeographyBehavior) {
 
   // A NULL GEOGRAPHY value.
   Value value;
-  ZETASQL_ASSERT_OK(ParseLiteralExpression("CAST(NULL AS GEOGRAPHY)", &value));
+  ZETASQL_ASSERT_OK(ParseLiteralExpression("CAST(NULL AS GEOGRAPHY)", &value, options));
   ZETASQL_ASSERT_OK(MergeValueToProtoField(value, geo_field,
                                    use_wire_format_annotations_,
                                    &message_factory, proto.get()));
@@ -1163,7 +1310,8 @@ TEST_P(MergeValueToProtoFieldTest, StructBehavior) {
       nested_struct_type->TypeName(PRODUCT_EXTERNAL);
   Value value;
   ZETASQL_ASSERT_OK(ParseLiteralExpression(
-      absl::StrCat("CAST(NULL AS ", nested_struct_type_str, ")"), &value));
+      absl::StrCat("CAST(NULL AS ", nested_struct_type_str, ")"), &value,
+      options));
   ZETASQL_ASSERT_OK(MergeValueToProtoField(value, nested_struct_field,
                                    use_wire_format_annotations_,
                                    &message_factory, proto.get()));
@@ -1173,13 +1321,13 @@ TEST_P(MergeValueToProtoFieldTest, StructBehavior) {
       // Need the struct type before the values, or otherwise the type of each
       // field will be treated as INT64.
       absl::StrCat(nested_struct_type_str, "(NULL, NULL, NULL, NULL, NULL)"),
-      &value));
+      &value, options));
   ZETASQL_ASSERT_OK(MergeValueToProtoField(value, nested_struct_field,
                                    use_wire_format_annotations_,
                                    &message_factory, proto.get()));
   EXPECT_THAT(*proto, EqualsProto("nested_struct_field {}"));
   ZETASQL_ASSERT_OK(ParseLiteralExpression(
-      "('foo', [1, 2], STRUCT(), ('bar', [], STRUCT()), [])", &value));
+      "('foo', [1, 2], STRUCT(), ('bar', [], STRUCT()), [])", &value, options));
   ZETASQL_ASSERT_OK(MergeValueToProtoField(value, nested_struct_field,
                                    use_wire_format_annotations_,
                                    &message_factory, proto.get()));
@@ -1209,7 +1357,7 @@ TEST_P(MergeValueToProtoFieldTest, StructBehavior) {
                    inner_struct_type_str,
                    "(' ', [7], NULL)"
                    "])"),
-      &value));
+      &value, options));
   ZETASQL_ASSERT_OK(MergeValueToProtoField(value, nested_struct_field,
                                    use_wire_format_annotations_,
                                    &message_factory, proto.get()));
@@ -1243,16 +1391,17 @@ TEST_P(MergeValueToProtoFieldTest, EdgeCases) {
   Value value;
   ZETASQL_ASSERT_OK(ParseLiteralExpression(
       "STRUCT('lala' AS string_field, STRUCT(1 AS int_field) AS nested_struct)",
-      &value));
+      &value, options));
   const StructType* struct_type = value.type()->AsStruct();
   ASSERT_TRUE(struct_type != nullptr);
 
   // Construct values for the struct fields.
   Value string_value;
-  ZETASQL_ASSERT_OK(ParseLiteralExpression("'lala'", &string_value));
+  ZETASQL_ASSERT_OK(ParseLiteralExpression("'lala'", &string_value, options));
 
   Value struct_value;
-  ZETASQL_ASSERT_OK(ParseLiteralExpression("STRUCT(1 AS int_field)", &struct_value));
+  ZETASQL_ASSERT_OK(
+      ParseLiteralExpression("STRUCT(1 AS int_field)", &struct_value, options));
 
   std::unique_ptr<google::protobuf::Message> proto;
 

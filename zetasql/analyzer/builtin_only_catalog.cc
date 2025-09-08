@@ -24,6 +24,7 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/property_graph.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/types/type.h"
 #include "absl/log/log.h"
 #include "absl/memory/memory.h"
@@ -62,8 +63,22 @@ absl::Status BuiltinOnlyCatalog::FindTableValuedFunction(
     const absl::Span<const std::string>& path,
     const TableValuedFunction** function, const FindOptions& options) {
   ZETASQL_RET_CHECK(function != nullptr);
+  ZETASQL_RETURN_IF_ERROR(
+      wrapped_catalog_.FindTableValuedFunction(path, function, options));
+  if ((*function)->IsZetaSQLBuiltin()) {
+    // ZetaSQL-builtin TVFs are always allowed.
+    return absl::OkStatus();
+  }
+  if (std::find(allowed_function_groups_.begin(),
+                allowed_function_groups_.end(),
+                (*function)->GetGroup()) != allowed_function_groups_.end()) {
+    // TVFs from an allowed group are allowed.
+    return absl::OkStatus();
+  }
   *function = nullptr;
-  return TableValuedFunctionNotFoundError(path);
+  return absl::InvalidArgumentError(
+      absl::Substitute("Required built-in TVF \"$0\" not available",
+                       IdentifierPathToString(path)));
 }
 
 absl::Status BuiltinOnlyCatalog::FindTable(

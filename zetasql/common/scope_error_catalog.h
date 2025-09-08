@@ -147,7 +147,7 @@ class ScopeErrorCatalog : public Catalog {
   // functions, and are passed through to the `builtin_find_object_method` and
   // `global_find_object_method` calls.
   template <class ObjectType>
-  absl::Status FindObjectBuiltinOnly(std::string_view object_type_name,
+  absl::Status FindObjectBuiltinOnly(absl::string_view object_type_name,
                                      absl::Span<const std::string> path,
                                      const ObjectType** object,
                                      const FindOptions& options,

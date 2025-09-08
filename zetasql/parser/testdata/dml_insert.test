@@ -1548,7 +1548,8 @@ InsertStatement(insert_mode=REPLACE) [0-110] [insert or...rt_rows_modified 0]
         PathExpression [78-79] [x]
           Identifier(x) [78-79] [x]
     LimitOffset [80-87] [limit 5]
-      IntLiteral(5) [86-87] [5]
+      Limit [80-87] [limit 5]
+        IntLiteral(5) [86-87] [5]
   AssertRowsModified [88-110] [assert_rows_modified 0]
     IntLiteral(0) [109-110] [0]
 --
@@ -1790,6 +1791,14 @@ VALUES
   (1)
 ==
 
+# Inserting into a subscripted position within a column is not supported.
+insert into T (c1["a"]) VALUES (1)
+--
+ERROR: Syntax error: Expected ")" but got "[" [at 1:18]
+insert into T (c1["a"]) VALUES (1)
+                 ^
+==
+
 # Insert statement does not support table alias.
 INSERT T {{AS|}} a VALUES (5)
 --
@@ -1827,7 +1836,7 @@ VALUES
   (null)
 ==
 
-[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features=NONE,{{|+ALLOW_DASHES_IN_TABLE_NAME}}]
 insert{{| into}} project-987654321.a.b values (1)
 --
 ALTERNATION GROUP: <empty>
@@ -1842,7 +1851,7 @@ ERROR: Syntax error: Table name contains '-' character. The dashed identifier pa
 insert into project-987654321.a.b values (1)
             ^
 --
-ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME,
+ALTERNATION GROUP: +ALLOW_DASHES_IN_TABLE_NAME,
 --
 InsertStatement [0-39] [insert project...values (1)]
   PathExpression [7-28] [project-987654321.a.b]
@@ -1857,7 +1866,7 @@ INSERT INTO `project-987654321`.a.b
 VALUES
   (1)
 --
-ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME, into
+ALTERNATION GROUP: +ALLOW_DASHES_IN_TABLE_NAME, into
 --
 InsertStatement [0-44] [insert into...values (1)]
   PathExpression [12-33] [project-987654321.a.b]

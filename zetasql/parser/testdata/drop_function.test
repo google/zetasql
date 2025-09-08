@@ -299,7 +299,7 @@ DROP FUNCTION foo.bar(a int32 AS x NOT AGGREGATE)
 # and AS alias.  This one fails since the AS alias applies to the type.
 DROP FUNCTION foo.bar(a int32 NOT AGGREGATE as x)
 --
-ERROR: Syntax error: Expected ")" or "," but got keyword AS [at 1:45]
+ERROR: Syntax error: Expected ")" but got keyword AS [at 1:45]
 DROP FUNCTION foo.bar(a int32 NOT AGGREGATE as x)
                                             ^
 ==
@@ -390,7 +390,7 @@ DROP AGGREGATE FUNCTION myfunc(string);
      ^
 ==
 
-[language_features=ALLOW_DASHES_IN_TABLE_NAME]
+[language_features=NONE,+ALLOW_DASHES_IN_TABLE_NAME]
 DROP {{|TABLE}} FUNCTION foo-bar-123;
 --
 ALTERNATION GROUP: <empty>
@@ -408,7 +408,7 @@ DropTableFunctionStatement [0-31] [DROP TABLE...foo-bar-123]
 DROP TABLE FUNCTION `foo-bar-123`
 ==
 
-[language_features=ALLOW_DASHES_IN_TABLE_NAME]
+[language_features=NONE,+ALLOW_DASHES_IN_TABLE_NAME]
 DROP {{|TABLE}} FUNCTION foo-bar-123.baz;
 --
 ALTERNATION GROUP: <empty>
@@ -427,7 +427,7 @@ DropTableFunctionStatement [0-35] [DROP TABLE...bar-123.baz]
 DROP TABLE FUNCTION `foo-bar-123`.baz
 ==
 
-[language_features=ALLOW_DASHES_IN_TABLE_NAME]
+[language_features=NONE,+ALLOW_DASHES_IN_TABLE_NAME]
 DROP {{|TABLE}} FUNCTION foo-bar-123.baz(string);
 --
 ALTERNATION GROUP: <empty>

@@ -66,7 +66,7 @@ void TestConvertErrorWithSource(
       "SELECT 3;\n  SELECT outer_error_location, inner_error_location";
   const std::string error_stmt_text =
       "SELECT outer_error_location, inner_error_location";
-  absl::Status inner_status = ConvertInternalErrorLocationToExternal(
+  absl::Status inner_status = ConvertInternalErrorPayloadsToExternal(
       StatusWithInternalErrorLocation(
           absl::InternalError("Inner error"),
           ParseLocationPoint::FromByteOffset(
@@ -90,7 +90,7 @@ void TestConvertErrorWithSource(
   outer_location.set_byte_offset(
       static_cast<int>(error_stmt_text.find("outer_error_location")));
 
-  absl::Status outer_status = ConvertInternalErrorLocationToExternal(
+  absl::Status outer_status = ConvertInternalErrorPayloadsToExternal(
       MakeSqlError().AttachPayload(
           SetErrorSourcesFromStatus(outer_location, inner_status,
                                     inner_error_message_mode, error_stmt_text))

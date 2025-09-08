@@ -1,5 +1,5 @@
 # Table with UID in the WITH clause, differential privacy in the outer SELECT
-[default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,WITH_ON_SUBQUERY,WITH_RECURSIVE]
+[default language_features=NONE,+DIFFERENTIAL_PRIVACY,+NAMED_ARGUMENTS,+WITH_ON_SUBQUERY,+WITH_RECURSIVE]
 
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 WITH t as (select *
@@ -2446,7 +2446,7 @@ Rewrite ERROR: Subqueries of differential_privacy queries must explicitly SELECT
 # Count (*) counting unique users.
 # DIFFERENTIAL_PRIVACY_THRESHOLDING feature is enabled, therefore we should use this
 # count for k_threshold.
-[default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,TABLE_VALUED_FUNCTIONS,DIFFERENTIAL_PRIVACY_THRESHOLDING]
+[default language_features=NONE,+DIFFERENTIAL_PRIVACY,+NAMED_ARGUMENTS,+TABLE_VALUED_FUNCTIONS,+DIFFERENTIAL_PRIVACY_THRESHOLDING]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 WITH t as (select *

@@ -727,7 +727,7 @@ static void TestValidateFormatStringForFormatting(
 
 static void ExpectFormatStringTooLongError(absl::Status status) {
   EXPECT_THAT(status, StatusIs(absl::StatusCode::kOutOfRange,
-                          HasSubstr("Format string too long")));
+                               HasSubstr("Format string too long")));
 }
 
 static void TestCastFormatFunction(
@@ -775,8 +775,7 @@ static void TestCastFormatTime(const FunctionTestCall& testcase) {
         absl::Substitute(absl::StrCat(testcase.function_name, "($0, $1)"),
                          format_param.DebugString(), time_param.DebugString());
     return CastFormatTimeToString(format_param.string_value(),
-                                  time_param.time_value(),
-                                  result_string);
+                                  time_param.time_value(), result_string);
   };
   TestCastFormatFunction(testcase, FormatTimeFunc);
 }
@@ -791,8 +790,7 @@ static void TestCastFormatDate(const FunctionTestCall& testcase) {
         absl::Substitute(absl::StrCat(testcase.function_name, "($0, $1)"),
                          format_param.DebugString(), date_param.DebugString());
     return CastFormatDateToString(format_param.string_value(),
-                                  date_param.date_value(),
-                                  result_string);
+                                  date_param.date_value(), result_string);
   };
   TestCastFormatFunction(testcase, FormatDateFunc);
 }
@@ -809,8 +807,7 @@ static void TestCastFormatTimestamp(const FunctionTestCall& testcase) {
         format_param.DebugString(), timestamp_param.DebugString(),
         timezone_param.DebugString());
     return CastFormatTimestampToString(
-        format_param.string_value(),
-        timestamp_param.timestamp_value(),
+        format_param.string_value(), timestamp_param.timestamp_value(),
         timezone_param.string_value(), result_string);
   };
   TestCastFormatFunction(testcase, FormatTimestampFunc);
@@ -845,139 +842,6 @@ INSTANTIATE_TEST_SUITE_P(
     CastStringToDateTimestampTests, CastStringToDateTimeTestWithParam,
     testing::ValuesIn(GetFunctionTestsCastStringToDateTimestamp()));
 
-class CastStringToTimestampPicosSuccessTest
-    : public ::testing::TestWithParam<FunctionTestCall> {};
-
-TEST_P(CastStringToTimestampPicosSuccessTest,
-       CastStringToTimestampPicosSuccessTest) {
-  const FunctionTestCall& test = GetParam();
-
-  // Ignore tests that do not have the time zone explicitly specified since
-  // the function library requires a timezone.  Also ignore test cases
-  // with NULL value inputs.  The date/time function library is only
-  // implemented for non-NULL values.
-  const int expected_param_size = 4;
-  ABSL_CHECK_EQ(test.params.params().size(), expected_param_size);
-
-  for (size_t i = 0; i < expected_param_size; ++i) {
-    if (test.params.param(i).is_null()) {
-      return;
-    }
-  }
-
-  const Value& format_param = test.params.param(0);
-  const Value& timestamp_string_param = test.params.param(1);
-  const Value& timezone_param = test.params.param(2);
-  const Value& current_timestamp_param = test.params.param(3);
-  std::string test_string;
-  absl::Status base_time_status;
-
-  absl::StatusOr<PicoTime> result_timestamp = CastStringToTimestamp(
-      format_param.string_value(), timestamp_string_param.string_value(),
-      timezone_param.string_value(), current_timestamp_param.ToTime());
-
-  EXPECT_THAT(result_timestamp, IsOk()) << test_string;
-  EXPECT_EQ(TYPE_TIMESTAMP_PICOS, test.params.result().type_kind())
-      << test_string;
-  EXPECT_EQ(test.params.result().timestamp_picos_value().ToPicoTime(),
-            *result_timestamp)
-      << test_string << "\nexpected: "
-      << test.params.result().timestamp_picos_value().DebugString()
-      << "\nactual: " << result_timestamp->DebugString();
-}
-
-class CastStringToTimestampPicosFailureTest
-    : public ::testing::TestWithParam<FunctionTestCall> {};
-
-TEST_P(CastStringToTimestampPicosFailureTest,
-       CastStringToTimestampPicosFailureTest) {
-  const FunctionTestCall& test = GetParam();
-
-  // Ignore tests that do not have the time zone explicitly specified since
-  // the function library requires a timezone.  Also ignore test cases
-  // with NULL value inputs.  The date/time function library is only
-  // implemented for non-NULL values.
-  const int expected_param_size = 4;
-  ABSL_CHECK_EQ(test.params.params().size(), expected_param_size);
-
-  for (size_t i = 0; i < expected_param_size; ++i) {
-    if (test.params.param(i).is_null()) {
-      return;
-    }
-  }
-
-  const Value& format_param = test.params.param(0);
-  const Value& timestamp_string_param = test.params.param(1);
-  const Value& timezone_param = test.params.param(2);
-  const Value& current_timestamp_param = test.params.param(3);
-  std::string test_string;
-
-  absl::StatusOr<PicoTime> result_timestamp = CastStringToTimestamp(
-      format_param.string_value(), timestamp_string_param.string_value(),
-      timezone_param.string_value(), current_timestamp_param.ToTime());
-  test_string = absl::Substitute(
-      absl::StrCat(test.function_name, "($0, $1, $2, $3)"),
-      format_param.DebugString(), timestamp_string_param.DebugString(),
-      timezone_param.DebugString(), current_timestamp_param.DebugString());
-
-  EXPECT_THAT(result_timestamp, Not(IsOk()))
-      << test_string << "\nstatus: " << test.params.status();
-}
-
-static std::vector<FunctionTestCall>
-GetCastStringToTimestampPicosSuccessTests() {
-  std::vector<FunctionTestCall> tests;
-  for (const auto& test : GetFunctionTestsCastStringToTimestampPicos()) {
-    if (test.params.status().ok()) {
-      tests.push_back(test);
-    }
-  }
-  return tests;
-}
-
-static std::vector<FunctionTestCall>
-GetCastStringToTimestampPicosFailureTests() {
-  std::vector<FunctionTestCall> tests;
-  for (const auto& test : GetFunctionTestsCastStringToTimestampPicos()) {
-    if (!test.params.status().ok()) {
-      tests.push_back(test);
-    }
-  }
-  return tests;
-}
-
-// These tests are populated in zetasql/compliance/functions_testlib.cc.
-INSTANTIATE_TEST_SUITE_P(
-    CastStringToTimestampPicosSuccessTests,
-    CastStringToTimestampPicosSuccessTest,
-    testing::ValuesIn(GetCastStringToTimestampPicosSuccessTests()));
-
-INSTANTIATE_TEST_SUITE_P(
-    CastStringToTimestampPicosFailureTests,
-    CastStringToTimestampPicosFailureTest,
-    testing::ValuesIn(GetCastStringToTimestampPicosFailureTests()));
-
-TEST(StringToTimestampPicosTests, ValidateInputs) {
-  absl::Time current_timestamp = absl::UnixEpoch();
-
-  // Invalid timezone string
-  EXPECT_THAT(CastStringToTimestamp("YYYY", "2134", "\xff", current_timestamp),
-              StatusIs(absl::StatusCode::kOutOfRange,
-                       HasSubstr("Timezone string is not valid UTF-8: \\377")));
-
-  // Invalid format string
-  EXPECT_THAT(
-      CastStringToTimestamp("\xff", "2134", "+00", current_timestamp),
-      StatusIs(absl::StatusCode::kOutOfRange,
-               HasSubstr("Format string is not a valid UTF-8 string: \\377")));
-
-  // Invalid timestamp string
-  EXPECT_THAT(
-      CastStringToTimestamp("YYYY", "\xff", "+00", current_timestamp),
-      StatusIs(absl::StatusCode::kOutOfRange,
-               HasSubstr("Timestamp string is not valid UTF-8: \\377")));
-}
-
 TEST(StringToDateTimestampTests, InvalidInputScale) {
   // Test that <scale> argument can only take "kMicroseconds" or "kNanoseconds".
   int32_t date_1970_1_1;
@@ -985,18 +849,18 @@ TEST(StringToDateTimestampTests, InvalidInputScale) {
   for (TimestampScale invalid_scale : {kSeconds, kMilliseconds}) {
     // Test with CastStringToTime function.
     TimeValue time;
-    EXPECT_THAT(
-        CastStringToTime("", "", invalid_scale, &time),
-        StatusIs(absl::StatusCode::kInternal,
-                 HasSubstr(
-                     "Only kNanoseconds or kMicroseconds scale is supported")));
+    EXPECT_THAT(CastStringToTime("", "", invalid_scale, &time),
+                StatusIs(absl::StatusCode::kInternal,
+                         HasSubstr("Only kMicroseconds, kNanoseconds and "
+                                   "kPicoseconds are acceptable "
+                                   "values for scale")));
     // Test with CastStringToDatetime function.
     DatetimeValue datetime;
     EXPECT_THAT(
         CastStringToDatetime("", "", invalid_scale, date_1970_1_1, &datetime),
         StatusIs(absl::StatusCode::kInternal,
-                 HasSubstr(
-                     "Only kNanoseconds or kMicroseconds scale is supported")));
+                 HasSubstr("Only kMicroseconds, kNanoseconds and kPicoseconds "
+                           "are acceptable values for scale")));
   }
 }
 
@@ -1178,7 +1042,8 @@ std::vector<std::string> GetDateElements() {
 // Returns the list of time zone format element.
 std::vector<std::string> GetTimeZoneElements() {
   std::vector<std::string> elements = {
-    "TZH",  "TZM",
+      "TZH",
+      "TZM",
   };
   return elements;
 }
@@ -1579,64 +1444,6 @@ TEST_P(CastFormatTemplateTest, CastDateTimeFunctionTests) {
 INSTANTIATE_TEST_SUITE_P(
     CastTimestampTest, CastFormatTemplateTest,
     testing::ValuesIn(GetFunctionTestsCastFormatDateTimestamp()));
-
-class CastTimestampPicosToStringSuccessTest
-    : public ::testing::TestWithParam<FunctionTestCall> {};
-
-TEST_P(CastTimestampPicosToStringSuccessTest,
-       CastTimestampPicosToStringSuccessTest) {
-  const FunctionTestCall& test = GetParam();
-  ABSL_CHECK_EQ(test.params.num_params(), 3);
-  const Value& format_param = test.params.param(1);
-  const Value& timestamp_param = test.params.param(0);
-  const Value& timezone_param = test.params.param(2);
-  auto test_name = absl::Substitute(
-      absl::StrCat(test.function_name, "($0, $1, $2)"),
-      format_param.DebugString(), timestamp_param.DebugString(),
-      timezone_param.DebugString());
-  absl::StatusOr<std::string> result = CastFormatTimestampToString(
-      format_param.string_value(),
-      timestamp_param.timestamp_picos_value().ToPicoTime(),
-      timezone_param.string_value());
-
-  EXPECT_THAT(result, IsOk()) << test_name;
-  auto expected_result = test.params.result();
-  EXPECT_EQ(TYPE_STRING, expected_result.type_kind()) << test_name;
-  EXPECT_EQ(result.value(), expected_result.string_value()) << test_name;
-}
-
-INSTANTIATE_TEST_SUITE_P(
-    CastTimestampPicosToStringSuccessTests,
-    CastTimestampPicosToStringSuccessTest,
-    testing::ValuesIn(GetFunctionTestsCastFormatTimestampPicosSuccessTests()));
-
-class CastTimestampPicosToStringFailureTest
-    : public ::testing::TestWithParam<FunctionTestCall> {};
-
-TEST_P(CastTimestampPicosToStringFailureTest,
-       CastTimestampPicosToStringFailureTest) {
-  const FunctionTestCall& test = GetParam();
-  ABSL_CHECK_EQ(test.params.num_params(), 3);
-  const Value& format_param = test.params.param(1);
-  const Value& timestamp_param = test.params.param(0);
-  const Value& timezone_param = test.params.param(2);
-  auto test_name = absl::Substitute(
-      absl::StrCat(test.function_name, "($0, $1, $2)"),
-      format_param.DebugString(), timestamp_param.DebugString(),
-      timezone_param.DebugString());
-  absl::StatusOr<std::string> result = CastFormatTimestampToString(
-      format_param.string_value(),
-      timestamp_param.timestamp_picos_value().ToPicoTime(),
-      timezone_param.string_value());
-  EXPECT_THAT(result, Not(IsOk()))
-      << test_name << "\nstatus: " << test.params.status();
-  EXPECT_EQ(result.status().message(), test.params.status().message());
-}
-
-INSTANTIATE_TEST_SUITE_P(
-    CastTimestampPicosToStringFailureTests,
-    CastTimestampPicosToStringFailureTest,
-    testing::ValuesIn(GetFunctionTestsCastFormatTimestampPicosFailureTests()));
 
 TEST(DateTimeUtilTest, UnsupportedCastFormatTimestampTest) {
   int64_t timestamp =

@@ -42,6 +42,7 @@ enum class TvfArgKind {
   kModel = 3,
   kConnection = 4,
   kDescriptor = 5,
+  kGraph = 6,
 };
 
 // Information about a TVF argument.

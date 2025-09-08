@@ -1,5 +1,5 @@
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
+[default language_features=NONE,+SQL_GRAPH]
 
 # RETURN with simple aggregation
 select * from graph_table(aml
@@ -230,7 +230,8 @@ QueryStatement [0-143] [select * from...subquery )]
                                         Alias [114-118] [AS a]
                                           Identifier(a) [117-118] [a]
                           LimitOffset [121-128] [LIMIT 1]
-                            IntLiteral(1) [127-128] [1]
+                            Limit [121-128] [LIMIT 1]
+                              IntLiteral(1) [127-128] [1]
                       Alias [130-141] [as subquery]
                         Identifier(subquery) [133-141] [subquery]
 --

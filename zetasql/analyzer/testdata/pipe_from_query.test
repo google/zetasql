@@ -1,3 +1,4 @@
+[default language_features=NONE]
 from TestTable
 --
 ERROR: Syntax error: Unexpected FROM [at 1:1]
@@ -26,7 +27,7 @@ select ARRAY(from TestTable)
              ^
 ==
 
-[default language_features=PIPES,PIPE_STATIC_DESCRIBE]
+[default language_features=NONE,+PIPES,+PIPE_STATIC_DESCRIBE]
 from TestTable
 --
 QueryStmt
@@ -693,6 +694,11 @@ QueryStmt
         |       Value -> STRING (q1.Value#4) (implicit)
         |     Range variables:
         |       q1 -> RANGE_VARIABLE<Key,Value>
+        |
+        |   **Common table expressions**:
+        |   Name  Columns
+        |   ----  ----------
+        |   q1    Key, Value
         |   """
         +-input_scan=
           +-WithRefScan(column_list=q1.[Key#3, Value#4], with_query_name="q1")
@@ -802,7 +808,7 @@ QueryStmt
     +-column_index_list=[0]
 ==
 
-[language_features=PIPES,TABLESAMPLE]
+[language_features=NONE,+PIPES,+TABLESAMPLE]
 # Test FROM query with TABLESAMPLE on a value table.
 FROM TestExtraValueTable TABLESAMPLE bernoulli(5 ROWS)
 --
@@ -821,7 +827,7 @@ QueryStmt
     +-unit=ROWS
 ==
 
-[language_features=PIPES,PIVOT]
+[language_features=NONE,+PIPES,+PIVOT]
 # Test FROM query with PIVOT postfix operator.
 FROM KeyValue PIVOT(sum(key) FOR value IN ('x'))
 --
@@ -869,7 +875,7 @@ CreateTableAsSelectStmt
 
 # CTAS with a column list is a different case, but does not support
 # value tables.
-[language_features=PIPES,CREATE_TABLE_AS_SELECT_COLUMN_LIST]
+[language_features=NONE,+PIPES,+CREATE_TABLE_AS_SELECT_COLUMN_LIST]
 create table T (col zetasql_test__.TestExtraPB) as
 from TestExtraValueTable v
 |> select v
@@ -950,7 +956,7 @@ CreateModelStmt
 
 # CREATE TVF is another statement with a different code path for handling
 # output_column_list and is_value_table.
-[language_features=PIPES,CREATE_TABLE_FUNCTION]
+[language_features=NONE,+PIPES,+CREATE_TABLE_FUNCTION]
 create table function TVF() AS (
   from TestExtraValueTable
   |> where true
@@ -974,7 +980,7 @@ CreateTableFunctionStmt
 ==
 
 # CREATE TVF with a non-value-table.
-[language_features=PIPES,CREATE_TABLE_FUNCTION]
+[language_features=NONE,+PIPES,+CREATE_TABLE_FUNCTION]
 create table function TVF() AS (
   from KeyValue
   |> where true
@@ -1753,6 +1759,11 @@ QueryStmt
         |       key -> INT32 (q.key#6) (implicit)
         |     Range variables:
         |       q -> RANGE_VARIABLE<key,TestEnum,AnotherTestEnum>
+        |
+        |   **Common table expressions**:
+        |   Name  Columns
+        |   ----  ------------------------------
+        |   q     key, TestEnum, AnotherTestEnum
         |   """
         +-input_scan=
           +-WithRefScan(column_list=q.[key#6, TestEnum#7, AnotherTestEnum#8], with_query_name="q")
@@ -1761,7 +1772,7 @@ QueryStmt
 # Test a WITH RECURSIVE case with pseudo-columns, which has a different code
 # path for making the SetOperationItems.
 # The pseudo-columns are pruned from the column_lists.
-[language_features=PIPES,WITH_RECURSIVE,PIPE_STATIC_DESCRIBE]
+[language_features=NONE,+PIPES,+WITH_RECURSIVE,+PIPE_STATIC_DESCRIBE]
 WITH RECURSIVE q AS ((FROM EnumTable
                       |> WHERE Filename='x')
                      UNION ALL
@@ -1823,6 +1834,11 @@ QueryStmt
     |   |       key -> INT32 (q.key#12) (implicit)
     |   |     Range variables:
     |   |       q -> RANGE_VARIABLE<key,TestEnum,AnotherTestEnum>
+    |   |
+    |   |   **Common table expressions**:
+    |   |   Name  Columns
+    |   |   ----  ------------------------------
+    |   |   q     key, TestEnum, AnotherTestEnum
     |   |   """
     |   +-input_scan=
     |     +-WithRefScan(column_list=q.[key#12, TestEnum#13, AnotherTestEnum#14], with_query_name="q")
@@ -1830,7 +1846,7 @@ QueryStmt
 ==
 
 # FROM doing an array scan of column and field path on a table.
-[language_features=PIPES,SINGLE_TABLE_NAME_ARRAY_PATH,PIPE_STATIC_DESCRIBE]
+[language_features=NONE,+PIPES,+SINGLE_TABLE_NAME_ARRAY_PATH,+PIPE_STATIC_DESCRIBE]
 from TestTable.KitchenSink.nested_value.nested_repeated_int64
 |> STATIC_DESCRIBE
 --
@@ -1873,7 +1889,7 @@ QueryStmt
 ==
 
 # FROM doing an array scan of column and field path on a table, with flattening.
-[language_features=PIPES,SINGLE_TABLE_NAME_ARRAY_PATH,UNNEST_AND_FLATTEN_ARRAYS,PIPE_STATIC_DESCRIBE]
+[language_features=NONE,+PIPES,+SINGLE_TABLE_NAME_ARRAY_PATH,+UNNEST_AND_FLATTEN_ARRAYS,+PIPE_STATIC_DESCRIBE]
 from TestTable.KitchenSink.nested_repeated_value.nested_repeated_int64
 |> STATIC_DESCRIBE
 --

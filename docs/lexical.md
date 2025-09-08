@@ -429,6 +429,77 @@ what you can do with a raw literal.
 </tbody>
 </table>
 
+Like in many other languages, such as Python and C++, you can divide a
+ZetaSQL string or bytes literal into chunks, each with its own quoting
+or raw specification. The literal value is the concatenation of all these parts.
+
+This is useful for a variety of purposes, including readability, organization,
+formatting and maintainability, for example:
+
++   You can break a literal into multiple chunks fit into a width of 80
+    characters.
++   You can break a literal into chunks of different quotings and raw
+    specifications to avoid escaping. For example, a string value inside a
+    `JSON` string.
++   You can change only one part of a literal through a macro, while the rest of
+    the literal is unchanged.
++   You can use string literal concatenation in other literals that include
+    strings such as `DATE`, `TIMESTAMP`, `JSON`, etc.
+
+The following restrictions apply to these literal concatenations:
+
++   You can't mix string and byte literals.
++   You must ensure there is some separation between the concatenated parts,
+    such as whitespace or comments.
++   `r` specifiers apply only to the immediate chunk, not the rest of the
+    literal parts.
++   Quoted identifiers don't concatenate.
+
+Examples:
+
+<table>
+<thead>
+<tr>
+  <th>Literals divided into chunks</th>
+  <th>Equivalent literals</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<pre><code class="lang-sql">SELECT
+ r'\n' /*Only the prev is raw!*/ '\n' "b" """c"d"e""" '''f'g'h''' "1" "2",
+ br'\n'/*Only the prev is raw!*/ b'\n' b"b" b"""c"d"e""" b'''f'g'h''' b"1" b"2",
+  NUMERIC "1" r'2',
+  DECIMAL /*whole:*/ '1' /*fractional:*/ ".23" /*exponent=*/ "e+6",
+  BIGNUMERIC '1' r"2",
+  BIGDECIMAL /*sign*/ '-' /*whole:*/ '1' /*fractional:*/ ".23" /*exponent=*/ "e+6",
+  RANGE&lt;DATE&gt; '[2014-01-01,' /*comment*/ "2015-01-01)",
+  DATE '2014' "-01-01",
+  DATETIME '2016-01-01 ' r"12:00:00",
+  TIMESTAMP '2018-10-01 ' "12:00:00+08"
+</code>
+</pre>
+</td>
+<td>
+<pre><code class="lang-sql">SELECT
+ "\\n\nbc\"d\"ef'g'h12",
+ b"\\n\nbc\"d\"ef'g'h12",
+  NUMERIC "12",
+  DECIMAL '1.23e+6',
+  BIGNUMERIC '12',
+  BIGDECIMAL "-1.23e+6",
+  RANGE&lt;DATE&gt; '[2014-01-01 2015-01-01)',
+  DATE '2014-01-01',
+  DATETIME '2016-01-01 12:00:00',
+  TIMESTAMP "2018-10-01 12:00:00+08"
+</code>
+</pre>
+</td>
+</tr>
+</tbody>
+</table>
+
 #### Escape sequences for string and bytes literals 
 <a id="escape_sequences"></a>
 

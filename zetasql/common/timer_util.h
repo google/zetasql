@@ -55,7 +55,9 @@ class ResourceMeasurement {
   }
   int64_t wall_nanos_;
   int64_t cpu_nanos_ = ThreadCPUNanos();
+#ifndef __EMSCRIPTEN__
   ThreadStackStats stack_stats_ = GetCurrentThreadStackStats();
+#endif  // __EMSCRIPTEN__
 
  public:
   // CreateStart makes sure to take wall time measurement first, so that
@@ -101,8 +103,10 @@ class TimedValue {
   TimedValue(const ResourceMeasurement& start, const ResourceMeasurement& end) {
     wall_time_ = absl::Nanoseconds(end.wall_nanos_ - start.wall_nanos_);
     cpu_time_ = absl::Nanoseconds(end.cpu_nanos_ - start.cpu_nanos_);
+#ifndef __EMSCRIPTEN__
     stack_available_bytes_ = start.stack_stats_.ThreadStackAvailableBytes();
     stack_peak_used_bytes_ = end.stack_stats_.ThreadStackPeakUsedBytes();
+#endif  // __EMSCRIPTEN__
   }
 
   ExecutionStats ToExecutionStatsProto() const {
@@ -165,8 +169,10 @@ class ScopedTimer {
   explicit ScopedTimer(TimedValue* timed_value)
       : timed_value_(timed_value), timer_(MakeTimerStarted()) {
     ABSL_DCHECK(timed_value_ != nullptr);
+#ifndef __EMSCRIPTEN__
     original_stack_usage_ =
         GetCurrentThreadStackStats().ResetPeakStackUsedBytes();
+#endif  // __EMSCRIPTEN__
   }
   ScopedTimer() = delete;
   ScopedTimer(const ScopedTimer&) = delete;
@@ -176,8 +182,10 @@ class ScopedTimer {
   void EndTiming() {
     if (timed_value_ != nullptr) {
       timed_value_->Accumulate(timer_);
+#ifndef __EMSCRIPTEN__
       GetCurrentThreadStackStats().MergeStackEstimatedUsage(
           original_stack_usage_);
+#endif  // __EMSCRIPTEN__
     }
     timed_value_ = nullptr;
   }
@@ -185,7 +193,9 @@ class ScopedTimer {
  private:
   TimedValue* timed_value_;
   ElapsedTimer timer_;
+#ifndef __EMSCRIPTEN__
   ThreadStackEstimatedUsage original_stack_usage_;
+#endif  // __EMSCRIPTEN__
 };
 
 // Create a scoped timer which updates TimedValue when it goes out of scope.

@@ -2510,3 +2510,20 @@ ARRAY<STRUCT<
                {11, "a"},
                {13, "a"},
                {15, "a"}]
+==
+
+[name=group_by_rollup_struct_constructor]
+[required_features=MATCH_MAKE_STRUCT_IN_GROUP_BY,GROUP_BY_STRUCT,GROUP_BY_ROLLUP]
+SELECT STRUCT(x)
+FROM (SELECT 1 AS x) GROUP BY ROLLUP(STRUCT(x), STRUCT(x))
+--
+ARRAY<STRUCT<STRUCT<x INT64>>>[unknown order:{NULL}, {{1}}, {{1}}]
+==
+
+[name=grouping_function_supports_struct_constructor]
+[required_features=GROUPING_BUILTIN,GROUP_BY_STRUCT,MATCH_MAKE_STRUCT_IN_GROUP_BY]
+SELECT STRUCT(x), GROUPING(STRUCT(x)) as s
+FROM (SELECT 1 AS x) GROUP BY STRUCT(x)
+--
+ARRAY<STRUCT<STRUCT<x INT64>, s INT64>>[{{1}, 0}]
+

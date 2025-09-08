@@ -12,7 +12,8 @@ CREATE TABLE DynamicGraphNode AS
 (SELECT 4 AS id, "account" AS nodeLabelCol, 4000 AS code, JSON '{"name": "Checking"}' AS nodePropCol) UNION ALL
 (SELECT 5 AS id, "account" AS nodeLabelCol, 5000 AS code, JSON '{"name": "Saving"}' AS nodePropCol) UNION ALL
 (SELECT 6 as id, "account" AS nodeLabelCol, 6000 AS code, JSON '{"name": "Saving"}' AS nodePropCol) UNION ALL
-(SELECT 7 as id, CAST(NULL AS STRING) AS nodeLabelCol, NULL AS code, CAST(NULL AS JSON) AS nodePropCol)
+(SELECT 7 as id, CAST(NULL AS STRING) AS nodeLabelCol, NULL AS code, CAST(NULL AS JSON) AS nodePropCol) UNION ALL
+(SELECT 9 as id, "" AS nodeLabelCol, 9000 AS code, JSON '{"name": "EmptyVal"}' AS nodePropCol)
 --
 ARRAY<STRUCT<id INT64, nodeLabelCol STRING, code INT64, nodePropCol JSON>>[
   {1, "person", 1000, {"name":"Alice"}},
@@ -27,7 +28,8 @@ ARRAY<STRUCT<id INT64, nodeLabelCol STRING, code INT64, nodePropCol JSON>>[
   {4, "account", 4000, {"name":"Checking"}},
   {5, "account", 5000, {"name":"Saving"}},
   {6, "account", 6000, {"name":"Saving"}},
-  {7, NULL, NULL, NULL}
+  {7, NULL, NULL, NULL},
+  {9, "", 9000, {"name":"EmptyVal"}}
 ]
 ==
 [prepare_database]
@@ -331,7 +333,8 @@ ARRAY<STRUCT<
              {1005, true},
              {1006, true},
              {1007, true},
-             {1008, true}]
+             {1008, true},
+             {1009, true}]
 ==
 
 [name=is_labeled_static_label_aml_dynamic_label_dynamic_properties]
@@ -355,7 +358,8 @@ ARRAY<STRUCT<
              {1005, true},
              {1006, true},
              {1007, true},
-             {1008, true}]
+             {1008, true},
+             {1009, true}]
 ==
 
 [name=is_labeled_static_label_aml_static_label_dynamic_properties]
@@ -386,7 +390,8 @@ ARRAY<STRUCT<
              {1005, true},
              {1006, true},
              {1007, true},
-             {1008, true}]
+             {1008, true},
+             {1009, true}]
 ==
 
 [name=is_labeled_dynamic_label_aml_dynamic_label_static_properties]
@@ -410,7 +415,8 @@ ARRAY<STRUCT<
              {1005, true},
              {1006, true},
              {1007, false},
-             {1008, false}]
+             {1008, false},
+             {1009, false}]
 ==
 
 [name=is_labeled_dynamic_label_aml_dynamic_label_dynamic_properties]
@@ -434,7 +440,8 @@ ARRAY<STRUCT<
              {1005, false},
              {1006, false},
              {1007, false},
-             {1008, false}]
+             {1008, false},
+             {1009, false}]
 ==
 
 ###############################################################################
@@ -1413,12 +1420,6 @@ ARRAY<STRUCT<from_node_id INT64, to_node_id INT64, node_json JSON, edge_json JSO
     NULL,
     NULL,
     {"kind":"node","labels":["Person"],"properties":{"id":1,"name":"name1"}},
-    {"kind":"edge","labels":["Knows"],"properties":{"from_person_id":1,"id":200,"since":"2000-01-02T08:00:00Z","to_person_id":2}}
-  },
-  {
-    NULL,
-    NULL,
-    {"kind":"node","labels":["Person"],"properties":{"id":1,"name":"name1"}},
     {"kind":"edge","labels":["Knows"],"properties":{"from_person_id":1,"id":100,"since":"2000-01-01T08:00:00Z","to_person_id":1}}
   },
   {
@@ -1426,6 +1427,12 @@ ARRAY<STRUCT<from_node_id INT64, to_node_id INT64, node_json JSON, edge_json JSO
     NULL,
     {"kind":"node","labels":["Person"],"properties":{"id":2,"name":"name2"}},
     {"kind":"edge","labels":["Knows"],"properties":{"from_person_id":2,"id":300,"since":"2000-01-03T08:00:00Z","to_person_id":1}}
+  },
+  {
+    NULL,
+    NULL,
+    {"kind":"node","labels":["Person"],"properties":{"id":1,"name":"name1"}},
+    {"kind":"edge","labels":["Knows"],"properties":{"from_person_id":1,"id":200,"since":"2000-01-02T08:00:00Z","to_person_id":2}}
   },
   {
     1,

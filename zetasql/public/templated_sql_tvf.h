@@ -54,6 +54,9 @@ class TableValuedFunctionProto;
 // may have templated types like "ANY TYPE" or "ANY TABLE". In this case,
 // ZetaSQL cannot resolve the <query> right away and must defer this work
 // until later when the function is called with concrete argument types.
+//
+// The current implementation only supports a single table function signature.
+// TODO - Support multiple signatures in a TemplatedSQLTVF.
 class TemplatedSQLTVF : public TableValuedFunction {
  public:
   // Constructs a new templated SQL TVF named <function_name_path>, with a
@@ -83,7 +86,8 @@ class TemplatedSQLTVF : public TableValuedFunction {
                   const ParseResumeLocation& parse_resume_location,
                   std::unique_ptr<AnonymizationInfo> anonymization_info,
                   TableValuedFunctionOptions tvf_options)
-      : TableValuedFunction(function_name_path, signature,
+      : TableValuedFunction(function_name_path, /*group=*/"",
+                            std::vector<FunctionSignature>{signature},
                             std::move(anonymization_info), tvf_options),
         arg_name_list_(arg_name_list),
         parse_resume_location_(parse_resume_location) {}
@@ -131,7 +135,7 @@ class TemplatedSQLTVF : public TableValuedFunction {
       const std::vector<TVFInputArgumentType>& input_arguments,
       const FunctionSignature& concrete_signature, Catalog* catalog,
       TypeFactory* type_factory,
-      std::shared_ptr<TVFSignature>* tvf_signature) const override;
+      std::shared_ptr<TVFSignature>* tvf_signature) const final;
 
   ParseResumeLocation GetParseResumeLocation() const {
     return parse_resume_location_;

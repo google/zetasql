@@ -4,6 +4,7 @@
 # Hints with qualifier "qual" are intended for this engine, and others should
 # be ignored.  We also enforce that only known hints are allowed unqualified.
 
+[default language_features=NONE]
 [default use_hints_allowlist]
 
 select @{ bad_hint=123 } 1
@@ -822,7 +823,7 @@ CREATE FUNCTION F(x int64) OPTIONS(int64_option = (x)) as (1);
                                                    ^
 ==
 
-[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+CREATE_TABLE_FUNCTION]
 CREATE TABLE FUNCTION F(x int64) OPTIONS(int64_option = (x)) as select 1 as p;
 --
 ERROR: Unrecognized name: x [at 1:58]
@@ -857,7 +858,7 @@ CreateFunctionStmt
               +-SingleRowScan
 ==
 
-[language_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS,+CREATE_TABLE_FUNCTION]
 
 CREATE TABLE FUNCTION F(x int64) as
 select @{qual.int64_hint=(x)} 1 as p;
@@ -884,7 +885,7 @@ CreateTableFunctionStmt
   +-$query.p#1 AS p [INT64]
 ==
 
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+[language_features=NONE,+ENABLE_ALTER_ARRAY_OPTIONS]
 CREATE {{SCHEMA|TABLE|EXTERNAL TABLE}} foo OPTIONS (string_array_allow_alter_option += ['str1', 'str2']);
 --
 ALTERNATION GROUP: SCHEMA
@@ -906,7 +907,7 @@ CREATE EXTERNAL TABLE foo OPTIONS (string_array_allow_alter_option += ['str1'...
                                    ^
 ==
 
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS,CREATE_TABLE_LIKE]
+[language_features=NONE,+ENABLE_ALTER_ARRAY_OPTIONS,+CREATE_TABLE_LIKE]
 CREATE TABLE foo LIKE KeyValue OPTIONS (string_array_allow_alter_option += ['str1', 'str2']) AS SELECT * FROM KeyValue;
 --
 ERROR: Operators '+=' and '-=' are not allowed for option string_array_allow_alter_option [at 1:41]
@@ -914,7 +915,7 @@ CREATE TABLE foo LIKE KeyValue OPTIONS (string_array_allow_alter_option += ['...
                                         ^
 ==
 
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS,CREATE_TABLE_COPY,CREATE_TABLE_CLONE]
+[language_features=NONE,+ENABLE_ALTER_ARRAY_OPTIONS,+CREATE_TABLE_COPY,+CREATE_TABLE_CLONE]
 CREATE TABLE foo {{COPY|CLONE}} bar OPTIONS (string_array_allow_alter_option += ['str1', 'str2']);
 --
 ALTERNATION GROUP: COPY
@@ -930,7 +931,7 @@ CREATE TABLE foo CLONE bar OPTIONS (string_array_allow_alter_option += ['str1...
                                     ^
 ==
 
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS,CREATE_SNAPSHOT_TABLE]
+[language_features=NONE,+ENABLE_ALTER_ARRAY_OPTIONS,+CREATE_SNAPSHOT_TABLE]
 CREATE SNAPSHOT TABLE foo CLONE KeyValue OPTIONS (string_array_allow_alter_option += ['str1', 'str2']);
 --
 ERROR: Operators '+=' and '-=' are not allowed for option string_array_allow_alter_option [at 1:51]
@@ -938,7 +939,7 @@ CREATE SNAPSHOT TABLE foo CLONE KeyValue OPTIONS (string_array_allow_alter_op...
                                                   ^
 ==
 
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+[language_features=NONE,+ENABLE_ALTER_ARRAY_OPTIONS]
 CREATE {{VIEW|MATERIALIZED VIEW}} foo OPTIONS (string_array_allow_alter_option += ['str1', 'str2']) AS SELECT * FROM bar;
 --
 ALTERNATION GROUP: VIEW
@@ -954,7 +955,7 @@ CREATE MATERIALIZED VIEW foo OPTIONS (string_array_allow_alter_option += ['st...
                                       ^
 ==
 
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS,EXTERNAL_SCHEMA_DDL]
+[language_features=NONE,+ENABLE_ALTER_ARRAY_OPTIONS,+EXTERNAL_SCHEMA_DDL]
 CREATE EXTERNAL SCHEMA foo WITH CONNECTION connection1 OPTIONS (string_array_allow_alter_option += ['str1', 'str2']);
 --
 ERROR: Operators '+=' and '-=' are not allowed for option string_array_allow_alter_option [at 1:65]
@@ -962,7 +963,7 @@ ERROR: Operators '+=' and '-=' are not allowed for option string_array_allow_alt
                                                    ^
 ==
 
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+[language_features=NONE,+ENABLE_ALTER_ARRAY_OPTIONS]
 create FUNCTION foo() as (100) OPTIONS (string_array_allow_alter_option += ['str1', 'str2']) ;
 --
 ERROR: Operators '+=' and '-=' are not allowed for option string_array_allow_alter_option [at 1:41]
@@ -970,7 +971,7 @@ create FUNCTION foo() as (100) OPTIONS (string_array_allow_alter_option += ['...
                                         ^
 ==
 
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+[language_features=NONE,+ENABLE_ALTER_ARRAY_OPTIONS]
 CREATE PROCEDURE foo() OPTIONS(string_array_allow_alter_option += ['str1', 'str2'])
 BEGIN
   SELECT 1;
@@ -982,7 +983,7 @@ CREATE PROCEDURE foo() OPTIONS(string_array_allow_alter_option += ['str1', 's...
                                ^
 ==
 
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+[language_features=NONE,+ENABLE_ALTER_ARRAY_OPTIONS]
 ALTER TABLE abTable ADD COLUMN c STRING OPTIONS (string_array_allow_alter_option += ['str1', 'str2']);
 --
 ERROR: Operators '+=' and '-=' are not allowed for option string_array_allow_alter_option [at 1:50]
@@ -1005,7 +1006,7 @@ ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_allow_alter_opti...
                                                 ^
 ==
 
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+[language_features=NONE,+ENABLE_ALTER_ARRAY_OPTIONS]
 ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_allow_alter_option {{+=|-=}} ['str1', 'str2']);
 --
 ALTERNATION GROUP: +=
@@ -1031,7 +1032,7 @@ AlterTableStmt
         +-Literal(type=ARRAY<STRING>, value=["str1", "str2"])
 ==
 
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+[language_features=NONE,+ENABLE_ALTER_ARRAY_OPTIONS]
 ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_allow_alter_option -= ['str1', 'str2'], enum_array_allow_alter_option += array<zetasql_test__.TestEnum>[1,2])
 --
 AlterTableStmt
@@ -1046,7 +1047,7 @@ AlterTableStmt
         +-Literal(type=ARRAY<ENUM<zetasql_test__.TestEnum>>, value=[TESTENUM1, TESTENUM2], has_explicit_type=TRUE)
 ==
 
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+[language_features=NONE,+ENABLE_ALTER_ARRAY_OPTIONS]
 ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_option {{+=|-=}} ['str1', 'str2']);
 --
 ALTERNATION GROUP: +=
@@ -1062,7 +1063,7 @@ ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_option -= ['str1...
                                                 ^
 ==
 
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+[language_features=NONE,+ENABLE_ALTER_ARRAY_OPTIONS]
 ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_option {{+=|-=}} 'str1');
 --
 ALTERNATION GROUP: +=
@@ -1129,7 +1130,7 @@ ALTER MATERIALIZED VIEW foo SET OPTIONS (string_array_allow_alter_option -= [...
                                          ^
 ==
 
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+[language_features=NONE,+ENABLE_ALTER_ARRAY_OPTIONS]
 ALTER {{SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo SET OPTIONS (string_array_allow_alter_option {{+=|-=}} ['str1', 'str2']);
 --
 ALTERNATION GROUP: SCHEMA,+=
@@ -1209,7 +1210,7 @@ AlterMaterializedViewStmt
         +-Literal(type=ARRAY<STRING>, value=["str1", "str2"])
 ==
 
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+[language_features=NONE,+ENABLE_ALTER_ARRAY_OPTIONS]
 ALTER {{SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo SET OPTIONS (string_array_allow_alter_option -= ['str1', 'str2'], enum_array_allow_alter_option += array<zetasql_test__.TestEnum>[1,2])
 --
 ALTERNATION GROUP: SCHEMA
@@ -1259,7 +1260,7 @@ AlterMaterializedViewStmt
         +-Literal(type=ARRAY<ENUM<zetasql_test__.TestEnum>>, value=[TESTENUM1, TESTENUM2], has_explicit_type=TRUE)
 ==
 
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+[language_features=NONE,+ENABLE_ALTER_ARRAY_OPTIONS]
 ALTER {{SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo SET OPTIONS (string_array_option {{+=|-=}} ['str1', 'str2']);
 --
 ALTERNATION GROUP: SCHEMA,+=
@@ -1311,7 +1312,7 @@ ALTER MATERIALIZED VIEW foo SET OPTIONS (string_array_option -= ['str1', 'str...
                                          ^
 ==
 
-[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+[language_features=NONE,+ENABLE_ALTER_ARRAY_OPTIONS]
 ALTER {{SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo SET OPTIONS (string_option {{+=|-=}} 'str1');
 --
 ALTERNATION GROUP: SCHEMA,+=

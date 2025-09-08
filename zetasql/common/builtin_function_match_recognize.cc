@@ -60,6 +60,8 @@ void GetMatchRecognizeFunctions(TypeFactory* type_factory,
           .set_supports_window_framing(false)
           .set_window_ordering_support(FunctionEnums::ORDER_UNSUPPORTED)
           .set_supports_group_by_modifier(false)
+          .set_supports_where_modifier(false)
+          .set_supports_having_filter_modifier(false)
           .AddRequiredLanguageFeature(FEATURE_MATCH_RECOGNIZE);
 
   // FIRST<T>(T) -> T

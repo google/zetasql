@@ -16,14 +16,16 @@
 
 """ Macros for the creation of parser test targets """
 
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 # buildifier: disable=unnamed-macro
 def gen_parser_test(filename):
     """ Create a parser_test using queries in testdata/<filename>.  """
     name = "parser_" + filename.replace(".", "_")
     datafile = "testdata/" + filename
-    native.cc_test(
+    cc_test(
         name = name,
-        size = "large" if name.endswith("_alternations_test") else "small",
+        size = "large" if name.endswith("_alternations_test") else "medium",
         data = [datafile],
         deps = [":run_parser_test_lib"],
         args = ["--test_file=$(location " + datafile + ")"],

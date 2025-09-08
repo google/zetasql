@@ -1,6 +1,6 @@
 # Tests the builtin function inliner
 [default enabled_ast_rewrites=ALL,-WITH_EXPR]
-[default language_features=SAFE_FUNCTION_CALL,INLINE_LAMBDA_ARGUMENT,LATERAL_JOIN]
+[default language_features=MAXIMUM,+SAFE_FUNCTION_CALL,+INLINE_LAMBDA_ARGUMENT,+LATERAL_JOIN]
 [enabled_ast_rewrites=ALL,{{|-WITH_EXPR}}]
 SELECT
   {{SAFE.|}}builtin_rewrites_to_lateral_join(CAST(a + rand() AS INT64))

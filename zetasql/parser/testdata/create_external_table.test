@@ -1,4 +1,4 @@
-[default language_features=ORDERED_PRIMARY_KEYS]
+[default language_features=NONE,+ORDERED_PRIMARY_KEYS]
 create external table t1
 options (a=b, c="def")
 --
@@ -205,14 +205,14 @@ CREATE OR REPLACE TEMP EXTERNAL TABLE IF NOT EXISTS T OPTIONS()
 # The error is a bit strange here because of the lookahead we need to use.
 create temporary or replace external table t
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword OR [at 1:18]
+ERROR: Syntax error: Unexpected keyword OR [at 1:18]
 create temporary or replace external table t
                  ^
 ==
 
 create external table t1
 --
-ERROR: Syntax error: Expected keyword OPTIONS [at 1:25]
+ERROR: Syntax error: Unexpected end of statement [at 1:25]
 create external table t1
                         ^
 ==
@@ -220,9 +220,9 @@ create external table t1
 create external table t1
 as select 1
 --
-ERROR: Syntax error: Expected keyword OPTIONS [at 1:25]
-create external table t1
-                        ^
+ERROR: Syntax error: Unexpected keyword AS [at 2:1]
+as select 1
+^
 ==
 
 create external table t1
@@ -236,9 +236,9 @@ as select 1
 
 create external table T if not exists options () as select 1
 --
-ERROR: Syntax error: Expected keyword OPTIONS [at 1:24]
+ERROR: Syntax error: Unexpected keyword IF [at 1:25]
 create external table T if not exists options () as select 1
-                       ^
+                        ^
 ==
 
 # CREATE EXTERNAL TABLE FUNCTION.
@@ -581,7 +581,7 @@ CREATE EXTERNAL TABLE t1
 create external table t1(x int64)
 
 --
-ERROR: Syntax error: Expected keyword OPTIONS [at 1:34]
+ERROR: Syntax error: Expected keyword DEFAULT or keyword LIKE or keyword OPTIONS or keyword WITH but got end of statement [at 1:34]
 create external table t1(x int64)
                                  ^
 ==
@@ -668,27 +668,27 @@ create external table projectid.datasetid.tablename
 partition by (key)
 options (a=b)
 --
-ERROR: Syntax error: Expected keyword OPTIONS [at 1:52]
-create external table projectid.datasetid.tablename
-                                                   ^
+ERROR: Syntax error: Unexpected keyword PARTITION [at 2:1]
+partition by (key)
+^
 ==
 
 create external table projectid.datasetid.tablename
 cluster by y
 options ()
 --
-ERROR: Syntax error: Expected keyword OPTIONS [at 1:52]
-create external table projectid.datasetid.tablename
-                                                   ^
+ERROR: Syntax error: Unexpected keyword CLUSTER [at 2:1]
+cluster by y
+^
 ==
 
 create external table projectid.datasetid.tablename(x int64, y int64)
 partitioned by x
 options ()
 --
-ERROR: Syntax error: Expected keyword OPTIONS [at 1:70]
-create external table projectid.datasetid.tablename(x int64, y int64)
-                                                                     ^
+ERROR: Syntax error: Expected keyword DEFAULT or keyword LIKE or keyword OPTIONS or keyword WITH but got identifier "partitioned" [at 2:1]
+partitioned by x
+^
 ==
 
 create external table a.b.c.T()
@@ -701,7 +701,7 @@ create external table a.b.c.T()
 
 create external table T
 --
-ERROR: Syntax error: Expected keyword OPTIONS [at 1:24]
+ERROR: Syntax error: Unexpected end of statement [at 1:24]
 create external table T
                        ^
 ==
@@ -710,12 +710,12 @@ create external table a.b.c.T(x int64)
 clustered by x
 options ()
 --
-ERROR: Syntax error: Expected keyword OPTIONS [at 1:39]
-create external table a.b.c.T(x int64)
-                                      ^
+ERROR: Syntax error: Expected keyword DEFAULT or keyword LIKE or keyword OPTIONS or keyword WITH but got identifier "clustered" [at 2:1]
+clustered by x
+^
 ==
 
-[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features=NONE,{{|+ALLOW_DASHES_IN_TABLE_NAME}}]
 create external table t1-2
 options (a=b, c="def")
 --
@@ -725,7 +725,7 @@ ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `
 create external table t1-2
                       ^
 --
-ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: +ALLOW_DASHES_IN_TABLE_NAME
 --
 CreateExternalTableStatement [0-49] [create external..., c="def")]
   PathExpression [22-26] [t1-2]
@@ -889,9 +889,9 @@ create external table projectid.datasetid.tablename(x int64)
 with connection
 options (x=f2)
 --
-ERROR: Syntax error: Expected keyword OPTIONS [at 3:8]
+ERROR: Syntax error: Expected keyword OPTIONS but got "(" [at 3:9]
 options (x=f2)
-       ^
+        ^
 
 ==
 
@@ -1020,9 +1020,9 @@ with connection `project.us-west-2.connection_1`
 with partition columns
 options (x=bar)
 --
-ERROR: Syntax error: Expected keyword OPTIONS [at 2:49]
-with connection `project.us-west-2.connection_1`
-                                                ^
+ERROR: Syntax error: Expected keyword OPTIONS but got keyword WITH [at 3:1]
+with partition columns
+^
 ==
 
 # WITH CLAUSE order: PARTITION COLUMNS, CONNECTION
@@ -1267,7 +1267,7 @@ CREATE EXTERNAL TABLE t1
 ) OPTIONS()
 ==
 
-[language_features=]
+[language_features=NONE]
 create external table t1 (a int32, PRIMARY KEY(a {{|ASC|DESC}})) options ()
 --
 ALTERNATION GROUP: <empty>

@@ -1,4 +1,4 @@
-[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,BRACED_PROTO_CONSTRUCTORS]
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+BRACED_PROTO_CONSTRUCTORS]
 [default no_test_extract_table_names]
 # No unparser due to SQLBuilder visitor not implemented for GraphMakeElement
 

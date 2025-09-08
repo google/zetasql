@@ -30,6 +30,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "absl/algorithm/container.h"
+#include "absl/base/no_destructor.h"
 #include "absl/base/optimization.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
@@ -850,10 +851,13 @@ std::string ToAlwaysQuotedIdentifierLiteral(absl::string_view str) {
 
 std::string ToIdentifierLiteral(absl::string_view str,
                                 bool quote_reserved_keywords) {
-  LanguageOptions language_options;
-  language_options.EnableAllReservableKeywords();
+  static const absl::NoDestructor<const LanguageOptions> kLanguageOptions([] {
+    LanguageOptions language_options;
+    language_options.EnableAllReservableKeywords();
+    return language_options;
+  }());
 
-  return IsValidUnquotedIdentifier(str, language_options,
+  return IsValidUnquotedIdentifier(str, *kLanguageOptions,
                                    !quote_reserved_keywords) &&
                  !parser::NonReservedIdentifierMustBeBackquoted(str)
              ? std::string(str)

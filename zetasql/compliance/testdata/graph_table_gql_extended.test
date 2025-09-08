@@ -1265,6 +1265,22 @@ select * from graph_table(aml
 --
 ARRAY<STRUCT<r1 INT64>>[{6}]
 ==
+[name=horizontal_aggregation_version_of_b789907559]
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,ORDER_BY_IN_AGGREGATE]
+select * from graph_table(aml
+  let x = [1,2,3]
+  let z = ARRAY_AGG(distinct x+1 order by x+1)
+  let z2 = ARRAY_AGG(distinct x+1 order by x+1)
+  return z, z2
+)
+--
+ARRAY<STRUCT<z ARRAY<>, z2 ARRAY<>>>[
+  {
+    ARRAY<INT64>[known order:2, 3, 4],
+    ARRAY<INT64>[known order:2, 3, 4]
+  }
+]
+==
 
 [default required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [name=fixed_quantified_test]
@@ -2297,37 +2313,37 @@ select * from graph_table(aml
   let flattened = flatten(e.amount)
   return x.account_id AS x_id, y.account_id AS y_id, flattened
 )
-order by x_id, y_id
+order by x_id, y_id, array_length(flattened)
 --
 ARRAY<STRUCT<x_id INT64, y_id INT64, flattened ARRAY<>>>[known order:
   {1010, 1010, ARRAY<INT64>[600]},
-  {1010, 1020, ARRAY<INT64>[100]},
+  {1010, 1020, ARRAY<INT64>[200]},
   {
     1010,
     1030,
-    ARRAY<INT64>[known order:100, 300]
+    ARRAY<INT64>[known order:100, 400]
   },
   {
     1020,
     1010,
-    ARRAY<INT64>[known order:400, 500]
+    ARRAY<INT64>[known order:300, 500]
   },
   {
     1020,
     1020,
-    ARRAY<INT64>[known order:400, 500, 200]
+    ARRAY<INT64>[known order:300, 500, 200]
   },
-  {1020, 1030, ARRAY<INT64>[300]},
+  {1020, 1030, ARRAY<INT64>[400]},
   {1030, 1010, ARRAY<INT64>[500]},
   {
     1030,
     1020,
-    ARRAY<INT64>[known order:500, 200]
+    ARRAY<INT64>[known order:500, 100]
   },
   {
     1030,
     1030,
-    ARRAY<INT64>[known order:500, 200, 400]
+    ARRAY<INT64>[known order:500, 100, 300]
   }
 ]
 
@@ -2475,16 +2491,16 @@ select * from graph_table(aml
   let hops = ARRAY_LENGTH(e)
   return x.account_id AS x_id, y.account_id AS y_id, hops
 )
-order by x_id, y_id
+order by x_id, y_id, hops
 --
 ARRAY<STRUCT<x_id INT64, y_id INT64, hops INT64>>[known order:
-  {1010, 1010, 3},
-  {1010, 1020, 2},
+  {1010, 1010, 4},
+  {1010, 1020, 3},
   {1010, 1030, 2},
   {1020, 1010, 2},
   {1020, 1020, 3},
   {1020, 1030, 4},
-  {1030, 1010, 4},
+  {1030, 1010, 2},
   {1030, 1020, 2},
   {1030, 1030, 3}
 ]
@@ -4665,3 +4681,31 @@ graph_table(aml
 order by k, e
 --
 ARRAY<STRUCT<k INT64, e INT64>>[known order:{1, NULL}, {2, 1}]
+
+==
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,JSON_TYPE,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,JSON_VALUE_EXTRACTION_FUNCTIONS]
+[name=properties_on_graph_element]
+graph aml
+match p=(a:Human)(b:HasId)
+return to_json(path_first(p)).properties as properties
+order by STRING(properties.name)
+--
+ARRAY<STRUCT<properties JSON>>[unknown order:
+  {{"id":100,"key_id":1,"name":"name1"}},
+  {{"id":100,"key_id":2,"name":"name2"}},
+  {{"id":100,"key_id":3,"name":"name3"}}
+]
+
+==
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_PATH_TYPE,JSON_TYPE,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,JSON_VALUE_EXTRACTION_FUNCTIONS]
+[name=properties_on_graph_element2]
+graph aml
+match p=(a:HasId)(b:Human)
+return to_json(path_first(p)).properties as properties
+order by STRING(properties.name)
+--
+ARRAY<STRUCT<properties JSON>>[unknown order:
+  {{"id":100,"key_id":1,"name":"name1"}},
+  {{"id":100,"key_id":2,"name":"name2"}},
+  {{"id":100,"key_id":3,"name":"name3"}}
+]

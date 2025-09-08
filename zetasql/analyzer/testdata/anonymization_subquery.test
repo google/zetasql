@@ -1,5 +1,5 @@
 # Specify WITH ANONYMIZATION with an EXISTS subquery.
-[default language_features=ANONYMIZATION,NUMERIC_TYPE]
+[default language_features=MAXIMUM,+ANONYMIZATION,+NUMERIC_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 
@@ -46,7 +46,7 @@ WHERE EXISTS(SELECT uid FROM SimpleTypesWithAnonymizationUid)
 ==
 
 # Specify WITH ANONYMIZATION with an EXISTS subquery.
-[language_features=ANONYMIZATION,NUMERIC_TYPE,TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+ANONYMIZATION,+NUMERIC_TYPE,+TABLE_VALUED_FUNCTIONS]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 SELECT WITH ANONYMIZATION ANON_COUNT(*) as aggregation_count
@@ -97,7 +97,7 @@ WHERE EXISTS(SELECT uid FROM tvf_no_args_with_anonymization_uid())
 ==
 
 # Specify WITH ANONYMIZATION with an EXISTS subquery.
-[language_features=ANONYMIZATION,NUMERIC_TYPE,TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+ANONYMIZATION,+NUMERIC_TYPE,+TABLE_VALUED_FUNCTIONS]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 SELECT 1
@@ -192,7 +192,7 @@ QueryStmt
 # ANONYMIZATION.
 # This query pattern is out of scope: the rewriter does nothing because there's
 # no DP entry point.
-[language_features=ANONYMIZATION,NUMERIC_TYPE,TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+ANONYMIZATION,+NUMERIC_TYPE,+TABLE_VALUED_FUNCTIONS]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 SELECT 1
@@ -233,7 +233,7 @@ WHERE EXISTS(SELECT * FROM SimpleTypesWithAnonymizationUid)
 # ANONYMIZATION.
 # This query pattern is out of scope: the rewriter does nothing because there's
 # no DP entry point.
-[language_features=ANONYMIZATION,NUMERIC_TYPE,TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+ANONYMIZATION,+NUMERIC_TYPE,+TABLE_VALUED_FUNCTIONS]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 SELECT 1
@@ -348,7 +348,7 @@ QueryStmt
 
 # Specify WITH ANONYMIZATION with an EXISTS subquery, and there is no 'uid' in
 # the subquery.
-[language_features=ANONYMIZATION,NUMERIC_TYPE,TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+ANONYMIZATION,+NUMERIC_TYPE,+TABLE_VALUED_FUNCTIONS]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT WITH ANONYMIZATION ANON_COUNT(*) as aggregation_count
 FROM SimpleTypesWithAnonymizationUid
@@ -1222,7 +1222,7 @@ Rewrite ERROR: Nested anonymization query is not implemented yet [at 7:9]
 
 # Count star counting unique users.
 # We should use this count for k_threshold.
-[language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,ANONYMIZATION_THRESHOLDING]
+[language_features=NONE,+ANONYMIZATION,+TABLE_VALUED_FUNCTIONS,+TEMPLATE_FUNCTIONS,+CREATE_TABLE_FUNCTION,+ANONYMIZATION_THRESHOLDING]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select  1
 from SimpleTypesWithAnonymizationUid where (

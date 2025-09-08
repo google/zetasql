@@ -840,6 +840,40 @@ class FunctionCallBuilder {
       std::unique_ptr<const ResolvedExpr> left_expr,
       std::unique_ptr<const ResolvedExpr> right_expr);
 
+  // Constructs a ResolvedAggregateFunctionCall for
+  // `HLL_COUNT.INIT(expr)`.
+  //
+  // Requires: `expr` must have a type that supports HLL_COUNT.INIT.
+  //
+  // The signature for the built-in function "HLL_COUNT.INIT" must be
+  // available in `catalog` or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedAggregateFunctionCall>> HllInit(
+      std::unique_ptr<const ResolvedExpr> expr);
+
+  // Constructs a ResolvedAggregateFunctionCall for
+  // `HLL_COUNT.MERGE_PARTIAL(expr)`.
+  //
+  // The signature for the built-in function "HLL_COUNT.MERGE_PARTIAL" must be
+  // available in `catalog` or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedAggregateFunctionCall>>
+  HllMergePartial(std::unique_ptr<const ResolvedExpr> expr);
+
+  // Constructs a ResolvedAggregateFunctionCall for
+  // `HLL_COUNT.MERGE(expr)`.
+  //
+  // The signature for the built-in function "HLL_COUNT.MERGE" must be
+  // available in `catalog` or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedAggregateFunctionCall>> HllMerge(
+      std::unique_ptr<const ResolvedExpr> expr);
+
+  // Constructs a ResolvedFunctionCall for
+  // `HLL_COUNT.EXTRACT(expr)`.
+  //
+  // The signature for the built-in function "HLL_COUNT.EXTRACT" must be
+  // available in `catalog` or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> HllExtract(
+      std::unique_ptr<const ResolvedExpr> expr);
+
  private:
   static AnnotationPropagator BuildAnnotationPropagator(
       const AnalyzerOptions& analyzer_options, TypeFactory& type_factory) {
@@ -878,6 +912,8 @@ class FunctionCallBuilder {
   // Construct a ResolvedFunctionCall of
   //  builtin_function_name(REPEATED <expressions>)
   // whose arguments have the same type and supports ordering.
+  // The function argument types for the args and the result type have an
+  // original argument kind ANY_1.
   absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
   FunctionCallWithSameTypeArgumentsSupportingOrdering(
       std::vector<std::unique_ptr<const ResolvedExpr>> expressions,
@@ -887,6 +923,11 @@ class FunctionCallBuilder {
   // found in the catalog.
   absl::Status GetBuiltinFunctionFromCatalog(absl::string_view function_name,
                                              const Function** fn_out);
+
+  // Returns a built-in function from the catalog, given its name path.
+  // Overwrite the error message if the function is not found.
+  absl::Status GetBuiltinFunctionFromCatalog(
+      absl::Span<const std::string> function_path, const Function** fn_out);
 
   // Shared logic for Less and LessOrEqual.
   absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Less(
@@ -980,6 +1021,12 @@ std::unique_ptr<ResolvedColumnRef> BuildResolvedColumnRef(
 // column's type annotation map if unset.
 std::unique_ptr<ResolvedColumnRef> BuildResolvedColumnRef(
     const Type* type, const ResolvedColumn& column, bool is_correlated = false);
+
+// Get the maximum ResolvedColumn id from the given node.
+absl::StatusOr<int> GetMaxColumnId(const ResolvedNode* node);
+
+// Returns true if the given node contains a ResolvedColumn.
+absl::StatusOr<bool> ContainsResolvedColumn(const ResolvedNode* node);
 }  // namespace zetasql
 
 // Visitor to detect if a node contains WithScan.

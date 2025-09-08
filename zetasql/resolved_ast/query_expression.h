@@ -26,12 +26,37 @@
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "gtest/gtest_prod.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "zetasql/base/case.h"
 #include "zetasql/base/map_util.h"
 
 namespace zetasql {
+
+// A struct to preserve a list of grouping set ids (for non-product case) and
+// list of grouping set id lists (for multi grouping sets with product).
+//
+// When `is_product` is true, the `non_product_grouping_set_ids_list` will be
+// empty and the `product_grouping_set_ids_list` will be populated with the
+// list of grouping set ids.
+//
+// When `is_product` is false, the `non_product_grouping_set_ids_list` will be
+// populated with the list of grouping set ids for each grouping set, and the
+// `product_grouping_set_ids_list` will be empty.
+struct GroupingSetIdsInfo {
+  // Returns true when both `non_product_grouping_set_ids_list` and
+  // `product_grouping_set_ids_list` are empty.
+  bool IsEmpty() const {
+    return non_product_grouping_set_ids_list.empty() &&
+           product_grouping_set_ids_list.empty();
+  }
+
+  std::vector<GroupingSetIds> non_product_grouping_set_ids_list;
+  std::vector<std::vector<GroupingSetIds>> product_grouping_set_ids_list;
+  bool is_product;
+};
 
 // `SQLBuilder` representation of a SQL query. Holds internal state while
 // traversing a ResolvedAST.
@@ -171,11 +196,10 @@ class QueryExpression {
       absl::string_view set_op_column_match_mode,
       absl::string_view set_op_column_propagation_mode,
       absl::string_view query_hints, absl::string_view with_depth_modifier);
-  bool TrySetGroupByClause(
-      const std::map<int, std::string>& group_by_list,
-      absl::string_view group_by_hints,
-      const std::vector<GroupingSetIds>& grouping_set_id_list,
-      const std::vector<int>& rollup_column_id_list);
+  bool TrySetGroupByClause(const std::map<int, std::string>& group_by_list,
+                           absl::string_view group_by_hints,
+                           const GroupingSetIdsInfo& grouping_set_ids_info,
+                           const std::vector<int>& rollup_column_id_list);
   bool TrySetOrderByClause(const std::vector<std::string>& order_by_list,
                            absl::string_view order_by_hints);
   bool TrySetLimitClause(absl::string_view limit);
@@ -447,8 +471,8 @@ class QueryExpression {
   // string representations of these columns. Will be non-empty only if the
   // query used ROLLUP.
   std::vector<int> rollup_column_id_list_;
-  // Column IDs of group by keys in the GROUPING SETS list.
-  std::vector<GroupingSetIds> grouping_set_id_list_;
+  // Column IDs of group by keys.
+  GroupingSetIdsInfo grouping_set_ids_info_;
 
   std::string group_by_hints_;
 
@@ -469,7 +493,17 @@ class QueryExpression {
 // Returns true if the aliases, which are the values of the given map are not
 // unique.
 template <typename T>
-bool HasDuplicateAliases(const absl::flat_hash_map<int, T>& aliases);
+bool HasDuplicateAliases(const absl::flat_hash_map<int, T>& aliases) {
+  absl::flat_hash_set<absl::string_view, zetasql_base::StringViewCaseHash,
+                      zetasql_base::StringViewCaseEqual>
+      seen_aliases;
+  for (const auto& [_, alias] : aliases) {
+    if (!seen_aliases.insert(alias).second) {
+      return true;
+    }
+  }
+  return false;
+}
 
 bool StartsWithSelectOrFromOrWith(absl::string_view sql);
 bool StartsWithSelectOrFrom(absl::string_view sql);

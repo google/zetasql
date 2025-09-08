@@ -29,6 +29,7 @@ import re
 from absl import app
 from absl import flags
 import jinja2
+import markupsafe
 
 from zetasql.parser import ast_enums_pb2
 from zetasql.parser.generator_utils import CleanIndent
@@ -41,7 +42,7 @@ from zetasql.parser.generator_utils import UpperCamelCase
 
 # You can use `tag_id=GetTempTagId()` until doing the final submit.
 # That will avoid merge conflicts when syncing in other changes.
-NEXT_NODE_TAG_ID = 527
+NEXT_NODE_TAG_ID = 536
 
 
 def GetTempTagId():
@@ -55,6 +56,19 @@ def GetTempTagId():
   tag = NEXT_NODE_TAG_ID
   NEXT_NODE_TAG_ID += 1
   return tag
+
+# Most template files allow single line jinja statements, for example:
+#   # for x in list
+#     ...
+#   # endfor
+#
+# However, for markdown, this is challenging, because '#' is used extensively
+# for section hierarchy:
+#
+# This flag allows the markdown generator to disable these single-line
+# statements (it must use {% for x in list %} style jinja directives).
+_ALLOW_HASH_PREFIX = flags.DEFINE_boolean(
+    'allow_hash_prefix', True, 'Allows jinja statements starting with "# "')
 
 ROOT_NODE_NAME = 'ASTNode'
 
@@ -629,6 +643,9 @@ class TreeGenerator(object):
             'protected fields and methods cannot be used in final class %s',
             name)
 
+    assert 'SingleNodeDebugString' not in extra_public_defs, (
+        name + ': SingleNodeDebugString() should not be defined in '
+        'extra_public_defs, instead set use_custom_debug_string=True.')
     if custom_debug_string_comment:
       assert use_custom_debug_string, ('custom_debug_string_comment should be '
                                        'used with use_custom_debug_string')
@@ -791,25 +808,45 @@ class TreeGenerator(object):
       template_path=None):
     """Materialize the template to generate the output file."""
 
+    line_statement_prefix = '# ' if _ALLOW_HASH_PREFIX.value else None
     jinja_env = jinja2.Environment(
         undefined=jinja2.StrictUndefined,
         autoescape=False,
         trim_blocks=True,
         lstrip_blocks=True,
-        line_statement_prefix='# ',
+        line_statement_prefix=line_statement_prefix,
         loader=jinja2.FileSystemLoader('', followlinks=True))
+
+    # This can be used to find node names in a string
+    # and turn them into relative links inside the doc.
+    linkify_re = re.compile(r'\b(AST[A-Z][a-zA-Z]*)\b')
 
     # {{items|sort_by_tag_id}} can be used to sort a list of objects by tag.
     def SortByTagId(items):
       return sorted(items, key=operator.itemgetter('tag_id'))
 
+    # {{items|sort_by_name}} can be used to sort a list of objects by name.
+    def SortByName(items):
+      return sorted(items, key=operator.itemgetter('name'))
+
+    # {{items|linkify_node_names}} can be used to link AST node names
+    # in text to the node documentation.
+    def LinkifyNodeNames(text):
+      text = markupsafe.escape(text)
+      text = linkify_re.sub(r'<a href="#\1">\1</a>', text)
+      text = markupsafe.Markup(text)
+      return text
+
     jinja_env.filters['sort_by_tag_id'] = SortByTagId
+    jinja_env.filters['sort_by_name'] = SortByName
+    jinja_env.filters['linkify_node_names'] = LinkifyNodeNames
     jinja_env.filters['lower_camel_case'] = LowerCamelCase
     jinja_env.filters['upper_camel_case'] = UpperCamelCase
     self._ComputeHierarchy()
 
     context = {
         'nodes': self.nodes,
+        'root_node_name': ROOT_NODE_NAME,
         'root_child_nodes': self.root_child_nodes,
         # For when we need to force a blank line and jinja wants to
         # eat blank lines from the template.
@@ -1001,6 +1038,7 @@ def main(argv):
               tag_id=2,
               field_loader=FieldLoaderMethod.REST_AS_REPEATED,
           ),
+          Field('parenthesized', SCALAR_BOOL, tag_id=3),
       ],
   )
 
@@ -1082,6 +1120,15 @@ def main(argv):
       ASTGroupBy makes sharing resolver code easier.
       """,
       fields=[
+          Field(
+              'select_with',
+              'ASTSelectWith',
+              tag_id=3,
+              comment="""
+              If present, the WITH modifier specifying the mode of aggregation
+              (e.g., AGGREGATE WITH DIFFERENTIAL_PRIVACY).
+              """,
+          ),
           Field(
               'select',
               'ASTSelect',
@@ -1281,6 +1328,12 @@ def main(argv):
               field_loader=FieldLoaderMethod.REQUIRED,
           ),
       ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeDescribe',
+      tag_id=527,
+      parent='ASTPipeOperator',
   )
 
   gen.AddNode(
@@ -2310,27 +2363,77 @@ def main(argv):
   )
 
   gen.AddNode(
+      name='ASTLimitAll',
+      tag_id=534,
+      parent='ASTNode',
+      comment="""
+      Wrapper node for the keyword ALL in syntax LIMIT ALL to provide parse
+      location range.
+      """,
+  )
+
+  gen.AddNode(
+      name='ASTLimit',
+      tag_id=535,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'all',
+              'ASTLimitAll',
+              tag_id=2,
+              comment="""
+              When `all` is set, it represents syntax: LIMIT ALL. The syntax is
+              mutually exclusive with syntax LIMIT `expression`, in which case
+              `all` is nullptr and `expression` is non-empty.
+              """,
+          ),
+          Field(
+              'expression',
+              'ASTExpression',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION,
+          ),
+      ],
+  )
+
+  gen.AddNode(
       name='ASTLimitOffset',
       tag_id=29,
       parent='ASTNode',
       fields=[
           Field(
               'limit',
-              'ASTExpression',
+              'ASTLimit',
               tag_id=2,
               field_loader=FieldLoaderMethod.REQUIRED,
               comment="""
-          The LIMIT value. Never NULL.
-              """),
+              The LIMIT value. Never NULL. Either `all` should be set when ALL
+              is specified or `expression` should be set when an expression is
+              specified.
+              """,
+          ),
           Field(
               'offset',
               'ASTExpression',
               tag_id=3,
               field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION,
               comment="""
-          The OFFSET value. NULL if no OFFSET specified.
-              """),
-      ])
+              The OFFSET value. NULL if no OFFSET specified.
+              """,
+          ),
+      ],
+      extra_public_defs="""
+  // Returns the limit expression if it is set, or nullptr otherwise.
+  const ASTExpression* limit_expression() const {
+    if (limit_->all() != nullptr) {
+      return nullptr;
+    }
+    return limit_->expression();
+  }
+  // Returns true if LIMIT ALL is used.
+  bool has_limit_all() const { return limit_->all() != nullptr; }
+      """,
+  )
 
   gen.AddNode(
       name='ASTFloatLiteral',
@@ -3703,6 +3806,16 @@ def main(argv):
               Required, never NULL.
               """),
       ])
+
+  gen.AddNode(
+      name='ASTInputTableArgument',
+      tag_id=529,
+      parent='ASTExpression',
+      fields=[],
+      comment="""
+        This node represents the keywords INPUT TABLE, used as a TVF argument.
+      """,
+  )
 
   gen.AddNode(
       name='ASTNullOrder',
@@ -5177,9 +5290,7 @@ def main(argv):
       following token.
       """,
       fields=[],
-      extra_public_defs="""
-  std::string SingleNodeDebugString() const override;
-      """,
+      use_custom_debug_string=True,
   )
 
   gen.AddNode(
@@ -5213,8 +5324,8 @@ def main(argv):
               tag_id=2,
           ),
       ],
+      use_custom_debug_string=True,
       extra_public_defs="""
-  std::string SingleNodeDebugString() const override;
   bool IsQuantifier() const final { return true; }
       """,
   )
@@ -5977,6 +6088,14 @@ def main(argv):
       and the resolver may interpret them as needed later. In this case the
       expr_ of this class is filled.
 
+      These special argument forms are also parsed as ASTExpressions,
+      but analyzed specially:
+        * ASTNamedArgument
+        * ASTLambda
+        * ASTInputTable
+      These node types (other than ASTNamedArgument) can also occur
+      as named arguments themselves, inside an ASTNamedArgument.
+
   (2) ZetaSQL parses the argument as "TABLE path"; this syntax represents a
       table argument including all columns in the named table. In this case the
       table_clause_ of this class is non-empty.
@@ -5989,13 +6108,7 @@ def main(argv):
       represents a connection argument. In this case the connection_clause_ of
       this class is non-empty.
 
-  (5) ZetaSQL parses the argument as a named argument; this behaves like when
-      the argument is an expression with the extra requirement that the
-      resolver rearranges the provided named arguments to match the required
-      argument names from the function signature, if present. The named
-      argument is stored in the expr_ of this class in this case since an
-      ASTNamedArgument is a subclass of ASTExpression.
-  (6) ZetaSQL parses the argument as "DESCRIPTOR"; this syntax represents a
+  (5) ZetaSQL parses the argument as "DESCRIPTOR"; this syntax represents a
      descriptor on a list of columns with optional types.
       """,
       fields=[
@@ -6007,30 +6120,24 @@ def main(argv):
               private_comment="""
               Only one of expr, table_clause, model_clause, connection_clause or
               descriptor may be non-null.
-              """),
-          Field(
-              'table_clause',
-              'ASTTableClause',
-              tag_id=3),
-          Field(
-              'model_clause',
-              'ASTModelClause',
-              tag_id=4),
-          Field(
-              'connection_clause',
-              'ASTConnectionClause',
-              tag_id=5),
+              """,
+          ),
+          Field('table_clause', 'ASTTableClause', tag_id=3),
+          Field('model_clause', 'ASTModelClause', tag_id=4),
+          Field('connection_clause', 'ASTConnectionClause', tag_id=5),
           Field(
               # We unfortunately cannot name this field "descriptor" because the
               # proto generates a field of that name.
               'desc',
               'ASTDescriptor',
               tag_id=6,
-              gen_setters_and_getters=False),
+              gen_setters_and_getters=False,
+          ),
       ],
       extra_public_defs="""
   const ASTDescriptor* descriptor() const {return desc_;}
-      """)
+      """,
+  )
 
   gen.AddNode(
       name='ASTTVF',
@@ -6946,9 +7053,9 @@ def main(argv):
               """,
           ),
       ],
+      use_custom_debug_string=True,
       extra_public_defs="""
   std::string GetSQLForConflictAction() const;
-  std::string SingleNodeDebugString() const override;
   """,
   )
 
@@ -8250,6 +8357,33 @@ def main(argv):
   )
 
   gen.AddNode(
+      name='ASTAlterColumnSetGeneratedAction',
+      tag_id=528,
+      parent='ASTAlterAction',
+      use_custom_debug_string=True,
+      comment="""
+      ALTER table action for "ALTER COLUMN SET GENERATED" clause
+      """,
+      fields=[
+          Field(
+              'column_name',
+              'ASTIdentifier',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'generated_column_info',
+              'ASTGeneratedColumnInfo',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field('is_if_exists', SCALAR_BOOL, tag_id=4),
+      ],
+      extra_public_defs="""
+  std::string GetSQLForAlterAction() const override;
+      """,
+  )
+
+  gen.AddNode(
       name='ASTGrantToClause',
       tag_id=247,
       parent='ASTAlterAction',
@@ -8436,9 +8570,9 @@ def main(argv):
               field_loader=FieldLoaderMethod.REQUIRED),
           Field('is_if_exists', SCALAR_BOOL, tag_id=5),
       ],
+      use_custom_debug_string=True,
       extra_public_defs="""
   std::string GetSQLForAlterAction() const override;
-  std::string SingleNodeDebugString() const override;
       """)
 
   gen.AddNode(
@@ -8462,9 +8596,9 @@ def main(argv):
           Field('options_list', 'ASTOptionsList', tag_id=4),
           Field('is_if_not_exists', SCALAR_BOOL, tag_id=5),
       ],
+      use_custom_debug_string=True,
       extra_public_defs="""
   std::string GetSQLForAlterAction() const override;
-  std::string SingleNodeDebugString() const override;
       """)
 
   gen.AddNode(
@@ -8487,9 +8621,9 @@ def main(argv):
               field_loader=FieldLoaderMethod.REQUIRED),
           Field('is_if_exists', SCALAR_BOOL, tag_id=5),
       ],
+      use_custom_debug_string=True,
       extra_public_defs="""
   std::string GetSQLForAlterAction() const override;
-  std::string SingleNodeDebugString() const override;
       """)
 
   gen.AddNode(
@@ -11255,9 +11389,6 @@ def main(argv):
       comment="""
       Common base class for ASTGraphElementPattern and ASTGraphPathPattern.
       Both are potentially quantified.
-
-      Unlike quantifiers in MATCH_RECOGNIZE, graph quantifiers can never be
-      reluctant and do not support symbol quantification (?, + and *).
       """,
       fields=[
           Field(
@@ -12335,6 +12466,119 @@ def main(argv):
               tag_id=6,
           ),
       ],
+  )
+
+  gen.AddNode(
+      name='ASTRunStatement',
+      tag_id=530,
+      parent='ASTStatement',
+      comment="""
+      Represents a RUN statement.
+
+      Syntax: RUN <child_script_path> [(<named_arguments>)]
+
+      The RUN statement is used to execute statements in a separate script.
+      The child script path maybe specified as a string literal or a path
+      expression.
+
+      Optional named arguments are supported using either `=>` or `=`.
+
+      With path expression syntax, parentheses are required even if there are
+      no arguments.
+
+      Examples:
+      ```
+      -- Parentheses are optional when using string literal syntax.
+      RUN "path/to/script.sql";
+      RUN "path/to/script.sql"(foo => "bar");
+      RUN "path/to/another_script.sql"();
+      RUN my_catalog.my_script(foo => "bar");
+
+      -- Parentheses are NOT optional when using path expression syntax.
+      RUN my_catalog.my_script();
+      ```
+      """,
+      fields=[
+          Field(
+              'target_path_expression',
+              'ASTPathExpression',
+              comment="""
+                The target script addressed using an ASTPathExpression.
+                Exactly one of `target_path` and `target_string` will be set.
+
+                e.g. `RUN my_catalog.my_script();`
+              """,
+              tag_id=2
+          ),
+          Field(
+              'target_string_literal',
+              'ASTStringLiteral',
+              comment="""
+                The target script addressed by a ASTStringLiteral.
+                Exactly one of `target_path` and `target_string` will be set.
+
+                e.g. `RUN "path/to/script.sql";`
+              """,
+              tag_id=3
+          ),
+          Field(
+              'arguments',
+              'ASTNamedArgument',
+              comment="""
+                Represents named arguments supplied to the child script
+                for parameter substitution. Arguments are optional.
+
+                Argument names are required to be valid identifiers, and
+                argument values are required to be string literals.
+
+                Examples:
+                ```
+                RUN my_catalog.preamble();
+                RUN my_catalog.my_script(foo => "bar")
+                ```
+              """,
+              tag_id=4,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTCreateSequenceStatement',
+      tag_id=532,
+      parent='ASTCreateStatement',
+      comment="""
+      This represents a CREATE SEQUENCE statement, i.e.,
+      CREATE [OR REPLACE] SEQUENCE
+        [IF NOT EXISTS] <name_path> OPTIONS (name=value, ...);
+      """,
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'options_list',
+              'ASTOptionsList',
+              tag_id=3,
+          ),
+      ],
+      extra_public_defs="""
+  const ASTPathExpression* GetDdlTarget() const override { return name_; }
+      """,
+  )
+
+  gen.AddNode(
+      name='ASTAlterSequenceStatement',
+      tag_id=533,
+      parent='ASTAlterStatementBase',
+      comment="""
+      This represents a ALTER SEQUENCE statement, i.e.,
+      ALTER SEQUENCE <name_path> SET OPTIONS (name=value, ...);
+      """,
+      fields=[],
   )
 
   gen.Generate(output_path, template_path=template_path)

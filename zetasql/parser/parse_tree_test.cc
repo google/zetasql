@@ -76,7 +76,7 @@ TEST(ConvertInternalErrorLocationToExternal, ByteOffset) {
   const absl::Status status = StatusWithInternalErrorLocation(
       ::zetasql_base::InternalErrorBuilder() << "Foo bar baz", point);
   const absl::Status status2 =
-      ConvertInternalErrorLocationToExternal(status, dummy_query);
+      ConvertInternalErrorPayloadsToExternal(status, dummy_query);
   EXPECT_FALSE(internal::HasPayloadWithType<InternalErrorLocation>(status2));
   const ErrorLocation external_location =
       internal::GetPayload<ErrorLocation>(status2);
@@ -99,9 +99,9 @@ TEST(ConvertInternalErrorLocationToExternal, Idempotent) {
   const absl::Status status = StatusWithInternalErrorLocation(
       ::zetasql_base::InternalErrorBuilder() << "Foo bar baz", point);
   const absl::Status status2 =
-      ConvertInternalErrorLocationToExternal(status, dummy_query);
+      ConvertInternalErrorPayloadsToExternal(status, dummy_query);
   const absl::Status status3 =
-      ConvertInternalErrorLocationToExternal(status2, dummy_query);
+      ConvertInternalErrorPayloadsToExternal(status2, dummy_query);
 
   EXPECT_EQ(status2, status3);
 }
@@ -110,7 +110,7 @@ TEST(ConvertInternalErrorLocationToExternal, NoPayload) {
   const absl::Status status = ::zetasql_base::InternalErrorBuilder() << "Foo bar baz";
 
   const absl::Status status2 =
-      ConvertInternalErrorLocationToExternal(status, "abc" /* dummy query */);
+      ConvertInternalErrorPayloadsToExternal(status, "abc" /* dummy query */);
   EXPECT_FALSE(internal::HasPayload(status2));
 }
 
@@ -123,7 +123,7 @@ TEST(ConvertInternalErrorLocationToExternal, NoLocationWithExtraPayload) {
       << "Foo bar baz";
 
   const absl::Status status2 =
-      ConvertInternalErrorLocationToExternal(status, "abc" /* dummy query */);
+      ConvertInternalErrorPayloadsToExternal(status, "abc" /* dummy query */);
   EXPECT_FALSE(internal::HasPayloadWithType<InternalErrorLocation>(status2));
   EXPECT_FALSE(internal::HasPayloadWithType<ErrorLocation>(status2));
   EXPECT_TRUE(
@@ -148,7 +148,7 @@ TEST(ConvertInternalErrorLocationToExternal, LocationWithExtraPayload) {
       point);
 
   const absl::Status status2 =
-      ConvertInternalErrorLocationToExternal(status, dummy_query);
+      ConvertInternalErrorPayloadsToExternal(status, dummy_query);
   EXPECT_FALSE(internal::HasPayloadWithType<InternalErrorLocation>(status2));
   EXPECT_TRUE(internal::HasPayloadWithType<ErrorLocation>(status2));
   EXPECT_TRUE(

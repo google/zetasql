@@ -1,3 +1,4 @@
+[default language_features=NONE]
 select 1,2,3
 |> where true;
 --
@@ -6,7 +7,7 @@ ERROR: Pipe query syntax not supported [at 2:1]
 ^
 ==
 
-[default language_features=PIPES,PIPE_STATIC_DESCRIBE]
+[default language_features=NONE,+PIPES,+PIPE_STATIC_DESCRIBE]
 
 select 1,2,3
 |> where true;
@@ -216,7 +217,7 @@ QueryStmt
 
 # With a WITH query inside parentheses, the WITH alias
 # is not visible to the following pipe operator.
-[language_features=PIPES,WITH_ON_SUBQUERY]
+[language_features=NONE,+PIPES,+WITH_ON_SUBQUERY]
 (
   WITH q1 AS (select 1 x |> where x=1)
   select * from q1
@@ -618,6 +619,35 @@ select 1 x
 ERROR: OFFSET expects an integer literal or parameter [at 2:35]
 |> limit @test_param_int32 offset @test_param_bool
                                   ^
+==
+
+[language_features=NONE,{{+PIPES|+PIPES,+LIMIT_ALL}}]
+select 1 x
+|> limit all offset 20
+--
+ALTERNATION GROUP: +PIPES
+--
+ERROR: LIMIT ALL is not supported [at 2:4]
+|> limit all offset 20
+   ^
+--
+ALTERNATION GROUP: +PIPES,+LIMIT_ALL
+--
+QueryStmt
++-output_column_list=
+| +-$query.x#1 AS x [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$query.x#1]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$query.x#1]
+    |   +-expr_list=
+    |   | +-x#1 := Literal(type=INT64, value=1)
+    |   +-input_scan=
+    |     +-SingleRowScan
+    +-offset=
+      +-Literal(type=INT64, value=20)
 ==
 
 # The table from the pipe input is not visible as a table name in
@@ -1058,7 +1088,7 @@ QueryStmt
 # LIKE ANY with a subquery producuing one column plus pseudo-columns.
 # TODO LIKE ANY is not fully implemented yet.  This should
 # be producing LIKE_ANY/LIKE_ALL subqueries, not SCALAR subqueries.
-[language_features=PIPES,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
+[language_features=NONE,+PIPES,+LIKE_ANY_SOME_ALL,+LIKE_ANY_SOME_ALL_SUBQUERY]
 [{{|no_}}prune_unused_columns]
 SELECT 'abc' LIKE ANY(FROM EnumTable
                       |> EXTEND 'a%' AS pattern
@@ -1074,21 +1104,21 @@ QueryStmt
     +-column_list=[$query.$col1#7]
     +-expr_list=
     | +-$col1#7 :=
-    |   +-FunctionCall(ZetaSQL:$like_any(STRING, repeated(1) STRING) -> BOOL)
-    |     +-Literal(type=STRING, value="abc")
-    |     +-SubqueryExpr
-    |       +-type=STRING
-    |       +-subquery_type=SCALAR
-    |       +-subquery=
-    |         +-ProjectScan
-    |           +-column_list=[$pipe_extend.pattern#6]
-    |           +-input_scan=
-    |             +-ProjectScan
-    |               +-column_list=[$pipe_extend.pattern#6]
-    |               +-expr_list=
-    |               | +-pattern#6 := Literal(type=STRING, value="a%")
-    |               +-input_scan=
-    |                 +-TableScan(table=EnumTable)
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=LIKE_ANY
+    |     +-in_expr=
+    |     | +-Literal(type=STRING, value="abc")
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$pipe_extend.pattern#6]
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$pipe_extend.pattern#6]
+    |             +-expr_list=
+    |             | +-pattern#6 := Literal(type=STRING, value="a%")
+    |             +-input_scan=
+    |               +-TableScan(table=EnumTable)
     +-input_scan=
       +-SingleRowScan
 --
@@ -1102,21 +1132,21 @@ QueryStmt
     +-column_list=[$query.$col1#7]
     +-expr_list=
     | +-$col1#7 :=
-    |   +-FunctionCall(ZetaSQL:$like_any(STRING, repeated(1) STRING) -> BOOL)
-    |     +-Literal(type=STRING, value="abc")
-    |     +-SubqueryExpr
-    |       +-type=STRING
-    |       +-subquery_type=SCALAR
-    |       +-subquery=
-    |         +-ProjectScan
-    |           +-column_list=[$pipe_extend.pattern#6]
-    |           +-input_scan=
-    |             +-ProjectScan
-    |               +-column_list=[EnumTable.key#1, EnumTable.TestEnum#2, EnumTable.AnotherTestEnum#3, EnumTable.Filename#4, EnumTable.RowId#5, $pipe_extend.pattern#6]
-    |               +-expr_list=
-    |               | +-pattern#6 := Literal(type=STRING, value="a%")
-    |               +-input_scan=
-    |                 +-TableScan(column_list=EnumTable.[key#1, TestEnum#2, AnotherTestEnum#3, Filename#4, RowId#5], table=EnumTable, column_index_list=[0, 1, 2, 3, 4])
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=LIKE_ANY
+    |     +-in_expr=
+    |     | +-Literal(type=STRING, value="abc")
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$pipe_extend.pattern#6]
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[EnumTable.key#1, EnumTable.TestEnum#2, EnumTable.AnotherTestEnum#3, EnumTable.Filename#4, EnumTable.RowId#5, $pipe_extend.pattern#6]
+    |             +-expr_list=
+    |             | +-pattern#6 := Literal(type=STRING, value="a%")
+    |             +-input_scan=
+    |               +-TableScan(column_list=EnumTable.[key#1, TestEnum#2, AnotherTestEnum#3, Filename#4, RowId#5], table=EnumTable, column_index_list=[0, 1, 2, 3, 4])
     +-input_scan=
       +-SingleRowScan
 ==

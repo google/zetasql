@@ -16,6 +16,7 @@
 
 #include "zetasql/public/functions/hash.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
@@ -26,6 +27,7 @@
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "gtest/gtest.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 
 namespace zetasql {

@@ -1,6 +1,6 @@
 # Tests for the FOR UPDATE clause in queries within DDL statements.
 
-[default language_features=FOR_UPDATE]
+[default language_features=NONE,+FOR_UPDATE]
 
 create {{|or replace }}{{view|materialized view}} v1 as (select * from t where a=1 for update);
 --

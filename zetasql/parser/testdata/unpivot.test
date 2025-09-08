@@ -641,7 +641,8 @@ QueryStatement [0-80] [SELECT * FROM...1 LIMIT 10]
             Identifier(sum_zero) [59-67] [sum_zero]
           IntLiteral(1) [70-71] [1]
     LimitOffset [72-80] [LIMIT 10]
-      IntLiteral(10) [78-80] [10]
+      Limit [72-80] [LIMIT 10]
+        IntLiteral(10) [78-80] [10]
 --
 SELECT
   *
@@ -1154,7 +1155,7 @@ ALTERNATION GROUPS:
     t_alias,AS t_alias
     AS t_alias
 --
-ERROR: UNPIVOT and WITH OFFSET cannot be combined [at 4:1]
+ERROR: Syntax error: Expected end of input but got keyword WITH [at 4:1]
 WITH OFFSET AS t_alias;
 ^
 --
@@ -1163,7 +1164,7 @@ ALTERNATION GROUPS:
     t_alias,t_alias
     t_alias
 --
-ERROR: UNPIVOT and WITH OFFSET cannot be combined [at 4:1]
+ERROR: Syntax error: Expected end of input but got keyword WITH [at 4:1]
 WITH OFFSET t_alias;
 ^
 --
@@ -1172,7 +1173,7 @@ ALTERNATION GROUPS:
     t_alias,
     <empty>
 --
-ERROR: UNPIVOT and WITH OFFSET cannot be combined [at 4:1]
+ERROR: Syntax error: Expected end of input but got keyword WITH [at 4:1]
 WITH OFFSET ;
 ^
 ==
@@ -1388,17 +1389,115 @@ UNPIVOT(a for b in (c)) AS x;
 --
 ALTERNATION GROUP: WITH OFFSET
 --
-ERROR: Syntax error: Expected end of input but got "(" [at 2:8]
-UNPIVOT(a for b in (c)) AS x;
-       ^
+QueryStatement [0-72] [SELECT * FROM...(c)) AS x]
+  Query [0-72] [SELECT * FROM...(c)) AS x]
+    Select [0-72] [SELECT * FROM...(c)) AS x]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-72] [FROM UNNEST...(c)) AS x]
+        TablePathExpression [14-72] [UNNEST([1,...(c)) AS x]
+          UnnestExpression [14-31] [UNNEST([1, 2, 3])]
+            ExpressionWithOptAlias [21-30] [[1, 2, 3]]
+              ArrayConstructor [21-30] [[1, 2, 3]]
+                IntLiteral(1) [22-23] [1]
+                IntLiteral(2) [25-26] [2]
+                IntLiteral(3) [28-29] [3]
+          WithOffset [32-43] [WITH OFFSET]
+          UnpivotClause [44-72] [UNPIVOT(a for b in (c)) AS x]
+            PathExpressionList [52-53] [a]
+              PathExpression [52-53] [a]
+                Identifier(a) [52-53] [a]
+            PathExpression [58-59] [b]
+              Identifier(b) [58-59] [b]
+            UnpivotInItemList [63-66] [(c)]
+              UnpivotInItem [64-65] [c]
+                PathExpressionList [64-65] [c]
+                  PathExpression [64-65] [c]
+                    Identifier(c) [64-65] [c]
+            Alias [68-72] [AS x]
+              Identifier(x) [71-72] [x]
 --
-ALTERNATION GROUPS:
-    WITH OFFSET x
-    WITH OFFSET AS x
+SELECT
+  *
+FROM
+  UNNEST(ARRAY[1, 2, 3]) WITH OFFSET UNPIVOT(a FOR b IN ((c))) AS x
 --
-ERROR: Syntax error: Expected end of input but got keyword UNPIVOT [at 2:1]
-UNPIVOT(a for b in (c)) AS x;
-^
+ALTERNATION GROUP: WITH OFFSET x
+--
+QueryStatement [0-74] [SELECT * FROM...(c)) AS x]
+  Query [0-74] [SELECT * FROM...(c)) AS x]
+    Select [0-74] [SELECT * FROM...(c)) AS x]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-74] [FROM UNNEST...(c)) AS x]
+        TablePathExpression [14-74] [UNNEST([1,...(c)) AS x]
+          UnnestExpression [14-31] [UNNEST([1, 2, 3])]
+            ExpressionWithOptAlias [21-30] [[1, 2, 3]]
+              ArrayConstructor [21-30] [[1, 2, 3]]
+                IntLiteral(1) [22-23] [1]
+                IntLiteral(2) [25-26] [2]
+                IntLiteral(3) [28-29] [3]
+          WithOffset [32-45] [WITH OFFSET x]
+            Alias [44-45] [x]
+              Identifier(x) [44-45] [x]
+          UnpivotClause [46-74] [UNPIVOT(a for b in (c)) AS x]
+            PathExpressionList [54-55] [a]
+              PathExpression [54-55] [a]
+                Identifier(a) [54-55] [a]
+            PathExpression [60-61] [b]
+              Identifier(b) [60-61] [b]
+            UnpivotInItemList [65-68] [(c)]
+              UnpivotInItem [66-67] [c]
+                PathExpressionList [66-67] [c]
+                  PathExpression [66-67] [c]
+                    Identifier(c) [66-67] [c]
+            Alias [70-74] [AS x]
+              Identifier(x) [73-74] [x]
+--
+SELECT
+  *
+FROM
+  UNNEST(ARRAY[1, 2, 3]) WITH OFFSET AS x UNPIVOT(a FOR b IN ((c))) AS x
+--
+ALTERNATION GROUP: WITH OFFSET AS x
+--
+QueryStatement [0-77] [SELECT * FROM...(c)) AS x]
+  Query [0-77] [SELECT * FROM...(c)) AS x]
+    Select [0-77] [SELECT * FROM...(c)) AS x]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-77] [FROM UNNEST...(c)) AS x]
+        TablePathExpression [14-77] [UNNEST([1,...(c)) AS x]
+          UnnestExpression [14-31] [UNNEST([1, 2, 3])]
+            ExpressionWithOptAlias [21-30] [[1, 2, 3]]
+              ArrayConstructor [21-30] [[1, 2, 3]]
+                IntLiteral(1) [22-23] [1]
+                IntLiteral(2) [25-26] [2]
+                IntLiteral(3) [28-29] [3]
+          WithOffset [32-48] [WITH OFFSET AS x]
+            Alias [44-48] [AS x]
+              Identifier(x) [47-48] [x]
+          UnpivotClause [49-77] [UNPIVOT(a for b in (c)) AS x]
+            PathExpressionList [57-58] [a]
+              PathExpression [57-58] [a]
+                Identifier(a) [57-58] [a]
+            PathExpression [63-64] [b]
+              Identifier(b) [63-64] [b]
+            UnpivotInItemList [68-71] [(c)]
+              UnpivotInItem [69-70] [c]
+                PathExpressionList [69-70] [c]
+                  PathExpression [69-70] [c]
+                    Identifier(c) [69-70] [c]
+            Alias [73-77] [AS x]
+              Identifier(x) [76-77] [x]
+--
+SELECT
+  *
+FROM
+  UNNEST(ARRAY[1, 2, 3]) WITH OFFSET AS x UNPIVOT(a FOR b IN ((c))) AS x
 --
 ALTERNATION GROUP: <empty>
 --

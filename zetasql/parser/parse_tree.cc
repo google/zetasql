@@ -1521,6 +1521,15 @@ std::string ASTAlterColumnDropGeneratedAction::GetSQLForAlterAction() const {
   return "ALTER COLUMN DROP GENERATED";
 }
 
+std::string ASTAlterColumnSetGeneratedAction::SingleNodeDebugString() const {
+  return absl::StrCat(ASTNode::SingleNodeDebugString(),
+                      is_if_exists() ? "(is_if_exists)" : "");
+}
+
+std::string ASTAlterColumnSetGeneratedAction::GetSQLForAlterAction() const {
+  return "ALTER COLUMN SET GENERATED";
+}
+
 std::string ASTSpannerAlterColumnAction::GetSQLForAlterAction() const {
   return "ALTER COLUMN";
 }
@@ -1740,6 +1749,8 @@ absl::string_view SchemaObjectKindToName(SchemaObjectKind schema_object_kind) {
       return "VIEW";
     case SchemaObjectKind::kPropertyGraph:
       return "PROPERTY GRAPH";
+    case SchemaObjectKind::kSequence:
+      return "SEQUENCE";
     default:
       return "<INVALID SCHEMA OBJECT KIND>";
   }

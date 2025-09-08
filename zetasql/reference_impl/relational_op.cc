@@ -37,7 +37,9 @@
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/function_signature.h"
+#include "zetasql/public/functions/arithmetics.h"
 #include "zetasql/public/functions/array_zip_mode.pb.h"
+#include "zetasql/public/numeric_value.h"
 #include "zetasql/public/sql_tvf.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/templated_sql_tvf.h"
@@ -703,7 +705,7 @@ class EvaluatorTVFTupleIterator : public TupleIterator {
 }  // namespace
 
 /*static*/ absl::StatusOr<std::unique_ptr<TVFOp>> TVFOp::Create(
-    const TableValuedFunction* tvf, std::vector<TVFOpArgument> arguments,
+    const TableValuedFunction* tvf, std::vector<TvfAlgebraArgument> arguments,
     std::vector<TVFSchemaColumn> output_columns,
     std::vector<VariableId> variables,
     std::shared_ptr<FunctionSignature> function_call_signature,
@@ -715,7 +717,7 @@ class EvaluatorTVFTupleIterator : public TupleIterator {
 }
 
 TVFOp::TVFOp(const TableValuedFunction* tvf,
-             std::vector<TVFOpArgument> arguments,
+             std::vector<TvfAlgebraArgument> arguments,
              std::vector<TVFSchemaColumn> output_columns,
              std::vector<VariableId> variables,
              std::shared_ptr<FunctionSignature> function_call_signature,
@@ -729,7 +731,7 @@ TVFOp::TVFOp(const TableValuedFunction* tvf,
 
 absl::Status TVFOp::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
-  for (const TVFOpArgument& argument : arguments_) {
+  for (const TvfAlgebraArgument& argument : arguments_) {
     if (argument.value) {
       ZETASQL_RETURN_IF_ERROR(argument.value->SetSchemasForEvaluation(params_schemas));
     } else if (argument.relation) {
@@ -738,7 +740,7 @@ absl::Status TVFOp::SetSchemasForEvaluation(
     } else if (argument.model) {
       // No-op.
     } else {
-      ZETASQL_RET_CHECK_FAIL() << "Unexpected TVFOpArgument";
+      ZETASQL_RET_CHECK_FAIL() << "Unexpected TvfAlgebraArgument";
     }
   }
   return absl::OkStatus();
@@ -748,7 +750,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> TVFOp::CreateIterator(
     absl::Span<const TupleData* const> params, int num_extra_slots,
     EvaluationContext* context) const {
   std::vector<TableValuedFunction::TvfEvaluatorArg> input_arguments;
-  for (const TVFOpArgument& argument : arguments_) {
+  for (const TvfAlgebraArgument& argument : arguments_) {
     if (argument.value) {
       absl::Status status;
       TupleSlot result;
@@ -764,7 +766,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> TVFOp::CreateIterator(
       std::vector<std::pair<std::string, const Type*>> columns;
       std::vector<int> tuple_indexes;
       const TupleSchema& tuple_schema = tuple_iterator->Schema();
-      for (const TVFOp::TvfInputRelation::TvfInputRelationColumn& column :
+      for (const TvfInputRelation::TvfInputRelationColumn& column :
            argument.relation->columns) {
         columns.push_back({column.name, column.type});
 
@@ -780,7 +782,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> TVFOp::CreateIterator(
     } else if (argument.model) {
       input_arguments.push_back({.model = argument.model});
     } else {
-      ZETASQL_RET_CHECK_FAIL() << "Unexpected TVFOpArgument";
+      ZETASQL_RET_CHECK_FAIL() << "Unexpected TvfAlgebraArgument";
     }
   }
 
@@ -849,7 +851,7 @@ std::string TVFOp::DebugInternal(const std::string& indent,
   absl::StrAppend(&result, indent_field, "tvf: ", tvf_->Name());
 
   absl::StrAppend(&result, indent_field, "arguments: {");
-  for (const TVFOpArgument& argument : arguments_) {
+  for (const TvfAlgebraArgument& argument : arguments_) {
     if (argument.value) {
       absl::StrAppend(&result, indent_list,
                       argument.value->DebugInternal(indent_nested, verbose));
@@ -859,6 +861,8 @@ std::string TVFOp::DebugInternal(const std::string& indent,
                           indent_nested, verbose));
     } else if (argument.model) {
       absl::StrAppend(&result, indent_list, "MODEL ", argument.model->Name());
+    } else if (argument.graph) {
+      absl::StrAppend(&result, indent_list, "GRAPH ", argument.graph->Name());
     } else {
       absl::StrAppend(&result, kIndentBar, kIndentFork, "UNEXPECTED ARGUMENT");
     }
@@ -887,6 +891,150 @@ std::string TVFOp::DebugInternal(const std::string& indent,
 
   absl::StrAppend(&result, ")");  // To match TvfOp(
   return result;
+}
+
+// -------------------------------------------------------
+// TableValuedFunctionCallExpr
+// -------------------------------------------------------
+
+absl::StatusOr<std::unique_ptr<TableValuedFunctionCallExpr>>
+TableValuedFunctionCallExpr::Create(
+    std::unique_ptr<TableValuedFunctionBody> function,
+    std::vector<TvfAlgebraArgument> arguments,
+    std::vector<TVFSchemaColumn> output_columns,
+    std::vector<VariableId> variables,
+    std::shared_ptr<FunctionSignature> function_call_signature) {
+  ZETASQL_RET_CHECK(function != nullptr);
+  return absl::WrapUnique(new TableValuedFunctionCallExpr(
+      std::move(function), std::move(arguments), std::move(output_columns),
+      std::move(variables), std::move(function_call_signature)));
+}
+
+TableValuedFunctionCallExpr::TableValuedFunctionCallExpr(
+    std::unique_ptr<TableValuedFunctionBody> function,
+    std::vector<TvfAlgebraArgument> arguments,
+    std::vector<TVFSchemaColumn> output_columns,
+    std::vector<VariableId> variables,
+    std::shared_ptr<FunctionSignature> function_call_signature)
+    : function_(std::move(function)),
+      arguments_(std::move(arguments)),
+      output_columns_(std::move(output_columns)),
+      variables_(std::move(variables)),
+      function_call_signature_(std::move(function_call_signature)) {};
+
+absl::Status TableValuedFunctionCallExpr::SetSchemasForEvaluation(
+    absl::Span<const TupleSchema* const> params_schemas) {
+  for (const TvfAlgebraArgument& argument : arguments_) {
+    if (argument.value) {
+      ZETASQL_RETURN_IF_ERROR(argument.value->SetSchemasForEvaluation(params_schemas));
+    } else if (argument.relation) {
+      ZETASQL_RETURN_IF_ERROR(argument.relation->relational_op->SetSchemasForEvaluation(
+          params_schemas));
+    } else {
+      ZETASQL_RET_CHECK_FAIL() << "Unexpected TvfAlgebraArgument";
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::StatusOr<std::unique_ptr<TupleIterator>>
+TableValuedFunctionCallExpr::CreateIterator(
+    absl::Span<const TupleData* const> params, int num_extra_slots,
+    EvaluationContext* context) const {
+  std::vector<TableValuedFunction::TvfEvaluatorArg> input_arguments;
+  for (const TvfAlgebraArgument& argument : arguments_) {
+    if (argument.value) {
+      absl::Status status;
+      TupleSlot result;
+      if (!argument.value->EvalSimple(params, context, &result, &status)) {
+        return status;
+      }
+      input_arguments.push_back({.value = {result.value()}});
+    } else if (argument.relation) {
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TupleIterator> tuple_iterator,
+                       argument.relation->relational_op->Eval(
+                           params, num_extra_slots, context));
+
+      std::vector<std::pair<std::string, const Type*>> columns;
+      std::vector<int> tuple_indexes;
+      const TupleSchema& tuple_schema = tuple_iterator->Schema();
+      for (const TvfInputRelation::TvfInputRelationColumn& column :
+           argument.relation->columns) {
+        columns.push_back({column.name, column.type});
+
+        auto tuple_index = tuple_schema.FindIndexForVariable(column.variable);
+        ZETASQL_RET_CHECK(tuple_index.has_value());
+        tuple_indexes.push_back(*tuple_index);
+      }
+      ZETASQL_RET_CHECK_EQ(columns.size(), tuple_indexes.size());
+      input_arguments.push_back(
+          {.relation = {std::make_unique<InputRelationIterator>(
+               std::move(columns), std::move(tuple_indexes), context,
+               std::move(tuple_iterator))}});
+    } else {
+      ZETASQL_RET_CHECK_FAIL() << "Unexpected TvfAlgebraArgument";
+    }
+  }
+
+  std::unique_ptr<EvaluationContext> child_context =
+      context->MakeChildContext();
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<EvaluatorTableIterator> evaluator_table_iterator,
+      function_->CreateEvaluator(input_arguments,
+                                 std::move(function_call_signature_),
+                                 child_context.get()));
+
+  // Since there is no algebrizer nodes for `ProjectScan`.
+  // The tvf tuple iterator adapter must ensure that tuple slots match
+  // to correct output columns if `evaluator_table_iterator` produce more output
+  // columns than were selected.
+  std::vector<int64_t> tuple_indexes;
+  for (int i = 0; i < output_columns_.size(); ++i) {
+    int64_t tuple_index = -1;
+    for (int j = 0; j < evaluator_table_iterator->NumColumns(); ++j) {
+      if (output_columns_[i].name ==
+          evaluator_table_iterator->GetColumnName(j)) {
+        tuple_index = j;
+        break;
+      }
+    }
+    ZETASQL_RET_CHECK_GE(tuple_index, 0)
+        << " TVF iterator does not produce output column "
+        << output_columns_[i].name;
+    tuple_indexes.push_back(tuple_index);
+  }
+
+  std::unique_ptr<TupleIterator> tuple_iterator =
+      std::make_unique<EvaluatorTVFTupleIterator>(
+          function_->debug_name(), CreateOutputSchema(), num_extra_slots,
+          std::move(tuple_indexes), context,
+          std::move(evaluator_table_iterator));
+  return MaybeReorder(std::move(tuple_iterator), context);
+}
+
+std::unique_ptr<TupleSchema> TableValuedFunctionCallExpr::CreateOutputSchema()
+    const {
+  return std::make_unique<TupleSchema>(variables_);
+}
+
+std::string TableValuedFunctionCallExpr::IteratorDebugString() const {
+  return function_->debug_name();
+}
+
+std::string TableValuedFunctionCallExpr::DebugInternal(
+    const std::string& indent, bool verbose) const {
+  std::string indent_child = indent + kIndentSpace;
+  std::vector<std::string> sarg;
+  for (const TvfAlgebraArgument& argument : arguments_) {
+    if (argument.value) {
+      sarg.push_back(argument.value->DebugInternal(indent_child, verbose));
+    } else if (argument.relation) {
+      sarg.push_back(argument.relation->relational_op->DebugInternal(
+          indent_child, verbose));
+    }
+  }
+  return absl::StrCat(function_->debug_name(), "(", absl::StrJoin(sarg, ", "),
+                      ")");
 }
 
 // -------------------------------------------------------
@@ -2768,7 +2916,7 @@ namespace {
 // Interface representing the right-hand input side of a join.
 class RightInputForJoin {
  public:
-  virtual ~RightInputForJoin() {}
+  virtual ~RightInputForJoin() = default;
 
   // Returns true if this input depends on the left-hand side. An example is an
   // array join like:
@@ -2845,7 +2993,7 @@ class UncorrelatedRightInput : public RightInputForJoin {
   UncorrelatedRightInput(const UncorrelatedRightInput&) = delete;
   UncorrelatedRightInput& operator=(const UncorrelatedRightInput&) = delete;
 
-  ~UncorrelatedRightInput() override {}
+  ~UncorrelatedRightInput() override = default;
 
   bool IsCorrelated() const override { return false; }
 
@@ -2977,7 +3125,7 @@ class UncorrelatedHashedRightInput : public RightInputForJoin {
       return *right_tuples_and_bits_[index].tuple;
     }
     // Otherwise iterate over the list.
-    return *(*matching_right_tuple_list_.value())[index]->tuple;
+    return *(*matching_right_tuple_list_.value())[index] -> tuple;
   }
 
   absl::Status RecordMatchingTupleJoined(int64_t index) override {
@@ -2986,7 +3134,7 @@ class UncorrelatedHashedRightInput : public RightInputForJoin {
       right_tuples_and_bits_[index].joined = true;
     } else {
       // Otherwise iterate over the list.
-      (*matching_right_tuple_list_.value())[index]->joined = true;
+      (*matching_right_tuple_list_.value())[index] -> joined = true;
     }
     return absl::OkStatus();
   }
@@ -2997,7 +3145,7 @@ class UncorrelatedHashedRightInput : public RightInputForJoin {
       return right_tuples_and_bits_[index].joined;
     } else {
       // Otherwise iterate over the list.
-      return (*matching_right_tuple_list_.value())[index]->joined;
+      return (*matching_right_tuple_list_.value())[index] -> joined;
     }
   }
 
@@ -3126,7 +3274,7 @@ class CorrelatedRightInput : public RightInputForJoin {
   CorrelatedRightInput(const CorrelatedRightInput&) = delete;
   CorrelatedRightInput& operator=(const CorrelatedRightInput&) = delete;
 
-  ~CorrelatedRightInput() override {}
+  ~CorrelatedRightInput() override = default;
 
   bool IsCorrelated() const override { return true; }
 
@@ -5193,14 +5341,16 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> LoopOp::CreateIterator(
 // -------------------------------------------------------
 absl::StatusOr<std::unique_ptr<GraphPathOp>> GraphPathOp::Create(
     std::vector<GraphPathFactorOpInfo> path_factor_ops, VariableId path,
-    const GraphPathType* path_type) {
-  return absl::WrapUnique(
-      new GraphPathOp(std::move(path_factor_ops), path, path_type));
+    const GraphPathType* path_type, VariableId cost, const Type* cost_type) {
+  return absl::WrapUnique(new GraphPathOp(std::move(path_factor_ops), path,
+                                          path_type, cost, cost_type));
 }
 
 GraphPathOp::GraphPathOp(std::vector<GraphPathFactorOpInfo> path_factor_ops,
-                         VariableId path, const GraphPathType* path_type)
+                         VariableId path, const GraphPathType* path_type,
+                         VariableId cost, const Type* cost_type)
     : path_type_(path_type),
+      cost_type_(cost_type),
       num_rel_(static_cast<int>(path_factor_ops.size())) {
   for (int i = 0; i < path_factor_ops.size(); i++) {
     SetArg(i, std::make_unique<RelationalArg>(
@@ -5211,9 +5361,13 @@ GraphPathOp::GraphPathOp(std::vector<GraphPathFactorOpInfo> path_factor_ops,
         std::make_move_iterator(path_factor_ops[i].variables.begin()),
         std::make_move_iterator(path_factor_ops[i].variables.end()));
     edge_orientations_.push_back(path_factor_ops[i].orientation);
+    cost_slot_indices_.push_back(path_factor_ops[i].cost_slot_index);
   }
   if (path.is_valid()) {
     variables_.push_back(path);
+  }
+  if (cost.is_valid()) {
+    variables_.push_back(cost);
   }
 }
 
@@ -5306,7 +5460,10 @@ static absl::StatusOr<Value> BuildPath(absl::Span<const Value> path_elements,
   std::vector<Value> components;
   int index = 0;
   while (index < path_elements.size()) {
-    if (path_elements[index].type()->IsGraphElement()) {
+    if (path_elements[index].type()->IsNumerical()) {
+      // Skip processing computed costs.
+      ++index;
+    } else if (path_elements[index].type()->IsGraphElement()) {
       // The path factor is a singleton element, simply append it to the
       // growing path.
       ZETASQL_RETURN_IF_ERROR(AppendComponentToPath(path_elements[index], path_type,
@@ -5358,8 +5515,64 @@ static absl::StatusOr<Value> BuildPath(absl::Span<const Value> path_elements,
   return Value::MakeGraphPath(path_type, std::move(components));
 }
 
-// Takes left tuples, right tuples, and an arbitrary join predicate, and outputs
-// the joined tuples that match the join predicate.
+static absl::StatusOr<Value> AddCostsBinary(absl::Span<const Value> args,
+                                            const Type* cost_type,
+                                            EvaluationContext* context) {
+  ZETASQL_RET_CHECK_EQ(args.size(), 2);
+  ZETASQL_RET_CHECK(cost_type != nullptr);
+  bool ok;
+  absl::Status status;
+  Value result;
+  switch (cost_type->kind()) {
+    case TYPE_INT64:
+      ok = InvokeBinary<int64_t>(&functions::Add<int64_t>, args, &result,
+                                 &status);
+      break;
+    case TYPE_UINT64:
+      ok = InvokeBinary<uint64_t>(&functions::Add<uint64_t>, args, &result,
+                                  &status);
+      break;
+    case TYPE_DOUBLE:
+      ok =
+          InvokeBinary<double>(&functions::Add<double>, args, &result, &status);
+      break;
+    case TYPE_NUMERIC:
+      ok = InvokeBinary<NumericValue>(&functions::Add<NumericValue>, args,
+                                      &result, &status);
+      break;
+    case TYPE_BIGNUMERIC:
+      ok = InvokeBinary<BigNumericValue>(&functions::Add<BigNumericValue>, args,
+                                         &result, &status);
+      break;
+    default:
+      ZETASQL_RET_CHECK_FAIL() << "Unexpected argument type in AddCostBinary: "
+                       << cost_type->DebugString();
+  }
+  ZETASQL_RET_CHECK(ok == status.ok());
+  ZETASQL_RETURN_IF_ERROR(status);
+  return result;
+}
+
+static absl::StatusOr<Value> ComputeCost(absl::Span<const Value> cost_elements,
+                                         const Type* cost_type,
+                                         EvaluationContext* context) {
+  ZETASQL_RET_CHECK(cost_type != nullptr);
+  if (cost_elements.empty()) {
+    return CreateTypedZeroForCost(cost_type);
+  }
+  if (cost_elements.size() == 1) {
+    return cost_elements[0];
+  }
+  Value final_cost = cost_elements[0];
+  for (int i = 1; i < cost_elements.size(); ++i) {
+    ZETASQL_ASSIGN_OR_RETURN(final_cost, AddCostsBinary({final_cost, cost_elements[i]},
+                                                cost_type, context));
+  }
+  return final_cost;
+}
+
+// Takes left tuples, right tuples, and an arbitrary join predicate, and
+// outputs the joined tuples that match the join predicate.
 class GraphPathTupleIterator : public TupleIterator {
  public:
   GraphPathTupleIterator(
@@ -5367,13 +5580,16 @@ class GraphPathTupleIterator : public TupleIterator {
       std::vector<std::unique_ptr<TupleIterator>> path_factor_iterators,
       std::vector<std::optional<ResolvedGraphEdgeScan::EdgeOrientation>>
           edge_orientations,
-      const GraphPathType* path_type,
+      std::vector<std::optional<int>> cost_slot_indices,
+      const GraphPathType* path_type, const Type* cost_type,
       std::unique_ptr<TupleSchema> output_schema, int num_extra_slots,
       EvaluationContext* context)
       : params_(params.begin(), params.end()),
         path_factor_iterators_(std::move(path_factor_iterators)),
         edge_orientations_(edge_orientations),
+        cost_slot_indices_(cost_slot_indices),
         path_type_(path_type),
+        cost_type_(cost_type),
         output_schema_(std::move(output_schema)),
         context_(context) {
     output_tuple_.AddSlots(output_schema_->num_variables() + num_extra_slots);
@@ -5389,26 +5605,39 @@ class GraphPathTupleIterator : public TupleIterator {
   std::string DebugString() const override { return "TODO: fill this later"; }
 
  private:
-  // Extracts a value vector emitted by a graph path factor (a child of a path,
-  // can be an element or a subpath).
-  static absl::StatusOr<std::vector<Value>> GetPathVector(TupleData* tuple) {
-    std::vector<Value> subpath;
+  struct ElementAndCost {
+    Value element;
+    std::optional<Value> cost;
+  };
+
+  // Extracts a value vector emitted by a graph path factor (a child of a
+  // path, can be an element or a subpath).
+  static absl::StatusOr<std::vector<ElementAndCost>> GetPathVector(
+      TupleData* tuple, std::optional<int> cost_slot_index) {
+    std::vector<ElementAndCost> subpath;
     subpath.reserve(tuple->num_slots());
-    for (const TupleSlot& slot : tuple->slots()) {
-      // If the graph path factor is a subpath, skip adding its path variable.
-      if (slot.value().type()->IsGraphPath()) {
+    for (int i = 0; i < tuple->num_slots(); ++i) {
+      const TupleSlot& slot = tuple->slot(i);
+      const Value& value = slot.value();
+      if (cost_slot_index.has_value() && i == *cost_slot_index) {
+        ZETASQL_RET_CHECK(!subpath.empty() && !subpath.back().cost.has_value());
+        ZETASQL_RET_CHECK(value.type()->IsNumerical());
+        subpath.back().cost = value;
         continue;
       }
-      ZETASQL_RET_CHECK(slot.value().type()->IsGraphElement() ||
-                slot.value().type()->IsArray());
-      subpath.push_back(slot.value());
+      if (value.type()->IsGraphPath()) {
+        continue;
+      }
+      ZETASQL_RET_CHECK(value.type()->IsGraphElement() || value.type()->IsArray());
+      subpath.push_back({.element = value, .cost = std::nullopt});
     }
     return subpath;
   }
 
-  absl::StatusOr<std::vector<std::vector<Value>>> ExtractSubpathsFromPathFactor(
-      TupleIterator* path_factor_iterator) {
-    std::vector<std::vector<Value>> subpaths;
+  absl::StatusOr<std::vector<std::vector<ElementAndCost>>>
+  ExtractSubpathsFromPathFactor(TupleIterator* path_factor_iterator,
+                                std::optional<int> cost_slot_index) {
+    std::vector<std::vector<ElementAndCost>> subpaths;
     const int subpath_var_cnt = path_factor_iterator->Schema().num_variables();
     while (true) {
       TupleData* tuple = path_factor_iterator->Next();
@@ -5416,10 +5645,9 @@ class GraphPathTupleIterator : public TupleIterator {
       if (tuple == nullptr) {
         break;
       }
-      // Subpaths should have no extra_slots, and all subpaths have the same
-      // length.
       ZETASQL_RET_CHECK_EQ(tuple->num_slots(), subpath_var_cnt);
-      ZETASQL_ASSIGN_OR_RETURN(std::vector<Value> subpath, GetPathVector(tuple));
+      ZETASQL_ASSIGN_OR_RETURN(std::vector<ElementAndCost> subpath,
+                       GetPathVector(tuple, cost_slot_index));
       subpaths.push_back(std::move(subpath));
       ZETASQL_RETURN_IF_ERROR(
           PeriodicallyVerifyNotAborted(context_, ++num_steps_computed_));
@@ -5440,46 +5668,46 @@ class GraphPathTupleIterator : public TupleIterator {
   }
 
   struct PathAndEndOrientation {
-    std::vector<Value> path;
+    std::vector<ElementAndCost> path;
     // If the path ends in an edge, is_src_facing is:
     // * True if the incoming node is expected to be the source node
     // * False if it is expected to be the destination node
     // It is meaningless if the path ends in a node.
     bool is_src_facing;
 
-    PathAndEndOrientation(std::vector<Value> path, bool is_src_facing)
+    PathAndEndOrientation(std::vector<ElementAndCost> path, bool is_src_facing)
         : path(std::move(path)), is_src_facing(is_src_facing) {}
   };
 
-  absl::Status ExtendPath(const std::vector<Value>& path,
-                          absl::Span<const Value> path_to_append,
+  absl::Status ExtendPath(const std::vector<ElementAndCost>& path,
+                          absl::Span<const ElementAndCost> path_to_append,
                           int path_factor_index, bool is_src_facing,
                           std::vector<PathAndEndOrientation>& new_paths) {
     if (edge_orientations_[path_factor_index].has_value()) {
       // `path_to_append` is an edge element.
       ZETASQL_RET_CHECK_EQ(path_to_append.size(), 1);
-      const Value& element = path_to_append[0];
+      const Value& element = path_to_append[0].element;
+      const std::optional<Value>& cost = path_to_append[0].cost;
       ZETASQL_RET_CHECK(element.type()->IsGraphElement());
       ZETASQL_RET_CHECK(element.IsEdge());
-      ZETASQL_RET_CHECK(path.back().type()->IsGraphElement());
-      ZETASQL_RET_CHECK(path.back().IsNode());
 
-      // A directed self-edge has the same source and destination node. Such an
-      // edge is considered to be oriented both from right to left and left to
-      // right and therefore should be added only once, either in right-pointing
-      // or left-pointing direction. Here, we choose to add it in the
-      // right-pointing direction.
+      // A directed self-edge has the same source and destination node. Such
+      // an edge is considered to be oriented both from right to left and left
+      // to right and therefore should be added only once, either in
+      // right-pointing or left-pointing direction. Here, we choose to add it
+      // in the right-pointing direction.
       const bool is_self_edge =
           element.GetSourceNodeIdentifier() == element.GetDestNodeIdentifier();
       if (*edge_orientations_[path_factor_index] !=
               ResolvedGraphEdgeScanEnums::LEFT ||
           is_self_edge) {
-        ZETASQL_ASSIGN_OR_RETURN(bool elements_match,
-                         ElementsMatch(path.back(), element, /*is_src=*/true));
+        ZETASQL_ASSIGN_OR_RETURN(
+            bool elements_match,
+            ElementsMatch(path.back().element, element, /*is_src=*/true));
         if (elements_match) {
           // Copy the path, as it may match other elements
-          std::vector<Value> new_path = path;
-          new_path.push_back(element);
+          std::vector<ElementAndCost> new_path = path;
+          new_path.push_back({.element = element, .cost = cost});
           // The next node will have to be *dest* facing
           new_paths.emplace_back(std::move(new_path),
                                  /*is_src_facing=*/false);
@@ -5488,12 +5716,13 @@ class GraphPathTupleIterator : public TupleIterator {
       if (*edge_orientations_[path_factor_index] !=
               ResolvedGraphEdgeScanEnums::RIGHT &&
           !is_self_edge) {
-        ZETASQL_ASSIGN_OR_RETURN(bool elements_match,
-                         ElementsMatch(path.back(), element, /*is_src=*/false));
+        ZETASQL_ASSIGN_OR_RETURN(
+            bool elements_match,
+            ElementsMatch(path.back().element, element, /*is_src=*/false));
         if (elements_match) {
           // Copy the path, as it may match other elements
-          std::vector<Value> new_path = path;
-          new_path.push_back(element);
+          std::vector<ElementAndCost> new_path = path;
+          new_path.push_back({.element = element, .cost = cost});
           // The next node will have to be *src* facing
           new_paths.emplace_back(std::move(new_path),
                                  /*is_src_facing=*/true);
@@ -5501,25 +5730,26 @@ class GraphPathTupleIterator : public TupleIterator {
       }
     } else {
       // `path_to_append` is a node or a subpath.
-      ZETASQL_RET_CHECK(path_to_append.front().type()->IsGraphElement());
-      ZETASQL_RET_CHECK(path_to_append.back().type()->IsGraphElement());
-      ZETASQL_RET_CHECK(path_to_append.front().IsNode());
-      ZETASQL_RET_CHECK(path_to_append.back().IsNode());
+      ZETASQL_RET_CHECK(path_to_append.front().element.type()->IsGraphElement());
+      ZETASQL_RET_CHECK(path_to_append.front().element.IsNode());
+      ZETASQL_RET_CHECK(path_to_append.back().element.type()->IsGraphElement());
+      ZETASQL_RET_CHECK(path_to_append.back().element.IsNode());
       bool elements_match = false;
-      if (path.back().IsEdge()) {
-        ZETASQL_ASSIGN_OR_RETURN(elements_match,
-                         ElementsMatch(path_to_append.front(), path.back(),
-                                       /*is_src=*/is_src_facing));
+      if (path.back().element.IsEdge()) {
+        ZETASQL_ASSIGN_OR_RETURN(
+            elements_match,
+            ElementsMatch(path_to_append.front().element, path.back().element,
+                          /*is_src=*/is_src_facing));
       } else {
         // Consecutive node patterns.
-        elements_match = path_to_append.front().GetIdentifier() ==
-                         path.back().GetIdentifier();
+        elements_match = path_to_append.front().element.GetIdentifier() ==
+                         path.back().element.GetIdentifier();
       }
       if (elements_match) {
         // Extend the current `path` for future matching. `new_path`
         // may contain consecutive node patterns: the semantic is that
         // consecutive nodes must be the SAME nodes.
-        std::vector<Value> new_path;
+        std::vector<ElementAndCost> new_path;
         new_path.reserve(path.size() + path_to_append.size());
         new_path.insert(new_path.end(), path.begin(), path.end());
         new_path.insert(new_path.end(), path_to_append.begin(),
@@ -5542,17 +5772,19 @@ class GraphPathTupleIterator : public TupleIterator {
     //
     // Seed paths with the first node.
     ZETASQL_ASSIGN_OR_RETURN(
-        std::vector<std::vector<Value>> seed_paths,
-        ExtractSubpathsFromPathFactor(path_factor_iterators_[0].get()));
+        std::vector<std::vector<ElementAndCost>> seed_paths,
+        ExtractSubpathsFromPathFactor(path_factor_iterators_[0].get(),
+                                      cost_slot_indices_[0]));
 
-    // It a path ends in an edge, we need to keep track of its edge orientation.
+    // It a path ends in an edge, we need to keep track of its edge
+    // orientation.
     std::vector<PathAndEndOrientation> paths;
     paths.reserve(seed_paths.size());
-    for (std::vector<Value>& seed_path : seed_paths) {
-      ZETASQL_RET_CHECK(seed_path.front().type()->IsGraphElement());
-      ZETASQL_RET_CHECK(seed_path.back().type()->IsGraphElement());
-      ZETASQL_RET_CHECK(seed_path.front().IsNode());
-      ZETASQL_RET_CHECK(seed_path.back().IsNode());
+    for (std::vector<ElementAndCost>& seed_path : seed_paths) {
+      ZETASQL_RET_CHECK(seed_path.front().element.type()->IsGraphElement());
+      ZETASQL_RET_CHECK(seed_path.front().element.IsNode());
+      ZETASQL_RET_CHECK(seed_path.back().element.type()->IsGraphElement());
+      ZETASQL_RET_CHECK(seed_path.back().element.IsNode());
       paths.emplace_back(std::move(seed_path), /*is_src_facing=*/false);
       ZETASQL_RETURN_IF_ERROR(
           PeriodicallyVerifyNotAborted(context_, ++num_steps_computed_));
@@ -5562,13 +5794,14 @@ class GraphPathTupleIterator : public TupleIterator {
     // current path and the head of a new subpath.
     for (int i = 1; i < path_factor_iterators_.size(); ++i) {
       ZETASQL_ASSIGN_OR_RETURN(
-          const std::vector<std::vector<Value>> cur_subpaths,
-          ExtractSubpathsFromPathFactor(path_factor_iterators_[i].get()));
+          const std::vector<std::vector<ElementAndCost>> cur_subpaths,
+          ExtractSubpathsFromPathFactor(path_factor_iterators_[i].get(),
+                                        cost_slot_indices_[i]));
 
       // This could be changed to a hash-join in the future.
       std::vector<PathAndEndOrientation> new_paths;
       for (const auto& [path, is_src_facing] : paths) {
-        for (const std::vector<Value>& subpath : cur_subpaths) {
+        for (const std::vector<ElementAndCost>& subpath : cur_subpaths) {
           ZETASQL_RETURN_IF_ERROR(
               ExtendPath(path, subpath, i, is_src_facing, new_paths));
         }
@@ -5578,7 +5811,7 @@ class GraphPathTupleIterator : public TupleIterator {
     }
 
     // We can eliminate this copying by just leaving the directionality bit.
-    materialized_paths_ = std::vector<std::vector<Value>>{};
+    materialized_paths_ = std::vector<std::vector<ElementAndCost>>{};
     materialized_paths_->reserve(paths.size());
     for (const auto& [path, is_src_facing] : paths) {
       materialized_paths_->push_back(std::move(path));
@@ -5612,17 +5845,32 @@ class GraphPathTupleIterator : public TupleIterator {
     return &output_tuple_;
   }
 
-  absl::Status FillTuple(absl::Span<const Value> path_elements) {
+  absl::Status FillTuple(absl::Span<const ElementAndCost> path_elements) {
+    std::vector<Value> cost_elements;
+    std::vector<Value> graph_elements;
+    int index = 0;
     for (int i = 0; i < path_elements.size(); ++i) {
-      ZETASQL_RET_CHECK(path_elements[i].type()->IsGraphElement() ||
-                path_elements[i].type()->IsArray());
-      output_tuple_.mutable_slot(i)->SetValue(path_elements[i]);
+      if (path_elements[i].cost.has_value()) {
+        cost_elements.push_back(path_elements[i].cost.value());
+      }
+      ZETASQL_RET_CHECK(path_elements[i].element.type()->IsGraphElement() ||
+                path_elements[i].element.type()->IsArray());
+      graph_elements.push_back(path_elements[i].element);
+      output_tuple_.mutable_slot(index)->SetValue(path_elements[i].element);
+      ++index;
     }
     if (path_type_) {
       ZETASQL_ASSIGN_OR_RETURN(Value path,
-                       BuildPath(path_elements, path_type_, context_));
-      output_tuple_.mutable_slot(static_cast<int>(path_elements.size()))
-          ->SetValue(std::move(path));
+                       BuildPath(graph_elements, path_type_, context_));
+      output_tuple_.mutable_slot(index)->SetValue(std::move(path));
+      ++index;
+    }
+    if (cost_type_) {
+      ZETASQL_ASSIGN_OR_RETURN(Value cost,
+                       ComputeCost(cost_elements, cost_type_, context_));
+      ZETASQL_RET_CHECK(cost.is_valid());
+      ZETASQL_RET_CHECK(cost.type()->kind() == cost_type_->kind());
+      output_tuple_.mutable_slot(index)->SetValue(std::move(cost));
     }
     return absl::OkStatus();
   }
@@ -5631,13 +5879,16 @@ class GraphPathTupleIterator : public TupleIterator {
   std::vector<std::unique_ptr<TupleIterator>> path_factor_iterators_;
   std::vector<std::optional<ResolvedGraphEdgeScan::EdgeOrientation>>
       edge_orientations_;
+  std::vector<std::optional<int>> cost_slot_indices_;
   // If this is non-null, materialize a path variable with this type.
   const GraphPathType* path_type_;
+  // If this is non-null, materialize a cost variable with this type.
+  const Type* cost_type_;
   std::unique_ptr<const TupleSchema> output_schema_;
 
   EvaluationContext* context_;
 
-  std::optional<std::vector<std::vector<Value>>> materialized_paths_;
+  std::optional<std::vector<std::vector<ElementAndCost>>> materialized_paths_;
   int num_results_consumed_ = 0;
 
   TupleData output_tuple_;
@@ -5667,7 +5918,8 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> GraphPathOp::CreateIterator(
   std::unique_ptr<TupleIterator> graph_path_iter =
       std::make_unique<GraphPathTupleIterator>(
           params, std::move(path_factor_iterators), edge_orientations_,
-          path_type_, CreateOutputSchema(), num_extra_slots, context);
+          cost_slot_indices_, path_type_, cost_type_, CreateOutputSchema(),
+          num_extra_slots, context);
   return MaybeReorder(std::move(graph_path_iter), context);
 }
 
@@ -5679,7 +5931,8 @@ QuantifiedGraphPathOp::Create(std::unique_ptr<RelationalOp> path_primary_op,
                               VariablesInfo variables,
                               std::unique_ptr<ValueExpr> lower_bound,
                               std::unique_ptr<ValueExpr> upper_bound,
-                              const GraphPathType* path_type) {
+                              const GraphPathType* path_type,
+                              const Type* cost_type) {
   if (lower_bound != nullptr) {
     ZETASQL_RET_CHECK(lower_bound->output_type()->IsInt64());
   }
@@ -5688,15 +5941,17 @@ QuantifiedGraphPathOp::Create(std::unique_ptr<RelationalOp> path_primary_op,
   }
   return absl::WrapUnique(new QuantifiedGraphPathOp(
       std::move(path_primary_op), std::move(variables), std::move(lower_bound),
-      std::move(upper_bound), path_type));
+      std::move(upper_bound), path_type, cost_type));
 }
 
 QuantifiedGraphPathOp::QuantifiedGraphPathOp(
     std::unique_ptr<RelationalOp> path_primary_op, VariablesInfo variables,
     std::unique_ptr<ValueExpr> lower_bound,
-    std::unique_ptr<ValueExpr> upper_bound, const GraphPathType* path_type)
+    std::unique_ptr<ValueExpr> upper_bound, const GraphPathType* path_type,
+    const Type* cost_type)
     : path_primary_op_(std::move(path_primary_op)),
       path_type_(path_type),
+      cost_type_(cost_type),
       variables_(std::move(variables)),
       lower_bound_(std::move(lower_bound)),
       upper_bound_(std::move(upper_bound)) {}
@@ -5733,9 +5988,13 @@ absl::Status QuantifiedGraphPathOp::SetSchemasForEvaluation(
 std::unique_ptr<TupleSchema> QuantifiedGraphPathOp::CreateOutputSchema() const {
   std::vector<VariableId> variables;
   bool has_path_var = path_type_ != nullptr;
+  bool has_cost_var = cost_type_ != nullptr;
   int num_extra_variables = 2;  // head and tail
   if (has_path_var) {
     num_extra_variables += 1;  // path variable
+  }
+  if (has_cost_var) {
+    num_extra_variables += 1;  // cost variable
   }
   variables.reserve(variables_.group_variables.size() + num_extra_variables);
   variables.push_back(variables_.head);
@@ -5746,6 +6005,9 @@ std::unique_ptr<TupleSchema> QuantifiedGraphPathOp::CreateOutputSchema() const {
   variables.push_back(variables_.tail);
   if (has_path_var) {
     variables.push_back(variables_.path);
+  }
+  if (has_cost_var) {
+    variables.push_back(variables_.cost);
   }
   return std::make_unique<TupleSchema>(variables);
 }
@@ -5764,16 +6026,28 @@ class QuantifiedGraphPathTupleIterator : public TupleIterator {
       std::unique_ptr<TupleIterator> path_primary_iterator, int64_t lower_bound,
       int64_t upper_bound,
       std::vector<QuantifiedGraphPathOp::GroupVariableInfo> group_variable_info,
-      const GraphPathType* path_type, EvaluationContext* context) {
+      const GraphPathType* path_type, const Type* cost_type,
+      EvaluationContext* context) {
     return absl::WrapUnique(new QuantifiedGraphPathTupleIterator(
         params, std::move(output_schema), num_extra_slots,
         std::move(path_primary_iterator), lower_bound, upper_bound,
-        std::move(group_variable_info), path_type, context));
+        std::move(group_variable_info), path_type, cost_type, context));
   }
 
   const TupleSchema& Schema() const override { return *output_schema_; }
 
   absl::Status Status() const override { return status_; }
+
+  static absl::StatusOr<Value> GetRightMostGraphElement(
+      const TupleData* tuple) {
+    for (int i = tuple->num_slots() - 1; i >= 0; --i) {
+      const Value& element = tuple->slot(i).value();
+      if (element.type()->IsGraphElement()) {
+        return element;
+      }
+    }
+    ZETASQL_RET_CHECK_FAIL() << "No graph element found in path";
+  }
 
   // Extract the valid paths by iterating over the contained path primary and
   // construct a reachability list for the 1-st iteration of the quantified
@@ -5782,9 +6056,7 @@ class QuantifiedGraphPathTupleIterator : public TupleIterator {
     TupleData* tuple = path_primary_iterator_->Next();
     while (tuple != nullptr) {
       const Value& head_value = tuple->slot(0).value();
-      const Value& tail_value =
-          path_type_ != nullptr ? tuple->slot(tuple->num_slots() - 2).value()
-                                : tuple->slots().back().value();
+      ZETASQL_ASSIGN_OR_RETURN(Value tail_value, GetRightMostGraphElement(tuple));
       std::vector<Value> group_variables;
       for (int i = 0; i < group_variable_info_.size(); ++i) {
         ZETASQL_RET_CHECK_LT(group_variable_info_[i].singleton_slot_index,
@@ -5792,8 +6064,18 @@ class QuantifiedGraphPathTupleIterator : public TupleIterator {
         group_variables.push_back(
             tuple->slot(group_variable_info_[i].singleton_slot_index).value());
       }
+      std::optional<Value> cost = std::nullopt;
+      if (cost_type_) {
+        cost = tuple->slot(tuple->num_slots() - 1).value();
+        ZETASQL_RET_CHECK(cost->type()->IsNumerical())
+            << "Expected numerical cost value in path primary, found: "
+            << cost->DebugString();
+        ZETASQL_RET_CHECK(cost->type()->kind() == cost_type_->kind())
+            << "Cost type mismatch: " << cost->type()->DebugString() << " vs. "
+            << cost_type_->DebugString();
+      }
       precomputed_paths_single_iteration_[head_value.GetIdentifier()].push_back(
-          {tail_value, std::move(group_variables)});
+          {tail_value, std::move(group_variables), std::move(cost)});
       starting_nodes_.insert(head_value);
       tuple = path_primary_iterator_->Next();
     }
@@ -5807,11 +6089,17 @@ class QuantifiedGraphPathTupleIterator : public TupleIterator {
     // Queue that holds paths from start until current iteration.
     std::queue<PathState> queue;
     for (const Value& node : starting_nodes_) {
-      queue.push({.iteration = 0,
-                  .head = node,
-                  .tail = node,
-                  .group_variables = std::vector<std::vector<Value>>(
-                      group_variable_info_.size())});
+      PathState path_state;
+      path_state.iteration = 0;
+      path_state.head = node;
+      path_state.tail = node;
+      path_state.group_variables =
+          std::vector<std::vector<Value>>(group_variable_info_.size());
+      if (cost_type_) {
+        ZETASQL_ASSIGN_OR_RETURN(path_state.total_cost,
+                         CreateTypedZeroForCost(cost_type_));
+      }
+      queue.push(std::move(path_state));
     }
     while (!queue.empty()) {
       PathState current_path = std::move(queue.front());
@@ -5830,6 +6118,15 @@ class QuantifiedGraphPathTupleIterator : public TupleIterator {
           new_group_variables[idx].push_back(
               single_iteration.group_variables[idx]);
         }
+        std::optional<Value> new_total_cost = std::nullopt;
+        if (cost_type_) {
+          ZETASQL_RET_CHECK(single_iteration.cost.has_value());
+          ZETASQL_RET_CHECK(current_path.total_cost.has_value());
+          ZETASQL_ASSIGN_OR_RETURN(new_total_cost,
+                           AddCostsBinary({current_path.total_cost.value(),
+                                           single_iteration.cost.value()},
+                                          cost_type_, context_));
+        }
         int iteration = current_path.iteration + 1;
         if (iteration <= upper_bound_ && iteration >= lower_bound_) {
           std::vector<Value> path;
@@ -5843,14 +6140,22 @@ class QuantifiedGraphPathTupleIterator : public TupleIterator {
             path.push_back(std::move(array));
           }
           path.push_back(single_iteration.destination);
+          if (cost_type_) {
+            path.push_back(new_total_cost.value());
+          }
           materialized_paths_->push_back(std::move(path));
         }
         // If not at the final iteration, queue values for the next iteration.
         if (iteration < upper_bound_) {
-          queue.push({.iteration = iteration,
-                      .head = current_path.head,
-                      .tail = single_iteration.destination,
-                      .group_variables = std::move(new_group_variables)});
+          PathState next_path;
+          next_path.iteration = iteration;
+          next_path.head = current_path.head;
+          next_path.tail = single_iteration.destination;
+          next_path.group_variables = std::move(new_group_variables);
+          if (cost_type_) {
+            next_path.total_cost = new_total_cost.value();
+          }
+          queue.push(std::move(next_path));
         }
       }
     }
@@ -5884,13 +6189,21 @@ class QuantifiedGraphPathTupleIterator : public TupleIterator {
   }
 
   absl::Status FillTuple(absl::Span<const Value> path_elements) {
+    int index = 0;
+    std::vector<Value> cost_elements;
     for (int i = 0; i < path_elements.size(); ++i) {
-      output_tuple_.mutable_slot(i)->SetValue(path_elements[i]);
+      if (path_elements[i].type()->IsNumerical()) {
+        cost_elements.push_back(path_elements[i]);
+        continue;
+      }
+      output_tuple_.mutable_slot(index)->SetValue(path_elements[i]);
+      index++;
     }
 
     if (path_type_) {
-      // Excluding the path variable which we are now building.
-      const int num_variables = Schema().num_variables() - 1;
+      // Excluding the path variable and possible cost variable.
+      int num_variables = cost_type_ ? Schema().num_variables() - 2
+                                     : Schema().num_variables() - 1;
       // This must be a quantified path, composed of a head, a list of group
       // variables, and a tail.
       ZETASQL_RET_CHECK_GE(num_variables, 3);
@@ -5904,8 +6217,16 @@ class QuantifiedGraphPathTupleIterator : public TupleIterator {
 
       ZETASQL_ASSIGN_OR_RETURN(Value path,
                        BuildPath(path_elements, path_type_, context_));
-      output_tuple_.mutable_slot(static_cast<int>(path_elements.size()))
-          ->SetValue(std::move(path));
+      output_tuple_.mutable_slot(index)->SetValue(std::move(path));
+      ++index;
+    }
+    ZETASQL_RET_CHECK(cost_elements.empty() == (cost_type_ == nullptr));
+    if (cost_type_) {
+      ZETASQL_RET_CHECK(cost_elements.size() == 1)
+          << "There should be exactly one cost value from the path primary, "
+             "found "
+          << cost_elements.size();
+      output_tuple_.mutable_slot(index)->SetValue(cost_elements[0]);
     }
     return absl::OkStatus();
   }
@@ -5925,7 +6246,8 @@ class QuantifiedGraphPathTupleIterator : public TupleIterator {
       std::unique_ptr<TupleIterator> path_primary_iterator, int64_t lower_bound,
       int64_t upper_bound,
       std::vector<QuantifiedGraphPathOp::GroupVariableInfo> group_variable_info,
-      const GraphPathType* path_type, EvaluationContext* context)
+      const GraphPathType* path_type, const Type* cost_type,
+      EvaluationContext* context)
       : params_(params.begin(), params.end()),
         output_schema_(std::move(output_schema)),
         path_primary_iterator_(std::move(path_primary_iterator)),
@@ -5933,6 +6255,7 @@ class QuantifiedGraphPathTupleIterator : public TupleIterator {
         upper_bound_(upper_bound),
         group_variable_info_(std::move(group_variable_info)),
         path_type_(path_type),
+        cost_type_(cost_type),
         context_(context) {
     output_tuple_.AddSlots(output_schema_->num_variables() + num_extra_slots);
   }
@@ -5944,6 +6267,8 @@ class QuantifiedGraphPathTupleIterator : public TupleIterator {
     // The values that the group variables take along this one hop. We have one
     // value per group variable.
     std::vector<Value> group_variables;
+    // The cost of the hop.
+    std::optional<Value> cost = std::nullopt;
   };
 
   // Represents the state of a partial or fully materialized quantified path.
@@ -5958,6 +6283,8 @@ class QuantifiedGraphPathTupleIterator : public TupleIterator {
     // The group variables of the path. The outer vector is per group variable,
     // the inner vector is the Values that that group variable takes.
     std::vector<std::vector<Value>> group_variables;
+    // The total cost of the quantified path.
+    std::optional<Value> total_cost = std::nullopt;
   };
 
   bool should_initialize() { return !materialized_paths_.has_value(); }
@@ -5978,8 +6305,12 @@ class QuantifiedGraphPathTupleIterator : public TupleIterator {
   // underlying GraphPathScan's `group_variable_list`.
   std::vector<QuantifiedGraphPathOp::GroupVariableInfo> group_variable_info_;
 
-  // If non-null, materialize a path value at the final slot.
+  // If non-null, materialize a path value at the end of the path.
   const GraphPathType* path_type_;
+
+  // If non-null, materialize the cost of the path at end of the path.
+  // The cost follows the path variable, if defined.
+  const Type* cost_type_;
 
   // The EvaluationContext.
   EvaluationContext* context_;
@@ -6068,7 +6399,7 @@ QuantifiedGraphPathOp::CreateIterator(absl::Span<const TupleData* const> params,
       QuantifiedGraphPathTupleIterator::Create(
           params, CreateOutputSchema(), num_extra_slots,
           std::move(path_primary_iterator), lower_bound_val, upper_bound_val,
-          variables_.group_variables, path_type_, context));
+          variables_.group_variables, path_type_, cost_type_, context));
   return MaybeReorder(std::move(quantified_path_iter), context);
 }
 
@@ -6221,7 +6552,9 @@ class GraphPathModeTupleIterator : public TupleIterator {
     discovered_nodes_.clear();
     first_node_.reset();
     for (const TupleSlot& el : path) {
-      if (el.value().type_kind() == TYPE_GRAPH_PATH) {
+      if (el.value().type_kind() == TYPE_GRAPH_PATH ||
+          el.value().type()->IsNumerical()) {
+        // Skip path variables and computed cost variables.
         continue;
       }
       if (el.value().type_kind() == TYPE_GRAPH_ELEMENT) {

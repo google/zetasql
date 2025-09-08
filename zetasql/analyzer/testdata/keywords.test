@@ -1,5 +1,6 @@
 # ROW is an unreserved keyword, and can be used as an alias, column name,
 # etc.
+[default language_features=MAXIMUM]
 select row
 from (select 1 as row);
 --

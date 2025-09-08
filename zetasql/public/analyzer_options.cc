@@ -521,6 +521,7 @@ absl::Status AnalyzerOptions::Serialize(FileDescriptorSetMap* map,
   }
 
   proto->set_default_timezone(data_->default_timezone.name());
+
   proto->set_default_anon_function_report_format(
       data_->default_anon_function_report_format);
   proto->set_default_anon_kappa_value(data_->default_anon_kappa_value);

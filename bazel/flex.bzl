@@ -61,6 +61,8 @@ genlex(
 
 load("@rules_flex//flex:flex.bzl", "FLEX_TOOLCHAIN_TYPE", "flex_toolchain")
 load("@rules_m4//m4:m4.bzl", "M4_TOOLCHAIN_TYPE")
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 
 def _genlex_impl(ctx):
     """Implementation for genlex rule."""

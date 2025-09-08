@@ -2,7 +2,7 @@
 [default no_enable_literal_replacement]
 [default enabled_ast_rewrites=DEFAULTS]
 
-[default language_features=PIPES,PIPE_IF,PIPE_STATIC_DESCRIBE,TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS,FUNCTION_ARGUMENTS_WITH_DEFAULTS]
+[default language_features=MAXIMUM,+PIPES,+PIPE_IF,+PIPE_STATIC_DESCRIBE,+TABLE_VALUED_FUNCTIONS,+NAMED_ARGUMENTS,+CREATE_TABLE_FUNCTION,+TEMPLATE_FUNCTIONS,+FUNCTION_ARGUMENTS_WITH_DEFAULTS]
 
 # The IF doesn't work yet because we don't treat the argument
 # as a constant, and can't without treating the TVF as templated.

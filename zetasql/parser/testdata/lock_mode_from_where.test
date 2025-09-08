@@ -1,7 +1,7 @@
 # Tests for the FOR UPDATE clause combined with a FROM and WHERE clause.
 
 # Flipping FOR UPDATE feature on and off.
-[default language_features={{|FOR_UPDATE}}]
+[default language_features=NONE,{{|+FOR_UPDATE}}]
 select a, b from Table1 for update;
 --
 ALTERNATION GROUP: <empty>
@@ -10,7 +10,7 @@ ERROR: FOR UPDATE is not supported [at 1:25]
 select a, b from Table1 for update;
                         ^
 --
-ALTERNATION GROUP: FOR_UPDATE
+ALTERNATION GROUP: +FOR_UPDATE
 --
 QueryStatement [0-34] [select a,...for update]
   Query [0-34] [select a,...for update]

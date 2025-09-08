@@ -14,12 +14,16 @@
 // limitations under the License.
 //
 
+#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/builtin_function_internal.h"
+#include "zetasql/proto/options.pb.h"
 #include "zetasql/public/builtin_function.pb.h"
+#include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
@@ -27,15 +31,18 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/functional/bind_front.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -386,16 +393,6 @@ void GetDatetimeConversionFunctions(
            FN_TIMESTAMP_FROM_UNIX_MICROS_UINT64,
            timestamp_from_unix_uint64_options},
       });
-  std::vector<FunctionSignatureOnHeap> timestamp_signatures{
-      {timestamp_type,
-       {string_type, {string_type, OPTIONAL}},
-       FN_TIMESTAMP_FROM_STRING},
-      {timestamp_type,
-       {date_type, {string_type, OPTIONAL}},
-       FN_TIMESTAMP_FROM_DATE},
-      {timestamp_type,
-       {datetime_type, {string_type, OPTIONAL}},
-       FN_TIMESTAMP_FROM_DATETIME}};
   InsertFunction(functions, options, "timestamp", SCALAR,
                  {{timestamp_type,
                    {string_type, {string_type, OPTIONAL}},
@@ -750,6 +747,55 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
               &CheckDateDatetimeTimestampAddSubArguments, "TIMESTAMP_SUB"))
           .set_get_sql_callback(
               absl::bind_front(&DateAddOrSubFunctionSQL, "TIMESTAMP_SUB")));
+
+  constexpr absl::string_view kAddMonthsDateSQL = R"sql(
+      IF(
+        date_arg IS NULL OR months_arg IS NULL,
+        NULL,
+        IF(
+          date_arg = LAST_DAY(date_arg, MONTH),
+          LAST_DAY(DATE_ADD(date_arg, INTERVAL months_arg MONTH)),
+          DATE_ADD(date_arg, INTERVAL months_arg MONTH)))
+  )sql";
+
+  constexpr absl::string_view kAddMonthsDatetimeSQL = R"sql(
+      IF(
+        datetime_arg IS NULL OR months_arg IS NULL,
+        NULL,
+        IF(
+          -- Note thats LAST_DAY(DATETIME) yields a DATE, not a DATETIME.
+          DATE(datetime_arg) = LAST_DAY(datetime_arg, MONTH),
+          DATETIME(
+            LAST_DAY(DATETIME_ADD(datetime_arg, INTERVAL months_arg MONTH)),
+            TIME(datetime_arg)),
+          DATETIME_ADD(datetime_arg, INTERVAL months_arg MONTH)))
+  )sql";
+
+  InsertFunction(
+      functions, options, "add_months", SCALAR,
+      {
+          {date_type,
+           {FunctionArgumentType(
+                date_type, FunctionArgumentTypeOptions().set_argument_name(
+                               "date_arg", kPositionalOnly)),
+            FunctionArgumentType(
+                int64_type, FunctionArgumentTypeOptions().set_argument_name(
+                                "months_arg", kPositionalOnly))},
+           FN_ADD_MONTHS_DATE,
+           SetDefinitionForInlining(kAddMonthsDateSQL)},
+          {datetime_type,
+           {FunctionArgumentType(
+                datetime_type, FunctionArgumentTypeOptions().set_argument_name(
+                                   "datetime_arg", kPositionalOnly)),
+            FunctionArgumentType(
+                int64_type, FunctionArgumentTypeOptions().set_argument_name(
+                                "months_arg", kPositionalOnly))},
+           FN_ADD_MONTHS_DATETIME,
+           SetDefinitionForInlining(kAddMonthsDatetimeSQL)
+               .AddRequiredLanguageFeature(FEATURE_CIVIL_TIME)},
+      },
+      FunctionOptions().AddRequiredLanguageFeature(
+          FEATURE_ADDITIONAL_DATE_TIME_FUNCTIONS));
 }
 
 void GetDatetimeDiffTruncLastFunctions(
@@ -976,6 +1022,60 @@ void GetDatetimeBucketFunctions(TypeFactory* type_factory,
       });
 }
 
+static absl::Status CheckParseTimestampPrecisionArgumentValue(
+    const FunctionSignature& signature,
+    absl::Span<const InputArgumentType> arguments,
+    const LanguageOptions& language_options) {
+  if (signature.context_id() != FN_PARSE_TIMESTAMP_WITH_PRECISION &&
+      signature.context_id() !=
+          FN_PARSE_TIMESTAMP_WITH_PRECISION_AND_TIMEZONE) {
+    return absl::OkStatus();
+  }
+
+  ZETASQL_RET_CHECK_GE(arguments.size(), 3);
+  ZETASQL_RET_CHECK_LE(arguments.size(), 4);
+
+  std::string precision_error =
+      "Precision argument must be an INT64 literal with a value of ";
+  if (language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_PICOS)) {
+    absl::StrAppend(&precision_error, "0, 3, 6, 9, or 12");
+  } else if (language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
+    absl::StrAppend(&precision_error, "0, 3, 6, or 9");
+  } else {
+    absl::StrAppend(&precision_error, "0, 3, or 6");
+  }
+
+  const InputArgumentType& precision_arg = arguments[2];
+  ZETASQL_RET_CHECK(precision_arg.type()->IsInt64()) << precision_arg.DebugString();
+
+  if (!precision_arg.is_literal() || precision_arg.is_null()) {
+    return absl::InvalidArgumentError(precision_error);
+  }
+
+  const Value* value = precision_arg.literal_value();
+  ZETASQL_RET_CHECK(value != nullptr);
+  ZETASQL_RET_CHECK(value->type()->IsInt64()) << value->DebugString();
+  switch (value->int64_value()) {
+    case 0:
+    case 3:
+    case 6:
+      break;
+    case 9:
+      if (!language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
+        return absl::InvalidArgumentError(precision_error);
+      }
+      break;
+    case 12:
+      if (!language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_PICOS)) {
+        return absl::InvalidArgumentError(precision_error);
+      }
+      break;
+    default:
+      return absl::InvalidArgumentError(precision_error);
+  }
+  return absl::OkStatus();
+}
+
 void GetDatetimeFormatFunctions(TypeFactory* type_factory,
                                 const ZetaSQLBuiltinFunctionOptions& options,
                                 NameToFunctionMap* functions) {
@@ -1041,10 +1141,34 @@ void GetDatetimeFormatFunctions(TypeFactory* type_factory,
   InsertSimpleFunction(functions, options, "parse_time", SCALAR,
                        {{time_type, {string_type, string_type}, FN_PARSE_TIME}},
                        require_civil_time_types.Copy());
-  InsertSimpleFunction(functions, options, "parse_timestamp", SCALAR,
-                       {{timestamp_type,
-                         {string_type, string_type, {string_type, OPTIONAL}},
-                         FN_PARSE_TIMESTAMP}});
+
+  InsertFunction(
+      functions, options, "parse_timestamp", SCALAR,
+      {{timestamp_type,
+        {string_type, string_type, {string_type, OPTIONAL}},
+        FN_PARSE_TIMESTAMP},
+       {timestamp_type,
+        {string_type,
+         string_type,
+         {types::Int64Type(), FunctionArgumentTypeOptions()
+                                  .set_must_be_analysis_constant(true)
+                                  .set_argument_name("precision", kNamedOnly)}},
+        FN_PARSE_TIMESTAMP_WITH_PRECISION,
+        FunctionSignatureOptions().AddRequiredLanguageFeature(
+            FEATURE_PARSE_TIMESTAMP_WITH_PRECISION_AND_TIMEZONE)},
+       {timestamp_type,
+        {string_type,
+         string_type,
+         {types::Int64Type(), FunctionArgumentTypeOptions()
+                                  .set_must_be_analysis_constant(true)
+                                  .set_argument_name("precision", kNamedOnly)},
+         {string_type, FunctionArgumentTypeOptions().set_argument_name(
+                           "timezone", kNamedOnly)}},
+        FN_PARSE_TIMESTAMP_WITH_PRECISION_AND_TIMEZONE,
+        FunctionSignatureOptions().AddRequiredLanguageFeature(
+            FEATURE_PARSE_TIMESTAMP_WITH_PRECISION_AND_TIMEZONE)}},
+      FunctionOptions().set_post_resolution_argument_constraint(
+          &CheckParseTimestampPrecisionArgumentValue));
 }
 
 void GetDatetimeFunctions(TypeFactory* type_factory,
@@ -1623,7 +1747,9 @@ void GetGroupingFunctions(TypeFactory* type_factory,
             .set_supports_window_framing(false)
             .set_window_ordering_support(FunctionOptions::ORDER_UNSUPPORTED)
             .set_supports_having_modifier(false)
-            .set_supports_group_by_modifier(false));
+            .set_supports_group_by_modifier(false)
+            .set_supports_where_modifier(false)
+            .set_supports_having_filter_modifier(false));
   }
 }
 
@@ -1758,6 +1884,45 @@ void GetAggregateFunctions(TypeFactory* type_factory,
   GetPercentileFunctions(type_factory, options, functions);
 }
 
+// Compute the output annotations for TOP_COUNT and TOP_SUM.
+// The signatures are of the form F(T1, T2) -> ARRAY<STRUCT<T1, T2>>
+static absl::StatusOr<const AnnotationMap*> ComputeAnnotationsForTopStruct(
+    const ResolvedFunctionCallBase& function_call, TypeFactory& type_factory) {
+  ZETASQL_RET_CHECK_GE(function_call.argument_list_size(), 2);
+
+  // Simply combine the argument annotations into a struct.
+  ZETASQL_RET_CHECK(function_call.type()->IsArray());
+  ZETASQL_RET_CHECK(function_call.type()->AsArray()->element_type()->IsStruct());
+  ZETASQL_RET_CHECK_EQ(
+      function_call.type()->AsArray()->element_type()->AsStruct()->num_fields(),
+      2);
+  std::unique_ptr<AnnotationMap> annotation_map =
+      AnnotationMap::Create(function_call.type());
+  ZETASQL_RET_CHECK(annotation_map->IsStructMap());
+  ZETASQL_RET_CHECK_EQ(annotation_map->AsStructMap()->num_fields(), 1);
+
+  AnnotationMap* element_annotation_map =
+      annotation_map->AsStructMap()->mutable_field(0);
+  ZETASQL_RET_CHECK(element_annotation_map->IsStructMap());
+  ZETASQL_RET_CHECK_EQ(element_annotation_map->AsStructMap()->num_fields(), 2);
+
+  // Propagate the array element collations to the elements of the result array.
+  for (int i = 0; i < function_call.argument_list_size(); ++i) {
+    const AnnotationMap* arg_annotation_map =
+        function_call.argument_list(i)->type_annotation_map();
+    if (arg_annotation_map != nullptr) {
+      ZETASQL_RETURN_IF_ERROR(element_annotation_map->AsStructMap()->CloneIntoField(
+          i, arg_annotation_map));
+    }
+  }
+  if (annotation_map->Empty()) {
+    // Use nullptr rather than an empty annotation map when there are no
+    // annotations.
+    return nullptr;
+  }
+  return type_factory.TakeOwnership(std::move(annotation_map));
+}
+
 void GetApproxFunctions(TypeFactory* type_factory,
                         const ZetaSQLBuiltinFunctionOptions& options,
                         NameToFunctionMap* functions) {
@@ -1814,56 +1979,68 @@ void GetApproxFunctions(TypeFactory* type_factory,
 
   InsertFunction(
       functions, options, "approx_top_count", AGGREGATE,
-      {{ARG_TYPE_ANY_1,  // Return type will be overridden.
+      {{ARG_TYPE_ARBITRARY,  // Return type will be overridden.
         {{ARG_TYPE_ANY_1, supports_grouping},
          {int64_type, non_null_positive_non_agg}},
         FN_APPROX_TOP_COUNT,
         FunctionSignatureOptions()
             .set_uses_operation_collation()
-            .set_rejects_collation()}},
+            .set_rejects_collation()
+            .set_compute_result_annotations_callback(
+                &ComputeAnnotationsForTopStruct)}},
       DefaultAggregateFunctionOptions().set_compute_result_type_callback(
           absl::bind_front(&ComputeResultTypeForTopStruct, "count")));
 
   InsertFunction(
       functions, options, "approx_top_sum", AGGREGATE,
-      {{ARG_TYPE_ANY_1,  // Return type will be overridden.
+      {{ARG_TYPE_ARBITRARY,  // Return type will be overridden.
         {{ARG_TYPE_ANY_1, supports_grouping},
          int64_type,
          {int64_type, non_null_positive_non_agg}},
         FN_APPROX_TOP_SUM_INT64,
         FunctionSignatureOptions()
             .set_uses_operation_collation()
-            .set_rejects_collation()},
-       {ARG_TYPE_ANY_1,  // Return type will be overridden.
+            .set_rejects_collation()
+            .set_compute_result_annotations_callback(
+                &ComputeAnnotationsForTopStruct)},
+       {ARG_TYPE_ARBITRARY,  // Return type will be overridden.
         {{ARG_TYPE_ANY_1, supports_grouping},
          uint64_type,
          {int64_type, non_null_positive_non_agg}},
         FN_APPROX_TOP_SUM_UINT64,
         FunctionSignatureOptions()
             .set_uses_operation_collation()
-            .set_rejects_collation()},
-       {ARG_TYPE_ANY_1,  // Return type will be overridden.
+            .set_rejects_collation()
+            .set_compute_result_annotations_callback(
+                &ComputeAnnotationsForTopStruct)},
+       {ARG_TYPE_ARBITRARY,  // Return type will be overridden.
         {{ARG_TYPE_ANY_1, supports_grouping},
          double_type,
          {int64_type, non_null_positive_non_agg}},
         FN_APPROX_TOP_SUM_DOUBLE,
         FunctionSignatureOptions()
             .set_uses_operation_collation()
-            .set_rejects_collation()},
-       {ARG_TYPE_ANY_1,  // Return type will be overridden.
+            .set_rejects_collation()
+            .set_compute_result_annotations_callback(
+                &ComputeAnnotationsForTopStruct)},
+       {ARG_TYPE_ARBITRARY,  // Return type will be overridden.
         {{ARG_TYPE_ANY_1, supports_grouping},
          numeric_type,
          {int64_type, non_null_positive_non_agg}},
         FN_APPROX_TOP_SUM_NUMERIC,
         has_numeric_type_argument.set_uses_operation_collation()
-            .set_rejects_collation()},
-       {ARG_TYPE_ANY_1,  // Return type will be overridden.
+            .set_rejects_collation()
+            .set_compute_result_annotations_callback(
+                &ComputeAnnotationsForTopStruct)},
+       {ARG_TYPE_ARBITRARY,  // Return type will be overridden.
         {{ARG_TYPE_ANY_1, supports_grouping},
          bignumeric_type,
          {int64_type, non_null_positive_non_agg}},
         FN_APPROX_TOP_SUM_BIGNUMERIC,
         has_bignumeric_type_argument.set_uses_operation_collation()
-            .set_rejects_collation()}},
+            .set_rejects_collation()
+            .set_compute_result_annotations_callback(
+                &ComputeAnnotationsForTopStruct)}},
       DefaultAggregateFunctionOptions().set_compute_result_type_callback(
           absl::bind_front(&ComputeResultTypeForTopStruct, "sum")));
 }

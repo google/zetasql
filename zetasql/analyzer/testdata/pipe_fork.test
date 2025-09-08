@@ -1,5 +1,6 @@
+[default language_features=MAXIMUM]
 [default enabled_ast_rewrites=DEFAULTS]
-[language_features=PIPES]
+[language_features=NONE,+PIPES]
 FROM KeyValue
 |> FORK ()
 --
@@ -12,7 +13,7 @@ ERROR: Pipe FORK not supported [at 2:1]
 # statement kinds are enabled.
 # TODO SQLBuilder doesn't work for pipe FORK yet.
 [default no_run_sqlbuilder]
-[default language_features=PIPES,PIPE_FORK,PIPE_IF,TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,WITH_ON_SUBQUERY,PIPE_STATIC_DESCRIBE,PIPE_CREATE_TABLE,PIPE_EXPORT_DATA,WITH_RECURSIVE,PIPE_LOG]
+[default language_features=MAXIMUM,+PIPES,+PIPE_FORK,+PIPE_IF,+TABLE_VALUED_FUNCTIONS,+CREATE_TABLE_FUNCTION,+WITH_ON_SUBQUERY,+PIPE_STATIC_DESCRIBE,+PIPE_CREATE_TABLE,+PIPE_EXPORT_DATA,+WITH_RECURSIVE,+PIPE_LOG]
 [supported_statement_kinds={{QUERY|GENERALIZED_QUERY|QUERY,GENERALIZED_QUERY|INSERT}}]
 FROM KeyValue
 |> FORK ()

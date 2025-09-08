@@ -41,6 +41,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/value.h"
+#include "absl/base/macros.h"
 #include "absl/flags/declare.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -207,21 +208,12 @@ struct TestTable {
   Value table_as_value;
   TestTableOptions options;
 
-  // Compliance testing for measures is currently difficult, because:
+  // Compliance testing for measures is difficult, because it is currently
+  // impossible to define measures via SQL or use DDL to add measure columns to
+  // a table.
   //
-  //   1) ZetaSQL Value support for measures is currently missing and
-  //      compliance tests represent column values as ZetaSQL Values. We work
-  //      around this by representing measure column values as NULL ZetaSQL
-  //      Values (of measure type).
-  //
-  //   2) It is currently impossible to define measures via SQL or use DDL to
-  //      add measure columns to a table.
-  //
-  // We work around limitation 1) by representing all measure column values as
-  // NULL ZetaSQL Values (of measure type).
-  //
-  // We work around limitation 2) by adding predefined tables with measure
-  // columns to the test database.
+  // We work around this limitation by adding predefined measure columns to
+  // tables in the test database.
   //
   // The fields below are used to configure the addition of measure columns to
   // the table.
@@ -274,10 +266,12 @@ struct TestDatabase {
       property_graph_defs;  // Keyed on graph name.
 };
 
-// The result of executing a single statement in a script.
+// The result of executing a single statement. It can be a statement in a
+// script, or a sub-statement in a multi-statement query.
 struct StatementResult {
-  // Name of the procedure the statement belongs to, empty if the statement
-  // is not part of a procedure.
+  // For a statement in a script, this is the name of the procedure the
+  // statement belongs to. Empty if the statement is not part of a procedure or
+  // this is a sub-statement in a multi-statement query.
   //
   // If the statement belongs to a procedure, line/column numbers, below are
   // relative to the procedure body, rather than the overall script.
@@ -285,6 +279,9 @@ struct StatementResult {
 
   // Line number of the start of the statement, 1-based.
   // 0 if the line number cannot be determined.
+  //
+  // NOTE: Currently, line and column are only populated for statements in a
+  // script, but this may be extended to multi-statement queries in the future.
   int line = 0;
 
   // Column number of the start of the statement, 1-based.
@@ -297,18 +294,24 @@ struct StatementResult {
   absl::StatusOr<Value> result;
 };
 
-// Represents the result of executing a script through a TestDriver.
-struct ScriptResult {
+// Represents multiple statement results. It can be used for both script and
+// multi-statement queries.
+struct MultiStmtResult {
   // A list of statements that were executed, along with their results.
   //
-  // Even if the script fails, <statement_results> should still be populated
-  // with the list of statements that ran up to an including the failure.
+  // For a script, statements are evaluated sequentially and side-effects are
+  // applied. Even if the script fails, `statement_results` is still
+  // populated with the list of statements that ran up to and including the
+  // failure. A failed `StatementResult` is still possible, even if the script
+  // succeeds, if the error was caught by an exception handler in the script.
   //
-  // A failed StatementResult is still possible, even if the script succeeds.
-  // This can happen if the error was caught by an exception handler in the
-  // script.
+  // For a multi-statement query, each statement can fail or succeed
+  // independently. The sub-statements are evaluated as-if in parallel and
+  // are against a single database snapshot.
   std::vector<StatementResult> statement_results;
 };
+
+using ScriptResult ABSL_DEPRECATED("Inline me!") = MultiStmtResult;
 
 // Serialize TestDatabase to a proto. This is to allow building test drivers in
 // other languages (in particular, java).
@@ -359,6 +362,20 @@ class TestDriver {
   virtual absl::StatusOr<bool> SkipTestsWithPrimaryKeyMode(
       PrimaryKeyMode primary_key_mode) {
     return false;
+  }
+
+  // Pre-load the catalog with PROTO and ENUM types and built-in functions.
+  // This method is to pre-load the catalog with types and functions to support
+  // randomly generating ZetaSQL measure expressions.
+  //
+  // Note: This method is called before `CreateDatabase`. `CreateDatabase` may
+  // create a new catalog and invalidate any pointers to objects in the previous
+  // catalog. Thus, it is important that any pointers to objects in the previous
+  // catalog are not used after `CreateDatabase` is called.
+  virtual absl::Status PreloadTypesAndFunctions(
+      const TestDatabase& test_db, const LanguageOptions& language_options) {
+    return absl::UnimplementedError(
+        "Test driver does not support pre-loading PROTO and ENUM types.");
   }
 
   // Supplies a TestDatabase. Must be called prior to ExecuteStatement().
@@ -419,9 +436,48 @@ class TestDriver {
   //
   // There are helpers that may be useful for producing DML output statement
   // types in type_helpers.h.
+  //
+  // Returns an error if the input `sql` is a generalized statement
+  // resolved to a `ResolvedGeneralizedQueryStmt`, or a `ResolvedMultiStmt`
+  // after rewrite.
   virtual absl::StatusOr<Value> ExecuteStatement(
       const std::string& sql, const std::map<std::string, Value>& parameters,
       TypeFactory* type_factory) = 0;
+
+  // Similar to ExecuteStatement() but allows executing multi-stmts, which can
+  // return multiple results. Specifically,
+  //
+  // - If the input `sql` is a generalized statement resolved to a
+  //   `ResolvedGeneralizedQueryStmt`, or a `ResolvedMultiStmt` after rewrite,
+  //   the output will be a list of results, where each result is either a
+  //   single zetasql `Value` containing the rows of the table, or an error
+  //   status.
+  //
+  // - If the input `sql` is a single statement and the execution succeeds, the
+  //   output will be a list of size one containing the result. See the comment
+  //   on `ExecuteStatement` for more details about the return value of a single
+  //   statement.
+  //
+  // - If the input `sql` is a single statement and the execution fails, the
+  //   output is the error status.
+  //
+  // The compliance test framework always calls this method to execute
+  // statements.
+  //
+  // Engines that do not support generalized statements only need to implement
+  // `ExecuteStatement`. The default implementation of this method calls
+  // `ExecuteStatement` and wraps the result.
+  //
+  // Engines that support generalized statements should override this method.
+  // `ExecuteStatement` should return an error if the input sql produces
+  // multiple results.
+  virtual absl::StatusOr<MultiStmtResult> ExecuteGeneralizedStatement(
+      const std::string& sql, const std::map<std::string, Value>& parameters,
+      TypeFactory* type_factory) {
+    ZETASQL_ASSIGN_OR_RETURN(Value result,
+                     ExecuteStatement(sql, parameters, type_factory));
+    return MultiStmtResult{{StatementResult{.result = result}}};
+  }
 
   virtual absl::StatusOr<std::vector<Value>> RepeatExecuteStatement(
       const std::string& sql, const std::map<std::string, Value>& parameters,
@@ -524,6 +580,15 @@ class TestDriver {
    private:
     std::vector<std::string>* const errors_;
   };
+
+ protected:
+  // Converts a MultiStmtResult to a single Value, or errors if the given
+  // `multi_result` does not produce exactly one result.
+  //
+  // Engines can use this function to implement `ExecuteStatement` with
+  // `ExecuteGeneralizedStatement`.
+  absl::StatusOr<Value> MultiStmtResultToValue(
+      const absl::StatusOr<MultiStmtResult>& multi_result);
 };
 
 // Users who subclass TestDriver should implement this method and have it

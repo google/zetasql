@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <queue>
 #include <string>
 #include <unordered_set>
@@ -73,9 +74,15 @@ bool IsSameLiteral(const ResolvedLiteral* a, const ResolvedLiteral* b) {
   return location_a == location_b && a->value() == b->value();
 }
 
-std::string GenerateParameterName(const ResolvedLiteral* literal,
-                                  const AnalyzerOptions& analyzer_options,
-                                  int* index) {
+std::string GenerateParameterName(
+    const ResolvedLiteral* literal, const AnalyzerOptions& analyzer_options,
+    const ParameterNameOverrideCallback& override_callback, int* index) {
+  if (override_callback != nullptr) {
+    std::optional<std::string> name = override_callback(literal);
+    if (name.has_value()) {
+      return *name;
+    }
+  }
   std::string type_name = Type::TypeKindToString(
       literal->type()->kind(), analyzer_options.language().product_mode());
   std::string param_name;
@@ -306,7 +313,9 @@ absl::Status ReplaceLiteralsByParameters(
         << "Parse locations of literals are broken:"
         << "\nQuery: " << sql << "\nResolved AST: " << stmt->DebugString();
     parameter_name = GenerateParameterName(
-        literal, analyzer_options, &parameter_index);
+        literal, analyzer_options,
+        literal_replacement_options.parameter_name_override_callback,
+        &parameter_index);
 
     absl::StrAppend(result_sql,
                     sql.substr(prefix_offset, first_offset - prefix_offset),

@@ -118,11 +118,11 @@ class ScriptExecutorImpl : public ScriptExecutor {
   }
   ParsedScript::StringSet GetCurrentNamedParameters() const {
     return callstack_.back().parsed_script()->GetNamedParameters(
-        callstack_.back().parsed_script()->script()->GetParseLocationRange());
+        callstack_.back().parsed_script()->script()->location());
   }
   PositionalParameterRange GetCurrentPositionalParameters() const {
     return callstack_.back().parsed_script()->GetPositionalParameters(
-        callstack_.back().parsed_script()->script()->GetParseLocationRange());
+        callstack_.back().parsed_script()->script()->location());
   }
   const SystemVariableValuesMap& GetKnownSystemVariables() const override {
     return system_variables_;

@@ -1,0 +1,155 @@
+# CREATE SEQUENCE
+CREATE {{|OR REPLACE}} SEQUENCE {{|IF NOT EXISTS}} foo.bar.baz {{|OPTIONS ()|OPTIONS(start_with=0,increment_by=5)}}
+--
+ALTERNATION GROUP: <empty>
+--
+CreateSequenceStatement [0-29] [CREATE  SEQUENCE  foo.bar.baz]
+  PathExpression [18-29] [foo.bar.baz]
+    Identifier(foo) [18-21] [foo]
+    Identifier(bar) [22-25] [bar]
+    Identifier(baz) [26-29] [baz]
+--
+CREATE SEQUENCE foo.bar.baz
+--
+ALTERNATION GROUP: OPTIONS ()
+--
+CreateSequenceStatement [0-40] [CREATE  SEQUENCE...OPTIONS ()]
+  PathExpression [18-29] [foo.bar.baz]
+    Identifier(foo) [18-21] [foo]
+    Identifier(bar) [22-25] [bar]
+    Identifier(baz) [26-29] [baz]
+  OptionsList [38-40] [()]
+--
+CREATE SEQUENCE foo.bar.baz OPTIONS()
+--
+ALTERNATION GROUP: OPTIONS(start_with=0,increment_by=5)
+--
+CreateSequenceStatement [0-66] [CREATE  SEQUENCE...ement_by=5)]
+  PathExpression [18-29] [foo.bar.baz]
+    Identifier(foo) [18-21] [foo]
+    Identifier(bar) [22-25] [bar]
+    Identifier(baz) [26-29] [baz]
+  OptionsList [37-66] [(start_with=0,increment_by=5)]
+    OptionsEntry [38-50] [start_with=0]
+      Identifier(start_with) [38-48] [start_with]
+      IntLiteral(0) [49-50] [0]
+    OptionsEntry [51-65] [increment_by=5]
+      Identifier(increment_by) [51-63] [increment_by]
+      IntLiteral(5) [64-65] [5]
+--
+CREATE SEQUENCE foo.bar.baz OPTIONS(start_with = 0, increment_by = 5)
+--
+ALTERNATION GROUP: IF NOT EXISTS,
+--
+CreateSequenceStatement(is_if_not_exists) [0-42] [CREATE  SEQUENCE...foo.bar.baz]
+  PathExpression [31-42] [foo.bar.baz]
+    Identifier(foo) [31-34] [foo]
+    Identifier(bar) [35-38] [bar]
+    Identifier(baz) [39-42] [baz]
+--
+CREATE SEQUENCE IF NOT EXISTS foo.bar.baz
+--
+ALTERNATION GROUP: IF NOT EXISTS,OPTIONS ()
+--
+CreateSequenceStatement(is_if_not_exists) [0-53] [CREATE  SEQUENCE...OPTIONS ()]
+  PathExpression [31-42] [foo.bar.baz]
+    Identifier(foo) [31-34] [foo]
+    Identifier(bar) [35-38] [bar]
+    Identifier(baz) [39-42] [baz]
+  OptionsList [51-53] [()]
+--
+CREATE SEQUENCE IF NOT EXISTS foo.bar.baz OPTIONS()
+--
+ALTERNATION GROUP: IF NOT EXISTS,OPTIONS(start_with=0,increment_by=5)
+--
+CreateSequenceStatement(is_if_not_exists) [0-79] [CREATE  SEQUENCE...ement_by=5)]
+  PathExpression [31-42] [foo.bar.baz]
+    Identifier(foo) [31-34] [foo]
+    Identifier(bar) [35-38] [bar]
+    Identifier(baz) [39-42] [baz]
+  OptionsList [50-79] [(start_with=0,increment_by=5)]
+    OptionsEntry [51-63] [start_with=0]
+      Identifier(start_with) [51-61] [start_with]
+      IntLiteral(0) [62-63] [0]
+    OptionsEntry [64-78] [increment_by=5]
+      Identifier(increment_by) [64-76] [increment_by]
+      IntLiteral(5) [77-78] [5]
+--
+CREATE SEQUENCE IF NOT EXISTS foo.bar.baz OPTIONS(start_with = 0, increment_by = 5)
+--
+ALTERNATION GROUP: OR REPLACE,,
+--
+CreateSequenceStatement(is_or_replace) [0-39] [CREATE OR...foo.bar.baz]
+  PathExpression [28-39] [foo.bar.baz]
+    Identifier(foo) [28-31] [foo]
+    Identifier(bar) [32-35] [bar]
+    Identifier(baz) [36-39] [baz]
+--
+CREATE OR REPLACE SEQUENCE foo.bar.baz
+--
+ALTERNATION GROUP: OR REPLACE,,OPTIONS ()
+--
+CreateSequenceStatement(is_or_replace) [0-50] [CREATE OR...OPTIONS ()]
+  PathExpression [28-39] [foo.bar.baz]
+    Identifier(foo) [28-31] [foo]
+    Identifier(bar) [32-35] [bar]
+    Identifier(baz) [36-39] [baz]
+  OptionsList [48-50] [()]
+--
+CREATE OR REPLACE SEQUENCE foo.bar.baz OPTIONS()
+--
+ALTERNATION GROUP: OR REPLACE,,OPTIONS(start_with=0,increment_by=5)
+--
+CreateSequenceStatement(is_or_replace) [0-76] [CREATE OR...increment_by=5)]
+  PathExpression [28-39] [foo.bar.baz]
+    Identifier(foo) [28-31] [foo]
+    Identifier(bar) [32-35] [bar]
+    Identifier(baz) [36-39] [baz]
+  OptionsList [47-76] [(start_with=0,increment_by=5)]
+    OptionsEntry [48-60] [start_with=0]
+      Identifier(start_with) [48-58] [start_with]
+      IntLiteral(0) [59-60] [0]
+    OptionsEntry [61-75] [increment_by=5]
+      Identifier(increment_by) [61-73] [increment_by]
+      IntLiteral(5) [74-75] [5]
+--
+CREATE OR REPLACE SEQUENCE foo.bar.baz OPTIONS(start_with = 0, increment_by = 5)
+--
+ALTERNATION GROUP: OR REPLACE,IF NOT EXISTS,
+--
+CreateSequenceStatement(is_or_replace, is_if_not_exists) [0-52] [CREATE OR...foo.bar.baz]
+  PathExpression [41-52] [foo.bar.baz]
+    Identifier(foo) [41-44] [foo]
+    Identifier(bar) [45-48] [bar]
+    Identifier(baz) [49-52] [baz]
+--
+CREATE OR REPLACE SEQUENCE IF NOT EXISTS foo.bar.baz
+--
+ALTERNATION GROUP: OR REPLACE,IF NOT EXISTS,OPTIONS ()
+--
+CreateSequenceStatement(is_or_replace, is_if_not_exists) [0-63] [CREATE OR...OPTIONS ()]
+  PathExpression [41-52] [foo.bar.baz]
+    Identifier(foo) [41-44] [foo]
+    Identifier(bar) [45-48] [bar]
+    Identifier(baz) [49-52] [baz]
+  OptionsList [61-63] [()]
+--
+CREATE OR REPLACE SEQUENCE IF NOT EXISTS foo.bar.baz OPTIONS()
+--
+ALTERNATION GROUP: OR REPLACE,IF NOT EXISTS,OPTIONS(start_with=0,increment_by=5)
+--
+CreateSequenceStatement(is_or_replace, is_if_not_exists) [0-89] [CREATE OR...increment_by=5)]
+  PathExpression [41-52] [foo.bar.baz]
+    Identifier(foo) [41-44] [foo]
+    Identifier(bar) [45-48] [bar]
+    Identifier(baz) [49-52] [baz]
+  OptionsList [60-89] [(start_with=0,increment_by=5)]
+    OptionsEntry [61-73] [start_with=0]
+      Identifier(start_with) [61-71] [start_with]
+      IntLiteral(0) [72-73] [0]
+    OptionsEntry [74-88] [increment_by=5]
+      Identifier(increment_by) [74-86] [increment_by]
+      IntLiteral(5) [87-88] [5]
+--
+CREATE OR REPLACE SEQUENCE IF NOT EXISTS foo.bar.baz OPTIONS(start_with = 0, increment_by = 5)
+==

@@ -34,6 +34,7 @@
 #include "zetasql/public/property_graph.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/simple_property_graph.h"
+#include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/types/graph_element_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
@@ -2737,6 +2738,77 @@ TEST(ValidateTest, MultilevelAggregationNotYetSupported) {
   }
 }
 
+TEST(ValidateTest, MultilevelAggregationWithGroupByHintAndEmptyGroupByList) {
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_MULTILEVEL_AGGREGATION);
+  IdStringPool pool;
+  auto agg_function =
+      std::make_unique<Function>("count", "test_group", Function::AGGREGATE);
+  FunctionSignature sig(FunctionArgumentType(types::Int64Type(), 1), {},
+                        static_cast<int64_t>(1234));
+  ResolvedColumn placeholder_column = ResolvedColumn(
+      1, pool.Make("table_name"), pool.Make("name"), types::Int64Type());
+
+  // Valid group_by_hint, but empty group_by_list.
+  std::vector<std::unique_ptr<const ResolvedOption>> group_by_hint_list;
+  group_by_hint_list.push_back(MakeResolvedOption(
+      "a", "b", MakeResolvedLiteral(types::Int64Type(), Value::Int64(1))));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto agg_function_call,
+      ResolvedAggregateFunctionCallBuilder()
+          .set_type(types::Int64Type())
+          .set_function(agg_function.get())
+          .set_signature(sig)
+          .set_group_by_hint_list(std::move(group_by_hint_list))
+          .Build());
+
+  EXPECT_THAT(Validator(language_options)
+                  .ValidateStandaloneResolvedExpr(agg_function_call.get()),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("Group by hints can only be specified with "
+                                 "a non-empty group by list")));
+}
+
+TEST(ValidateTest, MultilevelAggregationWithBadGroupByHint) {
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_MULTILEVEL_AGGREGATION);
+  IdStringPool pool;
+  auto agg_function =
+      std::make_unique<Function>("count", "test_group", Function::AGGREGATE);
+  FunctionSignature sig(FunctionArgumentType(types::Int64Type(), 1), {},
+                        static_cast<int64_t>(1234));
+  ResolvedColumn placeholder_column = ResolvedColumn(
+      1, pool.Make("table_name"), pool.Make("name"), types::Int64Type());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedComputedColumn> placeholder_computed_column,
+      ResolvedComputedColumnBuilder()
+          .set_column(placeholder_column)
+          .set_expr(MakeResolvedLiteral(types::Int64Type(), Value::Int64(1)))
+          .Build());
+
+  std::vector<std::unique_ptr<const ResolvedOption>> group_by_hint_list;
+  group_by_hint_list.push_back(MakeResolvedOption(
+      "a", "b",
+      MakeResolvedColumnRef(placeholder_column.type(), placeholder_column,
+                            /*is_correlated=*/false)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto agg_function_call,
+      ResolvedAggregateFunctionCallBuilder()
+          .set_type(types::Int64Type())
+          .set_function(agg_function.get())
+          .set_signature(sig)
+          .add_group_by_list(std::move(placeholder_computed_column))
+          .set_group_by_hint_list(std::move(group_by_hint_list))
+          .Build());
+
+  EXPECT_THAT(Validator(language_options)
+                  .ValidateStandaloneResolvedExpr(agg_function_call.get()),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("Resolved AST validation failed: Incorrect "
+                                 "reference to column table_name.name#1")));
+}
+
 TEST(ValidateTest, AggregateFiltering) {
   LanguageOptions language_options;
   IdStringPool pool;
@@ -3940,6 +4012,81 @@ TEST(ValidatorTest, AddColumnIdentifierActionInNonIndexAlterStmtReturnsError) {
               StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("AddColumnIdentifier action is only supported "
                                  "in ALTER VECTOR|SEARCH INDEX statement")));
+}
+
+TEST(ValidatorTest, UnsetArgumentScanUsedInNonTVFScanArgumentReturnsError) {
+  Validator validator;
+
+  IdStringPool pool;
+  ResolvedColumn column = ResolvedColumn(1, pool.Make("table"),
+                                         pool.Make("col"), types::Int64Type());
+
+  auto query_stmt_builder =
+      ResolvedQueryStmtBuilder()
+          .add_output_column_list(MakeResolvedOutputColumn("c", column))
+          .set_query(ResolvedProjectScanBuilder()
+                         .add_column_list(column)
+                         .set_input_scan(ResolvedUnsetArgumentScanBuilder()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto query_stmt, std::move(query_stmt_builder).Build());
+  EXPECT_THAT(validator.ValidateResolvedStatement(query_stmt.get()),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("UnsetArgumentScan is only allowed as an "
+                                 "argument to a TVFScan")));
+}
+
+TEST(ValidatorTest, UnsetArgumentScanContainsColumnsReturnsError) {
+  Validator validator;
+
+  IdStringPool pool;
+  ResolvedColumn column = ResolvedColumn(1, pool.Make("table"),
+                                         pool.Make("col"), types::Int64Type());
+  TVFRelation tvf_relation({{"o1", types::Int64Type()}});
+
+  FunctionArgumentType relation_arg_type(
+      ARG_TYPE_RELATION,
+      FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL));
+  FunctionSignature fn_signature(
+      FunctionArgumentType::RelationWithSchema(
+          tvf_relation,
+          /*extra_relation_input_columns_allowed=*/false),
+      FunctionArgumentTypeList{relation_arg_type},
+      /*context_ptr=*/nullptr);
+
+  relation_arg_type.set_num_occurrences(1);
+  auto concrete_signature = std::make_shared<FunctionSignature>(
+      FunctionArgumentType::RelationWithSchema(
+          tvf_relation,
+          /*extra_relation_input_columns_allowed=*/false),
+      FunctionArgumentTypeList{relation_arg_type},
+      /*context_ptr=*/nullptr);
+
+  FixedOutputSchemaTVF tvf({"tvf0"}, fn_signature, tvf_relation);
+
+  auto signature = std::make_shared<TVFSignature>(
+      std::vector<TVFInputArgumentType>{TVFInputArgumentType(tvf_relation)},
+      tvf_relation);
+  auto query_stmt_builder =
+      ResolvedQueryStmtBuilder()
+          .add_output_column_list(MakeResolvedOutputColumn("c", column))
+          .set_query(
+              ResolvedProjectScanBuilder()
+                  .add_column_list(column)
+                  .set_input_scan(
+                      ResolvedTVFScanBuilder()
+                          .add_column_list(column)
+                          .set_tvf(&tvf)
+                          .set_signature(signature)
+                          .set_alias("")
+                          .add_argument_list(
+                              ResolvedFunctionArgumentBuilder().set_scan(
+                                  ResolvedUnsetArgumentScanBuilder()
+                                      .add_column_list(column)))
+                          .set_function_call_signature(concrete_signature)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto query_stmt, std::move(query_stmt_builder).Build());
+  EXPECT_THAT(
+      validator.ValidateResolvedStatement(query_stmt.get()),
+      StatusIs(absl::StatusCode::kInternal,
+               HasSubstr("UnsetArgumentScan should not have any columns")));
 }
 
 }  // namespace

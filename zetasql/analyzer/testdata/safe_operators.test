@@ -2,14 +2,15 @@
 # that SAFE_DIVIDE resolves the same regardless of whether the NUMERIC_TYPE
 # feature is enabled.
 
-[language_features={{NUMERIC_TYPE|}}]
+[default language_features=NONE]
+[language_features=NONE,{{+NUMERIC_TYPE|}}]
 select safe_divide(
   {{int32|uint32|int64|uint64|1}},
   {{int32|uint32|int64|uint64|1}})
 from SimpleTypes;
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int32,int32
+    +NUMERIC_TYPE,int32,int32
     int32,int32
 --
 QueryStmt
@@ -29,7 +30,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int32,uint32
+    +NUMERIC_TYPE,int32,uint32
     int32,uint32
 --
 QueryStmt
@@ -49,7 +50,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int32#1, uint32#3], table=SimpleTypes, column_index_list=[0, 2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int32,int64
+    +NUMERIC_TYPE,int32,int64
     int32,int64
 --
 QueryStmt
@@ -69,7 +70,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int32,uint64
+    +NUMERIC_TYPE,int32,uint64
     int32,uint64
 --
 QueryStmt
@@ -89,7 +90,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int32#1, uint64#4], table=SimpleTypes, column_index_list=[0, 3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int32,1
+    +NUMERIC_TYPE,int32,1
     int32,1
 --
 QueryStmt
@@ -108,7 +109,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,int32
+    +NUMERIC_TYPE,uint32,int32
     uint32,int32
 --
 QueryStmt
@@ -128,7 +129,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int32#1, uint32#3], table=SimpleTypes, column_index_list=[0, 2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,uint32
+    +NUMERIC_TYPE,uint32,uint32
     uint32,uint32
 --
 QueryStmt
@@ -148,7 +149,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint32#3], table=SimpleTypes, column_index_list=[2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,int64
+    +NUMERIC_TYPE,uint32,int64
     uint32,int64
 --
 QueryStmt
@@ -168,7 +169,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int64#2, uint32#3], table=SimpleTypes, column_index_list=[1, 2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,uint64
+    +NUMERIC_TYPE,uint32,uint64
     uint32,uint64
 --
 QueryStmt
@@ -188,7 +189,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[uint32#3, uint64#4], table=SimpleTypes, column_index_list=[2, 3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,1
+    +NUMERIC_TYPE,uint32,1
     uint32,1
 --
 QueryStmt
@@ -207,7 +208,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint32#3], table=SimpleTypes, column_index_list=[2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int64,int32
+    +NUMERIC_TYPE,int64,int32
     int64,int32
 --
 QueryStmt
@@ -227,7 +228,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int64,uint32
+    +NUMERIC_TYPE,int64,uint32
     int64,uint32
 --
 QueryStmt
@@ -247,7 +248,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int64#2, uint32#3], table=SimpleTypes, column_index_list=[1, 2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int64,int64
+    +NUMERIC_TYPE,int64,int64
     int64,int64
 --
 QueryStmt
@@ -267,7 +268,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int64,uint64
+    +NUMERIC_TYPE,int64,uint64
     int64,uint64
 --
 QueryStmt
@@ -287,7 +288,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int64#2, uint64#4], table=SimpleTypes, column_index_list=[1, 3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int64,1
+    +NUMERIC_TYPE,int64,1
     int64,1
 --
 QueryStmt
@@ -306,7 +307,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint64,int32
+    +NUMERIC_TYPE,uint64,int32
     uint64,int32
 --
 QueryStmt
@@ -326,7 +327,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int32#1, uint64#4], table=SimpleTypes, column_index_list=[0, 3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint64,uint32
+    +NUMERIC_TYPE,uint64,uint32
     uint64,uint32
 --
 QueryStmt
@@ -346,7 +347,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[uint32#3, uint64#4], table=SimpleTypes, column_index_list=[2, 3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint64,int64
+    +NUMERIC_TYPE,uint64,int64
     uint64,int64
 --
 QueryStmt
@@ -366,7 +367,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int64#2, uint64#4], table=SimpleTypes, column_index_list=[1, 3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint64,uint64
+    +NUMERIC_TYPE,uint64,uint64
     uint64,uint64
 --
 QueryStmt
@@ -386,7 +387,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint64#4], table=SimpleTypes, column_index_list=[3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint64,1
+    +NUMERIC_TYPE,uint64,1
     uint64,1
 --
 QueryStmt
@@ -405,7 +406,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint64#4], table=SimpleTypes, column_index_list=[3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,int32
+    +NUMERIC_TYPE,1,int32
     1,int32
 --
 QueryStmt
@@ -424,7 +425,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,uint32
+    +NUMERIC_TYPE,1,uint32
     1,uint32
 --
 QueryStmt
@@ -443,7 +444,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint32#3], table=SimpleTypes, column_index_list=[2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,int64
+    +NUMERIC_TYPE,1,int64
     1,int64
 --
 QueryStmt
@@ -462,7 +463,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,uint64
+    +NUMERIC_TYPE,1,uint64
     1,uint64
 --
 QueryStmt
@@ -481,7 +482,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint64#4], table=SimpleTypes, column_index_list=[3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,1
+    +NUMERIC_TYPE,1,1
     1,1
 --
 QueryStmt
@@ -501,7 +502,7 @@ QueryStmt
 
 # These alternations test the NUMERIC type's interaction with other numeric
 # types.
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 select safe_divide(numeric, {{int32|uint32|int64|uint64|numeric|1}})
 from SimpleTypes;
 --
@@ -606,14 +607,14 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.numeric#16], table=SimpleTypes, column_index_list=[15])
 ==
 
-[language_features={{NUMERIC_TYPE|}}]
+[language_features=NONE,{{+NUMERIC_TYPE|}}]
 select safe_add(
   {{int32|uint32|int64|uint64|1}},
   {{int32|uint32|int64|uint64|1}})
 from SimpleTypes;
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int32,int32
+    +NUMERIC_TYPE,int32,int32
     int32,int32
 --
 QueryStmt
@@ -633,7 +634,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int32,uint32
+    +NUMERIC_TYPE,int32,uint32
     int32,uint32
 --
 QueryStmt
@@ -653,7 +654,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int32#1, uint32#3], table=SimpleTypes, column_index_list=[0, 2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int32,int64
+    +NUMERIC_TYPE,int32,int64
     int32,int64
 --
 QueryStmt
@@ -671,7 +672,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
 --
-ALTERNATION GROUP: NUMERIC_TYPE,int32,uint64
+ALTERNATION GROUP: +NUMERIC_TYPE,int32,uint64
 --
 ERROR: No matching signature for function SAFE_ADD
   Argument types: INT32, UINT64
@@ -687,7 +688,7 @@ select safe_add(
        ^
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int32,1
+    +NUMERIC_TYPE,int32,1
     int32,1
 --
 QueryStmt
@@ -706,7 +707,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,int32
+    +NUMERIC_TYPE,uint32,int32
     uint32,int32
 --
 QueryStmt
@@ -726,7 +727,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int32#1, uint32#3], table=SimpleTypes, column_index_list=[0, 2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,uint32
+    +NUMERIC_TYPE,uint32,uint32
     uint32,uint32
 --
 QueryStmt
@@ -746,7 +747,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint32#3], table=SimpleTypes, column_index_list=[2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,int64
+    +NUMERIC_TYPE,uint32,int64
     uint32,int64
 --
 QueryStmt
@@ -765,7 +766,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int64#2, uint32#3], table=SimpleTypes, column_index_list=[1, 2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,uint64
+    +NUMERIC_TYPE,uint32,uint64
     uint32,uint64
 --
 QueryStmt
@@ -784,7 +785,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[uint32#3, uint64#4], table=SimpleTypes, column_index_list=[2, 3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,1
+    +NUMERIC_TYPE,uint32,1
     uint32,1
 --
 QueryStmt
@@ -803,7 +804,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint32#3], table=SimpleTypes, column_index_list=[2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int64,int32
+    +NUMERIC_TYPE,int64,int32
     int64,int32
 --
 QueryStmt
@@ -822,7 +823,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int64,uint32
+    +NUMERIC_TYPE,int64,uint32
     int64,uint32
 --
 QueryStmt
@@ -841,7 +842,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int64#2, uint32#3], table=SimpleTypes, column_index_list=[1, 2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int64,int64
+    +NUMERIC_TYPE,int64,int64
     int64,int64
 --
 QueryStmt
@@ -858,7 +859,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 --
-ALTERNATION GROUP: NUMERIC_TYPE,int64,uint64
+ALTERNATION GROUP: +NUMERIC_TYPE,int64,uint64
 --
 ERROR: No matching signature for function SAFE_ADD
   Argument types: INT64, UINT64
@@ -874,7 +875,7 @@ select safe_add(
        ^
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int64,1
+    +NUMERIC_TYPE,int64,1
     int64,1
 --
 QueryStmt
@@ -891,7 +892,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 --
-ALTERNATION GROUP: NUMERIC_TYPE,uint64,int32
+ALTERNATION GROUP: +NUMERIC_TYPE,uint64,int32
 --
 ERROR: No matching signature for function SAFE_ADD
   Argument types: UINT64, INT32
@@ -907,7 +908,7 @@ select safe_add(
        ^
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint64,uint32
+    +NUMERIC_TYPE,uint64,uint32
     uint64,uint32
 --
 QueryStmt
@@ -925,7 +926,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[uint32#3, uint64#4], table=SimpleTypes, column_index_list=[2, 3])
 --
-ALTERNATION GROUP: NUMERIC_TYPE,uint64,int64
+ALTERNATION GROUP: +NUMERIC_TYPE,uint64,int64
 --
 ERROR: No matching signature for function SAFE_ADD
   Argument types: UINT64, INT64
@@ -941,7 +942,7 @@ select safe_add(
        ^
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint64,uint64
+    +NUMERIC_TYPE,uint64,uint64
     uint64,uint64
 --
 QueryStmt
@@ -959,7 +960,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint64#4], table=SimpleTypes, column_index_list=[3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint64,1
+    +NUMERIC_TYPE,uint64,1
     uint64,1
 --
 QueryStmt
@@ -977,7 +978,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint64#4], table=SimpleTypes, column_index_list=[3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,int32
+    +NUMERIC_TYPE,1,int32
     1,int32
 --
 QueryStmt
@@ -996,7 +997,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,uint32
+    +NUMERIC_TYPE,1,uint32
     1,uint32
 --
 QueryStmt
@@ -1015,7 +1016,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint32#3], table=SimpleTypes, column_index_list=[2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,int64
+    +NUMERIC_TYPE,1,int64
     1,int64
 --
 QueryStmt
@@ -1033,7 +1034,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,uint64
+    +NUMERIC_TYPE,1,uint64
     1,uint64
 --
 QueryStmt
@@ -1051,7 +1052,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint64#4], table=SimpleTypes, column_index_list=[3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,1
+    +NUMERIC_TYPE,1,1
     1,1
 --
 QueryStmt
@@ -1122,7 +1123,7 @@ select safe_add(
 ==
 
 # Tests for SAFE_ADD with NUMERIC type.
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 select safe_add(numeric, {{int32|uint32|int64|uint64|numeric|1}})
 from SimpleTypes;
 --
@@ -1227,14 +1228,14 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.numeric#16], table=SimpleTypes, column_index_list=[15])
 ==
 
-[language_features={{NUMERIC_TYPE|}}]
+[language_features=NONE,{{+NUMERIC_TYPE|}}]
 select safe_subtract(
   {{int32|uint32|int64|uint64|1}},
   {{int32|uint32|int64|uint64|1}})
 from SimpleTypes;
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int32,int32
+    +NUMERIC_TYPE,int32,int32
     int32,int32
 --
 QueryStmt
@@ -1254,7 +1255,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int32,uint32
+    +NUMERIC_TYPE,int32,uint32
     int32,uint32
 --
 QueryStmt
@@ -1274,7 +1275,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int32#1, uint32#3], table=SimpleTypes, column_index_list=[0, 2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int32,int64
+    +NUMERIC_TYPE,int32,int64
     int32,int64
 --
 QueryStmt
@@ -1292,7 +1293,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
 --
-ALTERNATION GROUP: NUMERIC_TYPE,int32,uint64
+ALTERNATION GROUP: +NUMERIC_TYPE,int32,uint64
 --
 ERROR: No matching signature for function SAFE_SUBTRACT
   Argument types: INT32, UINT64
@@ -1308,7 +1309,7 @@ select safe_subtract(
        ^
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int32,1
+    +NUMERIC_TYPE,int32,1
     int32,1
 --
 QueryStmt
@@ -1327,7 +1328,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,int32
+    +NUMERIC_TYPE,uint32,int32
     uint32,int32
 --
 QueryStmt
@@ -1347,7 +1348,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int32#1, uint32#3], table=SimpleTypes, column_index_list=[0, 2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,uint32
+    +NUMERIC_TYPE,uint32,uint32
     uint32,uint32
 --
 QueryStmt
@@ -1367,7 +1368,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint32#3], table=SimpleTypes, column_index_list=[2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,int64
+    +NUMERIC_TYPE,uint32,int64
     uint32,int64
 --
 QueryStmt
@@ -1386,7 +1387,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int64#2, uint32#3], table=SimpleTypes, column_index_list=[1, 2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,uint64
+    +NUMERIC_TYPE,uint32,uint64
     uint32,uint64
 --
 QueryStmt
@@ -1405,7 +1406,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[uint32#3, uint64#4], table=SimpleTypes, column_index_list=[2, 3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,1
+    +NUMERIC_TYPE,uint32,1
     uint32,1
 --
 QueryStmt
@@ -1424,7 +1425,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint32#3], table=SimpleTypes, column_index_list=[2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int64,int32
+    +NUMERIC_TYPE,int64,int32
     int64,int32
 --
 QueryStmt
@@ -1443,7 +1444,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int64,uint32
+    +NUMERIC_TYPE,int64,uint32
     int64,uint32
 --
 QueryStmt
@@ -1462,7 +1463,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int64#2, uint32#3], table=SimpleTypes, column_index_list=[1, 2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int64,int64
+    +NUMERIC_TYPE,int64,int64
     int64,int64
 --
 QueryStmt
@@ -1479,7 +1480,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 --
-ALTERNATION GROUP: NUMERIC_TYPE,int64,uint64
+ALTERNATION GROUP: +NUMERIC_TYPE,int64,uint64
 --
 ERROR: No matching signature for function SAFE_SUBTRACT
   Argument types: INT64, UINT64
@@ -1495,7 +1496,7 @@ select safe_subtract(
        ^
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int64,1
+    +NUMERIC_TYPE,int64,1
     int64,1
 --
 QueryStmt
@@ -1512,7 +1513,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 --
-ALTERNATION GROUP: NUMERIC_TYPE,uint64,int32
+ALTERNATION GROUP: +NUMERIC_TYPE,uint64,int32
 --
 ERROR: No matching signature for function SAFE_SUBTRACT
   Argument types: UINT64, INT32
@@ -1528,7 +1529,7 @@ select safe_subtract(
        ^
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint64,uint32
+    +NUMERIC_TYPE,uint64,uint32
     uint64,uint32
 --
 QueryStmt
@@ -1546,7 +1547,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[uint32#3, uint64#4], table=SimpleTypes, column_index_list=[2, 3])
 --
-ALTERNATION GROUP: NUMERIC_TYPE,uint64,int64
+ALTERNATION GROUP: +NUMERIC_TYPE,uint64,int64
 --
 ERROR: No matching signature for function SAFE_SUBTRACT
   Argument types: UINT64, INT64
@@ -1562,7 +1563,7 @@ select safe_subtract(
        ^
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint64,uint64
+    +NUMERIC_TYPE,uint64,uint64
     uint64,uint64
 --
 QueryStmt
@@ -1580,7 +1581,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint64#4], table=SimpleTypes, column_index_list=[3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint64,1
+    +NUMERIC_TYPE,uint64,1
     uint64,1
 --
 QueryStmt
@@ -1598,7 +1599,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint64#4], table=SimpleTypes, column_index_list=[3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,int32
+    +NUMERIC_TYPE,1,int32
     1,int32
 --
 QueryStmt
@@ -1617,7 +1618,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,uint32
+    +NUMERIC_TYPE,1,uint32
     1,uint32
 --
 QueryStmt
@@ -1636,7 +1637,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint32#3], table=SimpleTypes, column_index_list=[2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,int64
+    +NUMERIC_TYPE,1,int64
     1,int64
 --
 QueryStmt
@@ -1654,7 +1655,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,uint64
+    +NUMERIC_TYPE,1,uint64
     1,uint64
 --
 QueryStmt
@@ -1672,7 +1673,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint64#4], table=SimpleTypes, column_index_list=[3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,1
+    +NUMERIC_TYPE,1,1
     1,1
 --
 QueryStmt
@@ -1743,7 +1744,7 @@ select safe_subtract(
 ==
 
 # Tests for SAFE_SUBTRACT with NUMERIC type.
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 select safe_subtract(numeric, {{int32|uint32|int64|uint64|numeric|1}})
 from SimpleTypes;
 --
@@ -1848,14 +1849,14 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.numeric#16], table=SimpleTypes, column_index_list=[15])
 ==
 
-[language_features={{NUMERIC_TYPE|}}]
+[language_features=NONE,{{+NUMERIC_TYPE|}}]
 select safe_multiply(
   {{int32|uint32|int64|uint64|1}},
   {{int32|uint32|int64|uint64|1}})
 from SimpleTypes;
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int32,int32
+    +NUMERIC_TYPE,int32,int32
     int32,int32
 --
 QueryStmt
@@ -1875,7 +1876,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int32,uint32
+    +NUMERIC_TYPE,int32,uint32
     int32,uint32
 --
 QueryStmt
@@ -1895,7 +1896,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int32#1, uint32#3], table=SimpleTypes, column_index_list=[0, 2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int32,int64
+    +NUMERIC_TYPE,int32,int64
     int32,int64
 --
 QueryStmt
@@ -1913,7 +1914,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
 --
-ALTERNATION GROUP: NUMERIC_TYPE,int32,uint64
+ALTERNATION GROUP: +NUMERIC_TYPE,int32,uint64
 --
 ERROR: No matching signature for function SAFE_MULTIPLY
   Argument types: INT32, UINT64
@@ -1929,7 +1930,7 @@ select safe_multiply(
        ^
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int32,1
+    +NUMERIC_TYPE,int32,1
     int32,1
 --
 QueryStmt
@@ -1948,7 +1949,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,int32
+    +NUMERIC_TYPE,uint32,int32
     uint32,int32
 --
 QueryStmt
@@ -1968,7 +1969,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int32#1, uint32#3], table=SimpleTypes, column_index_list=[0, 2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,uint32
+    +NUMERIC_TYPE,uint32,uint32
     uint32,uint32
 --
 QueryStmt
@@ -1988,7 +1989,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint32#3], table=SimpleTypes, column_index_list=[2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,int64
+    +NUMERIC_TYPE,uint32,int64
     uint32,int64
 --
 QueryStmt
@@ -2007,7 +2008,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int64#2, uint32#3], table=SimpleTypes, column_index_list=[1, 2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,uint64
+    +NUMERIC_TYPE,uint32,uint64
     uint32,uint64
 --
 QueryStmt
@@ -2026,7 +2027,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[uint32#3, uint64#4], table=SimpleTypes, column_index_list=[2, 3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint32,1
+    +NUMERIC_TYPE,uint32,1
     uint32,1
 --
 QueryStmt
@@ -2045,7 +2046,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint32#3], table=SimpleTypes, column_index_list=[2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int64,int32
+    +NUMERIC_TYPE,int64,int32
     int64,int32
 --
 QueryStmt
@@ -2064,7 +2065,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int64,uint32
+    +NUMERIC_TYPE,int64,uint32
     int64,uint32
 --
 QueryStmt
@@ -2083,7 +2084,7 @@ QueryStmt
       +-TableScan(column_list=SimpleTypes.[int64#2, uint32#3], table=SimpleTypes, column_index_list=[1, 2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int64,int64
+    +NUMERIC_TYPE,int64,int64
     int64,int64
 --
 QueryStmt
@@ -2100,7 +2101,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 --
-ALTERNATION GROUP: NUMERIC_TYPE,int64,uint64
+ALTERNATION GROUP: +NUMERIC_TYPE,int64,uint64
 --
 ERROR: No matching signature for function SAFE_MULTIPLY
   Argument types: INT64, UINT64
@@ -2116,7 +2117,7 @@ select safe_multiply(
        ^
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int64,1
+    +NUMERIC_TYPE,int64,1
     int64,1
 --
 QueryStmt
@@ -2133,7 +2134,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 --
-ALTERNATION GROUP: NUMERIC_TYPE,uint64,int32
+ALTERNATION GROUP: +NUMERIC_TYPE,uint64,int32
 --
 ERROR: No matching signature for function SAFE_MULTIPLY
   Argument types: UINT64, INT32
@@ -2149,7 +2150,7 @@ select safe_multiply(
        ^
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint64,uint32
+    +NUMERIC_TYPE,uint64,uint32
     uint64,uint32
 --
 QueryStmt
@@ -2167,7 +2168,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[uint32#3, uint64#4], table=SimpleTypes, column_index_list=[2, 3])
 --
-ALTERNATION GROUP: NUMERIC_TYPE,uint64,int64
+ALTERNATION GROUP: +NUMERIC_TYPE,uint64,int64
 --
 ERROR: No matching signature for function SAFE_MULTIPLY
   Argument types: UINT64, INT64
@@ -2183,7 +2184,7 @@ select safe_multiply(
        ^
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint64,uint64
+    +NUMERIC_TYPE,uint64,uint64
     uint64,uint64
 --
 QueryStmt
@@ -2201,7 +2202,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint64#4], table=SimpleTypes, column_index_list=[3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,uint64,1
+    +NUMERIC_TYPE,uint64,1
     uint64,1
 --
 QueryStmt
@@ -2219,7 +2220,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint64#4], table=SimpleTypes, column_index_list=[3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,int32
+    +NUMERIC_TYPE,1,int32
     1,int32
 --
 QueryStmt
@@ -2238,7 +2239,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,uint32
+    +NUMERIC_TYPE,1,uint32
     1,uint32
 --
 QueryStmt
@@ -2257,7 +2258,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint32#3], table=SimpleTypes, column_index_list=[2])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,int64
+    +NUMERIC_TYPE,1,int64
     1,int64
 --
 QueryStmt
@@ -2275,7 +2276,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,uint64
+    +NUMERIC_TYPE,1,uint64
     1,uint64
 --
 QueryStmt
@@ -2293,7 +2294,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.uint64#4], table=SimpleTypes, column_index_list=[3])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1,1
+    +NUMERIC_TYPE,1,1
     1,1
 --
 QueryStmt
@@ -2364,7 +2365,7 @@ select safe_multiply(
 ==
 
 # Tests for SAFE_MULTIPLY with NUMERIC type.
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 select safe_multiply(numeric, {{int32|uint32|int64|uint64|numeric|1}})
 from SimpleTypes;
 --
@@ -2469,12 +2470,12 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.numeric#16], table=SimpleTypes, column_index_list=[15])
 ==
 
-[language_features={{NUMERIC_TYPE|}}]
+[language_features=NONE,{{+NUMERIC_TYPE|}}]
 select safe_negate({{int32|int64|float|double|numeric|1}})
 from SimpleTypes;
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int32
+    +NUMERIC_TYPE,int32
     int32
 --
 QueryStmt
@@ -2491,7 +2492,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,int64
+    +NUMERIC_TYPE,int64
     int64
 --
 QueryStmt
@@ -2508,7 +2509,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,float
+    +NUMERIC_TYPE,float
     float
 --
 QueryStmt
@@ -2525,7 +2526,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.float#8], table=SimpleTypes, column_index_list=[7])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,double
+    +NUMERIC_TYPE,double
     double
 --
 QueryStmt
@@ -2541,7 +2542,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.double#9], table=SimpleTypes, column_index_list=[8])
 --
-ALTERNATION GROUP: NUMERIC_TYPE,numeric
+ALTERNATION GROUP: +NUMERIC_TYPE,numeric
 --
 QueryStmt
 +-output_column_list=
@@ -2557,7 +2558,7 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.numeric#16], table=SimpleTypes, column_index_list=[15])
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,1
+    +NUMERIC_TYPE,1
     1
 --
 QueryStmt

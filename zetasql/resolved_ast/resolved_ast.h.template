@@ -517,13 +517,14 @@ inline std::unique_ptr<ResolvedTVFArgument> MakeResolvedTVFArgument(
         std::move(descriptor_arg),
         argument_column_list,
         /*inline_lambda=*/nullptr,
-        /*sequence=*/nullptr);
+        /*sequence=*/nullptr,
+        /*graph=*/nullptr);
 }
 
 // This is here for backward compatibility because we added sequence to
 // ResolvedFunctionArgument. Once engine implementations are updated, this
 // should be removed.
-ABSL_DEPRECATED("use eight argument MakeResolvedFunctionArgument")
+ABSL_DEPRECATED("use nine argument MakeResolvedFunctionArgument")
 inline std::unique_ptr<ResolvedFunctionArgument> MakeResolvedFunctionArgument(
     std::unique_ptr<const ResolvedExpr> expr,
     std::unique_ptr<const ResolvedScan> scan,
@@ -540,7 +541,33 @@ inline std::unique_ptr<ResolvedFunctionArgument> MakeResolvedFunctionArgument(
         std::move(descriptor_arg),
         argument_column_list,
         std::move(inline_lambda),
-        /*sequence=*/nullptr);
+        /*sequence=*/nullptr,
+        /*graph=*/nullptr);
+}
+
+// This is here for backward compatibility because we added graph to
+// ResolvedFunctionArgument. Once engine implementations are updated, this
+// should be removed.
+ABSL_DEPRECATED("use nine argument MakeResolvedFunctionArgument")
+inline std::unique_ptr<ResolvedFunctionArgument> MakeResolvedFunctionArgument(
+    std::unique_ptr<const ResolvedExpr> expr,
+    std::unique_ptr<const ResolvedScan> scan,
+    std::unique_ptr<const ResolvedModel> model,
+    std::unique_ptr<const ResolvedConnection> connection,
+    std::unique_ptr<const ResolvedDescriptor> descriptor_arg,
+    const std::vector<ResolvedColumn>& argument_column_list,
+    std::unique_ptr<ResolvedInlineLambda> inline_lambda,
+    std::unique_ptr<ResolvedSequence> sequence) {
+  return MakeResolvedFunctionArgument(
+        std::move(expr),
+        std::move(scan),
+        std::move(model),
+        std::move(connection),
+        std::move(descriptor_arg),
+        argument_column_list,
+        std::move(inline_lambda),
+        std::move(sequence),
+        /*graph=*/nullptr);
 }
 
 // This is here for backward compatibility because we removed
@@ -758,6 +785,8 @@ inline std::unique_ptr<ResolvedJoinScan> MakeResolvedJoinScan(
     );
 }
 
+// TODO: b/428949919 - Remove aliases to ResolvedUpdateItemElement once all references are updated.
+using ResolvedUpdateArrayItem = ResolvedUpdateItemElement;
 
 }  // namespace zetasql
 

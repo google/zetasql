@@ -20,7 +20,6 @@
 #include <cstdint>
 #include <optional>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -52,9 +51,9 @@ void FormatToken(std::string& out, absl::string_view text, uint64_t attribute) {
 }
 
 // Sorts and returns the data in 'tokens'.
-std::vector<std::pair<std::string_view, uint64_t>> SortedTokens(
+std::vector<std::pair<absl::string_view, uint64_t>> SortedTokens(
     absl::Span<const Token> tokens) {
-  std::vector<std::pair<std::string_view, uint64_t>> token_info;
+  std::vector<std::pair<absl::string_view, uint64_t>> token_info;
   for (const Token& t : tokens) {
     token_info.emplace_back(t.text(), t.attribute());
   }

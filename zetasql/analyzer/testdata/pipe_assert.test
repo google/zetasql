@@ -1,23 +1,24 @@
-[language_features={{|PIPES|PIPE_ASSERT}}]
+[default language_features=NONE]
+[language_features=NONE,{{|+PIPES|+PIPE_ASSERT}}]
 SELECT * FROM KeyValue
 |> ASSERT true
 --
 ALTERNATION GROUPS:
     <empty>
-    PIPE_ASSERT
+    +PIPE_ASSERT
 --
 ERROR: Pipe query syntax not supported [at 2:1]
 |> ASSERT true
 ^
 --
-ALTERNATION GROUP: PIPES
+ALTERNATION GROUP: +PIPES
 --
 ERROR: Pipe ASSERT not supported [at 2:1]
 |> ASSERT true
 ^
 ==
 
-[default language_features=PIPES,PIPE_ASSERT]
+[default language_features=NONE,+PIPES,+PIPE_ASSERT]
 [default enabled_ast_rewrites=DEFAULTS,+PIPE_ASSERT]
 # ResolvedLiteral strings that didn't come from the query text.
 

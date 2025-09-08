@@ -78,7 +78,7 @@ using parser::MacroExpansionMode;
 class RunParserTest : public ::testing::Test {
  public:  // Pointer-to-member-function usage requires public member functions
   // Valid options in the case cases:
-  //   mode - "statement" (default) or "expression" or "type"
+  //   mode - "statement" (default) or "expression" or "type" or "subpipeline"
   const std::string kModeOption = "mode";
   // Strips off the trailing newlines added at the end of a test query when set
   // to true. On false (default) does nothing.
@@ -115,9 +115,13 @@ class RunParserTest : public ::testing::Test {
   // Controls macro expansion
   const std::string kMacroExpansionMode = "macro_expansion_mode";
 
+  // Controls the node kind of the statement to be parsed.
+  const std::string kNodeKind = "node_kind";
+
   RunParserTest() {
       test_case_options_.RegisterString(kModeOption, "statement");
-      test_case_options_.RegisterString(kLanguageFeatures, "");
+      // TODO: 439682125 - This should be changed to ALL, DEV or MAXIMUM.
+      test_case_options_.RegisterString(kLanguageFeatures, "NONE");
       test_case_options_.RegisterBool(kStripTrailingNewline, false);
       test_case_options_.RegisterBool(kTestNewlineTypes, true);
       test_case_options_.RegisterBool(kParseMultiple, false);
@@ -130,6 +134,7 @@ class RunParserTest : public ::testing::Test {
       test_case_options_.RegisterString(kSupportedGenericSubEntityTypes, "");
       test_case_options_.RegisterBool(kShowParseLocationText, true);
       test_case_options_.RegisterString(kMacroExpansionMode, "none");
+      test_case_options_.RegisterString(kNodeKind, "Fake");
 
       // Force a blank line at the start of every test case.
       absl::SetFlag(&FLAGS_file_based_test_driver_insert_leading_blank_lines,
@@ -280,6 +285,13 @@ class RunParserTest : public ::testing::Test {
     // The statement kinds fetched from ParseStatementKind() and
     // ParseNextStatementProperties() should match.
     ASSERT_EQ(guessed_statement_kind, ast_statement_properties.node_kind);
+    std::string node_kind_string =
+        ASTNode::NodeKindToString(ast_statement_properties.node_kind);
+    if (test_case_options_.GetString(kNodeKind) != "Fake" &&
+        node_kind_string != "<UNKNOWN NODE KIND>") {
+      ASSERT_EQ(ASTNode::NodeKindToString(ast_statement_properties.node_kind),
+                test_case_options_.GetString(kNodeKind));
+    }
     ASSERT_EQ(next_statement_is_ctas,
               ast_statement_properties.is_create_table_as_select)
         << test_case;
@@ -749,6 +761,13 @@ class RunParserTest : public ::testing::Test {
         CheckExtractedStatementProperties(parsed_root, test_case,
                                           extracted_statement_properties,
                                           test_outputs);
+      } else if (mode == "subpipeline") {
+        EXPECT_EQ(AST_SUBPIPELINE, extracted_statement_properties.node_kind);
+        EXPECT_EQ(parsed_root->node_kind(),
+                  extracted_statement_properties.node_kind);
+        EXPECT_FALSE(extracted_statement_properties.is_create_table_as_select);
+        EXPECT_TRUE(
+            extracted_statement_properties.statement_level_hints.empty());
       }
 
       const std::string root_debug_string =
@@ -937,12 +956,13 @@ class RunParserTest : public ::testing::Test {
                        .stability = GetDefaultErrorMessageStability()},
                       parser_output));
     } else if (mode == "expression") {
-      ZETASQL_ASSIGN_OR_RETURN(ParserOptions expr_parser_options, GetParserOptions());
       ZETASQL_RETURN_IF_ERROR(
-          ParseExpression(test_case, expr_parser_options, parser_output));
+          ParseExpression(test_case, parser_options, parser_output));
     } else if (mode == "type") {
-      ZETASQL_ASSIGN_OR_RETURN(ParserOptions type_parser_options, GetParserOptions());
-      ZETASQL_RETURN_IF_ERROR(ParseType(test_case, type_parser_options, parser_output));
+      ZETASQL_RETURN_IF_ERROR(ParseType(test_case, parser_options, parser_output));
+    } else if (mode == "subpipeline") {
+      ZETASQL_RETURN_IF_ERROR(
+          ParseSubpipeline(test_case, parser_options, parser_output));
     } else {
       return ::zetasql_base::UnknownErrorBuilder() << "Invalid parse mode: " << mode;
     }

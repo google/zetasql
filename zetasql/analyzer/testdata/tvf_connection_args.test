@@ -6,7 +6,7 @@
 #
 ################################################################################
 #
-[default language_features=TABLE_VALUED_FUNCTIONS]
+[default language_features=MAXIMUM,+TABLE_VALUED_FUNCTIONS]
 SELECT * FROM tvf_one_connection_arg_with_fixed_output(connection ``)
 --
 ERROR: Syntax error: Invalid empty identifier [at 1:67]
@@ -14,7 +14,7 @@ SELECT * FROM tvf_one_connection_arg_with_fixed_output(connection ``)
                                                                   ^
 ==
 
-[default language_features=TABLE_VALUED_FUNCTIONS]
+[default language_features=MAXIMUM,+TABLE_VALUED_FUNCTIONS]
 SELECT * FROM tvf_one_connection_arg_with_fixed_output(connection default)
 --
 ERROR: CONNECTION DEFAULT is not supported [at 1:67]
@@ -23,7 +23,7 @@ SELECT * FROM tvf_one_connection_arg_with_fixed_output(connection default)
 ==
 
 
-[default language_features=TABLE_VALUED_FUNCTIONS]
+[default language_features=MAXIMUM,+TABLE_VALUED_FUNCTIONS]
 SELECT * FROM tvf_one_connection_arg_with_fixed_output(connection connection1)
 --
 QueryStmt

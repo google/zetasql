@@ -1,5 +1,6 @@
 # This file has tests for non-correlated expression subqueries.
 
+[default language_features=NONE]
 select (select 1)
 --
 QueryStmt

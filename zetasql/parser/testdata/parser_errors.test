@@ -1,4 +1,4 @@
-[default language_features=ALLOW_CONSECUTIVE_ON]
+[default language_features=NONE,+ALLOW_CONSECUTIVE_ON]
 select ;
 --
 ERROR: Syntax error: Unexpected ";" [at 1:8]
@@ -494,7 +494,7 @@ select cast(x as array<a);
 
 select cast(x as prot<a.b>);
 --
-ERROR: Syntax error: Expected ")" but got "<" [at 1:22]
+ERROR: Syntax error: Expected ")" or keyword FORMAT but got "<" [at 1:22]
 select cast(x as prot<a.b>);
                      ^
 ==

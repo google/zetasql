@@ -1,4 +1,4 @@
-[default language_features=PIPES,ANALYTIC_FUNCTIONS,PIPE_STATIC_DESCRIBE]
+[default language_features=MAXIMUM,+PIPES,+ANALYTIC_FUNCTIONS,+PIPE_STATIC_DESCRIBE]
 # Result scan with ORDER BY has is_ordered.
 select 1 x
 |> ORDER BY x
@@ -204,6 +204,8 @@ QueryStmt
     |       Value -> STRING (KeyValue.Value#2) (implicit)
     |     Range variables:
     |       KeyValue -> RANGE_VARIABLE<Key,Value>
+    |
+    |   Result is ordered.
     |   """
     +-input_scan=
       +-OrderByScan

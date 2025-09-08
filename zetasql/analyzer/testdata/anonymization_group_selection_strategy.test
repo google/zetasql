@@ -1,4 +1,4 @@
-[default language_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,WITH_ON_SUBQUERY]
+[default language_features=MAXIMUM,+ANONYMIZATION,+DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,+WITH_ON_SUBQUERY]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [default no_run_sqlbuilder]
 # When no group_selection_strategy is set, default to laplace thresholding.
@@ -236,7 +236,7 @@ QueryStmt
 ==
 
 # Public groups requires feature flag
-[language_features=ANONYMIZATION]
+[language_features=NONE,+ANONYMIZATION]
 select with anonymization options(group_selection_strategy=PUBLIC_GROUPS)
 anon_count(*)
 from SimpleTypesWithAnonymizationUid;
@@ -263,7 +263,7 @@ Rewrite ERROR: Anonymization option group_selection_strategy PUBLIC_GROUPS has n
 ==
 
 # public groups requires WITH_ON_SUBQUERY feature
-[language_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS]
+[language_features=NONE,+ANONYMIZATION,+DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS]
 select with anonymization options(group_selection_strategy=PUBLIC_GROUPS)
 anon_count(*)
 from SimpleTypesWithAnonymizationUid;
@@ -3884,7 +3884,7 @@ QueryStmt
               +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
 ==
 
-[language_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,WITH_ON_SUBQUERY,TABLESAMPLE]
+[language_features=NONE,+ANONYMIZATION,+DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,+WITH_ON_SUBQUERY,+TABLESAMPLE]
 # Sample scans between public groups join and aggregation are not allowed.
 SELECT WITH ANONYMIZATION OPTIONS (
   max_groups_contributed=3,
@@ -3950,7 +3950,7 @@ QueryStmt
 Rewrite ERROR: group_selection_strategy = PUBLIC_GROUPS does not allow operations between the public groups join and the aggregation, because they could suppress public groups from the result. Try moving the operation to an input subquery of the public groups join.
 ==
 
-[language_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,WITH_ON_SUBQUERY,TABLESAMPLE]
+[language_features=NONE,+ANONYMIZATION,+DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,+WITH_ON_SUBQUERY,+TABLESAMPLE]
 # Sample scans in input to public groups joins are allowed.
 SELECT WITH ANONYMIZATION OPTIONS (
   max_groups_contributed=3,
@@ -4494,7 +4494,7 @@ QueryStmt
 Rewrite ERROR: group_selection_strategy = PUBLIC_GROUPS does not allow JOIN operations between the public groups join and the aggregation, because they could suppress public groups from the result. Try moving the operation to an input subquery of the public groups join.
 ==
 
-[language_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,WITH_ON_SUBQUERY,TABLESAMPLE]
+[language_features=NONE,+ANONYMIZATION,+DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,+WITH_ON_SUBQUERY,+TABLESAMPLE]
 # Forbidden operations after public groups joins are allowed outside of the
 # anon aggregate scan.
 SELECT string, anon_users
@@ -4674,7 +4674,7 @@ QueryStmt
       +-Literal(type=INT64, value=11)
 ==
 
-[language_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,WITH_ON_SUBQUERY,TABLESAMPLE]
+[language_features=NONE,+ANONYMIZATION,+DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,+WITH_ON_SUBQUERY,+TABLESAMPLE]
 # Forbidden operations after public groups joins are allowed outside of the
 # anon aggregate scan with per-group contribution bounding.
 SELECT string, anon_users
@@ -5742,7 +5742,7 @@ QueryStmt
                   +-group_selection_strategy := Literal(type=ENUM<DIFFERENTIAL_PRIVACY_GROUP_SELECTION_STRATEGY>, value=PUBLIC_GROUPS)
 ==
 
-[language_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,WITH_ON_SUBQUERY]
+[language_features=NONE,+ANONYMIZATION,+DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,+WITH_ON_SUBQUERY]
 # Nested WithScan for public groups input.
 WITH
   res1 AS (

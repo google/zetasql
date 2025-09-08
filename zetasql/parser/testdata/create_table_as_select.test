@@ -1023,7 +1023,7 @@ SELECT
   'hi' AS b
 ==
 
-[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features=NONE,{{|+ALLOW_DASHES_IN_TABLE_NAME}}]
 create table x-5-z as select * from a-3-b;
 --
 ALTERNATION GROUP: <empty>
@@ -1032,7 +1032,7 @@ ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `
 create table x-5-z as select * from a-3-b;
              ^
 --
-ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: +ALLOW_DASHES_IN_TABLE_NAME
 --
 CreateTableStatement [0-41] [create table...from a-3-b]
   PathExpression [13-18] [x-5-z]
@@ -1449,5 +1449,55 @@ CREATE TABLE t1
   b string
 ) WITH CONNECTION connection1 OPTIONS(foo = x, bar = b) AS
 SELECT
+  1 AS a,
+  'foo' AS b
+
+==
+
+create table t1 (a int64, b string) as
+graph aml
+return 1 as a, 'foo' as b
+--
+CreateTableStatement [0-74] [create table...'foo' as b]
+  PathExpression [13-15] [t1]
+    Identifier(t1) [13-15] [t1]
+  TableElementList [16-35] [(a int64, b string)]
+    ColumnDefinition [17-24] [a int64]
+      Identifier(a) [17-18] [a]
+      SimpleColumnSchema [19-24] [int64]
+        PathExpression [19-24] [int64]
+          Identifier(int64) [19-24] [int64]
+    ColumnDefinition [26-34] [b string]
+      Identifier(b) [26-27] [b]
+      SimpleColumnSchema [28-34] [string]
+        PathExpression [28-34] [string]
+          Identifier(string) [28-34] [string]
+  Query [39-74] [graph aml...'foo' as b]
+    GqlQuery [39-74] [graph aml...'foo' as b]
+      GraphTableQuery [39-74] [graph aml...'foo' as b]
+        PathExpression [45-48] [aml]
+          Identifier(aml) [45-48] [aml]
+        GqlOperatorList [49-74] [return 1 as a, 'foo' as b]
+          GqlOperatorList [49-74] [return 1 as a, 'foo' as b]
+            GqlReturn [49-74] [return 1 as a, 'foo' as b]
+              Select [56-74] [1 as a, 'foo' as b]
+                SelectList [56-74] [1 as a, 'foo' as b]
+                  SelectColumn [56-62] [1 as a]
+                    IntLiteral(1) [56-57] [1]
+                    Alias [58-62] [as a]
+                      Identifier(a) [61-62] [a]
+                  SelectColumn [64-74] ['foo' as b]
+                    StringLiteral [64-69] ['foo']
+                      StringLiteralComponent('foo') [64-69] ['foo']
+                    Alias [70-74] [as b]
+                      Identifier(b) [73-74] [b]
+--
+CREATE TABLE t1
+(
+  a int64,
+  b string
+) AS
+GRAPH aml
+RETURN
   1 AS a,
   'foo' AS b

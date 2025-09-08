@@ -1,5 +1,5 @@
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,BRACED_PROTO_CONSTRUCTORS]
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+BRACED_PROTO_CONSTRUCTORS]
 
 # GQL property specification: single property specifications.
 select * from graph_table(aml

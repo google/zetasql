@@ -25,6 +25,7 @@
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/proto/function.pb.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
@@ -37,9 +38,14 @@
 #include "zetasql/public/types/type_deserializer.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 
 namespace zetasql {
+
+using ::testing::HasSubstr;
+using ::testing::IsNull;
+using ::testing::NotNull;
+using ::zetasql_base::testing::StatusIs;
 
 void ExpectEqualTVFSchemaColumn(const TVFSchemaColumn& column1,
                                 const TVFSchemaColumn& column2) {
@@ -223,11 +229,104 @@ TEST(TVFTest, TestInvalidNonTemplatedArgumentForTVFWithExtraColumns) {
                   tvf_relation,
                   /*extra_relation_input_columns_allowed=*/false),
               {FunctionArgumentType::RelationWithSchema(
-                  output_schema_int64_value_table,
-                  /*extra_relation_input_columns_allowed=*/false)},
+                   output_schema_int64_value_table,
+                   /*extra_relation_input_columns_allowed=*/false),
+               FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                    FunctionArgumentType::REQUIRED)},
               -1),
           {int64_col})),
-      "Does not support non-templated argument type");
+      HasSubstr("ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF must "
+                "have a templated relation as the first argument"));
+}
+
+TEST(TVFTest, FullNameShouldNotPrependEmptyGroupName) {
+  TypeFactory factory;
+  std::vector<std::string> name_path = {"tvf"};
+  auto tvf = std::make_unique<TableValuedFunction>(
+      name_path, "",
+      std::vector<FunctionSignature>{
+          FunctionSignature(ARG_TYPE_RELATION, {}, -1)},
+      TableValuedFunctionOptions().set_uses_upper_case_sql_name(false));
+  EXPECT_EQ(tvf->FullName(), "tvf");
+  EXPECT_FALSE(tvf->IsZetaSQLBuiltin());
+  EXPECT_EQ(tvf->SQLName(), "tvf");
+}
+
+TEST(TVFTest, FullNameShouldPrependGroupName) {
+  TypeFactory factory;
+  std::vector<std::string> name_path = {"tvf"};
+  auto tvf = std::make_unique<TableValuedFunction>(
+      name_path, "group",
+      std::vector<FunctionSignature>{
+          FunctionSignature(ARG_TYPE_RELATION, {}, -1)},
+      TableValuedFunctionOptions().set_uses_upper_case_sql_name(false));
+  EXPECT_EQ(tvf->FullName(), "group:tvf");
+  EXPECT_FALSE(tvf->IsZetaSQLBuiltin());
+  EXPECT_EQ(tvf->SQLName(), "group:tvf");
+}
+
+TEST(TVFTest, ZetaSQLFunctionGroupNameIsZetaSQLBuiltin) {
+  TypeFactory factory;
+  std::vector<std::string> name_path = {"builtin_tvf"};
+  auto tvf = std::make_unique<TableValuedFunction>(
+      name_path, Function::kZetaSQLFunctionGroupName,
+      std::vector<FunctionSignature>{
+          FunctionSignature(ARG_TYPE_RELATION, {}, -1)},
+      TableValuedFunctionOptions().set_uses_upper_case_sql_name(false));
+  EXPECT_TRUE(tvf->IsZetaSQLBuiltin());
+  EXPECT_EQ(tvf->SQLName(), "builtin_tvf");
+}
+
+TEST(TVFTest, TVFResolveCallsComputeResultCallBack) {
+  TypeFactory factory;
+  TVFSchemaColumn int64_col =
+      TVFSchemaColumn("int64_col", zetasql::types::Int64Type());
+  TVFRelation::ColumnList columns = {int64_col};
+  TVFRelation tvf_relation(columns);
+
+  TVFComputeResultTypeCallback result_type_callback =
+      [&tvf_relation](Catalog* catalog, TypeFactory* type_factory,
+                      const FunctionSignature& signature,
+                      const std::vector<TVFInputArgumentType>& arguments,
+                      const AnalyzerOptions& analyzer_options) {
+        TVFSignatureOptions tvf_signature_options;
+        tvf_signature_options.additional_deprecation_warnings =
+            signature.AdditionalDeprecationWarnings();
+        return new TVFSignature(arguments, tvf_relation, tvf_signature_options);
+      };
+
+  FunctionSignature signature(ARG_TYPE_RELATION, {}, -1);
+  std::vector<std::string> name_path = {"tvf"};
+  auto tvf = std::make_unique<TableValuedFunction>(
+      name_path, signature,
+      TableValuedFunctionOptions().set_compute_result_type_callback(
+          result_type_callback));
+
+  AnalyzerOptions options;
+  std::vector<TVFInputArgumentType> arguments;
+  std::shared_ptr<TVFSignature> tvf_signature;
+  ZETASQL_ASSERT_OK(tvf->Resolve(&options, arguments, signature, nullptr, &factory,
+                         &tvf_signature));
+  ASSERT_THAT(tvf_signature, NotNull());
+  ASSERT_EQ(tvf_signature->result_schema(), tvf_relation);
+}
+
+TEST(TVFTest, TVFResolveComputeResultCallBackNullPtr) {
+  TypeFactory factory;
+  std::vector<std::string> name_path = {"tvf"};
+  auto tvf = std::make_unique<TableValuedFunction>(
+      name_path, FunctionSignature(ARG_TYPE_RELATION, {}, -1),
+      TableValuedFunctionOptions());
+
+  AnalyzerOptions options;
+  std::vector<TVFInputArgumentType> arguments;
+  FunctionSignature concrete_signature(ARG_TYPE_RELATION, {}, -1);
+  std::shared_ptr<TVFSignature> tvf_signature;
+
+  ASSERT_THAT(tvf->Resolve(&options, arguments, concrete_signature, nullptr,
+                           &factory, &tvf_signature),
+              StatusIs(absl::StatusCode::kInternal));
+  ASSERT_THAT(tvf_signature, IsNull());
 }
 
 TEST(TVFTest, TestInvalidConcreteSignatureTVFWithExtraColumns) {
@@ -244,7 +343,8 @@ TEST(TVFTest, TestInvalidConcreteSignatureTVFWithExtraColumns) {
       tvf.reset(new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
           {"tvf_append_column_input_table_has_concrete_signature"},
           FunctionSignature(arg_type, {arg_type}, -1), {int64_col})),
-      "Does not support non-templated argument type");
+      HasSubstr("ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF must "
+                "have a templated relation as the first argument"));
 }
 
 TEST(TVFTest, TestPseudoColumnForTVFWithExtraColumns) {
@@ -279,7 +379,8 @@ TEST(TVFTest, TestInputTableWithPseudoColumnForTVFWithExtraColumns) {
       tvf.reset(new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
           {"tvf_append_pseudo_column"},
           FunctionSignature(ARG_TYPE_RELATION, {arg_type}, -1), {double_col})),
-      "Does not support non-templated argument type");
+      HasSubstr("ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF must "
+                "have a templated relation as the first argument"));
 }
 
 TEST(TVFTest, TestSignatureTextUppercasesNameByDefault) {
@@ -288,25 +389,24 @@ TEST(TVFTest, TestSignatureTextUppercasesNameByDefault) {
   const std::vector<std::string> function_path = {"test_tvf_name"};
 
   ::zetasql::TVFRelation::ColumnList tvf_schema_columns;
-    tvf_schema_columns.emplace_back("value",
-                                    factory.MakeSimpleType(TYPE_INT64));
-    auto tvf_schema =
-        std::make_unique<::zetasql::TVFRelation>(tvf_schema_columns);
+  tvf_schema_columns.emplace_back("value", factory.MakeSimpleType(TYPE_INT64));
+  auto tvf_schema =
+      std::make_unique<::zetasql::TVFRelation>(tvf_schema_columns);
 
-    std::unique_ptr<TableValuedFunction> deserialized_tvf =
-        std::make_unique<FixedOutputSchemaTVF>(
-            function_path,
-            ::zetasql::FunctionSignature(
-                ::zetasql::ARG_TYPE_RELATION,
-                {::zetasql::FunctionArgumentType(
-                    ::zetasql::ARG_TYPE_ARBITRARY,
-                    ::zetasql::FunctionArgumentType::REPEATED)},
-                /*context_id=*/static_cast<int64_t>(0)),
-            *tvf_schema);
+  std::unique_ptr<TableValuedFunction> deserialized_tvf =
+      std::make_unique<FixedOutputSchemaTVF>(
+          function_path,
+          ::zetasql::FunctionSignature(
+              ::zetasql::ARG_TYPE_RELATION,
+              {::zetasql::FunctionArgumentType(
+                  ::zetasql::ARG_TYPE_ARBITRARY,
+                  ::zetasql::FunctionArgumentType::REPEATED)},
+              /*context_id=*/static_cast<int64_t>(0)),
+          *tvf_schema);
 
-    EXPECT_EQ(deserialized_tvf->GetSupportedSignaturesUserFacingText(
-                  LanguageOptions(), /*print_template_and_name_details=*/false),
-              "TEST_TVF_NAME([ANY, ...])");
+  EXPECT_EQ(deserialized_tvf->GetSupportedSignaturesUserFacingText(
+                LanguageOptions(), /*print_template_and_name_details=*/false),
+            "TEST_TVF_NAME([ANY, ...])");
 }
 
 TEST(TVFTest, TestSignatureTextLowercasesNameWhenSpecified) {
@@ -315,28 +415,27 @@ TEST(TVFTest, TestSignatureTextLowercasesNameWhenSpecified) {
   const std::vector<std::string> function_path = {"test_tvf_name"};
 
   ::zetasql::TVFRelation::ColumnList tvf_schema_columns;
-    tvf_schema_columns.emplace_back("value",
-                                    factory.MakeSimpleType(TYPE_INT64));
-    auto tvf_schema =
-        std::make_unique<::zetasql::TVFRelation>(tvf_schema_columns);
+  tvf_schema_columns.emplace_back("value", factory.MakeSimpleType(TYPE_INT64));
+  auto tvf_schema =
+      std::make_unique<::zetasql::TVFRelation>(tvf_schema_columns);
 
-    TableValuedFunctionOptions tvf_options;
-    tvf_options.uses_upper_case_sql_name = false;
+  TableValuedFunctionOptions tvf_options;
+  tvf_options.uses_upper_case_sql_name = false;
 
-    std::unique_ptr<TableValuedFunction> deserialized_tvf =
-        std::make_unique<FixedOutputSchemaTVF>(
-            function_path,
-            ::zetasql::FunctionSignature(
-                ::zetasql::ARG_TYPE_RELATION,
-                {::zetasql::FunctionArgumentType(
-                    ::zetasql::ARG_TYPE_ARBITRARY,
-                    ::zetasql::FunctionArgumentType::REPEATED)},
-                /*context_id=*/static_cast<int64_t>(0)),
-            *tvf_schema, tvf_options);
+  std::unique_ptr<TableValuedFunction> deserialized_tvf =
+      std::make_unique<FixedOutputSchemaTVF>(
+          function_path,
+          ::zetasql::FunctionSignature(
+              ::zetasql::ARG_TYPE_RELATION,
+              {::zetasql::FunctionArgumentType(
+                  ::zetasql::ARG_TYPE_ARBITRARY,
+                  ::zetasql::FunctionArgumentType::REPEATED)},
+              /*context_id=*/static_cast<int64_t>(0)),
+          *tvf_schema, tvf_options);
 
-    EXPECT_EQ(deserialized_tvf->GetSupportedSignaturesUserFacingText(
-                  LanguageOptions(), /*print_template_and_name_details=*/false),
-              "test_tvf_name([ANY, ...])");
+  EXPECT_EQ(deserialized_tvf->GetSupportedSignaturesUserFacingText(
+                LanguageOptions(), /*print_template_and_name_details=*/false),
+            "test_tvf_name([ANY, ...])");
 }
 
 TEST(TVFTest, TestFixedOutputSchemaTVFSerializeAndDeserialize) {
@@ -383,6 +482,109 @@ TEST(TVFTest, TestFixedOutputSchemaTVFSerializeAndDeserialize) {
   ExpectEqualTVFRelations(
       *tvf_schema,
       deserialized_tvf->GetAs<FixedOutputSchemaTVF>()->result_schema());
+}
+
+TEST(TVFTest, TvfSerializationAndDeserializationWithMultipleSignatures) {
+  TypeFactory type_factory;
+  FileDescriptorSetMap file_descriptor_set_map;
+  std::vector<const google::protobuf::DescriptorPool*> pools(
+      file_descriptor_set_map.size());
+  for (const auto& pair : file_descriptor_set_map) {
+    pools[pair.second->descriptor_set_index] = pair.first;
+  }
+  const std::vector<std::string> function_path = {"test_tvf_name"};
+  TVFRelation::ColumnList tvf_schema_columns;
+  tvf_schema_columns.emplace_back("column1",
+                                  type_factory.MakeSimpleType(TYPE_INT64));
+  auto tvf_schema = std::make_unique<TVFRelation>(tvf_schema_columns);
+  TableValuedFunctionOptions tvf_options;
+  tvf_options.uses_upper_case_sql_name = false;
+  FunctionArgumentType relation_with_schema_arg =
+      FunctionArgumentType::RelationWithSchema(
+          *tvf_schema,
+          /*extra_relation_input_columns_allowed=*/false);
+  FunctionArgumentType any_relation_arg = FunctionArgumentType::AnyRelation();
+  FunctionArgumentType any_arg =
+      FunctionArgumentType(ARG_TYPE_ARBITRARY, FunctionArgumentType::REQUIRED);
+
+  int64_t context_id = 0;
+  FunctionSignature signature_relation_arg(
+      relation_with_schema_arg, {relation_with_schema_arg}, ++context_id);
+  FunctionSignature signature_relation_and_any_arg(
+      relation_with_schema_arg, {relation_with_schema_arg, any_arg},
+      ++context_id);
+  FunctionSignature signature_any_relation_arg(
+      any_relation_arg, {any_relation_arg}, ++context_id);
+  FunctionSignature signature_any_relation_and_any_arg(
+      any_relation_arg, {any_relation_arg, any_arg}, ++context_id);
+
+  // Test FixedOutputSchemaTVF
+  {
+    std::vector<FunctionSignature> signatures{signature_relation_arg,
+                                              signature_relation_and_any_arg};
+    std::unique_ptr<TableValuedFunction> tvf =
+        std::make_unique<FixedOutputSchemaTVF>(function_path, signatures,
+                                               *tvf_schema, tvf_options);
+
+    TableValuedFunctionProto tvf_proto;
+    ZETASQL_ASSERT_OK(tvf->Serialize(&file_descriptor_set_map, &tvf_proto));
+
+    std::unique_ptr<TableValuedFunction> deserialized_tvf;
+    ZETASQL_ASSERT_OK(TableValuedFunction::Deserialize(
+        tvf_proto, TypeDeserializer(&type_factory, pools), &deserialized_tvf));
+
+    ASSERT_TRUE(deserialized_tvf->Is<FixedOutputSchemaTVF>());
+    ExpectEqualTVFRelations(
+        *tvf_schema,
+        deserialized_tvf->GetAs<FixedOutputSchemaTVF>()->result_schema());
+    EXPECT_EQ(deserialized_tvf->NumSignatures(), 2);
+    EXPECT_EQ(deserialized_tvf->DebugString(), tvf->DebugString());
+  }
+
+  // Test ForwardInputSchemaToOutputSchemaTVF
+  {
+    std::vector<FunctionSignature> signatures{signature_relation_arg,
+                                              signature_relation_and_any_arg,
+                                              signature_any_relation_arg};
+    std::unique_ptr<TableValuedFunction> tvf =
+        std::make_unique<ForwardInputSchemaToOutputSchemaTVF>(
+            function_path, signatures, tvf_options);
+
+    TableValuedFunctionProto tvf_proto;
+    ZETASQL_ASSERT_OK(tvf->Serialize(&file_descriptor_set_map, &tvf_proto));
+
+    std::unique_ptr<TableValuedFunction> deserialized_tvf;
+    ZETASQL_ASSERT_OK(TableValuedFunction::Deserialize(
+        tvf_proto, TypeDeserializer(&type_factory, pools), &deserialized_tvf));
+    ASSERT_TRUE(deserialized_tvf->Is<ForwardInputSchemaToOutputSchemaTVF>());
+    EXPECT_EQ(deserialized_tvf->NumSignatures(), 3);
+    EXPECT_EQ(deserialized_tvf->DebugString(), tvf->DebugString());
+  }
+
+  // Test ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF
+  {
+    std::vector<FunctionSignature> signatures{
+        signature_any_relation_arg, signature_any_relation_and_any_arg};
+    TVFSchemaColumn extra_column("extra_col",
+                                 type_factory.MakeSimpleType(TYPE_STRING));
+    std::unique_ptr<TableValuedFunction> tvf =
+        std::make_unique<ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF>(
+            function_path, signatures,
+            std::vector<TVFSchemaColumn>{extra_column}, tvf_options);
+
+    TableValuedFunctionProto tvf_proto;
+    ZETASQL_ASSERT_OK(tvf->Serialize(&file_descriptor_set_map, &tvf_proto));
+
+    std::unique_ptr<TableValuedFunction> deserialized_tvf;
+    ZETASQL_ASSERT_OK(TableValuedFunction::Deserialize(
+        tvf_proto, TypeDeserializer(&type_factory, pools), &deserialized_tvf));
+
+    ASSERT_TRUE(
+        deserialized_tvf
+            ->Is<ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF>());
+    EXPECT_EQ(deserialized_tvf->NumSignatures(), 2);
+    EXPECT_EQ(deserialized_tvf->DebugString(), tvf->DebugString());
+  }
 }
 
 TEST(TVFTest, TestAnonymizationInfo) {
@@ -465,14 +667,14 @@ TEST(TVFTest, TestTableValueFunctionConstructorWithAnonymizationInfo) {
   std::unique_ptr<TableValuedFunction> tvf_with_userid =
       std::make_unique<FixedOutputSchemaTVF>(
           function_path,
-          ::zetasql::FunctionSignature(
+          std::vector<FunctionSignature>{FunctionSignature(
               FunctionArgumentType::RelationWithSchema(
                   *tvf_schema,
                   /*extra_relation_input_columns_allowed=*/false),
               {::zetasql::FunctionArgumentType(
                   ::zetasql::ARG_TYPE_ARBITRARY,
                   ::zetasql::FunctionArgumentType::REPEATED)},
-              /*context_id=*/static_cast<int64_t>(0)),
+              /*context_id=*/static_cast<int64_t>(0))},
           std::move(anonymization_info), *tvf_schema, tvf_options);
 
   std::optional<const AnonymizationInfo> tvf_anonymization_info =
@@ -524,6 +726,15 @@ TEST(TVFTest, TestGetSQLDeclarationForTableWithEmptyColumnName) {
   std::string sql_declaration =
       tvf_relation.GetSQLDeclaration(ProductMode::PRODUCT_EXTERNAL);
   EXPECT_EQ(sql_declaration, "TABLE<INT64, col2 FLOAT64>");
+}
+
+TEST(TVFTest, TVFInputArgumentType_Copyable) {
+  TVFRelation::Column int64_col = TVFSchemaColumn("window", types::Int64Type());
+  TVFInputArgumentType arg = TVFInputArgumentType(TVFRelation({int64_col}));
+  TVFInputArgumentType copy = arg;
+  EXPECT_EQ(copy.DebugString(), arg.DebugString());
+  TVFInputArgumentType moved = std::move(arg);
+  EXPECT_EQ(moved.DebugString(), copy.DebugString());
 }
 
 }  // namespace zetasql

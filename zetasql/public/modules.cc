@@ -139,7 +139,7 @@ absl::Status ModuleCatalog::UpdateAndRegisterError(
   absl::Status updated_status =
       StatusWithInternalErrorLocation(status, location);
   updated_status =
-      ConvertInternalErrorLocationToExternal(updated_status, module_contents_);
+      ConvertInternalErrorPayloadsToExternal(updated_status, module_contents_);
   return UpdateAndRegisterError(updated_status, errors);
 }
 
@@ -201,7 +201,7 @@ absl::Status ModuleCatalog::PerformCommonCreateStatementValidation(
 }
 
 static ParseResumeLocation ComputeExpressionResumeLocation(
-    std::string_view module_filename, const absl::string_view sql,
+    absl::string_view module_filename, const absl::string_view sql,
     const ASTNode* sql_body) {
   absl::string_view trimmed_sql = sql;
   if (sql_body != nullptr) {
@@ -254,7 +254,7 @@ absl::Status ModuleCatalog::MaybeUpdateCatalogFromCreateTableFunctionStatement(
 
   // CREATE TABLE FUNCTION specific validation.
   if (create_table_function_ast->language() != nullptr) {
-    const std::string_view language =
+    const absl::string_view language =
         create_table_function_ast->language()->GetAsStringView();
     if (!zetasql_base::CaseEqual(language, "REMOTE")) {
       table_function_status = MakeAndRegisterStatementError(
@@ -1866,7 +1866,7 @@ ModuleCatalog::GetStatementResolutionScope(const ASTStatement* stmt_ast) const {
   absl::StatusOr<ResolutionScope> scope = GetResolutionScopeOption(
       stmt_ast, module_details_.default_resolution_scope());
   if (!scope.ok()) {
-    return {ConvertInternalErrorLocationToExternal(scope.status(),
+    return {ConvertInternalErrorPayloadsToExternal(scope.status(),
                                                    module_contents_),
             // If there is an error getting the resolution scope, use builtin so
             // error will be surfaced when lookup occurs.

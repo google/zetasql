@@ -1,5 +1,6 @@
 # Multiple set operations of {UNION, EXCEPT} {ALL, DISTINCT} type in a single
 # query statement is not supported.
+[default language_features=NONE]
 select 1
 UNION ALL
 select 2
@@ -1163,7 +1164,7 @@ QueryStmt
 
 # A set operation on value tables acts as value table when used as a
 # table subquery, with an alias on the subquery.
-[language_features=GROUP_BY_STRUCT]
+[language_features=NONE,+GROUP_BY_STRUCT]
 select *, input.*, a, input.a
 from (
   select AS STRUCT 1 a, 2 b
@@ -2786,13 +2787,13 @@ QueryStmt
         +-output_column_list=[$union_all2.$col1#2]
 ==
 
-[language_features={{GROUP_BY_STRUCT|}}]
+[language_features=NONE,{{+GROUP_BY_STRUCT|}}]
 select (1, 1)
  {{union|intersect|except}} {{all|distinct}}
 select (1, 1);
 --
 ALTERNATION GROUPS:
-    GROUP_BY_STRUCT,union,all
+    +GROUP_BY_STRUCT,union,all
     union,all
 --
 QueryStmt
@@ -2822,7 +2823,7 @@ QueryStmt
         |     +-SingleRowScan
         +-output_column_list=[$union_all2.$col1#2]
 --
-ALTERNATION GROUP: GROUP_BY_STRUCT,union,distinct
+ALTERNATION GROUP: +GROUP_BY_STRUCT,union,distinct
 --
 QueryStmt
 +-output_column_list=
@@ -2851,7 +2852,7 @@ QueryStmt
         |     +-SingleRowScan
         +-output_column_list=[$union_distinct2.$col1#2]
 --
-ALTERNATION GROUP: GROUP_BY_STRUCT,intersect,all
+ALTERNATION GROUP: +GROUP_BY_STRUCT,intersect,all
 --
 QueryStmt
 +-output_column_list=
@@ -2880,7 +2881,7 @@ QueryStmt
         |     +-SingleRowScan
         +-output_column_list=[$intersect_all2.$col1#2]
 --
-ALTERNATION GROUP: GROUP_BY_STRUCT,intersect,distinct
+ALTERNATION GROUP: +GROUP_BY_STRUCT,intersect,distinct
 --
 QueryStmt
 +-output_column_list=
@@ -2909,7 +2910,7 @@ QueryStmt
         |     +-SingleRowScan
         +-output_column_list=[$intersect_distinct2.$col1#2]
 --
-ALTERNATION GROUP: GROUP_BY_STRUCT,except,all
+ALTERNATION GROUP: +GROUP_BY_STRUCT,except,all
 --
 QueryStmt
 +-output_column_list=
@@ -2938,7 +2939,7 @@ QueryStmt
         |     +-SingleRowScan
         +-output_column_list=[$except_all2.$col1#2]
 --
-ALTERNATION GROUP: GROUP_BY_STRUCT,except,distinct
+ALTERNATION GROUP: +GROUP_BY_STRUCT,except,distinct
 --
 QueryStmt
 +-output_column_list=
@@ -3000,7 +3001,7 @@ select (1, 1);
 ==
 
 # Allow group by struct, but invalid because the struct contains array
-[language_features=GROUP_BY_STRUCT]
+[language_features=NONE,+GROUP_BY_STRUCT]
 select (1, [1])
  {{union|intersect|except}} {{all|distinct}}
 select (1, [1]);
@@ -3066,14 +3067,14 @@ select (1, [1]);
 ==
 
 # Allow group by struct, but invalid because the struct contains floating point
-[language_features=GROUP_BY_STRUCT{{|,DISALLOW_GROUP_BY_FLOAT}}]
+[language_features=NONE,+GROUP_BY_STRUCT{{|,+DISALLOW_GROUP_BY_FLOAT}}]
 select (1, 1.123)
  {{union|intersect|except}} {{all|distinct}}
 select (1, 1.123);
 --
 ALTERNATION GROUPS:
     union,all
-    ,DISALLOW_GROUP_BY_FLOAT,union,all
+    ,+DISALLOW_GROUP_BY_FLOAT,union,all
 --
 QueryStmt
 +-output_column_list=
@@ -3247,31 +3248,31 @@ QueryStmt
         |     +-SingleRowScan
         +-output_column_list=[$except_distinct2.$col1#2]
 --
-ALTERNATION GROUP: ,DISALLOW_GROUP_BY_FLOAT,union,distinct
+ALTERNATION GROUP: ,+DISALLOW_GROUP_BY_FLOAT,union,distinct
 --
 ERROR: Column 1 in UNION DISTINCT has type that does not support set operation comparisons: STRUCT containing DOUBLE [at 3:1]
 select (1, 1.123);
 ^
 --
-ALTERNATION GROUP: ,DISALLOW_GROUP_BY_FLOAT,intersect,all
+ALTERNATION GROUP: ,+DISALLOW_GROUP_BY_FLOAT,intersect,all
 --
 ERROR: Column 1 in INTERSECT ALL has type that does not support set operation comparisons: STRUCT containing DOUBLE [at 3:1]
 select (1, 1.123);
 ^
 --
-ALTERNATION GROUP: ,DISALLOW_GROUP_BY_FLOAT,intersect,distinct
+ALTERNATION GROUP: ,+DISALLOW_GROUP_BY_FLOAT,intersect,distinct
 --
 ERROR: Column 1 in INTERSECT DISTINCT has type that does not support set operation comparisons: STRUCT containing DOUBLE [at 3:1]
 select (1, 1.123);
 ^
 --
-ALTERNATION GROUP: ,DISALLOW_GROUP_BY_FLOAT,except,all
+ALTERNATION GROUP: ,+DISALLOW_GROUP_BY_FLOAT,except,all
 --
 ERROR: Column 1 in EXCEPT ALL has type that does not support set operation comparisons: STRUCT containing DOUBLE [at 3:1]
 select (1, 1.123);
 ^
 --
-ALTERNATION GROUP: ,DISALLOW_GROUP_BY_FLOAT,except,distinct
+ALTERNATION GROUP: ,+DISALLOW_GROUP_BY_FLOAT,except,distinct
 --
 ERROR: Column 1 in EXCEPT DISTINCT has type that does not support set operation comparisons: STRUCT containing DOUBLE [at 3:1]
 select (1, 1.123);
@@ -3298,13 +3299,13 @@ select cast(null as zetasql_test__.TestInvalidTypeAnnotations)
 
 # Set ops other than UNION ALL aren't allowed on floating point types if
 # DISALLOW_GROUP_BY_FLOAT is set.
-[language_features={{DISALLOW_GROUP_BY_FLOAT|}}]
+[language_features=NONE,{{+DISALLOW_GROUP_BY_FLOAT|}}]
 select int64, double from SimpleTypes
 {{union|intersect|except}} {{all|distinct}}
 select int64, double from SimpleTypes
 --
 ALTERNATION GROUPS:
-    DISALLOW_GROUP_BY_FLOAT,union,all
+    +DISALLOW_GROUP_BY_FLOAT,union,all
     union,all
 --
 QueryStmt
@@ -3331,31 +3332,31 @@ QueryStmt
         |     +-TableScan(column_list=SimpleTypes.[int64#21, double#28], table=SimpleTypes, column_index_list=[1, 8])
         +-output_column_list=SimpleTypes.[int64#21, double#28]
 --
-ALTERNATION GROUP: DISALLOW_GROUP_BY_FLOAT,union,distinct
+ALTERNATION GROUP: +DISALLOW_GROUP_BY_FLOAT,union,distinct
 --
 ERROR: Column 2 in UNION DISTINCT has type that does not support set operation comparisons: DOUBLE [at 3:1]
 select int64, double from SimpleTypes
 ^
 --
-ALTERNATION GROUP: DISALLOW_GROUP_BY_FLOAT,intersect,all
+ALTERNATION GROUP: +DISALLOW_GROUP_BY_FLOAT,intersect,all
 --
 ERROR: Column 2 in INTERSECT ALL has type that does not support set operation comparisons: DOUBLE [at 3:1]
 select int64, double from SimpleTypes
 ^
 --
-ALTERNATION GROUP: DISALLOW_GROUP_BY_FLOAT,intersect,distinct
+ALTERNATION GROUP: +DISALLOW_GROUP_BY_FLOAT,intersect,distinct
 --
 ERROR: Column 2 in INTERSECT DISTINCT has type that does not support set operation comparisons: DOUBLE [at 3:1]
 select int64, double from SimpleTypes
 ^
 --
-ALTERNATION GROUP: DISALLOW_GROUP_BY_FLOAT,except,all
+ALTERNATION GROUP: +DISALLOW_GROUP_BY_FLOAT,except,all
 --
 ERROR: Column 2 in EXCEPT ALL has type that does not support set operation comparisons: DOUBLE [at 3:1]
 select int64, double from SimpleTypes
 ^
 --
-ALTERNATION GROUP: DISALLOW_GROUP_BY_FLOAT,except,distinct
+ALTERNATION GROUP: +DISALLOW_GROUP_BY_FLOAT,except,distinct
 --
 ERROR: Column 2 in EXCEPT DISTINCT has type that does not support set operation comparisons: DOUBLE [at 3:1]
 select int64, double from SimpleTypes
@@ -3830,7 +3831,7 @@ SELECT str_val FROM (SELECT 'abc' AS str_val)
 
 # Type coercions between value tables and NULL literals.
 # The output is a value table iff the first input is a value table.
-[language_features=PIPES,PIPE_STATIC_DESCRIBE]
+[language_features=NONE,+PIPES,+PIPE_STATIC_DESCRIBE]
 SELECT NULL
 UNION ALL
 SELECT AS STRUCT 1 a, 2 b
@@ -3891,7 +3892,7 @@ QueryStmt
 
 # Type coercions between value tables and NULL literals.
 # The output is a value table iff the first input is a value table.
-[language_features=PIPES,PIPE_STATIC_DESCRIBE]
+[language_features=NONE,+PIPES,+PIPE_STATIC_DESCRIBE]
 SELECT AS STRUCT 1 a, 2 b
 UNION ALL
 SELECT NULL

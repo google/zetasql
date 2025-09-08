@@ -27,6 +27,8 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/functions/differential_privacy.pb.h"
+#include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
@@ -514,18 +516,40 @@ static std::string DpSignatureTextCallback(
 // only be matched if the argument at the 0-indexed `report_arg_position` has
 // constant value that is equal to `report_format`.
 static FunctionSignatureOptions DpReportSignatureOptions(
+    bool analysis_constant_feature_enabled,
     functions::DifferentialPrivacyEnums::ReportFormat report_format,
     int report_arg_position) {
   auto dp_report_constraint =
-      [report_arg_position, report_format](
+      [analysis_constant_feature_enabled, report_arg_position, report_format](
           const FunctionSignature& concrete_signature,
           absl::Span<const InputArgumentType> arguments) -> std::string {
     if (arguments.size() <= report_arg_position) {
       return absl::StrCat("at most ", report_arg_position,
                           " argument(s) can be provided");
     }
-    const Value* value = arguments.at(report_arg_position).literal_value();
+    const Value* value = nullptr;
+    absl::StatusOr<Value> value_or_status;
+    if (arguments.at(report_arg_position).is_analysis_time_constant() &&
+        analysis_constant_feature_enabled) {
+      value_or_status =
+          arguments.at(report_arg_position).GetAnalysisTimeConstantValue();
+      if (!value_or_status.ok()) {
+        return absl::StrCat(
+            "Argument ", report_arg_position + 1,
+            ": Signature requires an analysis time constant value for "
+            "report_format, but the value is not available: ",
+            value_or_status.status().message());
+      }
+      value = &value_or_status.value();
+    } else {
+      value = arguments.at(report_arg_position).literal_value();
+    }
     if (value == nullptr || !value->is_valid()) {
+      if (analysis_constant_feature_enabled) {
+        return absl::StrCat(
+            "Argument ", report_arg_position + 1,
+            ": Invalid analysis time constant value for report_format");
+      }
       return absl::StrCat("literal value is required at ",
                           report_arg_position + 1);
     }
@@ -549,7 +573,7 @@ static FunctionSignatureOptions DpReportSignatureOptions(
     if (value->Equals(expected_value)) {
       return std::string("");
     }
-    absl::StatusOr<std::string_view> enum_name = value->EnumName();
+    absl::StatusOr<absl::string_view> enum_name = value->EnumName();
     if (!enum_name.ok()) {
       return absl::StrCat("Invalid value for report_format argument: ",
                           enum_name.status().message());
@@ -692,6 +716,8 @@ absl::Status GetDifferentialPrivacyFunctions(
   const FunctionArgumentTypeOptions default_required_argument =
       FunctionArgumentTypeOptions().set_cardinality(FunctionEnums::REQUIRED);
 
+  // TODO: b/277365877 - Deprecate `set_must_be_constant` and use
+  // `set_must_be_analysis_constant` instead.
   const FunctionArgumentTypeOptions report_arg_options =
       FunctionArgumentTypeOptions().set_must_be_constant().set_argument_name(
           "report_format", FunctionEnums::NAMED_ONLY);
@@ -700,12 +726,18 @@ absl::Status GetDifferentialPrivacyFunctions(
   // an alternative way to look up COUNT(*) will be needed to fix the
   // linked bug.
 
-  auto get_sql_callback_for_function = [](std::string_view user_facing_name) {
+  auto get_sql_callback_for_function = [](absl::string_view user_facing_name) {
     return [user_facing_name](const std::vector<std::string>& inputs) {
       return absl::StrCat(user_facing_name, "(", absl::StrJoin(inputs, ", "),
                           ")");
     };
   };
+
+  bool analysis_constant_feature_enabled =
+      options.language_options.LanguageFeatureEnabled(
+          FEATURE_REPORT_FORMAT_CONSTANT_ARGUMENT) &&
+      options.language_options.LanguageFeatureEnabled(
+          FEATURE_ANALYSIS_CONSTANT_FUNCTION_ARGUMENT);
 
   InsertCreatedFunction(
       functions, options,
@@ -733,6 +765,7 @@ absl::Status GetDifferentialPrivacyFunctions(
                    },
                    FN_DIFFERENTIAL_PRIVACY_COUNT_REPORT_JSON,
                    DpReportSignatureOptions(
+                       analysis_constant_feature_enabled,
                        functions::DifferentialPrivacyEnums::JSON, 1)},
                   {report_proto_type,
                    {
@@ -745,6 +778,7 @@ absl::Status GetDifferentialPrivacyFunctions(
                    },
                    FN_DIFFERENTIAL_PRIVACY_COUNT_REPORT_PROTO,
                    DpReportSignatureOptions(
+                       analysis_constant_feature_enabled,
                        functions::DifferentialPrivacyEnums::PROTO, 1)},
               }),
           dp_options.Copy()
@@ -776,6 +810,7 @@ absl::Status GetDifferentialPrivacyFunctions(
                 },
                 FN_DIFFERENTIAL_PRIVACY_COUNT_STAR_REPORT_JSON,
                 DpReportSignatureOptions(
+                    analysis_constant_feature_enabled,
                     functions::DifferentialPrivacyEnums::JSON, 0)},
                {report_proto_type,
                 {
@@ -786,6 +821,7 @@ absl::Status GetDifferentialPrivacyFunctions(
                 },
                 FN_DIFFERENTIAL_PRIVACY_COUNT_STAR_REPORT_PROTO,
                 DpReportSignatureOptions(
+                    analysis_constant_feature_enabled,
                     functions::DifferentialPrivacyEnums::PROTO, 0)}}),
           dp_options.Copy()
               .set_get_sql_callback(&DPCountStarSQL)
@@ -850,6 +886,7 @@ absl::Status GetDifferentialPrivacyFunctions(
                    },
                    FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_JSON_INT64,
                    DpReportSignatureOptions(
+                       analysis_constant_feature_enabled,
                        functions::DifferentialPrivacyEnums::JSON, 1)},
                   {json_type,
                    {
@@ -862,6 +899,7 @@ absl::Status GetDifferentialPrivacyFunctions(
                    },
                    FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_JSON_DOUBLE,
                    DpReportSignatureOptions(
+                       analysis_constant_feature_enabled,
                        functions::DifferentialPrivacyEnums::JSON, 1)},
                   {json_type,
                    {
@@ -874,6 +912,7 @@ absl::Status GetDifferentialPrivacyFunctions(
                    },
                    FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_JSON_UINT64,
                    DpReportSignatureOptions(
+                       analysis_constant_feature_enabled,
                        functions::DifferentialPrivacyEnums::JSON, 1)},
                   {report_proto_type,
                    {
@@ -886,6 +925,7 @@ absl::Status GetDifferentialPrivacyFunctions(
                    },
                    FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_PROTO_INT64,
                    DpReportSignatureOptions(
+                       analysis_constant_feature_enabled,
                        functions::DifferentialPrivacyEnums::PROTO, 1)},
                   {report_proto_type,
                    {
@@ -898,6 +938,7 @@ absl::Status GetDifferentialPrivacyFunctions(
                    },
                    FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_PROTO_DOUBLE,
                    DpReportSignatureOptions(
+                       analysis_constant_feature_enabled,
                        functions::DifferentialPrivacyEnums::PROTO, 1)},
                   {report_proto_type,
                    {
@@ -910,6 +951,7 @@ absl::Status GetDifferentialPrivacyFunctions(
                    },
                    FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_PROTO_UINT64,
                    DpReportSignatureOptions(
+                       analysis_constant_feature_enabled,
                        functions::DifferentialPrivacyEnums::PROTO, 1)},
               }),
           dp_options.Copy()
@@ -945,6 +987,7 @@ absl::Status GetDifferentialPrivacyFunctions(
                      optional_contribution_bounds_per_group_arg_options}},
                    FN_DIFFERENTIAL_PRIVACY_AVG_DOUBLE_REPORT_JSON,
                    DpReportSignatureOptions(
+                       analysis_constant_feature_enabled,
                        functions::DifferentialPrivacyEnums::JSON, 1)},
                   {report_proto_type,
                    {/*expr=*/double_type,
@@ -954,6 +997,7 @@ absl::Status GetDifferentialPrivacyFunctions(
                      optional_contribution_bounds_per_group_arg_options}},
                    FN_DIFFERENTIAL_PRIVACY_AVG_DOUBLE_REPORT_PROTO,
                    DpReportSignatureOptions(
+                       analysis_constant_feature_enabled,
                        functions::DifferentialPrivacyEnums::PROTO, 1)},
               }),
           dp_options.Copy()
@@ -1089,6 +1133,7 @@ absl::Status GetDifferentialPrivacyFunctions(
                      required_contribution_bounds_per_row_arg_options}},
                    FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE_REPORT_JSON,
                    DpReportSignatureOptions(
+                       analysis_constant_feature_enabled,
                        functions::DifferentialPrivacyEnums::JSON, 2)},
                   // This is an internal signature that is only used
                   // post-dp-rewrite, and is not available in the external SQL
@@ -1102,6 +1147,7 @@ absl::Status GetDifferentialPrivacyFunctions(
                      required_contribution_bounds_per_row_arg_options}},
                    FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE_ARRAY_REPORT_JSON,
                    DpReportSignatureOptions(
+                       analysis_constant_feature_enabled,
                        functions::DifferentialPrivacyEnums::JSON, 2)
                        .set_is_internal(true)},
                   {report_proto_type,
@@ -1113,6 +1159,7 @@ absl::Status GetDifferentialPrivacyFunctions(
                      required_contribution_bounds_per_row_arg_options}},
                    FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE_REPORT_PROTO,
                    DpReportSignatureOptions(
+                       analysis_constant_feature_enabled,
                        functions::DifferentialPrivacyEnums::PROTO, 2)},
                   // This is an internal signature that is only used
                   // post-dp-rewrite, and is not available in the external SQL
@@ -1126,6 +1173,7 @@ absl::Status GetDifferentialPrivacyFunctions(
                      required_contribution_bounds_per_row_arg_options}},
                    FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE_ARRAY_REPORT_PROTO,
                    DpReportSignatureOptions(
+                       analysis_constant_feature_enabled,
                        functions::DifferentialPrivacyEnums::PROTO, 2)
                        .set_is_internal(true)},
               }),
@@ -1203,7 +1251,8 @@ absl::Status GetDifferentialPrivacyFunctions(
              /*max_contributions_per_group=*/
              {int64_type, optional_max_contributions_per_group_arg_options}},
             FN_DIFFERENTIAL_PRIVACY_APPROX_COUNT_DISTINCT_REPORT_JSON,
-            DpReportSignatureOptions(functions::DifferentialPrivacyEnums::JSON,
+            DpReportSignatureOptions(analysis_constant_feature_enabled,
+                                     functions::DifferentialPrivacyEnums::JSON,
                                      1)
                 .set_rejects_collation()},
            {report_proto_type,
@@ -1215,7 +1264,8 @@ absl::Status GetDifferentialPrivacyFunctions(
              /*max_contributions_per_group=*/
              {int64_type, optional_max_contributions_per_group_arg_options}},
             FN_DIFFERENTIAL_PRIVACY_APPROX_COUNT_DISTINCT_REPORT_PROTO,
-            DpReportSignatureOptions(functions::DifferentialPrivacyEnums::PROTO,
+            DpReportSignatureOptions(analysis_constant_feature_enabled,
+                                     functions::DifferentialPrivacyEnums::PROTO,
                                      1)
                 .set_rejects_collation()}},
           dp_options.Copy()

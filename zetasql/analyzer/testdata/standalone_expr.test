@@ -1,6 +1,7 @@
 # This file includes tests for standalone expressions, outside of queries.
 # Two expression columns ("column_int32" and "column_KitchenSink") are
 # created in run_analyzer_test.cc.
+[default language_features=NONE]
 [default parse_location_record_type=PARSE_LOCATION_RECORD_FULL_NODE_SCOPE]
 [default mode=expression]
 
@@ -599,10 +600,10 @@ cast(timestamp '2011-01-01 12:34:56' as TIMESTAMP)
 Literal(parse_location=0-50, type=TIMESTAMP, value=2011-01-01 12:34:56+00, has_explicit_type=TRUE)
 ==
 
-[language_features={{CIVIL_TIME|}}]
+[language_features=NONE,{{+CIVIL_TIME|}}]
 time '01:02:03.123456'
 --
-ALTERNATION GROUP: CIVIL_TIME
+ALTERNATION GROUP: +CIVIL_TIME
 --
 Literal(parse_location=0-22, type=TIME, value=01:02:03.123456, has_explicit_type=TRUE)
 --
@@ -613,10 +614,10 @@ time '01:02:03.123456'
 ^
 ==
 
-[language_features={{CIVIL_TIME|}}]
+[language_features=NONE,{{+CIVIL_TIME|}}]
 time 'abc'
 --
-ALTERNATION GROUP: CIVIL_TIME
+ALTERNATION GROUP: +CIVIL_TIME
 --
 ERROR: Invalid TIME literal [at 1:1]
 time 'abc'
@@ -629,10 +630,10 @@ time 'abc'
 ^
 ==
 
-[language_features={{CIVIL_TIME|}}]
+[language_features=NONE,{{+CIVIL_TIME|}}]
 time '01:02:03.123456abc'
 --
-ALTERNATION GROUP: CIVIL_TIME
+ALTERNATION GROUP: +CIVIL_TIME
 --
 ERROR: Invalid TIME literal [at 1:1]
 time '01:02:03.123456abc'
@@ -645,10 +646,10 @@ time '01:02:03.123456abc'
 ^
 ==
 
-[language_features={{CIVIL_TIME|}}]
+[language_features=NONE,{{+CIVIL_TIME|}}]
 time '24:00:00'
 --
-ALTERNATION GROUP: CIVIL_TIME
+ALTERNATION GROUP: +CIVIL_TIME
 --
 ERROR: Invalid TIME literal [at 1:1]
 time '24:00:00'
@@ -661,10 +662,10 @@ time '24:00:00'
 ^
 ==
 
-[language_features={{CIVIL_TIME|}}]
+[language_features=NONE,{{+CIVIL_TIME|}}]
 datetime '2006-01-02 03:04:05.123456'
 --
-ALTERNATION GROUP: CIVIL_TIME
+ALTERNATION GROUP: +CIVIL_TIME
 --
 Literal(parse_location=0-37, type=DATETIME, value=2006-01-02 03:04:05.123456, has_explicit_type=TRUE)
 --
@@ -675,10 +676,10 @@ datetime '2006-01-02 03:04:05.123456'
 ^
 ==
 
-[language_features={{CIVIL_TIME|}}]
+[language_features=NONE,{{+CIVIL_TIME|}}]
 datetime 'abc'
 --
-ALTERNATION GROUP: CIVIL_TIME
+ALTERNATION GROUP: +CIVIL_TIME
 --
 ERROR: Invalid DATETIME literal [at 1:1]
 datetime 'abc'
@@ -691,10 +692,10 @@ datetime 'abc'
 ^
 ==
 
-[language_features={{CIVIL_TIME|}}]
+[language_features=NONE,{{+CIVIL_TIME|}}]
 datetime '2006-01-02 03:04:05.123456abc'
 --
-ALTERNATION GROUP: CIVIL_TIME
+ALTERNATION GROUP: +CIVIL_TIME
 --
 ERROR: Invalid DATETIME literal [at 1:1]
 datetime '2006-01-02 03:04:05.123456abc'
@@ -707,10 +708,10 @@ datetime '2006-01-02 03:04:05.123456abc'
 ^
 ==
 
-[language_features={{CIVIL_TIME|}}]
+[language_features=NONE,{{+CIVIL_TIME|}}]
 datetime '2006-13-02 03:04:05.123456'
 --
-ALTERNATION GROUP: CIVIL_TIME
+ALTERNATION GROUP: +CIVIL_TIME
 --
 ERROR: Invalid DATETIME literal [at 1:1]
 datetime '2006-13-02 03:04:05.123456'
@@ -723,10 +724,10 @@ datetime '2006-13-02 03:04:05.123456'
 ^
 ==
 
-[language_features={{CIVIL_TIME|}}]
+[language_features=NONE,{{+CIVIL_TIME|}}]
 datetime '2006-13-02 03:04:05.123456 UTC'
 --
-ALTERNATION GROUP: CIVIL_TIME
+ALTERNATION GROUP: +CIVIL_TIME
 --
 ERROR: Invalid DATETIME literal [at 1:1]
 datetime '2006-13-02 03:04:05.123456 UTC'
@@ -1203,7 +1204,7 @@ SubqueryExpr
 
 # Analytic function is not allowed in standalone expression unless it is
 # inside a subquery expression with FROM.
-[default language_features=ANALYTIC_FUNCTIONS]
+[default language_features=NONE,+ANALYTIC_FUNCTIONS]
 afn_agg() over ()
 --
 ERROR: Analytic function not allowed in standalone expression [at 1:1]
@@ -1277,7 +1278,7 @@ MakeProto
   +-int32_val1 := Literal(parse_location=65-67, type=INT32, value=17)
 ==
 
-[language_features={{|SAFE_FUNCTION_CALL}}]
+[language_features=NONE,{{|+SAFE_FUNCTION_CALL}}]
 safe.concat('abc')
 --
 ALTERNATION GROUP: <empty>
@@ -1286,14 +1287,14 @@ ERROR: Function calls with SAFE are not supported [at 1:1]
 safe.concat('abc')
 ^
 --
-ALTERNATION GROUP: SAFE_FUNCTION_CALL
+ALTERNATION GROUP: +SAFE_FUNCTION_CALL
 --
 FunctionCall({SAFE_ERROR_MODE} ZetaSQL:concat(STRING, repeated(0) STRING) -> STRING)
 +-parse_location=0-18
 +-Literal(parse_location=12-17, type=STRING, value="abc")
 ==
 
-[language_features={{|SAFE_FUNCTION_CALL}}]
+[language_features=NONE,{{|+SAFE_FUNCTION_CALL}}]
 (select safe.sum(x) from unnest([1,2,3]) x)
 --
 ALTERNATION GROUP: <empty>
@@ -1302,7 +1303,7 @@ ERROR: Function calls with SAFE are not supported [at 1:9]
 (select safe.sum(x) from unnest([1,2,3]) x)
         ^
 --
-ALTERNATION GROUP: SAFE_FUNCTION_CALL
+ALTERNATION GROUP: +SAFE_FUNCTION_CALL
 --
 SubqueryExpr
 +-parse_location=0-43
@@ -1386,7 +1387,7 @@ TestConstant64
 ^
 ==
 
-[language_features=WITH_GROUP_ROWS]
+[language_features=NONE,+WITH_GROUP_ROWS]
 sum(x) with group rows(select x from group_rows())
 --
 ERROR: Aggregate function SUM not allowed in standalone expression [at 1:1]
@@ -1394,7 +1395,7 @@ sum(x) with group rows(select x from group_rows())
 ^
 ==
 
-[language_features=WITH_GROUP_ROWS]
+[language_features=NONE,+WITH_GROUP_ROWS]
 (select sum(x) with group rows(select x from group_rows()) from (select 1 x))
 --
 SubqueryExpr
@@ -1439,7 +1440,7 @@ group_rows()
 ^
 ==
 
-[language_features=TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS]
 (select x from group_rows())
 --
 ERROR: Table-valued function not found: group_rows [at 1:16]
@@ -1447,7 +1448,7 @@ ERROR: Table-valued function not found: group_rows [at 1:16]
                ^
 ==
 
-[language_features=MULTILEVEL_AGGREGATION]
+[language_features=NONE,+MULTILEVEL_AGGREGATION]
 [allow_aggregate_standalone_expression]
 [in_scope_expression_column_name=value]
 [in_scope_expression_column_type=int64]
@@ -1486,7 +1487,7 @@ FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
         +-ExpressionColumn(parse_location=60-65, type=INT64, name="value")
 ==
 
-[language_features=MULTILEVEL_AGGREGATION]
+[language_features=NONE,+MULTILEVEL_AGGREGATION]
 [allow_aggregate_standalone_expression]
 [in_scope_expression_column_name=value]
 [in_scope_expression_column_type=int64]
@@ -1502,7 +1503,7 @@ SUM(value GROUP BY value)
 ^
 ==
 
-[language_features=GROUPING_BUILTIN]
+[language_features=NONE,+GROUPING_BUILTIN]
 [allow_aggregate_standalone_expression]
 [in_scope_expression_column_name=value]
 [in_scope_expression_column_type=int64]
@@ -1513,7 +1514,7 @@ GROUPING(value)
 ^
 ==
 
-[language_features=GROUPING_BUILTIN,ORDER_BY_IN_AGGREGATE]
+[language_features=NONE,+GROUPING_BUILTIN,+ORDER_BY_IN_AGGREGATE]
 [allow_aggregate_standalone_expression]
 [in_scope_expression_column_name=value]
 [in_scope_expression_column_type=int64]

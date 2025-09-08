@@ -1,0 +1,97 @@
+# This is testing ListSelectColumnExpressionsFromFinalSelectClause.
+# The input is any string.
+# The output is an error message, or the vector of select column expressions that come out,
+# one per line
+# Options in LanguageOptions are supported in [] options syntax.
+
+# Simple Literals
+SELECT 1, 2, 3
+--
+0: 1
+1: 2
+2: 3
+==
+# Simple Columns
+SELECT a, b, c FROM T
+--
+0: a
+1: b
+2: c
+==
+# Complex Expressions
+SELECT a, b+c, 123 FROM T
+--
+0: a
+1: b+c
+2: 123
+==
+# Aliases
+SELECT a AS x, b AS y FROM T
+--
+0: a
+1: b
+==
+# Star
+SELECT * FROM T
+--
+UNIMPLEMENTED: SQL queries with '*' operations are not supported yet by ListSelectColumnExpressionsFromFinalSelectClause API
+==
+# QualifiedStar
+SELECT t.* FROM T as t
+--
+UNIMPLEMENTED: SQL queries with '*' operations are not supported yet by ListSelectColumnExpressionsFromFinalSelectClause API
+==
+# Quoted Identifier
+SELECT `a b`, c FROM T
+--
+0: `a b`
+1: c
+==
+# With Clause
+WITH T2 AS (SELECT 1) SELECT * FROM T2
+--
+UNIMPLEMENTED: SQL queries with '*' operations are not supported yet by ListSelectColumnExpressionsFromFinalSelectClause API
+==
+# With Clause With Alias
+WITH t AS (SELECT 1 x, 2 y) SELECT x AS a, y AS b from t;
+--
+0: x
+1: y
+==
+# Function Call Expression
+SELECT CAST(x AS STRING), CustomUdf(x) AS y FROM T
+--
+0: CAST(x AS STRING)
+1: CustomUdf(x)
+==
+# Outer Hinted Query
+@{a=1} SELECT a, b, c FROM T
+--
+0: a
+1: b
+2: c
+==
+# Simple Union
+SELECT 1 UNION ALL SELECT 2
+--
+UNIMPLEMENTED: SET operations are not supported yet in ListSelectColumnExpressionsFromFinalSelectClause API
+==
+# Pipe Query
+SELECT a, b FROM (SELECT 1 AS a, 2 AS b) |> SELECT a
+--
+0: a
+==
+# Pipe Query With No Last Select
+SELECT a, b FROM (SELECT 1 AS a, 2 AS b) |> EXTEND c
+--
+UNIMPLEMENTED: SQL Queries with PIPE operations not ending in PIPE_SELECT are not supported yet by ListSelectColumnExpressionsFromFinalSelectClause API
+==
+# Non-Select Statement Create
+CREATE TABLE T(a INT64)
+--
+INVALID_ARGUMENT: Only SQL query statements with final output defined by a SELECT clause are supported by ListSelectColumnExpressionsFromFinalSelectClause API. The current statement kind is CreateTableStatement
+==
+# Syntax Error
+--
+INVALID_ARGUMENT: Syntax error: Unexpected end of statement
+==

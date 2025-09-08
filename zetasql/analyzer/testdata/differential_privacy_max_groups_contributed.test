@@ -4,7 +4,7 @@
 # each user only contributes to one group.
 # We can't run the unparser because the rewrite generates TABLESAMPLE and the
 # TABLESAMPLE feature is not turned on.
-[default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS]
+[default language_features=MAXIMUM,+DIFFERENTIAL_PRIVACY,+NAMED_ARGUMENTS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [no_run_sqlbuilder]
 
@@ -543,7 +543,7 @@ QueryStmt
 # Count (*) counting unique users.
 # DIFFERENTIAL_PRIVACY_THRESHOLDING feature is enabled, therefore we should use this
 # count for k_threshold.
-[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,DIFFERENTIAL_PRIVACY_THRESHOLDING]
+[language_features=NONE,+DIFFERENTIAL_PRIVACY,+NAMED_ARGUMENTS,+TABLE_VALUED_FUNCTIONS,+TEMPLATE_FUNCTIONS,+CREATE_TABLE_FUNCTION,+DIFFERENTIAL_PRIVACY_THRESHOLDING]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [no_run_sqlbuilder]
 select with DIFFERENTIAL_PRIVACY options(max_groups_contributed = 1) count(*, contribution_bounds_per_group => (0, 1))
@@ -613,7 +613,7 @@ QueryStmt
           +-max_groups_contributed := Literal(type=INT64, value=1)
 ==
 
-[language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,ANONYMIZATION_THRESHOLDING]
+[language_features=NONE,+ANONYMIZATION,+TABLE_VALUED_FUNCTIONS,+TEMPLATE_FUNCTIONS,+CREATE_TABLE_FUNCTION,+ANONYMIZATION_THRESHOLDING]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [no_run_sqlbuilder]
 select with anonymization options(max_groups_contributed = 1) anon_var_pop(a.double clamped between 0 and 1)

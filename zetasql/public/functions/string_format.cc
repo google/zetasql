@@ -434,8 +434,10 @@ bool StringFormatEvaluator::ValueLiteralSetter(const FormatPart& part,
       return false;
     }
   }
+
+  // FLOAT/DOUBLE always use FLOAT32/FLOAT64 in Format function.
   string_buffer_ = value_var->GetSQLLiteral(ProductMode::PRODUCT_EXTERNAL,
-                                            use_external_float32_);
+                                            /*use_external_float32=*/true);
   fmt_string_.view = string_buffer_;
   // Check for invalid UTF8.
   // This is necessary because while engines are required to validate utf-8,

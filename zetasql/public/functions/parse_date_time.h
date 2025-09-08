@@ -23,6 +23,7 @@
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/pico_time.h"
+#include "absl/base/nullability.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
@@ -88,12 +89,43 @@ absl::Status ParseStringToTimestamp(absl::string_view format_string,
 absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     absl::string_view default_timezone_string,
-                                    PicoTime* timestamp);
+                                    int64_t precision, PicoTime* timestamp);
 
+enum class ParseTimestampError {
+  // No parsing error.
+  kOk,
+
+  // Error that the input string is malformed, and cannot be parsed as a
+  // timestamp.
+  kMalformed,
+
+  // Error that the input string represents a timestamp that is greater than
+  // the valid upper bound.
+  kGreaterThanUpperBound,
+
+  // Error that the input string represents a timestamp that is less than
+  // the valid lower bound.
+  kLessThanLowerBound,
+};
+
+// If the return value is OkStatus(), the value of the output parameter <error>
+// remains unchanged. Otherwise, the value of <error> indicates whether the
+// failure is due to parsing error, and if so, what the parsing error is.
 absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     absl::TimeZone default_timezone,
-                                    PicoTime* timestamp);
+                                    int64_t precision, PicoTime* timestamp,
+                                    ParseTimestampError* /*absl_nullable*/ error);
+
+// Same as above, but defaults to Picos precision.
+inline absl::Status ParseStringToTimestamp(
+    absl::string_view format_string, absl::string_view timestamp_string,
+    absl::TimeZone default_timezone, PicoTime* timestamp,
+    ParseTimestampError* /*absl_nullable*/ error) {
+  return ParseStringToTimestamp(format_string, timestamp_string,
+                                default_timezone, /*precision=*/12, timestamp,
+                                error);
+}
 
 // Parses an input <date_string> with the given input <format_string>,
 // and produces the appropriate date as output. Date parts that are

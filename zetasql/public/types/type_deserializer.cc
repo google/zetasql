@@ -36,6 +36,7 @@
 #include "zetasql/public/types/type_factory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "google/protobuf/text_format.h"
 #include "zetasql/base/ret_check.h"
@@ -186,11 +187,22 @@ absl::StatusOr<const Type*> TypeDeserializer::Deserialize(
       const google::protobuf::RepeatedPtrField<std::string>& catalog_name_path =
           type_proto.enum_type().catalog_name_path();
       if (type_proto.enum_type().is_opaque()) {
-        ZETASQL_RETURN_IF_ERROR(
-            zetasql::internal::TypeFactoryHelper::MakeOpaqueEnumType(
-                type_factory_, enum_descr, &enum_type,
-                std::vector<std::string>{catalog_name_path.begin(),
-                                         catalog_name_path.end()}));
+        absl::string_view opaque_enum_name =
+            enum_descr->options()
+                .GetExtension(opaque_enum_type_options)
+                .sql_opaque_enum_name();
+        if (opaque_enum_name.empty()) {
+          return MakeSqlError() << "Enum " << type_proto.enum_type().enum_name()
+                                << " is marked as an opaque enum but its "
+                                   "descriptor does not have a "
+                                   "sql_opaque_enum_name option set.";
+        }
+        ZETASQL_ASSIGN_OR_RETURN(const EnumType* opaque_enum_type,
+                         types::GetOpaqueEnumTypeFromSqlName(opaque_enum_name));
+        ZETASQL_RET_CHECK_NE(opaque_enum_type, nullptr)
+            << "Did you forget to update GetOpaqueEnumTypeFromSqlName when "
+               "adding a new opaque enum type?";
+        return types::GetOpaqueEnumTypeFromSqlName(opaque_enum_name);
       } else {
         ZETASQL_RETURN_IF_ERROR(type_factory_->MakeEnumType(
             enum_descr, &enum_type,

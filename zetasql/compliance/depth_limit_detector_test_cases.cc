@@ -87,7 +87,7 @@ namespace {
 // on the type of the template.
 // Currently supports raw strings, incrementing numbers for generation of unique
 // names and repeating other templates.
-void InstantiateDepthLimitDetectorTemplate(std::string_view part,
+void InstantiateDepthLimitDetectorTemplate(absl::string_view part,
                                            std::ostream& output, int) {
   output << part;
 }
@@ -213,7 +213,7 @@ LanguageOptions DepthLimitDetectorTestCaseLanguageOptions(
 
 DepthLimitDetectorTestResult RunDepthLimitDetectorTestCase(
     DepthLimitDetectorTestCase const& depth_limit_case,
-    absl::FunctionRef<absl::Status(std::string_view)> test_driver_function) {
+    absl::FunctionRef<absl::Status(absl::string_view)> test_driver_function) {
   DepthLimitDetectorRuntimeControl runtime_control;
   runtime_control.max_sql_bytes =
       absl::GetFlag(FLAGS_depth_limit_detector_max_sql_bytes);
@@ -225,7 +225,7 @@ DepthLimitDetectorTestResult RunDepthLimitDetectorTestCase(
 // resource exhausted conditions (e.g. stack overflows).
 DepthLimitDetectorTestResult RunDepthLimitDetectorTestCase(
     DepthLimitDetectorTestCase const& depth_limit_case,
-    absl::FunctionRef<absl::Status(std::string_view)> test_driver_function,
+    absl::FunctionRef<absl::Status(absl::string_view)> test_driver_function,
     const DepthLimitDetectorRuntimeControl& runtime_control) {
   testing::Test::RecordProperty(
       "depth_limit_detector_test_case_name",
@@ -235,7 +235,7 @@ DepthLimitDetectorTestResult RunDepthLimitDetectorTestCase(
   result.depth_limit_test_case_name =
       depth_limit_case.depth_limit_test_case_name;
 
-  auto TryDepth = [&](std::string_view sql, int depth) {
+  auto TryDepth = [&](absl::string_view sql, int depth) {
     auto status = test_driver_function(sql);
     IntegrateTestResult(&result, depth, status);
   };
@@ -289,8 +289,9 @@ DepthLimitDetectorTestResult RunDepthLimitDetectorTestCase(
 }
 
 absl::AnyInvocable<std::vector<std::tuple<std::string>>() const>
-DepthLimitDetectorSeeds(absl::AnyInvocable<absl::Status(std::string_view) const>
-                            test_driver_function) {
+DepthLimitDetectorSeeds(
+    absl::AnyInvocable<absl::Status(absl::string_view) const>
+        test_driver_function) {
   return [test_driver_function = std::move(test_driver_function)]() {
     std::vector<std::tuple<std::string>> seeds;
 

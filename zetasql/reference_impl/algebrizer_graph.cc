@@ -668,6 +668,14 @@ Algebrizer::AlgebrizeGraphQuantifiedPathScan(
     ZETASQL_RET_CHECK(quantified_path_scan->path()->column().type()->IsGraphPath());
     path_type = quantified_path_scan->path()->column().type()->AsGraphPath();
   }
+  const Type* cost_type = nullptr;
+  if (quantified_path_scan->path_cost() != nullptr) {
+    VariableId cost_variable =
+        column_to_variable_->variable_generator()->GetNewVariableName("$cost");
+    variables.cost = cost_variable;
+    cost_type = quantified_path_scan->path_cost()->cost_supertype();
+    ZETASQL_RET_CHECK(cost_type->IsNumerical());
+  }
   for (const std::unique_ptr<const ResolvedGraphMakeArrayVariable>& make_array :
        quantified_path_scan->group_variable_list()) {
     ZETASQL_ASSIGN_OR_RETURN(VariableId element,
@@ -702,7 +710,7 @@ Algebrizer::AlgebrizeGraphQuantifiedPathScan(
 
   return QuantifiedGraphPathOp::Create(
       std::move(path_primary_op), std::move(variables), std::move(lower_bound),
-      std::move(upper_bound), path_type);
+      std::move(upper_bound), path_type, cost_type);
 }
 
 absl::StatusOr<std::unique_ptr<RelationalOp>>
@@ -734,6 +742,12 @@ Algebrizer::AlgebrizeGraphPathScan(
       case ResolvedGraphPathSearchPrefix::SHORTEST: {
         ZETASQL_ASSIGN_OR_RETURN(returning_op,
                          GraphShortestPathSearchOp::Create(
+                             std::move(returning_op), std::move(path_count)));
+        break;
+      }
+      case ResolvedGraphPathSearchPrefix::CHEAPEST: {
+        ZETASQL_ASSIGN_OR_RETURN(returning_op,
+                         GraphCheapestPathSearchOp::Create(
                              std::move(returning_op), std::move(path_count)));
         break;
       }
@@ -817,8 +831,24 @@ Algebrizer::AlgebrizeGraphPathPrimaryScan(
                   path_factor_scan->GetAs<ResolvedGraphEdgeScan>()
                       ->orientation())
             : std::nullopt;
-    path_factor_ops.push_back(
-        {std::move(variables), std::move(path_factor_op), orientation});
+    std::optional<int> cost_slot_index = std::nullopt;
+    if (path_factor_scan->Is<ResolvedGraphEdgeScan>() &&
+        path_factor_scan->GetAs<ResolvedGraphEdgeScan>()->cost_expr() !=
+            nullptr) {
+      cost_slot_index = 1;
+    }
+    if (path_factor_scan->Is<ResolvedGraphPathScan>()) {
+      int idx = static_cast<int>(variables.size());
+      if (path_factor_scan->GetAs<ResolvedGraphPathScan>()->path() != nullptr) {
+        ++idx;
+      }
+      if (path_factor_scan->GetAs<ResolvedGraphPathScan>()->path_cost() !=
+          nullptr) {
+        cost_slot_index = idx;
+      }
+    }
+    path_factor_ops.push_back({std::move(variables), std::move(path_factor_op),
+                               orientation, cost_slot_index});
   }
   if (algebrizer_options_.push_down_filters) {
     // Mark all as redundant. We've done sanity checks right after AlgebrizeScan
@@ -838,10 +868,18 @@ Algebrizer::AlgebrizeGraphPathPrimaryScan(
     ZETASQL_RET_CHECK(graph_path_scan->path()->column().type()->IsGraphPath());
     path_type = graph_path_scan->path()->column().type()->AsGraphPath();
   }
+  VariableId cost;
+  const Type* cost_type = nullptr;
+  if (graph_path_scan->path_cost() != nullptr) {
+    cost =
+        column_to_variable_->variable_generator()->GetNewVariableName("$cost");
+    cost_type = graph_path_scan->path_cost()->cost_supertype();
+    ZETASQL_RET_CHECK(cost_type->IsNumerical());
+  }
 
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<RelationalOp> graph_table_op,
-      GraphPathOp::Create(std::move(path_factor_ops), path, path_type));
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> graph_table_op,
+                   GraphPathOp::Create(std::move(path_factor_ops), path,
+                                       path_type, cost, cost_type));
 
   ZETASQL_ASSIGN_OR_RETURN(auto algebrized_conjuncts,
                    AlgebrizeNonRedundantConjuncts(conjunct_infos));
@@ -898,13 +936,31 @@ Algebrizer::AlgebrizeGraphElementScan(
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> relational_op,
                    UnionAllOp::Create(std::move(union_members)));
 
-  if (element_scan->filter_expr() == nullptr) {
-    return relational_op;
+  if (element_scan->filter_expr() != nullptr) {
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> filter_expr,
+                     AlgebrizeExpression(element_scan->filter_expr()));
+    ZETASQL_ASSIGN_OR_RETURN(relational_op, FilterOp::Create(std::move(filter_expr),
+                                                     std::move(relational_op)));
   }
 
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> filter_expr,
-                   AlgebrizeExpression(element_scan->filter_expr()));
-  return FilterOp::Create(std::move(filter_expr), std::move(relational_op));
+  if (element_scan->Is<ResolvedGraphEdgeScan>() &&
+      element_scan->GetAs<ResolvedGraphEdgeScan>()->cost_expr() != nullptr) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<ValueExpr> cost_expr,
+        AlgebrizeExpression(
+            element_scan->GetAs<ResolvedGraphEdgeScan>()->cost_expr()));
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> validated_cost_expr,
+                     GraphCostExpr::Create(std::move(cost_expr)));
+    std::vector<std::unique_ptr<ExprArg>> cost_projection_arg;
+    VariableId cost_variable =
+        column_to_variable_->variable_generator()->GetNewVariableName("$cost");
+    cost_projection_arg.push_back(std::make_unique<ExprArg>(
+        cost_variable, std::move(validated_cost_expr)));
+    ZETASQL_ASSIGN_OR_RETURN(relational_op,
+                     ComputeOp::Create(std::move(cost_projection_arg),
+                                       std::move(relational_op)));
+  }
+  return relational_op;
 }
 
 absl::Status Algebrizer::AlgebrizeExpressionList(

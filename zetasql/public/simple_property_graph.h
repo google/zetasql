@@ -32,6 +32,8 @@
 #include "zetasql/public/types/type_deserializer.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node.h"
+#include "absl/base/attributes.h"
+#include "absl/base/macros.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "zetasql/base/check.h"
@@ -142,8 +144,8 @@ class SimpleGraphNodeTable : public GraphNodeTable {
       std::vector<std::unique_ptr<const GraphPropertyDefinition>>
           property_definitions,
       std::unique_ptr<const GraphDynamicLabel> dynamic_label = nullptr,
-      std::unique_ptr<const GraphDynamicProperties> dynamic_properties =
-          nullptr);
+      std::unique_ptr<const GraphDynamicProperties> dynamic_properties = nullptr
+  );
 
   ~SimpleGraphNodeTable() override;
 
@@ -175,6 +177,8 @@ class SimpleGraphNodeTable : public GraphNodeTable {
   bool HasDynamicLabel() const override;
   absl::Status GetDynamicLabel(
       const GraphDynamicLabel*& dynamic_label) const override;
+  enum GraphElementTable::DynamicLabelCardinality DynamicLabelCardinality()
+      const override;
 
   bool HasDynamicProperties() const override;
   absl::Status GetDynamicProperties(
@@ -208,8 +212,8 @@ class SimpleGraphEdgeTable : public GraphEdgeTable {
       std::unique_ptr<const GraphNodeTableReference> source_node,
       std::unique_ptr<const GraphNodeTableReference> destination_node,
       std::unique_ptr<const GraphDynamicLabel> dynamic_label = nullptr,
-      std::unique_ptr<const GraphDynamicProperties> dynamic_properties =
-          nullptr);
+      std::unique_ptr<const GraphDynamicProperties> dynamic_properties = nullptr
+  );
 
   ~SimpleGraphEdgeTable() override;
 
@@ -248,6 +252,8 @@ class SimpleGraphEdgeTable : public GraphEdgeTable {
   bool HasDynamicLabel() const override;
   absl::Status GetDynamicLabel(
       const GraphDynamicLabel*& dynamic_label) const override;
+  enum GraphElementTable::DynamicLabelCardinality DynamicLabelCardinality()
+      const override;
 
   bool HasDynamicProperties() const override;
   absl::Status GetDynamicProperties(

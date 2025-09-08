@@ -19,9 +19,14 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
+#include "zetasql/public/evaluator_table_iterator.h"
+#include "zetasql/public/value.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/tools/execute_query/execute_query_writer.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "external/mstch/mstch/include/mstch/mstch.hpp"
@@ -67,11 +72,7 @@ class ExecuteQueryWebWriter : public ExecuteQueryWriter {
     return absl::OkStatus();
   }
 
-  absl::Status resolved(const ResolvedNode &ast) override {
-    current_statement_params_["result_analyzed"] = ast.DebugString();
-    got_results_ = true;
-    return absl::OkStatus();
-  }
+  absl::Status resolved(const ResolvedNode& ast) override;
 
   absl::Status unanalyze(absl::string_view unanalyze_string) override {
     current_statement_params_["result_unanalyzed"] =
@@ -96,6 +97,11 @@ class ExecuteQueryWebWriter : public ExecuteQueryWriter {
 
   absl::Status executed(const ResolvedNode &ast,
                         std::unique_ptr<EvaluatorTableIterator> iter) override;
+
+  absl::Status executed_multi(
+      const ResolvedNode& ast,
+      std::vector<absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>>
+          results) override;
 
   absl::Status ExecutedExpression(const ResolvedNode &ast,
                                   const Value &value) override;
@@ -143,6 +149,7 @@ class ExecuteQueryWebWriter : public ExecuteQueryWriter {
   bool GotResults() const { return got_results_; }
 
  private:
+
   mstch::map &template_params_;
   mstch::map current_statement_params_;
   mstch::array statement_params_array_;

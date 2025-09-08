@@ -102,6 +102,10 @@ struct AlgebrizerOptions {
   // evaluated up front, and the result stored in an in-memory array, which will
   // then be dereferenced when the WITH entry is referenced.
   bool inline_with_entries = false;
+
+  // Used to allocate column ids. New column ids are currently allocated when
+  // algebrizing measure expressions.
+  std::shared_ptr<int> max_seen_column_id;
 };
 
 struct AnonymizationOptions {
@@ -123,7 +127,7 @@ class Algebrizer {
   // Returns the statement kinds that are supported by AlgebrizeStatement().
   static std::set<ResolvedNodeKind> GetSupportedStatementKinds() {
     return {RESOLVED_QUERY_STMT, RESOLVED_DELETE_STMT, RESOLVED_UPDATE_STMT,
-            RESOLVED_INSERT_STMT};
+            RESOLVED_INSERT_STMT, RESOLVED_MULTI_STMT};
   }
 
   // Algebrize the resolved AST for a SQL statement. 'parameters' returns either
@@ -377,7 +381,7 @@ class Algebrizer {
       std::vector<std::unique_ptr<ValueExpr>>& arguments,
       const ResolvedExpr* measure_expr);
 
-  // TODO: Remove the special collation logics in this function.
+  // TODO: Remove the special collation logic in this function.
   absl::StatusOr<std::unique_ptr<ValueExpr>>
   AlgebrizeScalarArrayFunctionWithCollation(
       FunctionKind kind, const Type* output_type,
@@ -525,7 +529,7 @@ class Algebrizer {
       std::unique_ptr<RelationalOp> input);
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeMatchRecognizeScan(
       const ResolvedMatchRecognizeScan* match_recognize_scan);
-  absl::StatusOr<MatchRecognizeQueryParams> GetMatchRecongizeQueryParams(
+  absl::StatusOr<MatchRecognizeQueryParams> GetMatchRecognizeQueryParams(
       const ResolvedMatchRecognizeScan& scan);
   absl::StatusOr<std::unique_ptr<AggregateArg>> AlgebrizeGroupingCall(
       const ResolvedGroupingCall* grouping_call,
@@ -619,6 +623,8 @@ class Algebrizer {
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeGraphElementScan(
       const ResolvedGraphElementScan* element_scan,
       std::vector<FilterConjunctInfo*>* active_conjuncts);
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeGraphCostExpr(
+      const ResolvedExpr* cost_expr);
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeGraphCallScan(
       const ResolvedGraphCallScan* call_scan,
       std::vector<FilterConjunctInfo*>* active_conjuncts);
@@ -836,6 +842,9 @@ class Algebrizer {
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeDMLStatement(
       const ResolvedStatement* ast_root, IdStringPool* id_string_pool);
 
+  absl::Status AlgebrizeStatementImpl(const ResolvedStatement* ast_root,
+                                      std::unique_ptr<ValueExpr>* output);
+
   // Populates the ResolvedScanMap and the ResolvedExprMap corresponding to
   // 'ast_root', which must be a DML statement. If the DML statement is
   // top-level (non-nested), then 'resolved_table_scan' must not be NULL and
@@ -1044,6 +1053,20 @@ class Algebrizer {
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeAssertScan(
       const ResolvedAssertScan* resolved_assert);
 
+  // Returns a `RelationalOp` corresponding to `resolved_describe`.
+  //
+  // This makes a scan that just returns a single-row table with the
+  // describe value.
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeDescribeScan(
+      const ResolvedDescribeScan* resolved_describe);
+
+  // Returns a `RelationalOp` corresponding to `resolved_static_describe`.
+  //
+  // This operator is a no-op so it just includes the input scan.
+  // The static logging side-effect currently doesn't happen.
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeStaticDescribeScan(
+      const ResolvedStaticDescribeScan* resolved_static_describe);
+
   // Returns a `RelationalOp` corresponding to `resolved_barrier_scan`.
   //
   // This function does not accept FilterConjunctInfo to prevent query
@@ -1059,6 +1082,19 @@ class Algebrizer {
       std::unique_ptr<RelationalOp> input_op);
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeSubpipelineInputScan(
       const ResolvedSubpipelineInputScan* scan);
+
+  // Algebrizes a ResolvedMultiStmt and returns a MultiStmtExpr.
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeMultiStmt(
+      const ResolvedMultiStmt* multi_stmt);
+
+  // Algebrizes a ResolvedCreateWithEntryStmt, and adds the WITH entry to
+  // `with_map_`.
+  //
+  // Local with entries `with_subquery_let_assignments_` and
+  // `inlined_with_entries_` must be empty before calling this function, and
+  // they remain empty after calling this function.
+  absl::StatusOr<std::unique_ptr<ExprArg>> AlgebrizeCreateWithEntryStmt(
+      const ResolvedCreateWithEntryStmt* create_with_stmt);
 
   // Represents a named or positional parameter.
   class Parameter {
@@ -1293,8 +1329,10 @@ class Algebrizer {
   // Maps named WITH subquery to an argument (variable, ValueExpr). Used to
   // algebrize WithRef scans referencing named subqueries.
   //
-  // This map includes only WITH subqueries which are referenced two or more
-  // times (e.g. evaluated up front and stored in an array).
+  // This map includes:
+  // - WITH subqueries which are referenced two or more times (e.g. evaluated up
+  //   front and stored in an array), and
+  // - WITH entries that are registered by `ResolvedCreateWithEntryStmt`s.
   absl::flat_hash_map<std::string, ExprArg*> with_map_;  // Not owned.
 
   // Vector of LetOp/WithExpr assignments we need to apply for WITH clauses in

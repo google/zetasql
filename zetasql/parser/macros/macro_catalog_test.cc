@@ -56,9 +56,9 @@ absl::StatusOr<MacroInfo> CreateMacroInfo(absl::string_view macro_definition) {
       parser_output->statement()->GetAsOrDie<ASTDefineMacroStatement>();
   return MacroInfo{
       .source_text = macro_definition,
-      .location = define_macro_ast->GetParseLocationRange(),
-      .name_location = define_macro_ast->name()->GetParseLocationRange(),
-      .body_location = define_macro_ast->body()->GetParseLocationRange(),
+      .location = define_macro_ast->location(),
+      .name_location = define_macro_ast->name()->location(),
+      .body_location = define_macro_ast->body()->location(),
   };
 }
 

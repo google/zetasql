@@ -825,6 +825,11 @@ Horizontal aggregation is especially useful when paired with a
 [group variable][group-variables]. You can create a group variable inside a
 quantified path pattern in a linear graph query.
 
+Some aggregates use an `ORDER BY` clause, such as the `ARRAY_AGG`,
+`STRING_AGG`, and `ARRAY_CONCAT_AGG` functions. For these aggregates the
+system orders inputs by their position in the array if you don't provide an
+`ORDER BY` clause.
+
 #### Syntactic restrictions
 
 +  The argument to the aggregate function must reference exactly one array-typed

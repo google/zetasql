@@ -1,5 +1,5 @@
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
+[default language_features=NONE,+SQL_GRAPH]
 # Ensure that GRAPH_TABLE is a reserved keyword when the flag is on
 select 1 AS graph_table
 --
@@ -29,7 +29,7 @@ SELECT
 [no_reserve_graph_table]
 select 1 AS graph_table FROM graph_table(my.graph.name MATCH () COLUMNS( 1 AS one, 1+1 AS two ))
 --
-ERROR: Syntax error: Expected ")" or "," but got keyword MATCH [at 1:56]
+ERROR: Syntax error: Expected ")" but got keyword MATCH [at 1:56]
 ...1 AS graph_table FROM graph_table(my.graph.name MATCH () COLUMNS( 1 AS one...
                                                    ^
 ==
@@ -379,7 +379,7 @@ select * from
   ) g1
 --
 
-ERROR: Syntax error: Unexpected ")" [at 5:3]
+ERROR: Syntax error: Expected keyword RETURN but got ")" [at 5:3]
   ) g1
   ^
 ==
@@ -962,7 +962,7 @@ FROM
 ==
 
 # Star cannot appear with EXCEPT.
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 select * from
   graph_table(aml
     RETURN
@@ -1005,7 +1005,7 @@ select * from
 
 --
 
-ERROR: Syntax error: Unexpected ")" [at 4:3]
+ERROR: Syntax error: Expected keyword RETURN but got ")" [at 4:3]
   ) g1
   ^
 
@@ -1021,7 +1021,7 @@ select * from
 
 --
 
-ERROR: Syntax error: Unexpected keyword COLUMNS [at 5:5]
+ERROR: Syntax error: Expected keyword RETURN but got keyword COLUMNS [at 5:5]
     COLUMNS (n.name)
     ^
 

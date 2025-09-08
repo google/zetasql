@@ -1,3 +1,4 @@
+[default language_features=MAXIMUM]
 select /* comment */ 1, # comment
   2,
   3
@@ -59,7 +60,7 @@ SELECT SUM(1);
        ^
 ==
 
-[language_features={{|ANALYTIC_FUNCTIONS}}]
+[language_features=NONE,{{|+ANALYTIC_FUNCTIONS}}]
 SELECT sum(1) OVER ();
 --
 ALTERNATION GROUP: <empty>
@@ -68,7 +69,7 @@ ERROR: Analytic functions not supported [at 1:8]
 SELECT sum(1) OVER ();
        ^
 --
-ALTERNATION GROUP: ANALYTIC_FUNCTIONS
+ALTERNATION GROUP: +ANALYTIC_FUNCTIONS
 --
 ERROR: Analytic function not allowed in SELECT without FROM clause [at 1:8]
 SELECT sum(1) OVER ();

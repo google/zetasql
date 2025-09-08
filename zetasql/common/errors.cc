@@ -104,11 +104,11 @@ absl::Status StatusWithInternalErrorLocation(
   return result;
 }
 
-ErrorSource MakeErrorSource(const absl::Status& status, std::string_view text,
+ErrorSource MakeErrorSource(const absl::Status& status, absl::string_view text,
                             ErrorMessageMode mode) {
   ABSL_DCHECK(!status.ok());
   // Sanity check that status does not have an InternalErrorLocation.
-  ABSL_DCHECK(!HasInternalErrorLocation(status));
+  ABSL_DCHECK(!HasInternalErrorLocation(status)) << status;
 
   ErrorSource error_source;
   error_source.set_error_message(status.message());

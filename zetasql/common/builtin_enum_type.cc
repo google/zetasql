@@ -37,6 +37,11 @@ absl::Status GetStandaloneBuiltinEnumTypes(
     const Type* bitwise_agg_mode_type = types::BitwiseAggModeEnumType();
     ZETASQL_RETURN_IF_ERROR(InsertType(types, options, bitwise_agg_mode_type));
   }
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_KLL_QUANTILES_EXTRACT_RELATIVE_RANK)) {
+    ZETASQL_ASSIGN_OR_RETURN(const Type* rank_type_type, types::RankTypeEnumType());
+    ZETASQL_RETURN_IF_ERROR(InsertType(types, options, rank_type_type));
+  }
   return absl::OkStatus();
 }
 

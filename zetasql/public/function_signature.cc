@@ -29,6 +29,7 @@
 #include "google/protobuf/util/message_differencer.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/proto/function.pb.h"
+#include "zetasql/public/constness_level.pb.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/language_options.h"
@@ -36,13 +37,16 @@
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_deserializer.h"
 #include "zetasql/resolved_ast/serialization.pb.h"
 #include "zetasql/base/case.h"
 #include "absl/algorithm/container.h"
+#include "absl/base/no_destructor.h"
 #include "absl/container/btree_set.h"
+#include "absl/container/flat_hash_map.h"
 #include "zetasql/base/check.h"
-#include "absl/memory/memory.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
@@ -99,6 +103,7 @@ bool CanHaveDefaultValue(SignatureArgumentKind kind) {
     case ARG_TYPE_GRAPH_ELEMENT:
     case ARG_TYPE_GRAPH_PATH:
     case ARG_TYPE_SEQUENCE:
+    case ARG_TYPE_GRAPH:
     case ARG_MEASURE_TYPE_ANY_1:
       return false;
     default:
@@ -124,9 +129,10 @@ FunctionSignatureOptions::CheckFunctionSignatureConstraints(
   if (constraints_ == nullptr) {
     return "";
   }
-  ZETASQL_RET_CHECK(concrete_signature.IsConcrete())
-      << "FunctionSignatureArgumentConstraintsCallback must be called with a "
-         "concrete signature";
+  ZETASQL_RET_CHECK(concrete_signature.HasConcreteArguments())
+      << "FunctionSignatureArgumentConstraintsCallback must be called with "
+         "concrete arguments. "
+      << concrete_signature.DebugString();
   return constraints_(concrete_signature, arguments);
 }
 
@@ -219,9 +225,23 @@ absl::Status FunctionArgumentTypeOptions::Deserialize(
     const TypeDeserializer& type_deserializer, SignatureArgumentKind arg_kind,
     const Type* arg_type, FunctionArgumentTypeOptions* options) {
   options->set_cardinality(options_proto.cardinality());
-  options->set_must_be_constant(options_proto.must_be_constant());
-  options->set_must_be_constant_expression(
-      options_proto.must_be_constant_expression());
+  options->data_->constness_level = options_proto.constness_level();
+
+  // Migration code between constness_level and the deprecated constness flags.
+  // TODO: b/434986689 - Remove this after some soak time.
+  if (options_proto.constness_level() ==
+      ConstnessLevelProto::CONSTNESS_UNSPECIFIED) {
+    if (options_proto.must_be_constant()) {
+      options->data_->constness_level =
+          ConstnessLevelProto::LEGACY_LITERAL_OR_PARAMETER;
+    }
+    if (options_proto.must_be_constant_expression()) {
+      ABSL_DCHECK(options->data_->constness_level ==
+             ConstnessLevelProto::CONSTNESS_UNSPECIFIED);
+      options->data_->constness_level =
+          ConstnessLevelProto::LEGACY_CONSTANT_EXPRESSION;
+    }
+  }
   options->set_must_be_non_null(options_proto.must_be_non_null());
   options->set_is_not_aggregate(options_proto.is_not_aggregate());
   options->set_must_support_equality(options_proto.must_support_equality());
@@ -304,9 +324,9 @@ absl::Status FunctionArgumentTypeOptions::Deserialize(
           type_deserializer.Deserialize(options_proto.default_value_type()));
     }
     ZETASQL_RET_CHECK_NE(default_value_type, nullptr);
-    ZETASQL_ASSIGN_OR_RETURN(Value value,
-                     Value::Deserialize(options_proto.default_value(),
-                                        default_value_type));
+    ZETASQL_ASSIGN_OR_RETURN(
+        Value value,
+        Value::Deserialize(options_proto.default_value(), default_value_type));
     options->set_default(std::move(value));
   }
   if (options_proto.has_argument_collation_mode()) {
@@ -372,6 +392,11 @@ absl::Status FunctionArgumentTypeOptions::Serialize(
   if (procedure_argument_mode() != FunctionEnums::NOT_SET) {
     options_proto->set_procedure_argument_mode(procedure_argument_mode());
   }
+  if (data_->constness_level != ConstnessLevelProto::CONSTNESS_UNSPECIFIED) {
+    options_proto->set_constness_level(data_->constness_level);
+  }
+  // TODO: b/434986689 These fields are deprecated. They should be removed and
+  // only ConstnessLevel should be used.
   if (must_be_constant()) {
     options_proto->set_must_be_constant(must_be_constant());
   }
@@ -517,8 +542,15 @@ std::string FunctionArgumentTypeOptions::OptionsDebugString() const {
   // Print the options in a format matching proto ShortDebugString.
   // In java, we just print the proto itself.
   std::vector<std::string> options;
-  if (data_->must_be_constant) options.push_back("must_be_constant: true");
-  if (data_->must_be_constant_expression) {
+  if (data_->constness_level ==
+      ConstnessLevelProto::LEGACY_LITERAL_OR_PARAMETER) {
+    options.push_back("must_be_constant: true");
+  }
+  if (data_->constness_level == ConstnessLevelProto::ANALYSIS_CONST) {
+    options.push_back("must_be_analysis_constant: true");
+  }
+  if (data_->constness_level ==
+      ConstnessLevelProto::LEGACY_CONSTANT_EXPRESSION) {
     options.push_back("must_be_constant_expression: true");
   }
   if (data_->must_be_non_null) options.push_back("must_be_non_null: true");
@@ -547,17 +579,27 @@ std::string FunctionArgumentTypeOptions::OptionsDebugString() const {
 
 std::string FunctionArgumentTypeOptions::GetSQLDeclaration(
     ProductMode product_mode) const {
+  return GetSQLDeclaration(product_mode, /*use_external_float32=*/false);
+}
+
+std::string FunctionArgumentTypeOptions::GetSQLDeclaration(
+    ProductMode product_mode, bool use_external_float32) const {
   std::vector<std::string> options;
   // Some of these don't currently have any SQL syntax.
   // We emit a comment for those cases.
-  if (data_->must_be_constant) options.push_back("/*must_be_constant*/");
-  if (data_->must_be_constant_expression) {
+  if (data_->constness_level ==
+      ConstnessLevelProto::LEGACY_LITERAL_OR_PARAMETER)
+    options.push_back("/*must_be_constant*/");
+  if (data_->constness_level == ConstnessLevelProto::ANALYSIS_CONST)
+    options.push_back("/*must_be_analysis_constant*/");
+  if (data_->constness_level == ConstnessLevelProto::LEGACY_CONSTANT_EXPRESSION)
     options.push_back("/*must_be_constant_expression*/");
-  }
+
   if (data_->must_be_non_null) options.push_back("/*must_be_non_null*/");
   if (data_->default_value.has_value()) {
     options.push_back("DEFAULT");
-    options.push_back(data_->default_value->GetSQLLiteral(product_mode));
+    options.push_back(data_->default_value->GetSQLLiteral(
+        product_mode, use_external_float32));
   }
   if (data_->is_not_aggregate) options.push_back("NOT AGGREGATE");
   if (options.empty()) {
@@ -628,6 +670,8 @@ std::string FunctionArgumentType::SignatureArgumentKindToString(
       return "<graph_element>";
     case ARG_TYPE_GRAPH_PATH:
       return "<graph_path>";
+    case ARG_TYPE_GRAPH:
+      return "ANY GRAPH";
     case ARG_TYPE_SEQUENCE:
       return "ANY SEQUENCE";
     case ARG_MEASURE_TYPE_ANY_1:
@@ -712,7 +756,8 @@ FunctionArgumentType::FunctionArgumentType(const Type* type,
 bool FunctionArgumentType::IsConcrete() const {
   if (kind_ != ARG_TYPE_FIXED && kind_ != ARG_TYPE_RELATION &&
       kind_ != ARG_TYPE_MODEL && kind_ != ARG_TYPE_CONNECTION &&
-      kind_ != ARG_TYPE_LAMBDA && kind_ != ARG_TYPE_SEQUENCE) {
+      kind_ != ARG_TYPE_LAMBDA && kind_ != ARG_TYPE_SEQUENCE &&
+      kind_ != ARG_TYPE_GRAPH) {
     return false;
   }
   if (num_occurrences_ < 0) {
@@ -953,6 +998,8 @@ std::string FunctionArgumentType::UserFacingName(
         return "GRAPH_ELEMENT";
       case ARG_TYPE_GRAPH_PATH:
         return "GRAPH_PATH";
+      case ARG_TYPE_GRAPH:
+        return "GRAPH";
       case ARG_TYPE_SEQUENCE:
         return "SEQUENCE";
       case ARG_MAP_TYPE_ANY_1_2:
@@ -1037,12 +1084,17 @@ std::string FunctionArgumentType::DebugString(bool verbose) const {
   }
   return result;
 }
-
 std::string FunctionArgumentType::GetSQLDeclaration(
     ProductMode product_mode) const {
+  return GetSQLDeclaration(product_mode, /*use_external_float32=*/false);
+}
+
+std::string FunctionArgumentType::GetSQLDeclaration(
+    ProductMode product_mode, bool use_external_float32) const {
   // We emit comments for the things that don't have a SQL syntax currently.
-  std::string cardinality(repeated() ? "/*repeated*/"
-                                     : optional() ? "/*optional*/" : "");
+  std::string cardinality(repeated()   ? "/*repeated*/"
+                          : optional() ? "/*optional*/"
+                                       : "");
   std::string result = absl::StrCat(cardinality, required() ? "" : " ");
   if (IsLambda()) {
     std::string args = absl::StrJoin(
@@ -1051,17 +1103,18 @@ std::string FunctionArgumentType::GetSQLDeclaration(
           out->append(arg.GetSQLDeclaration(product_mode));
         });
     if (lambda().argument_types().size() == 1) {
-      return absl::Substitute(
-          "FUNCTION<$0->$1>", args,
-          lambda().body_type().GetSQLDeclaration(product_mode));
+      return absl::Substitute("FUNCTION<$0->$1>", args,
+                              lambda().body_type().GetSQLDeclaration(
+                                  product_mode, use_external_float32));
     }
-    return absl::Substitute(
-        "FUNCTION<($0)->$1>", args,
-        lambda().body_type().GetSQLDeclaration(product_mode));
+    return absl::Substitute("FUNCTION<($0)->$1>", args,
+                            lambda().body_type().GetSQLDeclaration(
+                                product_mode, use_external_float32));
   }
   // TODO: Consider using UserFacingName() here.
   if (type_ != nullptr) {
-    absl::StrAppend(&result, type_->TypeName(product_mode));
+    absl::StrAppend(&result,
+                    type_->TypeName(product_mode, use_external_float32));
   } else if (options_->has_relation_input_schema()) {
     absl::StrAppend(
         &result,
@@ -1071,7 +1124,8 @@ std::string FunctionArgumentType::GetSQLDeclaration(
   } else {
     absl::StrAppend(&result, SignatureArgumentKindToString(kind_));
   }
-  absl::StrAppend(&result, options_->GetSQLDeclaration(product_mode));
+  absl::StrAppend(
+      &result, options_->GetSQLDeclaration(product_mode, use_external_float32));
   return result;
 }
 
@@ -1140,8 +1194,8 @@ FunctionSignature::Deserialize(const FunctionSignatureProto& proto,
                                                      type_deserializer));
 
   std::unique_ptr<FunctionSignatureOptions> options;
-  ZETASQL_RETURN_IF_ERROR(FunctionSignatureOptions::Deserialize(
-      proto.options(), &options));
+  ZETASQL_RETURN_IF_ERROR(
+      FunctionSignatureOptions::Deserialize(proto.options(), &options));
 
   return std::make_unique<FunctionSignature>(*result_type, arguments,
                                              proto.context_id(), *options);
@@ -1152,12 +1206,12 @@ absl::Status FunctionSignature::Serialize(
     FunctionSignatureProto* proto) const {
   options_.Serialize(proto->mutable_options());
 
-  ZETASQL_RETURN_IF_ERROR(result_type().Serialize(
-      file_descriptor_set_map, proto->mutable_return_type()));
+  ZETASQL_RETURN_IF_ERROR(result_type().Serialize(file_descriptor_set_map,
+                                          proto->mutable_return_type()));
 
   for (const FunctionArgumentType& argument : arguments()) {
-    ZETASQL_RETURN_IF_ERROR(argument.Serialize(
-        file_descriptor_set_map, proto->add_argument()));
+    ZETASQL_RETURN_IF_ERROR(
+        argument.Serialize(file_descriptor_set_map, proto->add_argument()));
   }
 
   proto->set_context_id(context_id());
@@ -1246,10 +1300,13 @@ bool FunctionSignature::HasConcreteArguments() const {
     return true;
   }
   for (const FunctionArgumentType& argument : arguments_) {
+    // num_occurrences cannot be -1 for a concrete signature, because templated
+    // types must have been set already. However, we need to clean up existing
+    // callers that may not have set it up.
+
     // Missing templated arguments may have unknown types in a concrete
     // signature if they are omitted in a function call.
-    if (argument.num_occurrences() > 0 &&
-        !argument.IsConcrete()) {
+    if (argument.num_occurrences() > 0 && !argument.IsConcrete()) {
       return false;
     }
   }
@@ -1383,6 +1440,13 @@ absl::StatusOr<bool> ShouldHaveReturnsClauseInSQLDeclaration(
 std::string FunctionSignature::GetSQLDeclaration(
     absl::Span<const std::string> argument_names,
     ProductMode product_mode) const {
+  return GetSQLDeclaration(argument_names, product_mode,
+                           /*use_external_float32=*/false);
+}
+
+std::string FunctionSignature::GetSQLDeclaration(
+    absl::Span<const std::string> argument_names, ProductMode product_mode,
+    bool use_external_float32) const {
   std::string out = "(";
   for (int i = 0; i < arguments_.size(); ++i) {
     if (i > 0) out += ", ";
@@ -1396,7 +1460,8 @@ std::string FunctionSignature::GetSQLDeclaration(
     if (argument_names.size() > i) {
       absl::StrAppend(&out, ToIdentifierLiteral(argument_names[i]), " ");
     }
-    absl::StrAppend(&out, arguments_[i].GetSQLDeclaration(product_mode));
+    absl::StrAppend(&out, arguments_[i].GetSQLDeclaration(
+                              product_mode, use_external_float32));
   }
   absl::StrAppend(&out, ")");
   absl::StatusOr<bool> status_or_should_have_returns_clause =
@@ -1407,8 +1472,9 @@ std::string FunctionSignature::GetSQLDeclaration(
                     "] ");
   }
   if (status_or_should_have_returns_clause.value()) {
-    absl::StrAppend(&out, " RETURNS ",
-                    result_type_.GetSQLDeclaration(product_mode));
+    absl::StrAppend(
+        &out, " RETURNS ",
+        result_type_.GetSQLDeclaration(product_mode, use_external_float32));
   }
   return out;
 }
@@ -1473,8 +1539,8 @@ static inline bool TemplatedKindIsRelatedImpl(
 
 }  // namespace
 
-bool FunctionArgumentType::TemplatedKindIsRelated(SignatureArgumentKind kind)
-    const {
+bool FunctionArgumentType::TemplatedKindIsRelated(
+    SignatureArgumentKind kind) const {
   if (!IsTemplated()) {
     return false;
   }
@@ -1576,8 +1642,8 @@ absl::Status FunctionSignature::IsValid(ProductMode product_mode) const {
     }
     if (arg.repeated()) {
       if (after_repeated_block) {
-        return MakeSqlError() << "Repeated arguments must be consecutive: "
-                              << DebugString();
+        return MakeSqlError()
+               << "Repeated arguments must be consecutive: " << DebugString();
       }
       in_repeated_block = true;
     } else if (in_repeated_block) {
@@ -1784,8 +1850,15 @@ int FunctionSignature::ComputeNumOptionalArguments() const {
 }
 
 void FunctionSignature::SetConcreteResultType(const Type* type) {
+  // The current signature result argument kind becomes the original kind.
+  SetConcreteResultType(type, result_type_.kind());
+}
+
+void FunctionSignature::SetConcreteResultType(
+    const Type* type, SignatureArgumentKind original_kind) {
   result_type_ =
       FunctionArgumentType(type, result_type_.options(), /*num_occurrences=*/1);
+  result_type_.set_original_kind(original_kind);
   // Recompute <is_concrete_> since it now may have changed by setting a
   // concrete result type.
   is_concrete_ = ComputeIsConcrete();

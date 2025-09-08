@@ -25,7 +25,7 @@ namespace zetasql {
 // Represents a stack frame in script execution.
 class StackFrame {
  public:
-  virtual ~StackFrame() {}
+  virtual ~StackFrame() = default;
 
   // ParsedScript associated with the current script/procedure.
   virtual const ParsedScript* parsed_script() const = 0;

@@ -44,6 +44,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/status/statusor.h"
 #include "zetasql/base/map_util.h"
+#include "zetasql/base/status_builder.h"
 
 namespace zetasql {
 namespace functions {
@@ -507,14 +508,14 @@ TEST_P(FormatFunctionTests, Test) {
   const double kNegativeDoubleNan =
       absl::bit_cast<double>(0xfff8000000000000ul);
   EXPECT_EQ(
-      "CAST(\"nan\" AS FLOAT)",
+      "CAST(\"nan\" AS FLOAT32)",
       TestFormat("%T",
                  {values::Float(std::numeric_limits<float>::quiet_NaN())}));
   EXPECT_EQ(
       "nan",
       TestFormat("%t",
                  {values::Float(std::numeric_limits<float>::quiet_NaN())}));
-  EXPECT_EQ("CAST(\"nan\" AS FLOAT)",
+  EXPECT_EQ("CAST(\"nan\" AS FLOAT32)",
             TestFormat("%T", {values::Float(kNegativeFloatNan)}));
   EXPECT_EQ("nan", TestFormat("%t", {values::Float(kNegativeFloatNan)}));
   EXPECT_EQ(
@@ -882,10 +883,10 @@ TEST_P(FormatFunctionTests, FloatingPointInExternalModeWithoutFloat32) {
       "Expected FLOAT64; Got INT64",
       TestFormat("%f", {Int64(1)}));
 
-  EXPECT_EQ("CAST(\"nan\" AS FLOAT)",
+  EXPECT_EQ("CAST(\"nan\" AS FLOAT32)",
             TestFormat("%T", {Float(std::numeric_limits<float>::quiet_NaN())}));
   EXPECT_EQ(
-      "[4.0, -2.5, CAST(\"nan\" AS FLOAT)]",
+      "[4.0, -2.5, CAST(\"nan\" AS FLOAT32)]",
       TestFormat(
           "%T",
           {FloatArray({4, -2.5, std::numeric_limits<float>::quiet_NaN()})}));
@@ -893,7 +894,7 @@ TEST_P(FormatFunctionTests, FloatingPointInExternalModeWithoutFloat32) {
             TestFormat("%t", {Float(std::numeric_limits<float>::quiet_NaN())}));
 
   const float kNegativeFloatNan = -std::numeric_limits<float>::quiet_NaN();
-  EXPECT_EQ("CAST(\"nan\" AS FLOAT)",
+  EXPECT_EQ("CAST(\"nan\" AS FLOAT32)",
             TestFormat("%T", {Float(kNegativeFloatNan)}));
   EXPECT_EQ(
       "[-4.0, CAST(\"-inf\" AS FLOAT64)]",

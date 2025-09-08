@@ -38,14 +38,6 @@ workspace(name = "com_google_zetasql")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
-    name = "toolchains_llvm",
-    canonical_id = "1.0.0",
-    sha256 = "e91c4361f99011a54814e1afbe5c436e0d329871146a3cd58c23a2b4afb50737",
-    strip_prefix = "toolchains_llvm-1.0.0",
-    url = "https://github.com/bazel-contrib/toolchains_llvm/releases/download/1.0.0/toolchains_llvm-1.0.0.tar.gz",
-)
-
-http_archive(
     name = "rules_jvm_external",
     sha256 = "b17d7388feb9bfa7f2fa09031b32707df529f26c91ab9e5d909eb1676badd9a6",
     strip_prefix = "rules_jvm_external-4.5",

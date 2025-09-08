@@ -27,11 +27,14 @@
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/common/utf_util.h"
 #include "zetasql/proto/internal_error_location.pb.h"
+#include "zetasql/proto/internal_fix_suggestion.pb.h"
 #include "zetasql/proto/script_exception.pb.h"
 #include "zetasql/public/deprecation_warning.pb.h"
 #include "zetasql/public/error_location.pb.h"
+#include "zetasql/public/fix_suggestion.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
+#include "absl/flags/flag.h"
 #include "zetasql/base/check.h"
 #include "absl/log/log.h"
 #include "absl/status/status.h"
@@ -51,7 +54,95 @@
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
+ABSL_FLAG(std::string, zetasql_minimized_error_message_tag,
+          "(broken link)",
+          "Tag to append to minimized error messages.");
+
 namespace zetasql {
+
+namespace {
+
+absl::StatusOr<ErrorLocation> ConvertInternalErrorLocationProtoToExternal(
+    const InternalErrorLocation& internal_location, absl::string_view query,
+    int input_start_line_offset, int input_start_column_offset,
+    int input_start_byte_offset) {
+  // Make the point's offset relative to `query` to point to the correct text.
+  ParseLocationPoint error_point =
+      ParseLocationPoint::FromInternalErrorLocation(internal_location);
+  error_point.SetByteOffset(error_point.GetByteOffset() -
+                            input_start_byte_offset);
+
+  ParseLocationTranslator location_translator(query);
+
+  std::pair<int, int> line_and_column;
+  ZETASQL_ASSIGN_OR_RETURN(
+      line_and_column,
+      location_translator.GetLineAndColumnAfterTabExpansion(error_point),
+      _ << "Location " << error_point.GetString() << "\" not found in query:\n"
+        << query);
+  ErrorLocation external_location;
+  if (internal_location.has_filename()) {
+    external_location.set_filename(internal_location.filename());
+  }
+  external_location.set_line(line_and_column.first);
+  external_location.set_column(line_and_column.second);
+  external_location.set_input_start_line_offset(input_start_line_offset);
+  external_location.set_input_start_column_offset(input_start_column_offset);
+
+  // Copy ErrorSource information if present.
+  *external_location.mutable_error_source() = internal_location.error_source();
+  return external_location;
+}
+
+absl::StatusOr<Fix> ConvertInternalFixSuggestionToExternal(
+    const InternalFix& internal_fix, absl::string_view query,
+    int input_start_line_offset, int input_start_column_offset,
+    int input_start_byte_offset) {
+  if (!internal_fix.has_edits()) {
+    return absl::InvalidArgumentError("Internal fix suggestion has no edits.");
+  }
+  Fix fix;
+  for (const InternalTextEdit& internal_edit :
+       internal_fix.edits().text_edits()) {
+    if (!internal_edit.has_range()) {
+      return absl::InvalidArgumentError(
+          "Internal fix suggestion has no range.");
+    }
+    ZETASQL_ASSIGN_OR_RETURN(
+        ErrorLocation start_location,
+        ConvertInternalErrorLocationProtoToExternal(
+            internal_edit.range().start(), query, input_start_line_offset,
+            input_start_column_offset, input_start_byte_offset));
+
+    TextEdit edit;
+    *edit.mutable_range()->mutable_start() = start_location;
+    edit.mutable_range()->set_length(internal_edit.range().length());
+    edit.set_new_text(internal_edit.new_text());
+    *fix.mutable_edits()->add_text_edits() = edit;
+  }
+  fix.set_title(internal_fix.title());
+  return fix;
+}
+
+absl::StatusOr<ErrorFixSuggestions> ConvertInternalErrorFixProtoToExternal(
+    const InternalErrorFixSuggestions& internal_fix_suggestions,
+    absl::string_view query, int input_start_line_offset,
+    int input_start_column_offset, int input_start_byte_offset) {
+  ErrorFixSuggestions fix_suggestions;
+  for (const InternalFix& internal_fix :
+       internal_fix_suggestions.fix_suggestions()) {
+    absl::StatusOr<Fix> fix = ConvertInternalFixSuggestionToExternal(
+        internal_fix, query, input_start_line_offset, input_start_column_offset,
+        input_start_byte_offset);
+    if (!fix.ok()) {
+      continue;
+    }
+    *fix_suggestions.add_fix_suggestions() = *fix;
+  }
+  return fix_suggestions;
+}
+
+}  // namespace
 
 // Format an ErrorLocation using <format>, which is a string as in
 // strings::Substitute, with $0 being file, $1 being line, and $2 being column.
@@ -184,6 +275,10 @@ bool GetErrorLocation(const absl::Status& status, ErrorLocation* location) {
 
 void ClearErrorLocation(absl::Status* status) {
   return internal::ErasePayloadTyped<ErrorLocation>(status);
+}
+
+void ClearErrorFixSuggestions(absl::Status* status) {
+  return internal::ErasePayloadTyped<ErrorFixSuggestions>(status);
 }
 
 static bool IsWordChar(char c) { return isalnum(c) || c == '_'; }
@@ -331,14 +426,16 @@ static absl::Status UpdateErrorFromPayload(absl::Status status,
     return status;
   }
 
-  if (internal::HasPayloadWithType<InternalErrorLocation>(status)) {
-    // The error location is "internal", which means that it comes directly
-    // from the AST or ResolvedAST parse locations. We must first convert it
-    // to an ErrorLocation, which converts byte offsets to column number
-    // and line number. We do not return internal error locations, but customers
-    // may attach internal locations to errors e.g. during algebrization to
-    // allow users to trace algebra errors to SQL sources.
-    status = ConvertInternalErrorLocationToExternal(status, input_text);
+  if (internal::HasPayloadWithType<InternalErrorLocation>(status) ||
+      internal::HasPayloadWithType<zetasql::InternalErrorFixSuggestions>(
+          status)) {
+    // One or more error payloads are "internal", which means that it comes
+    // directly from the AST or ResolvedAST parse locations. We must first
+    // convert it to an ErrorLocation, which converts byte offsets to column
+    // number and line number. We do not return internal error locations, but
+    // customers may attach internal locations to errors e.g. during
+    // algebrization to allow users to trace algebra errors to SQL sources.
+    status = ConvertInternalErrorPayloadsToExternal(status, input_text);
   }
 
   ErrorLocation location;
@@ -355,17 +452,31 @@ static absl::Status UpdateErrorFromPayload(absl::Status status,
   new_status.SetPayload(kErrorMessageModeUrl, mode_wrapper.SerializeAsCord());
   if (!keep_error_location_payload) {
     ClearErrorLocation(&new_status);
+    ClearErrorFixSuggestions(&new_status);
   }
   return new_status;
+}
+
+// Similar to ErasePayloadTyped(), but if the payload is present, logs the
+// payload being erased to INFO log
+template <class T>
+static void LogAndErasePayloadTyped(absl::Status* status,
+                                    absl::string_view payload_type_name) {
+  if (internal::HasPayloadWithType<T>(*status)) {
+    ABSL_LOG(INFO) << "Redacting " << payload_type_name
+              << " payload from status: " << internal::GetPayload<T>(*status);
+    internal::ErasePayloadTyped<T>(status);
+  }
 }
 
 // Remove ZetaSql-owned payloads from `status`. Returns true if all payloads
 // are removed, or false if some non-ZetaSql-owned payloads remain.
 static bool RedactZetaSqlOwnedPayloads(absl::Status& status) {
   status.ErasePayload(kErrorMessageModeUrl);
-  internal::ErasePayloadTyped<ErrorLocation>(&status);
-  internal::ErasePayloadTyped<DeprecationWarning>(&status);
-  internal::ErasePayloadTyped<ScriptException>(&status);
+  LogAndErasePayloadTyped<ErrorLocation>(&status, "ErrorLocation");
+  LogAndErasePayloadTyped<DeprecationWarning>(&status, "DeprecationWarning");
+  LogAndErasePayloadTyped<ScriptException>(&status, "ScriptException");
+  LogAndErasePayloadTyped<ErrorFixSuggestions>(&status, "ErrorFixSuggestion");
   return !internal::HasPayload(status);
 }
 
@@ -418,12 +529,34 @@ constexpr absl::string_view kIdRegexp =
     R"re([A-Za-z0-9_\.\:\`]*[A-Za-z0-9_\`])re";
 
 constexpr ErrorRedaction kRedactions[] = {
+    // These first two should have been FUNCTION_SIGNATURE_MISMATCH without
+    // going into details about why the signatures don't match. We place them
+    // first so the relevant error messages are not caught by the more general
+    // FUNCTION_SIGNATURE_MISMATCH regexes below.
+    {"FUNCTION_ARG_MUST_SUPPORT_EQUALITY",
+     R"re(Argument ([0-9]+) to (<id>) must support equality; Type [^ ]+ does not)re",
+     "$0: $2 argument $1", 2},
+    {"ARG_MUST_BE_LITERAL_OR_QUERY_PARAM",
+     R"re((?:The argument|Argument (?:\d+)) to (<id>) must be a literal or query parameter)re",
+     "$0: $1", 1},
+
     {"FUNCTION_SIGNATURE_MISMATCH",
      R"re(No\s+matching\s+signature\s+for\s+(?:aggregate\s+function\s|analytic\s+function\s|function\s|)\s*(<id>))re",
      "$0: $1", 1},
     {"FUNCTION_SIGNATURE_MISMATCH",
      R"re(Number of arguments does not match for\s+(?:aggregate\s+function\s|analytic\s+function\s|function\s|)\s*(<id>))re",
      "$0: $1", 1},
+    {"FUNCTION_SIGNATURE_MISMATCH", R"re(Argument \d+ to (<id>) must)re",
+     "$0: $1", 1},
+    {"FUNCTION_SIGNATURE_MISMATCH",
+     R"re((<id>) is not defined for arguments of type)re", "$0: $1", 1},
+
+    {"FUNCTION_SIGNATURE_MISMATCH",
+     "GROUPING must have an argument that exists within the group-by "
+     "expression list"},
+    {"FUNCTION_SIGNATURE_MISMATCH",
+     "(HAVING modifier|ORDER BY) does not support expressions of type"},
+
     {"FUNCTION_WITH_LANGUAGE_AND_SQL_BODY",
      "Function cannot specify a LANGUAGE and include a SQL body"},
 
@@ -434,16 +567,27 @@ constexpr ErrorRedaction kRedactions[] = {
     {"FUNCTION_ARG_MUST_HAVE_NAME_AND_TYPE",
      "Parameters in function declarations must include both name and type"},
 
-    {"FUNCTION_ARG_MUST_SUPPORT_EQUALITY",
-     R"re(Argument ([0-9]+) to (<id>) must support equality; Type [^ ]+ does not)re",
-     "$0: $2 argument $1", 2},
-
     {"TYPE_NOT_FOUND", R"re(Type not found: (<id>))re", "$0: $1", 1},
+
+    {"NON_NULL_OPERANDS", "Operands of (.*) cannot be literal NULL", "$0: $1",
+     1},
 
     // This one is reached through ZetaSQL's "ForAssignmentToType" APIs. Its
     // almost an internal error, so we kept the name vague.
     {"TYPE_CHECK_FAILED", R"re(Expected type .*; found .*)re"},
     {"TYPE_CHECK_FAILED", R"re(Could not cast literal .* to type .*)re"},
+    {"TYPE_CHECK_FAILED",
+     R"re(Struct field \d+ has type <id>(<.*>)? which does not coerce to <id>)re"},
+
+    {"TYPE_NOT_GROUPABLE",
+     "Grouping by expressions of type (<id>) is not allowed", "$0: $1", 1},
+    {"TYPE_NOT_GROUPABLE",
+     "Grouping by expressions of type <id> containing (<id>) is not allowed",
+     "$0: $1", 1},
+    {"TYPE_NOT_GROUPABLE",
+     "Column <id> of type <id> containing (<id>) cannot be used in SELECT "
+     "DISTINCT",
+     "$0: $1", 1},
 
     {"INVALID_LITERAL", "Invalid INTERVAL value"},
 
@@ -463,14 +607,74 @@ constexpr ErrorRedaction kRedactions[] = {
     {"TVF_COLUMN_INCOMPATIBLE_TYPE",
      R"re(Column (<id>) for the output table of a CREATE TABLE FUNCTION statement has type (<id>), but the SQL body provides incompatible type ([A-Za-z0-9_\.\:]*) for this column)re",
      "$0: column $1 ($2 vs. $3)", 3},
+    {"TVF_COLUMN_INCOMPATIBLE_TYPE",
+     R"re(Invalid type <id> for column ".*" of argument \d+ of (<id>).*)re",
+     "$0: $1", 1},
     {"CONNECTION_DEFAULT_NOT_SUPPORTED", "CONNECTION DEFAULT is not supported"},
 
     /////////////////////
     {"SYNTAX_ERROR", "Syntax error\\:"},
 
+    // Invalid Literals
+    {"INVALID_LITERAL", "Invalid (<id>) literal:", "$0: $1", 1},
+    {"INVALID_LITERAL",
+     "(<id>) elements of types {.*} do not have a common supertype", "$0: $1",
+     1},
+
+    // Names that are ambiguous
+    {"AMBIGUOUS_NAME", "Ambiguous name: (<id>)", "$0: $1", 1},
+    {"AMBIGUOUS_NAME", "CREATE TABLE has columns with duplicate name (<id>)",
+     "$0: $1", 1},
+    {"AMBIGUOUS_NAME", "Duplicate column name (<id>) in CREATE TABLE", "$0: $1",
+     1},
+    {"AMBIGUOUS_NAME", "Column name (<id>) is ambiguous", "$0: $1", 1},
+    {"AMBIGUOUS_NAME", "Duplicate column name (<id>) in LOAD DATA", "$0: $1",
+     1},
+
+    // Things that are not found
     {"NOT_FOUND", "Unrecognized name\\: (<id>)", "$0: $1", 1},
 
     {"TABLE_NOT_FOUND", R"re(Table not found: (<id>))re", "$0: $1", 1},
+    {"COLUMN_NOT_FOUND", "Column not found: (<id>)", "$0: $1", 1},
+    {"COLUMN_NOT_FOUND", "Column '(<id>)' not found", "$0: $1", 1},
+    {"COLUMN_NOT_FOUND", "COLUMN not found: (<id>)", "$0: $1", 1},
+    {"COLUMN_NOT_FOUND", "Column (<id>) is not present in ", "$0: $1", 1},
+
+    // Cases where a column is not found possibly because its hidden. These are
+    // still column not found errors.
+    {"COLUMN_NOT_FOUND", "RENAME can only rename columns"},
+    {"COLUMN_NOT_FOUND", "Constant (<id>) cannot be used as a column to update",
+     "$0: $1", 1},
+
+    // DDL Column Errors
+    {"COLUMN_ALREADY_EXISTS", "Column already exists: (<id>)", "$0: $1", 1},
+    {"COLUMN_ALREADY_EXISTS",
+     "Another column was renamed to (<id>) in a previous command of the same "
+     "ALTER TABLE",
+     "$0: $1", 1},
+
+    {"INVALID_COLUMN_CHANGE",
+     "Column (<id>) cannot be added and dropped by the same ALTER TABLE "
+     "statement",
+     "$0: $1", 1},
+    {"INVALID_COLUMN_CHANGE",
+     "Column (<id>) has been renamed in a previous alter action", "$0: $1", 1},
+    {"INVALID_COLUMN_CHANGE", "ALTER TABLE does not support combining"},
+    {"INVALID_COLUMN_CHANGE",
+     "A table can have at most one identity column; column (<id>) is already "
+     "specified as an identity column",
+     "$0: $1", 1},
+
+    {"SET_DATA_TYPE_TYPE_INCOMPATIBLE",
+     "ALTER TABLE ALTER COLUMN SET DATA TYPE requires that the existing "
+     "column type (.*) is assignable to the new type"},
+    {"DEFAULT_EXPRESSION_TYPE_INCOMPATIBLE",
+     "Column default expression has type .* which cannot be assigned to "
+     "column type .*"},
+
+    {"INVALID_CTAS_COLUMN_LIST",
+     "The number of columns in the column definition list does not match the "
+     "number of columns produced by the query"},
 
     {"PARAMETERS_NOT_SUPPORTED", "Parameters are not supported"},
     {"PARAMETER_NOT_FOUND", R"re(Query parameter '(<id>)' not found)re",
@@ -482,12 +686,21 @@ constexpr ErrorRedaction kRedactions[] = {
     {"TABLE_PARAMETERS_NOT_ALLOWED_IN_CREATE_FUNCTION_STATEMENT",
      "TABLE parameters are not allowed in CREATE FUNCTION statement"},
 
+    {"UNKNOWN_SCHEMA_OBJECT_KIND", "(<id>) is not a supported object type",
+     "$0: $1", 1},
+
     {"ANALYSIS_OF_FUNCTION_FAILED",
      R"re(Analysis of (?:table-valued )?function (<id>) failed)re", "$0: $1",
      1},
 
     {"INVALID_FUNCTION", R"re(Invalid (?:table-valued )?function (<id>))re",
      "$0: $1", 1},
+    {"INVALID_FUNCTION", R"re(Function (<id>) is invalid)re", "$0: $1", 1},
+    {"INVALID_FUNCTION",
+     "The body of each CREATE FUNCTION statement is an expression, not a quer"},
+    {"INVALID_FUNCTION",
+     "Aggregate function <id> not allowed in SQL function body for "
+     "non-AGGREGATE function"},
 
     {"TABLE_VALUED_FUNCTION_NOT_FOUND",
      R"re(Table-valued function not found: (<id>))re", "$0: $1", 1},
@@ -497,35 +710,143 @@ constexpr ErrorRedaction kRedactions[] = {
 
     {"QUERY_PARAMETER_IN_FUNCTION_BODY",
      R"re(Query parameter is not allowed in the body of SQL function)re"},
+    {"QUERY_PARAMETER_IN_VIEW_BODY",
+     "Query parameters cannot be used inside SQL view bodies"},
 
     {"REQUIRED_COLUMN_RETURNED_MULTIPLE_TIMES",
      R"re(Required column name (<id>) returned multiple times from SQL body of CREATE TABLE FUNCTION statement)re",
      "$0: $1", 1},
 
+    {"PARTITIONS_MUST_BE_BOOL", "PARTITIONS expects a boolean expression"},
+
+    // Type parameter errors
+    {"INVALID_TYPE_PARAMETER",
+     "(<id>) length parameter must be an integer or MAX keyword", "$0: $1", 1},
+    {"INVALID_TYPE_PARAMETER", "(<id>) type can only have one parameter",
+     "$0: $1", 1},
+    {"INVALID_TYPE_PARAMETER", "In (<id>)(.*), <id> must be", "$0: $1", 1},
+
+    // Constraints and key definition errors.
+    {"INVALID_REFERENTIAL_DEFINITION",
+     "Referenced column .* from .* is not compatible with the referencing "
+     "column (<id>)",
+     "$0: $1", 1},
+    {"INVALID_REFERENTIAL_DEFINITION",
+     "The type of the referencing column (<id>) does not support equality",
+     "$0: $1", 1},
+    {"INVALID_REFERENTIAL_DEFINITION", "Duplicate foreign key column name"},
+    {"INVALID_REFERENTIAL_DEFINITION",
+     "The number of referencing columns in the edge table does not match that "
+     "of referenced columns in the node table"},
+    {"INVALID_KEY_DEFINITION",
+     "Data types of the referencing columns in the edge table do not match "
+     "those of the referenced columns in the node table"},
+    {"INVALID_KEY_DEFINITION",
+     "Duplicate column <id> specified in PRIMARY KEY of CREATE TABLE"},
+    {"GROUPING_BY_FLOAT",
+     "CLUSTER BY expression may not be a floating point type"},
+
+    // Graph Errors
+    {"GRAPH_TABLE_MISSING_PRIMARY_KEY",
+     "The (node|edge) table .* does not have primary key defined"},
+    {"INVALID_GRAPH_PROPERTY",
+     "The property declaration of '(<id>)' has type conflicts", "$0: $1", 1},
+    {"INVALID_GRAPH_PROPERTY",
+     "The label '(<id>)' is defined with different property declarations.",
+     "$0: $1", 1},
+    {"INVALID_GRAPH_PROPERTY",
+     "Duplicate property name '(<id>)' in the same label", "$0: $1", 1},
+    {"INVALID_GRAPH_PROPERTY",
+     "Duplicate label name '(<id>)' in the same element table", "$0: $1", 1},
+
+    // Table expression errors
+    {"PIVOT_UNNEST_DISALLOWED", "(UN)?PIVOT is not allowed with array scans"},
+
+    // Collation Errors
     {"COLLATION_NOT_ALLOWED",
      R"re(Collation .* on argument of TVF call is not allowed)re"},
     {"COLLATION_NOT_ALLOWED", R"re(Collation is not allowed on argument)re"},
+    {"CANNOT_ALTER_DEFAULT_COLLATE",
+     "ALTER SCHEMA does not support SET DEFAULT COLLATE"},
+    {"COLLATION_CONFLICT", "Collation conflict:"},
 
-    {"ARG_MUST_BE_LITERAL_OR_QUERY_PARAM",
-     R"re((?:The argument|Argument (?:\d+)) to (<id>) must be a literal or query parameter)re",
-     "$0: $1", 1},
-
+    // Aggregate and window function clause arguments
     {"ORDER_BY_IN_ARG_NOT_SUPPORTED",
      R"re(Aggregate function (<id>) does not support ORDER BY in arguments)re",
      "$0: $1", 1},
     {"LIMIT_IN_ARG_NOT_SUPPORTED",
      R"re(Aggregate function (<id>) does not support LIMIT in arguments)re",
      "$0: $1", 1},
+    {"HAVING_IN_ARG_NOT_SUPPORTED",
+     R"re(Aggregate function (<id>) does not support HAVING in arguments)re",
+     "$0: $1", 1},
+    {"DISTINCT_IN_ARG_NOT_SUPPORTED",
+     R"re(Aggregate function (<id>) does not support DISTINCT in arguments)re",
+     "$0: $1", 1},
+    {"WINDOW_NOT_SUPPORTED",
+     R"re(Aggregate function (<id>) does not support an OVER clause)re"},
+    {"DISTINCT_AND_ORDER_BY_IN_ARG_RESTRICTION",
+     "An aggregate function that has both DISTINCT and ORDER BY arguments can "
+     "only"},
+    {"FUNCTION_DOES_NOT_SUPPORT_WINDOW_ORDER",
+     "Window ORDER BY is not allowed for analytic function (<id>)", "$0: $1",
+     1},
+
     {"TABLE_VALUED_FUNCTION_NOT_EXPECTED_HERE",
      R"re(Table-valued function is not expected here: (<id>))re", "$0: $1", 1},
     {"DML_REQUIRES_TABLE_NAME",
      R"re(Non-nested .* statement requires a table name)re"},
-    {"UNKNOWN_OPTION", "Unknown option: (<id>)", "$0: $1", 1},
 
-    {"UNSUPPORTED_FEATURE", ".* is not supported"},
-    {"UNSUPPORTED_FEATURE", ".* has not been enabled"},
+    {"UNKNOWN_OPTION", "Unknown option: (<id>)", "$0: $1", 1},
+    {"OPTION_TYPE_MISMATCH",
+     "Option (<id>) value has type .* which cannot be coerced to expected "
+     "type .*"},
+
+    {"UNSUPPORTED_FEATURE",
+     ".* (is not|are not|has not been|not) (supported|enabled)"},
+    {"UNSUPPORTED_FEATURE", ".* does not support"},
 
     {"WITH_CYCLE", "Unsupported WITH entry dependency cycle"},
+    {"SCALAR_SUBQUERY_MULTI_COLUMN",
+     "Scalar subquery cannot have more than one column"},
+    {"CORRESPONDING_COLUMN_MISMATCH",
+     "(STRICT CORRESPONDING|BY NAME) requires all input queries to have "
+     "identical column names"},
+    {"CORRESPONDING_COLUMN_MISMATCH",
+     "Query \\d+ must share the same set of column names as the ON list when "
+     "using BY NAME ON"},
+    {"SET_OP_TYPE_MISMATCH",
+     "Column \\d+ in UNION ALL has incompatible types:"},
+
+    // GROUP BY and GROUPING SETS errors
+    {"REFERENCES_UNGROUPED_COLUMN",
+     ".*expression references column (<id>) which is neither grouped nor "
+     "aggregated",
+     "$0: $1", 1},
+    {"GROUPING_SETS_MISUSE",
+     "The GROUP BY clause only supports (CUBE|ROLLUP|GROUPING SETS) when there "
+     "are no other grouping elements"},
+    {"GROUPING_SETS_MISUSE",
+     "Nested column list is not allowed in (CUBE|ROLLUP|GROUPING SETS)"},
+    {"GROUPING_MISUSE",
+     "GROUPING must have an argument that exists within the group-by"},
+    {"EXCEEDS_GROUPING_SETS_LIMIT",
+     "At most \\d+ distinct columns are allowed in grouping sets, but"},
+    {"EXCEEDS_GROUPING_SETS_LIMIT",
+     "At most \\d+ grouping sets are allowed, but \\d+ were provided"},
+
+    // Privacy
+    {"FUNCTION_NOT_SUPPORTED_IN_DIFFERENTIAL_PRIVACY",
+     "Unsupported function in SELECT WITH DIFFERENTIAL_PRIVACY select list: "
+     "(<id>)",
+     "$0: $1", 1},
+    {"READING_USERDATA_TABLE_IN_EXPR_SUBQUERY",
+     "Reading the table (<id>) containing user data in expression subqueries "
+     "is not allowed",
+     "$0: $1", 1},
+
+    // DML
+    {"INSERT_WRONG_NUM_COLUMNS", "Inserted row has wrong column count"},
 
     // Catch-all because tests should not crash.
     {"SQL_ERROR", ".*"},
@@ -604,20 +925,24 @@ static std::string GetRedactedErrorMessage(
 // relevant errors are redacted, usually for file-based tests that depend on
 // ZetaSQL but not about the exact message text.
 static absl::Status ApplyErrorMessageStabilityMode(
-    const absl::Status& status, ErrorMessageStability stability_mode,
-    bool enable_partial_error_redaction) {
+    const absl::Status& status, ErrorMessageStability stability_mode) {
   if (status.ok()) {
     return status;
   }
 
-  static constexpr LazyRE2 kRedactedRe = {
-      R"([A-Z_]+\:? .*\((broken link)\))"};
+  auto redacted_re = []() {
+    return RE2(absl::StrCat(R"([A-Z_]+(\: .*)? \()",
+                            RE2::QuoteMeta(absl::GetFlag(
+                                FLAGS_zetasql_minimized_error_message_tag)),
+                            R"(\))"));
+  };
 
   switch (stability_mode) {
     case ERROR_MESSAGE_STABILITY_UNSPECIFIED:
     case ERROR_MESSAGE_STABILITY_PRODUCTION:
       return status;
     case ERROR_MESSAGE_STABILITY_TEST_REDACTED_WITH_PAYLOADS:
+    case ERROR_MESSAGE_STABILITY_TEST_MINIMIZED_WITH_PAYLOADS:
       switch (status.code()) {
         case absl::StatusCode::kInvalidArgument:
         case absl::StatusCode::kAlreadyExists:
@@ -628,15 +953,17 @@ static absl::Status ApplyErrorMessageStabilityMode(
           // Make a copy so that we don't remove the payloads from 'status'
           absl::Status for_payload_stripping = status;
           if (RedactZetaSqlOwnedPayloads(for_payload_stripping)) {
-            if (RE2::FullMatch(status.message(), *kRedactedRe)) {
+            if (RE2::FullMatch(status.message(), redacted_re())) {
               return status;  // Message is already redacted.
             }
             // All of the payloads attached to 'status' are ZetaSQL-owned.
             // Redact the error message from the original status with all
             // payloads to return.
+            bool minimized =
+                stability_mode ==
+                ERROR_MESSAGE_STABILITY_TEST_MINIMIZED_WITH_PAYLOADS;
             return UpdateMessage(status,
-                                 GetRedactedErrorMessage(
-                                     status, enable_partial_error_redaction));
+                                 GetRedactedErrorMessage(status, minimized));
           }
           // There are still payloads after removing the ZetaSQL-owned ones,
           // so return the original status.
@@ -647,6 +974,7 @@ static absl::Status ApplyErrorMessageStabilityMode(
       }
       break;
     case ERROR_MESSAGE_STABILITY_TEST_REDACTED:
+    case ERROR_MESSAGE_STABILITY_TEST_MINIMIZED:
       switch (status.code()) {
         case absl::StatusCode::kInvalidArgument:
         case absl::StatusCode::kAlreadyExists:
@@ -656,15 +984,16 @@ static absl::Status ApplyErrorMessageStabilityMode(
           // Make a non-const copy.
           absl::Status redacted = status;
           if (RedactZetaSqlOwnedPayloads(redacted)) {
-            if (RE2::FullMatch(status.message(), *kRedactedRe)) {
+            if (RE2::FullMatch(status.message(), redacted_re())) {
               return redacted;  // Message is already redacted.
             }
             // Redact the message only if there are no other payloads. If there
             // are, it is likely the message comes from a dependency outside of
             // ZetaSQL.
+            bool minimized =
+                stability_mode == ERROR_MESSAGE_STABILITY_TEST_MINIMIZED;
             redacted = UpdateMessage(
-                redacted, GetRedactedErrorMessage(
-                              status, enable_partial_error_redaction));
+                redacted, GetRedactedErrorMessage(status, minimized));
           }
           return redacted;
         }
@@ -693,7 +1022,7 @@ absl::Status MaybeUpdateErrorFromPayload(ErrorMessageOptions options,
   return ApplyErrorMessageStabilityMode(
       UpdateErrorFromPayload(status, input_text, options.mode,
                              options.attach_error_location_payload),
-      options.stability, options.enhanced_error_redaction);
+      options.stability);
 }
 
 absl::Status MaybeUpdateErrorFromPayload(ErrorMessageMode mode,
@@ -727,48 +1056,39 @@ absl::Status UpdateErrorLocationPayloadWithFilenameIfNotPresent(
   return copy;
 }
 
-absl::Status ConvertInternalErrorLocationToExternal(
-    absl::Status status, absl::string_view query, int input_start_line_offset,
+absl::Status ConvertInternalErrorPayloadsToExternal(
+    absl::Status status, absl::string_view sql, int input_start_line_offset,
     int input_start_column_offset, int input_start_byte_offset) {
-  if (!internal::HasPayloadWithType<InternalErrorLocation>(status)) {
-    // Nothing to do.
-    return status;
-  }
-  const InternalErrorLocation internal_error_location =
-      internal::GetPayload<InternalErrorLocation>(status);
-
-  // Make the point's offset relative to `query` to point to the correct text.
-  ParseLocationPoint error_point =
-      ParseLocationPoint::FromInternalErrorLocation(internal_error_location);
-  error_point.SetByteOffset(error_point.GetByteOffset() -
-                            input_start_byte_offset);
-
-  ParseLocationTranslator location_translator(query);
-
-  std::pair<int, int> line_and_column;
-  ZETASQL_ASSIGN_OR_RETURN(
-      line_and_column,
-      location_translator.GetLineAndColumnAfterTabExpansion(error_point),
-      _ << "Location " << error_point.GetString() << " from status \""
-        << internal::StatusToString(status) << "\" not found in query:\n"
-        << query);
-  ErrorLocation error_location;
-  if (internal_error_location.has_filename()) {
-    error_location.set_filename(internal_error_location.filename());
-  }
-  error_location.set_line(line_and_column.first);
-  error_location.set_column(line_and_column.second);
-  error_location.set_input_start_line_offset(input_start_line_offset);
-  error_location.set_input_start_column_offset(input_start_column_offset);
-
-  // Copy ErrorSource information if present.
-  *error_location.mutable_error_source() =
-      internal_error_location.error_source();
-
   absl::Status copy = status;
-  internal::ErasePayloadTyped<InternalErrorLocation>(&copy);
-  internal::AttachPayload(&copy, error_location);
+  if (internal::HasPayloadWithType<InternalErrorFixSuggestions>(status)) {
+    const InternalErrorFixSuggestions internal_fix_suggestions =
+        internal::GetPayload<InternalErrorFixSuggestions>(status);
+    ZETASQL_ASSIGN_OR_RETURN(ErrorFixSuggestions error_fix_suggestions,
+                     ConvertInternalErrorFixProtoToExternal(
+                         internal_fix_suggestions, sql, input_start_line_offset,
+                         input_start_column_offset, input_start_byte_offset));
+    internal::ErasePayloadTyped<InternalErrorFixSuggestions>(&copy);
+    internal::AttachPayload(&copy, error_fix_suggestions);
+  }
+  if (internal::HasPayloadWithType<InternalErrorLocation>(status)) {
+    const InternalErrorLocation internal_error_location =
+        internal::GetPayload<InternalErrorLocation>(status);
+
+    ZETASQL_ASSIGN_OR_RETURN(ErrorLocation error_location,
+                     ConvertInternalErrorLocationProtoToExternal(
+                         internal_error_location, sql, input_start_line_offset,
+                         input_start_column_offset, input_start_byte_offset));
+    internal::ErasePayloadTyped<InternalErrorLocation>(&copy);
+    internal::AttachPayload(&copy, error_location);
+  }
   return copy;
+}
+
+absl::Status ConvertInternalErrorPayloadsToExternal(absl::Status status,
+                                                    absl::string_view sql) {
+  return ConvertInternalErrorPayloadsToExternal(
+      status, sql, /*input_start_line_offset=*/0,
+      /*input_start_column_offset=*/0, /*input_start_byte_offset=*/0);
 }
 
 }  // namespace zetasql

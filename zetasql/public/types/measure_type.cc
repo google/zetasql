@@ -178,13 +178,10 @@ absl::Status MeasureType::SerializeToProtoAndDistinctFileDescriptorsImpl(
 bool MeasureType::ValueContentEquals(
     const ValueContent& x, const ValueContent& y,
     const ValueEqualityCheckOptions& options) const {
-  ABSL_DCHECK(false) << "ValueContentEquals is unsupported for MeasureType.";
   return false;
 }
 bool MeasureType::ValueContentLess(const ValueContent& x, const ValueContent& y,
                                    const Type* other_type) const {
-  // See comments on `ValueContentEquals`.
-  ABSL_DCHECK(false) << "ValueContentLess is unsupported for MeasureType.";
   return false;
 }
 

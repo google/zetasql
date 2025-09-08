@@ -1,5 +1,5 @@
 # valid minimum statement
-[default language_features=NON_SQL_PROCEDURE]
+[default language_features=NONE,+NON_SQL_PROCEDURE]
 CREATE PROCEDURE procedure_name()
 BEGIN
 END;
@@ -395,7 +395,7 @@ CREATE PROCEDURE procedure_name;
 # invalid statement missing body
 CREATE PROCEDURE procedure_name();
 --
-ERROR: Syntax error: Expected keyword BEGIN or keyword LANGUAGE but got ";" [at 1:34]
+ERROR: Syntax error: Unexpected ";" [at 1:34]
 CREATE PROCEDURE procedure_name();
                                  ^
 ==
@@ -444,7 +444,7 @@ BEGIN
 # valid parameter, no body
 CREATE PROCEDURE procedure_name( OUT param int32 );
 --
-ERROR: Syntax error: Expected keyword BEGIN or keyword LANGUAGE but got ";" [at 1:51]
+ERROR: Syntax error: Unexpected ";" [at 1:51]
 CREATE PROCEDURE procedure_name( OUT param int32 );
                                                   ^
 ==
@@ -596,7 +596,7 @@ CreateProcedureStatement [0-176] [CREATE PROCEDURE...ython code"]
   WithConnectionClause [98-121] [WITH CONNECTION DEFAULT]
     ConnectionClause [103-121] [CONNECTION DEFAULT]
       DefaultLiteral [114-121] [DEFAULT]
-  Identifier(PYTHON) [153-159] [PYTHON]
+  Identifier(PYTHON) [144-159] [LANGUAGE PYTHON]
   StringLiteral [163-176] ["python code"]
     StringLiteralComponent("python code") [163-176] ["python code"]
 --
@@ -645,7 +645,7 @@ CreateProcedureStatement [0-182] [CREATE PROCEDURE...ython code"]
     ConnectionClause [103-127] [CONNECTION connection_id]
       PathExpression [114-127] [connection_id]
         Identifier(connection_id) [114-127] [connection_id]
-  Identifier(PYTHON) [159-165] [PYTHON]
+  Identifier(PYTHON) [150-165] [LANGUAGE PYTHON]
   StringLiteral [169-182] ["python code"]
     StringLiteralComponent("python code") [169-182] ["python code"]
 --
@@ -686,7 +686,7 @@ CreateProcedureStatement [0-170] [CREATE PROCEDURE...ython code"]
     ConnectionClause [103-127] [CONNECTION connection_id]
       PathExpression [114-127] [connection_id]
         Identifier(connection_id) [114-127] [connection_id]
-  Identifier(PYTHON) [147-153] [PYTHON]
+  Identifier(PYTHON) [138-153] [LANGUAGE PYTHON]
   StringLiteral [157-170] ["python code"]
     StringLiteralComponent("python code") [157-170] ["python code"]
 --
@@ -730,7 +730,7 @@ CreateProcedureStatement [0-152] [CREATE PROCEDURE...ython code"]
       Identifier(c) [113-114] [c]
       PathExpression [117-118] [d]
         Identifier(d) [117-118] [d]
-  Identifier(PYTHON) [129-135] [PYTHON]
+  Identifier(PYTHON) [120-135] [LANGUAGE PYTHON]
   StringLiteral [139-152] ["python code"]
     StringLiteralComponent("python code") [139-152] ["python code"]
 --
@@ -774,7 +774,7 @@ CreateProcedureStatement [0-135] [CREATE PROCEDURE...UAGE PYTHON]
       Identifier(c) [113-114] [c]
       PathExpression [117-118] [d]
         Identifier(d) [117-118] [d]
-  Identifier(PYTHON) [129-135] [PYTHON]
+  Identifier(PYTHON) [120-135] [LANGUAGE PYTHON]
 --
 CREATE PROCEDURE procedure_name(param_a int32, OUT param_b string, INOUT param_c ANY TYPE)
 OPTIONS
@@ -786,7 +786,7 @@ LANGUAGE PYTHON
 CREATE PROCEDURE procedure_name()
 AS "python code"
 --
-ERROR: Syntax error: Expected keyword BEGIN or keyword LANGUAGE but got keyword AS [at 2:1]
+ERROR: Syntax error: Unexpected keyword AS [at 2:1]
 AS "python code"
 ^
 ==
@@ -829,7 +829,7 @@ CreateProcedureStatement(EXTERNAL SECURITY INVOKER) [0-90] [CREATE PROCEDURE...U
       Identifier(a) [68-69] [a]
       PathExpression [72-73] [b]
         Identifier(b) [72-73] [b]
-  Identifier(PYTHON) [84-90] [PYTHON]
+  Identifier(PYTHON) [75-90] [LANGUAGE PYTHON]
 --
 CREATE PROCEDURE procedure_name()
 EXTERNAL SECURITY INVOKER OPTIONS
@@ -847,7 +847,7 @@ CreateProcedureStatement(EXTERNAL SECURITY DEFINER) [0-90] [CREATE PROCEDURE...U
       Identifier(a) [68-69] [a]
       PathExpression [72-73] [b]
         Identifier(b) [72-73] [b]
-  Identifier(PYTHON) [84-90] [PYTHON]
+  Identifier(PYTHON) [75-90] [LANGUAGE PYTHON]
 --
 CREATE PROCEDURE procedure_name()
 EXTERNAL SECURITY DEFINER OPTIONS
@@ -889,7 +889,7 @@ CreateProcedureStatement(EXTERNAL SECURITY INVOKER) [0-120] [CREATE PROCEDURE...
     ConnectionClause [65-89] [CONNECTION connection_id]
       PathExpression [76-89] [connection_id]
         Identifier(connection_id) [76-89] [connection_id]
-  Identifier(PYTHON) [114-120] [PYTHON]
+  Identifier(PYTHON) [105-120] [LANGUAGE PYTHON]
 --
 CREATE PROCEDURE procedure_name()
 EXTERNAL SECURITY INVOKER WITH CONNECTION connection_id OPTIONS
@@ -911,7 +911,7 @@ CreateProcedureStatement(EXTERNAL SECURITY DEFINER) [0-120] [CREATE PROCEDURE...
     ConnectionClause [65-89] [CONNECTION connection_id]
       PathExpression [76-89] [connection_id]
         Identifier(connection_id) [76-89] [connection_id]
-  Identifier(PYTHON) [114-120] [PYTHON]
+  Identifier(PYTHON) [105-120] [LANGUAGE PYTHON]
 --
 CREATE PROCEDURE procedure_name()
 EXTERNAL SECURITY DEFINER WITH CONNECTION connection_id OPTIONS
@@ -940,7 +940,7 @@ CreateProcedureStatement(EXTERNAL SECURITY INVOKER) [0-75] [CREATE PROCEDURE...U
   PathExpression [17-31] [procedure_name]
     Identifier(procedure_name) [17-31] [procedure_name]
   FunctionParameters [31-33] [()]
-  Identifier(PYTHON) [69-75] [PYTHON]
+  Identifier(PYTHON) [60-75] [LANGUAGE PYTHON]
 --
 CREATE PROCEDURE procedure_name()
 EXTERNAL SECURITY INVOKER LANGUAGE PYTHON

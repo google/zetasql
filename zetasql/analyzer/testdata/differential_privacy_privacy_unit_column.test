@@ -1,5 +1,5 @@
 # Selecting privacy unit column from table.
-[default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,NUMERIC_TYPE]
+[default language_features=MAXIMUM,+DIFFERENTIAL_PRIVACY,+NAMED_ARGUMENTS,+NUMERIC_TYPE]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy options(privacy_unit_column=`int64`) count(*)
 from SimpleTypes;

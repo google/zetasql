@@ -22,6 +22,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -32,6 +33,13 @@
 #include "zetasql/common/utf_util.h"
 #include "zetasql/public/functions/string.h"
 #include "zetasql/public/functions/util.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.h"
+#include "zetasql/base/case.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -40,8 +48,10 @@
 #include "absl/strings/substitute.h"
 #include "absl/types/span.h"
 #include "unicode/utf8.h"
+#include "unicode/utypes.h"
 #include "re2/re2.h"
-#include "zetasql/base/status.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace functions {
@@ -223,6 +233,223 @@ RegExp::ExtractAllIterator RegExp::CreateExtractAllIterator(
     absl::string_view str, int64_t offset) const {
   ABSL_DCHECK(re_.get());
   return ExtractAllIterator{re_.get(), str, offset};
+}
+
+namespace {
+
+struct CapturingGroupInfo {
+  // The name of the capturing group. If the capturing group is unnamed, the
+  // string value is empty.
+  std::string group_name;
+
+  // The name of the field in the result struct. This name is derived by
+  // stripping the type name suffix from the capturing group name, if it exists.
+  // E.g. if name is `PERSON_AGE__INT64`, the field name will be `PERSON_AGE`.
+  absl::string_view field_name;
+
+  // Suffix of the group name indicating the type of the field. Can be empty.
+  absl::string_view type_suffix;
+
+  // Type of the struct field. If the name has a type suffix, the type is
+  // derived from the suffix. Otherwise, it is either STRING or BYTES depending
+  // on the encoding of the regular expression.
+  const Type* field_type = nullptr;
+};
+
+// Information about the capturing groups in a regular expression.
+using ParsedCapturingGroups = std::vector<CapturingGroupInfo>;
+
+// Returns a simple type corresponding to the given type name, or nullptr if the
+// type name is invalid or the type is not supported.
+const Type* GetSimpleTypeFromTypeName(absl::string_view type_name,
+                                      TypeFactory* type_factory,
+                                      const LanguageOptions& language_options) {
+  TypeKind type_kind =
+      Type::ResolveBuiltinTypeNameToKindIfSimple(type_name, language_options);
+  if (type_kind != TYPE_UNKNOWN) {
+    const Type* mapped_type = type_factory->MakeSimpleType(type_kind);
+    if (mapped_type->IsSupportedType(language_options)) {
+      return mapped_type;
+    }
+  }
+  return nullptr;
+}
+
+// Parses the capturing groups in the regular expression and returns the
+// information about the groups. For unnamed groups, only the field_type is
+// populated.
+absl::StatusOr<ParsedCapturingGroups> ParseCapturingGroups(const RE2& re) {
+  int num_groups = re.NumberOfCapturingGroups();
+  ParsedCapturingGroups group_infos;
+  // Allocate the vector beforehand, so that the string_views in
+  // CapturingGroupInfo that point to the group names remain stable.
+  group_infos.resize(num_groups);
+  const Type* re_encoding_type =
+      (re.options().encoding() == RE2::Options::EncodingUTF8)
+          ? types::StringType()
+          : types::BytesType();
+
+  const auto& group_name_map = re.CapturingGroupNames();
+  for (int i = 0; i < num_groups; ++i) {
+    CapturingGroupInfo& group_info = group_infos[i];
+    group_info.field_type = re_encoding_type;
+
+    // Group indexes are 1-based. Record the group name and field name and
+    // type_suffix for named groups. The type is updated in
+    // DetermineFieldTypesBasedOnTypeSuffix.
+    const auto it = group_name_map.find(i + 1);
+    if (it != group_name_map.end()) {
+      group_info.group_name = it->second;
+      absl::string_view group_name(group_info.group_name);
+      size_t pos = group_name.rfind("__");
+      if (pos != absl::string_view::npos) {
+        group_info.field_name = group_name.substr(0, pos);
+        group_info.type_suffix = group_name.substr(pos + 2);
+      } else {
+        group_info.field_name = group_name;
+      }
+    }
+  }
+  return group_infos;
+}
+
+absl ::Status DetermineFieldTypesBasedOnTypeSuffix(
+    ParsedCapturingGroups& group_infos, TypeFactory* type_factory,
+    const LanguageOptions& language_options) {
+  for (CapturingGroupInfo& group_info : group_infos) {
+    if (!group_info.type_suffix.empty()) {
+      const Type* field_type = GetSimpleTypeFromTypeName(
+          group_info.type_suffix, type_factory, language_options);
+      if (field_type == nullptr) {
+        return absl::InvalidArgumentError(absl::StrCat(
+            "Expected a type name as the suffix of the capturing group '",
+            group_info.group_name,
+            "' in the regexp argument to REGEXP_EXTRACT_GROUPS. The suffix '",
+            group_info.type_suffix, "' is not a valid type name."));
+      }
+      group_info.field_type = field_type;
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status ValidateParsedCapturingGroups(
+    const ParsedCapturingGroups& group_infos) {
+  if (group_infos.empty()) {
+    return absl::InvalidArgumentError(
+        "Regular expression does not contain any capturing groups");
+  }
+
+  absl::flat_hash_set<absl::string_view, zetasql_base::StringViewCaseHash,
+                      zetasql_base::StringViewCaseEqual>
+      seen_group_names;
+  for (const CapturingGroupInfo& group_info : group_infos) {
+    if (!group_info.field_name.empty() &&
+        !seen_group_names.insert(group_info.field_name).second) {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Regular expression contains duplicate capturing group name: ",
+          group_info.field_name));
+    }
+    if (group_info.field_type == nullptr ||
+        !group_info.field_type->IsSimpleType()) {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Regular expression has a capturing group with an invalid type: ",
+          group_info.group_name));
+    }
+  }
+  return absl::OkStatus();
+}
+}  // namespace
+
+absl::StatusOr<const Type*> RegExp::ExtractGroupsResultStruct(
+    TypeFactory* type_factory, const LanguageOptions& language_options,
+    bool derive_field_types) const {
+  ZETASQL_ASSIGN_OR_RETURN(ParsedCapturingGroups group_infos,
+                   ParseCapturingGroups(*re_));
+  if (derive_field_types) {
+    ZETASQL_RETURN_IF_ERROR(DetermineFieldTypesBasedOnTypeSuffix(
+        group_infos, type_factory, language_options));
+  }
+  ZETASQL_RETURN_IF_ERROR(ValidateParsedCapturingGroups(group_infos));
+
+  std::vector<StructField> struct_fields;
+  struct_fields.reserve(group_infos.size());
+  for (const auto& group_info : group_infos) {
+    struct_fields.push_back(
+        {std::string(group_info.field_name), group_info.field_type});
+  }
+
+  const Type* result_type = nullptr;
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeStructTypeFromVector(
+      std::move(struct_fields), &result_type));
+  return result_type;
+}
+
+absl::StatusOr<Value> RegExp::ExtractGroups(absl::string_view str,
+                                            TypeFactory* type_factory) const {
+  // The language options are not used when derive_field_types is false.
+  ZETASQL_ASSIGN_OR_RETURN(const Type* result_type,
+                   ExtractGroupsResultStruct(type_factory, LanguageOptions(),
+                                             /*derive_field_types=*/false));
+  return ExtractGroups(str, result_type);
+}
+
+absl::StatusOr<Value> RegExp::ExtractGroups(absl::string_view str,
+                                            const Type* result_type) const {
+  if (!result_type->IsStruct()) {
+    return absl::InternalError(
+        "Output type for ExtractGroups must be a struct.");
+  }
+  const StructType* struct_type = result_type->AsStruct();
+  const int num_groups = re_->NumberOfCapturingGroups();
+
+  ZETASQL_RET_CHECK(struct_type->num_fields() != 0);
+  if (struct_type->num_fields() != num_groups) {
+    return absl::InternalError(
+        absl::StrCat("Result type for ExtractGroups must have ", num_groups,
+                     " fields, but has ", struct_type->num_fields()));
+  }
+
+  // The groups vector contains the entire match at index 0, followed by the
+  // groups in order. We do an unanchored match; if the user wants an anchored
+  // match, they should include ^ and/or $ in the regexp.
+  std::vector<absl::string_view> groups(num_groups + 1);
+  std::vector<Value> struct_fields(struct_type->num_fields());
+  if (!re_->Match(str, 0, str.length(), RE2::UNANCHORED, groups.data(),
+                  num_groups + 1)) {
+    // The pattern did not match, so we return a NULL struct. This is distinct
+    // from the case where the pattern matched but the groups did not capture
+    // anything.
+    return Value::Null(result_type);
+  }
+
+  const TypeKind re_encoding_type =
+      (re_->options().encoding() == RE2::Options::EncodingUTF8) ? TYPE_STRING
+                                                                : TYPE_BYTES;
+  for (int i = 0; i < num_groups; ++i) {
+    const Type* field_type = struct_type->field(i).type;
+    // We only want the groups, so skip the first element which is the entire
+    // match.
+    absl::string_view match = groups[i + 1];
+
+    // If the match is null, the group is not matched. This is distinct from
+    // match being empty, in which case the group is matched to an empty string.
+    if (match.data() == nullptr) {
+      struct_fields[i] = Value::Null(field_type);
+      continue;
+    }
+
+    Value value = re_encoding_type == TYPE_STRING ? Value::String(match)
+                                                  : Value::Bytes(match);
+    // The field type is always STRING or BYTES (depending on the function
+    // signature). The resolver adds a CAST later to convert it to a struct with
+    // field types derived from the type suffix.
+    ZETASQL_RET_CHECK_EQ(field_type, value.type())
+        << field_type->DebugString() << " vs " << value.type()->DebugString();
+    struct_fields[i] = std::move(value);
+  }
+
+  return Value::MakeStruct(struct_type, struct_fields);
 }
 
 bool RegExp::Instr(const InstrParams& options,

@@ -97,7 +97,7 @@ select x clamped between a and b;
 # Clamped between not allowed in TVF calls.
 select x FROM TVF(x clamped between a and b);
 --
-ERROR: Syntax error: Expected ")" or "," but got keyword CLAMPED [at 1:21]
+ERROR: Syntax error: Expected ")" but got keyword CLAMPED [at 1:21]
 select x FROM TVF(x clamped between a and b);
                     ^
 ==

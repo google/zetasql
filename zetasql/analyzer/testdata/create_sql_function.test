@@ -1,3 +1,4 @@
+[default language_features=NONE]
 create function myfunc ( ) ;
 --
 ERROR: Function must specify LANGUAGE or have a SQL body in parentheses [at 1:1]

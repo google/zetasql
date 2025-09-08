@@ -38,8 +38,21 @@ void GetMeasureFunctions(TypeFactory* type_factory,
         FunctionSignatureOptions().set_rewrite_options(
             FunctionSignatureRewriteOptions().set_enabled(true).set_rewriter(
                 REWRITE_MEASURE_TYPE))}},
-      DefaultAggregateFunctionOptions().AddRequiredLanguageFeature(
-          FEATURE_ENABLE_MEASURES));
+      DefaultAggregateFunctionOptions()
+          .AddRequiredLanguageFeature(FEATURE_ENABLE_MEASURES)
+          .set_supports_order_by(false)
+          .set_supports_limit(false)
+          .set_supports_null_handling_modifier(false)
+          .set_supports_safe_error_mode(false)
+          .set_supports_over_clause(false)
+          .set_supports_distinct_modifier(false)
+          .set_supports_window_framing(false)
+          .set_window_ordering_support(FunctionOptions::ORDER_UNSUPPORTED)
+          .set_supports_having_modifier(false)
+          .set_supports_group_by_modifier(false)
+          .set_supports_clamped_between_modifier(false)
+          .set_supports_where_modifier(false)
+          .set_supports_having_filter_modifier(false));
 }
 
 }  // namespace zetasql

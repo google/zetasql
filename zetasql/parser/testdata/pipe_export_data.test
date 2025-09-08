@@ -1,4 +1,4 @@
-[default language_features=PIPES]
+[default language_features=NONE,+PIPES]
 
 # The parser doens't know EXPORT DATA is terminal and can't be
 # followed by more operators.

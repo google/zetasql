@@ -15,7 +15,8 @@
 
 # Note that we only test a subset of comparison operators, since they all
 # have the same signatures and use the same coercion/matching rules.
-[language_features=NUMERIC_TYPE,BIGNUMERIC_TYPE]
+[default language_features=NONE]
+[language_features=NONE,+NUMERIC_TYPE,+BIGNUMERIC_TYPE]
 select {{int32|int64|uint32|uint64|float|double|numeric|bignumeric}} {{=|<|>=}}
        {{int32|int64|uint32|uint64|float|double|numeric|bignumeric}}
 from SimpleTypes;
@@ -3303,7 +3304,7 @@ QueryStmt
 # integers but not unsigned integers), so we need to check different literal
 # values.
 # TODO: None of these should fail.  Fix the broken ones.
-[language_features=NUMERIC_TYPE,BIGNUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE,+BIGNUMERIC_TYPE]
 select {{int32|int64|uint32|uint64|float|double|numeric|bignumeric}} =
        {{-3000000000|-1|1|3000000000|10000000000000000000|1.0|NUMERIC '3.14'|BIGNUMERIC '123456789012345678901234567890123456789.12345678901234567890123456789012345678'}}
 from SimpleTypes

@@ -1,3 +1,4 @@
+[default language_features=MAXIMUM]
 select (select Key), (select kv.key), (select kv.key + key),
        (select AS STRUCT kv.key, kv.value)
 from KeyValue kv

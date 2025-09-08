@@ -26,10 +26,13 @@
 #include "zetasql/common/internal_value.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/compliance/functions_testlib.h"
+#include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/functions/unsupported_fields.pb.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/pico_time.h"
+#include "zetasql/public/timestamp_picos_value.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/value_equality_check_options.h"
 #include "zetasql/public/value.h"
@@ -42,6 +45,7 @@
 #include "absl/strings/escaping.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "absl/time/time.h"
 #include "zetasql/base/map_util.h"
 
 namespace zetasql {
@@ -349,6 +353,81 @@ TEST(ToJsonTest, GraphPath) {
   EXPECT_EQ(values::Json(std::move(output)),
             values::Json(std::move(expectation)));
 }
+
+struct PicosTestCase {
+  std::string input_string;
+  std::string expected_string;
+};
+
+using PicosTest = ::testing::TestWithParam<PicosTestCase>;
+
+TEST_P(PicosTest, ToJson) {
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_TIMESTAMP_PICOS);
+
+  const PicosTestCase& test_case = GetParam();
+
+  PicoTime pico_time;
+  ZETASQL_ASSERT_OK(functions::ConvertStringToTimestamp(
+      test_case.input_string, absl::UTCTimeZone(), /*allow_tz_in_str=*/true,
+      &pico_time));
+  const Value v = Value::Timestamp(TimestampPicosValue(pico_time));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      JSONValue result,
+      ToJson(v, /*stringify_wide_numbers=*/false, language_options,
+             /*canonicalize_zero=*/false, kUnsupportFieldsDefault));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue expectation,
+                       JSONValue::ParseJSONString(absl::Substitute(
+                           R"json("$0")json", test_case.expected_string)));
+
+  EXPECT_EQ(values::Json(std::move(result)),
+            values::Json(std::move(expectation)));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    PicosTestSuite, PicosTest,
+    ::testing::ValuesIn<PicosTestCase>({
+        {"2017-06-25 12:34:56.123456", "2017-06-25T12:34:56.123456Z"},
+
+        {"2017-06-25 05:13:00", "2017-06-25T05:13:00Z"},
+
+        {"2017-06-25 23:34:56.123456789123",
+         "2017-06-25T23:34:56.123456789123Z"},
+
+        {"2017-06-25 23:34:56.12345678912",
+         "2017-06-25T23:34:56.123456789120Z"},
+
+        {"2017-06-25 23:34:56.1234567891", "2017-06-25T23:34:56.123456789100Z"},
+
+        {"2017-06-25 23:34:56.123456789", "2017-06-25T23:34:56.123456789Z"},
+
+        {"2017-06-25 23:34:56.12345678", "2017-06-25T23:34:56.123456780Z"},
+
+        {"2017-06-25 23:34:56.1234567", "2017-06-25T23:34:56.123456700Z"},
+
+        {"2017-06-25 23:34:56.123456", "2017-06-25T23:34:56.123456Z"},
+
+        {"2017-06-25 12:34:56.12345", "2017-06-25T12:34:56.123450Z"},
+
+        {"2017-06-25 12:34:56.123", "2017-06-25T12:34:56.123Z"},
+
+        {"2017-06-25 12:34:56.12", "2017-06-25T12:34:56.120Z"},
+
+        {"2017-06-25 12:34:56.1", "2017-06-25T12:34:56.100Z"},
+
+        {"2017-06-25 12:34:00", "2017-06-25T12:34:00Z"},
+
+        {"2017-06-25 12:00:00", "2017-06-25T12:00:00Z"},
+
+        {"1918-11-11", "1918-11-11T00:00:00Z"},
+
+        {"0001-01-01", "0001-01-01T00:00:00Z"},
+
+        {"9999-12-31 23:59:59.999999999999",
+         "9999-12-31T23:59:59.999999999999Z"},
+    }));
 
 }  // namespace
 }  // namespace functions

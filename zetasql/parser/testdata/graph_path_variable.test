@@ -1,5 +1,5 @@
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH,SQL_GRAPH_PATH_TYPE]
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_PATH_TYPE]
 [default no_test_get_parse_tokens]
 
 # Empty path isn't allowed
@@ -152,7 +152,7 @@ select * from graph_table(aml
   RETURN SUM(a.account_id) as col1
 )
 --
-ERROR: Syntax error: Unexpected identifier "q" [at 2:20]
+ERROR: Syntax error: Expected keyword RETURN but got identifier "q" [at 2:20]
   MATCH p = (a) -> q = (b)
                    ^
 

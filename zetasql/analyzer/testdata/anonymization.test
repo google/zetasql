@@ -1,5 +1,5 @@
 # Specify WITH ANONYMIZATION but no FROM clause
-[default language_features=ANONYMIZATION,NUMERIC_TYPE]
+[default language_features=NONE,+ANONYMIZATION,+NUMERIC_TYPE]
 
 select with anonymization sum();
 --
@@ -227,7 +227,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
 ==
 
-[language_features=ANONYMIZATION,NUMERIC_TYPE]
+[language_features=NONE,+ANONYMIZATION,+NUMERIC_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_avg(int64)
 from SimpleTypesWithAnonymizationUid;
@@ -284,7 +284,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
 ==
 
-[language_features=ANONYMIZATION,NUMERIC_TYPE]
+[language_features=NONE,+ANONYMIZATION,+NUMERIC_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_avg(numeric)
 from SimpleTypesWithAnonymizationUid;
@@ -505,7 +505,7 @@ select with anonymization options(delta=0, epsilon=0, kappa=0, k_threshold=0)
 
 # Same as the previous test, but with all-caps anonymization options
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=ANONYMIZATION,ANONYMIZATION_CASE_INSENSITIVE_OPTIONS]
+[language_features=NONE,+ANONYMIZATION,+ANONYMIZATION_CASE_INSENSITIVE_OPTIONS]
 select with anonymization options(DELTA=1, EPSILON=2, KAPPA=3, K_THRESHOLD=4)
        anon_count(* CLAMPED BETWEEN 0 AND 100)
 from SimpleTypesWithAnonymizationUid;
@@ -2723,7 +2723,7 @@ QueryStmt
 ==
 
 # Reject AnalyticScan
-[language_features=ANONYMIZATION,ANALYTIC_FUNCTIONS]
+[language_features=NONE,+ANONYMIZATION,+ANALYTIC_FUNCTIONS]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
@@ -2779,7 +2779,7 @@ Rewrite ERROR: Unsupported scan type inside of SELECT WITH ANONYMIZATION from cl
 ==
 
 # Support SampleScan
-[language_features=ANONYMIZATION,TABLESAMPLE]
+[language_features=NONE,+ANONYMIZATION,+TABLESAMPLE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
@@ -2858,7 +2858,7 @@ QueryStmt
 ==
 
 # Support SampleScan
-[language_features=ANONYMIZATION,TABLESAMPLE]
+[language_features=NONE,+ANONYMIZATION,+TABLESAMPLE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
@@ -2945,7 +2945,7 @@ QueryStmt
 ==
 
 # Support SampleScan
-[language_features=ANONYMIZATION,TABLESAMPLE]
+[language_features=NONE,+ANONYMIZATION,+TABLESAMPLE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
@@ -3030,7 +3030,7 @@ QueryStmt
 ==
 
 # Support SampleScan
-[language_features=ANONYMIZATION,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE]
+[language_features=NONE,+ANONYMIZATION,+TABLESAMPLE,+STRATIFIED_RESERVOIR_TABLESAMPLE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
@@ -3136,7 +3136,7 @@ QueryStmt
 ==
 
 # Support SampleScan
-[language_features=ANONYMIZATION,TABLESAMPLE]
+[language_features=NONE,+ANONYMIZATION,+TABLESAMPLE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100), weight
@@ -6775,7 +6775,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#25)
 ==
 
-[language_features=ANONYMIZATION,NUMERIC_TYPE,GROUP_BY_ROLLUP]
+[language_features=NONE,+ANONYMIZATION,+NUMERIC_TYPE,+GROUP_BY_ROLLUP]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT WITH ANONYMIZATION int64, double, ANON_SUM(int32)
     FROM SimpleTypesWithAnonymizationUid
@@ -6786,7 +6786,7 @@ ERROR: GROUP BY ROLLUP is not supported in anonymization queries [at 3:14]
              ^
 ==
 
-[language_features=ANONYMIZATION,NUMERIC_TYPE,GROUPING_SETS]
+[language_features=NONE,+ANONYMIZATION,+NUMERIC_TYPE,+GROUPING_SETS]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT WITH ANONYMIZATION int64, double, ANON_SUM(int32)
     FROM SimpleTypesWithAnonymizationUid
@@ -6797,7 +6797,7 @@ ERROR: GROUP BY CUBE is not supported in anonymization queries [at 3:14]
              ^
 ==
 
-[language_features=ANONYMIZATION,NUMERIC_TYPE,GROUPING_SETS]
+[language_features=NONE,+ANONYMIZATION,+NUMERIC_TYPE,+GROUPING_SETS]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT WITH ANONYMIZATION int64, double, ANON_SUM(int32)
     FROM SimpleTypesWithAnonymizationUid
@@ -6861,7 +6861,7 @@ select with anonymization anon_count(* clampED Between 10 and "100" with repo...
                           ^
 ==
 
-[language_features=ANONYMIZATION,JSON_TYPE]
+[language_features=NONE,+ANONYMIZATION,+JSON_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* clampED Between bool and 100 with report(forMAT=JSon))
 from SimpleTypesWithAnonymizationUid;
@@ -6883,7 +6883,7 @@ select count(* with report)
        ^
 ==
 
-[language_features=ANONYMIZATION,JSON_TYPE]
+[language_features=NONE,+ANONYMIZATION,+JSON_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_sum(int64 with report)
 from SimpleTypesWithAnonymizationUid;
@@ -6893,7 +6893,7 @@ select with anonymization anon_sum(int64 with report)
                           ^
 ==
 
-[language_features=ANONYMIZATION,JSON_TYPE]
+[language_features=NONE,+ANONYMIZATION,+JSON_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(int64 with report(wrong_option=json))
 from SimpleTypesWithAnonymizationUid;
@@ -6903,7 +6903,7 @@ select with anonymization anon_count(int64 with report(wrong_option=json))
                                                        ^
 ==
 
-[language_features=ANONYMIZATION]
+[language_features=NONE,+ANONYMIZATION]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_sum(int64 with report(FOrmAT=PROto))
 from SimpleTypesWithAnonymizationUid;
@@ -6958,7 +6958,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
 ==
 
-[language_features=ANONYMIZATION,JSON_TYPE]
+[language_features=NONE,+ANONYMIZATION,+JSON_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_sum(int64 with report(format=jSon))
 from SimpleTypesWithAnonymizationUid;
@@ -7015,7 +7015,7 @@ QueryStmt
 
 # WITH REPORT is parsable without any arguments but there are no current
 # functions where that is valid.
-[language_features=ANONYMIZATION,JSON_TYPE]
+[language_features=NONE,+ANONYMIZATION,+JSON_TYPE]
 select with anonymization anon_sum(with report{{|(format=jSon)}})
 from SimpleTypesWithAnonymizationUid;
 --
@@ -7032,7 +7032,7 @@ select with anonymization anon_sum(with report(format=jSon))
                           ^
 ==
 
-[language_features=ANONYMIZATION,JSON_TYPE]
+[language_features=NONE,+ANONYMIZATION,+JSON_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_sum(int64 clamped between 0 and 10 with report(foRMat=jSoN))
 from SimpleTypesWithAnonymizationUid;
@@ -7091,7 +7091,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
 ==
 
-[language_features=ANONYMIZATION]
+[language_features=NONE,+ANONYMIZATION]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_sum(double clamped between 0 and 10 with report(foRMat=ProTO))
 from SimpleTypesWithAnonymizationUid;
@@ -7150,7 +7150,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
 ==
 
-[language_features=ANONYMIZATION,JSON_TYPE]
+[language_features=NONE,+ANONYMIZATION,+JSON_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_avg(int64 with report(format=jSon))
 from SimpleTypesWithAnonymizationUid;
@@ -7207,7 +7207,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
 ==
 
-[language_features=ANONYMIZATION]
+[language_features=NONE,+ANONYMIZATION]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_avg(double clamped between 0 and 10 with report(foRMat=ProTO))
 from SimpleTypesWithAnonymizationUid;
@@ -7266,7 +7266,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
 ==
 
-[language_features=ANONYMIZATION]
+[language_features=NONE,+ANONYMIZATION]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(int64 with report(FOrmAT=PROto))
 from SimpleTypesWithAnonymizationUid;
@@ -7321,7 +7321,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
 ==
 
-[language_features=ANONYMIZATION,JSON_TYPE]
+[language_features=NONE,+ANONYMIZATION,+JSON_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(int64 with report(format=jSon))
 from SimpleTypesWithAnonymizationUid;
@@ -7376,7 +7376,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
 ==
 
-[language_features=ANONYMIZATION,JSON_TYPE]
+[language_features=NONE,+ANONYMIZATION,+JSON_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(int64 clamped between 0 and 10 with report(foRMat=jSoN))
 from SimpleTypesWithAnonymizationUid;
@@ -7435,7 +7435,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
 ==
 
-[language_features=ANONYMIZATION]
+[language_features=NONE,+ANONYMIZATION]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(double clamped between 0 and 10 with report(foRMat=ProTO))
 from SimpleTypesWithAnonymizationUid;
@@ -7494,7 +7494,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
 ==
 
-[language_features=ANONYMIZATION]
+[language_features=NONE,+ANONYMIZATION]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* with report(FOrmAT=PROto))
 from SimpleTypesWithAnonymizationUid;
@@ -7545,7 +7545,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
 ==
 
-[language_features=ANONYMIZATION,JSON_TYPE]
+[language_features=NONE,+ANONYMIZATION,+JSON_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* with report(format=jSon))
 from SimpleTypesWithAnonymizationUid;
@@ -7596,7 +7596,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
 ==
 
-[language_features=ANONYMIZATION,JSON_TYPE]
+[language_features=NONE,+ANONYMIZATION,+JSON_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* clamped between 0 and 10 with report(foRMat=jSoN))
 from SimpleTypesWithAnonymizationUid;
@@ -7652,7 +7652,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
 ==
 
-[language_features=ANONYMIZATION]
+[language_features=NONE,+ANONYMIZATION]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* clamped between 0 and 10 with report(foRMat=ProTO))
 from SimpleTypesWithAnonymizationUid;
@@ -7735,7 +7735,7 @@ select with anonymization ANON_QUANTILES(*, 4 CLAMPED BETWEEN 2 AND 3 WITH RE...
                                          ^
 ==
 
-[language_features=ANONYMIZATION,JSON_TYPE]
+[language_features=NONE,+ANONYMIZATION,+JSON_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization ANON_QUANTILES(int64, 4 CLAMPED BETWEEN bool AND 3 WITH REPORT(FORMAT=PROTO))
 from SimpleTypesWithAnonymizationUid;
@@ -7748,7 +7748,7 @@ select with anonymization ANON_QUANTILES(int64, 4 CLAMPED BETWEEN bool AND 3 ...
                           ^
 ==
 
-[language_features=ANONYMIZATION,JSON_TYPE]
+[language_features=NONE,+ANONYMIZATION,+JSON_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization ANON_QUANTILES(double, 4 CLAMPED BETWEEN bool AND 3 WITH REPORT(FORMAT=PROTO))
 from SimpleTypesWithAnonymizationUid;
@@ -7761,7 +7761,7 @@ select with anonymization ANON_QUANTILES(double, 4 CLAMPED BETWEEN bool AND 3...
                           ^
 ==
 
-[language_features=ANONYMIZATION,JSON_TYPE]
+[language_features=NONE,+ANONYMIZATION,+JSON_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization ANON_QUANTILES(int64, 4 CLAMPED BETWEEN 2 AND bool WITH REPORT(FORMAT=PROTO))
 from SimpleTypesWithAnonymizationUid;
@@ -7774,7 +7774,7 @@ select with anonymization ANON_QUANTILES(int64, 4 CLAMPED BETWEEN 2 AND bool ...
                           ^
 ==
 
-[language_features=ANONYMIZATION,JSON_TYPE]
+[language_features=NONE,+ANONYMIZATION,+JSON_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization ANON_QUANTILES(double, 4 CLAMPED BETWEEN 2 AND bool WITH REPORT(FORMAT=PROTO))
 from SimpleTypesWithAnonymizationUid;
@@ -7787,7 +7787,7 @@ select with anonymization ANON_QUANTILES(double, 4 CLAMPED BETWEEN 2 AND bool...
                           ^
 ==
 
-[language_features=ANONYMIZATION,JSON_TYPE]
+[language_features=NONE,+ANONYMIZATION,+JSON_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization ANON_QUANTILES(int64, 4 CLAMPED BETWEEN 2 AND 3 WITH REPORT (wrong_option=json))
 from SimpleTypesWithAnonymizationUid;
@@ -7797,7 +7797,7 @@ ERROR: Unknown option: wrong_option [at 1:88]
                                                  ^
 ==
 
-[language_features=ANONYMIZATION,JSON_TYPE]
+[language_features=NONE,+ANONYMIZATION,+JSON_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization ANON_QUANTILES(double, 4 CLAMPED BETWEEN 2 AND 3 WITH REPORT (wrong_option=json))
 from SimpleTypesWithAnonymizationUid;
@@ -7811,7 +7811,7 @@ ERROR: Unknown option: wrong_option [at 1:89]
 # aggregate function and the appropriate language feature is not enabled.
 [no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
-[language_features=ANONYMIZATION,JSON_TYPE]
+[language_features=NONE,+ANONYMIZATION,+JSON_TYPE]
 select with anonymization
     ANON_QUANTILES(int64, 4 CLAMPED BETWEEN 2 AND 3 WITH REPORT(FORMAT=PROTO)),
     ANON_QUANTILES(double, 6 CLAMPED BETWEEN 1 AND 4 WITH REPORT(FORMAT=JSON))
@@ -7913,10 +7913,10 @@ QueryStmt
 ==
 
 # Specify custom WITH ANONYMIZATION option
-[default language_features=ANONYMIZATION,NUMERIC_TYPE]
+[default language_features=NONE,+ANONYMIZATION,+NUMERIC_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [additional_allowed_anonymization_options=custom_option]
-[language_features=ANONYMIZATION,JSON_TYPE]
+[language_features=NONE,+ANONYMIZATION,+JSON_TYPE]
 select with anonymization OPTIONS (custom_option="option_value") anon_count(*)
 FROM SimpleTypesWithAnonymizationUid;
 --
@@ -7972,7 +7972,7 @@ QueryStmt
 
 [no_run_sqlbuilder]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
-[language_features=ANONYMIZATION]
+[language_features=NONE,+ANONYMIZATION]
 select with anonymization anon_avg(double with report(foRMat=ProTO))
 from SimpleTypesWithAnonymizationUid;
 --
@@ -8046,7 +8046,7 @@ select with sum(x);
 ==
 
 # SELECT WITH ANONYMIZATION should not work if the feature is disabled.
-[language_features=]
+[language_features=NONE]
 select with anonymization count(*);
 --
 
@@ -8356,7 +8356,7 @@ QueryStmt
 ==
 
 # Regresssion: b/282900415, non-subquery select expr in select list
-[language_features=ANONYMIZATION,NUMERIC_TYPE,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+ANONYMIZATION,+NUMERIC_TYPE,+INLINE_LAMBDA_ARGUMENT]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT WITH ANONYMIZATION
   int32,
@@ -8491,7 +8491,7 @@ QueryStmt
 ==
 
 # Regresssion: b/282900415, non-subquery, not selected, select expr in select list
-[language_features=ANONYMIZATION,NUMERIC_TYPE,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+ANONYMIZATION,+NUMERIC_TYPE,+INLINE_LAMBDA_ARGUMENT]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 SELECT WITH ANONYMIZATION
@@ -8786,7 +8786,7 @@ QueryStmt
 
 # Regression test for b/298246782
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
-[language_features=ANONYMIZATION,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE]
+[language_features=NONE,+ANONYMIZATION,+TABLESAMPLE,+STRATIFIED_RESERVOIR_TABLESAMPLE]
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 SELECT
   WITH ANONYMIZATION
@@ -8914,7 +8914,7 @@ QueryStmt
 
 # Regression test for b/298246782
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
-[language_features=ANONYMIZATION,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE]
+[language_features=NONE,+ANONYMIZATION,+TABLESAMPLE,+STRATIFIED_RESERVOIR_TABLESAMPLE]
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 SELECT
   WITH ANONYMIZATION
@@ -8996,7 +8996,7 @@ Rewrite ERROR: Reading the table SimpleTypesWithAnonymizationUid containing user
 ==
 
 # GROUPING function is unsupported in with anonymization clause.
-[language_features=ANONYMIZATION,GROUPING_BUILTIN]
+[language_features=NONE,+ANONYMIZATION,+GROUPING_BUILTIN]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT WITH ANONYMIZATION GROUPING(int64), int64, ANON_SUM(int32)
 FROM SimpleTypesWithAnonymizationUid
@@ -9008,7 +9008,7 @@ SELECT WITH ANONYMIZATION GROUPING(int64), int64, ANON_SUM(int32)
 ==
 
 # GROUPING function is unsupported in the same select list with anonymization.
-[language_features=ANONYMIZATION,GROUPING_BUILTIN]
+[language_features=NONE,+ANONYMIZATION,+GROUPING_BUILTIN]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT WITH ANONYMIZATION int64, GROUPING(int64), ANON_SUM(int32)
 FROM SimpleTypesWithAnonymizationUid
@@ -9020,7 +9020,7 @@ SELECT WITH ANONYMIZATION int64, GROUPING(int64), ANON_SUM(int32)
 ==
 
 # GROUPING function is unsupported in the same query with the anonymization.
-[language_features=ANONYMIZATION,GROUPING_BUILTIN]
+[language_features=NONE,+ANONYMIZATION,+GROUPING_BUILTIN]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT WITH ANONYMIZATION int64, ANON_SUM(int32)
 FROM SimpleTypesWithAnonymizationUid
@@ -9033,7 +9033,7 @@ GROUP BY int64, double HAVING GROUPING(int64) = 0;
 
 # GROUPING function should be allowed in a subquery.
 # GROUPING function should be allowed in a subquery.
-[language_features=ANONYMIZATION,GROUPING_BUILTIN]
+[language_features=NONE,+ANONYMIZATION,+GROUPING_BUILTIN]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT
   WITH ANONYMIZATION int64, ANON_SUM(int32),
@@ -9146,7 +9146,7 @@ QueryStmt
 ==
 
 # GROUPING function should be allowed in the with clause.
-[language_features=ANONYMIZATION,GROUPING_BUILTIN]
+[language_features=NONE,+ANONYMIZATION,+GROUPING_BUILTIN]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 WITH T AS (
   SELECT uid, int64, GROUPING(int64) AS grp
@@ -9258,7 +9258,7 @@ QueryStmt
               +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#28)
 ==
 
-[language_features=ANONYMIZATION,GROUPING_BUILTIN{{|,ENFORCE_CONDITIONAL_EVALUATION}}]
+[language_features=NONE,+ANONYMIZATION,+GROUPING_BUILTIN{{|,+ENFORCE_CONDITIONAL_EVALUATION}}]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [no_run_sqlbuilder]
 # The anonymization rewrite combined conditional evaluation leads to a
@@ -9488,7 +9488,7 @@ QueryStmt
         +-anonymization_option_list=
           +-max_groups_contributed := Literal(type=INT64, value=1)
 --
-ALTERNATION GROUP: ,ENFORCE_CONDITIONAL_EVALUATION,epsilon=1e20, k_threshold=1
+ALTERNATION GROUP: ,+ENFORCE_CONDITIONAL_EVALUATION,epsilon=1e20, k_threshold=1
 --
 QueryStmt
 +-output_column_list=
@@ -9612,7 +9612,7 @@ QueryStmt
           +-epsilon := Literal(type=DOUBLE, value=1e+20)
           +-k_threshold := Literal(type=INT64, value=1)
 --
-ALTERNATION GROUP: ,ENFORCE_CONDITIONAL_EVALUATION,max_groups_contributed = 1
+ALTERNATION GROUP: ,+ENFORCE_CONDITIONAL_EVALUATION,max_groups_contributed = 1
 --
 QueryStmt
 +-output_column_list=
@@ -9745,7 +9745,7 @@ QueryStmt
 
 ==
 
-[language_features=ANONYMIZATION,ORDER_BY_IN_AGGREGATE]
+[language_features=NONE,+ANONYMIZATION,+ORDER_BY_IN_AGGREGATE]
 [enabled_ast_rewrites={{DEFAULTS,+ANONYMIZATION,+ORDER_BY_AND_LIMIT_IN_AGGREGATE|DEFAULTS,+ORDER_BY_AND_LIMIT_IN_AGGREGATE}}]
 # Making sure that ORDER_BY_AND_LIMIT_IN_AGGREGATE rewrite won't step into
 # differentially private aggregates.

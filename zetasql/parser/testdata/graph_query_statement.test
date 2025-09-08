@@ -1,5 +1,5 @@
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 # Top level graph query statement
 GRAPH my.graph.name
@@ -149,7 +149,7 @@ MATCH (m) -[e2]-> (k:Person)
 LET score2 = score + e2.val
 FILTER score2 > 100
 --
-ERROR: Syntax error: Unexpected end of statement [at 9:20]
+ERROR: Syntax error: Expected keyword RETURN but got end of statement [at 9:20]
 FILTER score2 > 100
                    ^
 

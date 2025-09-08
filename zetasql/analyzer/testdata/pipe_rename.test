@@ -1,4 +1,4 @@
-[default language_features=PIPES,PIPE_STATIC_DESCRIBE]
+[default language_features=NONE,+PIPES,+PIPE_STATIC_DESCRIBE]
 FROM KeyValue
 |> STATIC_DESCRIBE
 |> RENAME key AS k
@@ -15,7 +15,7 @@ QueryStmt
     +-describe_text=
     |   """
     |   NameList:
-    |     k2 INT64 KeyValue.Key#1 (value table)
+    |     k2 INT64 KeyValue.Key#1
     |     Value STRING KeyValue.Value#2
     |   NameScope:
     |     Names:
@@ -23,8 +23,6 @@ QueryStmt
     |       k2 -> INT64 (KeyValue.Key#1) (implicit)
     |     Range variables:
     |       KeyValue -> RANGE_VARIABLE<Key,Value>
-    |     Value table columns:
-    |       KeyValue.Key#1
     |   """
     +-input_scan=
       +-StaticDescribeScan
@@ -147,7 +145,7 @@ QueryStmt
     +-describe_text=
     |   """
     |   NameList:
-    |     xx INT64 KeyValue.Key#1 (value table)
+    |     xx INT64 KeyValue.Key#1
     |     Value STRING KeyValue.Value#2
     |     xx DOUBLE $pipe_extend.xx#3
     |   NameScope:
@@ -193,7 +191,7 @@ QueryStmt
         +-describe_text=
         |   """
         |   NameList:
-        |     kv INT64 KeyValue.Key#1 (value table)
+        |     kv INT64 KeyValue.Key#1
         |     Value STRING KeyValue.Value#2
         |   NameScope:
         |     Names:
@@ -322,3 +320,56 @@ QueryStmt
     |       +-ColumnRef(type=STRING, column=KeyValue.Value#2)
     +-input_scan=
       +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="kv")
+==
+
+# Fixed b/437336611 where RENAME was turning columns partially into
+# value tables.
+from TestTable
+|> rename KitchenSink AS ks
+|> static_describe
+|> select ks.int32_val, *, {{int32_val|}}
+--
+ALTERNATION GROUP: int32_val
+--
+ERROR: Unrecognized name: int32_val [at 4:28]
+|> select ks.int32_val, *, int32_val
+                           ^
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.int32_val#4 AS int32_val [INT32]
+| +-TestTable.key#1 AS key [INT32]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS ks [PROTO<zetasql_test__.KitchenSinkPB>]
++-query=
+  +-ProjectScan
+    +-column_list=[$pipe_select.int32_val#4, TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3]
+    +-expr_list=
+    | +-int32_val#4 :=
+    |   +-GetProtoField
+    |     +-type=INT32
+    |     +-expr=
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     +-field_descriptor=int32_val
+    |     +-default_value=77
+    +-input_scan=
+      +-StaticDescribeScan
+        +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
+        +-describe_text=
+        |   """
+        |   NameList:
+        |     key INT32 TestTable.key#1
+        |     TestEnum zetasql_test__.TestEnum TestTable.TestEnum#2
+        |     ks zetasql_test__.KitchenSinkPB TestTable.KitchenSink#3
+        |   NameScope:
+        |     Names:
+        |       TestEnum -> zetasql_test__.TestEnum (TestTable.TestEnum#2) (implicit)
+        |       key -> INT32 (TestTable.key#1) (implicit)
+        |       ks -> zetasql_test__.KitchenSinkPB (TestTable.KitchenSink#3) (implicit)
+        |     Range variables:
+        |       TestTable -> RANGE_VARIABLE<key,TestEnum,KitchenSink>
+        |   """
+        +-input_scan=
+          +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2])

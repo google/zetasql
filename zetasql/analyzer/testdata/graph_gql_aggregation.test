@@ -1,4 +1,4 @@
-[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_RETURN_EXTENSIONS]
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_RETURN_EXTENSIONS]
 [default no_test_extract_table_names]
 [default no_run_sqlbuilder]
 # No unparser due to SQLBuilder visitor not implemented for GraphMakeElement
@@ -58,7 +58,7 @@ ERROR: GROUP BY () is not supported [at 5:14]
 
 # GROUPING builtin function is not allowed even in the absence of
 # other GROUPING SETS features
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,GROUPING_BUILTIN]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+GROUPING_BUILTIN]
 select gt.* from
 graph_table(aml
   match (n)
@@ -407,7 +407,7 @@ QueryStmt
                           +-count#4 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,GROUP_BY_ALL]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+GROUP_BY_ALL]
 # GROUP BY ALL in RETURN
 # Note the volatile expression RAND is excluded from `group_by_list`
 select gt.* from
@@ -1737,7 +1737,7 @@ FROM
 ==
 
 # SQLBuilder test: more complex example
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,HAVING_IN_AGGREGATE]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+HAVING_IN_AGGREGATE]
 [run_sqlbuilder]
 [show_sqlbuilder_output]
 select gt.* from
@@ -2270,7 +2270,7 @@ FROM
 ==
 
 # Explicit group by
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,SQL_GRAPH_RETURN_EXTENSIONS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,+SQL_GRAPH_RETURN_EXTENSIONS]
 select id from
 graph_table(aml
   MATCH (n) -[e:Transfer]- (m)
@@ -2384,7 +2384,7 @@ QueryStmt
 ==
 
 # Explicit group by all
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,GROUP_BY_ALL,SQL_GRAPH_RETURN_EXTENSIONS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,+GROUP_BY_ALL,+SQL_GRAPH_RETURN_EXTENSIONS]
 select id from
 graph_table(aml
   MATCH (n) -[e:Transfer]- (m)
@@ -2498,7 +2498,7 @@ QueryStmt
 ==
 
 # Implicit aggregation requires SQL_GRAPH_RETURN_EXTENSIONS
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 select id from
 graph_table(aml
   MATCH (n) -[e:Transfer]- (m)
@@ -2513,7 +2513,7 @@ ERROR: Graph RETURN operator expression references column n which is neither gro
 ==
 
 # Implicit group by all with *, <extra expr>
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,SQL_GRAPH_RETURN_EXTENSIONS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,+SQL_GRAPH_RETURN_EXTENSIONS]
 select id from
 graph_table(aml
   MATCH (n) -[e:Transfer]- (m)
@@ -2627,7 +2627,7 @@ QueryStmt
 ==
 
 # Implicit group by all
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_RETURN_EXTENSIONS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_RETURN_EXTENSIONS]
 select id from
 graph_table(aml
   MATCH (n) -[e:Transfer]- (m)
@@ -2755,7 +2755,7 @@ QueryStmt
 ==
 
 # Implicit group by all with volatile expressions excluded
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_RETURN_EXTENSIONS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_RETURN_EXTENSIONS]
 select agg_expr from
 graph_table(aml
   MATCH (n) -[e:Transfer]- (m)
@@ -2954,7 +2954,7 @@ ERROR: GROUP BY () is not supported [at 5:14]
 
 # GROUPING builtin function is not allowed even in the absence of
 # other GROUPING SETS features
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,GROUPING_BUILTIN,SQL_GRAPH_RETURN_EXTENSIONS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+GROUPING_BUILTIN,+SQL_GRAPH_RETURN_EXTENSIONS]
 select gt.* from
 graph_table(aml
   match (n)
@@ -3340,7 +3340,7 @@ QueryStmt
                       +-GraphRefScan(column_list=$graph_table.[col1#5, name#6, balance#7, count#4])
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,GROUP_BY_ALL,SQL_GRAPH_RETURN_EXTENSIONS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+GROUP_BY_ALL,+SQL_GRAPH_RETURN_EXTENSIONS]
 # GROUP BY ALL in WITH
 # Note the volatile expression RAND is excluded from `group_by_list`
 select gt.* from
@@ -4771,7 +4771,7 @@ FROM
 ==
 
 # SQLBuilder test: more complex example
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,HAVING_IN_AGGREGATE,SQL_GRAPH_RETURN_EXTENSIONS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+HAVING_IN_AGGREGATE,+SQL_GRAPH_RETURN_EXTENSIONS]
 [run_sqlbuilder]
 [show_sqlbuilder_output]
 select gt.* from
@@ -5341,7 +5341,7 @@ FROM
 ==
 
 # Explicit group by
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,SQL_GRAPH_RETURN_EXTENSIONS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,+SQL_GRAPH_RETURN_EXTENSIONS]
 select id from
 graph_table(aml
   MATCH (n) -[e:Transfer]- (m)
@@ -5466,7 +5466,7 @@ QueryStmt
 ==
 
 # Explicit group by all
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,GROUP_BY_ALL,SQL_GRAPH_RETURN_EXTENSIONS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,+GROUP_BY_ALL,+SQL_GRAPH_RETURN_EXTENSIONS]
 select id from
 graph_table(aml
   MATCH (n) -[e:Transfer]- (m)
@@ -5591,7 +5591,7 @@ QueryStmt
 ==
 
 # Implicit aggregation requires SQL_GRAPH_RETURN_EXTENSIONS
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,SQL_GRAPH_RETURN_EXTENSIONS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,+SQL_GRAPH_RETURN_EXTENSIONS]
 select id from
 graph_table(aml
   MATCH (n) -[e:Transfer]- (m)
@@ -5714,7 +5714,7 @@ QueryStmt
 ==
 
 # Implicit group by all with *, <extra expr>
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,SQL_GRAPH_RETURN_EXTENSIONS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,+SQL_GRAPH_RETURN_EXTENSIONS]
 select id from
 graph_table(aml
   MATCH (n) -[e:Transfer]- (m)
@@ -5839,7 +5839,7 @@ QueryStmt
 ==
 
 # Implicit group by all
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_RETURN_EXTENSIONS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_RETURN_EXTENSIONS]
 select id from
 graph_table(aml
   MATCH (n) -[e:Transfer]- (m)
@@ -5976,7 +5976,7 @@ QueryStmt
 ==
 
 # Implicit group by all with volatile expressions excluded
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_RETURN_EXTENSIONS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_RETURN_EXTENSIONS]
 select agg_expr from
 graph_table(aml
   MATCH (n) -[e:Transfer]- (m)
@@ -6130,7 +6130,7 @@ QueryStmt
                       +-GraphRefScan(column_list=$graph_table.[non_grouping_key1#10, id#8, amount#9, agg_expr#11, non_grouping_key2#12])
 ==
 
-[language_features=MULTILEVEL_AGGREGATION,SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_RETURN_EXTENSIONS]
+[language_features=NONE,+MULTILEVEL_AGGREGATION,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_RETURN_EXTENSIONS]
 SELECT * FROM GRAPH_TABLE(
   aml
   MATCH (x) -[e]- (y)

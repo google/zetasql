@@ -1,7 +1,7 @@
 # The parser permits usage of {ROLLUP|CUBE|GROUPING SETS} in the grouping
 # modifier and GROUP_ROWS() in the aggregate expression, but the resolver will
 # not.
-[language_features=WITH_GROUP_ROWS]
+[language_features=NONE,+WITH_GROUP_ROWS]
 select sum(avg(value)
 group by {{key1|key1,key2|()|rollup (key1)|cube (key1)|grouping sets (key1)}}
 ) with group rows(select 1)

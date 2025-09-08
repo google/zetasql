@@ -18,14 +18,20 @@
 
 #include <memory>
 #include <sstream>
+#include <utility>
+#include <vector>
 
-#include "google/protobuf/descriptor.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_output.h"
+#include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 
@@ -95,6 +101,57 @@ TEST(ExecuteQueryStreamWriterTest, Executed) {
 +-----+
 | 123 |
 +-----+
+
+)");
+}
+
+// Tests executed_multi with a mix of successful and failed results.
+TEST(ExecuteQueryStreamWriterTest, ExecutedMulti) {
+  SimpleCatalog catalog("simple_catalog");
+  TypeFactory type_factory;
+  // The implementation does not use the resolved node, so we just need
+  // something to pass in.
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  ZETASQL_EXPECT_OK(AnalyzeStatement("SELECT 1", {}, &catalog, &type_factory,
+                             &analyzer_output));
+
+  // First table.
+  SimpleTable test_table1{"TestTable1", {{"col1", types::Int64Type()}}};
+  test_table1.SetContents({{values::Int64(123)}});
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter1,
+                       test_table1.CreateEvaluatorTableIterator({0}));
+
+  // Second table.
+  SimpleTable test_table2{
+      "TestTable2",
+      {{"col_a", types::StringType()}, {"col_b", types::BoolType()}}};
+  test_table2.SetContents({{values::String("foo"), values::Bool(true)},
+                           {values::String("bar"), values::Bool(false)}});
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter2,
+                       test_table2.CreateEvaluatorTableIterator({0, 1}));
+
+  // Create three results to test a mix of success and failure.
+  std::vector<absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>> results;
+  results.push_back(std::move(iter1));
+  results.push_back(absl::InvalidArgumentError("Test error"));
+  results.push_back(std::move(iter2));
+
+  std::ostringstream output;
+  ZETASQL_EXPECT_OK(ExecuteQueryStreamWriter{output}.executed_multi(
+      *analyzer_output->resolved_statement(), std::move(results)));
+  EXPECT_EQ(output.str(), R"(+------+
+| col1 |
++------+
+| 123  |
++------+
+
+Error: Test error
++-------+-------+
+| col_a | col_b |
++-------+-------+
+| foo   | true  |
+| bar   | false |
++-------+-------+
 
 )");
 }

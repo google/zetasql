@@ -5,7 +5,7 @@
 # QUALIFY, but we are not able to correctly output that. This usage should be
 # rare so we can probably live with this mis-handling.
 [default no_qualify_reserved]
-[default language_features=QUALIFY]
+[default language_features=NONE,+QUALIFY]
 select f1, f2 from {{T|T QUALIFY|T AS QUALIFY|T SOMETHING}}
   QUALIFY row_number() OVER (PARTITION BY f2 ORDER BY f3) = 1
 --
@@ -141,7 +141,7 @@ WHERE
 ==
 
 # QUALIFY language option disabled when QUALIFY is used as a table alias
-[language_features=]
+[language_features=NONE]
 select f1, f2 from T QUALIFY
 --
 QueryStatement [0-28] [select f1, f2 from T QUALIFY]
@@ -169,7 +169,7 @@ FROM
 ==
 
 # QUALIFY language option disabled when QUALIFY is used as a clause
-[language_features=]
+[language_features=NONE]
 select f1, f2 from T WHERE true QUALIFY row_number() OVER (PARTITION BY f2 ORDER BY f3) = 1
 --
 ERROR: QUALIFY is not supported [at 1:33]
@@ -481,7 +481,7 @@ QUALIFY sum_f2 IN (
 )
 ==
 
-[language_features=]
+[language_features=NONE]
 SELECT * FROM t qualify PIVOT(x+x+x+x FOR y IN (3,4))
 --
 ERROR: Syntax error: Expected ")" but got keyword FOR [at 1:39]
@@ -489,7 +489,7 @@ SELECT * FROM t qualify PIVOT(x+x+x+x FOR y IN (3,4))
                                       ^
 ==
 
-[language_features=]
+[language_features=NONE]
 SELECT * FROM t qualify PIVOT(x+x+x+x)
 --
 ERROR: QUALIFY is not supported [at 1:17]

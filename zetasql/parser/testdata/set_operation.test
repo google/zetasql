@@ -1056,3 +1056,16 @@ ALTERNATION GROUP: EXCEPT
 ERROR: EXCEPT must be followed by ALL, DISTINCT, or "(" [at 1:8]
 SELECT EXCEPT @param;
        ^
+
+==
+
+# Set operation with graph query doesn't work
+
+SELECT 1 as one
+UNION ALL
+GRAPH g RETURN 1 as one
+--
+ERROR: Syntax error: Expected "(" or keyword SELECT or keyword TABLE but got keyword GRAPH [at 3:1]
+GRAPH g RETURN 1 as one
+^
+

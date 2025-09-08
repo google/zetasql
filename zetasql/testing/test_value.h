@@ -92,9 +92,6 @@ class ValueConstructor {
       : v_(Value::Numeric(v)) {}
   ValueConstructor(BigNumericValue v)  // NOLINT(google-explicit-constructor)
       : v_(Value::BigNumeric(v)) {}
-  ValueConstructor(  // NOLINT(google-explicit-constructor)
-      TimestampPicosValue v)
-      : v_(Value::TimestampPicos(v)) {}
 
   // Forward all other types to Value::String.
   // This is necessary for handling const char* and const char (str&)[N]

@@ -1,4 +1,4 @@
-[default language_features=FOREIGN_KEYS]
+[default language_features=MAXIMUM,+FOREIGN_KEYS]
 [show_sqlbuilder_output]
 
 ALTER TABLE TwoIntegers ADD FOREIGN KEY(key) REFERENCES FourIntegers(key1);
@@ -152,7 +152,7 @@ ERROR: Column name DuplicateColumn found more than once in DuplicateColumns [at 
                                                      ^
 ==
 
-[language_features=]
+[language_features=NONE]
 ALTER TABLE TwoIntegers ADD FOREIGN KEY(key) REFERENCES FourIntegers(key1);
 --
 ERROR: FOREIGN KEY is not supported [at 1:25]

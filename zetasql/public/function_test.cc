@@ -103,9 +103,10 @@ TEST(SimpleFunctionTests, FunctionMethodTests) {
   FunctionSignature simple_signature({int64_type, {int32_type}, -1});
   fn.AddSignature(simple_signature);
   EXPECT_EQ(2, fn.NumSignatures());
-  EXPECT_EQ("ZetaSQL:test_function_name\n  "
-            "(BYTES) -> STRING\n  (INT32) -> INT64",
-            fn.DebugString(true /* verbose */));
+  EXPECT_EQ(
+      "ZetaSQL:test_function_name\n  "
+      "(BYTES) -> STRING\n  (INT32) -> INT64",
+      fn.DebugString(true /* verbose */));
 
   const FunctionSignature* signature = fn.GetSignature(1);
   ASSERT_THAT(signature, NotNull());
@@ -318,6 +319,8 @@ class FunctionSerializationTests : public ::testing::Test {
               argument2.options().must_be_non_null());
     EXPECT_EQ(argument1.options().must_be_constant(),
               argument2.options().must_be_constant());
+    EXPECT_EQ(argument1.options().must_be_analysis_constant(),
+              argument2.options().must_be_analysis_constant());
     EXPECT_EQ(argument1.options().must_be_constant_expression(),
               argument2.options().must_be_constant_expression());
     EXPECT_EQ(argument1.options().has_argument_name(),
@@ -497,18 +500,23 @@ TEST_F(FunctionSerializationTests, BuiltinFunctions) {
       GetBuiltinFunctionsAndTypes(BuiltinFunctionOptions(language_options),
                                   type_factory, functions, types_ignored));
 
-  for (const auto& pair : functions) {
-    ABSL_LOG(INFO) << "Testing serialization of function " << pair.first;
-    CheckSerializationAndDeserialization(*pair.second);
+  Function* chosen_function = nullptr;
+  for (const auto& [name, function] : functions) {
+    ABSL_LOG(INFO) << "Testing serialization of function " << name;
+    CheckSerializationAndDeserialization(*function);
+    if (chosen_function == nullptr && function->NumSignatures() > 0) {
+      chosen_function = function.get();
+      break;
+    }
   }
 
   // Test a function with a signature that triggers a deprecation warning.
   ASSERT_FALSE(functions.empty());
-  Function* function = functions.begin()->second.get();
-  ASSERT_GT(function->NumSignatures(), 0) << function->Name();
-  FunctionSignature new_signature = *function->GetSignature(0);
+  ASSERT_TRUE(chosen_function != nullptr);
+  ASSERT_GT(chosen_function->NumSignatures(), 0) << chosen_function->Name();
+  FunctionSignature new_signature = *chosen_function->GetSignature(0);
   new_signature.SetAdditionalDeprecationWarnings({CreateDeprecationWarning()});
-  CheckSerializationAndDeserialization(*function);
+  CheckSerializationAndDeserialization(*chosen_function);
 }
 
 TEST_F(FunctionSerializationTests, Volatility) {

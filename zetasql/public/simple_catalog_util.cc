@@ -19,6 +19,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -283,6 +284,17 @@ absl::Status AddTableFromCreateTable(
   return absl::OkStatus();
 }
 
+static absl::Status SetPrimaryKey(const ResolvedCreateTableStmtBase& stmt,
+                                  SimpleTable* table) {
+  if (stmt.primary_key() == nullptr) {
+    return absl::OkStatus();
+  }
+
+  ZETASQL_RETURN_IF_ERROR(
+      table->SetPrimaryKey(stmt.primary_key()->column_offset_list()));
+  return absl::OkStatus();
+}
+
 absl::StatusOr<std::unique_ptr<SimpleTable>> MakeTableFromCreateTable(
     const ResolvedCreateTableStmtBase& stmt) {
   ZETASQL_RET_CHECK_EQ(stmt.name_path().size(), 1)
@@ -294,6 +306,8 @@ absl::StatusOr<std::unique_ptr<SimpleTable>> MakeTableFromCreateTable(
   }
   auto created_table = std::make_unique<SimpleTable>(
       absl::StrJoin(stmt.name_path(), "."), columns);
+
+  ZETASQL_RETURN_IF_ERROR(SetPrimaryKey(stmt, created_table.get()));
 
   // Give an error if any options were set that weren't handled above.
   ZETASQL_RETURN_IF_ERROR(stmt.CheckFieldsAccessed());
@@ -327,9 +341,9 @@ static absl::Status GetColumnAndNameFromColumnRef(
 
 // Returns a list of column indices in the `table`, given a list of column
 // references.
+template <typename T>
 static absl::StatusOr<std::vector<int>> GetColumnIndices(
-    const Table* table,
-    absl::Span<const std::unique_ptr<const ResolvedExpr>> column_refs) {
+    const Table* table, const std::vector<T>& column_refs) {
   absl::flat_hash_map<const Column*, int> column_to_index_map;
   for (int i = 0; i < table->NumColumns(); ++i) {
     column_to_index_map.emplace(table->GetColumn(i), i);
@@ -404,7 +418,10 @@ static absl::Status AddElementTable(
     const ResolvedExpr* dynamic_label_expr =
         resolved_element_table->dynamic_label()->label_expr();
     ZETASQL_RET_CHECK(dynamic_label_expr->Is<ResolvedColumnRef>());
-    ZETASQL_RET_CHECK(dynamic_label_expr->type()->IsString());
+    ZETASQL_RET_CHECK(
+        dynamic_label_expr->type()->IsString() ||
+        (dynamic_label_expr->type()->IsArray() &&
+         dynamic_label_expr->type()->AsArray()->element_type()->IsString()));
 
     // CAVEAT: If the original label specification in the DDL is a path
     // expression, we only restore the last name in the path as the SQL
@@ -425,7 +442,8 @@ static absl::Status AddElementTable(
         resolved_element_table->alias(), graph.NamePath(), table,
         std::move(key_indices), std::move(labels), std::move(property_defs),
         std::move(element_table_dynamic_label),
-        std::move(element_table_dynamic_properties));
+        std::move(element_table_dynamic_properties)
+    );
     graph.AddNodeTable(std::move(element_table));
     return absl::OkStatus();
   }
@@ -458,7 +476,8 @@ static absl::Status AddElementTable(
         std::move(key_indices), std::move(labels), std::move(property_defs),
         std::move(source_node), std::move(dest_node),
         std::move(element_table_dynamic_label),
-        std::move(element_table_dynamic_properties));
+        std::move(element_table_dynamic_properties)
+    );
     graph.AddEdgeTable(std::move(element_table));
     return absl::OkStatus();
   }

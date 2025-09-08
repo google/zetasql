@@ -973,7 +973,7 @@ FROM Words;
 
 [link-collation-spec]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_spec_details
 
-[link-collation-concepts]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#working_with_collation
+[link-collation-concepts]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md
 
 ## `CONCAT`
 

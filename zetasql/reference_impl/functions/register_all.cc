@@ -16,6 +16,7 @@
 
 #include "zetasql/reference_impl/functions/register_all.h"
 
+#include "zetasql/reference_impl/functions/compression.h"
 #include "zetasql/reference_impl/functions/hash.h"
 #include "zetasql/reference_impl/functions/json.h"
 #include "zetasql/reference_impl/functions/map.h"
@@ -35,6 +36,7 @@ void RegisterAllOptionalBuiltinFunctions() {
   RegisterBuiltinStringWithCollationFunctions();
   RegisterBuiltinRangeFunctions();
   RegisterBuiltinMapFunctions();
+  RegisterBuiltinCompressionFunctions();
 }
 
 }  // namespace zetasql

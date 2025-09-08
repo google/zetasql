@@ -134,7 +134,7 @@ CREATE SOME_TYPE
 # Generic CREATE doesn't work with keywords
 CREATE OPTIONS myProject.myReservation
 --
-ERROR: Syntax error: Expected keyword FUNCTION but got keyword OPTIONS [at 1:8]
+ERROR: Syntax error: Unexpected keyword OPTIONS [at 1:8]
 CREATE OPTIONS myProject.myReservation
        ^
 ==
@@ -357,7 +357,7 @@ ALTER ORGANIZATION SET OPTIONS(a = b)
 # When ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL flag is set generic ALTER
 # statements should parse even without a path expression.
 [supported_generic_entity_types=PROJECT,ORGANIZATION]
-[language_features=ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL]
+[language_features=NONE,+ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL]
 
 ALTER {{PROJECT|ORGANIZATION}} SET OPTIONS (a=b)
 --
@@ -393,7 +393,7 @@ ALTER ORGANIZATION SET OPTIONS(a = b)
 
 # We also need to verify that non-reserved word alter_actions parse correctly.
 [supported_generic_entity_types=PROJECT,ORGANIZATION]
-[language_features=ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL]
+[language_features=NONE,+ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL]
 
 ALTER {{PROJECT|ORGANIZATION}} DROP CONSTRAINT foo
 --
@@ -421,7 +421,7 @@ ALTER ORGANIZATION DROP CONSTRAINT foo
 
 # Ambiguity testing; ADD is the name of the project.
 [supported_generic_entity_types=PROJECT]
-[language_features=ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL]
+[language_features=NONE,+ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL]
 
 ALTER PROJECT ADD DROP CONSTRAINT foo
 --

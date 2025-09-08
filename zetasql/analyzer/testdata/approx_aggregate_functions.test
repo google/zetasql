@@ -1,3 +1,4 @@
+[default language_features=NONE]
 select approx_count_distinct(key), approx_quantiles(key, 100) from KeyValue
 --
 QueryStmt
@@ -49,7 +50,7 @@ QueryStmt
 ==
 
 # A literal ARRAY of groupable elements.
-[language_features={{|GROUP_BY_ARRAY}}]
+[language_features=NONE,{{|+GROUP_BY_ARRAY}}]
 select approx_count_distinct([10]) from TestTable
 --
 ALTERNATION GROUP: <empty>
@@ -58,7 +59,7 @@ ERROR: The argument to APPROX_COUNT_DISTINCT must support grouping; Type ARRAY<I
 select approx_count_distinct([10]) from TestTable
                              ^
 --
-ALTERNATION GROUP: GROUP_BY_ARRAY
+ALTERNATION GROUP: +GROUP_BY_ARRAY
 --
 QueryStmt
 +-output_column_list=
@@ -78,7 +79,7 @@ QueryStmt
 ==
 
 # A non-literal ARRAY of groupable elements.
-[language_features={{|GROUP_BY_ARRAY}}]
+[language_features=NONE,{{|+GROUP_BY_ARRAY}}]
 select approx_count_distinct([string, 'a']) from SimpleTypes
 --
 ALTERNATION GROUP: <empty>
@@ -87,7 +88,7 @@ ERROR: The argument to APPROX_COUNT_DISTINCT must support grouping; Type ARRAY<S
 select approx_count_distinct([string, 'a']) from SimpleTypes
                              ^
 --
-ALTERNATION GROUP: GROUP_BY_ARRAY
+ALTERNATION GROUP: +GROUP_BY_ARRAY
 --
 QueryStmt
 +-output_column_list=
@@ -109,7 +110,7 @@ QueryStmt
 ==
 
 # ARRAY of non-groupable elements.
-[language_features={{|GROUP_BY_ARRAY}}]
+[language_features=NONE,{{|+GROUP_BY_ARRAY}}]
 select approx_count_distinct([KitchenSink]) from TestTable
 --
 ERROR: The argument to APPROX_COUNT_DISTINCT must support grouping; Type ARRAY<zetasql_test__.KitchenSinkPB> does not [at 1:30]
@@ -118,7 +119,7 @@ select approx_count_distinct([KitchenSink]) from TestTable
 ==
 
 # A literal STRUCT with groupable fields.
-[language_features={{|GROUP_BY_STRUCT}}]
+[language_features=NONE,{{|+GROUP_BY_STRUCT}}]
 select approx_count_distinct((1,2)) from TestTable
 --
 ALTERNATION GROUP: <empty>
@@ -127,7 +128,7 @@ ERROR: The argument to APPROX_COUNT_DISTINCT must support grouping; Type STRUCT<
 select approx_count_distinct((1,2)) from TestTable
                              ^
 --
-ALTERNATION GROUP: GROUP_BY_STRUCT
+ALTERNATION GROUP: +GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -147,7 +148,7 @@ QueryStmt
 ==
 
 # A non-literal STRUCT with groupable fields.
-[language_features={{|GROUP_BY_STRUCT}}]
+[language_features=NONE,{{|+GROUP_BY_STRUCT}}]
 select approx_count_distinct((1,string)) from SimpleTypes
 --
 ALTERNATION GROUP: <empty>
@@ -156,7 +157,7 @@ ERROR: The argument to APPROX_COUNT_DISTINCT must support grouping; Type STRUCT<
 select approx_count_distinct((1,string)) from SimpleTypes
                              ^
 --
-ALTERNATION GROUP: GROUP_BY_STRUCT
+ALTERNATION GROUP: +GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -180,7 +181,7 @@ QueryStmt
 ==
 
 # STRUCT with non-groupable fields.
-[language_features={{|GROUP_BY_STRUCT}}]
+[language_features=NONE,{{|+GROUP_BY_STRUCT}}]
 select approx_count_distinct((1,2, KitchenSink)) from TestTable
 --
 ERROR: The argument to APPROX_COUNT_DISTINCT must support grouping; Type STRUCT<INT64, INT64, zetasql_test__.KitchenSinkPB> does not [at 1:30]
@@ -357,10 +358,10 @@ QueryStmt
 ==
 
 # IGNORE NULLS are allowed.
-[language_features={{NULL_HANDLING_MODIFIER_IN_AGGREGATE|}}]
+[language_features=NONE,{{+NULL_HANDLING_MODIFIER_IN_AGGREGATE|}}]
 select approx_quantiles(key, 10 ignore nulls) from KeyValue
 --
-ALTERNATION GROUP: NULL_HANDLING_MODIFIER_IN_AGGREGATE
+ALTERNATION GROUP: +NULL_HANDLING_MODIFIER_IN_AGGREGATE
 --
 QueryStmt
 +-output_column_list=
@@ -388,10 +389,10 @@ select approx_quantiles(key, 10 ignore nulls) from KeyValue
 ==
 
 # RESPECT NULLS are allowed.
-[language_features={{NULL_HANDLING_MODIFIER_IN_AGGREGATE|}}]
+[language_features=NONE,{{+NULL_HANDLING_MODIFIER_IN_AGGREGATE|}}]
 select approx_quantiles(key, 10 respect nulls) from KeyValue
 --
-ALTERNATION GROUP: NULL_HANDLING_MODIFIER_IN_AGGREGATE
+ALTERNATION GROUP: +NULL_HANDLING_MODIFIER_IN_AGGREGATE
 --
 QueryStmt
 +-output_column_list=
@@ -582,7 +583,7 @@ QueryStmt
 ==
 
 # A literal ARRAY with groupable elements
-[language_features={{|GROUP_BY_ARRAY}}]
+[language_features=NONE,{{|+GROUP_BY_ARRAY}}]
 select approx_top_count([1,2], 10) from TestTable
 --
 ALTERNATION GROUP: <empty>
@@ -591,7 +592,7 @@ ERROR: Argument 1 to APPROX_TOP_COUNT must support grouping; Type ARRAY<INT64> d
 select approx_top_count([1,2], 10) from TestTable
                         ^
 --
-ALTERNATION GROUP: GROUP_BY_ARRAY
+ALTERNATION GROUP: +GROUP_BY_ARRAY
 --
 QueryStmt
 +-output_column_list=
@@ -612,7 +613,7 @@ QueryStmt
 ==
 
 # A non-literal ARRAY with groupable elements
-[language_features={{|GROUP_BY_ARRAY}}]
+[language_features=NONE,{{|+GROUP_BY_ARRAY}}]
 select approx_top_count(['a',string], 10) from SimpleTypes
 --
 ALTERNATION GROUP: <empty>
@@ -621,7 +622,7 @@ ERROR: Argument 1 to APPROX_TOP_COUNT must support grouping; Type ARRAY<STRING> 
 select approx_top_count(['a',string], 10) from SimpleTypes
                         ^
 --
-ALTERNATION GROUP: GROUP_BY_ARRAY
+ALTERNATION GROUP: +GROUP_BY_ARRAY
 --
 QueryStmt
 +-output_column_list=
@@ -644,7 +645,7 @@ QueryStmt
 ==
 
 # An ARRAY with non-groupable elements
-[language_features={{|GROUP_BY_ARRAY}}]
+[language_features=NONE,{{|+GROUP_BY_ARRAY}}]
 select approx_top_count([KitchenSink], 10) from TestTable
 --
 ERROR: Argument 1 to APPROX_TOP_COUNT must support grouping; Type ARRAY<zetasql_test__.KitchenSinkPB> does not [at 1:25]
@@ -653,7 +654,7 @@ select approx_top_count([KitchenSink], 10) from TestTable
 ==
 
 # A literal STRUCT with groupable fields
-[language_features={{|GROUP_BY_STRUCT}}]
+[language_features=NONE,{{|+GROUP_BY_STRUCT}}]
 select approx_top_count((1,2), 10) from TestTable
 --
 ALTERNATION GROUP: <empty>
@@ -662,7 +663,7 @@ ERROR: Argument 1 to APPROX_TOP_COUNT must support grouping; Type STRUCT<INT64, 
 select approx_top_count((1,2), 10) from TestTable
                         ^
 --
-ALTERNATION GROUP: GROUP_BY_STRUCT
+ALTERNATION GROUP: +GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -683,7 +684,7 @@ QueryStmt
 ==
 
 # A non-literal STRUCT with groupable fields
-[language_features={{|GROUP_BY_STRUCT}}]
+[language_features=NONE,{{|+GROUP_BY_STRUCT}}]
 select approx_top_count((1,string), 10) from SimpleTypes
 --
 ALTERNATION GROUP: <empty>
@@ -692,7 +693,7 @@ ERROR: Argument 1 to APPROX_TOP_COUNT must support grouping; Type STRUCT<INT64, 
 select approx_top_count((1,string), 10) from SimpleTypes
                         ^
 --
-ALTERNATION GROUP: GROUP_BY_STRUCT
+ALTERNATION GROUP: +GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -717,7 +718,7 @@ QueryStmt
 ==
 
 # A STRUCT with non-groupable fields
-[language_features={{|GROUP_BY_STRUCT}}]
+[language_features=NONE,{{|+GROUP_BY_STRUCT}}]
 select approx_top_count((1,KitchenSink), 10) from TestTable
 --
 ERROR: Argument 1 to APPROX_TOP_COUNT must support grouping; Type STRUCT<INT64, zetasql_test__.KitchenSinkPB> does not [at 1:25]
@@ -864,7 +865,7 @@ select approx_top_sum(KitchenSink, key, 10) from TestTable
 ==
 
 # A literal ARRAY with groupable elements.
-[language_features={{|GROUP_BY_ARRAY}}]
+[language_features=NONE,{{|+GROUP_BY_ARRAY}}]
 select approx_top_sum([1], key, 10) from TestTable
 --
 ALTERNATION GROUP: <empty>
@@ -873,7 +874,7 @@ ERROR: Argument 1 to APPROX_TOP_SUM must support grouping; Type ARRAY<INT64> doe
 select approx_top_sum([1], key, 10) from TestTable
                       ^
 --
-ALTERNATION GROUP: GROUP_BY_ARRAY
+ALTERNATION GROUP: +GROUP_BY_ARRAY
 --
 QueryStmt
 +-output_column_list=
@@ -896,7 +897,7 @@ QueryStmt
 ==
 
 # A non-literal ARRAY with groupable elements.
-[language_features={{|GROUP_BY_ARRAY}}]
+[language_features=NONE,{{|+GROUP_BY_ARRAY}}]
 select approx_top_sum(['a', string], int64, 10) from SimpleTypes
 --
 ALTERNATION GROUP: <empty>
@@ -905,7 +906,7 @@ ERROR: Argument 1 to APPROX_TOP_SUM must support grouping; Type ARRAY<STRING> do
 select approx_top_sum(['a', string], int64, 10) from SimpleTypes
                       ^
 --
-ALTERNATION GROUP: GROUP_BY_ARRAY
+ALTERNATION GROUP: +GROUP_BY_ARRAY
 --
 QueryStmt
 +-output_column_list=
@@ -929,7 +930,7 @@ QueryStmt
 ==
 
 # An ARRAY with non-groupable elements.
-[language_features={{|GROUP_BY_ARRAY}}]
+[language_features=NONE,{{|+GROUP_BY_ARRAY}}]
 select approx_top_sum([KitchenSink], int64, 10) from TestTable
 --
 ERROR: Unrecognized name: int64 [at 1:38]
@@ -938,7 +939,7 @@ select approx_top_sum([KitchenSink], int64, 10) from TestTable
 ==
 
 # A literal STRUCT with groupable fields.
-[language_features={{|GROUP_BY_STRUCT}}]
+[language_features=NONE,{{|+GROUP_BY_STRUCT}}]
 select approx_top_sum((1,2), key, 10) from TestTable
 --
 ALTERNATION GROUP: <empty>
@@ -947,7 +948,7 @@ ERROR: Argument 1 to APPROX_TOP_SUM must support grouping; Type STRUCT<INT64, IN
 select approx_top_sum((1,2), key, 10) from TestTable
                       ^
 --
-ALTERNATION GROUP: GROUP_BY_STRUCT
+ALTERNATION GROUP: +GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -970,7 +971,7 @@ QueryStmt
 ==
 
 # A non-literal STRUCT with groupable fields.
-[language_features={{|GROUP_BY_STRUCT}}]
+[language_features=NONE,{{|+GROUP_BY_STRUCT}}]
 select approx_top_sum((1, string), int64, 10) from SimpleTypes
 --
 ALTERNATION GROUP: <empty>
@@ -979,7 +980,7 @@ ERROR: Argument 1 to APPROX_TOP_SUM must support grouping; Type STRUCT<INT64, ST
 select approx_top_sum((1, string), int64, 10) from SimpleTypes
                       ^
 --
-ALTERNATION GROUP: GROUP_BY_STRUCT
+ALTERNATION GROUP: +GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -1005,7 +1006,7 @@ QueryStmt
 ==
 
 # A STRUCT with non-groupable fields.
-[language_features={{|GROUP_BY_STRUCT}}]
+[language_features=NONE,{{|+GROUP_BY_STRUCT}}]
 select approx_top_sum((1, KitchenSink), key, 10) from TestTable
 --
 ERROR: Argument 1 to APPROX_TOP_SUM must support grouping; Type STRUCT<INT64, zetasql_test__.KitchenSinkPB> does not [at 1:23]
@@ -1407,7 +1408,7 @@ QueryStmt
 ==
 
 [product_mode={{|internal|external}}]
-[language_features=NAMED_ARGUMENTS,KLL_WEIGHTS]
+[language_features=NONE,+NAMED_ARGUMENTS,+KLL_WEIGHTS]
 select kll_quantiles.init_int64(@test_param_int64, 10, weight => NULL ) from SimpleTypes
 --
 QueryStmt
@@ -1459,7 +1460,7 @@ select kll_quantiles.init_uint64(@test_param_uint64) from SimpleTypes
        ^
 ==
 
-[language_features={{|KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 [product_mode={{internal|external}}]
 select kll_quantiles.init_double(@test_param_double) from SimpleTypes
 --
@@ -1483,13 +1484,13 @@ QueryStmt
 --
 ALTERNATION GROUPS:
     external
-    KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+    +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
 --
 ERROR: Function not found: kll_quantiles.init_double [at 1:8]
 select kll_quantiles.init_double(@test_param_double) from SimpleTypes
        ^
 --
-ALTERNATION GROUP: KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+ALTERNATION GROUP: +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
 --
 QueryStmt
 +-output_column_list=
@@ -1508,7 +1509,7 @@ QueryStmt
               +-Parameter(type=DOUBLE, name="test_param_double")
 ==
 
-[language_features={{|KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 [product_mode={{internal|external}}]
 select kll_quantiles.init_float64(@test_param_double) from SimpleTypes
 --
@@ -1521,8 +1522,8 @@ select kll_quantiles.init_float64(@test_param_double) from SimpleTypes
        ^
 --
 ALTERNATION GROUPS:
-    KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
-    KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+    +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+    +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
 --
 QueryStmt
 +-output_column_list=
@@ -1561,7 +1562,7 @@ QueryStmt
               +-Literal(type=INT64, value=100)
 ==
 
-[language_features={{|KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 select kll_quantiles.init_double(@test_param_double, 10000) from SimpleTypes
 --
 ALTERNATION GROUP: <empty>
@@ -1583,7 +1584,7 @@ QueryStmt
               +-Parameter(type=DOUBLE, name="test_param_double")
               +-Literal(type=INT64, value=10000)
 --
-ALTERNATION GROUP: KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+ALTERNATION GROUP: +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
 --
 QueryStmt
 +-output_column_list=
@@ -1603,7 +1604,7 @@ QueryStmt
               +-Literal(type=INT64, value=10000)
 ==
 
-[language_features={{|KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 [product_mode={{internal|external}}]
 select kll_quantiles.init_float64(@test_param_double, 10000) from SimpleTypes
 --
@@ -1616,8 +1617,8 @@ select kll_quantiles.init_float64(@test_param_double, 10000) from SimpleTypes
        ^
 --
 ALTERNATION GROUPS:
-    KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
-    KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+    +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+    +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
 --
 QueryStmt
 +-output_column_list=
@@ -1677,7 +1678,7 @@ QueryStmt
               +-Literal(type=INT64, value=0)
 ==
 
-[language_features={{|KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 select kll_quantiles.init_double(@test_param_double, @test_param_int64)
 from SimpleTypes
 --
@@ -1700,7 +1701,7 @@ QueryStmt
               +-Parameter(type=DOUBLE, name="test_param_double")
               +-Parameter(type=INT64, name="test_param_int64")
 --
-ALTERNATION GROUP: KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+ALTERNATION GROUP: +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
 --
 QueryStmt
 +-output_column_list=
@@ -1741,7 +1742,7 @@ select kll_quantiles.init_int64(@test_param_int64, null) from SimpleTypes
                                                    ^
 ==
 
-[language_features={{|KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 select kll_quantiles.init_double(@test_param_double, null) from SimpleTypes
 --
 ALTERNATION GROUP: <empty>
@@ -1750,14 +1751,14 @@ ERROR: Argument 2 to KLL_QUANTILES.INIT_DOUBLE must be non-NULL [at 1:54]
 select kll_quantiles.init_double(@test_param_double, null) from SimpleTypes
                                                      ^
 --
-ALTERNATION GROUP: KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+ALTERNATION GROUP: +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
 --
 ERROR: Argument 2 to KLL_QUANTILES.INIT_FLOAT64 must be non-NULL [at 1:54]
 select kll_quantiles.init_double(@test_param_double, null) from SimpleTypes
                                                      ^
 ==
 
-[language_features={{|NAMED_ARGUMENTS|NAMED_ARGUMENTS,KLL_WEIGHTS|NAMED_ARGUMENTS,KLL_WEIGHTS,KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+NAMED_ARGUMENTS|+NAMED_ARGUMENTS,+KLL_WEIGHTS|+NAMED_ARGUMENTS,+KLL_WEIGHTS,+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 [product_mode={{internal|external}}]
 select kll_quantiles.init_double(@test_param_double, 100, weight => @test_param_int64 ) from SimpleTypes
 --
@@ -1769,15 +1770,15 @@ ERROR: Named arguments are not supported [at 1:59]
 --
 ALTERNATION GROUPS:
     external
-    NAMED_ARGUMENTS,external
-    NAMED_ARGUMENTS,KLL_WEIGHTS,external
-    NAMED_ARGUMENTS,KLL_WEIGHTS,KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+    +NAMED_ARGUMENTS,external
+    +NAMED_ARGUMENTS,+KLL_WEIGHTS,external
+    +NAMED_ARGUMENTS,+KLL_WEIGHTS,+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
 --
 ERROR: Function not found: kll_quantiles.init_double [at 1:8]
 select kll_quantiles.init_double(@test_param_double, 100, weight => @test_par...
        ^
 --
-ALTERNATION GROUP: NAMED_ARGUMENTS,internal
+ALTERNATION GROUP: +NAMED_ARGUMENTS,internal
 --
 ERROR: No matching signature for aggregate function KLL_QUANTILES.INIT_DOUBLE
   Argument types: DOUBLE, INT64, weight => INT64
@@ -1786,7 +1787,7 @@ ERROR: No matching signature for aggregate function KLL_QUANTILES.INIT_DOUBLE
 select kll_quantiles.init_double(@test_param_double, 100, weight => @test_par...
        ^
 --
-ALTERNATION GROUP: NAMED_ARGUMENTS,KLL_WEIGHTS,internal
+ALTERNATION GROUP: +NAMED_ARGUMENTS,+KLL_WEIGHTS,internal
 --
 QueryStmt
 +-output_column_list=
@@ -1806,7 +1807,7 @@ QueryStmt
               +-Literal(type=INT64, value=100)
               +-Parameter(type=INT64, name="test_param_int64")
 --
-ALTERNATION GROUP: NAMED_ARGUMENTS,KLL_WEIGHTS,KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+ALTERNATION GROUP: +NAMED_ARGUMENTS,+KLL_WEIGHTS,+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
 --
 QueryStmt
 +-output_column_list=
@@ -1827,25 +1828,25 @@ QueryStmt
               +-Parameter(type=INT64, name="test_param_int64")
 ==
 
-[language_features={{|NAMED_ARGUMENTS|NAMED_ARGUMENTS,KLL_WEIGHTS|NAMED_ARGUMENTS,KLL_WEIGHTS,KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+NAMED_ARGUMENTS|+NAMED_ARGUMENTS,+KLL_WEIGHTS|+NAMED_ARGUMENTS,+KLL_WEIGHTS,+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 [product_mode={{internal|external}}]
 select kll_quantiles.init_float64(@test_param_double, 100, weight => @test_param_int64 ) from SimpleTypes
 --
 ALTERNATION GROUPS:
     internal
     external
-    NAMED_ARGUMENTS,internal
-    NAMED_ARGUMENTS,external
-    NAMED_ARGUMENTS,KLL_WEIGHTS,internal
-    NAMED_ARGUMENTS,KLL_WEIGHTS,external
+    +NAMED_ARGUMENTS,internal
+    +NAMED_ARGUMENTS,external
+    +NAMED_ARGUMENTS,+KLL_WEIGHTS,internal
+    +NAMED_ARGUMENTS,+KLL_WEIGHTS,external
 --
 ERROR: Function not found: kll_quantiles.init_float64; Did you mean kll_quantiles.init_int64? [at 1:8]
 select kll_quantiles.init_float64(@test_param_double, 100, weight => @test_pa...
        ^
 --
 ALTERNATION GROUPS:
-    NAMED_ARGUMENTS,KLL_WEIGHTS,KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
-    NAMED_ARGUMENTS,KLL_WEIGHTS,KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+    +NAMED_ARGUMENTS,+KLL_WEIGHTS,+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+    +NAMED_ARGUMENTS,+KLL_WEIGHTS,+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
 --
 QueryStmt
 +-output_column_list=
@@ -2001,7 +2002,7 @@ select kll_quantiles.merge_uint64(@test_param_bytes, 2) from SimpleTypes
        ^
 ==
 
-[language_features={{|KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 [product_mode={{internal|external}}]
 select kll_quantiles.merge_double(@test_param_bytes, 50) from SimpleTypes
 --
@@ -2026,13 +2027,13 @@ QueryStmt
 --
 ALTERNATION GROUPS:
     external
-    KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+    +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
 --
 ERROR: Function not found: kll_quantiles.merge_double [at 1:8]
 select kll_quantiles.merge_double(@test_param_bytes, 50) from SimpleTypes
        ^
 --
-ALTERNATION GROUP: KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+ALTERNATION GROUP: +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
 --
 QueryStmt
 +-output_column_list=
@@ -2052,7 +2053,7 @@ QueryStmt
               +-Literal(type=INT64, value=50)
 ==
 
-[language_features={{|KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 [product_mode={{internal|external}}]
 select kll_quantiles.merge_float64(@test_param_bytes, 50) from SimpleTypes
 --
@@ -2065,8 +2066,8 @@ select kll_quantiles.merge_float64(@test_param_bytes, 50) from SimpleTypes
        ^
 --
 ALTERNATION GROUPS:
-    KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
-    KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+    +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+    +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
 --
 QueryStmt
 +-output_column_list=
@@ -2177,7 +2178,7 @@ select kll_quantiles.extract_uint64(@test_param_bytes, 20) from SimpleTypes
        ^
 ==
 
-[language_features={{|KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 [product_mode={{internal|external}}]
 select kll_quantiles.extract_double(@test_param_bytes, 5) from SimpleTypes
 --
@@ -2199,13 +2200,13 @@ QueryStmt
 --
 ALTERNATION GROUPS:
     external
-    KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+    +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
 --
 ERROR: Function not found: kll_quantiles.extract_double [at 1:8]
 select kll_quantiles.extract_double(@test_param_bytes, 5) from SimpleTypes
        ^
 --
-ALTERNATION GROUP: KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+ALTERNATION GROUP: +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
 --
 QueryStmt
 +-output_column_list=
@@ -2222,7 +2223,7 @@ QueryStmt
       +-TableScan(table=SimpleTypes)
 ==
 
-[language_features={{|KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 [product_mode={{internal|external}}]
 select kll_quantiles.extract_float64(@test_param_bytes, 5) from SimpleTypes
 --
@@ -2235,8 +2236,8 @@ select kll_quantiles.extract_float64(@test_param_bytes, 5) from SimpleTypes
        ^
 --
 ALTERNATION GROUPS:
-    KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
-    KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+    +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+    +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
 --
 QueryStmt
 +-output_column_list=
@@ -2253,7 +2254,7 @@ QueryStmt
       +-TableScan(table=SimpleTypes)
 ==
 
-[language_features={{|KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 select kll_quantiles.extract_double(@test_param_bytes, key) from KeyValue
 --
 ALTERNATION GROUP: <empty>
@@ -2273,7 +2274,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
 --
-ALTERNATION GROUP: KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+ALTERNATION GROUP: +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
 --
 QueryStmt
 +-output_column_list=
@@ -2290,7 +2291,7 @@ QueryStmt
       +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
 ==
 
-[language_features={{|KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 select kll_quantiles.extract_double(@test_param_bytes, 0) from SimpleTypes
 --
 
@@ -2300,14 +2301,14 @@ ERROR: Argument 2 to KLL_QUANTILES.EXTRACT_DOUBLE must be at least 1 [at 1:56]
 select kll_quantiles.extract_double(@test_param_bytes, 0) from SimpleTypes
                                                        ^
 --
-ALTERNATION GROUP: KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+ALTERNATION GROUP: +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
 --
 ERROR: Argument 2 to KLL_QUANTILES.EXTRACT_FLOAT64 must be at least 1 [at 1:56]
 select kll_quantiles.extract_double(@test_param_bytes, 0) from SimpleTypes
                                                        ^
 ==
 
-[language_features={{|KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 select kll_quantiles.extract_double(@test_param_bytes, 1) from SimpleTypes
 --
 
@@ -2327,7 +2328,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(table=SimpleTypes)
 --
-ALTERNATION GROUP: KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+ALTERNATION GROUP: +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
 --
 QueryStmt
 +-output_column_list=
@@ -2351,7 +2352,7 @@ select kll_quantiles.extract_double(@test_param_bytes, NULL) from SimpleTypes
                                                        ^
 ==
 
-[language_features={{|KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 [product_mode={{internal|external}}]
 select kll_quantiles.extract_float64(@test_param_bytes, NULL) from SimpleTypes
 --
@@ -2364,8 +2365,8 @@ select kll_quantiles.extract_float64(@test_param_bytes, NULL) from SimpleTypes
        ^
 --
 ALTERNATION GROUPS:
-    KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
-    KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+    +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+    +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
 --
 ERROR: Argument 2 to KLL_QUANTILES.EXTRACT_FLOAT64 must be non-NULL [at 1:57]
 select kll_quantiles.extract_float64(@test_param_bytes, NULL) from SimpleTypes
@@ -2426,7 +2427,7 @@ select kll_quantiles.merge_point_uint64(@test_param_bytes, 0.5)
        ^
 ==
 
-[language_features={{|KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 [product_mode={{internal|external}}]
 select kll_quantiles.merge_point_double(@test_param_bytes, 1) from SimpleTypes
 --
@@ -2452,13 +2453,13 @@ QueryStmt
 --
 ALTERNATION GROUPS:
     external
-    KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+    +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
 --
 ERROR: Function not found: kll_quantiles.merge_point_double [at 1:8]
 select kll_quantiles.merge_point_double(@test_param_bytes, 1) from SimpleTypes
        ^
 --
-ALTERNATION GROUP: KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+ALTERNATION GROUP: +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
 --
 QueryStmt
 +-output_column_list=
@@ -2478,7 +2479,7 @@ QueryStmt
               +-Literal(type=DOUBLE, value=1)
 ==
 
-[language_features={{|KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 [product_mode={{internal|external}}]
 select kll_quantiles.merge_point_float64(@test_param_bytes, 1) from SimpleTypes
 --
@@ -2492,8 +2493,8 @@ select kll_quantiles.merge_point_float64(@test_param_bytes, 1) from SimpleTypes
        ^
 --
 ALTERNATION GROUPS:
-    KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
-    KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+    +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+    +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
 --
 QueryStmt
 +-output_column_list=
@@ -2593,7 +2594,7 @@ select kll_quantiles.extract_point_uint64(@test_param_bytes, 0.75)
        ^
 ==
 
-[language_features={{|KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 [product_mode={{internal|external}}]
 select kll_quantiles.extract_point_double(@test_param_bytes, 0.995)
 from SimpleTypes
@@ -2620,7 +2621,7 @@ ERROR: Function not found: kll_quantiles.extract_point_double; Did you mean kll_
 select kll_quantiles.extract_point_double(@test_param_bytes, 0.995)
        ^
 --
-ALTERNATION GROUP: KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+ALTERNATION GROUP: +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
 --
 QueryStmt
 +-output_column_list=
@@ -2636,14 +2637,14 @@ QueryStmt
     +-input_scan=
       +-TableScan(table=SimpleTypes)
 --
-ALTERNATION GROUP: KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+ALTERNATION GROUP: +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
 --
 ERROR: Function not found: kll_quantiles.extract_point_double; Did you mean kll_quantiles.extract_point_float64? [at 1:8]
 select kll_quantiles.extract_point_double(@test_param_bytes, 0.995)
        ^
 ==
 
-[language_features={{|KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 select kll_quantiles.extract_point_double(@test_param_bytes, 0.5+0.1) from SimpleTypes
 --
 ALTERNATION GROUP: <empty>
@@ -2664,7 +2665,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(table=SimpleTypes)
 --
-ALTERNATION GROUP: KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+ALTERNATION GROUP: +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
 --
 QueryStmt
 +-output_column_list=
@@ -2683,7 +2684,7 @@ QueryStmt
       +-TableScan(table=SimpleTypes)
 ==
 
-[language_features={{|KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 select kll_quantiles.extract_point_double(@test_param_bytes, key) from KeyValue
 --
 ALTERNATION GROUP: <empty>
@@ -2703,7 +2704,7 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
 --
-ALTERNATION GROUP: KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+ALTERNATION GROUP: +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
 --
 QueryStmt
 +-output_column_list=
@@ -2721,7 +2722,7 @@ QueryStmt
       +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
 ==
 
-[language_features={{|KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 [product_mode={{internal|external}}]
 select kll_quantiles.extract_point_float64(@test_param_bytes, key) from KeyValue
 --
@@ -2734,8 +2735,8 @@ select kll_quantiles.extract_point_float64(@test_param_bytes, key) from KeyValue
        ^
 --
 ALTERNATION GROUPS:
-    KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
-    KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+    +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+    +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
 --
 QueryStmt
 +-output_column_list=
@@ -2753,7 +2754,7 @@ QueryStmt
       +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
 ==
 
-[language_features={{|KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 select kll_quantiles.extract_point_double(@test_param_bytes, 1.1) from SimpleTypes
 --
 
@@ -2763,14 +2764,14 @@ ERROR: Argument 2 to KLL_QUANTILES.EXTRACT_POINT_DOUBLE must be between 0 and 1 
 ...extract_point_double(@test_param_bytes, 1.1) from SimpleTypes
                                            ^
 --
-ALTERNATION GROUP: KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+ALTERNATION GROUP: +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
 --
 ERROR: Argument 2 to KLL_QUANTILES.EXTRACT_POINT_FLOAT64 must be between 0 and 1 [at 1:62]
 ...extract_point_double(@test_param_bytes, 1.1) from SimpleTypes
                                            ^
 ==
 
-[language_features={{|KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[language_features=NONE,{{|+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 select kll_quantiles.extract_point_double(@test_param_bytes, -1) from SimpleTypes
 --
 ALTERNATION GROUP: <empty>
@@ -2779,7 +2780,7 @@ ERROR: Argument 2 to KLL_QUANTILES.EXTRACT_POINT_DOUBLE must be between 0 and 1 
 ...extract_point_double(@test_param_bytes, -1) from SimpleTypes
                                            ^
 --
-ALTERNATION GROUP: KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+ALTERNATION GROUP: +KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
 --
 ERROR: Argument 2 to KLL_QUANTILES.EXTRACT_POINT_FLOAT64 must be between 0 and 1 [at 1:62]
 ...extract_point_double(@test_param_bytes, -1) from SimpleTypes
@@ -2787,13 +2788,13 @@ ERROR: Argument 2 to KLL_QUANTILES.EXTRACT_POINT_FLOAT64 must be between 0 and 1
 ==
 
 # Compare behavior when the feature is enabled vs. not enabled.  Tests
-[language_features={{|NAMED_ARGUMENTS|NAMED_ARGUMENTS,KLL_WEIGHTS}}]
+[language_features=NONE,{{|+NAMED_ARGUMENTS|+NAMED_ARGUMENTS,+KLL_WEIGHTS}}]
 select kll_quantiles.init_uint64(@test_param_uint64)
 from SimpleTypes;
 --
 ALTERNATION GROUPS:
     <empty>
-    NAMED_ARGUMENTS
+    +NAMED_ARGUMENTS
 --
 QueryStmt
 +-output_column_list=
@@ -2811,7 +2812,7 @@ QueryStmt
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_uint64(UINT64, optional(0) INT64) -> BYTES)
               +-Parameter(type=UINT64, name="test_param_uint64")
 --
-ALTERNATION GROUP: NAMED_ARGUMENTS,KLL_WEIGHTS
+ALTERNATION GROUP: +NAMED_ARGUMENTS,+KLL_WEIGHTS
 --
 QueryStmt
 +-output_column_list=
@@ -2832,7 +2833,7 @@ QueryStmt
               +-Literal(type=INT64, value=1)
 ==
 
-[language_features={{|NAMED_ARGUMENTS|NAMED_ARGUMENTS,KLL_WEIGHTS}}]
+[language_features=NONE,{{|+NAMED_ARGUMENTS|+NAMED_ARGUMENTS,+KLL_WEIGHTS}}]
 [product_mode={{|internal|external}}]
 select kll_quantiles.init_uint64(@test_param_uint64, 100)
 from SimpleTypes;
@@ -2840,8 +2841,8 @@ from SimpleTypes;
 ALTERNATION GROUPS:
     <empty>
     internal
-    NAMED_ARGUMENTS,
-    NAMED_ARGUMENTS,internal
+    +NAMED_ARGUMENTS,
+    +NAMED_ARGUMENTS,internal
 --
 QueryStmt
 +-output_column_list=
@@ -2862,16 +2863,16 @@ QueryStmt
 --
 ALTERNATION GROUPS:
     external
-    NAMED_ARGUMENTS,external
-    NAMED_ARGUMENTS,KLL_WEIGHTS,external
+    +NAMED_ARGUMENTS,external
+    +NAMED_ARGUMENTS,+KLL_WEIGHTS,external
 --
 ERROR: Function not found: kll_quantiles.init_uint64; Did you mean kll_quantiles.init_int64? [at 1:8]
 select kll_quantiles.init_uint64(@test_param_uint64, 100)
        ^
 --
 ALTERNATION GROUPS:
-    NAMED_ARGUMENTS,KLL_WEIGHTS,
-    NAMED_ARGUMENTS,KLL_WEIGHTS,internal
+    +NAMED_ARGUMENTS,+KLL_WEIGHTS,
+    +NAMED_ARGUMENTS,+KLL_WEIGHTS,internal
 --
 QueryStmt
 +-output_column_list=
@@ -2894,14 +2895,14 @@ QueryStmt
 
 # The 'weight' argument has a mandatory name, so the query fails when
 # expressing it positionally.
-[language_features={{|NAMED_ARGUMENTS|NAMED_ARGUMENTS,KLL_WEIGHTS}}]
+[language_features=NONE,{{|+NAMED_ARGUMENTS|+NAMED_ARGUMENTS,+KLL_WEIGHTS}}]
 select kll_quantiles.init_uint64(@test_param_uint64, 100,
                                  IF(@test_param_uint64 > 5, 2, 1))
 from SimpleTypes;
 --
 ALTERNATION GROUPS:
     <empty>
-    NAMED_ARGUMENTS
+    +NAMED_ARGUMENTS
 --
 ERROR: No matching signature for aggregate function KLL_QUANTILES.INIT_UINT64
   Argument types: UINT64, INT64, INT64
@@ -2910,7 +2911,7 @@ ERROR: No matching signature for aggregate function KLL_QUANTILES.INIT_UINT64
 select kll_quantiles.init_uint64(@test_param_uint64, 100,
        ^
 --
-ALTERNATION GROUP: NAMED_ARGUMENTS,KLL_WEIGHTS
+ALTERNATION GROUP: +NAMED_ARGUMENTS,+KLL_WEIGHTS
 --
 ERROR: No matching signature for aggregate function KLL_QUANTILES.INIT_UINT64
   Argument types: UINT64, INT64, INT64
@@ -2920,7 +2921,7 @@ select kll_quantiles.init_uint64(@test_param_uint64, 100,
        ^
 ==
 
-[language_features={{|NAMED_ARGUMENTS|NAMED_ARGUMENTS,KLL_WEIGHTS}}]
+[language_features=NONE,{{|+NAMED_ARGUMENTS|+NAMED_ARGUMENTS,+KLL_WEIGHTS}}]
 select kll_quantiles.init_uint64(@test_param_uint64, 100,
                                  weight => IF(@test_param_uint64 > 5, 2, 1))
 from SimpleTypes;
@@ -2931,7 +2932,7 @@ ERROR: Named arguments are not supported [at 2:34]
                                  weight => IF(@test_param_uint64 > 5, 2, 1))
                                  ^
 --
-ALTERNATION GROUP: NAMED_ARGUMENTS
+ALTERNATION GROUP: +NAMED_ARGUMENTS
 --
 ERROR: No matching signature for aggregate function KLL_QUANTILES.INIT_UINT64
   Argument types: UINT64, INT64, weight => INT64
@@ -2940,7 +2941,7 @@ ERROR: No matching signature for aggregate function KLL_QUANTILES.INIT_UINT64
 select kll_quantiles.init_uint64(@test_param_uint64, 100,
        ^
 --
-ALTERNATION GROUP: NAMED_ARGUMENTS,KLL_WEIGHTS
+ALTERNATION GROUP: +NAMED_ARGUMENTS,+KLL_WEIGHTS
 --
 QueryStmt
 +-output_column_list=
@@ -2967,7 +2968,7 @@ QueryStmt
 ==
 
 # The second optional 'precision' argument is omitted.
-[language_features={{|NAMED_ARGUMENTS|NAMED_ARGUMENTS,KLL_WEIGHTS}}]
+[language_features=NONE,{{|+NAMED_ARGUMENTS|+NAMED_ARGUMENTS,+KLL_WEIGHTS}}]
 select kll_quantiles.init_uint64(@test_param_uint64,
                                  weight => IF(@test_param_uint64 > 5, 2, 1))
 from SimpleTypes;
@@ -2978,7 +2979,7 @@ ERROR: Named arguments are not supported [at 2:34]
                                  weight => IF(@test_param_uint64 > 5, 2, 1))
                                  ^
 --
-ALTERNATION GROUP: NAMED_ARGUMENTS
+ALTERNATION GROUP: +NAMED_ARGUMENTS
 --
 ERROR: No matching signature for aggregate function KLL_QUANTILES.INIT_UINT64
   Argument types: UINT64, weight => INT64
@@ -2987,7 +2988,7 @@ ERROR: No matching signature for aggregate function KLL_QUANTILES.INIT_UINT64
 select kll_quantiles.init_uint64(@test_param_uint64,
        ^
 --
-ALTERNATION GROUP: NAMED_ARGUMENTS,KLL_WEIGHTS
+ALTERNATION GROUP: +NAMED_ARGUMENTS,+KLL_WEIGHTS
 --
 QueryStmt
 +-output_column_list=
@@ -3015,7 +3016,7 @@ QueryStmt
 
 # Same as the above, but without the NAMED_ARGUMENTS feature, to ensure we
 # get a reasonable error message.
-[language_features=KLL_WEIGHTS]
+[language_features=NONE,+KLL_WEIGHTS]
 select kll_quantiles.init_uint64(@test_param_uint64,
                                  weight => IF(@test_param_uint64 > 5, 2, 1))
 from SimpleTypes;
@@ -3024,3 +3025,487 @@ ERROR: Named arguments are not supported [at 2:34]
                                  weight => IF(@test_param_uint64 > 5, 2, 1))
                                  ^
 ==
+
+# Test for basic INT64 usage with a named required argument 'value'.
+# The 'rank_type' argument is optional and defaults to 'first'.
+[language_features=NONE,+NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK]
+[product_mode={{internal|external}}]
+select kll_quantiles.merge_relative_rank_int64(
+    @test_param_bytes, value => 2)
+from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_relative_rank_int64(BYTES, INT64 value, optional(1) ENUM<RANK_TYPE> rank_type) -> DOUBLE)
+              +-Parameter(type=BYTES, name="test_param_bytes")
+              +-Literal(type=INT64, value=2)
+              +-Literal(type=ENUM<RANK_TYPE>, value=FRACTION_LESS_THAN)
+==
+
+# Test for the UINT64 version with the optional 'rank_type' argument specified as 'FRACTION_LESS_THAN_OR_EQUAL'.
+[language_features=NONE,+NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK]
+[product_mode={{internal|external}}]
+select kll_quantiles.merge_relative_rank_uint64(
+    @test_param_bytes, value => 2, rank_type => 'FRACTION_LESS_THAN_OR_EQUAL')
+from SimpleTypes
+--
+ALTERNATION GROUP: internal
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_relative_rank_uint64(BYTES, UINT64 value, optional(1) ENUM<RANK_TYPE> rank_type) -> DOUBLE)
+              +-Parameter(type=BYTES, name="test_param_bytes")
+              +-Literal(type=UINT64, value=2)
+              +-Literal(type=ENUM<RANK_TYPE>, value=FRACTION_LESS_THAN_OR_EQUAL)
+--
+ALTERNATION GROUP: external
+--
+ERROR: Function not found: kll_quantiles.merge_relative_rank_uint64; Did you mean kll_quantiles.merge_relative_rank_int64? [at 1:8]
+select kll_quantiles.merge_relative_rank_uint64(
+       ^
+==
+
+# Test for the DOUBLE version with 'rank_type' as MIDPOINT.
+# Also test that the double version is not supported in external mode.
+[language_features=NONE,{{+NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK|+NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK,+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[product_mode={{internal|external}}]
+select kll_quantiles.merge_relative_rank_double(
+    @test_param_bytes, value => 2, rank_type => 'MIDPOINT')
+from SimpleTypes
+--
+ALTERNATION GROUP: +NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK,internal
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_relative_rank_double(BYTES, DOUBLE value, optional(1) ENUM<RANK_TYPE> rank_type) -> DOUBLE)
+              +-Parameter(type=BYTES, name="test_param_bytes")
+              +-Literal(type=DOUBLE, value=2)
+              +-Literal(type=ENUM<RANK_TYPE>, value=MIDPOINT)
+--
+ALTERNATION GROUP: +NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK,external
+--
+ERROR: Function not found: kll_quantiles.merge_relative_rank_double; Did you mean kll_quantiles.merge_relative_rank_int64? [at 1:8]
+select kll_quantiles.merge_relative_rank_double(
+       ^
+--
+ALTERNATION GROUP: +NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK,+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_relative_rank_float64(BYTES, DOUBLE value, optional(1) ENUM<RANK_TYPE> rank_type) -> DOUBLE)
+              +-Parameter(type=BYTES, name="test_param_bytes")
+              +-Literal(type=DOUBLE, value=2)
+              +-Literal(type=ENUM<RANK_TYPE>, value=MIDPOINT)
+--
+ALTERNATION GROUP: +NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK,+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+--
+ERROR: Function not found: kll_quantiles.merge_relative_rank_double; Did you mean kll_quantiles.merge_relative_rank_float64? [at 1:8]
+select kll_quantiles.merge_relative_rank_double(
+       ^
+==
+
+[language_features=NONE,{{+NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK|+NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK,+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+select kll_quantiles.merge_relative_rank_float64(
+    @test_param_bytes, value => 2, rank_type => 'MIDPOINT')
+from SimpleTypes
+--
+ALTERNATION GROUP: +NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK
+--
+ERROR: Function not found: kll_quantiles.merge_relative_rank_float64; Did you mean kll_quantiles.merge_relative_rank_int64? [at 1:8]
+select kll_quantiles.merge_relative_rank_float64(
+       ^
+--
+ALTERNATION GROUP: +NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK,+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_relative_rank_float64(BYTES, DOUBLE value, optional(1) ENUM<RANK_TYPE> rank_type) -> DOUBLE)
+              +-Parameter(type=BYTES, name="test_param_bytes")
+              +-Literal(type=DOUBLE, value=2)
+              +-Literal(type=ENUM<RANK_TYPE>, value=MIDPOINT)
+==
+
+# Test with a NULL 'value' parameter.
+[language_features=NONE,+NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK]
+select kll_quantiles.merge_relative_rank_int64(
+    @test_param_bytes, value => NULL)
+from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_relative_rank_int64(BYTES, INT64 value, optional(1) ENUM<RANK_TYPE> rank_type) -> DOUBLE)
+              +-Parameter(type=BYTES, name="test_param_bytes")
+              +-Literal(type=INT64, value=NULL)
+              +-Literal(type=ENUM<RANK_TYPE>, value=FRACTION_LESS_THAN)
+==
+
+# Test with a NULL 'rank_type'.
+[language_features=NONE,+NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK]
+select kll_quantiles.merge_relative_rank_int64(
+    @test_param_bytes, value => 2, rank_type => NULL)
+from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_relative_rank_int64(BYTES, INT64 value, optional(1) ENUM<RANK_TYPE> rank_type) -> DOUBLE)
+              +-Parameter(type=BYTES, name="test_param_bytes")
+              +-Literal(type=INT64, value=2)
+              +-Literal(type=ENUM<RANK_TYPE>, value=NULL)
+==
+
+# Test with only NULL sketch values as input.
+[language_features=NONE,+NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK]
+select kll_quantiles.merge_relative_rank_int64(
+    NULL, value => 2)
+from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_relative_rank_int64(BYTES, INT64 value, optional(1) ENUM<RANK_TYPE> rank_type) -> DOUBLE)
+              +-Literal(type=BYTES, value=NULL)
+              +-Literal(type=INT64, value=2)
+              +-Literal(type=ENUM<RANK_TYPE>, value=FRACTION_LESS_THAN)
+==
+
+# Error case: Test with an invalid string for 'rank_type'.
+[language_features=NONE,+NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK]
+select kll_quantiles.merge_relative_rank_int64(
+    @test_param_bytes, value => 2, rank_type => SOME_INVALID_RANK_TYPE)
+from SimpleTypes
+--
+ERROR: Unrecognized name: SOME_INVALID_RANK_TYPE [at 2:49]
+    @test_param_bytes, value => 2, rank_type => SOME_INVALID_RANK_TYPE)
+                                                ^
+==
+
+# Error case: Test with the required named argument 'value' missing.
+[language_features=NONE,+NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK]
+select kll_quantiles.merge_relative_rank_int64(
+    @test_param_bytes)
+from SimpleTypes
+--
+ERROR: No matching signature for aggregate function KLL_QUANTILES.MERGE_RELATIVE_RANK_INT64
+  Argument types: BYTES
+  Signature: KLL_QUANTILES.MERGE_RELATIVE_RANK_INT64(BYTES, value => INT64, [rank_type => RANK_TYPE])
+    Signature requires at least 2 arguments, found 1 argument [at 1:8]
+select kll_quantiles.merge_relative_rank_int64(
+       ^
+==
+
+# Test for basic INT64 usage with a named required argument 'value'.
+# The 'rank_type' argument is optional and defaults to 'FRACTION_LESS_THAN'.
+[language_features=NONE,+NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK]
+[product_mode={{internal|external}}]
+select kll_quantiles.extract_relative_rank_int64(
+    @test_param_bytes, value => 2)
+from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_relative_rank_int64(BYTES, INT64 value, optional(1) ENUM<RANK_TYPE> rank_type) -> DOUBLE)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-Literal(type=INT64, value=2)
+    |     +-Literal(type=ENUM<RANK_TYPE>, value=FRACTION_LESS_THAN)
+    +-input_scan=
+      +-TableScan(table=SimpleTypes)
+==
+
+# Test for the UINT64 version with the optional 'rank_type' argument specified as 'FRACTION_LESS_THAN_OR_EQUAL'.
+# Also test that the uint64 version is not supported in external mode.
+[language_features=NONE,+NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK]
+[product_mode={{internal|external}}]
+select kll_quantiles.extract_relative_rank_uint64(
+    @test_param_bytes, value => 2, rank_type => 'FRACTION_LESS_THAN_OR_EQUAL')
+from SimpleTypes
+--
+ALTERNATION GROUP: internal
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_relative_rank_uint64(BYTES, UINT64 value, optional(1) ENUM<RANK_TYPE> rank_type) -> DOUBLE)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-Literal(type=UINT64, value=2)
+    |     +-Literal(type=ENUM<RANK_TYPE>, value=FRACTION_LESS_THAN_OR_EQUAL)
+    +-input_scan=
+      +-TableScan(table=SimpleTypes)
+--
+ALTERNATION GROUP: external
+--
+ERROR: Function not found: kll_quantiles.extract_relative_rank_uint64; Did you mean kll_quantiles.extract_relative_rank_int64? [at 1:8]
+select kll_quantiles.extract_relative_rank_uint64(
+       ^
+==
+
+# Test for the DOUBLE version with 'rank_type' as MIDPOINT.
+# Also test that the double version is not supported in external mode.
+[language_features=NONE,{{+NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK|+NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK,+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[product_mode={{internal|external}}]
+select kll_quantiles.extract_relative_rank_double(
+    @test_param_bytes, value => 2, rank_type => 'MIDPOINT')
+from SimpleTypes
+--
+ALTERNATION GROUP: +NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK,internal
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_relative_rank_double(BYTES, DOUBLE value, optional(1) ENUM<RANK_TYPE> rank_type) -> DOUBLE)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-Literal(type=DOUBLE, value=2)
+    |     +-Literal(type=ENUM<RANK_TYPE>, value=MIDPOINT)
+    +-input_scan=
+      +-TableScan(table=SimpleTypes)
+--
+ALTERNATION GROUP: +NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK,external
+--
+ERROR: Function not found: kll_quantiles.extract_relative_rank_double; Did you mean kll_quantiles.extract_relative_rank_int64? [at 1:8]
+select kll_quantiles.extract_relative_rank_double(
+       ^
+--
+ALTERNATION GROUP: +NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK,+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_relative_rank_float64(BYTES, DOUBLE value, optional(1) ENUM<RANK_TYPE> rank_type) -> DOUBLE)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-Literal(type=DOUBLE, value=2)
+    |     +-Literal(type=ENUM<RANK_TYPE>, value=MIDPOINT)
+    +-input_scan=
+      +-TableScan(table=SimpleTypes)
+--
+ALTERNATION GROUP: +NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK,+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+--
+ERROR: Function not found: kll_quantiles.extract_relative_rank_double; Did you mean kll_quantiles.extract_relative_rank_float64? [at 1:8]
+select kll_quantiles.extract_relative_rank_double(
+       ^
+==
+
+[language_features=NONE,{{+NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK|+NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK,+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+select kll_quantiles.extract_relative_rank_float64(
+    @test_param_bytes, value => 2, rank_type => 'MIDPOINT')
+from SimpleTypes
+--
+ALTERNATION GROUP: +NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK
+--
+ERROR: Function not found: kll_quantiles.extract_relative_rank_float64; Did you mean kll_quantiles.extract_relative_rank_int64? [at 1:8]
+select kll_quantiles.extract_relative_rank_float64(
+       ^
+--
+ALTERNATION GROUP: +NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK,+KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_relative_rank_float64(BYTES, DOUBLE value, optional(1) ENUM<RANK_TYPE> rank_type) -> DOUBLE)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-Literal(type=DOUBLE, value=2)
+    |     +-Literal(type=ENUM<RANK_TYPE>, value=MIDPOINT)
+    +-input_scan=
+      +-TableScan(table=SimpleTypes)
+==
+
+# Test with a NULL 'value' parameter.
+[language_features=NONE,+NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK]
+select kll_quantiles.extract_relative_rank_int64(
+    @test_param_bytes, value => NULL)
+from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_relative_rank_int64(BYTES, INT64 value, optional(1) ENUM<RANK_TYPE> rank_type) -> DOUBLE)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-Literal(type=INT64, value=NULL)
+    |     +-Literal(type=ENUM<RANK_TYPE>, value=FRACTION_LESS_THAN)
+    +-input_scan=
+      +-TableScan(table=SimpleTypes)
+==
+
+# Test with a NULL 'rank_type'.
+[language_features=NONE,+NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK]
+select kll_quantiles.extract_relative_rank_int64(
+    @test_param_bytes, value => 2, rank_type => NULL)
+from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_relative_rank_int64(BYTES, INT64 value, optional(1) ENUM<RANK_TYPE> rank_type) -> DOUBLE)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-Literal(type=INT64, value=2)
+    |     +-Literal(type=ENUM<RANK_TYPE>, value=NULL)
+    +-input_scan=
+      +-TableScan(table=SimpleTypes)
+==
+
+# Test with only NULL sketch values as input.
+[language_features=NONE,+NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK]
+select kll_quantiles.extract_relative_rank_int64(
+    NULL, value => 2)
+from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_relative_rank_int64(BYTES, INT64 value, optional(1) ENUM<RANK_TYPE> rank_type) -> DOUBLE)
+    |     +-Literal(type=BYTES, value=NULL)
+    |     +-Literal(type=INT64, value=2)
+    |     +-Literal(type=ENUM<RANK_TYPE>, value=FRACTION_LESS_THAN)
+    +-input_scan=
+      +-TableScan(table=SimpleTypes)
+==
+
+# Error case: Test with an invalid string for 'rank_type'.
+[language_features=NONE,+NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK]
+select kll_quantiles.extract_relative_rank_int64(
+    @test_param_bytes, value => 2, rank_type => SOME_INVALID_RANK_TYPE)
+from SimpleTypes
+--
+ERROR: Unrecognized name: SOME_INVALID_RANK_TYPE [at 2:49]
+    @test_param_bytes, value => 2, rank_type => SOME_INVALID_RANK_TYPE)
+                                                ^
+==
+
+# Error case: Test with the required named argument 'value' missing.
+[language_features=NONE,+NAMED_ARGUMENTS,+KLL_QUANTILES_EXTRACT_RELATIVE_RANK]
+select kll_quantiles.extract_relative_rank_int64(
+    @test_param_bytes)
+from SimpleTypes
+--
+ERROR: No matching signature for function KLL_QUANTILES.EXTRACT_RELATIVE_RANK_INT64
+  Argument types: BYTES
+  Signature: KLL_QUANTILES.EXTRACT_RELATIVE_RANK_INT64(BYTES, value => INT64, [rank_type => RANK_TYPE])
+    Signature requires at least 2 arguments, found 1 argument [at 1:8]
+select kll_quantiles.extract_relative_rank_int64(
+       ^

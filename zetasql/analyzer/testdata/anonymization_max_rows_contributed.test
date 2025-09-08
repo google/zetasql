@@ -1,5 +1,5 @@
 # max_rows_contributed added to anonymization options
-[default language_features=ANONYMIZATION,ANONYMIZATION_CASE_INSENSITIVE_OPTIONS,DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE,JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+[default language_features=MAXIMUM,+ANONYMIZATION,+ANONYMIZATION_CASE_INSENSITIVE_OPTIONS,+DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED,+TABLESAMPLE,+STRATIFIED_RESERVOIR_TABLESAMPLE,+JSON_TYPE,+JSON_VALUE_EXTRACTION_FUNCTIONS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 
 select with anonymization options(max_rows_contributed = 5)
@@ -335,7 +335,7 @@ Rewrite ERROR: Unsupported aggregation: ANON_COUNT WITH REPORT while using max_r
 ==
 
 # Invalid max_rows_contributed, specified twice
-[language_features=ANONYMIZATION,ANONYMIZATION_CASE_INSENSITIVE_OPTIONS]
+[language_features=NONE,+ANONYMIZATION,+ANONYMIZATION_CASE_INSENSITIVE_OPTIONS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization options(max_rows_contributed = 5, MAX_ROWS_CONTRIBUTED = 5)
 anon_count(*)
@@ -358,7 +358,7 @@ select with anonymization options(max_rows_contributed = 5, max_groups_contri...
 ==
 
 # Invalid max_rows_contributed, because kappa is also specified
-[language_features=ANONYMIZATION,ANONYMIZATION_CASE_INSENSITIVE_OPTIONS]
+[language_features=NONE,+ANONYMIZATION,+ANONYMIZATION_CASE_INSENSITIVE_OPTIONS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization options(MAX_ROWS_CONTRIBUTED = 5, KAPPA = 2)
 anon_count(*)
@@ -370,7 +370,7 @@ select with anonymization options(MAX_ROWS_CONTRIBUTED = 5, KAPPA = 2)
 ==
 
 # Invalid max_rows_contributed, because max_groups_contributed is also specified, with max_rows_contributed = NULL.
-[language_features=ANONYMIZATION,ANONYMIZATION_CASE_INSENSITIVE_OPTIONS]
+[language_features=NONE,+ANONYMIZATION,+ANONYMIZATION_CASE_INSENSITIVE_OPTIONS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization options(max_rows_contributed = NULL, max_groups_contributed = 2)
 anon_count(*)
@@ -382,7 +382,7 @@ select with anonymization options(max_rows_contributed = NULL, max_groups_con...
 ==
 
 # Invalid max_rows_contributed, because max_groups_contributed is also specified, with max_groups_contributed = NULL.
-[language_features=ANONYMIZATION,ANONYMIZATION_CASE_INSENSITIVE_OPTIONS]
+[language_features=NONE,+ANONYMIZATION,+ANONYMIZATION_CASE_INSENSITIVE_OPTIONS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization options(max_rows_contributed = 3, max_groups_contributed = NULL)
 anon_count(*)
@@ -394,7 +394,7 @@ select with anonymization options(max_rows_contributed = 3, max_groups_contri...
 ==
 
 # Invalid max_rows_contributed, because max_groups_contributed is also specified, with both options NULL.
-[language_features=ANONYMIZATION,ANONYMIZATION_CASE_INSENSITIVE_OPTIONS]
+[language_features=NONE,+ANONYMIZATION,+ANONYMIZATION_CASE_INSENSITIVE_OPTIONS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization options(max_rows_contributed = NULL, max_groups_contributed = NULL)
 anon_count(*)
@@ -517,7 +517,7 @@ QueryStmt
 Rewrite ERROR: Option MAX_ROWS_CONTRIBUTED must be an INT64 literal between 1 and 2147483647
 ==
 
-[language_features=ANONYMIZATION]
+[language_features=NONE,+ANONYMIZATION]
 # When the DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED feature is not enabled,
 # using max_rows_contributed is an error.
 select with anonymization options(max_rows_contributed = 5)

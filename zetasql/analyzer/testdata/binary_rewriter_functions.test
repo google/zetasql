@@ -1,6 +1,7 @@
+[default language_features=MAXIMUM]
 [default enabled_ast_rewrites=DEFAULTS]
 
-[language_features=ARRAY_FIND_FUNCTIONS]
+[language_features=NONE,+ARRAY_FIND_FUNCTIONS]
 SELECT ARRAY_OFFSETS([], 'hello')
 
 --
@@ -83,7 +84,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,ARRAY_FIND_FUNCTIONS]
+[language_features=NONE,+SAFE_FUNCTION_CALL,+SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,+ARRAY_FIND_FUNCTIONS]
 [suppress_functions={{|NULLIFERROR|IFERROR}}]
 SELECT SAFE.ARRAY_OFFSETS([], 'hello')
 --
@@ -191,7 +192,7 @@ QueryStmt
 Rewrite ERROR: generic::unimplemented: SAFE mode calls to ARRAY_OFFSETS are not supported.
 ==
 
-[language_features=SAFE_FUNCTION_CALL,SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,ARRAY_FIND_FUNCTIONS]
+[language_features=NONE,+SAFE_FUNCTION_CALL,+SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,+ARRAY_FIND_FUNCTIONS]
 SELECT {{|SAFE.}}ARRAY_FIND_ALL([], 'hello')
 --
 ALTERNATION GROUP: <empty>

@@ -1094,21 +1094,6 @@ TEST(GetProtoFieldDefault, Interval) {
   ASSERT_EQ(default_value.interval_value().ToString(), "0-0 0 0:0:0");
 }
 
-// TODO: b/415132669 - Remove once fully deprecated.
-TEST(GetProtoFieldDefault, TimestampPicosDeprecated) {
-  ProtoWithTimestampPicosField proto;
-  ProtoFieldDefaultOptions options;
-  const google::protobuf::FieldDescriptor* timestamp_picos_field =
-      proto.GetDescriptor()->FindFieldByName("timestamp_picos_value");
-  Value default_value;
-  ZETASQL_ASSERT_OK(GetProtoFieldDefault(options, timestamp_picos_field,
-                                 types::TimestampPicosType(), &default_value));
-  // The default value is the same as the default for Timestamp.
-  ZETASQL_ASSERT_OK_AND_ASSIGN(TimestampPicosValue expected_default_value,
-                       TimestampPicosValue::FromUnixPicos(0));
-  ASSERT_EQ(default_value, Value::TimestampPicos(expected_default_value));
-}
-
 TEST(GetProtoFieldDefault, TokenList) {
   ProtoWithTokenListField proto;
   ProtoFieldDefaultOptions options;

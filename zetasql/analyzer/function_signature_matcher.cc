@@ -328,6 +328,12 @@ class FunctionSignatureMatcher {
   absl::Status DetermineResolvedTypesForTemplatedArguments(
       const ArgKindToInputTypesMap& templated_argument_map,
       ArgKindToResolvedTypeMap* resolved_templated_arguments) const;
+
+  // Unifies `signature_type_kind` (function parameter type) and `type_set`
+  // (passed argument type) to infer the concrete type of the function argument.
+  absl::StatusOr<const Type*> InferTemplatedFunctionArgument(
+      SignatureArgumentKind signature_type_kind,
+      const SignatureArgumentKindTypeSet& type_set) const;
 };
 
 FunctionSignatureMatcher::FunctionSignatureMatcher(
@@ -429,7 +435,7 @@ absl::StatusOr<bool> FunctionSignatureMatcher::GetConcreteArgument(
   }
   if (argument.IsTemplated() && !argument.IsRelation() && !argument.IsModel() &&
       !argument.IsConnection() && !argument.IsLambda() &&
-      !argument.IsSequence()) {
+      !argument.IsSequence() && !argument.IsGraph()) {
     const Type* const* found_type =
         zetasql_base::FindOrNull(templated_argument_map, argument.kind());
     if (found_type == nullptr) {
@@ -454,6 +460,9 @@ absl::StatusOr<bool> FunctionSignatureMatcher::GetConcreteArgument(
   } else if (argument.IsSequence()) {
     *output_argument = std::make_unique<FunctionArgumentType>(
         ARG_TYPE_SEQUENCE, argument.options(), num_occurrences);
+  } else if (argument.IsGraph()) {
+    *output_argument = std::make_unique<FunctionArgumentType>(
+        ARG_TYPE_GRAPH, argument.options(), num_occurrences);
   } else if (argument.IsLambda()) {
     std::vector<FunctionArgumentType> concrete_arg_types;
     for (const FunctionArgumentType& arg_type :
@@ -488,6 +497,9 @@ absl::StatusOr<bool> FunctionSignatureMatcher::GetConcreteArgument(
     *output_argument = std::make_unique<FunctionArgumentType>(
         argument.type(), std::move(options), num_occurrences);
   }
+
+  // Set the original templated kind for the concrete argument.
+  output_argument->get()->set_original_kind(argument.kind());
   return true;
 }
 
@@ -512,6 +524,8 @@ FunctionSignatureMatcher::GetConcreteArguments(
         // For arbitrary type arguments the type is derived from the input.
         resolved_argument_list.emplace_back(input_arguments[i].type(),
                                             signature_argument.options(), 1);
+        resolved_argument_list.back().set_original_kind(
+            signature_argument.kind());
       } else {
         std::unique_ptr<FunctionArgumentType> argument_type;
         // GetConcreteArgument may fail if templated argument's type is not
@@ -619,6 +633,7 @@ FunctionSignatureMatcher::GetConcreteArguments(
       }
       resolved_argument_list.push_back(std::move(*argument_type));
     }
+    resolved_argument_list.back().set_original_kind(signature_argument.kind());
 
     if (sig_arg_index == last_repeated_index) {
       // This is the end of the block of repeated arguments.
@@ -911,11 +926,13 @@ bool FunctionSignatureMatcher::
             arg_type_lambda.body_type(), resolve_lambda_callback,
             templated_argument_map, signature_match_result,
             /*arg_overrides=*/nullptr)) {
-      SET_MISMATCH_ERROR_WITH_INDEX(
-          absl::StrFormat("lambda body type %s is not compatible with other "
-                          "arguments for the templated type %s",
-                          ShortTypeName(resolved_body_type),
-                          UserFacingName(arg_type_lambda.body_type())));
+      if (signature_match_result->mismatch_message().empty()) {
+        SET_MISMATCH_ERROR_WITH_INDEX(
+            absl::StrFormat("lambda body type %s is not compatible with other "
+                            "arguments for the templated type %s",
+                            ShortTypeName(resolved_body_type),
+                            UserFacingName(arg_type_lambda.body_type())));
+      }
       return false;
     }
   }
@@ -1050,6 +1067,12 @@ bool FunctionSignatureMatcher::
   // Compare the input argument to the signature argument. Note that
   // the array types are handled differently because they have the same
   // kind even if the element types are different.
+  if (signature_argument.IsRelation()) {
+    if (signature_argument.optional() && input_argument.is_untyped_null()) {
+      // Allow optional relations to be skipped in the function call.
+      return true;
+    }
+  }
   if (signature_argument.IsRelation() != input_argument.is_relation()) {
     // Relation signature argument types match only relation input arguments.
     // No other signature argument types match relation input arguments.
@@ -1571,15 +1594,11 @@ FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
         // occurs once in 'templated_argument_map'.
         zetasql_base::InsertOrDie(resolved_templated_arguments, kind, range_type);
       } else {
-        // We cannot tell the type from an untyped NULL.
-        if (type_set.kind() == SignatureArgumentKindTypeSet::UNTYPED_NULL) {
-          return absl::InvalidArgumentError(
-              "Unable to determine type of RANGE from untyped NULL argument");
-        }
-        // Resolve ARG_RANGE_TYPE_ANY_1 to TYPE_RANGE
-        zetasql_base::InsertOrDie(
-            resolved_templated_arguments, kind,
-            type_set.typed_arguments().dominant_argument()->type());
+        ZETASQL_RETURN_IF_ERROR(
+            InferTemplatedFunctionArgument(kind, type_set).status());
+        // Unless it's possible to create an unresolved templated RANGE<T> type,
+        // this path should never be reached.
+        ZETASQL_RET_CHECK_FAIL() << "Found unresolved templated RANGE<T> type";
       }
     } else if (kind == ARG_MAP_TYPE_ANY_1_2) {
       const Type* key_type =
@@ -1634,55 +1653,11 @@ FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
       (*resolved_templated_arguments)[kind] = measure_argument_type->type();
 
     } else if (!IsArgKind_ARRAY_ANY_K(kind)) {
-      switch (type_set.kind()) {
-        case SignatureArgumentKindTypeSet::UNTYPED_NULL:
-          if (kind == ARG_PROTO_ANY || kind == ARG_STRUCT_ANY ||
-              kind == ARG_ENUM_ANY) {
-            // For a templated proto, enum, or struct type we do not know what
-            // the actual type is given just a NULL argument, so we cannot match
-            // the signature with all untyped null arguments.
-            return absl::InvalidArgumentError(absl::StrFormat(
-                "Unable to determine type for untyped null for argument kind "
-                "%s",
-                FunctionArgumentType::SignatureArgumentKindToString(kind)));
-          }
-          // Untyped non-array arguments have type INT64. InsertOrDie() is safe
-          // because 'kind' only occurs once in 'templated_argument_map'.
-          zetasql_base::InsertOrDie(resolved_templated_arguments, kind,
-                           types::Int64Type());
-          break;
-        case SignatureArgumentKindTypeSet::UNTYPED_EMPTY_ARRAY:
-          if (kind == ARG_PROTO_ANY || kind == ARG_STRUCT_ANY ||
-              kind == ARG_ENUM_ANY) {
-            // An untyped empty array cannot be matched to a templated proto,
-            // enum, or struct type.
-            return absl::InvalidArgumentError(absl::StrFormat(
-                "Unexpected untyped empty array for argument type %s",
-                FunctionArgumentType::SignatureArgumentKindToString(kind)));
-          }
-          // Untyped array arguments have type ARRAY<INT64>. InsertOrDie() is
-          // safe because 'kind' only occurs once in 'templated_argument_map'.
-          zetasql_base::InsertOrDie(resolved_templated_arguments, kind,
-                           types::Int64ArrayType());
-          break;
-        case SignatureArgumentKindTypeSet::TYPED_ARGUMENTS: {
-          const Type* common_supertype = nullptr;
-          ZETASQL_RETURN_IF_ERROR(coercer_.GetCommonSuperType(
-              type_set.typed_arguments(), &common_supertype));
-          if (common_supertype == nullptr) {
-            return absl::InvalidArgumentError(absl::Substitute(
-                "Unable to find common supertype for templated argument $0\n"
-                "  Input types for $0: $1",
-                FunctionArgumentType::SignatureArgumentKindToString(kind),
-                type_set.typed_arguments().ToString()));
-          }
-          // InsertOrDie() is safe because 'kind' only occurs once in
-          // 'templated_argument_map'.
-          zetasql_base::InsertOrDie(resolved_templated_arguments, kind,
-                           common_supertype);
-          break;
-        }
-      }
+      ZETASQL_ASSIGN_OR_RETURN(const Type* inferred_type,
+                       InferTemplatedFunctionArgument(kind, type_set));
+      // InsertOrDie() is safe because 'kind' only occurs once in
+      // 'templated_argument_map'.
+      zetasql_base::InsertOrDie(resolved_templated_arguments, kind, inferred_type);
     } else {
       // For ARRAY_ANY_K, also consider the ArrayType whose element type is
       // bound to ANY_K.
@@ -1717,6 +1692,55 @@ FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
   }
 
   return absl::OkStatus();
+}
+
+absl::StatusOr<const Type*>
+FunctionSignatureMatcher::InferTemplatedFunctionArgument(
+    SignatureArgumentKind signature_type_kind,
+    const SignatureArgumentKindTypeSet& type_set) const {
+  bool is_templated_type = signature_type_kind == ARG_PROTO_ANY ||
+                           signature_type_kind == ARG_STRUCT_ANY ||
+                           signature_type_kind == ARG_ENUM_ANY ||
+                           signature_type_kind == ARG_RANGE_TYPE_ANY_1;
+  switch (type_set.kind()) {
+    case SignatureArgumentKindTypeSet::UNTYPED_NULL:
+      if (is_templated_type) {
+        // For a templated type we do not know what the actual type is given
+        // just a NULL argument, so we cannot match the signature with all
+        // untyped null arguments.
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "Unable to determine type for untyped null for argument kind "
+            "%s",
+            FunctionArgumentType::SignatureArgumentKindToString(
+                signature_type_kind)));
+      }
+      // Untyped non-array arguments have type INT64.
+      return types::Int64Type();
+    case SignatureArgumentKindTypeSet::UNTYPED_EMPTY_ARRAY:
+      if (is_templated_type) {
+        // An untyped empty array cannot be matched to a templated type.
+        return absl::InvalidArgumentError(absl::StrFormat(
+            "Unexpected untyped empty array for argument type %s",
+            FunctionArgumentType::SignatureArgumentKindToString(
+                signature_type_kind)));
+      }
+      // Untyped array arguments have type ARRAY<INT64>.
+      return types::Int64ArrayType();
+    case SignatureArgumentKindTypeSet::TYPED_ARGUMENTS: {
+      const Type* common_supertype = nullptr;
+      ZETASQL_RETURN_IF_ERROR(coercer_.GetCommonSuperType(type_set.typed_arguments(),
+                                                  &common_supertype));
+      if (common_supertype == nullptr) {
+        return absl::InvalidArgumentError(absl::Substitute(
+            "Unable to find common supertype for templated argument $0\n"
+            "  Input types for $0: $1",
+            FunctionArgumentType::SignatureArgumentKindToString(
+                signature_type_kind),
+            type_set.typed_arguments().ToString()));
+      }
+      return common_supertype;
+    }
+  }
 }
 
 absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
@@ -1853,13 +1877,16 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
       return false;
     }
   }
+  ZETASQL_RET_CHECK_NE(signature.result_type().kind(),
+               __SignatureArgumentKind__switch_must_have_a_default__);
+  result_type->set_original_kind(signature.result_type().kind());
 
   ZETASQL_ASSIGN_OR_RETURN(
       FunctionArgumentTypeList arg_list,
       GetConcreteArguments(input_arguments, signature, repetitions, optionals,
                            resolved_templated_arguments, arg_index_mapping));
   *concrete_result_signature = std::make_unique<FunctionSignature>(
-      std::move(*result_type), arg_list, signature.context_id(),
+      std::move(*result_type), std::move(arg_list), signature.context_id(),
       signature.options());
   // We have a matching concrete signature, so update <signature_match_result>
   // for all arguments as compared to this signature.
@@ -1867,12 +1894,18 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
     if (input_arguments[idx].is_relation() || input_arguments[idx].is_model() ||
         input_arguments[idx].is_connection() ||
         input_arguments[idx].is_lambda() ||
-        input_arguments[idx].is_sequence()) {
+        input_arguments[idx].is_sequence() || input_arguments[idx].is_graph()) {
       // The cost of matching a relation/model/connection-type argument is not
       // currently considered in the SignatureMatchResult.
       continue;
     }
     const Type* input_argument_type = input_arguments[idx].type();
+    const FunctionArgumentType& signature_argument =
+        (*concrete_result_signature)->ConcreteArgument(idx);
+    if (signature_argument.IsRelation() && signature_argument.optional() &&
+        input_arguments[idx].is_untyped_null()) {
+      continue;
+    }
     const Type* signature_argument_type =
         (*concrete_result_signature)->ConcreteArgumentType(idx);
     if (!input_argument_type->Equals(signature_argument_type)) {

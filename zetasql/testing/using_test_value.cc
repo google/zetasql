@@ -133,7 +133,6 @@ using zetasql::values::NullUuid;
 using zetasql::values::NullString;
 using zetasql::values::NullTime;
 using zetasql::values::NullTimestamp;
-using zetasql::values::NullTimestampPicos;
 using zetasql::values::NullUint32;
 using zetasql::values::NullUint64;
 

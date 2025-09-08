@@ -85,7 +85,7 @@ namespace zetasql {
 // TODO: This function currently only supports Status with
 // ErrorLocation, not Status with InternalErrorLocation.  Extend this to
 // support a Status with InternalErrorLocation if/when we need it.
-ErrorSource MakeErrorSource(const absl::Status& status, std::string_view text,
+ErrorSource MakeErrorSource(const absl::Status& status, absl::string_view text,
                             ErrorMessageMode mode);
 
 // Creates a StatusBuilder for ZetaSQL errors using the INVALID_ARGUMENT
@@ -156,7 +156,7 @@ std::optional<::google::protobuf::RepeatedPtrField<ErrorSource>> GetErrorSources
 template <typename ErrorLocationType>
 ErrorLocationType SetErrorSourcesFromStatus(
     const ErrorLocationType& error_location_in, const absl::Status& status,
-    ErrorMessageMode mode, std::string_view input_text_for_status = "") {
+    ErrorMessageMode mode, absl::string_view input_text_for_status = "") {
   if (status.ok()) {
     // An OK status should not have any payload, so just return the
     // InternalErrorLocation.
@@ -246,7 +246,7 @@ inline absl::Status ConvertInternalErrorLocationAndAdjustErrorString(
   if (status.ok()) return status;
 
   const absl::Status new_status =
-      ConvertInternalErrorLocationToExternal(status, input_string);
+      ConvertInternalErrorPayloadsToExternal(status, input_string);
   return MaybeUpdateErrorFromPayload(options, input_string, new_status);
 }
 

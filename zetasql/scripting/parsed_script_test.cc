@@ -58,14 +58,22 @@ class TestInput {
  public:
   explicit TestInput(const zetasql_base::SourceLocation& location,
                      const std::string& sql)
-      : location_(location), sql_(sql), error_(""), owned_names_({}) {}
-  TestInput(const zetasql_base::SourceLocation& location, const std::string& sql,
-            const std::vector<std::string>& named_parameters,
-            const std::string& error = "")
+      : location_(location),
+        sql_(sql),
+        error_(""),
+        owned_names_({}),
+        query_parameters_check_strict_mode_(false) {}
+  explicit TestInput(const zetasql_base::SourceLocation& location,
+                     const std::string& sql,
+                     const std::vector<std::string>& named_parameters,
+                     const std::string& error = "",
+                     bool query_parameters_check_strict_mode = false)
       : location_(location),
         sql_(sql),
         error_(error),
-        owned_names_(named_parameters) {
+        owned_names_(named_parameters),
+        query_parameters_check_strict_mode_(
+            query_parameters_check_strict_mode) {
     ParsedScript::StringSet ids;
     for (const std::string& name : named_parameters) {
       IdString id = IdString::MakeGlobal(name);
@@ -74,16 +82,23 @@ class TestInput {
     parameters_ = ids;
   }
 
-  TestInput(const zetasql_base::SourceLocation& location, const std::string& sql,
-            const std::pair<int64_t, int64_t>& positional_parameters,
-            const std::string& error = "")
+  explicit TestInput(const zetasql_base::SourceLocation& location,
+                     const std::string& sql,
+                     const std::pair<int64_t, int64_t>& positional_parameters,
+                     const std::string& error = "",
+                     bool query_parameters_check_strict_mode = false)
       : location_(location),
         sql_(sql),
         error_(error),
-        parameters_(positional_parameters) {}
+        parameters_(positional_parameters),
+        query_parameters_check_strict_mode_(
+            query_parameters_check_strict_mode) {}
 
   const std::string& sql() const { return sql_; }
   const std::string& error() const { return error_; }
+  bool query_parameters_check_strict_mode() const {
+    return query_parameters_check_strict_mode_;
+  }
 
   bool has_named_parameters() const {
     return std::holds_alternative<ParsedScript::StringSet>(parameters_);
@@ -113,6 +128,7 @@ class TestInput {
   const std::vector<std::string> owned_names_;
   std::variant<ParsedScript::StringSet, std::pair<int64_t, int64_t>>
       parameters_;
+  const bool query_parameters_check_strict_mode_;
 };
 
 TestInput TestInputWithError(const zetasql_base::SourceLocation& location,
@@ -192,10 +208,10 @@ class ScriptValidationTest
       }
     }
 
-    if (names.empty()) {
-      parameters = positionals;
-    } else {
+    if (!names.empty()) {
       parameters = names;
+    } else if (positionals > 0) {
+      parameters = positionals;
     }
 
     ParserOptions options;
@@ -208,8 +224,7 @@ class ScriptValidationTest
     absl::Span<const ASTStatement* const> stmts =
         parsed->script()->statement_list();
     for (int i = 0; i < stmts.size(); i++) {
-      CheckStatement(stmts[i]->GetParseLocationRange(), parsed.get(),
-                     test_case.inputs()[i]);
+      CheckStatement(stmts[i]->location(), parsed.get(), test_case.inputs()[i]);
     }
   }
 
@@ -226,10 +241,10 @@ class ScriptValidationTest
     } else {
       positionals += test_input.positional_parameters().second;
     }
-    if (names.empty()) {
-      parameters = positionals;
-    } else {
+    if (!names.empty()) {
       parameters = names;
+    } else if (positionals > 0) {
+      parameters = positionals;
     }
 
     ParserOptions options;
@@ -241,14 +256,14 @@ class ScriptValidationTest
     std::unique_ptr<ParsedScript> parsed;
     if (status.ok()) {
       parsed = std::move(status_or_parsed.value());
-      status = parsed->CheckQueryParameters(parameters);
+      status = parsed->CheckQueryParameters(
+          parameters, test_input.query_parameters_check_strict_mode());
     }
 
     if (test_input.error().empty()) {
       EXPECT_THAT(status, IsOk());
       if (status.ok()) {
-        CheckStatement(parsed->script()->GetParseLocationRange(), parsed.get(),
-                       test_input);
+        CheckStatement(parsed->script()->location(), parsed.get(), test_input);
       }
     } else {
       EXPECT_THAT(status, StatusIs(_, HasSubstr(test_input.error())));
@@ -584,6 +599,11 @@ std::vector<std::variant<TestCase, TestInput>> GetScripts() {
           END;
       END;
       )"));
+
+  result.push_back(TestInput(zetasql_base::SourceLocation::current(), "SELECT @a, @b;",
+                             std::vector<std::string>(),
+                             "Unknown named query parameter: a",
+                             /*query_parameters_check_strict_mode=*/true));
   return result;
 }
 

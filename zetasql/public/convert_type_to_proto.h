@@ -109,7 +109,24 @@ struct ConvertTypeToProtoOptions {
     bool allow_anonymous_field_name = false;
     bool allow_duplicate_field_names = false;
   };
+
   SqlTableOptions sql_table_options;
+
+  // The supported timestamp formats. For kMicrosInt64, the timestamp value will
+  // be converted to INT64 in TIMESTAMP_MICROS format. For kTimestampPicosProto,
+  // the value will be converted to BYTES with TIMESTAMP_PICOS format.
+  enum class TimestampFormat {
+    kMicrosInt64,
+    kTimestampPicosProto,
+  };
+
+  // Options that only applies to TIMESTAMP type. If not set, the default value
+  // is kMicrosInt64.
+  struct TimestampFormatOptions {
+    TimestampFormat timestamp_format = TimestampFormat::kMicrosInt64;
+  };
+
+  TimestampFormatOptions timestamp_format_options;
 };
 
 // Generate a proto message definition that can be used to store values of

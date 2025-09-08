@@ -1,3 +1,4 @@
+[default language_features=NONE]
 [supported_statement_kinds={{ALTER_TABLE_SET_OPTIONS|ALTER_TABLE|}}]
 alter {{database|schema|table|view|materialized view|approx view|model}} if exists a.b.c.T set options (x = 5, y = abc, z = ("def", 1))
 --

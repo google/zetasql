@@ -83,6 +83,29 @@ absl::Status ValidateGraphElementTablesDynamicLabelAndProperties(
                << "Dynamic properties are not supported";
       }
     }
+
+    // If the feature is not enabled, then we should not allow dynamic label
+    // that holds ARRAY<STRING> expression.
+    if (!language_options.LanguageFeatureEnabled(
+            FEATURE_SQL_GRAPH_DYNAMIC_MULTI_LABEL_NODES)) {
+      if (element_table->HasDynamicLabel() &&
+          element_table->DynamicLabelCardinality() ==
+              GraphElementTable::DynamicLabelCardinality::kMultiple) {
+        return MakeSqlErrorAt(error_location)
+               << "Dynamic label that holds ARRAY<STRING> expression is not "
+                  "supported";
+      }
+    }
+    // Language feature is enabled, then we should check only node tables can
+    // have dynamic label that holds ARRAY<STRING> expression.
+    if (element_table->HasDynamicLabel() &&
+        element_table->DynamicLabelCardinality() ==
+            GraphElementTable::DynamicLabelCardinality::kMultiple &&
+        element_table->kind() != GraphElementTable::Kind::kNode) {
+      return MakeSqlErrorAt(error_location)
+             << "Dynamic label that holds ARRAY<STRING> expression is only "
+                "supported for node tables";
+    }
   }
   return absl::OkStatus();
 }
@@ -140,15 +163,15 @@ absl::StatusOr<LabelSatisfyResult> ElementLabelsSatisfyResolvedGraphLabelExpr(
       if (dynamic_label != nullptr) {
         return LabelSatisfyResult::kUndetermined;
       }
-      // Only one node and edge table is allowed if there is dynamic label
-      // defined in the graph, so if this element table does not have a dynamic
-      // label, no dynamic label is expected in the graph.
+      // If the element table does not have a dynamic label, the resolved label
+      // expression must point to a static label.
+      // This is because there is either only one dynamic element table or
+      // at least one static element tables in the node (or edge) table list of
+      // the same graph.
       ZETASQL_RET_CHECK(label->label() != nullptr)
-          << "Dynamic label not expected if element table has no dynamic "
-             "label defined. ";
-      return element_labels.contains(label->label())
-                 ? LabelSatisfyResult::kTrue
-                 : LabelSatisfyResult::kFalse;
+          << "Must be a static label expression if element table has no "
+             "dynamic label defined";
+      return LabelSatisfyResult::kFalse;
     }
     case RESOLVED_GRAPH_WILD_CARD_LABEL: {
       // Base case: This is the wildcard label % and should return true so long

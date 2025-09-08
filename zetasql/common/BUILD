@@ -158,6 +158,8 @@ cc_library(
     hdrs = ["measure_utils.h"],
     deps = [
         "//zetasql/analyzer:name_scope",
+        "//zetasql/base",
+        "//zetasql/base:arena",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/parser:parse_tree",
@@ -169,6 +171,7 @@ cc_library(
         "//zetasql/resolved_ast:column_factory",
         "//zetasql/resolved_ast:resolved_ast_rewrite_visitor",
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
+        "//zetasql/resolved_ast:rewrite_utils",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
@@ -184,6 +187,7 @@ cc_library(
     hdrs = ["measure_analysis_utils.h"],
     deps = [
         ":internal_analyzer_options",
+        ":internal_value",
         ":measure_utils",
         "//zetasql/base",
         "//zetasql/base:arena",
@@ -195,7 +199,9 @@ cc_library(
         "//zetasql/public:catalog",
         "//zetasql/public:id_string",
         "//zetasql/public:language_options",
+        "//zetasql/public:options_cc_proto",
         "//zetasql/public:simple_catalog",
+        "//zetasql/public:value",
         "//zetasql/public/types",
         "//zetasql/public/types:type",
         "//zetasql/resolved_ast",
@@ -204,7 +210,9 @@ cc_library(
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:string_view",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -313,7 +321,10 @@ cc_library(
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
-    ],
+    ] + select({
+        "//conditions:default": [
+        ],
+    }),
 )
 
 cc_library(
@@ -370,6 +381,7 @@ cc_library(
     deps = [
         ":errors",
         ":parsed_templated_sql_function",
+        ":status_payload_utils",
         ":thread_stack",
         "//zetasql/base",
         "//zetasql/base:map_util",
@@ -379,6 +391,7 @@ cc_library(
         "//zetasql/base:strings",
         "//zetasql/parser",
         "//zetasql/proto:internal_error_location_cc_proto",
+        "//zetasql/proto:internal_fix_suggestion_cc_proto",
         "//zetasql/public:analyzer",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:analyzer_output",
@@ -386,6 +399,7 @@ cc_library(
         "//zetasql/public:constant",
         "//zetasql/public:cycle_detector",
         "//zetasql/public:error_helpers",
+        "//zetasql/public:fix_suggestion_cc_proto",
         "//zetasql/public:function",
         "//zetasql/public:function_cc_proto",
         "//zetasql/public:module_details",
@@ -621,7 +635,6 @@ cc_library(
         ":errors",
         "//zetasql/base",
         "//zetasql/base:check",
-        "//zetasql/base:flat_set",
         "//zetasql/base:map_util",
         "//zetasql/base:no_destructor",
         "//zetasql/base:ret_check",
@@ -649,6 +662,8 @@ cc_library(
         "//zetasql/public/functions:date_time_util",
         "//zetasql/public/functions:datetime_cc_proto",
         "//zetasql/public/functions:differential_privacy_cc_proto",
+        "//zetasql/public/functions:rank_type_cc_proto",
+        "//zetasql/public/functions:regexp",
         "//zetasql/public/functions:string_format",
         "//zetasql/public/functions:unsupported_fields_cc_proto",
         "//zetasql/public/types",
@@ -656,6 +671,7 @@ cc_library(
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/functional:bind_front",
+        "@com_google_absl//absl/log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
@@ -664,6 +680,25 @@ cc_library(
         "@com_google_googleapis//google/type:date_cc_proto",
         "@com_google_googleapis//google/type:timeofday_cc_proto",
         "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_test(
+    name = "builtin_function_internal_test",
+    srcs = ["builtin_function_internal_test.cc"],
+    deps = [
+        ":builtin_function_internal",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:builtin_function_cc_proto",
+        "//zetasql/public:builtin_function_options",
+        "//zetasql/public:function",
+        "//zetasql/public:function_headers",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public:type",
+        "//zetasql/public/types",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -880,7 +915,65 @@ cc_library(
     deps = [
         "//zetasql/base:check",
         "//zetasql/public:function_headers",
+        "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
+    name = "type_visitors",
+    srcs = ["type_visitors.cc"],
+    hdrs = ["type_visitors.h"],
+    deps = [
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public/types",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/types:span",
+    ],
+)
+
+cc_test(
+    name = "type_visitors_test",
+    srcs = ["type_visitors_test.cc"],
+    deps = [
+        ":type_visitors",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/common/testing:proto_matchers",
+        "//zetasql/public/annotation:collation",
+        "//zetasql/public/types",
+        "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings:string_view",
+    ],
+)
+
+cc_library(
+    name = "type_and_argument_kind_visitor",
+    srcs = [
+        "type_and_argument_kind_visitor.cc",
+    ],
+    hdrs = [
+        "type_and_argument_kind_visitor.h",
+    ],
+    deps = [
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/public:function_cc_proto",
+        "//zetasql/public:function_headers",
+        "//zetasql/public/types:type",
+        "@com_google_absl//absl/base:no_destructor",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/types:span",
     ],
 )
 
@@ -1085,4 +1178,28 @@ cc_test(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:string_view",
     ],
+)
+
+cc_library(
+    name = "reflection_helper",
+    srcs = ["reflection_helper.cc"],
+    hdrs = ["reflection_helper.h"],
+    deps = [
+        ":reflection_cc_proto",
+        "//zetasql/public:strings",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/types:span",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+proto_library(
+    name = "reflection_proto",
+    srcs = ["reflection.proto"],
+)
+
+cc_proto_library(
+    name = "reflection_cc_proto",
+    deps = [":reflection_proto"],
 )

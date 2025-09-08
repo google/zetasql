@@ -26,7 +26,9 @@
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
+#include "absl/base/attributes.h"
 #include "absl/base/macros.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
@@ -51,35 +53,82 @@ namespace zetasql {
 //    lifetime of `functions` and `types`.
 // `functions` is used to return built-in function signatures. It must be empty.
 // `types` is used to return built-in named Types. It must be empty.
+// `table_valued_functions` is used to return built-in TVFs. It must be empty.
+absl::Status GetBuiltinFunctionsAndTypes(
+    const BuiltinFunctionOptions& options, TypeFactory& type_factory,
+    absl::flat_hash_map<std::string, std::unique_ptr<Function>>& functions,
+    absl::flat_hash_map<std::string, const Type*>& types,
+    absl::flat_hash_map<std::string, std::unique_ptr<TableValuedFunction>>&
+        table_valued_functions);
+
+ABSL_DEPRECATED(
+    "Use GetBuiltinFunctionsAndTypes which accepts the table_valued_functions "
+    "argument.")
 absl::Status GetBuiltinFunctionsAndTypes(
     const BuiltinFunctionOptions& options, TypeFactory& type_factory,
     absl::flat_hash_map<std::string, std::unique_ptr<Function>>& functions,
     absl::flat_hash_map<std::string, const Type*>& types);
 
+// BuiltinFunctionsAndTypes is container class for returning builtin functions,
+// types and table valued functions. This container is only valid for use with
+// `GetDefaultBuiltinFunctionsAndTypes` or other contexts where the underlying
+// Function, TableValuedFunctions and Type objects are statically allocated, or
+// otherwise guaranteed to have a lifespan which exceeds that of this object.
+class BuiltinFunctionsAndTypes {
+ public:
+  const absl::flat_hash_map<std::string, const Function*>& functions() const {
+    return functions_;
+  }
+  const absl::flat_hash_map<std::string, const Type*>& types() const {
+    return types_;
+  }
+  const absl::flat_hash_map<std::string, const TableValuedFunction*>&
+  table_valued_functions() const {
+    return table_valued_functions_;
+  }
+
+ private:
+  BuiltinFunctionsAndTypes(
+      const absl::flat_hash_map<std::string, const Function*>& functions,
+      const absl::flat_hash_map<std::string, const Type*>& types,
+      const absl::flat_hash_map<std::string, const TableValuedFunction*>&
+          table_valued_functions)
+      : functions_(functions),
+        types_(types),
+        table_valued_functions_(table_valued_functions) {}
+  const absl::flat_hash_map<std::string, const Function*>& functions_;
+  const absl::flat_hash_map<std::string, const Type*>& types_;
+  const absl::flat_hash_map<std::string, const TableValuedFunction*>&
+      table_valued_functions_;
+
+  friend BuiltinFunctionsAndTypes GetDefaultBuiltinFunctionsAndTypes();
+};
+
 // Returns statically allocated collections of all released FunctionSignatures
 // and Types that are part of the ZetaSQL core library, using a reasonable
-// default `LanguageOptions`. This includes Functions and Types that are part of
-// fully-implemented features for ProductMode `PRODUCT_INTERNAL`. In-development
-// features are excluded.
+// default `LanguageOptions`. This includes Functions, Types and
+// TableValuedFunctions that are part of fully-implemented features for
+// ProductMode `PRODUCT_INTERNAL`. In-development features are excluded.
 //
-// Returned `Function*` and `Type*` are statically allocated and have process
-// lifetime.
+// Returned `Function*`, `Type*` and `TableValuedFunction*` are statically
+// allocated and have process lifetime.
 //
 // This API is convenient for tools and utilities that want the full set of
 // possible builtin FunctionSignatures and want to reference a statically
 // allocated collection for efficiency. The likely calling pattern is:
 // ```
-//   auto [kAllBuiltinFunctions, kAllBuiltinTypes] =
-//        zetasql::GetAllBuiltinFunctionsAndTypesStatic();
-// ```
-//
+//   auto kAllBuiltins =
+//        zetasql::GetDefaultBuiltinFunctionsAndTypes();
+//   auto kAllBuiltinFunctions = kAllBuiltins.functions();
+//   auto kAllBuiltinTypes = kAllBuiltins.types();
+//   auto kAllBuiltinTableValuedFunctions =
+//        kAllBuiltins.table_valued_functions();
+//  ```
 // Generally, this is not an appropriate API for populating a Catalog instance
 // for query analysis. For that, use `GetBuiltinFunctionsAndTypes` with an
 // `options` object initialized to complement the `AnalyzerOptions` used
 // for query analysis.
-std::pair<const absl::flat_hash_map<std::string, const Function*>&,
-          const absl::flat_hash_map<std::string, const Type*>&>
-GetBuiltinFunctionsAndTypesForDefaultOptions();
+BuiltinFunctionsAndTypes GetDefaultBuiltinFunctionsAndTypes();
 
 std::string FunctionSignatureIdToName(FunctionSignatureId id);
 

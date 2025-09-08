@@ -1,4 +1,4 @@
-[default language_features=PIPES,PIPE_STATIC_DESCRIBE,ANALYTIC_FUNCTIONS]
+[default language_features=MAXIMUM,+PIPES,+PIPE_STATIC_DESCRIBE,+ANALYTIC_FUNCTIONS]
 select 1 x, 2 y
 |> ORDER BY x, y DESC, x*2
 |> ORDER @{hint=1} BY x
@@ -50,7 +50,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$query.x#1)
 ==
 
-[language_features=PIPES,ORDER_BY_COLLATE,NULLS_FIRST_LAST_IN_ORDER_BY]
+[language_features=NONE,+PIPES,+ORDER_BY_COLLATE,+NULLS_FIRST_LAST_IN_ORDER_BY]
 select "abc" x, 2 y
 |> ORDER BY x COLLATE "abc"
 |> ORDER BY y DESC NULLS LAST
@@ -155,7 +155,7 @@ ERROR: Aggregate function SUM not allowed in pipe ORDER BY clause [at 2:13]
             ^
 ==
 
-[language_features=PIPES{{|,ANALYTIC_FUNCTIONS}}]
+[language_features=NONE,+PIPES{{|,+ANALYTIC_FUNCTIONS}}]
 select 1 x, 2 y
 |> ORDER BY sum(x) OVER ()
 --
@@ -165,7 +165,7 @@ ERROR: Analytic functions not supported [at 2:13]
 |> ORDER BY sum(x) OVER ()
             ^
 --
-ALTERNATION GROUP: ,ANALYTIC_FUNCTIONS
+ALTERNATION GROUP: ,+ANALYTIC_FUNCTIONS
 --
 QueryStmt
 +-output_column_list=
@@ -347,6 +347,8 @@ QueryStmt
     |   |       TestExtraValueTable -> RANGE_VARIABLE<$value>
     |   |     Value table columns:
     |   |       TestExtraValueTable.value#1
+    |   |
+    |   |   Result is ordered.
     |   |   """
     |   +-input_scan=
     |     +-OrderByScan

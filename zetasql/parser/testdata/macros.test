@@ -162,7 +162,7 @@ DEFINE MACRO m1 */
 
 # Disabling the flag disallows '$'
 # Would it be nicer to say "Macros are not supported."?  It would be an easy fix
-[language_features=]
+[language_features=NONE]
 SELECT $1 + $2
 --
 ERROR: Syntax error: Unexpected "$1" [at 1:8]

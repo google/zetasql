@@ -161,6 +161,9 @@ class ExecuteQueryConfig {
   // nullptr is allowed if there is no base catalog.
   void SetBaseCatalog(Catalog* catalog);
 
+  // Version of SetBaseCatalog that takes also ownership of the Catalog.
+  void SetOwnedBaseCatalog(std::unique_ptr<Catalog> catalog);
+
   // The set of builtis functions and types is determined by the LanguageOptions
   // passed in.
   void SetBuiltinsCatalogFromLanguageOptions(
@@ -212,10 +215,22 @@ class ExecuteQueryConfig {
   const std::list<std::string>& macro_sources() const { return macro_sources_; }
   std::list<std::string>& mutable_macro_sources() { return macro_sources_; }
 
-  void AddArtifacts(std::unique_ptr<const ParserOutput> parser_output,
-                    std::unique_ptr<const AnalyzerOutput> analyzer_output) {
+  ExecuteQueryConfig& AddArtifact(
+      std::unique_ptr<const ParserOutput> parser_output) {
     parser_artifacts_.push_back(std::move(parser_output));
+    return *this;
+  }
+
+  ExecuteQueryConfig& AddArtifact(
+      std::unique_ptr<const AnalyzerOutput> analyzer_output) {
     analyzer_artifacts_.push_back(std::move(analyzer_output));
+    return *this;
+  }
+
+  ExecuteQueryConfig& AddArtifact(
+      std::unique_ptr<PreparedStatement> prepared_stmt) {
+    prepared_stmts_.push_back(std::move(prepared_stmt));
+    return *this;
   }
 
  private:
@@ -242,6 +257,7 @@ class ExecuteQueryConfig {
   //                      based on LanguageOptions inferred from config.
   std::unique_ptr<SimpleCatalog> builtins_catalog_;
   Catalog* base_catalog_ = nullptr;  // Not owned, may be nullptr.
+  std::unique_ptr<Catalog> owned_base_catalog_;
   SimpleCatalog wrapper_catalog_;
   std::unique_ptr<MultiCatalog> catalog_;
 
@@ -256,9 +272,18 @@ class ExecuteQueryConfig {
   // std::list, not a vector, because we need stability. The entries in
   // `macro_catalog_` have string_views into these sources.
   std::list<std::string> macro_sources_;
+
   // These are used to keep parsing and analysis artifacts alive.
+  //
+  // - `parser_artifacts_`: Resolved ASTs may store references to parse
+  //   locations stored in a `ParserOutput`.
+  // - `analyzer_artifacts_`: Some DDLs objects, such as `SqlConstant`, store
+  //   references to the resolved asts in an `AnalyzerOutput`.
+  // - `prepared_stmts_`: A multi-stmt can contain DDLs, so the analyzer outputs
+  //   stored in a `PreparedStatement` should stay alive.
   std::vector<std::unique_ptr<const ParserOutput>> parser_artifacts_;
   std::vector<std::unique_ptr<const AnalyzerOutput>> analyzer_artifacts_;
+  std::vector<std::unique_ptr<PreparedStatement>> prepared_stmts_;
 };
 
 absl::Status SetToolModeFromFlags(ExecuteQueryConfig& config);

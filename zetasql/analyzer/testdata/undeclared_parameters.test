@@ -1,3 +1,4 @@
+[default language_features=NONE]
 [default allow_undeclared_parameters]
 SELECT @p;
 --

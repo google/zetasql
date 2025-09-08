@@ -1,4 +1,5 @@
 # Function call argument alias is disallowed for scalar function
+[default language_features=MAXIMUM]
 SELECT concat("Hello" AS str1, " World!" AS str2)
 --
 ERROR: Unexpected function call argument alias found at concat [at 1:23]
@@ -6,7 +7,7 @@ SELECT concat("Hello" AS str1, " World!" AS str2)
                       ^
 ==
 
-[language_features=ARRAY_FIND_FUNCTIONS]
+[language_features=NONE,+ARRAY_FIND_FUNCTIONS]
 SELECT ARRAY_FIND([1, 2] AS arr1, 1)
 --
 ERROR: Unexpected function call argument alias found at ARRAY_FIND [at 1:26]
@@ -40,7 +41,7 @@ SELECT SUM(x AS agg)
              ^
 ==
 
-[language_features=SAFE_FUNCTION_CALL]
+[language_features=NONE,+SAFE_FUNCTION_CALL]
 SELECT SAFE.CONCAT("HELLO", " WORLD" AS str2)
 --
 ERROR: Unexpected function call argument alias found at SAFE.CONCAT [at 1:38]
@@ -57,7 +58,7 @@ SELECT DATE('1999-01-01' AS date_alias);
 ==
 
 # Proto extraction does not allow argument aliases.
-[language_features=EXTRACT_FROM_PROTO]
+[language_features=NONE,+EXTRACT_FROM_PROTO]
 SELECT EXTRACT(FIELD(int32_val AS alias) from KitchenSink)
 from TestTable
 --
@@ -67,7 +68,7 @@ SELECT EXTRACT(FIELD(int32_val AS alias) from KitchenSink)
 ==
 
 # Analytic function that does not support argument aliases.
-[language_features=ANALYTIC_FUNCTIONS]
+[language_features=NONE,+ANALYTIC_FUNCTIONS]
 SELECT COUNT(DISTINCT (int64 + 1) AS int64) OVER ()
 FROM SimpleTypes
 --
@@ -107,7 +108,7 @@ FROM tvf_one_relation_arg_with_fixed_output(
   (SELECT 1 AS A, 2 AS B) AS relation_alias
 )
 --
-ERROR: Syntax error: Expected ")" or "," but got keyword AS [at 3:27]
+ERROR: Syntax error: Expected ")" but got keyword AS [at 3:27]
   (SELECT 1 AS A, 2 AS B) AS relation_alias
                           ^
 ==
@@ -448,7 +449,7 @@ SELECT aggregate_fn_for_argument_alias(key, value AS invalid_alias)
                                                   ^
 ==
 
-[language_features=ANALYTIC_FUNCTIONS]
+[language_features=NONE,+ANALYTIC_FUNCTIONS]
 # Argument aliases on analytic functions: ok to not provide an alias for the
 # aliased argument.
 SELECT analytic_fn_for_argument_alias(key, value) over (ORDER BY key)
@@ -480,7 +481,7 @@ QueryStmt
                   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
 ==
 
-[language_features=ANALYTIC_FUNCTIONS]
+[language_features=NONE,+ANALYTIC_FUNCTIONS]
 # Argument aliases on analytic functions: ok to provide an alias for the aliased
 # argument. Note the argument alias information is not stored in the resolved
 # ast because window functions do not support `generic_argument_list` yet.
@@ -513,7 +514,7 @@ QueryStmt
                   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
 ==
 
-[language_features=ANALYTIC_FUNCTIONS]
+[language_features=NONE,+ANALYTIC_FUNCTIONS]
 # Argument aliases on analytic functions: cannot provide an alias for the
 # non-aliased argument.
 SELECT analytic_fn_for_argument_alias(key, value AS invalid_alias) over (ORDER BY key)

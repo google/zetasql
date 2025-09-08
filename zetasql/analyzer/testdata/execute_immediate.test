@@ -1,3 +1,4 @@
+[default language_features=MAXIMUM]
 EXECUTE IMMEDIATE "SELECT 1";
 --
 ExecuteImmediateStmt

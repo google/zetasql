@@ -246,7 +246,7 @@ class ValidateVariableDeclarationsVisitor
     std::string script_text(parsed_script_->script_text());
     const InternalErrorLocation location = SetErrorSourcesFromStatus(
         MakeInternalErrorLocation(node),
-        ConvertInternalErrorLocationToExternal(
+        ConvertInternalErrorPayloadsToExternal(
             MakeSqlErrorAtPoint(source_location) << source_message,
             script_text),
         parsed_script_->error_message_options().mode, script_text);
@@ -259,7 +259,7 @@ class ValidateVariableDeclarationsVisitor
     std::string script_text(parsed_script_->script_text());
     const InternalErrorLocation location = SetErrorSourcesFromStatus(
         MakeInternalErrorLocation(node),
-        ConvertInternalErrorLocationToExternal(MakeSqlError() << source_message,
+        ConvertInternalErrorPayloadsToExternal(MakeSqlError() << source_message,
                                                script_text),
         parsed_script_->error_message_options().mode, script_text);
     return MakeSqlError().AttachPayload(location) << error_message;
@@ -279,11 +279,9 @@ class ValidateVariableDeclarationsVisitor
       }
     }
     if (!zetasql_base::InsertIfNotPresent(&variables_, id->GetAsIdString(),
-                                 id->GetParseLocationRange().start())) {
+                                 id->location().start())) {
       return MakeVariableDeclarationError(
-          id,
-          absl::StrCat("Variable '", id->GetAsString(),
-                       "' redeclaration"),
+          id, absl::StrCat("Variable '", id->GetAsString(), "' redeclaration"),
           absl::StrCat(id->GetAsString(), " previously declared here"),
           variables_[id->GetAsIdString()]);
     }
@@ -332,12 +330,11 @@ class FindNodeFromPositionVisitor : public NonRecursiveParseTreeVisitor {
     if (match_ != nullptr) {
       return VisitResult::Empty();
     }
-    if (node->IsStatement()
-        || node->node_kind() == AST_ELSEIF_CLAUSE
-        || node->node_kind() == AST_WHEN_THEN_CLAUSE
-        || node->node_kind() == AST_UNTIL_CLAUSE
-        || node->node_kind() == AST_QUERY) {
-      const ParseLocationRange& stmt_range = node->GetParseLocationRange();
+    if (node->IsStatement() || node->node_kind() == AST_ELSEIF_CLAUSE ||
+        node->node_kind() == AST_WHEN_THEN_CLAUSE ||
+        node->node_kind() == AST_UNTIL_CLAUSE ||
+        node->node_kind() == AST_QUERY) {
+      const ParseLocationRange& stmt_range = node->location();
       if (stmt_range.start() == location_) {
         match_ = node;
         return VisitResult::Empty();
@@ -390,33 +387,30 @@ absl::StatusOr<const ASTNode*> ParsedScript::FindScriptNodeFromPosition(
 }
 
 absl::StatusOr<ParsedScript::VariableCreationMap>
-ParsedScript::GetVariablesInScopeAtNode(
-    const ControlFlowNode * node) const {
+ParsedScript::GetVariablesInScopeAtNode(const ControlFlowNode* node) const {
   VariableCreationMap variables;
-  const ASTNode * ast_node = node->ast_node();
+  const ASTNode* ast_node = node->ast_node();
 
   // If ast_node is an on-going FOR...IN loop, add variable to scope.
-  if (ast_node->node_kind() == AST_FOR_IN_STATEMENT
-      && node->kind() == ControlFlowNode::Kind::kForAdvance) {
-    const ASTForInStatement* for_stmt =
-            ast_node->GetAs<ASTForInStatement>();
+  if (ast_node->node_kind() == AST_FOR_IN_STATEMENT &&
+      node->kind() == ControlFlowNode::Kind::kForAdvance) {
+    const ASTForInStatement* for_stmt = ast_node->GetAs<ASTForInStatement>();
     variables.insert_or_assign(for_stmt->variable()->GetAsIdString(), for_stmt);
   }
 
   for (const ASTNode* node_it = ast_node->parent(); node_it != nullptr;
        node_it = node_it->parent()) {
     if (node_it->node_kind() == AST_FOR_IN_STATEMENT) {
-      const ASTForInStatement* for_stmt =
-            node_it->GetAs<ASTForInStatement>();
+      const ASTForInStatement* for_stmt = node_it->GetAs<ASTForInStatement>();
       variables.insert_or_assign(for_stmt->variable()->GetAsIdString(),
                                  for_stmt);
-    } else if (node_it->node_kind() == AST_STATEMENT_LIST
-               && node_it->GetAs<ASTStatementList>()
-                      ->variable_declarations_allowed()) {
+    } else if (node_it->node_kind() == AST_STATEMENT_LIST &&
+               node_it->GetAs<ASTStatementList>()
+                   ->variable_declarations_allowed()) {
       // Add variables declared in variable-creating statements up to, but not
       // including, the current statement.
       for (const ASTStatement* stmt :
-               node_it->GetAs<ASTStatementList>()->statement_list()) {
+           node_it->GetAs<ASTStatementList>()->statement_list()) {
         if (stmt == ast_node) {
           // Skip over DECLARE statements that haven't run yet when
           // <statement> is about to begin.
@@ -549,7 +543,7 @@ absl::Status ParsedScript::PopulateQueryParameters() {
   for (const ASTNode* node : query_parameters) {
     const ASTParameterExpr* query_parameter =
         node->GetAsOrDie<ASTParameterExpr>();
-    const ParseLocationRange& range = query_parameter->GetParseLocationRange();
+    const ParseLocationRange& range = query_parameter->location();
     const ParseLocationPoint& point = range.start();
     if (query_parameter->name() == nullptr) {
       positional_points.insert(point);
@@ -617,16 +611,17 @@ ParsedScript::StringSet ParsedScript::GetAllNamedParameters() const {
 }
 
 absl::Status ParsedScript::CheckQueryParameters(
-    const ParsedScript::QueryParameters& parameters) const {
+    const ParsedScript::QueryParameters& parameters,
+    bool is_strict_mode) const {
   return ConvertInternalErrorLocationAndAdjustErrorString(
       error_message_options_, script_text(),
-      CheckQueryParametersInternal(parameters));
+      CheckQueryParametersInternal(parameters, is_strict_mode));
 }
 
 absl::Status ParsedScript::CheckQueryParametersInternal(
-    const ParsedScript::QueryParameters& parameters) const {
-  // TODO: Remove this check once everywhere else uses parameters.
-  if (!parameters.has_value()) {
+    const ParsedScript::QueryParameters& parameters,
+    bool is_strict_mode) const {
+  if (!is_strict_mode && !parameters.has_value()) {
     return absl::OkStatus();
   }
 

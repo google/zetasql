@@ -19,7 +19,6 @@
 #include <ctype.h>
 
 #include <map>
-#include <memory>
 #include <set>
 #include <string>
 #include <utility>
@@ -31,6 +30,7 @@
 #include "zetasql/public/proto/wire_format_annotation.pb.h"
 #include "zetasql/public/types/measure_type.h"
 #include "zetasql/public/types/type.h"
+#include "zetasql/public/value.pb.h"
 #include "zetasql/base/case.h"
 #include "absl/container/btree_set.h"
 #include "absl/status/status.h"
@@ -41,7 +41,6 @@
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -207,14 +206,16 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
           zetasql::format, FieldFormat::DATE);
       break;
     case TYPE_TIMESTAMP:
-      proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_INT64);
-      proto_field->mutable_options()->SetExtension(
-          zetasql::format, FieldFormat::TIMESTAMP_MICROS);
-      break;
-    case TYPE_TIMESTAMP_PICOS:
-      proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_BYTES);
-      proto_field->mutable_options()->SetExtension(
-          zetasql::format, FieldFormat::TIMESTAMP_PICOS);
+      if (options_.timestamp_format_options.timestamp_format ==
+          ConvertTypeToProtoOptions::TimestampFormat::kTimestampPicosProto) {
+        proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_BYTES);
+        proto_field->mutable_options()->SetExtension(zetasql::format,
+                                                     FieldFormat::TIMESTAMP);
+      } else {
+        proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_INT64);
+        proto_field->mutable_options()->SetExtension(
+            zetasql::format, FieldFormat::TIMESTAMP_MICROS);
+      }
       break;
     case TYPE_TIME:
       proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_INT64);

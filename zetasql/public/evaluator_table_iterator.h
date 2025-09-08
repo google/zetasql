@@ -230,7 +230,7 @@ class ColumnFilter {
   explicit ColumnFilter(absl::Span<const Value> in_list)
       : kind_(kInList), values_(in_list.begin(), in_list.end()) {}
 
-  const Kind kind() const { return kind_; }
+  Kind kind() const { return kind_; }
 
   // Returns the range boundaries of this filter. 'kind()' must be kRange. The
   // lower bound and upper bound are non-NULL and non-NaN and the lower bound is

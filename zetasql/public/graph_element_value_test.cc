@@ -283,6 +283,31 @@ TEST_P(GraphElementValueTest, GetLabels) {
   EXPECT_THAT(element.GetLabels(), ElementsAre("Label1", "label2", "laBel3"));
 }
 
+TEST_P(GraphElementValueTest, GetLabelsMultiDynamicLabels) {
+  const GraphElementType* dynamic_type = MakeDynamicGraphElementType(
+      {"graph_name"}, GetParam(), {{"p0", StringType()}});
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value element,
+      MakeDynamicGraphElementByType(
+          dynamic_type, "id", /*static_properties=*/{},
+          /*dynamic_properties=*/{}, /*static_labels=*/{},
+          /*dynamic_labels=*/{"label3", "label1", "label2"}, "ElementTable"));
+  EXPECT_THAT(element.GetLabels(), ElementsAre("label1", "label2", "label3"));
+}
+
+TEST_P(GraphElementValueTest, GetLabelsMultiDynamicAndStaticLabel) {
+  const GraphElementType* dynamic_type = MakeDynamicGraphElementType(
+      {"graph_name"}, GetParam(), {{"p0", StringType()}});
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value element,
+      MakeDynamicGraphElementByType(
+          dynamic_type, "id", /*static_properties=*/{},
+          /*dynamic_properties=*/{}, /*static_labels=*/{"label1", "label0"},
+          /*dynamic_labels=*/{"label3", "label2"}, "ElementTable"));
+  EXPECT_THAT(element.GetLabels(),
+              ElementsAre("label0", "label1", "label2", "label3"));
+}
+
 TEST_P(GraphElementValueTest,
        DynamicGraphElementInvalidConstructionDifferentPropertyNames) {
   const std::vector<Value::Property> properties = {{"p1", Value::String("v0")}};

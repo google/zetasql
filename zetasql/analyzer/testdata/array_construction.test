@@ -1,3 +1,4 @@
+[default language_features=NONE]
 select 1, [1], ARRAY[1], ARRAY<int64>[1], ARRAY<int32>[1], ARRAY<uint32>[1],
        ARRAY<uint64>[1]
 --
@@ -723,7 +724,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=CIVIL_TIME]
+[language_features=NONE,+CIVIL_TIME]
 select [datetime '2011-01-01 00:00:00', datetime '2011-01-02 00:00:00']
 --
 QueryStmt
@@ -738,7 +739,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=CIVIL_TIME]
+[language_features=NONE,+CIVIL_TIME]
 select [time '12:01:59', time '1:00:00']
 --
 QueryStmt
@@ -767,7 +768,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 select [numeric '0', numeric '1']
 --
 QueryStmt

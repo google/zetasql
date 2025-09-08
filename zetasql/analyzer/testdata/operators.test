@@ -1,4 +1,4 @@
-[default language_features=IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
+[default language_features=NONE,+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
 select 1 from SimpleTypes
 where int32 = 5
    or int64 = 6
@@ -180,7 +180,7 @@ select KitchenSink = KitchenSink from ComplexTypes;
        ^
 ==
 
-[language_features={{|TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS}}]
+[language_features=NONE,{{|+TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS}}]
 select NULL = KitchenSink from ComplexTypes;
 --
 ERROR: Equality is not defined for arguments of type PROTO<zetasql_test__.KitchenSinkPB> [at 1:8]
@@ -188,7 +188,7 @@ select NULL = KitchenSink from ComplexTypes;
        ^
 ==
 
-[language_features={{|ARRAY_EQUALITY}}]
+[language_features=NONE,{{|+ARRAY_EQUALITY}}]
 select Int32Array = Int32Array from ComplexTypes;
 --
 ALTERNATION GROUP: <empty>
@@ -197,7 +197,7 @@ ERROR: Equality is not defined for arguments of type ARRAY<INT32> [at 1:8]
 select Int32Array = Int32Array from ComplexTypes;
        ^
 --
-ALTERNATION GROUP: ARRAY_EQUALITY
+ALTERNATION GROUP: +ARRAY_EQUALITY
 --
 QueryStmt
 +-output_column_list=
@@ -214,7 +214,7 @@ QueryStmt
       +-TableScan(column_list=[ComplexTypes.Int32Array#4], table=ComplexTypes, column_index_list=[3])
 ==
 
-[language_features={{|ARRAY_ORDERING}}]
+[language_features=NONE,{{|+ARRAY_ORDERING}}]
 select Int32Array < Int32Array from ComplexTypes;
 --
 ALTERNATION GROUP: <empty>
@@ -223,7 +223,7 @@ ERROR: Less than is not defined for arguments of type ARRAY<INT32> [at 1:8]
 select Int32Array < Int32Array from ComplexTypes;
        ^
 --
-ALTERNATION GROUP: ARRAY_ORDERING
+ALTERNATION GROUP: +ARRAY_ORDERING
 --
 QueryStmt
 +-output_column_list=
@@ -240,7 +240,7 @@ QueryStmt
       +-TableScan(column_list=[ComplexTypes.Int32Array#4], table=ComplexTypes, column_index_list=[3])
 ==
 
-[language_features={{|ARRAY_ORDERING}}]
+[language_features=NONE,{{|+ARRAY_ORDERING}}]
 select Int32Array <= Int32Array from ComplexTypes;
 --
 ALTERNATION GROUP: <empty>
@@ -249,7 +249,7 @@ ERROR: Less than is not defined for arguments of type ARRAY<INT32> [at 1:8]
 select Int32Array <= Int32Array from ComplexTypes;
        ^
 --
-ALTERNATION GROUP: ARRAY_ORDERING
+ALTERNATION GROUP: +ARRAY_ORDERING
 --
 QueryStmt
 +-output_column_list=
@@ -266,7 +266,7 @@ QueryStmt
       +-TableScan(column_list=[ComplexTypes.Int32Array#4], table=ComplexTypes, column_index_list=[3])
 ==
 
-[language_features={{|ARRAY_ORDERING}}]
+[language_features=NONE,{{|+ARRAY_ORDERING}}]
 select Int32Array > Int32Array from ComplexTypes;
 --
 ALTERNATION GROUP: <empty>
@@ -275,7 +275,7 @@ ERROR: Greater than is not defined for arguments of type ARRAY<INT32> [at 1:8]
 select Int32Array > Int32Array from ComplexTypes;
        ^
 --
-ALTERNATION GROUP: ARRAY_ORDERING
+ALTERNATION GROUP: +ARRAY_ORDERING
 --
 QueryStmt
 +-output_column_list=
@@ -292,7 +292,7 @@ QueryStmt
       +-TableScan(column_list=[ComplexTypes.Int32Array#4], table=ComplexTypes, column_index_list=[3])
 ==
 
-[language_features={{|ARRAY_ORDERING}}]
+[language_features=NONE,{{|+ARRAY_ORDERING}}]
 select Int32Array >= Int32Array from ComplexTypes;
 --
 ALTERNATION GROUP: <empty>
@@ -301,7 +301,7 @@ ERROR: Greater than is not defined for arguments of type ARRAY<INT32> [at 1:8]
 select Int32Array >= Int32Array from ComplexTypes;
        ^
 --
-ALTERNATION GROUP: ARRAY_ORDERING
+ALTERNATION GROUP: +ARRAY_ORDERING
 --
 QueryStmt
 +-output_column_list=
@@ -319,7 +319,7 @@ QueryStmt
 ==
 
 # Arrays of uncomparable elements are uncomparable.
-[language_features={{|ARRAY_ORDERING}}]
+[language_features=NONE,{{|+ARRAY_ORDERING}}]
 select [KitchenSink] > [KitchenSink] from ComplexTypes
 --
 ERROR: Greater than is not defined for arguments of type ARRAY<PROTO<zetasql_test__.KitchenSinkPB>> [at 1:8]
@@ -335,7 +335,7 @@ select (KitchenSink, 0) = (KitchenSink, 0) from ComplexTypes
        ^
 ==
 
-[language_features={{|ARRAY_EQUALITY}}]
+[language_features=NONE,{{|+ARRAY_EQUALITY}}]
 select (Int32Array, 0) = (Int32Array, 0) from ComplexTypes
 --
 ALTERNATION GROUP: <empty>
@@ -344,7 +344,7 @@ ERROR: Equality is not defined for arguments of type STRUCT<ARRAY<INT32>, INT64>
 select (Int32Array, 0) = (Int32Array, 0) from ComplexTypes
        ^
 --
-ALTERNATION GROUP: ARRAY_EQUALITY
+ALTERNATION GROUP: +ARRAY_EQUALITY
 --
 QueryStmt
 +-output_column_list=
@@ -498,7 +498,7 @@ select KitchenSink <> KitchenSink from ComplexTypes;
        ^
 ==
 
-[language_features={{|ARRAY_EQUALITY}}]
+[language_features=NONE,{{|+ARRAY_EQUALITY}}]
 select Int32Array != Int32Array from ComplexTypes;
 --
 ALTERNATION GROUP: <empty>
@@ -507,7 +507,7 @@ ERROR: Inequality is not defined for arguments of type ARRAY<INT32> [at 1:8]
 select Int32Array != Int32Array from ComplexTypes;
        ^
 --
-ALTERNATION GROUP: ARRAY_EQUALITY
+ALTERNATION GROUP: +ARRAY_EQUALITY
 --
 QueryStmt
 +-output_column_list=
@@ -2868,7 +2868,7 @@ SELECT 1 IS  DISTINCT FROM 2;
 ==
 
 # IS DISTINCT FROM - simple example
-[language_features=IS_DISTINCT]
+[language_features=NONE,+IS_DISTINCT]
 [show_sqlbuilder_output]
 SELECT 1 IS {{NOT|}} DISTINCT FROM 2;
 --
@@ -2926,7 +2926,7 @@ SELECT
 ==
 
 # IS DISTINCT FROM - mismatched types
-[language_features=IS_DISTINCT]
+[language_features=NONE,+IS_DISTINCT]
 SELECT 'test' IS {{NOT|}} DISTINCT FROM 2;
 --
 ALTERNATION GROUP: NOT
@@ -2959,7 +2959,7 @@ SELECT 'test' IS  DISTINCT FROM 2;
 ==
 
 # IS DISTINCT FROM - NULL coercion of rhs
-[language_features=IS_DISTINCT]
+[language_features=NONE,+IS_DISTINCT]
 SELECT 'test' IS DISTINCT FROM NULL;
 --
 QueryStmt
@@ -2978,7 +2978,7 @@ QueryStmt
 ==
 
 # IS DISTINCT FROM - NULL coercion of lhs
-[language_features=IS_DISTINCT]
+[language_features=NONE,+IS_DISTINCT]
 SELECT NULL IS DISTINCT FROM 'test';
 --
 QueryStmt
@@ -2997,7 +2997,7 @@ QueryStmt
 ==
 
 # IS DISTINCT FROM - TIMESTAMP coercion
-[language_features=IS_DISTINCT]
+[language_features=NONE,+IS_DISTINCT]
 SELECT CURRENT_TIMESTAMP() IS DISTINCT FROM '2020-01-03';
 --
 QueryStmt
@@ -3016,7 +3016,7 @@ QueryStmt
 ==
 
 # IS DISTINCT FROM - INT64/FLOAT64 coercion
-[language_features=IS_DISTINCT]
+[language_features=NONE,+IS_DISTINCT]
 SELECT 2.3 + 1 IS DISTINCT FROM 12345;
 --
 QueryStmt
@@ -3037,7 +3037,7 @@ QueryStmt
 ==
 
 # IS DISTINCT FROM - INT64/UINT64 signature
-[language_features=IS_DISTINCT]
+[language_features=NONE,+IS_DISTINCT]
 SELECT 12345 * 2 IS DISTINCT FROM CAST(10000 AS UINT64);
 --
 QueryStmt
@@ -3058,7 +3058,7 @@ QueryStmt
 ==
 
 # IS DISTINCT FROM - UINT64/INT64 signature
-[language_features=IS_DISTINCT]
+[language_features=NONE,+IS_DISTINCT]
 SELECT CAST(10000 AS UINT64) IS DISTINCT FROM 12345 * 2;
 --
 QueryStmt
@@ -3079,7 +3079,7 @@ QueryStmt
 ==
 
 # IS DISTINCT FROM - enum->int64 coercion.
-[language_features=IS_DISTINCT]
+[language_features=NONE,+IS_DISTINCT]
 SELECT
   CAST('TESTENUM0' AS `zetasql_test__.TestEnum`)
   IS DISTINCT FROM
@@ -3101,7 +3101,7 @@ QueryStmt
 ==
 
 # IS DISTINCT FROM - type which doesn't support equality
-[language_features=IS_DISTINCT,GEOGRAPHY]
+[language_features=NONE,+IS_DISTINCT,+GEOGRAPHY]
 SELECT geo1 IS DISTINCT FROM geo2 FROM GeographyTable;
 --
 ERROR: Grouping is not defined for arguments of type GEOGRAPHY [at 1:8]
@@ -3110,7 +3110,7 @@ SELECT geo1 IS DISTINCT FROM geo2 FROM GeographyTable;
 ==
 
 # IS DISTINCT FROM - type supports equality, but is not groupable.
-[language_features=IS_DISTINCT,ARRAY_EQUALITY]
+[language_features=NONE,+IS_DISTINCT,+ARRAY_EQUALITY]
 SELECT [1, 2, 3] IS DISTINCT FROM [4, 5, 6];
 --
 ERROR: Grouping is not defined for arguments of type ARRAY<INT64> [at 1:8]
@@ -3119,7 +3119,7 @@ SELECT [1, 2, 3] IS DISTINCT FROM [4, 5, 6];
 ==
 
 # IS DISTINCT FROM - FLOAT64 NaN/Inf values
-[language_features=IS_DISTINCT]
+[language_features=NONE,+IS_DISTINCT]
 SELECT IEEE_DIVIDE(1,0) IS DISTINCT FROM IEEE_DIVIDE(0,0);
 --
 QueryStmt
@@ -3141,7 +3141,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=IS_DISTINCT]
+[language_features=NONE,+IS_DISTINCT]
 [show_sqlbuilder_output]
 SELECT (1 IS DISTINCT FROM 2) IS TRUE;
 --

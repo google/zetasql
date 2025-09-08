@@ -16,6 +16,8 @@
 
 #include "zetasql/public/language_options.h"
 
+#include <cstddef>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -26,6 +28,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "re2/re2.h"
@@ -112,8 +115,10 @@ TEST(LanguageOptions, GetLanguageFeaturesForVersion) {
   // FEATURE_V_a_b where (a,b) <= (x,y).
   for (const LanguageVersion version :
        GetEnumValues<LanguageVersion>(LanguageVersion_descriptor())) {
-    if (version == VERSION_CURRENT) continue;
-    if (version == __LanguageVersion__switch_must_have_a_default__) continue;
+    if (version == LANGUAGE_VERSION_UNSPECIFIED || version == VERSION_CURRENT ||
+        version == __LanguageVersion__switch_must_have_a_default__) {
+      continue;
+    }
 
     const std::string version_name = LanguageVersion_Name(version);
     EXPECT_EQ("VERSION_", version_name.substr(0, 8));
@@ -200,6 +205,7 @@ TEST(LanguageOptions, LanguageFeaturesVersionTagRangeIntegrity) {
 
   int num_versions = LanguageVersion_descriptor()->value_count();
   num_versions--;  // VERSION_CURRENT
+  num_versions--;  // LANGUAGE_VERSION_UNSPECIFIED
   num_versions--;  // Do not use this in a switch
   EXPECT_EQ(num_versions, known_versions.size())
       << "Did you add a version and forget to update language_options_test?";
@@ -307,7 +313,7 @@ TEST(LanguageOptions, LanguageFeaturesVersionTagRangeIntegrity) {
         // Tag 14100 was the highest one with version number in the name when
         // we stopped putting versions in names.
         EXPECT_LE(tag_number, 14100)
-            << "Newly added LangaugeFeature enum " << next_name << " with tag "
+            << "Newly added LanguageFeature enum " << next_name << " with tag "
             << tag_number << " should not have a versioned alias";
 
         // Skip over the alias enum entry since it's already checked.
@@ -593,6 +599,28 @@ TEST(LanguageOptions, EnableMaximumFeaturesDoesNotReserveGraphTable) {
   options.EnableMaximumLanguageFeatures();
   EXPECT_TRUE(options.IsReservedKeyword("QUALIFY"));
   EXPECT_FALSE(options.IsReservedKeyword("GRAPH_TABLE"));
+}
+
+TEST(LanguageOptions, LanguageFeatureVersion) {
+  EXPECT_EQ(LanguageFeatureVersion(FEATURE_TABLESAMPLE),
+            LANGUAGE_VERSION_UNSPECIFIED);
+  EXPECT_EQ(LanguageFeatureVersion(FEATURE_ORDER_BY_COLLATE), VERSION_1_1);
+  EXPECT_EQ(LanguageFeatureVersion(FEATURE_CIVIL_TIME), VERSION_1_2);
+  EXPECT_EQ(LanguageFeatureVersion(FEATURE_INLINE_LAMBDA_ARGUMENT),
+            VERSION_1_3);
+}
+
+TEST(LanguageOptions, LanguageFeatureDefaultValueTest) {
+  LanguageFeatureOptions proto;
+  auto features_from_proto_default =
+      LanguageOptions::GetLanguageFeaturesForVersion(proto.language_version());
+  auto features_from_current =
+      LanguageOptions::GetLanguageFeaturesForVersion(VERSION_CURRENT);
+  EXPECT_EQ(features_from_proto_default, features_from_current);
+  auto features_from_unspecified =
+      LanguageOptions::GetLanguageFeaturesForVersion(
+          LANGUAGE_VERSION_UNSPECIFIED);
+  EXPECT_EQ(features_from_proto_default, features_from_unspecified);
 }
 
 }  // namespace zetasql

@@ -41,7 +41,7 @@ ABSL_MUST_USE_RESULT bool ThreadHasEnoughStack();
 // Prints the top frames in the stack along with the amount of space
 // each one takes, to help debug stack overflow issues.
 // Attempts to not call new or malloc.
-void LogStackExhaustion(std::string_view msg);
+void LogStackExhaustion(absl::string_view msg);
 
 // This macro creates the status only once so we don't have to call malloc
 // when we are short of stack. Therefore the msg must be a string literal

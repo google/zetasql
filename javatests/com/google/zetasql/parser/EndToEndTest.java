@@ -261,7 +261,8 @@ public class EndToEndTest {
 
     // Validate limit
     ASTLimitOffset limitOffset = query.getLimitOffset();
-    assertThat(assertAndCast(ASTIntLiteral.class, limitOffset.getLimit()).getImage())
+    assertThat(
+            assertAndCast(ASTIntLiteral.class, limitOffset.getLimit().getExpression()).getImage())
         .isEqualTo("100");
 
     String expectedToString =
@@ -472,7 +473,9 @@ public class EndToEndTest {
             + "    +-limit_offset=\n"
             + "    | +-LimitOffset\n"
             + "    |   +-limit=\n"
-            + "    |     +-IntLiteral(parenthesized=false, image=100)\n"
+            + "    |     +-Limit\n"
+            + "    |       +-expression=\n"
+            + "    |         +-IntLiteral(parenthesized=false, image=100)\n"
             + "    +-is_nested=false\n"
             + "    +-is_pivot_input=false\n";
     assertThat(statement.toString()).isEqualTo(expectedToString);

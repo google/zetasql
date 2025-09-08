@@ -1,4 +1,5 @@
 # Without language feature MAP_TYPE, map functions are not defined.
+[default language_features=NONE]
 SELECT MAP_FROM_ARRAY([("a", 1), ("b", 2)]);
 --
 ERROR: Function not found: MAP_FROM_ARRAY [at 1:8]
@@ -6,7 +7,7 @@ SELECT MAP_FROM_ARRAY([("a", 1), ("b", 2)]);
        ^
 ==
 
-[default language_features=MAP_TYPE]
+[default language_features=NONE,+MAP_TYPE]
 
 SELECT MAP_FROM_ARRAY([("a", 1), ("b", 2)]);
 --
@@ -171,7 +172,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=MAP_TYPE{{|,DISALLOW_GROUP_BY_FLOAT}}]
+[language_features=NONE,+MAP_TYPE{{|,+DISALLOW_GROUP_BY_FLOAT}}]
 
 SELECT MAP_FROM_ARRAY([(0.1, true)]);
 --
@@ -190,14 +191,14 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: ,DISALLOW_GROUP_BY_FLOAT
+ALTERNATION GROUP: ,+DISALLOW_GROUP_BY_FLOAT
 --
 ERROR: MAP_FROM_ARRAY expected a groupable key, but got a key of type DOUBLE, which does not support grouping [at 1:8]
 SELECT MAP_FROM_ARRAY([(0.1, true)]);
        ^
 ==
 
-[language_features=MAP_TYPE,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
+[language_features=NONE,+MAP_TYPE,+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK]
 SELECT MAP_FROM_ARRAY([('a', true), (COLLATE('Z', 'und:ci'), false)]);
 --
 ERROR: Collation is not allowed on argument 1 (<<"und:ci",_>>) [at 1:8]
@@ -242,7 +243,7 @@ SELECT MAP_ENTRIES_SORTED([]);
        ^
 ==
 
-[default language_features=MAP_TYPE,GROUP_BY_STRUCT]
+[default language_features=NONE,+MAP_TYPE,+GROUP_BY_STRUCT]
 
 SELECT MAP_ENTRIES_SORTED(MAP_FROM_ARRAY([(STRUCT(1), true)]));
 --
@@ -367,7 +368,7 @@ SELECT MAP_ENTRIES_UNSORTED(MAP_FROM_ARRAY([("a", "b")]), "extra_arg")
        ^
 ==
 
-[default language_features=MAP_TYPE,SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[default language_features=NONE,+MAP_TYPE,+SQL_GRAPH,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 select MAP_FROM_ARRAY([(a, 1)]) from graph_table(
   aml
   match (a IS Person) -[e]-> (b IS Account)
@@ -378,7 +379,7 @@ select MAP_FROM_ARRAY([(a, 1)]) from graph_table(
 ^
 ==
 
-[default language_features=MAP_TYPE,SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[default language_features=NONE,+MAP_TYPE,+SQL_GRAPH,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 select MAP_ENTRIES_SORTED(MAP_FROM_ARRAY([(a, 1)])) from graph_table(
   aml
   match (a IS Person) -[e]-> (b IS Account)
@@ -389,7 +390,7 @@ select MAP_ENTRIES_SORTED(MAP_FROM_ARRAY([(a, 1)])) from graph_table(
        ^
 ==
 
-[default language_features=MAP_TYPE,SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[default language_features=NONE,+MAP_TYPE,+SQL_GRAPH,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 select MAP_ENTRIES_UNSORTED(MAP_FROM_ARRAY([(a, 1)])) from graph_table(
   aml
   match (a IS Person) -[e]-> (b IS Account)
@@ -795,7 +796,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=MAP_TYPE,IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
+[language_features=NONE,+MAP_TYPE,+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
 SELECT MAP_GET(MAP_FROM_ARRAY([(b'a', 1)]), 'a');
 --
 QueryStmt
@@ -839,7 +840,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=MAP_TYPE,JSON_TYPE]
+[language_features=NONE,+MAP_TYPE,+JSON_TYPE]
 SELECT MAP_GET(MAP_FROM_ARRAY([('a', JSON '1')]), NULL, NULL);
 --
 QueryStmt
@@ -864,7 +865,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=MAP_TYPE,JSON_TYPE]
+[language_features=NONE,+MAP_TYPE,+JSON_TYPE]
 SELECT MAP_GET(MAP_FROM_ARRAY([
        ('a',
            (MAP_FROM_ARRAY([('b', JSON '1')]), new zetasql_test__.EmptyMessage())
@@ -902,7 +903,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=MAP_TYPE,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,GROUP_BY_STRUCT]
+[language_features=NONE,+MAP_TYPE,+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK,+GROUP_BY_STRUCT]
 # Regression test for b/409835344
 SELECT MAP_GET(CAST(NULL AS MAP<STRUCT<STRING>, STRING>), STRUCT(COLLATE("foo", "und:ci")));
 --
@@ -1008,7 +1009,7 @@ SELECT MAP_FROM_ARRAY([('a', 1)])[KEY(5)];
                                   ^
 ==
 
-[language_features=MAP_TYPE,SAFE_FUNCTION_CALL]
+[language_features=NONE,+MAP_TYPE,+SAFE_FUNCTION_CALL]
 SELECT MAP_FROM_ARRAY([('a', 1)])[SAFE_KEY({{'a'|NULL|5}})];
 --
 ALTERNATION GROUP: 'a'
@@ -1070,7 +1071,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=MAP_TYPE,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,GROUP_BY_STRUCT]
+[language_features=NONE,+MAP_TYPE,+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK,+GROUP_BY_STRUCT]
 # Regression test for b/409835344
 SELECT CAST(NULL AS MAP<STRUCT<STRING>, STRING>)[STRUCT(COLLATE("foo", "und:ci"))];
 --
@@ -1080,7 +1081,7 @@ SELECT CAST(NULL AS MAP<STRUCT<STRING>, STRING>)[STRUCT(COLLATE("foo", "und:c...
 ==
 
 
-[language_features=MAP_TYPE{{|,IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=NONE,+MAP_TYPE{{|,+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 SELECT MAP_FROM_ARRAY([(b'hello', 1)])['bonjour'];
 --
 ALTERNATION GROUP: <empty>
@@ -1089,7 +1090,7 @@ ERROR: Subscript access using [STRING] is not supported on values of type MAP<BY
 SELECT MAP_FROM_ARRAY([(b'hello', 1)])['bonjour'];
                                        ^
 --
-ALTERNATION GROUP: ,IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
+ALTERNATION GROUP: ,+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
 --
 QueryStmt
 +-output_column_list=
@@ -1107,7 +1108,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=MAP_TYPE,SAFE_FUNCTION_CALL]
+[language_features=NONE,+MAP_TYPE,+SAFE_FUNCTION_CALL]
 SELECT MAP_FROM_ARRAY([(1, 'a')])[{{OFFSET(0)|SAFE_OFFSET(0)|ORDINAL(1)|SAFE_ORDINAL(1)}}];
 --
 ALTERNATION GROUP: OFFSET(0)
@@ -1228,7 +1229,7 @@ SELECT MAP_CONTAINS_KEY(NULL, NULL);
        ^
 ==
 
-[language_features=MAP_TYPE,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,GROUP_BY_STRUCT]
+[language_features=NONE,+MAP_TYPE,+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK,+GROUP_BY_STRUCT]
 SELECT MAP_CONTAINS_KEY(CAST(NULL AS MAP<STRING, STRING>), COLLATE("foo", "und:ci"));
 --
 ERROR: Collation is not allowed on argument lookup_key ("und:ci"). Use COLLATE(arg, '') to remove collation [at 1:8]
@@ -1246,6 +1247,26 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 := Literal(type=MAP<STRING, STRING>, value=NULL, has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=NONE,+MAP_TYPE,+PARAMETERIZED_TYPES,+TIMESTAMP_PRECISION]
+# Cast map with type parameter.
+SELECT CAST(MAP_FROM_ARRAY([("a", "b")]) AS MAP<TIMESTAMP(6), STRING(5)>);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [MAP<TIMESTAMP, STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(MAP<STRING, STRING> -> MAP<TIMESTAMP, STRING>)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, STRING>>) -> MAP<STRING, STRING>)
+    |       +-Literal(type=ARRAY<STRUCT<STRING, STRING>>, value=[{"a", "b"}])
+    |     +-type_modifiers=type_parameters:[(precision=6),(max_length=5)]
     +-input_scan=
       +-SingleRowScan
 ==
@@ -1472,10 +1493,10 @@ SELECT CAST(MAP_FROM_ARRAY([("", 1)]) AS MAP<zetasql_test__.EmptyMessage, STR...
                                          ^
 ==
 
-[default language_features=MAP_TYPE{{,GROUP_BY_ARRAY,GROUP_BY_STRUCT|,GROUP_BY_ARRAY|}}]
+[default language_features=NONE,+MAP_TYPE{{,+GROUP_BY_ARRAY,+GROUP_BY_STRUCT|,+GROUP_BY_ARRAY|}}]
 SELECT CAST(NULL AS MAP<ARRAY<STRUCT<STRING>>, STRING>);
 --
-ALTERNATION GROUP: ,GROUP_BY_ARRAY,GROUP_BY_STRUCT
+ALTERNATION GROUP: ,+GROUP_BY_ARRAY,+GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
@@ -1488,7 +1509,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: ,GROUP_BY_ARRAY
+ALTERNATION GROUP: ,+GROUP_BY_ARRAY
 --
 ERROR: MAP key type ARRAY containing STRUCT is not groupable [at 1:21]
 SELECT CAST(NULL AS MAP<ARRAY<STRUCT<STRING>>, STRING>);
@@ -1569,7 +1590,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=MAP_TYPE,GROUP_BY_STRUCT]
+[language_features=NONE,+MAP_TYPE,+GROUP_BY_STRUCT]
 # MAP key is not orderable here
 SELECT MAP_{{KEYS_SORTED|KEYS_UNSORTED|VALUES_SORTED|VALUES_UNSORTED}}(
   MAP_FROM_ARRAY([(STRUCT("a"), "")]));
@@ -1704,7 +1725,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=MAP_TYPE,ARRAY_ORDERING]
+[language_features=NONE,+MAP_TYPE,+ARRAY_ORDERING]
 # Array of array is not supported
 SELECT MAP_{{VALUES_SORTED|VALUES_UNSORTED}}(
   MAP_FROM_ARRAY([('key', [1, 2, 3])]));
@@ -1728,7 +1749,7 @@ SELECT MAP_VALUES_UNSORTED(
        ^
 ==
 
-[language_features=MAP_TYPE,GROUP_BY_ARRAY,ARRAY_ORDERING]
+[language_features=NONE,+MAP_TYPE,+GROUP_BY_ARRAY,+ARRAY_ORDERING]
 # Array of array is not supported
 SELECT MAP_{{KEYS_SORTED|KEYS_UNSORTED}}(MAP_FROM_ARRAY([([1, 2, 3], 'value')]));
 --
@@ -1768,7 +1789,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=MAP_TYPE,GROUP_BY_STRUCT]
+[language_features=NONE,+MAP_TYPE,+GROUP_BY_STRUCT]
 SELECT MAP_VALUES_SORTED_BY_KEY(
   MAP_FROM_ARRAY([({{STRUCT('a'), 1|'a', STRUCT(1)}})]));
 --
@@ -2365,7 +2386,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=MAP_TYPE,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK,GROUP_BY_STRUCT]
+[language_features=NONE,+MAP_TYPE,+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK,+GROUP_BY_STRUCT]
 SELECT MAP_{{INSERT|INSERT_OR_REPLACE|REPLACE}}(MAP_FROM_ARRAY([('a', 1)]), COLLATE('a', 'und:ci'), 2);
 --
 ALTERNATION GROUP: INSERT
@@ -2526,7 +2547,7 @@ ERROR: No matching signature for function MAP_REPLACE
   ^
 ==
 
-[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+MAP_TYPE,+INLINE_LAMBDA_ARGUMENT]
 SELECT
   MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), {{'a'|NULL|'a', 'b', 'c'}}, v -> v + 1);
 --
@@ -2624,7 +2645,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+MAP_TYPE,+INLINE_LAMBDA_ARGUMENT]
 SELECT
   MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 'b', 'c', v -> NULL);
 --
@@ -2660,7 +2681,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+MAP_TYPE,+INLINE_LAMBDA_ARGUMENT]
 SELECT
   MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 'b', 1, v -> v + 1);
 --
@@ -2675,7 +2696,7 @@ ERROR: No matching signature for function MAP_REPLACE
   ^
 ==
 
-[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+MAP_TYPE,+INLINE_LAMBDA_ARGUMENT]
 SELECT
   MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 'b', 1, v -> 'a');
 --
@@ -2689,7 +2710,7 @@ ERROR: No matching signature for function MAP_REPLACE
   ^
 ==
 
-[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+MAP_TYPE,+INLINE_LAMBDA_ARGUMENT]
 SELECT
   MAP_REPLACE(NULL, 'a', 'b', 1, v -> 'a');
 --
@@ -2703,7 +2724,7 @@ ERROR: No matching signature for function MAP_REPLACE
   ^
 ==
 
-[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT,COLLATION_SUPPORT,ANNOTATION_FRAMEWORK]
+[language_features=NONE,+MAP_TYPE,+INLINE_LAMBDA_ARGUMENT,+COLLATION_SUPPORT,+ANNOTATION_FRAMEWORK]
 SELECT
   MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), COLLATE('a', 'und:ci'), v -> NULL);
 --
@@ -2869,7 +2890,7 @@ SELECT MAP_DELETE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]));
        ^
 ==
 
-[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+MAP_TYPE,+INLINE_LAMBDA_ARGUMENT]
 SELECT MAP_FILTER(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), (k, v) -> v > 1);
 --
 QueryStmt
@@ -2897,7 +2918,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+MAP_TYPE,+INLINE_LAMBDA_ARGUMENT]
 SELECT
   MAP_FILTER(
     MAP_FROM_ARRAY(CAST({{NULL|[]}} AS ARRAY<STRUCT<STRING, INT64>>)),
@@ -2970,7 +2991,7 @@ CreateFunctionStmt
   +-Literal(type=MAP<STRING, ARRAY<INT64>>, value=NULL, has_explicit_type=TRUE)
 ==
 
-[language_features=MAP_TYPE,CREATE_AGGREGATE_FUNCTION]
+[language_features=NONE,+MAP_TYPE,+CREATE_AGGREGATE_FUNCTION]
 CREATE TEMP AGGREGATE FUNCTION MapUda () RETURNS MAP<STRING, ARRAY<INT64>> AS (CAST(NULL AS MAP<STRING, ARRAY<INT64>>))
 --
 CreateFunctionStmt

@@ -1,4 +1,4 @@
-[default language_features=ALTER_VIEWS_ALTER_COLUMN_SET_OPTIONS]
+[default language_features=MAXIMUM,+ALTER_VIEWS_ALTER_COLUMN_SET_OPTIONS]
 alter {{table|view|model}} KeyValue alter column key set options (description="new description");
 --
 ALTERNATION GROUP: table
@@ -293,10 +293,10 @@ AlterViewStmt
 ==
 
 # Alter view alter column set options with ALTER_VIEWS_ALTER_COLUMN_SET_OPTIONS enabled/disabled.
-[language_features={{ALTER_VIEWS_ALTER_COLUMN_SET_OPTIONS|}}]
+[language_features=NONE,{{+ALTER_VIEWS_ALTER_COLUMN_SET_OPTIONS|}}]
 alter view KeyValue alter column key set options (description="new description");
 --
-ALTERNATION GROUP: ALTER_VIEWS_ALTER_COLUMN_SET_OPTIONS
+ALTERNATION GROUP: +ALTER_VIEWS_ALTER_COLUMN_SET_OPTIONS
 
 --
 AlterViewStmt

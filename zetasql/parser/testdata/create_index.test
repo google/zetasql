@@ -1249,7 +1249,7 @@ OPTIONS()
 # Create a search index use ALL COLUMNS and other column keys should fail.
 create search index i1 on ComplexTypes (ALL COLUMNS,TestStruct);
 --
-ERROR: Syntax error: Expected ")" but got "," [at 1:52]
+ERROR: Syntax error: Expected ")" or keyword WITH but got "," [at 1:52]
 create search index i1 on ComplexTypes (ALL COLUMNS,TestStruct);
                                                    ^
 ==
@@ -1264,7 +1264,7 @@ create search index i1 on ComplexTypes (TestStruct, ALL COLUMNS);
 
 CREATE SEARCH INDEX i1 ON t1 (ALL COLUMNS EXCEPT (a)) OPTIONS();
 --
-ERROR: Syntax error: Expected ")" but got keyword EXCEPT [at 1:43]
+ERROR: Syntax error: Expected ")" or keyword WITH but got keyword EXCEPT [at 1:43]
 CREATE SEARCH INDEX i1 ON t1 (ALL COLUMNS EXCEPT (a)) OPTIONS();
                                           ^
 ==
@@ -1433,7 +1433,7 @@ create search index i1 on t1(a options(k))
 # Specify value only in OPTIONS is invalid
 create search index i1 on t1(a options(=v))
 --
-ERROR: Syntax error: Unexpected "=" [at 1:40]
+ERROR: Syntax error: Expected ")" but got "=" [at 1:40]
 create search index i1 on t1(a options(=v))
                                        ^
 
@@ -1594,7 +1594,7 @@ create search index i1 on t1 (ALL COLUMNS WITH COLUMN OPTIONS (c1 OPTIONS(k)))
 # Specify value only in WITH COLUMN OPTIONS is invalid.
 create search index i1 on t1 (ALL COLUMNS WITH COLUMN OPTIONS (c1 OPTIONS(=v)))
 --
-ERROR: Syntax error: Unexpected "=" [at 1:75]
+ERROR: Syntax error: Expected ")" but got "=" [at 1:75]
 create search index i1 on t1 (ALL COLUMNS WITH COLUMN OPTIONS (c1 OPTIONS(=v)))
                                                                           ^
 

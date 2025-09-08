@@ -112,6 +112,15 @@ class PicoTime final {
     return {ts.tv_sec, ts.tv_nsec * 1000 + picos_};
   }
 
+  // Returns the smallest system precision setting that can fit the PicoTime
+  // value based on the number of digits after timestamp decimal place.
+  // 0 digits -> 0 precision (seconds)
+  // 1-3 digits -> 3 precision (milliseconds)
+  // 4-6 digits -> 6 precision (microseconds)
+  // 7-9 digits -> 9 precision (nanoseconds)
+  // 10-12 digits -> 12 precision (picoseconds)
+  int Precision() const;
+
   // Comparison operators.
   bool operator==(const PicoTime& rh) const;
   bool operator!=(const PicoTime& rh) const;

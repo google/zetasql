@@ -8,7 +8,7 @@
 # function_default_argument.test, tvf_relation_args.test file and this file can
 # be updated at the same time.
 [default no_java]
-[default language_features=NAMED_ARGUMENTS,TABLE_VALUED_FUNCTIONS]
+[default language_features=NONE,+NAMED_ARGUMENTS,+TABLE_VALUED_FUNCTIONS]
 select fn_named_args(format_string => "%x", date_string => "12/25/08")
 --
 QueryStmt
@@ -419,21 +419,50 @@ QueryStmt
         +-function_call_signature=(optional(1) ANY TABLE any_relation_arg, optional(1) STRING format_string) -> TABLE<column_bool BOOL, column_bytes BYTES>
 ==
 
-# Invalid TVF call with the STRING named argument provided but the relation
+# TVF call with the STRING named argument provided but the relation
 # argument omitted.
 # The TVF signature is the same as above.
-# TODO: Allow the optional 'any_relation_arg' to be omitted. This
-# is implmented by not materizling omitted arguments that do not have default
-# values in the resolved function or TVF nodes at all.
+[show_sqlbuilder_output]
 select * from tvf_named_optional_any_relation_arg_optional_scalar_arg(
     format_string => 'abc')
 --
-ERROR: No matching signature for tvf_named_optional_any_relation_arg_optional_scalar_arg
-  Argument types: NULL, STRING
-  Signature: TVF_NAMED_OPTIONAL_ANY_RELATION_ARG_OPTIONAL_SCALAR_ARG([any_relation_arg => TABLE], [format_string => STRING])
-    Named argument `any_relation_arg`: expected TABLE, found NULL [at 1:15]
-select * from tvf_named_optional_any_relation_arg_optional_scalar_arg(
-              ^
+QueryStmt
++-output_column_list=
+| +-tvf_named_optional_any_relation_arg_optional_scalar_arg.column_bool#1 AS column_bool [BOOL]
+| +-tvf_named_optional_any_relation_arg_optional_scalar_arg.column_bytes#2 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_named_optional_any_relation_arg_optional_scalar_arg.[column_bool#1, column_bytes#2]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_named_optional_any_relation_arg_optional_scalar_arg.[column_bool#1, column_bytes#2]
+        +-tvf=tvf_named_optional_any_relation_arg_optional_scalar_arg((optional ANY TABLE any_relation_arg, optional STRING format_string) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<>, literal STRING) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | |   +-UnsetArgumentScan
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="abc")
+        +-column_index_list=[0, 1]
+        +-function_call_signature=(optional(1) ANY TABLE any_relation_arg, optional(1) STRING format_string) -> TABLE<column_bool BOOL, column_bytes BYTES>
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  tvfscan_1.column_bool AS column_bool,
+  tvfscan_1.column_bytes AS column_bytes
+FROM
+  TVF_NAMED_OPTIONAL_ANY_RELATION_ARG_OPTIONAL_SCALAR_ARG(format_string  => "abc") AS tvfscan_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  TVF_NAMED_OPTIONAL_ANY_RELATION_ARG_OPTIONAL_SCALAR_ARG(format_string  => "abc") AS tvfscan_1
+|> SELECT
+     tvfscan_1.column_bool AS column_bool,
+     tvfscan_1.column_bytes AS column_bytes;
 ==
 
 # Valid TVF call with the relation named argument provided and the STRING
@@ -1111,7 +1140,7 @@ select fn_named_args(format_string => "%x")
 ==
 
 # The language feature is not enabled.
-[language_features=]
+[language_features=NONE]
 select fn_named_args(format_string => "%x", date_string => "12/25/08")
 --
 ERROR: Named arguments are not supported [at 1:22]
@@ -1120,7 +1149,7 @@ select fn_named_args(format_string => "%x", date_string => "12/25/08")
 ==
 
 # The language feature is not enabled.
-[language_features=]
+[language_features=NONE]
 select * from tvf_exactly_3_int64_args(first => 1, second => 2, third => 3)
 --
 ERROR: Table-valued functions are not supported [at 1:15]

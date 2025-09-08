@@ -14,14 +14,20 @@
 // limitations under the License.
 //
 
+#include <utility>
 #include <vector>
 
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/compliance/functions_testlib_common.h"
+#include "zetasql/public/cast.h"
+#include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/using_test_value.cc"
 #include "absl/status/status.h"
+#include "absl/time/civil_time.h"
 
 namespace zetasql {
 namespace {
@@ -629,6 +635,136 @@ std::vector<FunctionTestCall> GetFunctionTestsRegexp2(
   }
 
   return test_calls;
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsRegexpExtractGroups() {
+  // The result structs in these cases are only used to indicate the type of the
+  // struct for the ExtractGroupsResultStruct() tests. The values of the result
+  // struct fields are not used in these tests.
+  return {
+      {"regexp_extract_groups",
+       {"abc", "(?P<name>abc)"},
+       Struct({{"name", String("abc")}})},
+      {"regexp_extract_groups",
+       {"hello1", "(a)(b)"},  // Pattern does not match.
+       Value::Null(Struct({{"", NullString()}, {"", NullString()}}).type())},
+      {"regexp_extract_groups",
+       {"hello2", "h(a)?(b)?ello2"},  // Pattern matches, no capture.
+                                      // The struct itself is not null.
+       Struct({{"", NullString()}, {"", NullString()}})},
+      {"regexp_extract_groups",
+       {"hello3",
+        "h(a?)(b?)ello3"},  // Pattern matches, captures empty string..
+       Struct({{"", String("")}, {"", String("")}})},
+      {"regexp_extract_groups",
+       {NullString(), "(a)(b)"},  // NULL input.
+       Value::Null(Struct({{"", NullString()}, {"", NullString()}}).type())},
+      {"regexp_extract_groups",
+       {"abc", "(?P<name>a)b(?P<name2>c)"},
+       Struct({{"name", String("a")}, {"name2", String("c")}})},
+      {"regexp_extract_groups",
+       {"john-123", "(?P<name>[a-z]+)-([0-9]+)"},
+       Struct({{"name", String("john")}, {"", String("123")}})},
+      {"regexp_extract_groups",
+       {"john-123-end", "((?P<first>[a-z]+)-([0-9]+))-end"},
+       Struct({{"", String("john-123")},
+               {"first", String("john")},
+               {"", String("123")}})},
+      {"regexp_extract_groups",
+       {"john-123-end",
+        "(?P<full_name>(?P<first>[a-z]+)-(?P<second>[0-9]+))-end"},
+       Struct({{"full_name", String("john-123")},
+               {"first", String("john")},
+               {"second", String("123")}})},
+      {"regexp_extract_groups",
+       {"john", "(?P<name>[a-z]+)(?P<age>-[0-9]+)?"},
+       Struct({{"name", String("john")}, {"age", NullString()}})},
+      {"regexp_extract_groups",
+       {"name", "(?P<NamE__STRING>[a-z]+)"},
+       Struct({{"NamE", String("name")}})},
+      {"regexp_extract_groups",
+       {"123", "(?P<age__INT64>[0-9]+)"},
+       Struct({{"age", Int64(123)}})},
+      {"regexp_extract_groups",
+       {"true", "(?P<checked__BOOL>true)"},
+       Struct({{"checked", Bool(true)}})},
+      {"regexp_extract_groups",
+       {"123 123.456", "(?P<age__iNt64>[0-9]+) (?P<val__double>[.0-9]+)"},
+       Struct({{"age", Int64(123)}, {"val", Double(123.456)}})},
+      {"regexp_extract_groups",
+       {"123", "(?P<__INT64>[0-9]+)"},
+       Struct({{"", Int64(123)}})},
+      {"regexp_extract_groups",
+       {"123", "(?P<a__b__INT64>[0-9]+)"},
+       Struct({{"a__b", Int64(123)}})},
+      {"regexp_extract_groups",
+       {"123", "(?P<a__>[0-9]+)"},
+       Struct({{"a", String("123")}})},
+      {"regexp_extract_groups",
+       {"2024-11-21", "(?P<d__DATE>[-0-9]+)"},
+       Struct({{"d", Date(absl::CivilDay(2024, 11, 21))}})},
+
+      // regexp_extract_groups(bytes, bytes) -> struct
+      {"regexp_extract_groups",
+       {Bytes(""), Bytes("(?P<name>abc)")},
+       Value::Null(Struct({{"name", NullBytes()}}).type())},
+      {"regexp_extract_groups",
+       {Bytes("abc"), Bytes("(?P<name>abc)")},
+       Struct({{"name", Bytes("abc")}})},
+      {"regexp_extract_groups",
+       {Bytes("abc"), Bytes("(?P<name__BYTES>abc)")},
+       Struct({{"name", Bytes("abc")}})},
+      {"regexp_extract_groups",
+       {Bytes("bytes-5"), Bytes("(?P<first>[a-z]+)-([0-9]+)")},
+       Struct({{"first", Bytes("bytes")}, {"", Bytes("5")}})},
+  };
+}
+
+// Returns the tests cases in GetFunctionTestsRegexpExtractGroups() except that
+// the result struct has all STRING (or BYTES) field, depending on the regexp
+// type. This is useful for testing the ExtractGroups() function.
+std::vector<FunctionTestCall>
+GetFunctionTestsRegexpExtractGroupsWithoutAutoCasting() {
+  std::vector<FunctionTestCall> original_tests =
+      GetFunctionTestsRegexpExtractGroups();
+  std::vector<FunctionTestCall> modified_tests;
+
+  for (const auto& test_call : original_tests) {
+    FunctionTestCall modified_call = test_call;
+    const Value& regexp = test_call.params.param(1);
+    const Value& original_result = test_call.params.result();
+    const Type* field_type =
+        regexp.type()->IsString() ? StringType() : BytesType();
+
+    if (!original_result.is_null() && original_result.type()->IsStruct()) {
+      std::vector<StructField> struct_fields;
+      std::vector<Value> new_fields;
+      for (int i = 0; i < original_result.num_fields(); ++i) {
+        const Value& field = original_result.field(i);
+        if (field.type()->Equals(field_type)) {
+          new_fields.push_back(field);
+        } else {
+          auto uncast_value = CastValue(field, {}, {}, field_type);
+          new_fields.push_back(uncast_value.ok() ? uncast_value.value()
+                                                 : Value::Null(field_type));
+        }
+        struct_fields.push_back(
+            {original_result.type()->AsStruct()->field(i).name, field_type});
+      }
+
+      const Type* uncast_result_type = nullptr;
+      TypeFactory type_factory;
+      type_factory
+          .MakeStructTypeFromVector(std::move(struct_fields),
+                                    &uncast_result_type)
+          .IgnoreError();
+      modified_call.params.SetResult(
+          Value::Struct(uncast_result_type->AsStruct(), new_fields),
+          test_call.params.status());
+    }
+    modified_tests.push_back(modified_call);
+  }
+  return modified_tests;
 }
 
 std::vector<FunctionTestCall> GetFunctionTestsRegexpInstr() {

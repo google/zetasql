@@ -17,6 +17,7 @@
 #include <ctype.h>
 
 #include <algorithm>
+#include <initializer_list>
 #include <map>
 #include <memory>
 #include <set>
@@ -28,6 +29,7 @@
 #include "zetasql/common/builtin_function_internal.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/public/builtin_function.pb.h"
+#include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/cycle_detector.h"
 #include "zetasql/public/function.h"
@@ -35,6 +37,8 @@
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/functions/datetime.pb.h"
+#include "zetasql/public/strings.h"
+#include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/functions/string_format.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
@@ -49,6 +53,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/no_destructor.h"
 #include "zetasql/base/ret_check.h"
@@ -106,8 +111,8 @@ bool ArgumentsArrayType(const std::vector<InputArgumentType>& arguments,
 // separated for pretty printing.
 // TODO: Consider removing this callback, since Function now knows
 // whether it is operator, and has correct sql_name to print.
-std::string InfixFunctionSQL(const std::string& display_name,
-                             const std::vector<std::string>& inputs) {
+std::string InfixFunctionSQL(absl::string_view display_name,
+                             absl::Span<const std::string> inputs) {
   std::string sql;
   for (const std::string& text : inputs) {
     if (!sql.empty()) {
@@ -125,24 +130,24 @@ std::string InfixFunctionSQL(const std::string& display_name,
   }
   return sql;
 }
-std::string PreUnaryFunctionSQL(const std::string& display_name,
-                                const std::vector<std::string>& inputs) {
+std::string PreUnaryFunctionSQL(absl::string_view display_name,
+                                absl::Span<const std::string> inputs) {
   ABSL_DCHECK_EQ(inputs.size(), 1);
   return absl::StrCat(display_name, "(", inputs[0], ")");
 }
-std::string PostUnaryFunctionSQL(const std::string& display_name,
-                                 const std::vector<std::string>& inputs) {
+std::string PostUnaryFunctionSQL(absl::string_view display_name,
+                                 absl::Span<const std::string> inputs) {
   ABSL_DCHECK_EQ(inputs.size(), 1);
   return absl::StrCat("(", inputs[0], ")", display_name);
 }
-std::string DateAddOrSubFunctionSQL(const std::string& display_name,
-                                    const std::vector<std::string>& inputs) {
+std::string DateAddOrSubFunctionSQL(absl::string_view display_name,
+                                    absl::Span<const std::string> inputs) {
   ABSL_DCHECK_EQ(inputs.size(), 3);
   return absl::StrCat(display_name, "(", inputs[0], ", INTERVAL ", inputs[1],
                       " ", inputs[2], ")");
 }
 
-std::string CountStarFunctionSQL(const std::vector<std::string>& inputs) {
+std::string CountStarFunctionSQL(absl::Span<const std::string> inputs) {
   ABSL_DCHECK_LE(inputs.size(), 1);
 
   if (inputs.size() == 1) {
@@ -152,7 +157,7 @@ std::string CountStarFunctionSQL(const std::vector<std::string>& inputs) {
   }
 }
 
-std::string AnonCountStarFunctionSQL(const std::vector<std::string>& inputs) {
+std::string AnonCountStarFunctionSQL(absl::Span<const std::string> inputs) {
   ABSL_DCHECK(inputs.empty() || inputs.size() == 2);
   return absl::StrCat(
       "ANON_COUNT(*",
@@ -172,7 +177,7 @@ std::string SignatureTextForAnonCountStarFunction(
 }
 
 std::string SignatureTextForAnonCountStarWithReportFunction(
-    const std::string& report_format) {
+    absl::string_view report_format) {
   return absl::StrCat(
       "ANON_COUNT(* [CLAMPED BETWEEN INT64 AND INT64] WITH "
       "REPORT(FORMAT=",
@@ -180,13 +185,13 @@ std::string SignatureTextForAnonCountStarWithReportFunction(
 }
 
 std::string SignatureTextForAnonCountStarWithReportFunction(
-    const std::string& report_format, const LanguageOptions& language_options,
+    absl::string_view report_format, const LanguageOptions& language_options,
     const Function& function, const FunctionSignature& signature) {
   return SignatureTextForAnonCountStarWithReportFunction(report_format);
 }
 
 std::string SignatureTextForAnonQuantilesWithReportFunction(
-    const std::string& report_format) {
+    absl::string_view report_format) {
   return absl::StrCat(
       "ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH "
       "REPORT(FORMAT=",
@@ -200,7 +205,7 @@ std::string SignatureTextForAnonQuantilesWithReportFunction(
 }
 
 std::string AnonSumWithReportJsonFunctionSQL(
-    const std::vector<std::string>& inputs) {
+    absl::Span<const std::string> inputs) {
   ABSL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
   return absl::StrCat(
       "ANON_SUM(", inputs[0],
@@ -211,7 +216,7 @@ std::string AnonSumWithReportJsonFunctionSQL(
 }
 
 std::string AnonSumWithReportProtoFunctionSQL(
-    const std::vector<std::string>& inputs) {
+    absl::Span<const std::string> inputs) {
   ABSL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
   return absl::StrCat(
       "ANON_SUM(", inputs[0],
@@ -222,7 +227,7 @@ std::string AnonSumWithReportProtoFunctionSQL(
 }
 
 std::string AnonAvgWithReportJsonFunctionSQL(
-    const std::vector<std::string>& inputs) {
+    absl::Span<const std::string> inputs) {
   ABSL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
   return absl::StrCat(
       "ANON_AVG(", inputs[0],
@@ -244,7 +249,7 @@ std::string AnonAvgWithReportProtoFunctionSQL(
 }
 
 std::string AnonCountWithReportJsonFunctionSQL(
-    const std::vector<std::string>& inputs) {
+    absl::Span<const std::string> inputs) {
   ABSL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
   return absl::StrCat(
       "ANON_COUNT(", inputs[0],
@@ -255,7 +260,7 @@ std::string AnonCountWithReportJsonFunctionSQL(
 }
 
 std::string AnonCountWithReportProtoFunctionSQL(
-    const std::vector<std::string>& inputs) {
+    absl::Span<const std::string> inputs) {
   ABSL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
   return absl::StrCat(
       "ANON_COUNT(", inputs[0],
@@ -266,7 +271,7 @@ std::string AnonCountWithReportProtoFunctionSQL(
 }
 
 std::string AnonCountStarWithReportJsonFunctionSQL(
-    const std::vector<std::string>& inputs) {
+    absl::Span<const std::string> inputs) {
   ABSL_DCHECK(inputs.empty() || inputs.size() == 2);
   return absl::StrCat(
       "ANON_COUNT(*",
@@ -277,7 +282,7 @@ std::string AnonCountStarWithReportJsonFunctionSQL(
 }
 
 std::string AnonCountStarWithReportProtoFunctionSQL(
-    const std::vector<std::string>& inputs) {
+    absl::Span<const std::string> inputs) {
   ABSL_DCHECK(inputs.empty() || inputs.size() == 2);
   return absl::StrCat(
       "ANON_COUNT(*",
@@ -298,7 +303,7 @@ std::string AnonQuantilesWithReportJsonFunctionSQL(
 }
 
 std::string AnonQuantilesWithReportProtoFunctionSQL(
-    const std::vector<std::string>& inputs) {
+    absl::Span<const std::string> inputs) {
   // TODO: Once CLAMPED BETWEEN arguments are no longer required,
   // this function should also support only 2 args.
   ABSL_DCHECK_EQ(inputs.size(), 4);
@@ -307,24 +312,24 @@ std::string AnonQuantilesWithReportProtoFunctionSQL(
                       " WITH REPORT(FORMAT=PROTO))");
 }
 
-std::string BetweenFunctionSQL(const std::vector<std::string>& inputs) {
+std::string BetweenFunctionSQL(absl::Span<const std::string> inputs) {
   ABSL_DCHECK_EQ(inputs.size(), 3);
   return absl::StrCat("(", inputs[0], ") BETWEEN (", inputs[1], ") AND (",
                       inputs[2], ")");
 }
-std::string InListFunctionSQL(const std::vector<std::string>& inputs) {
+std::string InListFunctionSQL(absl::Span<const std::string> inputs) {
   ABSL_DCHECK_GT(inputs.size(), 1);
   std::vector<std::string> in_list(inputs.begin() + 1, inputs.end());
   return absl::StrCat("(", inputs[0], ") IN (", absl::StrJoin(in_list, ", "),
                       ")");
 }
-std::string LikeAnyFunctionSQL(const std::vector<std::string>& inputs) {
+std::string LikeAnyFunctionSQL(absl::Span<const std::string> inputs) {
   ABSL_DCHECK_GT(inputs.size(), 1);
   std::vector<std::string> like_list(inputs.begin() + 1, inputs.end());
   return absl::StrCat(inputs[0], " LIKE ANY (", absl::StrJoin(like_list, ", "),
                       ")");
 }
-std::string NotLikeAnyFunctionSQL(const std::vector<std::string>& inputs) {
+std::string NotLikeAnyFunctionSQL(absl::Span<const std::string> inputs) {
   ABSL_DCHECK_GT(inputs.size(), 1);
   std::vector<std::string> like_list(inputs.begin() + 1, inputs.end());
   return absl::StrCat(inputs[0], " NOT LIKE ANY (",
@@ -336,13 +341,13 @@ std::string LikeAllFunctionSQL(const std::vector<std::string>& inputs) {
   return absl::StrCat(inputs[0], " LIKE ALL (", absl::StrJoin(like_list, ", "),
                       ")");
 }
-std::string NotLikeAllFunctionSQL(const std::vector<std::string>& inputs) {
+std::string NotLikeAllFunctionSQL(absl::Span<const std::string> inputs) {
   ABSL_DCHECK_GT(inputs.size(), 1);
   std::vector<std::string> like_list(inputs.begin() + 1, inputs.end());
   return absl::StrCat(inputs[0], " NOT LIKE ALL (",
                       absl::StrJoin(like_list, ", "), ")");
 }
-std::string CaseWithValueFunctionSQL(const std::vector<std::string>& inputs) {
+std::string CaseWithValueFunctionSQL(absl::Span<const std::string> inputs) {
   ABSL_DCHECK_GE(inputs.size(), 2);
   ABSL_DCHECK_EQ((inputs.size() - 2) % 2, 0);
 
@@ -357,7 +362,7 @@ std::string CaseWithValueFunctionSQL(const std::vector<std::string>& inputs) {
 
   return case_with_value;
 }
-std::string CaseNoValueFunctionSQL(const std::vector<std::string>& inputs) {
+std::string CaseNoValueFunctionSQL(absl::Span<const std::string> inputs) {
   ABSL_DCHECK_GE(inputs.size(), 1);
   ABSL_DCHECK_EQ((inputs.size() - 1) % 2, 0);
 
@@ -376,7 +381,7 @@ std::string InArrayFunctionSQL(const std::vector<std::string>& inputs) {
   ABSL_DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat("(", inputs[0], ") IN UNNEST(", inputs[1], ")");
 }
-std::string LikeAnyArrayFunctionSQL(const std::vector<std::string>& inputs) {
+std::string LikeAnyArrayFunctionSQL(absl::Span<const std::string> inputs) {
   ABSL_DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat(inputs[0], " LIKE ANY UNNEST(", inputs[1], ")");
 }
@@ -384,7 +389,7 @@ std::string NotLikeAnyArrayFunctionSQL(const std::vector<std::string>& inputs) {
   ABSL_DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat(inputs[0], " NOT LIKE ANY UNNEST(", inputs[1], ")");
 }
-std::string LikeAllArrayFunctionSQL(const std::vector<std::string>& inputs) {
+std::string LikeAllArrayFunctionSQL(absl::Span<const std::string> inputs) {
   ABSL_DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat(inputs[0], " LIKE ALL UNNEST(", inputs[1], ")");
 }
@@ -401,7 +406,7 @@ std::string ParenthesizedArrayFunctionSQL(const std::string& input) {
   }
 }
 std::string ArrayAtFunctionSQL(absl::string_view inner_function_name,
-                               const std::vector<std::string>& inputs) {
+                               absl::Span<const std::string> inputs) {
   ABSL_DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat(ParenthesizedArrayFunctionSQL(inputs[0]), "[",
                       inner_function_name, "(", inputs[1], ")]");
@@ -420,18 +425,17 @@ std::string SubscriptFunctionSQL(const std::vector<std::string>& inputs) {
   ABSL_DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat(inputs[0], "[", inputs[1], "]");
 }
-std::string SubscriptWithKeyFunctionSQL(
-    const std::vector<std::string>& inputs) {
+std::string SubscriptWithKeyFunctionSQL(absl::Span<const std::string> inputs) {
   ABSL_DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat(inputs[0], "[KEY(", inputs[1], ")]");
 }
 std::string SubscriptWithOffsetFunctionSQL(
-    const std::vector<std::string>& inputs) {
+    absl::Span<const std::string> inputs) {
   ABSL_DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat(inputs[0], "[OFFSET(", inputs[1], ")]");
 }
 std::string SubscriptWithOrdinalFunctionSQL(
-    const std::vector<std::string>& inputs) {
+    absl::Span<const std::string> inputs) {
   ABSL_DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat(inputs[0], "[ORDINAL(", inputs[1], ")]");
 }
@@ -446,7 +450,7 @@ std::string SafeProtoMapAtKeySQL(const std::vector<std::string>& inputs) {
   return ArrayAtFunctionSQL("SAFE_KEY", inputs);
 }
 std::string GenerateDateTimestampArrayFunctionSQL(
-    const std::string& function_name, const std::vector<std::string>& inputs) {
+    const std::string& function_name, absl::Span<const std::string> inputs) {
   ABSL_DCHECK(inputs.size() == 2 || inputs.size() == 4);
   std::string sql =
       absl::StrCat(function_name, "(", inputs[0], ", ", inputs[1]);
@@ -468,14 +472,14 @@ std::string GenerateDateTimestampArrayFunctionSQL(
 
 // For MakeArray we explicitly prepend the array type to the function sql, thus
 // array-type-name is expected to be passed as the first element of inputs.
-std::string MakeArrayFunctionSQL(const std::vector<std::string>& inputs) {
+std::string MakeArrayFunctionSQL(absl::Span<const std::string> inputs) {
   ABSL_DCHECK_GT(inputs.size(), 0);
   const std::string& type_name = inputs[0];
   const std::vector<std::string> args(inputs.begin() + 1, inputs.end());
   return absl::StrCat(type_name, "[", absl::StrJoin(args, ", "), "]");
 }
 
-std::string ExtractFunctionSQL(const std::vector<std::string>& inputs) {
+std::string ExtractFunctionSQL(absl::Span<const std::string> inputs) {
   ABSL_DCHECK_GT(inputs.size(), 1);
   std::string prefix = absl::StrCat("EXTRACT(", inputs[1], " FROM ", inputs[0]);
   if (inputs.size() > 2) {
@@ -484,8 +488,8 @@ std::string ExtractFunctionSQL(const std::vector<std::string>& inputs) {
   return absl::StrCat(prefix, ")");
 }
 
-std::string ExtractDateOrTimeFunctionSQL(
-    const std::string& date_part, const std::vector<std::string>& inputs) {
+std::string ExtractDateOrTimeFunctionSQL(const std::string& date_part,
+                                         absl::Span<const std::string> inputs) {
   ABSL_DCHECK_GT(inputs.size(), 0);
   std::string prefix = absl::StrCat("EXTRACT(", date_part, " FROM ", inputs[0]);
   if (inputs.size() > 1) {
@@ -504,7 +508,7 @@ bool ArgumentIsStringLiteral(const InputArgumentType& argument) {
 
 absl::Status EnsureArgumentsHaveType(
     absl::string_view function_name,
-    const std::vector<InputArgumentType>& arguments, ProductMode product_mode) {
+    absl::Span<const InputArgumentType> arguments, ProductMode product_mode) {
   for (const InputArgumentType& arg : arguments) {
     if (arg.type() == nullptr) {
       return MakeSqlError()
@@ -581,7 +585,6 @@ absl::Status CheckDateDatetimeTimeTimestampDiffArguments(
         }
         break;
       case functions::PICOSECOND:
-        // TODO Add compliance tests on Timestamp_Picos arguments.
         if (arguments[0].type()->IsTimestamp() &&
             language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_PICOS)) {
           return absl::OkStatus();
@@ -608,7 +611,7 @@ absl::Status CheckDateDatetimeTimeTimestampDiffArguments(
 }
 
 absl::Status CheckBitwiseOperatorArgumentsHaveSameType(
-    const std::string& operator_string,
+    absl::string_view operator_string,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
   // We do not want non-literal arguments to implicitly coerce.  We currently
@@ -708,7 +711,6 @@ absl::Status CheckDateDatetimeTimeTimestampTruncArguments(
         }
         break;
       case functions::PICOSECOND:
-        // TODO Add compliance tests on Timestamp_Picos arguments.
         if (arguments[0].type()->IsTimestamp() &&
             language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_PICOS)) {
           return absl::OkStatus();
@@ -767,7 +769,7 @@ absl::Status CheckLastDayArguments(
 }
 
 absl::Status CheckExtractPreResolutionArguments(
-    const std::vector<InputArgumentType>& arguments,
+    absl::Span<const InputArgumentType> arguments,
     const LanguageOptions& language_options) {
   // The first argument to the EXTRACT function cannot be a string literal
   // since that causes overloading issues.  The argument can be either DATE,
@@ -824,7 +826,7 @@ absl::Status CheckExtractPostResolutionArguments(
 }
 
 absl::Status CheckDateDatetimeTimestampAddSubArguments(
-    const std::string& function_name,
+    absl::string_view function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
   if (arguments.size() != 3) {
@@ -872,7 +874,6 @@ absl::Status CheckDateDatetimeTimestampAddSubArguments(
       }
       break;
     case functions::PICOSECOND:
-      // TODO Add compliance tests on Timestamp_Picos arguments.
       if (arguments[0].type()->IsTimestamp() &&
           language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_PICOS)) {
         return absl::OkStatus();
@@ -895,7 +896,7 @@ absl::Status CheckDateDatetimeTimestampAddSubArguments(
 }
 
 absl::Status CheckTimeAddSubArguments(
-    const std::string& function_name,
+    absl::string_view function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
   if (arguments.size() != 3) {
@@ -932,7 +933,7 @@ absl::Status CheckTimeAddSubArguments(
 }
 
 absl::Status CheckGenerateDateArrayArguments(
-    const std::vector<InputArgumentType>& arguments,
+    absl::Span<const InputArgumentType> arguments,
     const LanguageOptions& language_options) {
   if (arguments.size() != 4) {
     // GENERATE_DATE_ARRAY(start, end, INTERVAL int) is not valid; if the
@@ -968,7 +969,7 @@ absl::Status CheckGenerateDateArrayArguments(
 }
 
 absl::Status CheckGenerateTimestampArrayArguments(
-    const std::vector<InputArgumentType>& arguments,
+    absl::Span<const InputArgumentType> arguments,
     const LanguageOptions& language_options) {
   if (arguments.size() != 4) {
     // Wrong number of arguments; let validation continue normally.
@@ -990,7 +991,6 @@ absl::Status CheckGenerateTimestampArrayArguments(
         }
         break;
       case functions::PICOSECOND:
-        // TODO Add compliance tests on Timestamp_Picos arguments.
         if (language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_PICOS)) {
           return absl::OkStatus();
         }
@@ -1009,7 +1009,7 @@ absl::Status CheckGenerateTimestampArrayArguments(
 
 absl::Status CheckFormatPostResolutionArguments(
     const FunctionSignature& /*signature*/,
-    const std::vector<InputArgumentType>& arguments,
+    absl::Span<const InputArgumentType> arguments,
     const LanguageOptions& language_options) {
   ZETASQL_RET_CHECK_GE(arguments.size(), 1);
   ZETASQL_RET_CHECK(arguments[0].type()->IsString() || arguments[0].is_untyped_null());
@@ -1035,8 +1035,7 @@ absl::Status CheckFormatPostResolutionArguments(
 absl::Status CheckIsSupportedKeyType(
     absl::string_view function_name,
     const std::set<std::string>& supported_key_types,
-    int key_type_argument_index,
-    const std::vector<InputArgumentType>& arguments,
+    int key_type_argument_index, absl::Span<const InputArgumentType> arguments,
     const LanguageOptions& language_options) {
   if (arguments.size() <= key_type_argument_index) {
     // Wrong number of arguments; let validation happen normally.
@@ -1103,8 +1102,8 @@ bool IsStringLiteralComparedToBytes(const InputArgumentType& lhs_arg,
 }
 
 std::string NoMatchingSignatureForCaseNoValueFunction(
-    const std::string& qualified_function_name,
-    const std::vector<InputArgumentType>& arguments, ProductMode product_mode) {
+    absl::string_view qualified_function_name,
+    absl::Span<const InputArgumentType> arguments, ProductMode product_mode) {
   std::string error_message =
       absl::StrCat("No matching signature for ", qualified_function_name);
   // Even number arguments represent WHEN expressions and must be BOOL, except
@@ -1168,8 +1167,8 @@ std::string NoMatchingSignatureForCaseNoValueFunction(
 }
 
 std::string NoMatchingSignatureForInFunction(
-    const std::string& qualified_function_name,
-    const std::vector<InputArgumentType>& arguments, ProductMode product_mode) {
+    absl::string_view qualified_function_name,
+    absl::Span<const InputArgumentType> arguments, ProductMode product_mode) {
   if (arguments.empty()) {
     return Function::GetGenericNoMatchingFunctionSignatureErrorMessage(
         qualified_function_name, arguments, product_mode);
@@ -1193,8 +1192,8 @@ std::string NoMatchingSignatureForInFunction(
 }
 
 std::string NoMatchingSignatureForInArrayFunction(
-    const std::string& qualified_function_name,
-    const std::vector<InputArgumentType>& arguments, ProductMode product_mode) {
+    absl::string_view qualified_function_name,
+    absl::Span<const InputArgumentType> arguments, ProductMode product_mode) {
   std::string error_message =
       Function::GetGenericNoMatchingFunctionSignatureErrorMessage(
           qualified_function_name, arguments, product_mode);
@@ -1252,7 +1251,7 @@ std::string NoMatchingSignatureForLikeExprFunction(
 }
 std::string NoMatchingSignatureForLikeExprArrayFunction(
     const std::string& qualified_function_name,
-    const std::vector<InputArgumentType>& arguments, ProductMode product_mode) {
+    absl::Span<const InputArgumentType> arguments, ProductMode product_mode) {
   if (arguments.size() != 2) {
     return "Incorrect number of arguments for a LIKE expression.";
   }
@@ -1283,8 +1282,8 @@ std::string NoMatchingSignatureForLikeExprArrayFunction(
 }
 
 std::string NoMatchingSignatureForComparisonOperator(
-    const std::string& operator_name,
-    const std::vector<InputArgumentType>& arguments, ProductMode product_mode) {
+    absl::string_view operator_name,
+    absl::Span<const InputArgumentType> arguments, ProductMode product_mode) {
   std::string error_message =
       Function::GetGenericNoMatchingFunctionSignatureErrorMessage(
           operator_name, arguments, product_mode);
@@ -1297,7 +1296,7 @@ std::string NoMatchingSignatureForComparisonOperator(
 
 std::string NoMatchingSignatureForFunctionUsingInterval(
     const std::string& qualified_function_name,
-    const std::vector<InputArgumentType>& arguments, ProductMode product_mode,
+    absl::Span<const InputArgumentType> arguments, ProductMode product_mode,
     int index_of_interval_argument) {
   // index_of_interval_argument is the index of the INTERVAL expression in the
   // function's argument list. For example, it is 1 for DATE_SUB(DATE, INTERVAL
@@ -1362,7 +1361,7 @@ std::string NoMatchingSignatureForSubscript(
 }
 
 absl::Status CheckArgumentsSupportEquality(
-    const std::string& comparison_name, const FunctionSignature& signature,
+    absl::string_view comparison_name, const FunctionSignature& signature,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
   ZETASQL_RET_CHECK_EQ(signature.NumConcreteArguments(), arguments.size());
@@ -1380,7 +1379,7 @@ absl::Status CheckArgumentsSupportEquality(
 }
 
 absl::Status CheckArgumentsSupportGrouping(
-    const std::string& comparison_name, const FunctionSignature& signature,
+    absl::string_view comparison_name, const FunctionSignature& signature,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
   ZETASQL_RET_CHECK_EQ(signature.NumConcreteArguments(), arguments.size());
@@ -1422,7 +1421,7 @@ absl::StatusOr<const Type*> GetOrMakeEnumValueDescriptorType(
 }
 
 absl::Status PreResolutionCheckArgumentsSupportComparison(
-    const std::string& comparison_name,
+    absl::string_view comparison_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
   int bad_argument_idx;
@@ -1435,7 +1434,7 @@ absl::Status PreResolutionCheckArgumentsSupportComparison(
 }
 
 absl::Status CheckArgumentsSupportComparison(
-    const std::string& comparison_name, const FunctionSignature& /*signature*/,
+    absl::string_view comparison_name, const FunctionSignature& /*signature*/,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
   return PreResolutionCheckArgumentsSupportComparison(
@@ -1453,7 +1452,7 @@ absl::Status CheckMinMaxArguments(
 // Similar to MIN/MAX, but some engines can't yet handle GREATEST/LEAST,
 // so we need to check the flag.
 absl::Status CheckGreatestLeastArguments(
-    const std::string& function_name,
+    absl::string_view function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
   ZETASQL_RETURN_IF_ERROR(PreResolutionCheckArgumentsSupportComparison(
@@ -1496,7 +1495,7 @@ absl::Status CheckArrayConcatArguments(
 }
 
 absl::Status CheckArrayIsDistinctArguments(
-    const std::vector<InputArgumentType>& arguments,
+    absl::Span<const InputArgumentType> arguments,
     const LanguageOptions& language_options) {
   if (arguments.empty()) {
     // Let validation happen normally.  It will return an error later.
@@ -1634,6 +1633,15 @@ FunctionOptions DefaultAggregateFunctionOptions() {
       /*window_framing_support_in=*/true);
 }
 
+FunctionSignatureOptions SetDefinitionForInlining(absl::string_view sql,
+                                                  bool enabled) {
+  return FunctionSignatureOptions().set_rewrite_options(
+      FunctionSignatureRewriteOptions()
+          .set_enabled(enabled)
+          .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+          .set_sql(sql));
+}
+
 bool CanStringConcatCoerceFrom(const zetasql::Type* arg_type) {
   return arg_type->IsBool() || arg_type->IsNumerical() ||
          arg_type->IsTimestamp() || arg_type->IsCivilDateOrTimeType() ||
@@ -1643,7 +1651,7 @@ bool CanStringConcatCoerceFrom(const zetasql::Type* arg_type) {
 // Checks if an arithmetic operation has a floating point type as its input.
 std::string CheckHasFloatingPointArgument(
     const FunctionSignature& matched_signature,
-    const std::vector<InputArgumentType>& arguments) {
+    absl::Span<const InputArgumentType> arguments) {
   for (const InputArgumentType& argument : arguments) {
     if (argument.type()->IsFloatingPoint()) {
       return "";
@@ -1655,7 +1663,7 @@ std::string CheckHasFloatingPointArgument(
 // Checks if at least one input argument has NUMERIC type.
 std::string CheckHasNumericTypeArgument(
     const FunctionSignature& matched_signature,
-    const std::vector<InputArgumentType>& arguments) {
+    absl::Span<const InputArgumentType> arguments) {
   for (const InputArgumentType& argument : arguments) {
     if (argument.type()->kind() == TYPE_NUMERIC) {
       return "";
@@ -1668,7 +1676,7 @@ std::string CheckHasNumericTypeArgument(
 // case without input arguments.
 std::string CheckAllArgumentsHaveNumericOrBigNumericType(
     const FunctionSignature& matched_signature,
-    const std::vector<InputArgumentType>& arguments) {
+    absl::Span<const InputArgumentType> arguments) {
   for (const InputArgumentType& argument : arguments) {
     if (argument.type()->kind() != TYPE_NUMERIC &&
         argument.type()->kind() != TYPE_BIGNUMERIC) {
@@ -1682,7 +1690,7 @@ std::string CheckAllArgumentsHaveNumericOrBigNumericType(
 // NUMERIC type or BIGNUMERIC type.
 std::string CheckLastArgumentHasNumericOrBigNumericType(
     const FunctionSignature& matched_signature,
-    const std::vector<InputArgumentType>& arguments) {
+    absl::Span<const InputArgumentType> arguments) {
   if (!arguments.empty() &&
       (arguments.back().type()->kind() == TYPE_NUMERIC ||
        arguments.back().type()->kind() == TYPE_BIGNUMERIC)) {
@@ -1694,7 +1702,7 @@ std::string CheckLastArgumentHasNumericOrBigNumericType(
 // Checks if at least one input argument has BIGNUMERIC type.
 std::string CheckHasBigNumericTypeArgument(
     const FunctionSignature& matched_signature,
-    const std::vector<InputArgumentType>& arguments) {
+    absl::Span<const InputArgumentType> arguments) {
   for (const InputArgumentType& argument : arguments) {
     if (argument.type()->kind() == TYPE_BIGNUMERIC) {
       return "";
@@ -1743,7 +1751,7 @@ absl::StatusOr<const Type*> ComputeResultTypeForTopStruct(
 absl::StatusOr<const Type*> ComputeResultTypeForNearestNeighborsStruct(
     Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
     const FunctionSignature& /*signature*/,
-    const std::vector<InputArgumentType>& arguments,
+    absl::Span<const InputArgumentType> arguments,
     const AnalyzerOptions& analyzer_options) {
   const Type* element_type = nullptr;
   ZETASQL_RETURN_IF_ERROR(type_factory->MakeStructType(
@@ -2075,6 +2083,82 @@ void InsertSimpleNamespaceFunction(
       std::move(function_options)));
 }
 
+static absl::Status InsertCheckedTableValuedFunction(
+    NameToTableValuedFunctionMap* table_valued_functions,
+    std::unique_ptr<TableValuedFunction> table_valued_function,
+    const ZetaSQLBuiltinFunctionOptions& options) {
+  ZETASQL_RET_CHECK(table_valued_function->IsZetaSQLBuiltin())
+      << table_valued_function->Name() << " is not buitin TVF.";
+  // Check that builtin TVFs don't have rewrite options.
+  // BuiltinFunctionInlinerVisitor doesn't support inlining/rewriting TVFs.
+  // Once that support is added this check can be removed.
+  for (int idx = 0; idx < table_valued_function->NumSignatures(); ++idx) {
+    const FunctionSignature* signature =
+        table_valued_function->GetSignature(idx);
+    ZETASQL_RET_CHECK(!signature->options().rewrite_options().has_value())
+        << "Rewrite options are not supported for builtin TVFs.";
+    ZETASQL_RET_CHECK(!options.rewrite_enabled.contains(
+        static_cast<FunctionSignatureId>(signature->context_id())))
+        << "Attempted to opt into a rewrite for the following TVF "
+        << table_valued_function->Name()
+        << " but rewrite options are not supported for builtin TVFs.";
+  }
+  std::string name =
+      IdentifierPathToString(table_valued_function->function_name_path());
+  ZETASQL_RET_CHECK(
+      table_valued_functions->emplace(name, std::move(table_valued_function))
+          .second)
+      << name << "already exists";
+  return absl::OkStatus();
+}
+
+// Returns true if the TVF is actually inserted.
+template <typename FunctionSignatureListT>
+static absl::StatusOr<bool> InsertTableValuedFunctionImpl(
+    NameToTableValuedFunctionMap* table_valued_functions,
+    const ZetaSQLBuiltinFunctionOptions& options,
+    std::vector<std::string> name,
+    const std::vector<FunctionSignatureOnHeap>& signatures,
+    TableValuedFunctionOptions table_valued_function_options) {
+  std::vector<FunctionSignature> enabled_signatures;
+  enabled_signatures.reserve(signatures.size());
+  for (const auto& signature : signatures) {
+    if (FunctionSignatureIsDisabled(options, signature)) {
+      continue;
+    }
+    enabled_signatures.emplace_back(ToFunctionSignature(signature));
+  }
+
+  // When TVF doesn't have signatures or none of signatures are enabled via
+  // options, then we do not insert the TVF into the map (it is as if the TVF
+  // does not exist).
+  if (enabled_signatures.empty()) {
+    return false;
+  }
+
+  auto tvf = std::make_unique<TableValuedFunction>(
+      std::move(name), Function::kZetaSQLFunctionGroupName,
+      std::move(enabled_signatures), std::move(table_valued_function_options));
+  ZETASQL_RETURN_IF_ERROR(InsertCheckedTableValuedFunction(table_valued_functions,
+                                                   std::move(tvf), options));
+  return true;
+}
+
+absl::Status InsertSimpleTableValuedFunction(
+    NameToTableValuedFunctionMap* table_valued_functions,
+    const ZetaSQLBuiltinFunctionOptions& options, absl::string_view name,
+    const std::vector<FunctionSignatureOnHeap>& signatures,
+    TableValuedFunctionOptions table_valued_function_options) {
+  std::vector<std::string> names;
+  names.reserve(1);
+  names.emplace_back(name);
+  return InsertTableValuedFunctionImpl<
+             std::initializer_list<FunctionSignatureProxy>>(
+             table_valued_functions, options, names, signatures,
+             table_valued_function_options)
+      .status();
+}
+
 absl::Status InsertType(NameToTypeMap* types,
                         const ZetaSQLBuiltinFunctionOptions& options,
                         const Type* type) {
@@ -2082,15 +2166,6 @@ absl::Status InsertType(NameToTypeMap* types,
     return absl::OkStatus();
   }
 
-  if (options.language_options.product_mode() == PRODUCT_EXTERNAL &&
-      type->IsEnum()) {
-    // We have special enforcement that EnumType should not be added as
-    // named types in external products (for now). IsSupportedType can't be
-    // relied on, because certain enums are considered 'supported' for the
-    // purposes of function signature matching.
-    // In effect, this an exception to an exception.
-    return absl::OkStatus();
-  }
   auto [it, inserted] = types->try_emplace(
       type->ShortTypeName(options.language_options.product_mode()), type);
   if (!inserted) {

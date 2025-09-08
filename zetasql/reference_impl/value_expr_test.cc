@@ -566,7 +566,8 @@ TEST_F(EvalTest, NewGraphNodeExpr) {
   EXPECT_FALSE(graph_element_value.is_null());
   EXPECT_EQ(graph_element_value.DebugString(), "{a:1, b:\"foo\", c:NULL}");
   EXPECT_EQ(graph_element_value.type(), new_graph_element_op->output_type());
-  EXPECT_EQ(graph_element_value.GetIdentifier(), "14380458541578279397");
+  EXPECT_EQ(graph_element_value.GetIdentifier(),
+            "[STRING]graph0.node_table1[INT64]1[STRING]key");
 
   // Test that we can't create an element that is too large.
   EvaluationOptions value_size_options;
@@ -629,7 +630,9 @@ TEST_F(EvalTest, NewGraphEdgeExpr) {
                          {Value::Int64(2), Value::String("nk2")}));
   ZETASQL_ASSERT_OK_AND_ASSIGN(Value reverse_edge_value,
                        EvalExpr(*reverse_edge_op, EmptyParams()));
-  EXPECT_EQ(edge_value.GetIdentifier(), "6127173980150649373");
+  EXPECT_EQ(edge_value.GetIdentifier(),
+            "[STRING]graph0.edge_table1[INT64]1[STRING]ek[INT64]2[STRING]nk2["
+            "INT64]3[STRING]nk3");
   EXPECT_NE(edge_value.GetIdentifier(), reverse_edge_value.GetIdentifier());
   EXPECT_EQ(edge_value.GetSourceNodeIdentifier(),
             src_node_value.GetIdentifier());
@@ -640,9 +643,20 @@ TEST_F(EvalTest, NewGraphEdgeExpr) {
             src_node_value.GetIdentifier());
 }
 
+enum class DynamicLabelValueKindInTest {
+  kStatic,
+  kSingle,
+  kSingleEmptyValue,
+  kArrayWithNullValue,
+  kEmptyArray,
+  kNullArray,
+  kArrayWithEmptyValue,
+};
+
 absl::StatusOr<std::unique_ptr<NewGraphElementExpr>> MakeDynamicGraphElementOp(
     absl::Span<const Value> key_vals, const GraphElementTable* element_table,
-    bool has_dynamic_label, std::vector<Value::Property>& dynamic_properties,
+    DynamicLabelValueKindInTest dynamic_label_kind,
+    std::vector<Value::Property>& dynamic_properties,
     std::vector<Value> src_node_key_vals = {},
     std::vector<Value> dst_node_key_vals = {}) {
   std::vector<PropertyType> property_types;
@@ -678,9 +692,31 @@ absl::StatusOr<std::unique_ptr<NewGraphElementExpr>> MakeDynamicGraphElementOp(
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> dynamic_property_expr,
                    ConstExpr::Create(Json(std::move(json_value))));
   std::unique_ptr<ValueExpr> dynamic_label_expr;
-  if (has_dynamic_label) {
+  if (dynamic_label_kind == DynamicLabelValueKindInTest::kSingle) {
     ZETASQL_ASSIGN_OR_RETURN(dynamic_label_expr,
                      ConstExpr::Create(String("dynamic_label1")));
+  } else if (dynamic_label_kind ==
+             DynamicLabelValueKindInTest::kSingleEmptyValue) {
+    ZETASQL_ASSIGN_OR_RETURN(dynamic_label_expr, ConstExpr::Create(String("")));
+  } else if (dynamic_label_kind ==
+             DynamicLabelValueKindInTest::kArrayWithNullValue) {
+    std::vector<Value> value_vector = {String("dynamic_label1"),
+                                       String("dynamic_label2"),
+                                       Value::NullString()};
+    ZETASQL_ASSIGN_OR_RETURN(dynamic_label_expr, ConstExpr::Create(Value::Array(
+                                             StringArrayType(), value_vector)));
+  } else if (dynamic_label_kind == DynamicLabelValueKindInTest::kEmptyArray) {
+    ZETASQL_ASSIGN_OR_RETURN(dynamic_label_expr,
+                     ConstExpr::Create(Value::EmptyArray(StringArrayType())));
+  } else if (dynamic_label_kind == DynamicLabelValueKindInTest::kNullArray) {
+    ZETASQL_ASSIGN_OR_RETURN(dynamic_label_expr,
+                     ConstExpr::Create(Value::Null(StringArrayType())));
+  } else if (dynamic_label_kind ==
+             DynamicLabelValueKindInTest::kArrayWithEmptyValue) {
+    std::vector<Value> value_vector = {String("dynamic_label1"),
+                                       String("dynamic_label2"), String("")};
+    ZETASQL_ASSIGN_OR_RETURN(dynamic_label_expr, ConstExpr::Create(Value::Array(
+                                             StringArrayType(), value_vector)));
   }
 
   ZETASQL_ASSIGN_OR_RETURN(
@@ -712,7 +748,7 @@ TEST_F(EvalTest, DynamicNewGraphNodeExpr) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<NewGraphElementExpr> new_graph_element_op1,
       MakeDynamicGraphElementOp(keys, &element_table,
-                                /*has_dynamic_label=*/true,
+                                DynamicLabelValueKindInTest::kSingle,
                                 dynamic_properties));
   ZETASQL_ASSERT_OK(
       new_graph_element_op1->SetSchemasForEvaluation(EmptyParamsSchemas()));
@@ -745,7 +781,7 @@ TEST_F(EvalTest, DynamicNewGraphNodeExpr) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<NewGraphElementExpr> new_graph_element_op2,
       MakeDynamicGraphElementOp(keys, &element_table,
-                                /*has_dynamic_label=*/false,
+                                DynamicLabelValueKindInTest::kStatic,
                                 dynamic_properties));
   ZETASQL_ASSERT_OK(
       new_graph_element_op2->SetSchemasForEvaluation(EmptyParamsSchemas()));
@@ -769,6 +805,177 @@ TEST_F(EvalTest, DynamicNewGraphNodeExpr) {
                        EvalExpr(*new_graph_element_op2, EmptyParams()));
   EXPECT_EQ(graph_element_value2.DebugString(), "{a:1, b:\"foo\", c:NULL}");
   EXPECT_THAT(graph_element_value2.GetLabels(), ::testing::IsEmpty());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<NewGraphElementExpr> new_graph_element_op3,
+      MakeDynamicGraphElementOp(
+          keys, &element_table,
+          DynamicLabelValueKindInTest::kArrayWithNullValue,
+          dynamic_properties));
+  ZETASQL_ASSERT_OK(
+      new_graph_element_op3->SetSchemasForEvaluation(EmptyParamsSchemas()));
+  EXPECT_EQ(
+      "NewGraphElementExpr(\n"
+      "  +-type: GRAPH_NODE(graph0)<a INT64, b STRING, c DATE, DYNAMIC>\n"
+      "  +-table: graph0.node_table1\n"
+      "  +-key: (\n"
+      "  +- ConstExpr(1),\n"
+      "  +- ConstExpr(\"key\"),\n"
+      "  +-)\n"
+      "  +-static_properties: (\n"
+      "  +- a: ConstExpr(1),\n"
+      "  +- b: ConstExpr(\"foo\"),\n"
+      "  +- c: ConstExpr(NULL),\n"
+      "  +-)\n"
+      "  +-dynamic_property: ConstExpr({\"p1\":true,\"p2\":3.14})\n"
+      "  +-dynamic_label: ConstExpr([\"dynamic_label1\", \"dynamic_label2\", "
+      "NULL])",
+      new_graph_element_op3->DebugString());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value graph_element_value3,
+                       EvalExpr(*new_graph_element_op3, EmptyParams()));
+  EXPECT_EQ(graph_element_value3.DebugString(), "{a:1, b:\"foo\", c:NULL}");
+  // The NULL label is ignored after eval.
+  EXPECT_THAT(graph_element_value3.GetLabels(),
+              ElementsAre("dynamic_label1", "dynamic_label2"));
+  EXPECT_THAT(graph_element_value3.FindPropertyByName("p1"),
+              IsOkAndHolds(Eq(p1_json_value)));
+  EXPECT_THAT(graph_element_value3.FindPropertyByName("p2"),
+              IsOkAndHolds(Eq(p2_json_value)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<NewGraphElementExpr> new_graph_element_op4,
+      MakeDynamicGraphElementOp(keys, &element_table,
+                                DynamicLabelValueKindInTest::kEmptyArray,
+                                dynamic_properties));
+  ZETASQL_ASSERT_OK(
+      new_graph_element_op4->SetSchemasForEvaluation(EmptyParamsSchemas()));
+  EXPECT_EQ(new_graph_element_op4->DebugString(),
+            "NewGraphElementExpr(\n"
+            "  +-type: GRAPH_NODE(graph0)<a INT64, b STRING, c DATE, "
+            "DYNAMIC>\n"
+            "  +-table: graph0.node_table1\n"
+            "  +-key: (\n"
+            "  +- ConstExpr(1),\n"
+            "  +- ConstExpr(\"key\"),\n"
+            "  +-)\n"
+            "  +-static_properties: (\n"
+            "  +- a: ConstExpr(1),\n"
+            "  +- b: ConstExpr(\"foo\"),\n"
+            "  +- c: ConstExpr(NULL),\n"
+            "  +-)\n"
+            "  +-dynamic_property: ConstExpr({\"p1\":true,\"p2\":3.14})\n"
+            "  +-dynamic_label: ConstExpr([])");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value graph_element_value4,
+                       EvalExpr(*new_graph_element_op4, EmptyParams()));
+  EXPECT_EQ(graph_element_value4.DebugString(), "{a:1, b:\"foo\", c:NULL}");
+  EXPECT_THAT(graph_element_value4.GetLabels(), testing::IsEmpty());
+  EXPECT_THAT(graph_element_value4.FindPropertyByName("p1"),
+              IsOkAndHolds(Eq(p1_json_value)));
+  EXPECT_THAT(graph_element_value4.FindPropertyByName("p2"),
+              IsOkAndHolds(Eq(p2_json_value)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<NewGraphElementExpr> new_graph_element_op5,
+      MakeDynamicGraphElementOp(keys, &element_table,
+                                DynamicLabelValueKindInTest::kNullArray,
+                                dynamic_properties));
+  ZETASQL_ASSERT_OK(
+      new_graph_element_op5->SetSchemasForEvaluation(EmptyParamsSchemas()));
+  EXPECT_EQ(new_graph_element_op5->DebugString(),
+            "NewGraphElementExpr(\n"
+            "  +-type: GRAPH_NODE(graph0)<a INT64, b STRING, c DATE, "
+            "DYNAMIC>\n"
+            "  +-table: graph0.node_table1\n"
+            "  +-key: (\n"
+            "  +- ConstExpr(1),\n"
+            "  +- ConstExpr(\"key\"),\n"
+            "  +-)\n"
+            "  +-static_properties: (\n"
+            "  +- a: ConstExpr(1),\n"
+            "  +- b: ConstExpr(\"foo\"),\n"
+            "  +- c: ConstExpr(NULL),\n"
+            "  +-)\n"
+            "  +-dynamic_property: ConstExpr({\"p1\":true,\"p2\":3.14})\n"
+            "  +-dynamic_label: ConstExpr(NULL)");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value graph_element_value5,
+                       EvalExpr(*new_graph_element_op5, EmptyParams()));
+  EXPECT_EQ(graph_element_value5.DebugString(), "{a:1, b:\"foo\", c:NULL}");
+  EXPECT_THAT(graph_element_value5.GetLabels(), testing::IsEmpty());
+  EXPECT_THAT(graph_element_value5.FindPropertyByName("p1"),
+              IsOkAndHolds(Eq(p1_json_value)));
+  EXPECT_THAT(graph_element_value5.FindPropertyByName("p2"),
+              IsOkAndHolds(Eq(p2_json_value)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<NewGraphElementExpr> new_graph_element_op6,
+      MakeDynamicGraphElementOp(keys, &element_table,
+                                DynamicLabelValueKindInTest::kSingleEmptyValue,
+                                dynamic_properties));
+  ZETASQL_ASSERT_OK(
+      new_graph_element_op6->SetSchemasForEvaluation(EmptyParamsSchemas()));
+  EXPECT_EQ(
+      "NewGraphElementExpr(\n"
+      "  +-type: GRAPH_NODE(graph0)<a INT64, b STRING, c DATE, DYNAMIC>\n"
+      "  +-table: graph0.node_table1\n"
+      "  +-key: (\n"
+      "  +- ConstExpr(1),\n"
+      "  +- ConstExpr(\"key\"),\n"
+      "  +-)\n"
+      "  +-static_properties: (\n"
+      "  +- a: ConstExpr(1),\n"
+      "  +- b: ConstExpr(\"foo\"),\n"
+      "  +- c: ConstExpr(NULL),\n"
+      "  +-)\n"
+      "  +-dynamic_property: ConstExpr({\"p1\":true,\"p2\":3.14})\n"
+      "  +-dynamic_label: ConstExpr(\"\")",
+      new_graph_element_op6->DebugString());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value graph_element_value6,
+                       EvalExpr(*new_graph_element_op6, EmptyParams()));
+  EXPECT_EQ(graph_element_value6.DebugString(), "{a:1, b:\"foo\", c:NULL}");
+  EXPECT_TRUE(graph_element_value6.GetLabels().empty());
+  EXPECT_THAT(graph_element_value6.FindPropertyByName("p1"),
+              IsOkAndHolds(Eq(p1_json_value)));
+  EXPECT_THAT(graph_element_value6.FindPropertyByName("p2"),
+              IsOkAndHolds(Eq(p2_json_value)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<NewGraphElementExpr> new_graph_element_op7,
+      MakeDynamicGraphElementOp(
+          keys, &element_table,
+          DynamicLabelValueKindInTest::kArrayWithEmptyValue,
+          dynamic_properties));
+
+  ZETASQL_ASSERT_OK(
+      new_graph_element_op7->SetSchemasForEvaluation(EmptyParamsSchemas()));
+  EXPECT_EQ(
+      "NewGraphElementExpr(\n"
+      "  +-type: GRAPH_NODE(graph0)<a INT64, b STRING, c DATE, DYNAMIC>\n"
+      "  +-table: graph0.node_table1\n"
+      "  +-key: (\n"
+      "  +- ConstExpr(1),\n"
+      "  +- ConstExpr(\"key\"),\n"
+      "  +-)\n"
+      "  +-static_properties: (\n"
+      "  +- a: ConstExpr(1),\n"
+      "  +- b: ConstExpr(\"foo\"),\n"
+      "  +- c: ConstExpr(NULL),\n"
+      "  +-)\n"
+      "  +-dynamic_property: ConstExpr({\"p1\":true,\"p2\":3.14})\n"
+      "  +-dynamic_label: ConstExpr([\"dynamic_label1\", \"dynamic_label2\", "
+      "\"\"])",
+      new_graph_element_op7->DebugString());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value graph_element_value7,
+                       EvalExpr(*new_graph_element_op7, EmptyParams()));
+  EXPECT_EQ(graph_element_value7.DebugString(), "{a:1, b:\"foo\", c:NULL}");
+  EXPECT_THAT(graph_element_value7.GetLabels(),
+              ElementsAre("dynamic_label1", "dynamic_label2"));
+  EXPECT_THAT(graph_element_value7.FindPropertyByName("p1"),
+              IsOkAndHolds(Eq(p1_json_value)));
+  EXPECT_THAT(graph_element_value7.FindPropertyByName("p2"),
+              IsOkAndHolds(Eq(p2_json_value)));
 }
 
 TEST_F(EvalTest, DynamicNewGraphEdgeExpr) {
@@ -789,9 +996,9 @@ TEST_F(EvalTest, DynamicNewGraphEdgeExpr) {
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<NewGraphElementExpr> new_graph_element_op1,
-      MakeDynamicGraphElementOp(keys, &edge_table,
-                                /*has_dynamic_label=*/true, dynamic_properties,
-                                src_node_keys, dst_node_keys));
+      MakeDynamicGraphElementOp(
+          keys, &edge_table, DynamicLabelValueKindInTest::kSingle,
+          dynamic_properties, src_node_keys, dst_node_keys));
   ZETASQL_ASSERT_OK(
       new_graph_element_op1->SetSchemasForEvaluation(EmptyParamsSchemas()));
   EXPECT_EQ(
@@ -830,9 +1037,9 @@ TEST_F(EvalTest, DynamicNewGraphEdgeExpr) {
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<NewGraphElementExpr> new_graph_element_op2,
-      MakeDynamicGraphElementOp(keys, &edge_table,
-                                /*has_dynamic_label=*/false, dynamic_properties,
-                                src_node_keys, dst_node_keys));
+      MakeDynamicGraphElementOp(
+          keys, &edge_table, DynamicLabelValueKindInTest::kStatic,
+          dynamic_properties, src_node_keys, dst_node_keys));
   ZETASQL_ASSERT_OK(
       new_graph_element_op2->SetSchemasForEvaluation(EmptyParamsSchemas()));
   EXPECT_EQ(
@@ -1390,6 +1597,290 @@ TEST_F(EvalTest, DerefExprNameNotFound) {
   EXPECT_THAT(
       e->SetSchemasForEvaluation({&schema1, &schema2}),
       StatusIs(absl::StatusCode::kInternal, HasSubstr("Missing name: v")));
+}
+
+TEST_F(EvalTest, MultiStmtExpr) {
+  VariableId x("x"), y("y"), cte1("cte1");
+  TypeFactory type_factory;
+
+  // Statement 1: SELECT 1 AS x, 'a' AS y
+  // This creates a temporary result (a CTE) that can be referenced by later
+  // statements.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto one, ConstExpr::Create(Int64(1)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto enumerate_op, EnumerateOp::Create(std::move(one)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto const_1, ConstExpr::Create(Int64(1)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto const_a, ConstExpr::Create(String("a")));
+  std::vector<std::unique_ptr<ExprArg>> compute_args;
+  compute_args.push_back(std::make_unique<ExprArg>(x, std::move(const_1)));
+  compute_args.push_back(std::make_unique<ExprArg>(y, std::move(const_a)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto compute_op,
+      ComputeOp::Create(std::move(compute_args), std::move(enumerate_op)));
+
+  const StructType* cte_row_type =
+      MakeStructType({{"x", Int64Type()}, {"y", StringType()}});
+  const ArrayType* cte_array_type;
+  ZETASQL_ASSERT_OK(type_factory.MakeArrayType(cte_row_type, &cte_array_type));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_x_for_nest,
+                       DerefExpr::Create(x, Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_y_for_nest,
+                       DerefExpr::Create(y, StringType()));
+  std::vector<std::unique_ptr<ExprArg>> nest_fields;
+  nest_fields.push_back(std::make_unique<ExprArg>(std::move(deref_x_for_nest)));
+  nest_fields.push_back(std::make_unique<ExprArg>(std::move(deref_y_for_nest)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto struct_for_nest,
+      NewStructExpr::Create(cte_row_type, std::move(nest_fields)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto nest_expr,
+      ArrayNestExpr::Create(cte_array_type, std::move(struct_for_nest),
+                            std::move(compute_op), /*is_with_table=*/true));
+  auto stmt1_arg = std::make_unique<ExprArg>(cte1, std::move(nest_expr));
+
+  // Statement 2: SELECT * FROM <cte1>
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_cte1,
+                       DerefExpr::Create(cte1, cte_array_type));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto array_scan_op,
+      ArrayScanOp::Create(VariableId(), VariableId(), {{x, 0}, {y, 1}},
+                          std::move(deref_cte1)));
+
+  const StructType* select_row_type =
+      MakeStructType({{"x", Int64Type()}, {"y", StringType()}});
+  const ArrayType* select_array_type;
+  ZETASQL_ASSERT_OK(type_factory.MakeArrayType(select_row_type, &select_array_type));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_x_for_select,
+                       DerefExpr::Create(x, Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_y_for_select,
+                       DerefExpr::Create(y, StringType()));
+  std::vector<std::unique_ptr<ExprArg>> select_fields;
+  select_fields.push_back(
+      std::make_unique<ExprArg>(std::move(deref_x_for_select)));
+  select_fields.push_back(
+      std::make_unique<ExprArg>(std::move(deref_y_for_select)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto struct_for_select,
+      NewStructExpr::Create(select_row_type, std::move(select_fields)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto select_nest_expr,
+      ArrayNestExpr::Create(select_array_type, std::move(struct_for_select),
+                            std::move(array_scan_op), /*is_with_table=*/false));
+  auto stmt2_arg = std::make_unique<ExprArg>(std::move(select_nest_expr));
+
+  // Create and evaluate the MultiStmtExpr
+  std::vector<std::unique_ptr<ExprArg>> multi_stmt_args;
+  multi_stmt_args.push_back(std::move(stmt1_arg));
+  multi_stmt_args.push_back(std::move(stmt2_arg));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto multi_stmt_expr,
+                       MultiStmtExpr::Create(std::move(multi_stmt_args)));
+
+  ZETASQL_ASSERT_OK(multi_stmt_expr->SetSchemasForEvaluation(EmptyParamsSchemas()));
+
+  EvaluationContext context((EvaluationOptions()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<StmtResult> results,
+                       multi_stmt_expr->EvalMulti(EmptyParams(), &context));
+
+  // Verify the results
+  ASSERT_EQ(results.size(), 2);
+
+  Value expected_row = Struct({{"x", Int64(1)}, {"y", String("a")}});
+  Value expected_result = Array({expected_row});
+
+  // Result 1: CreateWithEntryStmt
+  ZETASQL_ASSERT_OK(results[0].value);
+  EXPECT_EQ(results[0].value.value(), expected_result);
+
+  // Result 2: SELECT
+  ZETASQL_ASSERT_OK(results[1].value);
+  EXPECT_EQ(results[1].value.value(), expected_result);
+}
+
+TEST_F(EvalTest, MultiStmtExpr_FailingCTECausesCascadingFailure) {
+  VariableId x("x"), cte1("cte1");
+  TypeFactory type_factory;
+
+  // Statement 1: SELECT 1/0 AS x
+  // This fails to create a temporary result (a CTE) that can be referenced by
+  // later statements, and subsequent statements will fail due to cascading
+  // failures.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto one, ConstExpr::Create(Int64(1)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto zero, ConstExpr::Create(Int64(0)));
+  std::vector<std::unique_ptr<ValueExpr>> div_args;
+  div_args.push_back(std::move(one));
+  div_args.push_back(std::move(zero));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto div_by_zero,
+                       ScalarFunctionCallExpr::Create(
+                           CreateFunction(FunctionKind::kDiv, Int64Type()),
+                           std::move(div_args)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto enumerate_op_one, ConstExpr::Create(Int64(1)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto enumerate_op,
+                       EnumerateOp::Create(std::move(enumerate_op_one)));
+
+  std::vector<std::unique_ptr<ExprArg>> compute_args;
+  compute_args.push_back(std::make_unique<ExprArg>(x, std::move(div_by_zero)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto compute_op,
+      ComputeOp::Create(std::move(compute_args), std::move(enumerate_op)));
+
+  const StructType* cte_row_type = MakeStructType({{"x", Int64Type()}});
+  const ArrayType* cte_array_type;
+  ZETASQL_ASSERT_OK(type_factory.MakeArrayType(cte_row_type, &cte_array_type));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_x_for_nest,
+                       DerefExpr::Create(x, Int64Type()));
+  std::vector<std::unique_ptr<ExprArg>> nest_fields;
+  nest_fields.push_back(std::make_unique<ExprArg>(std::move(deref_x_for_nest)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto struct_for_nest,
+      NewStructExpr::Create(cte_row_type, std::move(nest_fields)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto nest_expr,
+      ArrayNestExpr::Create(cte_array_type, std::move(struct_for_nest),
+                            std::move(compute_op), /*is_with_table=*/true));
+  auto stmt1_arg = std::make_unique<ExprArg>(cte1, std::move(nest_expr));
+
+  // Statement 2: SELECT * FROM <cte1>
+  // This statement should fail because its prerequisite (statement 1) fails.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_cte1,
+                       DerefExpr::Create(cte1, cte_array_type));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto array_scan_op,
+                       ArrayScanOp::Create(VariableId(), VariableId(), {{x, 0}},
+                                           std::move(deref_cte1)));
+
+  const StructType* select_row_type = MakeStructType({{"x", Int64Type()}});
+  const ArrayType* select_array_type;
+  ZETASQL_ASSERT_OK(type_factory.MakeArrayType(select_row_type, &select_array_type));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_x_for_select,
+                       DerefExpr::Create(x, Int64Type()));
+  std::vector<std::unique_ptr<ExprArg>> select_fields;
+  select_fields.push_back(
+      std::make_unique<ExprArg>(std::move(deref_x_for_select)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto struct_for_select,
+      NewStructExpr::Create(select_row_type, std::move(select_fields)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto select_nest_expr,
+      ArrayNestExpr::Create(select_array_type, std::move(struct_for_select),
+                            std::move(array_scan_op), /*is_with_table=*/false));
+  auto stmt2_arg = std::make_unique<ExprArg>(std::move(select_nest_expr));
+
+  // Create and evaluate the MultiStmtExpr
+  std::vector<std::unique_ptr<ExprArg>> multi_stmt_args;
+  multi_stmt_args.push_back(std::move(stmt1_arg));
+  multi_stmt_args.push_back(std::move(stmt2_arg));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto multi_stmt_expr,
+                       MultiStmtExpr::Create(std::move(multi_stmt_args)));
+
+  ZETASQL_ASSERT_OK(multi_stmt_expr->SetSchemasForEvaluation(EmptyParamsSchemas()));
+
+  EvaluationContext context((EvaluationOptions()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<StmtResult> results,
+                       multi_stmt_expr->EvalMulti(EmptyParams(), &context));
+
+  // Verify the results
+  ASSERT_EQ(results.size(), 2);
+
+  // Statement 1: CreateWithEntryStmt (fails)
+  EXPECT_THAT(results[0].value, StatusIs(absl::StatusCode::kOutOfRange,
+                                         HasSubstr("division by zero")));
+
+  // Statement 2: SELECT (fails due to cascading failure)
+  EXPECT_THAT(
+      results[1].value,
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Prerequisite CreateWithEntryStmt failed, "
+                         "statement index: 0 error: division by zero")));
+}
+
+TEST_F(EvalTest, MultiStmtExpr_EvalWithSingleStatement) {
+  // Eval on a MultiStmtExpr with a single statement fails as well.
+  TypeFactory type_factory;
+  const StructType* row_type = MakeStructType({{"x", Int64Type()}});
+  const ArrayType* array_type;
+  ZETASQL_ASSERT_OK(type_factory.MakeArrayType(row_type, &array_type));
+
+  // Statement: SELECT 1 AS x;
+  Value row = Struct({{"x", Int64(1)}});
+  Value array_val = Array({row});
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto const_expr, ConstExpr::Create(array_val));
+  auto stmt_arg = std::make_unique<ExprArg>(std::move(const_expr));
+
+  std::vector<std::unique_ptr<ExprArg>> multi_stmt_args;
+  multi_stmt_args.push_back(std::move(stmt_arg));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto multi_stmt_expr,
+                       MultiStmtExpr::Create(std::move(multi_stmt_args)));
+
+  ZETASQL_ASSERT_OK(multi_stmt_expr->SetSchemasForEvaluation(EmptyParamsSchemas()));
+
+  EvaluationContext context((EvaluationOptions()));
+
+  EXPECT_THAT(EvalExpr(*multi_stmt_expr, EmptyParams(), &context),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Multiple statements are not supported in "
+                                 "Eval. Use EvalMulti instead")));
+}
+
+TEST_F(EvalTest, MultiStmtExpr_EvalWithMultipleStatements) {
+  // Eval on a MultiStmtExpr with multiple statements fails.
+  TypeFactory type_factory;
+  const StructType* row_type = MakeStructType({{"x", Int64Type()}});
+  const ArrayType* array_type;
+  ZETASQL_ASSERT_OK(type_factory.MakeArrayType(row_type, &array_type));
+
+  Value row = Struct({{"x", Int64(1)}});
+  Value array_val = Array({row});
+
+  // Statement 1: SELECT 1 AS x;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto const_expr1, ConstExpr::Create(array_val));
+  auto stmt_arg1 = std::make_unique<ExprArg>(std::move(const_expr1));
+
+  // Statement 2: SELECT 1 AS x;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto const_expr2, ConstExpr::Create(array_val));
+  auto stmt_arg2 = std::make_unique<ExprArg>(std::move(const_expr2));
+
+  std::vector<std::unique_ptr<ExprArg>> multi_stmt_args;
+  multi_stmt_args.push_back(std::move(stmt_arg1));
+  multi_stmt_args.push_back(std::move(stmt_arg2));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto multi_stmt_expr,
+                       MultiStmtExpr::Create(std::move(multi_stmt_args)));
+
+  ZETASQL_ASSERT_OK(multi_stmt_expr->SetSchemasForEvaluation(EmptyParamsSchemas()));
+
+  EvaluationContext context((EvaluationOptions()));
+  EXPECT_THAT(EvalExpr(*multi_stmt_expr, EmptyParams(), &context),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       "Multiple statements are not supported in Eval. Use "
+                       "EvalMulti instead"));
+}
+
+TEST_F(EvalTest, EvalMultiSuccess) {
+  // EvalMulti by default just calls EvalSimple and returns a single result.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto const_expr, ConstExpr::Create(Int64(42)));
+  ZETASQL_ASSERT_OK(const_expr->SetSchemasForEvaluation(EmptyParamsSchemas()));
+
+  EvaluationContext context((EvaluationOptions()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<StmtResult> results,
+                       const_expr->EvalMulti(EmptyParams(), &context));
+
+  ASSERT_EQ(results.size(), 1);
+  ZETASQL_ASSERT_OK(results[0].value);
+  EXPECT_EQ(results[0].value.value(), Int64(42));
+}
+
+TEST_F(EvalTest, EvalMultiFailure) {
+  // EvalMulti by default just calls EvalSimple and returns the error.
+  auto div_by_zero_expr = DivByZeroErrorExpr();
+  ZETASQL_ASSERT_OK(div_by_zero_expr->SetSchemasForEvaluation(EmptyParamsSchemas()));
+
+  EvaluationContext context((EvaluationOptions()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<StmtResult> results,
+                       div_by_zero_expr->EvalMulti(EmptyParams(), &context));
+
+  ASSERT_EQ(results.size(), 1);
+  EXPECT_THAT(results[0].value, StatusIs(absl::StatusCode::kOutOfRange,
+                                         HasSubstr("division by zero")));
 }
 
 class DMLValueExprEvalTest : public EvalTest {
@@ -2037,8 +2528,8 @@ TEST_F(DMLValueExprEvalTest,
       MakeResolvedDMLValue(MakeResolvedLiteral(Int64Type(),
                                                Int64(0), /*has_explicit_type=*/
                                                true, /*float_literal_id=*/0)),
-      /*element_column=*/nullptr, /*array_update_list=*/{}, /*delete_list=*/{},
-      /*update_list=*/{}, /*insert_list=*/{}));
+      /*element_column=*/nullptr, /*update_item_element_list=*/{},
+      /*delete_list=*/{}, /*update_list=*/{}, /*insert_list=*/{}));
   std::vector<std::unique_ptr<ResolvedColumnRef>> resolved_column_refs;
   resolved_column_refs.push_back(MakeResolvedColumnRef(
       table_scan->column_list(1).type(), table_scan->column_list(1),
@@ -2361,7 +2852,7 @@ TEST_F(DMLValueExprEvalTest,
 class ProtoEvalTest : public ::testing::Test {
  public:
   ProtoEvalTest() : type_factory_(test_values::static_type_factory()) {}
-  ~ProtoEvalTest() override {}
+  ~ProtoEvalTest() override = default;
 
   const ProtoType* MakeProtoType(const google::protobuf::Message* msg) {
     const ProtoType* proto_type;

@@ -188,27 +188,6 @@ struct GeneratedOrDefaultColumnInfo {
   ASTGeneratedColumnInfo* generated_column_info;
 };
 
-struct ExternalTableWithClauses {
-  ASTWithPartitionColumnsClause* with_partition_columns_clause;
-  ASTWithConnectionClause* with_connection_clause;
-};
-
-struct LanguageOrRemoteWithConnection {
-  ASTIdentifier* language;
-  bool is_remote;
-  ASTWithConnectionClause* with_connection_clause;
-};
-
-struct LanguageOptionsSet {
-  ASTIdentifier* language;
-  ASTNode* options;
-};
-
-struct OptionsBodySet {
-  ASTNode* options;
-  ASTNode* body;
-};
-
 struct BeginEndBlockOrLanguageAsCode {
   ASTScript* body;
   ASTIdentifier* language;
@@ -225,19 +204,9 @@ struct ColumnMatchSuffix {
   ASTColumnList* column_list;
 };
 
-struct QueryOrReplicaSourceInfo {
-  ASTQuery* query;
-  ASTPathExpression* replica_source;
-};
-
 struct GroupByPreamble {
   ASTNode* hint;
   bool and_order_by;
-};
-
-struct GroupByModifier {
-  ASTNode* group_by;
-  ASTNode* having_expr;
 };
 
 struct GraphDynamicLabelProperties {
@@ -450,7 +419,7 @@ inline bool EnforceParentNonNull(ASTNode* /*absl_nonnull*/ parent) {
 
 // ASTNode*
 
-inline bool GetNonEmptyLocation(ASTNode* /*absl_nonnull*/ node, bool from_right,
+inline bool GetNonEmptyLocation(ASTNode* node, bool from_right,
                                 ParseLocationRange& location);
 
 inline void AddToChildren(ASTNode* /*absl_nonnull*/ parent, ASTNode* child,
@@ -480,7 +449,7 @@ inline void AddToChildren(ASTNode* /*absl_nonnull*/ parent, const U& children,
 //
 // Base case implementations
 
-inline bool GetNonEmptyLocation(ASTNode* /*absl_nonnull*/ node, bool from_right,
+inline bool GetNonEmptyLocation(ASTNode* node, bool from_right,
                                 ParseLocationRange& location) {
   if (node == nullptr || node->start_location() == node->end_location()) {
     return false;
@@ -610,11 +579,11 @@ void ExtendNodeRecursive(ASTNode* /*absl_nonnull*/ parent,
 // TODO: C++23 - When "deduce this" feature is available in relevant toolchains
 //       convert ExtendNode family of functions to members of ASTNode.
 
-// Extends `node` by appending `new_children` at the front of the children list
-// and also extend `node`'s location range to the left by settings its end point
-// to 'new_start_location`.
+// Extends `parent` by appending `new_children` at the front of the children
+// list and also extend `parent`'s location range to the left by settings its
+// end point to 'new_start_location`.
 //
-// Returns `node` to allow this function to be used on the right hand side of
+// Returns `parent` to allow this function to be used on the right hand side of
 // an assignment, in a chained fluent style, or in a return statement.
 //
 // `new_children` may contain nulls, which are ignored.
@@ -628,15 +597,17 @@ ASTNodeType* ExtendNodeLeft(ASTNodeType* /*absl_nonnull*/ parent,
   return parent;
 }
 
-// Extends `node` by adding `left_child` at the front of the children list and
-// also extend `node`s location range to the left by settings its start point
-// to the start location of the first child that has a non-empty location range.
+// Extends `parent` by adding `new_children` at the front of the children list
+// and also extend `parent`s location range to the left by settings its start
+// point to the start location of the first child that has a non-empty location
+// range.
 //
-// Returns `node` to allow this function to be used on the right hand side of
+// Returns `parent` to allow this function to be used on the right hand side of
 // an assignment, in a chained fluent style, or in a return statement.
 //
-// `left_child` may be nullptr. To extend with a child that may be nullptr
-// use the overload that takes an explicit `new_end_location` argument.
+// `new_children` must have no  nullptr elements. To extend with a child that
+// may be nullptr: use the overload that takes an explicit `new_end_location`
+// argument.
 template <class ASTNodeType, typename... TChildren,
           internal::IsASTNodeType<ASTNodeType> = true>
 ASTNodeType* ExtendNodeLeft(ASTNodeType* /*absl_nonnull*/ parent,
@@ -645,15 +616,15 @@ ASTNodeType* ExtendNodeLeft(ASTNodeType* /*absl_nonnull*/ parent,
   return parent;
 }
 
-// Extends `node` by adding `right_child` at the back of the children list and
-// also extend `node`s location range to the right by settings its end point
-// to 'new_end_location`.
+// Extends `parent` by adding `new_children` at the back of the children list
+// and also extend `parent`s location range to the right by settings its end
+// point to 'new_end_location`.
 //
-// Returns `node` to allow this function to be used on the right hand side of
+// Returns `parent` to allow this function to be used on the right hand side of
 // an assignment, in a chained fluent style, or in a return statement.
 //
-// `right_child` may be nullptr. In that case the location range is still
-// extended to `new_end_location`.
+// `new_children` may have be nullptr elements. In that case the location range
+// is still extended to `new_end_location`.
 template <class ASTNodeType, typename... TChildren,
           internal::IsASTNodeType<ASTNodeType> = true>
 ASTNodeType* ExtendNodeRight(ASTNodeType* /*absl_nonnull*/ parent,
@@ -664,15 +635,16 @@ ASTNodeType* ExtendNodeRight(ASTNodeType* /*absl_nonnull*/ parent,
   return parent;
 }
 
-// Extends `node` by adding `right_child` at the back of the children list and
-// also, if `right_child` is not nullptr, extends `node`s location range to
-// the right by setting its end point to `right_child`s end location.
+// Extends `parent` by adding `new_children` at the back of the children list
+// and also, if `new_children` is not nullptr, extends `parent`s location range
+// to the right by setting its end point to `new_children`s end location.
 //
-// Returns `node` to allow this function to be used on the right hand side of
+// Returns `parent` to allow this function to be used on the right hand side of
 // an assignment, in a chained fluent style, or in a return statement.
 //
-// `right_child` must not be nullptr. To extend with a child that may be nullptr
-// use the overload that takes an explicit `new_end_location` argument.
+// `new_children` must have no nullptr elements. To extend with a child that may
+// may be nullptr: use the overload that takes an explicit `new_end_location`
+// argument.
 template <class ASTNodeType, typename... TChildren,
           internal::IsASTNodeType<ASTNodeType> = true>
 ASTNodeType* ExtendNodeRight(ASTNodeType* /*absl_nonnull*/ parent,
@@ -717,12 +689,13 @@ inline Location NonEmptyRangeLocation(const Location& first_location,
   }
   return first_location;
 }
-inline bool IsUnparenthesizedNotExpression(zetasql::ASTNode* node) {
-  using zetasql::ASTUnaryExpression;
-  const ASTUnaryExpression* expr = node->GetAsOrNull<ASTUnaryExpression>();
-  return expr != nullptr && !expr->parenthesized() &&
-         expr->op() == ASTUnaryExpression::NOT;
-}
+
+// Helps detect illegal case where the NOT operator is used on the right hand
+// side of a binary operator. Due to precedence rules, a NOT operator on the
+// right hand side needs to be parenthesized.
+//
+// `rhs_expr`: an expression from the right hand side of a binary operator.
+absl::Status ErrorIfUnparenthesizedNotExpression(ASTNode* rhs_expr);
 
 // Makes a zero-length location range: [point, point).
 // This is to simulate a required AST node whose child nodes are all optional.

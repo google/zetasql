@@ -53,7 +53,7 @@ static std::string AnonFunctionSQL(absl::string_view display_name,
 }
 
 static std::string SignatureTextForAnonFunction(
-    const std::string& function_name, const LanguageOptions& language_options,
+    absl::string_view function_name, const LanguageOptions& language_options,
     const Function& function, const FunctionSignature& signature) {
   std::string upper_case_function_name = absl::AsciiStrToUpper(function_name);
   std::string percentile_or_quantiles = "";
@@ -145,11 +145,13 @@ static std::string AnonFunctionBadArgumentErrorPrefix(
   }
 }
 
-static const FunctionOptions AddDefaultFunctionOptions(
-    absl::string_view name, FunctionOptions options) {
-  // Anon functions do not support multi-level aggregation (i.e. no GROUP BY
-  // modifiers).
+static FunctionOptions AddDefaultFunctionOptions(absl::string_view name,
+                                                 FunctionOptions options) {
+  // Anon functions do not support multi-level aggregation or aggregate
+  // filtering (i.e. no GROUP BY, WHERE, HAVING filter modifiers).
   options.set_supports_group_by_modifier(false);
+  options.set_supports_where_modifier(false);
+  options.set_supports_having_filter_modifier(false);
   if (!options.supports_clamped_between_modifier) {
     // Only apply the anon_* callbacks to functions that support CLAMPED BETWEEN
     return options;

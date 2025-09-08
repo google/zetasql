@@ -1,7 +1,7 @@
-[language_{{features=PIPES|features=}}]
+[language_features=NONE{{,+PIPES|}}]
 (SELECT 1) {{AS q1|q1|}}
 --
-ALTERNATION GROUP: features=PIPES,AS q1
+ALTERNATION GROUP: ,+PIPES,AS q1
 --
 QueryStatement [0-16] [(SELECT 1) AS q1]
   Query [0-16] [(SELECT 1) AS q1]
@@ -20,16 +20,16 @@ QueryStatement [0-16] [(SELECT 1) AS q1]
 ) AS q1
 --
 ALTERNATION GROUPS:
-    features=PIPES,q1
-    features=,q1
+    ,+PIPES,q1
+    q1
 --
 ERROR: Syntax error: Expected end of input but got identifier "q1" [at 1:12]
 (SELECT 1) q1
            ^
 --
 ALTERNATION GROUPS:
-    features=PIPES,
-    features=,
+    ,+PIPES,
+    <empty>
 --
 QueryStatement [0-10] [(SELECT 1)]
   Query [1-9] [SELECT 1]
@@ -43,17 +43,17 @@ SELECT
   1
 )
 --
-ALTERNATION GROUP: features=,AS q1
+ALTERNATION GROUP: AS q1
 --
 ERROR: Syntax error: Alias not allowed on parenthesized outer query [at 1:12]
 (SELECT 1) AS q1
            ^
 ==
 
-[language_{{features=PIPES|features=}}]
+[language_features=NONE{{,+PIPES|}}]
 (FROM t1) {{AS q1|q1|}}
 --
-ALTERNATION GROUP: features=PIPES,AS q1
+ALTERNATION GROUP: ,+PIPES,AS q1
 --
 QueryStatement [0-15] [(FROM t1) AS q1]
   Query [0-15] [(FROM t1) AS q1]
@@ -72,13 +72,13 @@ QueryStatement [0-15] [(FROM t1) AS q1]
     t1
 ) AS q1
 --
-ALTERNATION GROUP: features=PIPES,q1
+ALTERNATION GROUP: ,+PIPES,q1
 --
 ERROR: Syntax error: Expected end of input but got identifier "q1" [at 1:11]
 (FROM t1) q1
           ^
 --
-ALTERNATION GROUP: features=PIPES,
+ALTERNATION GROUP: ,+PIPES,
 --
 QueryStatement [0-9] [(FROM t1)]
   Query [1-8] [FROM t1]
@@ -92,26 +92,26 @@ QueryStatement [0-9] [(FROM t1)]
 FROM
   t1)
 --
-ALTERNATION GROUP: features=,AS q1
+ALTERNATION GROUP: AS q1
 --
 ERROR: Syntax error: Unexpected FROM [at 1:2]
 (FROM t1) AS q1
  ^
 --
-ALTERNATION GROUP: features=,q1
+ALTERNATION GROUP: q1
 --
 ERROR: Syntax error: Unexpected FROM [at 1:2]
 (FROM t1) q1
  ^
 --
-ALTERNATION GROUP: features=,
+ALTERNATION GROUP: <empty>
 --
 ERROR: Syntax error: Unexpected FROM [at 1:2]
 (FROM t1) 
  ^
 ==
 
-[language_features=PIPES]
+[language_features=NONE,+PIPES]
 (FROM t1) {{AS|}} q1
 |> WHERE true
 --
@@ -146,12 +146,12 @@ ERROR: Syntax error: Expected end of input but got identifier "q1" [at 1:12]
            ^
 ==
 
-[language_{{features=PIPES|features=}}]
+[language_features=NONE{{,+PIPES|}}]
 (SELECT * FROM t1) AS q1
 UNION ALL
 (SELECT * FROM t2) AS q2
 --
-ALTERNATION GROUP: features=PIPES
+ALTERNATION GROUP: ,+PIPES
 --
 QueryStatement [0-59] [(SELECT *...t2) AS q2]
   Query [0-59] [(SELECT *...t2) AS q2]
@@ -198,18 +198,18 @@ QueryStatement [0-59] [(SELECT *...t2) AS q2]
     t2
 ) AS q2
 --
-ALTERNATION GROUP: features=
+ALTERNATION GROUP: <empty>
 --
 ERROR: Syntax error: Alias not allowed on parenthesized outer query [at 1:20]
 (SELECT * FROM t1) AS q1
                    ^
 ==
 
-[language_{{features=PIPES|features=}}]
+[language_features=NONE{{,+PIPES|}}]
 (SELECT * FROM t1) AS q1
 ORDER BY x
 --
-ALTERNATION GROUP: features=PIPES
+ALTERNATION GROUP: ,+PIPES
 --
 QueryStatement [0-35] [(SELECT *...ORDER BY x]
   Query [0-35] [(SELECT *...ORDER BY x]
@@ -238,18 +238,18 @@ QueryStatement [0-35] [(SELECT *...ORDER BY x]
 ) AS q1
 ORDER BY x
 --
-ALTERNATION GROUP: features=
+ALTERNATION GROUP: <empty>
 --
 ERROR: Syntax error: Alias not allowed on parenthesized outer query [at 1:20]
 (SELECT * FROM t1) AS q1
                    ^
 ==
 
-[language_{{features=PIPES|features=}}]
+[language_features=NONE{{,+PIPES|}}]
 (SELECT * FROM t1) AS q1
 LIMIT 10
 --
-ALTERNATION GROUP: features=PIPES
+ALTERNATION GROUP: ,+PIPES
 --
 QueryStatement [0-33] [(SELECT *...q1 LIMIT 10]
   Query [0-33] [(SELECT *...q1 LIMIT 10]
@@ -266,7 +266,8 @@ QueryStatement [0-33] [(SELECT *...q1 LIMIT 10]
       Alias [19-24] [AS q1]
         Identifier(q1) [22-24] [q1]
     LimitOffset [25-33] [LIMIT 10]
-      IntLiteral(10) [31-33] [10]
+      Limit [25-33] [LIMIT 10]
+        IntLiteral(10) [31-33] [10]
 --
 (
   SELECT
@@ -276,50 +277,50 @@ QueryStatement [0-33] [(SELECT *...q1 LIMIT 10]
 ) AS q1
 LIMIT 10
 --
-ALTERNATION GROUP: features=
+ALTERNATION GROUP: <empty>
 --
 ERROR: Syntax error: Alias not allowed on parenthesized outer query [at 1:20]
 (SELECT * FROM t1) AS q1
                    ^
 ==
 
-[language_{{features=PIPES|features=}}]
+[language_features=NONE{{,+PIPES|}}]
 (SELECT * FROM t1) {{AS q1|q1}}
 JOIN 
 (SELECT * FROM t2) {{AS q2|q2}}
 --
 ALTERNATION GROUPS:
-    features=PIPES,AS q1,AS q2
-    features=PIPES,AS q1,q2
+    ,+PIPES,AS q1,AS q2
+    ,+PIPES,AS q1,q2
 --
 ERROR: Syntax error: Expected end of input but got keyword JOIN [at 2:1]
 JOIN 
 ^
 --
 ALTERNATION GROUPS:
-    features=PIPES,q1,AS q2
-    features=PIPES,q1,q2
-    features=,q1,AS q2
-    features=,q1,q2
+    ,+PIPES,q1,AS q2
+    ,+PIPES,q1,q2
+    q1,AS q2
+    q1,q2
 --
 ERROR: Syntax error: Expected end of input but got identifier "q1" [at 1:20]
 (SELECT * FROM t1) q1
                    ^
 --
 ALTERNATION GROUPS:
-    features=,AS q1,AS q2
-    features=,AS q1,q2
+    AS q1,AS q2
+    AS q1,q2
 --
 ERROR: Syntax error: Alias not allowed on parenthesized outer query [at 1:20]
 (SELECT * FROM t1) AS q1
                    ^
 ==
 
-[language_{{features=PIPES|features=}}]
+[language_features=NONE{{,+PIPES|}}]
 # This compares aliased query output inside and outside FROM.
 {{FROM|}} (SELECT 1) AS q
 --
-ALTERNATION GROUP: features=PIPES,FROM
+ALTERNATION GROUP: ,+PIPES,FROM
 --
 QueryStatement [62-82] [FROM (SELECT 1) AS q]
   Query [62-82] [FROM (SELECT 1) AS q]
@@ -340,7 +341,7 @@ FROM
       1
   ) AS q
 --
-ALTERNATION GROUP: features=PIPES,
+ALTERNATION GROUP: ,+PIPES,
 --
 QueryStatement [63-78] [(SELECT 1) AS q]
   Query [63-78] [(SELECT 1) AS q]
@@ -358,23 +359,23 @@ QueryStatement [63-78] [(SELECT 1) AS q]
     1
 ) AS q
 --
-ALTERNATION GROUP: features=,FROM
+ALTERNATION GROUP: FROM
 --
 ERROR: Syntax error: Unexpected FROM [at 2:1]
 FROM (SELECT 1) AS q
 ^
 --
-ALTERNATION GROUP: features=,
+ALTERNATION GROUP: <empty>
 --
 ERROR: Syntax error: Alias not allowed on parenthesized outer query [at 2:13]
  (SELECT 1) AS q
             ^
 ==
 
-[language_{{features=PIPES|features=}}]
+[language_features=NONE{{,+PIPES|}}]
 (((SELECT 1))) AS q1
 --
-ALTERNATION GROUP: features=PIPES
+ALTERNATION GROUP: ,+PIPES
 --
 QueryStatement [0-20] [(((SELECT 1))) AS q1]
   Query [0-20] [(((SELECT 1))) AS q1]
@@ -393,17 +394,17 @@ QueryStatement [0-20] [(((SELECT 1))) AS q1]
   )
 ) AS q1
 --
-ALTERNATION GROUP: features=
+ALTERNATION GROUP: <empty>
 --
 ERROR: Syntax error: Alias not allowed on parenthesized outer query [at 1:16]
 (((SELECT 1))) AS q1
                ^
 ==
 
-[language_{{features=PIPES|features=}}]
+[language_features=NONE{{,+PIPES|}}]
 (((SELECT 1) AS q1))
 --
-ALTERNATION GROUP: features=PIPES
+ALTERNATION GROUP: ,+PIPES
 --
 QueryStatement [0-20] [(((SELECT 1) AS q1))]
   Query [2-18] [(SELECT 1) AS q1]
@@ -422,17 +423,17 @@ QueryStatement [0-20] [(((SELECT 1) AS q1))]
     1
 ) AS q1)
 --
-ALTERNATION GROUP: features=
+ALTERNATION GROUP: <empty>
 --
 ERROR: Syntax error: Alias not allowed on parenthesized outer query [at 1:14]
 (((SELECT 1) AS q1))
              ^
 ==
 
-[language_{{features=PIPES|features=}}]
+[language_features=NONE{{,+PIPES|}}]
 (((SELECT 1) AS q1) AS q2) AS q3
 --
-ALTERNATION GROUP: features=PIPES
+ALTERNATION GROUP: ,+PIPES
 --
 QueryStatement [0-32] [(((SELECT...q2) AS q3]
   Query [0-32] [(((SELECT...q2) AS q3]
@@ -462,20 +463,20 @@ QueryStatement [0-32] [(((SELECT...q2) AS q3]
   ) AS q2
 ) AS q3
 --
-ALTERNATION GROUP: features=
+ALTERNATION GROUP: <empty>
 --
 ERROR: Syntax error: Alias not allowed on parenthesized outer query [at 1:14]
 (((SELECT 1) AS q1) AS q2) AS q3
              ^
 ==
 
-[language_{{features=PIPES|features=}}]
+[language_features=NONE{{,+PIPES|}}]
 # Test another kind of QueryExpression with an alias.
 (select 1
  union all
  select 2) AS q
 --
-ALTERNATION GROUP: features=PIPES
+ALTERNATION GROUP: ,+PIPES
 --
 QueryStatement [54-90] [(select 1...select 2) AS q]
   Query [54-90] [(select 1...select 2) AS q]
@@ -505,7 +506,7 @@ QueryStatement [54-90] [(select 1...select 2) AS q]
     2
 ) AS q
 --
-ALTERNATION GROUP: features=
+ALTERNATION GROUP: <empty>
 --
 ERROR: Syntax error: Alias not allowed on parenthesized outer query [at 4:12]
  select 2) AS q

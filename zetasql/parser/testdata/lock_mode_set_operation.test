@@ -1,6 +1,6 @@
 # Tests for the FOR UPDATE clause in combination with set operations.
 
-[default language_features=FOR_UPDATE]
+[default language_features=NONE,+FOR_UPDATE]
 
 # Set operation with FOR UPDATE in LHS query
 (select a from t1 for update) union all select a from t2;

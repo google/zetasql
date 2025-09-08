@@ -1,4 +1,4 @@
-[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,SQL_GRAPH_RETURN_EXTENSIONS]
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,+SQL_GRAPH_RETURN_EXTENSIONS]
 [default no_test_extract_table_names]
 # No unparser due to SQLBuilder visitor not implemented for GraphMakeElement
 
@@ -1794,7 +1794,7 @@ FROM
 ==
 
 # Using RETURN statement instead of COLUMNS() indicates GQL syntax. GQL extended GRAPH_TABLE requires SQL_GRAPH.
-[language_features=SQL_GRAPH_ADVANCED_QUERY]
+[language_features=NONE,+SQL_GRAPH_ADVANCED_QUERY]
 select * from
   graph_table(aml
     MATCH ()
@@ -1808,7 +1808,7 @@ ERROR: Graph query is not supported [at 2:3]
 ==
 
 # GQL extended GRAPH_TABLE requires GQL_EXTENDED
-[language_features=SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH]
 select * from
   graph_table(aml
     MATCH ()
@@ -1823,7 +1823,7 @@ ERROR: Graph query with GQL extension is not supported [at 3:5]
 ==
 
 # GQL extended GRAPH_TABLE requires both SQL_GRAPH and GQL_EXTENDED feature flags
-[language_features=]
+[language_features=NONE]
 select * from
   graph_table(aml
     MATCH ()
@@ -5937,7 +5937,7 @@ QueryStmt
                       +-GraphRefScan(column_list=$element_table.[f#2, $element1#3, a#4])
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+TABLESAMPLE,+STRATIFIED_RESERVOIR_TABLESAMPLE]
 select * from graph_table(
   aml
   match (n:Person)
@@ -6736,7 +6736,7 @@ SELECT
 ==
 
 # SQLBuilder test: $make_array unparses without explicit graph element type
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [run_sqlbuilder]
 [show_sqlbuilder_output]
 select 1 from
@@ -8033,3 +8033,94 @@ ALTERNATION GROUP: e1,{1}
 ERROR: Variable name: e1 cannot be used in both quantified and unquantified patterns [at 9:9]
   MATCH (a:Person)-[e1]->{1} (:Person)
         ^
+
+==
+
+[no_enable_literal_replacement]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+ORDER_BY_IN_AGGREGATE]
+select * from graph_table(aml
+  let x = [1,2,3]
+  let z = ARRAY_AGG(distinct x+1 order by x+1)
+  let z2 = ARRAY_AGG(distinct x+1 order by x+1)
+  return z, z2
+)
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.z#8 AS z [ARRAY<INT64>]
+| +-$graph_table.z2#9 AS z2 [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=$graph_table.[z#8, z2#9]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=$graph_table.[z#8, z2#9]
+        +-property_graph=aml
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=$graph_table.[z#8, z2#9]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=$graph_table.[z#8, z2#9]
+                +-scan_list=
+                  +-ProjectScan
+                  | +-column_list=[$graph_table.x#1]
+                  | +-expr_list=
+                  | | +-x#1 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                  | +-column_list=$graph_table.[x#1, z#4]
+                  | +-expr_list=
+                  | | +-z#4 :=
+                  | |   +-ArrayAggregate
+                  | |     +-type=ARRAY<INT64>
+                  | |     +-array=
+                  | |     | +-ColumnRef(type=ARRAY<INT64>, column=$graph_table.x#1)
+                  | |     +-element_column=$horizontal_aggregate.x#2
+                  | |     +-pre_aggregate_computed_column_list=
+                  | |     | +-$orderbycol1#3 :=
+                  | |     |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+                  | |     |     +-ColumnRef(type=INT64, column=$horizontal_aggregate.x#2)
+                  | |     |     +-Literal(type=INT64, value=1)
+                  | |     +-aggregate=
+                  | |       +-AggregateFunctionCall(ZetaSQL:array_agg(INT64) -> ARRAY<INT64>)
+                  | |         +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#3)
+                  | |         +-distinct=TRUE
+                  | |         +-order_by_item_list=
+                  | |           +-OrderByItem
+                  | |             +-column_ref=
+                  | |               +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#3)
+                  | +-input_scan=
+                  |   +-GraphRefScan(column_list=[$graph_table.x#1])
+                  +-ProjectScan
+                  | +-column_list=$graph_table.[x#1, z#4, z2#7]
+                  | +-expr_list=
+                  | | +-z2#7 :=
+                  | |   +-ArrayAggregate
+                  | |     +-type=ARRAY<INT64>
+                  | |     +-array=
+                  | |     | +-ColumnRef(type=ARRAY<INT64>, column=$graph_table.x#1)
+                  | |     +-element_column=$horizontal_aggregate.x#5
+                  | |     +-pre_aggregate_computed_column_list=
+                  | |     | +-$orderbycol1#6 :=
+                  | |     |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+                  | |     |     +-ColumnRef(type=INT64, column=$horizontal_aggregate.x#5)
+                  | |     |     +-Literal(type=INT64, value=1)
+                  | |     +-aggregate=
+                  | |       +-AggregateFunctionCall(ZetaSQL:array_agg(INT64) -> ARRAY<INT64>)
+                  | |         +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#6)
+                  | |         +-distinct=TRUE
+                  | |         +-order_by_item_list=
+                  | |           +-OrderByItem
+                  | |             +-column_ref=
+                  | |               +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#6)
+                  | +-input_scan=
+                  |   +-GraphRefScan(column_list=$graph_table.[x#1, z#4])
+                  +-ProjectScan
+                    +-column_list=$graph_table.[z#8, z2#9]
+                    +-expr_list=
+                    | +-z#8 := ColumnRef(type=ARRAY<INT64>, column=$graph_table.z#4)
+                    | +-z2#9 := ColumnRef(type=ARRAY<INT64>, column=$graph_table.z2#7)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=$graph_table.[x#1, z#4, z2#7])

@@ -311,12 +311,16 @@ absl::Status ExpressionSubstitutor::SetupLambdasCatalog(
     // needs to be conveyed to the fake function we're creating as a body
     // placeholder.
     FunctionSignatureOptions signature_options;
-    if (lambda->body()->type_annotation_map()) {
-      signature_options.set_compute_result_annotations_callback(
-          [map = lambda->body()->type_annotation_map()](
-              const AnnotationCallbackArgs& args, TypeFactory& type_factory)
-              -> absl::StatusOr<const AnnotationMap*> { return map; });
-    }
+
+    // Always set the custom callback. We already did the propagation, and know
+    // the annotation of the output. More importantly, we cannot always express
+    // the correct templated relationships in the general case.
+    signature_options.set_compute_result_annotations_callback(
+        [map = lambda->body()->type_annotation_map()](
+            const ResolvedFunctionCallBase& call,
+            TypeFactory& type_factory) -> absl::StatusOr<const AnnotationMap*> {
+          return map;
+        });
 
     // We add a signature for the injected lambda function with the following
     // properties. The context_id is set to kSubstitutionLambdaContextId

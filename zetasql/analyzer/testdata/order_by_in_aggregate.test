@@ -1,4 +1,4 @@
-[default language_features=ORDER_BY_IN_AGGREGATE,ORDER_BY_COLLATE,ANALYTIC_FUNCTIONS,LIMIT_IN_AGGREGATE]
+[default language_features=NONE,+ORDER_BY_IN_AGGREGATE,+ORDER_BY_COLLATE,+ANALYTIC_FUNCTIONS,+LIMIT_IN_AGGREGATE]
 
 select array_agg(Key order by Key)
 from TestTable
@@ -26,7 +26,7 @@ QueryStmt
 ==
 
 # The ORDER BY in aggregate function is turned off by default.
-[language_features=]
+[language_features=NONE]
 select array_agg(Key order by Key)
 from TestTable
 --
@@ -598,6 +598,7 @@ select count(* order by KitchenSink.int64_val) as c
 
 ==
 
+[no_enable_literal_replacement]
 select Key,
        array_agg(KitchenSink.int64_val
            order by KitchenSink.int64_val,
@@ -616,19 +617,19 @@ group by Key
 --
 QueryStmt
 +-output_column_list=
-| +-$groupby.Key#12 AS Key [INT32]
+| +-$groupby.Key#11 AS Key [INT32]
 | +-$aggregate.a#7 AS a [ARRAY<INT64>]
-| +-$aggregate.b#9 AS b [ARRAY<INT32>]
-| +-$aggregate.c#11 AS c [STRING]
+| +-$aggregate.b#8 AS b [ARRAY<INT32>]
+| +-$aggregate.c#10 AS c [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$groupby.Key#12, $aggregate.a#7, $aggregate.b#9, $aggregate.c#11]
+    +-column_list=[$groupby.Key#11, $aggregate.a#7, $aggregate.b#8, $aggregate.c#10]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$groupby.Key#12, $aggregate.a#7, $aggregate.b#9, $aggregate.c#11]
+        +-column_list=[$groupby.Key#11, $aggregate.a#7, $aggregate.b#8, $aggregate.c#10]
         +-input_scan=
         | +-ProjectScan
-        |   +-column_list=[TestTable.key#1, TestTable.KitchenSink#3, $orderby.$orderbycol1#4, $orderby.$orderbycol2#5, $orderby.$orderbycol3#6, $orderby.$orderbycol3#8, $orderby.$orderbycol1#10]
+        |   +-column_list=[TestTable.key#1, TestTable.KitchenSink#3, $orderby.$orderbycol1#4, $orderby.$orderbycol2#5, $orderby.$orderbycol3#6, $orderby.$orderbycol1#9]
         |   +-expr_list=
         |   | +-$orderbycol1#4 :=
         |   | | +-GetProtoField
@@ -654,17 +655,7 @@ QueryStmt
         |   | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   | |   +-field_descriptor=string_val
         |   | |   +-default_value="default_name"
-        |   | +-$orderbycol3#8 :=
-        |   | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
-        |   | |   +-Cast(INT32 -> INT64)
-        |   | |   | +-GetProtoField
-        |   | |   |   +-type=INT32
-        |   | |   |   +-expr=
-        |   | |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
-        |   | |   |   +-field_descriptor=int32_val
-        |   | |   |   +-default_value=77
-        |   | |   +-Literal(type=INT64, value=1)
-        |   | +-$orderbycol1#10 :=
+        |   | +-$orderbycol1#9 :=
         |   |   +-GetProtoField
         |   |     +-type=INT32
         |   |     +-expr=
@@ -674,7 +665,7 @@ QueryStmt
         |   +-input_scan=
         |     +-TableScan(column_list=TestTable.[key#1, KitchenSink#3], table=TestTable, column_index_list=[0, 2])
         +-group_by_list=
-        | +-Key#12 := ColumnRef(type=INT32, column=TestTable.key#1)
+        | +-Key#11 := ColumnRef(type=INT32, column=TestTable.key#1)
         +-aggregate_list=
           +-a#7 :=
           | +-AggregateFunctionCall(ZetaSQL:array_agg(INT64) -> ARRAY<INT64>)
@@ -690,7 +681,7 @@ QueryStmt
           |     +-OrderByItem
           |       +-column_ref=
           |         +-ColumnRef(type=STRING, column=$orderby.$orderbycol3#6)
-          +-b#9 :=
+          +-b#8 :=
           | +-AggregateFunctionCall(ZetaSQL:array_agg(INT32) -> ARRAY<INT32>)
           |   +-GetProtoField
           |     +-type=INT32
@@ -707,15 +698,15 @@ QueryStmt
           |     |   +-ColumnRef(type=STRING, column=$orderby.$orderbycol3#6)
           |     +-OrderByItem
           |       +-column_ref=
-          |       | +-ColumnRef(type=INT64, column=$orderby.$orderbycol3#8)
+          |       | +-ColumnRef(type=INT64, column=$orderby.$orderbycol2#5)
           |       +-is_descending=TRUE
-          +-c#11 :=
+          +-c#10 :=
             +-AggregateFunctionCall(ZetaSQL:string_agg(STRING) -> STRING)
               +-ColumnRef(type=STRING, column=$orderby.$orderbycol3#6)
               +-order_by_item_list=
                 +-OrderByItem
                 | +-column_ref=
-                |   +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#10)
+                |   +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#9)
                 +-OrderByItem
                 | +-column_ref=
                 | | +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
@@ -1738,7 +1729,7 @@ QueryStmt
                 +-Literal(type=INT64, value=5)
 ==
 
-[language_features=ORDER_BY_IN_AGGREGATE{{|,ARRAY_ORDERING}}]
+[language_features=NONE,+ORDER_BY_IN_AGGREGATE{{|,+ARRAY_ORDERING}}]
 SELECT array_concat_agg(arr1 ORDER BY arr2)
 FROM (select [1] as arr1, [2] as arr2);
 --
@@ -1748,7 +1739,7 @@ ERROR: ORDER BY does not support expressions of type ARRAY<INT64> [at 1:39]
 SELECT array_concat_agg(arr1 ORDER BY arr2)
                                       ^
 --
-ALTERNATION GROUP: ,ARRAY_ORDERING
+ALTERNATION GROUP: ,+ARRAY_ORDERING
 --
 QueryStmt
 +-output_column_list=
@@ -1777,7 +1768,7 @@ QueryStmt
                     +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.arr2#2)
 ==
 
-[language_features=ORDER_BY_IN_AGGREGATE{{|,ARRAY_ORDERING}}]
+[language_features=NONE,+ORDER_BY_IN_AGGREGATE{{|,+ARRAY_ORDERING}}]
 SELECT array_concat_agg(arr1 ORDER BY arr2)
 FROM (select [1] as arr1, [KitchenSink] as arr2 FROM ComplexTypes);
 --
@@ -1786,22 +1777,22 @@ SELECT array_concat_agg(arr1 ORDER BY arr2)
                                       ^
 ==
 
-[language_features=ORDER_BY_IN_AGGREGATE{{|,ARRAY_ORDERING|,ARRAY_ORDERING,ARRAY_EQUALITY|,ARRAY_ORDERING,GROUP_BY_ARRAY|,ARRAY_ORDERING,ARRAY_EQUALITY,GROUP_BY_ARRAY}}]
+[language_features=NONE,+ORDER_BY_IN_AGGREGATE{{|,+ARRAY_ORDERING|,+ARRAY_ORDERING,+ARRAY_EQUALITY|,+ARRAY_ORDERING,+GROUP_BY_ARRAY|,+ARRAY_ORDERING,+ARRAY_EQUALITY,+GROUP_BY_ARRAY}}]
 SELECT array_concat_agg(distinct arr1 ORDER BY arr1)
 FROM (select [1] as arr1);
 --
 ALTERNATION GROUPS:
     <empty>
-    ,ARRAY_ORDERING
-    ,ARRAY_ORDERING,ARRAY_EQUALITY
+    ,+ARRAY_ORDERING
+    ,+ARRAY_ORDERING,+ARRAY_EQUALITY
 --
 ERROR: Aggregate functions with DISTINCT cannot be used with arguments of type ARRAY [at 1:8]
 SELECT array_concat_agg(distinct arr1 ORDER BY arr1)
        ^
 --
 ALTERNATION GROUPS:
-    ,ARRAY_ORDERING,GROUP_BY_ARRAY
-    ,ARRAY_ORDERING,ARRAY_EQUALITY,GROUP_BY_ARRAY
+    ,+ARRAY_ORDERING,+GROUP_BY_ARRAY
+    ,+ARRAY_ORDERING,+ARRAY_EQUALITY,+GROUP_BY_ARRAY
 --
 QueryStmt
 +-output_column_list=
@@ -1830,22 +1821,22 @@ QueryStmt
                     +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.arr1#1)
 ==
 
-[language_features=ORDER_BY_IN_AGGREGATE{{|,ARRAY_ORDERING|,ARRAY_ORDERING,ARRAY_EQUALITY|,ARRAY_ORDERING,GROUP_BY_ARRAY|,ARRAY_ORDERING,ARRAY_EQUALITY,GROUP_BY_ARRAY}}]
+[language_features=NONE,+ORDER_BY_IN_AGGREGATE{{|,+ARRAY_ORDERING|,+ARRAY_ORDERING,+ARRAY_EQUALITY|,+ARRAY_ORDERING,+GROUP_BY_ARRAY|,+ARRAY_ORDERING,+ARRAY_EQUALITY,+GROUP_BY_ARRAY}}]
 SELECT array_concat_agg(distinct arr1 ORDER BY arr1)
 FROM (select [KitchenSink] as arr1 FROM ComplexTypes);
 --
 ALTERNATION GROUPS:
     <empty>
-    ,ARRAY_ORDERING
-    ,ARRAY_ORDERING,ARRAY_EQUALITY
+    ,+ARRAY_ORDERING
+    ,+ARRAY_ORDERING,+ARRAY_EQUALITY
 --
 ERROR: Aggregate functions with DISTINCT cannot be used with arguments of type ARRAY [at 1:8]
 SELECT array_concat_agg(distinct arr1 ORDER BY arr1)
        ^
 --
 ALTERNATION GROUPS:
-    ,ARRAY_ORDERING,GROUP_BY_ARRAY
-    ,ARRAY_ORDERING,ARRAY_EQUALITY,GROUP_BY_ARRAY
+    ,+ARRAY_ORDERING,+GROUP_BY_ARRAY
+    ,+ARRAY_ORDERING,+ARRAY_EQUALITY,+GROUP_BY_ARRAY
 --
 ERROR: Aggregate functions with DISTINCT cannot be used with arguments of type ARRAY containing PROTO [at 1:8]
 SELECT array_concat_agg(distinct arr1 ORDER BY arr1)
@@ -2077,7 +2068,7 @@ select array_agg(distinct Key + 1024 order by Key + 2048) from TestTable
                                               ^
 ==
 
-[language_features=ORDER_BY_IN_AGGREGATE{{|,NULLS_FIRST_LAST_IN_ORDER_BY}}]
+[language_features=NONE,+ORDER_BY_IN_AGGREGATE{{|,+NULLS_FIRST_LAST_IN_ORDER_BY}}]
 select array_agg(key order by key nulls {{first|last}})
 from TestTable
 --
@@ -2094,7 +2085,7 @@ ERROR: NULLS FIRST and NULLS LAST are not supported [at 1:35]
 select array_agg(key order by key nulls last)
                                   ^
 --
-ALTERNATION GROUP: ,NULLS_FIRST_LAST_IN_ORDER_BY,first
+ALTERNATION GROUP: ,+NULLS_FIRST_LAST_IN_ORDER_BY,first
 --
 QueryStmt
 +-output_column_list=
@@ -2117,7 +2108,7 @@ QueryStmt
                   | +-ColumnRef(type=INT32, column=TestTable.key#1)
                   +-null_order=NULLS_FIRST
 --
-ALTERNATION GROUP: ,NULLS_FIRST_LAST_IN_ORDER_BY,last
+ALTERNATION GROUP: ,+NULLS_FIRST_LAST_IN_ORDER_BY,last
 --
 QueryStmt
 +-output_column_list=

@@ -17,11 +17,15 @@
 
 package com.google.zetasql;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.InlineMe;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.zetasql.FunctionProtos.TVFRelationColumnProto;
 import com.google.zetasql.FunctionProtos.TVFRelationProto;
@@ -31,6 +35,7 @@ import com.google.zetasql.ZetaSQLFunctions.FunctionEnums;
 import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.TableValuedFunctionType;
 import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.Volatility;
 import java.io.Serializable;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -41,7 +46,7 @@ import javax.annotation.Nullable;
 public abstract class TableValuedFunction implements Serializable {
 
   private final ImmutableList<String> namePath;
-  private final FunctionSignature signature;
+  private final ImmutableList<FunctionSignature> signatures;
   private final ImmutableList<TVFRelation.Column> columns;
   @Nullable private final String customContext;
   @Nullable private final Volatility volatility;
@@ -58,13 +63,14 @@ public abstract class TableValuedFunction implements Serializable {
    */
   protected TableValuedFunction(
       ImmutableList<String> namePath,
-      FunctionSignature signature,
+      ImmutableList<FunctionSignature> signatures,
       ImmutableList<TVFRelation.Column> columns,
       @Nullable String customContext,
       @Nullable Volatility volatility,
       TableValuedFunctionOptionsProto options) {
+    checkArgument(!signatures.isEmpty());
     this.namePath = namePath;
-    this.signature = signature;
+    this.signatures = signatures;
     this.columns = columns;
     this.customContext = customContext;
     this.volatility = volatility;
@@ -93,16 +99,19 @@ public abstract class TableValuedFunction implements Serializable {
     }
   }
 
-  /**
-   * Serializes this table-valued function to a protocol buffer. Each TVF only supports a single
-   * signature for now, which we represent with a FunctionSignatureProto within 'proto'.
-   */
+  /** Serializes this table-valued function to a protocol buffer. */
   public TableValuedFunctionProto serialize(FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
     TableValuedFunctionProto.Builder builder =
-        TableValuedFunctionProto.newBuilder()
-            .addAllNamePath(namePath)
-            .setSignature(signature.serialize(fileDescriptorSetsBuilder))
-            .setOptions(options);
+        TableValuedFunctionProto.newBuilder().addAllNamePath(namePath).setOptions(options);
+    for (FunctionSignature signature : signatures) {
+      builder.addSignatures(signature.serialize(fileDescriptorSetsBuilder));
+    }
+    // TODO: Remove once the signature field is no longer used.
+    // For backward compatibility, set both signatures and signature field if there is only one TVF
+    // signature.
+    if (signatures.size() == 1) {
+      builder.setSignature(getOnlyElement(signatures).serialize(fileDescriptorSetsBuilder));
+    }
     builder.setType(getType());
     if (getCustomContext() != null) {
       builder.setCustomContext(getCustomContext());
@@ -111,6 +120,9 @@ public abstract class TableValuedFunction implements Serializable {
       builder.setVolatility(getVolatility());
     }
     switch (getType()) {
+      // TODO - Set the output schema of FixedOutputSchemaTVF in proto custom context.
+      // Currently the output schema is ignored while serialization and the deserializer uses the
+      // schema from resultType of the FunctionSignature.
       case FIXED_OUTPUT_SCHEMA_TVF:
       case FORWARD_INPUT_SCHEMA_TO_OUTPUT_SCHEMA_TVF:
         break;
@@ -148,8 +160,18 @@ public abstract class TableValuedFunction implements Serializable {
     return namePath;
   }
 
-  public FunctionSignature getFunctionSignature() {
-    return signature;
+  /**
+   * @deprecated Use {@link #getFunctionSignatures()} instead. This function only returns the first
+   *     signature of the TVF.
+   */
+  @InlineMe(replacement = "this.getFunctionSignatures().get(0)")
+  @Deprecated
+  public final FunctionSignature getFunctionSignature() {
+    return getFunctionSignatures().get(0);
+  }
+
+  public ImmutableList<FunctionSignature> getFunctionSignatures() {
+    return signatures;
   }
 
   public String getFullName() {
@@ -172,34 +194,82 @@ public abstract class TableValuedFunction implements Serializable {
 
   @Override
   public final String toString() {
-    return toDebugString(true);
+    return getFullName()
+        + "("
+        + FunctionSignature.signaturesToString(
+            signatures, /* verbose= */ true, /* prefix= */ "", /* separator= */ "; ")
+        + ")";
   }
 
   public String toDebugString(boolean verbose) {
-    return getName() + "(" + getFunctionSignature().debugString("", verbose) + ")";
+    return getFullName()
+        + "\n"
+        + FunctionSignature.signaturesToString(
+            signatures, verbose, /* prefix= */ "  ", /* separator= */ "\n");
   }
 
   public boolean isDefaultValue() {
     return true;
   }
 
+  private static ImmutableList<FunctionSignature> deserializeSignatures(
+      TableValuedFunctionProto proto, ImmutableList<? extends DescriptorPool> pools) {
+    Preconditions.checkArgument(
+        proto.getSignaturesCount() > 0 || proto.hasSignature(),
+        "Expected either signature or signatures field to be set: %s",
+        proto);
+    if (proto.getSignaturesCount() > 0) {
+      return proto.getSignaturesList().stream()
+          .map(signature -> FunctionSignature.deserialize(signature, pools))
+          .collect(toImmutableList());
+    } else {
+      return ImmutableList.of(FunctionSignature.deserialize(proto.getSignature(), pools));
+    }
+  }
+
   /** A TVF that always returns a relation with the same fixed output schema. */
   public static class FixedOutputSchemaTVF extends TableValuedFunction {
     private final TVFRelation outputSchema;
 
+    @InlineMe(
+        replacement = "this(namePath, ImmutableList.of(signature), outputSchema)",
+        imports = "com.google.common.collect.ImmutableList")
+    @Deprecated
     public FixedOutputSchemaTVF(
-        ImmutableList<String> namePath,
-        FunctionSignature signature,
-        TVFRelation outputSchema) {
-      this(namePath, signature, outputSchema, TableValuedFunctionOptionsProto.getDefaultInstance());
+        ImmutableList<String> namePath, FunctionSignature signature, TVFRelation outputSchema) {
+      this(namePath, ImmutableList.of(signature), outputSchema);
     }
 
+    public FixedOutputSchemaTVF(
+        List<String> namePath, List<FunctionSignature> signatures, TVFRelation outputSchema) {
+      this(
+          namePath, signatures, outputSchema, TableValuedFunctionOptionsProto.getDefaultInstance());
+    }
+
+    @InlineMe(
+        replacement = "this(namePath, ImmutableList.of(signature), outputSchema, options)",
+        imports = "com.google.common.collect.ImmutableList")
+    @Deprecated
     public FixedOutputSchemaTVF(
         ImmutableList<String> namePath,
         FunctionSignature signature,
         TVFRelation outputSchema,
         TableValuedFunctionOptionsProto options) {
-      super(namePath, signature, ImmutableList.of(), null, null, options);
+      this(namePath, ImmutableList.of(signature), outputSchema, options);
+    }
+
+    public FixedOutputSchemaTVF(
+        List<String> namePath,
+        List<FunctionSignature> signatures,
+        TVFRelation outputSchema,
+        TableValuedFunctionOptionsProto options) {
+      super(
+          ImmutableList.copyOf(namePath),
+          ImmutableList.copyOf(signatures),
+          ImmutableList.of(),
+          /* customContext= */ null,
+          /* volatility= */ null,
+          options);
       this.outputSchema = outputSchema;
     }
 
@@ -218,20 +288,14 @@ public abstract class TableValuedFunction implements Serializable {
         ImmutableList<? extends DescriptorPool> pools,
         TypeFactory typeFactory) {
       ImmutableList<String> namePath = ImmutableList.copyOf(proto.getNamePathList());
-      FunctionSignature signature = FunctionSignature.deserialize(proto.getSignature(), pools);
-      boolean hasRelationInputSchema =
-          proto.getSignature().getReturnType().getOptions().hasRelationInputSchema();
-      Preconditions.checkArgument(hasRelationInputSchema, proto);
+      ImmutableList<FunctionSignature> signatures = deserializeSignatures(proto, pools);
+      // TODO - Get output schema from proto custom context.
+      TVFRelation outputSchema =
+          signatures.get(0).getResultType().getOptions().getRelationInputSchema();
+      Preconditions.checkArgument(outputSchema != null, proto);
       Preconditions.checkArgument(
           proto.getType() == FunctionEnums.TableValuedFunctionType.FIXED_OUTPUT_SCHEMA_TVF, proto);
-      return new FixedOutputSchemaTVF(
-          namePath,
-          signature,
-          TVFRelation.deserialize(
-              proto.getSignature().getReturnType().getOptions().getRelationInputSchema(),
-              pools,
-              typeFactory),
-          proto.getOptions());
+      return new FixedOutputSchemaTVF(namePath, signatures, outputSchema, proto.getOptions());
     }
   }
 
@@ -241,34 +305,95 @@ public abstract class TableValuedFunction implements Serializable {
    */
   public static class ForwardInputSchemaToOutputSchemaTVF extends TableValuedFunction {
 
+    @InlineMe(
+        replacement = "this(namePath, ImmutableList.of(signature))",
+        imports = "com.google.common.collect.ImmutableList")
+    @Deprecated
     public ForwardInputSchemaToOutputSchemaTVF(
         ImmutableList<String> namePath, FunctionSignature signature) {
-      this(namePath, signature, null, null);
+      this(namePath, ImmutableList.of(signature));
     }
 
+    public ForwardInputSchemaToOutputSchemaTVF(
+        List<String> namePath, List<FunctionSignature> signatures) {
+      this(
+          namePath,
+          signatures,
+          /* customContext= */ null,
+          /* volatility= */ null,
+          TableValuedFunctionOptionsProto.getDefaultInstance());
+    }
+
+    @InlineMe(
+        replacement = "this(namePath, ImmutableList.of(signature), options)",
+        imports = "com.google.common.collect.ImmutableList")
+    @Deprecated
     public ForwardInputSchemaToOutputSchemaTVF(
         ImmutableList<String> namePath,
         FunctionSignature signature,
         TableValuedFunctionOptionsProto options) {
-      this(namePath, signature, null, null, options);
+      this(namePath, ImmutableList.of(signature), options);
     }
 
+    public ForwardInputSchemaToOutputSchemaTVF(
+        List<String> namePath,
+        List<FunctionSignature> signatures,
+        TableValuedFunctionOptionsProto options) {
+      this(namePath, signatures, /* customContext= */ null, /* volatility= */ null, options);
+    }
+
+    @InlineMe(
+        replacement = "this(namePath, ImmutableList.of(signature), customContext, volatility)",
+        imports = "com.google.common.collect.ImmutableList")
+    @Deprecated
     public ForwardInputSchemaToOutputSchemaTVF(
         ImmutableList<String> namePath,
         FunctionSignature signature,
         @Nullable String customContext,
         @Nullable Volatility volatility) {
-      this(namePath, signature, customContext, volatility,
-           TableValuedFunctionOptionsProto.getDefaultInstance());
+      this(namePath, ImmutableList.of(signature), customContext, volatility);
     }
 
+    public ForwardInputSchemaToOutputSchemaTVF(
+        List<String> namePath,
+        List<FunctionSignature> signatures,
+        @Nullable String customContext,
+        @Nullable Volatility volatility) {
+      this(
+          namePath,
+          signatures,
+          customContext,
+          volatility,
+          TableValuedFunctionOptionsProto.getDefaultInstance());
+    }
+
+    @InlineMe(
+        replacement =
+            "this(namePath, ImmutableList.of(signature), customContext, volatility, options)",
+        imports = "com.google.common.collect.ImmutableList")
+    @Deprecated
     public ForwardInputSchemaToOutputSchemaTVF(
         ImmutableList<String> namePath,
         FunctionSignature signature,
         @Nullable String customContext,
         @Nullable Volatility volatility,
         TableValuedFunctionOptionsProto options) {
-      super(namePath, signature, ImmutableList.of(), customContext, volatility, options);
+      this(namePath, ImmutableList.of(signature), customContext, volatility, options);
+    }
+
+    public ForwardInputSchemaToOutputSchemaTVF(
+        List<String> namePath,
+        List<FunctionSignature> signatures,
+        @Nullable String customContext,
+        @Nullable Volatility volatility,
+        TableValuedFunctionOptionsProto options) {
+      super(
+          ImmutableList.copyOf(namePath),
+          ImmutableList.copyOf(signatures),
+          ImmutableList.of(),
+          customContext,
+          volatility,
+          options);
     }
 
     @Override
@@ -288,9 +413,9 @@ public abstract class TableValuedFunction implements Serializable {
       String customContext = proto.hasCustomContext() ? proto.getCustomContext() : null;
       Volatility volatility = proto.hasVolatility() ? proto.getVolatility() : null;
       ImmutableList<String> namePath = ImmutableList.copyOf(proto.getNamePathList());
-      FunctionSignature signature = FunctionSignature.deserialize(proto.getSignature(), pools);
+      ImmutableList<FunctionSignature> signatures = deserializeSignatures(proto, pools);
       return new ForwardInputSchemaToOutputSchemaTVF(
-          namePath, signature, customContext, volatility, proto.getOptions());
+          namePath, signatures, customContext, volatility, proto.getOptions());
     }
   }
 
@@ -300,9 +425,9 @@ public abstract class TableValuedFunction implements Serializable {
    * <p>The purpose of this class is to help support statements of the form "{@code CREATE FUNCTION
    * <name>(<arguments>) AS <query>}", where the <arguments> may have templated types like "{@code
    * ANY TYPE}". In this case, ZetaSQL cannot resolve the function expression right away and must
-   * defer this work until later when the function is called with concrete argument types. A TVF
-   * that always returns a relation with the same fixed output schema.
+   * defer this work until later when the function is called with concrete argument types.
    */
+  // TODO - Support multiple signatures in TemplatedSQLTVFs.
   public static class TemplatedSQLTVF extends TableValuedFunction {
     private final ImmutableList<String> argumentNames;
     private final ParseResumeLocation parseResumeLocation;
@@ -312,8 +437,12 @@ public abstract class TableValuedFunction implements Serializable {
         FunctionSignature signature,
         ImmutableList<String> argumentNames,
         ParseResumeLocation parseResumeLocation) {
-      this(namePath, signature, argumentNames, parseResumeLocation,
-           TableValuedFunctionOptionsProto.getDefaultInstance());
+      this(
+          namePath,
+          signature,
+          argumentNames,
+          parseResumeLocation,
+          TableValuedFunctionOptionsProto.getDefaultInstance());
     }
 
     public TemplatedSQLTVF(
@@ -322,7 +451,13 @@ public abstract class TableValuedFunction implements Serializable {
         ImmutableList<String> argumentNames,
         ParseResumeLocation parseResumeLocation,
         TableValuedFunctionOptionsProto options) {
-      super(namePath, signature, ImmutableList.of(), null, null, options);
+      super(
+          namePath,
+          ImmutableList.of(signature),
+          ImmutableList.of(),
+          /* customContext= */ null,
+          /* volatility= */ null,
+          options);
       this.argumentNames = argumentNames;
       this.parseResumeLocation = parseResumeLocation;
     }
@@ -353,7 +488,10 @@ public abstract class TableValuedFunction implements Serializable {
       FunctionSignature signature = FunctionSignature.deserialize(proto.getSignature(), pools);
       ImmutableList<String> args = ImmutableList.copyOf(proto.getArgumentNameList());
       return new TemplatedSQLTVF(
-          namePath, signature, args, new ParseResumeLocation(proto.getParseResumeLocation()),
+          namePath,
+          signature,
+          args,
+          new ParseResumeLocation(proto.getParseResumeLocation()),
           proto.getOptions());
     }
   }
@@ -365,16 +503,41 @@ public abstract class TableValuedFunction implements Serializable {
    */
   public static class ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF
       extends TableValuedFunction {
+    @InlineMe(
+        replacement =
+            "this(namePath, ImmutableList.of(signature), columns, customContext, volatility)",
+        imports = "com.google.common.collect.ImmutableList")
+    @Deprecated
     public ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
         ImmutableList<String> namePath,
         FunctionSignature signature,
         ImmutableList<TVFRelation.Column> columns,
         @Nullable String customContext,
         @Nullable Volatility volatility) {
-      this(namePath, signature, columns, customContext, volatility,
-           TableValuedFunctionOptionsProto.getDefaultInstance());
+      this(namePath, ImmutableList.of(signature), columns, customContext, volatility);
     }
 
+    public ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
+        List<String> namePath,
+        List<FunctionSignature> signatures,
+        List<TVFRelation.Column> columns,
+        @Nullable String customContext,
+        @Nullable Volatility volatility) {
+      this(
+          namePath,
+          signatures,
+          columns,
+          customContext,
+          volatility,
+          TableValuedFunctionOptionsProto.getDefaultInstance());
+    }
+
+    @InlineMe(
+        replacement =
+            "this(namePath, ImmutableList.of(signature), columns, customContext, volatility,"
+                + " options)",
+        imports = "com.google.common.collect.ImmutableList")
+    @Deprecated
     public ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
         ImmutableList<String> namePath,
         FunctionSignature signature,
@@ -382,7 +545,23 @@ public abstract class TableValuedFunction implements Serializable {
         @Nullable String customContext,
         @Nullable Volatility volatility,
         TableValuedFunctionOptionsProto options) {
-      super(namePath, signature, columns, customContext, volatility, options);
+      this(namePath, ImmutableList.of(signature), columns, customContext, volatility, options);
+    }
+
+    public ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
+        List<String> namePath,
+        List<FunctionSignature> signatures,
+        List<TVFRelation.Column> columns,
+        @Nullable String customContext,
+        @Nullable Volatility volatility,
+        TableValuedFunctionOptionsProto options) {
+      super(
+          ImmutableList.copyOf(namePath),
+          ImmutableList.copyOf(signatures),
+          ImmutableList.copyOf(columns),
+          customContext,
+          volatility,
+          options);
     }
 
     public static ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF deserialize(
@@ -395,7 +574,7 @@ public abstract class TableValuedFunction implements Serializable {
                   .FORWARD_INPUT_SCHEMA_TO_OUTPUT_SCHEMA_WITH_APPENDED_COLUMNS,
           proto);
       ImmutableList<String> namePath = ImmutableList.copyOf(proto.getNamePathList());
-      FunctionSignature signature = FunctionSignature.deserialize(proto.getSignature(), pools);
+      ImmutableList<FunctionSignature> signatures = deserializeSignatures(proto, pools);
       ImmutableList.Builder<TVFRelation.Column> builder = ImmutableList.builder();
       if (proto.hasCustomContext()) {
         try {
@@ -417,7 +596,7 @@ public abstract class TableValuedFunction implements Serializable {
       String customContext = proto.hasCustomContext() ? proto.getCustomContext() : null;
       Volatility volatility = proto.getVolatility();
       return new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
-          namePath, signature, builder.build(), customContext, volatility, proto.getOptions());
+          namePath, signatures, builder.build(), customContext, volatility, proto.getOptions());
     }
 
     @Override

@@ -31,8 +31,10 @@ TestDriver* GetComplianceTestDriver() {
   // matches the options of the engine being tested, or is put into the
   // configurations specified inside each test when testing the reference
   // implementation itself and generating golden outputs.
-  return new ReferenceDriver(ReferenceDriver::DefaultLanguageOptions(),
-                             absl::GetFlag(FLAGS_rewrites));
+  auto options = ReferenceDriver::DefaultLanguageOptions();
+  options.AddSupportedStatementKind(RESOLVED_GENERALIZED_QUERY_STMT);
+  options.AddSupportedStatementKind(RESOLVED_GENERALIZED_QUERY_SUBPIPELINE);
+  return new ReferenceDriver(options, absl::GetFlag(FLAGS_rewrites));
 }
 
 }  // namespace zetasql

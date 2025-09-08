@@ -737,7 +737,7 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestDepthLimitDetectorTestCases, 40) {
     }
 
     DepthLimitDetectorTestResult result =
-        RunDepthLimitDetectorTestCase(depth_case, [&](std::string_view sql) {
+        RunDepthLimitDetectorTestCase(depth_case, [&](absl::string_view sql) {
           return driver()
               ->ExecuteStatement(std::string(sql), {},
                                  execute_statement_type_factory())
@@ -1632,6 +1632,18 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestRegexp2Functions, 1) {
       Shard(GetFunctionTestsRegexp2(/*=include_feature_set=*/true)));
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestRegexpExtractGroupsFunctions, 2) {
+  auto label = MakeScopedLabel("RegexpExtractGroups");
+  auto regexp_extract_groups_fct = [](const FunctionTestCall& f) {
+    ABSL_CHECK_EQ(f.params.num_params(), 2);
+    // The regex pattern (second argument) must be a literal.
+    std::string regex_literal =
+        f.params.param(1).is_null() ? "NULL" : MakeLiteral(f.params.param(1));
+    return absl::Substitute("regexp_extract_groups(@p0, $0)", regex_literal);
+  };
+  RunFunctionTestsCustom(Shard(GetFunctionTestsRegexpExtractGroups()),
+                         regexp_extract_groups_fct);
+}
 SHARDED_TEST_F(ComplianceCodebasedTests, TestRegexpInstrFunctions, 5) {
   SetNamePrefix("RegexpInstr");
   RunFunctionCalls(Shard(GetFunctionTestsRegexpInstr()));
@@ -2184,6 +2196,10 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestLastDayFunctions, 1) {
                          last_day);
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestAddMonthsFunctions, 1) {
+  RunFunctionCalls(Shard(GetFunctionTestsAddMonths()));
+}
+
 SHARDED_TEST_F(ComplianceCodebasedTests, TestDateTruncFunctions, 1) {
   auto date_trunc = [](const FunctionTestCall& f) {
     ABSL_CHECK_EQ("date_trunc", f.function_name);
@@ -2426,13 +2442,6 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestArrayFunctions, 1) {
 SHARDED_TEST_F(ComplianceCodebasedTests, TestFormatFunction, 11) {
   SetNamePrefix("Format");
   RunFunctionCalls(Shard(GetFunctionTestsFormat()));
-}
-
-// TODO: Remove these once all engines use FLOAT32 as the type name
-// in FORMAT("%T").
-SHARDED_TEST_F(ComplianceCodebasedTests, TestFormatFunctionWithExternalFloat,
-               1) {
-  RunFunctionCalls(Shard(GetFunctionTestsFormatWithExternalModeFloatType()));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestNormalizeFunctions, 1) {

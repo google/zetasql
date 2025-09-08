@@ -587,6 +587,13 @@ select a LIKE b = NOT b LIKE c;
                 ^
 ==
 
+SELECT TRUE BETWEEN TRUE AND NOT FALSE
+--
+ERROR: Syntax error: Unexpected keyword NOT [at 1:30]
+SELECT TRUE BETWEEN TRUE AND NOT FALSE
+                             ^
+==
+
 # Test nonassociativity of comparison operators. The Bison parser does not treat
 # all of these cases as unambiguous and therefore accepts some of them in the
 # grammar. These cases are caught using special case error handling in the

@@ -19,7 +19,7 @@
 #   SELECT {{standard call syntax|chained call syntax}}
 # showing two valid syntaxes that produce the same resolved AST.
 
-[default language_features=CHAINED_FUNCTION_CALLS]
+[default language_features=NONE,+CHAINED_FUNCTION_CALLS]
 [default sqlbuilder_target_syntax_map_mode=kChainedFunctionCall]
 [default sql_builder_target_syntax_mode=standard]
 
@@ -41,7 +41,7 @@ ERROR: Syntax error: Expected ")" but got keyword AS [at 2:22]
 
 # DESCRIPTOR(x) isn't actually a function when used as a TVF argument.
 # The parser just treats x.DESCRIPTOR() as a function.
-[language_features=CHAINED_FUNCTION_CALLS,TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+TABLE_VALUED_FUNCTIONS]
 select *
 from tvf_one_relation_arg_one_descriptor(
     (select 1 int64a),
@@ -156,7 +156,7 @@ select with(5 as y, 100),
 ==
 
 # The parse error here is slightly confused because NEW is non-reserved.
-[language_features=CHAINED_FUNCTION_CALLS,PROTO_EXTENSIONS_WITH_NEW]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+PROTO_EXTENSIONS_WITH_NEW]
 select new zetasql_test__.KitchenSinkPB(1 as int64_key_1, 2 as int64_key_2),
        (1).new zetasql_test__.KitchenSinkPB(2 as int64_key_2)
 --
@@ -181,7 +181,7 @@ ERROR: Syntax error: Expected end of input but got keyword WHEN [at 2:17]
                 ^
 ==
 
-[language_features=CHAINED_FUNCTION_CALLS,REPLACE_FIELDS]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+REPLACE_FIELDS]
 # Special operator REPLACE_FIELDS doesn't parse as an ASTFunctionCall, so it
 # doesn't work.
 select replace_fields(KitchenSink, 123.4 AS double_val),
@@ -206,7 +206,7 @@ ERROR: Syntax error: Expected ")" but got "." [at 2:67]
 
 # UPDATE(x) {...} constructor works as a chained call since it parses as
 # fucntion call with a suffix after the call.
-[language_features=CHAINED_FUNCTION_CALLS,BRACED_PROTO_CONSTRUCTORS,UPDATE_CONSTRUCTOR]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+BRACED_PROTO_CONSTRUCTORS,+UPDATE_CONSTRUCTOR]
 select {{update(KitchenSink)|(KitchenSink).update()}} {double_val: 123.4}
 from TestTable
 --
@@ -234,7 +234,7 @@ QueryStmt
 
 
 # Special function FILTER_FIELDS parses as an ASTFunctionCall, so it works.
-[language_features=CHAINED_FUNCTION_CALLS,FILTER_FIELDS]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+FILTER_FIELDS]
 select {{filter_fields(KitchenSink, -double_val)|(KitchenSink).filter_fields(-double_val)}}
 from TestTable
 --
@@ -257,7 +257,7 @@ QueryStmt
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
 ==
 
-[language_features=CHAINED_FUNCTION_CALLS,FILTER_FIELDS]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+FILTER_FIELDS]
 SELECT "abc".filter_fields()
 --
 ERROR: FILTER_FIELDS() expected an input proto type for first argument, but found type STRING [at 1:8]
@@ -287,7 +287,7 @@ QueryStmt
 # GROUPING isn't a real function. It's argument isn't an expression.
 # GROUPING is also a keyword and only works if quoted or following rparen.
 # But non-parenthesized paths won't work here anyway.
-[language_features=CHAINED_FUNCTION_CALLS,GROUPING_BUILTIN]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+GROUPING_BUILTIN]
 select grouping(key),
        {{(key).grouping()|(key).grouPING(1,2,3)}}
 from KeyValue
@@ -343,7 +343,7 @@ QueryStmt
 ==
 
 # COLLATE is a keyword, but also works as a chained function call.
-[language_features=CHAINED_FUNCTION_CALLS,ANNOTATION_FRAMEWORK,COLLATION_SUPPORT]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT]
 [no_java]
 select {{collate("abc", "en-us")|"abc".collate("en-us")|"abc".`collate`("en-us")|("abc").collate("en-us")}}
 --
@@ -364,7 +364,7 @@ QueryStmt
 ==
 
 # RANGE is a keyword, but also works as a chained function call.
-[language_features=CHAINED_FUNCTION_CALLS,RANGE_TYPE]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+RANGE_TYPE]
 select range(date '2022-01-01', date '2023-01-01'),
        date '2022-01-01'.{{range|`range`}}(date '2023-01-01')
 --
@@ -414,7 +414,7 @@ QueryStmt
 
 # FLATTEN works even though the path is not a real expression (as shown by the
 # error in the third case).
-[language_features=CHAINED_FUNCTION_CALLS,UNNEST_AND_FLATTEN_ARRAYS]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+UNNEST_AND_FLATTEN_ARRAYS]
 select {{flatten(t.ProtoArray.str_value)|(t.ProtoArray.str_value).flatten()|ProtoArray.str_value}}
 from ArrayTypes t
 --
@@ -451,7 +451,7 @@ select ProtoArray.str_value
                   ^
 ==
 
-[language_features=CHAINED_FUNCTION_CALLS,PROTO_DEFAULT_IF_NULL]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+PROTO_DEFAULT_IF_NULL]
 select {{proto_default_if_null(KitchenSink.double_val)|(KitchenSink.double_val).proto_default_if_null()}}
 from TestTable
 --
@@ -510,7 +510,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=CHAINED_FUNCTION_CALLS,CIVIL_TIME,ADDITIONAL_STRING_FUNCTIONS]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+CIVIL_TIME,+ADDITIONAL_STRING_FUNCTIONS]
 select {{last_day('2023-03-04', YEAR)|'2023-03-04'.last_day(YEAR)}}
 --
 QueryStmt
@@ -597,7 +597,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=CHAINED_FUNCTION_CALLS,ANONYMIZATION]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+ANONYMIZATION]
 select {{anon_sum(int64)|(int64).anon_sum()}},
        {{anon_count(int64)|(int64).anon_count()}}
 from SimpleTypesWithAnonymizationUid
@@ -624,7 +624,7 @@ QueryStmt
 ==
 
 # ANON_COUNT(*) doesn't make sense as a chained call.
-[language_features=CHAINED_FUNCTION_CALLS,ANONYMIZATION]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+ANONYMIZATION]
 select anon_count(*),
        (int64).anon_count(*)
 from SimpleTypesWithAnonymizationUid
@@ -655,7 +655,7 @@ QueryStmt
               +-Literal(type=DOUBLE, value=1.5)
 ==
 
-[language_features=CHAINED_FUNCTION_CALLS,SQL_GRAPH{{|,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+SQL_GRAPH{{|,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT}}]
 select * from graph_table(
   aml
   match (n IS Person
@@ -697,7 +697,7 @@ QueryStmt
 
 # FIRST (and the functions below) are only allowed inside MATCH_RECOGNIZE, in
 # either standard or chained call syntax.
-[language_features=CHAINED_FUNCTION_CALLS,MATCH_RECOGNIZE]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+MATCH_RECOGNIZE]
 select {{FIRST(key)|(key).FIRST()}}
 from KeyValue
 --
@@ -714,7 +714,7 @@ select (key).FIRST()
              ^
 ==
 
-[language_features=CHAINED_FUNCTION_CALLS,MATCH_RECOGNIZE]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+MATCH_RECOGNIZE]
 select {{MATCH_NUMBER(key)|(key).MATCH_NUMBER()}}
 from KeyValue
 --
@@ -744,7 +744,7 @@ ERROR: Array element access with array[position] is not supported. Use array[OFF
 
 # With bare array access enabled, OFFSET() and similar wrappers are still not
 # allowed as chained function calls.
-[language_features=CHAINED_FUNCTION_CALLS,BARE_ARRAY_ACCESS]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+BARE_ARRAY_ACCESS]
 select StringArray[offset(3)],
        StringArray[(3).{{offset|safe_offset|ordinal|safe_ordinal}}()]
 from ArrayTypes
@@ -774,7 +774,7 @@ ERROR: SAFE_ORDINAL is not a function. It can only be used for array element acc
                        ^
 ==
 
-[language_features=CHAINED_FUNCTION_CALLS,MAP_TYPE]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+MAP_TYPE]
 select map_from_array([('a', 1)])[KEY('a')],
        map_from_array([('a', 1)])['a'.{{KEY|SAFE_KEY}}()]
 --
@@ -791,7 +791,7 @@ ERROR: SAFE_KEY is not a function. It can only be used for map element access us
                                       ^
 ==
 
-[language_features=CHAINED_FUNCTION_CALLS,WEEK_WITH_WEEKDAY]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+WEEK_WITH_WEEKDAY]
 select date_diff(date, date, week(tuesday)),
        date_diff(date, date, {{tuesday|(tuesday)}}.week())
 from SimpleTypes
@@ -809,7 +809,7 @@ ERROR: Found invalid date part argument function call syntax for week() [at 2:40
                                        ^
 ==
 
-[language_features=CHAINED_FUNCTION_CALLS,ENABLE_MEASURES]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+ENABLE_MEASURES]
 [no_java]
 SELECT
   key,
@@ -818,9 +818,28 @@ SELECT
 FROM MeasureTable_SingleKey
 GROUP BY key;
 --
-ERROR: AGG does not support any modifiers [at 4:26]
-  (measure_sum_quantity).AGG()
-                         ^
+QueryStmt
++-output_column_list=
+| +-$groupby.key#17 AS key [INT64]
+| +-$aggregate.$agg1#15 AS `$col2` [INT64]
+| +-$aggregate.$agg2#16 AS `$col3` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.key#17, $aggregate.$agg1#15, $aggregate.$agg2#16]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.key#17, $aggregate.$agg1#15, $aggregate.$agg2#16]
+        +-input_scan=
+        | +-TableScan(column_list=MeasureTable_SingleKey.[key#1, measure_sum_quantity#9], table=MeasureTable_SingleKey, column_index_list=[0, 8])
+        +-group_by_list=
+        | +-key#17 := ColumnRef(type=INT64, column=MeasureTable_SingleKey.key#1)
+        +-aggregate_list=
+          +-$agg1#15 :=
+          | +-AggregateFunctionCall(ZetaSQL:AGG(MEASURE<INT64>) -> INT64)
+          |   +-ColumnRef(type=MEASURE<INT64>, column=MeasureTable_SingleKey.measure_sum_quantity#9)
+          +-$agg2#16 :=
+            +-AggregateFunctionCall(ZetaSQL:AGG(MEASURE<INT64>) -> INT64)
+              +-ColumnRef(type=MEASURE<INT64>, column=MeasureTable_SingleKey.measure_sum_quantity#9)
 ==
 
 # COUNT(DISINCT) works as a chained call.
@@ -891,7 +910,7 @@ select true.if(distinct 5, 10)
 
 # Aggregation modifiers that work in chained calls
 [show_sqlbuilder_output]
-[language_features=CHAINED_FUNCTION_CALLS,ORDER_BY_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE,LIMIT_IN_AGGREGATE,HAVING_IN_AGGREGATE,AGGREGATE_FILTERING]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+ORDER_BY_IN_AGGREGATE,+NULL_HANDLING_MODIFIER_IN_AGGREGATE,+LIMIT_IN_AGGREGATE,+HAVING_IN_AGGREGATE,+AGGREGATE_FILTERING]
 select (key).array_agg(DISTINCT),
        (key).array_agg(ORDER BY value),
        (key).array_agg(RESPECT NULLS),
@@ -977,7 +996,7 @@ FROM
 
 # IGNORE NULLS is handled differently in window functions.
 [show_sqlbuilder_output]
-[language_features=CHAINED_FUNCTION_CALLS,ANALYTIC_FUNCTIONS,NULL_HANDLING_MODIFIER_IN_ANALYTIC]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+ANALYTIC_FUNCTIONS,+NULL_HANDLING_MODIFIER_IN_ANALYTIC]
 select (key).array_agg(IGNORE NULLS) OVER ()
 from KeyValue
 --
@@ -1025,7 +1044,7 @@ FROM
 ==
 
 # Aggregation modifiers that don't work in chained calls
-[language_features=CHAINED_FUNCTION_CALLS{{|,WITH_GROUP_ROWS}}]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS{{|,+WITH_GROUP_ROWS}}]
 select count(key)    WITH GROUP ROWS (select key from group_rows()),
        (key).count() WITH GROUP ROWS (select key from group_rows())
 from KeyValue;
@@ -1036,14 +1055,14 @@ ERROR: WITH GROUP ROWS is not supported [at 1:22]
 select count(key)    WITH GROUP ROWS (select key from group_rows()),
                      ^
 --
-ALTERNATION GROUP: ,WITH_GROUP_ROWS
+ALTERNATION GROUP: ,+WITH_GROUP_ROWS
 --
 ERROR: Chained function call cannot use WITH GROUP ROWS [at 2:14]
        (key).count() WITH GROUP ROWS (select key from group_rows())
              ^
 ==
 
-[language_features=CHAINED_FUNCTION_CALLS{{|,MULTILEVEL_AGGREGATION}}]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS{{|,+MULTILEVEL_AGGREGATION}}]
 SELECT
   SUM(any_value(key) GROUP BY value),
   any_value(key).SUM(GROUP BY value),
@@ -1055,7 +1074,7 @@ ERROR: Multi-level aggregation is not yet supported. [at 2:22]
   SUM(any_value(key) GROUP BY value),
                      ^
 --
-ALTERNATION GROUP: ,MULTILEVEL_AGGREGATION
+ALTERNATION GROUP: ,+MULTILEVEL_AGGREGATION
 --
 ERROR: Chained function call cannot use multi-level aggregation [at 3:18]
   any_value(key).SUM(GROUP BY value),
@@ -1064,7 +1083,7 @@ ERROR: Chained function call cannot use multi-level aggregation [at 3:18]
 
 # Modifiers that work on anonymization functions
 [show_sqlbuilder_output]
-[language_features=CHAINED_FUNCTION_CALLS,ANONYMIZATION,JSON_TYPE]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+ANONYMIZATION,+JSON_TYPE]
 select with anonymization
    (int64).anon_sum(WITH REPORT(format=json)),
 from SimpleTypesWithAnonymizationUid
@@ -1099,7 +1118,7 @@ FROM
 ==
 
 # CLAMPED parses but is not allowed on multi-argument calls.
-[language_features=CHAINED_FUNCTION_CALLS{{|,ANONYMIZATION}}]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS{{|,+ANONYMIZATION}}]
 select with anonymization
    anon_quantiles(int64, 4 CLAMPED BETWEEN 2 AND 3),
    (int64).anon_quantiles(4 CLAMPED BETWEEN 2 AND 3),
@@ -1111,7 +1130,7 @@ ERROR: Unexpected keyword WITH [at 1:8]
 select with anonymization
        ^
 --
-ALTERNATION GROUP: ,ANONYMIZATION
+ALTERNATION GROUP: ,+ANONYMIZATION
 --
 ERROR: Chained function call cannot use CLAMPED BETWEEN [at 3:12]
    (int64).anon_quantiles(4 CLAMPED BETWEEN 2 AND 3),
@@ -1120,7 +1139,7 @@ ERROR: Chained function call cannot use CLAMPED BETWEEN [at 3:12]
 
 # Without an argument, CLAMPED BETWEEN parses as an expression rather than
 # as a modifier.
-[language_features=CHAINED_FUNCTION_CALLS,ANONYMIZATION]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+ANONYMIZATION]
 select with anonymization
    anon_sum(int64 CLAMPED BETWEEN 0 and 10),
    (int64).anon_sum(CLAMPED BETWEEN 0 and 10),
@@ -1136,7 +1155,7 @@ ERROR: Anonymized aggregate function ANON_SUM expects exactly 1 argument but fou
 ==
 
 # Test a call with no inline arguments and both a prefix and suffix modifier.
-[language_features=CHAINED_FUNCTION_CALLS,NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[language_features=NONE,+CHAINED_FUNCTION_CALLS,+NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [show_sqlbuilder_output]
 select (key).array_agg(distinct ignore nulls)
 from KeyValue

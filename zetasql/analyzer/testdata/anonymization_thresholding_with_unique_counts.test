@@ -2,7 +2,7 @@
 # Which replaces k_threshold_expr with the user defined function
 # counting unique user counts.
 # More details are in (broken link).
-[default language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,ANONYMIZATION_THRESHOLDING]
+[default language_features=NONE,+ANONYMIZATION,+TABLE_VALUED_FUNCTIONS,+TEMPLATE_FUNCTIONS,+CREATE_TABLE_FUNCTION,+ANONYMIZATION_THRESHOLDING]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 
 #########################################
@@ -121,7 +121,7 @@ QueryStmt
             +-default_value=NULL
 ==
 
-[language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,JSON_TYPE,ANONYMIZATION_THRESHOLDING,JSON_VALUE_EXTRACTION_FUNCTIONS]
+[language_features=NONE,+ANONYMIZATION,+TABLE_VALUED_FUNCTIONS,+TEMPLATE_FUNCTIONS,+CREATE_TABLE_FUNCTION,+JSON_TYPE,+ANONYMIZATION_THRESHOLDING,+JSON_VALUE_EXTRACTION_FUNCTIONS]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 # Count star counting unique users with JSON result.
 # We should use this count (extracted from the result JSON) for k_threshold_expr.
@@ -349,7 +349,7 @@ QueryStmt
 
 ==
 
-[language_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED,ANONYMIZATION_THRESHOLDING,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE]
+[language_features=NONE,+ANONYMIZATION,+DIFFERENTIAL_PRIVACY_MAX_ROWS_CONTRIBUTED,+ANONYMIZATION_THRESHOLDING,+TABLESAMPLE,+STRATIFIED_RESERVOIR_TABLESAMPLE]
 # Count star with max_groups_contributed or max_rows_contributed
 # We should use this count for k_threshold_expr.
 select with anonymization options ({{max_groups_contributed|max_rows_contributed}}=5)
@@ -475,7 +475,7 @@ QueryStmt
 ########## ANON_COUNT($X) ###############
 #########################################
 
-[language_features=ANONYMIZATION,ANONYMIZATION_THRESHOLDING,NUMERIC_TYPE]
+[language_features=NONE,+ANONYMIZATION,+ANONYMIZATION_THRESHOLDING,+NUMERIC_TYPE]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 # Count(non-NULL literal) counting unique users.
 # We should use this count for k_threshold_expr.
@@ -897,7 +897,7 @@ QueryStmt
             +-default_value=NULL
 ==
 
-[language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,JSON_TYPE,ANONYMIZATION_THRESHOLDING,JSON_VALUE_EXTRACTION_FUNCTIONS]
+[language_features=NONE,+ANONYMIZATION,+TABLE_VALUED_FUNCTIONS,+TEMPLATE_FUNCTIONS,+CREATE_TABLE_FUNCTION,+JSON_TYPE,+ANONYMIZATION_THRESHOLDING,+JSON_VALUE_EXTRACTION_FUNCTIONS]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 # Count(1) counting unique users with JSON result.
 # We should use this count (extracted from the result JSON) for k_threshold_expr.
@@ -1463,7 +1463,7 @@ QueryStmt
             +-default_value=NULL
 ==
 
-[language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,JSON_TYPE,ANONYMIZATION_THRESHOLDING,JSON_VALUE_EXTRACTION_FUNCTIONS]
+[language_features=NONE,+ANONYMIZATION,+TABLE_VALUED_FUNCTIONS,+TEMPLATE_FUNCTIONS,+CREATE_TABLE_FUNCTION,+JSON_TYPE,+ANONYMIZATION_THRESHOLDING,+JSON_VALUE_EXTRACTION_FUNCTIONS]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 # Count(uid) counting unique users with JSON result.
 # We should use this count (extracted from the result JSON) for k_threshold_expr.
@@ -1824,7 +1824,7 @@ QueryStmt
             +-default_value=NULL
 ==
 
-[language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,JSON_TYPE,ANONYMIZATION_THRESHOLDING,JSON_VALUE_EXTRACTION_FUNCTIONS]
+[language_features=NONE,+ANONYMIZATION,+TABLE_VALUED_FUNCTIONS,+TEMPLATE_FUNCTIONS,+CREATE_TABLE_FUNCTION,+JSON_TYPE,+ANONYMIZATION_THRESHOLDING,+JSON_VALUE_EXTRACTION_FUNCTIONS]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 # Sum(1) counting unique users with JSON result.
 # We should use this count (extracted from the result JSON) for k_threshold_expr.
@@ -2001,7 +2001,7 @@ QueryStmt
             +-default_value=NULL
 ==
 
-[language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,JSON_TYPE,ANONYMIZATION_THRESHOLDING,JSON_VALUE_EXTRACTION_FUNCTIONS]
+[language_features=NONE,+ANONYMIZATION,+TABLE_VALUED_FUNCTIONS,+TEMPLATE_FUNCTIONS,+CREATE_TABLE_FUNCTION,+JSON_TYPE,+ANONYMIZATION_THRESHOLDING,+JSON_VALUE_EXTRACTION_FUNCTIONS]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 # Sum(1) with uint64 type counting unique users with JSON result.
 # We should use this count (extracted from the result JSON) for k_threshold_expr.
@@ -2062,7 +2062,7 @@ QueryStmt
 
 # sum(1) with NUMERIC type calculating unique users.
 # We should use this sum for k_threshold_expr.
-[language_features=ANONYMIZATION,ANONYMIZATION_THRESHOLDING,NUMERIC_TYPE]
+[language_features=NONE,+ANONYMIZATION,+ANONYMIZATION_THRESHOLDING,+NUMERIC_TYPE]
 select with anonymization ANON_SUM(cast(1 as NUMERIC) clamped between 0 and 1)
 from SimpleTypesWithAnonymizationUid;
 --
@@ -2592,7 +2592,7 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
 ==
 
-[language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,JSON_TYPE,ANONYMIZATION_THRESHOLDING,JSON_VALUE_EXTRACTION_FUNCTIONS]
+[language_features=NONE,+ANONYMIZATION,+TABLE_VALUED_FUNCTIONS,+TEMPLATE_FUNCTIONS,+CREATE_TABLE_FUNCTION,+JSON_TYPE,+ANONYMIZATION_THRESHOLDING,+JSON_VALUE_EXTRACTION_FUNCTIONS]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 # Sum of doubles with JSON result. We are not supporting these functions for
 # k_threshold_expr replacement due to possible accumulation of floating point errors.
@@ -2657,7 +2657,7 @@ QueryStmt
 # k_threshold_expr with provided unique users count, therefore
 # we will replace it with artificvially added function which
 # counts unique users.
-[language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION,JSON_TYPE,ANONYMIZATION_THRESHOLDING]
+[language_features=NONE,+ANONYMIZATION,+TABLE_VALUED_FUNCTIONS,+TEMPLATE_FUNCTIONS,+CREATE_TABLE_FUNCTION,+JSON_TYPE,+ANONYMIZATION_THRESHOLDING]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(1 CLAMPED BETWEEN 0 AND 1 with REPORT(format=JSON))
 from SimpleTypesWithAnonymizationUid;

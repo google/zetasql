@@ -1,5 +1,5 @@
 # Rename to.
-[default language_features=PARAMETERS_IN_GRANTEE_LIST]
+[default language_features=MAXIMUM,+PARAMETERS_IN_GRANTEE_LIST]
 alter row access policy p1 on KeyValue rename to p2;
 --
 AlterRowAccessPolicyStmt

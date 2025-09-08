@@ -21,18 +21,21 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/analyzer/rewriters/rewriter_relevance_checker.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/templated_sql_function.h"
 #include "zetasql/public/templated_sql_tvf.h"
+#include "zetasql/resolved_ast/column_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
-#include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "zetasql/resolved_ast/resolved_ast_rewrite_visitor.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/resolved_ast/rewrite_utils.h"
 #include "absl/container/btree_set.h"
 #include "absl/status/statusor.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -45,19 +48,52 @@ static absl::StatusOr<std::unique_ptr<const T>> DownCastUniquePtr(
 
 using ApplyRewritesFn =
     std::function<absl::StatusOr<std::unique_ptr<const ResolvedNode>>(
+        const AnalyzerOptions& analyzer_options,
         std::unique_ptr<const ResolvedNode>)>;
 
 class TemplatedFunctionCallVisitor : public ResolvedASTRewriteVisitor {
  public:
-  explicit TemplatedFunctionCallVisitor(ApplyRewritesFn apply_rewriters_fn)
-      : apply_rewriters_fn_(apply_rewriters_fn) {}
+  explicit TemplatedFunctionCallVisitor(const AnalyzerOptions& analyzer_options,
+                                        ApplyRewritesFn apply_rewriters_fn)
+      : analyzer_options_(analyzer_options),
+        apply_rewriters_fn_(apply_rewriters_fn) {}
 
   template <typename T>
-  absl::StatusOr<std::unique_ptr<const T>> RewriteNode(
-      std::unique_ptr<const ResolvedNode> node) {
-    // Apply rewrites to the node.
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedNode> rewritten_node,
-                     apply_rewriters_fn_(std::move(node)));
+  absl::StatusOr<std::unique_ptr<const T>> CopyAndRewriteNode(
+      const ResolvedNode& node, zetasql_base::SequenceNumber& sequence_number,
+      ColumnReplacementMap& column_map) {
+    // If the SequenceNumber is nullptr in the AnalyzerOptions that are supplied
+    // when analyzing a SQL statement, then a SequenceNumber is created by the
+    // resolver to create unique column ids for the resolved statement.
+    //
+    // When a templated function call is encountered, a new resolver is created
+    // to resolve the body of the templated function. In this case, the new
+    // resolver will also create a new SequenceNumber if one is not provided in
+    // the AnalyzerOptions.
+    //
+    // This causes a problem when executing this rewriter because the
+    // `analyzer_options_` use a SequenceNumber that reflects the max column id
+    // of the resolved statement, which is inconsistent with the SequenceNumber
+    // used to resolve the body of the templated function.
+    //
+    // To avoid column id conflicts, we create a new SequenceNumber, remap the
+    // columns ids in the function body to this sequence, and use this sequence
+    // to perform the rewrites so that any injected columns have unique ids
+    // within the body of the templated function call.
+    AnalyzerOptions options_for_rewrite(analyzer_options_);
+    options_for_rewrite.set_column_id_sequence_number(&sequence_number);
+    ZETASQL_RET_CHECK(options_for_rewrite.id_string_pool() != nullptr);
+
+    ColumnFactory column_factory(/*max_seen_col_id=*/0,
+                                 *options_for_rewrite.id_string_pool(),
+                                 sequence_number);
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<const ResolvedNode> node_copy,
+        CopyResolvedASTAndRemapColumns(node, column_factory, column_map));
+
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<const ResolvedNode> rewritten_node,
+        apply_rewriters_fn_(options_for_rewrite, std::move(node_copy)));
     // Apply the visitor to the rewritten node to rewrite nested templated
     // function calls.
     ZETASQL_ASSIGN_OR_RETURN(rewritten_node, this->VisitAll(std::move(rewritten_node)));
@@ -68,11 +104,14 @@ class TemplatedFunctionCallVisitor : public ResolvedASTRewriteVisitor {
   CopyAndRewriteTemplatedSQLFunctionCall(
       const absl::btree_set<ResolvedASTRewrite>& applicable_rewrites,
       const TemplatedSQLFunctionCall& function_call) {
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> expr_copy,
-                     ResolvedASTDeepCopyVisitor::Copy(function_call.expr()));
+    // Share a sequence number and column map between related expressions
+    // (the scalar and aggregate expressions) on aggregate function calls.
+    zetasql_base::SequenceNumber sequence_number;
+    ColumnReplacementMap column_map;
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<const ResolvedExpr> rewritten_function_expr,
-        RewriteNode<ResolvedExpr>(std::move(expr_copy)));
+        CopyAndRewriteNode<ResolvedExpr>(*function_call.expr(), sequence_number,
+                                         column_map));
 
     std::vector<std::unique_ptr<const ResolvedComputedColumn>>
         rewritten_aggregate_expression_list;
@@ -83,12 +122,10 @@ class TemplatedFunctionCallVisitor : public ResolvedASTRewriteVisitor {
                aggregate_expression :
            function_call.aggregate_expression_list()) {
         ZETASQL_ASSIGN_OR_RETURN(
-            std::unique_ptr<const ResolvedComputedColumn> expr_copy,
-            ResolvedASTDeepCopyVisitor::Copy(aggregate_expression.get()));
-        ZETASQL_ASSIGN_OR_RETURN(
             std::unique_ptr<const ResolvedComputedColumn>
                 rewritten_aggregate_expression,
-            RewriteNode<ResolvedComputedColumn>(std::move(expr_copy)));
+            CopyAndRewriteNode<ResolvedComputedColumn>(
+                *aggregate_expression, sequence_number, column_map));
         rewritten_aggregate_expression_list.push_back(
             std::move(rewritten_aggregate_expression));
       }
@@ -174,12 +211,12 @@ class TemplatedFunctionCallVisitor : public ResolvedASTRewriteVisitor {
     if (applicable_rewrites.empty()) {
       return std::move(tvf_scan);
     }
-
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedQueryStmt> query_copy,
-                     ResolvedASTDeepCopyVisitor::Copy(
-                         templated_tvf_signature->resolved_templated_query()));
+    zetasql_base::SequenceNumber sequence_number;
+    ColumnReplacementMap column_map;
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedQueryStmt> rewritten_query,
-                     RewriteNode<ResolvedQueryStmt>(std::move(query_copy)));
+                     CopyAndRewriteNode<ResolvedQueryStmt>(
+                         *templated_tvf_signature->resolved_templated_query(),
+                         sequence_number, column_map));
 
     std::shared_ptr<TemplatedSQLTVFSignature> rewritten_signature =
         templated_tvf_signature->CopyWithoutResolvedTemplatedQuery();
@@ -192,16 +229,19 @@ class TemplatedFunctionCallVisitor : public ResolvedASTRewriteVisitor {
   }
 
  private:
+  const AnalyzerOptions& analyzer_options_;
   ApplyRewritesFn apply_rewriters_fn_;
 };
 
 absl::StatusOr<std::unique_ptr<const ResolvedNode>>
 RewriteTemplatedFunctionCalls(
+    const AnalyzerOptions& analyzer_options,
     std::function<absl::StatusOr<std::unique_ptr<const ResolvedNode>>(
+        const AnalyzerOptions& analyzer_options,
         std::unique_ptr<const ResolvedNode>)>
         rewriters_func,
     std::unique_ptr<const ResolvedNode> input) {
-  TemplatedFunctionCallVisitor visitor(rewriters_func);
+  TemplatedFunctionCallVisitor visitor(analyzer_options, rewriters_func);
   return visitor.VisitAll(std::move(input));
 }
 

@@ -1,4 +1,4 @@
-[default language_features=PARAMETERIZED_TYPES,NUMERIC_TYPE,BIGNUMERIC_TYPE,CREATE_TABLE_NOT_NULL,CREATE_TABLE_FIELD_ANNOTATIONS]
+[default language_features=MAXIMUM,+PARAMETERIZED_TYPES,+NUMERIC_TYPE,+BIGNUMERIC_TYPE,+CREATE_TABLE_NOT_NULL,+CREATE_TABLE_FIELD_ANNOTATIONS]
 
 create table t (
   col_string            string(10),
@@ -264,7 +264,7 @@ CreateTableStmt
     +-column=t.c2#2
 ==
 
-[language_features={{|PARAMETERIZED_TYPES}}]
+[language_features=NONE,{{|+PARAMETERIZED_TYPES}}]
 create table t (col_string string(10));
 --
 ALTERNATION GROUP: <empty>
@@ -273,7 +273,7 @@ ERROR: Parameterized types are not supported [at 1:34]
 create table t (col_string string(10));
                                  ^
 --
-ALTERNATION GROUP: PARAMETERIZED_TYPES
+ALTERNATION GROUP: +PARAMETERIZED_TYPES
 --
 CreateTableStmt
 +-name_path=t
@@ -286,10 +286,10 @@ CreateTableStmt
     +-column=t.col_string#1
 ==
 
-[language_features={{PARAMETERIZED_TYPES,NUMERIC_TYPE|NUMERIC_TYPE}}]
+[language_features=NONE,{{+PARAMETERIZED_TYPES,+NUMERIC_TYPE|+NUMERIC_TYPE}}]
 create table t (col_numeric numeric(10, 5));
 --
-ALTERNATION GROUP: PARAMETERIZED_TYPES,NUMERIC_TYPE
+ALTERNATION GROUP: +PARAMETERIZED_TYPES,+NUMERIC_TYPE
 --
 CreateTableStmt
 +-name_path=t
@@ -301,7 +301,7 @@ CreateTableStmt
     | +-ColumnAnnotations(type_parameters=(precision=10,scale=5))
     +-column=t.col_numeric#1
 --
-ALTERNATION GROUP: NUMERIC_TYPE
+ALTERNATION GROUP: +NUMERIC_TYPE
 --
 ERROR: Parameterized types are not supported [at 1:36]
 create table t (col_numeric numeric(10, 5));
@@ -409,10 +409,10 @@ create table t (a unknown_type(123));
                   ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES,NUMERIC_TYPE|NUMERIC_TYPE}}]
+[language_features=NONE,{{+PARAMETERIZED_TYPES,+NUMERIC_TYPE|+NUMERIC_TYPE}}]
 select {{safe_cast|cast}}(1.2 as NUMERIC(8,2));
 --
-ALTERNATION GROUP: PARAMETERIZED_TYPES,NUMERIC_TYPE,safe_cast
+ALTERNATION GROUP: +PARAMETERIZED_TYPES,+NUMERIC_TYPE,safe_cast
 --
 QueryStmt
 +-output_column_list=
@@ -429,7 +429,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: PARAMETERIZED_TYPES,NUMERIC_TYPE,cast
+ALTERNATION GROUP: +PARAMETERIZED_TYPES,+NUMERIC_TYPE,cast
 --
 QueryStmt
 +-output_column_list=
@@ -445,13 +445,13 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: NUMERIC_TYPE,safe_cast
+ALTERNATION GROUP: +NUMERIC_TYPE,safe_cast
 --
 ERROR: Parameterized types are not supported [at 1:32]
 select safe_cast(1.2 as NUMERIC(8,2));
                                ^
 --
-ALTERNATION GROUP: NUMERIC_TYPE,cast
+ALTERNATION GROUP: +NUMERIC_TYPE,cast
 --
 ERROR: Parameterized types are not supported [at 1:27]
 select cast(1.2 as NUMERIC(8,2));
@@ -477,7 +477,7 @@ QueryStmt
 ==
 
 # Test cast from int Array to string Array with type parameters.
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES,PARAMETERIZED_TYPES}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES,+PARAMETERIZED_TYPES}}]
 select cast([0,1,2] as ARRAY<STRING(12)>);
 --
 ALTERNATION GROUP: <empty>
@@ -486,7 +486,7 @@ ERROR: Parameterized types are not supported [at 1:36]
 select cast([0,1,2] as ARRAY<STRING(12)>);
                                    ^
 --
-ALTERNATION GROUP: CAST_DIFFERENT_ARRAY_TYPES,PARAMETERIZED_TYPES
+ALTERNATION GROUP: +CAST_DIFFERENT_ARRAY_TYPES,+PARAMETERIZED_TYPES
 --
 QueryStmt
 +-output_column_list=
@@ -504,7 +504,7 @@ QueryStmt
 ==
 
 # Test cast with a nested struct with subfields having type parameters.
-[language_features={{|CAST_DIFFERENT_ARRAY_TYPES,PARAMETERIZED_TYPES,NUMERIC_TYPE,BIGNUMERIC_TYPE}}]
+[language_features=NONE,{{|+CAST_DIFFERENT_ARRAY_TYPES,+PARAMETERIZED_TYPES,+NUMERIC_TYPE,+BIGNUMERIC_TYPE}}]
 select cast(struct(false, 2, struct(123, [5], struct(true, 1000)), "hello", ["123", "123456", "1"]) as
             STRUCT<BOOL, NUMERIC(8), STRUCT<BIGNUMERIC(MAX, 2), ARRAY<STRING(2)>, STRUCT<BOOL, NUMERIC(6, 1)>>, BYTES(10), ARRAY<STRING(5)>>);
 --
@@ -514,7 +514,7 @@ ERROR: Type not found: NUMERIC [at 2:26]
             STRUCT<BOOL, NUMERIC(8), STRUCT<BIGNUMERIC(MAX, 2), ARRAY<STRING(...
                          ^
 --
-ALTERNATION GROUP: CAST_DIFFERENT_ARRAY_TYPES,PARAMETERIZED_TYPES,NUMERIC_TYPE,BIGNUMERIC_TYPE
+ALTERNATION GROUP: +CAST_DIFFERENT_ARRAY_TYPES,+PARAMETERIZED_TYPES,+NUMERIC_TYPE,+BIGNUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=

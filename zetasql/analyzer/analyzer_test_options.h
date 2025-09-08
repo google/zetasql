@@ -51,6 +51,12 @@ class AnalyzerTestCase;
 //   test_extract_table_names - if true (default), test that ExtractTableNames
 //                              returns names matching the actual scans in
 //                              the resolved query, when possible.
+//   test_list_select_expressions - if true (default), test that
+//                                  ListSelectColumnExpressionsFromFinalSelectClause
+//                                  returns the same number of column
+//                                  expressions matching actual scans in the
+//                                  resolved query, when possible.
+//   ExtractTableNames
 //   show_extracted_table_names - show the table names from ExtractTableNames
 //                                before the query result.
 //   show_temporal_table_references - show temporal table references from
@@ -219,6 +225,7 @@ extern const char* const kSqlBuilderTargetSyntaxMapMode;
 extern const char* const kStatementContext;
 extern const char* const kSupportedStatementKinds;
 extern const char* const kTestExtractTableNames;
+extern const char* const kTestListSelectExpressions;
 extern const char* const kSqlBuilderPositionalParameterMode;
 extern const char* const kUseDatabase;
 extern const char* const kPrepareDatabase;

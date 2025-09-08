@@ -1,5 +1,5 @@
 [default enabled_ast_rewrites=ALL]
-[default language_features=TABLE_VALUED_FUNCTIONS,WITH_EXPRESSION,ORDER_BY_IN_AGGREGATE]
+[default language_features=NONE,+TABLE_VALUED_FUNCTIONS,+WITH_EXPRESSION,+ORDER_BY_IN_AGGREGATE]
 [default no_java]
 
 SELECT {{*|a|b}} FROM NullarySelect();
@@ -4017,7 +4017,7 @@ QueryStmt
                   +-WithRefScan(column_list=[UnaryTableArgAggregatedWithOrderBy.arr#3], with_query_name="t")
 ==
 
-[language_features=MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS,WITH_EXPRESSION,ORDER_BY_IN_AGGREGATE]
+[language_features=NONE,+MULTILEVEL_AGGREGATION,+TABLE_VALUED_FUNCTIONS,+WITH_EXPRESSION,+ORDER_BY_IN_AGGREGATE]
 SELECT *
 FROM tvf_templated_multi_agg_valid_grouping_constants(1);
 --
@@ -4107,7 +4107,7 @@ QueryStmt
                         +-$groupbymod#3 := ColumnRef(type=INT64, column=TwoIntegers.key#2)
 ==
 
-[language_features=MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS,WITH_EXPRESSION,ORDER_BY_IN_AGGREGATE]
+[language_features=NONE,+MULTILEVEL_AGGREGATION,+TABLE_VALUED_FUNCTIONS,+WITH_EXPRESSION,+ORDER_BY_IN_AGGREGATE]
 SELECT *
 FROM tvf_templated_multi_agg_invalid_grouping_constants(1);
 --
@@ -4122,7 +4122,7 @@ SELECT SUM(value + int64_arg GROUP BY key) AS result FROM TwoIntegers
            ^
 ==
 
-[language_features=TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+TABLE_VALUED_FUNCTIONS]
 SELECT *
 FROM UnaryTableArgColumnsUnused(Table TwoIntegers)
 --
@@ -4169,7 +4169,7 @@ QueryStmt
               +-WithRefScan(column_list=arg0.[key#4, value#5], with_query_name="arg0")
 ==
 
-[language_features=MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+MULTILEVEL_AGGREGATION,+TABLE_VALUED_FUNCTIONS]
 SELECT *
 FROM TvfMultiAggNullary();
 --
@@ -4235,7 +4235,7 @@ QueryStmt
                               +-$groupbymod#13 := ColumnRef(type=INT64, column=t.b#5)
 ==
 
-[language_features=MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS,GROUP_BY_STRUCT]
+[language_features=NONE,+MULTILEVEL_AGGREGATION,+TABLE_VALUED_FUNCTIONS,+GROUP_BY_STRUCT]
 SELECT *
 FROM TvfMultiAggGroupingConstantsWithStruct((SELECT STRUCT(STRUCT(1 as b) as a)), 1);
 --
@@ -4329,7 +4329,7 @@ QueryStmt
                             +-field_idx=0
 ==
 
-[language_features=MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS,GROUP_BY_STRUCT]
+[language_features=NONE,+MULTILEVEL_AGGREGATION,+TABLE_VALUED_FUNCTIONS,+GROUP_BY_STRUCT]
 SELECT *
 FROM tvf_templated_multi_agg_valid_grouping_constants_with_struct((SELECT STRUCT(1 as b) as a));
 --
@@ -4422,7 +4422,7 @@ QueryStmt
                         +-$groupbymod#4 := ColumnRef(type=STRUCT<b INT64>, column=arg_table.a#3)
 ==
 
-[language_features=MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+MULTILEVEL_AGGREGATION,+TABLE_VALUED_FUNCTIONS]
 SELECT *
 FROM tvf_templated_call_udf_with_multi_agg(TABLE TwoIntegers);
 --
@@ -4504,7 +4504,7 @@ QueryStmt
               +-SingleRowScan
 ==
 
-[language_features=MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+MULTILEVEL_AGGREGATION,+TABLE_VALUED_FUNCTIONS]
 SELECT *
 FROM tvf_templated_call_uda_with_multi_agg(TABLE TwoIntegers);
 --
@@ -4593,7 +4593,7 @@ QueryStmt
                                 +-ColumnRef(type=INT64, column=$inlined_SumOfValuesForDistinctKey.value#6)
 ==
 
-[language_features=MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+MULTILEVEL_AGGREGATION,+TABLE_VALUED_FUNCTIONS]
 SELECT * FROM TvfMultiAggReferencesScannedTable(TABLE TwoIntegers, ((SELECT value FROM TwoIntegers)));
 --
 QueryStmt
@@ -4717,7 +4717,7 @@ QueryStmt
                             +-ColumnRef(type=INT64, column=TwoIntegers.key#8)
 ==
 
-[language_features=MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS]
+[language_features=NONE,+MULTILEVEL_AGGREGATION,+TABLE_VALUED_FUNCTIONS]
 SELECT * FROM TvfMultiAggScalarArgGroupingConst(TABLE TwoIntegers, 100);
 --
 QueryStmt

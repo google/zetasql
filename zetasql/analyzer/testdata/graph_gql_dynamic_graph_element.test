@@ -1,7 +1,6 @@
-[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,SQL_GRAPH_RETURN_EXTENSIONS]
+[default language_features=MAXIMUM,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,+SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,+SQL_GRAPH_RETURN_EXTENSIONS,+SQL_GRAPH_DYNAMIC_MULTI_LABEL_NODES]
 [default no_test_extract_table_names]
 [default show_sqlbuilder_output]
-
 # Do not run SQLBuilder test due to SQLBuilder visitor not implemented for GraphMakeElement
 
 ###############################################################################
@@ -100,23 +99,32 @@ FROM
 ==
 
 # Static label in IS LABELED predicate in a dynamic element table
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY{{|,SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL|,SQL_GRAPH_DYNAMIC_ELEMENT_TYPE|,SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,SQL_GRAPH_DYNAMIC_ELEMENT_TYPE}}]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY{{|,+SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL|,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE|,+SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,+SQL_GRAPH_DYNAMIC_MULTI_LABEL_NODES}}]
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n)
   return n IS LABELED Entity AS is_static_label_entity
 ) gt
 --
 ALTERNATION GROUPS:
-    <empty>
-    ,SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL
-    ,SQL_GRAPH_DYNAMIC_ELEMENT_TYPE
+    aml_dynamic
+    ,+SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,aml_dynamic
+    ,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,aml_dynamic
 --
 ERROR: Dynamic label is not supported [at 2:13]
 graph_table(aml_dynamic
             ^
 --
-ALTERNATION GROUP: ,SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,SQL_GRAPH_DYNAMIC_ELEMENT_TYPE
+ALTERNATION GROUPS:
+    aml_dynamic_multi
+    ,+SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,aml_dynamic_multi
+    ,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,aml_dynamic_multi
+--
+ERROR: Dynamic label is not supported [at 2:13]
+graph_table(aml_dynamic_multi
+            ^
+--
+ALTERNATION GROUP: ,+SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,+SQL_GRAPH_DYNAMIC_MULTI_LABEL_NODES,aml_dynamic
 --
 QueryStmt
 +-output_column_list=
@@ -201,26 +209,121 @@ FROM
   ) AS aml_dynamic_1
 |> SELECT
      aml_dynamic_1.a_3 AS is_static_label_entity;
+--
+ALTERNATION GROUP: ,+SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,+SQL_GRAPH_DYNAMIC_MULTI_LABEL_NODES,aml_dynamic_multi
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.is_static_label_entity#2 AS is_static_label_entity [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.is_static_label_entity#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.is_static_label_entity#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.is_static_label_entity#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.is_static_label_entity#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphWildCardLabel
+                  | |   |   |     +-GraphLabelNaryExpr
+                  | |   |   |       +-op=NOT
+                  | |   |   |       +-operand_list=
+                  | |   |   |         +-GraphWildCardLabel
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.is_static_label_entity#2]
+                    +-expr_list=
+                    | +-is_static_label_entity#2 :=
+                    |   +-GraphIsLabeledPredicate
+                    |     +-type=BOOL
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-label_expr=
+                    |       +-GraphLabel
+                    |         +-parse_location=81-87
+                    |         +-label=aml_dynamic_multi.Entity
+                    |         +-label_name=
+                    |           +-Literal(type=STRING, value="Entity", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS is_static_label_entity
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+    RETURN
+      a_2 IS LABELED Entity AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+    RETURN
+      a_2 IS LABELED Entity AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS is_static_label_entity;
 ==
 
 # Dynamic label in IS LABELED predicate in a dynamic element table
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY{{|,SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL|,SQL_GRAPH_DYNAMIC_ELEMENT_TYPE|,SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,SQL_GRAPH_DYNAMIC_ELEMENT_TYPE}}]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY{{|,+SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL|,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE|,+SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,+SQL_GRAPH_DYNAMIC_MULTI_LABEL_NODES}}]
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n)
   return n IS LABELED DynamicLabelUnknown AS is_dynamic_label_unknown
 ) gt
 --
 ALTERNATION GROUPS:
-    <empty>
-    ,SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL
-    ,SQL_GRAPH_DYNAMIC_ELEMENT_TYPE
+    aml_dynamic
+    ,+SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,aml_dynamic
+    ,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,aml_dynamic
 --
 ERROR: Dynamic label is not supported [at 2:13]
 graph_table(aml_dynamic
             ^
 --
-ALTERNATION GROUP: ,SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,SQL_GRAPH_DYNAMIC_ELEMENT_TYPE
+ALTERNATION GROUPS:
+    aml_dynamic_multi
+    ,+SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,aml_dynamic_multi
+    ,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,aml_dynamic_multi
+--
+ERROR: Dynamic label is not supported [at 2:13]
+graph_table(aml_dynamic_multi
+            ^
+--
+ALTERNATION GROUP: ,+SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,+SQL_GRAPH_DYNAMIC_MULTI_LABEL_NODES,aml_dynamic
 --
 QueryStmt
 +-output_column_list=
@@ -303,14 +406,100 @@ FROM
   ) AS aml_dynamic_1
 |> SELECT
      aml_dynamic_1.a_3 AS is_dynamic_label_unknown;
+--
+ALTERNATION GROUP: ,+SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,+SQL_GRAPH_DYNAMIC_MULTI_LABEL_NODES,aml_dynamic_multi
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.is_dynamic_label_unknown#2 AS is_dynamic_label_unknown [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.is_dynamic_label_unknown#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.is_dynamic_label_unknown#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.is_dynamic_label_unknown#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.is_dynamic_label_unknown#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphWildCardLabel
+                  | |   |   |     +-GraphLabelNaryExpr
+                  | |   |   |       +-op=NOT
+                  | |   |   |       +-operand_list=
+                  | |   |   |         +-GraphWildCardLabel
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.is_dynamic_label_unknown#2]
+                    +-expr_list=
+                    | +-is_dynamic_label_unknown#2 :=
+                    |   +-GraphIsLabeledPredicate
+                    |     +-type=BOOL
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-label_expr=
+                    |       +-GraphLabel
+                    |         +-label_name=
+                    |           +-Literal(type=STRING, value="DynamicLabelUnknown", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS is_dynamic_label_unknown
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+    RETURN
+      a_2 IS LABELED DynamicLabelUnknown AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+    RETURN
+      a_2 IS LABELED DynamicLabelUnknown AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS is_dynamic_label_unknown;
 ==
 
 # Mixing up static and dynamic label in IS LABELED predicate with OR.
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n)
   return n IS LABELED (DynamicLabelUnknown | Entity) AS is_or_label
 ) gt
+--
+ALTERNATION GROUP: aml_dynamic
 --
 QueryStmt
 +-output_column_list=
@@ -402,14 +591,109 @@ FROM
   ) AS aml_dynamic_1
 |> SELECT
      aml_dynamic_1.a_3 AS is_or_label;
+--
+ALTERNATION GROUP: aml_dynamic_multi
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.is_or_label#2 AS is_or_label [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.is_or_label#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.is_or_label#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.is_or_label#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.is_or_label#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphWildCardLabel
+                  | |   |   |     +-GraphLabelNaryExpr
+                  | |   |   |       +-op=NOT
+                  | |   |   |       +-operand_list=
+                  | |   |   |         +-GraphWildCardLabel
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.is_or_label#2]
+                    +-expr_list=
+                    | +-is_or_label#2 :=
+                    |   +-GraphIsLabeledPredicate
+                    |     +-type=BOOL
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-label_expr=
+                    |       +-GraphLabelNaryExpr
+                    |         +-parse_location=82-110
+                    |         +-op=OR
+                    |         +-operand_list=
+                    |           +-GraphLabel
+                    |           | +-label_name=
+                    |           |   +-Literal(type=STRING, value="DynamicLabelUnknown", has_explicit_type=TRUE)
+                    |           +-GraphLabel
+                    |             +-parse_location=104-110
+                    |             +-label=aml_dynamic_multi.Entity
+                    |             +-label_name=
+                    |               +-Literal(type=STRING, value="Entity", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS is_or_label
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+    RETURN
+      a_2 IS LABELED(DynamicLabelUnknown | Entity) AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+    RETURN
+      a_2 IS LABELED(DynamicLabelUnknown | Entity) AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS is_or_label;
 ==
 
 # Mixing up static and dynamic label in IS LABELED predicate with AND.
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n)
   return n IS LABELED (DynamicLabelUnknown & Entity) AS is_or_label
 ) gt
+--
+ALTERNATION GROUP: aml_dynamic
 --
 QueryStmt
 +-output_column_list=
@@ -501,16 +785,109 @@ FROM
   ) AS aml_dynamic_1
 |> SELECT
      aml_dynamic_1.a_3 AS is_or_label;
+--
+ALTERNATION GROUP: aml_dynamic_multi
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.is_or_label#2 AS is_or_label [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.is_or_label#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.is_or_label#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.is_or_label#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.is_or_label#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphWildCardLabel
+                  | |   |   |     +-GraphLabelNaryExpr
+                  | |   |   |       +-op=NOT
+                  | |   |   |       +-operand_list=
+                  | |   |   |         +-GraphWildCardLabel
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.is_or_label#2]
+                    +-expr_list=
+                    | +-is_or_label#2 :=
+                    |   +-GraphIsLabeledPredicate
+                    |     +-type=BOOL
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-label_expr=
+                    |       +-GraphLabelNaryExpr
+                    |         +-parse_location=82-110
+                    |         +-op=AND
+                    |         +-operand_list=
+                    |           +-GraphLabel
+                    |           | +-label_name=
+                    |           |   +-Literal(type=STRING, value="DynamicLabelUnknown", has_explicit_type=TRUE)
+                    |           +-GraphLabel
+                    |             +-parse_location=104-110
+                    |             +-label=aml_dynamic_multi.Entity
+                    |             +-label_name=
+                    |               +-Literal(type=STRING, value="Entity", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS is_or_label
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+    RETURN
+      a_2 IS LABELED(DynamicLabelUnknown & Entity) AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+    RETURN
+      a_2 IS LABELED(DynamicLabelUnknown & Entity) AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS is_or_label;
 ==
 
 # Mixing up static and dynamic label in IS LABELED predicate
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n)
   return n IS LABELED {{%|Entity}} | DynamicLabelUnknown AS is_or_label
 ) gt
 --
-ALTERNATION GROUP: %
+ALTERNATION GROUP: aml_dynamic,%
 --
 QueryStmt
 +-output_column_list=
@@ -599,7 +976,7 @@ FROM
 |> SELECT
      aml_dynamic_1.a_3 AS is_or_label;
 --
-ALTERNATION GROUP: Entity
+ALTERNATION GROUP: aml_dynamic,Entity
 --
 QueryStmt
 +-output_column_list=
@@ -691,17 +1068,199 @@ FROM
   ) AS aml_dynamic_1
 |> SELECT
      aml_dynamic_1.a_3 AS is_or_label;
+--
+ALTERNATION GROUP: aml_dynamic_multi,%
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.is_or_label#2 AS is_or_label [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.is_or_label#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.is_or_label#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.is_or_label#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.is_or_label#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphWildCardLabel
+                  | |   |   |     +-GraphLabelNaryExpr
+                  | |   |   |       +-op=NOT
+                  | |   |   |       +-operand_list=
+                  | |   |   |         +-GraphWildCardLabel
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.is_or_label#2]
+                    +-expr_list=
+                    | +-is_or_label#2 :=
+                    |   +-GraphIsLabeledPredicate
+                    |     +-type=BOOL
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-label_expr=
+                    |       +-GraphLabelNaryExpr
+                    |         +-parse_location=81-104
+                    |         +-op=OR
+                    |         +-operand_list=
+                    |           +-GraphWildCardLabel(parse_location=81-82)
+                    |           +-GraphLabel
+                    |             +-label_name=
+                    |               +-Literal(type=STRING, value="DynamicLabelUnknown", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS is_or_label
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+    RETURN
+      a_2 IS LABELED(% | DynamicLabelUnknown) AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+    RETURN
+      a_2 IS LABELED(% | DynamicLabelUnknown) AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS is_or_label;
+--
+ALTERNATION GROUP: aml_dynamic_multi,Entity
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.is_or_label#2 AS is_or_label [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.is_or_label#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.is_or_label#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.is_or_label#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.is_or_label#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphWildCardLabel
+                  | |   |   |     +-GraphLabelNaryExpr
+                  | |   |   |       +-op=NOT
+                  | |   |   |       +-operand_list=
+                  | |   |   |         +-GraphWildCardLabel
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.is_or_label#2]
+                    +-expr_list=
+                    | +-is_or_label#2 :=
+                    |   +-GraphIsLabeledPredicate
+                    |     +-type=BOOL
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-label_expr=
+                    |       +-GraphLabelNaryExpr
+                    |         +-parse_location=81-109
+                    |         +-op=OR
+                    |         +-operand_list=
+                    |           +-GraphLabel
+                    |           | +-parse_location=81-87
+                    |           | +-label=aml_dynamic_multi.Entity
+                    |           | +-label_name=
+                    |           |   +-Literal(type=STRING, value="Entity", has_explicit_type=TRUE)
+                    |           +-GraphLabel
+                    |             +-label_name=
+                    |               +-Literal(type=STRING, value="DynamicLabelUnknown", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS is_or_label
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+    RETURN
+      a_2 IS LABELED(Entity | DynamicLabelUnknown) AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+    RETURN
+      a_2 IS LABELED(Entity | DynamicLabelUnknown) AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS is_or_label;
 ==
 
 # Mixing up static and dynamic label in IS LABELED predicate, but in a different
 # specification order
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n)
   return n IS LABELED DynamicLabelUnknown | {{%|Entity}}  AS is_or_label
 ) gt
 --
-ALTERNATION GROUP: %
+ALTERNATION GROUP: aml_dynamic,%
 --
 QueryStmt
 +-output_column_list=
@@ -790,7 +1349,7 @@ FROM
 |> SELECT
      aml_dynamic_1.a_3 AS is_or_label;
 --
-ALTERNATION GROUP: Entity
+ALTERNATION GROUP: aml_dynamic,Entity
 --
 QueryStmt
 +-output_column_list=
@@ -882,14 +1441,198 @@ FROM
   ) AS aml_dynamic_1
 |> SELECT
      aml_dynamic_1.a_3 AS is_or_label;
+--
+ALTERNATION GROUP: aml_dynamic_multi,%
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.is_or_label#2 AS is_or_label [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.is_or_label#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.is_or_label#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.is_or_label#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.is_or_label#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphWildCardLabel
+                  | |   |   |     +-GraphLabelNaryExpr
+                  | |   |   |       +-op=NOT
+                  | |   |   |       +-operand_list=
+                  | |   |   |         +-GraphWildCardLabel
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.is_or_label#2]
+                    +-expr_list=
+                    | +-is_or_label#2 :=
+                    |   +-GraphIsLabeledPredicate
+                    |     +-type=BOOL
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-label_expr=
+                    |       +-GraphLabelNaryExpr
+                    |         +-parse_location=81-104
+                    |         +-op=OR
+                    |         +-operand_list=
+                    |           +-GraphLabel
+                    |           | +-label_name=
+                    |           |   +-Literal(type=STRING, value="DynamicLabelUnknown", has_explicit_type=TRUE)
+                    |           +-GraphWildCardLabel(parse_location=103-104)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS is_or_label
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+    RETURN
+      a_2 IS LABELED(DynamicLabelUnknown | %) AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+    RETURN
+      a_2 IS LABELED(DynamicLabelUnknown | %) AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS is_or_label;
+--
+ALTERNATION GROUP: aml_dynamic_multi,Entity
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.is_or_label#2 AS is_or_label [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.is_or_label#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.is_or_label#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.is_or_label#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.is_or_label#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphWildCardLabel
+                  | |   |   |     +-GraphLabelNaryExpr
+                  | |   |   |       +-op=NOT
+                  | |   |   |       +-operand_list=
+                  | |   |   |         +-GraphWildCardLabel
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.is_or_label#2]
+                    +-expr_list=
+                    | +-is_or_label#2 :=
+                    |   +-GraphIsLabeledPredicate
+                    |     +-type=BOOL
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-label_expr=
+                    |       +-GraphLabelNaryExpr
+                    |         +-parse_location=81-109
+                    |         +-op=OR
+                    |         +-operand_list=
+                    |           +-GraphLabel
+                    |           | +-label_name=
+                    |           |   +-Literal(type=STRING, value="DynamicLabelUnknown", has_explicit_type=TRUE)
+                    |           +-GraphLabel
+                    |             +-parse_location=103-109
+                    |             +-label=aml_dynamic_multi.Entity
+                    |             +-label_name=
+                    |               +-Literal(type=STRING, value="Entity", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS is_or_label
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+    RETURN
+      a_2 IS LABELED(DynamicLabelUnknown | Entity) AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+    RETURN
+      a_2 IS LABELED(DynamicLabelUnknown | Entity) AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS is_or_label;
 ==
 
 # Mixing up different dynamic labels in IS LABELED predicate
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n)
   return n IS LABELED DynamicLabelUnknown |  (Dynamic1 & !Dynamic2) AS is_complex_dynamic_label
 ) gt
+--
+ALTERNATION GROUP: aml_dynamic
 --
 QueryStmt
 +-output_column_list=
@@ -990,6 +1733,108 @@ FROM
   ) AS aml_dynamic_1
 |> SELECT
      aml_dynamic_1.a_3 AS is_complex_dynamic_label;
+--
+ALTERNATION GROUP: aml_dynamic_multi
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.is_complex_dynamic_label#2 AS is_complex_dynamic_label [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.is_complex_dynamic_label#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.is_complex_dynamic_label#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.is_complex_dynamic_label#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.is_complex_dynamic_label#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphWildCardLabel
+                  | |   |   |     +-GraphLabelNaryExpr
+                  | |   |   |       +-op=NOT
+                  | |   |   |       +-operand_list=
+                  | |   |   |         +-GraphWildCardLabel
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.is_complex_dynamic_label#2]
+                    +-expr_list=
+                    | +-is_complex_dynamic_label#2 :=
+                    |   +-GraphIsLabeledPredicate
+                    |     +-type=BOOL
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-label_expr=
+                    |       +-GraphLabelNaryExpr
+                    |         +-parse_location=81-126
+                    |         +-op=OR
+                    |         +-operand_list=
+                    |           +-GraphLabel
+                    |           | +-label_name=
+                    |           |   +-Literal(type=STRING, value="DynamicLabelUnknown", has_explicit_type=TRUE)
+                    |           +-GraphLabelNaryExpr
+                    |             +-parse_location=105-125
+                    |             +-op=AND
+                    |             +-operand_list=
+                    |               +-GraphLabel
+                    |               | +-label_name=
+                    |               |   +-Literal(type=STRING, value="Dynamic1", has_explicit_type=TRUE)
+                    |               +-GraphLabelNaryExpr
+                    |                 +-parse_location=116-125
+                    |                 +-op=NOT
+                    |                 +-operand_list=
+                    |                   +-GraphLabel
+                    |                     +-label_name=
+                    |                       +-Literal(type=STRING, value="Dynamic2", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS is_complex_dynamic_label
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+    RETURN
+      a_2 IS LABELED(DynamicLabelUnknown |(Dynamic1 & ! Dynamic2)) AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+    RETURN
+      a_2 IS LABELED(DynamicLabelUnknown |(Dynamic1 & ! Dynamic2)) AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS is_complex_dynamic_label;
 ==
 
 ###############################################################################
@@ -1000,12 +1845,12 @@ FROM
 # time. However, negating with static label `DynamicGraphNode` will not match
 # the table as we know for sure the label is present.
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n: {{!|}}{{Dynamic1|DynamicGraphNode}})
   return 1 AS one
 ) gt
 --
-ALTERNATION GROUP: !,Dynamic1
+ALTERNATION GROUP: aml_dynamic,!,Dynamic1
 --
 QueryStmt
 +-output_column_list=
@@ -1080,7 +1925,7 @@ FROM
 |> SELECT
      aml_dynamic_1.a_3 AS one;
 --
-ALTERNATION GROUP: !,DynamicGraphNode
+ALTERNATION GROUP: aml_dynamic,!,DynamicGraphNode
 --
 QueryStmt
 +-output_column_list=
@@ -1157,7 +2002,7 @@ FROM
 |> SELECT
      aml_dynamic_1.a_3 AS one;
 --
-ALTERNATION GROUP: Dynamic1
+ALTERNATION GROUP: aml_dynamic,,Dynamic1
 --
 QueryStmt
 +-output_column_list=
@@ -1228,7 +2073,7 @@ FROM
 |> SELECT
      aml_dynamic_1.a_3 AS one;
 --
-ALTERNATION GROUP: DynamicGraphNode
+ALTERNATION GROUP: aml_dynamic,,DynamicGraphNode
 --
 QueryStmt
 +-output_column_list=
@@ -1300,15 +2145,307 @@ FROM
   ) AS aml_dynamic_1
 |> SELECT
      aml_dynamic_1.a_3 AS one;
+--
+ALTERNATION GROUP: aml_dynamic_multi,!,Dynamic1
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.one#2 AS one [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.one#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.one#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.one#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.one#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-parse_location=59-68
+                  | |   |   |   +-op=NOT
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphLabel
+                  | |   |   |       +-label_name=
+                  | |   |   |         +-Literal(type=STRING, value="Dynamic1", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.one#2]
+                    +-expr_list=
+                    | +-one#2 := Literal(type=INT64, value=1)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS one
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS ! Dynamic1)
+    RETURN
+      1 AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS ! Dynamic1)
+    RETURN
+      1 AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS one;
+--
+ALTERNATION GROUP: aml_dynamic_multi,!,DynamicGraphNode
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.one#2 AS one [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.one#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.one#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.one#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.one#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-parse_location=59-76
+                  | |   |   |   +-op=NOT
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphLabel
+                  | |   |   |       +-label_name=
+                  | |   |   |         +-Literal(type=STRING, value="DynamicGraphNode", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.one#2]
+                    +-expr_list=
+                    | +-one#2 := Literal(type=INT64, value=1)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS one
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS ! DynamicGraphNode)
+    RETURN
+      1 AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS ! DynamicGraphNode)
+    RETURN
+      1 AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS one;
+--
+ALTERNATION GROUP: aml_dynamic_multi,,Dynamic1
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.one#2 AS one [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.one#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.one#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.one#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.one#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabel
+                  | |   |   |   +-label_name=
+                  | |   |   |     +-Literal(type=STRING, value="Dynamic1", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.one#2]
+                    +-expr_list=
+                    | +-one#2 := Literal(type=INT64, value=1)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS one
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS Dynamic1)
+    RETURN
+      1 AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS Dynamic1)
+    RETURN
+      1 AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS one;
+--
+ALTERNATION GROUP: aml_dynamic_multi,,DynamicGraphNode
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.one#2 AS one [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.one#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.one#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.one#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.one#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabel
+                  | |   |   |   +-label_name=
+                  | |   |   |     +-Literal(type=STRING, value="DynamicGraphNode", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.one#2]
+                    +-expr_list=
+                    | +-one#2 := Literal(type=INT64, value=1)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS one
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicGraphNode)
+    RETURN
+      1 AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicGraphNode)
+    RETURN
+      1 AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS one;
 ==
 
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match -[e: {{!|}}{{Dynamic1|DynamicGraphEdge}}]->
   return 1 AS one
 ) gt
 --
-ALTERNATION GROUP: !,Dynamic1
+ALTERNATION GROUP: aml_dynamic,!,Dynamic1
 --
 QueryStmt
 +-output_column_list=
@@ -1416,7 +2553,7 @@ FROM
 |> SELECT
      aml_dynamic_1.a_5 AS one;
 --
-ALTERNATION GROUP: !,DynamicGraphEdge
+ALTERNATION GROUP: aml_dynamic,!,DynamicGraphEdge
 --
 QueryStmt
 +-output_column_list=
@@ -1526,7 +2663,7 @@ FROM
 |> SELECT
      aml_dynamic_1.a_5 AS one;
 --
-ALTERNATION GROUP: Dynamic1
+ALTERNATION GROUP: aml_dynamic,,Dynamic1
 --
 QueryStmt
 +-output_column_list=
@@ -1630,7 +2767,7 @@ FROM
 |> SELECT
      aml_dynamic_1.a_5 AS one;
 --
-ALTERNATION GROUP: DynamicGraphEdge
+ALTERNATION GROUP: aml_dynamic,,DynamicGraphEdge
 --
 QueryStmt
 +-output_column_list=
@@ -1735,16 +2872,440 @@ FROM
   ) AS aml_dynamic_1
 |> SELECT
      aml_dynamic_1.a_5 AS one;
+--
+ALTERNATION GROUP: aml_dynamic_multi,!,Dynamic1
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.one#4 AS one [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.one#4]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.one#4]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.one#4]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.one#4]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=$element_table.[$element1#1, e#2, $element2#3]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=$element_table.[$element1#1, e#2, $element2#3]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   | | +-column_list=[$element_table.$element1#1]
+                  | |   | | +-label_expr=
+                  | |   | | | +-GraphLabelNaryExpr
+                  | |   | | |   +-op=OR
+                  | |   | | |   +-operand_list=
+                  | |   | | |     +-GraphWildCardLabel
+                  | |   | | |     +-GraphLabelNaryExpr
+                  | |   | | |       +-op=NOT
+                  | |   | | |       +-operand_list=
+                  | |   | | |         +-GraphWildCardLabel
+                  | |   | | +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   | +-GraphEdgeScan
+                  | |   | | +-column_list=[$element_table.e#2]
+                  | |   | | +-label_expr=
+                  | |   | | | +-GraphLabelNaryExpr
+                  | |   | | |   +-parse_location=60-69
+                  | |   | | |   +-op=NOT
+                  | |   | | |   +-operand_list=
+                  | |   | | |     +-GraphLabel
+                  | |   | | |       +-label_name=
+                  | |   | | |         +-Literal(type=STRING, value="Dynamic1", has_explicit_type=TRUE)
+                  | |   | | +-target_element_table_list=[aml_dynamic_multi.DynamicSingleLabelGraphEdge]
+                  | |   | | +-orientation=RIGHT
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.$element2#3]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphWildCardLabel
+                  | |   |   |     +-GraphLabelNaryExpr
+                  | |   |   |       +-op=NOT
+                  | |   |   |       +-operand_list=
+                  | |   |   |         +-GraphWildCardLabel
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.$element1#1
+                  | |   +-tail=$element_table.$element2#3
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.one#4]
+                    +-expr_list=
+                    | +-one#4 := Literal(type=INT64, value=1)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=$element_table.[$element1#1, e#2, $element2#3])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_5 AS one
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS ! Dynamic1]->
+      (a_4
+      IS (% | ! %))
+    RETURN
+      1 AS a_5
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS ! Dynamic1]->
+      (a_4
+      IS (% | ! %))
+    RETURN
+      1 AS a_5
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_5 AS one;
+--
+ALTERNATION GROUP: aml_dynamic_multi,!,DynamicGraphEdge
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.one#4 AS one [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.one#4]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.one#4]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.one#4]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.one#4]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=$element_table.[$element1#1, e#2, $element2#3]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=$element_table.[$element1#1, e#2, $element2#3]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   | | +-column_list=[$element_table.$element1#1]
+                  | |   | | +-label_expr=
+                  | |   | | | +-GraphLabelNaryExpr
+                  | |   | | |   +-op=OR
+                  | |   | | |   +-operand_list=
+                  | |   | | |     +-GraphWildCardLabel
+                  | |   | | |     +-GraphLabelNaryExpr
+                  | |   | | |       +-op=NOT
+                  | |   | | |       +-operand_list=
+                  | |   | | |         +-GraphWildCardLabel
+                  | |   | | +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   | +-GraphEdgeScan
+                  | |   | | +-column_list=[$element_table.e#2]
+                  | |   | | +-label_expr=
+                  | |   | | | +-GraphLabelNaryExpr
+                  | |   | | |   +-parse_location=60-77
+                  | |   | | |   +-op=NOT
+                  | |   | | |   +-operand_list=
+                  | |   | | |     +-GraphLabel
+                  | |   | | |       +-label_name=
+                  | |   | | |         +-Literal(type=STRING, value="DynamicGraphEdge", has_explicit_type=TRUE)
+                  | |   | | +-target_element_table_list=[aml_dynamic_multi.DynamicSingleLabelGraphEdge]
+                  | |   | | +-orientation=RIGHT
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.$element2#3]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphWildCardLabel
+                  | |   |   |     +-GraphLabelNaryExpr
+                  | |   |   |       +-op=NOT
+                  | |   |   |       +-operand_list=
+                  | |   |   |         +-GraphWildCardLabel
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.$element1#1
+                  | |   +-tail=$element_table.$element2#3
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.one#4]
+                    +-expr_list=
+                    | +-one#4 := Literal(type=INT64, value=1)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=$element_table.[$element1#1, e#2, $element2#3])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_5 AS one
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS ! DynamicGraphEdge]->
+      (a_4
+      IS (% | ! %))
+    RETURN
+      1 AS a_5
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS ! DynamicGraphEdge]->
+      (a_4
+      IS (% | ! %))
+    RETURN
+      1 AS a_5
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_5 AS one;
+--
+ALTERNATION GROUP: aml_dynamic_multi,,Dynamic1
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.one#4 AS one [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.one#4]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.one#4]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.one#4]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.one#4]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=$element_table.[$element1#1, e#2, $element2#3]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=$element_table.[$element1#1, e#2, $element2#3]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   | | +-column_list=[$element_table.$element1#1]
+                  | |   | | +-label_expr=
+                  | |   | | | +-GraphLabelNaryExpr
+                  | |   | | |   +-op=OR
+                  | |   | | |   +-operand_list=
+                  | |   | | |     +-GraphWildCardLabel
+                  | |   | | |     +-GraphLabelNaryExpr
+                  | |   | | |       +-op=NOT
+                  | |   | | |       +-operand_list=
+                  | |   | | |         +-GraphWildCardLabel
+                  | |   | | +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   | +-GraphEdgeScan
+                  | |   | | +-column_list=[$element_table.e#2]
+                  | |   | | +-label_expr=
+                  | |   | | | +-GraphLabel
+                  | |   | | |   +-label_name=
+                  | |   | | |     +-Literal(type=STRING, value="Dynamic1", has_explicit_type=TRUE)
+                  | |   | | +-target_element_table_list=[aml_dynamic_multi.DynamicSingleLabelGraphEdge]
+                  | |   | | +-orientation=RIGHT
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.$element2#3]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphWildCardLabel
+                  | |   |   |     +-GraphLabelNaryExpr
+                  | |   |   |       +-op=NOT
+                  | |   |   |       +-operand_list=
+                  | |   |   |         +-GraphWildCardLabel
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.$element1#1
+                  | |   +-tail=$element_table.$element2#3
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.one#4]
+                    +-expr_list=
+                    | +-one#4 := Literal(type=INT64, value=1)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=$element_table.[$element1#1, e#2, $element2#3])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_5 AS one
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS Dynamic1]->
+      (a_4
+      IS (% | ! %))
+    RETURN
+      1 AS a_5
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS Dynamic1]->
+      (a_4
+      IS (% | ! %))
+    RETURN
+      1 AS a_5
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_5 AS one;
+--
+ALTERNATION GROUP: aml_dynamic_multi,,DynamicGraphEdge
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.one#4 AS one [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.one#4]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.one#4]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.one#4]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.one#4]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=$element_table.[$element1#1, e#2, $element2#3]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=$element_table.[$element1#1, e#2, $element2#3]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   | | +-column_list=[$element_table.$element1#1]
+                  | |   | | +-label_expr=
+                  | |   | | | +-GraphLabelNaryExpr
+                  | |   | | |   +-op=OR
+                  | |   | | |   +-operand_list=
+                  | |   | | |     +-GraphWildCardLabel
+                  | |   | | |     +-GraphLabelNaryExpr
+                  | |   | | |       +-op=NOT
+                  | |   | | |       +-operand_list=
+                  | |   | | |         +-GraphWildCardLabel
+                  | |   | | +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   | +-GraphEdgeScan
+                  | |   | | +-column_list=[$element_table.e#2]
+                  | |   | | +-label_expr=
+                  | |   | | | +-GraphLabel
+                  | |   | | |   +-label_name=
+                  | |   | | |     +-Literal(type=STRING, value="DynamicGraphEdge", has_explicit_type=TRUE)
+                  | |   | | +-target_element_table_list=[aml_dynamic_multi.DynamicSingleLabelGraphEdge]
+                  | |   | | +-orientation=RIGHT
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.$element2#3]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphWildCardLabel
+                  | |   |   |     +-GraphLabelNaryExpr
+                  | |   |   |       +-op=NOT
+                  | |   |   |       +-operand_list=
+                  | |   |   |         +-GraphWildCardLabel
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.$element1#1
+                  | |   +-tail=$element_table.$element2#3
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.one#4]
+                    +-expr_list=
+                    | +-one#4 := Literal(type=INT64, value=1)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=$element_table.[$element1#1, e#2, $element2#3])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_5 AS one
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS DynamicGraphEdge]->
+      (a_4
+      IS (% | ! %))
+    RETURN
+      1 AS a_5
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS DynamicGraphEdge]->
+      (a_4
+      IS (% | ! %))
+    RETURN
+      1 AS a_5
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_5 AS one;
 ==
 
 # Mixing up different dynamic labels in label expression filter
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n {{:|IS}} DynamicLabelUnknown | (Dynamic1 & !Dynamic2))
   return n.code AS entity_code
 ) gt
 --
-ALTERNATION GROUP: :
+ALTERNATION GROUP: aml_dynamic,:
 --
 QueryStmt
 +-output_column_list=
@@ -1840,7 +3401,7 @@ FROM
 |> SELECT
      aml_dynamic_1.a_3 AS entity_code;
 --
-ALTERNATION GROUP: IS
+ALTERNATION GROUP: aml_dynamic,IS
 --
 QueryStmt
 +-output_column_list=
@@ -1935,17 +3496,209 @@ FROM
   ) AS aml_dynamic_1
 |> SELECT
      aml_dynamic_1.a_3 AS entity_code;
+--
+ALTERNATION GROUP: aml_dynamic_multi,:
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.entity_code#2 AS entity_code [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.entity_code#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.entity_code#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.entity_code#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.entity_code#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-parse_location=60-104
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphLabel
+                  | |   |   |     | +-label_name=
+                  | |   |   |     |   +-Literal(type=STRING, value="DynamicLabelUnknown", has_explicit_type=TRUE)
+                  | |   |   |     +-GraphLabelNaryExpr
+                  | |   |   |       +-parse_location=83-103
+                  | |   |   |       +-op=AND
+                  | |   |   |       +-operand_list=
+                  | |   |   |         +-GraphLabel
+                  | |   |   |         | +-label_name=
+                  | |   |   |         |   +-Literal(type=STRING, value="Dynamic1", has_explicit_type=TRUE)
+                  | |   |   |         +-GraphLabelNaryExpr
+                  | |   |   |           +-parse_location=94-103
+                  | |   |   |           +-op=NOT
+                  | |   |   |           +-operand_list=
+                  | |   |   |             +-GraphLabel
+                  | |   |   |               +-label_name=
+                  | |   |   |                 +-Literal(type=STRING, value="Dynamic2", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.entity_code#2]
+                    +-expr_list=
+                    | +-entity_code#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=INT64
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-property=code(INT64)
+                    |     +-property_name=
+                    |       +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS entity_code
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (DynamicLabelUnknown |(Dynamic1 & ! Dynamic2)))
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (DynamicLabelUnknown |(Dynamic1 & ! Dynamic2)))
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS entity_code;
+--
+ALTERNATION GROUP: aml_dynamic_multi,IS
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.entity_code#2 AS entity_code [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.entity_code#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.entity_code#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.entity_code#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.entity_code#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-parse_location=61-105
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphLabel
+                  | |   |   |     | +-label_name=
+                  | |   |   |     |   +-Literal(type=STRING, value="DynamicLabelUnknown", has_explicit_type=TRUE)
+                  | |   |   |     +-GraphLabelNaryExpr
+                  | |   |   |       +-parse_location=84-104
+                  | |   |   |       +-op=AND
+                  | |   |   |       +-operand_list=
+                  | |   |   |         +-GraphLabel
+                  | |   |   |         | +-label_name=
+                  | |   |   |         |   +-Literal(type=STRING, value="Dynamic1", has_explicit_type=TRUE)
+                  | |   |   |         +-GraphLabelNaryExpr
+                  | |   |   |           +-parse_location=95-104
+                  | |   |   |           +-op=NOT
+                  | |   |   |           +-operand_list=
+                  | |   |   |             +-GraphLabel
+                  | |   |   |               +-label_name=
+                  | |   |   |                 +-Literal(type=STRING, value="Dynamic2", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.entity_code#2]
+                    +-expr_list=
+                    | +-entity_code#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=INT64
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-property=code(INT64)
+                    |     +-property_name=
+                    |       +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS entity_code
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (DynamicLabelUnknown |(Dynamic1 & ! Dynamic2)))
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (DynamicLabelUnknown |(Dynamic1 & ! Dynamic2)))
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS entity_code;
 ==
 
 # Mixing up static and dynamic label in label expression filter
 # specification order
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n: DynamicLabelUnknown | {{%|Entity}})
   return n.code AS entity_code
 ) gt
 --
-ALTERNATION GROUP: %
+ALTERNATION GROUP: aml_dynamic,%
 --
 QueryStmt
 +-output_column_list=
@@ -2028,7 +3781,7 @@ FROM
 |> SELECT
      aml_dynamic_1.a_3 AS entity_code;
 --
-ALTERNATION GROUP: Entity
+ALTERNATION GROUP: aml_dynamic,Entity
 --
 QueryStmt
 +-output_column_list=
@@ -2114,6 +3867,176 @@ FROM
   ) AS aml_dynamic_1
 |> SELECT
      aml_dynamic_1.a_3 AS entity_code;
+--
+ALTERNATION GROUP: aml_dynamic_multi,%
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.entity_code#2 AS entity_code [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.entity_code#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.entity_code#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.entity_code#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.entity_code#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-parse_location=59-82
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphLabel
+                  | |   |   |     | +-label_name=
+                  | |   |   |     |   +-Literal(type=STRING, value="DynamicLabelUnknown", has_explicit_type=TRUE)
+                  | |   |   |     +-GraphWildCardLabel(parse_location=81-82)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.entity_code#2]
+                    +-expr_list=
+                    | +-entity_code#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=INT64
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-property=code(INT64)
+                    |     +-property_name=
+                    |       +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS entity_code
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (DynamicLabelUnknown | %))
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (DynamicLabelUnknown | %))
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS entity_code;
+--
+ALTERNATION GROUP: aml_dynamic_multi,Entity
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.entity_code#2 AS entity_code [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.entity_code#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.entity_code#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.entity_code#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.entity_code#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-parse_location=59-87
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphLabel
+                  | |   |   |     | +-label_name=
+                  | |   |   |     |   +-Literal(type=STRING, value="DynamicLabelUnknown", has_explicit_type=TRUE)
+                  | |   |   |     +-GraphLabel
+                  | |   |   |       +-parse_location=81-87
+                  | |   |   |       +-label=aml_dynamic_multi.Entity
+                  | |   |   |       +-label_name=
+                  | |   |   |         +-Literal(type=STRING, value="Entity", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.entity_code#2]
+                    +-expr_list=
+                    | +-entity_code#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=INT64
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-property=code(INT64)
+                    |     +-property_name=
+                    |       +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS entity_code
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (DynamicLabelUnknown | Entity))
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (DynamicLabelUnknown | Entity))
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS entity_code;
 ==
 
 ###############################################################################
@@ -2222,10 +4145,12 @@ FROM
 
 # Static property specification in a dynamic element table
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n:Entity {code: 10})
   return n.code AS entity_code
 ) gt
+--
+ALTERNATION GROUP: aml_dynamic
 --
 QueryStmt
 +-output_column_list=
@@ -2318,31 +4243,207 @@ FROM
   ) AS aml_dynamic_1
 |> SELECT
      aml_dynamic_1.a_3 AS entity_code;
+--
+ALTERNATION GROUP: aml_dynamic_multi
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.entity_code#2 AS entity_code [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.entity_code#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.entity_code#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.entity_code#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.entity_code#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-filter_expr=
+                  | |   |   | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                  | |   |   |   +-GraphGetElementProperty
+                  | |   |   |   | +-type=INT64
+                  | |   |   |   | +-expr=
+                  | |   |   |   | | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |   | +-property=code(INT64)
+                  | |   |   |   | +-property_name=
+                  | |   |   |   |   +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                  | |   |   |   +-Literal(type=INT64, value=10)
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabel
+                  | |   |   |   +-parse_location=58-64
+                  | |   |   |   +-label=aml_dynamic_multi.Entity
+                  | |   |   |   +-label_name=
+                  | |   |   |     +-Literal(type=STRING, value="Entity", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.entity_code#2]
+                    +-expr_list=
+                    | +-entity_code#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=INT64
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-property=code(INT64)
+                    |     +-property_name=
+                    |       +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS entity_code
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS Entity
+      WHERE
+        (a_2.code) = 10)
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS Entity
+      WHERE
+        (a_2.code) = 10)
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS entity_code;
 ==
 
 # Dynamic property specification on a non-dynamic graph element
 # By using negation we are able to create a non-dynamic graph element
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n:!DynamicGraphNode {dynamic_property1:10})
   return 1 as one
 ) gt
 --
 
+ALTERNATION GROUP: aml_dynamic
+--
 ERROR: Property dynamic_property1 is not exposed by element type GRAPH_NODE(aml_dynamic)<> [at 3:31]
   match (n:!DynamicGraphNode {dynamic_property1:10})
                               ^
+--
+ALTERNATION GROUP: aml_dynamic_multi
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.one#2 AS one [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.one#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.one#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.one#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.one#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-filter_expr=
+                  | |   |   | +-FunctionCall(ZetaSQL:$dynamic_property_equals(GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, STRING, INT64) -> BOOL)
+                  | |   |   |   +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |   +-Literal(type=STRING, value="dynamic_property1", has_explicit_type=TRUE)
+                  | |   |   |   +-Literal(type=INT64, value=10)
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-parse_location=58-75
+                  | |   |   |   +-op=NOT
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphLabel
+                  | |   |   |       +-label_name=
+                  | |   |   |         +-Literal(type=STRING, value="DynamicGraphNode", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.one#2]
+                    +-expr_list=
+                    | +-one#2 := Literal(type=INT64, value=1)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS one
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS ! DynamicGraphNode { dynamic_property1 : 10 })
+    RETURN
+      1 AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS ! DynamicGraphNode { dynamic_property1 : 10 })
+    RETURN
+      1 AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS one;
 ==
 
 # Dynamic property specification in a dynamic element table with a matching
 # target value type
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n:DynamicLabel1 {dynamic_property1: {{10|@test_param_bool|@test_param_int32|CAST(10 AS UINT64)|@test_param_float|@test_param_double|"abc"}}})
   return n.code AS dynamic_labeled_code
 ) gt
 --
-ALTERNATION GROUP: 10
+ALTERNATION GROUP: aml_dynamic,10
 --
 QueryStmt
 +-output_column_list=
@@ -2425,7 +4526,7 @@ FROM
 |> SELECT
      aml_dynamic_1.a_3 AS dynamic_labeled_code;
 --
-ALTERNATION GROUP: @test_param_bool
+ALTERNATION GROUP: aml_dynamic,@test_param_bool
 --
 QueryStmt
 +-output_column_list=
@@ -2508,7 +4609,7 @@ FROM
 |> SELECT
      aml_dynamic_1.a_3 AS dynamic_labeled_code;
 --
-ALTERNATION GROUP: @test_param_int32
+ALTERNATION GROUP: aml_dynamic,@test_param_int32
 --
 QueryStmt
 +-output_column_list=
@@ -2591,7 +4692,7 @@ FROM
 |> SELECT
      aml_dynamic_1.a_3 AS dynamic_labeled_code;
 --
-ALTERNATION GROUP: CAST(10 AS UINT64)
+ALTERNATION GROUP: aml_dynamic,CAST(10 AS UINT64)
 --
 QueryStmt
 +-output_column_list=
@@ -2674,7 +4775,7 @@ FROM
 |> SELECT
      aml_dynamic_1.a_3 AS dynamic_labeled_code;
 --
-ALTERNATION GROUP: @test_param_float
+ALTERNATION GROUP: aml_dynamic,@test_param_float
 --
 QueryStmt
 +-output_column_list=
@@ -2757,7 +4858,7 @@ FROM
 |> SELECT
      aml_dynamic_1.a_3 AS dynamic_labeled_code;
 --
-ALTERNATION GROUP: @test_param_double
+ALTERNATION GROUP: aml_dynamic,@test_param_double
 --
 QueryStmt
 +-output_column_list=
@@ -2840,7 +4941,7 @@ FROM
 |> SELECT
      aml_dynamic_1.a_3 AS dynamic_labeled_code;
 --
-ALTERNATION GROUP: "abc"
+ALTERNATION GROUP: aml_dynamic,"abc"
 --
 QueryStmt
 +-output_column_list=
@@ -2922,6 +5023,587 @@ FROM
   ) AS aml_dynamic_1
 |> SELECT
      aml_dynamic_1.a_3 AS dynamic_labeled_code;
+--
+ALTERNATION GROUP: aml_dynamic_multi,10
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.dynamic_labeled_code#2 AS dynamic_labeled_code [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.dynamic_labeled_code#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.dynamic_labeled_code#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.dynamic_labeled_code#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.dynamic_labeled_code#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-filter_expr=
+                  | |   |   | +-FunctionCall(ZetaSQL:$dynamic_property_equals(GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, STRING, INT64) -> BOOL)
+                  | |   |   |   +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |   +-Literal(type=STRING, value="dynamic_property1", has_explicit_type=TRUE)
+                  | |   |   |   +-Literal(type=INT64, value=10)
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabel
+                  | |   |   |   +-label_name=
+                  | |   |   |     +-Literal(type=STRING, value="DynamicLabel1", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.dynamic_labeled_code#2]
+                    +-expr_list=
+                    | +-dynamic_labeled_code#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=INT64
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-property=code(INT64)
+                    |     +-property_name=
+                    |       +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS dynamic_labeled_code
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : 10 })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : 10 })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS dynamic_labeled_code;
+--
+ALTERNATION GROUP: aml_dynamic_multi,@test_param_bool
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.dynamic_labeled_code#2 AS dynamic_labeled_code [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.dynamic_labeled_code#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.dynamic_labeled_code#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.dynamic_labeled_code#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.dynamic_labeled_code#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-filter_expr=
+                  | |   |   | +-FunctionCall(ZetaSQL:$dynamic_property_equals(GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, STRING, BOOL) -> BOOL)
+                  | |   |   |   +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |   +-Literal(type=STRING, value="dynamic_property1", has_explicit_type=TRUE)
+                  | |   |   |   +-Parameter(type=BOOL, name="test_param_bool")
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabel
+                  | |   |   |   +-label_name=
+                  | |   |   |     +-Literal(type=STRING, value="DynamicLabel1", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.dynamic_labeled_code#2]
+                    +-expr_list=
+                    | +-dynamic_labeled_code#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=INT64
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-property=code(INT64)
+                    |     +-property_name=
+                    |       +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS dynamic_labeled_code
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : @test_param_bool })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : @test_param_bool })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS dynamic_labeled_code;
+--
+ALTERNATION GROUP: aml_dynamic_multi,@test_param_int32
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.dynamic_labeled_code#2 AS dynamic_labeled_code [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.dynamic_labeled_code#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.dynamic_labeled_code#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.dynamic_labeled_code#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.dynamic_labeled_code#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-filter_expr=
+                  | |   |   | +-FunctionCall(ZetaSQL:$dynamic_property_equals(GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, STRING, INT32) -> BOOL)
+                  | |   |   |   +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |   +-Literal(type=STRING, value="dynamic_property1", has_explicit_type=TRUE)
+                  | |   |   |   +-Parameter(type=INT32, name="test_param_int32")
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabel
+                  | |   |   |   +-label_name=
+                  | |   |   |     +-Literal(type=STRING, value="DynamicLabel1", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.dynamic_labeled_code#2]
+                    +-expr_list=
+                    | +-dynamic_labeled_code#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=INT64
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-property=code(INT64)
+                    |     +-property_name=
+                    |       +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS dynamic_labeled_code
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : @test_param_int32 })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : @test_param_int32 })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS dynamic_labeled_code;
+--
+ALTERNATION GROUP: aml_dynamic_multi,CAST(10 AS UINT64)
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.dynamic_labeled_code#2 AS dynamic_labeled_code [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.dynamic_labeled_code#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.dynamic_labeled_code#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.dynamic_labeled_code#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.dynamic_labeled_code#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-filter_expr=
+                  | |   |   | +-FunctionCall(ZetaSQL:$dynamic_property_equals(GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, STRING, UINT64) -> BOOL)
+                  | |   |   |   +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |   +-Literal(type=STRING, value="dynamic_property1", has_explicit_type=TRUE)
+                  | |   |   |   +-Literal(type=UINT64, value=10, has_explicit_type=TRUE)
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabel
+                  | |   |   |   +-label_name=
+                  | |   |   |     +-Literal(type=STRING, value="DynamicLabel1", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.dynamic_labeled_code#2]
+                    +-expr_list=
+                    | +-dynamic_labeled_code#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=INT64
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-property=code(INT64)
+                    |     +-property_name=
+                    |       +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS dynamic_labeled_code
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : CAST(10 AS UINT64) })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : CAST(10 AS UINT64) })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS dynamic_labeled_code;
+--
+ALTERNATION GROUP: aml_dynamic_multi,@test_param_float
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.dynamic_labeled_code#2 AS dynamic_labeled_code [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.dynamic_labeled_code#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.dynamic_labeled_code#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.dynamic_labeled_code#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.dynamic_labeled_code#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-filter_expr=
+                  | |   |   | +-FunctionCall(ZetaSQL:$dynamic_property_equals(GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, STRING, FLOAT) -> BOOL)
+                  | |   |   |   +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |   +-Literal(type=STRING, value="dynamic_property1", has_explicit_type=TRUE)
+                  | |   |   |   +-Parameter(type=FLOAT, name="test_param_float")
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabel
+                  | |   |   |   +-label_name=
+                  | |   |   |     +-Literal(type=STRING, value="DynamicLabel1", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.dynamic_labeled_code#2]
+                    +-expr_list=
+                    | +-dynamic_labeled_code#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=INT64
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-property=code(INT64)
+                    |     +-property_name=
+                    |       +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS dynamic_labeled_code
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : @test_param_float })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : @test_param_float })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS dynamic_labeled_code;
+--
+ALTERNATION GROUP: aml_dynamic_multi,@test_param_double
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.dynamic_labeled_code#2 AS dynamic_labeled_code [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.dynamic_labeled_code#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.dynamic_labeled_code#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.dynamic_labeled_code#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.dynamic_labeled_code#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-filter_expr=
+                  | |   |   | +-FunctionCall(ZetaSQL:$dynamic_property_equals(GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, STRING, DOUBLE) -> BOOL)
+                  | |   |   |   +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |   +-Literal(type=STRING, value="dynamic_property1", has_explicit_type=TRUE)
+                  | |   |   |   +-Parameter(type=DOUBLE, name="test_param_double")
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabel
+                  | |   |   |   +-label_name=
+                  | |   |   |     +-Literal(type=STRING, value="DynamicLabel1", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.dynamic_labeled_code#2]
+                    +-expr_list=
+                    | +-dynamic_labeled_code#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=INT64
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-property=code(INT64)
+                    |     +-property_name=
+                    |       +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS dynamic_labeled_code
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : @test_param_double })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : @test_param_double })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS dynamic_labeled_code;
+--
+ALTERNATION GROUP: aml_dynamic_multi,"abc"
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.dynamic_labeled_code#2 AS dynamic_labeled_code [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.dynamic_labeled_code#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.dynamic_labeled_code#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.dynamic_labeled_code#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.dynamic_labeled_code#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-filter_expr=
+                  | |   |   | +-FunctionCall(ZetaSQL:$dynamic_property_equals(GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, STRING, STRING) -> BOOL)
+                  | |   |   |   +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |   +-Literal(type=STRING, value="dynamic_property1", has_explicit_type=TRUE)
+                  | |   |   |   +-Literal(type=STRING, value="abc")
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabel
+                  | |   |   |   +-label_name=
+                  | |   |   |     +-Literal(type=STRING, value="DynamicLabel1", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.dynamic_labeled_code#2]
+                    +-expr_list=
+                    | +-dynamic_labeled_code#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=INT64
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-property=code(INT64)
+                    |     +-property_name=
+                    |       +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS dynamic_labeled_code
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : "abc" })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : "abc" })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS dynamic_labeled_code;
 ==
 
 # Grouping on dynamic property of node. Regression test for b/408015891
@@ -2974,7 +5656,7 @@ GROUP BY n.dynamic_property1
 # Dynamic property specification in a dynamic element table with an unexpected
 # target value type
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n:DynamicLabel1 {dynamic_property1: STRUCT(10)})
   return n.code AS dynamic_labeled_code
 ) gt
@@ -2984,14 +5666,15 @@ ERROR: Unsupported equality comparison between dynamic property and value of typ
                           ^
 ==
 
+
 # Mix static and dynamic property specification together
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n:DynamicLabel1 {dynamic_property1: {{10|@test_param_bool|@test_param_int32|CAST(10 AS UINT64)|@test_param_float|@test_param_double|"abc"}}, code: 10})
   return n.code AS dynamic_labeled_code
 ) gt
 --
-ALTERNATION GROUP: 10
+ALTERNATION GROUP: aml_dynamic,10
 --
 QueryStmt
 +-output_column_list=
@@ -3084,7 +5767,7 @@ FROM
 |> SELECT
      aml_dynamic_1.a_3 AS dynamic_labeled_code;
 --
-ALTERNATION GROUP: @test_param_bool
+ALTERNATION GROUP: aml_dynamic,@test_param_bool
 --
 QueryStmt
 +-output_column_list=
@@ -3177,7 +5860,7 @@ FROM
 |> SELECT
      aml_dynamic_1.a_3 AS dynamic_labeled_code;
 --
-ALTERNATION GROUP: @test_param_int32
+ALTERNATION GROUP: aml_dynamic,@test_param_int32
 --
 QueryStmt
 +-output_column_list=
@@ -3270,7 +5953,7 @@ FROM
 |> SELECT
      aml_dynamic_1.a_3 AS dynamic_labeled_code;
 --
-ALTERNATION GROUP: CAST(10 AS UINT64)
+ALTERNATION GROUP: aml_dynamic,CAST(10 AS UINT64)
 --
 QueryStmt
 +-output_column_list=
@@ -3363,7 +6046,7 @@ FROM
 |> SELECT
      aml_dynamic_1.a_3 AS dynamic_labeled_code;
 --
-ALTERNATION GROUP: @test_param_float
+ALTERNATION GROUP: aml_dynamic,@test_param_float
 --
 QueryStmt
 +-output_column_list=
@@ -3456,7 +6139,7 @@ FROM
 |> SELECT
      aml_dynamic_1.a_3 AS dynamic_labeled_code;
 --
-ALTERNATION GROUP: @test_param_double
+ALTERNATION GROUP: aml_dynamic,@test_param_double
 --
 QueryStmt
 +-output_column_list=
@@ -3549,7 +6232,7 @@ FROM
 |> SELECT
      aml_dynamic_1.a_3 AS dynamic_labeled_code;
 --
-ALTERNATION GROUP: "abc"
+ALTERNATION GROUP: aml_dynamic,"abc"
 --
 QueryStmt
 +-output_column_list=
@@ -3641,14 +6324,667 @@ FROM
   ) AS aml_dynamic_1
 |> SELECT
      aml_dynamic_1.a_3 AS dynamic_labeled_code;
+--
+ALTERNATION GROUP: aml_dynamic_multi,10
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.dynamic_labeled_code#2 AS dynamic_labeled_code [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.dynamic_labeled_code#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.dynamic_labeled_code#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.dynamic_labeled_code#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.dynamic_labeled_code#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-filter_expr=
+                  | |   |   | +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+                  | |   |   |   +-FunctionCall(ZetaSQL:$dynamic_property_equals(GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, STRING, INT64) -> BOOL)
+                  | |   |   |   | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |   | +-Literal(type=STRING, value="dynamic_property1", has_explicit_type=TRUE)
+                  | |   |   |   | +-Literal(type=INT64, value=10)
+                  | |   |   |   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                  | |   |   |     +-GraphGetElementProperty
+                  | |   |   |     | +-type=INT64
+                  | |   |   |     | +-expr=
+                  | |   |   |     | | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |     | +-property=code(INT64)
+                  | |   |   |     | +-property_name=
+                  | |   |   |     |   +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                  | |   |   |     +-Literal(type=INT64, value=10)
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabel
+                  | |   |   |   +-label_name=
+                  | |   |   |     +-Literal(type=STRING, value="DynamicLabel1", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.dynamic_labeled_code#2]
+                    +-expr_list=
+                    | +-dynamic_labeled_code#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=INT64
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-property=code(INT64)
+                    |     +-property_name=
+                    |       +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS dynamic_labeled_code
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : 10, code : 10 })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : 10, code : 10 })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS dynamic_labeled_code;
+--
+ALTERNATION GROUP: aml_dynamic_multi,@test_param_bool
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.dynamic_labeled_code#2 AS dynamic_labeled_code [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.dynamic_labeled_code#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.dynamic_labeled_code#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.dynamic_labeled_code#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.dynamic_labeled_code#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-filter_expr=
+                  | |   |   | +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+                  | |   |   |   +-FunctionCall(ZetaSQL:$dynamic_property_equals(GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, STRING, BOOL) -> BOOL)
+                  | |   |   |   | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |   | +-Literal(type=STRING, value="dynamic_property1", has_explicit_type=TRUE)
+                  | |   |   |   | +-Parameter(type=BOOL, name="test_param_bool")
+                  | |   |   |   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                  | |   |   |     +-GraphGetElementProperty
+                  | |   |   |     | +-type=INT64
+                  | |   |   |     | +-expr=
+                  | |   |   |     | | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |     | +-property=code(INT64)
+                  | |   |   |     | +-property_name=
+                  | |   |   |     |   +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                  | |   |   |     +-Literal(type=INT64, value=10)
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabel
+                  | |   |   |   +-label_name=
+                  | |   |   |     +-Literal(type=STRING, value="DynamicLabel1", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.dynamic_labeled_code#2]
+                    +-expr_list=
+                    | +-dynamic_labeled_code#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=INT64
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-property=code(INT64)
+                    |     +-property_name=
+                    |       +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS dynamic_labeled_code
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : @test_param_bool, code : 10 })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : @test_param_bool, code : 10 })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS dynamic_labeled_code;
+--
+ALTERNATION GROUP: aml_dynamic_multi,@test_param_int32
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.dynamic_labeled_code#2 AS dynamic_labeled_code [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.dynamic_labeled_code#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.dynamic_labeled_code#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.dynamic_labeled_code#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.dynamic_labeled_code#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-filter_expr=
+                  | |   |   | +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+                  | |   |   |   +-FunctionCall(ZetaSQL:$dynamic_property_equals(GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, STRING, INT32) -> BOOL)
+                  | |   |   |   | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |   | +-Literal(type=STRING, value="dynamic_property1", has_explicit_type=TRUE)
+                  | |   |   |   | +-Parameter(type=INT32, name="test_param_int32")
+                  | |   |   |   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                  | |   |   |     +-GraphGetElementProperty
+                  | |   |   |     | +-type=INT64
+                  | |   |   |     | +-expr=
+                  | |   |   |     | | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |     | +-property=code(INT64)
+                  | |   |   |     | +-property_name=
+                  | |   |   |     |   +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                  | |   |   |     +-Literal(type=INT64, value=10)
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabel
+                  | |   |   |   +-label_name=
+                  | |   |   |     +-Literal(type=STRING, value="DynamicLabel1", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.dynamic_labeled_code#2]
+                    +-expr_list=
+                    | +-dynamic_labeled_code#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=INT64
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-property=code(INT64)
+                    |     +-property_name=
+                    |       +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS dynamic_labeled_code
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : @test_param_int32, code : 10 })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : @test_param_int32, code : 10 })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS dynamic_labeled_code;
+--
+ALTERNATION GROUP: aml_dynamic_multi,CAST(10 AS UINT64)
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.dynamic_labeled_code#2 AS dynamic_labeled_code [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.dynamic_labeled_code#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.dynamic_labeled_code#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.dynamic_labeled_code#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.dynamic_labeled_code#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-filter_expr=
+                  | |   |   | +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+                  | |   |   |   +-FunctionCall(ZetaSQL:$dynamic_property_equals(GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, STRING, UINT64) -> BOOL)
+                  | |   |   |   | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |   | +-Literal(type=STRING, value="dynamic_property1", has_explicit_type=TRUE)
+                  | |   |   |   | +-Literal(type=UINT64, value=10, has_explicit_type=TRUE)
+                  | |   |   |   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                  | |   |   |     +-GraphGetElementProperty
+                  | |   |   |     | +-type=INT64
+                  | |   |   |     | +-expr=
+                  | |   |   |     | | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |     | +-property=code(INT64)
+                  | |   |   |     | +-property_name=
+                  | |   |   |     |   +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                  | |   |   |     +-Literal(type=INT64, value=10)
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabel
+                  | |   |   |   +-label_name=
+                  | |   |   |     +-Literal(type=STRING, value="DynamicLabel1", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.dynamic_labeled_code#2]
+                    +-expr_list=
+                    | +-dynamic_labeled_code#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=INT64
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-property=code(INT64)
+                    |     +-property_name=
+                    |       +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS dynamic_labeled_code
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : CAST(10 AS UINT64), code : 10 })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : CAST(10 AS UINT64), code : 10 })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS dynamic_labeled_code;
+--
+ALTERNATION GROUP: aml_dynamic_multi,@test_param_float
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.dynamic_labeled_code#2 AS dynamic_labeled_code [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.dynamic_labeled_code#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.dynamic_labeled_code#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.dynamic_labeled_code#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.dynamic_labeled_code#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-filter_expr=
+                  | |   |   | +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+                  | |   |   |   +-FunctionCall(ZetaSQL:$dynamic_property_equals(GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, STRING, FLOAT) -> BOOL)
+                  | |   |   |   | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |   | +-Literal(type=STRING, value="dynamic_property1", has_explicit_type=TRUE)
+                  | |   |   |   | +-Parameter(type=FLOAT, name="test_param_float")
+                  | |   |   |   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                  | |   |   |     +-GraphGetElementProperty
+                  | |   |   |     | +-type=INT64
+                  | |   |   |     | +-expr=
+                  | |   |   |     | | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |     | +-property=code(INT64)
+                  | |   |   |     | +-property_name=
+                  | |   |   |     |   +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                  | |   |   |     +-Literal(type=INT64, value=10)
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabel
+                  | |   |   |   +-label_name=
+                  | |   |   |     +-Literal(type=STRING, value="DynamicLabel1", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.dynamic_labeled_code#2]
+                    +-expr_list=
+                    | +-dynamic_labeled_code#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=INT64
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-property=code(INT64)
+                    |     +-property_name=
+                    |       +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS dynamic_labeled_code
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : @test_param_float, code : 10 })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : @test_param_float, code : 10 })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS dynamic_labeled_code;
+--
+ALTERNATION GROUP: aml_dynamic_multi,@test_param_double
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.dynamic_labeled_code#2 AS dynamic_labeled_code [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.dynamic_labeled_code#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.dynamic_labeled_code#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.dynamic_labeled_code#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.dynamic_labeled_code#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-filter_expr=
+                  | |   |   | +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+                  | |   |   |   +-FunctionCall(ZetaSQL:$dynamic_property_equals(GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, STRING, DOUBLE) -> BOOL)
+                  | |   |   |   | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |   | +-Literal(type=STRING, value="dynamic_property1", has_explicit_type=TRUE)
+                  | |   |   |   | +-Parameter(type=DOUBLE, name="test_param_double")
+                  | |   |   |   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                  | |   |   |     +-GraphGetElementProperty
+                  | |   |   |     | +-type=INT64
+                  | |   |   |     | +-expr=
+                  | |   |   |     | | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |     | +-property=code(INT64)
+                  | |   |   |     | +-property_name=
+                  | |   |   |     |   +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                  | |   |   |     +-Literal(type=INT64, value=10)
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabel
+                  | |   |   |   +-label_name=
+                  | |   |   |     +-Literal(type=STRING, value="DynamicLabel1", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.dynamic_labeled_code#2]
+                    +-expr_list=
+                    | +-dynamic_labeled_code#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=INT64
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-property=code(INT64)
+                    |     +-property_name=
+                    |       +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS dynamic_labeled_code
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : @test_param_double, code : 10 })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : @test_param_double, code : 10 })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS dynamic_labeled_code;
+--
+ALTERNATION GROUP: aml_dynamic_multi,"abc"
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.dynamic_labeled_code#2 AS dynamic_labeled_code [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.dynamic_labeled_code#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.dynamic_labeled_code#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.dynamic_labeled_code#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.dynamic_labeled_code#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-filter_expr=
+                  | |   |   | +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+                  | |   |   |   +-FunctionCall(ZetaSQL:$dynamic_property_equals(GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, STRING, STRING) -> BOOL)
+                  | |   |   |   | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |   | +-Literal(type=STRING, value="dynamic_property1", has_explicit_type=TRUE)
+                  | |   |   |   | +-Literal(type=STRING, value="abc")
+                  | |   |   |   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                  | |   |   |     +-GraphGetElementProperty
+                  | |   |   |     | +-type=INT64
+                  | |   |   |     | +-expr=
+                  | |   |   |     | | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |     | +-property=code(INT64)
+                  | |   |   |     | +-property_name=
+                  | |   |   |     |   +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                  | |   |   |     +-Literal(type=INT64, value=10)
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabel
+                  | |   |   |   +-label_name=
+                  | |   |   |     +-Literal(type=STRING, value="DynamicLabel1", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.dynamic_labeled_code#2]
+                    +-expr_list=
+                    | +-dynamic_labeled_code#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=INT64
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-property=code(INT64)
+                    |     +-property_name=
+                    |       +-Literal(type=STRING, value="code", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS dynamic_labeled_code
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : "abc", code : 10 })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1 { dynamic_property1 : "abc", code : 10 })
+    RETURN
+      a_2.code AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS dynamic_labeled_code;
 ==
 
 # Dynamic property access in a dynamic element table
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n:DynamicLabel1)
   return n.dynamic_property1 AS dynamic_property1
 ) gt
+--
+ALTERNATION GROUP: aml_dynamic
 --
 QueryStmt
 +-output_column_list=
@@ -3724,6 +7060,83 @@ FROM
   ) AS aml_dynamic_1
 |> SELECT
      aml_dynamic_1.a_3 AS dynamic_property1;
+--
+ALTERNATION GROUP: aml_dynamic_multi
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.dynamic_property1#2 AS dynamic_property1 [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.dynamic_property1#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.dynamic_property1#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.dynamic_property1#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.dynamic_property1#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabel
+                  | |   |   |   +-label_name=
+                  | |   |   |     +-Literal(type=STRING, value="DynamicLabel1", has_explicit_type=TRUE)
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.dynamic_property1#2]
+                    +-expr_list=
+                    | +-dynamic_property1#2 :=
+                    |   +-GraphGetElementProperty
+                    |     +-type=JSON
+                    |     +-expr=
+                    |     | +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-property_name=
+                    |       +-Literal(type=STRING, value="dynamic_property1", has_explicit_type=TRUE)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS dynamic_property1
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1)
+    RETURN
+      a_2.dynamic_property1 AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS DynamicLabel1)
+    RETURN
+      a_2.dynamic_property1 AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS dynamic_property1;
 ==
 
 ###############################################################################
@@ -3857,7 +7270,7 @@ FROM
      aml_1.a_7 AS name;
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 select gt.n.* from
 graph_table(aml
   match (n:Person)
@@ -3971,9 +7384,9 @@ FROM
 ==
 
 # Dot star property expansion on a dynamic graph element in select clause
-[language_features=SQL_GRAPH,SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,+SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,+SQL_GRAPH_DYNAMIC_MULTI_LABEL_NODES]
 select gt.n.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n:Person)
 ) gt
 --
@@ -3984,7 +7397,7 @@ select gt.n.* from
 
 # Dot star property expansion on a dynamic element in columns clause
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n:Person)
   columns(n.*)
 ) gt
@@ -3999,10 +7412,12 @@ ERROR: Dot-star is not supported for dynamic graph elements. [at 4:11]
 ###############################################################################
 # Dynamic graph element as input to LABELS
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n {dynamic_property1: 10})
   return LABELS(n) AS dynamic_labels
 ) gt
+--
+ALTERNATION GROUP: aml_dynamic
 --
 QueryStmt
 +-output_column_list=
@@ -4084,6 +7499,89 @@ FROM
   ) AS aml_dynamic_1
 |> SELECT
      aml_dynamic_1.a_3 AS dynamic_labels;
+--
+ALTERNATION GROUP: aml_dynamic_multi
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.dynamic_labels#2 AS dynamic_labels [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.dynamic_labels#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.dynamic_labels#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.dynamic_labels#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.dynamic_labels#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-filter_expr=
+                  | |   |   | +-FunctionCall(ZetaSQL:$dynamic_property_equals(GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, STRING, INT64) -> BOOL)
+                  | |   |   |   +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                  | |   |   |   +-Literal(type=STRING, value="dynamic_property1", has_explicit_type=TRUE)
+                  | |   |   |   +-Literal(type=INT64, value=10)
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphWildCardLabel
+                  | |   |   |     +-GraphLabelNaryExpr
+                  | |   |   |       +-op=NOT
+                  | |   |   |       +-operand_list=
+                  | |   |   |         +-GraphWildCardLabel
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.dynamic_labels#2]
+                    +-expr_list=
+                    | +-dynamic_labels#2 :=
+                    |   +-FunctionCall(ZetaSQL:labels(GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>) -> ARRAY<STRING>)
+                    |     +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS dynamic_labels
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %) { dynamic_property1 : 10 })
+    RETURN
+      LABELS(a_2) AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %) { dynamic_property1 : 10 })
+    RETURN
+      LABELS(a_2) AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS dynamic_labels;
 ==
 
 ###############################################################################
@@ -4091,10 +7589,12 @@ FROM
 ###############################################################################
 # Static property used with a dynamic graph element in PROPERTY_EXISTS
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n)
   return PROPERTY_EXISTS(n, code) AS has_property_code
 ) gt
+--
+ALTERNATION GROUP: aml_dynamic
 --
 QueryStmt
 +-output_column_list=
@@ -4172,14 +7672,95 @@ FROM
   ) AS aml_dynamic_1
 |> SELECT
      aml_dynamic_1.a_3 AS has_property_code;
+--
+ALTERNATION GROUP: aml_dynamic_multi
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.has_property_code#2 AS has_property_code [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.has_property_code#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.has_property_code#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.has_property_code#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.has_property_code#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphWildCardLabel
+                  | |   |   |     +-GraphLabelNaryExpr
+                  | |   |   |       +-op=NOT
+                  | |   |   |       +-operand_list=
+                  | |   |   |         +-GraphWildCardLabel
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.has_property_code#2]
+                    +-expr_list=
+                    | +-has_property_code#2 :=
+                    |   +-FunctionCall(ZetaSQL:property_exists(GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, STRING) -> BOOL)
+                    |     +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-Literal(type=STRING, value="code")
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS has_property_code
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+    RETURN
+      PROPERTY_EXISTS(a_2, code) AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+    RETURN
+      PROPERTY_EXISTS(a_2, code) AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS has_property_code;
 ==
 
 # Undeclared dynamic property used with a dynamic graph element in PROPERTY_EXISTS
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n)
   return PROPERTY_EXISTS(n, dynamic_property1) AS v
 ) gt
+--
+ALTERNATION GROUP: aml_dynamic
 --
 QueryStmt
 +-output_column_list=
@@ -4257,6 +7838,85 @@ FROM
   ) AS aml_dynamic_1
 |> SELECT
      aml_dynamic_1.a_3 AS v;
+--
+ALTERNATION GROUP: aml_dynamic_multi
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.v#2 AS v [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.v#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.v#2]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.v#2]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=[$graph_table.v#2]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=[$element_table.n#1]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=[$element_table.n#1]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.n#1]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphWildCardLabel
+                  | |   |   |     +-GraphLabelNaryExpr
+                  | |   |   |       +-op=NOT
+                  | |   |   |       +-operand_list=
+                  | |   |   |         +-GraphWildCardLabel
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.n#1
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=[$graph_table.v#2]
+                    +-expr_list=
+                    | +-v#2 :=
+                    |   +-FunctionCall(ZetaSQL:property_exists(GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, STRING) -> BOOL)
+                    |     +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    |     +-Literal(type=STRING, value="dynamic_property1")
+                    +-input_scan=
+                      +-GraphRefScan(column_list=[$element_table.n#1])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_3 AS v
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+    RETURN
+      PROPERTY_EXISTS(a_2, dynamic_property1) AS a_3
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+    RETURN
+      PROPERTY_EXISTS(a_2, dynamic_property1) AS a_3
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_3 AS v;
 ==
 
 ###############################################################################
@@ -4389,10 +8049,12 @@ FROM
 
 # Dynamic graph element
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n) -[e]-> ()
   return PROPERTY_NAMES(n) AS node_properties, PROPERTY_NAMES(e) AS edge_properties
 ) gt
+--
+ALTERNATION GROUP: aml_dynamic
 --
 QueryStmt
 +-output_column_list=
@@ -4510,18 +8172,139 @@ FROM
 |> SELECT
      aml_dynamic_1.a_5 AS node_properties,
      aml_dynamic_1.a_6 AS edge_properties;
+--
+ALTERNATION GROUP: aml_dynamic_multi
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.node_properties#4 AS node_properties [ARRAY<STRING>]
+| +-$graph_table.edge_properties#5 AS edge_properties [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=$graph_table.[node_properties#4, edge_properties#5]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=$graph_table.[node_properties#4, edge_properties#5]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=$graph_table.[node_properties#4, edge_properties#5]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=$graph_table.[node_properties#4, edge_properties#5]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=$element_table.[n#1, e#2, $element1#3]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=$element_table.[n#1, e#2, $element1#3]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   | | +-column_list=[$element_table.n#1]
+                  | |   | | +-label_expr=
+                  | |   | | | +-GraphLabelNaryExpr
+                  | |   | | |   +-op=OR
+                  | |   | | |   +-operand_list=
+                  | |   | | |     +-GraphWildCardLabel
+                  | |   | | |     +-GraphLabelNaryExpr
+                  | |   | | |       +-op=NOT
+                  | |   | | |       +-operand_list=
+                  | |   | | |         +-GraphWildCardLabel
+                  | |   | | +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   | +-GraphEdgeScan
+                  | |   | | +-column_list=[$element_table.e#2]
+                  | |   | | +-label_expr=
+                  | |   | | | +-GraphLabelNaryExpr
+                  | |   | | |   +-op=OR
+                  | |   | | |   +-operand_list=
+                  | |   | | |     +-GraphWildCardLabel
+                  | |   | | |     +-GraphLabelNaryExpr
+                  | |   | | |       +-op=NOT
+                  | |   | | |       +-operand_list=
+                  | |   | | |         +-GraphWildCardLabel
+                  | |   | | +-target_element_table_list=[aml_dynamic_multi.DynamicSingleLabelGraphEdge]
+                  | |   | | +-orientation=RIGHT
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.$element1#3]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphWildCardLabel
+                  | |   |   |     +-GraphLabelNaryExpr
+                  | |   |   |       +-op=NOT
+                  | |   |   |       +-operand_list=
+                  | |   |   |         +-GraphWildCardLabel
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.$element1#3
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=$graph_table.[node_properties#4, edge_properties#5]
+                    +-expr_list=
+                    | +-node_properties#4 :=
+                    | | +-FunctionCall(ZetaSQL:property_names(GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>) -> ARRAY<STRING>)
+                    | |   +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    | +-edge_properties#5 :=
+                    |   +-FunctionCall(ZetaSQL:property_names(GRAPH_EDGE(aml_dynamic_multi)<category STRING, dst_id INT64, edgeJsonProp JSON, edgeLabelCol STRING, id INT64, DYNAMIC>) -> ARRAY<STRING>)
+                    |     +-ColumnRef(type=GRAPH_EDGE(aml_dynamic_multi)<category STRING, dst_id INT64, edgeJsonProp JSON, edgeLabelCol STRING, id INT64, DYNAMIC>, column=$element_table.e#2)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=$element_table.[n#1, e#2, $element1#3])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_5 AS node_properties,
+  aml_dynamic_multi_1.a_6 AS edge_properties
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS (% | ! %)]->
+      (a_4
+      IS (% | ! %))
+    RETURN
+      PROPERTY_NAMES(a_2) AS a_5,
+      PROPERTY_NAMES(a_3) AS a_6
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS (% | ! %)]->
+      (a_4
+      IS (% | ! %))
+    RETURN
+      PROPERTY_NAMES(a_2) AS a_5,
+      PROPERTY_NAMES(a_3) AS a_6
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_5 AS node_properties,
+     aml_dynamic_multi_1.a_6 AS edge_properties;
 ==
 
 ###############################################################################
 # TO_JSON function call
 ###############################################################################
 # Dynamic graph element
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,JSON_TYPE,NAMED_ARGUMENTS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,+SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,+JSON_TYPE,+NAMED_ARGUMENTS,+SQL_GRAPH_DYNAMIC_MULTI_LABEL_NODES]
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n) -[e]-> ()
   return TO_JSON(n) AS node_json, TO_JSON(e) AS edge_json
 ) gt
+--
+ALTERNATION GROUP: aml_dynamic
 --
 QueryStmt
 +-output_column_list=
@@ -4641,18 +8424,141 @@ FROM
 |> SELECT
      aml_dynamic_1.a_5 AS node_json,
      aml_dynamic_1.a_6 AS edge_json;
+--
+ALTERNATION GROUP: aml_dynamic_multi
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.node_json#4 AS node_json [JSON]
+| +-$graph_table.edge_json#5 AS edge_json [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=$graph_table.[node_json#4, edge_json#5]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=$graph_table.[node_json#4, edge_json#5]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=$graph_table.[node_json#4, edge_json#5]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=$graph_table.[node_json#4, edge_json#5]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=$element_table.[n#1, e#2, $element1#3]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=$element_table.[n#1, e#2, $element1#3]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   | | +-column_list=[$element_table.n#1]
+                  | |   | | +-label_expr=
+                  | |   | | | +-GraphLabelNaryExpr
+                  | |   | | |   +-op=OR
+                  | |   | | |   +-operand_list=
+                  | |   | | |     +-GraphWildCardLabel
+                  | |   | | |     +-GraphLabelNaryExpr
+                  | |   | | |       +-op=NOT
+                  | |   | | |       +-operand_list=
+                  | |   | | |         +-GraphWildCardLabel
+                  | |   | | +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   | +-GraphEdgeScan
+                  | |   | | +-column_list=[$element_table.e#2]
+                  | |   | | +-label_expr=
+                  | |   | | | +-GraphLabelNaryExpr
+                  | |   | | |   +-op=OR
+                  | |   | | |   +-operand_list=
+                  | |   | | |     +-GraphWildCardLabel
+                  | |   | | |     +-GraphLabelNaryExpr
+                  | |   | | |       +-op=NOT
+                  | |   | | |       +-operand_list=
+                  | |   | | |         +-GraphWildCardLabel
+                  | |   | | +-target_element_table_list=[aml_dynamic_multi.DynamicSingleLabelGraphEdge]
+                  | |   | | +-orientation=RIGHT
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.$element1#3]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphWildCardLabel
+                  | |   |   |     +-GraphLabelNaryExpr
+                  | |   |   |       +-op=NOT
+                  | |   |   |       +-operand_list=
+                  | |   |   |         +-GraphWildCardLabel
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.$element1#3
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=$graph_table.[node_json#4, edge_json#5]
+                    +-expr_list=
+                    | +-node_json#4 :=
+                    | | +-FunctionCall(ZetaSQL:to_json(GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, optional(1) BOOL stringify_wide_numbers) -> JSON)
+                    | |   +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    | |   +-Literal(type=BOOL, value=false)
+                    | +-edge_json#5 :=
+                    |   +-FunctionCall(ZetaSQL:to_json(GRAPH_EDGE(aml_dynamic_multi)<category STRING, dst_id INT64, edgeJsonProp JSON, edgeLabelCol STRING, id INT64, DYNAMIC>, optional(1) BOOL stringify_wide_numbers) -> JSON)
+                    |     +-ColumnRef(type=GRAPH_EDGE(aml_dynamic_multi)<category STRING, dst_id INT64, edgeJsonProp JSON, edgeLabelCol STRING, id INT64, DYNAMIC>, column=$element_table.e#2)
+                    |     +-Literal(type=BOOL, value=false)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=$element_table.[n#1, e#2, $element1#3])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_5 AS node_json,
+  aml_dynamic_multi_1.a_6 AS edge_json
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS (% | ! %)]->
+      (a_4
+      IS (% | ! %))
+    RETURN
+      TO_JSON(a_2, stringify_wide_numbers  => false) AS a_5,
+      TO_JSON(a_3, stringify_wide_numbers  => false) AS a_6
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS (% | ! %)]->
+      (a_4
+      IS (% | ! %))
+    RETURN
+      TO_JSON(a_2, stringify_wide_numbers  => false) AS a_5,
+      TO_JSON(a_3, stringify_wide_numbers  => false) AS a_6
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_5 AS node_json,
+     aml_dynamic_multi_1.a_6 AS edge_json;
 ==
 
 ###############################################################################
 # TYPEOF function call
 ###############################################################################
 # Dynamic graph element
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,JSON_TYPE,TYPEOF_FUNCTION]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,+SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,+JSON_TYPE,+TYPEOF_FUNCTION,+SQL_GRAPH_DYNAMIC_MULTI_LABEL_NODES]
 select gt.* from
-graph_table(aml_dynamic
+graph_table({{aml_dynamic|aml_dynamic_multi}}
   match (n) -[e]-> ()
   return TYPEOF(n) AS node_type, TYPEOF(e) AS edge_type
 ) gt
+--
+ALTERNATION GROUP: aml_dynamic
 --
 QueryStmt
 +-output_column_list=
@@ -4770,6 +8676,125 @@ FROM
 |> SELECT
      aml_dynamic_1.a_5 AS node_type,
      aml_dynamic_1.a_6 AS edge_type;
+--
+ALTERNATION GROUP: aml_dynamic_multi
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.node_type#4 AS node_type [STRING]
+| +-$graph_table.edge_type#5 AS edge_type [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$graph_table.[node_type#4, edge_type#5]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=$graph_table.[node_type#4, edge_type#5]
+        +-property_graph=aml_dynamic_multi
+        +-input_scan=
+          +-GraphLinearScan
+            +-column_list=$graph_table.[node_type#4, edge_type#5]
+            +-scan_list=
+              +-GraphLinearScan
+                +-column_list=$graph_table.[node_type#4, edge_type#5]
+                +-scan_list=
+                  +-GraphScan
+                  | +-column_list=$element_table.[n#1, e#2, $element1#3]
+                  | +-input_scan_list=
+                  | | +-GraphPathScan
+                  | |   +-column_list=$element_table.[n#1, e#2, $element1#3]
+                  | |   +-input_scan_list=
+                  | |   | +-GraphNodeScan
+                  | |   | | +-column_list=[$element_table.n#1]
+                  | |   | | +-label_expr=
+                  | |   | | | +-GraphLabelNaryExpr
+                  | |   | | |   +-op=OR
+                  | |   | | |   +-operand_list=
+                  | |   | | |     +-GraphWildCardLabel
+                  | |   | | |     +-GraphLabelNaryExpr
+                  | |   | | |       +-op=NOT
+                  | |   | | |       +-operand_list=
+                  | |   | | |         +-GraphWildCardLabel
+                  | |   | | +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   | +-GraphEdgeScan
+                  | |   | | +-column_list=[$element_table.e#2]
+                  | |   | | +-label_expr=
+                  | |   | | | +-GraphLabelNaryExpr
+                  | |   | | |   +-op=OR
+                  | |   | | |   +-operand_list=
+                  | |   | | |     +-GraphWildCardLabel
+                  | |   | | |     +-GraphLabelNaryExpr
+                  | |   | | |       +-op=NOT
+                  | |   | | |       +-operand_list=
+                  | |   | | |         +-GraphWildCardLabel
+                  | |   | | +-target_element_table_list=[aml_dynamic_multi.DynamicSingleLabelGraphEdge]
+                  | |   | | +-orientation=RIGHT
+                  | |   | +-GraphNodeScan
+                  | |   |   +-column_list=[$element_table.$element1#3]
+                  | |   |   +-label_expr=
+                  | |   |   | +-GraphLabelNaryExpr
+                  | |   |   |   +-op=OR
+                  | |   |   |   +-operand_list=
+                  | |   |   |     +-GraphWildCardLabel
+                  | |   |   |     +-GraphLabelNaryExpr
+                  | |   |   |       +-op=NOT
+                  | |   |   |       +-operand_list=
+                  | |   |   |         +-GraphWildCardLabel
+                  | |   |   +-target_element_table_list=[aml_dynamic_multi.DynamicMultiLabelGraphNode]
+                  | |   +-head=$element_table.n#1
+                  | |   +-tail=$element_table.$element1#3
+                  | +-input_scan=
+                  |   +-SingleRowScan
+                  +-ProjectScan
+                    +-column_list=$graph_table.[node_type#4, edge_type#5]
+                    +-expr_list=
+                    | +-node_type#4 :=
+                    | | +-FunctionCall(ZetaSQL:typeof(GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>) -> STRING)
+                    | |   +-ColumnRef(type=GRAPH_NODE(aml_dynamic_multi)<code INT64, id INT64, nodeJsonProp JSON, nodeLabelCol ARRAY<STRING>, DYNAMIC>, column=$element_table.n#1)
+                    | +-edge_type#5 :=
+                    |   +-FunctionCall(ZetaSQL:typeof(GRAPH_EDGE(aml_dynamic_multi)<category STRING, dst_id INT64, edgeJsonProp JSON, edgeLabelCol STRING, id INT64, DYNAMIC>) -> STRING)
+                    |     +-ColumnRef(type=GRAPH_EDGE(aml_dynamic_multi)<category STRING, dst_id INT64, edgeJsonProp JSON, edgeLabelCol STRING, id INT64, DYNAMIC>, column=$element_table.e#2)
+                    +-input_scan=
+                      +-GraphRefScan(column_list=$element_table.[n#1, e#2, $element1#3])
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  aml_dynamic_multi_1.a_5 AS node_type,
+  aml_dynamic_multi_1.a_6 AS edge_type
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS (% | ! %)]->
+      (a_4
+      IS (% | ! %))
+    RETURN
+      TYPEOF(a_2) AS a_5,
+      TYPEOF(a_3) AS a_6
+  ) AS aml_dynamic_multi_1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  GRAPH_TABLE(
+    aml_dynamic_multi
+    MATCH
+      (a_2
+      IS (% | ! %))
+      -[a_3
+      IS (% | ! %)]->
+      (a_4
+      IS (% | ! %))
+    RETURN
+      TYPEOF(a_2) AS a_5,
+      TYPEOF(a_3) AS a_6
+  ) AS aml_dynamic_multi_1
+|> SELECT
+     aml_dynamic_multi_1.a_5 AS node_type,
+     aml_dynamic_multi_1.a_6 AS edge_type;
 ==
 
 ###############################################################################
@@ -4788,7 +8813,7 @@ ERROR: Column dynamic_property of type JSON cannot be used in RETURN DISTINCT [a
                   ^
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,SQL_GRAPH_RETURN_EXTENSIONS]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,+SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,+SQL_GRAPH_RETURN_EXTENSIONS]
 SELECT gt.* FROM GRAPH_TABLE(
   aml_dynamic
   MATCH (n)-[e]->()

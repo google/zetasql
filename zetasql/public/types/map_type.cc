@@ -130,6 +130,19 @@ int MapType::nesting_depth() const {
   return std::max(key_type_->nesting_depth(), value_type_->nesting_depth()) + 1;
 }
 
+absl::Status MapType::ValidateResolvedTypeParameters(
+    const TypeParameters& type_parameters, ProductMode mode) const {
+  // type_parameters must be empty or have 2 children.
+  if (type_parameters.IsEmpty()) {
+    return absl::OkStatus();
+  }
+  ZETASQL_RET_CHECK_EQ(type_parameters.num_children(), 2);
+  ZETASQL_RETURN_IF_ERROR(key_type_->ValidateResolvedTypeParameters(
+      type_parameters.child(0), mode));
+  return value_type_->ValidateResolvedTypeParameters(type_parameters.child(1),
+                                                     mode);
+}
+
 MapType::MapType(const TypeFactoryBase* factory, const Type* key_type,
                  const Type* value_type)
     : ContainerType(factory, TYPE_MAP),

@@ -360,7 +360,8 @@ static absl::Status WriteTagAndValue(const google::protobuf::FieldDescriptor* fi
                                      const Value& value,
                                      CodedOutputStream* dst) {
   // Errors for NULL values are handled by WriteValue().
-  if (value.is_null() && field_descr->is_optional()) {
+  if (value.is_null() &&
+      (!field_descr->is_repeated() && !field_descr->is_required())) {
     return absl::OkStatus();
   }
   const int32_t proto_tag = field_descr->number();

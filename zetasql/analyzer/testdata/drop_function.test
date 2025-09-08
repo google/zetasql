@@ -1,6 +1,6 @@
 # Incomplete statement
 
-[default language_features=TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION]
+[default language_features=MAXIMUM,+TEMPLATE_FUNCTIONS,+CREATE_TABLE_FUNCTION]
 drop function ;
 --
 ERROR: Syntax error: Unexpected ";" [at 1:15]
@@ -226,7 +226,7 @@ drop table function ;
 ==
 
 # simple name.
-[language_features={{|CREATE_TABLE_FUNCTION}}]
+[language_features=NONE,{{|+CREATE_TABLE_FUNCTION}}]
 drop table function foo ;
 --
 ALTERNATION GROUP: <empty>
@@ -235,7 +235,7 @@ ERROR: Dropping table-valued functions is not supported [at 1:1]
 drop table function foo ;
 ^
 --
-ALTERNATION GROUP: CREATE_TABLE_FUNCTION
+ALTERNATION GROUP: +CREATE_TABLE_FUNCTION
 --
 DropTableFunctionStmt(is_if_exists=FALSE, name_path=foo)
 ==

@@ -2,6 +2,7 @@
 # Tests on explicit coercion.
 
 # Cast to a type written as a struct with anonymous field.
+[default language_features=MAXIMUM]
 select cast(null as STRUCT<INT32, x STRING, BYTES>)
 --
 QueryStmt
@@ -453,7 +454,7 @@ select STRUCT<INT32, DATE>(1, "invalid")
                               ^
 ==
 
-[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=NONE,{{|+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select STRUCT<INT32, BYTES>(1, "b")
 --
 ALTERNATION GROUP: <empty>
@@ -462,7 +463,7 @@ ERROR: Struct field 2 has type STRING which does not coerce to BYTES [at 1:32]
 select STRUCT<INT32, BYTES>(1, "b")
                                ^
 --
-ALTERNATION GROUP: IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
+ALTERNATION GROUP: +IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
 --
 QueryStmt
 +-output_column_list=
@@ -491,7 +492,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{|IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+[language_features=NONE,{{|+IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select coalesce((1, "a"), (2, b"b"))
 --
 ALTERNATION GROUP: <empty>
@@ -504,7 +505,7 @@ ERROR: No matching signature for function COALESCE
 select coalesce((1, "a"), (2, b"b"))
        ^
 --
-ALTERNATION GROUP: IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
+ALTERNATION GROUP: +IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
 --
 QueryStmt
 +-output_column_list=

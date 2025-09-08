@@ -103,6 +103,17 @@ bool RangeType::IsValidElementType(const Type* element_type) {
   return IsSupportedElementTypeKind(element_type->kind());
 }
 
+absl::Status RangeType::ValidateResolvedTypeParameters(
+    const TypeParameters& type_parameters, ProductMode mode) const {
+  // type_parameters must be empty or has the one child.
+  if (type_parameters.IsEmpty()) {
+    return absl::OkStatus();
+  }
+  ZETASQL_RET_CHECK_EQ(type_parameters.num_children(), 1);
+  return element_type_->ValidateResolvedTypeParameters(type_parameters.child(0),
+                                                       mode);
+}
+
 bool RangeType::IsSupportedElementTypeKind(const TypeKind element_type_kind) {
   return element_type_kind == TYPE_DATE || element_type_kind == TYPE_DATETIME ||
          element_type_kind == TYPE_TIMESTAMP;

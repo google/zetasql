@@ -63,7 +63,7 @@ class Token {
   explicit Token(std::string text, uint64_t attribute = 0)
       : text_(std::move(text)), attribute_(attribute) {}
 
-  std::string_view text() const { return text_; }
+  absl::string_view text() const { return text_; }
   void set_text(std::string text) { text_ = std::move(text); }
 
   uint64_t attribute() const { return attribute_; }

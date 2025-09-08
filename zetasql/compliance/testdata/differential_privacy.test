@@ -1,4 +1,9 @@
 [prepare_database]
+[prepare_database_additional_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS]
+CREATE CONSTANT PROTO_ENUM = CAST("PROTO" AS DIFFERENTIAL_PRIVACY_REPORT_FORMAT)
+==
+
+[prepare_database]
 CREATE TABLE TestTableWithUid OPTIONS (userid_column=uid) AS
 SELECT cast(1 as int64) as uid,
        cast(null as int64) as int64_val,

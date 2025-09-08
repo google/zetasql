@@ -1,0 +1,125 @@
+[prepare_database]
+CREATE TABLE KeyValue
+AS
+SELECT 1 AS key, "value1" AS value
+UNION ALL
+SELECT 2, "value2"
+--
+ARRAY<STRUCT<key INT64, value STRING>>[{1, "value1"}, {2, "value2"}]
+==
+
+[prepare_database]
+CREATE TABLE KeyValueValueTable
+AS
+SELECT AS STRUCT 1 AS key, "value1" AS value
+UNION ALL
+SELECT AS STRUCT 2, "value2"
+--
+ARRAY<STRUCT<key INT64, value STRING>>[{1, "value1"}, {2, "value2"}]
+==
+
+[default required_features=PIPES,PIPE_DESCRIBE]
+[name=describe_table]
+FROM KeyValue
+|> DESCRIBE
+--
+ARRAY<STRUCT<Describe STRING>>[
+  {
+    "**Columns**:\nTable Alias  Column Name  Type\n-----------  -----------  ------\nKeyValue     key          INT64\nKeyValue     value        STRING\n\n**Table Aliases**:\nTable Alias  Columns\n-----------  ----------\nKeyValue     key, value\n"
+  }
+]
+==
+
+[name=describe_value_table]
+FROM KeyValueValueTable
+|> DESCRIBE
+--
+ARRAY<STRUCT<Describe STRING>>[
+  {
+    "**Columns**:\nTable Alias         Column Name  Type\n------------------  -----------  -------------------------------\nKeyValueValueTable  <value>      STRUCT<key INT64, value STRING>\n\n**Table Aliases**:\nTable Alias         Columns\n------------------  -------\nKeyValueValueTable  <value>\n\nResult is a value table.\n"
+  }
+]
+==
+
+[name=describe_input_query]
+SELECT 111 col1, 222
+|> AS tab
+|> EXTEND 333 col3, 444
+|> DESCRIBE
+--
+ARRAY<STRUCT<Describe STRING>>[
+  {
+    "**Columns**:\nTable Alias  Column Name  Type\n-----------  -----------  -----\ntab          col1         INT64\ntab          <unnamed>    INT64\n             col3         INT64\n             <unnamed>    INT64\n\n**Table Aliases**:\nTable Alias  Columns\n-----------  ---------------\ntab          col1, <unnamed>\n"
+  }
+]
+==
+
+[name=double_describe]
+FROM KeyValue
+|> DESCRIBE
+|> DESCRIBE
+--
+ARRAY<STRUCT<Describe STRING>>[
+  {
+    "**Columns**:\nColumn Name  Type\n-----------  ------\nDescribe     STRING\n"
+  }
+]
+==
+
+[name=use_describe_output]
+FROM KeyValue
+|> DESCRIBE
+|> SELECT length(Describe), substr(Describe,1,10)
+--
+ARRAY<STRUCT<INT64, STRING>>[{231, "**Columns*"}]
+==
+
+[name=describe_in_expr_subquery]
+select (select value |> DESCRIBE)
+from KeyValue
+--
+ARRAY<STRUCT<STRING>>[unknown order:
+  {
+    "**Columns**:\nColumn Name  Type\n-----------  ------\nvalue        STRING\n"
+  },
+  {
+    "**Columns**:\nColumn Name  Type\n-----------  ------\nvalue        STRING\n"
+  }
+]
+==
+
+[name=describe_in_table_subquery]
+select t.Describe, len
+from (
+  FROM KeyValue
+  |> EXTEND 123
+  |> DESCRIBE
+  |> EXTEND LENGTH(Describe) len
+) AS t
+--
+ARRAY<STRUCT<Describe STRING, len INT64>>[
+  {
+    "**Columns**:\nTable Alias  Column Name  Type\n-----------  -----------  ------\nKeyValue     key          INT64\nKeyValue     value        STRING\n             <unnamed>    INT64\n\n**Table Aliases**:\nTable Alias  Columns\n-----------  ----------\nKeyValue     key, value\n",
+    263
+  }
+]
+==
+
+[name=union_of_describe]
+(from KeyValue
+ |> DESCRIBE)
+UNION ALL
+(select "abcdef")
+UNION ALL
+(select 1 x,2,3
+ |> DESCRIBE)
+--
+ARRAY<STRUCT<Describe STRING>>[unknown order:
+  {
+    "**Columns**:\nTable Alias  Column Name  Type\n-----------  -----------  ------\nKeyValue     key          INT64\nKeyValue     value        STRING\n\n**Table Aliases**:\nTable Alias  Columns\n-----------  ----------\nKeyValue     key, value\n"
+  },
+  {"abcdef"},
+  {
+    "**Columns**:\nColumn Name  Type\n-----------  -----\nx            INT64\n<unnamed>    INT64\n<unnamed>    INT64\n"
+  }
+]

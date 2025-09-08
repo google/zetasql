@@ -27,7 +27,9 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/analyzer/path_expression_span.h"
+#include "zetasql/common/reflection.pb.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "gtest/gtest_prod.h"
@@ -194,6 +196,8 @@ class NamedColumn {
   NamedColumn& operator=(const NamedColumn& other) = default;
 
   std::string DebugString() const;
+  void Describe(ProductMode product_mode,
+                reflection::Column* reflection_column) const;
 
   IdString name() const { return name_; }
   const ResolvedColumn& column() const { return column_; }
@@ -726,6 +730,13 @@ class NameScope {
   std::string DebugString(
       absl::string_view indent = "",
       const IdStringSetCase* name_list_columns = nullptr) const;
+
+  // Add pseudo-columns and table aliases into `result_table`.
+  void DescribeInto(
+      reflection::ResultTable* result_table,
+      const IdStringHashMapCase<int>& name_list_column_names_count,
+      const absl::flat_hash_map<ResolvedColumn, std::vector<int>>&
+          name_list_columns_map) const;
 
   const NameScope* previous_scope() const { return previous_scope_; }
 
@@ -1263,6 +1274,16 @@ class NameList {
   bool is_value_table() const { return is_value_table_; }
 
   std::string DebugString(absl::string_view indent = absl::string_view()) const;
+
+  // Describe the content of this NameList into a `reflection::ResultTable`.
+  // This makes the proto-structured form of pipe DESCRIBE output.
+  reflection::ResultTable Describe(ProductMode product_mode) const;
+
+  // Describe the content of this NameList into a `reflection::TableAlias`.
+  // This is used for the inner NameLists for range variables and CTEs.
+  // This does not set the `name` field.
+  void DescribeInto(reflection::TableAlias* table_alias,
+                    bool include_pseudo_columns = true) const;
 
   bool HasRangeVariable(IdString name) const;
 

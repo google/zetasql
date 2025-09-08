@@ -36,8 +36,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "zetasql/base/case.h"  
-#include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"  
+#include "zetasql/base/status.h"                         
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -188,8 +187,7 @@ absl::StatusOr<TimestampRangeArrayGenerator>
 TimestampRangeArrayGenerator::Create(IntervalValue step,
                                      bool last_partial_range,
                                      TimestampScale scale) {
-  ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
-      << "Only kMicroseconds and kNanoseconds are acceptable values for scale";
+  ZETASQL_RETURN_IF_ERROR(ValidateTimeScale(scale));
   ZETASQL_RETURN_IF_ERROR(ValidateStep(step, scale));
 
   return TimestampRangeArrayGenerator(IntervalToDuration(step),
@@ -258,8 +256,7 @@ absl::Status DateRangeArrayGenerator::ValidateStep(const IntervalValue& step) {
 
 absl::StatusOr<DatetimeRangeArrayGenerator> DatetimeRangeArrayGenerator::Create(
     IntervalValue step, bool last_partial_range, TimestampScale scale) {
-  ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
-      << "Only kMicroseconds and kNanoseconds are acceptable values for scale";
+  ZETASQL_RETURN_IF_ERROR(ValidateTimeScale(scale));
   ZETASQL_RETURN_IF_ERROR(ValidateStep(step, scale));
 
   return DatetimeRangeArrayGenerator(step, last_partial_range);

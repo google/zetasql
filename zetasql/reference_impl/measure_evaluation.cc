@@ -63,10 +63,18 @@ absl::Status MeasureColumnToExprMapping::TrackMeasureColumnsEmittedByTableScan(
   return absl::OkStatus();
 }
 
+void MeasureColumnToExprMapping::TrackWithQueryScan(
+    const ResolvedWithEntry& with_entry) {
+  with_query_name_to_scan_[with_entry.with_query_name()] =
+      with_entry.with_subquery();
+}
+
 absl::Status
 MeasureColumnToExprMapping::TrackMeasureColumnsRenamedByWithRefScan(
-    const ResolvedWithRefScan& with_ref_scan,
-    const ResolvedScan& with_subquery_scan) {
+    const ResolvedWithRefScan& with_ref_scan) {
+  auto it = with_query_name_to_scan_.find(with_ref_scan.with_query_name());
+  ZETASQL_RET_CHECK(it != with_query_name_to_scan_.end());
+  const ResolvedScan& with_subquery_scan = *it->second;
   ZETASQL_RET_CHECK_EQ(with_ref_scan.column_list_size(),
                with_subquery_scan.column_list_size());
   for (int idx = 0; idx < with_ref_scan.column_list_size(); ++idx) {
@@ -82,23 +90,71 @@ MeasureColumnToExprMapping::TrackMeasureColumnsRenamedByWithRefScan(
   return absl::OkStatus();
 }
 
+absl::Status MeasureColumnToExprMapping::MapOriginalMeasureExprToRenamedColumn(
+    const ResolvedColumn& renamed_column,
+    const ResolvedColumn& original_column) {
+  if (!renamed_column.type()->IsMeasureType()) {
+    return absl::OkStatus();
+  }
+  ZETASQL_RET_CHECK(renamed_column.type()->IsMeasureType());
+  ZETASQL_RET_CHECK(renamed_column.type()->Equals(original_column.type()));
+  ZETASQL_ASSIGN_OR_RETURN(const ResolvedExpr* measure_expr,
+                   GetMeasureExpr(original_column));
+  return AddMeasureColumnWithExpr(renamed_column, measure_expr);
+}
+
+absl::Status MeasureColumnToExprMapping::TrackMeasureColumnsRenamedByExpr(
+    const ResolvedColumn& renamed_column, const ResolvedExpr& resolved_expr) {
+  if (!renamed_column.type()->IsMeasureType()) {
+    return absl::OkStatus();
+  }
+
+  switch (resolved_expr.node_kind()) {
+    case RESOLVED_COLUMN_REF:
+      return MapOriginalMeasureExprToRenamedColumn(
+          renamed_column, resolved_expr.GetAs<ResolvedColumnRef>()->column());
+    case RESOLVED_SUBQUERY_EXPR: {
+      const ResolvedSubqueryExpr& subquery_expr =
+          *resolved_expr.GetAs<ResolvedSubqueryExpr>();
+      if (subquery_expr.subquery_type() == ResolvedSubqueryExpr::SCALAR) {
+        ZETASQL_RET_CHECK_EQ(subquery_expr.subquery()->column_list_size(), 1);
+        return MapOriginalMeasureExprToRenamedColumn(
+            renamed_column, subquery_expr.subquery()->column_list(0));
+      }
+      break;
+    }
+    case RESOLVED_WITH_EXPR: {
+      return TrackMeasureColumnsRenamedByExpr(
+          renamed_column, *resolved_expr.GetAs<ResolvedWithExpr>()->expr());
+    }
+    default:
+      break;
+  }
+  ZETASQL_RET_CHECK_FAIL() << "Unexpected measure column: "
+                   << renamed_column.DebugString();
+}
+
 absl::StatusOr<const ResolvedExpr*> MeasureColumnToExprMapping::GetMeasureExpr(
     const ResolvedColumn& column) const {
   if (auto it = measure_column_to_expr_.find(column);
       it != measure_column_to_expr_.end()) {
     return it->second;
   }
-  return absl::NotFoundError(absl::StrCat("Column not found: ", column.name()));
+  return absl::NotFoundError(
+      absl::StrCat("Column not found: ", column.DebugString()));
 }
 
 absl::Status MeasureColumnToExprMapping::AddMeasureColumnWithExpr(
     const ResolvedColumn& column, const ResolvedExpr* expr) {
   ZETASQL_RET_CHECK(column.type()->IsMeasureType());
   ZETASQL_RET_CHECK(expr != nullptr);
-  if (!measure_column_to_expr_.insert({column, expr}).second) {
-    return zetasql_base::InvalidArgumentErrorBuilder()
-           << "Duplicate measure column: " << column.name();
+  auto [it, inserted] = measure_column_to_expr_.insert({column, expr});
+  if (inserted) {
+    return absl::OkStatus();
   }
+  // If inserting the same column twice, we must be tracking the same
+  // expression.
+  ZETASQL_RET_CHECK_EQ(it->second, expr);
   return absl::OkStatus();
 }
 

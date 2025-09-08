@@ -1,8 +1,8 @@
-[default language_features=ORDER_BY_IN_AGGREGATE]
+[default language_features=MAXIMUM,+ORDER_BY_IN_AGGREGATE]
 [default enabled_ast_rewrites=DEFAULTS,+ORDER_BY_AND_LIMIT_IN_AGGREGATE]
 
 [no_enable_literal_replacement]
-[language_features=ORDER_BY_IN_AGGREGATE,HAVING_IN_AGGREGATE,LIMIT_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE,GROUP_BY_ARRAY,ARRAY_ORDERING]
+[language_features=NONE,+ORDER_BY_IN_AGGREGATE,+HAVING_IN_AGGREGATE,+LIMIT_IN_AGGREGATE,+NULL_HANDLING_MODIFIER_IN_AGGREGATE,+GROUP_BY_ARRAY,+ARRAY_ORDERING]
 # Simple ARRAY_AGG with ORDER BY with all the features.
 # no_enable_literal_replacement: Distinct and ORDER BY must match exactly, we
 # cannot replace just one literal with parameter
@@ -237,26 +237,18 @@ FROM TestTable
 QueryStmt
 +-output_column_list=
 | +-$aggregate.$agg1#5 AS `$col1` [ARRAY<STRING>]
-| +-$aggregate.$agg2#7 AS `$col2` [ARRAY<STRING>]
+| +-$aggregate.$agg2#6 AS `$col2` [ARRAY<STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=$aggregate.[$agg1#5, $agg2#7]
+    +-column_list=$aggregate.[$agg1#5, $agg2#6]
     +-input_scan=
       +-AggregateScan
-        +-column_list=$aggregate.[$agg1#5, $agg2#7]
+        +-column_list=$aggregate.[$agg1#5, $agg2#6]
         +-input_scan=
         | +-ProjectScan
-        |   +-column_list=[TestTable.KitchenSink#3, $orderby.$orderbycol1#4, $orderby.$orderbycol1#6]
+        |   +-column_list=[TestTable.KitchenSink#3, $orderby.$orderbycol1#4]
         |   +-expr_list=
         |   | +-$orderbycol1#4 :=
-        |   | | +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
-        |   | |   +-GetProtoField
-        |   | |     +-type=ARRAY<STRING>
-        |   | |     +-expr=
-        |   | |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
-        |   | |     +-field_descriptor=repeated_string_val
-        |   | |     +-default_value=[]
-        |   | +-$orderbycol1#6 :=
         |   |   +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
         |   |     +-GetProtoField
         |   |       +-type=ARRAY<STRING>
@@ -279,7 +271,7 @@ QueryStmt
           |     +-OrderByItem
           |       +-column_ref=
           |         +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
-          +-$agg2#7 :=
+          +-$agg2#6 :=
             +-AggregateFunctionCall(ZetaSQL:array_concat_agg(ARRAY<STRING>) -> ARRAY<STRING>)
               +-GetProtoField
                 +-type=ARRAY<STRING>
@@ -290,326 +282,318 @@ QueryStmt
               +-order_by_item_list=
                 +-OrderByItem
                   +-column_ref=
-                    +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#6)
+                    +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
 | +-$aggregate.$agg1#5 AS `$col1` [ARRAY<STRING>]
-| +-$aggregate.$agg2#7 AS `$col2` [ARRAY<STRING>]
+| +-$aggregate.$agg2#6 AS `$col2` [ARRAY<STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=$aggregate.[$agg1#5, $agg2#7]
+    +-column_list=$aggregate.[$agg1#5, $agg2#6]
     +-input_scan=
       +-ProjectScan
-        +-column_list=$aggregate.[$agg1#5, $agg2#7]
+        +-column_list=$aggregate.[$agg1#5, $agg2#6]
         +-expr_list=
         | +-$agg1#5 :=
         | | +-SubqueryExpr
         | |   +-type=ARRAY<STRING>
         | |   +-subquery_type=SCALAR
         | |   +-parameter_list=
-        | |   | +-ColumnRef(type=ARRAY<STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>>, column=$agg_rewriter.$array#11)
+        | |   | +-ColumnRef(type=ARRAY<STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>>, column=$agg_rewriter.$array#10)
         | |   +-subquery=
         | |     +-ProjectScan
-        | |       +-column_list=[$with_expr.injected#33]
+        | |       +-column_list=[$with_expr.injected#32]
         | |       +-expr_list=
-        | |       | +-injected#33 :=
+        | |       | +-injected#32 :=
         | |       |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
         | |       |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRUCT<`array` ARRAY<STRING>>>) -> BOOL)
-        | |       |     | +-ColumnRef(type=ARRAY<STRUCT<`array` ARRAY<STRING>>>, column=$flatten_input.injected#22)
+        | |       |     | +-ColumnRef(type=ARRAY<STRUCT<`array` ARRAY<STRING>>>, column=$flatten_input.injected#21)
         | |       |     +-Literal(type=ARRAY<STRING>, value=NULL)
         | |       |     +-SubqueryExpr
         | |       |       +-type=ARRAY<STRING>
         | |       |       +-subquery_type=ARRAY
         | |       |       +-parameter_list=
-        | |       |       | +-ColumnRef(type=ARRAY<STRUCT<`array` ARRAY<STRING>>>, column=$flatten_input.injected#22)
+        | |       |       | +-ColumnRef(type=ARRAY<STRUCT<`array` ARRAY<STRING>>>, column=$flatten_input.injected#21)
         | |       |       +-subquery=
         | |       |         +-OrderByScan
-        | |       |           +-column_list=[$flatten.injected#25]
+        | |       |           +-column_list=[$flatten.injected#24]
         | |       |           +-is_ordered=TRUE
         | |       |           +-input_scan=
         | |       |           | +-ArrayScan
-        | |       |           |   +-column_list=[$flatten.injected#23, $offset.injected#24, $flatten.injected#25, $offset.injected#26]
+        | |       |           |   +-column_list=[$flatten.injected#22, $offset.injected#23, $flatten.injected#24, $offset.injected#25]
         | |       |           |   +-input_scan=
         | |       |           |   | +-ArrayScan
-        | |       |           |   |   +-column_list=[$flatten.injected#23, $offset.injected#24]
+        | |       |           |   |   +-column_list=[$flatten.injected#22, $offset.injected#23]
         | |       |           |   |   +-array_expr_list=
-        | |       |           |   |   | +-ColumnRef(type=ARRAY<STRUCT<`array` ARRAY<STRING>>>, column=$flatten_input.injected#22, is_correlated=TRUE)
-        | |       |           |   |   +-element_column_list=[$flatten.injected#23]
+        | |       |           |   |   | +-ColumnRef(type=ARRAY<STRUCT<`array` ARRAY<STRING>>>, column=$flatten_input.injected#21, is_correlated=TRUE)
+        | |       |           |   |   +-element_column_list=[$flatten.injected#22]
         | |       |           |   |   +-array_offset_column=
-        | |       |           |   |     +-ColumnHolder(column=$offset.injected#24)
+        | |       |           |   |     +-ColumnHolder(column=$offset.injected#23)
         | |       |           |   +-array_expr_list=
         | |       |           |   | +-GetStructField
         | |       |           |   |   +-type=ARRAY<STRING>
         | |       |           |   |   +-expr=
-        | |       |           |   |   | +-ColumnRef(type=STRUCT<`array` ARRAY<STRING>>, column=$flatten.injected#23)
+        | |       |           |   |   | +-ColumnRef(type=STRUCT<`array` ARRAY<STRING>>, column=$flatten.injected#22)
         | |       |           |   |   +-field_idx=0
-        | |       |           |   +-element_column_list=[$flatten.injected#25]
+        | |       |           |   +-element_column_list=[$flatten.injected#24]
         | |       |           |   +-array_offset_column=
-        | |       |           |     +-ColumnHolder(column=$offset.injected#26)
+        | |       |           |     +-ColumnHolder(column=$offset.injected#25)
         | |       |           +-order_by_item_list=
         | |       |             +-OrderByItem
         | |       |             | +-column_ref=
-        | |       |             |   +-ColumnRef(type=INT64, column=$offset.injected#24)
+        | |       |             |   +-ColumnRef(type=INT64, column=$offset.injected#23)
         | |       |             +-OrderByItem
         | |       |               +-column_ref=
-        | |       |                 +-ColumnRef(type=INT64, column=$offset.injected#26)
+        | |       |                 +-ColumnRef(type=INT64, column=$offset.injected#25)
         | |       +-input_scan=
         | |         +-ProjectScan
-        | |           +-column_list=[$flatten_input.injected#22]
+        | |           +-column_list=[$flatten_input.injected#21]
         | |           +-expr_list=
-        | |           | +-injected#22 :=
+        | |           | +-injected#21 :=
         | |           |   +-SubqueryExpr
         | |           |     +-type=ARRAY<STRUCT<`array` ARRAY<STRING>>>
         | |           |     +-subquery_type=SCALAR
         | |           |     +-parameter_list=
-        | |           |     | +-ColumnRef(type=ARRAY<STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>>, column=$agg_rewriter.$array#11, is_correlated=TRUE)
+        | |           |     | +-ColumnRef(type=ARRAY<STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>>, column=$agg_rewriter.$array#10, is_correlated=TRUE)
         | |           |     +-subquery=
         | |           |       +-ProjectScan
-        | |           |         +-column_list=[$with_expr.injected#32]
+        | |           |         +-column_list=[$with_expr.injected#31]
         | |           |         +-expr_list=
-        | |           |         | +-injected#32 :=
+        | |           |         | +-injected#31 :=
         | |           |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRUCT<`array` ARRAY<STRING>>>, ARRAY<STRUCT<`array` ARRAY<STRING>>>) -> ARRAY<STRUCT<`array` ARRAY<STRING>>>)
         | |           |         |     +-FunctionCall(ZetaSQL:$greater_or_equal(INT64, INT64) -> BOOL)
         | |           |         |     | +-FunctionCall(ZetaSQL:array_length(ARRAY<STRUCT<`array` ARRAY<STRING>>>) -> INT64)
-        | |           |         |     | | +-ColumnRef(type=ARRAY<STRUCT<`array` ARRAY<STRING>>>, column=null_if_empty_array.$out#14)
+        | |           |         |     | | +-ColumnRef(type=ARRAY<STRUCT<`array` ARRAY<STRING>>>, column=null_if_empty_array.$out#13)
         | |           |         |     | +-Literal(type=INT64, value=1)
-        | |           |         |     +-ColumnRef(type=ARRAY<STRUCT<`array` ARRAY<STRING>>>, column=null_if_empty_array.$out#14)
+        | |           |         |     +-ColumnRef(type=ARRAY<STRUCT<`array` ARRAY<STRING>>>, column=null_if_empty_array.$out#13)
         | |           |         |     +-Literal(type=ARRAY<STRUCT<`array` ARRAY<STRING>>>, value=NULL)
         | |           |         +-input_scan=
         | |           |           +-ProjectScan
-        | |           |             +-column_list=[null_if_empty_array.$out#14]
+        | |           |             +-column_list=[null_if_empty_array.$out#13]
         | |           |             +-expr_list=
-        | |           |             | +-$out#14 :=
+        | |           |             | +-$out#13 :=
         | |           |             |   +-SubqueryExpr
         | |           |             |     +-type=ARRAY<STRUCT<`array` ARRAY<STRING>>>
         | |           |             |     +-subquery_type=ARRAY
         | |           |             |     +-parameter_list=
-        | |           |             |     | +-ColumnRef(type=ARRAY<STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>>, column=$agg_rewriter.$array#11, is_correlated=TRUE)
+        | |           |             |     | +-ColumnRef(type=ARRAY<STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>>, column=$agg_rewriter.$array#10, is_correlated=TRUE)
         | |           |             |     +-subquery=
         | |           |             |       +-ProjectScan
-        | |           |             |         +-column_list=[$agg_rewriter.$struct#13]
+        | |           |             |         +-column_list=[$agg_rewriter.$struct#12]
         | |           |             |         +-is_ordered=TRUE
         | |           |             |         +-expr_list=
-        | |           |             |         | +-$struct#13 :=
+        | |           |             |         | +-$struct#12 :=
         | |           |             |         |   +-MakeStruct
         | |           |             |         |     +-type=STRUCT<`array` ARRAY<STRING>>
         | |           |             |         |     +-field_list=
-        | |           |             |         |       +-ColumnRef(type=ARRAY<STRING>, column=$agg_rewriter.$arg#8)
+        | |           |             |         |       +-ColumnRef(type=ARRAY<STRING>, column=$agg_rewriter.$arg#7)
         | |           |             |         +-input_scan=
         | |           |             |           +-OrderByScan
-        | |           |             |             +-column_list=[$agg_rewriter.$arg#8]
+        | |           |             |             +-column_list=[$agg_rewriter.$arg#7]
         | |           |             |             +-is_ordered=TRUE
         | |           |             |             +-input_scan=
         | |           |             |             | +-FilterScan
-        | |           |             |             |   +-column_list=$agg_rewriter.[KitchenSink#9, $orderbycol1#10, $arg#8]
+        | |           |             |             |   +-column_list=$agg_rewriter.[KitchenSink#8, $orderbycol1#9, $arg#7]
         | |           |             |             |   +-input_scan=
         | |           |             |             |   | +-ProjectScan
-        | |           |             |             |   |   +-column_list=$agg_rewriter.[KitchenSink#9, $orderbycol1#10, $arg#8]
+        | |           |             |             |   |   +-column_list=$agg_rewriter.[KitchenSink#8, $orderbycol1#9, $arg#7]
         | |           |             |             |   |   +-expr_list=
-        | |           |             |             |   |   | +-$arg#8 :=
+        | |           |             |             |   |   | +-$arg#7 :=
         | |           |             |             |   |   |   +-GetProtoField
         | |           |             |             |   |   |     +-type=ARRAY<STRING>
         | |           |             |             |   |   |     +-expr=
-        | |           |             |             |   |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=$agg_rewriter.KitchenSink#9)
+        | |           |             |             |   |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=$agg_rewriter.KitchenSink#8)
         | |           |             |             |   |   |     +-field_descriptor=repeated_string_val
         | |           |             |             |   |   |     +-default_value=[]
         | |           |             |             |   |   +-input_scan=
         | |           |             |             |   |     +-ProjectScan
-        | |           |             |             |   |       +-column_list=$agg_rewriter.[KitchenSink#9, $orderbycol1#10]
+        | |           |             |             |   |       +-column_list=$agg_rewriter.[KitchenSink#8, $orderbycol1#9]
         | |           |             |             |   |       +-expr_list=
-        | |           |             |             |   |       | +-KitchenSink#9 :=
+        | |           |             |             |   |       | +-KitchenSink#8 :=
         | |           |             |             |   |       | | +-GetStructField
         | |           |             |             |   |       | |   +-type=PROTO<zetasql_test__.KitchenSinkPB>
         | |           |             |             |   |       | |   +-expr=
-        | |           |             |             |   |       | |   | +-ColumnRef(type=STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>, column=$agg_rewriter.$struct#12)
+        | |           |             |             |   |       | |   | +-ColumnRef(type=STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>, column=$agg_rewriter.$struct#11)
         | |           |             |             |   |       | |   +-field_idx=0
-        | |           |             |             |   |       | +-$orderbycol1#10 :=
+        | |           |             |             |   |       | +-$orderbycol1#9 :=
         | |           |             |             |   |       |   +-GetStructField
         | |           |             |             |   |       |     +-type=INT64
         | |           |             |             |   |       |     +-expr=
-        | |           |             |             |   |       |     | +-ColumnRef(type=STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>, column=$agg_rewriter.$struct#12)
+        | |           |             |             |   |       |     | +-ColumnRef(type=STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>, column=$agg_rewriter.$struct#11)
         | |           |             |             |   |       |     +-field_idx=1
         | |           |             |             |   |       +-input_scan=
         | |           |             |             |   |         +-ArrayScan
-        | |           |             |             |   |           +-column_list=[$agg_rewriter.$struct#12]
+        | |           |             |             |   |           +-column_list=[$agg_rewriter.$struct#11]
         | |           |             |             |   |           +-array_expr_list=
-        | |           |             |             |   |           | +-ColumnRef(type=ARRAY<STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>>, column=$agg_rewriter.$array#11, is_correlated=TRUE)
-        | |           |             |             |   |           +-element_column_list=[$agg_rewriter.$struct#12]
+        | |           |             |             |   |           | +-ColumnRef(type=ARRAY<STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>>, column=$agg_rewriter.$array#10, is_correlated=TRUE)
+        | |           |             |             |   |           +-element_column_list=[$agg_rewriter.$struct#11]
         | |           |             |             |   +-filter_expr=
         | |           |             |             |     +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
         | |           |             |             |       +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
-        | |           |             |             |         +-ColumnRef(type=ARRAY<STRING>, column=$agg_rewriter.$arg#8)
+        | |           |             |             |         +-ColumnRef(type=ARRAY<STRING>, column=$agg_rewriter.$arg#7)
         | |           |             |             +-order_by_item_list=
         | |           |             |               +-OrderByItem
         | |           |             |                 +-column_ref=
-        | |           |             |                   +-ColumnRef(type=INT64, column=$agg_rewriter.$orderbycol1#10)
+        | |           |             |                   +-ColumnRef(type=INT64, column=$agg_rewriter.$orderbycol1#9)
         | |           |             +-input_scan=
         | |           |               +-SingleRowScan
         | |           +-input_scan=
         | |             +-SingleRowScan
-        | +-$agg2#7 :=
+        | +-$agg2#6 :=
         |   +-SubqueryExpr
         |     +-type=ARRAY<STRING>
         |     +-subquery_type=SCALAR
         |     +-parameter_list=
-        |     | +-ColumnRef(type=ARRAY<STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>>, column=$agg_rewriter.$array#18)
+        |     | +-ColumnRef(type=ARRAY<STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>>, column=$agg_rewriter.$array#17)
         |     +-subquery=
         |       +-ProjectScan
-        |         +-column_list=[$with_expr.injected#35]
+        |         +-column_list=[$with_expr.injected#34]
         |         +-expr_list=
-        |         | +-injected#35 :=
+        |         | +-injected#34 :=
         |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
         |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRUCT<`array` ARRAY<STRING>>>) -> BOOL)
-        |         |     | +-ColumnRef(type=ARRAY<STRUCT<`array` ARRAY<STRING>>>, column=$flatten_input.injected#27)
+        |         |     | +-ColumnRef(type=ARRAY<STRUCT<`array` ARRAY<STRING>>>, column=$flatten_input.injected#26)
         |         |     +-Literal(type=ARRAY<STRING>, value=NULL)
         |         |     +-SubqueryExpr
         |         |       +-type=ARRAY<STRING>
         |         |       +-subquery_type=ARRAY
         |         |       +-parameter_list=
-        |         |       | +-ColumnRef(type=ARRAY<STRUCT<`array` ARRAY<STRING>>>, column=$flatten_input.injected#27)
+        |         |       | +-ColumnRef(type=ARRAY<STRUCT<`array` ARRAY<STRING>>>, column=$flatten_input.injected#26)
         |         |       +-subquery=
         |         |         +-OrderByScan
-        |         |           +-column_list=[$flatten.injected#30]
+        |         |           +-column_list=[$flatten.injected#29]
         |         |           +-is_ordered=TRUE
         |         |           +-input_scan=
         |         |           | +-ArrayScan
-        |         |           |   +-column_list=[$flatten.injected#28, $offset.injected#29, $flatten.injected#30, $offset.injected#31]
+        |         |           |   +-column_list=[$flatten.injected#27, $offset.injected#28, $flatten.injected#29, $offset.injected#30]
         |         |           |   +-input_scan=
         |         |           |   | +-ArrayScan
-        |         |           |   |   +-column_list=[$flatten.injected#28, $offset.injected#29]
+        |         |           |   |   +-column_list=[$flatten.injected#27, $offset.injected#28]
         |         |           |   |   +-array_expr_list=
-        |         |           |   |   | +-ColumnRef(type=ARRAY<STRUCT<`array` ARRAY<STRING>>>, column=$flatten_input.injected#27, is_correlated=TRUE)
-        |         |           |   |   +-element_column_list=[$flatten.injected#28]
+        |         |           |   |   | +-ColumnRef(type=ARRAY<STRUCT<`array` ARRAY<STRING>>>, column=$flatten_input.injected#26, is_correlated=TRUE)
+        |         |           |   |   +-element_column_list=[$flatten.injected#27]
         |         |           |   |   +-array_offset_column=
-        |         |           |   |     +-ColumnHolder(column=$offset.injected#29)
+        |         |           |   |     +-ColumnHolder(column=$offset.injected#28)
         |         |           |   +-array_expr_list=
         |         |           |   | +-GetStructField
         |         |           |   |   +-type=ARRAY<STRING>
         |         |           |   |   +-expr=
-        |         |           |   |   | +-ColumnRef(type=STRUCT<`array` ARRAY<STRING>>, column=$flatten.injected#28)
+        |         |           |   |   | +-ColumnRef(type=STRUCT<`array` ARRAY<STRING>>, column=$flatten.injected#27)
         |         |           |   |   +-field_idx=0
-        |         |           |   +-element_column_list=[$flatten.injected#30]
+        |         |           |   +-element_column_list=[$flatten.injected#29]
         |         |           |   +-array_offset_column=
-        |         |           |     +-ColumnHolder(column=$offset.injected#31)
+        |         |           |     +-ColumnHolder(column=$offset.injected#30)
         |         |           +-order_by_item_list=
         |         |             +-OrderByItem
         |         |             | +-column_ref=
-        |         |             |   +-ColumnRef(type=INT64, column=$offset.injected#29)
+        |         |             |   +-ColumnRef(type=INT64, column=$offset.injected#28)
         |         |             +-OrderByItem
         |         |               +-column_ref=
-        |         |                 +-ColumnRef(type=INT64, column=$offset.injected#31)
+        |         |                 +-ColumnRef(type=INT64, column=$offset.injected#30)
         |         +-input_scan=
         |           +-ProjectScan
-        |             +-column_list=[$flatten_input.injected#27]
+        |             +-column_list=[$flatten_input.injected#26]
         |             +-expr_list=
-        |             | +-injected#27 :=
+        |             | +-injected#26 :=
         |             |   +-SubqueryExpr
         |             |     +-type=ARRAY<STRUCT<`array` ARRAY<STRING>>>
         |             |     +-subquery_type=SCALAR
         |             |     +-parameter_list=
-        |             |     | +-ColumnRef(type=ARRAY<STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>>, column=$agg_rewriter.$array#18, is_correlated=TRUE)
+        |             |     | +-ColumnRef(type=ARRAY<STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>>, column=$agg_rewriter.$array#17, is_correlated=TRUE)
         |             |     +-subquery=
         |             |       +-ProjectScan
-        |             |         +-column_list=[$with_expr.injected#34]
+        |             |         +-column_list=[$with_expr.injected#33]
         |             |         +-expr_list=
-        |             |         | +-injected#34 :=
+        |             |         | +-injected#33 :=
         |             |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRUCT<`array` ARRAY<STRING>>>, ARRAY<STRUCT<`array` ARRAY<STRING>>>) -> ARRAY<STRUCT<`array` ARRAY<STRING>>>)
         |             |         |     +-FunctionCall(ZetaSQL:$greater_or_equal(INT64, INT64) -> BOOL)
         |             |         |     | +-FunctionCall(ZetaSQL:array_length(ARRAY<STRUCT<`array` ARRAY<STRING>>>) -> INT64)
-        |             |         |     | | +-ColumnRef(type=ARRAY<STRUCT<`array` ARRAY<STRING>>>, column=null_if_empty_array.$out#21)
+        |             |         |     | | +-ColumnRef(type=ARRAY<STRUCT<`array` ARRAY<STRING>>>, column=null_if_empty_array.$out#20)
         |             |         |     | +-Literal(type=INT64, value=1)
-        |             |         |     +-ColumnRef(type=ARRAY<STRUCT<`array` ARRAY<STRING>>>, column=null_if_empty_array.$out#21)
+        |             |         |     +-ColumnRef(type=ARRAY<STRUCT<`array` ARRAY<STRING>>>, column=null_if_empty_array.$out#20)
         |             |         |     +-Literal(type=ARRAY<STRUCT<`array` ARRAY<STRING>>>, value=NULL)
         |             |         +-input_scan=
         |             |           +-ProjectScan
-        |             |             +-column_list=[null_if_empty_array.$out#21]
+        |             |             +-column_list=[null_if_empty_array.$out#20]
         |             |             +-expr_list=
-        |             |             | +-$out#21 :=
+        |             |             | +-$out#20 :=
         |             |             |   +-SubqueryExpr
         |             |             |     +-type=ARRAY<STRUCT<`array` ARRAY<STRING>>>
         |             |             |     +-subquery_type=ARRAY
         |             |             |     +-parameter_list=
-        |             |             |     | +-ColumnRef(type=ARRAY<STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>>, column=$agg_rewriter.$array#18, is_correlated=TRUE)
+        |             |             |     | +-ColumnRef(type=ARRAY<STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>>, column=$agg_rewriter.$array#17, is_correlated=TRUE)
         |             |             |     +-subquery=
         |             |             |       +-ProjectScan
-        |             |             |         +-column_list=[$agg_rewriter.$struct#20]
+        |             |             |         +-column_list=[$agg_rewriter.$struct#19]
         |             |             |         +-is_ordered=TRUE
         |             |             |         +-expr_list=
-        |             |             |         | +-$struct#20 :=
+        |             |             |         | +-$struct#19 :=
         |             |             |         |   +-MakeStruct
         |             |             |         |     +-type=STRUCT<`array` ARRAY<STRING>>
         |             |             |         |     +-field_list=
-        |             |             |         |       +-ColumnRef(type=ARRAY<STRING>, column=$agg_rewriter.$arg#15)
+        |             |             |         |       +-ColumnRef(type=ARRAY<STRING>, column=$agg_rewriter.$arg#14)
         |             |             |         +-input_scan=
         |             |             |           +-OrderByScan
-        |             |             |             +-column_list=[$agg_rewriter.$arg#15]
+        |             |             |             +-column_list=[$agg_rewriter.$arg#14]
         |             |             |             +-is_ordered=TRUE
         |             |             |             +-input_scan=
         |             |             |             | +-FilterScan
-        |             |             |             |   +-column_list=$agg_rewriter.[KitchenSink#16, $orderbycol1#17, $arg#15]
+        |             |             |             |   +-column_list=$agg_rewriter.[KitchenSink#15, $orderbycol1#16, $arg#14]
         |             |             |             |   +-input_scan=
         |             |             |             |   | +-ProjectScan
-        |             |             |             |   |   +-column_list=$agg_rewriter.[KitchenSink#16, $orderbycol1#17, $arg#15]
+        |             |             |             |   |   +-column_list=$agg_rewriter.[KitchenSink#15, $orderbycol1#16, $arg#14]
         |             |             |             |   |   +-expr_list=
-        |             |             |             |   |   | +-$arg#15 :=
+        |             |             |             |   |   | +-$arg#14 :=
         |             |             |             |   |   |   +-GetProtoField
         |             |             |             |   |   |     +-type=ARRAY<STRING>
         |             |             |             |   |   |     +-expr=
-        |             |             |             |   |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=$agg_rewriter.KitchenSink#16)
+        |             |             |             |   |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=$agg_rewriter.KitchenSink#15)
         |             |             |             |   |   |     +-field_descriptor=repeated_string_val
         |             |             |             |   |   |     +-default_value=[]
         |             |             |             |   |   +-input_scan=
         |             |             |             |   |     +-ProjectScan
-        |             |             |             |   |       +-column_list=$agg_rewriter.[KitchenSink#16, $orderbycol1#17]
+        |             |             |             |   |       +-column_list=$agg_rewriter.[KitchenSink#15, $orderbycol1#16]
         |             |             |             |   |       +-expr_list=
-        |             |             |             |   |       | +-KitchenSink#16 :=
+        |             |             |             |   |       | +-KitchenSink#15 :=
         |             |             |             |   |       | | +-GetStructField
         |             |             |             |   |       | |   +-type=PROTO<zetasql_test__.KitchenSinkPB>
         |             |             |             |   |       | |   +-expr=
-        |             |             |             |   |       | |   | +-ColumnRef(type=STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>, column=$agg_rewriter.$struct#19)
+        |             |             |             |   |       | |   | +-ColumnRef(type=STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>, column=$agg_rewriter.$struct#18)
         |             |             |             |   |       | |   +-field_idx=0
-        |             |             |             |   |       | +-$orderbycol1#17 :=
+        |             |             |             |   |       | +-$orderbycol1#16 :=
         |             |             |             |   |       |   +-GetStructField
         |             |             |             |   |       |     +-type=INT64
         |             |             |             |   |       |     +-expr=
-        |             |             |             |   |       |     | +-ColumnRef(type=STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>, column=$agg_rewriter.$struct#19)
+        |             |             |             |   |       |     | +-ColumnRef(type=STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>, column=$agg_rewriter.$struct#18)
         |             |             |             |   |       |     +-field_idx=1
         |             |             |             |   |       +-input_scan=
         |             |             |             |   |         +-ArrayScan
-        |             |             |             |   |           +-column_list=[$agg_rewriter.$struct#19]
+        |             |             |             |   |           +-column_list=[$agg_rewriter.$struct#18]
         |             |             |             |   |           +-array_expr_list=
-        |             |             |             |   |           | +-ColumnRef(type=ARRAY<STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>>, column=$agg_rewriter.$array#18, is_correlated=TRUE)
-        |             |             |             |   |           +-element_column_list=[$agg_rewriter.$struct#19]
+        |             |             |             |   |           | +-ColumnRef(type=ARRAY<STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>>, column=$agg_rewriter.$array#17, is_correlated=TRUE)
+        |             |             |             |   |           +-element_column_list=[$agg_rewriter.$struct#18]
         |             |             |             |   +-filter_expr=
         |             |             |             |     +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
         |             |             |             |       +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
-        |             |             |             |         +-ColumnRef(type=ARRAY<STRING>, column=$agg_rewriter.$arg#15)
+        |             |             |             |         +-ColumnRef(type=ARRAY<STRING>, column=$agg_rewriter.$arg#14)
         |             |             |             +-order_by_item_list=
         |             |             |               +-OrderByItem
         |             |             |                 +-column_ref=
-        |             |             |                   +-ColumnRef(type=INT64, column=$agg_rewriter.$orderbycol1#17)
+        |             |             |                   +-ColumnRef(type=INT64, column=$agg_rewriter.$orderbycol1#16)
         |             |             +-input_scan=
         |             |               +-SingleRowScan
         |             +-input_scan=
         |               +-SingleRowScan
         +-input_scan=
           +-AggregateScan
-            +-column_list=$agg_rewriter.[$array#11, $array#18]
+            +-column_list=$agg_rewriter.[$array#10, $array#17]
             +-input_scan=
             | +-ProjectScan
-            |   +-column_list=[TestTable.KitchenSink#3, $orderby.$orderbycol1#4, $orderby.$orderbycol1#6]
+            |   +-column_list=[TestTable.KitchenSink#3, $orderby.$orderbycol1#4]
             |   +-expr_list=
             |   | +-$orderbycol1#4 :=
-            |   | | +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
-            |   | |   +-GetProtoField
-            |   | |     +-type=ARRAY<STRING>
-            |   | |     +-expr=
-            |   | |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
-            |   | |     +-field_descriptor=repeated_string_val
-            |   | |     +-default_value=[]
-            |   | +-$orderbycol1#6 :=
             |   |   +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
             |   |     +-GetProtoField
             |   |       +-type=ARRAY<STRING>
@@ -620,24 +604,24 @@ QueryStmt
             |   +-input_scan=
             |     +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
             +-aggregate_list=
-              +-$array#11 :=
+              +-$array#10 :=
               | +-AggregateFunctionCall(ZetaSQL:array_agg(STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>) -> ARRAY<STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>>)
               |   +-MakeStruct
               |     +-type=STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>
               |     +-field_list=
               |       +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
               |       +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
-              +-$array#18 :=
+              +-$array#17 :=
                 +-AggregateFunctionCall(ZetaSQL:array_agg(STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>) -> ARRAY<STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>>)
                   +-MakeStruct
                     +-type=STRUCT<KitchenSink_0 PROTO<zetasql_test__.KitchenSinkPB>, `$orderbycol1_1` INT64>
                     +-field_list=
                       +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
-                      +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#6)
+                      +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
 
 ==
 
-[language_features=ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE]
+[language_features=NONE,+ORDER_BY_IN_AGGREGATE,+LIMIT_IN_AGGREGATE]
 
 # Slight different ARRAY_CONCAT_AGGs in the same AggregateScan
 SELECT ARRAY_CONCAT_AGG(KitchenSink.repeated_string_val ORDER BY ARRAY_LENGTH(KitchenSink.repeated_string_val) LIMIT 2),
@@ -1064,7 +1048,7 @@ QueryStmt
                       +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#6)
 ==
 
-[language_features=ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE]
+[language_features=NONE,+ORDER_BY_IN_AGGREGATE,+LIMIT_IN_AGGREGATE]
 
 # ARRAY_CONCAT_AGG with limits
 SELECT ARRAY_CONCAT_AGG(KitchenSink.repeated_string_val LIMIT 2),

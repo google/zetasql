@@ -20,6 +20,7 @@
 #include <functional>
 #include <memory>
 
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "absl/status/statusor.h"
@@ -31,7 +32,9 @@ namespace zetasql {
 // inside the body of templated functions (e.g. FLATTEN, PIVOT, TYPEOF).
 absl::StatusOr<std::unique_ptr<const ResolvedNode>>
 RewriteTemplatedFunctionCalls(
+    const AnalyzerOptions& analyzer_options,
     std::function<absl::StatusOr<std::unique_ptr<const ResolvedNode>>(
+        const AnalyzerOptions& analyzer_options,
         std::unique_ptr<const ResolvedNode>)>
         rewriters_func,
     std::unique_ptr<const ResolvedNode> input);

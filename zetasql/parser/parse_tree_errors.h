@@ -181,9 +181,9 @@ absl::Status StatusWithInternalErrorLocation(
 
 // Makes a new Status from <code> and <message> with an external ErrorLocation.
 absl::Status MakeStatusWithErrorLocation(absl::StatusCode code,
-                                         std::string_view message,
-                                         std::string_view filename,
-                                         std::string_view query,
+                                         absl::string_view message,
+                                         absl::string_view filename,
+                                         absl::string_view query,
                                          const ASTNode* ast_node,
                                          bool include_leftmost_child = true);
 
@@ -203,6 +203,13 @@ absl::Status WrapNestedErrorStatus(const ASTNode* ast_location,
                                    absl::string_view error_message,
                                    const absl::Status& input_status,
                                    ErrorMessageMode error_source_mode);
+
+// Mutates and returns <status> by adding a single edit fix suggestion.
+absl::Status& AddFixSuggestionToStatus(absl::Status& status,
+                                       absl::string_view title,
+                                       const ParseLocationPoint& start_location,
+                                       const ParseLocationPoint& end_location,
+                                       absl::string_view new_text);
 
 }  // namespace zetasql
 

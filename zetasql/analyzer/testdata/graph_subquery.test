@@ -1,4 +1,4 @@
-[default language_features=LIKE_ANY_SOME_ALL,SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+LIKE_ANY_SOME_ALL,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 [default no_test_extract_table_names]
 [default no_run_sqlbuilder]
 
@@ -1555,7 +1555,7 @@ QueryStmt
 
 ==
 
-[language_features=LIKE_ANY_SOME_ALL,SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,WITH_ON_SUBQUERY]
+[language_features=NONE,+LIKE_ANY_SOME_ALL,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+WITH_ON_SUBQUERY]
 
 GRAPH aml
 MATCH (n:Person|Account WHERE (
@@ -1898,7 +1898,7 @@ QueryStmt
                   +-GraphRefScan(column_list=$element_table.[$element1#1, $element2#2, $element3#3, $element4#4])
 ==
 
-[language_features=SQL_GRAPH,WITH_ON_SUBQUERY]
+[language_features=NONE,+SQL_GRAPH,+WITH_ON_SUBQUERY]
 [no_test_extract_table_names]
 
 SELECT gt.one
@@ -1984,7 +1984,7 @@ QueryStmt
 
 ==
 
-[language_features=SQL_GRAPH,WITH_ON_SUBQUERY]
+[language_features=NONE,+SQL_GRAPH,+WITH_ON_SUBQUERY]
 [no_test_extract_table_names]
 
 SELECT gt.one
@@ -2329,3 +2329,196 @@ RETURN 1 as val
 ERROR: Match should be the first operator when the graph reference is omitted [at 4:3]
   RETURN 42 AS id
   ^
+
+==
+
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_CALL,+TABLE_VALUED_FUNCTIONS]
+GRAPH aml
+LET a = 1
+RETURN {{EXISTS|VALUE|ARRAY}} { GRAPH aml CALL tvf_graph() return 1 as x } as val
+--
+ALTERNATION GROUP: EXISTS
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.val#5 AS val [BOOL]
++-query=
+  +-GraphTableScan
+    +-column_list=[$graph_table.val#5]
+    +-property_graph=aml
+    +-input_scan=
+      +-GraphLinearScan
+        +-column_list=[$graph_table.val#5]
+        +-scan_list=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.val#5]
+            +-scan_list=
+              +-ProjectScan
+              | +-expr_list=
+              | | +-a#1 := Literal(type=INT64, value=1)
+              | +-input_scan=
+              |   +-SingleRowScan
+              +-ProjectScan
+                +-column_list=[$graph_table.val#5]
+                +-expr_list=
+                | +-val#5 :=
+                |   +-SubqueryExpr
+                |     +-type=BOOL
+                |     +-subquery_type=EXISTS
+                |     +-subquery=
+                |       +-GraphTableScan
+                |         +-column_list=[$graph_table.x#4]
+                |         +-property_graph=aml
+                |         +-input_scan=
+                |           +-GraphLinearScan
+                |             +-column_list=[$graph_table.x#4]
+                |             +-scan_list=
+                |               +-GraphLinearScan
+                |                 +-column_list=[$graph_table.x#4]
+                |                 +-scan_list=
+                |                   +-GraphCallScan
+                |                   | +-column_list=tvf_graph.[column_bool#2, column_bytes#3]
+                |                   | +-optional=FALSE
+                |                   | +-subquery=
+                |                   | | +-TVFScan
+                |                   | |   +-column_list=tvf_graph.[column_bool#2, column_bytes#3]
+                |                   | |   +-tvf=tvf_graph((ANY GRAPH) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+                |                   | |   +-signature=(ANY GRAPH) -> TABLE<column_bool BOOL, column_bytes BYTES>
+                |                   | |   +-argument_list=
+                |                   | |   | +-FunctionArgument(graph=aml)
+                |                   | |   +-column_index_list=[0, 1]
+                |                   | |   +-function_call_signature=(ANY GRAPH) -> TABLE<column_bool BOOL, column_bytes BYTES>
+                |                   | +-input_scan=
+                |                   |   +-SingleRowScan
+                |                   +-ProjectScan
+                |                     +-column_list=[$graph_table.x#4]
+                |                     +-expr_list=
+                |                     | +-x#4 := Literal(type=INT64, value=1)
+                |                     +-input_scan=
+                |                       +-GraphRefScan(column_list=tvf_graph.[column_bool#2, column_bytes#3])
+                +-input_scan=
+                  +-GraphRefScan
+--
+ALTERNATION GROUP: VALUE
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.val#5 AS val [INT64]
++-query=
+  +-GraphTableScan
+    +-column_list=[$graph_table.val#5]
+    +-property_graph=aml
+    +-input_scan=
+      +-GraphLinearScan
+        +-column_list=[$graph_table.val#5]
+        +-scan_list=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.val#5]
+            +-scan_list=
+              +-ProjectScan
+              | +-expr_list=
+              | | +-a#1 := Literal(type=INT64, value=1)
+              | +-input_scan=
+              |   +-SingleRowScan
+              +-ProjectScan
+                +-column_list=[$graph_table.val#5]
+                +-expr_list=
+                | +-val#5 :=
+                |   +-SubqueryExpr
+                |     +-type=INT64
+                |     +-subquery_type=SCALAR
+                |     +-subquery=
+                |       +-GraphTableScan
+                |         +-column_list=[$graph_table.x#4]
+                |         +-property_graph=aml
+                |         +-input_scan=
+                |           +-GraphLinearScan
+                |             +-column_list=[$graph_table.x#4]
+                |             +-scan_list=
+                |               +-GraphLinearScan
+                |                 +-column_list=[$graph_table.x#4]
+                |                 +-scan_list=
+                |                   +-GraphCallScan
+                |                   | +-column_list=tvf_graph.[column_bool#2, column_bytes#3]
+                |                   | +-optional=FALSE
+                |                   | +-subquery=
+                |                   | | +-TVFScan
+                |                   | |   +-column_list=tvf_graph.[column_bool#2, column_bytes#3]
+                |                   | |   +-tvf=tvf_graph((ANY GRAPH) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+                |                   | |   +-signature=(ANY GRAPH) -> TABLE<column_bool BOOL, column_bytes BYTES>
+                |                   | |   +-argument_list=
+                |                   | |   | +-FunctionArgument(graph=aml)
+                |                   | |   +-column_index_list=[0, 1]
+                |                   | |   +-function_call_signature=(ANY GRAPH) -> TABLE<column_bool BOOL, column_bytes BYTES>
+                |                   | +-input_scan=
+                |                   |   +-SingleRowScan
+                |                   +-ProjectScan
+                |                     +-column_list=[$graph_table.x#4]
+                |                     +-expr_list=
+                |                     | +-x#4 := Literal(type=INT64, value=1)
+                |                     +-input_scan=
+                |                       +-GraphRefScan(column_list=tvf_graph.[column_bool#2, column_bytes#3])
+                +-input_scan=
+                  +-GraphRefScan
+--
+ALTERNATION GROUP: ARRAY
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.val#5 AS val [ARRAY<INT64>]
++-query=
+  +-GraphTableScan
+    +-column_list=[$graph_table.val#5]
+    +-property_graph=aml
+    +-input_scan=
+      +-GraphLinearScan
+        +-column_list=[$graph_table.val#5]
+        +-scan_list=
+          +-GraphLinearScan
+            +-column_list=[$graph_table.val#5]
+            +-scan_list=
+              +-ProjectScan
+              | +-expr_list=
+              | | +-a#1 := Literal(type=INT64, value=1)
+              | +-input_scan=
+              |   +-SingleRowScan
+              +-ProjectScan
+                +-column_list=[$graph_table.val#5]
+                +-expr_list=
+                | +-val#5 :=
+                |   +-SubqueryExpr
+                |     +-type=ARRAY<INT64>
+                |     +-subquery_type=ARRAY
+                |     +-subquery=
+                |       +-GraphTableScan
+                |         +-column_list=[$graph_table.x#4]
+                |         +-property_graph=aml
+                |         +-input_scan=
+                |           +-GraphLinearScan
+                |             +-column_list=[$graph_table.x#4]
+                |             +-scan_list=
+                |               +-GraphLinearScan
+                |                 +-column_list=[$graph_table.x#4]
+                |                 +-scan_list=
+                |                   +-GraphCallScan
+                |                   | +-column_list=tvf_graph.[column_bool#2, column_bytes#3]
+                |                   | +-optional=FALSE
+                |                   | +-subquery=
+                |                   | | +-TVFScan
+                |                   | |   +-column_list=tvf_graph.[column_bool#2, column_bytes#3]
+                |                   | |   +-tvf=tvf_graph((ANY GRAPH) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+                |                   | |   +-signature=(ANY GRAPH) -> TABLE<column_bool BOOL, column_bytes BYTES>
+                |                   | |   +-argument_list=
+                |                   | |   | +-FunctionArgument(graph=aml)
+                |                   | |   +-column_index_list=[0, 1]
+                |                   | |   +-function_call_signature=(ANY GRAPH) -> TABLE<column_bool BOOL, column_bytes BYTES>
+                |                   | +-input_scan=
+                |                   |   +-SingleRowScan
+                |                   +-ProjectScan
+                |                     +-column_list=[$graph_table.x#4]
+                |                     +-expr_list=
+                |                     | +-x#4 := Literal(type=INT64, value=1)
+                |                     +-input_scan=
+                |                       +-GraphRefScan(column_list=tvf_graph.[column_bool#2, column_bytes#3])
+                +-input_scan=
+                  +-GraphRefScan

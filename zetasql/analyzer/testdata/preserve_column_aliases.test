@@ -1,6 +1,7 @@
 # Run tests with analytic functions
+[default language_features=MAXIMUM]
 {{|[no_preserve_column_aliases]}}
-[language_features=ANALYTIC_FUNCTIONS]
+[language_features=NONE,+ANALYTIC_FUNCTIONS]
 select afn_agg(key) over () as afn_agg, afn_agg(key) over () from KeyValue;
 --
 ALTERNATION GROUP: <empty>

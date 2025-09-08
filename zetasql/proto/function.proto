@@ -23,6 +23,7 @@ option java_outer_classname = "FunctionProtos";
 
 // Public enum and message definitions.
 import "zetasql/public/annotation.proto";
+import "zetasql/public/constness_level.proto";
 import "zetasql/public/deprecation_warning.proto";
 import "zetasql/public/function.proto";
 import "zetasql/public/options.proto";
@@ -66,10 +67,17 @@ message TVFDescriptorProto {
   repeated string column_name = 1;
 }
 
+message TVFGraphProto {
+  optional string name = 1;
+  optional string full_name = 2;
+}
+
 // The fields in here are in FunctionArgumentTypeOptions in the c++ API.
 message FunctionArgumentTypeOptionsProto {
   optional FunctionEnums.ArgumentCardinality cardinality = 1;
-  optional bool must_be_constant = 2;
+  // must_be_constant is deprecated and will stop working at some point in the
+  // future. Please set the appropriate constness_level instead.
+  optional bool must_be_constant = 2 [deprecated = true];
   optional bool must_be_non_null = 3;
   optional bool is_not_aggregate = 4;
   optional bool must_support_equality = 5;
@@ -110,7 +118,10 @@ message FunctionArgumentTypeOptionsProto {
   optional FunctionEnums.ArgumentAliasKind argument_alias_kind = 26
       [default = ARGUMENT_NON_ALIASED];
   // If true, this argument must be constant expression or value.
-  optional bool must_be_constant_expression = 27;
+  // must_be_constant_expression is deprecated and will stop working at some
+  // point in the future. Please set the appropriate constness_level instead.
+  optional bool must_be_constant_expression = 27 [deprecated = true];
+  optional ConstnessLevelProto.Level constness_level = 28;
 }
 
 message ArgumentTypeLambdaProto {
@@ -202,7 +213,14 @@ message TableValuedFunctionOptionsProto {
 
 message TableValuedFunctionProto {
   repeated string name_path = 1;
-  optional FunctionSignatureProto signature = 2;
+  // DEPRECATED. Use the repeated signatures field instead.
+  // For backward compaitibility, Serialization should temporarily set both the
+  // fields if the TVF has only one signature. If there are multiple signatures,
+  // only the signatures field is set. Deserialization should prefer the
+  // signatures field if present, otherwise fallback to the signature field.
+  // TODO - Remove signature field once its no longer used.
+  optional FunctionSignatureProto signature = 2 [deprecated = true];
+  repeated FunctionSignatureProto signatures = 12;
   optional TableValuedFunctionOptionsProto options = 9;
   optional FunctionEnums.TableValuedFunctionType type = 3;
   optional FunctionEnums.Volatility volatility = 8;
@@ -225,6 +243,7 @@ message TVFArgumentProto {
   optional TVFModelProto model_argument = 3;
   optional TVFConnectionProto connection_argument = 4;
   optional TVFDescriptorProto descriptor_argument = 5;
+  optional TVFGraphProto graph_argument = 6;
 }
 
 message TVFSignatureOptionsProto {

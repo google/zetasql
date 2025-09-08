@@ -532,10 +532,12 @@ TEST_F(FunctionCallBuilderTest, EqualArgumentTypeMismatchTest) {
 }
 
 TEST_F(FunctionCallBuilderTest, EqualArgumentTypeDoesNotSupportEqualityTest) {
-  std::unique_ptr<ResolvedExpr> input = MakeResolvedLiteral(
-      types::JsonType(), Value::NullJson(), /*has_explicit_type=*/true);
+  // TokenList type does not support equality.
+  std::unique_ptr<ResolvedExpr> input =
+      MakeResolvedLiteral(types::TokenListType(), Value::NullTokenList(),
+                          /*has_explicit_type=*/true);
   std::unique_ptr<ResolvedExpr> input2 =
-      MakeResolvedLiteral(types::JsonType(), Value::NullJson(),
+      MakeResolvedLiteral(types::TokenListType(), Value::NullTokenList(),
                           /*has_explicit_type=*/true);
 
   EXPECT_THAT(fn_builder_.Equal(std::move(input), std::move(input2)),
@@ -2023,6 +2025,135 @@ AggregateScan
         +-ColumnRef(type=STRING, column=$expr_subquery.$col1#11)
 )", logical_function)));
   // clang-format on
+}
+
+TEST_F(FunctionCallBuilderTest, HllInitUnsupportedTypeTest) {
+  auto column =
+      MakeResolvedColumnRef(types::TimeType(), ResolvedColumn(), false);
+  // HLL_COUNT.INIT does not support TimeType.
+  ASSERT_THAT(fn_builder_.HllInit(std::move(column)),
+              StatusIs(absl::StatusCode::kInternal));
+}
+
+TEST_F(FunctionCallBuilderTest, HllInitInt32Test) {
+  auto column =
+      MakeResolvedColumnRef(types::Int32Type(), ResolvedColumn(), false);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> function,
+                       fn_builder_.HllInit(std::move(column)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+AggregateFunctionCall(ZetaSQL:hll_count.init(INT32) -> BYTES)
++-ColumnRef(type=INT32, column=.#-1)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, HllInitInt64Test) {
+  auto column =
+      MakeResolvedColumnRef(types::Int64Type(), ResolvedColumn(), false);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> function,
+                       fn_builder_.HllInit(std::move(column)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+AggregateFunctionCall(ZetaSQL:hll_count.init(INT64) -> BYTES)
++-ColumnRef(type=INT64, column=.#-1)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, HllInitUint64Test) {
+  auto column =
+      MakeResolvedColumnRef(types::Uint64Type(), ResolvedColumn(), false);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> function,
+                       fn_builder_.HllInit(std::move(column)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+AggregateFunctionCall(ZetaSQL:hll_count.init(UINT64) -> BYTES)
++-ColumnRef(type=UINT64, column=.#-1)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, HllInitStringTest) {
+  auto column =
+      MakeResolvedColumnRef(types::StringType(), ResolvedColumn(), false);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> function,
+                       fn_builder_.HllInit(std::move(column)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+AggregateFunctionCall(ZetaSQL:hll_count.init(STRING) -> BYTES)
++-ColumnRef(type=STRING, column=.#-1)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, HllInitBytesTest) {
+  auto column =
+      MakeResolvedColumnRef(types::BytesType(), ResolvedColumn(), false);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> function,
+                       fn_builder_.HllInit(std::move(column)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+AggregateFunctionCall(ZetaSQL:hll_count.init(BYTES) -> BYTES)
++-ColumnRef(type=BYTES, column=.#-1)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, HllMergePartialBytesTest) {
+  auto column =
+      MakeResolvedColumnRef(types::BytesType(), ResolvedColumn(), false);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> function,
+                       fn_builder_.HllMergePartial(std::move(column)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+AggregateFunctionCall(ZetaSQL:hll_count.merge_partial(BYTES) -> BYTES)
++-ColumnRef(type=BYTES, column=.#-1)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, HllMergePartialInt64TypeTest) {
+  auto column =
+      MakeResolvedColumnRef(types::Int64Type(), ResolvedColumn(), false);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> function,
+                       fn_builder_.HllMergePartial(std::move(column)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+AggregateFunctionCall(ZetaSQL:hll_count.merge_partial(INT64) -> BYTES)
++-ColumnRef(type=INT64, column=.#-1)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, HllMergeBytesTest) {
+  auto column =
+      MakeResolvedColumnRef(types::BytesType(), ResolvedColumn(), false);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> function,
+                       fn_builder_.HllMerge(std::move(column)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+AggregateFunctionCall(ZetaSQL:hll_count.merge(BYTES) -> INT64)
++-ColumnRef(type=BYTES, column=.#-1)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, HllMergeInt64TypeTest) {
+  auto column =
+      MakeResolvedColumnRef(types::Int64Type(), ResolvedColumn(), false);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> function,
+                       fn_builder_.HllMerge(std::move(column)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+AggregateFunctionCall(ZetaSQL:hll_count.merge(INT64) -> INT64)
++-ColumnRef(type=INT64, column=.#-1)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, HllExtractBytesTest) {
+  auto column =
+      MakeResolvedColumnRef(types::BytesType(), ResolvedColumn(), false);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> function,
+                       fn_builder_.HllExtract(std::move(column)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:hll_count.extract(BYTES) -> INT64)
++-ColumnRef(type=BYTES, column=.#-1)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, HllExtractInt64TypeTest) {
+  auto column =
+      MakeResolvedColumnRef(types::Int64Type(), ResolvedColumn(), false);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> function,
+                       fn_builder_.HllExtract(std::move(column)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:hll_count.extract(INT64) -> INT64)
++-ColumnRef(type=INT64, column=.#-1)
+)"));
 }
 
 INSTANTIATE_TEST_SUITE_P(BuildAggregateScan, LikeAnyAllSubqueryScanBuilderTest,

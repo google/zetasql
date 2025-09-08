@@ -66,7 +66,7 @@ class ParseTreeSerializerTest : public ::testing::Test {
 
     ParserOptions deserialize_parser_options =
         ParserOptions(/*id_string_pool=*/nullptr,
-                      /*arena=*/nullptr, /* language_options=*/nullptr);
+                      /*arena=*/nullptr);
     if (is_expression) {
       const zetasql::ASTExpression* expression =
           status.ok() ? parser_output->expression() : nullptr;

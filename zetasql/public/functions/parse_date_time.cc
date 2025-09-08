@@ -976,14 +976,14 @@ static absl::Status ParseTime(absl::string_view format,
   data = ConsumeWhitespace(data, end_of_data);
 
   // Sets default values for unspecified fields.
-  struct tm tm = { 0 };
+  struct tm tm = {0};
   tm.tm_year = 1970 - 1900;  // tm_year is an offset from 1900
   tm.tm_mon = 1 - 1;         // tm_mon is 0-based, so this is January
   tm.tm_mday = 1;
   tm.tm_hour = 0;
   tm.tm_min = 0;
   tm.tm_sec = 0;
-  tm.tm_wday = 4;            // Thursday
+  tm.tm_wday = 4;  // Thursday
   tm.tm_yday = 0;
   tm.tm_isdst = 0;
 
@@ -1692,9 +1692,9 @@ static absl::Status ValidateParseFormat(absl::string_view format_string,
 
     // Returns error if the format is any of the <invalid_elements>
     if (strchr(invalid_elements, *cur)) {
-      return MakeEvalError() << "Invalid format: %" << *cur
-                             << " is not allowed for the " << target_type_name
-                             << " type.";
+      return MakeEvalError()
+             << "Invalid format: %" << *cur << " is not allowed for the "
+             << target_type_name << " type.";
     }
 
     const char* prev = cur;
@@ -1719,16 +1719,16 @@ static absl::Status ValidateParseFormat(absl::string_view format_string,
           ++prev;
         }
         element.push_back(*cur);
-        return MakeEvalError() << "Invalid format: %" << element
-                               << " is not allowed for the " << target_type_name
-                               << " type.";
+        return MakeEvalError()
+               << "Invalid format: %" << element << " is not allowed for the "
+               << target_type_name << " type.";
       }
     } else if (*prev == 'O') {
       // Check %O extensions.
       if (strchr(invalid_elements, *cur)) {
-        return MakeEvalError() << "Invalid format: %O" << *cur
-                               << " is not allowed for the " << target_type_name
-                               << " type.";
+        return MakeEvalError()
+               << "Invalid format: %O" << *cur << " is not allowed for the "
+               << target_type_name << " type.";
       }
     }
   }
@@ -1834,22 +1834,58 @@ absl::Status ParseStringToTimestamp(absl::string_view format_string,
 absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     absl::string_view default_timezone_string,
-                                    PicoTime* timestamp) {
+                                    int64_t precision, PicoTime* timestamp) {
   absl::TimeZone timezone;
   ZETASQL_RETURN_IF_ERROR(MakeTimeZone(default_timezone_string, &timezone));
   return ParseStringToTimestamp(format_string, timestamp_string, timezone,
-                                timestamp);
+                                precision, timestamp, /*error=*/nullptr);
 }
 
 absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     absl::TimeZone default_timezone,
-                                    PicoTime* timestamp) {
+                                    int64_t precision, PicoTime* timestamp,
+                                    ParseTimestampError* error) {
+  TimestampScale scale;
+  switch (precision) {
+    case 0:
+      scale = kSeconds;
+      break;
+    case 3:
+      scale = kMilliseconds;
+      break;
+    case 6:
+      scale = kMicroseconds;
+      break;
+    case 9:
+      scale = kNanoseconds;
+      break;
+    case 12:
+      scale = kPicoseconds;
+      break;
+    default:
+      return MakeEvalError() << "Invalid precision: " << precision
+                             << ". Precision can only be 0, 3, 6, 9 or 12.";
+  }
+
   uint32_t sub_nanoseconds;
   absl::Time time;
-  ZETASQL_RETURN_IF_ERROR(ParseTime(format_string, timestamp_string, default_timezone,
-                            kPicoseconds, /*parse_version2=*/true, &time,
-                            &sub_nanoseconds));
+  absl::Status status =
+      ParseTime(format_string, timestamp_string, default_timezone, scale,
+                /*parse_version2=*/true, &time, &sub_nanoseconds);
+  if (!status.ok()) {
+    if (error != nullptr) {
+      if (time < absl::FromUnixMicros(zetasql::types::kTimestampMin)) {
+        *error = ParseTimestampError::kLessThanLowerBound;
+      } else if (time >=
+                 absl::FromUnixMicros(zetasql::types::kTimestampMax + 1)) {
+        *error = ParseTimestampError::kGreaterThanUpperBound;
+      } else {
+        *error = ParseTimestampError::kMalformed;
+      }
+    }
+    return status;
+  }
 
   ZETASQL_ASSIGN_OR_RETURN(PicoTime pico_time, PicoTime::Create(time));
   ZETASQL_ASSIGN_OR_RETURN(*timestamp, PicoTime::FromUnixPicos(pico_time.ToUnixPicos() +
@@ -1866,9 +1902,8 @@ absl::Status ParseStringToDate(absl::string_view format_string,
 
 absl::Status ParseStringToTime(absl::string_view format_string,
                                absl::string_view time_string,
-                               TimestampScale scale,
-                               TimeValue* time) {
-  ABSL_CHECK(scale == kNanoseconds || scale == kMicroseconds);
+                               TimestampScale scale, TimeValue* time) {
+  ZETASQL_RETURN_IF_ERROR(ValidateTimeScale(scale));
   ZETASQL_RETURN_IF_ERROR(ValidateTimeFormat(format_string));
 
   absl::Time base_time;
@@ -1881,7 +1916,7 @@ absl::Status ParseStringToDatetime(absl::string_view format_string,
                                    absl::string_view datetime_string,
                                    TimestampScale scale, bool parse_version2,
                                    DatetimeValue* datetime) {
-  ABSL_CHECK(scale == kNanoseconds || scale == kMicroseconds);
+  ZETASQL_RETURN_IF_ERROR(ValidateTimeScale(scale));
   ZETASQL_RETURN_IF_ERROR(ValidateDatetimeFormat(format_string));
 
   absl::Time base_time;

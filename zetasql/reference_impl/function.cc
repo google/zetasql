@@ -64,17 +64,23 @@
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/functions/differential_privacy.pb.h"
 #include "zetasql/public/functions/distance.h"
+#include "zetasql/public/functions/rank_type.pb.h"
 #include "zetasql/public/functions/rounding_mode.pb.h"
 #include "zetasql/public/interval_value.h"
+#include "zetasql/public/pico_time.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
+#include "zetasql/public/table_valued_function.h"
+#include "zetasql/public/timestamp_picos_value.h"
 #include "zetasql/public/types/timestamp_util.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/uuid_value.h"
 #include "zetasql/reference_impl/functions/like.h"
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/tuple.h"
+#include "zetasql/reference_impl/variable_id.h"
 #include "absl/base/attributes.h"
 #include "absl/base/const_init.h"
+#include "absl/base/no_destructor.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "zetasql/base/check.h"
@@ -158,6 +164,7 @@ namespace zetasql {
 namespace {
 
 using ::zetasql::functions::ArrayZipEnums;
+using ::zetasql::functions::RankTypeEnums;
 using ::google::protobuf::util::TimeUtil;
 
 static bool IsTypeWithDistinguishableTies(const Type* type,
@@ -257,26 +264,6 @@ bool SafeInvokeUnary(typename UnaryExecutor<OutType, InType>::ptr function,
     *status = absl::OkStatus();
     *result = Value::MakeNull<OutType>();
   }
-  return true;
-}
-
-template <typename OutType, typename InType1, typename InType2>
-struct BinaryExecutor {
-  typedef bool (*ptr)(InType1, InType2, OutType*, absl::Status* error);
-};
-
-template <typename OutType, typename InType1 = OutType,
-          typename InType2 = OutType>
-bool InvokeBinary(
-    typename BinaryExecutor<OutType, InType1, InType2>::ptr function,
-    absl::Span<const Value> args, Value* result, absl::Status* status) {
-  ABSL_CHECK_EQ(2, args.size());
-  OutType out;
-  if (!function(args[0].template Get<InType1>(),
-                args[1].template Get<InType2>(), &out, status)) {
-    return false;
-  }
-  *result = Value::Make<OutType>(out);
   return true;
 }
 
@@ -443,6 +430,9 @@ absl::Status GenerateArray(BigNumericValue start, BigNumericValue end,
 // to be happy.
 Value MakeDate(int64_t in) { return Value::Date(in); }
 Value MakeTimestamp(absl::Time in) { return Value::Timestamp(in); }
+Value MakeTimestamp(PicoTime in) {
+  return Value::Timestamp(TimestampPicosValue(in));
+}
 
 absl::Status GenerateDateArray(int64_t start, int64_t end, int64_t step,
                                functions::DateTimestampPart step_unit,
@@ -456,16 +446,13 @@ absl::Status GenerateDateArray(int64_t start, int64_t end, int64_t step,
       start, end, increment, context, values);
 }
 
-absl::Status GenerateTimestampArray(absl::Time start, absl::Time end,
+absl::Status GenerateTimestampArray(const PicoTime& start, const PicoTime& end,
                                     int64_t step,
                                     functions::DateTimestampPart step_unit,
                                     EvaluationContext* context,
                                     std::vector<Value>* values) {
-  functions::TimestampIncrement increment;
-  increment.unit = step_unit;
-  increment.value = step;
-
-  return GenerateArrayHelper<absl::Time, functions::TimestampIncrement,
+  functions::TimestampIncrement increment = {.unit = step_unit, .value = step};
+  return GenerateArrayHelper<PicoTime, functions::TimestampIncrement,
                              MakeTimestamp>(start, end, increment, context,
                                             values);
 }
@@ -604,6 +591,7 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kDatetimeTrunc, "datetime_trunc",
                      "Datetime_trunc");
     RegisterFunction(FunctionKind::kLastDay, "last_day", "Last_day");
+    RegisterFunction(FunctionKind::kAddMonths, "add_months", "AddMonths");
     RegisterFunction(FunctionKind::kDateDiff, "date_diff", "Date_diff");
     RegisterFunction(FunctionKind::kDivide, "$divide", "Divide");
     RegisterFunction(FunctionKind::kSafeDivide, "safe_divide", "SafeDivide");
@@ -823,7 +811,9 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kCsch, "csch", "Csch");
     RegisterFunction(FunctionKind::kSech, "sech", "Sech");
     RegisterFunction(FunctionKind::kCoth, "coth", "Coth");
+    RegisterFunction(FunctionKind::kDegrees, "degrees", "Degrees");
     RegisterFunction(FunctionKind::kPi, "pi", "Pi");
+    RegisterFunction(FunctionKind::kRadians, "radians", "Radians");
     RegisterFunction(FunctionKind::kPiNumeric, "pi_numeric", "Pi_numeric");
     RegisterFunction(FunctionKind::kPiBigNumeric, "pi_bignumeric",
                      "Pi_bignumeric");
@@ -888,6 +878,8 @@ FunctionMap::FunctionMap() {
                      "RegexpExtract");
     RegisterFunction(FunctionKind::kRegexpExtractAll, "regexp_extract_all",
                      "RegexpExtract");
+    RegisterFunction(FunctionKind::kRegexpExtractGroups,
+                     "regexp_extract_groups", "RegexpExtractGroups");
     RegisterFunction(FunctionKind::kRegexpInstr, "regexp_instr", "RegexpInstr");
     RegisterFunction(FunctionKind::kRegexpReplace, "regexp_replace",
                      "RegexpReplace");
@@ -1218,6 +1210,12 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kMapDelete, "map_delete", "MapDelete");
     RegisterFunction(FunctionKind::kMapFilter, "map_filter", "MapFilter");
     RegisterFunction(FunctionKind::kMeasureAgg, "AGG", "AggregateMeasure");
+    RegisterFunction(FunctionKind::kZstdCompress, "zstd_compress",
+                     "ZstdCompress");
+    RegisterFunction(FunctionKind::kZstdDecompressToBytes,
+                     "zstd_decompress_to_bytes", "ZstdDecompressToBytes");
+    RegisterFunction(FunctionKind::kZstdDecompressToString,
+                     "zstd_decompress_to_string", "ZstdDecompressToString");
   }();
 }  // NOLINT(readability/fn_size)
 
@@ -1406,6 +1404,14 @@ static absl::StatusOr<Value> ExtractAll(absl::Span<const Value> x,
     return status;
   }
   return ValueTraits<type>::ToArray(values);
+}
+
+template <TypeKind type>
+static absl::StatusOr<Value> ExtractGroups(absl::Span<const Value> x,
+                                           const functions::RegExp& regexp,
+                                           const Type* output_type) {
+  ZETASQL_RET_CHECK_EQ(x.size(), 2);
+  return regexp.ExtractGroups(ValueTraits<type>::FromValue(x[0]), output_type);
 }
 
 absl::Status UpdateCovariance(long double x, long double y, long double mean_x,
@@ -1770,18 +1776,43 @@ absl::StatusOr<JSONValueConstRef> GetJSONValueConstRef(
 
 }  // namespace
 
+template <typename OutType, typename InType1, typename InType2>
+bool InvokeBinary(
+    typename BinaryExecutor<OutType, InType1, InType2>::ptr function,
+    absl::Span<const Value> args, Value* result, absl::Status* status) {
+  ABSL_CHECK_EQ(2, args.size());
+  OutType out;
+  if (!function(args[0].template Get<InType1>(),
+                args[1].template Get<InType2>(), &out, status)) {
+    return false;
+  }
+  *result = Value::Make<OutType>(out);
+  return true;
+}
+
 absl::Status MakeMaxArrayValueByteSizeExceededError(
     int64_t max_value_byte_size, const zetasql_base::SourceLocation& source_loc) {
   return zetasql_base::ResourceExhaustedErrorBuilder(source_loc)
          << "Arrays are limited to " << max_value_byte_size << " bytes";
 }
 
-functions::TimestampScale GetTimestampScale(const LanguageOptions& options) {
-  if (options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
-    return functions::TimestampScale::kNanoseconds;
-  } else {
+functions::TimestampScale GetTimestampScale(const LanguageOptions& options,
+                                            bool support_picos) {
+  if (options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_PICOS)) {
+    if (support_picos) {
+      return functions::TimestampScale::kPicoseconds;
+    }
+    // If the language option is enabled but the callsite does not support
+    // Picoseconds, we will return Microseconds timestamp scale. This
+    // effectively turns off any Picosecond-related logic.
+    // TODO Remove once all callsites support Picoseconds.
     return functions::TimestampScale::kMicroseconds;
   }
+
+  if (options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
+    return functions::TimestampScale::kNanoseconds;
+  }
+  return functions::TimestampScale::kMicroseconds;
 }
 
 ABSL_CONST_INIT absl::Mutex BuiltinFunctionRegistry::mu_(absl::kConstInit);
@@ -1823,6 +1854,43 @@ BuiltinFunctionRegistry::GetScalarFunction(
 BuiltinFunctionRegistry::GetFunctionMap() {
   static auto* map =
       new absl::flat_hash_map<FunctionKind, ScalarFunctionConstructor>();
+  return *map;
+}
+
+/* static */ absl::StatusOr<BuiltinTableValuedFunction*>
+BuiltinFunctionRegistry::GetTableValuedFunction(FunctionKind kind) {
+  absl::MutexLock lock(&mu_);
+  auto it = GetTableValuedFunctionMap().find(kind);
+  if (it == GetTableValuedFunctionMap().end()) {
+    return zetasql_base::UnimplementedErrorBuilder(zetasql_base::SourceLocation::current())
+           << BuiltinFunctionCatalog::GetDebugNameByKind(kind)
+           << " is an optional table valued function implementation which is "
+              "not present in this binary or has not been registered";
+  }
+
+  auto function_constructor = it->second;
+  BuiltinTableValuedFunction* function = function_constructor();
+  return function;
+}
+
+/* static */ void BuiltinFunctionRegistry::RegisterTableValuedFunction(
+    std::initializer_list<FunctionKind> kinds,
+    const std::function<BuiltinTableValuedFunction*(FunctionKind)>&
+        constructor) {
+  absl::MutexLock lock(&mu_);
+  for (FunctionKind kind : kinds) {
+    GetTableValuedFunctionMap()[kind] = [kind, constructor]() {
+      return constructor(kind);
+    };
+  }
+}
+
+/* static */ absl::flat_hash_map<
+    FunctionKind, BuiltinFunctionRegistry::TableValuedFunctionConstructor>&
+BuiltinFunctionRegistry::GetTableValuedFunctionMap() {
+  static absl::NoDestructor<
+      absl::flat_hash_map<FunctionKind, TableValuedFunctionConstructor>>
+      map;
   return *map;
 }
 
@@ -2198,6 +2266,32 @@ BuiltinScalarFunction::CreateCall(
                                         std::move(arguments), error_mode);
 }
 
+absl::StatusOr<std::unique_ptr<TableValuedFunctionCallExpr>>
+BuiltinTableValuedFunction::CreateCall(
+    FunctionKind kind, std::vector<TvfAlgebraArgument> arguments,
+    std::vector<TVFSchemaColumn> output_columns,
+    std::vector<VariableId> variables,
+    std::shared_ptr<FunctionSignature> function_call_signature) {
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<BuiltinTableValuedFunction> function,
+                   Create(kind));
+  return TableValuedFunctionCallExpr::Create(
+      std::move(function), std::move(arguments), std::move(output_columns),
+      std::move(variables), std::move(function_call_signature));
+}
+
+absl::StatusOr<std::unique_ptr<BuiltinTableValuedFunction>>
+BuiltinTableValuedFunction::Create(FunctionKind kind) {
+  switch (kind) {
+    // Reference implementation of builtin TVFs (concrete instances of
+    // `BuiltinTableValuedFunction`) should go here based on kind if those are
+    // not registered in `BuiltinFunctionRegistry`.
+    default:
+      ZETASQL_ASSIGN_OR_RETURN(BuiltinTableValuedFunction * function,
+                       BuiltinFunctionRegistry::GetTableValuedFunction(kind));
+      return absl::WrapUnique(function);
+  }
+}
+
 // Verifies the input `arguments` have at most one lambda argument, and return
 // it. If there are no lambda arguments return nullptr.
 static absl::StatusOr<const InlineLambdaExpr*> GetLambdaArgumentForArrayZip(
@@ -2368,6 +2462,8 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kCsch:
     case FunctionKind::kSech:
     case FunctionKind::kCoth:
+    case FunctionKind::kRadians:
+    case FunctionKind::kDegrees:
       return new MathFunction(kind, output_type);
     case FunctionKind::kPi:
     case FunctionKind::kPiNumeric:
@@ -2442,6 +2538,7 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kRegexpMatch:
     case FunctionKind::kRegexpExtract:
     case FunctionKind::kRegexpExtractAll:
+    case FunctionKind::kRegexpExtractGroups:
     case FunctionKind::kRegexpInstr:
     case FunctionKind::kRegexpReplace: {
       ZETASQL_ASSIGN_OR_RETURN(auto fct,
@@ -2523,6 +2620,8 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return new DateTimeTruncFunction(kind, output_type);
     case FunctionKind::kLastDay:
       return new LastDayFunction(kind, output_type);
+    case FunctionKind::kAddMonths:
+      return new AddMonthsFunction(kind, output_type);
     case FunctionKind::kExtractFrom:
       return new ExtractFromFunction(kind, output_type);
     case FunctionKind::kExtractDateFrom:
@@ -2995,8 +3094,7 @@ absl::StatusOr<Value> FormatFunction::Eval(
   ZETASQL_RETURN_IF_ERROR(functions::StringFormatUtf8(
       args[0].string_value(), values,
       context->GetLanguageOptions().product_mode(), &output,
-      &is_null, true, context->GetLanguageOptions().product_mode() ==
-          PRODUCT_EXTERNAL));
+      &is_null, true, true));
   Value value;
   if (is_null) {
     value = Value::NullString();
@@ -3077,7 +3175,9 @@ absl::StatusOr<Value> GenerateArrayFunction::Eval(
       const int64_t step = args[2].int64_value();
       const functions::DateTimestampPart step_unit =
           static_cast<functions::DateTimestampPart>(args[3].enum_value());
-      ZETASQL_RETURN_IF_ERROR(GenerateTimestampArray(args[0].ToTime(), args[1].ToTime(),
+
+      ZETASQL_RETURN_IF_ERROR(GenerateTimestampArray(args[0].ToUnixPicos().ToPicoTime(),
+                                             args[1].ToUnixPicos().ToPicoTime(),
                                              step, step_unit, context,
                                              &range_values));
       break;
@@ -3166,10 +3266,10 @@ absl::Status ArithmeticFunction::AddIntervalHelper(
       break;
     }
     case TYPE_TIMESTAMP: {
-      absl::Time timestamp;
-      ZETASQL_RETURN_IF_ERROR(functions::AddTimestamp(
-          arg.ToTime(), context->GetDefaultTimeZone(), interval, &timestamp));
-      *result = Value::Timestamp(timestamp);
+      ZETASQL_ASSIGN_OR_RETURN(
+          PicoTime timestamp,
+          functions::AddTimestamp(arg.ToUnixPicos().ToPicoTime(), interval));
+      *result = Value::Timestamp(TimestampPicosValue(timestamp));
       break;
     }
     case TYPE_DATETIME: {
@@ -3717,6 +3817,7 @@ bool ComparisonFunction::Eval(absl::Span<const TupleData* const> params,
     case FCT2(FunctionKind::kLessOrEqual, TYPE_NUMERIC, TYPE_NUMERIC):
     case FCT2(FunctionKind::kLessOrEqual, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
     case FCT2(FunctionKind::kLessOrEqual, TYPE_RANGE, TYPE_RANGE):
+    case FCT2(FunctionKind::kLessOrEqual, TYPE_JSON, TYPE_JSON):
     case FCT2(FunctionKind::kLessOrEqual, TYPE_UUID, TYPE_UUID):
       *result = Value::Bool(x.LessThan(y) || x.Equals(y));
       return true;
@@ -4372,21 +4473,18 @@ absl::StatusOr<Value> ArrayMinMaxFunction::Eval(
       return Value::Datetime(min_value);
     }
     case FCT(FunctionKind::kArrayMin, TYPE_TIMESTAMP): {
-      absl::Time min_value = absl::InfiniteFuture();
+      PicoTime min_value = PicoTime::MaxValue();
       for (const Value& element : args[0].elements()) {
         if (element.is_null()) {
           continue;
         }
         has_non_null = true;
-        min_value = std::min(min_value, element.ToTime());
+        min_value = std::min(min_value, element.ToUnixPicos().ToPicoTime());
       }
       if (!has_non_null) {
         return output_null;
       }
-      return context->UseNanosTimeResolution()
-                 ? Value::Timestamp(min_value)
-                 : Value::TimestampFromUnixMicros(
-                       absl::ToUnixMicros(min_value));
+      return Value::Timestamp(TimestampPicosValue(min_value));
     }
     case FCT(FunctionKind::kArrayMin, TYPE_TIME): {
       int64_t min_value = std::numeric_limits<int64_t>::max();
@@ -4537,7 +4635,22 @@ absl::StatusOr<Value> ArrayMinMaxFunction::Eval(
       }
       return min_value;
     }
-
+    case FCT(FunctionKind::kArrayMin, TYPE_JSON): {
+      Value min_value = Value::Null(output_type());
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        has_non_null = true;
+        if (min_value.is_null() || element.LessThan(min_value)) {
+          min_value = element;
+        }
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      return min_value;
+    }
     // ARRAY_MAX
     case FCT(FunctionKind::kArrayMax, TYPE_FLOAT):
     case FCT(FunctionKind::kArrayMax, TYPE_DOUBLE): {
@@ -4626,21 +4739,18 @@ absl::StatusOr<Value> ArrayMinMaxFunction::Eval(
       return Value::Datetime(max_value);
     }
     case FCT(FunctionKind::kArrayMax, TYPE_TIMESTAMP): {
-      absl::Time max_value = absl::InfinitePast();
+      PicoTime max_value = PicoTime::MinValue();
       for (const Value& element : args[0].elements()) {
         if (element.is_null()) {
           continue;
         }
         has_non_null = true;
-        max_value = std::max(max_value, element.ToTime());
+        max_value = std::max(max_value, element.ToUnixPicos().ToPicoTime());
       }
       if (!has_non_null) {
         return output_null;
       }
-      return context->UseNanosTimeResolution()
-                 ? Value::Timestamp(max_value)
-                 : Value::TimestampFromUnixMicros(
-                       absl::ToUnixMicros(max_value));
+      return Value::Timestamp(TimestampPicosValue(max_value));
     }
     case FCT(FunctionKind::kArrayMax, TYPE_TIME): {
       int64_t max_value = std::numeric_limits<int64_t>::lowest();
@@ -4776,6 +4886,22 @@ absl::StatusOr<Value> ArrayMinMaxFunction::Eval(
       return Value::Interval(max_value);
     }
     case FCT(FunctionKind::kArrayMax, TYPE_RANGE): {
+      Value max_value = Value::Null(output_type());
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        has_non_null = true;
+        if (max_value.is_null() || max_value.LessThan(element)) {
+          max_value = element;
+        }
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      return max_value;
+    }
+    case FCT(FunctionKind::kArrayMax, TYPE_JSON): {
       Value max_value = Value::Null(output_type());
       for (const Value& element : args[0].elements()) {
         if (element.is_null()) {
@@ -5493,7 +5619,7 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   int64_t out_int64_ = 0;              // Max, Min
   uint64_t out_uint64_ = 0;            // Max, Min
   DatetimeValue out_datetime_;         // Max, Min
-  absl::Time out_timestamp_;           // Max, Min
+  PicoTime out_timestamp_;             // Max, Min
   IntervalValue out_interval_;         // Max, Min
   __int128 out_int128_ = 0;            // Sum
   unsigned __int128 out_uint128_ = 0;  // Sum
@@ -5501,6 +5627,7 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   BigNumericValue out_bignumeric_;     // Min, Max
   Value out_range_;                    // Min, Max
   UuidValue out_uuid_;                 // Min, Max
+  Value out_json_;                     // Min, Max
   NumericValue::SumAggregator numeric_aggregator_;        // Avg, Sum
   BigNumericValue::SumAggregator bignumeric_aggregator_;  // Avg, Sum
   IntervalValue::SumAggregator interval_aggregator_;      // Sum
@@ -6053,7 +6180,8 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
       out_int64_ = std::numeric_limits<int64_t>::lowest();
       break;
     case FCT(FunctionKind::kMax, TYPE_TIMESTAMP):
-      out_timestamp_ = absl::InfinitePast();
+      // Set as the lowest value, namely the start of epoch.
+      out_timestamp_ = PicoTime::MinValue();
       break;
     case FCT(FunctionKind::kMax, TYPE_NUMERIC):
       out_numeric_ = NumericValue::MinValue();
@@ -6080,6 +6208,9 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
     case FCT(FunctionKind::kMax, TYPE_RANGE):
       out_range_ = Value::Invalid();
       break;
+    case FCT(FunctionKind::kMax, TYPE_JSON):
+      out_json_ = Value::Invalid();
+      break;
 
       // Min
     case FCT(FunctionKind::kMin, TYPE_FLOAT):
@@ -6099,7 +6230,8 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
       out_int64_ = std::numeric_limits<int64_t>::max();
       break;
     case FCT(FunctionKind::kMin, TYPE_TIMESTAMP):
-      out_timestamp_ = absl::InfiniteFuture();
+      // Set as the largest value, namely the end of epoch.
+      out_timestamp_ = PicoTime::MaxValue();
       break;
     case FCT(FunctionKind::kMin, TYPE_NUMERIC):
       out_numeric_ = NumericValue::MaxValue();
@@ -6126,6 +6258,9 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
       break;
     case FCT(FunctionKind::kMin, TYPE_RANGE):
       out_range_ = Value::Invalid();
+      break;
+    case FCT(FunctionKind::kMin, TYPE_JSON):
+      out_json_ = Value::Invalid();
       break;
 
       // Avg and Sum
@@ -6607,7 +6742,8 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       break;
     }
     case FCT(FunctionKind::kMax, TYPE_TIMESTAMP): {
-      out_timestamp_ = std::max(out_timestamp_, value.ToTime());
+      out_timestamp_ =
+          std::max(out_timestamp_, value.ToUnixPicos().ToPicoTime());
       break;
     }
     case FCT(FunctionKind::kMax, TYPE_DATETIME): {
@@ -6685,6 +6821,18 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       }
       break;
     }
+    case FCT(FunctionKind::kMax, TYPE_JSON): {
+      if (!out_json_.is_valid()) {
+        out_json_ = value;
+      } else {
+        const Value comparison_result = out_json_.SqlLessThan(value);
+        if (!comparison_result.is_valid() || comparison_result.is_null()) {
+          return false;
+        }
+        out_json_ = comparison_result.bool_value() ? value : out_json_;
+      }
+      break;
+    }
 
       // Min
     case FCT(FunctionKind::kMin, TYPE_FLOAT):
@@ -6719,7 +6867,8 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
     }
     case FCT(FunctionKind::kMin, TYPE_TIMESTAMP): {
       // TODO: Support Value::ToUnixNanos in ARRAY_MIN and MIN.
-      out_timestamp_ = std::min(out_timestamp_, value.ToTime());
+      out_timestamp_ =
+          std::min(out_timestamp_, value.ToUnixPicos().ToPicoTime());
       break;
     }
     case FCT(FunctionKind::kMin, TYPE_DATETIME): {
@@ -6790,6 +6939,18 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
           return false;
         }
         out_range_ = comparison_result.bool_value() ? value : out_range_;
+      }
+      break;
+    }
+    case FCT(FunctionKind::kMin, TYPE_JSON): {
+      if (!out_json_.is_valid()) {
+        out_json_ = value;
+      } else {
+        const Value comparison_result = value.SqlLessThan(out_json_);
+        if (!comparison_result.is_valid() || comparison_result.is_null()) {
+          return false;
+        }
+        out_json_ = comparison_result.bool_value() ? value : out_json_;
       }
       break;
     }
@@ -8181,10 +8342,7 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
       if (count_ == 0) {
         return Value::NullTimestamp();
       }
-      return context_->UseNanosTimeResolution()
-                 ? Value::Timestamp(out_timestamp_)
-                 : Value::TimestampFromUnixMicros(
-                       absl::ToUnixMicros(out_timestamp_));
+      return Value::Timestamp(TimestampPicosValue(out_timestamp_));
 
     case FCT(FunctionKind::kMax, TYPE_DATETIME):
     case FCT(FunctionKind::kMin, TYPE_DATETIME):
@@ -8220,6 +8378,10 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
         return out_range_;
       }
       return Value::Null(output_type);
+    }
+    case FCT(FunctionKind::kMax, TYPE_JSON):
+    case FCT(FunctionKind::kMin, TYPE_JSON): {
+      return count_ > 0 ? out_json_ : Value::Null(output_type);
     }
 
     // Logical aggregates.
@@ -9108,6 +9270,24 @@ bool MathFunction::Eval(absl::Span<const TupleData* const> params,
     case FCT(FunctionKind::kCoth, TYPE_DOUBLE):
       return InvokeUnary<double>(&functions::Coth<double>, args, result,
                                  status);
+    case FCT(FunctionKind::kRadians, TYPE_DOUBLE):
+      return InvokeUnary<double>(&functions::Radians<double>, args, result,
+                                 status);
+    case FCT(FunctionKind::kRadians, TYPE_NUMERIC):
+      return InvokeUnary<NumericValue>(&functions::Radians<NumericValue>, args,
+                                       result, status);
+    case FCT(FunctionKind::kRadians, TYPE_BIGNUMERIC):
+      return InvokeUnary<BigNumericValue>(&functions::Radians<BigNumericValue>,
+                                          args, result, status);
+    case FCT(FunctionKind::kDegrees, TYPE_DOUBLE):
+      return InvokeUnary<double>(&functions::Degrees<double>, args, result,
+                                 status);
+    case FCT(FunctionKind::kDegrees, TYPE_NUMERIC):
+      return InvokeUnary<NumericValue>(&functions::Degrees<NumericValue>, args,
+                                       result, status);
+    case FCT(FunctionKind::kDegrees, TYPE_BIGNUMERIC):
+      return InvokeUnary<BigNumericValue>(&functions::Degrees<BigNumericValue>,
+                                          args, result, status);
 
     case FCT(FunctionKind::kRound, TYPE_DOUBLE):
       if (args.size() == 1) {
@@ -9630,6 +9810,12 @@ absl::StatusOr<Value> RegexpFunction::Eval(
     }
     case FCT(FunctionKind::kRegexpExtractAll, TYPE_BYTES): {
       return ExtractAll<TYPE_BYTES>(args, *regexp);
+    }
+    case FCT(FunctionKind::kRegexpExtractGroups, TYPE_STRING): {
+      return ExtractGroups<TYPE_STRING>(args, *regexp, output_type());
+    }
+    case FCT(FunctionKind::kRegexpExtractGroups, TYPE_BYTES): {
+      return ExtractGroups<TYPE_BYTES>(args, *regexp, output_type());
     }
     case FCT(FunctionKind::kRegexpReplace, TYPE_STRING): {
       return Replace<TYPE_STRING>(args, *regexp);
@@ -10157,20 +10343,16 @@ absl::StatusOr<Value> FormatDateDatetimeTimestampFunction::Eval(
     case TYPE_TIMESTAMP: {
       if (args.size() == 2) {
         ZETASQL_RETURN_IF_ERROR(functions::FormatTimestampToString(
-            args[0].string_value(),
-            context->UseNanosTimeResolution()
-                ? args[1].ToTime()
-                : absl::FromUnixMicros(args[1].ToUnixMicros()),
+            args[0].string_value(), args[1].ToUnixPicos().ToPicoTime(),
             context->GetDefaultTimeZone(), {.expand_Q = true, .expand_J = true},
             &result_string));
       } else {
+        absl::TimeZone timezone;
+        ZETASQL_RETURN_IF_ERROR(
+            functions::MakeTimeZone(args[2].string_value(), &timezone));
         ZETASQL_RETURN_IF_ERROR(functions::FormatTimestampToString(
-            args[0].string_value(),
-            context->UseNanosTimeResolution()
-                ? args[1].ToTime()
-                : absl::FromUnixMicros(args[1].ToUnixMicros()),
-            args[2].string_value(), {.expand_Q = true, .expand_J = true},
-            &result_string));
+            args[0].string_value(), args[1].ToUnixPicos().ToPicoTime(),
+            timezone, {.expand_Q = true, .expand_J = true}, &result_string));
       }
       break;
     }
@@ -10211,19 +10393,22 @@ absl::StatusOr<Value> TimestampConversionFunction::Eval(
     }
     return Value::Timestamp(timestamp);
   } else if (!args.empty() && args[0].type()->IsString()) {
-    int64_t timestamp_micros;
-    if (args.size() == 2 && args[1].type()->IsString()) {
-      ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTimestamp(
-          args[0].string_value(), args[1].string_value(),
-          functions::kMicroseconds, false, &timestamp_micros));
-    } else if (args.size() == 1) {
-      ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTimestamp(
-          args[0].string_value(), context->GetDefaultTimeZone(),
-          functions::kMicroseconds, true, &timestamp_micros));
-    } else {
+    if (args.size() > 2 || (args.size() == 2 && !args[1].type()->IsString())) {
       return MakeEvalError() << "Unsupported function: " << debug_name();
     }
-    return Value::TimestampFromUnixMicros(timestamp_micros);
+    functions::TimestampScale scale = GetTimestampScale(
+        context->GetLanguageOptions(), /*support_picos=*/true);
+    absl::TimeZone timezone = context->GetDefaultTimeZone();
+    bool allow_tz_in_str = true;
+    if (args.size() == 2) {
+      ZETASQL_RETURN_IF_ERROR(
+          functions::MakeTimeZone(args[1].string_value(), &timezone));
+      allow_tz_in_str = false;
+    }
+    PicoTime timestamp;
+    ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTimestamp(
+        args[0].string_value(), timezone, scale, allow_tz_in_str, &timestamp));
+    return Value::Timestamp(TimestampPicosValue(timestamp));
   } else if (!args.empty() && args[0].type()->IsDate()) {
     int64_t timestamp_micros;
     if (args.size() == 2 && args[1].type()->IsString()) {
@@ -10273,27 +10458,34 @@ absl::StatusOr<Value> CivilTimeConstructionAndConversionFunction::Eval(
         ZETASQL_RETURN_IF_ERROR(functions::ExtractFromDatetime(
             functions::DATE, args[0].datetime_value(), &date));
       } else if (!args.empty() && args[0].type()->IsTimestamp()) {
+        absl::TimeZone timezone;
         if (args.size() == 2 && args[1].type()->IsString()) {
           ZETASQL_RETURN_IF_ERROR(
-              functions::ExtractFromTimestamp(functions::DATE, args[0].ToTime(),
-                                              args[1].string_value(), &date));
+              functions::MakeTimeZone(args[1].string_value(), &timezone));
         } else if (args.size() == 1) {
-          ZETASQL_RETURN_IF_ERROR(functions::ExtractFromTimestamp(
-              functions::DATE, args[0].ToTime(), context->GetDefaultTimeZone(),
-              &date));
+          timezone = context->GetDefaultTimeZone();
         } else {
           return MakeEvalError() << "Unsupported function: " << debug_name();
         }
+        ZETASQL_ASSIGN_OR_RETURN(
+            int64_t value64,
+            functions::ExtractFromTimestamp(
+                functions::DATE, args[0].ToUnixPicos().ToPicoTime(), timezone));
+        date = static_cast<int32_t>(value64);
+        ZETASQL_RET_CHECK_EQ(date, value64);
       } else if (args.size() == 1 && args[0].type()->IsDate()) {
         return args[0];
       } else if (args.size() == 1 && args[0].type()->IsString()) {
-        int64_t timestamp_micros;
+        PicoTime timestamp_picos;
         ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTimestamp(
             args[0].string_value(), context->GetDefaultTimeZone(),
-            functions::kMicroseconds, true, &timestamp_micros));
-        ZETASQL_RETURN_IF_ERROR(functions::ExtractFromTimestamp(
-            functions::DATE, timestamp_micros, functions::kMicroseconds,
-            context->GetDefaultTimeZone(), &date));
+            functions::kMicroseconds, /*allow_tz_in_str=*/true,
+            &timestamp_picos));
+        ZETASQL_ASSIGN_OR_RETURN(int64_t value64, functions::ExtractFromTimestamp(
+                                              functions::DATE, timestamp_picos,
+                                              context->GetDefaultTimeZone()));
+        date = static_cast<int32_t>(value64);
+        ZETASQL_RET_CHECK_EQ(date, value64);
       } else {
         return ::zetasql_base::UnimplementedErrorBuilder()
                << "Unsupported function: " << debug_name();
@@ -10443,29 +10635,31 @@ absl::StatusOr<Value> IntFromTimestampFunction::Eval(
            << "Unsupported function: " << debug_name();
   }
   if (HasNulls(args)) return Value::Null(output_type());
-  int scale;
-  // TODO: UNIX_NANOS will need to do something different.
+  int64_t scale;
   switch (kind()) {
     case FunctionKind::kSecondsFromTimestamp:
-      scale = 1000000;
+      scale = 1'000'000'000'000LL;
       break;
     case FunctionKind::kMillisFromTimestamp:
-      scale = 1000;
+      scale = 1'000'000'000;
       break;
     case FunctionKind::kMicrosFromTimestamp:
-      scale = 1;
+      scale = 1'000'000;
       break;
     default:
       ZETASQL_RET_CHECK_FAIL() << "Unexpected function kind";
   }
 
   // No overflows possible with division, result truncated downwards.
-  int64_t micros = static_cast<int64_t>(args[0].ToUnixMicros());
-  int64_t unix_time = micros / scale;
-  if (micros < 0 && micros % scale != 0) {
+  absl::int128 picos = args[0].ToUnixPicos().ToUnixPicos();
+
+  absl::int128 unix_time = picos / scale;
+  if (picos < 0 && picos % scale != 0) {
     unix_time--;
   }
-  return Value::Int64(unix_time);
+  int64_t value64 = static_cast<int64_t>(unix_time);
+  ZETASQL_RET_CHECK_EQ(value64, unix_time);
+  return Value::Int64(value64);
 }
 
 absl::StatusOr<Value> StringConversionFunction::Eval(
@@ -10485,14 +10679,24 @@ absl::StatusOr<Value> StringConversionFunction::Eval(
         ZETASQL_RETURN_IF_ERROR(
             functions::MakeTimeZone(args[1].string_value(), &timezone));
       }
-      if (context->UseNanosTimeResolution()) {
-        ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToString(
-            args[0].ToTime(), functions::kNanoseconds, timezone,
-            &result_string));
-      } else {
-        ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToStringWithTruncation(
-            args[0].ToUnixMicros(), functions::kMicroseconds, timezone,
-            &result_string));
+      switch (GetTimestampScale(context->GetLanguageOptions(),
+                                /*support_picos=*/true)) {
+        case functions::TimestampScale::kPicoseconds:
+          ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToString(
+              args[0].ToUnixPicos().ToPicoTime(), timezone, &result_string));
+          break;
+        case functions::TimestampScale::kNanoseconds:
+          ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToString(
+              args[0].ToTime(), functions::kNanoseconds, timezone,
+              &result_string));
+          break;
+        case functions::TimestampScale::kMicroseconds:
+          ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToStringWithTruncation(
+              args[0].ToUnixMicros(), functions::kMicroseconds, timezone,
+              &result_string));
+          break;
+        default:
+          ZETASQL_RET_CHECK_FAIL() << "Unexpected timestamp scale";
       }
       break;
     }
@@ -10576,33 +10780,49 @@ absl::StatusOr<Value> ParseTimeFunction::Eval(
 absl::StatusOr<Value> ParseTimestampFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_RET_CHECK(args.size() == 2 || args.size() == 3);
+  ZETASQL_RET_CHECK_GE(args.size(), 2);
+  ZETASQL_RET_CHECK_LE(args.size(), 4);
+
   if (HasNulls(args)) return Value::Null(output_type());
-  if (context->UseNanosTimeResolution()) {
-    absl::Time timestamp;
-    if (args.size() == 2) {
-      ZETASQL_RETURN_IF_ERROR(functions::ParseStringToTimestamp(
-          args[0].string_value(), args[1].string_value(),
-          context->GetDefaultTimeZone(), /*parse_version2=*/true, &timestamp));
-    } else {
-      ZETASQL_RETURN_IF_ERROR(functions::ParseStringToTimestamp(
-          args[0].string_value(), args[1].string_value(),
-          args[2].string_value(), /*parse_version2=*/true, &timestamp));
-    }
-    return Value::Timestamp(timestamp);
-  } else {
-    int64_t timestamp;
-    if (args.size() == 2) {
-      ZETASQL_RETURN_IF_ERROR(functions::ParseStringToTimestamp(
-          args[0].string_value(), args[1].string_value(),
-          context->GetDefaultTimeZone(), /*parse_version2=*/true, &timestamp));
-    } else {
-      ZETASQL_RETURN_IF_ERROR(functions::ParseStringToTimestamp(
-          args[0].string_value(), args[1].string_value(),
-          args[2].string_value(), /*parse_version2=*/true, &timestamp));
-    }
-    return Value::TimestampFromUnixMicros(timestamp);
+
+  int64_t precision = 12;
+  switch (GetTimestampScale(context->GetLanguageOptions(),
+                            /*support_picos=*/true)) {
+    case functions::TimestampScale::kPicoseconds:
+      precision = 12;
+      break;
+    case functions::TimestampScale::kNanoseconds:
+      precision = 9;
+      break;
+    case functions::TimestampScale::kMicroseconds:
+      precision = 6;
+      break;
+    default:
+      ZETASQL_RET_CHECK_FAIL() << "Unexpected timestamp scale";
   }
+
+  std::optional<absl::string_view> timezone = std::nullopt;
+  if (args.size() == 3 || args.size() == 4) {
+    if (args[2].type()->IsInt64()) {
+      precision = args[2].int64_value();
+    }
+    if (args.back().type()->IsString()) {
+      timezone = args.back().string_value();
+    }
+  }
+
+  PicoTime timestamp;
+  if (timezone.has_value()) {
+    ZETASQL_RETURN_IF_ERROR(functions::ParseStringToTimestamp(
+        args[0].string_value(), args[1].string_value(), *timezone, precision,
+        &timestamp));
+  } else {
+    ZETASQL_RETURN_IF_ERROR(functions::ParseStringToTimestamp(
+        args[0].string_value(), args[1].string_value(),
+        context->GetDefaultTimeZone(), precision, &timestamp,
+        /*error=*/nullptr));
+  }
+  return Value::Timestamp(TimestampPicosValue(timestamp));
 }
 
 absl::StatusOr<Value> DateTimeTruncFunction::Eval(
@@ -10624,6 +10844,24 @@ absl::StatusOr<Value> DateTimeTruncFunction::Eval(
       return values::Date(date);
     }
     case TYPE_TIMESTAMP: {
+      const functions::TimestampScale scale = GetTimestampScale(
+          context->GetLanguageOptions(), /*support_picos=*/true);
+      if (scale == functions::TimestampScale::kNanoseconds ||
+          scale == functions::TimestampScale::kPicoseconds) {
+        absl::TimeZone tz;
+        if (args.size() == 2) {
+          tz = context->GetDefaultTimeZone();
+        } else {
+          ZETASQL_RETURN_IF_ERROR(functions::MakeTimeZone(args[2].string_value(), &tz));
+        }
+        ZETASQL_ASSIGN_OR_RETURN(PicoTime pico_time,
+                         functions::TimestampTrunc(
+                             args[0].ToUnixPicos().ToPicoTime(), tz, part));
+        return Value::Timestamp(TimestampPicosValue(pico_time));
+      }
+
+      // TODO: Remove the code below and use the Picosecond-based
+      // implementation.
       int64_t int64_timestamp;
       if (args.size() == 2) {
         ZETASQL_RETURN_IF_ERROR(functions::TimestampTrunc(args[0].ToUnixMicros(),
@@ -10684,6 +10922,27 @@ absl::StatusOr<Value> LastDayFunction::Eval(
   return values::Date(date);
 }
 
+absl::StatusOr<Value> AddMonthsFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  // The signature arguments are (<date> or <datetime>, int64).
+  ZETASQL_RET_CHECK_EQ(args.size(), 2);
+  if (args[0].is_null() || args[1].is_null()) {
+    return Value::Null(output_type());
+  }
+  if (args[0].type_kind() == TYPE_DATE) {
+    int32_t date;
+    ZETASQL_RETURN_IF_ERROR(functions::AddMonths(args[0].date_value(),
+                                         args[1].int64_value(), &date));
+    return values::Date(date);
+  } else {
+    DatetimeValue datetime;
+    ZETASQL_RETURN_IF_ERROR(functions::AddMonths(args[0].datetime_value(),
+                                         args[1].int64_value(), &datetime));
+    return values::Datetime(datetime);
+  }
+}
+
 absl::StatusOr<Value> FromProtoFunction::Eval(
     absl::Span<const TupleData* const> params,
     const absl::Span<const Value> args, EvaluationContext* context) const {
@@ -10700,8 +10959,8 @@ absl::StatusOr<Value> FromProtoFunction::Eval(
   switch (output_type()->kind()) {
     case TYPE_TIMESTAMP: {
       google::protobuf::Timestamp proto_timestamp;
-      functions::TimestampScale scale =
-          GetTimestampScale(context->GetLanguageOptions());
+      functions::TimestampScale scale = GetTimestampScale(
+          context->GetLanguageOptions(), /*support_picos=*/true);
       proto_timestamp.CopyFrom(*message);
 
       if (scale == functions::TimestampScale::kMicroseconds) {
@@ -10828,6 +11087,34 @@ absl::StatusOr<Value> FromProtoFunction::Eval(
       IntervalValue interval_value;
       google::protobuf::Duration duration;
       duration.CopyFrom(*message);
+
+      // Ensure the message is valid:
+      if (duration.seconds() < TimeUtil::kDurationMinSeconds ||
+          duration.seconds() > TimeUtil::kDurationMaxSeconds) {
+        return MakeEvalError()
+               << "Input Duration is out of range: seconds must be in "
+                  "["
+               << TimeUtil::kDurationMinSeconds << ", "
+               << TimeUtil::kDurationMaxSeconds << "] but is "
+               << duration.seconds();
+      }
+      if (duration.nanos() < TimeUtil::kDurationMinNanoseconds ||
+          duration.nanos() > TimeUtil::kDurationMaxNanoseconds) {
+        return MakeEvalError()
+               << "Input Duration is out of range: nanos must be in ["
+               << TimeUtil::kDurationMinNanoseconds << ", "
+               << TimeUtil::kDurationMaxNanoseconds << "] but is "
+               << duration.nanos();
+      }
+      if ((duration.seconds() > 0 && duration.nanos() < 0) ||
+          (duration.seconds() < 0 && duration.nanos() > 0)) {
+        return MakeEvalError() << absl::StrCat(
+                   "Input Duration is invalid. For durations of one second or "
+                   "more, a non-zero value for the nanos field must be of the "
+                   "same sign as the seconds field. But is ",
+                   duration);
+      }
+
       // If the supported timestamp scale is MICROSECONDS (currently determined
       // based on the FEATURE_TIMESTAMP_NANOS flag), the nanoseconds part of the
       // duration is truncated to microseconds. For example, if the nanos field
@@ -10986,6 +11273,7 @@ absl::StatusOr<Value> ToProtoFunction::Eval(
       google::protobuf::Duration proto_duration;
       proto_duration.set_seconds(seconds);
       proto_duration.set_nanos(nanos);
+      ZETASQL_RET_CHECK(TimeUtil::IsDurationValid(proto_duration));
       return zetasql::values::Proto(output_type()->AsProto(), proto_duration);
     }
     default:
@@ -11026,11 +11314,10 @@ absl::StatusOr<Value> DateTimeDiffFunction::Eval(
   }
   int32_t value32;
   int64_t value64;
-  absl::Time timestamp;
   functions::DateTimestampPart part =
       static_cast<functions::DateTimestampPart>(args[2].enum_value());
   const functions::TimestampScale scale =
-      GetTimestampScale(context->GetLanguageOptions());
+      GetTimestampScale(context->GetLanguageOptions(), /*support_picos=*/true);
   switch (FCT(kind(), args[0].type_kind())) {
     case FCT(FunctionKind::kDateAdd, TYPE_DATE):
       ZETASQL_RETURN_IF_ERROR(functions::AddDate(args[0].date_value(), part,
@@ -11070,14 +11357,23 @@ absl::StatusOr<Value> DateTimeDiffFunction::Eval(
     case FCT(FunctionKind::kDateDiff, TYPE_TIMESTAMP):
     case FCT(FunctionKind::kDatetimeDiff, TYPE_TIMESTAMP):
     case FCT(FunctionKind::kTimestampDiff, TYPE_TIMESTAMP): {
-      if (scale == functions::TimestampScale::kNanoseconds) {
-        ZETASQL_RETURN_IF_ERROR(functions::TimestampDiff(
-            args[0].ToTime(), args[1].ToTime(), part, &value64));
-      } else {
-        ZETASQL_RETURN_IF_ERROR(functions::TimestampDiff(
-            args[0].ToUnixMicros(), args[1].ToUnixMicros(),
-            functions::kMicroseconds, part, &value64));
+      // TODO: INTERVAL does not yet support picos.
+      if (scale == functions::TimestampScale::kNanoseconds ||
+          scale == functions::TimestampScale::kPicoseconds) {
+        ZETASQL_ASSIGN_OR_RETURN(
+            absl::int128 diff,
+            functions::TimestampDiff(args[0].ToUnixPicos().ToPicoTime(),
+                                     args[1].ToUnixPicos().ToPicoTime(), part));
+        if (diff < std::numeric_limits<int64_t>::min() ||
+            diff > std::numeric_limits<int64_t>::max()) {
+          return ::zetasql_base::OutOfRangeErrorBuilder()
+                 << "TIMESTAMP_DIFF int64 overflow";
+        }
+        return Value::Int64(static_cast<int64_t>(diff));
       }
+      ZETASQL_RETURN_IF_ERROR(functions::TimestampDiff(
+          args[0].ToUnixMicros(), args[1].ToUnixMicros(),
+          functions::kMicroseconds, part, &value64));
       return Value::Int64(value64);
     }
     case FCT(FunctionKind::kTimeAdd, TYPE_TIME): {
@@ -11101,11 +11397,13 @@ absl::StatusOr<Value> DateTimeDiffFunction::Eval(
     case FCT(FunctionKind::kTimestampAdd, TYPE_TIMESTAMP): {
       // We can hardcode the time zone to the default because it is only
       // used for error messaging.
-      if (scale == functions::TimestampScale::kNanoseconds) {
-        ZETASQL_RETURN_IF_ERROR(functions::AddTimestamp(
-            args[0].ToTime(), context->GetDefaultTimeZone(), part,
-            args[1].int64_value(), &timestamp));
-        return Value::Timestamp(timestamp);
+      if (scale == functions::TimestampScale::kNanoseconds ||
+          scale == functions::TimestampScale::kPicoseconds) {
+        ZETASQL_ASSIGN_OR_RETURN(
+            PicoTime timestamp,
+            functions::AddTimestamp(args[0].ToUnixPicos().ToPicoTime(), part,
+                                    args[1].int64_value()));
+        return Value::Timestamp(TimestampPicosValue(timestamp));
       }
 
       ZETASQL_RETURN_IF_ERROR(functions::AddTimestamp(
@@ -11119,11 +11417,13 @@ absl::StatusOr<Value> DateTimeDiffFunction::Eval(
     case FCT(FunctionKind::kTimestampSub, TYPE_TIMESTAMP): {
       // We can hardcode the time zone to the default because it is only
       // used for error messaging.
-      if (scale == functions::TimestampScale::kNanoseconds) {
-        ZETASQL_RETURN_IF_ERROR(functions::SubTimestamp(
-            args[0].ToTime(), context->GetDefaultTimeZone(), part,
-            args[1].int64_value(), &timestamp));
-        return Value::Timestamp(timestamp);
+      if (scale == functions::TimestampScale::kNanoseconds ||
+          scale == functions::TimestampScale::kPicoseconds) {
+        ZETASQL_ASSIGN_OR_RETURN(
+            PicoTime timestamp,
+            functions::SubTimestamp(args[0].ToUnixPicos().ToPicoTime(), part,
+                                    args[1].int64_value()));
+        return Value::Timestamp(TimestampPicosValue(timestamp));
       }
 
       ZETASQL_RETURN_IF_ERROR(functions::SubTimestamp(
@@ -11153,18 +11453,22 @@ absl::StatusOr<Value> ExtractFromFunction::Eval(
           functions::ExtractFromDate(part, args[0].date_value(), &value32));
       return output_type()->IsInt64() ? Value::Int64(value32)
                                       : Value::Int32(value32);
-    case TYPE_TIMESTAMP:
-      if (args.size() == 2) {
-        ZETASQL_RETURN_IF_ERROR(functions::ExtractFromTimestamp(
-            part, args[0].ToUnixMicros(), functions::kMicroseconds,
-            context->GetDefaultTimeZone(), &value32));
-      } else {
-        ZETASQL_RETURN_IF_ERROR(functions::ExtractFromTimestamp(
-            part, args[0].ToUnixMicros(), functions::kMicroseconds,
-            args[2].string_value(), &value32));
+    case TYPE_TIMESTAMP: {
+      absl::TimeZone timezone = context->GetDefaultTimeZone();
+      if (args.size() == 3) {
+        ZETASQL_RETURN_IF_ERROR(
+            functions::MakeTimeZone(args[2].string_value(), &timezone));
       }
-      return output_type()->IsInt64() ? Value::Int64(value32)
-                                      : Value::Int32(value32);
+      ZETASQL_ASSIGN_OR_RETURN(int64_t value64,
+                       functions::ExtractFromTimestamp(
+                           part, args[0].ToUnixPicos().ToPicoTime(), timezone));
+      if (output_type()->IsInt32()) {
+        value32 = static_cast<int32_t>(value64);
+        ZETASQL_RET_CHECK_EQ(value32, value64);
+        return Value::Int32(value32);
+      }
+      return Value::Int64(value64);
+    }
     case TYPE_DATETIME:
       ZETASQL_RETURN_IF_ERROR(functions::ExtractFromDatetime(
           part, args[0].datetime_value(), &value32));
@@ -11198,21 +11502,23 @@ absl::StatusOr<Value> ExtractDateFromFunction::Eval(
   int32_t value32;
   switch (args[0].type_kind()) {
     case TYPE_TIMESTAMP: {
-      if (args.size() == 1) {
-        ZETASQL_RETURN_IF_ERROR(functions::ExtractFromTimestamp(
-            functions::DATE, args[0].ToUnixMicros(), functions::kMicroseconds,
-            context->GetDefaultTimeZone(), &value32));
-      } else {
-        ZETASQL_RETURN_IF_ERROR(functions::ExtractFromTimestamp(
-            functions::DATE, args[0].ToUnixMicros(), functions::kMicroseconds,
-            args[1].string_value(), &value32));
+      absl::TimeZone timezone = context->GetDefaultTimeZone();
+      if (args.size() == 2) {
+        ZETASQL_RETURN_IF_ERROR(
+            functions::MakeTimeZone(args[1].string_value(), &timezone));
       }
-      break;
+      ZETASQL_ASSIGN_OR_RETURN(
+          int64_t value64,
+          ExtractFromTimestamp(functions::DATE,
+                               args[0].ToUnixPicos().ToPicoTime(), timezone));
+      int32_t value32 = static_cast<int32_t>(value64);
+      ZETASQL_RET_CHECK_EQ(value32, value64);
+      return Value::Date(value32);
     }
     case TYPE_DATETIME: {
       ZETASQL_RETURN_IF_ERROR(functions::ExtractFromDatetime(
           functions::DATE, args[0].datetime_value(), &value32));
-      break;
+      return Value::Date(value32);
     }
     default:
       // In the LEGACY mode, other types such as TYPE_TIMESTAMP_SECONDS can
@@ -11220,7 +11526,6 @@ absl::StatusOr<Value> ExtractDateFromFunction::Eval(
       return ::zetasql_base::UnimplementedErrorBuilder()
              << "Unsupported type in $extract_date function";
   }
-  return Value::Date(value32);
 }
 
 absl::StatusOr<Value> ExtractTimeFromFunction::Eval(
@@ -11282,6 +11587,11 @@ absl::StatusOr<Value> IntervalFunction::Eval(
     case FunctionKind::kIntervalCtor: {
       functions::TimestampScale scale =
           GetTimestampScale(context->GetLanguageOptions());
+      // TODO: INTERVAL does not yet support picos.
+      ZETASQL_RET_CHECK(scale != functions::TimestampScale::kPicoseconds ||
+                static_cast<functions::DateTimestampPart>(
+                    args[1].enum_value() !=
+                    functions::DateTimestampPart::PICOSECOND));
       bool allow_nanos = scale == functions::TimestampScale::kNanoseconds;
       ZETASQL_ASSIGN_OR_RETURN(
           interval,
@@ -12295,22 +12605,22 @@ absl::StatusOr<Value> DateTimeBucketFunction::Eval(
     case FCT(FunctionKind::kTimestampBucket, TYPE_TIMESTAMP):
     case FCT(FunctionKind::kDateTimeBucket, TYPE_TIMESTAMP):
     case FCT(FunctionKind::kDateBucket, TYPE_TIMESTAMP): {
-      ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[0], context));
-      ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[1], context));
-      absl::Time result;
-      absl::Time origin;
+      PicoTime result;
+      PicoTime origin;
       if (args.size() == 3) {
-        ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[2], context));
-        origin = args[2].ToTime();
+        origin = args[2].ToUnixPicos().ToPicoTime();
       } else {
-        origin = absl::FromCivil(functions::kDefaultTimeBucketOrigin,
-                                 context->GetDefaultTimeZone());
+        ZETASQL_ASSIGN_OR_RETURN(
+            origin, PicoTime::Create(
+                        absl::FromCivil(functions::kDefaultTimeBucketOrigin,
+                                        context->GetDefaultTimeZone()),
+                        /*picoseconds=*/0));
       }
-      ZETASQL_RETURN_IF_ERROR(functions::TimestampBucket(
-          args[0].ToTime(), args[1].interval_value(), origin,
-          context->GetDefaultTimeZone(),
-          GetTimestampScale(context->GetLanguageOptions()), &result));
-      return Value::Timestamp(result);
+      ZETASQL_ASSIGN_OR_RETURN(result, functions::TimestampPicosBucket(
+                                   args[0].ToUnixPicos().ToPicoTime(),
+                                   args[1].interval_value(), origin,
+                                   functions::TimestampScale::kPicoseconds));
+      return Value::Timestamp(TimestampPicosValue(result));
     }
     case FCT(FunctionKind::kTimestampBucket, TYPE_DATETIME):
     case FCT(FunctionKind::kDateTimeBucket, TYPE_DATETIME):
@@ -12363,14 +12673,19 @@ absl::Status ValidateMicrosPrecision(const Value& value,
     return absl::OkStatus();
   }
   functions::TimestampScale scale =
-      GetTimestampScale(context->GetLanguageOptions());
-  if (scale == functions::TimestampScale::kNanoseconds) {
+      GetTimestampScale(context->GetLanguageOptions(), /*support_picos=*/true);
+  if (scale == functions::TimestampScale::kPicoseconds ||
+      scale == functions::TimestampScale::kNanoseconds) {
     return absl::OkStatus();
   }
   if (value.type()->IsTimestamp()) {
     if (absl::GetFlag(
             FLAGS_zetasql_reference_impl_validate_timestamp_precision)) {
+      // At this point we know TimestampScale is kMicroseconds, we can safely
+      // call value.ToTime() since the sub-micro parts will be 0. Otherwise,
+      // value.ToTime() would check fail.
       absl::Duration dnanos = value.ToTime() - absl::UnixEpoch();
+
       absl::Duration dmicros = absl::Floor(dnanos, absl::Microseconds(1));
       ZETASQL_RET_CHECK_EQ(dnanos, dmicros);
     }

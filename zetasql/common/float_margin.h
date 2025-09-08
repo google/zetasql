@@ -78,8 +78,8 @@ class FloatMargin {
   }
 
   // Creates a minimal error that is looser than both inputs.
-  static const FloatMargin MinimalLooseError(const FloatMargin& left,
-                                             const FloatMargin& right) {
+  static FloatMargin MinimalLooseError(const FloatMargin& left,
+                                       const FloatMargin& right) {
     return FloatMargin(std::max(left.ulp_bits_, right.ulp_bits_),
                        std::max(left.zero_ulp_bits_, right.zero_ulp_bits_));
   }

@@ -164,6 +164,10 @@ class DebugStrings {
     return assignmentOp == AssignmentOp.DEFAULT_ASSIGN;
   }
 
+  static boolean isDefaultValue(PropertyGraph propertyGraph) {
+    return propertyGraph == null || propertyGraph.getFullName().isEmpty();
+  }
+
   static boolean isDefaultValue(GraphPropertyDeclaration propertyDeclaration) {
     return propertyDeclaration == null || propertyDeclaration.getName().isEmpty();
   }

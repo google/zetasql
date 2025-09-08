@@ -27,8 +27,10 @@
 #include "zetasql/common/evaluator_registration_utils.h"
 #include "zetasql/common/internal_value.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/json_value.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/types/type.h"
@@ -807,6 +809,26 @@ TEST(BuiltinFunctionRegistryTest, CreateCallPopulatesNonValueArgsInFunction) {
                         ->non_value_args_for_testing(),
                     ", ", algebra_arg_formatter),
       absl::StrCat("null, ", CreateLambdaExprForTesting()->DebugString()));
+}
+
+TEST(TimestampScaleTest, TimestampScale) {
+  LanguageOptions options;
+  EXPECT_EQ(GetTimestampScale(options),
+            functions::TimestampScale::kMicroseconds);
+  EXPECT_EQ(GetTimestampScale(options, /*support_picos=*/true),
+            functions::TimestampScale::kMicroseconds);
+
+  options.EnableLanguageFeature(FEATURE_TIMESTAMP_NANOS);
+  EXPECT_EQ(GetTimestampScale(options),
+            functions::TimestampScale::kNanoseconds);
+  EXPECT_EQ(GetTimestampScale(options, /*support_picos=*/true),
+            functions::TimestampScale::kNanoseconds);
+
+  options.EnableLanguageFeature(FEATURE_TIMESTAMP_PICOS);
+  EXPECT_EQ(GetTimestampScale(options),
+            functions::TimestampScale::kMicroseconds);
+  EXPECT_EQ(GetTimestampScale(options, /*support_picos=*/true),
+            functions::TimestampScale::kPicoseconds);
 }
 
 }  // namespace zetasql

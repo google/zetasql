@@ -1,4 +1,4 @@
-[default language_features=SQL_GRAPH]
+[default language_features=NONE,+SQL_GRAPH]
 [default no_test_extract_table_names]
 [default show_sqlbuilder_output]
 
@@ -1467,7 +1467,7 @@ FROM
      aml_1.a_4 AS balance;
 ==
 
-[language_features=SQL_GRAPH,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE]
+[language_features=NONE,+SQL_GRAPH,+TABLESAMPLE,+STRATIFIED_RESERVOIR_TABLESAMPLE]
 select * from graph_table(
   aml
   match (n:Person)
@@ -1569,7 +1569,7 @@ FROM
 
 ==
 
-[language_features=SQL_GRAPH,TYPEOF_FUNCTION]
+[language_features=NONE,+SQL_GRAPH,+TYPEOF_FUNCTION]
 select * from graph_table(
   aml
   match (n:Person)-[e]-(x)

@@ -3,9 +3,10 @@
 # in match_recognize.test.
 # It's just testing that the pipe operator works, and that
 # name scoping on pipe inputs works as expected.
+[default language_features=MAXIMUM]
 [default show_sqlbuilder_output]
 
-[language_features=PIPES]
+[language_features=NONE,+PIPES]
 from KeyValue
 |> MATCH_RECOGNIZE(
     ORDER BY key
@@ -19,7 +20,7 @@ ERROR: MATCH_RECOGNIZE is not supported [at 2:4]
    ^
 ==
 
-[default language_features=PIPES,MATCH_RECOGNIZE,PIPE_STATIC_DESCRIBE]
+[default language_features=MAXIMUM,+PIPES,+MATCH_RECOGNIZE,+PIPE_STATIC_DESCRIBE]
 # Without alias on the scan
 from KeyValue AS t
 |> MATCH_RECOGNIZE(

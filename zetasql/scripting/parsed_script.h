@@ -194,7 +194,10 @@ class ParsedScript {
 
   // Validates the query parameters (e.g. no missing ones, not mixing named and
   // positional parameters).
-  absl::Status CheckQueryParameters(const QueryParameters& parameters) const;
+  // If `is_strict_mode` is false, then OkStatus is returned if `parameters` is
+  // empty.
+  absl::Status CheckQueryParameters(const QueryParameters& parameters,
+                                    bool is_strict_mode = false) const;
 
   bool IsProcedure() const { return is_procedure_; }
 
@@ -241,8 +244,8 @@ class ParsedScript {
   // parameter locations. Returns an error if both positional and named query
   // parameters are present.
   absl::Status PopulateQueryParameters();
-  absl::Status CheckQueryParametersInternal(
-      const QueryParameters& parameters) const;
+  absl::Status CheckQueryParametersInternal(const QueryParameters& parameters,
+                                            bool is_strict_mode) const;
   // Returns all named parameters in the script.
   StringSet GetAllNamedParameters() const;
 

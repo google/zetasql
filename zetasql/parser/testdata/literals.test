@@ -2212,7 +2212,8 @@ QueryStatement [0-72] [select a,...offset 0x4]
       OrderingExpression(ASC) [48-51] [0x2]
         IntLiteral(0x2) [48-51] [0x2]
     LimitOffset [52-72] [limit 0x3 offset 0x4]
-      IntLiteral(0x3) [58-61] [0x3]
+      Limit [52-61] [limit 0x3]
+        IntLiteral(0x3) [58-61] [0x3]
       IntLiteral(0x4) [69-72] [0x4]
 --
 SELECT

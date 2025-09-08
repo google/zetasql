@@ -1,6 +1,6 @@
 # Test file for multi-level aggregate queries that fail because the query is
 # invalid.
-[default language_features=MULTILEVEL_AGGREGATION,MULTILEVEL_AGGREGATION_IN_UDAS,WITH_GROUP_ROWS,ORDER_BY_IN_AGGREGATE,LIMIT_IN_AGGREGATE,HAVING_IN_AGGREGATE,NULL_HANDLING_MODIFIER_IN_AGGREGATE,ANALYTIC_FUNCTIONS,QUALIFY,GROUPING_BUILTIN,GROUP_BY_STRUCT,ENFORCE_CONDITIONAL_EVALUATION,GROUPING_SETS,GROUP_BY_ROLLUP,PIVOT,CHAINED_FUNCTION_CALLS]
+[default language_features=MAXIMUM,+MULTILEVEL_AGGREGATION,+WITH_GROUP_ROWS,+ORDER_BY_IN_AGGREGATE,+LIMIT_IN_AGGREGATE,+HAVING_IN_AGGREGATE,+NULL_HANDLING_MODIFIER_IN_AGGREGATE,+ANALYTIC_FUNCTIONS,+QUALIFY,+GROUPING_BUILTIN,+GROUP_BY_STRUCT,+ENFORCE_CONDITIONAL_EVALUATION,+GROUPING_SETS,+GROUP_BY_ROLLUP,+PIVOT,+CHAINED_FUNCTION_CALLS]
 [default show_sqlbuilder_output]
 
 # GROUP BY modifier not supported on scalar functions.
@@ -34,7 +34,7 @@ GROUP BY 1
 ==
 
 # Multi-level aggregation fails when language feature is not enabled.
-[language_features=]
+[language_features=NONE]
 SELECT
   SUM(ANY_VALUE(int64) GROUP BY string)
 FROM SimpleTypes;
@@ -192,16 +192,6 @@ ERROR: Unexpected function call argument alias found at SUM [at 3:22]
                      ^
 ==
 
-# GROUP BY modifier cannot contain hints
-SELECT
-  SUM(ANY_VALUE(int64) GROUP @{abc=1} BY bool)
-FROM SimpleTypes;
---
-ERROR: Hints are not supported inside an aggregate function. [at 2:30]
-  SUM(ANY_VALUE(int64) GROUP @{abc=1} BY bool)
-                             ^
-==
-
 # GROUP BY modifier cannot use ordinals
 SELECT
   SUM(ANY_VALUE(int64) GROUP BY 1)
@@ -267,18 +257,18 @@ ERROR: GROUP BY GROUPING SETS is not supported inside an aggregate function. [at
 ==
 
 # GROUP AND ORDER BY is only supported in pipes.
-[language_features=MULTILEVEL_AGGREGATION,PIPES]
+[language_features=NONE,+MULTILEVEL_AGGREGATION,+PIPES]
 SELECT
   SUM(ANY_VALUE(int64) GROUP AND ORDER BY bool)
 FROM SimpleTypes;
 --
-ERROR: Syntax error: Expected keyword BY but got keyword AND [at 2:30]
+ERROR: Syntax error: Expected @ for hint or keyword BY but got keyword AND [at 2:30]
   SUM(ANY_VALUE(int64) GROUP AND ORDER BY bool)
                              ^
 ==
 
 # GROUP BY can only support order specification in in pipes.
-[language_features=MULTILEVEL_AGGREGATION,PIPES]
+[language_features=NONE,+MULTILEVEL_AGGREGATION,+PIPES]
 SELECT
   SUM(ANY_VALUE(int64) GROUP BY double ASC)
 FROM SimpleTypes;
@@ -289,7 +279,7 @@ ERROR: Syntax error: Expected ")" but got keyword ASC [at 2:40]
 ==
 
 # GROUP BY modifiers cannot have aliases
-[language_features=MULTILEVEL_AGGREGATION,PIPES]
+[language_features=NONE,+MULTILEVEL_AGGREGATION,+PIPES]
 SELECT
   SUM(ANY_VALUE(int64) GROUP BY bool AS some_alias)
 FROM SimpleTypes;
@@ -559,7 +549,7 @@ ERROR: multi-level aggregate expression references column double which is neithe
 
 # Ensure that volatile grouping expressions are not considered grouping consts.
 # ('KEYS.REWRAP_KEYSET' is a volatile function).
-[language_features=MULTILEVEL_AGGREGATION,ENCRYPTION]
+[language_features=NONE,+MULTILEVEL_AGGREGATION,+ENCRYPTION]
 SELECT
   SUM(KEYS.REWRAP_KEYSET(string, string, bytes) + ANY_VALUE(int64) GROUP BY int32)
 FROM SimpleTypes
@@ -572,7 +562,7 @@ ERROR: multi-level aggregate expression references column string which is neithe
 
 # Regression test for b/379931737. Attempt to determine grouping expression
 # equality for functions with lambda arguments.
-[language_features=ORDER_BY_IN_AGGREGATE,INLINE_LAMBDA_ARGUMENT,MULTILEVEL_AGGREGATION,ARRAY_FIND_FUNCTIONS]
+[language_features=NONE,+ORDER_BY_IN_AGGREGATE,+INLINE_LAMBDA_ARGUMENT,+MULTILEVEL_AGGREGATION,+ARRAY_FIND_FUNCTIONS]
 SELECT
   ARRAY_AGG(
     1
@@ -591,7 +581,7 @@ ERROR: multi-level aggregate expression references column int64 which is neither
                                            ^
 ==
 
-[language_features=MULTILEVEL_AGGREGATION,CREATE_AGGREGATE_FUNCTION,TEMPLATE_FUNCTIONS]
+[language_features=NONE,+MULTILEVEL_AGGREGATION,+CREATE_AGGREGATE_FUNCTION,+TEMPLATE_FUNCTIONS]
 
 # Error: `VALUE1` is not a grouping-const.
 CREATE AGGREGATE FUNCTION InvalidReferenceCase(value1 INT64, key INT64) AS (
@@ -606,7 +596,7 @@ ERROR: multi-level aggregate expression references column VALUE1 which is neithe
           ^
 ==
 
-[language_features=MULTILEVEL_AGGREGATION,CREATE_AGGREGATE_FUNCTION,TEMPLATE_FUNCTIONS]
+[language_features=NONE,+MULTILEVEL_AGGREGATION,+CREATE_AGGREGATE_FUNCTION,+TEMPLATE_FUNCTIONS]
 
 # Error: `value1` is not a grouping-const.
 CREATE AGGREGATE FUNCTION InvalidUda(value1 {{INT64|ANY TYPE}}, key {{INT64|ANY TYPE}}) AS (
@@ -683,20 +673,20 @@ AS (
 );
 ==
 
-[language_features=MULTILEVEL_AGGREGATION,CREATE_AGGREGATE_FUNCTION]
+[language_features=NONE,+CREATE_AGGREGATE_FUNCTION]
 
 # CREATE AGGREGATE FUNCTION with a multi-level aggregate expression returns an
-# error if the feature MULTILEVEL_AGGREGATION_IN_UDAS is not enabled.
+# error if the feature MULTILEVEL_AGGREGATION is not enabled.
 CREATE AGGREGATE FUNCTION MyFunc(x INT64) AS (
   SUM(ANY_VALUE(x) GROUP BY x)
 );
 --
-ERROR: Function body with aggregate functions with GROUP BY modifiers are not currently supported [at 4:3]
+ERROR: Multi-level aggregation is not yet supported. [at 4:20]
   SUM(ANY_VALUE(x) GROUP BY x)
-  ^
+                   ^
 ==
 
-[language_features=MULTILEVEL_AGGREGATION,CREATE_AGGREGATE_FUNCTION]
+[language_features=NONE,+MULTILEVEL_AGGREGATION,+CREATE_AGGREGATE_FUNCTION]
 
 CREATE AGGREGATE FUNCTION MyFunc(x INT64) AS (
   SUM(ANY_VALUE(x))
@@ -709,7 +699,7 @@ ERROR: Multi-level aggregation requires the enclosing aggregate function to have
 
 # This only passes because the aggregate function is templated. Analysis of
 # template functions will occur at invocation time.
-[language_features=CREATE_AGGREGATE_FUNCTION,TEMPLATE_FUNCTIONS]
+[language_features=NONE,+CREATE_AGGREGATE_FUNCTION,+TEMPLATE_FUNCTIONS]
 CREATE AGGREGATE FUNCTION WrappedMultiLevelAgg(x ANY TYPE) AS (
   SUM(x GROUP BY x)
 );
@@ -733,7 +723,7 @@ AS (
 );
 ==
 
-[language_features=MULTILEVEL_AGGREGATION,CREATE_AGGREGATE_FUNCTION,TEMPLATE_FUNCTIONS]
+[language_features=NONE,+MULTILEVEL_AGGREGATION,+CREATE_AGGREGATE_FUNCTION,+TEMPLATE_FUNCTIONS]
 
 # Error: `arr` is not a grouping-const, but  `value1` is.
 CREATE AGGREGATE FUNCTION InvalidArrayAccess(arr {{ARRAY<INT64>|ANY TYPE}}, key {{INT64|ANY TYPE}}) AS (
@@ -864,7 +854,7 @@ AS (
 );
 ==
 
-[language_features=MULTILEVEL_AGGREGATION,CREATE_AGGREGATE_FUNCTION]
+[language_features=NONE,+MULTILEVEL_AGGREGATION,+CREATE_AGGREGATE_FUNCTION]
 CREATE AGGREGATE FUNCTION InvalidReferenceToUngroupedColumnInSubquery(value1 INT64, key INT64) AS (
   CORR(
     key,
@@ -878,7 +868,7 @@ ERROR: SELECT without FROM clause expression references column value1 which is n
                   ^
 ==
 
-[language_features=MULTILEVEL_AGGREGATION,CREATE_AGGREGATE_FUNCTION]
+[language_features=NONE,+MULTILEVEL_AGGREGATION,+CREATE_AGGREGATE_FUNCTION]
 CREATE AGGREGATE FUNCTION InvalidComplexUda(value1 INT64, value2 INT64, key INT64) AS (
   CORR(
     key + CORR(key, value2 + MAX(value1) GROUP BY value2),
@@ -895,7 +885,7 @@ ERROR: Aggregate function MAX not allowed in SELECT without FROM clause [at 7:17
                 ^
 ==
 
-[language_features=CREATE_AGGREGATE_FUNCTION,MULTILEVEL_AGGREGATION,INLINE_LAMBDA_ARGUMENT]
+[language_features=NONE,+CREATE_AGGREGATE_FUNCTION,+MULTILEVEL_AGGREGATION,+INLINE_LAMBDA_ARGUMENT]
 # `value1` cannot be referenced within lambda body since it is not a grouping
 # key.
 CREATE AGGREGATE FUNCTION InvalidReferenceToValue1(value1 INT64, key INT64) AS (
@@ -915,7 +905,7 @@ ERROR: No matching signature for function ARRAY_INCLUDES
     ^
 ==
 
-[language_features=CREATE_AGGREGATE_FUNCTION,MULTILEVEL_AGGREGATION,INLINE_LAMBDA_ARGUMENT,WITH_EXPRESSION]
+[language_features=NONE,+CREATE_AGGREGATE_FUNCTION,+MULTILEVEL_AGGREGATION,+INLINE_LAMBDA_ARGUMENT,+WITH_EXPRESSION]
 # `arg1` is not a grouping-const, and so is invalid to access.
 CREATE AGGREGATE FUNCTION WithExprInvalidAccessingGroupingConst(key INT64, arg1 INT64)
 RETURNS INT64 AS (
@@ -928,3 +918,63 @@ RETURNS INT64 AS (
 ERROR: WITH expression expression references column arg1 which is neither grouped nor aggregated [at 5:52]
     WITH(key_times_two AS key * 2, key_times_two + arg1)
                                                    ^
+==
+
+# GROUP BY on UDA is not supported in the built in aggregate function inliner
+[language_features=NONE,+MULTILEVEL_AGGREGATION,+MULTILEVEL_AGGREGATION_ON_UDAS]
+[enabled_ast_rewrites=ALL,-WITH_EXPR]
+# GROUP BY on UDA is not supported by
+SELECT
+  SumOfAggregateArgs(MAX(int64) GROUP BY string)
+FROM SimpleTypes;
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#22 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#22]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#22]
+        +-input_scan=
+        | +-TableScan(column_list=SimpleTypes.[int64#2, string#5], table=SimpleTypes, column_index_list=[1, 4])
+        +-aggregate_list=
+          +-$agg1#22 :=
+            +-AggregateFunctionCall(Lazy_resolution_function:SumOfAggregateArgs(INT64 agg_arg) -> INT64)
+              +-ColumnRef(type=INT64, column=$aggregate.$agg1#21)
+              +-group_by_list=
+              | +-$groupbymod#20 := ColumnRef(type=STRING, column=SimpleTypes.string#5)
+              +-group_by_aggregate_list=
+                +-$agg1#21 :=
+                  +-AggregateFunctionCall(ZetaSQL:max(INT64) -> INT64)
+                    +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  SumOfAggregateArgs(MAX(simpletypes_3.a_1)
+    GROUP BY simpletypes_3.a_2) AS a_4
+FROM
+  (
+    SELECT
+      SimpleTypes.int64 AS a_1,
+      SimpleTypes.string AS a_2
+    FROM
+      SimpleTypes
+  ) AS simpletypes_3;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int64 AS a_1,
+     SimpleTypes.string AS a_2
+|> AS simpletypes_3
+|> AGGREGATE
+     SumOfAggregateArgs(MAX(simpletypes_3.a_1)
+       GROUP BY simpletypes_3.a_2) AS a_4;
+
+Rewrite ERROR: GROUP BY modifier is not supported on calls to aggregate function Lazy_resolution_function:SumOfAggregateArgs

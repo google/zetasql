@@ -1,3 +1,4 @@
+[default language_features=NONE]
 [default sql_builder_target_syntax_mode=both]
 
 select 0,1,1.5,'abc',"def",null,trUE,FALse;
@@ -1286,7 +1287,7 @@ QueryStmt
               +-Literal(type=STRING, value="bar")
 ==
 
-[language_features={{NUMERIC_TYPE|}}]
+[language_features=NONE,{{+NUMERIC_TYPE|}}]
 SELECT
   NUMERIC '1.1',
   NUMERIC '0.123',
@@ -1304,7 +1305,7 @@ SELECT
   NUMERIC '-0.999999999',
   NUMERIC '-99999999999999999999999999999.999999999'
 --
-ALTERNATION GROUP: NUMERIC_TYPE
+ALTERNATION GROUP: +NUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -1352,7 +1353,7 @@ ERROR: NUMERIC literals are not supported [at 2:3]
   ^
 ==
 
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 SELECT NUMERIC '.1', NUMERIC '1.', NUMERIC '1e12', NUMERIC '1.1e12'
 --
 QueryStmt
@@ -1373,7 +1374,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 SELECT NUMERIC ' -100',
        NUMERIC ' +101',
        NUMERIC '-102 ',
@@ -1412,7 +1413,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 SELECT -NUMERIC '123'
 --
 QueryStmt
@@ -1429,10 +1430,10 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{NUMERIC_TYPE|}}]
+[language_features=NONE,{{+NUMERIC_TYPE|}}]
 SELECT NUMERIC 'abc'
 --
-ALTERNATION GROUP: NUMERIC_TYPE
+ALTERNATION GROUP: +NUMERIC_TYPE
 --
 ERROR: Invalid NUMERIC literal: "abc" [at 1:8]
 SELECT NUMERIC 'abc'
@@ -1447,7 +1448,7 @@ SELECT NUMERIC 'abc'
 
 # This literal is invalid because the number of digits after the decimal point
 # exceeds 9.
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 SELECT NUMERIC '1.5555555555'
 --
 ERROR: Invalid NUMERIC literal: "1.5555555555" [at 1:8]
@@ -1457,7 +1458,7 @@ SELECT NUMERIC '1.5555555555'
 
 # This literal is invalid because the number of digits before the decimal point
 # exceeds 29.
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 SELECT NUMERIC '100000000000000000000000000000'
 --
 ERROR: Invalid NUMERIC literal: "100000000000000000000000000000" [at 1:8]
@@ -1465,7 +1466,7 @@ SELECT NUMERIC '100000000000000000000000000000'
        ^
 ==
 
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 SELECT NUMERIC '- 100'
 --
 ERROR: Invalid NUMERIC literal: "- 100" [at 1:8]
@@ -1473,7 +1474,7 @@ SELECT NUMERIC '- 100'
        ^
 ==
 
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 SELECT NUMERIC ''
 --
 ERROR: Invalid NUMERIC literal: "" [at 1:8]
@@ -1481,7 +1482,7 @@ SELECT NUMERIC ''
        ^
 ==
 
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 SELECT NUMERIC '123abc'
 --
 ERROR: Invalid NUMERIC literal: "123abc" [at 1:8]
@@ -1489,7 +1490,7 @@ SELECT NUMERIC '123abc'
        ^
 ==
 
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 SELECT NUMERIC '0x123abc'
 --
 ERROR: Invalid NUMERIC literal: "0x123abc" [at 1:8]
@@ -1497,7 +1498,7 @@ SELECT NUMERIC '0x123abc'
        ^
 ==
 
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 SELECT NUMERIC '.'
 --
 ERROR: Invalid NUMERIC literal: "." [at 1:8]
@@ -1507,7 +1508,7 @@ SELECT NUMERIC '.'
 
 # Make sure that an invisible character in the literal gets printed
 # in the error message.
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 SELECT NUMERIC ''
 --
 ERROR: Invalid NUMERIC literal: "\x07" [at 1:8]
@@ -1517,7 +1518,7 @@ SELECT NUMERIC ''
 
 # b/120112552: exercise cache correctness for float literals converted
 # to NUMERIC
-[language_features=NUMERIC_TYPE]
+[language_features=NONE,+NUMERIC_TYPE]
 SELECT ARRAY<STRUCT<base NUMERIC, mul NUMERIC>>[
   (0.00, 1.0),
   (1.00, 0.5),
@@ -1538,7 +1539,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{BIGNUMERIC_TYPE|}}]
+[language_features=NONE,{{+BIGNUMERIC_TYPE|}}]
 SELECT
   BIGNUMERIC '1.1',
   BIGNUMERIC '0.123',
@@ -1556,7 +1557,7 @@ SELECT
   BIGNUMERIC '-0.99999999999999999999999999999999999999',
   BIGNUMERIC '-578960446186580977117854925043439539266.34992332820282019728792003956564819968'
 --
-ALTERNATION GROUP: BIGNUMERIC_TYPE
+ALTERNATION GROUP: +BIGNUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -1604,7 +1605,7 @@ ERROR: BIGNUMERIC literals are not supported [at 2:3]
   ^
 ==
 
-[language_features=BIGNUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE]
 SELECT BIGNUMERIC '.1', BIGNUMERIC '1.', BIGNUMERIC '1e12', BIGNUMERIC '1.1e12'
 --
 QueryStmt
@@ -1625,7 +1626,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=BIGNUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE]
 SELECT BIGNUMERIC ' -100',
        BIGNUMERIC ' +101',
        BIGNUMERIC '-102 ',
@@ -1664,10 +1665,10 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features={{BIGNUMERIC_TYPE|}}]
+[language_features=NONE,{{+BIGNUMERIC_TYPE|}}]
 SELECT BIGNUMERIC 'abc'
 --
-ALTERNATION GROUP: BIGNUMERIC_TYPE
+ALTERNATION GROUP: +BIGNUMERIC_TYPE
 --
 ERROR: Invalid BIGNUMERIC literal: "abc" [at 1:8]
 SELECT BIGNUMERIC 'abc'
@@ -1682,7 +1683,7 @@ SELECT BIGNUMERIC 'abc'
 
 # This literal is invalid because the number of digits after the decimal point
 # exceeds 38.
-[language_features=BIGNUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE]
 SELECT BIGNUMERIC '1.012345678901234567890123456789012345678'
 --
 ERROR: Invalid BIGNUMERIC literal: "1.012345678901234567890123456789012345678" [at 1:8]
@@ -1691,7 +1692,7 @@ SELECT BIGNUMERIC '1.012345678901234567890123456789012345678'
 ==
 
 # This literal is invalid because it is out of the supported range.
-[language_features=BIGNUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE]
 SELECT BIGNUMERIC '578960446186580977117854925043439539266.34992332820282019728792003956564819968'
 --
 ERROR: Invalid BIGNUMERIC literal: "578960446186580977117854925043439539266.34992332820282019728792003956564819968" [at 1:8]
@@ -1700,7 +1701,7 @@ SELECT BIGNUMERIC '578960446186580977117854925043439539266.349923328202820197...
 ==
 
 # This literal is invalid because it is out of the supported range.
-[language_features=BIGNUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE]
 SELECT BIGNUMERIC '-578960446186580977117854925043439539266.34992332820282019728792003956564819969'
 --
 ERROR: Invalid BIGNUMERIC literal: "-578960446186580977117854925043439539266.34992332820282019728792003956564819969" [at 1:8]
@@ -1708,7 +1709,7 @@ SELECT BIGNUMERIC '-578960446186580977117854925043439539266.34992332820282019...
        ^
 ==
 
-[language_features=BIGNUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE]
 SELECT BIGNUMERIC '- 100'
 --
 ERROR: Invalid BIGNUMERIC literal: "- 100" [at 1:8]
@@ -1716,7 +1717,7 @@ SELECT BIGNUMERIC '- 100'
        ^
 ==
 
-[language_features=BIGNUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE]
 SELECT BIGNUMERIC ''
 --
 ERROR: Invalid BIGNUMERIC literal: "" [at 1:8]
@@ -1724,7 +1725,7 @@ SELECT BIGNUMERIC ''
        ^
 ==
 
-[language_features=BIGNUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE]
 SELECT BIGNUMERIC '123abc'
 --
 ERROR: Invalid BIGNUMERIC literal: "123abc" [at 1:8]
@@ -1732,7 +1733,7 @@ SELECT BIGNUMERIC '123abc'
        ^
 ==
 
-[language_features=BIGNUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE]
 SELECT BIGNUMERIC '0x123abc'
 --
 ERROR: Invalid BIGNUMERIC literal: "0x123abc" [at 1:8]
@@ -1740,7 +1741,7 @@ SELECT BIGNUMERIC '0x123abc'
        ^
 ==
 
-[language_features=BIGNUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE]
 SELECT BIGNUMERIC '.'
 --
 ERROR: Invalid BIGNUMERIC literal: "." [at 1:8]
@@ -1750,7 +1751,7 @@ SELECT BIGNUMERIC '.'
 
 # Make sure that an invisible character in the literal gets printed
 # in the error message.
-[language_features=BIGNUMERIC_TYPE]
+[language_features=NONE,+BIGNUMERIC_TYPE]
 SELECT BIGNUMERIC ''
 --
 ERROR: Invalid BIGNUMERIC literal: "\x07" [at 1:8]
@@ -1766,7 +1767,7 @@ ERROR: JSON literals are not supported [at 2:3]
   ^
 ==
 
-[language_features=JSON_TYPE]
+[language_features=NONE,+JSON_TYPE]
 SELECT
   JSON "true",
   JSON '\'value\'',
@@ -1792,7 +1793,7 @@ ERROR: Invalid JSON literal: syntax error while parsing value - invalid literal;
   ^
 ==
 
-[language_features=JSON_TYPE]
+[language_features=NONE,+JSON_TYPE]
 SELECT
   JSON "t"
 --
@@ -1801,7 +1802,7 @@ ERROR: Invalid JSON literal: syntax error while parsing value - invalid literal;
   ^
 ==
 
-[language_features=JSON_TYPE]
+[language_features=NONE,+JSON_TYPE]
 SELECT
   JSON "+"
 --
@@ -1810,7 +1811,7 @@ ERROR: Invalid JSON literal: syntax error while parsing value - invalid literal;
   ^
 ==
 
-[language_features=JSON_TYPE]
+[language_features=NONE,+JSON_TYPE]
 SELECT
   JSON "{"
 --
@@ -1819,7 +1820,7 @@ ERROR: Invalid JSON literal: syntax error while parsing object key - unexpected 
   ^
 ==
 
-[language_features=JSON_TYPE]
+[language_features=NONE,+JSON_TYPE]
 SELECT
   JSON '\'string\''
 --
@@ -1828,7 +1829,7 @@ ERROR: Invalid JSON literal: syntax error while parsing value - invalid literal;
   ^
 ==
 
-[language_features=JSON_TYPE]
+[language_features=NONE,+JSON_TYPE]
 SELECT
   JSON "true",
   JSON 'true',
@@ -1886,7 +1887,7 @@ QueryStmt
 
 # Ensure JSON_STRICT_NUMBER_PARSING doesn't break parsing of values that are
 # already round-trippable.
-[language_features=JSON_TYPE,JSON_STRICT_NUMBER_PARSING]
+[language_features=NONE,+JSON_TYPE,+JSON_STRICT_NUMBER_PARSING]
 SELECT
   JSON '0.123',
   JSON '456.0',
@@ -1940,7 +1941,7 @@ QueryStmt
 
 ==
 
-[language_features=JSON_TYPE,JSON_STRICT_NUMBER_PARSING]
+[language_features=NONE,+JSON_TYPE,+JSON_STRICT_NUMBER_PARSING]
 SELECT JSON '0.142857142857142857142857142857142857'
 --
 ERROR: Invalid JSON literal: Input number: 0.142857142857142857142857142857142857 cannot round-trip through string representation [at 1:8]
@@ -1948,12 +1949,12 @@ SELECT JSON '0.142857142857142857142857142857142857'
        ^
 ==
 
-[language_features={{BIGNUMERIC_TYPE,DECIMAL_ALIAS|BIGNUMERIC_TYPE|DECIMAL_ALIAS|}}]
+[language_features=NONE,{{+BIGNUMERIC_TYPE,+DECIMAL_ALIAS|+BIGNUMERIC_TYPE|+DECIMAL_ALIAS|}}]
 SELECT BIGDECIMAL '1'
 --
 ALTERNATION GROUPS:
-    BIGNUMERIC_TYPE,DECIMAL_ALIAS
-    BIGNUMERIC_TYPE
+    +BIGNUMERIC_TYPE,+DECIMAL_ALIAS
+    +BIGNUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -1967,7 +1968,7 @@ QueryStmt
       +-SingleRowScan
 --
 ALTERNATION GROUPS:
-    DECIMAL_ALIAS
+    +DECIMAL_ALIAS
     <empty>
 --
 ERROR: BIGDECIMAL literals are not supported [at 1:8]
@@ -1975,12 +1976,12 @@ SELECT BIGDECIMAL '1'
        ^
 ==
 
-[language_features={{NUMERIC_TYPE,DECIMAL_ALIAS|NUMERIC_TYPE|DECIMAL_ALIAS|}}]
+[language_features=NONE,{{+NUMERIC_TYPE,+DECIMAL_ALIAS|+NUMERIC_TYPE|+DECIMAL_ALIAS|}}]
 SELECT DECIMAL '1'
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,DECIMAL_ALIAS
-    NUMERIC_TYPE
+    +NUMERIC_TYPE,+DECIMAL_ALIAS
+    +NUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -1994,7 +1995,7 @@ QueryStmt
       +-SingleRowScan
 --
 ALTERNATION GROUPS:
-    DECIMAL_ALIAS
+    +DECIMAL_ALIAS
     <empty>
 --
 ERROR: DECIMAL literals are not supported [at 1:8]
@@ -2002,19 +2003,19 @@ SELECT DECIMAL '1'
        ^
 ==
 
-[language_features={{NUMERIC_TYPE,DECIMAL_ALIAS|NUMERIC_TYPE|DECIMAL_ALIAS|}}]
+[language_features=NONE,{{+NUMERIC_TYPE,+DECIMAL_ALIAS|+NUMERIC_TYPE|+DECIMAL_ALIAS|}}]
 SELECT DECIMAL ''
 --
 ALTERNATION GROUPS:
-    NUMERIC_TYPE,DECIMAL_ALIAS
-    NUMERIC_TYPE
+    +NUMERIC_TYPE,+DECIMAL_ALIAS
+    +NUMERIC_TYPE
 --
 ERROR: Invalid DECIMAL literal: "" [at 1:8]
 SELECT DECIMAL ''
        ^
 --
 ALTERNATION GROUPS:
-    DECIMAL_ALIAS
+    +DECIMAL_ALIAS
     <empty>
 --
 ERROR: DECIMAL literals are not supported [at 1:8]
@@ -2022,19 +2023,19 @@ SELECT DECIMAL ''
        ^
 ==
 
-[language_features={{BIGNUMERIC_TYPE,DECIMAL_ALIAS|BIGNUMERIC_TYPE|DECIMAL_ALIAS|}}]
+[language_features=NONE,{{+BIGNUMERIC_TYPE,+DECIMAL_ALIAS|+BIGNUMERIC_TYPE|+DECIMAL_ALIAS|}}]
 SELECT BIGDECIMAL ''
 --
 ALTERNATION GROUPS:
-    BIGNUMERIC_TYPE,DECIMAL_ALIAS
-    BIGNUMERIC_TYPE
+    +BIGNUMERIC_TYPE,+DECIMAL_ALIAS
+    +BIGNUMERIC_TYPE
 --
 ERROR: Invalid BIGDECIMAL literal: "" [at 1:8]
 SELECT BIGDECIMAL ''
        ^
 --
 ALTERNATION GROUPS:
-    DECIMAL_ALIAS
+    +DECIMAL_ALIAS
     <empty>
 --
 ERROR: BIGDECIMAL literals are not supported [at 1:8]
@@ -2043,7 +2044,7 @@ SELECT BIGDECIMAL ''
 ==
 
 [no_java]
-[language_features={{|INTERVAL_TYPE}}]
+[language_features=NONE,{{|+INTERVAL_TYPE}}]
 select interval '1' year
 --
 ALTERNATION GROUP: <empty>
@@ -2052,7 +2053,7 @@ ERROR: Unexpected INTERVAL expression [at 1:8]
 select interval '1' year
        ^
 --
-ALTERNATION GROUP: INTERVAL_TYPE
+ALTERNATION GROUP: +INTERVAL_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -2067,7 +2068,7 @@ QueryStmt
 ==
 
 [no_java]
-[language_features={{|INTERVAL_TYPE}}]
+[language_features=NONE,{{|+INTERVAL_TYPE}}]
 select interval '1-2 3 4:5:6.789' year to second
 --
 ALTERNATION GROUP: <empty>
@@ -2076,7 +2077,7 @@ ERROR: Unexpected INTERVAL expression [at 1:8]
 select interval '1-2 3 4:5:6.789' year to second
        ^
 --
-ALTERNATION GROUP: INTERVAL_TYPE
+ALTERNATION GROUP: +INTERVAL_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -2091,7 +2092,7 @@ QueryStmt
 ==
 
 [show_sqlbuilder_output]
-[language_features={{|LITERAL_CONCATENATION}}]
+[language_features=NONE,{{|+LITERAL_CONCATENATION}}]
 select 'x' "y"
 --
 
@@ -2101,7 +2102,7 @@ ERROR: Concatenation of subsequent string literals is not supported. Did you mea
 select 'x' "y"
            ^
 --
-ALTERNATION GROUP: LITERAL_CONCATENATION
+ALTERNATION GROUP: +LITERAL_CONCATENATION
 --
 QueryStmt
 +-output_column_list=
@@ -2126,7 +2127,7 @@ SELECT
 ==
 
 [show_sqlbuilder_output]
-[language_features={{|LITERAL_CONCATENATION}}]
+[language_features=NONE,{{|+LITERAL_CONCATENATION}}]
 select b'x' b"y"
 --
 ALTERNATION GROUP: <empty>
@@ -2135,7 +2136,7 @@ ERROR: Concatenation of subsequent bytes literals is not supported. Did you mean
 select b'x' b"y"
             ^
 --
-ALTERNATION GROUP: LITERAL_CONCATENATION
+ALTERNATION GROUP: +LITERAL_CONCATENATION
 --
 QueryStmt
 +-output_column_list=

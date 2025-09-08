@@ -1,3 +1,4 @@
+[default language_features=NONE]
 with T as (select 1,2)
 select * from T
 --
@@ -278,7 +279,7 @@ with recursive r1 as (select 1)
 ==
 
 # WITH RECURSIVE support works if language option is enabled (detailed coverage in with_recursive.test)
-[language_features=WITH_RECURSIVE]
+[language_features=NONE,+WITH_RECURSIVE]
 with recursive r1 as (select 1)
 select 2
 --

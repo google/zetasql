@@ -199,7 +199,45 @@ drop SNAPSHOT TABLE
 # The follow object types are syntactically valid (no syntax errors),
 # although AGGREGATE FUNCTION and TABLE FUNCTION are not currently supported.
 # Other object types are not valid.
-drop {{AGGREGATE FUNCTION|CONNECTION|CONSTANT|DATABASE|EXTERNAL TABLE|FUNCTION|INDEX|MATERIALIZED VIEW|MODEL|PROCEDURE|TABLE|TABLE FUNCTION|VIEW|EXTERNAL TABLE FUNCTION|SCHEMA|EXTERNAL SCHEMA|SNAPSHOT TABLE}} foo {{|RESTRICT|Restrict|CASCADE|INVALID_DROP_MODE|DROP_MODE_UNSPECIFIED}};
+drop {{SEQUENCE|AGGREGATE FUNCTION|CONNECTION|CONSTANT|DATABASE|EXTERNAL TABLE|FUNCTION|INDEX|MATERIALIZED VIEW|MODEL|PROCEDURE|TABLE|TABLE FUNCTION|VIEW|EXTERNAL TABLE FUNCTION|SCHEMA|EXTERNAL SCHEMA|SNAPSHOT TABLE}} foo {{|RESTRICT|Restrict|CASCADE|INVALID_DROP_MODE|DROP_MODE_UNSPECIFIED}};
+--
+ALTERNATION GROUP: SEQUENCE,
+--
+DropStatement SEQUENCE [0-17] [drop SEQUENCE foo]
+  PathExpression [14-17] [foo]
+    Identifier(foo) [14-17] [foo]
+--
+DROP SEQUENCE foo
+--
+ALTERNATION GROUP: SEQUENCE,RESTRICT
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP SEQUENCE [at 1:19]
+drop SEQUENCE foo RESTRICT;
+                  ^
+--
+ALTERNATION GROUP: SEQUENCE,Restrict
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP SEQUENCE [at 1:19]
+drop SEQUENCE foo Restrict;
+                  ^
+--
+ALTERNATION GROUP: SEQUENCE,CASCADE
+--
+ERROR: Syntax error: 'CASCADE' is not supported for DROP SEQUENCE [at 1:19]
+drop SEQUENCE foo CASCADE;
+                  ^
+--
+ALTERNATION GROUP: SEQUENCE,INVALID_DROP_MODE
+--
+ERROR: Syntax error: Expected end of input but got identifier "INVALID_DROP_MODE" [at 1:19]
+drop SEQUENCE foo INVALID_DROP_MODE;
+                  ^
+--
+ALTERNATION GROUP: SEQUENCE,DROP_MODE_UNSPECIFIED
+--
+ERROR: Syntax error: Expected end of input but got identifier "DROP_MODE_UNSPECIFIED" [at 1:19]
+drop SEQUENCE foo DROP_MODE_UNSPECIFIED;
+                  ^
 --
 ALTERNATION GROUP: AGGREGATE FUNCTION,
 --
@@ -926,7 +964,7 @@ drop temporary table foo;
      ^
 ==
 
-[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features=NONE,{{|+ALLOW_DASHES_IN_TABLE_NAME}}]
 drop table foo-bar.baz;
 --
 ALTERNATION GROUP: <empty>
@@ -935,7 +973,7 @@ ERROR: Syntax error: Table name contains '-' character. The dashed identifier pa
 drop table foo-bar.baz;
            ^
 --
-ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: +ALLOW_DASHES_IN_TABLE_NAME
 --
 DropStatement TABLE [0-22] [drop table foo-bar.baz]
   PathExpression [11-22] [foo-bar.baz]

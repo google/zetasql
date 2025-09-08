@@ -1,4 +1,4 @@
-[default language_features=PIPES]
+[default language_features=NONE,+PIPES]
 select 1 x
 |> AGGREGATE count(*), sum(x) as xx
 --

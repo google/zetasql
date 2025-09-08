@@ -36,10 +36,8 @@
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
-// TODO: Remove the second template parameter and always use T for
-// Weight.
-template <typename T, typename W = std::conditional_t<std::is_same_v<T, double>,
-                                                      long double, T>>
+// TODO: Remove the second template parameter.
+template <typename T, typename W = T>
 class PercentileHelper;
 
 // A comparator to determine if the <lhs> is less than the <rhs> given the
@@ -72,12 +70,8 @@ class LessComparatorWithCollation {
 };
 
 // PercentileType = double, NumericValue or BigNumericValue
-// TODO: Remove the second template parameter and always use
-// PercentileType for Weight.
-template <typename PercentileType,
-          typename W =
-              std::conditional_t<std::is_same_v<PercentileType, double>,
-                                 long double, PercentileType>>
+// TODO: Remove the second template parameter.
+template <typename PercentileType, typename W = PercentileType>
 class PercentileEvaluator {
  public:
   // For PercentileType = double, Weight = long double by default; can be

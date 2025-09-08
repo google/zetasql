@@ -20,6 +20,8 @@
 #include <string>
 #include <vector>
 
+#include "absl/container/flat_hash_set.h"
+
 namespace zetasql {
 
 class Function;
@@ -31,8 +33,17 @@ bool FunctionIsOperator(const Function& function_name);
 // Update arguments to be used in GetSQL.
 // This is used to ensure that named arguments are printed prefixed with their
 // names.
-void UpdateArgsForGetSQL(const FunctionSignature* signature,
-                         std::vector<std::string>* args);
+//
+// `unset_arg_indices` specifies the indices of the arguments that are not set.
+// This is currently only used for optional relation arguments in TVFs. The
+// `args` omits these unset arguments. This set helps determine if an unset
+// optional relation argument exists, in which case, the subsequent
+// positional_or_named arguments are printed prefixed with the names.
+// The total number of concrete arguments from the signature should be the sum
+// of args.size() and unset_arg_indices.size().
+void UpdateArgsForGetSQL(
+    const FunctionSignature* signature, std::vector<std::string>* args,
+    const absl::flat_hash_set<int>& unset_arg_indices = {});
 
 }  // namespace zetasql
 

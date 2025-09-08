@@ -26,17 +26,20 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/parsed_templated_sql_function.h"
+#include "zetasql/common/status_payload_utils.h"
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/proto/internal_error_location.pb.h"
+#include "zetasql/proto/internal_fix_suggestion.pb.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/cycle_detector.h"
 #include "zetasql/public/error_helpers.h"
+#include "zetasql/public/fix_suggestion.pb.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/module_details.h"
@@ -452,7 +455,7 @@ ParseLocationPoint LazyResolutionObject::StartParseLocationPoint() const {
       parse_resume_location_.byte_position());
 }
 
-const std::string LazyResolutionObject::TypeName(bool capitalized) const {
+std::string LazyResolutionObject::TypeName(bool capitalized) const {
   std::string type_name = "<unsupported type>";
   if (parser_output_->statement()->node_kind() ==
         AST_CREATE_CONSTANT_STATEMENT) {
@@ -545,14 +548,25 @@ absl::Status LazyResolutionObject::MakeInvalidObjectStatus(
       MakeInternalErrorLocation(object_name_,
                                 parse_resume_location_.filename()),
       analyzer_status, error_message_options.mode, sql());
-  const absl::Status status = ::zetasql_base::StatusBuilder(analyzer_status.code())
-                                  .AttachPayload(new_error_location)
-                              << TypeName(/*capitalized=*/true) << " "
-                              << object_name_->GetAsString() << " is invalid";
+  absl::Status status = ::zetasql_base::StatusBuilder(analyzer_status.code())
+                            .AttachPayload(new_error_location)
+                        << TypeName(/*capitalized=*/true) << " "
+                        << object_name_->GetAsString() << " is invalid";
+  if (internal::HasPayloadWithType<zetasql::InternalErrorFixSuggestions>(
+          analyzer_status)) {
+    internal::AttachPayload(
+        &status,
+        internal::GetPayload<InternalErrorFixSuggestions>(analyzer_status));
+  }
+  if (internal::HasPayloadWithType<zetasql::ErrorFixSuggestions>(
+          analyzer_status)) {
+    internal::AttachPayload(
+        &status, internal::GetPayload<ErrorFixSuggestions>(analyzer_status));
+  }
   return MaybeUpdateErrorFromPayload(
       error_message_options, sql(),
       UpdateErrorLocationPayloadWithFilenameIfNotPresent(
-          ConvertInternalErrorLocationToExternal(status, sql()),
+          ConvertInternalErrorPayloadsToExternal(status, sql()),
           parse_resume_location_.filename()));
 }
 
@@ -609,7 +623,7 @@ std::string LazyResolutionObject::GetResolvedStatementDebugStringIfPresent(
   return output;
 }
 
-std::string_view LazyResolutionObject::GetCreateStatement(
+absl::string_view LazyResolutionObject::GetCreateStatement(
     bool include_prefix) const {
   ParseLocationRange location_range = parse_location_range_;
   if (include_prefix) {
@@ -761,7 +775,7 @@ bool LazyResolutionFunction::NeedsResolution() const {
   return lazy_resolution_object_.NeedsResolution();
 }
 
-std::string_view LazyResolutionFunction::SQL() const {
+absl::string_view LazyResolutionFunction::SQL() const {
   return lazy_resolution_object_.sql();
 }
 
@@ -950,7 +964,7 @@ absl::Status LazyResolutionTableFunction::ResolveAndUpdateIfNeeded(
     ZETASQL_ASSIGN_OR_RETURN(
         table_function_,
         remote_tvf_factory_->CreateRemoteTVF(*ResolvedStatement(),
-                                             module_details_),
+                                             module_details_, catalog),
         _.SetCode(absl::StatusCode::kInvalidArgument).SetPrepend()
             << absl::Substitute(
                    "Failed to create remote TVF $0: ",
@@ -984,7 +998,7 @@ bool LazyResolutionTableFunction::NeedsResolution() const {
   return lazy_resolution_object_.NeedsResolution();
 }
 
-std::string_view LazyResolutionTableFunction::SQL() const {
+absl::string_view LazyResolutionTableFunction::SQL() const {
   return lazy_resolution_object_.sql();
 }
 
@@ -1140,7 +1154,7 @@ bool LazyResolutionConstant::NeedsEvaluation() const {
   return NeedsResolution() || sql_constant_->needs_evaluation();
 }
 
-std::string_view LazyResolutionConstant::SQL() const {
+absl::string_view LazyResolutionConstant::SQL() const {
   return lazy_resolution_object_.sql();
 }
 
@@ -1279,7 +1293,7 @@ bool LazyResolutionView::NeedsResolution() const {
   return lazy_resolution_object_.NeedsResolution();
 }
 
-std::string_view LazyResolutionView::SQL() const {
+absl::string_view LazyResolutionView::SQL() const {
   return lazy_resolution_object_.sql();
 }
 

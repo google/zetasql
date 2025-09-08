@@ -47,9 +47,11 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/pico_time.h"
 #include "zetasql/public/proto_value_conversion.h"
 #include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/public/timestamp_picos_value.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/graph_element_type.h"
 #include "zetasql/public/types/graph_path_type.h"
@@ -70,6 +72,7 @@
 #include "absl/time/time.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
@@ -216,7 +219,6 @@ const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(STRING,     BYTES,      EXPLICIT);
   ADD_TO_MAP(STRING,     DATE,       EXPLICIT_OR_LITERAL_OR_PARAMETER);
   ADD_TO_MAP(STRING,     TIMESTAMP,  EXPLICIT_OR_LITERAL_OR_PARAMETER);
-  ADD_TO_MAP(STRING,     TIMESTAMP_PICOS, EXPLICIT);
   ADD_TO_MAP(STRING,     TIME,       EXPLICIT_OR_LITERAL_OR_PARAMETER);
   ADD_TO_MAP(STRING,     DATETIME,   EXPLICIT_OR_LITERAL_OR_PARAMETER);
   ADD_TO_MAP(STRING,     INTERVAL,   EXPLICIT);
@@ -242,8 +244,6 @@ const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(TIMESTAMP,  TIME,       EXPLICIT);
   ADD_TO_MAP(TIMESTAMP,  TIMESTAMP,  IMPLICIT);
   ADD_TO_MAP(TIMESTAMP,  STRING,     EXPLICIT);
-  // TODO: Add the rest of the supported casts and coercions.
-  ADD_TO_MAP(TIMESTAMP_PICOS, TIMESTAMP_PICOS, IMPLICIT);
 
   // TODO: Add relevant tests for TIME and DATETIME.
 
@@ -509,10 +509,10 @@ class CastContext {
  protected:
   const absl::TimeZone& default_timezone() const { return default_timezone_; }
   const LanguageOptions& language_options() const { return language_options_; }
-  const std::optional<absl::Time> current_timestamp() const {
+  std::optional<absl::Time> current_timestamp() const {
     return current_timestamp_;
   }
-  const std::optional<int32_t> current_date() const { return current_date_; }
+  std::optional<int32_t> current_date() const { return current_date_; }
 
   // If true, the sign on a signed zero is removed when converting numeric type
   // to string.
@@ -629,8 +629,7 @@ static absl::Status ValidateGraphElementValueImplicitCastAndAddStaticProperties(
 
   // The same static property name must have the same value type.
   // Dynamic property with conflicting name in the from type shadows static
-  // property with the same name in the to type. The returned property value in
-  // the cast result is NULL with to type's property value type.
+  // property with the same name in the to type.
   for (const PropertyType& property_type : to_type->property_types()) {
     static_property_names.insert(property_type.name);
     if (absl::StatusOr<Value> from_property_val =
@@ -647,9 +646,6 @@ static absl::Status ValidateGraphElementValueImplicitCastAndAddStaticProperties(
                  language_options.product_mode());
       result_static_properties.push_back(
           {property_type.name, std::move(from_property_val.value())});
-    } else {
-      result_static_properties.push_back(
-          {property_type.name, Value::Null(property_type.value_type)});
     }
   }
   // Coercion should be checked by the caller of `CastValue`.
@@ -946,57 +942,47 @@ absl::StatusOr<Value> CastContext::CastValue(
       // that includes an argument to indicate if a timezone is allowed in
       // the string or not.  If not allowed and there is a timezone then
       // an error should be provided.
-      if (language_options().LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
-        absl::Time timestamp;
-
-        if (format.has_value()) {
-          if (!current_timestamp().has_value()) {
-            return MakeEvalError() << "current timestamp is not set";
-          }
-
-          ZETASQL_RETURN_IF_ERROR(functions::CastStringToTimestamp(
-              format.value(), v.string_value(), default_timezone(),
-              current_timestamp().value(), &timestamp));
-        } else {
-          ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTimestamp(
-              v.string_value(), default_timezone(), functions::kNanoseconds,
-              /*allow_tz_in_str=*/true, &timestamp));
-        }
-        return Value::Timestamp(timestamp);
+      functions::TimestampScale scale;
+      if (language_options().LanguageFeatureEnabled(FEATURE_TIMESTAMP_PICOS)) {
+        scale = functions::kPicoseconds;
+      } else if (language_options().LanguageFeatureEnabled(
+                     FEATURE_TIMESTAMP_NANOS)) {
+        scale = functions::kNanoseconds;
       } else {
-        int64_t timestamp;
-        if (format.has_value()) {
-          if (!current_timestamp().has_value()) {
-            return MakeEvalError() << "current timestamp is not set";
-          }
-
-          ZETASQL_RETURN_IF_ERROR(functions::CastStringToTimestamp(
-              format.value(), v.string_value(), default_timezone(),
-              current_timestamp().value(), &timestamp));
-        } else {
-          ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTimestamp(
-              v.string_value(), default_timezone(), functions::kMicroseconds,
-              &timestamp));
-        }
-        return Value::TimestampFromUnixMicros(timestamp);
+        scale = functions::kMicroseconds;
       }
+
+      // All ZetaSQL Timestamps are internally stored with picosecond
+      // precision (with 0 padding if needed). We use scale when parsing the
+      // timestamp string to enforce the precision limit set by language feature
+      // flags.
+      PicoTime pico_time;
+      if (format.has_value()) {
+        if (!current_timestamp().has_value()) {
+          return MakeEvalError() << "current timestamp is not set";
+        }
+
+        ZETASQL_ASSIGN_OR_RETURN(
+            pico_time, functions::CastStringToTimestamp(
+                           format.value(), v.string_value(), default_timezone(),
+                           current_timestamp().value()));
+      } else {
+        ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTimestamp(
+            v.string_value(), default_timezone(), scale,
+            /*allow_tz_in_str=*/true, &pico_time));
+      }
+      return Value::Timestamp(TimestampPicosValue(pico_time));
     }
     case FCT(TYPE_TIMESTAMP, TYPE_STRING): {
       std::string timestamp;
       if (format.has_value()) {
-        ZETASQL_RETURN_IF_ERROR(functions::CastFormatTimestampToString(
-            format.value(), v.ToTime(), default_timezone(), &timestamp));
+        ZETASQL_ASSIGN_OR_RETURN(timestamp,
+                         functions::CastFormatTimestampToString(
+                             format.value(), v.ToUnixPicos().ToPicoTime(),
+                             default_timezone()));
       } else {
-        if (language_options().LanguageFeatureEnabled(
-                FEATURE_TIMESTAMP_NANOS)) {
-          ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToString(
-              v.ToTime(), functions::kNanoseconds, default_timezone(),
-              &timestamp));
-        } else {
-          ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToStringWithTruncation(
-              v.ToUnixMicros(), functions::kMicroseconds, default_timezone(),
-              &timestamp));
-        }
+        ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToString(
+            v.ToUnixPicos().ToPicoTime(), default_timezone(), &timestamp));
       }
       return Value::String(timestamp);
     }
@@ -1008,11 +994,13 @@ absl::StatusOr<Value> CastContext::CastValue(
       return Value::TimestampFromUnixMicros(timestamp);
     }
     case FCT(TYPE_TIMESTAMP, TYPE_DATE): {
-      int32_t date;
-      ZETASQL_RETURN_IF_ERROR(ExtractFromTimestamp(
-          functions::DateTimestampPart::DATE, v.ToUnixMicros(),
-          functions::kMicroseconds, default_timezone(), &date));
-      return Value::Date(date);
+      ZETASQL_ASSIGN_OR_RETURN(int64_t date64,
+                       ExtractFromTimestamp(functions::DateTimestampPart::DATE,
+                                            v.ToUnixPicos().ToPicoTime(),
+                                            default_timezone()));
+      int32_t date32 = static_cast<int32_t>(date64);
+      ZETASQL_RET_CHECK_EQ(date32, date64);
+      return Value::Date(date32);
     }
     case FCT(TYPE_STRING, TYPE_BYTES):
       if (format.has_value()) {

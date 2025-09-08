@@ -115,7 +115,7 @@ AlterTableStatement [0-38]
 ALTER TABLE column DROP COLUMN `union`
 ==
 
-[language_features={{|ALLOW_DASHES_IN_TABLE_NAME}}]
+[language_features=NONE,{{|+ALLOW_DASHES_IN_TABLE_NAME}}]
 ALTER TABLE foo-bar.baz DROP COLUMN a
 --
 ALTERNATION GROUP: <empty>
@@ -124,7 +124,7 @@ ERROR: Syntax error: Table name contains '-' character. The dashed identifier pa
 ALTER TABLE foo-bar.baz DROP COLUMN a
             ^
 --
-ALTERNATION GROUP: ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: +ALLOW_DASHES_IN_TABLE_NAME
 --
 AlterTableStatement [0-37]
   PathExpression [12-23]

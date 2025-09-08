@@ -1,4 +1,4 @@
-[default language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [default no_test_extract_table_names]
 # No unparser due to SQLBuilder visitor not implemented for GraphMakeElement
 
@@ -1540,7 +1540,7 @@ QueryStmt
                       +-GraphRefScan(column_list=$element_table.[$element1#1, a#2, $element2#3])
 ==
 
-[language_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,SQL_GRAPH_ADVANCED_QUERY,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 # Quantified paths implicitly exposing group variables through optional columns
 SELECT ARRAY_LENGTH(e) AS e_arr
   from graph_table(

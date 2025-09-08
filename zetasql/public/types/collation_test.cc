@@ -200,8 +200,8 @@ TEST(CollationTest, Creation) {
     // Set collation on b.[].a
     annotation_map->AsStructMap()
         ->mutable_field(1)
-        ->AsArrayMap()
-        ->mutable_element()
+        ->AsStructMap()
+        ->mutable_field(0)
         ->AsStructMap()
         ->mutable_field(0)
         ->SetAnnotation(static_cast<int>(AnnotationKind::kCollation),
@@ -317,8 +317,8 @@ TEST(CollationTest, EqualAndCompatibilityTest) {
       SimpleValue::String("unicode:ci"));
   struct_annotation_map->AsStructMap()
       ->mutable_field(1)
-      ->AsArrayMap()
-      ->mutable_element()
+      ->AsStructMap()
+      ->mutable_field(0)
       ->AsStructMap()
       ->mutable_field(0)
       ->SetAnnotation(static_cast<int>(AnnotationKind::kCollation),

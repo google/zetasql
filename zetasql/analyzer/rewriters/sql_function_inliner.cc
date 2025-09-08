@@ -788,6 +788,20 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
                 "function "
              << function->SQLName();
     }
+    if (call->where_expr() != nullptr) {
+      // TODO: Decide semantics for this clause before inlining it.
+      return MakeSqlErrorAtStart(error_location)
+             << "WHERE filter modifier is not supported on calls to aggregate "
+                "function "
+             << function->SQLName();
+    }
+    if (call->having_expr() != nullptr) {
+      // TODO: Decide semantics for this clause before inlining it.
+      return MakeSqlErrorAtStart(error_location)
+             << "HAVING filter modifier is not supported on calls to aggregate "
+                "function "
+             << function->SQLName();
+    }
     if (function->Is<SQLFunctionInterface>()) {
       auto* fn = function->GetAs<SQLFunctionInterface>();
       std::vector<FunctionArgumentType> agg_args;

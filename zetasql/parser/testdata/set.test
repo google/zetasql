@@ -166,7 +166,7 @@ SET a,b = (4, 5);
 # Struct assignment (missing left parenthesis)
 SET a, b) = y;
 --
-ERROR: Syntax error: Expected "," or "=" but got ")" [at 1:9]
+ERROR: Syntax error: Expected "=" but got ")" [at 1:9]
 SET a, b) = y;
         ^
 ==
@@ -174,7 +174,7 @@ SET a, b) = y;
 # Struct assignment (missing right parenthesis)
 SET (a, b = y;
 --
-ERROR: Syntax error: Expected ")" or "," but got "=" [at 1:11]
+ERROR: Syntax error: Expected ")" but got "=" [at 1:11]
 SET (a, b = y;
           ^
 ==
@@ -214,7 +214,7 @@ SET (a, 1) = (3, 4);
 # Expressions in variable list
 SET (a + 1, 2) = (3, 4);
 --
-ERROR: Syntax error: Expected ")" or "," but got "+" [at 1:8]
+ERROR: Syntax error: Expected ")" but got "+" [at 1:8]
 SET (a + 1, 2) = (3, 4);
        ^
 ==

@@ -1,4 +1,4 @@
-[default language_features=ENCRYPTION]
+[default language_features=MAXIMUM,+ENCRYPTION]
 SELECT KEYS.NEW_KEYSET(NULL)
 --
 ERROR: First argument (key type) in function KEYS.NEW_KEYSET must be a string literal or query parameter [at 1:8]

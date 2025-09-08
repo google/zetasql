@@ -649,11 +649,6 @@ inline Value Value::Timestamp(absl::Time t) { return Value(t); }
 inline Value Value::Timestamp(TimestampPicosValue t) {
   return Value(t, TypeKind::TYPE_TIMESTAMP);
 }
-// TODO: Strip obsolete TIMESTAMP_PICOS values from our codebase.
-ABSL_DEPRECATED("Obsolete timestamp types are deprecated")
-inline Value Value::TimestampPicos(TimestampPicosValue t) {
-  return Value(t, TypeKind::TYPE_TIMESTAMP_PICOS);
-}
 inline Value Value::Time(TimeValue time) { return Value(time); }
 inline Value Value::Datetime(DatetimeValue datetime) { return Value(datetime); }
 inline Value Value::Interval(IntervalValue interval) { return Value(interval); }
@@ -696,11 +691,6 @@ inline Value Value::NullString() { return Value(TypeKind::TYPE_STRING); }
 inline Value Value::NullBytes() { return Value(TypeKind::TYPE_BYTES); }
 inline Value Value::NullDate() { return Value(TypeKind::TYPE_DATE); }
 inline Value Value::NullTimestamp() { return Value(TypeKind::TYPE_TIMESTAMP); }
-// TODO: Strip obsolete TIMESTAMP_PICOS values from our codebase.
-ABSL_DEPRECATED("Obsolete timestamp types are deprecated")
-inline Value Value::NullTimestampPicos() {
-  return Value(TypeKind::TYPE_TIMESTAMP_PICOS);
-}
 inline Value Value::NullTime() { return Value(TypeKind::TYPE_TIME); }
 inline Value Value::NullDatetime() { return Value(TypeKind::TYPE_DATETIME); }
 inline Value Value::NullInterval() { return Value(TypeKind::TYPE_INTERVAL); }
@@ -1092,58 +1082,15 @@ inline IntervalValue Value::Get<IntervalValue>() const {
   return interval_value();
 }
 
-// ContentStorage<4> represents Metadata's field layout on 32-bit systems.
-// Layouts on 32 and 64 bit systems are different, because x64 pointer and two
-// boolean variables cannot reside in 8 bytes data structure and we need
-// to use pointer tagging (even though a pointer uses just 6 bytes, some
-// platforms checks that all bits in the remaining 2 bytes have the same value).
-// On 32-bit systems we have only 2-bits available for pointer tagging (which is
-// not enough for 3 flags that we keep), however (since pointer is only 4
-// bytes), we have enough space to store flags in the first 4 bytes of the
-// structure.
-template <>
-class Value::Metadata::ContentLayout<4> {
- protected:
-  uint16_t is_null_ : 1;
-  uint16_t preserves_order_ : 1;
-  uint16_t has_type_ : 1;
-
-  union {
-    const Type* type_;
-    int32_t value_extended_content_;
-  };
-
- public:
-  ContentLayout<4>(Type* type, bool is_null, bool preserves_order)
-      : is_null_(is_null),
-        preserves_order_(preserves_order),
-        has_type_(true),
-        type_(type) {}
-
-  constexpr ContentLayout<4>(TypeKind kind, bool is_null, bool preserves_order,
-                             int32_t value_extended_content)
-      : is_null_(is_null),
-        preserves_order_(preserves_order),
-        has_type_(false),
-        value_extended_content_(value_extended_content) {}
-
-  const Type* type() const { return type_; }
-  int32_t value_extended_content() const { return value_extended_content_; }
-  bool is_null() const { return is_null_; }
-  bool preserves_order() const { return preserves_order_; }
-  bool has_type_pointer() const { return has_type_; }
-};
-
-// On 64-bit systems we need to use pointer tagging to distinguish between the
-// case when we store type pointer and type kind together with value. We expect
-// all Type pointers to be 8 bytes aligned (which should be the case if standard
-// allocation mechanism is used since std::malloc is required to return an
-// allocation that is suitably aligned for any scalar type). We use 3 lowest
-// bits to encode is_null, preserves_order and has_type. These bits must never
-// overlap with int32 value_. Thus we use different structure layout depending
-// on system endianness.
-template <>
-class Value::Metadata::ContentLayout<8> {
+// We use pointer tagging to distinguish between the case when we store type
+// pointer and type kind together with value. We expect all Type pointers to be
+// 8 bytes aligned (which should be the case if standard allocation mechanism is
+// used since std::malloc is required to return an allocation that is suitably
+// aligned for any scalar type). We use 3 lowest bits to encode is_null,
+// preserves_order and has_type. These bits must never overlap with int32
+// value_. Thus we use different structure layout depending on system
+// endianness.
+class Value::Metadata::Content {
   static constexpr uint64_t kTagMask = static_cast<uint64_t>(7);
   static constexpr uint64_t kTypeMask = ~static_cast<uint64_t>(kTagMask);
   static constexpr uint64_t kHasTypeTag = 1;
@@ -1176,16 +1123,21 @@ class Value::Metadata::ContentLayout<8> {
       static_assert(false,
                     "Platform is not supported: neither big nor little endian");
 #endif
+#ifndef __EMSCRIPTEN__
+      static_assert(
+          sizeof(void*) == 8,
+          "Platform is not supported: size of pointer is not 8 bytes");
+#endif  // __EMSCRIPTEN__
     };
   };
 
  public:
-  ContentLayout<8>(const Type* type, bool is_null, bool preserves_order)
+  Content(const Type* type, bool is_null, bool preserves_order)
       : type_(reinterpret_cast<uint64_t>(type) |
               GetTagValue(/*has_type=*/true, is_null, preserves_order)) {}
 
   // clang-format off
-  constexpr ContentLayout<8>(TypeKind kind, bool is_null, bool preserves_order,
+  constexpr Content(TypeKind kind, bool is_null, bool preserves_order,
                              int32_t value_extended_content)
 #if defined(ABSL_IS_BIG_ENDIAN)
       : value_extended_content_(value_extended_content),
@@ -1214,6 +1166,7 @@ class Value::Metadata::ContentLayout<8> {
   bool is_null() const { return type_ & kIsNullTag; }
   bool preserves_order() const { return type_ & kPreserverOrderTag; }
   bool has_type_pointer() const { return type_ & kHasTypeTag; }
+  uint64_t raw_type() const { return type_; }
 
   friend constexpr Value::Metadata::Metadata(TypeKind kind, bool is_null,
                                              bool preserves_order,
@@ -1225,8 +1178,9 @@ constexpr Value::Metadata::Metadata(TypeKind kind, bool is_null,
                                     int32_t value_extended_content)
     // To maintain constexpr consistency under C++17 we pass the int64_t from
     // the union type to the data_ member.
-    : data_(Content(kind, is_null, preserves_order, value_extended_content)
-                .type_) {}
+    : data_(static_cast<int64_t>(
+          Content(kind, is_null, preserves_order, value_extended_content)
+              .raw_type())) {}
 
 namespace values {
 
@@ -1258,11 +1212,6 @@ inline Value Timestamp(absl::Time time) { return Value::Timestamp(time); }
 inline Value Timestamp(TimestampPicosValue t) { return Value::Timestamp(t); }
 inline Value TimestampFromUnixMicros(int64_t v) {
   return Value::TimestampFromUnixMicros(v);
-}
-
-// TODO: Strip obsolete TIMESTAMP_PICOS values from our codebase.
-inline Value TimestampPicos(TimestampPicosValue t) {
-  return Value::TimestampPicos(t);
 }
 
 inline Value Time(TimeValue time) { return Value::Time(time); }
@@ -1341,7 +1290,6 @@ inline Value NullString() { return Value::NullString(); }
 inline Value NullBytes() { return Value::NullBytes(); }
 inline Value NullDate() { return Value::NullDate(); }
 inline Value NullTimestamp() { return Value::NullTimestamp(); }
-inline Value NullTimestampPicos() { return Value::NullTimestampPicos(); }
 inline Value NullTime() { return Value::NullTime(); }
 inline Value NullDatetime() { return Value::NullDatetime(); }
 inline Value NullInterval() { return Value::NullInterval(); }

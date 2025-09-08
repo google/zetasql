@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/parser/ast_node.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/flex_tokenizer.h"
 #include "zetasql/parser/parse_tree.h"
@@ -37,6 +38,7 @@
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -127,6 +129,8 @@ ResolvedNodeKind GetStatementKind(ASTNodeKind node_kind) {
       return RESOLVED_CREATE_PRIVILEGE_RESTRICTION_STMT;
     case AST_CREATE_ROW_ACCESS_POLICY_STATEMENT:
       return RESOLVED_CREATE_ROW_ACCESS_POLICY_STMT;
+    case AST_CREATE_SEQUENCE_STATEMENT:
+      return RESOLVED_CREATE_SEQUENCE_STMT;
     case AST_DEFINE_TABLE_STATEMENT:
       return RESOLVED_DEFINE_TABLE_STMT;
     case AST_DELETE_STATEMENT:
@@ -230,6 +234,8 @@ ResolvedNodeKind GetStatementKind(ASTNodeKind node_kind) {
       return RESOLVED_ALTER_ENTITY_STMT;
     case AST_AUX_LOAD_DATA_STATEMENT:
       return RESOLVED_AUX_LOAD_DATA_STMT;
+    case AST_ALTER_SEQUENCE_STATEMENT:
+      return RESOLVED_ALTER_SEQUENCE_STMT;
     default:
       break;
   }
@@ -244,8 +250,8 @@ ResolvedNodeKind GetNextStatementKind(
   bool statement_is_ctas = false;
   ASTNodeKind node_kind = ParseNextStatementKind(
       resume_location, language_options, &statement_is_ctas);
-  return statement_is_ctas ?
-      RESOLVED_CREATE_TABLE_AS_SELECT_STMT : GetStatementKind(node_kind);
+  return statement_is_ctas ? RESOLVED_CREATE_TABLE_AS_SELECT_STMT
+                           : GetStatementKind(node_kind);
 }
 
 absl::Status GetStatementProperties(absl::string_view input,
@@ -271,9 +277,9 @@ absl::Status GetNextStatementProperties(
   // ASTNodes.
   std::vector<std::unique_ptr<ASTNode>> allocated_ast_nodes;
 
-  ZETASQL_RETURN_IF_ERROR(ParseNextStatementProperties(
-      resume_location, parser_options, &allocated_ast_nodes,
-      &ast_statement_properties));
+  ZETASQL_RETURN_IF_ERROR(ParseNextStatementProperties(resume_location, parser_options,
+                                               &allocated_ast_nodes,
+                                               &ast_statement_properties));
   statement_properties->node_kind =
       GetStatementKind(ast_statement_properties.node_kind);
 
@@ -340,6 +346,8 @@ absl::Status GetNextStatementProperties(
     case AST_RENAME_STATEMENT:
     case AST_CREATE_SNAPSHOT_STATEMENT:
     case AST_DEFINE_MACRO_STATEMENT:
+    case AST_CREATE_SEQUENCE_STATEMENT:
+    case AST_ALTER_SEQUENCE_STATEMENT:
       statement_properties->statement_category = StatementProperties::DDL;
       break;
     case AST_DELETE_STATEMENT:
@@ -397,7 +405,7 @@ absl::Status GetNextStatementProperties(
     default:
       ZETASQL_RET_CHECK_FAIL() << "Unexpected AST node type: "
                        << ASTNode::NodeKindToString(
-                           ast_statement_properties.node_kind);
+                              ast_statement_properties.node_kind);
       break;
   }
 
@@ -489,4 +497,123 @@ GetTopLevelTableNameFromNextDDLStatement(
   }
 }
 
+absl::StatusOr<std::vector<absl::string_view>> ListSelectExpressions(
+    const ASTSelect* select_node, absl::string_view sql) {
+  ZETASQL_RET_CHECK(select_node != nullptr);
+  std::vector<absl::string_view> select_list_expressions;
+
+  const ASTSelectAs* select_as = select_node->select_as();
+  if (select_as != nullptr) {
+    const ParseLocationRange& location_range = select_as->location();
+    const int start_offset = location_range.start().GetByteOffset();
+    const int length = location_range.end().GetByteOffset() - start_offset;
+    select_list_expressions.push_back(sql.substr(start_offset, length));
+    return select_list_expressions;
+  }
+  const ASTSelectList* select_list = select_node->select_list();
+  ZETASQL_RET_CHECK(select_list != nullptr);
+  select_list_expressions.reserve(select_list->columns().size());
+  for (const ASTSelectColumn* select_column : select_list->columns()) {
+    for (int i = 0; i < select_column->num_children(); ++i) {
+      const ASTNode* node = select_column->child(i);
+      if (node->Is<ASTDotStar>() || node->Is<ASTStar>() ||
+          node->Is<ASTStarWithModifiers>() ||
+          node->Is<ASTDotStarWithModifiers>()) {
+        return absl::UnimplementedError(
+            "SQL queries with '*' operations are not supported yet by "
+            "ListSelectColumnExpressionsFromFinalSelectClause API");
+      }
+    }
+    const ParseLocationRange& location_range =
+        select_column->expression()->location();
+    const int start_offset = location_range.start().GetByteOffset();
+    const int length = location_range.end().GetByteOffset() - start_offset;
+    select_list_expressions.push_back(sql.substr(start_offset, length));
+  }
+  return select_list_expressions;
+}
+
+// Recursively traverses the query expression tree to find the SELECT
+// node that defines the output columns. This is used to correctly locate the
+// SELECT list for queries that might involve operations like WITH, UNION,
+// INTERSECT, and EXCEPT clauses.
+//
+// The output columns of a set operation are determined by the columns
+// of the first SELECT statement.
+// The output columns of a SQL Statement with PIPE operations is determined by
+// the final PIPE_SELECT operation.
+absl ::StatusOr<const ASTSelect*> GetSelectNodeFromAST(const ASTQuery* query) {
+  ZETASQL_RET_CHECK(query != nullptr);
+  absl::Span<const ASTPipeOperator* const> pipe_operator_list =
+      query->pipe_operator_list();
+  if (pipe_operator_list.empty()) {
+    for (int i = 0; i < query->num_children(); ++i) {
+      const ASTNode* child_node = query->child(i);
+      if (child_node->Is<ASTSelect>()) {
+        return child_node->GetAsOrNull<ASTSelect>();
+      }
+      if (child_node->Is<ASTSetOperation>()) {
+        return absl::UnimplementedError(
+            "SET operations are not supported yet in "
+            "ListSelectColumnExpressionsFromFinalSelectClause API");
+      }
+    }
+  } else {
+    // If it is a pipe operation, return the last AST_PIPE_SELECT st.
+    if (!pipe_operator_list.back()->Is<ASTPipeSelect>()) {
+      return absl::UnimplementedError(
+          "SQL Queries with PIPE operations not ending in PIPE_SELECT are "
+          "not "
+          "supported yet by ListSelectColumnExpressionsFromFinalSelectClause "
+          "API");
+    }
+    const ASTPipeSelect* pipe_select =
+        pipe_operator_list.back()->GetAsOrNull<ASTPipeSelect>();
+    ZETASQL_RET_CHECK(pipe_select != nullptr);
+    return pipe_select->select();
+  }
+  return absl::InvalidArgumentError("AST_SELECT node not found in ASTQuery");
+}
+
+absl::StatusOr<std::vector<absl::string_view>>
+ListSelectColumnExpressionsFromFinalSelectClause(
+    absl::string_view sql, const LanguageOptions& language_options) {
+  std::unique_ptr<ParserOutput> parser_output;
+  const absl::Status parse_status =
+      ParseStatement(sql, ParserOptions(language_options), &parser_output);
+  ZETASQL_RETURN_IF_ERROR(parse_status);
+  ZETASQL_RET_CHECK(parser_output != nullptr);
+  const ASTStatement* statement = parser_output->statement();
+  ZETASQL_RET_CHECK(statement != nullptr)
+      << "ParseStatement succeeded but returned a null statement";
+  if (statement->Is<ASTHintedStatement>()) {
+    auto hinted_statement = statement->GetAsOrNull<ASTHintedStatement>();
+    for (int i = 0; i < hinted_statement->num_children(); ++i) {
+      if (hinted_statement->child(i)->Is<ASTQueryStatement>()) {
+        statement =
+            hinted_statement->child(i)->GetAsOrNull<ASTQueryStatement>();
+        break;
+      }
+    }
+  }
+  if (!statement->Is<ASTQueryStatement>()) {
+    return absl::InvalidArgumentError(
+        "Only SQL query statements with final output defined by a SELECT "
+        "clause are "
+        "supported by ListSelectColumnExpressionsFromFinalSelectClause "
+        "API. The current statement kind is " +
+        statement->NodeKindToString(statement->node_kind()));
+  }
+
+  const ASTQueryStatement* query_statement_node =
+      statement->GetAsOrNull<ASTQueryStatement>();
+  ZETASQL_RET_CHECK(query_statement_node != nullptr);
+  const ASTQuery* query_node =
+      query_statement_node->query()->GetAsOrNull<ASTQuery>();
+  ZETASQL_RET_CHECK(query_node != nullptr);
+
+  ZETASQL_ASSIGN_OR_RETURN(const ASTSelect* select_node,
+                   GetSelectNodeFromAST(query_node));
+  return ListSelectExpressions(select_node, sql);
+}
 }  // namespace zetasql

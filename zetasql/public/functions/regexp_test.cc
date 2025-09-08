@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -35,7 +36,6 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "re2/re2.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 namespace functions {
@@ -216,6 +216,333 @@ TEST_P(RegexpInstrTest, TestLib) {
 
 INSTANTIATE_TEST_SUITE_P(RegexpInstrTests, RegexpInstrTest,
                          testing::ValuesIn(GetFunctionTestsRegexpInstr()));
+
+TEST(RegexpExtractGroupsResultStructTest, ExplicitTests) {
+  TypeFactory type_factory;
+  LanguageOptions language_options;
+  const bool kDeriveFieldTypes = true;
+
+  // Simple pattern with named and unnamed groups
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto re, MakeRegExpUtf8("(?P<first>[a-z]+)-([0-9]+)"));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        const Type* result_type,
+        re->ExtractGroupsResultStruct(&type_factory, language_options,
+                                      kDeriveFieldTypes));
+    ASSERT_TRUE(result_type->IsStruct());
+    const StructType* struct_type = result_type->AsStruct();
+    ASSERT_EQ(struct_type->num_fields(), 2);
+    EXPECT_EQ(struct_type->field(0).name, "first");
+    EXPECT_TRUE(struct_type->field(0).type->IsString());
+    EXPECT_EQ(struct_type->field(1).name, "");
+    EXPECT_TRUE(struct_type->field(1).type->IsString());
+  }
+
+  // Perl syntax for capture groups (?<name>)
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto re, MakeRegExpUtf8("(?<first>[a-z]+)-([0-9]+)"));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        const Type* result_type,
+        re->ExtractGroupsResultStruct(&type_factory, language_options,
+                                      kDeriveFieldTypes));
+    ASSERT_TRUE(result_type->IsStruct());
+    const StructType* struct_type = result_type->AsStruct();
+    ASSERT_EQ(struct_type->num_fields(), 2);
+    EXPECT_EQ(struct_type->field(0).name, "first");
+    EXPECT_TRUE(struct_type->field(0).type->IsString());
+    EXPECT_EQ(struct_type->field(1).name, "");
+    EXPECT_TRUE(struct_type->field(1).type->IsString());
+  }
+
+  // Pattern with duplicate group names (should fail)
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto re,
+                         MakeRegExpUtf8("(?P<name>[a-z]+)-(?P<name>[0-9]+)"));
+    EXPECT_THAT(re->ExtractGroupsResultStruct(&type_factory, language_options,
+                                              kDeriveFieldTypes),
+                zetasql_base::testing::StatusIs(
+                    absl::StatusCode::kInvalidArgument,
+                    testing::HasSubstr("Regular expression contains duplicate "
+                                       "capturing group name: name")));
+  }
+  // Case-insensitive duplicate group names should also fail.
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto re,
+                         MakeRegExpUtf8("(?P<name>[a-z]+)-(?P<nAmE>[0-9]+)"));
+    EXPECT_THAT(re->ExtractGroupsResultStruct(&type_factory, language_options,
+                                              kDeriveFieldTypes),
+                zetasql_base::testing::StatusIs(
+                    absl::StatusCode::kInvalidArgument,
+                    testing::HasSubstr("Regular expression contains duplicate "
+                                       "capturing group name: nAmE")));
+  }
+  // Duplicate field names after stripping suffix (should fail).
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        auto re,
+        MakeRegExpUtf8("(?P<my_val__INT64>[0-9]+)-(?P<my_val>[a-z]+)"));
+    EXPECT_THAT(re->ExtractGroupsResultStruct(&type_factory, language_options,
+                                              !kDeriveFieldTypes),
+                zetasql_base::testing::StatusIs(
+                    absl::StatusCode::kInvalidArgument,
+                    testing::HasSubstr("duplicate capturing group name")));
+  }
+
+  // Pattern with no capture groups (should fail)
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto re, MakeRegExpUtf8("[a-z]+"));
+    EXPECT_THAT(
+        re->ExtractGroupsResultStruct(&type_factory, language_options,
+                                      !kDeriveFieldTypes),
+        zetasql_base::testing::StatusIs(
+            absl::StatusCode::kInvalidArgument,
+            testing::HasSubstr(
+                "Regular expression does not contain any capturing groups")));
+  }
+
+  // Bytes pattern
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto re,
+                         MakeRegExpBytes("(?P<first>[a-z]+)-([0-9]+)"));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        const Type* result_type,
+        re->ExtractGroupsResultStruct(&type_factory, language_options,
+                                      !kDeriveFieldTypes));
+    ASSERT_TRUE(result_type->IsStruct());
+    const StructType* struct_type = result_type->AsStruct();
+    ASSERT_EQ(struct_type->num_fields(), 2);
+    EXPECT_EQ(struct_type->field(0).name, "first");
+    EXPECT_TRUE(struct_type->field(0).type->IsBytes());
+    EXPECT_EQ(struct_type->field(1).name, "");
+    EXPECT_TRUE(struct_type->field(1).type->IsBytes());
+  }
+
+  // Pattern with type suffixes for STRING.
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto re, MakeRegExpUtf8("(?P<name__STRING>[a-z]+) "
+                                                 "(?P<age__INT64>[0-9]+) "
+                                                 "(?P<checked__BOOL>true)"));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        const Type* result_type,
+        re->ExtractGroupsResultStruct(&type_factory, language_options,
+                                      kDeriveFieldTypes));
+    ASSERT_TRUE(result_type->IsStruct());
+    const StructType* struct_type = result_type->AsStruct();
+    ASSERT_EQ(struct_type->num_fields(), 3);
+    EXPECT_EQ(struct_type->field(0).name, "name");
+    EXPECT_TRUE(struct_type->field(0).type->IsString());
+    EXPECT_EQ(struct_type->field(1).name, "age");
+    EXPECT_TRUE(struct_type->field(1).type->IsInt64());
+    EXPECT_EQ(struct_type->field(2).name, "checked");
+    EXPECT_TRUE(struct_type->field(2).type->IsBool());
+  }
+
+  // Field type is STRING if kDeriveFieldTypes is false.
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto re, MakeRegExpUtf8("(?P<age__INT64>[0-9]+) "
+                                                 "(?P<checked__BOOL>)"));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        const Type* result_type,
+        re->ExtractGroupsResultStruct(&type_factory, language_options,
+                                      !kDeriveFieldTypes));
+    ASSERT_TRUE(result_type->IsStruct());
+    const StructType* struct_type = result_type->AsStruct();
+    ASSERT_EQ(struct_type->num_fields(), 2);
+    EXPECT_EQ(struct_type->field(0).name, "age");
+    EXPECT_TRUE(struct_type->field(0).type->IsString());
+    EXPECT_EQ(struct_type->field(1).name, "checked");
+    EXPECT_TRUE(struct_type->field(1).type->IsString());
+  }
+
+  // Type name should be case insensitive.
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto re, MakeRegExpUtf8("(?P<age__iNt64>[0-9]+) "
+                                                 "(?P<checked__bOoL>)"));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        const Type* result_type,
+        re->ExtractGroupsResultStruct(&type_factory, language_options,
+                                      kDeriveFieldTypes));
+    ASSERT_TRUE(result_type->IsStruct());
+    const StructType* struct_type = result_type->AsStruct();
+    ASSERT_EQ(struct_type->num_fields(), 2);
+    EXPECT_EQ(struct_type->field(0).name, "age");
+    EXPECT_TRUE(struct_type->field(0).type->IsInt64());
+    EXPECT_EQ(struct_type->field(1).name, "checked");
+    EXPECT_TRUE(struct_type->field(1).type->IsBool());
+  }
+
+  // Invalid type suffix.
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto re, MakeRegExpUtf8("(?P<name__INVALID>[a-z]+)"));
+    EXPECT_THAT(re->ExtractGroupsResultStruct(&type_factory, language_options,
+                                              kDeriveFieldTypes),
+                zetasql_base::testing::StatusIs(
+                    absl::StatusCode::kInvalidArgument,
+                    testing::HasSubstr("Expected a type name as the suffix")));
+  }
+
+  // Empty field name after stripping suffix.
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto re, MakeRegExpUtf8("(?P<__INT64>[0-9]+)"));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        const Type* result_type,
+        re->ExtractGroupsResultStruct(&type_factory, language_options,
+                                      kDeriveFieldTypes));
+    ASSERT_TRUE(result_type->IsStruct());
+    const StructType* struct_type = result_type->AsStruct();
+    ASSERT_EQ(struct_type->num_fields(), 1);
+    EXPECT_EQ(struct_type->field(0).name, "");
+    EXPECT_TRUE(struct_type->field(0).type->IsInt64());
+  }
+
+  // Group name with multiple __.
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto re, MakeRegExpUtf8("(?P<a__b__INT64>[0-9]+)"));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        const Type* result_type,
+        re->ExtractGroupsResultStruct(&type_factory, language_options,
+                                      kDeriveFieldTypes));
+    ASSERT_TRUE(result_type->IsStruct());
+    const StructType* struct_type = result_type->AsStruct();
+    ASSERT_EQ(struct_type->num_fields(), 1);
+    EXPECT_EQ(struct_type->field(0).name, "a__b");
+    EXPECT_TRUE(struct_type->field(0).type->IsInt64());
+  }
+
+  // Group name with __ but no type suffix.
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto re, MakeRegExpUtf8("(?P<a__>[0-9]+)"));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        const Type* result_type,
+        re->ExtractGroupsResultStruct(&type_factory, language_options,
+                                      kDeriveFieldTypes));
+    ASSERT_TRUE(result_type->IsStruct());
+    const StructType* struct_type = result_type->AsStruct();
+    ASSERT_EQ(struct_type->num_fields(), 1);
+    EXPECT_EQ(struct_type->field(0).name, "a");
+    EXPECT_TRUE(struct_type->field(0).type->IsString());
+  }
+
+  // Pattern with only unnamed groups
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto re, MakeRegExpUtf8("([a-z]+)-([0-9]+)"));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        const Type* result_type,
+        re->ExtractGroupsResultStruct(&type_factory, language_options,
+                                      kDeriveFieldTypes));
+    ASSERT_TRUE(result_type->IsStruct());
+    const StructType* struct_type = result_type->AsStruct();
+    ASSERT_EQ(struct_type->num_fields(), 2);
+    EXPECT_EQ(struct_type->field(0).name, "");
+    EXPECT_TRUE(struct_type->field(0).type->IsString());
+    EXPECT_EQ(struct_type->field(1).name, "");
+    EXPECT_TRUE(struct_type->field(1).type->IsString());
+  }
+}
+
+typedef testing::TestWithParam<FunctionTestCall>
+    RegexpExtractGroupsResultStructTest;
+TEST_P(RegexpExtractGroupsResultStructTest, Test) {
+  const FunctionTestCall& param = GetParam();
+  const std::vector<Value>& args = param.params.params();
+  bool expected_ok = param.params.status().ok();
+
+  TypeFactory type_factory;
+  LanguageOptions language_options;
+  const bool kDeriveFieldTypes = true;
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const RegExp> re,
+                       args[0].type_kind() == TYPE_STRING
+                           ? MakeRegExpUtf8(args[1].string_value())
+                           : MakeRegExpBytes(args[1].bytes_value()));
+  // We always set derive_field_types = true here, and check that the types of
+  // the result struct fields match the test cases.
+  absl::StatusOr<const Type*> result_type = re->ExtractGroupsResultStruct(
+      &type_factory, language_options, kDeriveFieldTypes);
+  ASSERT_EQ(result_type.status().ok(), expected_ok);
+  if (!result_type.ok()) {
+    EXPECT_THAT(result_type.status(),
+                zetasql_base::testing::StatusIs(
+                    param.params.status().code(),
+                    testing::HasSubstr(param.params.status().message())));
+    return;
+  }
+  ASSERT_TRUE((*result_type)->IsStruct());
+  const StructType* struct_type = (*result_type)->AsStruct();
+  const StructType* expected_struct_type =
+      param.params.result().type()->AsStruct();
+  ASSERT_EQ(struct_type->num_fields(), expected_struct_type->num_fields());
+  for (int i = 0; i < struct_type->num_fields(); ++i) {
+    EXPECT_EQ(struct_type->field(i).name, expected_struct_type->field(i).name);
+    EXPECT_EQ(struct_type->field(i).type, expected_struct_type->field(i).type)
+        << struct_type->field(i).type->DebugString() << " vs "
+        << expected_struct_type->field(i).type->DebugString();
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    RegexpExtractGroupsResultStructTest, RegexpExtractGroupsResultStructTest,
+    testing::ValuesIn(GetFunctionTestsRegexpExtractGroups()));
+
+class RegexpExtractGroupsTest
+    : public testing::TestWithParam<std::tuple<FunctionTestCall>> {
+ public:
+  std::optional<absl::string_view> MatchString() const {
+    const Value& match_string = std::get<0>(GetParam()).params.param(0);
+    if (match_string.is_null()) {
+      return std::nullopt;
+    }
+    return match_string.type()->IsString() ? match_string.string_value()
+                                           : match_string.bytes_value();
+  }
+  absl::StatusOr<std::unique_ptr<const RegExp>> MakeRegExp() const {
+    const Value& regexp_value = std::get<0>(GetParam()).params.param(1);
+    return regexp_value.type()->IsString()
+               ? MakeRegExpUtf8(regexp_value.string_value())
+               : MakeRegExpBytes(regexp_value.bytes_value());
+  }
+  Value ResultValue() const { return std::get<0>(GetParam()).params.result(); }
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    RegexpExtractGroupsTest, RegexpExtractGroupsTest,
+    testing::Combine(testing::ValuesIn(
+        GetFunctionTestsRegexpExtractGroupsWithoutAutoCasting())));
+
+TEST_P(RegexpExtractGroupsTest, Test) {
+  const FunctionTestCall& param = std::get<0>(GetParam());
+  TypeFactory type_factory;
+  const LanguageOptions language_options;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto re, MakeRegExp());
+  absl::StatusOr<const Type*> result_type =
+      re->ExtractGroupsResultStruct(&type_factory, language_options,
+                                    /*derive_field_types=*/false);
+  ASSERT_EQ(result_type.status().ok(), param.params.status().ok());
+  if (!result_type.ok()) {
+    EXPECT_THAT(result_type.status(),
+                zetasql_base::testing::StatusIs(
+                    param.params.status().code(),
+                    testing::HasSubstr(param.params.status().message())));
+    return;
+  }
+
+  std::optional<absl::string_view> match_string = MatchString();
+  if (!match_string.has_value()) {
+    EXPECT_TRUE(ResultValue().is_null());
+    return;
+  }
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      Value out, re->ExtractGroups(match_string.value(), result_type.value()));
+  EXPECT_TRUE(out.Equals(ResultValue()))
+      << out.DebugString() << " vs " << ResultValue().DebugString();
+
+  // Test the version that computes the result type internally.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value out2,
+                       re->ExtractGroups(match_string.value(), &type_factory));
+  EXPECT_TRUE(out2.Equals(ResultValue()))
+      << out.DebugString() << " vs " << ResultValue().DebugString();
+}
 
 // TODO: b/328210654 - Move these tests to testlib with prohibited feature:
 // FEATURE_LEGACY_REGEXP_POSITION_BEHAVIOR. This is a temporary test set to

@@ -14,8 +14,10 @@
 // limitations under the License.
 //
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <iterator>
 #include <limits>
 #include <map>
 #include <memory>
@@ -514,6 +516,65 @@ std::vector<FunctionTestCall> GetFunctionTestsLastDay() {
       last_day_date("9999-12-28", "WEEK_FRIDAY", "9999-12-30"),
       last_day_date("9999-12-28", "WEEK_SATURDAY", "9999-12-31"),
       };
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsAddMonths() {
+  struct testcase {
+    std::string input;
+    int64_t months;
+    std::string result;
+    absl::StatusCode code = absl::StatusCode::kOk;
+  };
+  std::vector<testcase> testcases = {
+      {"1998-09-04", 0, "1998-09-04"},   // no change
+      {"1925-03-15", 14, "1926-05-15"},  // not eom
+      {"2025-02-28", 1, "2025-03-31"},   // preserve eom fwd
+      {"2025-02-28", -1, "2025-01-31"},  // preserve eom back
+      {"2025-01-31", 1, "2025-02-28"},   // normalize eom fwd
+      {"2025-12-31", -1, "2025-11-30"},  // normalize eom back
+      // Near and out of range tests.
+      {"9999-02-28", 10, "9999-12-31"},
+      {"0001-06-30", -5, "0001-01-31"},
+      {"9999-12-25", 1, "9999-12-25", absl::StatusCode::kOutOfRange},
+      {"0001-12-25", -13, "0001-12-25", absl::StatusCode::kOutOfRange},
+  };
+  auto add_months_date_test = [](QueryParamsWithResult params) {
+    return FunctionTestCall(
+        "add_months",
+        params.AddRequiredFeature(FEATURE_ADDITIONAL_DATE_TIME_FUNCTIONS));
+  };
+  auto add_months_datetime_test = [](QueryParamsWithResult params) {
+    return FunctionTestCall(
+        "add_months",
+        params.AddRequiredFeatures(
+            {FEATURE_ADDITIONAL_DATE_TIME_FUNCTIONS, FEATURE_CIVIL_TIME}));
+  };
+
+  std::vector<FunctionTestCall> tests;
+  // Tests for NULL params.
+  tests.push_back(add_months_date_test({{NullDate(), Int64(123)}, NullDate()}));
+  tests.push_back(add_months_date_test(
+      {{DateFromStr("1998-09-04"), NullInt64()}, NullDate()}));
+  tests.push_back(
+      add_months_date_test({{NullDate(), NullInt64()}, NullDate()}));
+  // The DATE tests.
+  std::transform(
+      testcases.begin(), testcases.end(), std::back_inserter(tests),
+      [add_months_date_test](const testcase& tc) {
+        return add_months_date_test({{DateFromStr(tc.input), Int64(tc.months)},
+                                     DateFromStr(tc.result),
+                                     tc.code});
+      });
+  // The DATETIME tests.
+  std::transform(testcases.begin(), testcases.end(), std::back_inserter(tests),
+                 [add_months_datetime_test](const testcase& tc) {
+                   std::string time = " 09:30:04";
+                   return add_months_datetime_test(
+                       {{DatetimeFromStr(tc.input + time), Int64(tc.months)},
+                        DatetimeFromStr(tc.result + time),
+                        tc.code});
+                 });
+  return tests;
 }
 
 std::vector<FunctionTestCall> GetFunctionTestsDateTrunc() {
@@ -5993,53 +6054,6 @@ std::vector<FunctionTestCall> GetFunctionTestsParseDateTimestamp() {
   return tests;
 }
 
-static Value GetPicosResult(const ParseTimestampTest& test) {
-  if (test.pico_expected_result().empty()) {
-    return values::NullTimestampPicos();
-  }
-  PicoTime pico_time;
-  absl::TimeZone zone;
-  ZETASQL_CHECK_OK(functions::MakeTimeZone(test.default_time_zone(), &zone));
-  ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
-      test.pico_expected_result(), zone,
-      /*allow_tz_in_str=*/true, &pico_time));
-  return Value::TimestampPicos(TimestampPicosValue(pico_time));
-}
-
-static void AddTestCasesForParseTimestampPicosTest(
-    const ParseTimestampTest& test, absl::string_view function_name,
-    absl::Span<const ValueConstructor> args,
-    std::vector<FunctionTestCall>& tests) {
-  if (test.expected_result().empty() && test.nano_expected_result().empty() &&
-      test.pico_expected_result().empty()) {
-    tests.emplace_back(function_name, args, values::NullTimestampPicos(),
-                       absl::StatusCode::kOutOfRange);
-    return;
-  }
-
-  Value expected_value = GetPicosResult(test);
-  absl::StatusCode expected_status =
-      IsExpectedError(test.pico_expected_result())
-          ? absl::StatusCode::kOutOfRange
-          : absl::StatusCode::kOk;
-
-  tests.emplace_back(function_name, QueryParamsWithResult(args, expected_value,
-                                                          expected_status));
-}
-
-std::vector<FunctionTestCall> GetFunctionTestsParseTimestampPicos() {
-  std::vector<FunctionTestCall> tests;
-  for (const ParseTimestampTest& test : GetParseTimestampTests()) {
-    std::vector<ValueConstructor> args = {String(test.format()),
-                                          String(test.timestamp_string()),
-                                          String(test.default_time_zone())};
-    AddTestCasesForParseTimestampPicosTest(test, "parse_timestamp_picos", args,
-                                           tests);
-  }
-
-  return tests;
-}
-
 // This struct is the same as ParseDateTimestampCommonTest except that it has
 // an additional field <current_date> to construct <current_date> or
 // <current_timestamp> arguments for test cases.
@@ -7083,7 +7097,7 @@ class CastStringToTimestampTest : public ParseTimestampTest {
 
   ~CastStringToTimestampTest() {}
 
-  const absl::Time current_timestamp() const { return current_timestamp_; }
+  absl::Time current_timestamp() const { return current_timestamp_; }
 
  private:
   // Current date value to reflect current year and month.
@@ -7480,45 +7494,6 @@ std::vector<FunctionTestCall> GetFunctionTestsCastStringToDateTimestamp() {
   for (const FunctionTestCall& test : GetFunctionTestsCastStringToDatetime()) {
     tests.push_back(test);
   }
-
-  return tests;
-}
-
-std::vector<FunctionTestCall> GetFunctionTestsCastStringToTimestampPicos() {
-  std::vector<FunctionTestCall> tests;
-
-  // Adds CAST_STRING_TO_TIMESTAMP_PICOS() tests.
-  for (const CastStringToTimestampTest& test :
-       GetCastStringToTimestampTests()) {
-    std::vector<ValueConstructor> args = {
-        String(test.format()), String(test.timestamp_string()),
-        String(test.default_time_zone()), Timestamp(test.current_timestamp())};
-    AddTestCasesForParseTimestampPicosTest(
-        test, "cast_string_to_timestamp_picos", args, tests);
-  }
-
-  // Null arguments handling.
-  absl::Time ts_1970_1_1_utc;
-  ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
-      "1970-01-01", absl::UTCTimeZone(), kNanoseconds, true, &ts_1970_1_1_utc));
-  tests.push_back(
-      {"cast_string_to_timestamp_picos",
-       {NullString(), String(""), String("UTC"), Timestamp(ts_1970_1_1_utc)},
-       NullTimestampPicos()});
-  tests.push_back(
-      {"cast_string_to_timestamp_picos",
-       {String(""), NullString(), String("UTC"), Timestamp(ts_1970_1_1_utc)},
-       NullTimestampPicos()});
-  tests.push_back(
-      {"cast_string_to_timestamp_picos",
-       {String(""), String(""), NullString(), Timestamp(ts_1970_1_1_utc)},
-       NullTimestampPicos()});
-  tests.push_back({"cast_string_to_timestamp_picos",
-                   {String(""), String(""), String("UTC"), NullTimestamp()},
-                   NullTimestampPicos()});
-  tests.push_back({"cast_string_to_timestamp_picos",
-                   {NullString(), NullString(), NullString(), NullTimestamp()},
-                   NullTimestampPicos()});
 
   return tests;
 }
@@ -9241,31 +9216,6 @@ std::vector<FunctionTestCall> GetFunctionTestsCastFormatDateTimestamp() {
   return tests;
 }
 
-std::vector<FunctionTestCall>
-GetFunctionTestsCastFormatTimestampPicosSuccessTests() {
-  std::vector<FunctionTestCall> tests;
-  for (const auto& test : GetCastFormatTimestampPicosSuccessTests()) {
-    tests.push_back({"cast_format_timestamp_picos",
-                     {TimestampPicosValue(test.timestamp),
-                      String(test.format_string), String(test.timezone)},
-                     String(test.expected_result)});
-  }
-  return tests;
-}
-
-std::vector<FunctionTestCall>
-GetFunctionTestsCastFormatTimestampPicosFailureTests() {
-  std::vector<FunctionTestCall> tests;
-  for (const auto& test : GetCastFormatTimestampPicosFailureTests()) {
-    tests.push_back({"cast_format_timestamp_picos",
-                     {TimestampPicosValue(test.timestamp),
-                      String(test.format_string), String(test.timezone)},
-                     NullString(),
-                     {OUT_OF_RANGE, test.expected_error}});
-  }
-  return tests;
-}
-
 // Helper function for constructing simple TIMESTAMP_BUCKET tests.
 // UTC timezone is used both for interpreting the strings
 // <timestamp_string>, <origin_string> and <expected_result> as timestamps.
@@ -9298,14 +9248,8 @@ FunctionTestCall TimestampBucketTest(
       {Timestamp(timestamp), Value::Interval(interval), Timestamp(origin)},
       {Timestamp(expected_timestamp)}};
 
-  QueryParamsWithResult::FeatureSet feature_set;
-  if (scale == kNanoseconds) {
-    feature_set = {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE,
-                   FEATURE_TIMESTAMP_NANOS};
-  } else {
-    feature_set = {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE};
-  }
-  call.params = call.params.WrapWithFeatureSet(feature_set);
+  call.params = call.params.AddRequiredFeatures(
+      {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE});
   return call;
 }
 
@@ -9337,14 +9281,8 @@ FunctionTestCall TimestampBucketErrorTest(
       NullTimestamp(),
       absl::OutOfRangeError(expected_error)};
 
-  QueryParamsWithResult::FeatureSet feature_set;
-  if (scale == kNanoseconds) {
-    feature_set = {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE,
-                   FEATURE_TIMESTAMP_NANOS};
-  } else {
-    feature_set = {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE};
-  }
-  call.params = call.params.WrapWithFeatureSet(feature_set);
+  call.params = call.params.AddRequiredFeatures(
+      {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE});
   return call;
 }
 
@@ -9529,15 +9467,15 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampBucket() {
       TimestampBucketErrorTest("2020-03-15 14:57:39", "0-0 1 0:0:0.000100",
                                "1950-01-01 00:00:00",
                                "Bucket width INTERVAL with mixed DAY and "
-                               "MICROSECOND parts is not allowed"),
+                               "subsecond parts is not allowed"),
       TimestampBucketErrorTest("2020-03-15 14:57:39", "0-0 1 0:0:0.000001",
                                "1950-01-01 00:00:00",
                                "Bucket width INTERVAL with mixed DAY and "
-                               "MICROSECOND parts is not allowed"),
+                               "subsecond parts is not allowed"),
       TimestampBucketErrorTest("2020-03-15 14:57:39", "0-0 1 0:0:0.000000001",
                                "1950-01-01 00:00:00",
                                "Bucket width INTERVAL with mixed DAY and "
-                               "NANOSECOND parts is not allowed",
+                               "subsecond parts is not allowed",
                                kNanoseconds),
       // Mixing MICROSECONDs and NANOSECONDs.
       TimestampBucketTest("2020-03-15 14:57:39.646565731", "0:0:0.000002500",

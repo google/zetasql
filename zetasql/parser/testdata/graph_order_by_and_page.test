@@ -4,8 +4,8 @@
 
 # Standalone ORDER BY statement.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -64,8 +64,8 @@ FROM
 
 # Standalone ORDER BY statement: multiple ordering expressions.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -134,8 +134,8 @@ FROM
 
 # Standalone ORDER BY statement: accepts GQL keywords ASCENDING / DESCENDING.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -204,8 +204,8 @@ FROM
 
 # Standalone ORDER BY statement: accepts COLLATE and NULLS order clauses.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -280,8 +280,8 @@ FROM
 # Standalone ORDER BY statement with LIMIT and OFFSET clauses.
 # Note: This is parsed as a single standalone statement.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -346,8 +346,8 @@ FROM
 # Standalone ORDER BY statement with LIMIT and SKIP clauses.
 # Note: This is parsed as a single standalone statement.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -415,8 +415,8 @@ FROM
 # as errors after parsing in order to prevent confusion, since in non-graph SQL 
 # queries, "ORDER BY/LIMIT/OFFSET" statements would have different semantics.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -484,8 +484,8 @@ FROM
 
 # Consecutive standalone ORDER BY statements. The first is redundant.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -556,8 +556,8 @@ FROM
 
 # Consecutive standalone ORDER BY statements. The first is not redundant.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -633,8 +633,8 @@ FROM
 
 # Standalone OFFSET/LIMIT statement.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -693,8 +693,8 @@ FROM
 
 # Standalone OFFSET statement.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -751,8 +751,8 @@ FROM
 
 # Standalone LIMIT statement.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -811,8 +811,8 @@ FROM
 # Note: They are parsed as two different statements. We do not consider these
 # an error.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -884,8 +884,8 @@ FROM
 
 # ORDER BY statement after RETURN statement.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -944,8 +944,8 @@ FROM
 
 # ORDER BY statement after RETURN statement: multiple ordering expressions.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -1015,8 +1015,8 @@ FROM
 # ORDER BY statement after RETURN statement:
 #   accepts GQL keywords ASCENDING / DESCENDING.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -1086,8 +1086,8 @@ FROM
 # ORDER BY statement after RETURN statement:
 #   accepts COLLATE and NULLS order clauses.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -1161,8 +1161,8 @@ FROM
 
 # ORDER BY statement after RETURN statement with LIMIT and OFFSET clauses.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -1225,8 +1225,8 @@ FROM
 
 # ORDER BY statement after RETURN statement with LIMIT and SKIP clauses.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -1293,8 +1293,8 @@ FROM
 # This is an error because there cannot be more than one order+page statements
 # after RETURN.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -1311,8 +1311,8 @@ ERROR: Syntax error: Expected ")" or keyword NEXT but got keyword OFFSET [at 5:2
 
 # Consecutive ORDER BY statements after RETURN statement. This is an error.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -1330,8 +1330,8 @@ ERROR: Syntax error: Expected ")" or keyword NEXT but got keyword ORDER [at 6:3]
 
 # Consecutive ORDER BY statements after RETURN statement separated by NEXT.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -1416,8 +1416,8 @@ FROM
 
 # OFFSET/LIMIT statement after RETURN statement.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -1476,8 +1476,8 @@ FROM
 
 # OFFSET statement after RETURN statement.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -1534,8 +1534,8 @@ FROM
 
 # LIMIT statement after RETURN statement.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -1593,8 +1593,8 @@ FROM
 # Two consecutive LIMIT and OFFSET statements after RETURN statement.
 # Note: This is a parsing error.
 [default reserve_graph_table]
-[default language_features=SQL_GRAPH]
-[language_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[default language_features=NONE,+SQL_GRAPH]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
 
 select gt.* from
 graph_table(aml
@@ -1607,3 +1607,37 @@ graph_table(aml
 ERROR: Syntax error: Expected ")" or keyword NEXT but got keyword OFFSET [at 6:3]
   OFFSET 20
   ^
+==
+
+
+# LIMIT ALL is never a valid graph query statement.
+[default reserve_graph_table]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)
+  RETURN *
+  LIMIT ALL
+) gt
+--
+ERROR: Syntax error: Unexpected keyword ALL [at 5:9]
+  LIMIT ALL
+        ^
+==
+
+
+# LIMIT ALL is never a valid graph query statement.
+[default reserve_graph_table]
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY]
+
+select gt.* from
+graph_table(aml
+  MATCH (a)
+  LIMIT ALL
+  RETURN *
+) gt
+--
+ERROR: Syntax error: Unexpected keyword ALL [at 4:9]
+  LIMIT ALL
+        ^

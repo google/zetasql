@@ -1,4 +1,4 @@
-[default language_features=SQL_GRAPH,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
 [default no_test_extract_table_names]
 
 # Longer quantified term. The length inside should be 3.
@@ -1862,7 +1862,7 @@ QueryStmt
           +-One#11 := Literal(type=INT64, value=1)
 ==
 
-[default language_features=SQL_GRAPH,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,WITH_ON_SUBQUERY]
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,+WITH_ON_SUBQUERY]
 
 SELECT * FROM GRAPH_TABLE(
   aml
@@ -1978,7 +1978,7 @@ QueryStmt
           +-one#13 := Literal(type=INT64, value=1)
 ==
 
-[default language_features=SQL_GRAPH,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,WITH_ON_SUBQUERY]
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,+WITH_ON_SUBQUERY]
 SELECT * FROM GRAPH_TABLE(
   aml
   MATCH ((x:Person|Account)
@@ -2065,7 +2065,7 @@ QueryStmt
           +-one#6 := Literal(type=INT64, value=1)
 ==
 
-[default language_features=SQL_GRAPH,SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,WITH_ON_SUBQUERY]
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION,+WITH_ON_SUBQUERY]
 SELECT * FROM GRAPH_TABLE(
   aml
   MATCH ((x:Person)
