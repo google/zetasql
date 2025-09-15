@@ -237,6 +237,18 @@ class MeasureExpressionValidator : public ResolvedASTVisitor {
                 "with an ORDER BY clause: "
              << measure_expr_str_;
     }
+    if (node->where_expr() != nullptr) {
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << "Measure expression must not contain an aggregate function "
+                "with a WHERE filter clause: "
+             << measure_expr_str_;
+    }
+    if (node->having_expr() != nullptr) {
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << "Measure expression must not contain an aggregate function "
+                "with a HAVING filter clause: "
+             << measure_expr_str_;
+    }
     if (!node->function()->IsZetaSQLBuiltin()) {
         return zetasql_base::InvalidArgumentErrorBuilder()
              << "Measure expression must not reference UDA; "

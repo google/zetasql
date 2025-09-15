@@ -22,6 +22,7 @@
 #include <memory>
 #include <optional>
 #include <ostream>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -53,6 +54,7 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+#include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
 
@@ -115,6 +117,23 @@ struct TableValuedFunctionOptions {
     return *this;
   }
 
+  // Add a LanguageFeature that must be enabled for this function to be enabled.
+  // This is used only on built-in functions, and determines whether they will
+  // be loaded in GetBuiltinFunctionsAndTypes.
+  TableValuedFunctionOptions& AddRequiredLanguageFeature(
+      LanguageFeature feature) {
+    zetasql_base::InsertIfNotPresent(&required_language_features, feature);
+    return *this;
+  }
+
+  // Returns whether or not all language features required by the function are
+  // enabled.
+  ABSL_MUST_USE_RESULT bool CheckAllRequiredFeaturesAreEnabled(
+      const LanguageOptions::LanguageFeatureSet& enabled_features) const;
+
+  // Returns whether the given feature is required by the function.
+  ABSL_MUST_USE_RESULT bool RequiresFeature(LanguageFeature feature) const;
+
   // Indicates whether to use upper case name in GetSignatureUserFacingText(),
   // which is used for error messages such as
   // "No matching signature for function ...".
@@ -140,6 +159,16 @@ struct TableValuedFunctionOptions {
   // `zetasql/common/errors.h` for which status code to return. Resolver code
   // will attach error at TVF call parse location.
   TVFComputeResultTypeCallback compute_result_type_callback = nullptr;
+
+  // A set of LanguageFeatures that need to be enabled for the function to be
+  // loaded in GetBuiltinFunctionsAndTypes.
+  std::set<LanguageFeature> required_language_features;
+
+  friend bool operator==(const TableValuedFunctionOptions& a,
+                         const TableValuedFunctionOptions& b) {
+    return a.uses_upper_case_sql_name == b.uses_upper_case_sql_name &&
+           a.required_language_features == b.required_language_features;
+  }
 };
 
 // This interface describes a table-valued function (TVF) available in a query
@@ -213,22 +242,19 @@ class TableValuedFunction {
                       std::string group,
                       std::vector<FunctionSignature> signatures,
                       TableValuedFunctionOptions tvf_options = {})
-      : function_name_path_(function_name_path),
-        group_(std::move(group)),
-        signatures_(std::move(signatures)),
-        tvf_options_(std::move(tvf_options)) {
-    for (const FunctionSignature& signature : signatures_) {
-      ZETASQL_CHECK_OK(signature.IsValidForTableValuedFunction());  // Crash ok.
-    }
-  }
+      : TableValuedFunction(
+            function_name_path, std::move(group), std::move(signatures),
+            /*anonymization_info=*/nullptr, std::move(tvf_options)) {}
+
   // Table functions constructed this way should use AddSignature() to
   // add a related signature.
   TableValuedFunction(const std::vector<std::string>& function_name_path,
                       std::string group,
                       TableValuedFunctionOptions tvf_options = {})
-      : function_name_path_(function_name_path),
-        group_(std::move(group)),
-        tvf_options_(std::move(tvf_options)) {}
+      : TableValuedFunction(function_name_path, std::move(group),
+                            /*signatures=*/{},
+                            /*anonymization_info=*/nullptr,
+                            std::move(tvf_options)) {}
 
   TableValuedFunction(const std::vector<std::string>& function_name_path,
                       std::string group,
@@ -243,6 +269,7 @@ class TableValuedFunction {
     for (const FunctionSignature& signature : signatures_) {
       ZETASQL_CHECK_OK(signature.IsValidForTableValuedFunction());  // Crash ok.
     }
+    ZETASQL_CHECK_OK(CheckNoGraphAndJustScalarsOverload());  // Crash ok.
   }
 
   TableValuedFunction(const TableValuedFunction&) = delete;
@@ -518,6 +545,11 @@ class TableValuedFunction {
       const FunctionSignature& signature,
       const LanguageOptions& language_options,
       bool print_template_and_name_details) const;
+
+  // If this TVF has a signature that takes a graph argument we don't allow any
+  // signatures that just take scalar arguments because it doesn't let us
+  // diagnose common mistakes. See shortn/_0Uc6eBN0Lu for details.
+  absl::Status CheckNoGraphAndJustScalarsOverload() const;
 
   // This is the name of this TVF.
   const std::vector<std::string> function_name_path_;
@@ -1054,7 +1086,7 @@ class FixedOutputSchemaTVF : public TableValuedFunction {
   FixedOutputSchemaTVF(const std::vector<std::string>& function_name_path,
                        std::vector<FunctionSignature> signatures,
                        std::unique_ptr<AnonymizationInfo> anonymization_info,
-                       TVFRelation result_schema,
+                       const TVFRelation& result_schema,
                        TableValuedFunctionOptions tvf_options = {})
       : TableValuedFunction(
             function_name_path, /*group=*/"", std::move(signatures),
@@ -1065,7 +1097,7 @@ class FixedOutputSchemaTVF : public TableValuedFunction {
   // anonymization info and fixed output schema.
   FixedOutputSchemaTVF(const std::vector<std::string>& function_name_path,
                        std::vector<FunctionSignature> signatures,
-                       TVFRelation result_schema,
+                       const TVFRelation& result_schema,
                        TableValuedFunctionOptions tvf_options = {})
       : TableValuedFunction(function_name_path, /*group=*/"",
                             std::move(signatures), std::move(tvf_options)),

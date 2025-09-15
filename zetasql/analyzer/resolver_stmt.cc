@@ -1138,7 +1138,8 @@ absl::Status Resolver::ResolveCreateStatementLikeTableName(
     ZETASQL_ASSIGN_OR_RETURN(
         auto column_annotations,
         MakeResolvedColumnAnnotationsFromAnnotationMap(
-            resolved_column.type_annotation_map(), /*options_list=*/{}));
+            resolved_column.type(), resolved_column.type_annotation_map(),
+            /*options_list=*/{}));
 
     column_definition_list->push_back(MakeResolvedColumnDefinition(
         column_name.ToString(), resolved_column.type(),
@@ -4005,6 +4006,7 @@ absl::Status Resolver::ResolveQueryAndOutputColumns(
       ZETASQL_ASSIGN_OR_RETURN(
           column_annotations,
           MakeResolvedColumnAnnotationsFromAnnotationMap(
+              named_column.column().type(),
               named_column.column().type_annotation_map(), options_list));
 
       column_definition_list->push_back(MakeResolvedColumnDefinition(
@@ -4019,8 +4021,10 @@ absl::Status Resolver::ResolveQueryAndOutputColumns(
 
 absl::StatusOr<std::unique_ptr<ResolvedColumnAnnotations>>
 Resolver::MakeResolvedColumnAnnotationsFromAnnotationMap(
-    const AnnotationMap* type_annotation_map,
+    const Type* target_type, const AnnotationMap* type_annotation_map,
     const ASTOptionsList* options_list) {
+  ZETASQL_RET_CHECK(target_type != nullptr);
+
   std::unique_ptr<ResolvedColumnAnnotations> column_annotations = nullptr;
   std::vector<std::unique_ptr<const ResolvedOption>> resolved_options_list;
   ZETASQL_RETURN_IF_ERROR(ResolveOptionsList(options_list,
@@ -4039,8 +4043,11 @@ Resolver::MakeResolvedColumnAnnotationsFromAnnotationMap(
   std::unique_ptr<const ResolvedLiteral> collation_name_expr;
   TypeParameters type_parameters;
   std::vector<std::unique_ptr<const ResolvedColumnAnnotations>> child_list;
+  bool is_child_list_populated = false;
 
   if (!type_annotation_map->IsStructMap()) {
+    ZETASQL_RET_CHECK(target_type->ComponentTypes().empty());
+
     // The type annotation map is for a simple type.
     const SimpleValue* collation_name_value =
         type_annotation_map->GetAnnotation(CollationAnnotation::GetId());
@@ -4052,25 +4059,40 @@ Resolver::MakeResolvedColumnAnnotationsFromAnnotationMap(
     }
   } else if (type_annotation_map->IsStructMap()) {
     // The type annotation map is for a complex type.
+    std::vector<const Type*> component_types = target_type->ComponentTypes();
+    ZETASQL_RET_CHECK_EQ(component_types.size(),
+                 type_annotation_map->AsStructMap()->num_fields());
+
     int last_non_empty_index = -1;
     for (int i = 0; i < type_annotation_map->AsStructMap()->num_fields(); i++) {
-      std::unique_ptr<ResolvedColumnAnnotations> field_annotation;
+      std::unique_ptr<ResolvedColumnAnnotations> field_annotation = nullptr;
       const AnnotationMap* field_map =
           type_annotation_map->AsStructMap()->field(i);
       if (field_map != nullptr) {
         last_non_empty_index = i;
-        ZETASQL_ASSIGN_OR_RETURN(field_annotation,
-                         MakeResolvedColumnAnnotationsFromAnnotationMap(
-                             field_map, /*options_list=*/{}));
-      } else {
+        ZETASQL_ASSIGN_OR_RETURN(
+            field_annotation,
+            MakeResolvedColumnAnnotationsFromAnnotationMap(
+                component_types[i], field_map, /*options_list=*/{}));
+      }
+
+      if (field_annotation == nullptr) {
         // All children must be non-null, otherwise Resolver::PruneColumnLists
         // will crash when calling GetDescendantsSatisfying.
         field_annotation = MakeResolvedColumnAnnotations();
+      } else {
+        is_child_list_populated = true;
       }
       child_list.push_back(std::move(field_annotation));
     }
     // Shorten the child_list to be able to hold the last non-empty element.
     child_list.resize(last_non_empty_index + 1);
+  }
+
+  // Return nullptr if there is no column annotation information.
+  if (collation_name_expr == nullptr && resolved_options_list.empty() &&
+      !is_child_list_populated && type_parameters.IsEmpty()) {
+    return nullptr;
   }
 
   return MakeResolvedColumnAnnotations(

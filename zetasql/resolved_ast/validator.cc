@@ -111,6 +111,76 @@ namespace zetasql {
 #define RETURN_ERROR_IF_OUT_OF_STACK_SPACE()
 #endif
 
+namespace {
+
+// Visitor that traverses Resolved AST nodes automatically and collects the
+// set of ResolvedColumns created and referenced, according to the
+// `column_is_created` and `column_list_is_created_columns` annotations in
+// gen_resolved_ast.py.
+//
+// Calling CheckCreatedColumns checks that any columns that are referenced
+// were created exactly once somewhere in the Resolved AST.
+//
+// This only checks globally and doesn't check that the flow from column
+// creation to references is valid.  We don't currently have enough metadata
+// in the Resolved AST to do that.  For example, within a particular
+// ResolvedScan, we'd need to know the order that child fields are processed,
+// and which ResolvedExprs can see columns produced by which sibling fields.
+class ValidateResolvedColumnsVisitor : public ResolvedASTVisitor {
+ public:
+  ValidateResolvedColumnsVisitor() = default;
+
+  absl::Status DefaultVisit(const ResolvedNode* node) override {
+    for (const ResolvedColumn& col : node->GetColumnsCreated()) {
+      if (!created_columns_.insert(col).second) {
+        return absl::InternalError(absl::StrCat(
+            "Column ", col.DebugString(), " created more than once; ",
+            "Column creation must be marked with `column_is_created` or "
+            "`column_list_is_created_columns` in `gen_resolved_ast.py`"));
+      }
+    }
+    for (const ResolvedColumn& col : node->GetColumnsReferenced()) {
+      referenced_columns_.insert(col);
+    }
+    return node->ChildrenAccept(this);
+  }
+
+  // ResolvedMultiStmt acts like a list of statements and allow creating the
+  // same ResolvedColumns in each sub-statement.
+  // We check each sub-statement individually, using new column sets.
+  absl::Status VisitResolvedMultiStmt(const ResolvedMultiStmt* node) override {
+    ZETASQL_RET_CHECK(created_columns_.empty());
+    ZETASQL_RET_CHECK(referenced_columns_.empty());
+
+    for (const auto& stmt : node->statement_list()) {
+      ZETASQL_RETURN_IF_ERROR(stmt->Accept(this));
+      ZETASQL_RETURN_IF_ERROR(CheckCreatedColumns());
+      created_columns_.clear();
+      referenced_columns_.clear();
+    }
+
+    return absl::OkStatus();
+  }
+
+  absl::Status CheckCreatedColumns() {
+    for (const ResolvedColumn& col : referenced_columns_) {
+      if (!created_columns_.contains(col)) {
+        return absl::InternalError(absl::StrCat(
+            "Column ", col.DebugString(), " was referenced but not created; ",
+            "Column creation must be marked with `column_is_created` or "
+            "`column_list_is_created_columns` in `gen_resolved_ast.py`"));
+      }
+    }
+    return absl::OkStatus();
+  }
+
+ private:
+  absl::flat_hash_set<ResolvedColumn> created_columns_;
+  absl::flat_hash_set<ResolvedColumn> referenced_columns_;
+};
+
+}  // namespace
+
 // Prefer `AddColumnsFromComputedColumnList` over this function.
 template <typename ResolvedComputedColumnType>
 static void AddColumnsFromComputedColumnListWithoutValidation(
@@ -593,8 +663,17 @@ absl::Status Validator::ValidateFinalState(bool in_multi_stmt) {
 absl::Status Validator::ValidateStandaloneResolvedExpr(
     const ResolvedExpr* expr) {
   Reset();
-  const absl::Status status = ValidateResolvedExpr(
+  absl::Status status = ValidateResolvedExpr(
       /*visible_columns=*/{}, /*visible_parameters=*/{}, expr);
+
+  if (status.ok()) {
+    ValidateResolvedColumnsVisitor column_visitor;
+    status = expr->Accept(&column_visitor);
+    if (status.ok()) {
+      status = column_visitor.CheckCreatedColumns();
+    }
+  }
+
   if (!status.ok()) {
     if (status.code() == absl::StatusCode::kResourceExhausted) {
       // Don't wrap a resource exhausted status into internal error. This error
@@ -1774,8 +1853,7 @@ absl::Status Validator::AddColumnList(
     std::set<ResolvedColumn>* visible_columns) {
   VALIDATOR_RET_CHECK_NE(visible_columns, nullptr);
   for (const ResolvedColumn& column : column_list) {
-    VALIDATOR_RET_CHECK(column_ids_seen_.contains(column.column_id()))
-        << "Undefined column " << column.DebugString();
+    ZETASQL_RETURN_IF_ERROR(CheckColumnIdWasCreated(column));
     visible_columns->insert(column);
   }
   return absl::OkStatus();
@@ -1786,18 +1864,7 @@ absl::Status Validator::AddColumnList(
     absl::flat_hash_set<ResolvedColumn>* visible_columns) {
   VALIDATOR_RET_CHECK_NE(visible_columns, nullptr);
   for (const ResolvedColumn& column : column_list) {
-    VALIDATOR_RET_CHECK(column_ids_seen_.contains(column.column_id()))
-        << "Undefined column " << column.DebugString();
-    visible_columns->insert(column);
-  }
-  return absl::OkStatus();
-}
-
-absl::Status Validator::MakeColumnList(
-    const ResolvedColumnList& column_list,
-    std::set<ResolvedColumn>* visible_columns) {
-  VALIDATOR_RET_CHECK_NE(visible_columns, nullptr);
-  for (const ResolvedColumn& column : column_list) {
+    ZETASQL_RETURN_IF_ERROR(CheckColumnIdWasCreated(column));
     visible_columns->insert(column);
   }
   return absl::OkStatus();
@@ -2706,6 +2773,13 @@ absl::Status Validator::CheckUniqueColumnId(const ResolvedColumn& column) {
   VALIDATOR_RET_CHECK(
       zetasql_base::InsertIfNotPresent(&column_ids_seen_, column.column_id()))
       << "Duplicate column id " << column.column_id() << " in column "
+      << column.DebugString();
+  return absl::OkStatus();
+}
+
+absl::Status Validator::CheckColumnIdWasCreated(const ResolvedColumn& column) {
+  VALIDATOR_RET_CHECK(column_ids_seen_.contains(column.column_id()))
+      << "Column was never created with CheckUniqueColumnId: "
       << column.DebugString();
   return absl::OkStatus();
 }
@@ -3998,7 +4072,17 @@ absl::Status Validator::ValidateResolvedStatementInternal(
                                  << statement->node_kind_string();
   }
 
-  status.Update(ValidateHintList(statement->hint_list()));
+  if (status.ok()) {
+    ValidateResolvedColumnsVisitor column_visitor;
+    status = statement->Accept(&column_visitor);
+    if (status.ok()) {
+      // TODO ResolvedCloneDataStmt doesn't preserve columns
+      // correctly so it triggers errors about referencing uncreated columns.
+      if (statement->node_kind() != RESOLVED_CLONE_DATA_STMT) {
+        status = column_visitor.CheckCreatedColumns();
+      }
+    }
+  }
 
   if (!status.ok()) {
     if (status.code() == absl::StatusCode::kResourceExhausted) {
@@ -6407,14 +6491,18 @@ absl::Status Validator::ValidateResolvedUpdateItem(
         target_type->Equals(item->set_value()->value()->type()));
   } else {
     // Two Cases:
-    // 1) SET {target_array}[<expr>]{optional_remainder} = {value} clause.
+    // 1) SET {target}[<expr>]{optional_remainder} = {value} clause.
     // 2) Nested DML statement.
-    VALIDATOR_RET_CHECK(target_type->IsArray());
+    VALIDATOR_RET_CHECK(target_type->IsArray() || target_type->IsJson());
     VALIDATOR_RET_CHECK(item->element_column() != nullptr);
     const ResolvedColumn& element_column = item->element_column()->column();
     VALIDATOR_RET_CHECK(element_column.IsInitialized());
-    VALIDATOR_RET_CHECK(
-        element_column.type()->Equals(target_type->AsArray()->element_type()));
+    if (target_type->IsArray()) {
+      VALIDATOR_RET_CHECK(element_column.type()->Equals(
+          target_type->AsArray()->element_type()));
+    } else {
+      VALIDATOR_RET_CHECK(element_column.type()->IsJson());
+    }
 
     if (item->update_item_element_list_size() > 0) {
       // Array element modification.
@@ -6466,7 +6554,8 @@ absl::Status Validator::ValidateResolvedUpdateItemElement(
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(offset_and_where_visible_columns,
                                        /*visible_parameters=*/{},
                                        item->subscript()));
-  VALIDATOR_RET_CHECK_EQ(item->subscript()->type()->kind(), TYPE_INT64);
+  VALIDATOR_RET_CHECK(item->subscript()->type()->kind() == TYPE_INT64 ||
+                      item->subscript()->type()->kind() == TYPE_STRING);
 
   std::set<ResolvedColumn> child_target_visible_columns(target_visible_columns);
   child_target_visible_columns.insert(element_column);

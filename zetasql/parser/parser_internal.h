@@ -666,6 +666,22 @@ inline Location FirstNonEmptyLocation(const Location& a, const Location& b) {
   return a;
 }
 
+// Generates a parse error with message `msg` at `location`.
+absl::Status MakeSyntaxError(const ParseLocationRange& location,
+                             absl::string_view msg);
+
+// Generates a parse error with message `msg` at `location`.
+absl::Status MakeSyntaxError(const std::optional<ParseLocationRange>& location,
+                             absl::string_view msg);
+
+// Generates a parse error if there are spaces between `left_loc` and
+// `right_loc`. For example, this is used when we composite multiple existing
+// tokens to match a complex symbol without reserving it as a new token.
+absl::Status ValidateNoWhitespace(absl::string_view left,
+                                  const ParseLocationRange& left_loc,
+                                  absl::string_view right,
+                                  const ParseLocationRange& right_loc);
+
 template <typename Location, typename... MoreLocations>
 inline Location NonEmptyRangeLocation(const Location& first_location,
                                       const MoreLocations&... locations) {

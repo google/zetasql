@@ -251,14 +251,14 @@ absl::Status GetParseTokens(const ParseTokenOptions& options,
   }
 
   auto arena = std::make_unique<zetasql_base::UnsafeArena>(/*block_size=*/4096);
-  std::vector<std::unique_ptr<parser::StackFrame>> stack_frames;
+  parser::StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSIGN_OR_RETURN(
       auto tokenizer,
       parser::LookaheadTransformer::Create(
           mode, resume_location->filename(), resume_location->input(),
           resume_location->byte_position(), options.language_options,
           parser::MacroExpansionMode::kNone,
-          /*macro_catalog=*/nullptr, arena.get(), stack_frames));
+          /*macro_catalog=*/nullptr, arena.get(), stack_frame_factory));
 
   absl::Status status;
   ParseLocationRange previous_location;

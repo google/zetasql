@@ -16,6 +16,7 @@
 
 #include "zetasql/parser/macros/macro_catalog.h"
 
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -31,23 +32,44 @@ namespace macros {
 
 absl::Status MacroCatalog::RegisterMacro(MacroInfo macro_info) {
   std::string macro_name(macro_info.name());
-  auto [it, success] =
-      options_.allow_overwrite
-          ? macros_.insert_or_assign(macro_name, std::move(macro_info))
-          : macros_.insert({macro_name, std::move(macro_info)});
-  return !success && !options_.allow_overwrite
-             ? absl::AlreadyExistsError(
-                   absl::StrCat("Macro ", macro_name, " already exists"))
-             : absl::OkStatus();
+  auto it = macros_->find(macro_name);
+  if (it != macros_->end()) {
+    if (!options_.allow_overwrite) {
+      return absl::AlreadyExistsError(
+          absl::StrCat("Macro ", macro_name, " already exists"));
+    }
+  } else {
+    auto [jt, success] = macros_->insert_or_assign(macro_name, {});
+    if (!success) {
+      return absl::InternalError("Error adding macro definition");
+    }
+    it = jt;
+  }
+  it->second[version_id_] = macro_info;
+  return absl::OkStatus();
 }
 
 std::optional<MacroInfo> MacroCatalog::Find(
     absl::string_view macro_name) const {
-  auto it = macros_.find(macro_name);
-  if (it == macros_.end()) {
+  auto it = macros_->find(macro_name);
+  if (it == macros_->end()) {
     return std::nullopt;
   }
-  return it->second;
+  auto jt = it->second.upper_bound(version_id_);
+  // If the upper bound iterator lands at begin, then the macro was not defined
+  // before the current version.
+  if (jt == it->second.begin()) {
+    return std::nullopt;
+  }
+  --jt;
+  return jt->second;
+}
+
+std::unique_ptr<MacroCatalog> MacroCatalog::NewVersion() {
+  auto new_catalog = std::make_unique<MacroCatalog>();
+  *new_catalog = *this;
+  new_catalog->version_id_ = version_id_ + 1;
+  return new_catalog;
 }
 
 }  // namespace macros

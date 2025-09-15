@@ -9707,6 +9707,27 @@ void SampleCatalogImpl::LoadNonTemplatedSqlTableValuedFunctions(
         AS SELECT t.key, t.Filename, t.RowId FROM table_with_pseudo_columns t;
       )sql",
       language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"sql(
+          CREATE TABLE FUNCTION select_all_from_pseudo_columns_value_table(
+              value_table_with_pseudo_columns ANY TABLE)
+          AS SELECT * FROM value_table_with_pseudo_columns;
+        )sql",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"sql(
+          CREATE TABLE FUNCTION select_pseudo_columns_from_value_table(
+              value_table_with_pseudo_columns ANY TABLE)
+          AS SELECT t, Filename, RowId FROM value_table_with_pseudo_columns t;
+        )sql",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"sql(
+          CREATE TABLE FUNCTION select_dot_pseudo_columns_from_value_table(
+              value_table_with_pseudo_columns ANY TABLE)
+          AS SELECT t, t.Filename, t.RowId FROM value_table_with_pseudo_columns t;
+        )sql",
+      language_options);
 }
 
 void SampleCatalogImpl::LoadTemplatedSQLTableValuedFunctions() {

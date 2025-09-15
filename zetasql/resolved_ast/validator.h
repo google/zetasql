@@ -612,9 +612,6 @@ class Validator {
   absl::Status CheckColumnList(const ResolvedScan* scan,
                                const std::set<ResolvedColumn>& visible_columns);
 
-  absl::Status MakeColumnList(const ResolvedColumnList& column_list,
-                              std::set<ResolvedColumn>* visible_columns);
-
   absl::Status AddColumnList(const ResolvedColumnList& column_list,
                              std::set<ResolvedColumn>* visible_columns);
   absl::Status AddColumnList(
@@ -1052,6 +1049,10 @@ class Validator {
   // Validates that CheckUniqueColumnId() was never previously called with the
   // same column id as that of <column>.
   absl::Status CheckUniqueColumnId(const ResolvedColumn& column);
+
+  // Check that `column` was previously marked as created
+  // (with CheckUniqueColumnId).
+  absl::Status CheckColumnIdWasCreated(const ResolvedColumn& column);
 
   absl::Status ValidateCompatibleSchemaForClone(const Table* source,
                                                 const Table* target);

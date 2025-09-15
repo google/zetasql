@@ -2462,10 +2462,16 @@ absl::Status SQLBuilder::VisitResolvedGetJsonField(
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
                    ProcessNode(node->expr()));
   std::string result_sql = result->GetSQL();
-  ZETASQL_RET_CHECK(result_sql != kEmptyAlias);
 
+  // When expr is an empty identifier, we directly use the field_name to
+  // access the json field (in the generated sql). This shows up when
+  // we access a json field after an array subscript such as:
+  // UPDATE T SET json_value["a"].b = 1 WHERE true;
   const std::string& field_name = node->field_name();
-  absl::StrAppend(&text, result_sql, ".", ToIdentifierLiteral(field_name));
+  if (result_sql != kEmptyAlias) {
+    absl::StrAppend(&text, result_sql, ".");
+  }
+  absl::StrAppend(&text, ToIdentifierLiteral(field_name));
   PushQueryFragment(node, text);
   return absl::OkStatus();
 }
@@ -3347,7 +3353,7 @@ absl::StatusOr<std::string> SQLBuilder::ProcessResolvedTVFScan(
                             [](const zetasql::TVFSchemaColumn& col) {
                               return col.is_pseudo_column;
                             }));
-      ZETASQL_RET_CHECK_EQ(1, argument->argument_column_list_size());
+      ZETASQL_RET_CHECK_GE(argument->argument_column_list_size(), 1);
       ZETASQL_RET_CHECK_EQ(scan->column_list(0).column_id(),
                    argument->argument_column_list(0).column_id());
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
@@ -3866,7 +3872,7 @@ void SQLBuilder::SetPathForColumn(const ResolvedColumn& column,
 }
 
 void SQLBuilder::SetPathForColumnList(const ResolvedColumnList& column_list,
-                                      const std::string& scan_alias) {
+                                      absl::string_view scan_alias) {
   for (const ResolvedColumn& col : column_list) {
     SetPathForColumn(col, absl::StrCat(scan_alias, ".", GetColumnAlias(col)));
   }
@@ -5941,7 +5947,7 @@ absl::Status SQLBuilder::GetCreateViewStatement(
 }
 
 absl::Status SQLBuilder::GetCreateStatementPrefix(
-    const ResolvedCreateStatement* node, const std::string& object_type,
+    const ResolvedCreateStatement* node, absl::string_view object_type,
     std::string* sql) {
   bool is_index = object_type == "INDEX";
   sql->clear();
@@ -7782,11 +7788,11 @@ absl::Status SQLBuilder::VisitResolvedUpdateItem(
     const ResolvedUpdateItem* node) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> target,
                    ProcessNode(node->target()));
-  ZETASQL_RET_CHECK(!update_item_targets().empty());
-  // Use an empty offset for now. VisitResolvedUpdateItemElement will fill it
-  // in later if needed.
-  mutable_update_item_targets().back().emplace_back(target->GetSQL(),
-                                                    /*offset_sql=*/"");
+  ZETASQL_RET_CHECK(!update_item_targets_and_offsets().empty());
+  // Use an empty offset for now. VisitResolvedUpdateArrayItem will fill it in
+  // later if needed.
+  mutable_update_item_targets_and_offsets().back().emplace_back(
+      target->GetSQL(), CopyableState::UpdateItemOffset());
 
   if (node->update_item_element_list_size() > 0) {
     // Use kEmptyAlias as the path so that VisitResolvedGet{Proto,Struct}Field
@@ -7803,19 +7809,21 @@ absl::Status SQLBuilder::VisitResolvedUpdateItem(
     PushQueryFragment(node, absl::StrJoin(sql_fragments, ", "));
   } else {
     std::string target_sql;
-    for (int i = 0; i < update_item_targets().back().size(); ++i) {
-      const auto& target_and_offset = update_item_targets().back()[i];
+    for (int i = 0; i < update_item_targets_and_offsets().back().size(); ++i) {
+      const auto& target_and_offset =
+          update_item_targets_and_offsets().back()[i];
       const std::string& target = target_and_offset.first;
-      const std::string& offset = target_and_offset.second;
+      const std::string& offset = target_and_offset.second.offset_sql;
 
-      const bool last = (i == update_item_targets().back().size() - 1);
+      const bool last =
+          (i == update_item_targets_and_offsets().back().size() - 1);
       ZETASQL_RET_CHECK_EQ(last, offset.empty());
 
       // The ResolvedColumn representing an array element has path
       // kEmptyAlias. It is suppressed by VisitResolvedGet{Proto,Struct}Field,
-      // but if we are modifying the element and not a field of it, then we need
-      // to suppress the string here (or else we would get something like
-      // a[OFFSET(1)]``).
+      // but if we are modifying the element and not a field of a proto or
+      // struct, then we need to suppress the string here (or else we would get
+      // something like a[OFFSET(1)]``).
       if (target != kEmptyAlias) {
         if (i == 0) {
           target_sql = target;
@@ -7823,11 +7831,18 @@ absl::Status SQLBuilder::VisitResolvedUpdateItem(
           absl::StrAppend(&target_sql, ".", target);
         }
       } else {
-        ZETASQL_RET_CHECK(last);
+        // It is possible to access a nested subscript with JSON such as
+        // JSON["a"]["b"] so the empty alias may correspond to an offset and not
+        // necessarily the last target.
+        ZETASQL_RET_CHECK(last || !offset.empty());
       }
 
       if (!offset.empty()) {
-        absl::StrAppend(&target_sql, "[OFFSET(", offset, ")]");
+        if (target_and_offset.second.offset_type == CopyableState::kOffset) {
+          absl::StrAppend(&target_sql, "[OFFSET(", offset, ")]");
+        } else {
+          absl::StrAppend(&target_sql, "[", offset, "]");
+        }
       }
     }
 
@@ -7887,7 +7902,7 @@ absl::Status SQLBuilder::VisitResolvedUpdateItem(
     PushQueryFragment(node, sql);
   }
 
-  mutable_update_item_targets().back().pop_back();
+  mutable_update_item_targets_and_offsets().back().pop_back();
   return absl::OkStatus();
 }
 
@@ -7895,18 +7910,30 @@ absl::Status SQLBuilder::VisitResolvedUpdateItemElement(
     const ResolvedUpdateItemElement* node) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> offset,
                    ProcessNode(node->subscript()));
-  ZETASQL_RET_CHECK(!update_item_targets().empty());
-  ZETASQL_RET_CHECK(!update_item_targets().back().empty());
-  ZETASQL_RET_CHECK_EQ("", update_item_targets().back().back().second);
+  ZETASQL_RET_CHECK(!update_item_targets_and_offsets().empty());
+  ZETASQL_RET_CHECK(!update_item_targets_and_offsets().back().empty());
+  ZETASQL_RET_CHECK_EQ(
+      "", update_item_targets_and_offsets().back().back().second.offset_sql);
   const std::string offset_sql = offset->GetSQL();
   ZETASQL_RET_CHECK(!offset_sql.empty());
-  mutable_update_item_targets().back().back().second = offset_sql;
+  mutable_update_item_targets_and_offsets().back().back().second.offset_sql =
+      offset_sql;
+  if (node->offset()->type()->IsInteger()) {
+    mutable_update_item_targets_and_offsets().back().back().second = {
+        .offset_sql = offset_sql, .offset_type = CopyableState::kOffset};
+  } else {
+    mutable_update_item_targets_and_offsets().back().back().second = {
+        .offset_sql = offset_sql, .offset_type = CopyableState::kNone};
+  }
 
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> update,
                    ProcessNode(node->update_item()));
 
   // Clear the offset_sql.
-  mutable_update_item_targets().back().back().second.clear();
+  mutable_update_item_targets_and_offsets()
+      .back()
+      .back()
+      .second.offset_sql.clear();
 
   PushQueryFragment(node, update->GetSQL());
   return absl::OkStatus();
@@ -9076,10 +9103,10 @@ absl::StatusOr<std::string> SQLBuilder::GetUpdateItemListSQL(
   std::vector<std::string> update_item_list_sql;
   update_item_list_sql.reserve(update_item_list.size());
   for (const auto& update_item : update_item_list) {
-    mutable_update_item_targets().emplace_back();
+    mutable_update_item_targets_and_offsets().emplace_back();
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
                      ProcessNode(update_item.get()));
-    mutable_update_item_targets().pop_back();
+    mutable_update_item_targets_and_offsets().pop_back();
 
     update_item_list_sql.push_back(result->GetSQL());
   }

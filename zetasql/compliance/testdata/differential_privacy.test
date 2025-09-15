@@ -1938,3 +1938,37 @@ ARRAY<STRUCT<int64_val INT64, INT64, DOUBLE, DOUBLE, DOUBLE>>[unknown order:
   {NULL, 2, 2.5, 2.5, 1},
   {4, 1, -1.5, -1.5, 0.25}
 ]
+==
+
+[name=differential_privacy_nested_public_groups]
+[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_NESTED,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,NAMED_ARGUMENTS,WITH_ON_SUBQUERY]
+[labels=differential_privacy]
+WITH
+  SelectedGroups AS (
+    SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS (
+      epsilon = 1e20,
+      delta = 1.0,
+      max_groups_contributed = 1)
+    int64_val
+    FROM TestTableWithUid
+    GROUP BY int64_val)
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS (
+  epsilon = 1e20,
+  delta = 1.0,
+  max_groups_contributed = NULL,
+  group_selection_strategy = PUBLIC_GROUPS)
+ int64_val, COUNT(*) AS anon_count
+FROM TestTableWithUid
+  RIGHT OUTER JOIN SelectedGroups
+  USING (int64_val)
+GROUP BY int64_val;
+--
+ARRAY<STRUCT<int64_val INT64, anon_count INT64>>[unknown order:
+  {NULL, NULL},
+  {1, 3},
+  {2, 3},
+  {3, 1},
+  {4, 1}
+]
+
+NOTE: Reference implementation reports non-determinism.

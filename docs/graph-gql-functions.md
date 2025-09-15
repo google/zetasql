@@ -967,10 +967,13 @@ RETURN src.id as src_id, num_transfers, unique_amount_transfers, dst.id AS desti
  +---------------------------------------------------------------------------*/
 ```
 
-In the following query, the `SUM` function takes a group variable called
-`e` that represents an array of transfers, and then sums the amount
-for each transfer. Note that horizontal aggregation isn't allowed in the
-`RETURN` statement: that `ARRAY_AGG` is an aggregate over the result set.
+In the following query, the `SUM` function takes a group variable called `e`
+that represents an array of transfers, and then sums the amount for each
+transfer. Horizontal aggregation isn't allowed in the `RETURN`
+statement. `ARRAY_AGG` is a vertical aggregate over the result set, which is
+grouped implicitly by the non-aggregated columns
+(`source_account_id`, `destination_account_id`). `ARRAY_AGG` produces one row
+for each distinct destination account.
 
 ```zetasql
 GRAPH FinGraph

@@ -1334,7 +1334,7 @@ class TableValuedFunctionBody {
   virtual std::string debug_name() const = 0;
 
   virtual absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
-  CreateEvaluator(absl::Span<const TableValuedFunction::TvfEvaluatorArg> args,
+  CreateEvaluator(std::vector<TableValuedFunction::TvfEvaluatorArg> args,
                   std::shared_ptr<FunctionSignature> function_call_signature,
                   EvaluationContext* context) = 0;
 };
@@ -1979,14 +1979,14 @@ class SortOp final : public RelationalOp {
   // compared for equality.
   //
   // 'limit' and 'offset' must either both be NULL or both non-NULL. If 'limit'
-  // is non-NULL, the resulting iterator only returns the 'limit' tuples after
-  // 'offset' in sorted order. This is equivalent to LimitOp(limit, offset,
-  // SortOp) but uses less memory. However, it is not safe to use this feature
-  // for compliance or random query testing because it does not support
-  // scrambling or setting non-deterministic test output, so it can cause
-  // spurious test failures.
+  // is non-NULL and evaluates to non-NULL, the resulting iterator only returns
+  // the 'limit' tuples after 'offset' in sorted order. This is equivalent to
+  // LimitOp(limit, offset, SortOp) but uses less memory. However, it is not
+  // safe to use this feature for compliance or random query testing because it
+  // does not support scrambling or setting non-deterministic test output, so it
+  // can cause spurious test failures.
   //
-  // We do not support setting both 'limit' and 'is_stable_sort'.
+  // We do not support setting both non-NULL 'limit' and 'is_stable_sort'.
   static absl::StatusOr<std::unique_ptr<SortOp>> Create(
       std::vector<std::unique_ptr<KeyArg>> keys,
       std::vector<std::unique_ptr<ExprArg>> values,
@@ -2035,6 +2035,8 @@ class SortOp final : public RelationalOp {
 
   const RelationalOp* input() const;
   RelationalOp* mutable_input();
+
+  bool is_stable_sort() const { return is_stable_sort_; }
 
   const bool has_limit_;
   const bool has_offset_;

@@ -43,7 +43,7 @@ TextMapperLexerAdapter::TextMapperLexerAdapter(
   absl::StatusOr<std::unique_ptr<LookaheadTransformer>> lexer =
       LookaheadTransformer::Create(mode, filename, input, start_offset,
                                    language_options, macro_expansion_mode,
-                                   macro_catalog, arena, stack_frames_);
+                                   macro_catalog, arena, stack_frame_factory_);
   ZETASQL_DCHECK_OK(lexer.status());
   tokenizer_ = std::shared_ptr<LookaheadTransformer>(std::move(*lexer));
   tokenizer_->watching_lexers_.push_back(this);

@@ -212,8 +212,9 @@ absl::Status ValidateRollup(const ASTRollup* rollup,
     return MakeSqlErrorAt(rollup) << "GROUP BY ROLLUP is unsupported";
   }
   // Multi grouping sets are only supported when
-  // FEATURE_MULTI_GROUPING_SETS is enabled.
-  if (!language.LanguageFeatureEnabled(FEATURE_MULTI_GROUPING_SETS) &&
+  // FEATURE_MULTI_GROUPING_SETS and FEATURE_GROUPING_SETS are enabled.
+  if ((!language.LanguageFeatureEnabled(FEATURE_MULTI_GROUPING_SETS) ||
+       !language.LanguageFeatureEnabled(FEATURE_GROUPING_SETS)) &&
       grouping_item_count > 1) {
     return MakeSqlErrorAt(rollup)
            << "The GROUP BY clause only supports ROLLUP when there are no "
@@ -13122,12 +13123,32 @@ absl::Status Resolver::ResolvePathExpressionAsFunctionTableArgument(
   std::unique_ptr<NameList> new_name_list(new NameList);
   std::vector<ResolvedColumn> resolved_columns;
   if (tvf_relation.is_value_table()) {
-    ZETASQL_RET_CHECK_EQ(1, tvf_relation.num_columns());
+    resolved_columns.reserve(tvf_relation.num_columns());
     resolved_columns.push_back(ResolvedColumn(
         AllocateColumnId(), path_expr->first_name()->GetAsIdString(),
         kValueColumnId, tvf_relation.column(0).type));
+    std::shared_ptr<NameList> pseudo_column_name_list(new NameList);
+    for (int i = 1; i < tvf_relation.num_columns(); ++i) {
+      const TVFRelation::Column& column = tvf_relation.column(i);
+      ZETASQL_RET_CHECK(column.is_pseudo_column);
+      resolved_columns.push_back(ResolvedColumn(
+          AllocateColumnId(),
+          id_string_pool_->Make(path_expr->first_name()->GetAsString()),
+          id_string_pool_->Make(column.name), column.type));
+      // Add to name list dedicated to pseudo-columns so they
+      // can be accessed in a qualified manner: SELECT t.pseudo_column
+      ZETASQL_RETURN_IF_ERROR(pseudo_column_name_list->AddPseudoColumn(
+          resolved_columns.back().name_id(), resolved_columns.back(),
+          path_expr));
+      // Add pseudo-column to top level name list so they can be accessed in
+      // an unqualified manner: SELECT pseudo_column
+      ZETASQL_RETURN_IF_ERROR(
+          new_name_list->AddPseudoColumn(resolved_columns.back().name_id(),
+                                         resolved_columns.back(), path_expr));
+    }
     ZETASQL_RETURN_IF_ERROR(new_name_list->AddValueTableColumn(
-        alias, resolved_columns[0], path_expr));
+        alias, resolved_columns[0], path_expr, /*excluded_field_names=*/{},
+        pseudo_column_name_list));
     ZETASQL_RETURN_IF_ERROR(new_name_list->SetIsValueTable());
     name_list = std::move(new_name_list);
   } else {
@@ -14839,11 +14860,6 @@ absl::Status Resolver::MatchTVFSignature(
 
     } else {
       ZETASQL_RET_CHECK(pipe_input_arg->IsGraph());
-      ZETASQL_RET_CHECK_EQ(1, tvf_catalog_entry->NumSignatures())
-          << "TODO: We need to support the logic in "
-             "http://shortn/_0Uc6eBN0Lu to prohibit TVF overloads with an "
-             "implicit graph and just scalars. It must be done at catalog "
-             "creation time and when adding new signatures to existing TVFs.";
       if (!function_signature.arguments().empty()) {
         const FunctionArgumentType& arg_type = function_signature.argument(0);
         if (arg_type.IsGraph()) {
@@ -15360,8 +15376,21 @@ absl::Status Resolver::PrepareTVFInputArguments(
       if (name_list->is_value_table()) {
         ZETASQL_RET_CHECK_EQ(1, name_list->num_columns()) << ast_tvf->DebugString();
         ZETASQL_RET_CHECK_EQ(1, column_list.size()) << ast_tvf->DebugString();
-        tvf_input_arguments->push_back(TVFInputArgumentType(
-            TVFRelation::ValueTable(column_list[0].type())));
+        TVFRelation::ColumnList pseudo_columns;
+        if (language().LanguageFeatureEnabled(FEATURE_TVF_PSEUDO_COLUMNS)) {
+          for (const auto& pseudo_column :
+               name_list->GetResolvedPseudoColumns()) {
+            pseudo_columns.emplace_back(pseudo_column.name(),
+                                        pseudo_column.annotated_type(),
+                                        /*is_pseudo_column_in=*/true);
+          }
+        }
+        ZETASQL_ASSIGN_OR_RETURN(TVFRelation value_table_relation,
+                         TVFRelation::ValueTable(
+                             name_list->column(0).column().annotated_type(),
+                             pseudo_columns));
+        tvf_input_arguments->push_back(
+            TVFInputArgumentType(value_table_relation));
       } else {
         TVFRelation::ColumnList tvf_relation_columns;
         tvf_relation_columns.reserve(column_list.size());

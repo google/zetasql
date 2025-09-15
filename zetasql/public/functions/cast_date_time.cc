@@ -1661,7 +1661,7 @@ absl::StatusOr<DateTimeFormatElement> GetNextDateTimeFormatElement(
       GetFormatElementTypeTrie();
   const FormatElementType& type =
       format_element_type_trie.GetDataForMaximalPrefix(
-          upper_format_str, &matched_len, /*is_terminator = */ nullptr);
+          upper_format_str, matched_len, /*is_terminator=*/{});
   if (type == kFormatElementTypeNullValue) {
     return MakeEvalError() << "Cannot find matched format element";
   }

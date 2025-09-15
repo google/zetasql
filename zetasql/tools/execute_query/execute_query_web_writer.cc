@@ -76,11 +76,35 @@ std::string DecorateASTDebugStringWithHTMLTags(std::string ast_debug_string) {
 
   // Make all the node names bold.
   // The regex matches node names that appear on their own line and are prefixed
-  // by some tree characters. The (?m) enables multi-line mode so that the ^ in
-  // the capturing group matches the start of each line separately.
-  static LazyRE2 kNodeName = {R"re((?m)(^[ |+-]*)([A-Z][A-Za-z]*))re"};
+  // by some tree characters. It captures both nodes that are printed as a
+  // multi-line debug string, and nodes that are printed on a single line and
+  // are followed by an open parenthesis.
+  //
+  // The (?m) enables multi-line mode so that the ^ in the capturing group
+  // matches the start of each line separately.
+  // The first capturing group is (^[ |+-]*) which captures the ASCII tree
+  // characters that precede the node name.
+  // The second capturing group is ([A-Z][A-Za-z]*) which captures the node
+  // name.
+  // The third capturing group is (\(|$) which matches the end of the
+  // string or an open parenthesis, depending on whether the node name is
+  // printed on a single line or multiple lines. The interior of the capturing
+  // group is an alternation | between an escaped open parenthesis \( and an
+  // end-of-line indicator $.
+
+  // Matches:
+  // +-LimitOffsetScan
+  // | +-OrderByScan
+  // +-FunctionCall(ZetaSQL:$and(BOOL,  BOOL) -> BOOL)
+  //
+  // Does not match:
+  // +-Supplier.S_ACCTBAL#15 -> Table name
+  //
+  // The string is replaced with the captured ASCII tree characters and the node
+  // name wrapped in a span with the class `ast-node`.
+  static LazyRE2 kNodeName = {R"re((?m)(^[ |+-]*)([A-Z][A-Za-z]*)(\(|$))re"};
   RE2::GlobalReplace(&ast_debug_string, *kNodeName,
-                     R"html(\1<span class="ast-node">\2</span>)html");
+                     R"html(\1<span class="ast-node">\2</span>\3)html");
 
   // Wrap all column IDs in a span, so that they can be highlighted on hover.
   // If the Column ID is `col1#3`, the two capturing groups are `col1` and `3`

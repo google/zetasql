@@ -1,6 +1,6 @@
 [default language_features=MAXIMUM,+ANALYTIC_FUNCTIONS,+AGGREGATE_FILTERING,+MULTILEVEL_AGGREGATION,+GROUPING_BUILTIN,+QUALIFY,+GROUP_BY_STRUCT,+ORDER_BY_IN_AGGREGATE]
 [default show_sqlbuilder_output]
-
+[default enabled_ast_rewrites=ALL,-WITH_EXPR]
 
 # Error if WHERE contains an aggregate or analytic function.
 SELECT
@@ -247,3 +247,110 @@ FROM SimpleTypes
 ERROR: GROUP BY modifiers not supported on analytic function calls. [at 2:3]
   SUM(MAX(int64) GROUP BY string HAVING COUNT(bool) > 1) OVER()
   ^
+==
+
+# PIVOT rewriter does not support WHERE in aggregate functions.
+SELECT *
+FROM MultipleColumns
+PIVOT(COUNT(* WHERE int_b > 5) FOR int_a IN (0 AS zero, 1 AS one));
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.string_a#8 AS string_a [STRING]
+| +-$groupby.string_b#9 AS string_b [STRING]
+| +-$groupby.int_c#10 AS int_c [INT64]
+| +-$groupby.int_d#11 AS int_d [INT64]
+| +-$pivot.zero#12 AS zero [INT64]
+| +-$pivot.one#13 AS one [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.string_a#8, $groupby.string_b#9, $groupby.int_c#10, $groupby.int_d#11, $pivot.zero#12, $pivot.one#13]
+    +-input_scan=
+      +-PivotScan
+        +-column_list=[$groupby.string_a#8, $groupby.string_b#9, $groupby.int_c#10, $groupby.int_d#11, $pivot.zero#12, $pivot.one#13]
+        +-input_scan=
+        | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
+        +-group_by_list=
+        | +-string_a#8 := ColumnRef(type=STRING, column=MultipleColumns.string_a#2)
+        | +-string_b#9 := ColumnRef(type=STRING, column=MultipleColumns.string_b#4)
+        | +-int_c#10 := ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
+        | +-int_d#11 := ColumnRef(type=INT64, column=MultipleColumns.int_d#6)
+        +-pivot_expr_list=
+        | +-AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        |   +-parse_location=36-60
+        |   +-where_expr=
+        |     +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+        |       +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
+        |       +-Literal(type=INT64, value=5)
+        +-for_expr=
+        | +-ColumnRef(parse_location=65-70, type=INT64, column=MultipleColumns.int_a#1)
+        +-pivot_value_list=
+        | +-Literal(type=INT64, value=0)
+        | +-Literal(type=INT64, value=1)
+        +-pivot_column_list=
+          +-PivotColumn(column=$pivot.zero#12, pivot_expr_index=0, pivot_value_index=0)
+          +-PivotColumn(column=$pivot.one#13, pivot_expr_index=0, pivot_value_index=1)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  a_2 AS string_a,
+  a_4 AS string_b,
+  a_5 AS int_c,
+  a_6 AS int_d,
+  a_8_a_9 AS zero,
+  a_8_a_10 AS one
+FROM
+  (
+    SELECT
+      MultipleColumns.int_a AS a_1,
+      MultipleColumns.string_a AS a_2,
+      MultipleColumns.int_b AS a_3,
+      MultipleColumns.string_b AS a_4,
+      MultipleColumns.int_c AS a_5,
+      MultipleColumns.int_d AS a_6
+    FROM
+      MultipleColumns
+  ) AS multiplecolumns_7 PIVOT(COUNT(*
+    WHERE
+      (multiplecolumns_7.a_3) > 5) AS a_8 FOR(multiplecolumns_7.a_1) IN (0 AS a_9, 1 AS a_10));
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  MultipleColumns
+|> SELECT
+     MultipleColumns.int_a AS a_1,
+     MultipleColumns.string_a AS a_2,
+     MultipleColumns.int_b AS a_3,
+     MultipleColumns.string_b AS a_4,
+     MultipleColumns.int_c AS a_5,
+     MultipleColumns.int_d AS a_6
+|> AS multiplecolumns_7
+|> PIVOT(COUNT(*
+     WHERE
+       (multiplecolumns_7.a_3) > 5) AS a_8 FOR(multiplecolumns_7.a_1) IN (0 AS a_9, 1 AS a_10))
+|> SELECT
+     a_2 AS string_a,
+     a_4 AS string_b,
+     a_5 AS int_c,
+     a_6 AS int_d,
+     a_8_a_9 AS zero,
+     a_8_a_10 AS one;
+
+Rewrite ERROR: generic::unimplemented: Use of WHERE filter inside an aggregate function used as a PIVOT expression is not supported [at 3:7]
+PIVOT(COUNT(* WHERE int_b > 5) FOR int_a IN (0 AS zero, 1 AS one));
+      ^
+==
+
+# PIVOT rewriter does not support HAVING in aggregate functions. The error
+# mentions GROUP BY because it checks for GROUP BY first, which is also not
+# supported in the PIVOT rewriter.
+SELECT *
+FROM MultipleColumns
+PIVOT(COUNT(* GROUP BY int_b HAVING int_b > 5) FOR int_a IN (0 AS zero, 1 AS one));
+--
+ERROR: PIVOT expression cannot be a multi-level aggregate function call [at 3:7]
+PIVOT(COUNT(* GROUP BY int_b HAVING int_b > 5) FOR int_a IN (0 AS zero, 1 AS ...
+      ^

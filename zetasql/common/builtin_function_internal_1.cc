@@ -1779,6 +1779,18 @@ static bool FunctionIsDisabled(const ZetaSQLBuiltinFunctionOptions& options,
   return false;
 }
 
+static bool TableValuedFunctionIsDisabled(
+    const ZetaSQLBuiltinFunctionOptions& options,
+    const TableValuedFunctionOptions& function_options) {
+  const LanguageOptions& language_options = options.language_options;
+  if (!function_options.CheckAllRequiredFeaturesAreEnabled(
+          language_options.GetEnabledLanguageFeatures())) {
+    return true;
+  }
+
+  return false;
+}
+
 static FunctionSignature ToFunctionSignature(
     const FunctionSignatureOnHeap& signature_on_heap) {
   return FunctionSignature(signature_on_heap.Get());
@@ -2120,6 +2132,9 @@ static absl::StatusOr<bool> InsertTableValuedFunctionImpl(
     std::vector<std::string> name,
     const std::vector<FunctionSignatureOnHeap>& signatures,
     TableValuedFunctionOptions table_valued_function_options) {
+  if (TableValuedFunctionIsDisabled(options, table_valued_function_options)) {
+    return false;
+  }
   std::vector<FunctionSignature> enabled_signatures;
   enabled_signatures.reserve(signatures.size());
   for (const auto& signature : signatures) {

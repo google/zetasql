@@ -4087,10 +4087,10 @@ bool IsSelectDistinctSubquery(const ResolvedScan* node) {
       // used for testing.
       return IsSelectDistinctSubquery(
           node->GetAs<ResolvedSampleScan>()->input_scan());
-    case RESOLVED_AGGREGATE_SCAN: {
+    case RESOLVED_AGGREGATE_SCAN:
+    case RESOLVED_DIFFERENTIAL_PRIVACY_AGGREGATE_SCAN: {
       // This is the common path for a SELECT DISTINCT subquery.
-      const ResolvedAggregateScan* aggregate_scan =
-          node->GetAs<ResolvedAggregateScan>();
+      const auto* aggregate_scan = node->GetAs<ResolvedAggregateScanBase>();
       if (!aggregate_scan->rollup_column_list().empty()) {
         return false;
       }

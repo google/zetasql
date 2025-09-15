@@ -241,20 +241,15 @@ absl::Status GetBuiltinFunctionsAndTypes(
   GetKllQuantilesFunctions(&type_factory, options, &functions);
   ZETASQL_RETURN_IF_ERROR(
       GetProto3ConversionFunctions(&type_factory, options, &functions));
-  // TODO: Move language feature checks to function declarations.
-  if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_ANALYTIC_FUNCTIONS)) {
-    GetAnalyticFunctions(&type_factory, options, &functions);
-  }
+  GetAnalyticFunctions(&type_factory, options, &functions);
+
   GetNetFunctions(&type_factory, options, &functions);
   GetHashingFunctions(&type_factory, options, &functions);
-  if (options.language_options.LanguageFeatureEnabled(FEATURE_ENCRYPTION)) {
-    GetEncryptionFunctions(&type_factory, options, &functions);
-  }
-  if (options.language_options.LanguageFeatureEnabled(FEATURE_GEOGRAPHY)) {
-    GetGeographyFunctions(&type_factory, options, &functions);
-  }
+  GetEncryptionFunctions(&type_factory, options, &functions);
+  GetGeographyFunctions(&type_factory, options, &functions);
   GetCompressionFunctions(&type_factory, options, &functions);
+
+  // TODO: Move language feature checks to function declarations.
   if (options.language_options.LanguageFeatureEnabled(FEATURE_ANONYMIZATION)) {
     GetAnonFunctions(&type_factory, options, &functions);
   }

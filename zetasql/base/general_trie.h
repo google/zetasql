@@ -50,6 +50,7 @@
 #include "absl/base/attributes.h"
 #include "absl/strings/match.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 
 namespace zetasql_base {
 
@@ -105,6 +106,10 @@ class GeneralTrieImpl {
   // terminator, so condition 2 is always satisfied.
   const T& GetDataForMaximalPrefix(absl::string_view key, int* chars_matched,
                                    const bool* is_terminator) const;
+  const T& GetDataForMaximalPrefix(absl::string_view key, int& chars_matched,
+                                   absl::Span<const bool> is_terminator) const {
+    return GetDataForMaximalPrefix(key, &chars_matched, is_terminator.data());
+  }
 
   // Gets all strings (and associated data) matching the given
   // string. The given string must match in its entirety.  Note: empty

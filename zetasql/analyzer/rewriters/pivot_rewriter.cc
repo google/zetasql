@@ -440,6 +440,18 @@ absl::Status PivotRewriterVisitor::VerifyAggregateFunctionIsSupported(
            << "Multi-level aggregate functions currently cannot be used as "
               "PIVOT expressions.";
   }
+  // TODO: b/382275859 - Add support for WHERE and HAVING filters in aggregate
+  // functions used as PIVOT expressions.
+  if (call->where_expr() != nullptr) {
+    return MakeUnimplementedErrorAtNode(call)
+           << "Use of WHERE filter inside an aggregate function used as a "
+              "PIVOT expression is not supported";
+  }
+  if (call->having_expr() != nullptr) {
+    return MakeUnimplementedErrorAtNode(call)
+           << "Use of HAVING filter inside an aggregate function used as a "
+              "PIVOT expression is not supported";
+  }
 
   if (call->signature().context_id() == FN_COUNT_STAR ||
       (call->signature().context_id() == FN_ANY_VALUE &&

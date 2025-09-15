@@ -218,6 +218,30 @@ FROM KeyValue
 ARRAY<STRUCT<key INT64, value STRING>>[{2, "value2"}]
 ==
 
+[name=pipe_limit_all_offset]
+[required_features=PIPES,LIMIT_ALL]
+FROM KeyValue
+|> ORDER BY key
+|> LIMIT ALL OFFSET 1
+--
+ARRAY<STRUCT<key INT64, value STRING>>[known order:
+  {2, "value2"},
+  {3, "value1"}
+]
+==
+
+[name=pipe_limit_null_offset]
+[required_features=PIPES,LIMIT_OFFSET_EXPRESSIONS,LIMIT_ALL]
+FROM KeyValue
+|> ORDER BY key
+|> LIMIT NULL OFFSET 1
+--
+ARRAY<STRUCT<key INT64, value STRING>>[known order:
+  {2, "value2"},
+  {3, "value1"}
+]
+==
+
 [name=pipe_aggregate]
 FROM KeyValue
 |> AGGREGATE COUNT(*), SUM(key)

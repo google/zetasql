@@ -536,6 +536,7 @@ cc_test(
 cc_test(
     name = "analyzer_test",
     size = "small",
+    timeout = "moderate",
     srcs = ["analyzer_test.cc"],
     data = [
         "//zetasql/testdata:external_extension.proto",

@@ -142,5 +142,83 @@ TEST(BuiltinFunctionInternalTest,
               StatusIs(absl::StatusCode::kInternal));
 }
 
+TEST(BuiltinFunctionInternalTest,
+     InsertSimpleTableValuedFunctionNoRequiredFeature) {
+  TypeFactory type_factory;
+  absl::flat_hash_map<std::string, std::unique_ptr<TableValuedFunction>> tvfs;
+
+  LanguageOptions language_options;
+  ZetaSQLBuiltinFunctionOptions no_options_enabled(language_options);
+
+  std::vector<FunctionSignatureOnHeap> signatures;
+  signatures.push_back({ARG_TYPE_RELATION, {type_factory.get_string()}, -1});
+
+  ZETASQL_EXPECT_OK(InsertSimpleTableValuedFunction(&tvfs, no_options_enabled,
+                                            "test_tvf", signatures, {}));
+  EXPECT_TRUE(tvfs.contains("test_tvf"));
+}
+
+TEST(BuiltinFunctionInternalTest,
+     InsertSimpleTableValuedFunctionOneRequiredFeature) {
+  TypeFactory type_factory;
+  absl::flat_hash_map<std::string, std::unique_ptr<TableValuedFunction>> tvfs;
+
+  LanguageOptions language_options;
+  ZetaSQLBuiltinFunctionOptions no_options_enabled(language_options);
+  language_options.EnableLanguageFeature(FEATURE_ANALYTIC_FUNCTIONS);
+  ZetaSQLBuiltinFunctionOptions options_enabled(language_options);
+
+  TableValuedFunctionOptions tvf_options;
+  tvf_options.AddRequiredLanguageFeature(FEATURE_ANALYTIC_FUNCTIONS);
+
+  std::vector<FunctionSignatureOnHeap> signatures;
+  signatures.push_back({ARG_TYPE_RELATION, {type_factory.get_string()}, -1});
+
+  ZETASQL_EXPECT_OK(InsertSimpleTableValuedFunction(
+      &tvfs, no_options_enabled, "test_tvf", signatures, tvf_options));
+  EXPECT_FALSE(tvfs.contains("test_tvf"));
+  ZETASQL_EXPECT_OK(InsertSimpleTableValuedFunction(&tvfs, options_enabled, "test_tvf",
+                                            signatures, tvf_options));
+  EXPECT_TRUE(tvfs.contains("test_tvf"));
+}
+
+TEST(BuiltinFunctionInternalTest,
+     InsertSimpleTableValuedFunctionManyRequiredFeature) {
+  TypeFactory type_factory;
+  absl::flat_hash_map<std::string, std::unique_ptr<TableValuedFunction>> tvfs;
+
+  LanguageOptions language_options;
+  ZetaSQLBuiltinFunctionOptions no_options_enabled(language_options);
+
+  language_options.EnableLanguageFeature(FEATURE_ANALYTIC_FUNCTIONS);
+  language_options.EnableLanguageFeature(FEATURE_TABLESAMPLE);
+  ZetaSQLBuiltinFunctionOptions partial_options_enabled(language_options);
+
+  language_options.EnableLanguageFeature(FEATURE_DISALLOW_GROUP_BY_FLOAT);
+  language_options.EnableLanguageFeature(FEATURE_TIMESTAMP_NANOS);
+  language_options.EnableLanguageFeature(FEATURE_DML_UPDATE_WITH_JOIN);
+  ZetaSQLBuiltinFunctionOptions full_options_enabled(language_options);
+
+  TableValuedFunctionOptions tvf_options;
+  tvf_options.AddRequiredLanguageFeature(FEATURE_ANALYTIC_FUNCTIONS);
+  tvf_options.AddRequiredLanguageFeature(FEATURE_TABLESAMPLE);
+  tvf_options.AddRequiredLanguageFeature(FEATURE_DISALLOW_GROUP_BY_FLOAT);
+  tvf_options.AddRequiredLanguageFeature(FEATURE_TIMESTAMP_NANOS);
+  tvf_options.AddRequiredLanguageFeature(FEATURE_DML_UPDATE_WITH_JOIN);
+
+  std::vector<FunctionSignatureOnHeap> signatures;
+  signatures.push_back({ARG_TYPE_RELATION, {type_factory.get_string()}, -1});
+
+  ZETASQL_EXPECT_OK(InsertSimpleTableValuedFunction(
+      &tvfs, no_options_enabled, "test_tvf", signatures, tvf_options));
+  EXPECT_FALSE(tvfs.contains("test_tvf"));
+  ZETASQL_EXPECT_OK(InsertSimpleTableValuedFunction(
+      &tvfs, partial_options_enabled, "test_tvf", signatures, tvf_options));
+  EXPECT_FALSE(tvfs.contains("test_tvf"));
+  ZETASQL_EXPECT_OK(InsertSimpleTableValuedFunction(
+      &tvfs, full_options_enabled, "test_tvf", signatures, tvf_options));
+  EXPECT_TRUE(tvfs.contains("test_tvf"));
+}
+
 }  // namespace
 }  // namespace zetasql

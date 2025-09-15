@@ -968,6 +968,11 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // depending on <script_mode_>.
   TestResults ExecuteTestCase();
 
+  // Executes a statement against the reference driver, creating a copy of the
+  // test database when `[use_database_copy]` is enabled.
+  absl::StatusOr<ComplianceTestCaseResult> ExecuteStatementReferenceDriver(
+      ReferenceDriver::ExecuteStatementAuxOutput& aux_output);
+
   // NOTE: This implementation is specific to testing the reference
   // implementation.
   // TODO: This should be pulled out to a separate subclass

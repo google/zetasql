@@ -92,11 +92,9 @@ class TextMapperLexerAdapter {
   };
   std::deque<TextMapperToken> queued_tokens_;
 
-  // This is used by macro expander to store the stack frames.
-  // This is used to maintain the ownership of the allocated stack frames.
-  // All newly allocated stack frames owned by this vector thereby avoiding
-  // memory leaks.
-  std::vector<std::unique_ptr<StackFrame>> stack_frames_;
+  // This is used by macro expander to create new stack frames and maintain
+  // their ownership.
+  StackFrame::StackFrameFactory stack_frame_factory_;
 
   std::shared_ptr<LookaheadTransformer> tokenizer_;
   TextMapperToken last_token_;

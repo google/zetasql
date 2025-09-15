@@ -68,8 +68,8 @@ void ExpectEqualTVFRelations(const TVFRelation& relation1,
   }
 }
 
-// Serializes given TVFRelation first. Then deserializes and returns the
-// deserialized TVFRelation.
+// Serialize and deserialize the given TVFRelation, and then expect that it's
+// equal to the input.
 void SerializeDeserializeAndCompare(const TVFRelation& relation) {
   FileDescriptorSetMap file_descriptor_set_map;
   TVFRelationProto tvf_relation_proto;
@@ -89,8 +89,8 @@ void SerializeDeserializeAndCompare(const TVFRelation& relation) {
   ExpectEqualTVFRelations(relation, result);
 }
 
-// Serializes given TVFSchemaColumn first. Then deserializes and returns the
-// deserialized TVFSchemaColumn.
+// Serialize and deserialize the given TVFSchemaColumn, and then expect that
+// it's equal to the input.
 void SerializeDeserializeAndCompare(const TVFSchemaColumn& column) {
   FileDescriptorSetMap file_descriptor_set_map;
   ZETASQL_ASSERT_OK_AND_ASSIGN(TVFRelationColumnProto tvf_schema_column,
@@ -109,6 +109,17 @@ void SerializeDeserializeAndCompare(const TVFSchemaColumn& column) {
                                  TypeDeserializer(&type_factory, pools)));
 
   ExpectEqualTVFSchemaColumn(column, result);
+}
+
+// Serialize and deserialize the given TableValuedFunctionOptions, and then
+// expect that it's equal to the input.
+void SerializeDeserializeAndCompare(const TableValuedFunctionOptions& options) {
+  TableValuedFunctionOptionsProto options_proto;
+  options.Serialize(&options_proto);
+  std::unique_ptr<TableValuedFunctionOptions> deserialized_options;
+  ZETASQL_ASSERT_OK(TableValuedFunctionOptions::Deserialize(options_proto,
+                                                    &deserialized_options));
+  EXPECT_EQ(options, *deserialized_options);
 }
 
 // Check serialization and deserialization of TVFRelation.
@@ -735,6 +746,141 @@ TEST(TVFTest, TVFInputArgumentType_Copyable) {
   EXPECT_EQ(copy.DebugString(), arg.DebugString());
   TVFInputArgumentType moved = std::move(arg);
   EXPECT_EQ(moved.DebugString(), copy.DebugString());
+}
+
+TEST(TVFTest, NoGraphSignatureAndJustScalarsOverload) {
+  TypeFactory factory;
+  std::unique_ptr<TableValuedFunction> tvf;
+  // Generate an output schema that returns an int64 value table.
+  TVFRelation output_schema_int64_value_table =
+      TVFRelation::ValueTable(zetasql::types::Int64Type());
+  TVFSchemaColumn int64_col =
+      TVFSchemaColumn("int64_col", zetasql::types::Int64Type());
+  TVFRelation::ColumnList columns = {int64_col};
+  TVFRelation tvf_relation(columns);
+
+  FixedOutputSchemaTVF fine_tvf(
+      {"tvf"},
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             tvf_relation,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType::AnyGraph()}, -1),
+       FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             tvf_relation,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType::AnyRelation()}, -1)},
+      TVFRelation{{int64_col}});
+
+  EXPECT_DEATH(tvf.reset(new FixedOutputSchemaTVF(
+                   {"tvf"},
+                   {FunctionSignature(
+                        FunctionArgumentType::RelationWithSchema(
+                            tvf_relation,
+                            /*extra_relation_input_columns_allowed=*/false),
+                        {FunctionArgumentType::AnyGraph()}, -1),
+                    FunctionSignature(
+                        FunctionArgumentType::RelationWithSchema(
+                            tvf_relation,
+                            /*extra_relation_input_columns_allowed=*/false),
+                        {FunctionArgumentType(zetasql::types::StringType(),
+                                              FunctionArgumentType::REQUIRED)},
+                        -1)},
+                   TVFRelation{{int64_col}})),
+               HasSubstr("signature with a graph argument must not have any "
+                         "signatures that just take scalars"));
+}
+
+TEST(TVFTest, NoGraphSignatureAndJustScalarsOverloadAddSignature) {
+  TypeFactory factory;
+  // Generate an output schema that returns an int64 value table.
+  TVFRelation output_schema_int64_value_table =
+      TVFRelation::ValueTable(zetasql::types::Int64Type());
+  TVFSchemaColumn int64_col =
+      TVFSchemaColumn("int64_col", zetasql::types::Int64Type());
+  TVFRelation::ColumnList columns = {int64_col};
+  TVFRelation tvf_relation(columns);
+
+  FixedOutputSchemaTVF tvf({"tvf"}, {}, TVFRelation{{int64_col}});
+  ZETASQL_ASSERT_OK(tvf.AddSignature(
+      FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                            tvf_relation,
+                            /*extra_relation_input_columns_allowed=*/false),
+                        {FunctionArgumentType::AnyGraph()}, -1)));
+  ZETASQL_ASSERT_OK(tvf.AddSignature(
+      FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                            tvf_relation,
+                            /*extra_relation_input_columns_allowed=*/false),
+                        {FunctionArgumentType::AnyRelation()}, -1)));
+  ZETASQL_ASSERT_OK(tvf.AddSignature(
+      FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                            tvf_relation,
+                            /*extra_relation_input_columns_allowed=*/false),
+                        {FunctionArgumentType::AnyModel()}, -1)));
+  ZETASQL_ASSERT_OK(tvf.AddSignature(
+      FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                            tvf_relation,
+                            /*extra_relation_input_columns_allowed=*/false),
+                        {FunctionArgumentType::AnyModel(),
+                         FunctionArgumentType(zetasql::types::StringType(),
+                                              FunctionArgumentType::REQUIRED)},
+                        -1)));
+  ASSERT_THAT(
+      tvf.AddSignature(FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              tvf_relation,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType(zetasql::types::StringType(),
+                                FunctionArgumentType::REQUIRED)},
+          -1)),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("signature with a graph argument must not have any "
+                         "signatures that just take scalars")));
+}
+
+TEST(TableValuedFunctionOptionsTest, NoRequiredFeatures) {
+  TableValuedFunctionOptions options;
+  EXPECT_EQ(options.RequiresFeature(FEATURE_ANALYTIC_FUNCTIONS), false);
+  EXPECT_EQ(options.CheckAllRequiredFeaturesAreEnabled(
+                {FEATURE_ANALYTIC_FUNCTIONS, FEATURE_TABLESAMPLE}),
+            true);
+  SerializeDeserializeAndCompare(options);
+}
+
+TEST(TableValuedFunctionOptionsTest, OneRequiredFeature) {
+  TableValuedFunctionOptions options;
+  options.AddRequiredLanguageFeature(FEATURE_ANALYTIC_FUNCTIONS);
+  EXPECT_EQ(options.RequiresFeature(FEATURE_ANALYTIC_FUNCTIONS), true);
+  EXPECT_EQ(options.RequiresFeature(FEATURE_TABLESAMPLE), false);
+  EXPECT_EQ(options.CheckAllRequiredFeaturesAreEnabled(
+                {FEATURE_ANALYTIC_FUNCTIONS, FEATURE_TABLESAMPLE}),
+            true);
+  EXPECT_EQ(options.CheckAllRequiredFeaturesAreEnabled(
+                {FEATURE_TABLESAMPLE, FEATURE_DISALLOW_GROUP_BY_FLOAT}),
+            false);
+  SerializeDeserializeAndCompare(options);
+}
+
+TEST(TableValuedFunctionOptionsTest, ManyRequiredFeatures) {
+  TableValuedFunctionOptions options;
+  options.AddRequiredLanguageFeature(FEATURE_ANALYTIC_FUNCTIONS)
+      .AddRequiredLanguageFeature(FEATURE_TABLESAMPLE)
+      .AddRequiredLanguageFeature(FEATURE_DISALLOW_GROUP_BY_FLOAT)
+      .AddRequiredLanguageFeature(FEATURE_TIMESTAMP_NANOS)
+      .AddRequiredLanguageFeature(FEATURE_DML_UPDATE_WITH_JOIN);
+  EXPECT_EQ(options.RequiresFeature(FEATURE_ANALYTIC_FUNCTIONS), true);
+  EXPECT_EQ(options.RequiresFeature(FEATURE_TABLESAMPLE), true);
+  EXPECT_EQ(options.RequiresFeature(FEATURE_DISALLOW_GROUP_BY_FLOAT), true);
+  EXPECT_EQ(options.RequiresFeature(FEATURE_TIMESTAMP_NANOS), true);
+  EXPECT_EQ(options.RequiresFeature(FEATURE_DML_UPDATE_WITH_JOIN), true);
+  EXPECT_EQ(options.CheckAllRequiredFeaturesAreEnabled(
+                {FEATURE_ANALYTIC_FUNCTIONS, FEATURE_TABLESAMPLE,
+                 FEATURE_DISALLOW_GROUP_BY_FLOAT, FEATURE_TIMESTAMP_NANOS,
+                 FEATURE_DML_UPDATE_WITH_JOIN}),
+            true);
+  EXPECT_EQ(options.CheckAllRequiredFeaturesAreEnabled(
+                {FEATURE_ANALYTIC_FUNCTIONS, FEATURE_TEMPLATE_FUNCTIONS}),
+            false);
+  SerializeDeserializeAndCompare(options);
 }
 
 }  // namespace zetasql

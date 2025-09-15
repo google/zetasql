@@ -629,9 +629,11 @@ absl::StatusOr<Value> ReferenceDriver::ExecuteStatement(
   ReferenceDriver::ExecuteStatementOptions options{.primary_key_mode =
                                                        PrimaryKeyMode::DEFAULT};
   ExecuteStatementAuxOutput aux_output_ignored;
-  return ExecuteStatementForReferenceDriver(sql, parameters, options,
-                                            type_factory, aux_output_ignored,
-                                            /*database=*/nullptr);
+  // Create a local test database to allow running DDL statements. Note the
+  // reference driver does not actually apply side effects.
+  TestDatabase database;
+  return ExecuteStatementForReferenceDriver(
+      sql, parameters, options, type_factory, aux_output_ignored, &database);
 }
 
 absl::StatusOr<MultiStmtResult> ReferenceDriver::ExecuteGeneralizedStatement(
@@ -640,9 +642,11 @@ absl::StatusOr<MultiStmtResult> ReferenceDriver::ExecuteGeneralizedStatement(
   ReferenceDriver::ExecuteStatementOptions options{.primary_key_mode =
                                                        PrimaryKeyMode::DEFAULT};
   ExecuteStatementAuxOutput aux_output_ignored;
+  // Create a local test database to allow running DDL statements. Note the
+  // reference driver does not actually apply side effects.
+  TestDatabase database;
   return ExecuteGeneralizedStatementForReferenceDriver(
-      sql, parameters, options, type_factory, aux_output_ignored,
-      /*database=*/nullptr);
+      sql, parameters, options, type_factory, aux_output_ignored, &database);
 }
 
 absl::StatusOr<ScriptResult> ReferenceDriver::ExecuteScript(

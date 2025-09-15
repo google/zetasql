@@ -61,6 +61,10 @@ absl::Status TableValuedFunctionOptions::Deserialize(
     std::unique_ptr<TableValuedFunctionOptions>* result) {
   auto options = std::make_unique<TableValuedFunctionOptions>();
   options->set_uses_upper_case_sql_name(proto.uses_upper_case_sql_name());
+  for (auto required_feature : proto.required_language_feature()) {
+    options->AddRequiredLanguageFeature(
+        static_cast<LanguageFeature>(required_feature));
+  }
 
   *result = std::move(options);
   return absl::OkStatus();
@@ -70,6 +74,25 @@ void TableValuedFunctionOptions::Serialize(
     TableValuedFunctionOptionsProto* proto) const {
   proto->Clear();
   proto->set_uses_upper_case_sql_name(uses_upper_case_sql_name);
+  for (auto required_feature : required_language_features) {
+    proto->add_required_language_feature(required_feature);
+  }
+}
+
+bool TableValuedFunctionOptions::CheckAllRequiredFeaturesAreEnabled(
+    const LanguageOptions::LanguageFeatureSet& enabled_features) const {
+  for (const LanguageFeature& feature : required_language_features) {
+    if (enabled_features.find(feature) == enabled_features.end()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool TableValuedFunctionOptions::RequiresFeature(
+    LanguageFeature feature) const {
+  return required_language_features.find(feature) !=
+         required_language_features.end();
 }
 
 int64_t TableValuedFunction::NumSignatures() const {
@@ -82,10 +105,10 @@ const std::vector<FunctionSignature>& TableValuedFunction::signatures() const {
 
 absl::Status TableValuedFunction::AddSignature(
     const FunctionSignature& function_signature) {
-  ZETASQL_RET_CHECK_EQ(0, NumSignatures());
   ZETASQL_RETURN_IF_ERROR(function_signature.IsValidForTableValuedFunction())
       << function_signature.DebugString(FullName());
   signatures_.push_back(function_signature);
+  ZETASQL_RETURN_IF_ERROR(CheckNoGraphAndJustScalarsOverload());
   return absl::OkStatus();
 }
 
@@ -152,6 +175,33 @@ std::string TableValuedFunction::GetSignatureUserFacingText(
     }
   }
   return absl::StrCat(SQLName(), "(", absl::StrJoin(argument_texts, ", "), ")");
+}
+
+absl::Status TableValuedFunction::CheckNoGraphAndJustScalarsOverload() const {
+  bool has_graph_signature = false;
+  bool has_scalar_signature = false;
+  for (const FunctionSignature& signature : signatures_) {
+    bool all_scalar = true;
+    for (const FunctionArgumentType& argument : signature.arguments()) {
+      if (argument.IsGraph()) {
+        has_graph_signature = true;
+        all_scalar = false;
+        break;
+      } else if (!argument.IsScalar()) {
+        all_scalar = false;
+        break;
+      }
+    }
+    if (all_scalar) {
+      has_scalar_signature = true;
+    }
+  }
+  if (has_graph_signature && has_scalar_signature) {
+    return absl::InvalidArgumentError(
+        "TVFs that have a signature with a graph argument must not have any "
+        "signatures that just take scalars");
+  }
+  return absl::OkStatus();
 }
 
 std::string TableValuedFunction::DebugString() const {

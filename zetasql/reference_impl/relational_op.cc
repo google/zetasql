@@ -980,7 +980,7 @@ TableValuedFunctionCallExpr::CreateIterator(
       context->MakeChildContext();
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<EvaluatorTableIterator> evaluator_table_iterator,
-      function_->CreateEvaluator(input_arguments,
+      function_->CreateEvaluator(std::move(input_arguments),
                                  std::move(function_call_signature_),
                                  child_context.get()));
 
@@ -1260,10 +1260,6 @@ absl::StatusOr<std::unique_ptr<SortOp>> SortOp::Create(
     std::unique_ptr<RelationalOp> input, bool is_order_preserving,
     bool is_stable_sort) {
   ZETASQL_RET_CHECK_EQ(limit == nullptr, offset == nullptr);
-  if (is_stable_sort) {
-    ZETASQL_RET_CHECK(limit == nullptr);
-    ZETASQL_RET_CHECK(is_order_preserving);
-  }
   ZETASQL_RET_CHECK(!is_stable_sort || is_order_preserving);
   // Don't check whether the key type supports ordering here. Do that in the
   // algebrizer instead. For example, the algebrize doesn't allow ORDER BY
@@ -1438,8 +1434,8 @@ class SortTupleIterator : public TupleIterator {
 absl::StatusOr<std::unique_ptr<TupleIterator>> SortOp::CreateIterator(
     absl::Span<const TupleData* const> params, int num_extra_slots,
     EvaluationContext* context) const {
-  Value limit_value;   // Invalid if no limit set.
-  Value offset_value;  // Always valid, but meaningless if no limit set.
+  Value limit_value;
+  Value offset_value;
 
   if (has_limit()) {
     TupleSlot slot;
@@ -1448,6 +1444,20 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> SortOp::CreateIterator(
       return status;
     }
     limit_value = std::move(*slot.mutable_value());
+    if (limit_value.is_null() &&
+        !context->GetLanguageOptions().LanguageFeatureEnabled(
+            FEATURE_LIMIT_ALL)) {
+      return zetasql_base::OutOfRangeErrorBuilder()
+             << "Limit requires non-null count and offset";
+    }
+    if (!limit_value.is_null() && limit_value.int64_value() < 0) {
+      return zetasql_base::OutOfRangeErrorBuilder()
+             << "Limit requires non-negative count and offset";
+    }
+  }
+
+  if (is_stable_sort()) {
+    ZETASQL_RET_CHECK(!has_limit() || limit_value.is_null());
   }
 
   if (has_offset()) {
@@ -1457,29 +1467,16 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> SortOp::CreateIterator(
       return status;
     }
     offset_value = std::move(*slot.mutable_value());
-  } else {
-    offset_value = Value::Int64(0);
-  }
-
-  struct LimitOffset {
-    LimitOffset(int64_t limit_in, int64_t offset_in)
-        : limit(limit_in), offset(offset_in) {}
-
-    int64_t limit;
-    int64_t offset;
-  };
-  std::optional<LimitOffset> limit_offset;
-  if (limit_value.is_valid()) {
-    if (limit_value.is_null() || offset_value.is_null()) {
+    if (offset_value.is_null()) {
       return zetasql_base::OutOfRangeErrorBuilder()
              << "Limit requires non-null count and offset";
     }
-    if (limit_value.int64_value() < 0 || offset_value.int64_value() < 0) {
+    if (offset_value.int64_value() < 0) {
       return zetasql_base::OutOfRangeErrorBuilder()
              << "Limit requires non-negative count and offset";
     }
-    limit_offset =
-        LimitOffset(limit_value.int64_value(), offset_value.int64_value());
+  } else {
+    offset_value = Value::Int64(0);
   }
 
   ZETASQL_ASSIGN_OR_RETURN(
@@ -1501,7 +1498,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> SortOp::CreateIterator(
       std::unique_ptr<TupleComparator> comparator,
       TupleComparator::Create(keys(), slots_for_keys, params, context));
 
-  // If 'limit_offset' is set, 'top_n_outputs' contains the top
+  // If 'limit' is valid and non-NULL, 'top_n_outputs' contains the top
   // 'limit_offset.limit + limit_offset.offset' rows. Otherwise, 'outputs'
   // contains all the rows.
   auto top_n_outputs = std::make_unique<TupleDataOrderedQueue>(
@@ -1535,12 +1532,12 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> SortOp::CreateIterator(
       }
     }
 
-    if (limit_offset.has_value()) {
+    if (limit_value.is_valid() && !limit_value.is_null()) {
       if (!top_n_outputs->Insert(std::move(next_output), &status)) {
         return status;
       }
-      if (top_n_outputs->GetSize() - limit_offset->limit >
-          limit_offset->offset) {
+      if (top_n_outputs->GetSize() - limit_value.int64_value() >
+          offset_value.int64_value()) {
         top_n_outputs->PopBack();
       }
     } else {
@@ -1553,9 +1550,9 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> SortOp::CreateIterator(
   // If there is a limit set, drop the first 'offset' entries from
   // 'top_n_outputs' and dump the rest into 'outputs'.
   bool is_uniquely_ordered;
-  if (limit_offset.has_value()) {
+  if (limit_value.is_valid() && !limit_value.is_null()) {
     ZETASQL_RET_CHECK(outputs->IsEmpty());
-    for (int i = 0; i < limit_offset->offset && !top_n_outputs->IsEmpty();
+    for (int i = 0; i < offset_value.int64_value() && !top_n_outputs->IsEmpty();
          ++i) {
       top_n_outputs->PopFront();
     }
@@ -1574,6 +1571,11 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> SortOp::CreateIterator(
     ZETASQL_RET_CHECK(top_n_outputs->IsEmpty());
     outputs->Sort(*comparator,
                   context->options().always_use_stable_sort || is_stable_sort_);
+    // Drop the first 'offset' entries from sorted 'outputs'.
+    for (int i = 0; i < offset_value.int64_value() && !outputs->IsEmpty();
+         ++i) {
+      outputs->PopFront();
+    }
     const std::vector<const TupleData*> output_ptrs = outputs->GetTuplePtrs();
     is_uniquely_ordered =
         comparator->IsUniquelyOrdered(output_ptrs, slots_for_values);
@@ -2025,7 +2027,7 @@ namespace {
 // tuples.
 class LimitTupleIterator : public TupleIterator {
  public:
-  LimitTupleIterator(int64_t count, int64_t offset, EvaluationContext* context,
+  LimitTupleIterator(Value count, int64_t offset, EvaluationContext* context,
                      std::unique_ptr<TupleIterator> iter)
       : count_(count),
         offset_(offset),
@@ -2048,8 +2050,10 @@ class LimitTupleIterator : public TupleIterator {
       ++next_iter_row_number_;
     }
 
-    // Don't return more than 'count_' tuples from 'iter_'.
-    if (next_iter_row_number_ - offset_ >= count_) {
+    // If count_ is not null, don't return more than 'count_' tuples from
+    // 'iter_'.
+    if (!count_.is_null() &&
+        next_iter_row_number_ - offset_ >= count_.int64_value()) {
       Finish(std::nullopt);
       return nullptr;
     }
@@ -2101,7 +2105,7 @@ class LimitTupleIterator : public TupleIterator {
     }
   }
 
-  const int64_t count_;
+  const Value count_;
   const int64_t offset_;
   EvaluationContext* context_;
   std::unique_ptr<TupleIterator> iter_;
@@ -2125,11 +2129,14 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> LimitOp::CreateIterator(
     return status;
   const Value& offset_value = offset_slot.value();
 
-  if (count.is_null() || offset_value.is_null()) {
+  if ((count.is_null() && !context->GetLanguageOptions().LanguageFeatureEnabled(
+                              FEATURE_LIMIT_ALL)) ||
+      offset_value.is_null()) {
     return zetasql_base::OutOfRangeErrorBuilder()
            << "Limit requires non-null count and offset";
   }
-  if (count.int64_value() < 0 || offset_value.int64_value() < 0) {
+  if ((!count.is_null() && count.int64_value() < 0) ||
+      offset_value.int64_value() < 0) {
     return zetasql_base::OutOfRangeErrorBuilder()
            << "Limit requires non-negative count and offset";
   }
@@ -2138,8 +2145,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> LimitOp::CreateIterator(
                    input()->CreateIterator(params, num_extra_slots, context));
   const bool underlying_iter_preserves_order = iter->PreservesOrder();
 
-  iter = std::make_unique<LimitTupleIterator>(count.int64_value(),
-                                              offset_value.int64_value(),
+  iter = std::make_unique<LimitTupleIterator>(count, offset_value.int64_value(),
                                               context, std::move(iter));
   // Scramble the output if the scrambling is enabled and either the underlying
   // iterator scrambles or this operator does not preserve order.
@@ -5933,9 +5939,9 @@ QuantifiedGraphPathOp::Create(std::unique_ptr<RelationalOp> path_primary_op,
                               std::unique_ptr<ValueExpr> upper_bound,
                               const GraphPathType* path_type,
                               const Type* cost_type) {
-  if (lower_bound != nullptr) {
-    ZETASQL_RET_CHECK(lower_bound->output_type()->IsInt64());
-  }
+  ZETASQL_RET_CHECK_NE(lower_bound, nullptr);
+  ZETASQL_RET_CHECK(lower_bound->output_type()->IsInt64());
+
   if (upper_bound != nullptr) {
     ZETASQL_RET_CHECK(upper_bound->output_type()->IsInt64());
   }
@@ -5975,9 +5981,7 @@ std::string QuantifiedGraphPathOp::DebugInternal(const std::string& indent,
 
 absl::Status QuantifiedGraphPathOp::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
-  if (lower_bound_ != nullptr) {
-    ZETASQL_RETURN_IF_ERROR(lower_bound_->SetSchemasForEvaluation(params_schemas));
-  }
+  ZETASQL_RETURN_IF_ERROR(lower_bound_->SetSchemasForEvaluation(params_schemas));
   if (upper_bound_ != nullptr) {
     ZETASQL_RETURN_IF_ERROR(upper_bound_->SetSchemasForEvaluation(params_schemas));
   }

@@ -184,7 +184,9 @@ absl::Status inline CheckStartEndStep(absl::Time start, absl::Time end,
   return absl::OkStatus();
 }
 
-template <typename T>
+// To avoid memory exhaustion, we place a hard (arbitrary) limit on the size
+// of generated arrays.
+template <typename T, int kMaxGeneratedArraySize = 16000>
 absl::Status GenerateArrayHelper(typename T::elem_t start,
                                  typename T::elem_t end,
                                  typename T::step_t step,
@@ -216,10 +218,6 @@ absl::Status GenerateArrayHelper(typename T::elem_t start,
     values->emplace_back(start);
     return absl::OkStatus();
   }
-
-  // To avoid memory exhaustion, we place a hard (arbitrary) limit on the size
-  // of generated arrays.
-  static constexpr int kMaxGeneratedArraySize = 16000;
 
   // When start <= end, generate the range [start, end].
   // When start > end, generate the range [end, start].

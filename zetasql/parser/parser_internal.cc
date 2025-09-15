@@ -19,6 +19,7 @@
 #include <cctype>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -76,6 +77,34 @@ namespace zetasql {
 namespace parser {
 
 namespace internal {
+
+absl::Status MakeSyntaxError(const ParseLocationRange& location,
+                             absl::string_view msg) {
+  absl::Status status = absl::InvalidArgumentError(msg);
+  zetasql::internal::AttachPayload(
+      &status, location.start().ToInternalErrorLocation());
+  return status;
+}
+
+absl::Status MakeSyntaxError(const std::optional<ParseLocationRange>& location,
+                             absl::string_view msg) {
+  ZETASQL_RET_CHECK(location.has_value())
+      << "MakeSyntaxError called with nullopt location";
+  return MakeSyntaxError(*location, msg);
+}
+
+absl::Status ValidateNoWhitespace(absl::string_view left,
+                                  const ParseLocationRange& left_loc,
+                                  absl::string_view right,
+                                  const ParseLocationRange& right_loc) {
+  if (!left_loc.IsAdjacentlyFollowedBy(right_loc)) {
+    return MakeSyntaxError(
+        left_loc, absl::StrCat("Syntax error: Unexpected whitespace between \"",
+                               left, "\" and \"", right, "\""));
+  }
+  return absl::OkStatus();
+}
+
 absl::Status ErrorIfUnparenthesizedNotExpression(ASTNode* rhs_expr) {
   const ASTUnaryExpression* expr = rhs_expr->GetAsOrNull<ASTUnaryExpression>();
   if (expr != nullptr && !expr->parenthesized() &&
@@ -86,6 +115,7 @@ absl::Status ErrorIfUnparenthesizedNotExpression(ASTNode* rhs_expr) {
   }
   return absl::OkStatus();
 }
+
 }  // namespace internal
 
 // Bison parser return values.
@@ -318,13 +348,13 @@ static absl::Status GenerateImprovedBisonSyntaxError(
   // start the tokenizer in kTokenizer mode because we don't need to get a bogus
   // token at the start to indicate the statement type. That token interferes
   // with errors at offset 0.
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSIGN_OR_RETURN(
       auto tokenizer,
       LookaheadTransformer::Create(
           ParserMode::kTokenizerPreserveComments, error_location.filename(),
           input, start_offset, language_options, macro_expansion_mode,
-          macro_catalog, arena, stack_frames));
+          macro_catalog, arena, stack_frame_factory));
   ParseLocationRange token_location;
   Token token = Token::UNAVAILABLE;
   while (token != Token::EOI) {

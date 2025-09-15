@@ -613,17 +613,23 @@ void GetRegexFunctions(TypeFactory* type_factory,
   regexp_extract_groups_options.set_pre_resolution_argument_constraint(
       [](absl::Span<const InputArgumentType> args,
          const LanguageOptions& language_options) -> absl::Status {
-        ZETASQL_RET_CHECK_EQ(args.size(), 2);
-        if (args[1].type() == nullptr ||
-            (!args[1].type()->IsString() && !args[1].type()->IsBytes())) {
-          return MakeSqlError()
-                 << "The regexp argument of REGEXP_EXTRACT_GROUPS "
-                    "must be a STRING or BYTES";
-        }
-        if (!args[1].is_literal()) {
-          return MakeSqlError()
-                 << "The regexp argument of REGEXP_EXTRACT_GROUPS "
-                    "must be a literal";
+        // The pre-resolution constraint can be called even if the number of
+        // arguments is incorrect. Here we only check additional constraints
+        // on the argument if the number of arguments is correct. The normal
+        // signature check will produce the right error for incorrect number
+        // of arguments.
+        if (args.size() == 2) {
+          if (args[1].type() == nullptr ||
+              (!args[1].type()->IsString() && !args[1].type()->IsBytes())) {
+            return MakeSqlError()
+                   << "The regexp argument of REGEXP_EXTRACT_GROUPS "
+                      "must be a STRING or BYTES";
+          }
+          if (!args[1].is_literal()) {
+            return MakeSqlError()
+                   << "The regexp argument of REGEXP_EXTRACT_GROUPS "
+                      "must be a literal";
+          }
         }
         return absl::OkStatus();
       });
@@ -3510,8 +3516,8 @@ void GetGeographyFunctions(TypeFactory* type_factory,
       {{ARG_TYPE_ANY_1,  //  Return type will be overridden.
         {ARG_TYPE_ANY_1, geography_type, geography_type, int64_type},
         FN_ST_NEAREST_NEIGHBORS}},
-      DefaultAggregateFunctionOptions()
-          .AddRequiredLanguageFeature(zetasql::FEATURE_GEOGRAPHY)
+      FunctionOptions(
+          aggregate_analytic_function_options_and_geography_required)
           .set_compute_result_type_callback(
               &ComputeResultTypeForNearestNeighborsStruct));
 

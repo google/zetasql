@@ -38,7 +38,9 @@
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace parser {
@@ -63,6 +65,13 @@ struct MacroExpanderOptions {
   // The maximum number of macro invocations per macro expansion call.
   // This is a safeguard against exponential macro expansions,
   int64_t max_macro_invocations = 10000;
+
+  // The maximum number of allowed stack frames.
+  // This is a safeguard for OOMs, which can occur if exponential stack frames
+  // are created.
+  // The default value is set to 1GB.
+  int64_t max_number_of_stack_frames =
+      (1024 * 1024 * 1024) / sizeof(StackFrame);
 };
 
 // A struct that holds the expansion details for a macro.
@@ -95,7 +104,7 @@ class MacroExpander final : public MacroExpanderBase {
  public:
   MacroExpander(std::unique_ptr<TokenProviderBase> token_provider,
                 const MacroCatalog& macro_catalog, zetasql_base::UnsafeArena* arena,
-                std::vector<std::unique_ptr<StackFrame>>& stack_frames,
+                StackFrame::StackFrameFactory& stack_frame_factory,
                 MacroExpanderOptions macro_expander_options,
                 StackFrame* /*absl_nullable*/ parent_location);
 
@@ -168,7 +177,7 @@ class MacroExpander final : public MacroExpanderBase {
   MacroExpander(
       std::unique_ptr<TokenProviderBase> token_provider,
       const MacroCatalog& macro_catalog, zetasql_base::UnsafeArena* arena,
-      std::vector<std::unique_ptr<StackFrame>>& stack_frames,
+      StackFrame::StackFrameFactory& stack_frame_factory,
       ExpansionState& expansion_state,
       const std::vector<std::vector<TokenWithLocation>> call_arguments,
       MacroExpanderOptions macro_expander_options,
@@ -177,7 +186,7 @@ class MacroExpander final : public MacroExpanderBase {
       : token_provider_(std::move(token_provider)),
         macro_catalog_(macro_catalog),
         arena_(arena),
-        stack_frames_(stack_frames),
+        stack_frame_factory_(stack_frame_factory),
         call_arguments_(std::move(call_arguments)),
         macro_expander_options_(macro_expander_options),
         owned_warning_collector_(
@@ -193,7 +202,7 @@ class MacroExpander final : public MacroExpanderBase {
   static absl::Status ExpandMacrosInternal(
       std::unique_ptr<TokenProviderBase> token_provider,
       const MacroCatalog& macro_catalog, zetasql_base::UnsafeArena* arena,
-      std::vector<std::unique_ptr<StackFrame>>& stack_frames,
+      StackFrame::StackFrameFactory& stack_frame_factory,
       ExpansionState& expansion_state,
       const std::vector<std::vector<TokenWithLocation>>& call_arguments,
       MacroExpanderOptions macro_expander_options,
@@ -326,15 +335,6 @@ class MacroExpander final : public MacroExpanderBase {
   absl::Status MakeSqlErrorAt(const ParseLocationPoint& location,
                               absl::string_view message);
 
-  // Creates a stackframe from the given location, which must be valid for
-  // the filename and input of the underlying `token_provider_`.
-  absl::StatusOr<StackFrame* /*absl_nonnull*/> MakeStackFrame(
-      absl::string_view frame_name, StackFrame::FrameType frame_type,
-      ParseLocationRange location, absl::string_view input_text,
-      int offset_in_original_input, int input_start_line_offset,
-      int input_start_column_offset, StackFrame* /*absl_nullable*/ parent_location,
-      StackFrame* /*absl_nullable*/ invocation_frame = nullptr) const;
-
   std::unique_ptr<TokenProviderBase> token_provider_;
 
   // The macro catalog which contains current definitions.
@@ -348,10 +348,10 @@ class MacroExpander final : public MacroExpanderBase {
   // string_view to enforce this.
   zetasql_base::UnsafeArena* arena_ = nullptr;
 
-  // Used to maintain the ownership of the allocated stack frames.
-  // All newly allocated stack frames owned by this vector. This will help to
-  // avoid memory leaks.
-  std::vector<std::unique_ptr<StackFrame>>& stack_frames_;
+  // Used to create new stack frames. This is a factory class which will help
+  // in creating new stack frames and maintaining their ownership.
+  // Outside of the factory, no new stack frames should be created.
+  StackFrame::StackFrameFactory& stack_frame_factory_;
 
   // Used when we are expanding potentially splicing tokens, for example:
   //     $prefix(arg1)some_id$suffix1($somearg(a))$suffix2

@@ -53,7 +53,7 @@ FROM
        WHERE
          (simpletypes_2.a_1) > 10) AS a_3;
 
-Rewrite ERROR: WHERE filter modifier is not supported on calls to aggregate function Lazy_resolution_function:SumOfAggregateArgs
+Rewrite ERROR: SQL function inliner cannot inline aggregate function Lazy_resolution_function:SumOfAggregateArgs with WHERE filter modifier
 ==
 
 SELECT
@@ -126,7 +126,7 @@ FROM
        GROUP BY simpletypes_4.a_2
        HAVING(MIN(simpletypes_4.a_1)) > 10) AS a_5;
 
-Rewrite ERROR: GROUP BY modifier is not supported on calls to aggregate function Lazy_resolution_function:SumOfAggregateArgs
+Rewrite ERROR: SQL function inliner cannot inline aggregate function Lazy_resolution_function:SumOfAggregateArgs with GROUP BY modifier
 ==
 
 CREATE AGGREGATE FUNCTION WrappedMultiLevel(e {{INT64|ANY TYPE}}) AS (
@@ -379,7 +379,7 @@ FROM
        GROUP BY simpletypes_3.a_2
        HAVING(COUNT(*)) > 10) AS a_4;
 
-Rewrite ERROR: GROUP BY modifier is not supported on calls to aggregate function Lazy_resolution_function:SumOfAggregateArgs
+Rewrite ERROR: SQL function inliner cannot inline aggregate function Lazy_resolution_function:SumOfAggregateArgs with GROUP BY modifier
 ==
 
 CREATE AGGREGATE FUNCTION WrappedMultiLevel(e {{INT64|ANY TYPE}}) AS (

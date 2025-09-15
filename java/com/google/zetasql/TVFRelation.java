@@ -17,6 +17,7 @@
 
 package com.google.zetasql;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
@@ -83,8 +84,26 @@ public class TVFRelation implements Serializable {
       ImmutableList<? extends DescriptorPool> pools,
       TypeFactory typeFactory) {
     if (proto.getIsValueTable()) {
-      Type type = typeFactory.deserialize(proto.getColumn(0).getType(), pools);
-      return createValueTableBased(type);
+      ImmutableList.Builder<Column> columns = ImmutableList.builder();
+
+      // The first column is the value column.
+      TVFRelationColumnProto valueColumnProto = proto.getColumn(0);
+      checkArgument(
+          !valueColumnProto.getIsPseudoColumn(),
+          "The first column in a value table relation cannot be a pseudo-column");
+      Type valueType = typeFactory.deserialize(valueColumnProto.getType(), pools);
+      columns.add(Column.create(/* name= */ "", valueType, /* isPseudoColumn= */ false));
+
+      // Any additional columns must be pseudo-columns.
+      for (int i = 1; i < proto.getColumnCount(); i++) {
+        TVFRelationColumnProto columnProto = proto.getColumn(i);
+        checkArgument(
+            columnProto.getIsPseudoColumn(),
+            "Additional columns in a value table relation must be pseudo-columns");
+        Type type = typeFactory.deserialize(columnProto.getType(), pools);
+        columns.add(Column.create(columnProto.getName(), type, /* isPseudoColumn= */ true));
+      }
+      return new TVFRelation(columns.build(), /* isValueTable= */ true);
     } else {
       ImmutableList.Builder<Column> columns = ImmutableList.builder();
 

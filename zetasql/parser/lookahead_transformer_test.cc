@@ -88,10 +88,10 @@ class TokenTestThief {
 class LookaheadTransformerTest : public ::testing::Test {
  public:
   std::vector<Token> GetAllTokens(ParserMode mode, absl::string_view sql) {
-    std::vector<std::unique_ptr<StackFrame>> stack_frames;
+    StackFrame::StackFrameFactory stack_frame_factory;
     auto tokenizer = LookaheadTransformer::Create(
         mode, "fake_file", sql, 0, options_, MacroExpansionMode::kNone,
-        /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames);
+        /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frame_factory);
     ZETASQL_DCHECK_OK(tokenizer);
     Location location;
     std::vector<Token> tokens;
@@ -151,13 +151,13 @@ absl::StatusOr<Token> GetNextToken(LookaheadTransformer& tokenizer,
 }
 
 TEST_F(LookaheadTransformerTest, Lookahead1) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
           ParserMode::kStatement, "fake_file", "a 1 SELECT", 0, options_,
           MacroExpansionMode::kNone,
-          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
+          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frame_factory));
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
   EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::IDENTIFIER);
@@ -185,13 +185,13 @@ TEST_F(LookaheadTransformerTest, Lookahead1) {
 }
 
 TEST_F(LookaheadTransformerTest, Lookahead2) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
           ParserMode::kStatement, "fake_file", "a 1 SELECT", 0, options_,
           MacroExpansionMode::kNone,
-          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
+          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frame_factory));
 
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
@@ -222,13 +222,13 @@ TEST_F(LookaheadTransformerTest, Lookahead2) {
 }
 
 TEST_F(LookaheadTransformerTest, Lookahead2BeforeLookahead1) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
           ParserMode::kStatement, "fake_file", "a 1 SELECT", 0, options_,
           MacroExpansionMode::kNone,
-          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
+          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frame_factory));
 
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
@@ -246,12 +246,12 @@ TEST_F(LookaheadTransformerTest, Lookahead2BeforeLookahead1) {
 }
 
 TEST_F(LookaheadTransformerTest, Lookahead2NoEnoughTokens) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer, LookaheadTransformer::Create(
                                        ParserMode::kStatement, "fake_file", "",
                                        0, options_, MacroExpansionMode::kNone,
                                        /*macro_catalog=*/nullptr,
-                                       /*arena=*/nullptr, stack_frames));
+                                       /*arena=*/nullptr, stack_frame_factory));
 
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
@@ -271,13 +271,13 @@ TEST_F(LookaheadTransformerTest, Lookahead2NoEnoughTokens) {
 }
 
 TEST_F(LookaheadTransformerTest, LookaheadTransformerReturnsYyeofWhenErrors) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
           ParserMode::kStatement, "fake_file", "SELECT * EXCEPT 1", 0, options_,
           MacroExpansionMode::kNone,
-          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
+          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frame_factory));
 
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
@@ -299,13 +299,13 @@ TEST_F(LookaheadTransformerTest, LookaheadTransformerReturnsYyeofWhenErrors) {
 }
 
 TEST_F(LookaheadTransformerTest, IsEoiTestBasic) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
           ParserMode::kStatement, "fake_file", "SELECT 1; SELECT 2", 0,
           options_, MacroExpansionMode::kNone, /*macro_catalog=*/nullptr,
-          /*arena=*/nullptr, stack_frames));
+          /*arena=*/nullptr, stack_frame_factory));
   EXPECT_FALSE(lexer->IsAtEoi());
 
   ParseLocationRange loc;
@@ -319,13 +319,13 @@ TEST_F(LookaheadTransformerTest, IsEoiTestBasic) {
 }
 
 TEST_F(LookaheadTransformerTest, IsEoiTestBasicTrailingSemicolon) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
           ParserMode::kStatement, "fake_file", "SELECT 1; SELECT 2;", 0,
           options_, MacroExpansionMode::kNone, /*macro_catalog=*/nullptr,
-          /*arena=*/nullptr, stack_frames));
+          /*arena=*/nullptr, stack_frame_factory));
   ParseLocationRange loc;
   int i = 0;
   for (Token token : {Token::KW_SELECT, Token::INTEGER_LITERAL,
@@ -340,13 +340,13 @@ TEST_F(LookaheadTransformerTest, IsEoiTestBasicTrailingSemicolon) {
 }
 
 TEST_F(LookaheadTransformerTest, IsEoiTestTokenError) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
           ParserMode::kStatement, "fake_file", "SELECT * EXCEPT", 0, options_,
           MacroExpansionMode::kNone, /*macro_catalog=*/nullptr,
-          /*arena=*/nullptr, stack_frames));
+          /*arena=*/nullptr, stack_frame_factory));
   ParseLocationRange loc;
 
   EXPECT_THAT(GetNextToken(*lexer, loc), IsOkAndHolds(Token::KW_SELECT));
@@ -375,13 +375,13 @@ MATCHER_P(TokenIs, expected_kind, "") {
 }
 
 TEST_F(LookaheadTransformerTest, LookaheadTransformerHasCorrectPrevToken) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
           ParserMode::kStatement, "fake_file", "SELECT 1 FULL UNION ALL", 0,
           options_, MacroExpansionMode::kNone,
-          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
+          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frame_factory));
 
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
@@ -402,13 +402,13 @@ TEST_F(LookaheadTransformerTest, LookaheadTransformerHasCorrectPrevToken) {
 
 TEST_F(LookaheadTransformerTest,
        LookaheadTransformerHasCorrectPrevTokenAndError) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
           ParserMode::kStatement, "fake_file", "SELECT * EXCEPT 1", 0, options_,
           MacroExpansionMode::kNone,
-          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
+          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frame_factory));
 
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
@@ -440,13 +440,13 @@ constexpr int kFurtherLookaheadBeyondEof = 5;
 // Keep calling GetNextToken after YYEOF is returned with no errors.
 TEST_F(LookaheadTransformerTest,
        LookaheadTransformerGetNextTokenAfterEofNoError) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
           ParserMode::kStatement, "fake_file", "SELECT *", 0, options_,
           MacroExpansionMode::kNone,
-          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
+          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frame_factory));
 
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
@@ -465,13 +465,13 @@ TEST_F(LookaheadTransformerTest,
 // Keep calling GetNextToken after YYEOF is returned with errors.
 TEST_F(LookaheadTransformerTest,
        LookaheadTransformerGetNextTokenAfterEofWithError) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
           ParserMode::kStatement, "fake_file", "SELECT * EXCEPT 1", 0, options_,
           MacroExpansionMode::kNone,
-          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
+          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frame_factory));
 
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
@@ -496,13 +496,13 @@ TEST_F(LookaheadTransformerTest,
 
 TEST_F(LookaheadTransformerTest,
        LookaheadTransformerOverrideLookbackInvalidAnduselessCalls) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
           ParserMode::kScript, "fake_file", "BEGIN BEGIN END END", 0, options_,
           MacroExpansionMode::kNone,
-          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
+          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frame_factory));
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
 
@@ -548,13 +548,13 @@ TEST_F(LookaheadTransformerTest,
 
 TEST_F(LookaheadTransformerTest,
        LookaheadTransformerOverrideLookbackForEmptyParserLA) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
           ParserMode::kScript, "fake_file", "BEGIN BEGIN END END", 0, options_,
           MacroExpansionMode::kNone,
-          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
+          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frame_factory));
 
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
@@ -592,13 +592,13 @@ TEST_F(LookaheadTransformerTest,
 
 TEST_F(LookaheadTransformerTest,
        LookaheadTransformerOverrideLookbackForNonEmptyParserLA) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
           ParserMode::kScript, "fake_file", "BEGIN BEGIN END END", 0, options_,
           MacroExpansionMode::kNone,
-          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
+          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frame_factory));
 
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
@@ -625,13 +625,13 @@ TEST_F(LookaheadTransformerTest,
 
 TEST_F(LookaheadTransformerTest,
        LookaheadTransformerIdentifyingStartOfExplainExplian) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
           ParserMode::kStatement, "fake_file", "EXPLAIN EXPLAIN SELECT 1", 0,
           options_, MacroExpansionMode::kNone,
-          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
+          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frame_factory));
 
   Location location;
   std::vector<Token> seen_tokens, seen_lookbacks;
@@ -659,13 +659,13 @@ TEST_F(LookaheadTransformerTest,
 
 TEST_F(LookaheadTransformerTest,
        LookaheadTransformerIdentifyingStartOfHintExplainHint) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer, LookaheadTransformer::Create(
                                        ParserMode::kStatement, "fake_file",
                                        "@5 EXPLAIN @{a = 1} EXPLAIN SELECT 1",
                                        0, options_, MacroExpansionMode::kNone,
                                        /*macro_catalog=*/nullptr,
-                                       /*arena=*/nullptr, stack_frames));
+                                       /*arena=*/nullptr, stack_frame_factory));
 
   Location location;
   std::vector<Token> seen_tokens, seen_lookbacks, seen_lookback2s;
@@ -753,13 +753,13 @@ MATCHER_P(TokenKindIs, expected_kind, "") {
 
 TEST_F(LookaheadTransformerTest, GetNextTokenContinuesToReturnYyeof) {
   constexpr absl::string_view kInput = "SELECT";
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(ParserMode::kStatement, "fake_file", kInput,
                                    0, options_, MacroExpansionMode::kNone,
                                    /*macro_catalog=*/nullptr,
-                                   /*arena=*/nullptr, stack_frames));
+                                   /*arena=*/nullptr, stack_frame_factory));
 
   LookaheadTransformer& tokenizer = *lexer;
 
@@ -777,13 +777,13 @@ TEST_F(LookaheadTransformerTest, GetNextTokenContinuesToReturnTheSameError) {
   constexpr absl::string_view kError =
       "Syntax error: Unclosed identifier literal";
 
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(ParserMode::kStatement, "fake_file", kInput,
                                    0, options_, MacroExpansionMode::kNone,
                                    /*macro_catalog=*/nullptr,
-                                   /*arena=*/nullptr, stack_frames));
+                                   /*arena=*/nullptr, stack_frame_factory));
   LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::KW_SELECT));
@@ -825,13 +825,13 @@ MATCHER_P(IsSameOptionalToken, token, "") {
 
 TEST_F(LookaheadTransformerTest, PreviousTokensAreCorrectNoErrors) {
   constexpr absl::string_view kInput = "SELECT 1 *";
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(ParserMode::kStatement, "fake_file", kInput,
                                    0, options_, MacroExpansionMode::kNone,
                                    /*macro_catalog=*/nullptr,
-                                   /*arena=*/nullptr, stack_frames));
+                                   /*arena=*/nullptr, stack_frame_factory));
   LookaheadTransformer& tokenizer = *lexer;
 
   std::optional<TokenWithOverrideError> previous_current_token;
@@ -861,13 +861,13 @@ TEST_F(LookaheadTransformerTest, PreviousTokensAreCorrectWithErrors) {
   constexpr absl::string_view kInput = "SELECT `";
   constexpr absl::string_view kError =
       "Syntax error: Unclosed identifier literal";
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(ParserMode::kStatement, "fake_file", kInput,
                                    0, options_, MacroExpansionMode::kNone,
                                    /*macro_catalog=*/nullptr,
-                                   /*arena=*/nullptr, stack_frames));
+                                   /*arena=*/nullptr, stack_frame_factory));
   LookaheadTransformer& tokenizer = *lexer;
 
   std::optional<TokenWithOverrideError> previous_current_token;
@@ -897,13 +897,13 @@ TEST_F(LookaheadTransformerTest, PreviousTokensAreCorrectWithErrors) {
 
 TEST_F(LookaheadTransformerTest, TokenFusion) {
   constexpr absl::string_view kInput = ">>";
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(ParserMode::kStatement, "fake_file", kInput,
                                    0, options_, MacroExpansionMode::kNone,
                                    /*macro_catalog=*/nullptr,
-                                   /*arena=*/nullptr, stack_frames));
+                                   /*arena=*/nullptr, stack_frame_factory));
   LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetTokenKindAndError(tokenizer),
@@ -913,13 +913,13 @@ TEST_F(LookaheadTransformerTest, TokenFusion) {
 
 TEST_F(LookaheadTransformerTest, TokensWithWhitespacesInBetweenCannotFuse) {
   constexpr absl::string_view kInput = "> >";
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(ParserMode::kStatement, "fake_file", kInput,
                                    0, options_, MacroExpansionMode::kNone,
                                    /*macro_catalog=*/nullptr,
-                                   /*arena=*/nullptr, stack_frames));
+                                   /*arena=*/nullptr, stack_frame_factory));
   LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::GT));
@@ -959,14 +959,14 @@ TEST_F(LookaheadTransformerTest, TokensFromDifferentFilesCannotFuse) {
   ZETASQL_ASSERT_OK(
       RegisterMacros("DEFINE MACRO greater_than >", options_, macro_catalog));
   auto arena = std::make_unique<zetasql_base::UnsafeArena>(/*block_size=*/4096);
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
 
   constexpr absl::string_view kInput = ">$greater_than";
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      LookaheadTransformer::Create(ParserMode::kStatement, "fake_file", kInput,
-                                   0, options_, MacroExpansionMode::kLenient,
-                                   &macro_catalog, arena.get(), stack_frames));
+      auto lexer, LookaheadTransformer::Create(
+                      ParserMode::kStatement, "fake_file", kInput, 0, options_,
+                      MacroExpansionMode::kLenient, &macro_catalog, arena.get(),
+                      stack_frame_factory));
   LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::GT));
@@ -1004,13 +1004,13 @@ TEST_F(LookaheadTransformerTest, RightShiftIsAllowedAfterUnpairedParentheses) {
 }
 
 TEST_F(LookaheadTransformerTest, Lookahead3) {
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
       LookaheadTransformer::Create(
           ParserMode::kStatement, "fake_file", "a 1 SELECT SELECT", 0, options_,
           MacroExpansionMode::kNone,
-          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frames));
+          /*macro_catalog=*/nullptr, /*arena=*/nullptr, stack_frame_factory));
   Location location;
   LookaheadTransformer& tokenizer = *lexer;
 

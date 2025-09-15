@@ -20,7 +20,6 @@
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
-#include <iterator>
 #include <memory>
 #include <optional>
 #include <queue>
@@ -30,7 +29,6 @@
 
 #include "zetasql/base/arena.h"
 #include "zetasql/base/arena_allocator.h"
-#include "zetasql/common/errors.h"
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/parser/macros/diagnostic.h"
 #include "zetasql/parser/macros/macro_catalog.h"
@@ -161,14 +159,14 @@ std::vector<absl::Status> MacroExpander::WarningCollector::ReleaseWarnings() {
   return tmp;
 }
 
-MacroExpander::MacroExpander(
-    std::unique_ptr<TokenProviderBase> token_provider,
-    const MacroCatalog& macro_catalog, zetasql_base::UnsafeArena* arena,
-    std::vector<std::unique_ptr<StackFrame>>& stack_frames,
-    MacroExpanderOptions macro_expander_options,
-    StackFrame* /*absl_nullable*/ parent_location)
+MacroExpander::MacroExpander(std::unique_ptr<TokenProviderBase> token_provider,
+                             const MacroCatalog& macro_catalog,
+                             zetasql_base::UnsafeArena* arena,
+                             StackFrame::StackFrameFactory& stack_frame_factory,
+                             MacroExpanderOptions macro_expander_options,
+                             StackFrame* /*absl_nullable*/ parent_location)
     : MacroExpander(std::move(token_provider), macro_catalog, arena,
-                    stack_frames,
+                    stack_frame_factory,
                     // Public constructor, expansion state uses the owned
                     // (empty) expansion state from this MacroExpander.
                     owned_expansion_state_,
@@ -181,12 +179,15 @@ absl::StatusOr<ExpansionOutput> MacroExpander::ExpandMacros(
     MacroExpanderOptions macro_expander_options) {
   ExpansionOutput expansion_output;
   ExpansionState expansion_state;
+  StackFrame::StackFrameFactory stack_frame_factory(
+      macro_expander_options.max_number_of_stack_frames,
+      expansion_output.stack_frames);
   expansion_output.arena = CreateUnsafeArena();
   WarningCollector warning_collector(
       macro_expander_options.diagnostic_options.max_warning_count);
   ZETASQL_RETURN_IF_ERROR(ExpandMacrosInternal(
       std::move(token_provider), macro_catalog, expansion_output.arena.get(),
-      expansion_output.stack_frames, expansion_state,
+      stack_frame_factory, expansion_state,
       /*call_arguments=*/{}, macro_expander_options,
       /*parent_location=*/nullptr, &expansion_output.location_map,
       expansion_output.expanded_tokens, warning_collector,
@@ -279,12 +280,6 @@ static absl::string_view AllocateString(absl::string_view str,
   return *::zetasql_base::NewInArena<std::basic_string<
       char, std::char_traits<char>, zetasql_base::ArenaAllocator<char, zetasql_base::UnsafeArena>>>(
       arena, str, arena);
-}
-
-StackFrame* /*absl_nonnull*/ AllocateStackFrame(
-    std::vector<std::unique_ptr<StackFrame>>& stack_frames) {
-  stack_frames.push_back(std::make_unique<StackFrame>());
-  return stack_frames.back().get();
 }
 
 absl::string_view MacroExpander::MaybeAllocateConcatenation(
@@ -782,7 +777,7 @@ absl::Status MacroExpander::ParseAndExpandArgs(
     // argument is expanded.
     ZETASQL_ASSIGN_OR_RETURN(
         StackFrame * child_stack_frame,
-        MakeStackFrame(
+        stack_frame_factory_.MakeStackFrame(
             AllocateString(std::string("arg:$" + std::to_string(arg_index)),
                            arena_),
             StackFrame::FrameType::kMacroArg,
@@ -814,7 +809,7 @@ absl::Status MacroExpander::ParseAndExpandArgs(
         // If we only pass the arg as the input, the location offsets will start
         // from 0.
         token_provider_->CreateNewInstance(arg_start_offset, arg_end_offset),
-        macro_catalog_, arena_, stack_frames_, expansion_state_,
+        macro_catalog_, arena_, stack_frame_factory_, expansion_state_,
         call_arguments_, macro_expander_options_, child_stack_frame,
         location_map_, expanded_arg, warning_collector_,
         &max_arg_ref_index_in_current_arg,
@@ -927,13 +922,14 @@ absl::Status MacroExpander::ExpandMacroArgumentReference(
     if (stack_frame == nullptr) {
       continue;
     }
-    StackFrame* /*absl_nonnull*/ copy_stack_frame =
-        AllocateStackFrame(stack_frames_);
+    ZETASQL_ASSIGN_OR_RETURN(StackFrame * copy_stack_frame,
+                     stack_frame_factory_.AllocateStackFrame());
     expanded_token.stack_frame = copy_stack_frame;
     while (stack_frame != nullptr) {
       *copy_stack_frame = *stack_frame;
       if (stack_frame->parent != nullptr) {
-        copy_stack_frame->parent = AllocateStackFrame(stack_frames_);
+        ZETASQL_ASSIGN_OR_RETURN(copy_stack_frame->parent,
+                         stack_frame_factory_.AllocateStackFrame());
         copy_stack_frame = copy_stack_frame->parent;
       }
       stack_frame = stack_frame->parent;
@@ -943,38 +939,19 @@ absl::Status MacroExpander::ExpandMacroArgumentReference(
     // parent of the argument expansion tree.
     // NOTE : This newly added reference node will be attached to macro
     // invocation node.
-    ZETASQL_ASSIGN_OR_RETURN(
-        copy_stack_frame->parent,
-        MakeStackFrame(AllocateString(absl::StrCat("$", arg_index), arena_),
-                       StackFrame::FrameType::kArgRef, token.location,
-                       token_provider_->input(),
-                       token_provider_->offset_in_original_input(),
-                       macro_expander_options_.diagnostic_options
-                           .error_message_options.input_original_start_line,
-                       macro_expander_options_.diagnostic_options
-                           .error_message_options.input_original_start_column,
-                       parent_location_));
+    ZETASQL_ASSIGN_OR_RETURN(copy_stack_frame->parent,
+                     stack_frame_factory_.MakeStackFrame(
+                         AllocateString(absl::StrCat("$", arg_index), arena_),
+                         StackFrame::FrameType::kArgRef, token.location,
+                         token_provider_->input(),
+                         token_provider_->offset_in_original_input(),
+                         macro_expander_options_.diagnostic_options
+                             .error_message_options.input_original_start_line,
+                         macro_expander_options_.diagnostic_options
+                             .error_message_options.input_original_start_column,
+                         parent_location_));
   }
   return absl::OkStatus();
-}
-
-absl::StatusOr<StackFrame* /*absl_nonnull*/> MacroExpander::MakeStackFrame(
-    absl::string_view frame_name, StackFrame::FrameType frame_type,
-    ParseLocationRange location, absl::string_view input_text,
-    int offset_in_original_input, int input_start_line_offset,
-    int input_start_column_offset, StackFrame* /*absl_nullable*/ parent_location,
-    StackFrame* /*absl_nullable*/ invocation_frame) const {
-  StackFrame* stack_frame = AllocateStackFrame(stack_frames_);
-  stack_frame->frame_type = frame_type;
-  stack_frame->name = frame_name;
-  stack_frame->location = std::move(location);
-  stack_frame->input_text = input_text;
-  stack_frame->offset_in_original_input = offset_in_original_input;
-  stack_frame->input_start_line_offset = input_start_line_offset;
-  stack_frame->input_start_column_offset = input_start_column_offset;
-  stack_frame->parent = parent_location;
-  stack_frame->invocation_frame = invocation_frame;
-  return stack_frame;
 }
 
 // Expands the macro invocation starting at the given token.
@@ -993,7 +970,7 @@ absl::Status MacroExpander::ExpandMacroInvocation(
   std::vector<std::vector<TokenWithLocation>> expanded_args;
   ZETASQL_ASSIGN_OR_RETURN(
       StackFrame * macro_invocation_stack_frame,
-      MakeStackFrame(
+      stack_frame_factory_.MakeStackFrame(
           AllocateString(absl::StrCat("macro:", GetMacroName(token)), arena_),
           StackFrame::FrameType::kMacroInvocation,
           ParseLocationRange(token.location.start(),
@@ -1043,10 +1020,10 @@ absl::Status MacroExpander::ExpandMacroInvocation(
                           "Cycle detected in macro expansion");
   }
   ZETASQL_RETURN_IF_ERROR(ExpandMacrosInternal(
-      std::move(child_token_provider), macro_catalog_, arena_, stack_frames_,
-      expansion_state_, std::move(expanded_args), child_macro_expander_options,
-      macro_invocation_stack_frame, location_map_, expanded_tokens,
-      warning_collector_, &max_arg_ref_in_definition,
+      std::move(child_token_provider), macro_catalog_, arena_,
+      stack_frame_factory_, expansion_state_, std::move(expanded_args),
+      child_macro_expander_options, macro_invocation_stack_frame, location_map_,
+      expanded_tokens, warning_collector_, &max_arg_ref_in_definition,
       /*drop_comments=*/true));
   // Track that we are no longer in a cycle including this macro.
   expansion_state_.UnmarkAsVisited(macro_invocation_stack_frame->name);
@@ -1216,9 +1193,10 @@ absl::StatusOr<TokenWithLocation> MacroExpander::ExpandLiteral(
     }
 
     ZETASQL_RETURN_IF_ERROR(ExpandMacrosInternal(
-        std::move(child_token_provider), macro_catalog_, arena_, stack_frames_,
-        expansion_state_, call_arguments_, macro_expander_options_,
-        parent_location_, location_map_, expanded_tokens, warning_collector_,
+        std::move(child_token_provider), macro_catalog_, arena_,
+        stack_frame_factory_, expansion_state_, call_arguments_,
+        macro_expander_options_, parent_location_, location_map_,
+        expanded_tokens, warning_collector_,
         /*out_max_arg_ref_index=*/nullptr, /*drop_comments=*/true));
 
     ZETASQL_RET_CHECK(!expanded_tokens.empty())
@@ -1299,7 +1277,7 @@ absl::StatusOr<TokenWithLocation> MacroExpander::ExpandLiteral(
 absl::Status MacroExpander::ExpandMacrosInternal(
     std::unique_ptr<TokenProviderBase> token_provider,
     const MacroCatalog& macro_catalog, zetasql_base::UnsafeArena* arena,
-    std::vector<std::unique_ptr<StackFrame>>& stack_frames,
+    StackFrame::StackFrameFactory& stack_frame_factory,
     ExpansionState& expansion_state,
     const std::vector<std::vector<TokenWithLocation>>& call_arguments,
     MacroExpanderOptions macro_expander_options,
@@ -1321,7 +1299,7 @@ absl::Status MacroExpander::ExpandMacrosInternal(
   }
 
   auto expander = absl::WrapUnique(new MacroExpander(
-      std::move(token_provider), macro_catalog, arena, stack_frames,
+      std::move(token_provider), macro_catalog, arena, stack_frame_factory,
       expansion_state, call_arguments, macro_expander_options,
       &warning_collector, parent_location));
   expander->location_map_ = location_map;

@@ -41,6 +41,7 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/serialization.pb.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
@@ -284,6 +285,14 @@ void ResolvedNode::GetDescendantsSatisfying(
       node_queue.push(tmp_node);
     }
   }
+}
+
+std::vector<ResolvedColumn> ResolvedNode::GetColumnsCreated() const {
+  return std::vector<ResolvedColumn>();
+}
+
+std::vector<ResolvedColumn> ResolvedNode::GetColumnsReferenced() const {
+  return std::vector<ResolvedColumn>();
 }
 
 // NameFormat nodes format as
@@ -901,6 +910,59 @@ const ResolvedScan* ResolvedPipeIfScan::GetSelectedCaseScan() const {
   } else {
     return if_case_list()[selected_case()]->subpipeline()->scan();
   }
+}
+
+std::vector<ResolvedColumn> ResolvedGraphPathScan::GetColumnsCreated() const {
+  std::vector<ResolvedColumn> columns = SUPER::GetColumnsCreated();
+  if (path_ != nullptr) {
+    columns.push_back(path_->column());
+  }
+  if (quantifier_ != nullptr) {
+    columns.push_back(head_);
+    columns.push_back(tail_);
+  }
+  return columns;
+}
+
+std::vector<ResolvedColumn> ResolvedGraphPathScan::GetColumnsReferenced()
+    const {
+  std::vector<ResolvedColumn> columns = SUPER::GetColumnsCreated();
+  if (quantifier_ == nullptr) {
+    columns.push_back(head_);
+    columns.push_back(tail_);
+  }
+  return columns;
+}
+
+std::vector<ResolvedColumn> ResolvedAuxLoadDataStmt::GetColumnsCreated() const {
+  std::vector<ResolvedColumn> columns = SUPER::GetColumnsCreated();
+  columns.insert(columns.end(), pseudo_column_list_.begin(),
+                 pseudo_column_list_.end());
+  // The columns appear to be created in multiple overlapping places.
+  // If column_definition_list is present, it gives all created columns.
+  // Otherwise, with_partition_columns gives some created columns, and
+  // the output_column_list can include those, and also create more.
+  if (column_definition_list_.empty()) {
+    absl::flat_hash_set<ResolvedColumn> already_created;
+    if (with_partition_columns_ != nullptr) {
+      for (const auto& column_definition :
+           with_partition_columns_->column_definition_list()) {
+        already_created.insert(column_definition->column());
+      }
+    }
+    for (const auto& output_column : output_column_list_) {
+      if (!already_created.contains(output_column->column())) {
+        columns.push_back(output_column->column());
+      }
+    }
+  }
+  return columns;
+}
+
+std::vector<ResolvedColumn> ResolvedAuxLoadDataStmt::GetColumnsReferenced()
+    const {
+  std::vector<ResolvedColumn> columns = SUPER::GetColumnsCreated();
+  return columns;
 }
 
 }  // namespace zetasql

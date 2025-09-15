@@ -232,3 +232,153 @@ QueryStmt
     +-column_list=table_with_pseudo_columns.[key#1, Filename#4, RowId#5]
     +-input_scan=
       +-RelationArgumentScan(column_list=table_with_pseudo_columns.[key#1, Filename#4, RowId#5], name="table_with_pseudo_columns")
+==
+
+# TVF that selects all from value table table containing pseudo columns. (strips pseudo-columns)
+SELECT *
+FROM select_all_from_pseudo_columns_value_table(TABLE TestExtraValueTable)
+--
+QueryStmt
++-output_column_list=
+| +-select_all_from_pseudo_columns_value_table.int32_val1#4 AS int32_val1 [INT32]
+| +-select_all_from_pseudo_columns_value_table.int32_val2#5 AS int32_val2 [INT32]
+| +-select_all_from_pseudo_columns_value_table.str_value#6 AS str_value [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=select_all_from_pseudo_columns_value_table.[int32_val1#4, int32_val2#5, str_value#6]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=select_all_from_pseudo_columns_value_table.[int32_val1#4, int32_val2#5, str_value#6]
+        +-tvf=select_all_from_pseudo_columns_value_table((ANY TABLE value_table_with_pseudo_columns) -> ANY TABLE)
+        +-signature=(TABLE<PROTO<zetasql_test__.TestExtraPB>, Filename STRING, RowId BYTES>) -> TABLE<int32_val1 INT32, int32_val2 INT32, str_value ARRAY<STRING>>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=TestExtraValueTable.[value#1, Filename#2, RowId#3], table=TestExtraValueTable, column_index_list=[0, 1, 2])
+        |   +-argument_column_list=TestExtraValueTable.[value#1, Filename#2, RowId#3]
+        +-column_index_list=[0, 1, 2]
+        +-function_call_signature=(ANY TABLE value_table_with_pseudo_columns) -> ANY TABLE
+
+With Templated SQL TVF signature:
+  select_all_from_pseudo_columns_value_table(TABLE<PROTO<zetasql_test__.TestExtraPB>, Filename STRING, RowId BYTES>) -> TABLE<int32_val1 INT32, int32_val2 INT32, str_value ARRAY<STRING>>
+containing resolved templated query:
+QueryStmt
++-output_column_list=
+| +-$query.int32_val1#4 AS int32_val1 [INT32]
+| +-$query.int32_val2#5 AS int32_val2 [INT32]
+| +-$query.str_value#6 AS str_value [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[int32_val1#4, int32_val2#5, str_value#6]
+    +-expr_list=
+    | +-int32_val1#4 :=
+    | | +-GetProtoField
+    | |   +-type=INT32
+    | |   +-expr=
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=value_table_with_pseudo_columns.$value_column#1)
+    | |   +-field_descriptor=int32_val1
+    | |   +-default_value=0
+    | +-int32_val2#5 :=
+    | | +-GetProtoField
+    | |   +-type=INT32
+    | |   +-expr=
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=value_table_with_pseudo_columns.$value_column#1)
+    | |   +-field_descriptor=int32_val2
+    | |   +-default_value=0
+    | +-str_value#6 :=
+    |   +-GetProtoField
+    |     +-type=ARRAY<STRING>
+    |     +-expr=
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=value_table_with_pseudo_columns.$value_column#1)
+    |     +-field_descriptor=str_value
+    |     +-default_value=[]
+    +-input_scan=
+      +-RelationArgumentScan(column_list=[value_table_with_pseudo_columns.$value_column#1], name="value_table_with_pseudo_columns", is_value_table=TRUE)
+==
+
+[no_run_sqlbuilder]
+# TVF that selects pseudo columns from value table in an unqualified manner.
+# NOTE: No SQL builder because `SELECT AS VALUE` doesn't support multiple columns
+#       Using SELECT instead to rebuild the TVF arg has incorrect behavior compared
+#       to value tables when selecting range variables.
+SELECT *
+FROM select_pseudo_columns_from_value_table(TABLE TestExtraValueTable)
+--
+QueryStmt
++-output_column_list=
+| +-select_pseudo_columns_from_value_table.t#4 AS t [PROTO<zetasql_test__.TestExtraPB>]
+| +-select_pseudo_columns_from_value_table.Filename#5 AS Filename [STRING]
+| +-select_pseudo_columns_from_value_table.RowId#6 AS RowId [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=select_pseudo_columns_from_value_table.[t#4, Filename#5, RowId#6]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=select_pseudo_columns_from_value_table.[t#4, Filename#5, RowId#6]
+        +-tvf=select_pseudo_columns_from_value_table((ANY TABLE value_table_with_pseudo_columns) -> ANY TABLE)
+        +-signature=(TABLE<PROTO<zetasql_test__.TestExtraPB>, Filename STRING, RowId BYTES>) -> TABLE<t PROTO<zetasql_test__.TestExtraPB>, Filename STRING, RowId BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=TestExtraValueTable.[value#1, Filename#2, RowId#3], table=TestExtraValueTable, column_index_list=[0, 1, 2])
+        |   +-argument_column_list=TestExtraValueTable.[value#1, Filename#2, RowId#3]
+        +-column_index_list=[0, 1, 2]
+        +-function_call_signature=(ANY TABLE value_table_with_pseudo_columns) -> ANY TABLE
+
+With Templated SQL TVF signature:
+  select_pseudo_columns_from_value_table(TABLE<PROTO<zetasql_test__.TestExtraPB>, Filename STRING, RowId BYTES>) -> TABLE<t PROTO<zetasql_test__.TestExtraPB>, Filename STRING, RowId BYTES>
+containing resolved templated query:
+QueryStmt
++-output_column_list=
+| +-value_table_with_pseudo_columns.$value_column#1 AS t [PROTO<zetasql_test__.TestExtraPB>]
+| +-value_table_with_pseudo_columns.Filename#2 AS Filename [STRING]
+| +-value_table_with_pseudo_columns.RowId#3 AS RowId [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=value_table_with_pseudo_columns.[$value_column#1, Filename#2, RowId#3]
+    +-input_scan=
+      +-RelationArgumentScan(column_list=value_table_with_pseudo_columns.[$value_column#1, Filename#2, RowId#3], name="value_table_with_pseudo_columns", is_value_table=TRUE)
+==
+
+[no_run_sqlbuilder]
+# TVF that selects pseudo columns from value table in a qualified manner.
+# NOTE: No SQL builder because `SELECT AS VALUE` doesn't support multiple columns
+#       Using SELECT instead to rebuild the TVF arg has incorrect behavior compared
+#       to value tables when selecting range variables.
+SELECT *
+FROM select_dot_pseudo_columns_from_value_table(TABLE TestExtraValueTable)
+--
+QueryStmt
++-output_column_list=
+| +-select_dot_pseudo_columns_from_value_table.t#4 AS t [PROTO<zetasql_test__.TestExtraPB>]
+| +-select_dot_pseudo_columns_from_value_table.Filename#5 AS Filename [STRING]
+| +-select_dot_pseudo_columns_from_value_table.RowId#6 AS RowId [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=select_dot_pseudo_columns_from_value_table.[t#4, Filename#5, RowId#6]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=select_dot_pseudo_columns_from_value_table.[t#4, Filename#5, RowId#6]
+        +-tvf=select_dot_pseudo_columns_from_value_table((ANY TABLE value_table_with_pseudo_columns) -> ANY TABLE)
+        +-signature=(TABLE<PROTO<zetasql_test__.TestExtraPB>, Filename STRING, RowId BYTES>) -> TABLE<t PROTO<zetasql_test__.TestExtraPB>, Filename STRING, RowId BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=TestExtraValueTable.[value#1, Filename#2, RowId#3], table=TestExtraValueTable, column_index_list=[0, 1, 2])
+        |   +-argument_column_list=TestExtraValueTable.[value#1, Filename#2, RowId#3]
+        +-column_index_list=[0, 1, 2]
+        +-function_call_signature=(ANY TABLE value_table_with_pseudo_columns) -> ANY TABLE
+
+With Templated SQL TVF signature:
+  select_dot_pseudo_columns_from_value_table(TABLE<PROTO<zetasql_test__.TestExtraPB>, Filename STRING, RowId BYTES>) -> TABLE<t PROTO<zetasql_test__.TestExtraPB>, Filename STRING, RowId BYTES>
+containing resolved templated query:
+QueryStmt
++-output_column_list=
+| +-value_table_with_pseudo_columns.$value_column#1 AS t [PROTO<zetasql_test__.TestExtraPB>]
+| +-value_table_with_pseudo_columns.Filename#2 AS Filename [STRING]
+| +-value_table_with_pseudo_columns.RowId#3 AS RowId [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=value_table_with_pseudo_columns.[$value_column#1, Filename#2, RowId#3]
+    +-input_scan=
+      +-RelationArgumentScan(column_list=value_table_with_pseudo_columns.[$value_column#1, Filename#2, RowId#3], name="value_table_with_pseudo_columns", is_value_table=TRUE)

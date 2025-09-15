@@ -409,9 +409,12 @@ cc_library(
     hdrs = ["token_with_location.h"],
     deps = [
         ":token",
+        "//zetasql/base:status",
         "//zetasql/public:error_location_cc_proto",
         "//zetasql/public:parse_location",
         "@com_google_absl//absl/base:nullability",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
     ],
 )

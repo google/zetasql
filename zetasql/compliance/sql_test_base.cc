@@ -1698,6 +1698,24 @@ ToValueIfSingleResult(absl::StatusOr<MultiStmtResult> multi_result) {
   return *multi_result;
 }
 
+absl::StatusOr<SQLTestBase::ComplianceTestCaseResult>
+SQLTestBase::ExecuteStatementReferenceDriver(
+    ReferenceDriver::ExecuteStatementAuxOutput& aux_output) {
+  std::unique_ptr<TestDatabase> test_db;
+  if (test_case_options_ != nullptr &&
+      test_case_options_->use_test_database_copy()) {
+    // Creates a test database to verify statements with side effects, such
+    // as DDL and DML statements. A copy is created so that test cases can
+    // be executed independently.
+    test_db = std::make_unique<TestDatabase>(test_db_);
+  }
+  return ToValueIfSingleResult(
+      reference_driver()->ExecuteGeneralizedStatementForReferenceDriver(
+          sql_, parameters_, GetExecuteStatementOptions(),
+          execute_statement_type_factory(), aux_output,
+          /*database=*/test_db.get()));
+}
+
 SQLTestBase::TestResults SQLTestBase::ExecuteTestCase() {
   sql_ = absl::StripAsciiWhitespace(sql_);
 
@@ -1739,20 +1757,8 @@ SQLTestBase::TestResults SQLTestBase::ExecuteTestCase() {
           execute_statement_type_factory(), aux_output);
       is_deterministic_output = aux_output.is_deterministic_output;
     } else {
-      std::optional<TestDatabase> test_db;
-      if (test_case_options_ != nullptr &&
-          test_case_options_->use_test_database_copy()) {
-        // Creates a test database to verify statements with side effects, such
-        // as DDL and DML statements. A copy is created so that test cases can
-        // be executed independently.
-        test_db.emplace(test_db_);
-      }
       ReferenceDriver::ExecuteStatementAuxOutput aux_output;
-      result = ToValueIfSingleResult(
-          reference_driver()->ExecuteGeneralizedStatementForReferenceDriver(
-              sql_, parameters_, GetExecuteStatementOptions(),
-              execute_statement_type_factory(), aux_output,
-              test_db.has_value() ? &*test_db : nullptr));
+      result = ExecuteStatementReferenceDriver(aux_output);
       is_deterministic_output = aux_output.is_deterministic_output;
     }
   } else {
@@ -2372,10 +2378,7 @@ void SQLTestBase::StepExecuteStatementCheckResult() {
       uses_unsupported_type = aux_output.uses_unsupported_type.value_or(false);
     } else {
       ReferenceDriver::ExecuteStatementAuxOutput aux_output;
-      ref_result = ToValueIfSingleResult(
-          reference_driver()->ExecuteGeneralizedStatementForReferenceDriver(
-              sql_, parameters_, GetExecuteStatementOptions(),
-              execute_statement_type_factory(), aux_output));
+      ref_result = ExecuteStatementReferenceDriver(aux_output);
       uses_unsupported_type = aux_output.uses_unsupported_type.value_or(false);
     }
     if (uses_unsupported_type) {

@@ -1279,6 +1279,30 @@ absl::Status Resolver::ResolveUpdateItem(
   return absl::OkStatus();
 }
 
+absl::Status Resolver::VerifyIfElementUpdateIsAllowed(
+    const Type* update_target_type, zetasql::LanguageOptions language_options,
+    const ASTArrayElement* array_element) {
+  // We gate the syntax for JSON array modification behind a different flag than
+  // general array modification.
+  if (update_target_type->IsArray() && !language_options.LanguageFeatureEnabled(
+                                           FEATURE_ARRAY_ELEMENTS_WITH_SET)) {
+    return MakeSqlErrorAt(array_element->position())
+           << "UPDATE ... SET does not support array modification with []";
+  }
+  if (update_target_type->IsJson() &&
+      !language_options.LanguageFeatureEnabled(FEATURE_JSON_DML_UPDATE)) {
+    return MakeSqlErrorAt(array_element->position())
+           << "UPDATE ... SET does not support JSON "
+              "modification with []";
+  }
+  if (!update_target_type->IsArray() && !update_target_type->IsJson()) {
+    return MakeSqlErrorAt(array_element->position())
+           << "UPDATE ... SET does not support value modification with [] "
+           << "for type " << update_target_type->ShortTypeName(product_mode());
+  }
+  return absl::OkStatus();
+}
+
 absl::Status Resolver::PopulateUpdateTargetInfos(
     const ASTUpdateItem* ast_update_item, bool is_nested,
     const ASTGeneralizedPathExpression* path,
@@ -1354,6 +1378,8 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
           dot_identifier->name(), &expr_resolution_info->flatten_state,
           &info.target);
     }
+    // Note: The naming of AST_ARRAY_ELEMENT is overly specific. This node
+    // may also represent any subscript[] access.
     case AST_ARRAY_ELEMENT: {
       const auto* array_element = path->GetAsOrDie<ASTArrayElement>();
 
@@ -1391,11 +1417,6 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
                << "array element";
       }
 
-      if (!language().LanguageFeatureEnabled(FEATURE_ARRAY_ELEMENTS_WITH_SET)) {
-        return MakeSqlErrorAt(array_element->position())
-               << "UPDATE ... SET does not support array modification with []";
-      }
-
       ZETASQL_RETURN_IF_ERROR(PopulateUpdateTargetInfos(
           ast_update_item, is_nested,
           static_cast<const ASTGeneralizedPathExpression*>(
@@ -1403,21 +1424,30 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
           expr_resolution_info, update_target_infos));
       ZETASQL_RET_CHECK(!update_target_infos->empty());
       UpdateTargetInfo& info = update_target_infos->back();
-      if (!info.target->type()->IsArray()) {
-        return MakeSqlErrorAt(array_element->position())
-               << "UPDATE ... SET does not support value modification with [] "
-               << "for type "
-               << info.target->type()->ShortTypeName(product_mode());
-      }
+
+      ZETASQL_RETURN_IF_ERROR(VerifyIfElementUpdateIsAllowed(
+          info.target->type(), language(), array_element));
 
       absl::string_view function_name;
+      std::vector<std::string> function_name_path;
       const ASTExpression* unwrapped_ast_position_expr;
+      bool is_array = info.target->type()->IsArray();
       // Verifies that 'info.target->type()' is an array.
       std::string original_wrapper_name("");
-      ZETASQL_RETURN_IF_ERROR(ResolveArrayElementAccess(
-          info.target.get(), array_element->position(), expr_resolution_info,
-          &function_name, &unwrapped_ast_position_expr, &info.array_offset,
-          &original_wrapper_name));
+      if (is_array) {
+        ZETASQL_RETURN_IF_ERROR(ResolveArrayElementAccess(
+            info.target.get(), array_element->position(), expr_resolution_info,
+            &function_name, &unwrapped_ast_position_expr, &info.array_offset,
+            &original_wrapper_name));
+      } else {
+        std::unique_ptr<const ResolvedExpr> resolved_position;
+        std::string original_wrapper_name("");
+        ZETASQL_RETURN_IF_ERROR(ResolveNonArraySubscriptElementAccess(
+            info.target.get(), array_element->position(), expr_resolution_info,
+            &function_name_path, &unwrapped_ast_position_expr,
+            &info.array_offset, &original_wrapper_name));
+        function_name = function_name_path.back();
+      }
       if (function_name == kSafeArrayAtOffset) {
         return MakeSqlErrorAt(array_element->position())
                << "UPDATE ... SET does not support array[SAFE_OFFSET(...)]; "
@@ -1426,7 +1456,8 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
         return MakeSqlErrorAt(array_element->position())
                << "UPDATE ... SET does not support array[SAFE_ORDINAL(...)]; "
                << "use ORDINAL instead";
-      } else if (function_name == kArrayAtOrdinal) {
+      } else if (function_name == kArrayAtOrdinal ||
+                 function_name == kSubscriptWithOrdinal) {
         // 'info.array_offset' is 1-based. Subtract 1 to make it 0-based.
         absl::string_view subtraction_name =
             FunctionResolver::BinaryOperatorToFunctionName(
@@ -1456,17 +1487,21 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
         return MakeSqlErrorAt(array_element->position())
                << "UPDATE ... SET does not support updating proto map entries "
                << "by key";
-      } else if (function_name == kSubscript) {
-        // ResolveArrayElementAccess should never return this.
-        ZETASQL_RET_CHECK_FAIL() << "Unexpected function name: " << kSubscript;
       } else {
-        ZETASQL_RET_CHECK_EQ(function_name, kArrayAtOffset);
+        ZETASQL_RET_CHECK(function_name == kArrayAtOffset ||
+                  function_name == kSubscriptWithOffset ||
+                  function_name == kSubscript);
       }
 
+      ZETASQL_RET_CHECK(info.target->type()->IsArray() ||
+                info.target->type()->IsJson());
+      const Type* update_target_type =
+          info.target->type()->IsArray()
+              ? info.target->type()->AsArray()->element_type()
+              : info.target->type();
       info.array_element = std::make_unique<ResolvedColumn>(
           AllocateColumnId(), /*table_name=*/kArrayId,
-          /*column_name=*/kElementId,
-          info.target->type()->AsArray()->element_type());
+          /*column_name=*/kElementId, update_target_type);
 
       std::unique_ptr<ResolvedColumnRef> ref =
           MakeResolvedColumnRef(info.array_element->type(), *info.array_element,
@@ -1825,15 +1860,20 @@ absl::Status Resolver::MergeWithUpdateItem(
         deepest_new_resolved_update_item->target()->annotated_type();
     // If it's a resolved column ref then we are just setting the top level
     // column in which case we don't wrap in a TO_JSON call.
+    bool is_table_column =
+        deepest_new_resolved_update_item->target()->Is<ResolvedColumnRef>() &&
+        merged_update_item->resolved_update_item->element_column() == nullptr;
     if (language().LanguageFeatureEnabled(FEATURE_JSON_DML_UPDATE) &&
-        annotated_target_type.type->IsJson() &&
-        !deepest_new_resolved_update_item->target()->Is<ResolvedColumnRef>()) {
+        annotated_target_type.type->IsJson() && !is_table_column) {
       std::unique_ptr<const ResolvedExpr> resolved_value;
       ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_value, update_scope,
                                         /*clause_name=*/"UPDATE clause",
                                         &resolved_value,
                                         annotated_target_type.type));
-      if (!resolved_value->type()->IsJson()) {
+      bool convert_to_json = annotated_target_type.type->IsJson() &&
+                             resolved_value != nullptr &&
+                             !resolved_value->type()->IsJson();
+      if (convert_to_json) {
         std::vector<std::unique_ptr<const ResolvedExpr>> arguments;
         arguments.push_back(std::move(resolved_value));
         std::unique_ptr<const ResolvedExpr> resolved_to_json_wrapper;

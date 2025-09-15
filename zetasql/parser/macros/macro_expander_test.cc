@@ -504,9 +504,9 @@ TEST(MacroExpanderTest, TracksCountOfUnexpandedTokensConsumedIncludingEOF) {
       /*offset_in_original_input=*/0,
       /*force_flex=*/false);
   auto arena = std::make_unique<zetasql_base::UnsafeArena>(/*block_size=*/1024);
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   MacroExpander expander(std::move(token_provider), macro_catalog, arena.get(),
-                         stack_frames, MacroExpanderOptions{},
+                         stack_frame_factory, MacroExpanderOptions{},
                          /*parent_location=*/nullptr);
 
   ASSERT_THAT(expander.GetNextToken(),
@@ -525,9 +525,9 @@ TEST(MacroExpanderTest,
       /*end_offset=*/std::nullopt, /*offset_in_original_input=*/0,
       /*force_flex=*/false);
   auto arena = std::make_unique<zetasql_base::UnsafeArena>(/*block_size=*/1024);
-  std::vector<std::unique_ptr<StackFrame>> stack_frames;
+  StackFrame::StackFrameFactory stack_frame_factory;
   MacroExpander expander(std::move(token_provider), macro_catalog, arena.get(),
-                         stack_frames, MacroExpanderOptions{},
+                         stack_frame_factory, MacroExpanderOptions{},
                          /*parent_location=*/nullptr);
 
   ASSERT_THAT(expander.GetNextToken(), IsOkAndHolds(TokenIs(TokenWithLocation{
@@ -3241,6 +3241,22 @@ TEST(MacroExpanderStackFramesTest,
                                   /*expected_offset_in_original_input=*/0,
                                   /*expected_input_start_line_offset=*/1,
                                   /*expected_input_start_column_offset=*/1);
+}
+
+TEST(MacroExpanderStackFramesTest, ShouldReturnErrorIfTooManyStackFrames) {
+  MacroCatalog macro_catalog;
+  RegisterMacros(
+      "DEFINE MACRO m1 $1;\n"
+      "DEFINE MACRO m2 $m1($1);\n"
+      "DEFINE MACRO m3 $m2($1);\n"
+      "DEFINE MACRO m4 $m3($1);\n"
+      "DEFINE MACRO m5 $m4($1);\n",
+      macro_catalog);
+  MacroExpanderOptions macro_expander_options = {.max_number_of_stack_frames =
+                                                     5};
+  EXPECT_THAT(ExpandMacros("$m5(ABC)", macro_catalog, macro_expander_options),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("Too many stack frames are created")));
 }
 
 }  // namespace macros

@@ -977,4 +977,4 @@ FROM
      SumOfAggregateArgs(MAX(simpletypes_3.a_1)
        GROUP BY simpletypes_3.a_2) AS a_4;
 
-Rewrite ERROR: GROUP BY modifier is not supported on calls to aggregate function Lazy_resolution_function:SumOfAggregateArgs
+Rewrite ERROR: SQL function inliner cannot inline aggregate function Lazy_resolution_function:SumOfAggregateArgs with GROUP BY modifier

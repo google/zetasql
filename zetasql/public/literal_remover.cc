@@ -46,6 +46,7 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -74,23 +75,36 @@ bool IsSameLiteral(const ResolvedLiteral* a, const ResolvedLiteral* b) {
   return location_a == location_b && a->value() == b->value();
 }
 
-std::string GenerateParameterName(
+absl::StatusOr<std::string> GenerateParameterName(
     const ResolvedLiteral* literal, const AnalyzerOptions& analyzer_options,
-    const ParameterNameOverrideCallback& override_callback, int* index) {
+    const ParameterNameOverrideCallback& override_callback,
+    GeneratedParameterMap* generated_parameters, int* index) {
+  ZETASQL_RET_CHECK(generated_parameters != nullptr);
+  const QueryParametersMap& parameters = analyzer_options.query_parameters();
+  auto has_conflict = [&parameters,
+                       generated_parameters](absl::string_view param_name) {
+    return zetasql_base::ContainsKey(parameters, absl::AsciiStrToLower(param_name)) ||
+           generated_parameters->contains(param_name);
+  };
   if (override_callback != nullptr) {
     std::optional<std::string> name = override_callback(literal);
     if (name.has_value()) {
+      if (has_conflict(*name)) {
+        return zetasql_base::InvalidArgumentErrorBuilder()
+               << "Generated parameter name from the override callback is "
+                  "conflict with an existing parameter: "
+               << *name << " for literal: " << literal->DebugString();
+      }
       return *name;
     }
   }
   std::string type_name = Type::TypeKindToString(
       literal->type()->kind(), analyzer_options.language().product_mode());
   std::string param_name;
-  const QueryParametersMap& parameters = analyzer_options.query_parameters();
   do {
     // User parameters are less likely to start with underscores.
     param_name = absl::StrCat("_p", (*index)++, "_", type_name);
-  } while (zetasql_base::ContainsKey(parameters, absl::AsciiStrToLower(param_name)));
+  } while (has_conflict(param_name));
   return param_name;
 }
 
@@ -312,10 +326,12 @@ absl::Status ReplaceLiteralsByParameters(
     ZETASQL_RET_CHECK(prefix_offset == 0 || prefix_offset < last_offset)
         << "Parse locations of literals are broken:"
         << "\nQuery: " << sql << "\nResolved AST: " << stmt->DebugString();
-    parameter_name = GenerateParameterName(
-        literal, analyzer_options,
-        literal_replacement_options.parameter_name_override_callback,
-        &parameter_index);
+    ZETASQL_ASSIGN_OR_RETURN(
+        parameter_name,
+        GenerateParameterName(
+            literal, analyzer_options,
+            literal_replacement_options.parameter_name_override_callback,
+            generated_parameters, &parameter_index));
 
     absl::StrAppend(result_sql,
                     sql.substr(prefix_offset, first_offset - prefix_offset),

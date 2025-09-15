@@ -41,7 +41,9 @@
 
 namespace zetasql {
 
+// Using forward declarations here to avoid circular includes.
 class ResolvedASTVisitor;
+class ResolvedColumn;
 
 // This is the base class for the resolved AST.
 // Subclasses are in the generated file resolved_ast.h.
@@ -276,6 +278,20 @@ class ResolvedNode {
   void GetDescendantsSatisfying(
       bool (ResolvedNode::*filter_method)() const,
       std::vector<const ResolvedNode*>* found_nodes) const;
+
+  // Return a list of ResolvedColumns created by direct fields of this node.
+  // This doesn't include columns nested inside node-typed fields.
+  //
+  // This is generated from the resolved AST based on `column_is_created` and
+  // `column_list_is_created_columns` attributes.
+  virtual std::vector<ResolvedColumn> GetColumnsCreated() const;
+
+  // Return a list of ResolvedColumns referenced by fields of this node.
+  // This doesn't include columns nested inside node-typed fields.
+  //
+  // This is generated from the resolved AST based on `column_is_created` and
+  // `column_list_is_created_columns` attributes.
+  virtual std::vector<ResolvedColumn> GetColumnsReferenced() const;
 
   // Records the parse location range.
   void SetParseLocationRange(const ParseLocationRange& parse_location_range);

@@ -3057,9 +3057,8 @@ absl::Status Resolver::AddToFieldPathTrie(
 
   // Determine if a prefix of 'path_string' is already present in the trie.
   int match_length = 0;
-  const ASTNode* prefix_location =
-      field_path_trie->GetDataForMaximalPrefix(path_string, &match_length,
-                                               /*is_terminator=*/nullptr);
+  const ASTNode* prefix_location = field_path_trie->GetDataForMaximalPrefix(
+      path_string, match_length, /*is_terminator=*/{});
   std::vector<std::pair<std::string, const ASTNode*>> matching_paths;
   bool prefix_exists = false;
   if (prefix_location != nullptr) {
@@ -7270,7 +7269,8 @@ absl::Status Resolver::ResolveArrayElementAccess(
   }
 
   if (*unwrapped_ast_position_expr == nullptr) {
-    if (!language().LanguageFeatureEnabled(FEATURE_BARE_ARRAY_ACCESS)) {
+    if (!language().LanguageFeatureEnabled(FEATURE_BARE_ARRAY_ACCESS) &&
+        !resolved_array->type()->IsJson()) {
       return MakeSqlErrorAt(ast_position)
              << "Array element access with array[position] is not supported. "
                 "Use array[OFFSET(zero_based_offset)] or "
@@ -7314,7 +7314,7 @@ absl::Status Resolver::ResolveArrayElementAccess(
   }
 
   // Coerce to INT64 if necessary.
-  if (!is_map_at) {
+  if (!is_map_at && !resolved_array->type()->IsJson()) {
     ZETASQL_RETURN_IF_ERROR(CoerceExprToType(
         *unwrapped_ast_position_expr, types::Int64Type(), kImplicitCoercion,
         "Array position in [] must be coercible to $0 type, but has type $1",
@@ -8883,6 +8883,24 @@ static absl::Status ResolveExprWithPotentialNestedAggregate(
   return absl::OkStatus();
 }
 
+// Return true if the `resolved_expr` contains an `ExpressionColumn`.
+// Populates  `expression_column_out` with the first expression column found,
+// or nullptr if none is found.
+static bool ContainsExpressionColumn(
+    const ResolvedExpr* resolved_expr,
+    const ResolvedExpressionColumn*& expression_column_out) {
+  expression_column_out = nullptr;
+  std::vector<const ResolvedNode*> expression_columns;
+  resolved_expr->GetDescendantsWithKinds({RESOLVED_EXPRESSION_COLUMN},
+                                         &expression_columns);
+  if (expression_columns.empty()) {
+    return false;
+  }
+  expression_column_out =
+      expression_columns.front()->GetAs<ResolvedExpressionColumn>();
+  return true;
+}
+
 // TODO - Add support for horizontal aggregation.
 absl::Status Resolver::ResolveAggregateFunctionHavingModifier(
     const ASTFunctionCall* ast_function_call,
@@ -8919,6 +8937,19 @@ absl::Status Resolver::ResolveAggregateFunctionHavingModifier(
       }));
   ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(having_expr->expression(), kHavingModifier,
                                    resolved_expr_out));
+
+  // Disallow `ExpressionColumn` within the HAVING filter modifier for a
+  // multi-level aggregate function. The rationale is identical to why we
+  // disallow `ExpressionColumn` within arguments to a multi-level aggregate
+  // function.
+  const ResolvedExpressionColumn* expression_column = nullptr;
+  if (ContainsExpressionColumn(resolved_expr_out->get(), expression_column)) {
+    ZETASQL_RET_CHECK(expression_column != nullptr);
+    return MakeSqlErrorAt(ast_function_call)
+           << "Expression column " << expression_column->name()
+           << " cannot be used in the HAVING modifier to a multi-level "
+              "aggregate function.";
+  }
   return absl::OkStatus();
 }
 
@@ -11155,13 +11186,15 @@ absl::Status Resolver::ResolveFunctionCallImpl(
   }
 
   // Disallow `ExpressionColumn` as multi-level aggregate function arguments.
+  // We do not currently support 'grouping-constness' deduction for
+  // ExpressionColumns. This is because ExpressionColumns can be resolved via a
+  // callback, so the resolver may not have the names of all ExpressionColumns
+  // at the time of resolution, which makes constructing a correct post-grouping
+  // namescope impossible.
   for (const auto& resolved_arg : resolved_arguments) {
     std::vector<const ResolvedNode*> expression_columns;
-    resolved_arg->GetDescendantsWithKinds({RESOLVED_EXPRESSION_COLUMN},
-                                          &expression_columns);
-    if (!expression_columns.empty()) {
-      const ResolvedExpressionColumn* expression_column =
-          expression_columns.front()->GetAs<ResolvedExpressionColumn>();
+    const ResolvedExpressionColumn* expression_column = nullptr;
+    if (ContainsExpressionColumn(resolved_arg.get(), expression_column)) {
       ZETASQL_RET_CHECK(expression_column != nullptr);
       return MakeSqlErrorAt(ast_function_call)
              << "Expression column " << expression_column->name()

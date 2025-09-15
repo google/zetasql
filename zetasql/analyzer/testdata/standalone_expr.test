@@ -1503,6 +1503,22 @@ SUM(value GROUP BY value)
 ^
 ==
 
+[language_features=NONE,+MULTILEVEL_AGGREGATION,+AGGREGATE_FILTERING]
+[allow_aggregate_standalone_expression]
+[in_scope_expression_column_name=value]
+[in_scope_expression_column_type=int64]
+# We do not currently support 'grouping-constness' deduction for
+# ExpressionColumns. This is because ExpressionColumns can be resolved via a
+# callback, so the resolver may not have the names of all ExpressionColumns at
+# the time of resolution, which makes constructing a correct post-grouping
+# namescope impossible.
+SUM(AVG(value) GROUP BY value HAVING value > 5)
+--
+ERROR: Expression column value cannot be used in the HAVING modifier to a multi-level aggregate function. [at 6:1]
+SUM(AVG(value) GROUP BY value HAVING value > 5)
+^
+==
+
 [language_features=NONE,+GROUPING_BUILTIN]
 [allow_aggregate_standalone_expression]
 [in_scope_expression_column_name=value]

@@ -2084,10 +2084,8 @@ enum LanguageFeature {
 
   // Allows multiple grouping sets (GROUPING SETS, ROLLUP, CUBE and expressions)
   // in GROUP BY. See:(broken link).
-  FEATURE_MULTI_GROUPING_SETS = 14101 [
-    (language_feature_options).language_version = VERSION_1_4,
-    (language_feature_options).in_development = true
-  ];
+  FEATURE_MULTI_GROUPING_SETS = 14101
+      [(language_feature_options).language_version = VERSION_1_4];
 
   // Enables using INPUT TABLE as a TVF argument in pipe CALL.
   FEATURE_PIPE_CALL_INPUT_TABLE = 14105

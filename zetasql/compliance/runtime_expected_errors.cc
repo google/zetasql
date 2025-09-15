@@ -896,8 +896,7 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
       "Invalid input: (.|\\n)*. Mismatched curly braces in UUID, missing "
-      "closing "
-      "'}'."));
+      "closing \\'\\}\\'."));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
       "Invalid input: (.|\\n)*. UUID cannot start with a hyphen .*."));

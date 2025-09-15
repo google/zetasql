@@ -1,0 +1,168 @@
+[name=limit_all]
+[required_features=LIMIT_ALL]
+SELECT a FROM (SELECT 1 a) LIMIT ALL
+--
+ARRAY<STRUCT<a INT64>>[{1}]
+==
+[name=limit_all_empty_input]
+[required_features=LIMIT_ALL]
+SELECT a FROM (SELECT 1 a) WHERE a > 10 LIMIT ALL
+--
+ARRAY<STRUCT<a INT64>>[]
+==
+[name=limit_all_offset_0]
+[required_features=LIMIT_ALL]
+SELECT COUNT(a) FROM (
+SELECT a FROM (SELECT 1 a UNION ALL SELECT 2 UNION ALL SELECT 3) LIMIT ALL OFFSET 0)
+--
+ARRAY<STRUCT<INT64>>[{3}]
+==
+[name=limit_all_offset_1]
+[required_features=LIMIT_ALL]
+SELECT COUNT(a) FROM (
+SELECT a FROM (SELECT 1 a UNION ALL SELECT 2 UNION ALL SELECT 3) LIMIT ALL OFFSET 1)
+--
+ARRAY<STRUCT<INT64>>[{2}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=limit_all_offset_3]
+[required_features=LIMIT_ALL]
+SELECT a FROM (SELECT 1 a UNION ALL SELECT 2 UNION ALL SELECT 3) LIMIT ALL OFFSET 3
+--
+ARRAY<STRUCT<a INT64>>[]
+==
+[name=limit_all_offset_4]
+[required_features=LIMIT_ALL]
+SELECT a FROM (SELECT 1 a UNION ALL SELECT 2 UNION ALL SELECT 3) LIMIT ALL OFFSET 4
+--
+ARRAY<STRUCT<a INT64>>[]
+==
+[name=orderby_limit_all]
+[required_features=LIMIT_ALL]
+SELECT a FROM (SELECT 3.3 a UNION ALL SELECT 1.1 UNION ALL SELECT 2.2) ORDER BY a LIMIT ALL
+--
+ARRAY<STRUCT<a DOUBLE>>[known order:{1.1}, {2.2}, {3.3}]
+==
+[name=orderby_desc_limit_all]
+[required_features=LIMIT_ALL]
+SELECT a FROM (SELECT 3.3 a UNION ALL SELECT 1.1 UNION ALL SELECT 2.2) ORDER BY a DESC LIMIT ALL
+--
+ARRAY<STRUCT<a DOUBLE>>[known order:{3.3}, {2.2}, {1.1}]
+==
+[name=orderby_limit_all_offset_0]
+[required_features=LIMIT_ALL]
+SELECT a FROM (SELECT 'b' a UNION ALL SELECT 'c' UNION ALL SELECT 'a') ORDER BY a LIMIT ALL OFFSET 0
+--
+ARRAY<STRUCT<a STRING>>[known order:{"a"}, {"b"}, {"c"}]
+==
+[name=orderby_limit_all_offset_1]
+[required_features=LIMIT_ALL]
+SELECT a FROM (SELECT 'b' a UNION ALL SELECT 'c' UNION ALL SELECT 'a') ORDER BY a LIMIT ALL OFFSET 1
+--
+ARRAY<STRUCT<a STRING>>[known order:{"b"}, {"c"}]
+==
+[name=orderby_limit_all_offset_3]
+[required_features=LIMIT_ALL]
+SELECT a FROM (SELECT 'b' a UNION ALL SELECT 'c' UNION ALL SELECT 'a') ORDER BY a LIMIT ALL OFFSET 3
+--
+ARRAY<STRUCT<a STRING>>[]
+==
+[name=limit_null]
+[required_features=LIMIT_OFFSET_EXPRESSIONS,LIMIT_ALL]
+SELECT COUNT(a) FROM (
+SELECT a FROM (SELECT 1 a UNION ALL SELECT 2 UNION ALL SELECT 3) LIMIT NULL)
+--
+ARRAY<STRUCT<INT64>>[{3}]
+==
+[name=limit_null_expression]
+[required_features=LIMIT_OFFSET_EXPRESSIONS,LIMIT_ALL]
+SELECT COUNT(a) FROM (
+SELECT a FROM (SELECT 1 a UNION ALL SELECT 2 UNION ALL SELECT 3) LIMIT IF(CONCAT('a', 'b') = 'ab', NULL, 1))
+--
+ARRAY<STRUCT<INT64>>[{3}]
+==
+[name=limit_null_empty_input]
+[required_features=LIMIT_OFFSET_EXPRESSIONS,LIMIT_ALL]
+SELECT a FROM (SELECT 1 a) WHERE a > 10 LIMIT NULL
+--
+ARRAY<STRUCT<a INT64>>[]
+==
+[name=limit_null_offset_0]
+[required_features=LIMIT_OFFSET_EXPRESSIONS,LIMIT_ALL]
+SELECT COUNT(a) FROM (
+SELECT a FROM (SELECT 1 a UNION ALL SELECT 2 UNION ALL SELECT 3) LIMIT NULL OFFSET 0)
+--
+ARRAY<STRUCT<INT64>>[{3}]
+==
+[name=limit_null_offset_1]
+[required_features=LIMIT_OFFSET_EXPRESSIONS,LIMIT_ALL]
+SELECT COUNT(a) FROM (
+SELECT a FROM (SELECT 1 a UNION ALL SELECT 2 UNION ALL SELECT 3) LIMIT NULL OFFSET 1)
+--
+ARRAY<STRUCT<INT64>>[{2}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=limit_null_expression_offset_1]
+[required_features=LIMIT_OFFSET_EXPRESSIONS,LIMIT_ALL]
+SELECT COUNT(a) FROM (
+SELECT a FROM (SELECT 1 a UNION ALL SELECT 2 UNION ALL SELECT 3) LIMIT IF(CONCAT('a', 'b') = 'ab', NULL, 1) OFFSET 1)
+--
+ARRAY<STRUCT<INT64>>[{2}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=limit_null_offset_3]
+[required_features=LIMIT_OFFSET_EXPRESSIONS,LIMIT_ALL]
+SELECT a FROM (SELECT 1 a UNION ALL SELECT 2 UNION ALL SELECT 3) LIMIT NULL OFFSET 3
+--
+ARRAY<STRUCT<a INT64>>[]
+==
+[name=limit_null_offset_4]
+[required_features=LIMIT_OFFSET_EXPRESSIONS,LIMIT_ALL]
+SELECT a FROM (SELECT 1 a UNION ALL SELECT 2 UNION ALL SELECT 3) LIMIT NULL OFFSET 4
+--
+ARRAY<STRUCT<a INT64>>[]
+==
+[name=orderby_limit_null]
+[required_features=LIMIT_OFFSET_EXPRESSIONS,LIMIT_ALL]
+SELECT a FROM (SELECT 3.3 a UNION ALL SELECT 1.1 UNION ALL SELECT 2.2) ORDER BY a LIMIT NULL
+--
+ARRAY<STRUCT<a DOUBLE>>[known order:{1.1}, {2.2}, {3.3}]
+==
+[name=orderby_desc_limit_null]
+[required_features=LIMIT_OFFSET_EXPRESSIONS,LIMIT_ALL]
+SELECT a FROM (SELECT 3.3 a UNION ALL SELECT 1.1 UNION ALL SELECT 2.2) ORDER BY a DESC LIMIT NULL
+--
+ARRAY<STRUCT<a DOUBLE>>[known order:{3.3}, {2.2}, {1.1}]
+==
+[name=orderby_limit_null_expression]
+[required_features=LIMIT_OFFSET_EXPRESSIONS,LIMIT_ALL]
+SELECT a FROM (SELECT 3.3 a UNION ALL SELECT 1.1 UNION ALL SELECT 2.2) ORDER BY a LIMIT IF(CONCAT('a', 'b') = 'ab', NULL, 1)
+--
+ARRAY<STRUCT<a DOUBLE>>[known order:{1.1}, {2.2}, {3.3}]
+==
+[name=orderby_limit_null_offset_0]
+[required_features=LIMIT_OFFSET_EXPRESSIONS,LIMIT_ALL]
+SELECT a FROM (SELECT 'b' a UNION ALL SELECT 'c' UNION ALL SELECT 'a') ORDER BY a LIMIT NULL OFFSET 0
+--
+ARRAY<STRUCT<a STRING>>[known order:{"a"}, {"b"}, {"c"}]
+==
+[name=orderby_limit_null_offset_1]
+[required_features=LIMIT_OFFSET_EXPRESSIONS,LIMIT_ALL]
+SELECT a FROM (SELECT 'b' a UNION ALL SELECT 'c' UNION ALL SELECT 'a') ORDER BY a LIMIT NULL OFFSET 1
+--
+ARRAY<STRUCT<a STRING>>[known order:{"b"}, {"c"}]
+==
+[name=orderby_limit_null_expression_offset_1]
+[required_features=LIMIT_OFFSET_EXPRESSIONS,LIMIT_ALL]
+SELECT a FROM (SELECT 'b' a UNION ALL SELECT 'c' UNION ALL SELECT 'a') ORDER BY a LIMIT IF(CONCAT('a', 'b') = 'ab', NULL, 1) OFFSET 1
+--
+ARRAY<STRUCT<a STRING>>[known order:{"b"}, {"c"}]
+==
+[name=orderby_limit_null_offset_3]
+[required_features=LIMIT_OFFSET_EXPRESSIONS,LIMIT_ALL]
+SELECT a FROM (SELECT 'b' a UNION ALL SELECT 'c' UNION ALL SELECT 'a') ORDER BY a LIMIT NULL OFFSET 3
+--
+ARRAY<STRUCT<a STRING>>[]

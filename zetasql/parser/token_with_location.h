@@ -17,11 +17,20 @@
 #ifndef ZETASQL_PARSER_TOKEN_WITH_LOCATION_H_
 #define ZETASQL_PARSER_TOKEN_WITH_LOCATION_H_
 
+#include <cstdint>
+#include <memory>
+#include <utility>
+#include <vector>
+
 #include "zetasql/parser/tm_token.h"
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "absl/base/nullability.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace parser {
@@ -34,6 +43,11 @@ namespace parser {
 // NOTE : All the string_view defined in this struct are allocated in the arena
 // and will be valid for the lifetime of the arena.
 // The arena should outlive the stack frame.
+
+// NOTE: This struct is intentionally an aggregate type (i.e., has no
+// user-declared constructor) to allow for easy initialization in tests. In
+// production code, all instances of StackFrame should be created via the
+// StackFrame::StackFrameFactory to enforce resource limits.
 //
 // Keep this cheap to copy.
 struct StackFrame {
@@ -108,6 +122,71 @@ struct StackFrame {
   absl::string_view GetInvocationString() const {
     return this->LocationRangeWithoutStartOffset().GetTextFrom(input_text);
   }
+
+  // A factory for creating stack frames.
+  // All stack frames allocation will be done through this factory.
+  // This will help in controlling the maximum number of stack frames that can
+  // be created.
+  class StackFrameFactory {
+   public:
+    StackFrameFactory() = default;
+    explicit StackFrameFactory(
+        int64_t max_number_of_stack_frames,
+        std::vector<std::unique_ptr<StackFrame>>& stack_frames)
+        : max_number_of_stack_frames_(max_number_of_stack_frames),
+          stack_frames_(stack_frames) {}
+
+    // StackFrameFactory is neither copyable nor movable.
+    StackFrameFactory(const StackFrameFactory&) = delete;
+    StackFrameFactory& operator=(const StackFrameFactory&) = delete;
+
+    absl::StatusOr<StackFrame* /*absl_nonnull*/> AllocateStackFrame() {
+      if (stack_frames_.size() >= max_number_of_stack_frames_) {
+        return absl::InternalError(absl::StrCat(
+            "Too many stack frames are created, probably due to an ",
+            "exponential macro definition. Current size of stack frames in ",
+            "bytes: ", stack_frames_.size() * sizeof(StackFrame)));
+      }
+      return stack_frames_.emplace_back(std::make_unique<StackFrame>()).get();
+    }
+
+    // Creates and initializes a new `StackFrame` for given parameters on the
+    // stack_frames_ vector. Returns error if the maximum number of stack frames
+    // has been reached.
+    absl::StatusOr<StackFrame* /*absl_nonnull*/> MakeStackFrame(
+        absl::string_view frame_name, StackFrame::FrameType frame_type,
+        ParseLocationRange location, absl::string_view input_text,
+        int offset_in_original_input, int input_start_line_offset,
+        int input_start_column_offset,
+        StackFrame* /*absl_nullable*/ parent_location,
+        StackFrame* /*absl_nullable*/ invocation_frame = nullptr) {
+      ZETASQL_ASSIGN_OR_RETURN(StackFrame * stack_frame, AllocateStackFrame());
+      stack_frame->frame_type = frame_type;
+      stack_frame->name = frame_name;
+      stack_frame->location = std::move(location);
+      stack_frame->input_text = input_text;
+      stack_frame->offset_in_original_input = offset_in_original_input;
+      stack_frame->input_start_line_offset = input_start_line_offset;
+      stack_frame->input_start_column_offset = input_start_column_offset;
+      stack_frame->parent = parent_location;
+      stack_frame->invocation_frame = invocation_frame;
+      return stack_frame;
+    }
+
+   private:
+    // The maximum number of stack frames allowed.
+    // This is a safeguard for OOMs, which can occur if exponential stack
+    // frames are created.
+    int64_t max_number_of_stack_frames_ =
+        (1024 * 1024 * 1024) / sizeof(StackFrame);
+
+    // Used to maintain the ownership of the allocated stack frames.
+    // All newly allocated stack frames owned by this vector. This will help to
+    // avoid memory leaks.
+    std::vector<std::unique_ptr<StackFrame>> owned_stack_frames_;
+    std::vector<std::unique_ptr<StackFrame>>& stack_frames_ =
+        owned_stack_frames_;
+  };
 };
 
 // Represents one token in the unexpanded input stream. 'Kind' is the lexical

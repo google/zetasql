@@ -256,6 +256,8 @@ class MeasureExpressionTest : public ::testing::Test {
     analyzer_options.mutable_language()->EnableLanguageFeature(
         FEATURE_MULTILEVEL_AGGREGATION);
     analyzer_options.mutable_language()->EnableLanguageFeature(
+        FEATURE_AGGREGATE_FILTERING);
+    analyzer_options.mutable_language()->EnableLanguageFeature(
         FEATURE_ORDER_BY_IN_AGGREGATE);
     analyzer_options.mutable_language()->EnableLanguageFeature(
         FEATURE_HAVING_IN_AGGREGATE);
@@ -523,15 +525,35 @@ TEST_F(MeasureExpressionTest, InvalidMeasureWithOrderByClause) {
 TEST_F(MeasureExpressionTest, InvalidMeasureWithHavingMinMaxClause) {
   std::vector<std::pair<std::string, const Type*>> columns = {
       {"key", type_factory_.get_int64()}, {"value", type_factory_.get_int64()}};
-  AnalyzerOptions analyzer_options;
-  analyzer_options.mutable_language()->EnableLanguageFeature(
-      FEATURE_HAVING_IN_AGGREGATE);
   EXPECT_THAT(
       AnalyzeMeasureExpressionForTable("table", columns, "measure_col",
                                        "SUM(value HAVING MAX key)"),
       StatusIs(absl::StatusCode::kInvalidArgument,
                HasSubstr("Measure expression must not contain an aggregate "
                          "function with a HAVING MIN/MAX clause")));
+}
+
+TEST_F(MeasureExpressionTest, InvalidMeasureWithWhereClause) {
+  std::vector<std::pair<std::string, const Type*>> columns = {
+      {"key", type_factory_.get_int64()}, {"value", type_factory_.get_int64()}};
+  EXPECT_THAT(
+      AnalyzeMeasureExpressionForTable("table", columns, "measure_col",
+                                       "SUM(value WHERE value > 5)"),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Measure expression must not contain an aggregate "
+                         "function with a WHERE filter clause")));
+}
+
+TEST_F(MeasureExpressionTest, InvalidMeasureWithHavingClause) {
+  std::vector<std::pair<std::string, const Type*>> columns = {
+      {"key", type_factory_.get_int64()}, {"value", type_factory_.get_int64()}};
+  EXPECT_THAT(
+      AnalyzeMeasureExpressionForTable(
+          "table", columns, "measure_col",
+          "SUM(AVG(value) GROUP BY key HAVING COUNT(key) > 5)"),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Measure expression must not contain an aggregate "
+                         "function with a HAVING filter clause")));
 }
 
 TEST_F(MeasureExpressionTest, MeasureReferencingUdfs) {

@@ -69,7 +69,7 @@ class LookaheadTransformer final {
       int start_offset, const LanguageOptions& language_options,
       MacroExpansionMode macro_expansion_mode,
       const macros::MacroCatalog* macro_catalog, zetasql_base::UnsafeArena* arena,
-      std::vector<std::unique_ptr<StackFrame>>& stack_frames);
+      StackFrame::StackFrameFactory& stack_frame_factory);
 
   // Returns the next token id, returning its location in `yylloc` and image in
   // `text`.

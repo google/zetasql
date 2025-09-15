@@ -1157,6 +1157,7 @@ cc_library(
 cc_test(
     name = "value_test",
     size = "medium",
+    timeout = "long",
     srcs = ["value_test.cc"],
     deps = [
         ":analyzer",
@@ -2176,6 +2177,7 @@ cc_test(
 cc_test(
     name = "function_signature_test",
     size = "small",
+    timeout = "moderate",
     srcs = ["function_signature_test.cc"],
     deps = [
         ":error_location_cc_proto",

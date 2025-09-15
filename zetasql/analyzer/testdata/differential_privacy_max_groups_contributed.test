@@ -2,11 +2,8 @@
 #
 # Base case, with max_groups_contributed set.  We inject a SampleScan to ensure that
 # each user only contributes to one group.
-# We can't run the unparser because the rewrite generates TABLESAMPLE and the
-# TABLESAMPLE feature is not turned on.
-[default language_features=MAXIMUM,+DIFFERENTIAL_PRIVACY,+NAMED_ARGUMENTS]
+[default language_features=NONE,+DIFFERENTIAL_PRIVACY,+NAMED_ARGUMENTS,+TABLESAMPLE,+STRATIFIED_RESERVOIR_TABLESAMPLE]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
-[no_run_sqlbuilder]
 
 select with differential_privacy options(max_groups_contributed = 1) count(*)
 from SimpleTypesWithAnonymizationUid a
@@ -31,7 +28,6 @@ QueryStmt
         |     +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
         +-option_list=
           +-max_groups_contributed := Literal(type=INT64, value=1)
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -80,9 +76,6 @@ QueryStmt
 ==
 
 # SampleScan to ensure that each user only contributes to 3 groups.
-# We can't run the unparser because the rewrite generates TABLESAMPLE and the
-# TABLESAMPLE feature is not turned on.
-[no_run_sqlbuilder]
 select with differential_privacy options(max_groups_contributed = 3)
     count(*, contribution_bounds_per_group => (0, 100))
 from SimpleTypesWithAnonymizationUid a, SimpleTypes b
@@ -112,7 +105,6 @@ QueryStmt
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 100})
         +-option_list=
           +-max_groups_contributed := Literal(type=INT64, value=3)
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -169,7 +161,6 @@ QueryStmt
 # `default_anon_kappa_value` instead of the options.
 # The rewritten ResolvedAST is the same as the previous test.
 [default_anon_kappa_value=3]
-[no_run_sqlbuilder]
 select with differential_privacy
     count(*, contribution_bounds_per_group => (0, 100))
 from SimpleTypesWithAnonymizationUid a, SimpleTypes b
@@ -197,7 +188,6 @@ QueryStmt
           +-$agg1#32 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
               +-Literal(type=STRUCT<INT64, INT64>, value={0, 100})
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -419,8 +409,6 @@ ERROR: Duplicate differential privacy option specified for 'MAX_GROUPS_CONTRIBUT
 # 'max_groups_contributed=NULL' the default is overridden and max_groups_contributed is treated as explicitly
 # unspecified.
 [default_anon_kappa_value=3]
-[no_run_sqlbuilder]
-
 select with differential_privacy options({{max_groups_contributed = NULL|}}) count(*)
 from SimpleTypesWithAnonymizationUid a
 --
@@ -443,7 +431,6 @@ QueryStmt
         |     +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
         +-option_list=
           +-max_groups_contributed := Literal(type=INT64, value=NULL)
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -496,7 +483,6 @@ QueryStmt
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
               +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -541,11 +527,7 @@ QueryStmt
 ==
 
 # Count (*) counting unique users.
-# DIFFERENTIAL_PRIVACY_THRESHOLDING feature is enabled, therefore we should use this
-# count for k_threshold.
-[language_features=NONE,+DIFFERENTIAL_PRIVACY,+NAMED_ARGUMENTS,+TABLE_VALUED_FUNCTIONS,+TEMPLATE_FUNCTIONS,+CREATE_TABLE_FUNCTION,+DIFFERENTIAL_PRIVACY_THRESHOLDING]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
-[no_run_sqlbuilder]
 select with DIFFERENTIAL_PRIVACY options(max_groups_contributed = 1) count(*, contribution_bounds_per_group => (0, 1))
 from SimpleTypesWithAnonymizationUid a
 group by int64;
@@ -569,7 +551,6 @@ QueryStmt
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
         +-option_list=
           +-max_groups_contributed := Literal(type=INT64, value=1)
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -604,11 +585,15 @@ QueryStmt
         | +-int64#14 := ColumnRef(type=INT64, column=$groupby.int64_partial#18)
         +-aggregate_list=
         | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#17)
+        | |   +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
+        | +-$group_selection_threshold_col#22 :=
         |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
-        |     +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#17)
+        |     +-Literal(type=INT64, value=1)
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
         +-group_selection_threshold_expr=
-        | +-ColumnRef(type=INT64, column=$aggregate.$agg1#13)
+        | +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#22)
         +-option_list=
           +-max_groups_contributed := Literal(type=INT64, value=1)
 ==
@@ -703,3 +688,5 @@ QueryStmt
         | +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#23)
         +-anonymization_option_list=
           +-max_groups_contributed := Literal(type=INT64, value=1)
+==
+

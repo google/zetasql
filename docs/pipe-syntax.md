@@ -23,7 +23,6 @@ Pipe syntax has the following key characteristics:
    an operator name, and any arguments: \
     `|> operator_name argument_list`
 +   Pipe operators can be added to the end of any valid query.
-+   Pipe operators can be applied in any order, any number of times.
 +   Pipe syntax works anywhere standard syntax is supported: in queries, views,
     table-valued functions (TVFs), and other contexts.
 +   Pipe syntax can be mixed with standard syntax in the same query. For
@@ -627,7 +626,8 @@ aliases to them. You can use the table alias to disambiguate columns after the
   SELECT "000456" AS id, "bananas" AS item, 5 AS sales
 ) AS sales_table
 |> AGGREGATE SUM(sales) AS total_sales GROUP BY id, item
--- The sales_table alias is now out of scope. We must introduce a new one.
+-- AGGREGATE creates an output table, so the sales_table alias is now out of
+-- scope. Add a t1 alias so the join can refer to its id column.
 |> AS t1
 |> JOIN (SELECT 456 AS id, "yellow" AS color) AS t2
    ON CAST(t1.id AS INT64) = t2.id

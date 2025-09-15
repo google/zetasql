@@ -38,8 +38,9 @@ using IgnoredOptionNames =
                         zetasql_base::StringViewCaseEqual>;
 // A callback function that can be provided to override parameter name
 // generation for a given literal. If the function returns a string, that name
-// will be used for the parameter. If it returns std::nullopt, the default
-// parameter name generation logic will be used instead.
+// will be used for the parameter if it does not conflict with existing
+// parameters. If it returns std::nullopt, the default parameter name generation
+// logic will be used instead.
 using ParameterNameOverrideCallback =
     std::function<std::optional<std::string>(const ResolvedLiteral* literal)>;
 
@@ -55,14 +56,19 @@ struct LiteralReplacementOptions {
   ParameterNameOverrideCallback parameter_name_override_callback = nullptr;
 };
 
-// Replaces literals in <sql> by new query parameters and returns the new query
-// in <result_sql>. A valid resolved statement <stmt> is required.
-// The mapping from literals to parameter names is returned in <literal_map>.
-// Generated parameter names are returned in <generated_parameters>. They are
-// guaranteed to be unique and not collide with those already present in <stmt>.
+// Replaces literals in `sql` by new query parameters and returns the new query
+// in `result_sql`. A valid resolved statement `stmt` is required.
+// The mapping from literals to parameter names is returned in `literal_map`.
+// Generated parameter names are returned in `generated_parameters`. They are
+// guaranteed to be unique and not collide with those already present in `stmt`.
+//
+// If `literal_replacement_options.parameter_name_override_callback` is set,
+// it will be invoked for each literal to allow overriding the default parameter
+// name generation. The caller is responsible to ensure non-collision with
+// existing parameters. If conflict happens, an error will be returned.
 //
 // This can return errors that point at a location in the input. How this
-// location is reported is given by <options.error_message_mode()>.
+// location is reported is given by `options.error_message_mode()`.
 absl::Status ReplaceLiteralsByParameters(
     absl::string_view sql,
     const LiteralReplacementOptions& literal_replacement_options,

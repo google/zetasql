@@ -886,7 +886,69 @@ Documentation is pending for this feature.
 
 ## `CREATE PROCEDURE`
 
-Documentation is pending for this feature.
+<pre>
+CREATE
+  [OR REPLACE]
+  [{ TEMP[ORARY] | PUBLIC | PRIVATE }]
+  PROCEDURE
+  [IF NOT EXISTS]
+  procedure_name
+  ( [ <span class="var">parameter_definition</span> [, ...] ] )
+  [OPTIONS (key=value, ...)]
+  BEGIN
+    <span class="var">sql_statement_list</span>
+  END;
+
+<span class="var">parameter_definition:</span>
+  [ <span class="var">mode</span> ] parameter_name type
+
+<span class="var">mode:</span>
+  { IN | OUT | INOUT }
+</pre>
+
+**Description**
+
+The `CREATE PROCEDURE` statement creates a procedure. A procedure is a reusable
+block of SQL statements that can be invoked by name from other queries, and
+supports arguments.
+
+**Optional Clauses**
+
++   `OR REPLACE`: Replaces any procedure with the same name if it exists. Can't
+    appear with `IF NOT EXISTS`.
++   `TEMP | TEMPORARY`: Creates a temporary procedure. The lifetime of the
+    procedure is system specific.
++   `PUBLIC`: If the procedure is declared in a module, `PUBLIC` specifies that
+    it's available outside of the module.
++   `PRIVATE`: If the procedure is declared in a module, `PRIVATE` specifies
+    that it's only available inside of the module (default).
++   `IF NOT EXISTS`: If any procedure exists with the same name, the `CREATE`
+    statement has no effect. Can't appear with `OR REPLACE`.
++   `parameter_definition`: Defines a parameter for the procedure.
+    +   `mode`: The mode of the parameter. Can be `IN`, `OUT`, or `INOUT`.
+        +   `IN`: The parameter is an input parameter.
+        +   `OUT`: The parameter is an output parameter.
+        +   `INOUT`: The parameter is both an input and an output parameter.
+    +   `parameter_name`: The name of the parameter.
+    +   `type`: The ZetaSQL data type of the parameter.
+    +   `DEFAULT default_value`: The default value for the parameter.
++   `OPTIONS`: If you have schema options, you can add them when you create the
+    procedure. These options are system specific and follow the ZetaSQL[`HINT`
+    syntax][hints].
++   `BEGIN ... END`: The block of SQL statements that make up the procedure.
+
+**Example**
+
+```sql
+CREATE PROCEDURE my_procedure(IN x INT64, OUT y STRING)
+BEGIN
+  IF x > 0 THEN
+    SET y = 'positive';
+  ELSE
+    SET y = 'non-positive';
+  END IF;
+END;
+```
 
 ## `CREATE ROW POLICY`
 

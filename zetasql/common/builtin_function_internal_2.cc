@@ -2160,12 +2160,23 @@ void GetAnalyticFunctions(TypeFactory* type_factory,
   const FunctionOptions::WindowOrderSupport ORDER_REQUIRED =
       FunctionOptions::ORDER_REQUIRED;
 
-  const FunctionOptions optional_order_disallowed_frame(
-      ORDER_OPTIONAL, false /* window_framing_support */);
-  const FunctionOptions required_order_disallowed_frame(
-      ORDER_REQUIRED, false /* window_framing_support */);
-  const FunctionOptions required_order_allowed_frame(
-      ORDER_REQUIRED, true /* window_framing_support */);
+  const FunctionOptions analytic_function_options =
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_ANALYTIC_FUNCTIONS);
+  const FunctionOptions optional_order_disallowed_frame =
+      FunctionOptions(analytic_function_options)
+          .set_window_ordering_support(ORDER_OPTIONAL)
+          .set_supports_window_framing(false)
+          .set_supports_over_clause(true);
+  const FunctionOptions required_order_disallowed_frame =
+      FunctionOptions(analytic_function_options)
+          .set_window_ordering_support(ORDER_REQUIRED)
+          .set_supports_window_framing(false)
+          .set_supports_over_clause(true);
+  const FunctionOptions required_order_allowed_frame =
+      FunctionOptions(analytic_function_options)
+          .set_window_ordering_support(ORDER_REQUIRED)
+          .set_supports_window_framing(true)
+          .set_supports_over_clause(true);
   const FunctionOptions required_order_allowed_frame_and_null_handling =
       FunctionOptions(required_order_allowed_frame)
           .set_supports_null_handling_modifier(true);

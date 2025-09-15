@@ -10386,23 +10386,19 @@ braced_constructor_extension_expression_start {ASTExpression*}:
 ;
 
 braced_constructor_extension_expression {ASTExpression*}:
-    // This production exists because the existing generalized_path_expression
-    // only supports paths starting with an identifier. We want one that can
-    // also take standalone extension fields, like
-    // braced_constructor_extension, and paths starting with those, also with
-    // array element support.
-    braced_constructor_extension_expression_start
-  | braced_constructor_extension_expression_start "[" expression "]"
+    "(" path_expression[base] ")"
+    ("["[brack] expression[idx] "]")?
+    ("." generalized_path_expression[path])?
     {
-      auto* bracket_loc = MakeNode<ASTLocation>(@2);
-      $$ = MakeNode<ASTArrayElement>(@$, $1, bracket_loc, $3);
-    }
-  | // We reduce the precendence of this rule (w.r.t. '.' operator) so that
-    // generalized_path_expression gets a longer match and this rule is reduced
-    // later.
-    braced_constructor_extension_expression "." generalized_path_expression %prec UNARY_PRECEDENCE
-    {
-      $$ = MakeNode<ASTExtendedPathExpression>(@$, $1, $3);
+      $base->set_parenthesized(true);
+      $$ = $base;
+      if ($brack.has_value()) {
+        auto* bracket_loc = MakeNode<ASTLocation>(*@brack);
+        $$ = MakeNode<ASTArrayElement>(@$, $$, bracket_loc, $idx);
+      }
+      if ($path.has_value()) {
+        $$ = MakeNode<ASTExtendedPathExpression>(@$, $$, $path);
+      }
     }
 ;
 
@@ -13717,63 +13713,34 @@ create_sequence_statement {ASTCreateSequenceStatement*}:
 {{end}}
 
 {{- define "parserPrivateDecls" -}}
-// Generates a parse error with message `msg` at `location`.
-absl::Status MakeSyntaxError(const ParseLocationRange& location, absl::string_view msg) {
-  absl::Status status = absl::InvalidArgumentError(msg);
-  zetasql::internal::AttachPayload(&status, location.start().ToInternalErrorLocation());
-  return status;
-}
 
-// Generates a parse error with message `msg` at `location`.
-absl::Status MakeSyntaxError(const std::optional<ParseLocationRange>& location,
-                             absl::string_view msg) {
-  ZETASQL_RET_CHECK(location.has_value())
-      << "MakeSyntaxError called with nullopt location";
-  return MakeSyntaxError(*location, msg);
-}
+  absl::Status ValidateLabelSupport(ASTNode* node, const Location& location) {
+    if (node == nullptr || language_options.LanguageFeatureEnabled(
+                              FEATURE_SCRIPT_LABEL)) {
+      return absl::OkStatus();
+    }
+    return MakeSyntaxError(location, "Script labels are not supported");
+  }
 
-absl::Status ValidateLabelSupport(ASTNode* node, const Location& location) {
-  if (node == nullptr || language_options.LanguageFeatureEnabled(
-                            FEATURE_SCRIPT_LABEL)) {
+  // Generate a parse error if macro expansions are disabled (`kNone`). This is
+  // used to prevent the parser from silently ignoring macro constructs when the
+  // the system isn't configured to use them.
+  absl::Status ValidateMacroSupport(const Location& location) {
+    if(macro_expansion_mode == MacroExpansionMode::kNone) {
+      return MakeSyntaxError(
+          location,
+          "Syntax error: DEFINE MACRO statements are not supported because "
+          "macro expansions are disabled");
+    }
     return absl::OkStatus();
   }
-  return MakeSyntaxError(location, "Script labels are not supported");
-}
 
-// Generate a parse error if macro expansions are disabled (`kNone`). This is
-// used to prevent the parser from silently ignoring macro constructs when the
-// the system isn't configured to use them.
-absl::Status ValidateMacroSupport(const Location& location) {
-  if(macro_expansion_mode == MacroExpansionMode::kNone) {
-    return MakeSyntaxError(
-        location,
-        "Syntax error: DEFINE MACRO statements are not supported because "
-        "macro expansions are disabled");
+  template <typename T, typename... TChildren>
+  T* MakeNode(const ParseLocationRange& location, TChildren... children) {
+    T* result = node_factory.CreateASTNode<T>(location);
+    ExtendNodeRight(result, location.end(), children...);
+    return result;
   }
-  return absl::OkStatus();
-}
-
-// Generates a parse error if there are spaces between `left_loc` and
-// `right_loc`. For example, this is used when we composite multiple existing
-// tokens to match a complex symbol without reserving it as a new token.
-absl::Status ValidateNoWhitespace(
-    absl::string_view left, const Location& left_loc, absl::string_view right,
-    const Location& right_loc) {
-  if (!left_loc.IsAdjacentlyFollowedBy(right_loc)) {
-    return MakeSyntaxError(
-        left_loc,
-        absl::StrCat("Syntax error: Unexpected whitespace between \"",
-                     left, "\" and \"", right, "\""));
-  }
-  return absl::OkStatus();
-}
-
-template <typename T, typename... TChildren>
-T* MakeNode(const ParseLocationRange& location, TChildren... children) {
-  T* result = node_factory.CreateASTNode<T>(location);
-  ExtendNodeRight(result, location.end(), children...);
-  return result;
-}
 
 template <typename T, typename TElements>
 std::optional<T*> MakeListNode(const ParseLocationRange& location,

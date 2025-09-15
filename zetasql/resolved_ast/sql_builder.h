@@ -104,6 +104,16 @@ struct CopyableState {
            const ResolvedScan* /* with_subquery */>
       with_query_name_to_scan;
 
+  // (b/428949919) This enum will make more sense once more offset types start
+  // to be supported.
+  enum OffsetType {
+    kNone = 0,
+    kOffset = 1,
+  };
+  struct UpdateItemOffset {
+    std::string offset_sql;
+    OffsetType offset_type;
+  };
   // A stack of stacks. An element of an inner stack corresponds to a
   // ResolvedUpdateItem node that is currently being processed, and stores the
   // target SQL for that node and the subscript expression SQL (empty if not
@@ -116,10 +126,13 @@ struct CopyableState {
   // VisitResolvedUpdateItemElement. An inner stack is used to construct a
   // target in VisitResolvedUpdateItem when there are no
   // ResolvedUpdateItemElement children.
-  std::deque<
-      std::deque<std::pair<std::string /* target_sql */,
-                           std::string /* container_element_access_sql */>>>
-      update_item_targets;
+  //
+  // We also keep track of the offset type as a subscript expression is allowed
+  // to have non-integer offsets.
+  std::deque<std::deque<
+      std::pair<std::string /* target_sql */,
+                UpdateItemOffset /* container_element_access_sql */>>>
+      update_item_targets_and_offsets;
 
   // A stack of dml target paths kept to parallel the nesting of dml statements.
   // Populated in VisitResolvedUpdateItem and used in
@@ -366,17 +379,17 @@ class SQLBuilder : public ResolvedASTVisitor {
   }
 
   // Returns a stack of stack of update item target path and alias.
-  std::deque<
-      std::deque<std::pair</* target_sql */ std::string,
-                           /* container_element_access_sql */ std::string>>>&
-  mutable_update_item_targets() {
-    return state_.update_item_targets;
+  std::deque<std::deque<std::pair<
+      /* target_sql */ std::string,
+      /* container_element_access_sql */ CopyableState::UpdateItemOffset>>>&
+  mutable_update_item_targets_and_offsets() {
+    return state_.update_item_targets_and_offsets;
   }
-  const std::deque<
-      std::deque<std::pair</* target_sql */ std::string,
-                           /* container_element_access_sql */ std::string>>>&
-  update_item_targets() const {
-    return state_.update_item_targets;
+  const std::deque<std::deque<std::pair<
+      /* target_sql */ std::string,
+      /* container_element_access_sql */ CopyableState::UpdateItemOffset>>>&
+  update_item_targets_and_offsets() const {
+    return state_.update_item_targets_and_offsets;
   }
 
   // Set the max seen alias id.
@@ -1095,7 +1108,7 @@ class SQLBuilder : public ResolvedASTVisitor {
   // hints, the <object_type> (e.g. "TABLE") and name, and CREATE modifiers,
   // and a trailing space.
   absl::Status GetCreateStatementPrefix(const ResolvedCreateStatement* node,
-                                        const std::string& object_type,
+                                        absl::string_view object_type,
                                         std::string* sql);
 
   // If the view was created with explicit column names, prints the column
@@ -1132,7 +1145,7 @@ class SQLBuilder : public ResolvedASTVisitor {
   // Helper functions to save the <path> used to access the column later.
   void SetPathForColumn(const ResolvedColumn& column, const std::string& path);
   void SetPathForColumnList(const ResolvedColumnList& column_list,
-                            const std::string& scan_alias);
+                            absl::string_view scan_alias);
   absl::Status SetPathForColumnsInScan(const ResolvedScan* scan,
                                        const std::string& alias);
 

@@ -81,6 +81,7 @@ using ::testing::IsNull;
 using ::testing::Pointee;
 using ::testing::PrintToString;
 using ::testing::SizeIs;
+using ::testing::StrEq;
 using ::zetasql_base::testing::IsOkAndHolds;
 using ::zetasql_base::testing::StatusIs;
 
@@ -292,8 +293,10 @@ TEST_F(EvalRelationalOpTest, TestRelationalOp) {
   }
 }
 
-// A test builtin TVF which accepts a STRING arg representing a table name, and
-// produces the rows of that table.
+// A test builtin TVF that
+// 1. accepts a STRING arg representing a table name and produces the rows of
+// that table (STRING -> ANY TABLE).
+// 2. accepts a TABLE and returns it (ANY TABLE -> ANY TABLE).
 class BasicTestTVF : public BuiltinTableValuedFunction {
   class ReferenceResultIterator : public EvaluatorTableIterator {
    public:
@@ -331,20 +334,25 @@ class BasicTestTVF : public BuiltinTableValuedFunction {
   explicit BasicTestTVF(FunctionKind kind) : BuiltinTableValuedFunction(kind) {}
 
   absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> CreateEvaluator(
-      absl::Span<const TableValuedFunction::TvfEvaluatorArg> args,
+      std::vector<TableValuedFunction::TvfEvaluatorArg> args,
       std::shared_ptr<FunctionSignature> function_call_signature,
       EvaluationContext* context) override {
-    ZETASQL_RET_CHECK(!args.empty());
-    ZETASQL_RET_CHECK(args[0].value.has_value());
-    ZETASQL_RET_CHECK(args[0].value->type()->IsString());
-    return std::make_unique<ReferenceResultIterator>(
-        context->GetTableAsArray(args[0].value->string_value()));
+    ZETASQL_RET_CHECK_EQ(args.size(), 1);
+    if (args[0].value.has_value()) {
+      ZETASQL_RET_CHECK(args[0].value.has_value());
+      ZETASQL_RET_CHECK(args[0].value->type()->IsString());
+      return std::make_unique<ReferenceResultIterator>(
+          context->GetTableAsArray(args[0].value->string_value()));
+    } else if (args[0].relation != nullptr) {
+      return std::move(args[0].relation);
+    }
+    return absl::InvalidArgumentError("Unsupported argument.");
   }
 
   std::string debug_name() const override { return "BasicTestTVF"; }
 };
 
-TEST(BuiltinTableValuedFunction, RelationalOpEvalTest) {
+TEST(BuiltinTableValuedFunction, RelationalOpEvalTestWithValue) {
   BuiltinFunctionRegistry::RegisterTableValuedFunction(
       {FunctionKind::kInvalid},
       [](FunctionKind kind) { return new BasicTestTVF(kind); });
@@ -376,6 +384,89 @@ TEST(BuiltinTableValuedFunction, RelationalOpEvalTest) {
 
   ASSERT_EQ(iter->Schema().num_variables(), 1);
   EXPECT_EQ(iter->Schema().variable(0), VariableId("col"));
+
+  std::vector<Value> values;
+  while (true) {
+    TupleData* data = iter->Next();
+    if (data == nullptr) {
+      break;
+    }
+    EXPECT_EQ(data->num_slots(), 1);
+    values.push_back(data->slot(0).value());
+  }
+  std::vector<Value> expected_values = {Value::StringValue("hello"),
+                                        Value::StringValue("world")};
+  EXPECT_EQ(values, expected_values);
+}
+
+TEST(BuiltinTableValuedFunction, RelationalOpEvalTestWithRelation) {
+  BuiltinFunctionRegistry::RegisterTableValuedFunction(
+      {FunctionKind::kInvalid},
+      [](FunctionKind kind) { return new BasicTestTVF(kind); });
+
+  std::vector<TupleData> tuples;
+
+  // Number of slots is intentionally more than output columns to check
+  // projection is working correctly.
+  // First tuple
+  TupleData tuple1(/*num_slots=*/2);
+  TupleSlot* slot11 = tuple1.mutable_slot(0);
+  slot11->SetValue(Value::StringValue("hello"));
+  TupleSlot* slot12 = tuple1.mutable_slot(1);
+  slot12->SetValue(Value::StringValue("world"));
+  tuples.push_back(tuple1);
+  // Second tuple
+  TupleData tuple2(/*num_slots=*/2);
+  TupleSlot* slot21 = tuple2.mutable_slot(0);
+  slot21->SetValue(Value::StringValue("world"));
+  TupleSlot* slot22 = tuple1.mutable_slot(1);
+  slot22->SetValue(Value::StringValue("hello"));
+  tuples.push_back(tuple2);
+
+  std::vector<VariableId> variables;
+  VariableId var1 = VariableId("col1");
+  variables.push_back(var1);
+  VariableId var2 = VariableId("col2");
+  variables.push_back(var2);
+
+  std::vector<TvfInputRelation::TvfInputRelationColumn> columns;
+  columns.push_back({
+      .name = "col1",
+      .type = types::StringType(),
+      .variable = var1,
+  });
+  columns.push_back({
+      .name = "col2",
+      .type = types::StringType(),
+      .variable = var2,
+  });
+
+  std::vector<TvfAlgebraArgument> arguments;
+  arguments.push_back({.relation = TvfInputRelation{
+                           .relational_op = std::make_unique<TestRelationalOp>(
+                               variables, tuples, /*preserves_order=*/true),
+                           .columns = columns}});
+
+  std::vector<TVFSchemaColumn> output_columns;
+  output_columns.push_back(TVFSchemaColumn("col1", types::StringType()));
+
+  std::vector<VariableId> output_variables;
+  output_variables.push_back(var1);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<TableValuedFunctionCallExpr> call_expr,
+      BuiltinTableValuedFunction::CreateCall(
+          FunctionKind::kInvalid, std::move(arguments),
+          std::move(output_columns), std::move(output_variables), nullptr));
+
+  ZETASQL_ASSERT_OK(call_expr->SetSchemasForEvaluation({}));
+
+  EvaluationContext context((EvaluationOptions()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<TupleIterator> iter,
+                       call_expr->CreateIterator({}, 0, &context));
+
+  ASSERT_EQ(iter->Schema().num_variables(), 1);
+  EXPECT_EQ(iter->Schema().variable(0), var1);
 
   std::vector<Value> values;
   while (true) {
@@ -3343,6 +3434,127 @@ TEST_F(CreateIteratorTest, SortOpTotalOrderWithLimitAndOffset) {
                                       /*num_extra_slots=*/1, &memory_context),
               StatusIs(absl::StatusCode::kResourceExhausted,
                        HasSubstr("Out of memory")));
+}
+
+TEST_F(CreateIteratorTest, SortOpTotalOrderWithNullLimit) {
+  VariableId a("a"), b("b"), c("c"), param("param"), k("k"), v1("v1"), v2("v2"),
+      v3("v3"), limit("limit"), offset("offset");
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_a, DerefExpr::Create(a, Int64Type()));
+
+  std::vector<std::unique_ptr<KeyArg>> keys;
+  keys.push_back(
+      std::make_unique<KeyArg>(k, std::move(deref_a), KeyArg::kDescending));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_b, DerefExpr::Create(b, Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_c, DerefExpr::Create(c, proto_type_));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_param, DerefExpr::Create(param, Int64Type()));
+
+  std::vector<std::unique_ptr<ExprArg>> values;
+  values.push_back(std::make_unique<ExprArg>(v1, std::move(deref_b)));
+  values.push_back(std::make_unique<ExprArg>(v2, std::move(deref_c)));
+  values.push_back(std::make_unique<ExprArg>(v3, std::move(deref_param)));
+
+  std::vector<std::vector<const SharedProtoState*>> shared_states;
+  auto input = absl::WrapUnique(new TestRelationalOp(
+      {a, b, c},
+      CreateTestTupleDatas({{NullInt64(), Int64(10), GetProtoValue(1)},
+                            {Int64(2), Int64(20), GetProtoValue(2)},
+                            {Int64(3), Int64(30), GetProtoValue(3)},
+                            {Int64(4), Int64(40), GetProtoValue(4)}},
+                           &shared_states),
+      /*preserves_order=*/true));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto limit_expr, DerefExpr::Create(limit, Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto offset_expr,
+                       DerefExpr::Create(offset, Int64Type()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto sort_op,
+      SortOp::Create(std::move(keys), std::move(values), std::move(limit_expr),
+                     std::move(offset_expr), std::move(input),
+                     /*is_order_preserving=*/true,
+                     /*is_stable_sort=*/false));
+  EXPECT_EQ(sort_op->IteratorDebugString(),
+            "SortTupleIterator(TestTupleIterator)");
+  EXPECT_THAT(sort_op->DebugString(), StrEq("SortOp(ordered\n"
+                                            "+-keys: {\n"
+                                            "| +-$k := $a DESC},\n"
+                                            "+-values: {\n"
+                                            "| +-$v1 := $b,\n"
+                                            "| +-$v2 := $c,\n"
+                                            "| +-$v3 := $param},\n"
+                                            "+-limit: $limit,\n"
+                                            "+-offset: $offset,\n"
+                                            "+-input: TestRelationalOp)"));
+
+  EXPECT_THAT(sort_op->CreateOutputSchema()->variables(),
+              ElementsAre(k, v1, v2, v3));
+
+  EvaluationContext context((EvaluationOptions()));
+  LanguageOptions language_options;
+  language_options.EnableMaximumLanguageFeaturesForDevelopment();
+  context.SetLanguageOptions(language_options);
+
+  TupleSchema params_schema({limit, offset, param});
+  ZETASQL_ASSERT_OK(sort_op->SetSchemasForEvaluation({&params_schema}));
+  TupleData params_data(/*num_slots=*/3);
+  auto set_params = [&params_data](const Value& value1, const Value& value2) {
+    params_data.mutable_slot(0)->SetValue(value1);
+    params_data.mutable_slot(1)->SetValue(value2);
+    params_data.mutable_slot(2)->SetValue(Int64(100));
+  };
+
+  // Bad argument: LIMIT -1 OFFSET 0
+  set_params(Int64(-1), Int64(0));
+  EXPECT_THAT(
+      sort_op->CreateIterator({&params_data}, /*num_extra_slots=*/0, &context),
+      StatusIs(absl::StatusCode::kOutOfRange,
+               "Limit requires non-negative count and offset"));
+
+  // Bad argument: LIMIT 1 OFFSET -1
+  set_params(Int64(1), Int64(-1));
+  EXPECT_THAT(
+      sort_op->CreateIterator({&params_data}, /*num_extra_slots=*/0, &context),
+      StatusIs(absl::StatusCode::kOutOfRange,
+               "Limit requires non-negative count and offset"));
+
+  // Bad argument: LIMIT 1 OFFSET NULL
+  set_params(Int64(1), NullInt64());
+  EXPECT_THAT(
+      sort_op->CreateIterator({&params_data}, /*num_extra_slots=*/0, &context),
+      StatusIs(absl::StatusCode::kOutOfRange,
+               "Limit requires non-null count and offset"));
+
+  // Good argument: LIMIT NULL OFFSET 1
+  set_params(NullInt64(), Int64(1));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<TupleIterator> iter,
+      sort_op->CreateIterator({&params_data}, /*num_extra_slots=*/1, &context));
+
+  EXPECT_EQ(iter->DebugString(), "SortTupleIterator(TestTupleIterator)");
+  EXPECT_TRUE(iter->PreservesOrder());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<TupleData> data,
+                       ReadFromTupleIterator(iter.get()));
+  EXPECT_THAT(data, SizeIs(3));
+  EXPECT_THAT(data[0].slots(),
+              ElementsAre(IsTupleSlotWith(Int64(3), IsNull()),
+                          IsTupleSlotWith(Int64(30), IsNull()),
+                          IsTupleSlotWith(GetProtoValue(3),
+                                          HasRawPointer(shared_states[2][2])),
+                          IsTupleSlotWith(Int64(100), IsNull()), _));
+  EXPECT_THAT(data[1].slots(),
+              ElementsAre(IsTupleSlotWith(Int64(2), IsNull()),
+                          IsTupleSlotWith(Int64(20), IsNull()),
+                          IsTupleSlotWith(GetProtoValue(2),
+                                          HasRawPointer(shared_states[1][2])),
+                          IsTupleSlotWith(Int64(100), IsNull()), _));
+  EXPECT_THAT(data[2].slots(),
+              ElementsAre(IsTupleSlotWith(NullInt64(), IsNull()),
+                          IsTupleSlotWith(Int64(10), IsNull()),
+                          IsTupleSlotWith(GetProtoValue(1),
+                                          HasRawPointer(shared_states[0][2])),
+                          IsTupleSlotWith(Int64(100), IsNull()), _));
 }
 
 TEST_F(CreateIteratorTest, ArrayScanOp) {

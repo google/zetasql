@@ -740,67 +740,64 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
     if (call->error_mode() == ResolvedFunctionCall::SAFE_ERROR_MODE) {
       // TODO: Support SAFE mode calls using IFERROR.
       return MakeSqlErrorAtStart(error_location)
-             << "SAFE mode calls to aggregate function " << function->SQLName()
-             << " are not supported";
+             << "SQL function inliner cannot inline aggregate function "
+             << function->SQLName() << " with SAFE mode modifier";
     }
     if (call->distinct()) {
       // TODO: Decide semantics for this clause before inlining it.
       return MakeSqlErrorAtStart(error_location)
-             << "DISTINCT is not supported on calls to aggregate function "
-             << function->SQLName();
+             << "SQL function inliner cannot inline aggregate function "
+             << function->SQLName() << " with DISTINCT modifier";
     }
     if (call->limit() != nullptr) {
       // TODO: Decide semantics for this clause before inlining it.
       return MakeSqlErrorAtStart(error_location)
-             << "LIMIT is not supported on calls to aggregate function "
-             << function->SQLName();
+             << "SQL function inliner cannot inline aggregate function "
+             << function->SQLName() << " with LIMIT modifier";
     }
     if (call->order_by_item_list_size() > 0) {
       // TODO: Decide semantics for this clause before inlining it.
       return MakeSqlErrorAtStart(error_location)
-             << "ORDER BY is not supported on calls to aggregate function "
-             << function->SQLName();
+             << "SQL function inliner cannot inline aggregate function "
+             << function->SQLName() << " with ORDER BY modifier";
     }
     if (call->having_modifier() != nullptr) {
       // TODO: Decide semantics for this clause before inlining it.
       return MakeSqlErrorAtStart(error_location)
-             << "HAVING is not supported on calls to aggregate function "
-             << function->SQLName();
+             << "SQL function inliner cannot inline aggregate function "
+             << function->SQLName() << " with HAVING modifier";
     }
     if (call->null_handling_modifier() ==
         ResolvedNonScalarFunctionCallBase::RESPECT_NULLS) {
       // TODO: Decide semantics for this clause before inlining it.
       return MakeSqlErrorAtStart(error_location)
-             << "RESPECT NULLS is not supported on calls to aggregate function "
-             << function->SQLName();
+             << "SQL function inliner cannot inline aggregate function "
+             << function->SQLName() << " with RESPECT NULLS modifier";
     }
     if (call->null_handling_modifier() ==
         ResolvedNonScalarFunctionCallBase::IGNORE_NULLS) {
       // TODO: Decide semantics for this clause before inlining it.
       return MakeSqlErrorAtStart(error_location)
-             << "IGNORE NULLS is not supported on calls to aggregate function "
-             << function->SQLName();
+             << "SQL function inliner cannot inline aggregate function "
+             << function->SQLName() << " with IGNORE NULLS modifier";
     }
     if (!call->group_by_list().empty()) {
       // TODO: Decide semantics for this clause before inlining it.
       return MakeSqlErrorAtStart(error_location)
-             << "GROUP BY modifier is not supported on calls to aggregate "
-                "function "
-             << function->SQLName();
+             << "SQL function inliner cannot inline aggregate function "
+             << function->SQLName() << " with GROUP BY modifier";
     }
     if (call->where_expr() != nullptr) {
       // TODO: Decide semantics for this clause before inlining it.
       return MakeSqlErrorAtStart(error_location)
-             << "WHERE filter modifier is not supported on calls to aggregate "
-                "function "
-             << function->SQLName();
+             << "SQL function inliner cannot inline aggregate function "
+             << function->SQLName() << " with WHERE filter modifier";
     }
     if (call->having_expr() != nullptr) {
       // TODO: Decide semantics for this clause before inlining it.
       return MakeSqlErrorAtStart(error_location)
-             << "HAVING filter modifier is not supported on calls to aggregate "
-                "function "
-             << function->SQLName();
+             << "SQL function inliner cannot inline aggregate function "
+             << function->SQLName() << " with HAVING filter modifier";
     }
     if (function->Is<SQLFunctionInterface>()) {
       auto* fn = function->GetAs<SQLFunctionInterface>();

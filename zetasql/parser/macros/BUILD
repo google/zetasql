@@ -162,7 +162,6 @@ cc_library(
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/base:strings",
-        "//zetasql/common:errors",
         "//zetasql/common:thread_stack",
         "//zetasql/parser:token",
         "//zetasql/parser:token_with_location",

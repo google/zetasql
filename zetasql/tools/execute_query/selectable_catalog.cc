@@ -53,7 +53,8 @@ static std::vector<SelectableCatalog*>* InitSelectableCatalogsVector() {
       }));
 
   catalogs->push_back(new SelectableCatalog(
-      "sample", "Analyzer-test schema",
+      "sample",
+      "Analyzer test schema",
       [](const LanguageOptions& language_options,
          CatalogAcceptor* acceptor) -> absl::Status {
         static auto* sample_catalog_map =
@@ -74,7 +75,8 @@ static std::vector<SelectableCatalog*>* InitSelectableCatalogsVector() {
       }));
 
   catalogs->push_back(new SelectableCatalog(
-      "tpch", "TPCH tables (1MB)",
+      "tpch",
+      "TPCH tables",
       [](const LanguageOptions&, CatalogAcceptor* acceptor) -> absl::Status {
         static auto* catalog =
             new absl::StatusOr<std::unique_ptr<Catalog>>(MakeTpchCatalog());

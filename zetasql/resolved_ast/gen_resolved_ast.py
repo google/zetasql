@@ -70,18 +70,27 @@ FLAGS = flags.FLAGS
 #
 # This flag allows the markdown generator to disable these single-line
 # statements (it must use {% for x in list %} style jinja directives).
-flags.DEFINE_boolean('allow_hash_prefix', True,
-                     'Allows jinja statements starting with "# "')
+flags.DEFINE_boolean(
+    'allow_hash_prefix', True, 'Allows jinja statements starting with "# "'
+)
 
-flags.DEFINE_spaceseplist('input_templates', None,
-                          'Space-separated list of templates')
+flags.DEFINE_spaceseplist(
+    'input_templates', None, 'Space-separated list of templates'
+)
 
-flags.DEFINE_spaceseplist('output_files', None, 'Space-separated list of output'
-                          ' files corresponding to the input templates in the'
-                          ' same order.')
+flags.DEFINE_spaceseplist(
+    'output_files',
+    None,
+    'Space-separated list of output'
+    ' files corresponding to the input templates in the'
+    ' same order.',
+)
 
-flags.DEFINE_spaceseplist('data_files', [], 'Space-separated list of data files'
-                          ' that templates can reference and load')
+flags.DEFINE_spaceseplist(
+    'data_files',
+    [],
+    'Space-separated list of data files that templates can reference and load',
+)
 
 _SHARD_NUMS = flags.DEFINE_multi_integer(
     'shard_nums',
@@ -119,37 +128,52 @@ ROOT_NODE_NAME = 'ResolvedNode'
 
 
 SCALAR_TYPE = ScalarType(
-    'const Type*', 'TypeProto', 'Type', java_default='null')
+    'const Type*', 'TypeProto', 'Type', java_default='null'
+)
 SCALAR_TYPE_PARAMETERS = ScalarType(
     'TypeParameters',
     'TypeParametersProto',
     java_default='null',
-    passed_by_reference=True)
+    passed_by_reference=True,
+)
 SCALAR_TYPE_MODIFIERS = ScalarType(
     'TypeModifiers',
     'TypeModifiersProto',
     java_default='null',
-    passed_by_reference=True)
+    passed_by_reference=True,
+)
 SCALAR_ANNOTATION_MAP = ScalarType(
     'const AnnotationMap*',
     'AnnotationMapProto',
     cpp_default='nullptr',
     java_type='AnnotationMap',
-    java_default='null')
+    java_default='null',
+)
 SCALAR_RESOLVED_COLLATION = ScalarType(
     'ResolvedCollation',
     'ResolvedCollationProto',
     java_default='null',
-    passed_by_reference=True)
+    passed_by_reference=True,
+)
 SCALAR_VALUE = ScalarType(
-    'Value', 'ValueWithTypeProto', passed_by_reference=True)
+    'Value', 'ValueWithTypeProto', passed_by_reference=True
+)
 SCALAR_TABLE = ScalarType('const Table*', 'TableRefProto', 'Table')
 SCALAR_MODEL = ScalarType('const Model*', 'ModelRefProto', 'Model')
-SCALAR_CONNECTION = ScalarType('const Connection*', 'ConnectionRefProto',
-                               'Connection')
+SCALAR_CONNECTION = ScalarType(
+    'const Connection*', 'ConnectionRefProto', 'Connection'
+)
 SCALAR_SEQUENCE = ScalarType('const Sequence*', 'SequenceRefProto', 'Sequence')
+# For fields of type ResolvedColumn (and ResolvedColumnHolder), by default, the
+# column is referenced.  If the column is created, that needs to be marked
+# using `column_is_created=true` on the Field.
+# For ResolvedScan `column_list` fields, use `column_list_is_created_columns` on
+# AddNode.
+# GetColumnsCreated and GetColumnsReferenced methods are generated on each
+# node using these attributes.
 SCALAR_RESOLVED_COLUMN = ScalarType(
-    'ResolvedColumn', 'ResolvedColumnProto', passed_by_reference=True)
+    'ResolvedColumn', 'ResolvedColumnProto', passed_by_reference=True
+)
 SCALAR_CONSTANT = ScalarType('const Constant*', 'ConstantRefProto', 'Constant')
 SCALAR_FUNCTION = ScalarType('const Function*', 'FunctionRefProto', 'Function')
 SCALAR_FUNCTION_SIGNATURE = ScalarType(
@@ -158,34 +182,44 @@ SCALAR_FUNCTION_SIGNATURE = ScalarType(
     passed_by_reference=True,
     # FunctionSignature does not have a default constructor, but builders need a
     # way to indicate when it is not yet set, without breaking the API.
-    is_default_constructible=False)
+    is_default_constructible=False,
+)
 SCALAR_FUNCTION_SIGNATURE_PTR = ScalarType(
-    'std::shared_ptr<FunctionSignature>', 'FunctionSignatureProto',
+    'std::shared_ptr<FunctionSignature>',
+    'FunctionSignatureProto',
     passed_by_reference=True,
     java_type='FunctionSignature',
     java_default='null',
     cpp_default='nullptr',
-    not_serialize_if_default=True)
+    not_serialize_if_default=True,
+)
 SCALAR_FUNCTION_CALL_INFO = ScalarType(
     'std::shared_ptr<ResolvedFunctionCallInfo>',
     'ResolvedFunctionCallInfoProto',
     passed_by_reference=True,
     java_type='ResolvedFunctionCallInfo',
     java_default='new ResolvedFunctionCallInfo()',
-    cpp_default='std::make_shared<ResolvedFunctionCallInfo>()')
-SCALAR_FIELD_DESCRIPTOR = ScalarType('const google::protobuf::FieldDescriptor*',
-                                     'FieldDescriptorRefProto',
-                                     'ZetaSQLFieldDescriptor')
-SCALAR_ONEOF_DESCRIPTOR = ScalarType('const google::protobuf::OneofDescriptor*',
-                                     'OneofDescriptorRefProto',
-                                     'ZetaSQLOneofDescriptor')
-SCALAR_ENUM_DESCRIPTOR = ScalarType('const google::protobuf::EnumDescriptor*',
-                                    'EnumTypeProto', 'ZetaSQLEnumDescriptor')
+    cpp_default='std::make_shared<ResolvedFunctionCallInfo>()',
+)
+SCALAR_FIELD_DESCRIPTOR = ScalarType(
+    'const google::protobuf::FieldDescriptor*',
+    'FieldDescriptorRefProto',
+    'ZetaSQLFieldDescriptor',
+)
+SCALAR_ONEOF_DESCRIPTOR = ScalarType(
+    'const google::protobuf::OneofDescriptor*',
+    'OneofDescriptorRefProto',
+    'ZetaSQLOneofDescriptor',
+)
+SCALAR_ENUM_DESCRIPTOR = ScalarType(
+    'const google::protobuf::EnumDescriptor*', 'EnumTypeProto', 'ZetaSQLEnumDescriptor'
+)
 SCALAR_FIELD_FORMAT = ScalarType(
     'FieldFormat::Format',
     'FieldFormat.Format',
     'FieldFormat.Format',
-    has_proto_setter=True)
+    has_proto_setter=True,
+)
 
 SCALAR_STRING = ScalarType(
     'std::string',
@@ -193,30 +227,36 @@ SCALAR_STRING = ScalarType(
     java_type='String',
     passed_by_reference=True,
     has_proto_setter=True,
-    java_default='""')
+    java_default='""',
+)
 SCALAR_BOOL = ScalarType(
     'bool',
     java_type='boolean',
     java_reference_type='Boolean',
-    java_default='false')
+    java_default='false',
+)
 SCALAR_INT = ScalarType(
     'int',
     'int64',
     java_type='long',
     java_reference_type='Long',
     has_proto_setter=True,
-    java_default='0')
+    java_default='0',
+)
 TABLE_VALUED_FUNCTION = ScalarType(
     'const TableValuedFunction*',
     'TableValuedFunctionRefProto',
-    java_type='TableValuedFunction')
+    java_type='TableValuedFunction',
+)
 TVF_SIGNATURE = ScalarType(
     'std::shared_ptr<TVFSignature>',
     'TVFSignatureProto',
     passed_by_reference=True,
-    java_type='TVFSignature')
-SCALAR_PROCEDURE = ScalarType('const Procedure*', 'ProcedureRefProto',
-                              'Procedure')
+    java_type='TVFSignature',
+)
+SCALAR_PROCEDURE = ScalarType(
+    'const Procedure*', 'ProcedureRefProto', 'Procedure'
+)
 SCALAR_COLUMN = ScalarType('const Column*', 'ColumnRefProto', 'Column')
 
 
@@ -245,8 +285,9 @@ def EnumScalarType(enum_name, node_name, cpp_default=None, java_default=None):
 
 SCALAR_SUBQUERY_TYPE = EnumScalarType('SubqueryType', 'ResolvedSubqueryExpr')
 SCALAR_JOIN_TYPE = EnumScalarType('JoinType', 'ResolvedJoinScan')
-SCALAR_SET_OPERATION_TYPE = EnumScalarType('SetOperationType',
-                                           'ResolvedSetOperationScan')
+SCALAR_SET_OPERATION_TYPE = EnumScalarType(
+    'SetOperationType', 'ResolvedSetOperationScan'
+)
 SCALAR_SET_OPERATION_COLUMN_MATCH_MODE = EnumScalarType(
     'SetOperationColumnMatchMode',
     'ResolvedSetOperationScan',
@@ -260,13 +301,15 @@ SCALAR_SET_OPERATION_COLUMN_PROPAGATION_MODE = EnumScalarType(
     java_default='SetOperationColumnPropagationMode.STRICT',
 )
 SCALAR_RECURSIVE_SET_OPERATION_TYPE = EnumScalarType(
-    'RecursiveSetOperationType', 'ResolvedRecursiveScan')
+    'RecursiveSetOperationType', 'ResolvedRecursiveScan'
+)
 SCALAR_SAMPLE_UNIT = EnumScalarType('SampleUnit', 'ResolvedSampleScan')
 SCALAR_NULL_ORDER_MODE = EnumScalarType('NullOrderMode', 'ResolvedOrderByItem')
 SCALAR_CREATE_MODE = EnumScalarType('CreateMode', 'ResolvedCreateStatement')
 SCALAR_CREATE_SCOPE = EnumScalarType('CreateScope', 'ResolvedCreateStatement')
-SCALAR_READ_WRITE_TRANSACTION_MODE = EnumScalarType('ReadWriteMode',
-                                                    'ResolvedBeginStmt')
+SCALAR_READ_WRITE_TRANSACTION_MODE = EnumScalarType(
+    'ReadWriteMode', 'ResolvedBeginStmt'
+)
 SCALAR_FRAME_UNIT = EnumScalarType('FrameUnit', 'ResolvedWindowFrame')
 SCALAR_BOUNDARY_TYPE = EnumScalarType('BoundaryType', 'ResolvedWindowFrameExpr')
 SCALAR_INSERT_MODE = EnumScalarType('InsertMode', 'ResolvedInsertStmt')
@@ -276,27 +319,33 @@ SCALAR_CONFLICT_ACTION_TYPE = EnumScalarType(
     'ConflictAction', 'ResolvedOnConflictClause'
 )
 SCALAR_ARGUMENT_KIND = EnumScalarType('ArgumentKind', 'ResolvedArgumentDef')
-SCALAR_HAVING_MODIFIER_KIND = EnumScalarType('HavingModifierKind',
-                                             'ResolvedAggregateHavingModifier')
+SCALAR_HAVING_MODIFIER_KIND = EnumScalarType(
+    'HavingModifierKind', 'ResolvedAggregateHavingModifier'
+)
 SCALAR_NULL_HANDLING_MODIFIER_KIND = EnumScalarType(
-    'NullHandlingModifier', 'ResolvedNonScalarFunctionCallBase')
+    'NullHandlingModifier', 'ResolvedNonScalarFunctionCallBase'
+)
 SCALAR_IMPORT_KIND = EnumScalarType('ImportKind', 'ResolvedImportStmt')
 SCALAR_ERROR_MODE = EnumScalarType('ErrorMode', 'ResolvedFunctionCallBase')
 SCALAR_OBJECT_ACCESS = EnumScalarType('ObjectAccess', 'ResolvedStatement')
 SCALAR_FOREIGN_KEY_MATCH_MODE = EnumScalarType(
-    'MatchMode', 'ResolvedForeignKey')
+    'MatchMode', 'ResolvedForeignKey'
+)
 SCALAR_FOREIGN_KEY_ACTION_OPERATION = EnumScalarType(
-    'ActionOperation', 'ResolvedForeignKey')
+    'ActionOperation', 'ResolvedForeignKey'
+)
 SCALAR_SQL_SECURITY = EnumScalarType('SqlSecurity', 'ResolvedCreateStatement')
-SCALAR_DETERMINISM_LEVEL = EnumScalarType('DeterminismLevel',
-                                          'ResolvedCreateStatement')
+SCALAR_DETERMINISM_LEVEL = EnumScalarType(
+    'DeterminismLevel', 'ResolvedCreateStatement'
+)
 SCALAR_STORED_MODE = EnumScalarType('StoredMode', 'ResolvedGeneratedColumnInfo')
 SCALAR_GENERATED_MODE = EnumScalarType(
     'GeneratedMode', 'ResolvedGeneratedColumnInfo'
 )
 SCALAR_DROP_MODE = EnumScalarType('DropMode', 'ResolvedDropStmt')
-SCALAR_INSERTION_MODE = EnumScalarType('InsertionMode',
-                                       'ResolvedAuxLoadDataStmt')
+SCALAR_INSERTION_MODE = EnumScalarType(
+    'InsertionMode', 'ResolvedAuxLoadDataStmt'
+)
 SCALAR_MATCH_RECOGNIZE_PATTERN_OPERATION_TYPE = EnumScalarType(
     'MatchRecognizePatternOperationType',
     'ResolvedMatchRecognizePatternOperation',
@@ -335,13 +384,15 @@ SCALAR_GRAPH_ELEMENT_LABEL = ScalarType(
     cpp_default='nullptr',
     not_serialize_if_default=True,
 )
-SCALAR_GRAPH_LOGICAL_OP_TYPE = EnumScalarType('GraphLogicalOpType',
-                                              'ResolvedGraphLabelNaryExpr')
-SCALAR_EDGE_ORIENTATION = EnumScalarType('EdgeOrientation',
-                                         'ResolvedGraphEdgeScan')
-SCALAR_GRAPH_ELEMENT_TABLE = ScalarType('const GraphElementTable*',
-                                        'GraphElementTableRefProto',
-                                        'GraphElementTable')
+SCALAR_GRAPH_LOGICAL_OP_TYPE = EnumScalarType(
+    'GraphLogicalOpType', 'ResolvedGraphLabelNaryExpr'
+)
+SCALAR_EDGE_ORIENTATION = EnumScalarType(
+    'EdgeOrientation', 'ResolvedGraphEdgeScan'
+)
+SCALAR_GRAPH_ELEMENT_TABLE = ScalarType(
+    'const GraphElementTable*', 'GraphElementTableRefProto', 'GraphElementTable'
+)
 SCALAR_PATH_MODE = EnumScalarType('PathMode', 'ResolvedGraphPathMode')
 SCALAR_PATH_SEARCH_PREFIX = EnumScalarType(
     'PathSearchPrefixType', 'ResolvedGraphPathSearchPrefix'
@@ -369,51 +420,53 @@ SCALAR_UPDATE_FIELD_ITEM_OP = EnumScalarType(
 )
 
 
-def Field(name,
-          ctype,
-          tag_id,
-          vector=False,
-          ignorable=NOT_IGNORABLE,
-          is_constructor_arg=True,
-          is_optional_constructor_arg=False,
-          to_string_method=None,
-          java_to_string_method=None,
-          comment=None,
-          propagate_order=False,
-          override_virtual_getter=False):
+def Field(
+    name,
+    ctype,
+    tag_id,
+    vector=False,
+    ignorable=NOT_IGNORABLE,
+    is_constructor_arg=True,
+    is_optional_constructor_arg=False,
+    to_string_method=None,
+    java_to_string_method=None,
+    column_is_created=False,
+    comment=None,
+    propagate_order=False,
+    override_virtual_getter=False,
+):
   """Make a field to put in a node class.
 
   Args:
     name: field name
-    ctype: c++ type for this field
-           Should be a ScalarType like an int, string or enum type,
-           or the name of a node class type (e.g. ResolvedProjectScan).
-           Cannot be a pointer type, and should not include modifiers like
-           const.
+    ctype: c++ type for this field Should be a ScalarType like an int, string or
+      enum type, or the name of a node class type (e.g. ResolvedProjectScan).
+      Cannot be a pointer type, and should not include modifiers like const.
     tag_id: unique tag number for the proto field. This should never change or
-            be reused. Start from 2 inside each node.
+      be reused. Start from 2 inside each node.
     vector: True if this field is a vector of ctype. (Not supported for
-            scalars.)
+      scalars.)
     ignorable: one of the IGNORABLE enums above.
     is_constructor_arg: True if this field should be in the constructor's
-                        argument list.
+      argument list.
     is_optional_constructor_arg: True if node class should have two
-                                 constructors, and this field should be present
-                                 in one of them and absent in another. Requires:
-                                 is_constructor_arg=True.
+      constructors, and this field should be present in one of them and absent
+      in another. Requires: is_constructor_arg=True.
     to_string_method: Override the default ToStringImpl method used to print
-                      this object.
+      this object.
     java_to_string_method: Override the default to_string_method method used for
-                           java.
+      java.
+    column_is_created: (Only on fields with type ResolvedColumn or
+      ResolvedColumnHolder) This column is created, not referenced.
     comment: Comment text for this field.  Text will be stripped and
-             de-indented.
+      de-indented.
     propagate_order: If true, this field and the parent node must both be
-                     ResolvedScan subclasses, and the is_ordered property of
-                     the field will be propagated to the containing scan.
-    override_virtual_getter: If true, the getter is marked with `override`.
-                             Used for cases where the parent class declares a
-                             virtual method interface for this getter, so this
-                             getter needs an 'override'.
+      ResolvedScan subclasses, and the is_ordered property of the field will be
+      propagated to the containing scan.
+    override_virtual_getter: If true, the getter is marked with `override`. Used
+      for cases where the parent class declares a virtual method interface for
+      this getter, so this getter needs an 'override'.
+
   Returns:
     The newly created field.
 
@@ -424,12 +477,15 @@ def Field(name,
   assert ignorable in (IGNORABLE, NOT_IGNORABLE, IGNORABLE_DEFAULT)
   member_name = name + '_'
 
+  if column_is_created:
+    assert ctype == 'ResolvedColumnHolder' or ctype.ctype == 'ResolvedColumn'
+
   is_default_constructible = True
 
   if vector:
     assert name.endswith('_list') or name.endswith('_path'), (
-        'Vector fields should normally be named <x>_list or <x>_path: %s' %
-        name)
+        'Vector fields should normally be named <x>_list or <x>_path: %s' % name
+    )
 
   # C++ code requires a large number of variations of the same type declaration.
   # These are:
@@ -517,7 +573,8 @@ def Field(name,
       element_getter_return_type = element_pointer_type
       member_type = 'std::vector<%s>' % element_storage_type
       maybe_ptr_setter_arg_type = (
-          'const std::vector<%s>&' % element_pointer_type)
+          'const std::vector<%s>&' % element_pointer_type
+      )
       getter_return_type = 'const %s&' % member_type
       release_return_type = 'std::vector<%s>' % element_pointer_type
       member_accessor = member_name
@@ -560,21 +617,25 @@ def Field(name,
   if not is_constructor_arg:
     if java_default is None:
       raise RuntimeError(
-          'Field %s must either be a constructor arg, or have a java_default. ctype:\n%s'
+          'Field %s must either be a constructor arg, or have a java_default.'
+          ' ctype:\n%s'
           % (
               name,
               ctype,
-          ))
+          )
+      )
     if is_optional_constructor_arg:
       raise RuntimeError(
-          'Field %s must be a constructor arg if it has is_optional_constructor_arg=True'
-          % (name,))
+          'Field %s must be a constructor arg if it has'
+          ' is_optional_constructor_arg=True' % (name,)
+      )
 
-  is_ignorable_default = (ignorable == IGNORABLE_DEFAULT)
+  is_ignorable_default = ignorable == IGNORABLE_DEFAULT
   is_required_for_ctor = is_constructor_arg and not is_optional_constructor_arg
 
   is_required_builder_arg = not is_default_constructible or (
-      is_required_for_ctor and not vector and not is_ignorable_default)
+      is_required_for_ctor and not vector and not is_ignorable_default
+  )
 
   # `propagate_order` can be enabled only for non-vector, node-typed fields.
   assert not propagate_order or (is_node_type and not vector)
@@ -619,11 +680,13 @@ def Field(name,
       'is_constructor_arg': is_constructor_arg,
       'is_optional_constructor_arg': is_optional_constructor_arg,
       'is_required_builder_arg': is_required_builder_arg,
+      'column_is_created': column_is_created,
       'to_string_method': to_string_method,
       'java_to_string_method': java_to_string_method,
       'propagate_order': propagate_order,
       'not_serialize_if_default': not_serialize_if_default,
   }
+
 
 # You can use `tag_id=GetTempTagId()` until doing the final submit.
 # That will avoid merge conflicts when syncing in other changes.
@@ -644,8 +707,7 @@ def GetTempTagId():
 
 
 class TreeGenerator(object):
-  """Generates code to define tree objects.
-  """
+  """Generates code to define tree objects."""
 
   def __init__(self):
     self.nodes = []
@@ -665,10 +727,12 @@ class TreeGenerator(object):
       parent,
       fields,
       is_abstract=False,
+      column_list_is_created_columns=False,
       extra_defs='',
       extra_defs_node_only='',
       emit_default_constructor=True,
       use_custom_debug_string=False,
+      use_custom_columns_created=False,
       comment=None,
   ):
     """Add a node class to be generated.
@@ -681,6 +745,8 @@ class TreeGenerator(object):
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
+      column_list_is_created_columns: If True (only on ResolvedScans), the
+        column_list has columns being created rather than referenced.
       extra_defs: extra c++ definitions to put in this class and its builder.
       extra_defs_node_only: extra C++ definitions for this class but not to be
         shared with the builder.
@@ -688,6 +754,8 @@ class TreeGenerator(object):
       use_custom_debug_string: If True, use hand-written
         CollectDebugStringFields and GetNameForDebugString c++ methods for
         DebugString.
+      use_custom_columns_created: If True, use hand-written GetColumnsCreated
+        and GetColumnsReferenced methods.
       comment: Comment text for this node.  Text will be stripped and
         de-indented.
     """
@@ -697,11 +765,18 @@ class TreeGenerator(object):
     if parent == ROOT_NODE_NAME:
       # Nodes generally fit into these four top-level categories.
       # Nodes that are part of other nodes are usually ResolvedArguments.
-      assert name in ('ResolvedArgument', 'ResolvedExpr', 'ResolvedScan',
-                      'ResolvedStatement'), name
+      assert name in (
+          'ResolvedArgument',
+          'ResolvedExpr',
+          'ResolvedScan',
+          'ResolvedStatement',
+      ), name
     assert len(fields) <= 32, 'More than 32 fields not supported'
     fields = [field.copy() for field in fields]
     extra_enum_decls, extra_enum_defs = self._ResolveImportEnums(name)
+
+    if column_list_is_created_columns:
+      assert name.endswith('Scan')
 
     make_enum_name_re = re.compile(r'([a-z])([A-Z])')
 
@@ -713,13 +788,15 @@ class TreeGenerator(object):
     # Used for constructors that accept and pass on all inherited fields.
     inherited_fields = []
     if parent != ROOT_NODE_NAME:
-      inherited_fields = (self.node_map[parent]['inherited_fields'] +
-                          self.node_map[parent]['fields'])
+      inherited_fields = (
+          self.node_map[parent]['inherited_fields']
+          + self.node_map[parent]['fields']
+      )
 
     # Add position-related field members.
     is_not_ignorable_bitmap = 0
     is_ignorable_default_bitmap = 0
-    for (pos, field) in enumerate(fields):
+    for pos, field in enumerate(fields):
       field.update({'bitmap': '(1<<%d)' % pos})
       field.update({'builder_bitmap': pos + len(inherited_fields)})
       if field['is_not_ignorable']:
@@ -742,7 +819,8 @@ class TreeGenerator(object):
 
     has_node_vector_constructor_arg = any(
         field['is_node_vector'] and field['is_constructor_arg']
-        for field in fields + inherited_fields)
+        for field in fields + inherited_fields
+    )
 
     def JoinSections(a, b):
       separator = ''
@@ -750,7 +828,7 @@ class TreeGenerator(object):
         separator = '\n'
       return a + separator + b
 
-    node_dict = ({
+    node_dict = {
         'name': name,
         'builder_name': name + 'Builder' if not is_abstract else '',
         'proto_type': proto_type,
@@ -762,8 +840,11 @@ class TreeGenerator(object):
         'parent': parent,
         'parent_proto_container_type': 'Any%sProto' % parent,
         'parent_proto_type': '%sProto' % parent,
-        'depth': (self.node_map[parent]['depth'] + 1
-                  if parent != ROOT_NODE_NAME else 1),
+        'depth': (
+            self.node_map[parent]['depth'] + 1
+            if parent != ROOT_NODE_NAME
+            else 1
+        ),
         'is_abstract': is_abstract,
         'class_final': class_final,
         'override_or_final': override_or_final,
@@ -774,14 +855,18 @@ class TreeGenerator(object):
         'is_not_ignorable_bitmap': '%#x' % is_not_ignorable_bitmap,
         'is_ignorable_default_bitmap': '%#x' % is_ignorable_default_bitmap,
         'extra_enum_defs': extra_enum_defs,
-        'extra_defs': JoinSections(extra_enum_decls,
-                                   CleanIndent(extra_defs, '  ')),
+        'extra_defs': JoinSections(
+            extra_enum_decls, CleanIndent(extra_defs, '  ')
+        ),
         'extra_defs_node_only': extra_defs_node_only,
         'emit_default_constructor': emit_default_constructor,
         'has_node_vector_constructor_arg': has_node_vector_constructor_arg,
         'use_custom_debug_string': use_custom_debug_string,
-        'subclasses': []
-    })
+        'use_custom_columns_created': use_custom_columns_created,
+        'column_list_is_created_columns': column_list_is_created_columns,
+        'subclasses': [],
+        'superclasses': [],
+    }
     # This is the name of the defining node rather than a reference to
     # avoid creating a recursive data structure that cannot be compared.
     # TraverseToRoot contains such a comparison.
@@ -823,7 +908,6 @@ class TreeGenerator(object):
       const ResolvedWindowFrame::FrameUnit ResolvedWindowFrame::ROWS;
       const ResolvedWindowFrame::FrameUnit ResolvedWindowFrame::RANGE;
     which should be included in the .cc file.
-
     """
     message_types = resolved_ast_enums_pb2.DESCRIPTOR.message_types_by_name
     message_name = cpp_class_name + 'Enums'
@@ -841,14 +925,18 @@ class TreeGenerator(object):
 
     for enum_type in message_types[message_name].enum_types:
       enum_name = enum_type.name
-      typedefs.append('  typedef %s::%s %s;\n' % (message_name, enum_name,
-                                                  enum_name))
+      typedefs.append(
+          '  typedef %s::%s %s;\n' % (message_name, enum_name, enum_name)
+      )
       for value in enum_type.values:
-        declarations.append('  static const %s %s = %s::%s;\n' %
-                            (enum_name, value.name, message_name, value.name))
-        definitions.append('const %s::%s %s::%s;\n' %
-                           (cpp_class_name, enum_name, cpp_class_name,
-                            value.name))
+        declarations.append(
+            '  static const %s %s = %s::%s;\n'
+            % (enum_name, value.name, message_name, value.name)
+        )
+        definitions.append(
+            'const %s::%s %s::%s;\n'
+            % (cpp_class_name, enum_name, cpp_class_name, value.name)
+        )
     return ''.join(typedefs) + ''.join(declarations), ''.join(definitions)
 
   def _JavaEnumClasses(self):
@@ -870,13 +958,15 @@ class TreeGenerator(object):
     """
     assert not self.root_child_nodes
 
-    def TraverseToRoot(node):
+    def TraverseToRoot(node, descendent_nodes):
       """Count the number of leaf nodes existing as descendants of each node.
 
       Traverses upwards from each leaf, incrementing a counter.
 
       Args:
         node: Node to count descendants of.
+        descendent_nodes: Descendants from `node` to the starting leaf node, not
+          including `node` itself.
       """
       node.setdefault('num_descendant_leaf_types', 0)
       node['num_descendant_leaf_types'] += 1
@@ -890,7 +980,7 @@ class TreeGenerator(object):
       parent_name = node['parent']
       if parent_name != ROOT_NODE_NAME:
         parent_node = self._GetNodeByName(parent_name)
-        TraverseToRoot(parent_node)
+        TraverseToRoot(parent_node, descendent_nodes + [node])
         parent_subclass_list = parent_node['subclasses']
       else:
         parent_subclass_list = self.root_child_nodes
@@ -900,12 +990,22 @@ class TreeGenerator(object):
       if node not in parent_subclass_list:
         parent_subclass_list.append(node)
 
+      for descendent_node in descendent_nodes:
+        if node not in descendent_node['superclasses']:
+          descendent_node['superclasses'].append(node)
+
     for node in self.nodes:
       if not node['is_abstract']:
-        TraverseToRoot(node)
+        TraverseToRoot(node, [])
 
-  def Generate(self, input_file_paths, output_file_paths, shard_nums,
-               shard_count, data_files):
+  def Generate(
+      self,
+      input_file_paths,
+      output_file_paths,
+      shard_nums,
+      shard_count,
+      data_files,
+  ):
     """Materialize the templates to generate the output files."""
 
     def ShouldAutoescape(template_name):
@@ -920,7 +1020,8 @@ class TreeGenerator(object):
         trim_blocks=True,
         lstrip_blocks=True,
         line_statement_prefix=line_statement_prefix,
-        loader=jinja2.FileSystemLoader([''] + data_dirs))
+        loader=jinja2.FileSystemLoader([''] + data_dirs),
+    )
 
     # This can be used to filter a list of fields to only those with
     # <is_constructor_arg = true>.  Used in templates like this:
@@ -929,8 +1030,10 @@ class TreeGenerator(object):
       return [field for field in field_list if field['is_constructor_arg']]
 
     def IsFieldRequiredConstructorArg(field):
-      return field[
-          'is_constructor_arg'] and not field['is_optional_constructor_arg']
+      return (
+          field['is_constructor_arg']
+          and not field['is_optional_constructor_arg']
+      )
 
     # This can be used to filter a list of fields to only those with
     # <is_constructor_arg = true> and <is_optional_constructor_arg = false>.
@@ -946,9 +1049,7 @@ class TreeGenerator(object):
     # Used in templates like this:
     #   for node.fields | is_required_for_builder
     def IsRequiredBuilderArg(field_list):
-      return [
-          field for field in field_list if field['is_required_builder_arg']
-      ]
+      return [field for field in field_list if field['is_required_builder_arg']]
 
     # This can be used to filter a list of fields to only those with
     # <is_constructor_arg = true> and <is_optional_constructor_arg = true>.
@@ -956,13 +1057,16 @@ class TreeGenerator(object):
     #   for node.fields | is_optional_constructor_arg
     def IsOptionalConstructorArg(field_list):
       return [
-          field for field in field_list if field['is_constructor_arg'] and
-          field['is_optional_constructor_arg']
+          field
+          for field in field_list
+          if field['is_constructor_arg']
+          and field['is_optional_constructor_arg']
       ]
 
     def IsNodeVectorConstructorArg(field_list):
       return [
-          field for field in field_list
+          field
+          for field in field_list
           if field['is_node_vector'] and field['is_constructor_arg']
       ]
 
@@ -970,8 +1074,9 @@ class TreeGenerator(object):
     jinja_env.filters['is_required_constructor_arg'] = IsRequiredConstructorArg
     jinja_env.filters['is_optional_constructor_arg'] = IsOptionalConstructorArg
     jinja_env.filters['is_required_builder_arg'] = IsRequiredBuilderArg
-    jinja_env.filters[
-        'is_node_vector_constructor_arg'] = IsNodeVectorConstructorArg
+    jinja_env.filters['is_node_vector_constructor_arg'] = (
+        IsNodeVectorConstructorArg
+    )
 
     # These can be used to filter a list of fields to only those that
     # hold references to child nodes.
@@ -1081,27 +1186,38 @@ class TreeGenerator(object):
     assert len(input_file_paths) == len(output_file_paths)
     assert len(input_file_paths) == len(shard_nums)
 
-    for (in_path, out_path, shard_num) in zip(
-        input_file_paths, output_file_paths, shard_nums):
+    for in_path, out_path, shard_num in zip(
+        input_file_paths, output_file_paths, shard_nums
+    ):
       if not in_path.endswith('.template'):
-        logging.fatal('Input file name must end with ".template". Saw: '
-                      'input=%s', in_path)
+        logging.fatal(
+            'Input file name must end with ".template". Saw: input=%s', in_path
+        )
       # TODO: b/388324854 - Apply with `str.removesuffix()` once ZetaSQL Python
       # version is updated.
       in_no_suffix = os.path.basename(in_path)[:-9]
       in_prefix, in_extension = in_no_suffix.rsplit('.')
       out_basename = os.path.basename(out_path)
       if not out_basename.startswith(in_prefix):
-        logging.fatal('Output file name must start with the prefix "%s" from '
-                      'the input file name. Saw: input=%s output=%s', in_prefix,
-                      in_path, out_path)
+        logging.fatal(
+            'Output file name must start with the prefix "%s" from '
+            'the input file name. Saw: input=%s output=%s',
+            in_prefix,
+            in_path,
+            out_path,
+        )
       if not out_basename.endswith('.' + in_extension):
-        logging.fatal('Output file name must end with the extension ".%s" from '
-                      'the input file name. Saw: input=%s output=%s',
-                      '.' + in_extension, in_path, out_path)
+        logging.fatal(
+            'Output file name must end with the extension ".%s" from '
+            'the input file name. Saw: input=%s output=%s',
+            '.' + in_extension,
+            in_path,
+            out_path,
+        )
 
       # Properties which change for each generated file based on the shard_num.
       context['shard_num'] = shard_num
+
       # Filter the node list to only those that are in the current shard.
       # Whether a node is in the current shard is determined by
       # deterministically hashing the node name to bucket into 1..shard_count
@@ -1120,6 +1236,7 @@ class TreeGenerator(object):
           if bucket == shard_num:
             out.append(node)
         return out
+
       jinja_env.filters['is_in_shard'] = IsInShard
 
       template = jinja_env.get_template(in_path)
@@ -1159,7 +1276,8 @@ def main(unused_argv):
       This node is here for organizational purposes only, to cluster these
       argument nodes.
               """,
-      fields=[])
+      fields=[],
+  )
 
   # Expressions
 
@@ -1175,7 +1293,8 @@ def main(unused_argv):
               SCALAR_ANNOTATION_MAP,
               tag_id=3,
               ignorable=IGNORABLE,
-              is_constructor_arg=False)
+              is_constructor_arg=False,
+          ),
       ],
       extra_defs="""
         bool IsExpression() const final { return true; }
@@ -1183,7 +1302,8 @@ def main(unused_argv):
         AnnotatedType annotated_type() const {
           return {type(), type_annotation_map()};
         }
-      """)
+      """,
+  )
 
   gen.AddNode(
       name='ResolvedLiteral',
@@ -1208,7 +1328,8 @@ def main(unused_argv):
 
               This exists mainly for resolver bookkeeping and should be ignored
               by engines.
-                      """),
+                      """,
+          ),
           Field(
               'float_literal_id',
               SCALAR_INT,
@@ -1221,7 +1342,8 @@ def main(unused_argv):
               to NUMERIC, the resolver uses the float_literal_id to find the
               original image of the literal to avoid precision loss. An ID of 0
               represents a literal without a cached image.
-              """),
+              """,
+          ),
           Field(
               'preserve_in_literal_remover',
               SCALAR_BOOL,
@@ -1232,8 +1354,10 @@ def main(unused_argv):
               Indicates whether ReplaceLiteralsByParameters() should leave
               this literal value in place, rather than replace it with a query
               parameter.
-              """)
-      ])
+              """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedParameter',
@@ -1250,7 +1374,8 @@ def main(unused_argv):
 
               A ResolvedParameter will have either a name or a position but not
               both.
-                      """),
+                      """,
+          ),
           Field(
               'position',
               SCALAR_INT,
@@ -1262,7 +1387,8 @@ def main(unused_argv):
 
               A ResolvedParameter will have either a name or a position but not
               both.
-                      """),
+                      """,
+          ),
           Field(
               'is_untyped',
               SCALAR_BOOL,
@@ -1274,8 +1400,10 @@ def main(unused_argv):
 
               This exists mainly for resolver bookkeeping and should be ignored
               by engines.
-                      """)
-      ])
+                      """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedExpressionColumn',
@@ -1288,7 +1416,8 @@ def main(unused_argv):
       AnalyzerOptions::AddExpressionColumn.
       <name> will always be in lowercase.
               """,
-      fields=[Field('name', SCALAR_STRING, tag_id=2)])
+      fields=[Field('name', SCALAR_STRING, tag_id=2)],
+  )
 
   gen.AddNode(
       name='ResolvedCatalogColumnRef',
@@ -1300,7 +1429,8 @@ def main(unused_argv):
       The DDL statement will normally define the Table context, and the
       referenced Column should be a Column of that Table.
       """,
-      fields=[Field('column', SCALAR_COLUMN, tag_id=2)])
+      fields=[Field('column', SCALAR_COLUMN, tag_id=2)],
+  )
 
   gen.AddNode(
       name='ResolvedColumnRef',
@@ -1321,9 +1451,9 @@ def main(unused_argv):
               """,
       fields=[
           Field('column', SCALAR_RESOLVED_COLUMN, tag_id=2),
-          Field(
-              'is_correlated', SCALAR_BOOL, tag_id=3, ignorable=IGNORABLE)
-      ])
+          Field('is_correlated', SCALAR_BOOL, tag_id=3, ignorable=IGNORABLE),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedGroupingSetMultiColumn',
@@ -1357,8 +1487,10 @@ def main(unused_argv):
               tag_id=2,
               comment="""
         The matching Constant from the Catalog.
-            """)
-      ])
+            """,
+          )
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedSystemVariable',
@@ -1376,8 +1508,10 @@ def main(unused_argv):
               tag_id=2,
               comment="""
         Path to system variable.
-            """)
-      ])
+            """,
+          )
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedInlineLambda',
@@ -1409,10 +1543,17 @@ def main(unused_argv):
       reference columns in <parameter_list> and <argument_list>.
       """,
       fields=[
-          Field('argument_list', SCALAR_RESOLVED_COLUMN, tag_id=2, vector=True),
+          Field(
+              'argument_list',
+              SCALAR_RESOLVED_COLUMN,
+              column_is_created=True,
+              tag_id=2,
+              vector=True,
+          ),
           Field('parameter_list', 'ResolvedColumnRef', tag_id=3, vector=True),
           Field('body', 'ResolvedExpr', tag_id=4),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedSequence',
@@ -1444,19 +1585,24 @@ def main(unused_argv):
               (though we may still remove paths below it).
               If False, we will remove this path (but may still include paths
               below it).
-              """),
+              """,
+          ),
           Field(
               'field_descriptor_path',
               SCALAR_FIELD_DESCRIPTOR,
               tag_id=3,
               vector=True,
               to_string_method='ToStringVectorFieldDescriptor',
-              java_to_string_method='toStringPeriodSeparatedForFieldDescriptors',
+              java_to_string_method=(
+                  'toStringPeriodSeparatedForFieldDescriptors'
+              ),
               comment="""
               A vector of FieldDescriptors that denotes the path to a proto
               field that will be include or exclude.
-              """),
-      ])
+              """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedFilterField',
@@ -1499,7 +1645,8 @@ def main(unused_argv):
               'expr',
               'ResolvedExpr',
               tag_id=2,
-              comment="""The proto to modify."""),
+              comment="""The proto to modify.""",
+          ),
           Field(
               'filter_field_arg_list',
               'ResolvedFilterFieldArg',
@@ -1508,15 +1655,18 @@ def main(unused_argv):
               comment="""
               The list of field paths to include or exclude. The path starts
               from the proto type of <expr>.
-                      """),
+                      """,
+          ),
           Field(
               'reset_cleared_required_fields',
               SCALAR_BOOL,
               tag_id=4,
               comment="""If true, will reset cleared required fields into a
               default value.
-                      """),
-      ])
+                      """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedFunctionCallBase',
@@ -1641,12 +1791,14 @@ def main(unused_argv):
               This field is ignorable because for most types of function calls,
               there is no extra information to consider besides the arguments
               and other fields from ResolvedFunctionCallBase.
-                      """)
+                      """,
+          )
       ],
       comment="""
       A regular function call.  The signature will always have mode SCALAR.
       Most scalar expressions show up as FunctionCalls using builtin signatures.
-              """)
+              """,
+  )
 
   gen.AddNode(
       name='ResolvedNonScalarFunctionCallBase',
@@ -1903,15 +2055,11 @@ def main(unused_argv):
       for element_list field of ResolvedExtendedCast for more details.
               """,
       fields=[
-          Field(
-              'from_type', SCALAR_TYPE, tag_id=2, ignorable=IGNORABLE),
+          Field('from_type', SCALAR_TYPE, tag_id=2, ignorable=IGNORABLE),
           Field('to_type', SCALAR_TYPE, tag_id=3, ignorable=IGNORABLE),
-          Field(
-              'function',
-              SCALAR_FUNCTION,
-              tag_id=4,
-              ignorable=IGNORABLE)
-      ])
+          Field('function', SCALAR_FUNCTION, tag_id=4, ignorable=IGNORABLE),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedExtendedCast',
@@ -1934,8 +2082,10 @@ def main(unused_argv):
               will be casts for the field or element types. For structs, there
               can be multiple cast elements (one for each distinct pair of field
               types). For non-struct types, there will be just a single element.
-                      """)
-      ])
+                      """,
+          )
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedCast',
@@ -1960,7 +2110,8 @@ def main(unused_argv):
               comment="""
               Whether to return NULL if the cast fails. This is set to true for
               SAFE_CAST.
-                      """),
+                      """,
+          ),
           Field(
               'extended_cast',
               'ResolvedExtendedCast',
@@ -1971,7 +2122,8 @@ def main(unused_argv):
               If at least one of types involved in this cast is or contains an
               extended (TYPE_EXTENDED) type, this field contains information
               necessary to execute this cast.
-                      """),
+                      """,
+          ),
           Field(
               'format',
               'ResolvedExpr',
@@ -1981,7 +2133,8 @@ def main(unused_argv):
               comment="""
               The format string specified by the optional FORMAT clause. It is
               nullptr when the clause does not exist.
-                      """),
+                      """,
+          ),
           Field(
               'time_zone',
               'ResolvedExpr',
@@ -1991,7 +2144,8 @@ def main(unused_argv):
               comment="""
               The time zone expression by the optional AT TIME ZONE clause. It
               is nullptr when the clause does not exist.
-                      """),
+                      """,
+          ),
           Field(
               'type_modifiers',
               SCALAR_TYPE_MODIFIERS,
@@ -2027,7 +2181,8 @@ def main(unused_argv):
                   in STRING type with collation "und:ci".
                 CAST(["abc"] AS ARRAY<STRING COLLATE "und:ci">) should return
                   the array ["abc"] with collation "und:ci" at the element type.
-                      """)
+                      """,
+          ),
       ],
       extra_defs="""
         // Helper getter, setter of <type_parameters> field for backward
@@ -2041,7 +2196,7 @@ def main(unused_argv):
 
         ABSL_DEPRECATED("use set_type_modifiers() instead.")
         void set_type_parameters(const TypeParameters& v);
-      """
+      """,
   )
 
   gen.AddNode(
@@ -2053,7 +2208,8 @@ def main(unused_argv):
       <field_list> matches 1:1 with the fields in <type> position-wise.
       Each field's type will match the corresponding field in <type>.
               """,
-      fields=[Field('field_list', 'ResolvedExpr', tag_id=2, vector=True)])
+      fields=[Field('field_list', 'ResolvedExpr', tag_id=2, vector=True)],
+  )
 
   gen.AddNode(
       name='ResolvedMakeProto',
@@ -2065,9 +2221,9 @@ def main(unused_argv):
       <field_list> will contain all required fields, and no duplicate fields.
               """,
       fields=[
-          Field(
-              'field_list', 'ResolvedMakeProtoField', tag_id=2, vector=True)
-      ])
+          Field('field_list', 'ResolvedMakeProtoField', tag_id=2, vector=True)
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedMakeProtoField',
@@ -2095,9 +2251,11 @@ def main(unused_argv):
               Provides the Format annotation that should be used when building
               this field.  The annotation specifies both the ZetaSQL type and
               the encoding format for this field.
-                      """),
-          Field('expr', 'ResolvedExpr', tag_id=4)
-      ])
+                      """,
+          ),
+          Field('expr', 'ResolvedExpr', tag_id=4),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedGetStructField',
@@ -2118,8 +2276,10 @@ def main(unused_argv):
               is_optional_constructor_arg=True,
               comment="""True if using s[OFFSET(0)] syntax rather than
               specifying field name, Only for preserving user intent; no
-              semantic consequences"""),
-      ])
+              semantic consequences""",
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedGetProtoField',
@@ -2146,7 +2306,8 @@ def main(unused_argv):
 
               The field is required if field_descriptor->is_required().  If the
               field is required and not present, an error should result.
-                      """),
+                      """,
+          ),
           Field(
               'default_value',
               SCALAR_VALUE,
@@ -2169,7 +2330,8 @@ def main(unused_argv):
 
               TODO Make un-ignorable after clients migrate to start
               using it.
-                      """),
+                      """,
+          ),
           Field(
               'get_has_bit',
               SCALAR_BOOL,
@@ -2181,7 +2343,8 @@ def main(unused_argv):
               repeated fields. This field cannot be set if
               <return_default_value_when_unset> is true, and vice versa.
               Expression type will be BOOL.
-                      """),
+                      """,
+          ),
           Field(
               'format',
               SCALAR_FIELD_FORMAT,
@@ -2192,7 +2355,8 @@ def main(unused_argv):
                this field.  The annotation specifies both the ZetaSQL type and
                the encoding format for this field. This cannot be set when
                get_has_bit is true.
-                      """),
+                      """,
+          ),
           Field(
               'return_default_value_when_unset',
               SCALAR_BOOL,
@@ -2209,8 +2373,10 @@ def main(unused_argv):
               proto2 field, then it must be annotated with
               zetasql.use_defaults=true. This cannot be set when <get_has_bit>
               is true or the field is required.
-                      """),
-      ])
+                      """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedGetJsonField',
@@ -2221,8 +2387,9 @@ def main(unused_argv):
               """,
       fields=[
           Field('expr', 'ResolvedExpr', tag_id=2),
-          Field('field_name', SCALAR_STRING, tag_id=3)
-      ])
+          Field('field_name', SCALAR_STRING, tag_id=3),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedFlatten',
@@ -2255,8 +2422,10 @@ def main(unused_argv):
 
               The 'get' fields may either be a ResolvedGet*Field or an array
               offset function around a ResolvedGet*Field.
-                      """),
-      ])
+                      """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedFlattenedArg',
@@ -2267,7 +2436,8 @@ def main(unused_argv):
       that it will be invoked once for each array element from ResolvedFlatten's
       expr or previous get_field_list entry.
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedReplaceFieldItem',
@@ -2305,7 +2475,8 @@ def main(unused_argv):
               If <expr> is NULL, the field will be unset. If <proto_field_path>
               is a required field, the engine must return an error if it is set
               to NULL.
-              """),
+              """,
+          ),
           Field(
               'struct_index_path',
               SCALAR_INT,
@@ -2320,7 +2491,8 @@ def main(unused_argv):
               field positions (0-based) in a STRUCT. If <proto_field_path>
               is also non-empty, then the field corresponding to the last index
               in this vector should be of proto type.
-                      """),
+                      """,
+          ),
           Field(
               'proto_field_path',
               SCALAR_FIELD_DESCRIPTOR,
@@ -2328,15 +2500,19 @@ def main(unused_argv):
               ignorable=IGNORABLE_DEFAULT,
               vector=True,
               to_string_method='ToStringVectorFieldDescriptor',
-              java_to_string_method='toStringPeriodSeparatedForFieldDescriptors',
+              java_to_string_method=(
+                  'toStringPeriodSeparatedForFieldDescriptors'
+              ),
               comment="""
               A vector of FieldDescriptors that denotes the path to a proto
               field that will be modified. If <struct_index_path> is also
               non-empty, then the first element in this vector should be a
               subfield of the proto corresponding to the last element in
               <struct_index_path>.
-                      """),
-      ])
+                      """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedReplaceField',
@@ -2355,7 +2531,8 @@ def main(unused_argv):
               'expr',
               'ResolvedExpr',
               tag_id=2,
-              comment=""" The proto/struct to modify. """),
+              comment=""" The proto/struct to modify. """,
+          ),
           Field(
               'replace_field_item_list',
               'ResolvedReplaceFieldItem',
@@ -2371,8 +2548,10 @@ def main(unused_argv):
               - Modifying a subfield of a NULL-valued proto-valued field is an
                 error.
               - Clearing a required field or subfield is an error.
-                      """),
-      ])
+                      """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedGetProtoOneof',
@@ -2395,8 +2574,10 @@ def main(unused_argv):
               The google::protobuf::OneofDescriptor for a Oneof contained in <expr>.
               This descriptor provides google::protobuf::FieldDescriptors for each of
               the fields contained in the Oneof.
-                      """),
-      ])
+                      """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedSubqueryExpr',
@@ -2482,7 +2663,8 @@ value.
               'ResolvedColumnRef',
               tag_id=3,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'in_expr',
               'ResolvedExpr',
@@ -2491,7 +2673,8 @@ value.
               comment="""
               Field is only populated for subqueries of type IN or LIKE
               ANY|SOME|ALL.
-                      """),
+                      """,
+          ),
           Field(
               'in_collation',
               SCALAR_RESOLVED_COLLATION,
@@ -2502,7 +2685,8 @@ value.
               Field is only populated for subqueries of type IN to specify the
               operation collation to use to compare <in_expr> with the rows from
               <subquery>.
-                      """),
+                      """,
+          ),
           Field('subquery', 'ResolvedScan', tag_id=5),
           Field(
               'hint_list',
@@ -2514,8 +2698,10 @@ value.
               comment="""
               Note: Hints currently happen only for EXISTS, IN, or a LIKE
               expression subquery but not for ARRAY or SCALAR subquery.
-                      """)
-      ])
+                      """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedWithExpr',
@@ -2537,12 +2723,11 @@ value.
               """,
       fields=[
           Field(
-              'assignment_list',
-              'ResolvedComputedColumn',
-              tag_id=2,
-              vector=True),
+              'assignment_list', 'ResolvedComputedColumn', tag_id=2, vector=True
+          ),
           Field('expr', 'ResolvedExpr', tag_id=3),
-      ])
+      ],
+  )
 
   # Scans (anything that shows up in a from clause and produces rows).
 
@@ -2557,9 +2742,14 @@ value.
       represented as a single Scan that composes all input sources into
       a single row stream.
 
-      Each Scan has a `column_list` that says what columns are produced.
+      Each Scan has a `column_list` that says which ResolvedColumns are returned.
       The Scan logically produces a stream of output rows, where each row
       has exactly these columns.
+
+      By default, `column_list` references columns that come from input scans
+      or are created by other fields in this node.
+      If `column_list_is_created_columns`, then all `column_list` columns are
+      created by this node.
 
       Each Scan may have an attached `hint_list`, storing each hint as
       a ResolvedOption.
@@ -2580,14 +2770,16 @@ value.
               SCALAR_RESOLVED_COLUMN,
               tag_id=2,
               ignorable=IGNORABLE,
-              vector=True),
+              vector=True,
+          ),
           Field(
               'hint_list',
               'ResolvedOption',
               tag_id=3,
               ignorable=IGNORABLE,
               is_constructor_arg=False,
-              vector=True),
+              vector=True,
+          ),
           Field(
               'is_ordered',
               SCALAR_BOOL,
@@ -2603,12 +2795,22 @@ value.
               is_constructor_arg=False,
           ),
       ],
-      extra_defs="""bool IsScan() const final { return true; }""")
+      extra_defs="""
+        bool IsScan() const final { return true; }
+        """,
+      extra_defs_node_only="""
+        // If true, columns in `column_list` are created by this node.
+        // If false, columns in `column_list` were created previously (or by
+        // this node, as specified by other fields) and are being referenced.
+        virtual bool ColumnListIsCreatedColumns() const { return false; }
+      """,
+  )
 
   gen.AddNode(
       name='ResolvedExecuteAsRoleScan',
       tag_id=207,
       parent='ResolvedScan',
+      column_list_is_created_columns=True,
       comment="""
       This node provides the role context for its subtree. Currently, it only
       handles subtrees from inlined TVFs and VIEWs created with DEFINER rights.
@@ -2636,7 +2838,8 @@ value.
               comment="""
               The input scan whose subtree is to be encompassed by the current
               role context.
-              """),
+              """,
+          ),
           Field(
               'original_inlined_view',
               SCALAR_TABLE,
@@ -2645,7 +2848,8 @@ value.
               The original view that was inlined. If set, then
               'original_inlined_tvf' is null. The validator checks that this
               table is indeed a SqlView, not some other subclass of Table.
-              """),
+              """,
+          ),
           Field(
               'original_inlined_tvf',
               TABLE_VALUED_FUNCTION,
@@ -2653,8 +2857,10 @@ value.
               comment="""
               The original TVF that was inlined. If set, then
               'original_inlined_view' is null.
-              """),
-      ])
+              """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedModel',
@@ -2667,7 +2873,8 @@ value.
               """,
       fields=[
           Field('model', SCALAR_MODEL, tag_id=2),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedConnection',
@@ -2679,7 +2886,8 @@ value.
               """,
       fields=[
           Field('connection', SCALAR_CONNECTION, tag_id=2),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedDescriptor',
@@ -2703,15 +2911,18 @@ value.
               SCALAR_RESOLVED_COLUMN,
               tag_id=2,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'descriptor_column_name_list',
               SCALAR_STRING,
               tag_id=3,
               vector=True,
               ignorable=IGNORABLE_DEFAULT,
-              to_string_method='ToStringCommaSeparated'),
-      ])
+              to_string_method='ToStringCommaSeparated',
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedSingleRowScan',
@@ -2721,7 +2932,8 @@ value.
       comment="""
       Scan that produces a single row with no columns.  Used for queries without
       a FROM clause, where all output comes from the select list.
-              """)
+              """,
+  )
 
   gen.AddNode(
       name='ResolvedUnsetArgumentScan',
@@ -2739,6 +2951,7 @@ value.
       name='ResolvedTableScan',
       tag_id=20,
       parent='ResolvedScan',
+      column_list_is_created_columns=True,
       comment="""
       Scan a Table.
       The <column_list>[i] should be matched to a Table column by
@@ -2936,6 +3149,7 @@ value.
           Field(
               'element_column_list',
               SCALAR_RESOLVED_COLUMN,
+              column_is_created=True,
               tag_id=4,
               vector=True,
           ),
@@ -2943,6 +3157,7 @@ value.
               'array_offset_column',
               'ResolvedColumnHolder',
               tag_id=5,
+              column_is_created=True,
               ignorable=IGNORABLE_DEFAULT,
           ),
           Field(
@@ -2960,44 +3175,44 @@ value.
               """,
           ),
       ],
-      extra_defs_node_only="""
-  ABSL_DEPRECATED("Use `array_expr_list()` instead")
-  const ResolvedExpr* array_expr() const {
-    if (array_expr_list_.size() == 1) {
-      accessed_ |= (1<<1);
-    }
-    return array_expr_list_[0].get();
-  }
-  ABSL_DEPRECATED("Use `set_array_expr_list()` instead")
-  void set_array_expr(std::unique_ptr<const ResolvedExpr> v) {
-    if (array_expr_list_.empty()) {
-      array_expr_list_.push_back(std::move(v));
-    } else {
-      array_expr_list_[0] = std::move(v);
-    }
-  }
-  ABSL_DEPRECATED("Use `release_array_expr_list()` instead")
-  std::unique_ptr<const ResolvedExpr> release_array_expr() {
-    std::unique_ptr<const ResolvedExpr> first_array_expr;
-    array_expr_list_[0].swap(first_array_expr);
-    return first_array_expr;
-  }
-  ABSL_DEPRECATED("Use `element_column_list()` instead")
-  const ResolvedColumn& element_column() const {
-    if (element_column_list_.size() == 1) {
-      accessed_ |= (1<<2);
-    }
-    return element_column_list_[0];
-  }
-  ABSL_DEPRECATED("Use `set_element_column_list()` instead")
-  void set_element_column(const ResolvedColumn& v) {
-    if (element_column_list_.empty()) {
-      element_column_list_.push_back(v);
-    } else {
-      element_column_list_[0] = v;
-    }
-  }
-      """,
+          extra_defs_node_only="""
+      ABSL_DEPRECATED("Use `array_expr_list()` instead")
+      const ResolvedExpr* array_expr() const {
+        if (array_expr_list_.size() == 1) {
+          accessed_ |= (1<<1);
+        }
+        return array_expr_list_[0].get();
+      }
+      ABSL_DEPRECATED("Use `set_array_expr_list()` instead")
+      void set_array_expr(std::unique_ptr<const ResolvedExpr> v) {
+        if (array_expr_list_.empty()) {
+          array_expr_list_.push_back(std::move(v));
+        } else {
+          array_expr_list_[0] = std::move(v);
+        }
+      }
+      ABSL_DEPRECATED("Use `release_array_expr_list()` instead")
+      std::unique_ptr<const ResolvedExpr> release_array_expr() {
+        std::unique_ptr<const ResolvedExpr> first_array_expr;
+        array_expr_list_[0].swap(first_array_expr);
+        return first_array_expr;
+      }
+      ABSL_DEPRECATED("Use `element_column_list()` instead")
+      const ResolvedColumn& element_column() const {
+        if (element_column_list_.size() == 1) {
+          accessed_ |= (1<<2);
+        }
+        return element_column_list_[0];
+      }
+      ABSL_DEPRECATED("Use `set_element_column_list()` instead")
+      void set_element_column(const ResolvedColumn& v) {
+        if (element_column_list_.empty()) {
+          element_column_list_.push_back(v);
+        } else {
+          element_column_list_[0] = v;
+        }
+      }
+          """,
   )
 
   gen.AddNode(
@@ -3006,8 +3221,12 @@ value.
       parent='ResolvedArgument',
       comment="""
       This wrapper is used for an optional ResolvedColumn inside another node.
+
+      Note: ResolvedColumn does not track `column_is_created` itself.
+      The `column_is_created` attribute is applied on fields of this type.
               """,
-      fields=[Field('column', SCALAR_RESOLVED_COLUMN, tag_id=2)])
+      fields=[Field('column', SCALAR_RESOLVED_COLUMN, tag_id=2)],
+  )
 
   gen.AddNode(
       name='ResolvedFilterScan',
@@ -3020,8 +3239,9 @@ value.
               """,
       fields=[
           Field('input_scan', 'ResolvedScan', tag_id=2),
-          Field('filter_expr', 'ResolvedExpr', tag_id=3)
-      ])
+          Field('filter_expr', 'ResolvedExpr', tag_id=3),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedGroupingCall',
@@ -3036,7 +3256,12 @@ value.
               """,
       fields=[
           Field('group_by_column', 'ResolvedColumnRef', tag_id=2),
-          Field('output_column', SCALAR_RESOLVED_COLUMN, tag_id=3),
+          Field(
+              'output_column',
+              SCALAR_RESOLVED_COLUMN,
+              column_is_created=True,
+              tag_id=3,
+          ),
       ],
   )
 
@@ -3055,10 +3280,10 @@ value.
   )
 
   gen.AddNode(
-    name='ResolvedGroupingSetList',
-    tag_id=302,
-    parent='ResolvedGroupingSetBase',
-    comment="""
+      name='ResolvedGroupingSetList',
+      tag_id=302,
+      parent='ResolvedGroupingSetBase',
+      comment="""
     Represents the list of grouping sets corresponding to a GROUPING SETS.
     For example, `GROUPING SETS(a, CUBE(b, c), ROLLUP(d, e, f))` can be
     represented as:
@@ -3086,21 +3311,21 @@ value.
     sets cartesian product (see ResolvedGroupingSetProduct). In the future, this
     node can potentially be used for other use cases, e.g. nested grouping sets.
     """,
-    fields=[
-      Field(
-        'elem_list',
-        'ResolvedGroupingSetBase',
-        tag_id=2,
-        vector=True,
-      )
-    ]
+      fields=[
+          Field(
+              'elem_list',
+              'ResolvedGroupingSetBase',
+              tag_id=2,
+              vector=True,
+          )
+      ],
   )
 
   gen.AddNode(
-    name='ResolvedGroupingSetProduct',
-    tag_id=303,
-    parent='ResolvedGroupingSetBase',
-    comment="""
+      name='ResolvedGroupingSetProduct',
+      tag_id=303,
+      parent='ResolvedGroupingSetBase',
+      comment="""
     Represents the cartesian product of the grouping sets stored in
     `input_list`. Each element in `input_list` should either be a
     ResolvedGroupingSetList, ResolvedGroupingSet, ResolvedRollup or
@@ -3139,14 +3364,14 @@ value.
     ResolvedGroupingSetProduct cannot be used when there
     is only one non-composite ResolvedGroupingSetBase.
     """,
-    fields=[
-      Field(
-        'input_list',
-        'ResolvedGroupingSetBase',
-        tag_id=2,
-        vector=True,
-      )
-    ]
+      fields=[
+          Field(
+              'input_list',
+              'ResolvedGroupingSetBase',
+              tag_id=2,
+              vector=True,
+          )
+      ],
   )
 
   gen.AddNode(
@@ -3439,7 +3664,8 @@ value.
               'output_column_list',
               SCALAR_RESOLVED_COLUMN,
               tag_id=3,
-              vector=True)
+              vector=True,
+          ),
       ],
   )
 
@@ -3447,6 +3673,7 @@ value.
       name='ResolvedSetOperationScan',
       tag_id=26,
       parent='ResolvedScan',
+      column_list_is_created_columns=True,
       comment="""
       Apply a set operation (specified by <op_type>) on two or more input scans.
 
@@ -3535,11 +3762,10 @@ value.
       fields=[
           Field('input_scan', 'ResolvedScan', tag_id=2),
           Field(
-              'order_by_item_list',
-              'ResolvedOrderByItem',
-              tag_id=3,
-              vector=True)
-      ])
+              'order_by_item_list', 'ResolvedOrderByItem', tag_id=3, vector=True
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedLimitOffsetScan',
@@ -3570,6 +3796,7 @@ value.
       name='ResolvedWithRefScan',
       tag_id=29,
       parent='ResolvedScan',
+      column_list_is_created_columns=True,
       comment="""
       Scan the subquery defined in a WITH statement.
       See ResolvedWithScan for more detail.
@@ -3577,7 +3804,8 @@ value.
       by the referenced subquery and will given a new unique id to each column
       produced for this scan.
               """,
-      fields=[Field('with_query_name', SCALAR_STRING, tag_id=2)])
+      fields=[Field('with_query_name', SCALAR_STRING, tag_id=2)],
+  )
 
   gen.AddNode(
       name='ResolvedAnalyticScan',
@@ -3647,15 +3875,19 @@ value.
           Field(
               'weight_column',
               'ResolvedColumnHolder',
+              column_is_created=True,
               tag_id=7,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'partition_by_list',
               'ResolvedExpr',
               tag_id=8,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   # Other nodes
 
@@ -3714,7 +3946,8 @@ value.
       exists to ensure that callers static_cast to the appropriate subclass,
       rather than processing ResolvedComputedColumnBase directly.
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedComputedColumn',
@@ -3730,6 +3963,7 @@ value.
               'column',
               SCALAR_RESOLVED_COLUMN,
               tag_id=2,
+              column_is_created=True,
               ignorable=IGNORABLE,
               override_virtual_getter=True,
           ),
@@ -3767,15 +4001,18 @@ value.
               """,
       fields=[
           Field(
-              'column', SCALAR_RESOLVED_COLUMN,
+              'column',
+              SCALAR_RESOLVED_COLUMN,
+              column_is_created=True,
               tag_id=2,
               ignorable=IGNORABLE,
-              override_virtual_getter=True
+              override_virtual_getter=True,
           ),
           Field('expr', 'ResolvedExpr', tag_id=3, override_virtual_getter=True),
           Field(
               'side_effect_column',
               SCALAR_RESOLVED_COLUMN,
+              column_is_created=True,
               tag_id=4,
               ignorable=NOT_IGNORABLE,
               comment="""Creates the companion side effects columns for this
@@ -4000,7 +4237,8 @@ value.
       fields=[
           Field('expression', 'ResolvedExpr', tag_id=2),
           Field('sql', SCALAR_STRING, tag_id=3),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedColumnDefinition',
@@ -4031,34 +4269,38 @@ value.
               'annotations',
               'ResolvedColumnAnnotations',
               tag_id=4,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
-              'is_hidden',
-              SCALAR_BOOL,
-              tag_id=5,
-              ignorable=IGNORABLE_DEFAULT),
+              'is_hidden', SCALAR_BOOL, tag_id=5, ignorable=IGNORABLE_DEFAULT
+          ),
           Field(
               'column',
               SCALAR_RESOLVED_COLUMN,
               tag_id=6,
-              ignorable=IGNORABLE),
+              column_is_created=True,
+              ignorable=IGNORABLE,
+          ),
           Field(
               'generated_column_info',
               'ResolvedGeneratedColumnInfo',
               tag_id=7,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'default_value',
               'ResolvedColumnDefaultValue',
               tag_id=9,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
       ],
       extra_defs="""
         // Get the full TypeParameters object for this column, including
         // parameters on nested fields. <annotations.type_parameters> includes
         // only parameters on the outermost type.
         absl::StatusOr<TypeParameters> GetFullTypeParameters() const;
-      """)
+      """,
+  )
 
   gen.AddNode(
       name='ResolvedConstraint',
@@ -4068,7 +4310,8 @@ value.
       comment="""
       Intermediate class for resolved constraints.
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedPrimaryKey',
@@ -4092,20 +4335,24 @@ value.
               tag_id=2,
               vector=True,
               to_string_method='ToStringCommaSeparated',
-              java_to_string_method='toStringCommaSeparatedForInt'),
+              java_to_string_method='toStringCommaSeparatedForInt',
+          ),
           Field(
               'option_list',
               'ResolvedOption',
               tag_id=3,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
-              'unenforced', SCALAR_BOOL, tag_id=4, ignorable=IGNORABLE_DEFAULT),
+              'unenforced', SCALAR_BOOL, tag_id=4, ignorable=IGNORABLE_DEFAULT
+          ),
           Field(
               'constraint_name',
               SCALAR_STRING,
               ignorable=IGNORABLE_DEFAULT,
-              tag_id=5),
+              tag_id=5,
+          ),
           Field(
               'column_name_list',
               SCALAR_STRING,
@@ -4113,8 +4360,10 @@ value.
               vector=True,
               ignorable=IGNORABLE,
               to_string_method='ToStringCommaSeparated',
-              java_to_string_method='toStringCommaSeparated'),
-      ])
+              java_to_string_method='toStringCommaSeparated',
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedForeignKey',
@@ -4166,7 +4415,8 @@ value.
               tag_id=3,
               vector=True,
               to_string_method='ToStringCommaSeparated',
-              java_to_string_method='toStringCommaSeparatedForInt'),
+              java_to_string_method='toStringCommaSeparatedForInt',
+          ),
           Field('referenced_table', SCALAR_TABLE, tag_id=4),
           Field(
               'referenced_column_offset_list',
@@ -4174,7 +4424,8 @@ value.
               tag_id=5,
               vector=True,
               to_string_method='ToStringCommaSeparated',
-              java_to_string_method='toStringCommaSeparatedForInt'),
+              java_to_string_method='toStringCommaSeparatedForInt',
+          ),
           Field('match_mode', SCALAR_FOREIGN_KEY_MATCH_MODE, tag_id=6),
           Field('update_action', SCALAR_FOREIGN_KEY_ACTION_OPERATION, tag_id=7),
           Field('delete_action', SCALAR_FOREIGN_KEY_ACTION_OPERATION, tag_id=8),
@@ -4185,8 +4436,10 @@ value.
               SCALAR_STRING,
               tag_id=11,
               vector=True,
-              ignorable=IGNORABLE)
-      ])
+              ignorable=IGNORABLE,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedCheckConstraint',
@@ -4219,8 +4472,9 @@ value.
               tag_id=3,
           ),
           Field('enforced', SCALAR_BOOL, tag_id=4),
-          Field('option_list', 'ResolvedOption', tag_id=5, vector=True)
-      ])
+          Field('option_list', 'ResolvedOption', tag_id=5, vector=True),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedOutputColumn',
@@ -4296,17 +4550,17 @@ value.
       by default.  To make this scan unordered, call set_is_ordered(false).
               """,
       fields=[
-          Field(
-              'expr_list', 'ResolvedComputedColumn', tag_id=2, vector=True),
-          Field(
-              'input_scan', 'ResolvedScan', tag_id=3, propagate_order=True)
-      ])
+          Field('expr_list', 'ResolvedComputedColumn', tag_id=2, vector=True),
+          Field('input_scan', 'ResolvedScan', tag_id=3, propagate_order=True),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedTVFScan',
       tag_id=81,
       parent='ResolvedScan',
       emit_default_constructor=False,
+      column_list_is_created_columns=True,
       comment="""
       This scan represents a call to a table-valued function (TVF). Each TVF
       returns an entire output relation instead of a single scalar value. The
@@ -4419,9 +4673,11 @@ value.
               'input_column_list',
               'ResolvedComputedColumn',
               tag_id=2,
-              vector=True),
+              vector=True,
+          ),
           Field('alias', SCALAR_STRING, tag_id=3, ignorable=IGNORABLE),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedFunctionArgument',
@@ -4548,9 +4804,11 @@ value.
               tag_id=2,
               ignorable=IGNORABLE,
               is_constructor_arg=False,
-              vector=True)
+              vector=True,
+          )
       ],
-      extra_defs="""bool IsStatement() const final { return true; }""")
+      extra_defs="""bool IsStatement() const final { return true; }""",
+  )
 
   gen.AddNode(
       name='ResolvedExplainStmt',
@@ -4563,7 +4821,8 @@ value.
       It is implementation dependent what action a back end system takes for an
       ExplainStatement.
               """,
-      fields=[Field('statement', 'ResolvedStatement', tag_id=2)])
+      fields=[Field('statement', 'ResolvedStatement', tag_id=2)],
+  )
 
   gen.AddNode(
       name='ResolvedQueryStmt',
@@ -4584,7 +4843,8 @@ value.
               'output_column_list',
               'ResolvedOutputColumn',
               tag_id=2,
-              vector=True),
+              vector=True,
+          ),
           Field(
               'is_value_table',
               SCALAR_BOOL,
@@ -4595,9 +4855,11 @@ value.
               producing rows with named columns, it produces rows with a single
               unnamed value type.  output_column_list will have exactly one
               column, with an empty name. See (broken link).
-                      """),
-          Field('query', 'ResolvedScan', tag_id=4)
-      ])
+                      """,
+          ),
+          Field('query', 'ResolvedScan', tag_id=4),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedGeneralizedQueryStmt',
@@ -4708,8 +4970,10 @@ value.
               'ResolvedOption',
               tag_id=3,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT)
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedCreateStatement',
@@ -4735,18 +4999,22 @@ value.
               SCALAR_STRING,
               tag_id=2,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'create_scope',
               SCALAR_CREATE_SCOPE,
               tag_id=5,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'create_mode',
               SCALAR_CREATE_MODE,
               tag_id=4,
-              ignorable=IGNORABLE_DEFAULT)
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedIndexItem',
@@ -4769,8 +5037,10 @@ value.
               'ResolvedOption',
               tag_id=4,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedUnnestItem',
@@ -4791,13 +5061,21 @@ value.
               """,
       fields=[
           Field('array_expr', 'ResolvedExpr', tag_id=2),
-          Field('element_column', SCALAR_RESOLVED_COLUMN, tag_id=3),
+          Field(
+              'element_column',
+              SCALAR_RESOLVED_COLUMN,
+              column_is_created=True,
+              tag_id=3,
+          ),
           Field(
               'array_offset_column',
               'ResolvedColumnHolder',
+              column_is_created=True,
               tag_id=4,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedCreateIndexStmt',
@@ -4838,13 +5116,10 @@ value.
                                 the list. So the list order is significant.
               """,
       fields=[
+          Field('table_name_path', SCALAR_STRING, tag_id=2, vector=True),
           Field(
-              'table_name_path', SCALAR_STRING, tag_id=2, vector=True),
-          Field(
-              'table_scan',
-              'ResolvedTableScan',
-              tag_id=3,
-              ignorable=IGNORABLE),
+              'table_scan', 'ResolvedTableScan', tag_id=3, ignorable=IGNORABLE
+          ),
           Field('is_unique', SCALAR_BOOL, tag_id=4),
           # TODO: Replace is_search and is_vector with an enum.
           Field(
@@ -4852,55 +5127,60 @@ value.
               SCALAR_BOOL,
               tag_id=10,
               is_optional_constructor_arg=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'is_vector',
               SCALAR_BOOL,
               tag_id=12,
               is_optional_constructor_arg=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'index_all_columns',
               SCALAR_BOOL,
               tag_id=11,
               is_optional_constructor_arg=True,
-              ignorable=IGNORABLE_DEFAULT),
-          Field(
-              'index_item_list',
-              'ResolvedIndexItem',
-              tag_id=5,
-              vector=True),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+          Field('index_item_list', 'ResolvedIndexItem', tag_id=5, vector=True),
           Field(
               'storing_expression_list',
               'ResolvedExpr',
               tag_id=9,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'partition_by_list',
               'ResolvedExpr',
               tag_id=13,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'option_list',
               'ResolvedOption',
               tag_id=6,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'computed_columns_list',
               'ResolvedComputedColumn',
               tag_id=7,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'unnest_expressions_list',
               'ResolvedUnnestItem',
               tag_id=8,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedCreateSchemaStmtBase',
@@ -4925,8 +5205,10 @@ value.
               'ResolvedOption',
               tag_id=2,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedCreateSchemaStmt',
@@ -4953,8 +5235,10 @@ value.
               'collation_name',
               'ResolvedExpr',
               tag_id=3,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedCreateExternalSchemaStmt',
@@ -4977,8 +5261,10 @@ value.
               'connection',
               'ResolvedConnection',
               tag_id=2,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedCreateTableStmtBase',
@@ -5033,58 +5319,67 @@ value.
               'ResolvedOption',
               tag_id=2,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'column_definition_list',
               'ResolvedColumnDefinition',
               tag_id=3,
               vector=True,
               # This is ignorable for backwards compatibility.
-              ignorable=IGNORABLE),
+              ignorable=IGNORABLE,
+          ),
           Field(
               'pseudo_column_list',
               SCALAR_RESOLVED_COLUMN,
+              column_is_created=True,
               tag_id=7,
               vector=True,
-              ignorable=IGNORABLE),
+              ignorable=IGNORABLE,
+          ),
           Field(
               'primary_key',
               'ResolvedPrimaryKey',
               tag_id=4,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'foreign_key_list',
               'ResolvedForeignKey',
               tag_id=9,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'check_constraint_list',
               'ResolvedCheckConstraint',
               tag_id=10,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'is_value_table',
               SCALAR_BOOL,
               tag_id=8,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
-              'like_table',
-              SCALAR_TABLE,
-              tag_id=11,
-              ignorable=IGNORABLE_DEFAULT),
+              'like_table', SCALAR_TABLE, tag_id=11, ignorable=IGNORABLE_DEFAULT
+          ),
           Field(
               'collation_name',
               'ResolvedExpr',
               tag_id=12,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'connection',
               'ResolvedConnection',
               tag_id=13,
-              ignorable=IGNORABLE_DEFAULT)
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedCreateTableStmt',
@@ -5442,24 +5737,28 @@ value.
               'ResolvedOption',
               tag_id=2,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'output_column_list',
               'ResolvedOutputColumn',
               tag_id=3,
-              vector=True),
+              vector=True,
+          ),
           Field(
               'has_explicit_columns',
               SCALAR_BOOL,
               tag_id=9,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field('query', 'ResolvedScan', tag_id=5, ignorable=IGNORABLE),
           Field('sql', SCALAR_STRING, tag_id=6, ignorable=IGNORABLE),
           Field(
               'sql_security',
               SCALAR_SQL_SECURITY,
               tag_id=7,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'is_value_table',
               SCALAR_BOOL,
@@ -5470,7 +5769,8 @@ value.
               rows with named columns, it produces rows with a single unnamed
               value type.  output_column_list will have exactly one column, with
               an empty name. See (broken link).
-                      """),
+                      """,
+          ),
           Field(
               'recursive',
               SCALAR_BOOL,
@@ -5478,7 +5778,8 @@ value.
               ignorable=IGNORABLE,
               comment="""
                 True if the view uses the RECURSIVE keyword. <query>
-                can be a ResolvedRecursiveScan only if this is true."""),
+                can be a ResolvedRecursiveScan only if this is true.""",
+          ),
           Field(
               'column_definition_list',
               'ResolvedColumnDefinition',
@@ -5486,8 +5787,10 @@ value.
               vector=True,
               # This is ignorable for backwards compatibility (engines may
               # already be using output_column_list instead).
-              ignorable=IGNORABLE)
-      ])
+              ignorable=IGNORABLE,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedCreateViewStmt',
@@ -5497,7 +5800,8 @@ value.
       This statement:
         CREATE [TEMP] VIEW <name> [(...)] [OPTIONS (...)] AS SELECT ...
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedWithPartitionColumns',
@@ -5515,8 +5819,10 @@ value.
               'ResolvedColumnDefinition',
               tag_id=2,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedCreateSnapshotTableStmt',
@@ -5542,17 +5848,16 @@ value.
                    ignored.
             """,
       fields=[
-          Field(
-              'clone_from',
-              'ResolvedScan',
-              tag_id=2),
+          Field('clone_from', 'ResolvedScan', tag_id=2),
           Field(
               'option_list',
               'ResolvedOption',
               tag_id=3,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedCreateExternalTableStmt',
@@ -5571,8 +5876,10 @@ value.
               'with_partition_columns',
               'ResolvedWithPartitionColumns',
               tag_id=2,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedExportModelStmt',
@@ -5593,9 +5900,11 @@ value.
               'connection',
               'ResolvedConnection',
               tag_id=3,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field('option_list', 'ResolvedOption', vector=True, tag_id=4),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedExportDataStmt',
@@ -5715,8 +6024,9 @@ value.
               """,
       fields=[
           Field('name_path', SCALAR_STRING, tag_id=2, vector=True),
-          Field('option_list', 'ResolvedOption', tag_id=3, vector=True)
-      ])
+          Field('option_list', 'ResolvedOption', tag_id=3, vector=True),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedDescribeStmt',
@@ -5740,8 +6050,10 @@ value.
               SCALAR_STRING,
               tag_id=4,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT)
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedShowStmt',
@@ -5766,13 +6078,16 @@ value.
               SCALAR_STRING,
               tag_id=3,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'like_expr',
               'ResolvedLiteral',
               tag_id=4,
-              ignorable=IGNORABLE_DEFAULT)
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedBeginStmt',
@@ -5803,14 +6118,17 @@ value.
               'read_write_mode',
               SCALAR_READ_WRITE_TRANSACTION_MODE,
               tag_id=3,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'isolation_level_list',
               SCALAR_STRING,
               tag_id=2,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT)
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedSetTransactionStmt',
@@ -5841,16 +6159,19 @@ value.
               'read_write_mode',
               SCALAR_READ_WRITE_TRANSACTION_MODE,
               tag_id=3,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'isolation_level_list',
               SCALAR_STRING,
               tag_id=2,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT)
+              ignorable=IGNORABLE_DEFAULT,
+          ),
       ],
       extra_defs="""
-  typedef ResolvedBeginStmt::ReadWriteMode ReadWriteMode;""")
+  typedef ResolvedBeginStmt::ReadWriteMode ReadWriteMode;""",
+  )
 
   gen.AddNode(
       name='ResolvedCommitStmt',
@@ -5859,7 +6180,8 @@ value.
       comment="""
       This statement: COMMIT [TRANSACTION];
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedRollbackStmt',
@@ -5868,7 +6190,8 @@ value.
       comment="""
       This statement: ROLLBACK [TRANSACTION];
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedStartBatchStmt',
@@ -5882,11 +6205,10 @@ value.
               """,
       fields=[
           Field(
-              'batch_type',
-              SCALAR_STRING,
-              tag_id=2,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              'batch_type', SCALAR_STRING, tag_id=2, ignorable=IGNORABLE_DEFAULT
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedRunBatchStmt',
@@ -5895,7 +6217,8 @@ value.
       comment="""
       This statement: RUN BATCH;
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedAbortBatchStmt',
@@ -5904,7 +6227,8 @@ value.
       comment="""
       This statement: ABORT BATCH;
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedDropStmt',
@@ -5929,8 +6253,10 @@ value.
               'drop_mode',
               SCALAR_DROP_MODE,
               tag_id=5,
-              ignorable=IGNORABLE_DEFAULT)
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedDropMaterializedViewStmt',
@@ -5945,8 +6271,9 @@ value.
               """,
       fields=[
           Field('is_if_exists', SCALAR_BOOL, tag_id=3),
-          Field('name_path', SCALAR_STRING, tag_id=4, vector=True)
-      ])
+          Field('name_path', SCALAR_STRING, tag_id=4, vector=True),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedDropSnapshotTableStmt',
@@ -5961,13 +6288,15 @@ value.
               """,
       fields=[
           Field('is_if_exists', SCALAR_BOOL, tag_id=3),
-          Field('name_path', SCALAR_STRING, tag_id=4, vector=True)
-      ])
+          Field('name_path', SCALAR_STRING, tag_id=4, vector=True),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedRecursiveRefScan',
       tag_id=147,
       parent='ResolvedScan',
+      column_list_is_created_columns=True,
       comment="""
       Scan the previous iteration of the recursive alias currently being
       defined, from inside the recursive subquery which defines it. For a
@@ -5976,7 +6305,8 @@ value.
       1:1 with the column_list produced by the referenced subquery and will be
       given a new unique name to each column produced for this scan.
       """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedRecursionDepthModifier',
@@ -6031,6 +6361,7 @@ value.
       name='ResolvedRecursiveScan',
       tag_id=148,
       parent='ResolvedScan',
+      column_list_is_created_columns=True,
       comment="""
       A recursive query inside a WITH RECURSIVE, RECURSIVE VIEW, or a pipe
       RECURSIVE UNION.
@@ -6182,8 +6513,9 @@ value.
               """,
       fields=[
           Field('with_query_name', SCALAR_STRING, tag_id=2),
-          Field('with_subquery', 'ResolvedScan', tag_id=3)
-      ])
+          Field('with_subquery', 'ResolvedScan', tag_id=3),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedOption',
@@ -6303,18 +6635,18 @@ value.
               """,
       fields=[
           Field(
-              'order_by_item_list',
-              'ResolvedOrderByItem',
-              tag_id=2,
-              vector=True),
+              'order_by_item_list', 'ResolvedOrderByItem', tag_id=2, vector=True
+          ),
           Field(
               'hint_list',
               'ResolvedOption',
               tag_id=3,
               ignorable=IGNORABLE,
               is_constructor_arg=False,
-              vector=True)
-      ])
+              vector=True,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedWindowFrame',
@@ -6336,12 +6668,13 @@ value.
       fields=[
           Field('frame_unit', SCALAR_FRAME_UNIT, tag_id=2),
           Field('start_expr', 'ResolvedWindowFrameExpr', tag_id=3),
-          Field('end_expr', 'ResolvedWindowFrameExpr', tag_id=4)
+          Field('end_expr', 'ResolvedWindowFrameExpr', tag_id=4),
       ],
       use_custom_debug_string=True,
       extra_defs="""
   std::string GetFrameUnitString() const;
-  static std::string FrameUnitToString(FrameUnit frame_unit);""")
+  static std::string FrameUnitToString(FrameUnit frame_unit);""",
+  )
 
   gen.AddNode(
       name='ResolvedAnalyticFunctionGroup',
@@ -6388,12 +6721,13 @@ value.
               """,
       fields=[
           Field('boundary_type', SCALAR_BOUNDARY_TYPE, tag_id=2),
-          Field('expression', 'ResolvedExpr', tag_id=3)
+          Field('expression', 'ResolvedExpr', tag_id=3),
       ],
       use_custom_debug_string=True,
       extra_defs="""
   std::string GetBoundaryTypeString() const;
-  static std::string BoundaryTypeToString(BoundaryType boundary_type);""")
+  static std::string BoundaryTypeToString(BoundaryType boundary_type);""",
+  )
 
   gen.AddNode(
       name='ResolvedDMLValue',
@@ -6406,7 +6740,8 @@ value.
 
       For proto fields, NULL values mean the field should be cleared.
               """,
-      fields=[Field('value', 'ResolvedExpr', tag_id=2)])
+      fields=[Field('value', 'ResolvedExpr', tag_id=2)],
+  )
 
   gen.AddNode(
       name='ResolvedDMLDefault',
@@ -6420,7 +6755,8 @@ value.
       For proto fields, this always means to clear the field.
       This will never show up inside expressions other than ResolvedDMLValue.
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedAssertStmt',
@@ -6440,8 +6776,10 @@ value.
               'description',
               SCALAR_STRING,
               tag_id=3,
-              ignorable=IGNORABLE_DEFAULT)
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAssertRowsModified',
@@ -6454,7 +6792,8 @@ value.
       The statement should fail if the number of rows updated does not
       exactly match this number.
               """,
-      fields=[Field('rows', 'ResolvedExpr', tag_id=2)])
+      fields=[Field('rows', 'ResolvedExpr', tag_id=2)],
+  )
 
   gen.AddNode(
       name='ResolvedOnConflictClause',
@@ -6572,7 +6911,8 @@ value.
       comment="""
       This represents one row in the VALUES clause of an INSERT.
               """,
-      fields=[Field('value_list', 'ResolvedDMLValue', tag_id=2, vector=True)])
+      fields=[Field('value_list', 'ResolvedDMLValue', tag_id=2, vector=True)],
+  )
 
   gen.AddNode(
       name='ResolvedInsertStmt',
@@ -6804,17 +7144,20 @@ value.
               'table_scan',
               'ResolvedTableScan',
               tag_id=2,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'assert_rows_modified',
               'ResolvedAssertRowsModified',
               tag_id=3,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'returning',
               'ResolvedReturningClause',
               tag_id=6,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'column_access_list',
               SCALAR_OBJECT_ACCESS,
@@ -6822,14 +7165,18 @@ value.
               ignorable=IGNORABLE,
               vector=True,
               is_constructor_arg=False,
-              java_to_string_method='toStringObjectAccess'),
+              java_to_string_method='toStringObjectAccess',
+          ),
           Field(
               'array_offset_column',
               'ResolvedColumnHolder',
+              column_is_created=True,
               tag_id=5,
-              ignorable=IGNORABLE_DEFAULT),
-          Field('where_expr', 'ResolvedExpr', tag_id=4)
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+          Field('where_expr', 'ResolvedExpr', tag_id=4),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedUpdateItem',
@@ -6963,6 +7310,7 @@ value.
           Field(
               'element_column',
               'ResolvedColumnHolder',
+              column_is_created=True,
               tag_id=4,
               comment="""
               The ResolvedColumn introduced to represent the elements of the
@@ -7161,7 +7509,8 @@ value.
               'table_scan',
               'ResolvedTableScan',
               tag_id=2,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'column_access_list',
               SCALAR_OBJECT_ACCESS,
@@ -7169,33 +7518,34 @@ value.
               ignorable=IGNORABLE,
               vector=True,
               is_constructor_arg=False,
-              java_to_string_method='toStringObjectAccess'),
+              java_to_string_method='toStringObjectAccess',
+          ),
           Field(
               'assert_rows_modified',
               'ResolvedAssertRowsModified',
               tag_id=3,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'returning',
               'ResolvedReturningClause',
               tag_id=9,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'array_offset_column',
               'ResolvedColumnHolder',
+              column_is_created=True,
               tag_id=7,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field('where_expr', 'ResolvedExpr', tag_id=4),
           Field(
-              'update_item_list',
-              'ResolvedUpdateItem',
-              tag_id=5,
-              vector=True),
+              'update_item_list', 'ResolvedUpdateItem', tag_id=5, vector=True
+          ),
           Field(
-              'from_scan',
-              'ResolvedScan',
-              tag_id=6,
-              ignorable=IGNORABLE_DEFAULT),
+              'from_scan', 'ResolvedScan', tag_id=6, ignorable=IGNORABLE_DEFAULT
+          ),
           Field(
               'topologically_sorted_generated_column_id_list',
               SCALAR_INT,
@@ -7219,8 +7569,9 @@ value.
               comment="""
               TODO: refactor it with INSERT case.
               """,
-          )
-      ])
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedMergeWhen',
@@ -7280,19 +7631,23 @@ value.
               SCALAR_RESOLVED_COLUMN,
               tag_id=5,
               ignorable=IGNORABLE_DEFAULT,
-              vector=True),
+              vector=True,
+          ),
           Field(
               'insert_row',
               'ResolvedInsertRow',
               tag_id=6,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'update_item_list',
               'ResolvedUpdateItem',
               tag_id=7,
               ignorable=IGNORABLE_DEFAULT,
-              vector=True)
-      ])
+              vector=True,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedMergeStmt',
@@ -7331,15 +7686,13 @@ value.
               ignorable=IGNORABLE,
               vector=True,
               is_constructor_arg=False,
-              java_to_string_method='toStringObjectAccess'),
+              java_to_string_method='toStringObjectAccess',
+          ),
           Field('from_scan', 'ResolvedScan', tag_id=3),
           Field('merge_expr', 'ResolvedExpr', tag_id=4),
-          Field(
-              'when_clause_list',
-              'ResolvedMergeWhen',
-              tag_id=5,
-              vector=True)
-      ])
+          Field('when_clause_list', 'ResolvedMergeWhen', tag_id=5, vector=True),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedTruncateStmt',
@@ -7360,12 +7713,10 @@ value.
                    and is optional.
               """,
       fields=[
-          Field(
-              'table_scan',
-              'ResolvedTableScan',
-              tag_id=3),
+          Field('table_scan', 'ResolvedTableScan', tag_id=3),
           Field('where_expr', 'ResolvedExpr', tag_id=4),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedObjectUnit',
@@ -7378,7 +7729,8 @@ value.
               """,
       fields=[
           Field('name_path', SCALAR_STRING, tag_id=2, vector=True),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedPrivilege',
@@ -7395,9 +7747,9 @@ value.
               """,
       fields=[
           Field('action_type', SCALAR_STRING, tag_id=2),
-          Field(
-              'unit_list', 'ResolvedObjectUnit', tag_id=3, vector=True)
-      ])
+          Field('unit_list', 'ResolvedObjectUnit', tag_id=3, vector=True),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedGrantOrRevokeStmt',
@@ -7459,7 +7811,8 @@ value.
       A GRANT statement. It represents the action to grant a list of privileges
       on a specific object to/from list of grantees.
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedRevokeStmt',
@@ -7469,7 +7822,8 @@ value.
       A REVOKE statement. It represents the action to revoke a list of
       privileges on a specific object to/from list of grantees.
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedAlterObjectStmt',
@@ -7493,18 +7847,16 @@ value.
               tag_id=2,
               vector=True,
               ignorable=IGNORABLE_DEFAULT,
-              is_optional_constructor_arg=True),
+              is_optional_constructor_arg=True,
+          ),
           Field(
-              'alter_action_list',
-              'ResolvedAlterAction',
-              tag_id=3,
-              vector=True),
+              'alter_action_list', 'ResolvedAlterAction', tag_id=3, vector=True
+          ),
           Field(
-              'is_if_exists',
-              SCALAR_BOOL,
-              tag_id=4,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              'is_if_exists', SCALAR_BOOL, tag_id=4, ignorable=IGNORABLE_DEFAULT
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAlterDatabaseStmt',
@@ -7516,7 +7868,8 @@ value.
 
       This statement could be used to change the database level options.
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedAlterIndexStmt',
@@ -7558,7 +7911,8 @@ value.
       This statement:
         ALTER MATERIALIZED VIEW [IF EXISTS] <name_path> <alter_action_list>
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedAlterApproxViewStmt',
@@ -7579,7 +7933,8 @@ value.
       This statement:
         ALTER SCHEMA [IF NOT EXISTS] <name_path> <alter_action_list>;
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedAlterExternalSchemaStmt',
@@ -7589,7 +7944,8 @@ value.
       This statement:
         ALTER EXTERNAL SCHEMA [IF EXISTS] <name_path> <alter_action_list>;
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedAlterModelStmt',
@@ -7599,7 +7955,8 @@ value.
       This statement:
         ALTER MODEL [IF EXISTS] <name_path> <alter_action_list>
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedAlterTableStmt',
@@ -7609,7 +7966,8 @@ value.
       This statement:
         ALTER TABLE [IF EXISTS] <name_path> <alter_action_list>
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedAlterViewStmt',
@@ -7619,7 +7977,8 @@ value.
       This statement:
         ALTER VIEW [IF EXISTS] <name_path> <alter_action_list>
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedAlterAction',
@@ -7629,7 +7988,8 @@ value.
       comment="""
       A common super class for all actions in statement ALTER <object>
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedAlterColumnAction',
@@ -7650,8 +8010,9 @@ value.
               tag_id=2,
               ignorable=IGNORABLE_DEFAULT,
           ),
-          Field('column', SCALAR_STRING, tag_id=3)
-      ])
+          Field('column', SCALAR_STRING, tag_id=3),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedSetOptionsAction',
@@ -7665,7 +8026,8 @@ value.
               """,
       fields=[
           Field('option_list', 'ResolvedOption', tag_id=2, vector=True),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAlterSubEntityAction',
@@ -7686,18 +8048,15 @@ value.
               """,
       fields=[
           Field(
-              'entity_type',
-              SCALAR_STRING,
-              tag_id=2,
-              ignorable=NOT_IGNORABLE),
+              'entity_type', SCALAR_STRING, tag_id=2, ignorable=NOT_IGNORABLE
+          ),
           Field('name', SCALAR_STRING, tag_id=3),
           Field('alter_action', 'ResolvedAlterAction', tag_id=4),
           Field(
-              'is_if_exists',
-              SCALAR_BOOL,
-              tag_id=5,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              'is_if_exists', SCALAR_BOOL, tag_id=5, ignorable=IGNORABLE_DEFAULT
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAddSubEntityAction',
@@ -7717,19 +8076,18 @@ value.
               """,
       fields=[
           Field(
-              'entity_type',
-              SCALAR_STRING,
-              tag_id=2,
-              ignorable=NOT_IGNORABLE),
+              'entity_type', SCALAR_STRING, tag_id=2, ignorable=NOT_IGNORABLE
+          ),
           Field('name', SCALAR_STRING, tag_id=3),
-          Field(
-              'options_list', 'ResolvedOption', tag_id=4, vector=True),
+          Field('options_list', 'ResolvedOption', tag_id=4, vector=True),
           Field(
               'is_if_not_exists',
               SCALAR_BOOL,
               tag_id=5,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedDropSubEntityAction',
@@ -7748,17 +8106,14 @@ value.
               """,
       fields=[
           Field(
-              'entity_type',
-              SCALAR_STRING,
-              tag_id=2,
-              ignorable=NOT_IGNORABLE),
+              'entity_type', SCALAR_STRING, tag_id=2, ignorable=NOT_IGNORABLE
+          ),
           Field('name', SCALAR_STRING, tag_id=3),
           Field(
-              'is_if_exists',
-              SCALAR_BOOL,
-              tag_id=4,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              'is_if_exists', SCALAR_BOOL, tag_id=4, ignorable=IGNORABLE_DEFAULT
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAddColumnAction',
@@ -7769,9 +8124,9 @@ value.
               """,
       fields=[
           Field('is_if_not_exists', SCALAR_BOOL, tag_id=2),
-          Field(
-              'column_definition', 'ResolvedColumnDefinition', tag_id=3)
-      ])
+          Field('column_definition', 'ResolvedColumnDefinition', tag_id=3),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAddColumnIdentifierAction',
@@ -7816,7 +8171,8 @@ value.
           Field('is_if_not_exists', SCALAR_BOOL, tag_id=2),
           Field('constraint', 'ResolvedConstraint', tag_id=3),
           Field('table', SCALAR_TABLE, tag_id=4, ignorable=IGNORABLE_DEFAULT),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedDropConstraintAction',
@@ -7828,7 +8184,8 @@ value.
       fields=[
           Field('is_if_exists', SCALAR_BOOL, tag_id=2),
           Field('name', SCALAR_STRING, tag_id=3),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedDropPrimaryKeyAction',
@@ -7839,7 +8196,8 @@ value.
               """,
       fields=[
           Field('is_if_exists', SCALAR_BOOL, tag_id=2),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAlterColumnOptionsAction',
@@ -7854,7 +8212,8 @@ value.
               """,
       fields=[
           Field('option_list', 'ResolvedOption', tag_id=2, vector=True),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAlterColumnDropNotNullAction',
@@ -7866,7 +8225,8 @@ value.
 
       Removes the NOT NULL constraint from the given column.
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedAlterColumnDropGeneratedAction',
@@ -7879,7 +8239,8 @@ value.
       Removes the generated value (either an expression or identity column)
       from the given column.
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedAlterColumnSetGeneratedAction',
@@ -7924,7 +8285,8 @@ value.
               'updated_type',
               SCALAR_TYPE,
               tag_id=4,
-              comment='The new type for the column.'),
+              comment='The new type for the column.',
+          ),
           Field(
               'updated_type_parameters',
               SCALAR_TYPE_PARAMETERS,
@@ -7935,7 +8297,8 @@ value.
               parameters. Note that unlike with CREATE TABLE, the child_list is
               populated for ARRAY and STRUCT types.
               TODO Use updated_annotations to pass type parameters.
-              """),
+              """,
+          ),
           Field(
               'updated_annotations',
               'ResolvedColumnAnnotations',
@@ -7945,8 +8308,10 @@ value.
               The new annotations for the column including the new collation
               specifications. Changing options using SET DATA TYPE action is not
               allowed.
-              """),
-      ])
+              """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAlterColumnSetDefaultAction',
@@ -7965,9 +8330,9 @@ value.
       <is_if_exists> is true, Resolver skips type match check.
               """,
       fields=[
-          Field(
-              'default_value', 'ResolvedColumnDefaultValue', tag_id=4),
-      ])
+          Field('default_value', 'ResolvedColumnDefaultValue', tag_id=4),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAlterColumnDropDefaultAction',
@@ -7979,7 +8344,8 @@ value.
 
       Removes the DEFAULT constraint from the given column.
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedDropColumnAction',
@@ -7993,7 +8359,8 @@ value.
       fields=[
           Field('is_if_exists', SCALAR_BOOL, tag_id=2),
           Field('name', SCALAR_STRING, tag_id=3),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedRenameColumnAction',
@@ -8020,7 +8387,8 @@ value.
           ),
           Field('name', SCALAR_STRING, tag_id=2),
           Field('new_name', SCALAR_STRING, tag_id=3),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedSetAsAction',
@@ -8040,13 +8408,16 @@ value.
               'entity_body_json',
               SCALAR_STRING,
               tag_id=2,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'entity_body_text',
               SCALAR_STRING,
               tag_id=3,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedSetCollateClause',
@@ -8062,11 +8433,9 @@ value.
         string literals are allowed for this field.
               """,
       fields=[
-          Field(
-              'collation_name',
-              'ResolvedExpr',
-              tag_id=2),
-      ])
+          Field('collation_name', 'ResolvedExpr', tag_id=2),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAlterTableSetOptionsStmt',
@@ -8087,11 +8456,10 @@ value.
           Field('name_path', SCALAR_STRING, tag_id=2, vector=True),
           Field('option_list', 'ResolvedOption', tag_id=3, vector=True),
           Field(
-              'is_if_exists',
-              SCALAR_BOOL,
-              tag_id=4,
-              ignorable=IGNORABLE_DEFAULT)
-      ])
+              'is_if_exists', SCALAR_BOOL, tag_id=4, ignorable=IGNORABLE_DEFAULT
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedRenameStmt',
@@ -8110,8 +8478,9 @@ value.
       fields=[
           Field('object_type', SCALAR_STRING, tag_id=2),
           Field('old_name_path', SCALAR_STRING, tag_id=3, vector=True),
-          Field('new_name_path', SCALAR_STRING, tag_id=4, vector=True)
-      ])
+          Field('new_name_path', SCALAR_STRING, tag_id=4, vector=True),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedCreatePrivilegeRestrictionStmt',
@@ -8136,15 +8505,18 @@ value.
               'column_privilege_list',
               'ResolvedPrivilege',
               tag_id=2,
-              vector=True),
+              vector=True,
+          ),
           Field('object_type', SCALAR_STRING, tag_id=3),
           Field(
               'restrictee_list',
               'ResolvedExpr',
               ignorable=IGNORABLE_DEFAULT,
               tag_id=4,
-              vector=True),
-      ])
+              vector=True,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedCreateRowAccessPolicyStmt',
@@ -8185,14 +8557,10 @@ value.
               'create_mode',
               SCALAR_CREATE_MODE,
               tag_id=2,
-              ignorable=IGNORABLE_DEFAULT),
-          Field(
-              'name',
-              SCALAR_STRING,
               ignorable=IGNORABLE_DEFAULT,
-              tag_id=3),
-          Field(
-              'target_name_path', SCALAR_STRING, tag_id=4, vector=True),
+          ),
+          Field('name', SCALAR_STRING, ignorable=IGNORABLE_DEFAULT, tag_id=3),
+          Field('target_name_path', SCALAR_STRING, tag_id=4, vector=True),
           Field(
               'grantee_list',
               SCALAR_STRING,
@@ -8200,31 +8568,24 @@ value.
               tag_id=5,
               vector=True,
               to_string_method='ToStringCommaSeparated',
-              java_to_string_method='toStringCommaSeparated'),
+              java_to_string_method='toStringCommaSeparated',
+          ),
           Field(
               'grantee_expr_list',
               'ResolvedExpr',
               ignorable=IGNORABLE_DEFAULT,
               tag_id=9,
-              vector=True),
+              vector=True,
+          ),
           Field(
-              'table_scan',
-              'ResolvedTableScan',
-              tag_id=6,
-              ignorable=IGNORABLE),
-          Field(
-              'predicate',
-              'ResolvedExpr',
-              tag_id=7,
-              ignorable=IGNORABLE),
-          Field(
-              'predicate_str',
-              SCALAR_STRING,
-              tag_id=8,
-              ignorable=IGNORABLE)
+              'table_scan', 'ResolvedTableScan', tag_id=6, ignorable=IGNORABLE
+          ),
+          Field('predicate', 'ResolvedExpr', tag_id=7, ignorable=IGNORABLE),
+          Field('predicate_str', SCALAR_STRING, tag_id=8, ignorable=IGNORABLE),
       ],
       extra_defs="""
-  typedef ResolvedCreateStatement::CreateMode CreateMode;""")
+  typedef ResolvedCreateStatement::CreateMode CreateMode;""",
+  )
 
   gen.AddNode(
       name='ResolvedDropPrivilegeRestrictionStmt',
@@ -8244,17 +8605,17 @@ value.
       fields=[
           Field('object_type', SCALAR_STRING, tag_id=2),
           Field(
-              'is_if_exists',
-              SCALAR_BOOL,
-              ignorable=IGNORABLE_DEFAULT,
-              tag_id=3),
+              'is_if_exists', SCALAR_BOOL, ignorable=IGNORABLE_DEFAULT, tag_id=3
+          ),
           Field('name_path', SCALAR_STRING, tag_id=4, vector=True),
           Field(
               'column_privilege_list',
               'ResolvedPrivilege',
               tag_id=5,
-              vector=True),
-      ])
+              vector=True,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedDropRowAccessPolicyStmt',
@@ -8274,20 +8635,15 @@ value.
               """,
       fields=[
           Field(
-              'is_drop_all',
-              SCALAR_BOOL,
-              ignorable=IGNORABLE_DEFAULT,
-              tag_id=2),
+              'is_drop_all', SCALAR_BOOL, ignorable=IGNORABLE_DEFAULT, tag_id=2
+          ),
           Field(
-              'is_if_exists',
-              SCALAR_BOOL,
-              ignorable=IGNORABLE_DEFAULT,
-              tag_id=3),
-          Field(
-              'name', SCALAR_STRING, ignorable=IGNORABLE_DEFAULT, tag_id=4),
-          Field(
-              'target_name_path', SCALAR_STRING, tag_id=5, vector=True)
-      ])
+              'is_if_exists', SCALAR_BOOL, ignorable=IGNORABLE_DEFAULT, tag_id=3
+          ),
+          Field('name', SCALAR_STRING, ignorable=IGNORABLE_DEFAULT, tag_id=4),
+          Field('target_name_path', SCALAR_STRING, tag_id=5, vector=True),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedDropIndexStmt',
@@ -8304,16 +8660,9 @@ value.
                         table.
               """,
       fields=[
-          Field(
-              'is_if_exists',
-              SCALAR_BOOL,
-              tag_id=2),
+          Field('is_if_exists', SCALAR_BOOL, tag_id=2),
           Field('name', SCALAR_STRING, tag_id=3),
-          Field(
-              'table_name_path',
-              SCALAR_STRING,
-              tag_id=4,
-              vector=True),
+          Field('table_name_path', SCALAR_STRING, tag_id=4, vector=True),
           Field(
               'index_type',
               SCALAR_DROP_INDEX_TYPE,
@@ -8341,8 +8690,10 @@ value.
               'ResolvedExpr',
               ignorable=NOT_IGNORABLE,
               tag_id=2,
-              vector=True),
-      ])
+              vector=True,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedRestrictToAction',
@@ -8362,8 +8713,10 @@ value.
               'ResolvedExpr',
               ignorable=IGNORABLE_DEFAULT,
               tag_id=2,
-              vector=True),
-      ])
+              vector=True,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAddToRestricteeListAction',
@@ -8382,14 +8735,17 @@ value.
               'is_if_not_exists',
               SCALAR_BOOL,
               ignorable=IGNORABLE_DEFAULT,
-              tag_id=2),
+              tag_id=2,
+          ),
           Field(
               'restrictee_list',
               'ResolvedExpr',
               ignorable=IGNORABLE_DEFAULT,
               tag_id=3,
-              vector=True),
-      ])
+              vector=True,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedRemoveFromRestricteeListAction',
@@ -8405,17 +8761,17 @@ value.
               """,
       fields=[
           Field(
-              'is_if_exists',
-              SCALAR_BOOL,
-              ignorable=IGNORABLE_DEFAULT,
-              tag_id=2),
+              'is_if_exists', SCALAR_BOOL, ignorable=IGNORABLE_DEFAULT, tag_id=2
+          ),
           Field(
               'restrictee_list',
               'ResolvedExpr',
               ignorable=IGNORABLE_DEFAULT,
               tag_id=3,
-              vector=True),
-      ])
+              vector=True,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedFilterUsingAction',
@@ -8429,14 +8785,12 @@ value.
       <predicate_str> is the string form of the predicate.
               """,
       fields=[
+          Field('predicate', 'ResolvedExpr', tag_id=2, ignorable=IGNORABLE),
           Field(
-              'predicate', 'ResolvedExpr', tag_id=2, ignorable=IGNORABLE),
-          Field(
-              'predicate_str',
-              SCALAR_STRING,
-              tag_id=3,
-              ignorable=NOT_IGNORABLE)
-      ])
+              'predicate_str', SCALAR_STRING, tag_id=3, ignorable=NOT_IGNORABLE
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedRevokeFromAction',
@@ -8455,13 +8809,16 @@ value.
               'ResolvedExpr',
               ignorable=IGNORABLE_DEFAULT,
               tag_id=2,
-              vector=True),
+              vector=True,
+          ),
           Field(
               'is_revoke_from_all',
               SCALAR_BOOL,
               ignorable=IGNORABLE_DEFAULT,
-              tag_id=3)
-      ])
+              tag_id=3,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedRenameToAction',
@@ -8480,8 +8837,10 @@ value.
               SCALAR_STRING,
               vector=True,
               ignorable=NOT_IGNORABLE,
-              tag_id=2),
-      ])
+              tag_id=2,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAlterPrivilegeRestrictionStmt',
@@ -8503,9 +8862,11 @@ value.
               'column_privilege_list',
               'ResolvedPrivilege',
               tag_id=2,
-              vector=True),
+              vector=True,
+          ),
           Field('object_type', SCALAR_STRING, tag_id=3),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAlterRowAccessPolicyStmt',
@@ -8526,11 +8887,10 @@ value.
       fields=[
           Field('name', SCALAR_STRING, tag_id=2),
           Field(
-              'table_scan',
-              'ResolvedTableScan',
-              tag_id=6,
-              ignorable=IGNORABLE),
-      ])
+              'table_scan', 'ResolvedTableScan', tag_id=6, ignorable=IGNORABLE
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAlterAllRowAccessPoliciesStmt',
@@ -8550,11 +8910,10 @@ value.
               """,
       fields=[
           Field(
-              'table_scan',
-              'ResolvedTableScan',
-              tag_id=6,
-              ignorable=IGNORABLE),
-      ])
+              'table_scan', 'ResolvedTableScan', tag_id=6, ignorable=IGNORABLE
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedCreateConstantStmt',
@@ -8573,7 +8932,8 @@ value.
                immutable. <expr> can be evaluated at the time this statement is
                processed or later (lazy evaluation during query execution).
               """,
-      fields=[Field('expr', 'ResolvedExpr', tag_id=2)])
+      fields=[Field('expr', 'ResolvedExpr', tag_id=2)],
+  )
 
   gen.AddNode(
       name='ResolvedCreateFunctionStmt',
@@ -8687,76 +9047,83 @@ ResolvedArgumentRef(y)
               'has_explicit_return_type',
               SCALAR_BOOL,
               tag_id=13,
-              ignorable=IGNORABLE),
+              ignorable=IGNORABLE,
+          ),
           Field(
               'return_type',
               SCALAR_TYPE,
               tag_id=3,
               is_optional_constructor_arg=True,
-              ignorable=IGNORABLE),
+              ignorable=IGNORABLE,
+          ),
           Field(
               'argument_name_list',
               SCALAR_STRING,
               ignorable=IGNORABLE,
               vector=True,
               tag_id=11,
-              to_string_method='ToStringCommaSeparated'),
+              to_string_method='ToStringCommaSeparated',
+          ),
           Field(
               'signature',
               SCALAR_FUNCTION_SIGNATURE,
               tag_id=10,
               ignorable=IGNORABLE,
-              to_string_method='ToStringVerbose'),
+              to_string_method='ToStringVerbose',
+          ),
           Field(
-              'is_aggregate',
-              SCALAR_BOOL,
-              ignorable=IGNORABLE_DEFAULT,
-              tag_id=8),
+              'is_aggregate', SCALAR_BOOL, ignorable=IGNORABLE_DEFAULT, tag_id=8
+          ),
           Field(
-              'language',
-              SCALAR_STRING,
-              ignorable=IGNORABLE_DEFAULT,
-              tag_id=4),
+              'language', SCALAR_STRING, ignorable=IGNORABLE_DEFAULT, tag_id=4
+          ),
           Field('code', SCALAR_STRING, ignorable=IGNORABLE, tag_id=5),
           Field(
               'aggregate_expression_list',
               'ResolvedComputedColumn',
               tag_id=9,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'function_expression',
               'ResolvedExpr',
               ignorable=IGNORABLE,
-              tag_id=6),
+              tag_id=6,
+          ),
           Field(
               'option_list',
               'ResolvedOption',
               ignorable=IGNORABLE_DEFAULT,
               tag_id=7,
-              vector=True),
+              vector=True,
+          ),
           Field(
               'sql_security',
               SCALAR_SQL_SECURITY,
               tag_id=12,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'determinism_level',
               SCALAR_DETERMINISM_LEVEL,
               tag_id=14,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'is_remote',
               SCALAR_BOOL,
               tag_id=15,
               # This is ignorable because existing consumers get this
               # information from language=REMOTE.
-              ignorable=IGNORABLE),
+              ignorable=IGNORABLE,
+          ),
           Field(
               'connection',
               'ResolvedConnection',
               tag_id=16,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
       ],
       extra_defs="""
         // Converts the function's determinism level into a volatility.
@@ -8796,8 +9163,10 @@ ResolvedArgumentRef(y)
               'argument_kind',
               SCALAR_ARGUMENT_KIND,
               tag_id=4,
-              ignorable=IGNORABLE_DEFAULT)
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedArgumentRef',
@@ -8820,8 +9189,10 @@ ResolvedArgumentRef(y)
               'argument_kind',
               SCALAR_ARGUMENT_KIND,
               ignorable=IGNORABLE,
-              tag_id=3)
-      ])
+              tag_id=3,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedCreateTableFunctionStmt',
@@ -8928,56 +9299,59 @@ ResolvedArgumentRef(y)
               ignorable=IGNORABLE,
               vector=True,
               tag_id=2,
-              to_string_method='ToStringCommaSeparated'),
+              to_string_method='ToStringCommaSeparated',
+          ),
           Field(
               'signature',
               SCALAR_FUNCTION_SIGNATURE,
               tag_id=3,
               ignorable=IGNORABLE,
-              to_string_method='ToStringVerbose'),
+              to_string_method='ToStringVerbose',
+          ),
           Field(
               'has_explicit_return_schema',
               SCALAR_BOOL,
               tag_id=11,
-              ignorable=IGNORABLE),
+              ignorable=IGNORABLE,
+          ),
           Field(
               'option_list',
               'ResolvedOption',
               ignorable=IGNORABLE_DEFAULT,
               tag_id=4,
-              vector=True),
+              vector=True,
+          ),
           Field(
-              'language',
-              SCALAR_STRING,
-              ignorable=IGNORABLE_DEFAULT,
-              tag_id=5),
+              'language', SCALAR_STRING, ignorable=IGNORABLE_DEFAULT, tag_id=5
+          ),
           Field('code', SCALAR_STRING, ignorable=IGNORABLE, tag_id=6),
-          Field(
-              'query',
-              'ResolvedScan',
-              ignorable=IGNORABLE_DEFAULT,
-              tag_id=7),
+          Field('query', 'ResolvedScan', ignorable=IGNORABLE_DEFAULT, tag_id=7),
           Field(
               'output_column_list',
               'ResolvedOutputColumn',
               tag_id=8,
-              vector=True),
+              vector=True,
+          ),
           Field(
               'is_value_table',
               SCALAR_BOOL,
               tag_id=9,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'sql_security',
               SCALAR_SQL_SECURITY,
               tag_id=10,
-              ignorable=IGNORABLE_DEFAULT)
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedRelationArgumentScan',
       tag_id=89,
       parent='ResolvedScan',
+      column_list_is_created_columns=True,
       comment="""
       This represents a relation argument reference in a table-valued function's
       body. The 'column_list' of this ResolvedScan includes column names from
@@ -8993,7 +9367,8 @@ ResolvedArgumentRef(y)
               function.  It is used to match this relation argument reference in
               a TVF SQL function body with one of possibly several relation
               arguments in the TVF call.
-                      """),
+                      """,
+          ),
           Field(
               'is_value_table',
               SCALAR_BOOL,
@@ -9003,8 +9378,10 @@ ResolvedArgumentRef(y)
               If true, the result of this query is a value table. Rather than
               producing rows with named columns, it produces rows with a single
               unnamed value type. See (broken link).
-                      """)
-      ])
+                      """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedArgumentList',
@@ -9028,8 +9405,10 @@ ResolvedArgumentRef(y)
               'ResolvedArgumentDef',
               tag_id=2,
               vector=True,
-              ignorable=IGNORABLE)
-      ])
+              ignorable=IGNORABLE,
+          )
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedFunctionSignatureHolder',
@@ -9044,8 +9423,10 @@ ResolvedArgumentRef(y)
               'signature',
               SCALAR_FUNCTION_SIGNATURE,
               tag_id=2,
-              to_string_method='ToStringVerbose')
-      ])
+              to_string_method='ToStringVerbose',
+          )
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedDropFunctionStmt',
@@ -9081,7 +9462,8 @@ ResolvedArgumentRef(y)
               type; names for any arguments in ResolvedArgumentList will be set
               to the empty string irrespective of whether or not argument names
               were given in the DROP FUNCTION statement.
-                      """),
+                      """,
+          ),
           Field(
               'signature',
               'ResolvedFunctionSignatureHolder',
@@ -9092,8 +9474,10 @@ ResolvedArgumentRef(y)
               type; names are irrelevant, so no argument names are saved to use
               with this signature.  Additionally, the return type will always be
               <void>, since return types are ignored for DROP FUNCTION.
-                      """)
-      ])
+                      """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedDropTableFunctionStmt',
@@ -9108,7 +9492,8 @@ ResolvedArgumentRef(y)
       fields=[
           Field('is_if_exists', SCALAR_BOOL, tag_id=2),
           Field('name_path', SCALAR_STRING, tag_id=3, vector=True),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedCallStmt',
@@ -9128,9 +9513,11 @@ ResolvedArgumentRef(y)
               'signature',
               SCALAR_FUNCTION_SIGNATURE,
               tag_id=3,
-              ignorable=IGNORABLE),
-          Field('argument_list', 'ResolvedExpr', tag_id=4, vector=True)
-      ])
+              ignorable=IGNORABLE,
+          ),
+          Field('argument_list', 'ResolvedExpr', tag_id=4, vector=True),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedImportStmt',
@@ -9171,34 +9558,37 @@ ResolvedArgumentRef(y)
               SCALAR_STRING,
               tag_id=3,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
-              'file_path',
-              SCALAR_STRING,
-              tag_id=4,
-              ignorable=IGNORABLE_DEFAULT),
+              'file_path', SCALAR_STRING, tag_id=4, ignorable=IGNORABLE_DEFAULT
+          ),
           Field(
               'alias_path',
               SCALAR_STRING,
               tag_id=5,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'into_alias_path',
               SCALAR_STRING,
               tag_id=7,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'option_list',
               'ResolvedOption',
               ignorable=IGNORABLE_DEFAULT,
               tag_id=6,
-              vector=True)
+              vector=True,
+          ),
       ],
       extra_defs="""
   std::string GetImportKindString() const;
-  static std::string ImportKindToString(ImportKind kind);""")
+  static std::string ImportKindToString(ImportKind kind);""",
+  )
 
   gen.AddNode(
       name='ResolvedModuleStmt',
@@ -9219,8 +9609,10 @@ ResolvedArgumentRef(y)
               'ResolvedOption',
               ignorable=IGNORABLE_DEFAULT,
               tag_id=3,
-              vector=True)
-      ])
+              vector=True,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAggregateHavingModifier',
@@ -9237,11 +9629,12 @@ ResolvedArgumentRef(y)
               """,
       fields=[
           Field('kind', SCALAR_HAVING_MODIFIER_KIND, tag_id=2),
-          Field('having_expr', 'ResolvedExpr', tag_id=3)
+          Field('having_expr', 'ResolvedExpr', tag_id=3),
       ],
       extra_defs="""
   std::string GetHavingModifierKindString() const;
-  static std::string HavingModifierKindToString(HavingModifierKind kind);""")
+  static std::string HavingModifierKindToString(HavingModifierKind kind);""",
+  )
 
   gen.AddNode(
       name='ResolvedCreateMaterializedViewStmt',
@@ -9402,7 +9795,8 @@ ResolvedArgumentRef(y)
       fields=[
           Field('name', SCALAR_STRING, tag_id=2),
           Field('expression', 'ResolvedExpr', tag_id=3),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedExecuteImmediateStmt',
@@ -9421,8 +9815,7 @@ ResolvedArgumentRef(y)
              arguments should not be repeated in the list.
               """,
       fields=[
-          Field(
-              'sql', 'ResolvedExpr', ignorable=NOT_IGNORABLE, tag_id=2),
+          Field('sql', 'ResolvedExpr', ignorable=NOT_IGNORABLE, tag_id=2),
           Field(
               'into_identifier_list',
               SCALAR_STRING,
@@ -9430,14 +9823,17 @@ ResolvedArgumentRef(y)
               tag_id=3,
               vector=True,
               to_string_method='ToStringCommaSeparated',
-              java_to_string_method='toStringCommaSeparated'),
+              java_to_string_method='toStringCommaSeparated',
+          ),
           Field(
               'using_argument_list',
               'ResolvedExecuteImmediateArgument',
               ignorable=NOT_IGNORABLE,
               tag_id=4,
-              vector=True),
-      ])
+              vector=True,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAssignmentStmt',
@@ -9455,7 +9851,8 @@ ResolvedArgumentRef(y)
                   Target of the assignment.  Currently, this will be
                   either ResolvedSystemVariable, or a chain of ResolveGetField
                   operations around it.
-                """),
+                """,
+          ),
           Field(
               'expr',
               'ResolvedExpr',
@@ -9463,8 +9860,10 @@ ResolvedArgumentRef(y)
               comment="""
                   Value to assign into the target.  This will always be
                   the same type as the target.
-                """)
-      ])
+                """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedCreateEntityStmt',
@@ -9487,27 +9886,29 @@ ResolvedArgumentRef(y)
               """,
       fields=[
           Field(
-              'entity_type',
-              SCALAR_STRING,
-              tag_id=2,
-              ignorable=NOT_IGNORABLE),
+              'entity_type', SCALAR_STRING, tag_id=2, ignorable=NOT_IGNORABLE
+          ),
           Field(
               'entity_body_json',
               SCALAR_STRING,
               tag_id=3,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'entity_body_text',
               SCALAR_STRING,
               tag_id=5,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'option_list',
               'ResolvedOption',
               tag_id=4,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAlterEntityStmt',
@@ -9523,11 +9924,10 @@ ResolvedArgumentRef(y)
               """,
       fields=[
           Field(
-              'entity_type',
-              SCALAR_STRING,
-              tag_id=2,
-              ignorable=NOT_IGNORABLE),
-      ])
+              'entity_type', SCALAR_STRING, tag_id=2, ignorable=NOT_IGNORABLE
+          ),
+      ],
+  )
 
   gen.AddNode(
       'ResolvedPivotColumn',
@@ -9552,11 +9952,13 @@ ResolvedArgumentRef(y)
           Field(
               'column',
               SCALAR_RESOLVED_COLUMN,
+              column_is_created=True,
               tag_id=2,
               ignorable=NOT_IGNORABLE,
               comment="""
                 The output column used to represent the result of the pivot.
-                """),
+                """,
+          ),
           Field(
               'pivot_expr_index',
               SCALAR_INT,
@@ -9566,7 +9968,8 @@ ResolvedArgumentRef(y)
               Specifies the index of the pivot expression
               within the enclosing ResolvedPivotScan's <pivot_expr_list> used to
               determine the result of the column.
-              """),
+              """,
+          ),
           Field(
               'pivot_value_index',
               SCALAR_INT,
@@ -9577,8 +9980,10 @@ ResolvedArgumentRef(y)
               the enclosing ResolvedPivotScan's <pivot_value_list> used to
               determine the subset of input rows the pivot expression should be
               evaluated over.
-              """),
-      ])
+              """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedPivotScan',
@@ -9601,7 +10006,8 @@ ResolvedArgumentRef(y)
               ignorable=NOT_IGNORABLE,
               comment="""
               Input to the PIVOT clause
-              """),
+              """,
+          ),
           Field(
               'group_by_list',
               'ResolvedComputedColumn',
@@ -9616,7 +10022,8 @@ ResolvedArgumentRef(y)
 
               Each element is a ResolvedComputedColumn. The expression is always
               a ResolvedColumnRef that references a column from <input_scan>.
-              """),
+              """,
+          ),
           Field(
               'pivot_expr_list',
               'ResolvedExpr',
@@ -9627,7 +10034,8 @@ ResolvedArgumentRef(y)
               Pivot expressions which aggregate over the subset of <input_scan>
               where <for_expr> matches each value in <pivot_value_list>, plus
               all columns in <group_by_list>.
-              """),
+              """,
+          ),
           Field(
               'for_expr',
               'ResolvedExpr',
@@ -9638,7 +10046,8 @@ ResolvedArgumentRef(y)
             in <input_scan>. This value is compared with each value in
             <pivot_value_list> to determine which columns the aggregation
             results of <pivot_expr_list> should go to.
-            """),
+            """,
+          ),
           Field(
               'pivot_value_list',
               'ResolvedExpr',
@@ -9655,7 +10064,8 @@ ResolvedArgumentRef(y)
 
               All pivot values in this list must have the same type as
               <for_expr> and must be constant.
-              """),
+              """,
+          ),
           Field(
               'pivot_column_list',
               'ResolvedPivotColumn',
@@ -9666,8 +10076,10 @@ ResolvedArgumentRef(y)
               List of columns created to store the output pivot columns.
               Each is computed using one of pivot_expr_list and one of
               pivot_value_list.
-              """),
-      ])
+              """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedReturningClause',
@@ -9688,17 +10100,20 @@ ResolvedArgumentRef(y)
               <table_scan> from INSERT/DELETE/UPDATE statements. Also this list
               can have columns computed in the <expr_list> or an <action_column>
               as the last column.
-                      """),
+                      """,
+          ),
           Field(
               'action_column',
               'ResolvedColumnHolder',
+              column_is_created=True,
               tag_id=3,
               ignorable=NOT_IGNORABLE,
               comment="""
               Represents the WITH ACTION column in <output_column_list> as a
               string type column. There are four valid values for this action
               column: "INSERT", "REPLACE", "UPDATE", and "DELETE".
-                      """),
+                      """,
+          ),
           Field(
               'expr_list',
               'ResolvedComputedColumn',
@@ -9709,8 +10124,10 @@ ResolvedArgumentRef(y)
               Represents the computed expressions so they can be referenced in
               <output_column_list>. Worth noting, it can't see <action_column>
               and can only access columns from the DML statement target table.
-                      """)
-      ])
+                      """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       'ResolvedUnpivotArg',
@@ -9734,8 +10151,10 @@ ResolvedArgumentRef(y)
               A list of columns referencing an output column of the <input_scan>
               of ResolvedUnpivotScan. The size of this vector is
               the same as <value_column_list>.
-                      """),
-      ])
+                      """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedUnpivotScan',
@@ -9791,22 +10210,26 @@ ResolvedArgumentRef(y)
           Field(
               'value_column_list',
               SCALAR_RESOLVED_COLUMN,
+              column_is_created=True,
               tag_id=3,
               vector=True,
               comment="""
               This is a list of one or more new columns added by UNPIVOT.
               These new column(s) store the value of input columns that are in
               the UNPIVOT IN clause.
-                      """),
+                      """,
+          ),
           Field(
               'label_column',
               SCALAR_RESOLVED_COLUMN,
+              column_is_created=True,
               tag_id=4,
               comment="""
               This is a new column added in the output for storing labels for
               input columns groups that are present in the IN clause. Its
               values are taken from <label_list>.
-                      """),
+                      """,
+          ),
           Field(
               'label_list',
               'ResolvedLiteral',
@@ -9815,7 +10238,8 @@ ResolvedArgumentRef(y)
               comment="""
               String or integer literal for each column group in
               <unpivot_arg_list>.
-                      """),
+                      """,
+          ),
           Field(
               'unpivot_arg_list',
               'ResolvedUnpivotArg',
@@ -9827,7 +10251,8 @@ ResolvedArgumentRef(y)
               ResolvedUnpivotScan. The values of these columns are stored in the
               new <value_column_list> and the column group labels/names
               in the <label_column>.
-                      """),
+                      """,
+          ),
           Field(
               'projected_input_column_list',
               'ResolvedComputedColumn',
@@ -9842,7 +10267,8 @@ ResolvedArgumentRef(y)
 
               The expression of each ResolvedComputedColumn is a
               ResolvedColumnRef that references a column from <input_scan>.
-              """),
+              """,
+          ),
           Field(
               'include_nulls',
               SCALAR_BOOL,
@@ -9850,8 +10276,10 @@ ResolvedArgumentRef(y)
               comment="""
               Whether we need to include the rows from output where ALL columns
               from <value_column_list> are null.
-                      """),
-      ])
+                      """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedMatchRecognizeScan',
@@ -9954,6 +10382,7 @@ ResolvedArgumentRef(y)
           Field(
               'match_number_column',
               SCALAR_RESOLVED_COLUMN,
+              column_is_created=True,
               tag_id=10,
               comment="""
               The assigned column for the match number. Always typed as INT64.
@@ -9963,6 +10392,7 @@ ResolvedArgumentRef(y)
           Field(
               'match_row_number_column',
               SCALAR_RESOLVED_COLUMN,
+              column_is_created=True,
               tag_id=11,
               comment="""
               The assigned column for the row's number within the current match.
@@ -9973,6 +10403,7 @@ ResolvedArgumentRef(y)
           Field(
               'classifier_column',
               SCALAR_RESOLVED_COLUMN,
+              column_is_created=True,
               tag_id=12,
               comment="""
               The assigned column for the variable assigned to the current row
@@ -10260,11 +10691,7 @@ ResolvedArgumentRef(y)
       analyzed in the <table>'s column list.
               """,
       fields=[
-          Field(
-              'table',
-              SCALAR_TABLE,
-              tag_id=2,
-              ignorable=IGNORABLE_DEFAULT),
+          Field('table', SCALAR_TABLE, tag_id=2, ignorable=IGNORABLE_DEFAULT),
           Field(
               'column_index_list',
               SCALAR_INT,
@@ -10273,8 +10700,10 @@ ResolvedArgumentRef(y)
               vector=True,
               is_constructor_arg=False,
               to_string_method='ToStringCommaSeparated',
-              java_to_string_method='toStringCommaSeparatedForInt'),
-      ])
+              java_to_string_method='toStringCommaSeparatedForInt',
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAnalyzeStmt',
@@ -10295,14 +10724,17 @@ ResolvedArgumentRef(y)
               'ResolvedOption',
               tag_id=2,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'table_and_column_index_list',
               'ResolvedTableAndColumnInfo',
               tag_id=3,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAuxLoadDataPartitionFilter',
@@ -10324,7 +10756,8 @@ ResolvedArgumentRef(y)
               evaluates some rows to false.
               <filter> is always of type bool.
               When this expression produces NULL, the query should fail.
-              """),
+              """,
+          ),
           Field(
               'is_overwrite',
               SCALAR_BOOL,
@@ -10333,13 +10766,18 @@ ResolvedArgumentRef(y)
               comment="""
               Indicates whether the load data will append to or overwrite the
               selected partition.
-              """),
-      ])
+              """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAuxLoadDataStmt',
       tag_id=186,
       parent='ResolvedStatement',
+      # This node requires custom logic because of complex column creation
+      # logic.  See comment below about special-case column creation logic.
+      use_custom_columns_created=True,
       comment="""
       LOAD DATA {OVERWRITE|INTO} [{TEMP|TEMPORARY} TABLE] <table_name>
       [[OVERWRITE] PARTITIONS(...)] ...
@@ -10404,6 +10842,11 @@ ResolvedArgumentRef(y)
           <partition_by_list> must be specified.
       <connection> optional connection reference for accessing files.
       <from_files_option_list> the options list describing the source file(s).
+
+      Special-case column creation logic in this node:
+      If `column_definition_list` is present, it gives all created columns.
+      Otherwise, `with_partition_columns` gives some created columns, and
+      the `output_column_list` can include those, and also create more.
               """,
       fields=[
           Field('insertion_mode', SCALAR_INSERTION_MODE, tag_id=2),
@@ -10413,82 +10856,98 @@ ResolvedArgumentRef(y)
               SCALAR_STRING,
               tag_id=3,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'partition_filter',
               'ResolvedAuxLoadDataPartitionFilter',
               tag_id=16,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'output_column_list',
               'ResolvedOutputColumn',
               tag_id=4,
               vector=True,
-              ignorable=IGNORABLE),
+              ignorable=IGNORABLE,
+          ),
           Field(
               'column_definition_list',
               'ResolvedColumnDefinition',
               tag_id=5,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'pseudo_column_list',
               SCALAR_RESOLVED_COLUMN,
+              column_is_created=True,
               tag_id=6,
               vector=True,
-              ignorable=IGNORABLE),
+              ignorable=IGNORABLE,
+          ),
           Field(
               'primary_key',
               'ResolvedPrimaryKey',
               tag_id=7,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'foreign_key_list',
               'ResolvedForeignKey',
               tag_id=8,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'check_constraint_list',
               'ResolvedCheckConstraint',
               tag_id=9,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'partition_by_list',
               'ResolvedExpr',
               tag_id=10,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'cluster_by_list',
               'ResolvedExpr',
               tag_id=11,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'option_list',
               'ResolvedOption',
               tag_id=12,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'with_partition_columns',
               'ResolvedWithPartitionColumns',
               tag_id=13,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'connection',
               'ResolvedConnection',
               tag_id=14,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'from_files_option_list',
               'ResolvedOption',
               tag_id=15,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT)
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedCreatePropertyGraphStmt',
@@ -11045,7 +11504,8 @@ ResolvedArgumentRef(y)
               negations (!), and grouping parentheses. During query evaluation,
               relevant graph element tables are retrieved that satisfy
               <label_expr>.
-                      """),
+                      """,
+          ),
           Field(
               'target_element_table_list',
               SCALAR_GRAPH_ELEMENT_TABLE,
@@ -11055,24 +11515,30 @@ ResolvedArgumentRef(y)
                 were found to satisfy <labelexpr> during resolution.
                 """,
               vector=True,
-              java_to_string_method='toStringCommaSeparatedForGraphElementTable'
+              java_to_string_method=(
+                  'toStringCommaSeparatedForGraphElementTable'
+              ),
           ),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedGraphNodeScan',
       tag_id=209,
       parent='ResolvedGraphElementScan',
+      column_list_is_created_columns=True,
       comment="""
       A ResolvedGraphElementScan produced by <node pattern>, whose the single
       output column is of GraphElementType(kind=Node).
       """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedGraphEdgeScan',
       tag_id=216,
       parent='ResolvedGraphElementScan',
+      column_list_is_created_columns=True,
       comment="""
       A ResolvedGraphElementScan produced by <edge pattern>, whose the single
       output column is of GraphElementType(kind=Edge).
@@ -11133,7 +11599,8 @@ ResolvedArgumentRef(y)
               ignorable=IGNORABLE_DEFAULT,
               is_optional_constructor_arg=True,
           ),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedGraphLabelExpr',
@@ -11167,18 +11634,21 @@ ResolvedArgumentRef(y)
               SCALAR_GRAPH_LOGICAL_OP_TYPE,
               tag_id=2,
               to_string_method='GraphLogicalOpTypeToString',
-              java_to_string_method='toStringImpl'),
+              java_to_string_method='toStringImpl',
+          ),
           Field(
               'operand_list',
               'ResolvedGraphLabelExpr',
               tag_id=3,
               ignorable=IGNORABLE_DEFAULT,
-              vector=True)
+              vector=True,
+          ),
       ],
       extra_defs="""
   std::string GetGraphLogicalOpTypeString() const;
   static std::string
-  GraphLogicalOpTypeToString(GraphLogicalOpType logical_op_type);""")
+  GraphLogicalOpTypeToString(GraphLogicalOpType logical_op_type);""",
+  )
 
   gen.AddNode(
       name='ResolvedGraphLabel',
@@ -11201,14 +11671,16 @@ ResolvedArgumentRef(y)
               SCALAR_GRAPH_ELEMENT_LABEL,
               tag_id=2,
               ignorable=IGNORABLE_DEFAULT,
-              comment='Points to a label in the catalog'),
+              comment='Points to a label in the catalog',
+          ),
           Field(
               'label_name',
               'ResolvedExpr',
               tag_id=3,
               ignorable=IGNORABLE_DEFAULT,
           ),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedGraphWildCardLabel',
@@ -11217,7 +11689,8 @@ ResolvedArgumentRef(y)
       comment="""
       This represents the wildcard label % that matches any label in the graph.
               """,
-      fields=[])
+      fields=[],
+  )
 
   gen.AddNode(
       name='ResolvedGraphElementIdentifier',
@@ -11240,13 +11713,16 @@ ResolvedArgumentRef(y)
               'source_node_identifier',
               'ResolvedGraphElementIdentifier',
               tag_id=4,
-              is_optional_constructor_arg=True),
+              is_optional_constructor_arg=True,
+          ),
           Field(
               'dest_node_identifier',
               'ResolvedGraphElementIdentifier',
               tag_id=5,
-              is_optional_constructor_arg=True),
-      ])
+              is_optional_constructor_arg=True,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedGraphElementProperty',
@@ -11261,7 +11737,8 @@ ResolvedArgumentRef(y)
       fields=[
           Field('declaration', SCALAR_GRAPH_PROPERTY_DECLARATION, tag_id=2),
           Field('expr', 'ResolvedExpr', tag_id=3),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedGraphMakeElement',
@@ -11288,30 +11765,34 @@ ResolvedArgumentRef(y)
               'ResolvedGraphElementProperty',
               tag_id=3,
               ignorable=IGNORABLE_DEFAULT,
-              vector=True),
+              vector=True,
+          ),
           Field(
               'label_list',
               SCALAR_GRAPH_ELEMENT_LABEL,
               tag_id=4,
               ignorable=IGNORABLE_DEFAULT,
               vector=True,
-              java_to_string_method='toStringCommaSeparatedForGraphElementLabel'
+              java_to_string_method=(
+                  'toStringCommaSeparatedForGraphElementLabel'
+              ),
           ),
           Field(
               'dynamic_labels',
               'ResolvedExpr',
               tag_id=5,
               ignorable=IGNORABLE_DEFAULT,
-              is_optional_constructor_arg=True
+              is_optional_constructor_arg=True,
           ),
           Field(
               'dynamic_properties',
               'ResolvedExpr',
               tag_id=6,
               ignorable=IGNORABLE_DEFAULT,
-              is_optional_constructor_arg=True
+              is_optional_constructor_arg=True,
           ),
-      ])
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedArrayAggregate',
@@ -11340,7 +11821,12 @@ ResolvedArgumentRef(y)
      """,
       fields=[
           Field('array', 'ResolvedExpr', tag_id=2),
-          Field('element_column', SCALAR_RESOLVED_COLUMN, tag_id=3),
+          Field(
+              'element_column',
+              SCALAR_RESOLVED_COLUMN,
+              column_is_created=True,
+              tag_id=3,
+          ),
           Field(
               'pre_aggregate_computed_column_list',
               'ResolvedComputedColumn',
@@ -11367,7 +11853,9 @@ ResolvedArgumentRef(y)
      """,
       fields=[
           Field('element', SCALAR_RESOLVED_COLUMN, tag_id=2),
-          Field('array', SCALAR_RESOLVED_COLUMN, tag_id=3),
+          Field(
+              'array', SCALAR_RESOLVED_COLUMN, column_is_created=True, tag_id=3
+          ),
       ],
   )
 
@@ -11403,6 +11891,9 @@ ResolvedArgumentRef(y)
       name='ResolvedGraphPathScan',
       tag_id=220,
       parent='ResolvedGraphPathScanBase',
+      # This requires a custom implementation because `head` and `tail` are
+      # created only if `quantifier` is nullptr.
+      use_custom_columns_created=True,
       comment="""
           ResolvedGraphPathScan represents a scan of matching sequences of
           sub-paths or graph elements (i.e. paths) from the graph.
@@ -11461,11 +11952,30 @@ ResolvedArgumentRef(y)
           Field(
               'path',
               'ResolvedColumnHolder',
+              column_is_created=True,
               tag_id=11,
               ignorable=IGNORABLE_DEFAULT,
           ),
-          Field('head', SCALAR_RESOLVED_COLUMN, tag_id=4),
-          Field('tail', SCALAR_RESOLVED_COLUMN, tag_id=5),
+          Field(
+              'head',
+              SCALAR_RESOLVED_COLUMN,
+              column_is_created=True,
+              tag_id=4,
+              comment="""
+               Note unusual logic: `head` is created if `quantifier` is present,
+               but otherwise, already exists and is referenced.
+              """,
+          ),
+          Field(
+              'tail',
+              SCALAR_RESOLVED_COLUMN,
+              column_is_created=True,
+              tag_id=5,
+              comment="""
+               Note unusual logic: `tail` is created if `quantifier` is present,
+               but otherwise, already exists and is referenced.
+              """,
+          ),
           Field(
               'path_hint_list',
               'ResolvedOption',
@@ -11480,8 +11990,6 @@ ResolvedArgumentRef(y)
               tag_id=7,
               ignorable=IGNORABLE_DEFAULT,
               is_optional_constructor_arg=True,
-              comment="""
-              """,
           ),
           Field(
               'group_variable_list',
@@ -12237,7 +12745,9 @@ ResolvedArgumentRef(y)
       output_file_paths=output_files,
       shard_nums=shard_nums,
       shard_count=_SHARD_COUNT.value,
-      data_files=data_files)
+      data_files=data_files,
+  )
+
 
 if __name__ == '__main__':
   flags.mark_flag_as_required('input_templates')

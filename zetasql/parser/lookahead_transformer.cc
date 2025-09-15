@@ -1115,7 +1115,7 @@ LookaheadTransformer::Create(
     int start_offset, const LanguageOptions& language_options,
     MacroExpansionMode macro_expansion_mode,
     const macros::MacroCatalog* macro_catalog, zetasql_base::UnsafeArena* arena,
-    std::vector<std::unique_ptr<StackFrame>>& stack_frames) {
+    StackFrame::StackFrameFactory& stack_frame_factory) {
   // TODO: take the token_provider as an injected dependency.
   auto token_provider = std::make_unique<FlexTokenProvider>(
       filename, input, start_offset, /*end_offset=*/std::nullopt,
@@ -1132,7 +1132,7 @@ LookaheadTransformer::Create(
         .is_strict = macro_expansion_mode == MacroExpansionMode::kStrict,
     };
     macro_expander = std::make_unique<MacroExpander>(
-        std::move(token_provider), *macro_catalog, arena, stack_frames,
+        std::move(token_provider), *macro_catalog, arena, stack_frame_factory,
         macro_expander_options,
         /*parent_location=*/nullptr);
   } else {

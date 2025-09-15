@@ -209,6 +209,7 @@ message ResolvedFunctionCallInfoProto {
 
 message TableValuedFunctionOptionsProto {
   optional bool uses_upper_case_sql_name = 1 [default = true];
+  repeated LanguageFeature required_language_feature = 2;
 }
 
 message TableValuedFunctionProto {

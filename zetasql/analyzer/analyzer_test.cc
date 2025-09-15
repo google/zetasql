@@ -1013,18 +1013,35 @@ TEST_F(AnalyzerOptionsTest, LiteralReplacementWithCallback) {
     return std::nullopt;  // Fall back to default naming.
   };
 
-  std::string new_sql;
-  LiteralReplacementMap literal_map;
-  GeneratedParameterMap generated_parameters;
-  ZETASQL_ASSERT_OK(ReplaceLiteralsByParameters(
-      sql, options, options_, output->resolved_statement(), &literal_map,
-      &generated_parameters, &new_sql));
-  EXPECT_EQ("SELECT @my_param, @_p0_INT64", new_sql);
-  EXPECT_EQ(2, literal_map.size());
-  EXPECT_EQ(literal_map[literal1], "my_param");
-  EXPECT_EQ(2, generated_parameters.size());
-  EXPECT_EQ(generated_parameters["my_param"], Value::Int64(1));
-  EXPECT_EQ(generated_parameters["_p0_INT64"], Value::Int64(2));
+  {
+    std::string new_sql;
+    LiteralReplacementMap literal_map;
+    GeneratedParameterMap generated_parameters;
+    ZETASQL_ASSERT_OK(ReplaceLiteralsByParameters(
+        sql, options, options_, output->resolved_statement(), &literal_map,
+        &generated_parameters, &new_sql));
+    EXPECT_EQ("SELECT @my_param, @_p0_INT64", new_sql);
+    EXPECT_EQ(2, literal_map.size());
+    EXPECT_EQ(literal_map[literal1], "my_param");
+    EXPECT_EQ(2, generated_parameters.size());
+    EXPECT_EQ(generated_parameters["my_param"], Value::Int64(1));
+    EXPECT_EQ(generated_parameters["_p0_INT64"], Value::Int64(2));
+  }
+
+  {
+    std::string new_sql;
+    LiteralReplacementMap literal_map;
+    GeneratedParameterMap generated_parameters;
+    ZETASQL_ASSERT_OK(options_.AddQueryParameter("my_param", types::Int64Type()));
+    EXPECT_THAT(
+        ReplaceLiteralsByParameters(sql, options, options_,
+                                    output->resolved_statement(), &literal_map,
+                                    &generated_parameters, &new_sql),
+        StatusIs(
+            absl::StatusCode::kInvalidArgument,
+            HasSubstr("Generated parameter name from the override callback is "
+                      "conflict with an existing parameter:")));
+  }
 }
 
 MATCHER_P(HasDeprecationWarning, expected_message, "") {

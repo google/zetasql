@@ -5215,6 +5215,13 @@ class Resolver {
     ResolvedColumnRef* array_element_ref = nullptr;  // Not owned.
   };
 
+  // Returns whether the update target type supports element updates, given the
+  // provided language options.
+  absl::Status VerifyIfElementUpdateIsAllowed(
+      const Type* update_target_type,
+      zetasql::LanguageOptions language_options,
+      const ASTArrayElement* array_element);
+
   // Populates <update_target_infos> according to the ResolvedUpdateItem nodes
   // to create for the 'path' portion of <ast_update_item>. The elements of
   // <update_target_infos> are sorted in root-to-leaf order of the corresponding
@@ -6292,7 +6299,7 @@ class Resolver {
   // only the top-level ResolvedColumnAnnotation.
   absl::StatusOr<std::unique_ptr<ResolvedColumnAnnotations>>
   MakeResolvedColumnAnnotationsFromAnnotationMap(
-      const AnnotationMap* type_annotation_map,
+      const Type* target_type, const AnnotationMap* type_annotation_map,
       const ASTOptionsList* options_list);
 
   // Creates a name scope with all column names with access errors. When default

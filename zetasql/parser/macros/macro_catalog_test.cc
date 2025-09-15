@@ -95,6 +95,26 @@ TEST(MacroCatalogTest, RegisterMacroWithOverwritesEnabled) {
   EXPECT_THAT(macro_catalog.Find("macro_name"), Optional(new_macro));
 }
 
+TEST(MacroCatalogTest, MacroVersioningUponRedefinition) {
+  MacroCatalog macro_catalog_1({.allow_overwrite = true});
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const MacroInfo& old_macro,
+                       CreateMacroInfo("DEFINE MACRO macro_name old_body;"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const MacroInfo& unchanged_macro,
+      CreateMacroInfo("DEFINE MACRO unchanged unchanged_body;"));
+  ZETASQL_ASSERT_OK(macro_catalog_1.RegisterMacro(old_macro));
+  ZETASQL_ASSERT_OK(macro_catalog_1.RegisterMacro(unchanged_macro));
+  EXPECT_THAT(macro_catalog_1.Find("macro_name"), Optional(old_macro));
+  EXPECT_THAT(macro_catalog_1.Find("unchanged"), Optional(unchanged_macro));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const MacroInfo& new_macro,
+                       CreateMacroInfo("DEFINE MACRO macro_name new_body;"));
+  std::unique_ptr<MacroCatalog> macro_catalog_2 = macro_catalog_1.NewVersion();
+  ZETASQL_ASSERT_OK(macro_catalog_2->RegisterMacro(new_macro));
+  EXPECT_THAT(macro_catalog_2->Find("macro_name"), Optional(new_macro));
+  EXPECT_THAT(macro_catalog_2->Find("unchanged"), Optional(unchanged_macro));
+}
+
 }  // namespace macros
 }  // namespace parser
 }  // namespace zetasql

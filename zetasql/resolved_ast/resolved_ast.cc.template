@@ -1763,6 +1763,58 @@ void {{node.name}}::MarkFieldsAccessed() const {
 }
 {{ blank_line }}
 # endif
+# if node.fields and not node.use_custom_columns_created
+
+std::vector<ResolvedColumn> {{node.name}}::GetColumnsCreated() const {
+  std::vector<ResolvedColumn> columns = SUPER::GetColumnsCreated();
+  # for field in node.fields
+   # if node.name == 'ResolvedColumnHolder'
+   # elif node.name == 'ResolvedScan' and field.name == 'column_list'
+  if (ColumnListIsCreatedColumns()) {
+    columns.insert(columns.end(),
+                   {{field.member_name}}.begin(), {{field.member_name}}.end());
+  }
+   # elif field.column_is_created
+    # if field.ctype == 'ResolvedColumnHolder'
+  if({{field.member_name}} != nullptr) {
+    columns.push_back({{field.member_name}}->column());
+  }
+    # elif field.member_type == 'ResolvedColumn'
+  columns.push_back({{field.member_name}});
+    # elif field.member_type == 'std::vector<ResolvedColumn>'
+  columns.insert(columns.end(),
+                 {{field.member_name}}.begin(), {{field.member_name}}.end());
+    # endif
+   # endif
+  # endfor
+  return columns;
+}
+
+std::vector<ResolvedColumn> {{node.name}}::GetColumnsReferenced() const {
+  std::vector<ResolvedColumn> columns = SUPER::GetColumnsCreated();
+  # for field in node.fields
+   # if node.name == 'ResolvedColumnHolder'
+   # elif node.name == 'ResolvedScan' and field.name == 'column_list'
+  if (!ColumnListIsCreatedColumns()) {
+    columns.insert(columns.end(),
+                   {{field.member_name}}.begin(), {{field.member_name}}.end());
+  }
+   # elif not field.column_is_created
+    # if field.ctype == 'ResolvedColumnHolder'
+  if({{field.member_name}} != nullptr) {
+    columns.push_back({{field.member_name}}->column());
+  }
+    # elif field.member_type == 'ResolvedColumn'
+  columns.push_back({{field.member_name}});
+    # elif field.member_type == 'std::vector<ResolvedColumn>'
+  columns.insert(columns.end(),
+                 {{field.member_name}}.begin(), {{field.member_name}}.end());
+    # endif
+   # endif
+  # endfor
+  return columns;
+}
+# endif
 # endfor
 
 }  // namespace zetasql

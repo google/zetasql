@@ -3609,10 +3609,21 @@ Algebrizer::AlgebrizeArrayScanWithoutJoin(
 
 absl::StatusOr<std::unique_ptr<RelationalOp>>
 Algebrizer::AlgebrizeLimitOffsetScan(const ResolvedLimitOffsetScan* scan) {
-  ZETASQL_RET_CHECK(scan->limit() != nullptr);
+  // If both limit and offset are null, then drop the scan.
+  if (scan->limit() == nullptr && scan->offset() == nullptr) {
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> input,
+                     AlgebrizeScan(scan->input_scan()));
+    ZETASQL_RETURN_IF_ERROR(input->set_is_order_preserving(scan->is_ordered()));
+    return input;
+  }
 
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> limit,
-                   AlgebrizeExpression(scan->limit()));
+  std::unique_ptr<ValueExpr> limit;
+  if (scan->limit() != nullptr) {
+    ZETASQL_ASSIGN_OR_RETURN(limit, AlgebrizeExpression(scan->limit()));
+  } else {
+    ZETASQL_ASSIGN_OR_RETURN(limit, ConstExpr::Create(Value::NullInt64()));
+  }
+
   std::unique_ptr<ValueExpr> offset;
   if (scan->offset() != nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(offset, AlgebrizeExpression(scan->offset()));

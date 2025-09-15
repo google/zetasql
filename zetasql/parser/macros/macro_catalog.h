@@ -17,8 +17,11 @@
 #ifndef ZETASQL_PARSER_MACROS_MACRO_CATALOG_H_
 #define ZETASQL_PARSER_MACROS_MACRO_CATALOG_H_
 
+#include <map>
+#include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 
 #include "zetasql/public/parse_location.h"
 #include "absl/container/node_hash_map.h"
@@ -91,7 +94,11 @@ struct MacroCatalogOptions {
 // the future, like catalog.h, with multi-part paths.
 class MacroCatalog {
  public:
-  explicit MacroCatalog(MacroCatalogOptions options = {}) : options_(options) {}
+  explicit MacroCatalog(MacroCatalogOptions options = {})
+      : options_(options),
+        macros_(std::make_shared<
+                absl::node_hash_map<std::string, std::map<int, MacroInfo>>>()) {
+  }
 
   // Registers the given macro. Returns an error if it fails, i.e. because a
   // macro with this name already exists and `allow_overwrite_` is not enabled.
@@ -100,11 +107,25 @@ class MacroCatalog {
   // Returns the MacroInfo for the given name, or nullopt if not found.
   std::optional<MacroInfo> Find(absl::string_view macro_name) const;
 
+  // In case of a macro redefinition, returns a new version of the catalog
+  // starting from the given version_id.
+  std::unique_ptr<MacroCatalog> NewVersion();
+
  private:
+  // Make the copy constructor private so that the class is not externally
+  // copyable. This is to avoid any inconsistent shared state between the
+  // different versions due to changes made to copies.
+  MacroCatalog(const MacroCatalog& other) = default;
+
+  // The version at and after which this catalog is valid.
+  int version_id_ = 0;
+
   MacroCatalogOptions options_;
 
-  // Uses node_hash_map<> for pointer stability.
-  absl::node_hash_map<std::string, MacroInfo> macros_;
+  // Uses node_hash_map<> for pointer stability. We use a shared pointer for
+  // shared ownership across different versions of the catalog.
+  std::shared_ptr<absl::node_hash_map<std::string, std::map<int, MacroInfo>>>
+      macros_ = nullptr;
 };
 
 }  // namespace macros
